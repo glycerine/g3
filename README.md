@@ -1,3 +1,37 @@
+# g3
+
+G3 is a native Go port of Z3. This is an early preview of g3. It retains the MIT license of the C++ Z3.
+
+The preview has substantial working infrastructure and an executable SMT-LIB command-
+ line solver, with selected solving paths tested against the original C++ implementation.
+ 
+ Full Z3 feature coverage remains under development.
+
+  What is in place:
+
+  • 95 Go packages, covering utilities, numerical infrastructure, AST construction and rewriting,
+  solver infrastructure, and portions of the SAT and SMT engines.
+
+  • The AST source units are fully accounted for as ported, replaced by Go facilities, or excluded as out-of-scope.
+  • Working parsing, incremental solving, and model generation for tested subsets.
+  • Automated regression tests, C++ comparison tests, and checks for resource ownership and failure handling.
+
+  What remains:
+
+  • Complete the SAT and SMT engines, including remaining theory algorithms and interactions. Some sequence/string cases still time out.
+  • Finish outstanding numerical, polynomial, algebraic, and utility algorithms.
+  • Complete broader tactics, quantifier elimination, command handling, and public API coverage.
+  • Port higher-level engines, including fixed-point/Datalog functionality, which remains largely outstanding.
+
+  The source inventory currently records 802 fully ported units, 248 partially ported, and 938 unported, with another 115 classified as Go platform
+  replacements, reference-only material, or dead code. These counts include upstream tooling and language bindings; they measure inventory coverage,
+  rather than percentage of engineering effort completed.
+
+  This preview provides a working foundation for experimentation and development. It does not yet offer full Z3 compatibility, and passing tests
+  establish behavior for the covered cases rather than completeness across all supported theories.
+
+The original Z3 readme (the Ivy fork of Z3 4.7.1 in C++ is also here-in) is:
+
 # Z3
 
 Z3 is a theorem prover from Microsoft Research. It is licensed
@@ -191,4 +225,4 @@ See [``examples/python``](examples/python) for examples.
 
 ### ``Web Assembly``
 
-[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Cl�ment Pit-Claudel.
+[WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
