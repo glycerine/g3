@@ -60841,7 +60841,7 @@
         },
         {
           "name": "retained public manager::flip_sign_if_lm_neg forwarding cpp7220-7222 with exact raw-result core semantics cpp3434-3442 and accepted Neg cleanup",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_flip_sign.go",
           "tests": [
             "TestPolynomialFlipSignRetainedNLSATLeadingOrderAndContent",
@@ -60860,7 +60860,7 @@
         },
         {
           "name": "Scoped nonzero_const_coeff predicate and exact accepted const_coeff cleanup (cpp3335-3338,7042-7044; h377)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_nonzero_coefficient.go",
           "tests": [
             "TestPolynomialNonzeroConstantCoefficientIndependentCases",
@@ -60873,7 +60873,7 @@
         },
         {
           "name": "Concrete retained coeff-with-reduct expression and caller owning assignment; exact accepted child cleanup (cpp3297-3312,7038-7040)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_coefficient_public_call.go",
           "tests": [
             "TestPolynomialCoefficientOwningCallTwoBuffersAndAlias",
@@ -60884,7 +60884,7 @@
         },
         {
           "name": "Concrete lc = coeff(p,x,k) owning caller overload without reduct, including its real source trace path (cpp3264-3277,7034-7036)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_coefficient_public_call.go",
           "tests": [
             "TestPolynomialCoefficientOwningSimpleCall",
@@ -60894,7 +60894,7 @@
         },
         {
           "name": "Concrete p_prime = derivative(p,x) owning assignment with exact invocation and orphan-generation cleanup (cpp4507-4528,7228-7229)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_derivative_public_call.go",
           "tests": [
             "TestPolynomialDerivativeOwningCallValuesAliasAndFiniteField",
@@ -64655,7 +64655,7 @@
         },
         {
           "name": "retained public manager::flip_sign_if_lm_neg forwarding cpp7220-7222 with exact raw-result core semantics cpp3434-3442 and accepted Neg cleanup",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_flip_sign.go",
           "tests": [
             "TestPolynomialFlipSignRetainedNLSATLeadingOrderAndContent",
@@ -64674,7 +64674,7 @@
         },
         {
           "name": "Scoped nonzero_const_coeff predicate and exact accepted const_coeff cleanup (cpp3335-3338,7042-7044; h377)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_nonzero_coefficient.go",
           "tests": [
             "TestPolynomialNonzeroConstantCoefficientIndependentCases",
@@ -64687,7 +64687,7 @@
         },
         {
           "name": "Concrete retained coeff-with-reduct expression and caller owning assignment; exact accepted child cleanup (cpp3297-3312,7038-7040)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_coefficient_public_call.go",
           "tests": [
             "TestPolynomialCoefficientOwningCallTwoBuffersAndAlias",
@@ -64698,7 +64698,7 @@
         },
         {
           "name": "Concrete lc = coeff(p,x,k) owning caller overload without reduct, including its real source trace path (cpp3264-3277,7034-7036)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_coefficient_public_call.go",
           "tests": [
             "TestPolynomialCoefficientOwningSimpleCall",
@@ -64708,7 +64708,7 @@
         },
         {
           "name": "Concrete p_prime = derivative(p,x) owning assignment with exact invocation and orphan-generation cleanup (cpp4507-4528,7228-7229)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_derivative_public_call.go",
           "tests": [
             "TestPolynomialDerivativeOwningCallValuesAliasAndFiniteField",
