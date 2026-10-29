@@ -45610,9 +45610,9 @@
       "path": "src/duality/duality_profiling.cpp",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/duality/profiling.go", "pkg/duality/profiling_test.go"],
+      "tests": ["TestProfilerNestedTotalsAndInterpolation", "TestProfilerImbalancedStopRecoversLikeSource", "TestProfilerSortedOutputShowTimeAndWriterFailure"],
       "conditionals": [
         {
           "line": 28,
@@ -45631,19 +45631,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"timer_start, timer_stop, print_profile and show_time","status":"ported","go_target":"pkg/duality/profiling.go","tests":["TestProfilerNestedTotalsAndInterpolation","TestProfilerImbalancedStopRecoversLikeSource","TestProfilerSortedOutputShowTimeAndWriterFailure"]}],
+      "ownership": ["Profiler explicitly owns the nested timer tree and interpolation profiler that the source stores in process globals."],
+      "deviations": ["Portable monotonic elapsed time replaces process clock diagnostics. Child reports are sorted lexically because source pointer-address ordering is not semantic or portable."]
     },
     {
       "path": "src/duality/duality_profiling.h",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/duality/profiling.go", "pkg/duality/profiling_test.go"],
+      "tests": ["TestProfilerNestedTotalsAndInterpolation", "TestProfilerImbalancedStopRecoversLikeSource", "TestProfilerSortedOutputShowTimeAndWriterFailure"],
       "conditionals": [
         {
           "line": 21,
@@ -45654,11 +45654,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"Duality profiling public timer/report surface","status":"ported","go_target":"pkg/duality/profiling.go","tests":["TestProfilerNestedTotalsAndInterpolation","TestProfilerImbalancedStopRecoversLikeSource","TestProfilerSortedOutputShowTimeAndWriterFailure"]}],
+      "ownership": ["Profiler explicitly owns the nested timer tree and interpolation profiler."],
+      "deviations": ["Portable monotonic elapsed time replaces process clock diagnostics."]
     },
     {
       "path": "src/duality/duality_rpfp.cpp",
