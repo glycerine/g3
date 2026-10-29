@@ -44,28 +44,9 @@ func countSignsFromTarski(numRoots, taqQ, taqQ2 int) (equal, positive, negative 
 // independent of the all-positive/all-negative branch, so those two cases
 // still construct q^2 and issue the second Tarski query.
 func (s *realValueStore) countSignsAtZerosRational(p, q []*realValue, interval *BinaryInterval, numRoots int, usePrem bool) (equal, positive, negative int, queriedSquare bool, err error) {
-	if s == nil || s.numbers == nil || interval == nil || numRoots <= 0 {
-		return 0, 0, 0, false, arena.ErrInvalidSlot
-	}
-	taqQ, err := s.tarskiBinaryIntervalRational(p, q, interval, usePrem)
-	if err != nil {
-		return 0, 0, 0, false, err
-	}
-	queriedSquare = taqQ != numRoots-1 && taqQ != -(numRoots-1)
-	if !queriedSquare {
-		equal, positive, negative, _, err = countSignsFromTarski(numRoots, taqQ, 0)
-		return equal, positive, negative, false, err
-	}
-	q2, err := s.multiplyRationalPolynomials(q, q)
-	if err != nil {
-		return 0, 0, 0, true, err
-	}
-	taqQ2, bodyErr := s.tarskiBinaryIntervalRational(p, q2, interval, usePrem)
-	if bodyErr == nil {
-		equal, positive, negative, _, bodyErr = countSignsFromTarski(numRoots, taqQ, taqQ2)
-	}
+	equal, positive, negative, queriedSquare, q2, bodyErr := s.countSignsAtZerosRationalOwned(p, q, interval, numRoots, usePrem)
 	cleanupErr := s.releaseSturmCoefficients(q2)
-	return equal, positive, negative, true, errors.Join(bodyErr, cleanupErr)
+	return equal, positive, negative, queriedSquare, errors.Join(bodyErr, cleanupErr)
 }
 
 // advanceFromTarski reaches the sign-determination transition from the two
