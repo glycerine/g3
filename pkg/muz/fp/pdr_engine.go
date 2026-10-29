@@ -112,17 +112,16 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 			return lbool.Undef, err
 		}
 	}
-	fixedpoint, err := e.globals.SourceGetModuleName("fixedpoint")
+	parameters, err := e.fixedpointParamView()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	maximumName := "pdr.max_num_contexts"
-	maximumContexts, err := e.globals.Context.GetUIntName(&fixedpoint, &maximumName, 500)
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	maximumContexts, err := parameters.UInt("pdr.max_num_contexts", 500)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	cacheName := "pdr.cache_mode"
-	cacheValue, err := e.globals.Context.GetUIntName(&fixedpoint, &cacheName, uint32(pdr.ReachableNoCache))
+	cacheValue, err := parameters.UInt("pdr.cache_mode", uint32(pdr.ReachableNoCache))
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -130,113 +129,99 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if cacheMode > pdr.ReachableConstraintCache {
 		return lbool.Undef, fmt.Errorf("muz/fp: invalid pdr.cache_mode %d", cacheValue)
 	}
-	context, err := pdr.NewContext(e.manager, nil, maximumContexts, cacheMode, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	context, err := pdr.NewContext(e.manager, parameters.local, maximumContexts, cacheMode, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
 	if err != nil {
 		return lbool.Undef, err
 	}
-	farkasName := "pdr.farkas"
-	useFarkas, err := e.globals.Context.GetBoolName(&fixedpoint, &farkasName, true)
+	useFarkas, err := parameters.Bool("pdr.farkas", true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseFarkas(useFarkas); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	inductiveName := "pdr.use_inductive_generalizer"
-	useInductive, err := e.globals.Context.GetBoolName(&fixedpoint, &inductiveName, true)
+	useInductive, err := parameters.Bool("pdr.use_inductive_generalizer", true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseInductiveGeneralizer(useInductive); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	multiCoreName := "pdr.use_multicore_generalizer"
-	useMultiCore, err := e.globals.Context.GetBoolName(&fixedpoint, &multiCoreName, false)
+	useMultiCore, err := parameters.Bool("pdr.use_multicore_generalizer", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseMultiCoreGeneralizer(useMultiCore); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	arithmeticInductiveName := "pdr.use_arith_inductive_generalizer"
-	useArithmeticInductive, err := e.globals.Context.GetBoolName(&fixedpoint, &arithmeticInductiveName, false)
+	useArithmeticInductive, err := parameters.Bool("pdr.use_arith_inductive_generalizer", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseArithmeticInductiveGeneralizer(useArithmeticInductive); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	inductiveReachabilityName := "pdr.inductive_reachability_check"
-	useInductiveReachability, err := e.globals.Context.GetBoolName(&fixedpoint, &inductiveReachabilityName, false)
+	useInductiveReachability, err := parameters.Bool("pdr.inductive_reachability_check", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseInductiveReachabilityGeneralizer(useInductiveReachability); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	convexClosureName := "pdr.use_convex_closure_generalizer"
-	useConvexClosure, err := e.globals.Context.GetBoolName(&fixedpoint, &convexClosureName, false)
+	useConvexClosure, err := parameters.Bool("pdr.use_convex_closure_generalizer", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseConvexClosureGeneralizer(useConvexClosure); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	convexInteriorName := "pdr.use_convex_interior_generalizer"
-	useConvexInterior, err := e.globals.Context.GetBoolName(&fixedpoint, &convexInteriorName, false)
+	useConvexInterior, err := parameters.Bool("pdr.use_convex_interior_generalizer", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseConvexInteriorGeneralizer(useConvexInterior); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	utvpiName := "pdr.utvpi"
-	useUTVPI, err := e.globals.Context.GetBoolName(&fixedpoint, &utvpiName, true)
+	useUTVPI, err := parameters.Bool("pdr.utvpi", true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseUTVPI(useUTVPI); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	modelGeneralizerName := "pdr.use_model_generalizer"
-	useModelGeneralizer, err := e.globals.Context.GetBoolName(&fixedpoint, &modelGeneralizerName, false)
+	useModelGeneralizer, err := parameters.Bool("pdr.use_model_generalizer", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetUseModelGeneralizer(useModelGeneralizer); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	breadthFirstName := "pdr.bfs_model_search"
-	breadthFirst, err := e.globals.Context.GetBoolName(&fixedpoint, &breadthFirstName, true)
+	breadthFirst, err := parameters.Bool("pdr.bfs_model_search", true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetBreadthFirstModelSearch(breadthFirst); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	flexibleName := "pdr.flexible_trace"
-	flexible, err := e.globals.Context.GetBoolName(&fixedpoint, &flexibleName, false)
+	flexible, err := parameters.Bool("pdr.flexible_trace", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetFlexibleTrace(flexible); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	inlineEagerName := "xform.inline_eager"
-	inlineEager, err := e.globals.Context.GetBoolName(&fixedpoint, &inlineEagerName, true)
+	inlineEager, err := parameters.Bool("xform.inline_eager", true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	inlineLinearName := "xform.inline_linear"
-	inlineLinear, err := e.globals.Context.GetBoolName(&fixedpoint, &inlineLinearName, true)
+	inlineLinear, err := parameters.Bool("xform.inline_linear", true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	proofTraceName := "generate_proof_trace"
-	generateProofTrace, err := e.globals.Context.GetBoolName(&fixedpoint, &proofTraceName, false)
+	generateProofTrace, err := parameters.Bool("generate_proof_trace", false)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}

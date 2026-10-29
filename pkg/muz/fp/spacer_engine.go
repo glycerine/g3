@@ -55,30 +55,27 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	if err = transformer.Register(firstSimplifier); err != nil {
 		return nil, errors.Join(err, firstSimplifier.Close(), transformer.Close())
 	}
-	fixedpoint, err := e.globals.SourceGetModuleName("fixedpoint")
+	parameters, err := e.fixedpointParamView()
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	subsumptionName := "datalog.subsumption"
-	useSubsumption, err := e.params.GetBoolName(&fixedpoint, &subsumptionName, true)
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	useSubsumption, err := parameters.Bool("datalog.subsumption", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
 	if !allowSubsumptionResultTransforms {
 		useSubsumption = false
 	}
-	checkerName := "xform.subsumption_checker"
-	useChecker, err := e.params.GetBoolName(&fixedpoint, &checkerName, true)
+	useChecker, err := parameters.Bool("xform.subsumption_checker", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	inlineEagerName := "xform.inline_eager"
-	inlineEager, err := e.params.GetBoolName(&fixedpoint, &inlineEagerName, true)
+	inlineEager, err := parameters.Bool("xform.inline_eager", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	inlineLinearName := "xform.inline_linear"
-	inlineLinear, err := e.params.GetBoolName(&fixedpoint, &inlineLinearName, true)
+	inlineLinear, err := parameters.Bool("xform.inline_linear", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
@@ -88,73 +85,59 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 		inlineEager = false
 		inlineLinear = false
 	}
-	unfoldName := "xform.unfold_rules"
-	unfoldRounds, err := e.params.GetUIntName(&fixedpoint, &unfoldName, 0)
+	unfoldRounds, err := parameters.UInt("xform.unfold_rules", 0)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	coalesceName := "xform.coalesce_rules"
-	coalesceRules, err := e.params.GetBoolName(&fixedpoint, &coalesceName, false)
+	coalesceRules, err := parameters.Bool("xform.coalesce_rules", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	sliceName := "xform.slice"
-	sliceRules, err := e.params.GetBoolName(&fixedpoint, &sliceName, true)
+	sliceRules, err := parameters.Bool("xform.slice", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	transformArraysName := "xform.transform_arrays"
-	transformArrays, err := e.params.GetBoolName(&fixedpoint, &transformArraysName, false)
+	transformArrays, err := parameters.Bool("xform.transform_arrays", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	instantiateQuantifiersName := "xform.instantiate_quantifiers"
-	instantiateQuantifiers, err := e.params.GetBoolName(&fixedpoint, &instantiateQuantifiersName, false)
+	instantiateQuantifiers, err := parameters.Bool("xform.instantiate_quantifiers", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	quantifyArraysName := "xform.quantify_arrays"
-	quantifyArrays, err := e.params.GetBoolName(&fixedpoint, &quantifyArraysName, false)
+	quantifyArrays, err := parameters.Bool("xform.quantify_arrays", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	instantiateArraysName := "xform.instantiate_arrays"
-	instantiateArrays, err := e.params.GetBoolName(&fixedpoint, &instantiateArraysName, false)
+	instantiateArrays, err := parameters.Bool("xform.instantiate_arrays", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	instantiateArraysEnforceName := "xform.instantiate_arrays.enforce"
-	instantiateArraysEnforce, err := e.params.GetBoolName(&fixedpoint, &instantiateArraysEnforceName, false)
+	instantiateArraysEnforce, err := parameters.Bool("xform.instantiate_arrays.enforce", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	instantiateArraysQuantifiersName := "xform.instantiate_arrays.nb_quantifier"
-	instantiateArraysQuantifiers, err := e.params.GetUIntName(&fixedpoint, &instantiateArraysQuantifiersName, 1)
+	instantiateArraysQuantifiers, err := parameters.UInt("xform.instantiate_arrays.nb_quantifier", 1)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	arrayBlastName := "xform.array_blast"
-	arrayBlast, err := e.params.GetBoolName(&fixedpoint, &arrayBlastName, false)
+	arrayBlast, err := parameters.Bool("xform.array_blast", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	bitBlastName := "xform.bit_blast"
-	bitBlast, err := e.params.GetBoolName(&fixedpoint, &bitBlastName, false)
+	bitBlast, err := parameters.Bool("xform.bit_blast", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	scaleName := "xform.scale"
-	scale, err := e.params.GetBoolName(&fixedpoint, &scaleName, false)
+	scale, err := parameters.Bool("xform.scale", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	magicName := "xform.magic"
-	magic, err := e.params.GetBoolName(&fixedpoint, &magicName, false)
+	magic, err := parameters.Bool("xform.magic", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	karrName := "xform.karr"
-	karr, err := e.params.GetBoolName(&fixedpoint, &karrName, false)
+	karr, err := parameters.Bool("xform.karr", false)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
@@ -585,21 +568,20 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 		e.spacer = nil
 		e.spacerRevision = 0
 	}
-	fixedpoint, err := e.globals.SourceGetModuleName("fixedpoint")
+	parameters, err := e.fixedpointParamView()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	maximumName := "pdr.max_num_contexts"
-	maximumContexts, err := e.globals.Context.GetUIntName(&fixedpoint, &maximumName, 500)
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	maximumContexts, err := parameters.UInt("pdr.max_num_contexts", 500)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	maximumLevelName := "spacer.max_level"
-	maximumLevels, err := e.globals.Context.GetUIntName(&fixedpoint, &maximumLevelName, ^uint32(0))
+	maximumLevels, err := parameters.UInt("spacer.max_level", ^uint32(0))
 	if err != nil {
 		return lbool.Undef, err
 	}
-	context, err := spacer.NewContext(e.manager, nil, maximumContexts, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	context, err := spacer.NewContext(e.manager, parameters.local, maximumContexts, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
 	if err != nil {
 		return lbool.Undef, err
 	}

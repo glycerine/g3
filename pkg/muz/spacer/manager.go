@@ -60,12 +60,12 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, err
 	}
-	fixedpoint, err := config.Globals.SourceGetModuleName("fixedpoint")
+	parameters, err := newFixedpointParamView(params, config.Params, config.Globals)
 	if err != nil {
 		return nil, err
 	}
-	nativeMBPName := "spacer.native_mbp"
-	result.useNativeMBP, err = config.Params.GetBoolName(&fixedpoint, &nativeMBPName, false)
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	result.useNativeMBP, err = parameters.Bool("spacer.native_mbp", false)
 	if err != nil {
 		return nil, err
 	}
@@ -100,22 +100,20 @@ func spacerSolverParams(source *uparams.ParamsRef, config smtcore.SMTSolverConfi
 	if config.Params == nil || config.Globals == nil {
 		return uparams.ParamsRef{}, ErrManagerOwner
 	}
-	fixedpoint, err := config.Globals.SourceGetModuleName("fixedpoint")
+	parameters, err := newFixedpointParamView(source, config.Params, config.Globals)
 	if err != nil {
 		return uparams.ParamsRef{}, err
 	}
-	seedName := "spacer.random_seed"
-	seed, err := config.Params.GetUIntName(&fixedpoint, &seedName, 0)
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	seed, err := parameters.UInt("spacer.random_seed", 0)
 	if err != nil {
 		return uparams.ParamsRef{}, err
 	}
-	mbqiName := "spacer.mbqi"
-	mbqi, err := config.Params.GetBoolName(&fixedpoint, &mbqiName, true)
+	mbqi, err := parameters.Bool("spacer.mbqi", true)
 	if err != nil {
 		return uparams.ParamsRef{}, err
 	}
-	equalityName := "spacer.eq_prop"
-	equalityPropagation, err := config.Params.GetBoolName(&fixedpoint, &equalityName, true)
+	equalityPropagation, err := parameters.Bool("spacer.eq_prop", true)
 	if err != nil {
 		return uparams.ParamsRef{}, err
 	}

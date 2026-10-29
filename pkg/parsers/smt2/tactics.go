@@ -237,6 +237,14 @@ func (p *commandParser) tacticParameter(c *uparams.ParamsContext, settings *upar
 		if err = c.SetSymbolName(settings, &key, sym); err != nil {
 			return err
 		}
+	case uparams.ParamString:
+		if p.token != StringToken {
+			return fmt.Errorf("invalid parameter value, string expected")
+		}
+		value := p.scanner.String()
+		if err = c.SetStringName(settings, &key, &value); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("invalid using-params combinator, unsupported parameter kind")
 	}

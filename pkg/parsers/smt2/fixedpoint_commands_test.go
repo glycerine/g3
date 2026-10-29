@@ -322,6 +322,32 @@ func TestSMT2FixedpointQueryRefusesUnknownOutputParameters(t *testing.T) {
 	}
 }
 
+func TestSMT2FixedpointQueryLocalParametersMatchCPP(t *testing.T) {
+	script := `(set-option :fixedpoint.engine duality)
+(declare-rel P ())
+(rule P)
+(query P :engine datalog :datalog.subsumption false :timeout 0 :print-answer true)
+`
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	context.PrintSuccess = false
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	var output bytes.Buffer
+	if err = smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	cpp := fixedpointReference(t, script)
+	if output.String() != cpp || cpp != "sat\ntrue\n" {
+		t.Fatal("query-local fixedpoint parameter differential", output.String(), cpp)
+	}
+}
+
 func TestSMT2FixedpointPDRStatistics(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

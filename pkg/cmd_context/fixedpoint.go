@@ -6,13 +6,15 @@ package cmd_context
 
 import (
 	"errors"
-	"fmt"
 	"io"
+	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -170,9 +172,12 @@ func (c *Context) PopFixedpoint() error {
 	return engine.Pop()
 }
 
-func (c *Context) prepareFixedpointQuery() (*muzfp.PropositionalEngine, error) {
+func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef) (*muzfp.PropositionalEngine, error) {
 	engine, err := c.fixedpointContext()
 	if err != nil {
+		return nil, err
+	}
+	if err = engine.SetQueryParameters(params); err != nil {
 		return nil, err
 	}
 	assertions, err := c.Assertions()
@@ -207,24 +212,51 @@ func (c *Context) prepareFixedpointQuery() (*muzfp.PropositionalEngine, error) {
 	if err = engine.SetBackground(background); err != nil {
 		return nil, err
 	}
-	selection, supported, err := c.GetOption(":fixedpoint.engine")
-	if err != nil {
-		return nil, err
-	}
-	if !supported {
-		return nil, fmt.Errorf("cmd_context: fixedpoint.engine option is unavailable")
-	}
-	if err = engine.SelectEngine(selection); err != nil {
+	if err = engine.SelectConfiguredEngine(); err != nil {
 		return nil, err
 	}
 	return engine, nil
 }
 
 func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error) {
-	engine, err := c.prepareFixedpointQuery()
+	return c.QueryFixedpointWithParams(declaration, nil)
+}
+
+// QueryFixedpointWithParams applies query-local fixedpoint settings before
+// module settings and bounds the query with the effective fixedpoint timeout.
+func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
+	engine, err := c.prepareFixedpointQuery(params)
 	if err != nil {
 		return lbool.Undef, err
 	}
+	module, err := c.config.Globals.SourceGetModuleName("fixedpoint")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&module)) }()
+	timeoutName := "timeout"
+	timeout := uint32(math.MaxUint32)
+	if params == nil {
+		timeout, err = c.config.Params.GetUIntName(&module, &timeoutName, timeout)
+	} else {
+		timeout, err = c.config.Params.GetUIntFallbackName(params, &timeoutName, &module, timeout)
+	}
+	if err != nil {
+		return lbool.Undef, err
+	}
+	manager, err := c.Manager()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	handler := &contextTimeoutHandler{limit: manager.ResourceLimit(), active: true}
+	timer, err := control.NewScopedTimer(timeout, handler)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, timer.Close())
+		handler.close()
+	}()
 	return engine.QueryPredicate(declaration)
 }
 
@@ -232,7 +264,7 @@ func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error
 // nonempty. PDR and Spacer accept exactly one relation, matching the native
 // fixedpoint engine contract.
 func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {
-	engine, err := c.prepareFixedpointQuery()
+	engine, err := c.prepareFixedpointQuery(nil)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -242,7 +274,7 @@ func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.
 // QueryFixedpointFromLevel runs a Spacer query beginning at the requested
 // proof level.
 func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint32) (lbool.LBool, error) {
-	engine, err := c.prepareFixedpointQuery()
+	engine, err := c.prepareFixedpointQuery(nil)
 	if err != nil {
 		return lbool.Undef, err
 	}

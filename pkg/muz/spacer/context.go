@@ -55,7 +55,7 @@ type Context struct {
 	closed           bool
 }
 
-func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, config smtcore.SMTSolverConfig) (*Context, error) {
+func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, config smtcore.SMTSolverConfig) (result *Context, resultErr error) {
 	if manager == nil {
 		return nil, ErrContextOwner
 	}
@@ -63,36 +63,33 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, err
 	}
-	propConfig, err := spacerPropSolverConfig(config)
+	propConfig, err := spacerPropSolverConfig(params, config)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	fixedpoint, err := config.Globals.SourceGetModuleName("fixedpoint")
+	parameters, err := newFixedpointParamView(params, config.Params, config.Globals)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	skipName := "spacer.skip_propagate"
-	skipPropagate, err := config.Params.GetBoolName(&fixedpoint, &skipName, false)
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	skipPropagate, err := parameters.Bool("spacer.skip_propagate", false)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	resetName := "spacer.reset_obligation_queue"
-	resetQueue, err := config.Params.GetBoolName(&fixedpoint, &resetName, true)
+	resetQueue, err := parameters.Bool("spacer.reset_obligation_queue", true)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	flexibleName := "pdr.flexible_trace"
-	flexibleTrace, err := config.Params.GetBoolName(&fixedpoint, &flexibleName, false)
+	flexibleTrace, err := parameters.Bool("pdr.flexible_trace", false)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	depthName := "pdr.flexible_trace_depth"
-	flexibleDepth, err := config.Params.GetUIntName(&fixedpoint, &depthName, InfinityLevel)
+	flexibleDepth, err := parameters.UInt("pdr.flexible_trace_depth", InfinityLevel)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
 	getBool := func(name string, fallback bool) (bool, error) {
-		return config.Params.GetBoolName(&fixedpoint, &name, fallback)
+		return parameters.Bool(name, fallback)
 	}
 	reusePOBs, err := getBool("spacer.reuse_pobs", true)
 	if err != nil {
@@ -118,8 +115,7 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	orderName := "spacer.order_children"
-	orderChildren, err := config.Params.GetUIntName(&fixedpoint, &orderName, 0)
+	orderChildren, err := parameters.UInt("spacer.order_children", 0)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
@@ -135,8 +131,7 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
-	restartName := "spacer.restart_initial_threshold"
-	restartInitial, err := config.Params.GetUIntName(&fixedpoint, &restartName, 10)
+	restartInitial, err := parameters.UInt("spacer.restart_initial_threshold", 10)
 	if err != nil {
 		return nil, errors.Join(err, owner.Close())
 	}
@@ -184,16 +179,17 @@ func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 	}, nil
 }
 
-func spacerPropSolverConfig(config smtcore.SMTSolverConfig) (PropSolverConfig, error) {
+func spacerPropSolverConfig(params *uparams.ParamsRef, config smtcore.SMTSolverConfig) (_ PropSolverConfig, resultErr error) {
 	if config.Params == nil || config.Globals == nil || config.Globals.Context != config.Params {
 		return PropSolverConfig{}, ErrContextOwner
 	}
-	fixedpoint, err := config.Globals.SourceGetModuleName("fixedpoint")
+	parameters, err := newFixedpointParamView(params, config.Params, config.Globals)
 	if err != nil {
 		return PropSolverConfig{}, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
 	get := func(name string, fallback bool) (bool, error) {
-		return config.Params.GetBoolName(&fixedpoint, &name, fallback)
+		return parameters.Bool(name, fallback)
 	}
 	newCore, err := get("spacer.new_unsat_core", true)
 	if err != nil {

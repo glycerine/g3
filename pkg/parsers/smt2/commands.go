@@ -193,6 +193,64 @@ func (p *commandParser) clearCommand() (result error) {
 	return result
 }
 
+func (p *commandParser) fixedpointQuery(declaration ast.ASTHandle) (status lbool.LBool, printAnswer, printStatistics, printCertificate bool, resultErr error) {
+	globals, err := p.context.GlobalParameters()
+	if err != nil {
+		return lbool.Undef, false, false, false, err
+	}
+	context := globals.Context
+	options, err := context.NewValue()
+	if err != nil {
+		return lbool.Undef, false, false, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, context.Del(&options)) }()
+	descriptions, err := globals.SourceModuleDescriptorsName("fixedpoint")
+	if err != nil {
+		return lbool.Undef, false, false, false, err
+	}
+	for p.token != RightParenToken {
+		if p.token != KeywordToken {
+			return lbool.Undef, false, false, false, fmt.Errorf("fixedpoint query parameter expected")
+		}
+		rawKey := p.scanner.ID()
+		key := uparams.NormParamName(&rawKey)
+		if err = p.advance(); err != nil {
+			return lbool.Undef, false, false, false, err
+		}
+		kind, x := descriptions.KindName(key)
+		if x != nil {
+			return lbool.Undef, false, false, false, x
+		}
+		if kind == uparams.ParamInvalid {
+			return lbool.Undef, false, false, false, fmt.Errorf("unsupported fixedpoint query parameter :%s", key)
+		}
+		if err = p.tacticParameter(context, &options, key, kind); err != nil {
+			return lbool.Undef, false, false, false, err
+		}
+	}
+	if err = p.requireEnd(); err != nil {
+		return lbool.Undef, false, false, false, err
+	}
+	module, err := globals.SourceGetModuleName("fixedpoint")
+	if err != nil {
+		return lbool.Undef, false, false, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, context.Del(&module)) }()
+	answerName, statisticsName, certificateName := "print_answer", "print_statistics", "print_certificate"
+	printAnswer, err = context.GetBoolFallbackName(&options, &answerName, &module, false)
+	if err == nil {
+		printStatistics, err = context.GetBoolFallbackName(&options, &statisticsName, &module, false)
+	}
+	if err == nil {
+		printCertificate, err = context.GetBoolFallbackName(&options, &certificateName, &module, false)
+	}
+	if err != nil || p.ignoreChecks {
+		return lbool.Undef, printAnswer, printStatistics, printCertificate, err
+	}
+	status, err = p.context.QueryFixedpointWithParams(declaration, &options)
+	return status, printAnswer, printStatistics, printCertificate, err
+}
+
 func (p *commandParser) command() (bool, error) {
 	commandLine, commandPosition := p.scanner.Line(), p.scanner.Position()
 	if err := p.expect(LeftParenToken); err != nil {
@@ -627,42 +685,12 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		printAnswer, printStatistics, printCertificate := false, false, false
-		for p.token != RightParenToken {
-			if p.token != KeywordToken {
-				return false, fmt.Errorf("fixedpoint query parameter expected")
-			}
-			key := p.scanner.ID()
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			if p.token != SymbolToken || p.scanner.ID() != "true" && p.scanner.ID() != "false" {
-				return false, fmt.Errorf("invalid fixedpoint query parameter value")
-			}
-			value := p.scanner.ID() == "true"
-			if err = p.advance(); err != nil {
-				return false, err
-			}
-			switch key {
-			case ":print-answer":
-				printAnswer = value
-			case ":print-statistics":
-				printStatistics = value
-			case ":print-certificate":
-				printCertificate = value
-			default:
-				return false, fmt.Errorf("unsupported fixedpoint query parameter %s", key)
-			}
-		}
-		if err = p.requireEnd(); err != nil {
+		started := time.Now()
+		status, printAnswer, printStatistics, printCertificate, err := p.fixedpointQuery(declaration)
+		if err != nil {
 			return false, err
 		}
 		if !p.ignoreChecks {
-			started := time.Now()
-			status, x := p.context.QueryFixedpoint(declaration)
-			if x != nil {
-				return false, x
-			}
 			text := "unknown"
 			if status == lbool.True {
 				text = "sat"
@@ -697,8 +725,8 @@ func (p *commandParser) command() (bool, error) {
 				if y != nil {
 					return false, y
 				}
-				if _, x = fmt.Fprintln(p.out); x != nil {
-					return false, x
+				if _, y = fmt.Fprintln(p.out); y != nil {
+					return false, y
 				}
 			}
 			if printStatistics {

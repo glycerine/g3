@@ -102,6 +102,8 @@ type PropositionalEngine struct {
 	spacerConversions  []hornModelConversion
 	lastStatus         string
 	forceProofTrace    bool
+	queryParams        uparams.ParamsRef
+	queryParamsReady   bool
 	closed             bool
 }
 
@@ -2014,6 +2016,10 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	if e.closed {
 		return nil
+	}
+	if e.queryParamsReady {
+		result = errors.Join(result, e.params.Del(&e.queryParams))
+		e.queryParamsReady = false
 	}
 	if e.pdr != nil {
 		result = errors.Join(result, e.pdr.Close())
