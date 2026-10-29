@@ -169938,9 +169938,9 @@
       "path": "src/tactic/bv/elim_small_bv_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/bv/elim_small_bv_tactic.go", "pkg/tactic/bv/elim_small_bv_tactic_test.go", "pkg/cmd_context/tactic_commands.go"],
+      "tests": ["TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle"],
       "assertions": [
         {
           "line": 105,
@@ -169971,19 +169971,19 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"whole small-BV quantifier elimination tactic, traversal, substitution, simplification, resource checks, goal updates and command registration","status":"ported","go_target":"pkg/tactic/bv/elim_small_bv_tactic.go","tests":["TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle"]}],
+      "ownership": ["The tactic owns its parameter snapshot and traversal temporaries; output expressions transfer through goal ownership and translation builds an independent tactic."],
+      "deviations": ["The fork source condition j < bv_sz is intentionally preserved, including its two-instance expansion for a 2-bit quantified variable."]
     },
     {
       "path": "src/tactic/bv/elim_small_bv_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/bv/elim_small_bv_tactic.go", "pkg/tactic/bv/elim_small_bv_tactic_test.go", "pkg/cmd_context/tactic_commands.go"],
+      "tests": ["TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle"],
       "conditionals": [
         {
           "line": 19,
@@ -169994,10 +169994,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"public factory, parameter update, translation, cleanup and tactic lifecycle","status":"ported","go_target":"pkg/tactic/bv/elim_small_bv_tactic.go","tests":["TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle"]}],
+      "ownership": ["Factory results use the existing reference-counted tactic owner."],
       "deviations": []
     },
     {
