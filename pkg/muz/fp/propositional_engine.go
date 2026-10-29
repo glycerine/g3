@@ -98,6 +98,7 @@ type PropositionalEngine struct {
 	spacerMagic        map[ast.ASTHandle]ast.ASTHandle
 	spacerKarr         map[ast.ASTHandle]rel.KarrMatrix
 	spacerConversions  []hornModelConversion
+	lastStatus         string
 	closed             bool
 }
 
@@ -147,7 +148,7 @@ func NewPropositionalEngine(manager *ast.ASTManager) (*PropositionalEngine, erro
 	}
 	return &PropositionalEngine{
 		manager: manager, rules: rules, set: set, binder: binder, relations: relations,
-		background: background, predicates: make(map[ast.ASTHandle]*predicateState), auxiliary: make(map[ast.ASTHandle]bool), backend: "datalog", revision: 1,
+		background: background, predicates: make(map[ast.ASTHandle]*predicateState), auxiliary: make(map[ast.ASTHandle]bool), backend: "datalog", revision: 1, lastStatus: "ok",
 	}, nil
 }
 
@@ -1581,10 +1582,11 @@ func (e *PropositionalEngine) Predicates() ([]ast.ASTHandle, error) {
 
 // QueryPredicate returns true exactly when the registered predicate relation
 // contains at least one tuple after positive Horn saturation.
-func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (lbool.LBool, error) {
+func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result lbool.LBool, resultErr error) {
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	state := e.predicates[declaration]
 	if state == nil {
 		return lbool.Undef, ErrPropositionalHorn
@@ -1603,10 +1605,11 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (lbool.L
 
 // QueryPredicates returns true when at least one requested relation is
 // nonempty. Native PDR and Spacer only support a single relation in this form.
-func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (lbool.LBool, error) {
+func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (result lbool.LBool, resultErr error) {
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	for _, declaration := range declarations {
 		if e.predicates[declaration] == nil {
 			return lbool.Undef, ErrPropositionalHorn
@@ -1671,16 +1674,39 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 
 // QueryPredicateFromLevel runs a Spacer query beginning at the requested proof
 // level.
-func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle, level uint32) (lbool.LBool, error) {
+func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle, level uint32) (result lbool.LBool, resultErr error) {
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	if e.backend != "spacer" || e.predicates[declaration] == nil {
 		return lbool.Undef, ErrPropositionalEngine
 	}
 	e.queried = true
 	e.compiled = false
 	return e.querySpacerFromLevel(declaration, level)
+}
+
+func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
+	if err != nil {
+		e.lastStatus = "input error"
+		return
+	}
+	if result == lbool.Undef {
+		e.lastStatus = "approximated"
+		return
+	}
+	e.lastStatus = "ok"
+}
+
+// ReasonUnknown returns the native fixedpoint execution-status spelling for
+// the latest query. Decided queries report "ok"; an undecided retained query
+// reports "approximated".
+func (e *PropositionalEngine) ReasonUnknown() (string, error) {
+	if err := e.open(); err != nil {
+		return "", err
+	}
+	return e.lastStatus, nil
 }
 
 func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answer ast.ASTRef, result error) {

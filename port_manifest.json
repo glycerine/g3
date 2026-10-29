@@ -83748,7 +83748,7 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestPDREngineExpandsSlicedModelsAndCovers"]
         },
         {
-          "name": "remaining proof traces and native PDR unfold/coalesce integration",
+          "name": "remaining proof traces",
           "status": "unported",
           "go_target": null,
           "tests": []

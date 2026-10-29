@@ -238,6 +238,16 @@ func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint
 	return engine.QueryPredicateFromLevel(declaration, level)
 }
 
+// FixedpointReasonUnknown returns the execution status of the latest
+// fixedpoint query using the native fixedpoint status spellings.
+func (c *Context) FixedpointReasonUnknown() (string, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return "", err
+	}
+	return engine.ReasonUnknown()
+}
+
 // FixedpointAnswer returns an owning formula for the most recently saturated
 // finite relation. The caller releases it through Manager.DelRef.
 func (c *Context) FixedpointAnswer(declaration ast.ASTHandle) (ast.ASTRef, error) {

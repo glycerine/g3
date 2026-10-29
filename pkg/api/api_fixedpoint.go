@@ -254,6 +254,16 @@ func (c *SMTContext) QueryFixedpointFromLevel(declaration ast.ASTHandle, level u
 	return c.command.QueryFixedpointFromLevel(declaration, level)
 }
 
+// FixedpointReasonUnknown returns the native status spelling for the latest
+// fixedpoint query: "ok" for a decided query and "approximated" for an
+// undecided retained query.
+func (c *SMTContext) FixedpointReasonUnknown() (string, error) {
+	if err := c.open(); err != nil {
+		return "", err
+	}
+	return c.command.FixedpointReasonUnknown()
+}
+
 // FixedpointAnswer returns one owning AST reference for the latest successful
 // query. The caller releases it through Manager().DelRef.
 func (c *SMTContext) FixedpointAnswer(declaration ast.ASTHandle) (ast.ASTRef, error) {

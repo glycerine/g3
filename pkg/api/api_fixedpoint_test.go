@@ -87,11 +87,17 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	for index := range rules {
 		astTestMust(t, manager.DelRef(&rules[index]))
 	}
+	if reason, x := context.FixedpointReasonUnknown(); x != nil || reason != "ok" {
+		t.Fatal("initial fixedpoint status", reason, x)
+	}
 
 	status, err := context.QueryFixedpointRelations([]ast.ASTHandle{q})
 	astTestMust(t, err)
 	if status != lbool.True {
 		t.Fatal("reachable public fixedpoint query", status)
+	}
+	if reason, x := context.FixedpointReasonUnknown(); x != nil || reason != "ok" {
+		t.Fatal("decided fixedpoint status", reason, x)
 	}
 	answer, err := context.FixedpointAnswer(q)
 	astTestMust(t, err)
@@ -130,6 +136,9 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("unreachable public fixedpoint query", status)
+	}
+	if reason, x := context.FixedpointReasonUnknown(); x != nil || reason != "ok" {
+		t.Fatal("unreachable fixedpoint status", reason, x)
 	}
 	certificate, err := context.FixedpointAnswer(u)
 	astTestMust(t, err)
@@ -179,6 +188,14 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 		t.Fatal("public fixedpoint statistics are empty")
 	}
 	astTestMust(t, context.ResetFixedpointStatistics())
+	status, err = context.QueryFixedpointRelations([]ast.ASTHandle{p, q})
+	astTestMust(t, err)
+	if status != lbool.Undef {
+		t.Fatal("multi-relation PDR query status", status)
+	}
+	if reason, x := context.FixedpointReasonUnknown(); x != nil || reason != "approximated" {
+		t.Fatal("undecided fixedpoint status", reason, x)
+	}
 
 	for index := len(references) - 1; index >= 0; index-- {
 		astTestMust(t, manager.DelRef(&references[index]))
