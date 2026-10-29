@@ -2848,7 +2848,7 @@
       "path": "src/ackermannization/ackermannization_params.hpp",
       "component": "ackermannization",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -3359,7 +3359,7 @@
       "path": "src/ackermannization/ackermannize_bv_tactic_params.hpp",
       "component": "ackermannization",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -5375,7 +5375,7 @@
       "methods": [
         {"name": "Z3_fixedpoint_query_from_lvl typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "Z3_fixedpoint_get_ground_sat_answer typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]},
-        {"name": "Z3_fixedpoint_get_rules_along_trace and Z3_fixedpoint_get_rule_names_along_trace typed Go equivalents", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]},
+        {"name": "Z3_fixedpoint_get_rules_along_trace and Z3_fixedpoint_get_rule_names_along_trace typed Go equivalents", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/spacer/context.go"], "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "Z3_fixedpoint_add_invariant typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "Z3_fixedpoint_get_reachable typed Go equivalent", "status": "ported", "go_target": "pkg/api/api_fixedpoint.go", "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]}
       ],
@@ -41143,56 +41143,56 @@
           "name": "interactive-mode/produce-assertions option and get-assertions source-text display with scoped rollback (basic_cmds.cpp:273,307-351,413-416)",
           "status": "ported",
           "go_target": "pkg/cmd_context/results.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/assertions_test.go", "pkg/cmd/g3/test_vectors/get_assertions.smt2"],
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/assertions_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/get_assertions.smt2"],
           "tests": ["TestSMT2GetAssertionsPreservesSourceTextAndScopes", "TestSMT2GetAssertionsRequiresInteractiveMode", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "get-assignment zero-arity Boolean macro evaluation, insertion-order display, symbol quoting and scoped rollback (basic_cmds.cpp:122-164)",
           "status": "ported",
           "go_target": "pkg/cmd_context/results.go",
-          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/assignment_test.go", "pkg/cmd/g3/test_vectors/get_assignment.smt2"],
+          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/assignment_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/get_assignment.smt2"],
           "tests": ["TestSMT2GetAssignmentBooleanMacrosInDeclarationOrder", "TestSMT2GetAssignmentRequiresAvailableModel", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "produce-unsat-assumptions option guard and get-unsat-assumptions direct assumption-core display (basic_cmds.cpp:250-257,430-433)",
           "status": "ported",
           "go_target": "pkg/cmd_context/results.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/unsat_assumptions_test.go", "pkg/cmd/g3/test_vectors/get_unsat_assumptions.smt2"],
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/unsat_assumptions_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/get_unsat_assumptions.smt2"],
           "tests": ["TestSMT2GetUnsatAssumptionsUsesDirectAssumptionCore", "TestSMT2GetUnsatAssumptionsGuards", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "get-consequences assumption/variable list dispatch, solver status display and consequence expression output (basic_cmds.cpp:810-845)",
           "status": "ported",
           "go_target": "pkg/cmd_context/results.go",
-          "go_targets": ["pkg/cmd_context/result_access.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/consequences_test.go", "pkg/cmd/g3/test_vectors/get_consequences.smt2"],
+          "go_targets": ["pkg/cmd_context/result_access.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/consequences_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/get_consequences.smt2"],
           "tests": ["TestSMT2GetConsequencesAssumptionsVariablesAndStatuses", "TestSMT2GetConsequencesRequiresTwoLists", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "get-option built-in aliases/state, catalog-backed values, unsupported diagnostics, random seed/assignment/interpolant setters and numeral-as-real reset semantics (basic_cmds.cpp:299-631)",
           "status": "ported",
           "go_target": "pkg/cmd_context/options.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/options_test.go", "pkg/cmd/g3/test_vectors/get_option.smt2"],
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/options_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/get_option.smt2"],
           "tests": ["TestSMT2GetOptionBuiltinsAndCatalogValues", "TestSMT2GetOptionUnsupportedAndSyntaxGuards", "TestSMT2NumeralAsRealResetsWithManagerState", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "labels command availability after satisfiable/unknown checks and insertion-order SMT2 symbol display (basic_cmds.cpp:260-271)",
           "status": "ported",
           "go_target": "pkg/cmd_context/results.go",
-          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/cmd_context/labels_test.go", "pkg/parsers/smt2/labels_test.go", "pkg/cmd/g3/test_vectors/labels.smt2"],
+          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/cmd_context/labels_test.go", "pkg/parsers/smt2/labels_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/labels.smt2"],
           "tests": ["TestCommandContextWritesRelevantLabelsWithSMT2Quoting", "TestSMT2LabelsCommandAndAvailability", "TestSMT2LabelsCommandGuards", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "display command single-expression parsing and direct pretty-printer output (basic_cmds.cpp:289-293)",
           "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "go_targets": ["pkg/cmd_context/results.go", "pkg/parsers/smt2/display_test.go", "pkg/cmd/g3/test_vectors/display.smt2"],
+          "go_targets": ["pkg/cmd_context/results.go", "pkg/parsers/smt2/display_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/display.smt2"],
           "tests": ["TestSMT2DisplayUsesParsedExpressionPrinter", "TestSMT2DisplayRejectsMissingAndTrailingTerms", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "declare-map command sort-list/function-reference parsing, concrete array-map declaration publication and scoped rollback (basic_cmds.cpp:745-808)",
           "status": "ported",
           "go_target": "pkg/cmd_context/array_map.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/declare_map_test.go", "pkg/cmd/g3/test_vectors/declare_map.smt2"],
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/declare_map_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/declare_map.smt2"],
           "tests": ["TestSMT2DeclareMapInstallsArrayAxiomAndScopes", "TestSMT2DeclareMapRejectsEmptyIndicesAndNullaryFunctions", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
@@ -44081,7 +44081,7 @@
       "path": "src/cmd_context/interpolant_cmds.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/cmd_context/interpolation.go", "pkg/parsers/smt2/commands.go"],
       "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
@@ -82231,7 +82231,7 @@
       "path": "src/muz/dataflow/dataflow.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/dataflow/reachability.go"],
       "tests": ["TestReachabilityRunsFromIngestedHornProgram"],
       "methods_audited": false,
@@ -84182,7 +84182,7 @@
       "path": "src/muz/pdr/pdr_generalizers.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/pdr/generalizers.go",
         "pkg/muz/pdr/generalizer_arithmetic.go",
@@ -84304,7 +84304,7 @@
       "path": "src/muz/pdr/pdr_generalizers.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/generalizer_arithmetic.go", "pkg/muz/pdr/generalizer_induction.go", "pkg/muz/pdr/pdr_closure.go"],
       "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore", "TestConvexClosureAndInteriorOwnExpectedEndpointRegions", "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"],
       "conditionals": [
@@ -92047,7 +92047,7 @@
       "path": "src/muz/transforms/dl_mk_array_blast.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/array_blast.go"
       ],
@@ -92154,7 +92154,7 @@
       "path": "src/muz/transforms/dl_mk_array_instantiation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/array_instantiation.go",
         "pkg/muz/transforms/array_instantiation_test.go",
@@ -92196,7 +92196,7 @@
       "path": "src/muz/transforms/dl_mk_array_instantiation.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/array_instantiation.go"
       ],
@@ -92231,7 +92231,7 @@
       "path": "src/muz/transforms/dl_mk_backwards.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/backwards.go"],
       "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery"],
       "methods_audited": false,
@@ -92251,7 +92251,7 @@
       "path": "src/muz/transforms/dl_mk_backwards.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/backwards.go"],
       "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery"],
       "conditionals": [
@@ -92331,7 +92331,7 @@
       "path": "src/muz/transforms/dl_mk_bit_blast.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/bit_blast.go"],
       "tests": ["TestBitBlastExpandsBitVectorPredicateSignatures"],
       "conditionals": [
@@ -92452,7 +92452,7 @@
       "path": "src/muz/transforms/dl_mk_coalesce.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_coalesce.go"
       ],
@@ -92867,7 +92867,7 @@
       "path": "src/muz/transforms/dl_mk_loop_counter.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/loop_counter.go"],
       "tests": ["TestLoopCounterAddsRecursiveSuccessorAndRevertsPredicates"],
       "assertions": [
@@ -92897,7 +92897,7 @@
       "path": "src/muz/transforms/dl_mk_loop_counter.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/loop_counter.go"],
       "tests": ["TestLoopCounterAddsRecursiveSuccessorAndRevertsPredicates"],
       "conditionals": [
@@ -93026,7 +93026,7 @@
       "path": "src/muz/transforms/dl_mk_magic_symbolic.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/magic_symbolic.go",
         "pkg/muz/fp/spacer_engine.go",
@@ -93059,7 +93059,7 @@
       "path": "src/muz/transforms/dl_mk_magic_symbolic.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/magic_symbolic.go"],
       "tests": ["TestMagicSymbolicBuildsAnswerAndPrefixQueryRules"],
       "conditionals": [
@@ -93273,7 +93273,7 @@
       "path": "src/muz/transforms/dl_mk_rule_inliner.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go",
         "pkg/muz/fp/spacer_engine.go"
@@ -93467,7 +93467,7 @@
       "path": "src/muz/transforms/dl_mk_rule_inliner.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go"
       ],
@@ -93517,7 +93517,7 @@
       "path": "src/muz/transforms/dl_mk_scale.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/scale.go",
         "pkg/muz/fp/spacer_scale_results.go",
@@ -93564,7 +93564,7 @@
       "path": "src/muz/transforms/dl_mk_scale.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/transforms/scale.go"],
       "tests": ["TestScaleAddsHomogeneousPredicateArgumentAndGuards"],
       "conditionals": [
@@ -93739,7 +93739,7 @@
       "path": "src/muz/transforms/dl_mk_slice.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_slice.go"
       ],
@@ -94030,7 +94030,7 @@
       "path": "src/muz/transforms/dl_mk_unfold.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_unfold.go"
       ],
@@ -96928,7 +96928,7 @@
       "path": "src/nlsat/tactic/goal2nlsat.h",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go"],
       "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerUnsatCoreDependencies"],
       "conditionals": [
@@ -96987,7 +96987,7 @@
       "path": "src/nlsat/tactic/nlsat_tactic.h",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/nlsat/tactic/nlsat_tactic.go"],
       "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRetainsParametersAcrossTranslation"],
       "conditionals": [
@@ -97030,7 +97030,7 @@
       "path": "src/nlsat/tactic/qfnra_nlsat_tactic.h",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "conditionals": [
@@ -138923,7 +138923,7 @@
         },
         {
           "name": "antecedents, bounds, atoms, derived bounds, variable metadata and bound trail declarations",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_bounds.go",
           "tests": [
             "TestSMTArithmeticValueLexicographicAndAtomComplements",
@@ -138935,7 +138935,7 @@
         },
         {
           "name": "retained rational linear internalization, atom assignment, simplex feasibility, scope replay, equality axioms, and model values",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "tests": [
             "TestSMTSolverSetupUsesLinearRealArithmetic",
@@ -140730,7 +140730,7 @@
         },
         {
           "name": "affine arithmetic term internalization, constant column, scoped definition rows, and equivalent-row equality propagation",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "tests": [
             "TestSMTLinearArithmeticStandaloneTermDefinition",
@@ -140780,7 +140780,7 @@
         },
         {
           "name": "propagate_bounds: retained affine definition rows carry nonlinear interval bounds through preprocessor aliases before and after monomial propagation; every eligible small tableau row derives strict/rational/integer endpoints and publishes implied unassigned Boolean bounds with source left-to-right stronger-lemma premise relaxation, proof coefficients, small-lemma or external justification ownership, propagation-mode and conflict-threshold gates, big-coefficient skipping, statistics, and scope restoration; the Go replay scans all rows instead of maintaining the source incremental marked-row worklist, with equivalent retained consequences",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_fixed_bounds.go",
           "go_targets": [
             "pkg/smtcore/theory_arith_nonlinear.go",
@@ -140799,7 +140799,7 @@
         },
         {
           "name": "propagate_core flushes pending bound axioms and equalities, installs scoped asserted and derived bounds, retains fixed-factor linearized monomial equations even when nonlinear search is disabled, repairs feasibility with exact conflict premises, and publishes post-feasibility row-bound consequences",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "go_targets": [
             "pkg/smtcore/theory_arith_nonlinear.go",
@@ -140819,7 +140819,7 @@
         },
         {
           "name": "small-row interval bounds and fixed shared-variable equality propagation: unconditional replay fixes arithmetic inputs of UF applications and propagates congruence with scoped premises",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_fixed_bounds.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -140832,7 +140832,7 @@
         },
         {
           "name": "small canonical-row interval bound propagation into nonlinear strategy replay, including equality aliases and comparison rows with scoped unconditional premises",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_fixed_bounds.go",
           "tests": [
             "TestSMTNonlinearMaxMinBoundsMovementAndScopedProofs"
@@ -140848,7 +140848,7 @@
         },
         {
           "name": "final_check shared arithmetic model-equality case splitting before SAT, and preferred-phase inheritance by InternalizeEquality auxiliary bound atoms",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_assume_eq.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -140887,7 +140887,7 @@
         },
         {
           "name": "collect_fixed_var_justifications and extended GCD endpoint provenance: preserve normalized signed row coefficients and lower/upper endpoint order, omit unrelated assertions, and recursively expand flattened plain-derived endpoint explanations with source caller coefficients",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_gcd.go",
           "go_targets": [
             "pkg/math/simplex/bound_dependency.go",
@@ -141730,7 +141730,7 @@
       "methods": [
         {
           "name": "integer strict-bound normalization, integral candidate repair, mixed-column model checks, source Boolean branch/Gomory-cut alternation, equality branching, GCD and Euclidean integration",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "tests": [
             "TestSMTSolverSetupUsesPartialLinearIntegerArithmetic",
@@ -141781,7 +141781,7 @@
         },
         {
           "name": "retained deferred gcd_test over fractional integer basic rows: precise assertion and recursively flattened derived-bound dependencies, normalized source coefficient parameters, extended-GCD endpoint order, mixed-real guards, scoped proofs and conflicts",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_gcd.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go",
@@ -141873,7 +141873,7 @@
         },
         {
           "name": "mk_polynomial_ge and Gomory propagation integration: retain defining polynomials for fixed comparison columns, propagate conditional cuts with endpoint coefficients before cut normalization, recursively expand flattened derived-bound premises, preserve proof ownership, and restore scopes",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_integer_branch_cut.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go",
@@ -141897,7 +141897,7 @@
         },
         {
           "name": "Euclidean plain-derived bound proof dependencies preserve the old endpoint and Normalize fixed-equation premises, deduplicate flattened dependency chains from all retained derived-bound producers, replay comparison-polynomial bounds by stable keys, and restore scopes",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_euclidean.go",
           "tests": [
             "TestSMTEuclideanBridgeCongruenceScopesProofsAndModels",
@@ -141941,7 +141941,7 @@
         },
         {
           "name": "apply_euclidean_solver option wiring, theory-owned numeral manager and temporary bridge lifetime, scoped numeric bounds, normalized premise propagation through stable comparison-expression replay, arbitrary-precision coefficients, proofs, models and disabled-mode behavior",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_euclidean.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -153610,7 +153610,7 @@
         },
         {
           "name": "retained negative-suffix shared-segment mismatch witness and active lazy negative-prefix protocol; inactive prefix-mismatch and first/last suffix variants excluded",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_boundary_negative.go",
           "tests": [
             "TestSMTSequenceTheoryNegativeBoundaryWitnesses",
@@ -153782,7 +153782,7 @@
         },
         {
           "name": "integrated retained sequence path across cyclic and literal word equations, fixed lengths, positive and negative prefix/suffix relations, containment witnesses, bounded regex membership, and integer/string conversion, with scoped model restoration and C++ differential output",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/cmd/g3/test_vectors/sequence_word_equations_relations.smt2",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -153794,7 +153794,7 @@
         },
         {
           "name": "collect_statistics source-width sequence counters and exact public key order, including retained axiom, reduction, branching, automata, coherence, equality, disequality, extensionality, fixed-length and integer-string writers",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_statistics.go",
           "go_targets": [
             "pkg/smtcore/theory_seq.go",
@@ -153810,7 +153810,7 @@
         },
         {
           "name": "whole retained source-function inventory: external theory callbacks, word equations, arithmetic length reasoning, containment, regular-language propagation, branching, axiom dispatch, model construction and statistics are covered by the concrete rows above; eager Go axiom construction replaces the native queue dispatcher, stateless Go automata need no init_search cache reset, explain_empty and propagate_max_length have no retained caller, display helpers are diagnostic-only, and compile-disabled negative-prefix/suffix alternatives remain excluded",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq.go",
           "go_targets": [
             "pkg/smtcore/theory_seq_solve.go",
@@ -154206,7 +154206,7 @@
         },
         {
           "name": "canonizes(false, e) before negative containment assignment consequences, scoped solution expansion and conditional decision/equality dependencies; concrete index operands expand while their offset remains unchanged; nonnegative integer-to-string expansion requires merged numeral evidence or emits guarded equivalence axioms",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_canonize.go",
           "tests": [
             "TestSMTSequenceNonContainsCanonicalDisjunctionAndScope",
@@ -154611,7 +154611,7 @@
         },
         {
           "name": "collect_statistics declaration and source-width sequence counters with exact public key order",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_statistics.go",
           "go_targets": [
             "pkg/smtcore/theory_seq_statistics_test.go"
@@ -154624,7 +154624,7 @@
         },
         {
           "name": "whole retained declaration inventory for theory callbacks, scoped state, word equations, arithmetic length reasoning, containment, regular-language propagation, branching, model construction and statistics; source-private templates and declarations without retained consumers have no universal Go adapter",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq.go",
           "go_targets": [
             "pkg/smtcore/theory_seq_solve.go",
@@ -154971,7 +154971,7 @@
         },
         {
           "name": "canonizes(false, e) before negative containment assignment consequences, scoped solution expansion and conditional decision/equality dependencies; concrete index operands expand while their offset remains unchanged; nonnegative integer-to-string expansion requires merged numeral evidence or emits guarded equivalence axioms",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_canonize.go",
           "tests": [
             "TestSMTSequenceNonContainsCanonicalDisjunctionAndScope",
@@ -162791,7 +162791,7 @@
       "path": "src/tactic/arith/arith_bounds_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/arith_bounds.go",
         "pkg/tactic/arith/arith_bounds_test.go",
@@ -162828,7 +162828,7 @@
       "path": "src/tactic/arith/arith_bounds_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/arith/arith_bounds.go"],
       "tests": ["TestArithmeticBoundsKeepStrongestBounds"],
       "conditionals": [
@@ -163080,7 +163080,7 @@
       "path": "src/tactic/arith/bound_propagator.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/bound_equation_store.go",
         "pkg/tactic/arith/bound_equation_store_test.go",
@@ -163202,8 +163202,8 @@
           "text": "SASSERT(b);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained bound_propagator destructor reset reverse bound trail and ascending constraint destruction, with stopped Go owning continuation (cpp:81-112,742-758)",
@@ -163257,9 +163257,15 @@
         },
         {
           "name": "complete retained owner reset/cleanup failure paths and source diagnostic guards",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bound_equation_store.go",
+          "go_targets": ["pkg/tactic/arith/bound_display.go", "pkg/tactic/arith/bound_trace.go"],
+          "tests": [
+            "TestBoundEquationStoreCloseResumesReverseTrailAfterStoppedRelease",
+            "TestBoundEquationStoreCloseResumesConstraintRelease",
+            "TestBoundEquationDisplaySourceOrderDeadConstraintAndWriterError",
+            "TestBoundAssertionSourceTraceAndFalseAlarmOrder"
+          ]
         },
         {
           "name": "Selected lower/upper assertion TRACE entry, derived success, false alarm and unrelaxed/relaxed approximation in source order (bound_propagator.cpp:279-305,331-357)",
@@ -163299,15 +163305,15 @@
       ],
       "deviations": [
         "Native Go slices hold equation constraints, watches and bound trails; invalid variable IDs return bounds errors instead of indexing outside source vectors. Level-zero insertion and watched propagation use the concrete numeral and parameter owners.",
-        "Direct source-use audit finds no retained caller of bound-propagator push/pop, explanation or decision APIs; the earlier scoped Go translation was removed. The retained tactic AST/goal caller and source reset/TRACE display and failure paths remain open.",
-        "TRACE display uses io.Writer and reports write errors; output follows the source variable-slot and equation-insertion traversal, including dead constraints. The tactic AST/goal consumer is still unported."
+        "Direct source-use audit finds no retained caller of bound-propagator push/pop, explanation or decision APIs; the earlier scoped Go translation was removed. The sole production source consumer is the level-zero propagate-inequalities tactic, whose concrete Go owner calls this retained subset.",
+        "TRACE display uses io.Writer and reports write errors; output follows the source variable-slot and equation-insertion traversal, including dead constraints. Resumable Close preserves completed reverse-trail and ascending-constraint cleanup prefixes after a stopped numeral release."
       ]
     },
     {
       "path": "src/tactic/arith/bound_propagator.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/bound_equation_store.go",
         "pkg/tactic/arith/bound_equation_store_test.go",
@@ -163367,8 +163373,8 @@
           "text": "SASSERT(has_upper(x));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete bound-propagator owned trail/constraint cleanup and stopped Go owning continuation through the retained tactic destructor",
@@ -163422,9 +163428,15 @@
         },
         {
           "name": "complete retained owner reset/cleanup failure paths and source diagnostic guards",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bound_equation_store.go",
+          "go_targets": ["pkg/tactic/arith/bound_display.go", "pkg/tactic/arith/bound_trace.go"],
+          "tests": [
+            "TestBoundEquationStoreCloseResumesReverseTrailAfterStoppedRelease",
+            "TestBoundEquationStoreCloseResumesConstraintRelease",
+            "TestBoundEquationDisplaySourceOrderDeadConstraintAndWriterError",
+            "TestBoundAssertionSourceTraceAndFalseAlarmOrder"
+          ]
         }
       ],
       "ownership": [
@@ -163433,8 +163445,8 @@
       ],
       "deviations": [
         "Native Go slices hold equation constraints, watches and bound trails; invalid variable IDs return bounds errors instead of indexing outside source vectors. Level-zero insertion and watched propagation use the concrete numeral and parameter owners.",
-        "Direct source-use audit finds no retained caller of bound-propagator push/pop, explanation or decision APIs; the earlier scoped Go translation was removed. The retained tactic AST/goal caller and source reset/TRACE display and failure paths remain open.",
-        "TRACE display uses io.Writer and reports write errors; output follows the source variable-slot and equation-insertion traversal, including dead constraints. The tactic AST/goal consumer is still unported."
+        "Direct source-use audit finds no retained caller of bound-propagator push/pop, explanation or decision APIs; the earlier scoped Go translation was removed. The sole production source consumer is the level-zero propagate-inequalities tactic, whose concrete Go owner calls this retained subset.",
+        "TRACE display uses io.Writer and reports write errors; output follows the source variable-slot and equation-insertion traversal, including dead constraints. Resumable Close preserves completed reverse-trail and ascending-constraint cleanup prefixes after a stopped numeral release."
       ]
     },
     {
@@ -164597,7 +164609,7 @@
       "path": "src/tactic/arith/elim01_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/elim01_tactic.go",
         "pkg/tactic/arith/elim01_tactic_test.go",
@@ -164759,7 +164771,7 @@
       "path": "src/tactic/arith/factor_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/arith/factor_tactic.go"],
       "tests": ["TestFactorTacticSplitsPolynomialEqualityWithProofAndCore", "TestFactorTacticStrictEvenPowerAndParameterUpdate"],
       "assertions": [
@@ -164801,7 +164813,7 @@
       "methods": [
         {
           "name": "polynomial equality and comparison factor rewrites",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/tactic/arith/factor_tactic.go",
           "tests": ["TestFactorTacticSplitsPolynomialEqualityWithProofAndCore", "TestFactorTacticStrictEvenPowerAndParameterUpdate"]
         }
@@ -164813,7 +164825,7 @@
       "path": "src/tactic/arith/factor_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/arith/factor_tactic.go"],
       "tests": ["TestFactorTacticSplitsPolynomialEqualityWithProofAndCore", "TestFactorTacticStrictEvenPowerAndParameterUpdate"],
       "conditionals": [
@@ -164828,7 +164840,14 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [],
+      "methods": [
+        {
+          "name": "mk_factor_tactic factory declaration and retained registration surface",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/factor_tactic.go",
+          "tests": ["TestFactorTacticSplitsPolynomialEqualityWithProofAndCore", "TestFactorTacticStrictEvenPowerAndParameterUpdate"]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -167402,7 +167421,7 @@
       "methods": [
         {
           "name": "retained quantifier-free real DIV and zero/rational-root POWER purification",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/tactic/arith/qfnra_purify_tactic.go",
           "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower", "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
         }
@@ -169533,7 +169552,7 @@
       "path": "src/tactic/bv/dt2bv_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/dt2bv_tactic.go",
         "pkg/tactic/bv/dt2bv_tactic_test.go",
@@ -169595,7 +169614,7 @@
       "path": "src/tactic/bv/dt2bv_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/dt2bv_tactic.go",
         "pkg/tactic/bv/dt2bv_tactic_test.go",
@@ -170054,7 +170073,7 @@
       "path": "src/tactic/core/cofactor_elim_term_ite.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic_test.go", "pkg/cmd/g3/test_vectors/qfnia_cofactor_term_ite.smt2"],
       "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITENegatedConditionPropagatesAtom", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"],
       "conditionals": [
@@ -170111,7 +170130,7 @@
         {"name": "active bottom_up_elim traversal, atom classification, term-ITE propagation and rebuilt application cache", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]},
         {"name": "get_best condition selection by depth, occurrence count and equality tie-break", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]},
         {"name": "positive/negative cofactor substitution, negated-atom propagation, equality-to-unique-value propagation and theory simplification", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITENegatedConditionPropagatesAtom", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"]},
-        {"name": "disabled analyzer/main_rw alternative under #if 0", "status": "dead_unretained"}
+        {"name": "disabled analyzer/main_rw alternative under #if 0", "status": "dead_deleted"}
       ],
       "ownership": ["Each application owns a temporary ASTRef set for rebuilt and cofactored terms. Goal.Update acquires the published result before the temporary set closes; expression replacement and theory-rewriter outputs close in reverse order."],
       "deviations": ["Native maps and slices replace source hash tables and frame buffers. Quantifiers remain black boxes, and the active source bottom-up path—not the disabled analyzer path—is retained."]
@@ -170120,7 +170139,7 @@
       "path": "src/tactic/core/cofactor_elim_term_ite.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic.go"],
       "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"],
       "conditionals": [
@@ -170143,7 +170162,7 @@
       "path": "src/tactic/core/cofactor_term_ite_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic_test.go", "pkg/tactic/smtlogics/qfnia_tactic.go"],
       "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITEGuardsProofsAndCores", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"],
       "assertions": [
@@ -170166,7 +170185,7 @@
       "path": "src/tactic/core/cofactor_term_ite_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/smtlogics/qfnia_tactic.go"],
       "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"],
       "conditionals": [
@@ -171288,7 +171307,7 @@
       "path": "src/tactic/core/elim_term_ite_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/elim_term_ite_tactic.go"],
       "tests": ["TestEliminateTermITEProofCoreAndModelFilter", "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"],
       "assertions": [
@@ -171306,7 +171325,7 @@
       "methods": [
         {
           "name": "term ITE rewriting and fresh definitions",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/tactic/core/elim_term_ite_tactic.go",
           "tests": ["TestEliminateTermITEProofCoreAndModelFilter", "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"]
         }
@@ -171318,7 +171337,7 @@
       "path": "src/tactic/core/elim_term_ite_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/elim_term_ite_tactic.go"],
       "tests": ["TestEliminateTermITEProofCoreAndModelFilter", "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"],
       "conditionals": [
@@ -171333,7 +171352,14 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [],
+      "methods": [
+        {
+          "name": "mk_elim_term_ite_tactic factory declaration and retained registration surface",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/elim_term_ite_tactic.go",
+          "tests": ["TestEliminateTermITEProofCoreAndModelFilter", "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -173701,7 +173727,7 @@
       "path": "src/tactic/core/tseitin_cnf_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/tseitin_cnf_tactic.go", "pkg/tactic/core/tseitin_cnf_encode.go", "pkg/cmd_context/tactic_commands.go"],
       "tests": ["TestTseitinCNFNestedIffAndITEChain", "TestTseitinCNFCoreDependenciesModelFilterAndGuards", "TestTseitinCNFCommonPatternAndBoundedDistributivity"],
       "assertions": [
@@ -173735,7 +173761,7 @@
       "methods": [
         {
           "name": "full Tseitin CNF traversal, specialized encodings, bounded distributivity, tactic factories and statistics",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/tactic/core/tseitin_cnf_encode.go",
           "tests": ["TestTseitinCNFNestedIffAndITEChain", "TestTseitinCNFCoreDependenciesModelFilterAndGuards", "TestTseitinCNFCommonPatternAndBoundedDistributivity"]
         }
@@ -173751,7 +173777,7 @@
       "path": "src/tactic/core/tseitin_cnf_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/core/tseitin_cnf_tactic.go", "pkg/cmd_context/tactic_commands.go"],
       "tests": ["TestTseitinCNFCoreDependenciesModelFilterAndGuards"],
       "conditionals": [
@@ -173766,7 +173792,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "tseitin-cnf and tseitin-cnf-core factories", "status": "complete", "go_target": "pkg/tactic/core/tseitin_cnf_tactic.go", "tests": ["TestTseitinCNFCoreDependenciesModelFilterAndGuards"]}],
+      "methods": [{"name": "tseitin-cnf and tseitin-cnf-core factories", "status": "ported", "go_target": "pkg/tactic/core/tseitin_cnf_tactic.go", "tests": ["TestTseitinCNFCoreDependenciesModelFilterAndGuards"]}],
       "ownership": ["The public composite factory owns the core, simplifying fallback and retry through counted tactic edges."],
       "deviations": []
     },
@@ -177999,7 +178025,7 @@
       "path": "src/tactic/smtlogics/nra_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/smtlogics/nra_tactic.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -179751,7 +179777,7 @@
       "path": "src/tactic/smtlogics/qfnia_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/smtlogics/qfnia_tactic.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
@@ -179794,7 +179820,7 @@
       "path": "src/tactic/smtlogics/qfnia_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/smtlogics/qfnia_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/tactic/portfolio/smt_strategic_solver.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"],
       "conditionals": [
@@ -179826,7 +179852,7 @@
       "path": "src/tactic/smtlogics/qfnra_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "methods_audited": true,
@@ -179834,7 +179860,7 @@
       "methods": [
         {
           "name": "retained QF_NRA route ordering",
-          "status": "complete",
+      "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
           "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
         }
@@ -179846,7 +179872,7 @@
       "path": "src/tactic/smtlogics/qfnra_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "conditionals": [
@@ -180649,7 +180675,7 @@
       "path": "src/tactic/smtlogics/qfufbv_tactic_params.hpp",
       "component": "tactic",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -266505,6 +266531,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266514,6 +266541,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266523,6 +266551,7 @@
         "src/api/z3_spacer.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266532,6 +266561,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266541,6 +266571,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266550,6 +266581,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266559,6 +266591,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSMT2Replay"]
     },
     {
@@ -266568,6 +266601,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSMT2Replay"]
     },
     {
@@ -266577,6 +266611,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266586,6 +266621,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266595,6 +266631,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266604,6 +266641,7 @@
         "src/api/z3_spacer.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
@@ -266622,6 +266660,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266631,6 +266670,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointParameterDescriptors"]
     },
     {
@@ -266640,6 +266680,7 @@
         "src/api/z3_spacer.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
@@ -266649,6 +266690,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266658,6 +266700,7 @@
         "src/api/z3_spacer.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
@@ -266667,6 +266710,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266676,6 +266720,7 @@
         "src/api/z3_spacer.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
@@ -266685,6 +266730,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266694,6 +266740,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266712,6 +266759,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266721,6 +266769,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266730,6 +266779,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266739,6 +266789,7 @@
         "src/api/z3_spacer.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
@@ -266748,6 +266799,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266757,6 +266809,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -266766,6 +266819,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextTypedFixedpointParameters"]
     },
     {
@@ -266803,6 +266857,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointSMT2Replay"]
     },
     {
@@ -266812,6 +266867,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
@@ -268844,6 +268900,7 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
       "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
