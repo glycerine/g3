@@ -24,6 +24,32 @@ func TestNLSATTacticAdvertisesConflictMinimization(t *testing.T) {
 	}
 }
 
+func TestNLSATTacticRetainsParametersAcrossTranslation(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	value, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, value.Close()) })
+	parameters, err := fixture.context.NewValue()
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, fixture.context.Del(&parameters)) })
+	name, seed := "seed", uint32(23)
+	compilerMust(t, fixture.context.SetUIntName(&parameters, &name, seed))
+	compilerMust(t, value.UpdateParams(&parameters))
+	translated, err := value.Translate(fixture.manager)
+	compilerMust(t, err)
+	copy, ok := translated.(*NLSATTactic)
+	if !ok {
+		t.Fatal("translated NLSAT tactic type")
+	}
+	t.Cleanup(func() { compilerMust(t, copy.Close()) })
+	got, err := fixture.context.GetUIntName(&copy.params, &name, 0)
+	compilerMust(t, err)
+	if got != seed {
+		t.Fatal("translated NLSAT seed", got)
+	}
+	compilerMust(t, value.Cleanup())
+}
+
 func TestNLSATTacticPublishesSatModel(t *testing.T) {
 	fixture := newGoalCompilerFixture(t)
 	tacticValue, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)

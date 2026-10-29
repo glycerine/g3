@@ -96766,7 +96766,7 @@
       "path": "src/nlsat/tactic/goal2nlsat.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go", "pkg/nlsat/tactic/nlsat2goal.go"],
       "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies", "TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity", "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause", "TestNLQSATTacticPublishesOnlyFreeRealModelValues"],
       "assertions": [
@@ -96795,12 +96795,12 @@
           "text": "SASSERT(d >= 1);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained goal compiler, polynomial factor atoms, model reconstruction, and core mapping",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
           "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies"]
         },
@@ -96823,14 +96823,17 @@
           "tests": ["TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "GoalCompiler borrows the AST manager and live NLSAT solver while owning expression-to-variable mappings, the arithmetic expression compiler, and retained assumption attachments. Compile transfers polynomial factors and clauses into the solver; Close retires compiler expressions and mappings, then dependency attachments, without closing the borrowed solver.",
+        "GoalConverter and ModelProjector borrow compiler mappings and the solver. Converted literals return owning AST references, filtered model reconstruction admits only explicitly requested frontend constants, and projected literal vectors close before their borrowed solver."
+      ],
       "deviations": ["Root atoms retain the source's fresh-Boolean fallback semantics with a deterministic nlsat-root variable name instead of embedding the solver display text."]
     },
     {
       "path": "src/nlsat/tactic/goal2nlsat.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go"],
       "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerUnsatCoreDependencies"],
       "conditionals": [
@@ -96843,8 +96846,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
       "deviations": []
@@ -96853,9 +96856,9 @@
       "path": "src/nlsat/tactic/nlsat_tactic.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/nlsat/tactic/nlsat_tactic.go"],
-      "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRejectsProofGoal", "TestNLSATTacticAdvertisesConflictMinimization", "TestSMTLibRunnerScripts/nlsat_direct.smt2"],
+      "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRejectsProofGoal", "TestNLSATTacticAdvertisesConflictMinimization", "TestNLSATTacticRetainsParametersAcrossTranslation", "TestSMTLibRunnerScripts/nlsat_direct.smt2"],
       "assertions": [
         {
           "line": 136,
@@ -96870,26 +96873,28 @@
           "text": "SASSERT(m_imp == 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained tactic application, SAT model publication, UNSAT core publication, solver statistics capture, and statistics reset",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/tactic/nlsat_tactic.go",
-          "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRejectsProofGoal", "TestNLSATTacticAdvertisesConflictMinimization", "TestSMTLibRunnerScripts/nlsat_direct.smt2"]
+          "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRejectsProofGoal", "TestNLSATTacticAdvertisesConflictMinimization", "TestNLSATTacticRetainsParametersAcrossTranslation", "TestSMTLibRunnerScripts/nlsat_direct.smt2"]
         }
       ],
-      "ownership": [],
-      "deviations": ["The source display-variable diagnostic hook remains pending; solving, model, core, exact five-counter statistics forwarding, and reset behavior are integrated."]
+      "ownership": [
+        "NLSATTactic owns its copied parameter snapshot and statistics map. Each Apply call lexically owns the prime generator, polynomial manager, solver, and GoalCompiler in dependency order; the compiler closes before the solver, which closes before polynomial and prime services. Published SAT models are copied into a stored converter before this stack is retired, while UNSAT dependencies are joined into the result before compiler attachments close."
+      ],
+      "deviations": ["The source display-variable callback only customizes internal diagnostic rendering. Go diagnostics use the solver's stable numeric variable identities; solving, model/core publication, parameters and translation, exact five-counter statistics forwarding, and reset behavior are integrated."]
     },
     {
       "path": "src/nlsat/tactic/nlsat_tactic.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/nlsat/tactic/nlsat_tactic.go"],
-      "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore"],
+      "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRetainsParametersAcrossTranslation"],
       "conditionals": [
         {
           "line": 19,
@@ -96900,8 +96905,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
       "deviations": []
