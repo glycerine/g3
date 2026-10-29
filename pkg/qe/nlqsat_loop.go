@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/nlqsat.cpp:80-102,178-223,312-345.
+// Source: src/qe/nlqsat.cpp:80-102,178-223,312-423.
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/nlsat"
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/sat"
@@ -25,6 +26,7 @@ type nlqSearch struct {
 	mode            qsatMode
 	manager         *ast.ASTManager
 	converter       *nlsattactic.GoalConverter
+	answerSimplify  *astrewriter.ExprSafeReplace
 	assumptionForms map[sat.BoolVar]ast.ASTRef
 	answers         []ast.ASTRef
 	extra           []sat.Literal
@@ -62,6 +64,12 @@ func newNLQSearchMode(solver *nlsat.Solver, isTrue sat.Literal, realLevels []Max
 	s.state, err = newNLQState(solver, realLevels)
 	if err != nil {
 		return s, err
+	}
+	if mode == qsatQE {
+		s.answerSimplify, err = astrewriter.NewExprSafeReplace(manager)
+		if err != nil {
+			return s, err
+		}
 	}
 	for level, variables := range boundBoolean {
 		value := EmptyMaxLevel()
@@ -316,8 +324,9 @@ func (s *nlqSearch) projectQE(core []sat.Literal) (err error) {
 		return fmt.Errorf("add projected clause: %w", err)
 	}
 	if level == 1 {
-		s.answers = append(s.answers, formula)
-		formula = ast.ASTRef{}
+		if err = s.addAnswer(&formula); err != nil {
+			return fmt.Errorf("retain simplified projection answer: %w", err)
+		}
 		if err = s.state.pop(1); err != nil {
 			return fmt.Errorf("pop final projection: %w", err)
 		}
@@ -346,6 +355,43 @@ func (s *nlqSearch) answer() (ast.ASTRef, error) {
 		return ast.ASTRef{}, err
 	}
 	return s.manager.NewRef(formula)
+}
+
+func (s *nlqSearch) addAnswer(formula *ast.ASTRef) error {
+	if formula == nil || *formula == (ast.ASTRef{}) || s.answerSimplify == nil {
+		return arena.ErrConfig
+	}
+	if err := s.answerSimplify.ApplyRef(*formula); err != nil {
+		return err
+	}
+	h, err := s.manager.RefGet(*formula)
+	if err != nil {
+		return err
+	}
+	negative, inner, err := s.manager.IsNot(h)
+	if err != nil {
+		return err
+	}
+	if negative {
+		falsity, cause := s.manager.MkFalse()
+		if cause != nil {
+			return cause
+		}
+		if err = s.answerSimplify.Insert(inner, falsity); err != nil {
+			return err
+		}
+	} else {
+		truth, cause := s.manager.MkTrue()
+		if cause != nil {
+			return cause
+		}
+		if err = s.answerSimplify.Insert(h, truth); err != nil {
+			return err
+		}
+	}
+	s.answers = append(s.answers, *formula)
+	*formula = ast.ASTRef{}
+	return nil
 }
 
 func (s *nlqSearch) check() (lbool.LBool, error) {
@@ -423,6 +469,12 @@ func (s *nlqSearch) close() (err error) {
 			return err
 		}
 		delete(s.assumptionForms, variable)
+	}
+	if s.answerSimplify != nil {
+		if err = s.answerSimplify.Close(); err != nil {
+			return err
+		}
+		s.answerSimplify = nil
 	}
 	if s.state != nil {
 		if err = s.state.close(); err != nil {

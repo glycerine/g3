@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	basetactic "github.com/glycerine/g3/pkg/tactic"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -414,5 +415,31 @@ func TestNLQETacticComposesWithNLQSATForFreeParameters(t *testing.T) {
 	fmMust(t, combined.Apply(goal, result))
 	if !goal.IsDecidedSat() {
 		t.Fatal("composed nonlinear elimination did not decide the projected goal")
+	}
+}
+
+func TestNLQAnswerSimplificationUsesPriorProjectedClauses(t *testing.T) {
+	f := newFMFixture(t)
+	simplifier, err := astrewriter.NewExprSafeReplace(f.r.manager)
+	fmMust(t, err)
+	search := &nlqSearch{manager: f.r.manager, answerSimplify: simplifier}
+	t.Cleanup(func() {
+		for i := len(search.answers) - 1; i >= 0; i-- {
+			fmMust(t, f.r.manager.DelRef(&search.answers[i]))
+		}
+		fmMust(t, simplifier.Close())
+	})
+	p := f.constant("nlqe-answer-p", f.boolean)
+	notP := f.own(f.r.manager.MkNot(p))
+	first, err := f.r.manager.NewRef(notP)
+	fmMust(t, err)
+	fmMust(t, search.addAnswer(&first))
+	second, err := f.r.manager.NewRef(p)
+	fmMust(t, err)
+	fmMust(t, search.addAnswer(&second))
+	rewritten, err := f.r.manager.RefGet(search.answers[1])
+	fmMust(t, err)
+	if !f.r.manager.IsFalse(rewritten) {
+		t.Fatal("prior negative projection did not simplify its atom to false")
 	}
 }
