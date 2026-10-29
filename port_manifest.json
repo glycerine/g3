@@ -99790,7 +99790,8 @@
         "pkg/qe/nlqsat_tactic_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/qsat_test.go",
-        "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"
+        "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2",
+        "pkg/cmd/g3/test_vectors/nlqsat_models.smt2"
       ],
       "tests": [
         "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
@@ -99875,7 +99876,7 @@
           ]
         },
         {
-          "name": "Alternating scope stack, arithmetic/Boolean model save/restore, cached-assumption reconstruction and predicate maximum-level classification (cpp103-176,224-257,278-310,566-587)",
+          "name": "Alternating scope stack, working and last-existential arithmetic/Boolean model snapshots, cached-assumption reconstruction and predicate maximum-level classification (cpp103-176,224-257,278-310,566-587,738-778)",
           "status": "ported",
           "go_target": "pkg/qe/nlqsat_state.go",
           "tests": [
@@ -99940,6 +99941,7 @@
       "ownership": [
         "ModelProjector borrows the AST manager, NLSAT solver and compiler expression mappings while owning two alternating LiteralVectors. Each projection round resets the destination before acquiring projected atom leases; the final blocking clause owns an AST reference before temporary reconstructed-literal references are released. Closing the projector retires both literal vectors before the borrowed solver.",
         "nlqState borrows the concrete NLSAT solver, owns its copied real assignment and every per-level predicate LiteralVector, and stores Boolean snapshots and assumption caches as native Go values. Predicate vectors are closed in reverse level order before the assignment and borrowed solver.",
+        "The state owns a second arithmetic/Boolean snapshot for the last existential search level. Backtracking may clear the working model without invalidating this answer snapshot; model publication restores it into the borrowed solver before reconstruction.",
         "nlqSearch owns two alternating projection LiteralVectors plus nlqState while borrowing its NLSAT solver. A projected core is evaluated only after restoring the saved SAT model; destination vectors reset before each elimination, learned clauses acquire their own atom references, and close retires projection vectors before state predicate vectors.",
         "Each NLQSATTactic application owns its hoisting preparation, retained free-variable references, CNF tactic/goal/result, prime generator, polynomial manager, NLSAT solver, GoalCompiler and nlqSearch in lexical dependency order. Projected/search literal owners close before the compiler and solver; the polynomial manager closes before its prime generator. A successful model contains only hoister-identified free expressions, transfers through a retained ModelRef into the stored converter, and remains usable after tactic/solver teardown.",
         "Division purification owns numerator, denominator and fresh-name references until all guarded and pairwise consistency axioms have been attached to the formula. Quantifier-block references independently retain every fresh quotient through level initialization and search."

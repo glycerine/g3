@@ -250,7 +250,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 				}
 			}
 			if len(free) != 0 {
-				if cause = search.state.restoreModel(); cause != nil {
+				if cause = search.state.restoreAnswerModel(); cause != nil {
 					return cause
 				}
 			}

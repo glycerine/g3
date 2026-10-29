@@ -16,6 +16,9 @@ type nlqState struct {
 	solver              *nlsat.Solver
 	realModel           *nlsat.Assignment
 	booleanModel        []lbool.LBool
+	answerReal          *nlsat.Assignment
+	answerBoolean       []lbool.LBool
+	answerValid         bool
 	validModel          bool
 	cached, assumptions []sat.Literal
 	limits              []int
@@ -41,6 +44,10 @@ func newNLQState(solver *nlsat.Solver, realLevels []MaxLevel) (state *nlqState, 
 		}
 	}()
 	n.realModel, err = nlsat.NewAssignment(am)
+	if err != nil {
+		return n, err
+	}
+	n.answerReal, err = nlsat.NewAssignment(am)
 	if err != nil {
 		return n, err
 	}
@@ -102,6 +109,13 @@ func (n *nlqState) saveModel() error {
 		return err
 	}
 	n.validModel = true
+	if nlqExists(n.level()) {
+		if err := n.answerReal.Copy(n.realModel); err != nil {
+			return err
+		}
+		n.answerBoolean = append(n.answerBoolean[:0], n.booleanModel...)
+		n.answerValid = true
+	}
 	return nil
 }
 
@@ -113,6 +127,16 @@ func (n *nlqState) restoreModel() error {
 		return err
 	}
 	return n.solver.SetBooleanValues(n.booleanModel)
+}
+
+func (n *nlqState) restoreAnswerModel() error {
+	if !n.answerValid {
+		return arena.ErrConfig
+	}
+	if err := n.solver.SetRealValues(n.answerReal); err != nil {
+		return err
+	}
+	return n.solver.SetBooleanValues(n.answerBoolean)
 }
 
 func (n *nlqState) addCurrentLiteral(out *[]sat.Literal, literal sat.Literal) error {
@@ -243,6 +267,12 @@ func (n *nlqState) close() (err error) {
 			return err
 		}
 		n.predicates = n.predicates[:i]
+	}
+	if n.answerReal != nil {
+		if err = n.answerReal.Close(); err != nil {
+			return err
+		}
+		n.answerReal = nil
 	}
 	if n.realModel != nil {
 		if err = n.realModel.Close(); err != nil {

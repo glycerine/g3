@@ -104,4 +104,11 @@ func TestNLQStateModelScopesAssumptionsAndPredicateLevels(t *testing.T) {
 	if state.level() != 1 || state.validModel || len(state.cached) != 1 || state.cached[0] != literals[0] {
 		t.Fatal("scope pop did not restore cached prefix", state.level(), state.validModel, state.cached)
 	}
+	if !state.answerValid {
+		t.Fatal("existential answer model was cleared by backtracking")
+	}
+	fmMust(t, state.restoreAnswerModel())
+	if value, cause := solver.LiteralValue(literals[2]); cause != nil || value != lbool.True {
+		t.Fatal("restored existential answer model", value, cause)
+	}
 }
