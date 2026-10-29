@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/sat"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type inlineVariablePatch struct {
@@ -14,7 +15,81 @@ type inlineVariablePatch struct {
 	numerator, denominator *polynomial.PolynomialRef
 }
 
-func (s *Solver) inlineCandidate(c *Clause) (uint32, *polynomial.PolynomialRef, *polynomial.PolynomialRef, bool, error) {
+func (s *Solver) inlineVariableSigns() ([]polynomial.PolynomialSign, error) {
+	signs := make([]polynomial.PolynomialSign, len(s.clauses.vars.isInt))
+	for _, clause := range s.clauses.originals {
+		if clause.Size() != 1 {
+			continue
+		}
+		literal := clause.Literals()[0]
+		atom, err := s.clauses.literalAtom(literal)
+		if err != nil {
+			return nil, err
+		}
+		ineq, ok := atom.(*InequalityAtom)
+		if !ok || len(ineq.factors) != 1 || ineq.factors[0].Even {
+			continue
+		}
+		var variable uint32
+		matched, err := s.config.Polynomial.IsVariable(ineq.factors[0].Polynomial, &variable)
+		if err != nil {
+			return nil, err
+		}
+		if matched {
+			if uint64(variable) >= uint64(len(signs)) || literal.Sign() {
+				continue
+			}
+			switch ineq.kind {
+			case AtomGT:
+				signs[variable] = polynomial.PolynomialSignPositive
+			case AtomLT:
+				signs[variable] = polynomial.PolynomialSignNegative
+			}
+			continue
+		}
+		var numeral unumeral.Int
+		matched, numeralSign, cause := s.inlineVariableNumeral(ineq.factors[0].Polynomial, &variable, &numeral)
+		if cause != nil {
+			return nil, cause
+		}
+		if !matched || uint64(variable) >= uint64(len(signs)) {
+			continue
+		}
+		switch {
+		case !literal.Sign() && ineq.kind == AtomGT && numeralSign >= 0:
+			signs[variable] = polynomial.PolynomialSignPositive
+		case !literal.Sign() && ineq.kind == AtomLT && numeralSign <= 0:
+			signs[variable] = polynomial.PolynomialSignNegative
+		case literal.Sign() && ineq.kind == AtomGT && numeralSign > 0:
+			signs[variable] = polynomial.PolynomialSignNegative
+		case literal.Sign() && ineq.kind == AtomLT && numeralSign < 0:
+			signs[variable] = polynomial.PolynomialSignPositive
+		}
+	}
+	return signs, nil
+}
+
+func (s *Solver) inlineVariableNumeral(p polynomial.Polynomial, variable *uint32, numeral *unumeral.Int) (matched bool, sign int32, err error) {
+	core, err := s.config.Polynomial.ArithmeticCore()
+	if err != nil {
+		return false, 0, err
+	}
+	integers, err := core.IntegerManager()
+	if err != nil {
+		return false, 0, err
+	}
+	defer func() {
+		err = errors.Join(err, integers.Del(numeral), s.config.Polynomial.CleanupVariableNumeral())
+	}()
+	matched, err = s.config.Polynomial.IsVariableNumeral(p, variable, numeral)
+	if err != nil || !matched {
+		return matched, 0, err
+	}
+	sign, err = integers.Sign(numeral)
+	return matched, sign, err
+}
+
+func (s *Solver) inlineCandidate(c *Clause, signs []polynomial.PolynomialSign) (uint32, *polynomial.PolynomialRef, *polynomial.PolynomialRef, bool, error) {
 	if c.Size() != 1 {
 		return 0, nil, nil, false, nil
 	}
@@ -70,13 +145,12 @@ func (s *Solver) inlineCandidate(c *Clause) (uint32, *polynomial.PolynomialRef, 
 		if cause != nil {
 			return 0, nil, nil, false, errors.Join(cause, coefficient.Close(), reduct.Close())
 		}
-		constant, cause := core.IsConstant(coefficientValue)
-		if cause != nil || !constant {
-			return 0, nil, nil, false, errors.Join(cause, coefficient.Close(), reduct.Close())
-		}
-		sign, cause := s.config.Polynomial.Sign(coefficientValue, nil)
+		sign, cause := s.config.Polynomial.Sign(coefficientValue, signs)
 		if cause != nil || sign == polynomial.PolynomialSignUnknown {
-			return 0, nil, nil, false, errors.Join(cause, coefficient.Close(), reduct.Close())
+			if closeErr := errors.Join(coefficient.Close(), reduct.Close()); cause != nil || closeErr != nil {
+				return 0, nil, nil, false, errors.Join(cause, closeErr)
+			}
+			continue
 		}
 		if sign == polynomial.PolynomialSignNegative {
 			negated, negCause := core.Neg(coefficientValue)
@@ -255,10 +329,14 @@ func (s *Solver) inlineVariables() error {
 	if len(s.clauses.learned) != 0 {
 		return nil
 	}
+	signs, err := s.inlineVariableSigns()
+	if err != nil {
+		return err
+	}
 	for {
 		changed := false
 		for _, clause := range append([]*Clause(nil), s.clauses.originals...) {
-			variable, denominatorRef, numeratorRef, ok, err := s.inlineCandidate(clause)
+			variable, denominatorRef, numeratorRef, ok, err := s.inlineCandidate(clause, signs)
 			if err != nil {
 				return err
 			}

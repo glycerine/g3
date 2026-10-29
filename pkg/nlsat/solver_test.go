@@ -492,4 +492,32 @@ func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
 			t.Fatal("three-variable inline result", result)
 		}
 	})
+
+	for _, tc := range []struct {
+		name string
+		kind AtomKind
+	}{{"positive-symbolic-coefficient", AtomGT}, {"negative-symbolic-coefficient", AtomLT}} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+			for i := 0; i < 2; i++ {
+				_, err := s.MkVar(false)
+				assignmentMust(t, err)
+			}
+			xTimesYMinusTwo := evaluatorPolynomial(t, s.evaluator,
+				evaluatorTerm{1, 1, 1}, evaluatorTerm{-2, 0, 0})
+			y := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 1})
+			solverUnit(t, s, AtomEQ, xTimesYMinusTwo)
+			solverUnit(t, s, tc.kind, y)
+			result, err := s.Check()
+			assignmentMust(t, err)
+			if result != lbool.True || len(s.patches) != 1 || s.patches[0].variable != 0 {
+				t.Fatal("symbolic-coefficient inline result", result, len(s.patches))
+			}
+			sign, err := s.config.Algebraic.EvalSign(s.config.Polynomial, xTimesYMinusTwo, s.assignment)
+			assignmentMust(t, err)
+			if sign != 0 {
+				t.Fatal("symbolic-coefficient patch violates equality", sign)
+			}
+		})
+	}
 }
