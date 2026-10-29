@@ -246258,9 +246258,15 @@
       "path": "src/util/obj_pair_set.h",
       "component": "util",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/smtcore/smt_conflict_antecedents.go",
+        "pkg/smtcore/smt_obj_pair_set_test.go"
+      ],
+      "tests": [
+        "TestSMTConflictObjectPairSetCanonicalInsertionAndMembership",
+        "TestSMTConflictObjectPairSetResetAllowsReuse"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -246276,11 +246282,20 @@
       "methods": [
         {
           "name": "SMT conflict_resolution enode_pair_set insert_if_not_there for owner-ID-normalized equality pairs",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/smtcore/smt_conflict_antecedents.go",
+          "tests": [
+            "TestSMTConflictObjectPairSetCanonicalInsertionAndMembership"
+          ]
         },
         {
           "name": "SMT conflict_resolution enode_pair_set contains debug check and reset after conflict processing",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/smtcore/smt_conflict_antecedents.go",
+          "tests": [
+            "TestSMTConflictObjectPairSetCanonicalInsertionAndMembership",
+            "TestSMTConflictObjectPairSetResetAllowsReuse"
+          ]
         },
         {
           "name": "Other insert/erase/empty/iterator overloads have no direct retained production call on this specialization",
@@ -246288,10 +246303,10 @@
         }
       ],
       "ownership": [
-        "The sole production instantiation is obj_pair_set<enode,enode> in smt_conflict_resolution.h. It borrows both enode pointers; membership is owned by the set and reset drops only membership. mark_eq orders pair operands by owner ID, inserts once, then pushes the pair into m_todo_eqs. The SMT conflict-resolution consumer is not yet ported to Go."
+        "The sole production instantiation is obj_pair_set<enode,enode> in smt_conflict_resolution.h. It borrows both enode pointers; membership is owned by the set and reset drops only membership. mark_eq orders pair operands by owner ID, inserts once, then pushes the pair into m_todo_eqs."
       ],
       "deviations": [
-        "When SMT conflict_resolution is ported, use a concrete map keyed by the ordered pair of typed enode handles; keep mark_eq normalization and first-insertion todo order. Do not port chashtable probing or add a universal pair-set adapter."
+        "The retained specialization uses a concrete Go map keyed by ordered typed enode owner IDs. C++ chashtable probing and unused overloads are not ported."
       ]
     },
     {

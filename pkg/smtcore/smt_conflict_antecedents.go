@@ -1,7 +1,8 @@
 package smtcore
 
-// Source: src/smt/smt_conflict_resolution.cpp:58-248 and the corresponding
-// public marking operations in smt_conflict_resolution.h.
+// Source: src/smt/smt_conflict_resolution.cpp:58-248, the corresponding
+// public marking operations in smt_conflict_resolution.h, and the sole live
+// obj_pair_set specialization from src/util/obj_pair_set.h.
 
 import (
 	"errors"
