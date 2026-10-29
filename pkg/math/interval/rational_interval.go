@@ -1,7 +1,9 @@
 package interval
 
-// Source: src/math/interval/interval.h:32-67,137-190 and
-// src/math/interval/interval_def.h:597-709,795-837.
+// Source: src/math/interval/interval.h:32-67,137-190,
+// src/math/interval/interval_def.h:597-709,795-837, and the concrete
+// interval_manager<im_default_config> instantiation in
+// src/math/interval/interval_mpq.cpp:17.
 
 import (
 	"errors"

@@ -1,7 +1,8 @@
 package subpaving
 
-// Source: src/math/subpaving/subpaving_mpf.h:23-43 and
-// src/math/subpaving/subpaving_t_def.h:408-514,1641, concrete config_mpf.
+// Source: src/math/subpaving/subpaving_mpf.h:23-43,
+// src/math/subpaving/subpaving_t_def.h:408-514,1641, and the concrete
+// context_t<config_mpf> instantiation in src/math/subpaving/subpaving_mpf.cpp:21.
 
 import (
 	"errors"

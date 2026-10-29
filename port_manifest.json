@@ -51476,13 +51476,29 @@
       "path": "src/math/interval/interval_mpq.cpp",
       "component": "math",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/math/interval/rational_interval.go",
+        "pkg/math/interval/rational_instantiation_test.go"
+      ],
+      "tests": [
+        "TestRationalIntervalConcreteInstantiationRejectsMissingManager"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "concrete interval_manager<im_default_config> explicit instantiation for retained rational interval consumers",
+          "status": "ported",
+          "go_target": "pkg/math/interval/rational_interval.go",
+          "tests": [
+            "TestRationalIntervalConcreteInstantiationRejectsMissingManager"
+          ]
+        }
+      ],
+      "ownership": [
+        "The C++ translation unit only forces a concrete template instantiation. The Go implementation uses the existing concrete RationalInterval owner and adds no separate runtime owner or generic adapter."
+      ],
       "deviations": []
     },
     {
@@ -74912,13 +74928,29 @@
       "path": "src/math/subpaving/subpaving_mpf.cpp",
       "component": "math",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/math/subpaving/arbitrary_context_root.go",
+        "pkg/math/subpaving/concrete_instantiations_test.go"
+      ],
+      "tests": [
+        "TestConcreteSubpavingInstantiationsRejectMissingManagers"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "concrete context_t<config_mpf> explicit instantiation for retained arbitrary-precision subpaving consumers",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/arbitrary_context_root.go",
+          "tests": [
+            "TestConcreteSubpavingInstantiationsRejectMissingManagers"
+          ]
+        }
+      ],
+      "ownership": [
+        "The C++ translation unit only forces a concrete template instantiation. The Go implementation uses the existing concrete ArbitraryContext owner and adds no separate runtime owner or generic adapter."
+      ],
       "deviations": []
     },
     {
@@ -75023,13 +75055,29 @@
       "path": "src/math/subpaving/subpaving_mpff.cpp",
       "component": "math",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/math/subpaving/fast_context.go",
+        "pkg/math/subpaving/concrete_instantiations_test.go"
+      ],
+      "tests": [
+        "TestConcreteSubpavingInstantiationsRejectMissingManagers"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "concrete context_t<config_mpff> explicit instantiation for retained fast subpaving consumers",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/fast_context.go",
+          "tests": [
+            "TestConcreteSubpavingInstantiationsRejectMissingManagers"
+          ]
+        }
+      ],
+      "ownership": [
+        "The C++ translation unit only forces a concrete template instantiation. The Go implementation uses the existing concrete FastContext owner and adds no separate runtime owner or generic adapter."
+      ],
       "deviations": []
     },
     {
