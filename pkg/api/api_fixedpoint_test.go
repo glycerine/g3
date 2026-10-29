@@ -240,6 +240,35 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 	}
 }
 
+func TestSMTContextFixedpointParameterDescriptors(t *testing.T) {
+	context, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, context.Close()) })
+	descriptors, err := context.FixedpointParameterDescriptors()
+	astTestMust(t, err)
+	if len(descriptors) < 50 {
+		t.Fatal("incomplete fixedpoint parameter catalog", len(descriptors))
+	}
+	want := map[string]struct{ kind, value string }{
+		"fixedpoint.engine":           {"symbol", "auto-config"},
+		"fixedpoint.pdr.farkas":       {"bool", "true"},
+		"fixedpoint.spacer.max_level": {"unsigned int", "4294967295"},
+	}
+	for _, descriptor := range descriptors {
+		expected, found := want[descriptor.Name]
+		if !found {
+			continue
+		}
+		if descriptor.Kind != expected.kind || descriptor.Default != expected.value || descriptor.Description == "" {
+			t.Fatal("fixedpoint parameter descriptor", descriptor)
+		}
+		delete(want, descriptor.Name)
+	}
+	if len(want) != 0 {
+		t.Fatal("missing fixedpoint parameter descriptors", want)
+	}
+}
+
 func TestSMTContextFixedpointParameterUpdateRebuildsPDR(t *testing.T) {
 	context, err := NewSMTContext()
 	astTestMust(t, err)

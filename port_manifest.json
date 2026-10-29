@@ -5297,7 +5297,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_replay.go"],
-      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports"],
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports"],
       "assertions": [
         {
           "line": 57,
@@ -5312,13 +5312,13 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "idiomatic Go relation registration, implicit-variable, concrete/table fact and named rule insertion/replacement, scoped rule/background-assertion enumeration, rule/assertion scopes, replayable fixedpoint SMT-LIB reader/writer integration, backend selection, single and relation-vector queries, Spacer-from-level query, owning trace/inductive-certificate answer, inductive model and model evaluation, PDR/Spacer frame cover/invariant, Spacer reachable summary and copied statistics surface",
+          "name": "idiomatic Go relation registration, implicit-variable, concrete/table fact and named rule insertion/replacement, scoped rule/background-assertion enumeration, rule/assertion scopes, replayable fixedpoint SMT-LIB reader/writer integration, copied fixedpoint parameter descriptors, backend selection, single and relation-vector queries, Spacer-from-level query, owning trace/inductive-certificate answer, inductive model and model evaluation, PDR/Spacer frame cover/invariant, Spacer reachable summary and copied statistics surface",
           "status": "partial",
           "go_target": "pkg/api/api_fixedpoint.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports"]
+          "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports"]
         },
         {
-          "name": "remaining standalone fixedpoint owner, parameter descriptors and callbacks",
+          "name": "remaining standalone fixedpoint owner and external-relation callbacks",
           "status": "unported",
           "go_target": null,
           "tests": []

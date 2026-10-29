@@ -207,6 +207,24 @@ func (s *GlobalParamsService) SourceGetModuleSymbol(name usymbol.Symbol) (Params
 	}
 	return g.GetModule(name)
 }
+
+// SourceModuleDescriptorsName returns the borrowed registered descriptor
+// catalog for a module.
+func (s *GlobalParamsService) SourceModuleDescriptorsName(name string) (*ParamDescrs, error) {
+	if e := s.open(); e != nil {
+		return nil, e
+	}
+	key, e := s.Symbols.Intern(name)
+	if e != nil {
+		return nil, e
+	}
+	g, e := s.namespaceImpAt(603)
+	if e != nil {
+		return nil, e
+	}
+	return g.moduleDescriptor(key)
+}
+
 func (s *GlobalParamsService) SourceGetRef() (*ParamsRef, error) {
 	if e := s.open(); e != nil {
 		return nil, e

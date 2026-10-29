@@ -12,6 +12,62 @@ import (
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
+// FixedpointParameterDescriptor is copied metadata for one fixedpoint option.
+type FixedpointParameterDescriptor struct {
+	Name        string
+	Kind        string
+	Description string
+	Default     string
+}
+
+// FixedpointParameterDescriptors returns copied metadata for every registered
+// fixedpoint option. Names are directly accepted by the option setters.
+func (c *SMTContext) FixedpointParameterDescriptors() ([]FixedpointParameterDescriptor, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	service, err := c.command.GlobalParameters()
+	if err != nil {
+		return nil, err
+	}
+	descriptors, err := service.SourceModuleDescriptorsName("fixedpoint")
+	if err != nil {
+		return nil, err
+	}
+	count, err := descriptors.Size()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]FixedpointParameterDescriptor, 0, count)
+	for i := uint32(0); i < count; i++ {
+		symbol, x := descriptors.ParamName(i)
+		if x != nil {
+			return nil, x
+		}
+		name, x := service.Symbols.String(symbol)
+		if x != nil {
+			return nil, x
+		}
+		kind, x := descriptors.Kind(symbol)
+		if x != nil {
+			return nil, x
+		}
+		description, _, x := descriptors.Description(symbol)
+		if x != nil {
+			return nil, x
+		}
+		defaultValue, _, x := descriptors.Default(symbol)
+		if x != nil {
+			return nil, x
+		}
+		result = append(result, FixedpointParameterDescriptor{
+			Name: "fixedpoint." + name, Kind: kind.String(),
+			Description: description, Default: defaultValue,
+		})
+	}
+	return result, nil
+}
+
 // WriteFixedpointSMT2 exports the effective current fixedpoint declarations,
 // background assertions, and rules as replayable SMT-LIB without a query.
 func (c *SMTContext) WriteFixedpointSMT2(output io.Writer) error {
