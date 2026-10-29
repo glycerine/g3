@@ -71948,7 +71948,24 @@
         "pkg/math/realclosure/sign_sturm_tarski_interval.go",
         "pkg/math/realclosure/sign_sturm_tarski_interval_test.go",
         "pkg/math/realclosure/sign_sturm_sequence_ownership_test.go",
-        "pkg/math/realclosure/sign_sturm_sequence_refusal_test.go"
+        "pkg/math/realclosure/sign_sturm_sequence_refusal_test.go",
+        "pkg/math/realclosure/algebraic_sign_exact.go",
+        "pkg/math/realclosure/algebraic_sign_interval.go",
+        "pkg/math/realclosure/value_sign_determined.go",
+        "pkg/math/realclosure/value_canonical_result.go",
+        "pkg/math/realclosure/value_add_canonical.go",
+        "pkg/math/realclosure/value_subtract_canonical.go",
+        "pkg/math/realclosure/value_multiply_canonical.go",
+        "pkg/math/realclosure/value_compare_determined.go",
+        "pkg/math/realclosure/value_predicates_determined.go",
+        "pkg/math/realclosure/algebraic_sign_exact_test.go",
+        "pkg/math/realclosure/algebraic_sign_interval_test.go",
+        "pkg/math/realclosure/value_sign_determined_test.go",
+        "pkg/math/realclosure/value_canonical_arithmetic_test.go",
+        "pkg/math/realclosure/value_compare_determined_test.go",
+        "pkg/math/realclosure/value_predicates_determined_test.go",
+        "pkg/math/realclosure/value_canonical_zero_test.go",
+        "pkg/math/realclosure/algebraic_sign_scope_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -71982,7 +71999,13 @@
         "TestRealClosureBoundedRationalSturmTarskiEndpoints",
         "TestRealClosureRationalSturmSequenceOwnsBorrowedCoefficients",
         "TestRealClosureSturmSequenceRefusedDestructorRetainsRows",
-        "TestRealClosureSturmTemporaryRefusalPrecedesOlderRows"
+        "TestRealClosureSturmTemporaryRefusalPrecedesOlderRows",
+        "TestExactSingleRoot",
+        "TestRestrictBinary",
+        "TestDetermineRetained",
+        "TestCanonicalArithmetic",
+        "TestDeterminedComparison",
+        "TestCanonicalResultDeletes"
       ],
       "conditionals": [
         {
