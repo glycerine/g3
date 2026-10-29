@@ -23,7 +23,7 @@ func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 		{"qe_rec_blocked_terms.smt2", "unsat\n", "", false},
 		{"qe_rec_free_boolean.smt2", "sat\n", "", true},
 		{"qsat_scopes.smt2", "sat\nunsat\nsat\n((k 3))\n", "", false},
-		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\n", "unknown\nunknown\nsat\nunsat\n", false},
+		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\nunsat\nunsat\n", "unknown\nunknown\nsat\nunsat\nunknown\nunknown\n", false},
 		{"nra_portfolio.smt2", "sat\nsat\nunsat\nsat\n", "", false},
 		{"nra_solver_quantifiers.smt2", "sat\nsat\nunsat\nsat\n", "", false},
 	} {

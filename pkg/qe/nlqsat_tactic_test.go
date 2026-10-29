@@ -181,3 +181,49 @@ func TestNLQSATTacticPublishesOnlyFreeRealModelValues(t *testing.T) {
 		t.Fatal("free real has no model value", value, cause)
 	}
 }
+
+func TestNLQSATTacticPurifiesSymbolicDivision(t *testing.T) {
+	for _, consistency := range []bool{false, true} {
+		t.Run(map[bool]string{false: "satisfiable", true: "functional-consistency"}[consistency], func(t *testing.T) {
+			f := newFMFixture(t)
+			a := f.constant("division-a", f.real)
+			b := f.constant("division-b", f.real)
+			c, d := a, b
+			if consistency {
+				c = f.constant("division-c", f.real)
+				d = f.constant("division-d", f.real)
+			}
+			zero := f.own(f.r.manager.ArithmeticRealNumeralText("0"))
+			two := f.own(f.r.manager.ArithmeticRealNumeralText("2"))
+			bZero := f.own(f.r.manager.MkEq(b, zero))
+			bNonzero := f.own(f.r.manager.MkNot(bZero))
+			left := f.own(f.r.manager.MkArithmeticDiv(a, b))
+			var formula ast.ASTHandle
+			if consistency {
+				right := f.own(f.r.manager.MkArithmeticDiv(c, d))
+				aEqual := f.own(f.r.manager.MkEq(a, c))
+				bEqual := f.own(f.r.manager.MkEq(b, d))
+				valuesEqual := f.own(f.r.manager.MkEq(left, right))
+				valuesDiffer := f.own(f.r.manager.MkNot(valuesEqual))
+				formula = f.own(f.r.manager.MkAndArray([]ast.ASTHandle{bNonzero, aEqual, bEqual, valuesDiffer}))
+			} else {
+				value := f.own(f.r.manager.MkEq(left, two))
+				formula = f.own(f.r.manager.MkAnd(bNonzero, value))
+			}
+			runner, err := NewNLQSATTactic(f.r.manager, f.r.config)
+			fmMust(t, err)
+			t.Cleanup(func() { fmMust(t, runner.Close()) })
+			goal := f.goal(false, false)
+			result := f.result()
+			fmMust(t, goal.Assert(formula))
+			fmMust(t, runner.Apply(goal, result))
+			if consistency {
+				if !goal.IsDecidedUnsat() {
+					t.Fatal("division congruence axiom was not enforced")
+				}
+			} else if size, cause := goal.Size(); cause != nil || size != 0 {
+				t.Fatal("symbolic division goal was not decided SAT", size, cause)
+			}
+		})
+	}
+}

@@ -129,6 +129,9 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if err = preparation.hoist(qsatSAT, formulaRef); err != nil {
 		return err
 	}
+	if err = preparation.ackermannizeDivisions(formulaRef); err != nil {
+		return err
+	}
 	formula, err = t.manager.RefGet(formulaRef)
 	if err != nil {
 		return err
@@ -154,11 +157,14 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	services := model.ModelEvaluatorConfig{Context: t.config.Context, Globals: t.config.Globals, Memory: t.manager.NumeralService().RuntimeOwner(), Cooperation: t.config.Cooperation, Trace: t.config.Trace}
-	cnf, err := tacticcore.NewTseitinCNFCoreTactic(t.manager, t.config.Context, t.config.Globals, nil, services)
+	cnf, err := tacticcore.MakeTseitinCNFTactic(t.manager, t.config.Context, t.config.Globals, nil, services)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, cnf.Close()) }()
+	if err = cnf.IncRef(); err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, cnf.DecRef()) }()
 	cnfResult := &tactic.TacticResult{}
 	defer func() { err = errors.Join(err, cnfResult.Close()) }()
 	if err = cnf.Apply(cnfGoal, cnfResult); err != nil {
