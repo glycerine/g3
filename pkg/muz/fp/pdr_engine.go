@@ -150,6 +150,14 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err = context.SetUseInductiveGeneralizer(useInductive); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
+	multiCoreName := "pdr.use_multicore_generalizer"
+	useMultiCore, err := e.globals.Context.GetBoolName(&fixedpoint, &multiCoreName, false)
+	if err != nil {
+		return lbool.Undef, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseMultiCoreGeneralizer(useMultiCore); err != nil {
+		return lbool.Undef, errors.Join(err, context.Close())
+	}
 	arithmeticInductiveName := "pdr.use_arith_inductive_generalizer"
 	useArithmeticInductive, err := e.globals.Context.GetBoolName(&fixedpoint, &arithmeticInductiveName, false)
 	if err != nil {

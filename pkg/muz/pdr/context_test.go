@@ -270,6 +270,7 @@ func TestContextActivatesFarkasBeforeArithmeticSolvers(t *testing.T) {
 	pdrMust(t, context.SetBreadthFirstModelSearch(false))
 	pdrMust(t, context.SetFlexibleTrace(true))
 	pdrMust(t, context.SetUseModelGeneralizer(true))
+	pdrMust(t, context.SetUseMultiCoreGeneralizer(true))
 	pdrMust(t, context.SetUseArithmeticInductiveGeneralizer(true))
 	pdrMust(t, context.SetUseInductiveReachabilityGeneralizer(true))
 	pdrMust(t, context.SetUseConvexClosureGeneralizer(true))
@@ -315,6 +316,9 @@ func TestContextActivatesFarkasBeforeArithmeticSolvers(t *testing.T) {
 	}
 	if err = context.SetUseModelGeneralizer(false); err == nil {
 		t.Fatal("initialized context accepted a model-generalizer change")
+	}
+	if err = context.SetUseMultiCoreGeneralizer(false); err == nil {
+		t.Fatal("initialized context accepted a multi-core-generalizer change")
 	}
 	if err = context.SetUseArithmeticInductiveGeneralizer(false); err == nil {
 		t.Fatal("initialized context accepted an arithmetic-inductive-generalizer change")

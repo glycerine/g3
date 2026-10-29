@@ -45,6 +45,7 @@ type Context struct {
 	proofActive       bool
 	useModel          bool
 	useInductive      bool
+	useMultiCore      bool
 	useArithInductive bool
 	useInduction      bool
 	useConvexClosure  bool
@@ -141,6 +142,20 @@ func (c *Context) SetUseInductiveGeneralizer(enabled bool) error {
 		return ast.ErrASTDomain
 	}
 	c.useInductive = enabled
+	return nil
+}
+
+// SetUseMultiCoreGeneralizer selects the source multi-core wrapper. The
+// retained source implementation minimizes and emits its first core; its
+// additional-core loop observes an empty old-core vector.
+func (c *Context) SetUseMultiCoreGeneralizer(enabled bool) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	c.useMultiCore = enabled
 	return nil
 }
 

@@ -919,6 +919,7 @@ var scriptResults = map[string]string{
 	"fixedpoint_pdr_utvpi_fragment.smt2":                "unsat\n",
 	"fixedpoint_pdr_general_arithmetic_fragment.smt2":   "unsat\n",
 	"fixedpoint_pdr_arithmetic_inductive.smt2":          "unsat\n",
+	"fixedpoint_pdr_multicore.smt2":                     "unsat\n",
 	"fixedpoint_pdr_sliced_trace.smt2":                  "sat\n(and Goal (P!slice!0 0))\n",
 	"fixedpoint_pdr_sliced_compound_tail.smt2":          "sat\n(and Goal (P!slice!0 0))\n",
 	"fixedpoint_pdr_sliced_compound_head.smt2":          "unsat\n",

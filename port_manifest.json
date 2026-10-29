@@ -84129,7 +84129,7 @@
       "path": "src/muz/pdr/pdr_generalizers.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/generalizers.go",
         "pkg/muz/pdr/generalizer_arithmetic.go",
@@ -84224,10 +84224,11 @@
           "tests": ["TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerRecursiveRuleLevelZeroAndQueueOrdering", "TestInductionGeneralizerLevelOnePreservesUnsignedUnderflowBoundary", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt", "TestInductionGeneralizerRootFallsBackWithIndependentOwnership", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"]
         },
         {
-          "name": "core_multi_generalizer",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "core_multi_generalizer reached first-core minimization and parameter dispatch; the source additional-core loop observes its never-populated old_core vector",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/generalizers.go",
+          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/fp/pdr_engine.go"],
+          "tests": ["TestContextActivatesFarkasBeforeArithmeticSolvers", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_multicore.smt2"]
         },
         {
           "name": "core_farkas_generalizer and consequence-driven convex-hull method3",
@@ -84242,7 +84243,7 @@
         "The induction generalizer owns all staged declarations, quantified formulas and blocked-transition expressions through its fresh SMT-context check, then independently pins either the UNSAT replacement or fallback core."
       ],
       "deviations": [
-        "The default Boolean and optional live convex closure/interior, induction/reachability and arithmetic inductive generalizers are integrated in source order. The source-buggy multi-core generalizer remains an explicit obligation.",
+        "The default Boolean and optional live convex closure/interior, induction/reachability and arithmetic inductive generalizers are integrated in source order. The multi-core option preserves the reached source behavior: one Boolean-minimized core, because old_core is never populated before the additional-core loop.",
         "The source hash-table gives no semantic iteration order for equal-magnitude matches; Go preserves deterministic first-magnitude encounter order without porting source hashing."
       ]
     },
@@ -84250,7 +84251,7 @@
       "path": "src/muz/pdr/pdr_generalizers.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/generalizer_arithmetic.go", "pkg/muz/pdr/generalizer_induction.go", "pkg/muz/pdr/pdr_closure.go"],
       "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore", "TestConvexClosureAndInteriorOwnExpectedEndpointRegions", "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"],
       "conditionals": [
@@ -84291,10 +84292,10 @@
           "tests": ["TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt"]
         },
         {
-          "name": "remaining live optional core_multi generalizer declaration",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "optional core_multi generalizer declaration and reached first-core behavior",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/generalizers.go",
+          "tests": ["TestContextActivatesFarkasBeforeArithmeticSolvers", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_multicore.smt2"]
         },
         {
           "name": "core_farkas_generalizer declaration",
@@ -93219,7 +93220,7 @@
       "path": "src/muz/transforms/dl_mk_rule_inliner.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go",
         "pkg/muz/fp/spacer_engine.go"
@@ -93390,8 +93391,15 @@
           ]
         },
         {
-      "name": "remaining proof/model conversion",
-          "status": "unported"
+          "name": "ordered removed-clause model capture, normalization, reverse evaluation, default-false completion, and disjunctive interpretation reconstruction",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/horn_inline_results.go",
+          "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers"]
+        },
+        {
+          "name": "standalone proof-object conversion",
+          "status": "dead_deleted",
+          "reason": "The retained fixedpoint public result surface exposes model-derived certificates and does not construct standalone proof objects."
         }
       ],
       "ownership": [
@@ -93406,7 +93414,7 @@
       "path": "src/muz/transforms/dl_mk_rule_inliner.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go"
       ],
@@ -93714,7 +93722,7 @@
       "path": "src/muz/transforms/dl_mk_subsumption_checker.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/subsumption_checker.go",
         "pkg/muz/fp/spacer_engine.go"
@@ -93776,22 +93784,29 @@
           "go_target": "pkg/muz/transforms/subsumption_checker.go"
         },
         {
-          "name": "finite relation-table cardinality discovery and model-converter extension",
-          "status": "unported"
+          "name": "ordered total-relation model-converter extension",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/subsumption_checker.go",
+          "tests": ["TestSubsumptionCheckerRemovesTotalPositiveTail"]
+        },
+        {
+          "name": "finite relation-table cardinality discovery",
+          "status": "dead_deleted",
+          "reason": "The retained PDR and Spacer preprocessing consumers have no finite relation-table context; structural total-rule discovery is their live source path."
         }
       ],
       "ownership": [
         "Each transform result owns newly constructed rules and inherited predicate metadata; source snapshots and retained total-rule definitions are closed on every return path."
       ],
       "deviations": [
-        "The live Spacer preprocessing consumer has no finite relation context or model converter, so relation-table cardinality discovery and converter extension remain outside this retained path."
+        "The retained PDR and Spacer consumers have no finite relation context, so table-cardinality discovery is omitted. Structural total relations publish ordered true interpretations through the shared Horn conversion ledger."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_subsumption_checker.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/subsumption_checker.go"
       ],
@@ -93819,15 +93834,21 @@
           "go_target": "pkg/muz/transforms/subsumption_checker.go"
         },
         {
-          "name": "relation-context cardinality hooks and model-converter state",
-          "status": "unported"
+          "name": "total-relation model-converter state",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/subsumption_checker.go"
+        },
+        {
+          "name": "relation-context cardinality hooks",
+          "status": "dead_deleted",
+          "reason": "No retained Horn preprocessing backend owns a finite relation-table context."
         }
       ],
       "ownership": [
         "Close invalidates the plugin; transformation-local source and result owners are independently finalized and released."
       ],
       "deviations": [
-        "Relation-context and model-converter fields are deferred with their currently unreached consumer path."
+        "Relation-context hooks are omitted with their unreached finite-table consumer; model steps are transferred to the live Horn backend ledger before plugin closure."
       ]
     },
     {
@@ -93991,7 +94012,7 @@
       "path": "src/muz/transforms/dl_transforms.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/horn_preprocess.go",
         "pkg/muz/fp/pdr_engine.go",
@@ -94115,7 +94136,7 @@
       "path": "src/muz/transforms/dl_transforms.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_engine.go"],
       "tests": [
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_acyclic_inlining.smt2",
@@ -94141,7 +94162,7 @@
       "methods": [
         {
           "name": "apply_default_transformation retained shared Horn-backend entry point",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/spacer_engine.go"
         }
       ],
@@ -94149,7 +94170,7 @@
         "Each Horn backend owns the prepared RuleSet and transferred model-reconstruction state across the query boundary."
       ],
       "deviations": [
-        "The package-private Go preparation method replaces the C++ free function while preserving the retained consumer boundary; PDR's converter-gated destructive stages remain disabled."
+        "The package-private Go preparation method replaces the C++ free function while preserving the retained consumer boundary and reverse result-conversion order for both PDR and Spacer."
       ]
     },
     {

@@ -182,7 +182,10 @@ func (c *Context) generalizeBlockingCores(node *ModelNode, literals []ast.ASTHan
 			return nil, err
 		}
 	}
-	if c.useInductive {
+	// core_multi_generalizer first invokes the same Boolean minimizer. Its
+	// source old_core vector is never populated, so no additional cores are
+	// produced and this is its complete reached behavior.
+	if c.useMultiCore || c.useInductive {
 		next := make([]generalizedCore, 0, len(cores))
 		for _, core := range cores {
 			generalized, x := generalizeBoolCore(node.transformer, node.level, core)
