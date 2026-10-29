@@ -5979,7 +5979,7 @@
       "path": "src/api/api_solver.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_solver.go",
         "pkg/api/api_solver_params.go",
@@ -6005,12 +6005,12 @@
         "TestSMTContextUnknownReason",
         "TestSMTContextCopiesShareClose"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Public strategic solver construction and retained assert/assert-and-track, assertion enumeration, push/pop/scope depth, check/check-assumptions, model, proof, unsat-core, reason-unknown, copied statistics, owning consequence results, implied-equality partitions, transactional assertion loading, stateful SMT-LIB command execution, and replayable declaration/assertion scope export",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_solver.go",
           "go_targets": ["pkg/cmd_context/result_access.go", "pkg/cmd_context/replay_smt2.go", "pkg/parsers/smt2/commands.go"],
           "tests": [
@@ -6031,14 +6031,14 @@
         "SMTContext owns the command context, strategic solver, AST manager and independent runtime services. Returned models transfer one owning reference to the caller; core/proof handles remain borrowed from the last result. Copied SMTContext values share one close state. AssertSMT2 owns an isolated parser context and pins all translated target formulas until publication and cleanup. ExecuteSMT2 borrows caller streams for one parse and retains declarations, assertions, scopes and check results in the same owning command context across API calls. WriteSMT2 borrows its writer synchronously and exports no AST ownership."
       ],
       "deviations": [
-        "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Solver translation, construction from tactics, DIMACS file loading, parameter descriptors and string display remain unported at this API layer."
+        "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Source C-ABI-only solver translation, opaque tactic construction, DIMACS file loading, help/descriptor wrappers and reference-count entry points have no retained Go consumers; replayable SMT2/WriteSMT2 supersedes the retained string-display use case."
       ]
     },
     {
       "path": "src/api/api_solver.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_solver.go"],
       "tests": ["TestSMTContextCopiesShareClose", "TestSMTContextSMT2ReplaysDeclarationsAssertionsAndScopes", "TestSMTContextSMT2ReplaysParametricSortsAndNestedConstantArrays", "TestSMTContextWriteSMT2GuardsAndMatchesStringForm"],
       "conditionals": [
@@ -6051,9 +6051,16 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Retained public solver owner, lazy strategic backend state, logic/parameter state and concrete solver access",
+          "status": "ported",
+          "go_target": "pkg/api/api_solver.go",
+          "tests": ["TestSMTContextCopiesShareClose", "TestSMTContextSMT2ReplaysDeclarationsAssertionsAndScopes"]
+        }
+      ],
       "ownership": ["SMTContext is the owning public Go solver wrapper; copies share one state and Close is idempotent."],
       "deviations": ["The C Z3_solver_ref wrapper and ABI reference-count calls are replaced by Go ownership and Close."]
     },
