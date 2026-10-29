@@ -316,5 +316,12 @@ func (m *ASTManager) isFullyInterpreted(r astNodeRef) (bool, error) {
 	if fid >= 0 && m.pluginAt(fid).present && m.pluginAt(fid).kind == astArrayPlugin {
 		return m.arrayFullyInterpreted(r)
 	}
+	if fid >= 0 && m.pluginAt(fid).present && m.pluginAt(fid).kind == astDatatypePlugin {
+		// Source: src/ast/datatype_decl_plugin.cpp:477-520. The retained
+		// util::is_fully_interp implementation returns true before its
+		// recursive accessor-range analysis. Keep that observable fork
+		// behavior explicit instead of inheriting the generic plugin default.
+		return true, nil
+	}
 	return fid >= 0 && m.pluginAt(fid).present, nil
 }

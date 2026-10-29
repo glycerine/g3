@@ -16707,6 +16707,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/ast/ast_builtin_plugins_values.go",
+        "pkg/ast/ast_datatype_fully_interpreted_source_test.go",
         "pkg/ast/ast_datatype_decl.go",
         "pkg/ast/ast_datatype_decl_test.go",
         "pkg/ast/ast_datatype_utility.go",
@@ -16736,6 +16738,7 @@
         "pkg/ast/rewriter/enum2bv_source_owners_test.go"
       ],
       "tests": [
+        "TestDatatypeFullyInterpretedPreservesRetainedEarlyReturn",
         "TestASTDatatypeSortAndOriginalDeclarations",
         "TestASTDatatypeDeclarationRefusals",
         "TestDatatypeRewriterOriginalApplicationReductions",
@@ -17126,6 +17129,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/ast/ast_builtin_plugins_values.go",
+        "pkg/ast/ast_datatype_fully_interpreted_source_test.go",
         "pkg/ast/ast_datatype_decl.go",
         "pkg/ast/ast_datatype_decl_test.go",
         "pkg/ast/ast_datatype_utility.go",
@@ -17153,6 +17158,7 @@
         "pkg/ast/rewriter/enum2bv_source_owners_test.go"
       ],
       "tests": [
+        "TestDatatypeFullyInterpretedPreservesRetainedEarlyReturn",
         "TestASTDatatypeSortAndOriginalDeclarations",
         "TestASTDatatypeDeclarationRefusals",
         "TestDatatypeRewriterOriginalApplicationReductions",
