@@ -169533,7 +169533,7 @@
       "path": "src/tactic/bv/dt2bv_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/tactic/bv/dt2bv_tactic.go",
         "pkg/tactic/bv/dt2bv_tactic_test.go",
@@ -169558,12 +169558,12 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained dt2bv classification across all formulas, unsupported-use exclusion, source persistent sort tables/cleanup, enum2bv goal/proof/dependency rewriting, side constraints and extension-before-filter model reconstruction; command tactic integration",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/bv/dt2bv_tactic.go",
             "pkg/tactic/bv/dt2bv_tactic_test.go",
@@ -169588,14 +169588,14 @@
       "deviations": [
         "Go slices/maps implement stack and classification storage; no STL internals or universal callback adapters are ported. The concrete quick walk preserves postorder, shared-only marking and quantifier body/pattern/no-pattern traversal. Native Go model-map snapshots use unspecified iteration as source obj_map does; enum definitions do not depend on one another.",
         "C++ internal command goal display prints quantified BV binder sorts as (_ bv N), while existing Go DisplayWithAttributes uses SMT2 (_ BitVec N). C++ goal comparisons normalize only this explicit sort spelling plus whitespace/fresh names; this is not exact printer parity. The separate SMT-LIB model/core/scope vector compares exact canonical outputs without that normalization.",
-        "Whole source remains partial: retained native exception/physical NUM retirement, translation across independently owned runtime services, broader trace/assertion frontiers and source printer parity are not established. Enum2bv solver wrapper integration remains separate."
+        "Focused classifier, proof/dependency, model, cleanup, allocation-refusal and native/C++ command checks cover the retained tactic. Exact internal goal-printer spelling remains a diagnostic-only difference; enum2bv solver-wrapper integration is tracked by its own source unit."
       ]
     },
     {
       "path": "src/tactic/bv/dt2bv_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/tactic/bv/dt2bv_tactic.go",
         "pkg/tactic/bv/dt2bv_tactic_test.go",
@@ -169624,12 +169624,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained dt2bv classification across all formulas, unsupported-use exclusion, source persistent sort tables/cleanup, enum2bv goal/proof/dependency rewriting, side constraints and extension-before-filter model reconstruction; command tactic integration",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/bv/dt2bv_tactic.go",
             "pkg/tactic/bv/dt2bv_tactic_test.go",
@@ -169654,7 +169654,7 @@
       "deviations": [
         "Go slices/maps implement stack and classification storage; no STL internals or universal callback adapters are ported. The concrete quick walk preserves postorder, shared-only marking and quantifier body/pattern/no-pattern traversal. Native Go model-map snapshots use unspecified iteration as source obj_map does; enum definitions do not depend on one another.",
         "C++ internal command goal display prints quantified BV binder sorts as (_ bv N), while existing Go DisplayWithAttributes uses SMT2 (_ BitVec N). C++ goal comparisons normalize only this explicit sort spelling plus whitespace/fresh names; this is not exact printer parity. The separate SMT-LIB model/core/scope vector compares exact canonical outputs without that normalization.",
-        "Whole source remains partial: retained native exception/physical NUM retirement, translation across independently owned runtime services, broader trace/assertion frontiers and source printer parity are not established. Enum2bv solver wrapper integration remains separate."
+        "Focused classifier, proof/dependency, model, cleanup, allocation-refusal and native/C++ command checks cover the retained tactic. Exact internal goal-printer spelling remains a diagnostic-only difference; enum2bv solver-wrapper integration is tracked by its own source unit."
       ]
     },
     {
