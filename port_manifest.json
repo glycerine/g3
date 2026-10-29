@@ -92783,9 +92783,9 @@
       "path": "src/muz/transforms/dl_mk_filter_rules.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go"],
+      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"],
       "assertions": [
         {
           "line": 65,
@@ -92808,19 +92808,19 @@
           "text": "SASSERT(new_tail.size() == new_is_negated.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"whole filter-rules transform, normalized filter caching, repeated/value argument rewriting and duplicate-tail removal","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesCachesNormalizedRepeatedArgumentFilters","TestFilterRulesLocalRepeatedAndValueArguments","TestFilterRulesRemoveDuplicateRewrittenTails","TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"]}],
+      "ownership": ["The transform owns generated declarations/rules through the existing rule-set owner and keeps call-local cache keys concrete and deterministic."],
       "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_filter_rules.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/transforms/filter_rules.go", "pkg/muz/transforms/filter_rules_test.go"],
+      "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments", "TestFilterRulesRemoveDuplicateRewrittenTails", "TestFilterRulesIgnoreDistinctAndNegatedPredicateArguments"],
       "conditionals": [
         {
           "line": 19,
@@ -92831,10 +92831,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"filter-rules plugin public transform and retained mk_new_rule_tail helper","status":"ported","go_target":"pkg/muz/transforms/filter_rules.go","tests":["TestFilterRulesRemoveDuplicateRewrittenTails"]}],
+      "ownership": ["Plugin state is scoped to each transform invocation; output rules transfer to the returned RuleSet."],
       "deviations": []
     },
     {
