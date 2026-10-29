@@ -9,10 +9,6 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (d *DER) isOr(h ast.ASTHandle) (bool, error) {
-	return d.isBasic(h, ast.ASTOpOr)
-}
-
 func (d *DER) substituteTerm(c *derCall, term ast.ASTHandle, bindings []ast.ASTHandle, scratch ast.ASTRef) (ast.ASTHandle, error) {
 	if err := d.substitute.Substitute(term, bindings, scratch); err != nil {
 		return ast.ASTHandle{}, err
@@ -24,7 +20,7 @@ func (d *DER) substituteTerm(c *derCall, term ast.ASTHandle, bindings []ast.ASTH
 	return c.hold(value)
 }
 
-func (d *DER) applySubstitution(c *derCall, q, body ast.ASTHandle, positions []int32, definitions []ast.ASTHandle, order []uint32) (result ast.ASTHandle, err error) {
+func (d *DER) applySubstitution(c *derCall, q ast.ASTHandle, literals []ast.ASTHandle, disjunction bool, positions []int32, definitions []ast.ASTHandle, order []uint32) (result ast.ASTHandle, err error) {
 	bindings := make([]ast.ASTHandle, len(definitions))
 	scratch, err := d.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
@@ -38,30 +34,24 @@ func (d *DER) applySubstitution(c *derCall, q, body ast.ASTHandle, positions []i
 		}
 		bindings[len(bindings)-int(index)-1] = current
 	}
-	count, err := d.manager.GetNumArgs(body)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	args := make([]ast.ASTHandle, 0, count)
-	for i := uint32(0); i < count; i++ {
+	args := make([]ast.ASTHandle, 0, len(literals))
+	for i := range literals {
 		index := positions[i]
 		if index >= 0 && definitions[index] != (ast.ASTHandle{}) {
 			continue
 		}
-		arg, x := d.manager.GetArg(body, i)
-		if x != nil {
-			return ast.ASTHandle{}, x
-		}
-		args = append(args, arg)
+		args = append(args, literals[i])
 	}
 	var reducedBody ast.ASTHandle
 	if len(args) == 1 {
 		reducedBody = args[0]
-	} else {
+	} else if disjunction {
 		reducedBody, err = d.manager.MkOrArray(args)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
+	} else {
+		reducedBody, err = d.manager.MkAndArray(args)
+	}
+	if err != nil {
+		return ast.ASTHandle{}, err
 	}
 	reducedBody, err = d.substituteTerm(c, reducedBody, bindings, scratch)
 	if err != nil {
@@ -102,7 +92,7 @@ func (d *DER) applySubstitution(c *derCall, q, body ast.ASTHandle, positions []i
 
 func (d *DER) reduceOnce(c *derCall, q ast.ASTHandle) (ast.ASTHandle, error) {
 	forall, err := d.manager.IsForall(q)
-	if err != nil || !forall {
+	if err != nil {
 		return q, err
 	}
 	body, err := d.manager.GetQuantifierBody(q)
@@ -113,61 +103,83 @@ func (d *DER) reduceOnce(c *derCall, q ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	isOr, err := d.isOr(body)
+	variable, _, definition, matched, err := d.matchVariableLiteral(c, body, declarations, forall)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if !isOr {
-		variable, _, definition, matched, err := d.isVarDiseq(c, body, declarations)
-		if err != nil || !matched {
-			return q, err
+	if matched {
+		hasQuantifiers, x := d.manager.HasQuantifiers(definition)
+		if x != nil {
+			return ast.ASTHandle{}, x
 		}
-		occurs, err := d.manager.OccursExpr(variable, definition)
-		if err != nil || occurs {
-			return q, err
+		occurs, x := d.manager.OccursExpr(variable, definition)
+		if x != nil {
+			return ast.ASTHandle{}, x
 		}
-		return d.manager.MkFalse()
+		if !hasQuantifiers && !occurs {
+			if forall {
+				return d.manager.MkFalse()
+			}
+			return d.manager.MkTrue()
+		}
 	}
 
-	count, err := d.manager.GetNumArgs(body)
+	var literals []ast.ASTHandle
+	if forall {
+		literals, err = d.manager.FlattenOr([]ast.ASTHandle{body})
+	} else {
+		literals, err = d.manager.FlattenAnd([]ast.ASTHandle{body})
+	}
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	count := len(literals)
 	positions := make([]int32, count)
 	for i := range positions {
 		positions[i] = -1
 	}
 	definitions := make([]ast.ASTHandle, declarations)
 	variables := make([]ast.ASTHandle, declarations)
-	disequalities := uint32(0)
-	for i := uint32(0); i < count; i++ {
-		arg, x := d.manager.GetArg(body, i)
-		if x != nil {
-			return ast.ASTHandle{}, x
+	matches := uint32(0)
+	for i, arg := range literals {
+		variable, index, definition, matched, x := d.matchVariableLiteral(c, arg, declarations, forall)
+		if x != nil || !matched {
+			if x != nil {
+				return ast.ASTHandle{}, x
+			}
+			continue
 		}
-		variable, index, definition, matched, x := d.isVarDiseq(c, arg, declarations)
-		if x != nil {
-			return ast.ASTHandle{}, x
-		}
-		if matched && definitions[index] == (ast.ASTHandle{}) {
+		if definitions[index] == (ast.ASTHandle{}) {
 			definitions[index] = definition
 			variables[index] = variable
 			positions[i] = int32(index)
-			disequalities++
+			matches++
 		}
 	}
-	if disequalities == 0 {
+	if matches == 0 {
+		if err = d.traceNoCandidate(q); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		return q, nil
 	}
+	if err = d.traceDefinitions(definitions); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	order, err := d.sortVariables(variables, definitions)
-	if err != nil || len(order) == 0 {
+	if err != nil {
 		return q, err
 	}
-	return d.applySubstitution(c, q, body, positions, definitions, order)
+	if err = d.traceEliminationOrder(order); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if len(order) == 0 {
+		return q, nil
+	}
+	return d.applySubstitution(c, q, literals, forall, positions, definitions, order)
 }
 
-// ReduceQuantifier applies DER to a universal quantifier to a fixed point and
-// then removes declarations made unused by the simultaneous substitution.
+// ReduceQuantifier applies DER to a universal or existential quantifier to a
+// fixed point and then removes declarations made unused by substitution.
 func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result error) {
 	if err := d.open(); err != nil {
 		return err
@@ -179,6 +191,9 @@ func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result e
 	}
 	call := derCall{owner: d}
 	defer func() { result = errors.Join(result, call.close()) }()
+	if err := d.traceQuantifier(q); err != nil {
+		return err
+	}
 	current := q
 	reduced := false
 	for {
@@ -207,14 +222,7 @@ func (d *DER) ReduceQuantifier(q ast.ASTHandle, out, proof ast.ASTRef) (result e
 		if err != nil {
 			return err
 		}
-		forall := false
 		if kind == ast.ASTQuantifier {
-			forall, err = d.manager.IsForall(current)
-			if err != nil {
-				return err
-			}
-		}
-		if kind == ast.ASTQuantifier && forall {
 			eliminated, err := ElimUnusedVarsUFBV(d.manager, current)
 			if err != nil {
 				return err

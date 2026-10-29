@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type derCall struct {
@@ -36,6 +37,7 @@ type DER struct {
 	self       *DER
 	manager    *ast.ASTManager
 	substitute *VarSubstitution
+	trace      *diagnostic.TraceTags
 	closed     bool
 }
 
@@ -105,6 +107,14 @@ func (d *DER) negatedBoundVariable(h ast.ASTHandle, declarations uint32) (ast.AS
 
 // isVarDiseq recognizes exactly the source's Boolean disequality encodings.
 func (d *DER) isVarDiseq(c *derCall, h ast.ASTHandle, declarations uint32) (variable ast.ASTHandle, index uint32, definition ast.ASTHandle, matched bool, err error) {
+	defer func() {
+		if matched && err == nil {
+			err = d.traceRecognized("is_var_diseq", 51, h)
+			if err != nil {
+				matched = false
+			}
+		}
+	}()
 	if err = d.open(); err != nil {
 		return
 	}
