@@ -483,6 +483,20 @@ func (c *GoalCompiler) algebraicNumeral(value *polynomial.Algebraic, integer boo
 // Model constructs the source constant-only model after a SAT check. A false
 // supported result leaves the goal undecided, matching nlsat_tactic.
 func (c *GoalCompiler) Model() (result *model.Model, supported bool, err error) {
+	return c.model(nil, false)
+}
+
+// ModelForExpressions reconstructs only the requested frontend constants.
+// Quantified frontends use it to exclude bound and auxiliary constants.
+func (c *GoalCompiler) ModelForExpressions(expressions []ast.ASTHandle) (result *model.Model, supported bool, err error) {
+	include := make(map[ast.ASTHandle]bool, len(expressions))
+	for _, expression := range expressions {
+		include[expression] = true
+	}
+	return c.model(include, true)
+}
+
+func (c *GoalCompiler) model(include map[ast.ASTHandle]bool, filtered bool) (result *model.Model, supported bool, err error) {
 	unsupported, err := c.ContainsUnsupported()
 	if err != nil || unsupported {
 		return nil, !unsupported, err
@@ -506,6 +520,9 @@ func (c *GoalCompiler) Model() (result *model.Model, supported bool, err error) 
 		return nil, false, err
 	}
 	for _, entry := range terms {
+		if filtered && !include[entry.Expr] {
+			continue
+		}
 		var value polynomial.Algebraic
 		if err = c.solver.Value(entry.Variable, &value); err != nil {
 			return nil, false, err
@@ -541,6 +558,9 @@ func (c *GoalCompiler) Model() (result *model.Model, supported bool, err error) 
 		return nil, false, err
 	}
 	for _, entry := range atoms {
+		if filtered && !include[entry.Expr] {
+			continue
+		}
 		value, cause := c.solver.BooleanValue(sat.BoolVar(entry.Variable))
 		if cause != nil {
 			return nil, false, cause

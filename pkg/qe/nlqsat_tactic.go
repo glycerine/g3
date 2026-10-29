@@ -235,15 +235,20 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		if cause != nil {
 			return cause
 		}
-		hasRealVariables := false
-		for _, block := range search.boundReal {
-			hasRealVariables = hasRealVariables || len(block) != 0
-		}
-		if models && !hasRealVariables {
-			if cause = search.state.restoreModel(); cause != nil {
-				return cause
+		if models {
+			free := make([]ast.ASTHandle, len(preparation.freeVariables))
+			for i, ref := range preparation.freeVariables {
+				free[i], cause = t.manager.RefGet(ref)
+				if cause != nil {
+					return cause
+				}
 			}
-			modelValue, supported, cause := compiler.Model()
+			if len(free) != 0 {
+				if cause = search.state.restoreModel(); cause != nil {
+					return cause
+				}
+			}
+			modelValue, supported, cause := compiler.ModelForExpressions(free)
 			if cause != nil {
 				return cause
 			}

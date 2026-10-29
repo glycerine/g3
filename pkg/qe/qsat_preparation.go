@@ -25,14 +25,15 @@ const (
 // qsatPreparation is the actual prefix/predicate state of the pending QSAT
 // search owner. It stays private until the search and tactic entry points exist.
 type qsatPreparation struct {
-	self        *qsatPreparation
-	manager     *ast.ASTManager
-	config      Config
-	abstraction *PredicateAbstraction
-	variables   [][]ast.ASTRef
-	pending     []*qsatPreparationCall
-	bytes       uint64
-	closed      bool
+	self          *qsatPreparation
+	manager       *ast.ASTManager
+	config        Config
+	abstraction   *PredicateAbstraction
+	variables     [][]ast.ASTRef
+	freeVariables []ast.ASTRef
+	pending       []*qsatPreparationCall
+	bytes         uint64
+	closed        bool
 }
 type qsatPreparationCall struct {
 	owner     *qsatPreparation
@@ -193,6 +194,9 @@ func (p *qsatPreparation) reset() error {
 	if err := p.abstraction.Reset(); err != nil {
 		return err
 	}
+	if err := p.clearRefs(&p.freeVariables); err != nil {
+		return err
+	}
 	for len(p.variables) > 0 {
 		i := len(p.variables) - 1
 		if err := p.clearRefs(&p.variables[i]); err != nil {
@@ -210,6 +214,9 @@ func (p *qsatPreparation) Close() error {
 		return nil
 	}
 	if err := p.drain(); err != nil {
+		return err
+	}
+	if err := p.clearRefs(&p.freeVariables); err != nil {
 		return err
 	}
 	for len(p.variables) > 0 {
@@ -343,6 +350,9 @@ func (p *qsatPreparation) hoist(mode qsatMode, formula ast.ASTRef) (err error) {
 		return err
 	}
 	if err = p.abstraction.GetFreeVariables(h, &c.variables); err != nil {
+		return err
+	}
+	if err = p.appendRefs(&p.freeVariables, c.variables); err != nil {
 		return err
 	}
 	if err = p.appendBlock(c.variables); err != nil {

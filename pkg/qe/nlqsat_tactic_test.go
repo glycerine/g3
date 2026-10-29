@@ -151,3 +151,33 @@ func TestNLQSATTacticMixedRealAlternationAndProjection(t *testing.T) {
 		})
 	}
 }
+
+func TestNLQSATTacticPublishesOnlyFreeRealModelValues(t *testing.T) {
+	f := newFMFixture(t)
+	free := f.constant("nlq-free-real", f.real)
+	x := f.variable(0, f.real)
+	equality := f.own(f.r.manager.MkEq(x, free))
+	name, err := f.r.manager.Symbols.Intern("bound-x")
+	fmMust(t, err)
+	formula := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: equality}))
+	runner, err := NewNLQSATTactic(f.r.manager, f.r.config)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, runner.Close()) })
+	goal := f.goal(false, false)
+	result := f.result()
+	fmMust(t, goal.Assert(formula))
+	fmMust(t, runner.Apply(goal, result))
+	if result.ModelConverter == nil {
+		t.Fatal("free-real model converter was not published")
+	}
+	var output basetactic.ModelRef
+	t.Cleanup(func() { fmMust(t, output.Close()) })
+	fmMust(t, result.ModelConverter.ApplyUnindexed(&output))
+	model, err := output.Get()
+	fmMust(t, err)
+	declaration, err := f.r.manager.GetDecl(free)
+	fmMust(t, err)
+	if value, cause := model.ConstantInterpretation(declaration); cause != nil || value.IsNull() {
+		t.Fatal("free real has no model value", value, cause)
+	}
+}
