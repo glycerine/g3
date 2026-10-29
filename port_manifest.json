@@ -71982,7 +71982,25 @@
         "pkg/math/realclosure/multi_root_sign_exact_test.go",
         "pkg/math/realclosure/value_sign_any_test.go",
         "pkg/math/realclosure/value_compare_any_test.go",
-        "pkg/math/realclosure/value_arithmetic_any_test.go"
+        "pkg/math/realclosure/value_arithmetic_any_test.go",
+        "pkg/math/realclosure/algebraic_root_refine_general.go",
+        "pkg/math/realclosure/polynomial_interval_rational.go",
+        "pkg/math/realclosure/algebraic_coefficients_refine.go",
+        "pkg/math/realclosure/algebraic_value_interval_update.go",
+        "pkg/math/realclosure/algebraic_value_refine_general.go",
+        "pkg/math/realclosure/value_refine_any.go",
+        "pkg/math/realclosure/value_interval_snapshot_any.go",
+        "pkg/math/realclosure/value_precision_query.go",
+        "pkg/math/realclosure/value_magnitude_query.go",
+        "pkg/math/realclosure/value_refine_certified.go",
+        "pkg/math/realclosure/algebraic_root_refine_general_test.go",
+        "pkg/math/realclosure/polynomial_interval_rational_test.go",
+        "pkg/math/realclosure/algebraic_coefficients_refine_test.go",
+        "pkg/math/realclosure/algebraic_value_interval_update_test.go",
+        "pkg/math/realclosure/algebraic_value_refine_general_test.go",
+        "pkg/math/realclosure/value_interval_snapshot_any_test.go",
+        "pkg/math/realclosure/value_precision_query_test.go",
+        "pkg/math/realclosure/value_refine_certified_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72028,7 +72046,15 @@
         "TestExactMultiRoot",
         "TestDetermineAny",
         "TestAnyDetermined",
-        "TestAnyCanonical"
+        "TestAnyCanonical",
+        "TestRefineSingle",
+        "TestEvaluateRationalPolynomialInterval",
+        "TestRefineRationalCoefficient",
+        "TestUpdateAlgebraic",
+        "TestRefineGeneral",
+        "TestSnapshotAny",
+        "TestRetainedPrecision",
+        "TestRefineAndCertify"
       ],
       "conditionals": [
         {
