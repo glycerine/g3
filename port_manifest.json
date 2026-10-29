@@ -83416,9 +83416,10 @@
         },
         {
           "name": "pred_transformer/context finite-level count, bound-variable cover insertion and exact finite/invariant cover-delta retrieval (pdr_context.cpp:359-412,1563-1594)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/predicate_transformer.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": ["pkg/muz/pdr/context_test.go", "pkg/api/api_fixedpoint_test.go"],
+          "tests": ["TestContextInitializesHornProgramAndAnswersInitialQueries", "TestSMTContextFixedpointPDRLifecycle"]
         },
         {
           "name": "reverse-ledger model/cover converter application across slicing, cone filtering, subsumption, inlining, quantified arrays, scaling, Karr invariants and bit blasting, plus general linear rule/model trace unification",
@@ -83598,9 +83599,10 @@
         },
         {
           "name": "retained pred_transformer/context finite-level count and direct-predicate cover surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/predicate_transformer.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": ["pkg/muz/pdr/context_test.go", "pkg/api/api_fixedpoint_test.go"],
+          "tests": ["TestContextInitializesHornProgramAndAnswersInitialQueries", "TestSMTContextFixedpointPDRLifecycle"]
         },
         {
           "name": "non-Boolean program classification, scoped proof-mode activation, create_children no-proof projection and Farkas PropSolver forwarding",
@@ -83789,9 +83791,10 @@
         },
         {
           "name": "PDR finite-level count and direct-predicate cover forwarding (pdr_dl_interface.cpp:175-195)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestPDREngineExpandsSlicedModelsAndCovers"]
+          "go_targets": ["pkg/muz/pdr/context_test.go", "pkg/api/api_fixedpoint_test.go", "pkg/muz/fp/propositional_engine_test.go"],
+          "tests": ["TestContextInitializesHornProgramAndAnswersInitialQueries", "TestSMTContextFixedpointPDRLifecycle", "TestPDREngineExpandsSlicedModelsAndCovers"]
         },
         {
           "name": "remaining proof traces",
@@ -83931,9 +83934,10 @@
         },
         {
           "name": "PDR finite-level count and direct-predicate cover forwarding",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": ["pkg/muz/pdr/context_test.go", "pkg/api/api_fixedpoint_test.go"],
+          "tests": ["TestContextInitializesHornProgramAndAnswersInitialQueries", "TestSMTContextFixedpointPDRLifecycle"]
         },
         {
           "name": "remaining proof-trace surface",

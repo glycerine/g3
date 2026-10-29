@@ -4,6 +4,7 @@ package pdr_test
 // transformer initialization, and level-zero query setup.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -81,6 +82,49 @@ func TestContextInitializesHornProgramAndAnswersInitialQueries(t *testing.T) {
 	}
 	if transformer, found, x := context.Transformer(qDeclaration); x != nil || !found || transformer == nil {
 		t.Fatal("query transformer lookup", transformer, found, x)
+	}
+	coverProperty, err := manager.MkEq(variable, truth)
+	pdrMust(t, err)
+	pdrMust(t, context.AddCover(-1, qDeclaration, coverProperty))
+	cover, err := context.CoverDelta(-1, qDeclaration)
+	pdrMust(t, err)
+	coverHandle, err := manager.RefGet(cover)
+	pdrMust(t, err)
+	if coverHandle != coverProperty {
+		t.Fatal("invariant cover round trip", coverHandle, coverProperty)
+	}
+	pdrMust(t, manager.DelRef(&cover))
+	finiteProperty, err := manager.MkEq(variable, falsity)
+	pdrMust(t, err)
+	pdrMust(t, context.AddCover(0, qDeclaration, finiteProperty))
+	levels, err := context.NumLevels(qDeclaration)
+	pdrMust(t, err)
+	if levels == 0 {
+		t.Fatal("finite cover did not create a frame")
+	}
+	cover, err = context.CoverDelta(0, qDeclaration)
+	pdrMust(t, err)
+	coverHandle, err = manager.RefGet(cover)
+	pdrMust(t, err)
+	conjuncts, err := manager.FlattenAnd([]ast.ASTHandle{coverHandle})
+	pdrMust(t, err)
+	negatedVariable, err := manager.MkNot(variable)
+	pdrMust(t, err)
+	foundProperty := false
+	for _, conjunct := range conjuncts {
+		foundProperty = foundProperty || conjunct == finiteProperty || conjunct == negatedVariable
+	}
+	if !foundProperty {
+		t.Fatal("finite cover omitted added property", coverHandle, finiteProperty)
+	}
+	pdrMust(t, manager.DelRef(&cover))
+	if err = context.AddCover(-2, qDeclaration, coverProperty); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("invalid cover level", err)
+	}
+	rDeclaration := pdrFunction(t, manager, "context_r", []ast.ASTHandle{boolean}, boolean)
+	pdrMust(t, context.AddCover(-1, rDeclaration, coverProperty))
+	if transformer, found, x := context.Transformer(rDeclaration); x != nil || !found || transformer == nil {
+		t.Fatal("cover-created transformer", transformer, found, x)
 	}
 
 	pdrMust(t, context.Close())
