@@ -114516,9 +114516,9 @@
       "path": "src/shell/datalog_frontend.cpp",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_map_line.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go", "pkg/cmd_context/wpa_relation_line.go", "pkg/cmd_context/wpa_map_test.go", "pkg/cmd_context/wpa_relation_test.go", "pkg/cmd_context/wpa_directory_test.go"],
+      "tests": ["TestWPA"],
       "conditionals": [
         {
           "line": 24,
