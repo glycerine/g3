@@ -314,7 +314,8 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 	}
 	transformer := base.NewRuleTransformer()
 	t.Cleanup(func() { coneMust(t, transformer.Close()) })
-	coneMust(t, transformer.Register(transforms.NewRuleInlinerPlugin(f.manager, f.rules, []ast.ASTHandle{f.declarations["Goal"]}, 0)))
+	plugin := transforms.NewRuleInlinerPlugin(f.manager, f.rules, []ast.ASTHandle{f.declarations["Goal"]}, 0)
+	coneMust(t, transformer.Register(plugin))
 	modified, err := transformer.Apply(f.set)
 	coneMust(t, err)
 	if !modified {
@@ -322,6 +323,12 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 	}
 	if count, err := f.set.Len(); err != nil || count != 1 {
 		t.Fatal("inlined rule count", count, err)
+	}
+	modelRules, err := plugin.TakeModelRules()
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, transforms.CloseInlineModelRules(modelRules)) })
+	if len(modelRules) != 2 {
+		t.Fatal("inliner model-rule count", len(modelRules))
 	}
 	rule, err := f.set.Rule(0)
 	coneMust(t, err)

@@ -23,7 +23,23 @@ type RuleInlinerPlugin struct {
 	params     *uparams.ParamsContext
 	globals    *uparams.GlobalParamsService
 	simplifier *InterpTailSimplifierPlugin
+	modelRules []InlineModelRule
 	closed     bool
+}
+
+// InlineModelRule owns one removed Horn clause for later model reconstruction.
+type InlineModelRule struct {
+	Head    ast.ASTRef
+	Body    ast.ASTRef
+	manager *ast.ASTManager
+}
+
+// CloseInlineModelRules releases every captured clause root.
+func CloseInlineModelRules(rules []InlineModelRule) (result error) {
+	for i := len(rules) - 1; i >= 0; i-- {
+		result = errors.Join(result, rules[i].manager.DelRef(&rules[i].Body), rules[i].manager.DelRef(&rules[i].Head))
+	}
+	return result
 }
 
 // NewRuleInlinerPluginWithServices enables the source post-resolution
@@ -60,6 +76,62 @@ func closeRules(rules []*base.Rule) (result error) {
 		result = errors.Join(result, rules[i].Close())
 	}
 	return result
+}
+
+func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) (resultErr error) {
+	head, err := rule.Head()
+	if err != nil {
+		return err
+	}
+	headRef, err := p.manager.NewRef(head)
+	if err != nil {
+		return err
+	}
+	keepHead := false
+	defer func() {
+		if !keepHead {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&headRef))
+		}
+	}()
+	count, err := rule.TailSize()
+	if err != nil {
+		return err
+	}
+	conjuncts := make([]ast.ASTHandle, 0, count)
+	for index := 0; index < count; index++ {
+		tail, negative, getErr := rule.Tail(index)
+		if getErr != nil {
+			return getErr
+		}
+		if negative {
+			tail, getErr = p.manager.MkNot(tail)
+			if getErr != nil {
+				return getErr
+			}
+		}
+		conjuncts = append(conjuncts, tail)
+	}
+	body, err := p.manager.MkAndArray(conjuncts)
+	if err != nil {
+		return err
+	}
+	bodyRef, err := p.manager.NewRef(body)
+	if err != nil {
+		return err
+	}
+	p.modelRules = append(p.modelRules, InlineModelRule{Head: headRef, Body: bodyRef, manager: p.manager})
+	keepHead = true
+	return nil
+}
+
+// TakeModelRules transfers the ordered owning removed-clause sequence.
+func (p *RuleInlinerPlugin) TakeModelRules() ([]InlineModelRule, error) {
+	if p == nil || p.closed {
+		return nil, base.ErrRuleTransformerOwner
+	}
+	rules := p.modelRules
+	p.modelRules = nil
+	return rules, nil
 }
 
 func ruleVariableCount(manager *ast.ASTManager, rule *base.Rule) (uint32, error) {
@@ -490,6 +562,11 @@ func (p *RuleInlinerPlugin) accumulateDefinitions(order []ast.ASTHandle, allowed
 			if err != nil {
 				return nil, err
 			}
+			for _, definition := range expanded {
+				if err = p.captureModelRule(definition); err != nil {
+					return nil, errors.Join(err, closeRules(expanded))
+				}
+			}
 			result[declaration] = append(result[declaration], expanded...)
 		}
 		processed[declaration] = true
@@ -714,7 +791,7 @@ func (p *RuleInlinerPlugin) orientedEagerRule(rule *base.Rule, rules *base.RuleS
 			continue
 		}
 		if candidate < 0 {
-			return nil, true, closeRules(definitions)
+			return nil, true, errors.Join(p.captureModelRule(rule), closeRules(definitions))
 		}
 		oriented, orientationErr := p.orientedDefinition(definitions[candidate], rules)
 		if orientationErr != nil || !oriented {
@@ -728,6 +805,9 @@ func (p *RuleInlinerPlugin) orientedEagerRule(rule *base.Rule, rules *base.RuleS
 		resolveErr = errors.Join(resolveErr, closeRules(definitions))
 		if resolveErr != nil {
 			return nil, false, resolveErr
+		}
+		if resolved == nil {
+			return nil, true, p.captureModelRule(rule)
 		}
 		return resolved, true, nil
 	}
@@ -1144,10 +1224,11 @@ func (p *RuleInlinerPlugin) Close() error {
 	p.protected = nil
 	p.params = nil
 	p.globals = nil
+	result := CloseInlineModelRules(p.modelRules)
+	p.modelRules = nil
 	if p.simplifier != nil {
-		err := p.simplifier.Close()
+		result = errors.Join(result, p.simplifier.Close())
 		p.simplifier = nil
-		return err
 	}
-	return nil
+	return result
 }
