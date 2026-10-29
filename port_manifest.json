@@ -179829,8 +179829,8 @@
       "status": "complete",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained QF_NRA route ordering",
@@ -179839,14 +179839,14 @@
           "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
         }
       ],
-      "ownership": [],
+      "ownership": ["The construction scope retains each parameter snapshot, child tactic and wrapper until the final using-params graph acquires it, then releases temporary owners in reverse order."],
       "deviations": []
     },
     {
       "path": "src/tactic/smtlogics/qfnra_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "conditionals": [
@@ -179859,10 +179859,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "QF_NRA tactic factory and builtin registration surface", "status": "ported", "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go", "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2", "TestSMTLibRunnerCPPReference/qfnra_nlsat.smt2"]}],
+      "ownership": ["The returned uncounted tactic graph owns counted child references and parameter copies."],
       "deviations": []
     },
     {
