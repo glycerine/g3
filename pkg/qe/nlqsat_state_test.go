@@ -12,22 +12,14 @@ import (
 func nlqStateFixture(t *testing.T) (*nlsat.Solver, []sat.Literal) {
 	t.Helper()
 	f := newFMFixture(t)
-	am, err := f.r.manager.ArithmeticAlgebraicManager()
+	return nlqSolverWithFixture(t, f)
+}
+
+func nlqSolverWithFixture(t *testing.T, f *fmFixture) (*nlsat.Solver, []sat.Literal) {
+	t.Helper()
+	solver := nlqBareSolverWithFixture(t, f)
+	pm, err := solver.PolynomialManager()
 	fmMust(t, err)
-	rationals, err := am.RationalManager()
-	fmMust(t, err)
-	pm, err := polynomial.NewMultivariatePolynomialManager(polynomial.MultivariatePolynomialManagerConfig{
-		Core: polynomial.MultivariatePolynomialConfig{
-			Integer: rationals.Integers(), Rationals: rationals,
-			Checkpoint:  f.r.manager.Limit.Inc,
-			Cooperation: func() error { return f.r.config.Cooperation.Cooperate("nlqsat") },
-		},
-	})
-	fmMust(t, err)
-	t.Cleanup(func() { fmMust(t, pm.CloseChecked()) })
-	solver, err := nlsat.NewSolver(nlsat.SolverConfig{Algebraic: am, Polynomial: pm, Limit: &f.r.manager.Limit, SimplifyCore: true})
-	fmMust(t, err)
-	t.Cleanup(func() { fmMust(t, solver.Close()) })
 	core, err := pm.ArithmeticCore()
 	fmMust(t, err)
 	literals := make([]sat.Literal, 3)
@@ -46,6 +38,27 @@ func nlqStateFixture(t *testing.T) (*nlsat.Solver, []sat.Literal) {
 		fmMust(t, solver.AddClause([]sat.Literal{literals[i]}, nlsat.Assumption{}))
 	}
 	return solver, literals
+}
+
+func nlqBareSolverWithFixture(t *testing.T, f *fmFixture) *nlsat.Solver {
+	t.Helper()
+	am, err := f.r.manager.ArithmeticAlgebraicManager()
+	fmMust(t, err)
+	rationals, err := am.RationalManager()
+	fmMust(t, err)
+	pm, err := polynomial.NewMultivariatePolynomialManager(polynomial.MultivariatePolynomialManagerConfig{
+		Core: polynomial.MultivariatePolynomialConfig{
+			Integer: rationals.Integers(), Rationals: rationals,
+			Checkpoint:  f.r.manager.Limit.Inc,
+			Cooperation: func() error { return f.r.config.Cooperation.Cooperate("nlqsat") },
+		},
+	})
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, pm.CloseChecked()) })
+	solver, err := nlsat.NewSolver(nlsat.SolverConfig{Algebraic: am, Polynomial: pm, Limit: &f.r.manager.Limit, SimplifyCore: true})
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, solver.Close()) })
+	return solver
 }
 
 func TestNLQStateModelScopesAssumptionsAndPredicateLevels(t *testing.T) {

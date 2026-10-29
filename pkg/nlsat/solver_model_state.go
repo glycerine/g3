@@ -145,3 +145,21 @@ func (s *Solver) LiteralVariables(literal sat.Literal, out *[]uint32) error {
 		return arena.ErrConfig
 	}
 }
+
+// ArithmeticLiterals replaces out with the positive literal for every live
+// arithmetic atom in Boolean-variable order.
+func (s *Solver) ArithmeticLiterals(out *[]sat.Literal) error {
+	if err := s.open(); err != nil {
+		return err
+	}
+	if out == nil {
+		return arena.ErrConfig
+	}
+	*out = (*out)[:0]
+	for variable, atom := range s.atoms.bools.atoms {
+		if atom != nil && !s.atoms.bools.dead[variable] {
+			*out = append(*out, sat.MakeLiteral(sat.BoolVar(variable), false))
+		}
+	}
+	return nil
+}
