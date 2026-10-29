@@ -294,11 +294,20 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 	if err := out.Prepare(t.manager); err != nil {
 		return err
 	}
+	proofsEnabled, err := goal.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	modelsEnabled, err := goal.ModelsEnabled()
+	if err != nil {
+		return err
+	}
 	engine, err := NewPropositionalEngineWithServices(t.manager, t.context, t.globals)
 	if err != nil {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, engine.Close()) }()
+	engine.forceProofTrace = proofsEnabled
 	var temporaries []ast.ASTRef
 	defer func() {
 		for index := len(temporaries) - 1; index >= 0; index-- {
@@ -361,6 +370,12 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			return x
 		}
 	}
+	// The source fixedpoint context selects Datalog for finite predicates and
+	// PDR for infinite-domain Horn relations. All predicates are registered at
+	// this point, so the concrete Go factory can make the same choice.
+	if err = engine.SelectEngine("auto-config"); err != nil {
+		return err
+	}
 	status, err := engine.QueryPredicate(declaration)
 	if err != nil {
 		return err
@@ -373,10 +388,39 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		if x != nil {
 			return x
 		}
-		if x = goal.Assert(falsity); x != nil {
+		if proofsEnabled {
+			proof, y := engine.Proof(declaration)
+			if y != nil {
+				return y
+			}
+			proofHandle, y := t.manager.RefGet(proof)
+			if y == nil {
+				y = goal.AssertWithProof(falsity, proofHandle, ast.ASTDependency{})
+			}
+			y = errors.Join(y, t.manager.DelRef(&proof))
+			if y != nil {
+				return y
+			}
+		} else if x = goal.Assert(falsity); x != nil {
 			return x
 		}
 	} else if status == lbool.False {
+		if modelsEnabled {
+			inductive, x := engine.Model(declaration)
+			if x != nil {
+				return x
+			}
+			converter, x := tactic.NewStoredModel(inductive.Core())
+			if x != nil {
+				return errors.Join(x, inductive.Close())
+			}
+			// NewStoredModel establishes the model's sole counted reference.
+			// The raw zero-reference result is now owned by the converter and
+			// must not be closed directly.
+			if x = out.SetModelConverter(converter); x != nil {
+				return errors.Join(x, converter.Close())
+			}
+		}
 		if err = goal.Reset(); err != nil {
 			return err
 		}

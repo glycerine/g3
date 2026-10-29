@@ -101,6 +101,7 @@ type PropositionalEngine struct {
 	spacerKarr         map[ast.ASTHandle]rel.KarrMatrix
 	spacerConversions  []hornModelConversion
 	lastStatus         string
+	forceProofTrace    bool
 	closed             bool
 }
 

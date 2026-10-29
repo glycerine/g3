@@ -240,7 +240,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	if err = context.SetGenerateProofTrace(generateProofTrace); err != nil {
+	if err = context.SetGenerateProofTrace(generateProofTrace || e.forceProofTrace); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	preprocessed, err := e.preprocessHornRules(declaration, true, true)

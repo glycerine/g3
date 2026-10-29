@@ -82868,11 +82868,14 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/fp/horn_tactic.go",
+        "pkg/muz/fp/horn_tactic_infinite_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/test_vectors/horn_tactic_finite.smt2",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestHornTacticSelectsPDRForInfiniteDomainGoal",
+        "TestHornTacticReturnsPDRModelForInfiniteDomainGoal",
         "TestSMTLibRunnerScripts/horn_tactic_finite.smt2",
         "TestSMTLibRunnerCPPReference/horn_tactic_finite.smt2"
       ],
@@ -82898,25 +82901,45 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
-          "name": "Retained finite Horn verification path: register Boolean predicates, normalize disjunctive clauses, preserve universally quantified implications, combine zero or more query clauses through a fresh predicate, and convert reachability to a decided tactic goal",
-          "status": "partial",
+          "name": "Retained Horn verification path: register Boolean predicates, normalize disjunctive clauses, preserve universally quantified implications, combine zero or more query clauses through a fresh predicate, select finite Datalog or infinite PDR, and convert reachability to a decided tactic goal",
+          "status": "ported",
           "go_target": "pkg/muz/fp/horn_tactic.go",
           "tests": [
+            "TestHornTacticSelectsPDRForInfiniteDomainGoal",
+            "TestHornTacticReturnsPDRModelForInfiniteDomainGoal",
             "TestSMTLibRunnerScripts/horn_tactic_finite.smt2",
             "TestSMTLibRunnerCPPReference/horn_tactic_finite.smt2"
           ]
+        },
+        {
+          "name": "Infinite-domain verification proof and inductive-model conversion",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/horn_tactic.go",
+          "tests": [
+            "TestHornTacticSelectsPDRForInfiniteDomainGoal",
+            "TestHornTacticReturnsPDRModelForInfiniteDomainGoal"
+          ]
+        },
+        {
+          "name": "Finite Datalog model conversion",
+          "status": "unported"
+        },
+        {
+          "name": "horn-simplify rule transformation tactic",
+          "status": "unported"
         }
       ],
       "ownership": [
-        "HornTactic owns no engine across calls; Apply creates and closes one finite PropositionalEngine and returns the caller-owned goal through the tactic result.",
+        "HornTactic owns no engine across calls; Apply creates and closes one auto-selected PropositionalEngine and returns the caller-owned goal through the tactic result.",
+        "A successful PDR model conversion transfers the zero-reference materialized model into the stored converter's sole counted reference; direct model closure is reserved for converter-construction failure.",
         "The command context retains the tactic through the existing tactic reference-count protocol."
       ],
       "deviations": [
-        "Proof and model converters, horn-simplify, and general PDR or infinite-domain Horn solving remain unported."
+        "The unregistered horn-simplify factory and finite Datalog model conversion remain unported. Infinite-domain PDR verification now supplies both proof and model-converter results."
       ]
     },
     {
@@ -82926,9 +82949,12 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/fp/horn_tactic.go",
+        "pkg/muz/fp/horn_tactic_infinite_test.go",
         "pkg/cmd_context/tactic_commands.go"
       ],
       "tests": [
+        "TestHornTacticSelectsPDRForInfiniteDomainGoal",
+        "TestHornTacticReturnsPDRModelForInfiniteDomainGoal",
         "TestSMTLibRunnerScripts/horn_tactic_finite.smt2",
         "TestSMTLibRunnerCPPReference/horn_tactic_finite.smt2"
       ],
@@ -82942,21 +82968,29 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "make_horn_tactic retained concrete factory surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/horn_tactic.go",
-          "tests": ["TestSMTLibRunnerScripts/horn_tactic_finite.smt2"]
+          "tests": [
+            "TestHornTacticSelectsPDRForInfiniteDomainGoal",
+            "TestHornTacticReturnsPDRModelForInfiniteDomainGoal",
+            "TestSMTLibRunnerScripts/horn_tactic_finite.smt2"
+          ]
+        },
+        {
+          "name": "mk_horn_simplify_tactic",
+          "status": "unported"
         }
       ],
       "ownership": [
         "NewHornTactic returns the concrete Go tactic and participates in the shared tactic reference-count protocol."
       ],
       "deviations": [
-        "The factory currently exposes only the finite propositional verification subset implemented by HornTactic."
+        "The retained verification factory supports both finite Datalog and infinite PDR selection; the unregistered horn-simplify factory is intentionally still absent."
       ]
     },
     {

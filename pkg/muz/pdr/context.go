@@ -357,21 +357,25 @@ func (c *Context) IsUTVPI() (bool, error) {
 }
 
 func (c *Context) enterPDRProofMode() (func() error, error) {
-	if !c.proofActive {
-		return func() error { return nil }, nil
-	}
 	previous, err := c.manager.ProofsEnabled()
 	if err != nil {
 		return nil, err
 	}
-	if !previous {
-		if err = c.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+	desired := ast.ASTProofDisabled
+	if c.proofActive {
+		desired = ast.ASTProofEnabled
+	}
+	if previous != c.proofActive {
+		if err = c.manager.ToggleProofMode(desired); err != nil {
 			return nil, err
 		}
 	}
 	return func() error {
-		if previous {
+		if previous == c.proofActive {
 			return nil
+		}
+		if previous {
+			return c.manager.ToggleProofMode(ast.ASTProofEnabled)
 		}
 		return c.manager.ToggleProofMode(ast.ASTProofDisabled)
 	}, nil
