@@ -177790,9 +177790,9 @@
       "path": "src/tactic/sls/sls_engine.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
           "line": 174,
@@ -177821,9 +177821,9 @@
       "path": "src/tactic/sls/sls_engine.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
           "line": 19,
@@ -178146,9 +178146,9 @@
       "path": "src/tactic/sls/sls_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "assertions": [
         {
           "line": 67,
@@ -178169,9 +178169,9 @@
       "path": "src/tactic/sls/sls_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
           "line": 19,
