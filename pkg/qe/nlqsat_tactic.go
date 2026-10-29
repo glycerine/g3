@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"math"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -15,25 +16,32 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 	tacticcore "github.com/glycerine/g3/pkg/tactic/core"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	umemory "github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	primegen "github.com/glycerine/g3/pkg/util/prime"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type NLQSATTactic struct {
-	self       *NLQSATTactic
-	manager    *ast.ASTManager
-	config     Config
-	statistics map[string]float64
-	bytes      uint64
-	refs       uint32
-	running    bool
-	closed     bool
+	self        *NLQSATTactic
+	manager     *ast.ASTManager
+	config      Config
+	statistics  map[string]float64
+	params      uparams.ParamsRef
+	paramsReady bool
+	bytes       uint64
+	refs        uint32
+	running     bool
+	closed      bool
 }
 
 var _ tactic.Tactic = (*NLQSATTactic)(nil)
 
 func NewNLQSATTactic(manager *ast.ASTManager, config Config) (*NLQSATTactic, error) {
+	return NewNLQSATTacticWithParams(manager, nil, config)
+}
+
+func NewNLQSATTacticWithParams(manager *ast.ASTManager, params *uparams.ParamsRef, config Config) (*NLQSATTactic, error) {
 	if manager == nil || config.Context == nil || config.Globals == nil || config.Globals.Context != config.Context || config.Cooperation == nil {
 		return nil, arena.ErrConfig
 	}
@@ -43,7 +51,26 @@ func NewNLQSATTactic(manager *ast.ASTManager, config Config) (*NLQSATTactic, err
 	}
 	t := &NLQSATTactic{manager: manager, config: config, bytes: bytes}
 	t.self = t
+	value, err := config.Context.NewValue()
+	if err != nil {
+		manager.Budget().Release(bytes)
+		return nil, err
+	}
+	t.params, t.paramsReady = value, true
+	if params != nil {
+		if err = config.Context.Assign(&t.params, params); err != nil {
+			return nil, errors.Join(err, config.Context.Del(&t.params), t.releaseHeader())
+		}
+	}
 	return t, nil
+}
+
+func (t *NLQSATTactic) releaseHeader() error {
+	if t.bytes != 0 {
+		t.manager.Budget().Release(t.bytes)
+		t.bytes = 0
+	}
+	return nil
 }
 
 func (t *NLQSATTactic) open() error {
@@ -88,9 +115,71 @@ func (t *NLQSATTactic) Close() error {
 	if t.running {
 		return ast.ErrASTPending
 	}
-	t.manager.Budget().Release(t.bytes)
-	t.bytes, t.closed = 0, true
+	if t.paramsReady {
+		if err := t.config.Context.Del(&t.params); err != nil {
+			return err
+		}
+		t.paramsReady = false
+	}
+	t.releaseHeader()
+	t.closed = true
 	return nil
+}
+
+func (t *NLQSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomialManager, algebraic *polynomial.AlgebraicManager) (nlsat.SolverConfig, error) {
+	uintParameter := func(name string, fallback uint32) (uint32, error) {
+		return t.config.Context.GetUIntName(&t.params, &name, fallback)
+	}
+	boolParameter := func(name string, fallback bool) (bool, error) {
+		return t.config.Context.GetBoolName(&t.params, &name, fallback)
+	}
+	megabytes, err := uintParameter("max_memory", math.MaxUint32)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	lazy, err := uintParameter("lazy", 0)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	maxConflicts, err := uintParameter("max_conflicts", math.MaxUint32)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	simplify, err := boolParameter("simplify_conflicts", true)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	minimize, err := boolParameter("minimize_conflicts", false)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	randomize, err := boolParameter("randomize", true)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	reorder, err := boolParameter("reorder", true)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	shuffle, err := boolParameter("shuffle_vars", false)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	seed, err := uintParameter("seed", 0)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	inlineVariables, err := boolParameter("inline_vars", false)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	return nlsat.SolverConfig{
+		Algebraic: algebraic, Polynomial: polynomials, Limit: &t.manager.Limit,
+		MaxMemory: umemory.MegabytesToBytes(megabytes), Lazy: lazy,
+		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize,
+		Factor: false, InlineVars: inlineVariables, Reorder: reorder,
+		ShuffleVars: shuffle, Seed: seed, MaxConflicts: maxConflicts,
+	}, nil
 }
 
 func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
@@ -157,7 +246,7 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	services := model.ModelEvaluatorConfig{Context: t.config.Context, Globals: t.config.Globals, Memory: t.manager.NumeralService().RuntimeOwner(), Cooperation: t.config.Cooperation, Trace: t.config.Trace}
-	cnf, err := tacticcore.MakeTseitinCNFTactic(t.manager, t.config.Context, t.config.Globals, nil, services)
+	cnf, err := tacticcore.MakeTseitinCNFTactic(t.manager, t.config.Context, t.config.Globals, &t.params, services)
 	if err != nil {
 		return err
 	}
@@ -192,7 +281,11 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		return err
 	}
 	defer func() { err = errors.Join(err, polynomials.CloseChecked()) }()
-	solver, err := nlsat.NewSolver(nlsat.SolverConfig{Algebraic: algebraic, Polynomial: polynomials, Limit: &t.manager.Limit, SimplifyCore: true, Factor: false})
+	solverConfig, err := t.solverConfig(polynomials, algebraic)
+	if err != nil {
+		return err
+	}
+	solver, err := nlsat.NewSolver(solverConfig)
 	if err != nil {
 		return err
 	}
@@ -292,7 +385,16 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	return result.AddGoal(goal)
 }
 
-func (t *NLQSATTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
+func (t *NLQSATTactic) UpdateParams(params *uparams.ParamsRef) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	if params == nil {
+		empty := t.config.Context.EmptyValue()
+		params = &empty
+	}
+	return t.config.Context.Assign(&t.params, params)
+}
 func (t *NLQSATTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
 func (t *NLQSATTactic) CollectStatistics() map[string]float64 {
 	out := make(map[string]float64, len(t.statistics))
@@ -316,5 +418,5 @@ func (t *NLQSATTactic) Translate(manager *ast.ASTManager) (tactic.Tactic, error)
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return NewNLQSATTactic(manager, t.config)
+	return NewNLQSATTacticWithParams(manager, &t.params, t.config)
 }

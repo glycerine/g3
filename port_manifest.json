@@ -99804,6 +99804,7 @@
         "TestNLQSATTacticMixedRealAlternationAndProjection",
         "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
         "TestNLQSATTacticPurifiesSymbolicDivision",
+        "TestNLQSATTacticParametersAndTranslation",
         "TestSMTLibRunnerQSATAndQuantifierElimination"
       ],
       "assertions": [
@@ -99908,7 +99909,8 @@
             "TestNLQSATTacticClosedExistentialAndFalseGoals",
             "TestNLQSATTacticQuantifiedNonlinearRealGoals",
             "TestNLQSATTacticMixedRealAlternationAndProjection",
-            "TestNLQSATTacticPublishesOnlyFreeRealModelValues"
+            "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
+            "TestNLQSATTacticParametersAndTranslation"
           ]
         },
         {
@@ -99944,10 +99946,11 @@
         "The state owns a second arithmetic/Boolean snapshot for the last existential search level. Backtracking may clear the working model without invalidating this answer snapshot; model publication restores it into the borrowed solver before reconstruction.",
         "nlqSearch owns two alternating projection LiteralVectors plus nlqState while borrowing its NLSAT solver. A projected core is evaluated only after restoring the saved SAT model; destination vectors reset before each elimination, learned clauses acquire their own atom references, and close retires projection vectors before state predicate vectors.",
         "Each NLQSATTactic application owns its hoisting preparation, retained free-variable references, CNF tactic/goal/result, prime generator, polynomial manager, NLSAT solver, GoalCompiler and nlqSearch in lexical dependency order. Projected/search literal owners close before the compiler and solver; the polynomial manager closes before its prime generator. A successful model contains only hoister-identified free expressions, transfers through a retained ModelRef into the stored converter, and remains usable after tactic/solver teardown.",
-        "Division purification owns numerator, denominator and fresh-name references until all guarded and pairwise consistency axioms have been attached to the formula. Quantifier-block references independently retain every fresh quotient through level initialization and search."
+        "Division purification owns numerator, denominator and fresh-name references until all guarded and pairwise consistency axioms have been attached to the formula. Quantifier-block references independently retain every fresh quotient through level initialization and search.",
+        "NLQSATTactic owns an independent parameter snapshot. Updates replace that snapshot, translation copies it, each application projects it into the full NLSAT solver configuration while forcing factor=false, and Close releases it before the tactic header."
       ],
       "deviations": [
-        "The retained qsat-mode path now reaches a public tactic through quantifier hoisting, symbolic-division Ackermannization, full Tseitin fallback compilation, alternating NLSAT search and free-expression-filtered SAT model publication. QE-mode answer construction, auxiliary-definition model conversion, parameter parity and broader C++ differential coverage remain pending, so the source unit and tactic method remain partial."
+        "The retained qsat-mode path now reaches a public tactic through quantifier hoisting, symbolic-division Ackermannization, full Tseitin fallback compilation, alternating NLSAT search, retained NLSAT parameters and free-expression-filtered SAT model publication. QE-mode answer construction, auxiliary-definition model conversion and broader C++ differential coverage remain pending, so the source unit and tactic method remain partial."
       ]
     },
     {
@@ -99956,7 +99959,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/qe/nlqsat_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd/g3/qsat_test.go", "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"],
-      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestSMTLibRunnerQSATAndQuantifierElimination"],
       "conditionals": [
         {
           "line": 21,
@@ -99974,7 +99977,7 @@
           "name": "Public nonlinear quantified satisfiability tactic constructor and tactic interface",
           "status": "partial",
           "go_target": "pkg/qe/nlqsat_tactic.go",
-          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestSMTLibRunnerQSATAndQuantifierElimination"]
         }
       ],
       "ownership": [],

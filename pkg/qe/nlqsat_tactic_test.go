@@ -227,3 +227,44 @@ func TestNLQSATTacticPurifiesSymbolicDivision(t *testing.T) {
 		})
 	}
 }
+
+func TestNLQSATTacticParametersAndTranslation(t *testing.T) {
+	f := newFMFixture(t)
+	runner, err := NewNLQSATTactic(f.r.manager, f.r.config)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, runner.Close()) })
+	params, err := f.r.config.Context.NewValue()
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, f.r.config.Context.Del(&params)) })
+	seedName, seed := "seed", uint32(19)
+	fmMust(t, f.r.config.Context.SetUIntName(&params, &seedName, seed))
+	randomizeName, disabled := "randomize", false
+	fmMust(t, f.r.config.Context.SetBoolName(&params, &randomizeName, disabled))
+	factorName, enabled := "factor", true
+	fmMust(t, f.r.config.Context.SetBoolName(&params, &factorName, enabled))
+	fmMust(t, runner.UpdateParams(&params))
+	translated, err := runner.Translate(f.r.manager)
+	fmMust(t, err)
+	copy, ok := translated.(*NLQSATTactic)
+	if !ok {
+		t.Fatal("translated tactic type")
+	}
+	t.Cleanup(func() { fmMust(t, copy.Close()) })
+	if got, cause := f.r.config.Context.GetUIntName(&copy.params, &seedName, 0); cause != nil || got != seed {
+		t.Fatal("translated seed", got, cause)
+	}
+	bare := nlqBareSolverWithFixture(t, f)
+	polynomials, err := bare.PolynomialManager()
+	fmMust(t, err)
+	algebraic, err := bare.AlgebraicManager()
+	fmMust(t, err)
+	configuration, err := copy.solverConfig(polynomials, algebraic)
+	fmMust(t, err)
+	if configuration.Seed != seed || configuration.Randomize || configuration.Factor {
+		t.Fatal("NLQSAT parameter projection", configuration.Seed, configuration.Randomize, configuration.Factor)
+	}
+	fmMust(t, runner.UpdateParams(nil))
+	if got, cause := f.r.config.Context.GetUIntName(&copy.params, &seedName, 0); cause != nil || got != seed {
+		t.Fatal("translation did not retain an independent parameter snapshot", got, cause)
+	}
+}

@@ -39,7 +39,7 @@ func NewNRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSol
 		}
 	}()
 	qf := b.keep(NewQFNRATactic(m, p, config))
-	nlq := b.keep(qe.NewNLQSATTactic(m, qe.Config{
+	nlq := b.keep(qe.NewNLQSATTacticWithParams(m, p, qe.Config{
 		Context: c, Globals: g,
 		Cooperation: config.ModelEvaluator.Cooperation,
 		Trace:       config.ModelEvaluator.Trace,
