@@ -88881,9 +88881,9 @@
       "path": "src/muz/rel/tbv.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/tbv.go", "pkg/muz/rel/tbv_test.go"],
+      "tests": ["TestTBVSourceEncodingRangesAndSetOperations", "TestTBVSourceParsingPermutationComplementAndProjection", "TestTBVFormulaAndLifetimeBoundaries", "TestTBVZeroWidthAndBounds"],
       "assertions": [
         {
           "line": 89,
@@ -88910,19 +88910,19 @@
           "text": "SASSERT(lo <= hi && hi < num_tbits());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"complete concrete ternary bit-vector manager implementation, parsing, projection, set algebra, hashing, display and AST formulas","status":"ported","go_target":"pkg/muz/rel/tbv.go","tests":["TestTBVSourceEncodingRangesAndSetOperations","TestTBVSourceParsingPermutationComplementAndProjection","TestTBVFormulaAndLifetimeBoundaries","TestTBVZeroWidthAndBounds"]}],
+      "ownership": ["TBVManager owns fixed-width storage and tracks concrete TBV allocations; vectors retain their physical owner for cross-manager projection and must be deallocated or invalidated by manager reset/close."],
+      "deviations": ["The dead debug_alloc switch and generic tbv_ref RAII template are omitted; retained callers use concrete TBV values and explicit Deallocate."]
     },
     {
       "path": "src/muz/rel/tbv.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/tbv.go", "pkg/muz/rel/tbv_test.go"],
+      "tests": ["TestTBVSourceEncodingRangesAndSetOperations", "TestTBVSourceParsingPermutationComplementAndProjection", "TestTBVFormulaAndLifetimeBoundaries", "TestTBVZeroWidthAndBounds"],
       "conditionals": [
         {
           "line": 21,
@@ -88933,11 +88933,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"TBit encoding and complete retained TBV/TBVManager public surface","status":"ported","go_target":"pkg/muz/rel/tbv.go","tests":["TestTBVSourceEncodingRangesAndSetOperations","TestTBVSourceParsingPermutationComplementAndProjection","TestTBVFormulaAndLifetimeBoundaries","TestTBVZeroWidthAndBounds"]}],
+      "ownership": ["Concrete manager-local fixed-bitset ownership replaces source allocation macros without a generic wrapper."],
+      "deviations": ["The uninstantiated generic tbv_ref RAII helper is not ported; retained concrete callers explicitly deallocate vectors."]
     },
     {
       "path": "src/muz/rel/udoc_relation.cpp",
