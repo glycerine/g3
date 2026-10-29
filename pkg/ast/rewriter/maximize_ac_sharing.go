@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 const maximizeACArgumentLimit = 128
@@ -34,6 +35,7 @@ type MaximizeBVSharingConfiguration struct {
 	cache       map[acSharingKey]struct{}
 	scopes      []int
 	initialized bool
+	trace       *diagnostic.TraceTags
 	closed      bool
 }
 
@@ -202,6 +204,12 @@ func (c *MaximizeBVSharingConfiguration) ReduceApp(decl ast.ASTHandle, arguments
 		numeral = args[0]
 		args = args[1:]
 	}
+	if e = c.traceBeforeReuse(len(args)); e != nil {
+		return RewriteFailed, e
+	}
+	if e = c.traceArguments(args); e != nil {
+		return RewriteFailed, e
+	}
 	for len(args) > 1 && len(args) < maximizeACArgumentLimit {
 		found := false
 		for i := 0; i+1 < len(args) && !found; i++ {
@@ -212,6 +220,9 @@ func (c *MaximizeBVSharingConfiguration) ReduceApp(decl ast.ASTHandle, arguments
 				}
 				if !yes {
 					continue
+				}
+				if x = c.traceReuse(i, j); x != nil {
+					return RewriteFailed, x
 				}
 				args[i], x = c.manager.MkApp(decl, []ast.ASTHandle{args[i], args[j]})
 				if x != nil {
@@ -227,7 +238,15 @@ func (c *MaximizeBVSharingConfiguration) ReduceApp(decl ast.ASTHandle, arguments
 			break
 		}
 	}
+	if len(args) == 1 {
+		if e = c.traceTreeLoop(1); e != nil {
+			return RewriteFailed, e
+		}
+	}
 	for len(args) > 1 {
+		if e = c.traceTreeLoop(len(args)); e != nil {
+			return RewriteFailed, e
+		}
 		write := 0
 		for i := 0; i < len(args); i += 2 {
 			if i == len(args)-1 {
@@ -251,6 +270,9 @@ func (c *MaximizeBVSharingConfiguration) ReduceApp(decl ast.ASTHandle, arguments
 		if e != nil {
 			return RewriteFailed, e
 		}
+	}
+	if e = c.traceResult(result); e != nil {
+		return RewriteFailed, e
 	}
 	return RewriteDone, c.manager.SetRef(out, result)
 }
