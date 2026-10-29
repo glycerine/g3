@@ -71,26 +71,27 @@ const (
 	satConfigCoreMinimizeMask
 	satConfigCoreMinimizePartialMask
 	satConfigDimacsDisplayMask
-	satConfigAllFieldsMask = (satConfigDimacsDisplayMask << 1) - 1
+	satConfigProbSearchMask
+	satConfigAllFieldsMask = (satConfigProbSearchMask << 1) - 1
 )
 
 type satMainConfigState struct {
-	MaxMemory                                                                   uint64
-	Phase                                                                       satPhaseSelection
-	PhaseCachingOn, PhaseCachingOff                                             uint32
-	Restart                                                                     satRestartStrategy
-	RestartInitial                                                              uint32
-	RestartFactor                                                               float64
-	RestartMax                                                                  uint32
-	RandomFreq                                                                  float64
-	RandomSeed, BurstSearch, MaxConflicts, NumParallel                          uint32
-	SimplifyMult1                                                               uint32
-	SimplifyMult2                                                               float64
-	SimplifyMax                                                                 uint32
-	GCStrategy                                                                  satGCStrategy
-	GCInitial, GCIncrement, GCSmallLBD, GCK                                     uint32
-	MinimizeLemmas, DynSubRes, CoreMinimize, CoreMinimizePartial, DimacsDisplay bool
-	Initialized                                                                 uint32
+	MaxMemory                                                                               uint64
+	Phase                                                                                   satPhaseSelection
+	PhaseCachingOn, PhaseCachingOff                                                         uint32
+	Restart                                                                                 satRestartStrategy
+	RestartInitial                                                                          uint32
+	RestartFactor                                                                           float64
+	RestartMax                                                                              uint32
+	RandomFreq                                                                              float64
+	RandomSeed, BurstSearch, MaxConflicts, NumParallel                                      uint32
+	SimplifyMult1                                                                           uint32
+	SimplifyMult2                                                                           float64
+	SimplifyMax                                                                             uint32
+	GCStrategy                                                                              satGCStrategy
+	GCInitial, GCIncrement, GCSmallLBD, GCK                                                 uint32
+	MinimizeLemmas, DynSubRes, CoreMinimize, CoreMinimizePartial, DimacsDisplay, ProbSearch bool
+	Initialized                                                                             uint32
 }
 
 // One charged cold owner. The runtime's actual GlobalParams/ParamsContext and
