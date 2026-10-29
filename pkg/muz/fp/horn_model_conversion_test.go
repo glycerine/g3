@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -31,7 +32,17 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 	quantifierResultMust(t, err)
 	quantifierResultMust(t, manager.RegisterDeclarationPlugins())
 	t.Cleanup(func() { quantifierResultMust(t, manager.Close()) })
-	engine, err := NewPropositionalEngine(manager)
+	context, err := uparams.NewParamsContext(symbols, numerals, uparams.ParamsConfig{Budget: budget})
+	quantifierResultMust(t, err)
+	t.Cleanup(func() { quantifierResultMust(t, context.Close()) })
+	catalog, err := uparams.NewGlobalParamsCatalog(symbols, uparams.GlobalParamsCatalogConfig{Budget: budget})
+	quantifierResultMust(t, err)
+	t.Cleanup(func() { quantifierResultMust(t, catalog.Close()) })
+	globals, err := uparams.NewGlobalParamsService(symbols, context, uparams.GlobalParamsConfig{Budget: budget, Catalog: catalog})
+	quantifierResultMust(t, err)
+	quantifierResultMust(t, globals.InitializeSource())
+	t.Cleanup(func() { quantifierResultMust(t, globals.Close()) })
+	engine, err := NewPropositionalEngineWithServices(manager, context, globals)
 	quantifierResultMust(t, err)
 	t.Cleanup(func() { quantifierResultMust(t, engine.Close()) })
 
@@ -107,5 +118,79 @@ func TestHornModelConversionsReplayInReverseApplicationOrder(t *testing.T) {
 	quantifierResultMust(t, err)
 	if !manager.IsTrue(value) {
 		t.Fatal("Horn converters did not replay newest-to-oldest", value)
+	}
+	functionalZero, err := manager.ArithmeticIntegerNumeralText("0")
+	quantifierResultMust(t, err)
+	functionalInteger, err := manager.GetSort(functionalZero)
+	quantifierResultMust(t, err)
+	functionalX, err := manager.MkVar(0, functionalInteger)
+	quantifierResultMust(t, err)
+	inlinePredicate, err = manager.MkFuncDecl(inlineName, []ast.ASTHandle{functionalInteger, functionalInteger}, boolean, ast.ASTFuncDeclInfo{})
+	quantifierResultMust(t, err)
+	functionalHead, err := manager.MkApp(inlinePredicate, []ast.ASTHandle{functionalX, functionalZero})
+	quantifierResultMust(t, err)
+	functionalHeadRef, err := manager.NewRef(functionalHead)
+	quantifierResultMust(t, err)
+	functionalBodyRef, err := manager.NewRef(truth)
+	quantifierResultMust(t, err)
+	functionalRule := transforms.InlineModelRule{Head: functionalHeadRef, Body: functionalBodyRef}
+	functionalSource, err := model.NewModel(manager)
+	quantifierResultMust(t, err)
+	functionalExpanded, err := engine.expandHornModel(functionalSource, []hornModelConversion{{kind: hornConvertInline, inline: []transforms.InlineModelRule{functionalRule}}})
+	quantifierResultMust(t, err)
+	functionalInterpretation, err := functionalExpanded.Core().FunctionInterpretation(inlinePredicate)
+	quantifierResultMust(t, err)
+	functionalFormula, err := functionalInterpretation.Else()
+	quantifierResultMust(t, err)
+	functionalUsed, err := ast.NewASTUsedVars(manager)
+	quantifierResultMust(t, err)
+	quantifierResultMust(t, functionalUsed.Process(functionalFormula))
+	if functionalUsed.Contains(1) == (ast.ASTHandle{}) {
+		t.Fatal("inline functional clause did not retain its constrained argument", functionalFormula)
+	}
+	quantifierResultMust(t, functionalExpanded.Close())
+	quantifierResultMust(t, manager.DelRef(&functionalBodyRef))
+	quantifierResultMust(t, manager.DelRef(&functionalHeadRef))
+
+	missingName, err := manager.Symbols.Intern("horn-inline-missing")
+	quantifierResultMust(t, err)
+	missing, err := manager.MkFuncDecl(missingName, nil, boolean, ast.ASTFuncDeclInfo{})
+	quantifierResultMust(t, err)
+	missingApp, err := manager.MkApp(missing, nil)
+	quantifierResultMust(t, err)
+	resultName, err := manager.Symbols.Intern("horn-inline-result")
+	quantifierResultMust(t, err)
+	resultDeclaration, err := manager.MkFuncDecl(resultName, nil, boolean, ast.ASTFuncDeclInfo{})
+	quantifierResultMust(t, err)
+	resultApp, err := manager.MkApp(resultDeclaration, nil)
+	quantifierResultMust(t, err)
+	makeRule := func(body ast.ASTHandle) transforms.InlineModelRule {
+		headRef, makeErr := manager.NewRef(resultApp)
+		quantifierResultMust(t, makeErr)
+		bodyRef, makeErr := manager.NewRef(body)
+		quantifierResultMust(t, makeErr)
+		return transforms.InlineModelRule{Head: headRef, Body: bodyRef}
+	}
+	inlineRules := []transforms.InlineModelRule{makeRule(truth), makeRule(missingApp)}
+	t.Cleanup(func() {
+		for index := len(inlineRules) - 1; index >= 0; index-- {
+			quantifierResultMust(t, manager.DelRef(&inlineRules[index].Body))
+			quantifierResultMust(t, manager.DelRef(&inlineRules[index].Head))
+		}
+	})
+	inlineSource, err := model.NewModel(manager)
+	quantifierResultMust(t, err)
+	inlineExpanded, err := engine.expandHornModel(inlineSource, []hornModelConversion{{kind: hornConvertInline, inline: inlineRules}})
+	quantifierResultMust(t, err)
+	t.Cleanup(func() { quantifierResultMust(t, inlineExpanded.Close()) })
+	value, err = inlineExpanded.Core().ConstantInterpretation(missing)
+	quantifierResultMust(t, err)
+	if !manager.IsFalse(value) {
+		t.Fatal("missing inline body predicate did not default false", value)
+	}
+	value, err = inlineExpanded.Core().ConstantInterpretation(resultDeclaration)
+	quantifierResultMust(t, err)
+	if !manager.IsTrue(value) {
+		t.Fatal("inline clauses did not merge by disjunction", value)
 	}
 }

@@ -325,6 +325,10 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, conversions [
 			if err := e.applyHornConeModelStep(core, conversion.cone); err != nil {
 				return nil, err
 			}
+		case hornConvertInline:
+			if err := e.applyHornInlineModelRules(source, conversion.inline); err != nil {
+				return nil, err
+			}
 		default:
 			return nil, fmt.Errorf("muz/fp: unknown Horn model conversion %d", conversion.kind)
 		}
@@ -335,4 +339,87 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, conversions [
 		}
 	}
 	return source, nil
+}
+
+func (e *PropositionalEngine) expandHornCover(original, derived ast.ASTHandle, source ast.ASTRef, includeDerived bool, conversions []hornModelConversion) (_ ast.ASTRef, resultErr error) {
+	formula, err := e.manager.RefGet(source)
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, e.manager.DelRef(&source))
+	}
+	seed, err := model.NewModel(e.manager)
+	if err != nil {
+		return ast.ASTRef{}, errors.Join(err, e.manager.DelRef(&source))
+	}
+	seedOwned := true
+	defer func() {
+		resultErr = errors.Join(resultErr, e.manager.DelRef(&source))
+		if seedOwned {
+			resultErr = errors.Join(resultErr, seed.Close())
+		}
+	}()
+	if includeDerived {
+		derivedArity, arityErr := e.manager.GetArity(derived)
+		if arityErr != nil {
+			return ast.ASTRef{}, arityErr
+		}
+		if derivedArity == 0 {
+			err = seed.Core().RegisterConstant(derived, formula)
+		} else {
+			interpretation, makeErr := model.NewFunctionInterpretation(e.manager, derivedArity)
+			if makeErr == nil {
+				makeErr = interpretation.SetElse(formula)
+			}
+			if makeErr == nil {
+				makeErr = seed.Core().RegisterFunction(derived, interpretation)
+				if makeErr == nil {
+					interpretation = nil
+				}
+			}
+			if interpretation != nil {
+				makeErr = errors.Join(makeErr, interpretation.Close())
+			}
+			err = makeErr
+		}
+	}
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	expanded, err := e.expandHornModel(seed, conversions)
+	seedOwned = false
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, expanded.Close()) }()
+	originalArity, err := e.manager.GetArity(original)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if originalArity == 0 {
+		present, presentErr := expanded.Core().HasConstantInterpretation(original)
+		if presentErr != nil {
+			return ast.ASTRef{}, presentErr
+		}
+		if present {
+			formula, err = expanded.Core().ConstantInterpretation(original)
+		} else {
+			formula, err = e.manager.MkTrue()
+		}
+	} else {
+		interpretation, getErr := expanded.Core().FunctionInterpretation(original)
+		if getErr != nil {
+			return ast.ASTRef{}, getErr
+		}
+		if interpretation == nil {
+			formula, err = e.manager.MkTrue()
+		} else {
+			formula, err = interpretation.Else()
+			if err == nil && formula.IsNull() {
+				formula, err = e.manager.MkFalse()
+			}
+		}
+	}
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return e.manager.NewRef(formula)
 }

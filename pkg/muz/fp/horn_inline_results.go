@@ -8,7 +8,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/transforms"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -136,4 +138,238 @@ func (e *PropositionalEngine) normalizeInlineModelRule(rule transforms.InlineMod
 	}
 	result, err = e.manager.NewRef(formula)
 	return declaration, result, err
+}
+
+func (e *PropositionalEngine) addInlineDefaultInterpretations(destination *model.ModelCore, expression ast.ASTHandle) error {
+	boolean, err := e.manager.MkBoolSort()
+	if err != nil {
+		return err
+	}
+	falsity, err := e.manager.MkFalse()
+	if err != nil {
+		return err
+	}
+	visited := make(map[ast.ASTHandle]bool)
+	stack := []ast.ASTHandle{expression}
+	for len(stack) != 0 {
+		last := len(stack) - 1
+		current := stack[last]
+		stack = stack[:last]
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		kind, getErr := e.manager.GetKind(current)
+		if getErr != nil {
+			return getErr
+		}
+		switch kind {
+		case ast.ASTVar:
+			continue
+		case ast.ASTQuantifier:
+			body, getErr := e.manager.GetQuantifierBody(current)
+			if getErr != nil {
+				return getErr
+			}
+			stack = append(stack, body)
+			continue
+		case ast.ASTApp:
+		default:
+			return ast.ErrASTDomain
+		}
+		declaration, getErr := e.manager.GetDecl(current)
+		if getErr != nil {
+			return getErr
+		}
+		family, getErr := e.manager.GetFamilyID(declaration)
+		if getErr != nil {
+			return getErr
+		}
+		sort, getErr := e.manager.GetSort(current)
+		if getErr != nil {
+			return getErr
+		}
+		arity, getErr := e.manager.GetArity(declaration)
+		if getErr != nil {
+			return getErr
+		}
+		if family == ast.NullFamilyID && sort == boolean {
+			if arity == 0 {
+				present, presentErr := destination.HasConstantInterpretation(declaration)
+				if presentErr != nil {
+					return presentErr
+				}
+				if !present {
+					if presentErr = destination.RegisterConstant(declaration, falsity); presentErr != nil {
+						return presentErr
+					}
+				}
+			} else {
+				interpretation, presentErr := destination.FunctionInterpretation(declaration)
+				if presentErr != nil {
+					return presentErr
+				}
+				if interpretation == nil {
+					interpretation, presentErr = model.NewFunctionInterpretation(e.manager, arity)
+					if presentErr == nil {
+						presentErr = interpretation.SetElse(falsity)
+					}
+					if presentErr == nil {
+						presentErr = destination.RegisterFunction(declaration, interpretation)
+						interpretation = nil
+					}
+					if interpretation != nil {
+						presentErr = errors.Join(presentErr, interpretation.Close())
+					}
+					if presentErr != nil {
+						return presentErr
+					}
+				}
+			}
+		}
+		arguments, getErr := e.manager.GetNumArgs(current)
+		if getErr != nil {
+			return getErr
+		}
+		for index := uint32(0); index < arguments; index++ {
+			argument, argumentErr := e.manager.GetArg(current, index)
+			if argumentErr != nil {
+				return argumentErr
+			}
+			stack = append(stack, argument)
+		}
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) applyHornInlineModelRules(destination *model.Model, rules []transforms.InlineModelRule) (resultErr error) {
+	if len(rules) == 0 {
+		return nil
+	}
+	if e.params == nil || e.globals == nil || e.guard == nil {
+		return ErrPropositionalEngine
+	}
+	cooperation, err := cooperate.NewCooperation(e.manager.Budget())
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
+	configuration := model.ModelEvaluatorConfig{
+		Context:     e.params,
+		Globals:     e.globals,
+		Memory:      e.manager.NumeralService().RuntimeOwner(),
+		Cooperation: cooperation,
+	}
+	for index := len(rules) - 1; index >= 0; index-- {
+		declaration, normalized, normalizeErr := e.normalizeInlineModelRule(rules[index])
+		if normalizeErr != nil {
+			return normalizeErr
+		}
+		normalizedHandle, normalizeErr := e.manager.RefGet(normalized)
+		if normalizeErr == nil {
+			normalizeErr = e.addInlineDefaultInterpretations(destination.Core(), normalizedHandle)
+		}
+		evaluated, makeErr := e.manager.NewRef(ast.ASTHandle{})
+		if normalizeErr == nil && makeErr == nil {
+			evaluator, evaluatorErr := model.NewModelEvaluator(destination.Core(), configuration)
+			if evaluatorErr == nil {
+				evaluatorErr = evaluator.Evaluate(normalizedHandle, evaluated)
+			}
+			if evaluator != nil {
+				evaluatorErr = errors.Join(evaluatorErr, evaluator.Close())
+			}
+			normalizeErr = evaluatorErr
+		} else if normalizeErr == nil {
+			normalizeErr = makeErr
+		}
+		if normalizeErr != nil {
+			return errors.Join(normalizeErr, e.manager.DelRef(&evaluated), e.manager.DelRef(&normalized))
+		}
+		value, normalizeErr := e.manager.RefGet(evaluated)
+		arity, arityErr := e.manager.GetArity(declaration)
+		if normalizeErr == nil {
+			normalizeErr = arityErr
+		}
+		var interpretation *model.FunctionInterpretation
+		if normalizeErr == nil && arity == 0 {
+			present, presentErr := destination.Core().HasConstantInterpretation(declaration)
+			if presentErr == nil && present {
+				var prior ast.ASTHandle
+				prior, presentErr = destination.Core().ConstantInterpretation(declaration)
+				if presentErr == nil {
+					value, presentErr = e.manager.MkOr(prior, value)
+				}
+			}
+			normalizeErr = presentErr
+		} else if normalizeErr == nil {
+			var presentErr error
+			interpretation, presentErr = destination.Core().FunctionInterpretation(declaration)
+			if presentErr == nil && interpretation != nil {
+				prior, priorErr := interpretation.Else()
+				if priorErr == nil && !prior.IsNull() {
+					value, priorErr = e.manager.MkOr(prior, value)
+				}
+				presentErr = priorErr
+			}
+			normalizeErr = presentErr
+		}
+		if normalizeErr == nil {
+			rewritten, rewriteErr := e.manager.NewRef(ast.ASTHandle{})
+			if rewriteErr == nil {
+				rewriteErr = e.guard.Rewrite(value, rewritten)
+			}
+			if rewriteErr == nil {
+				value, rewriteErr = e.manager.RefGet(rewritten)
+				if arity == 0 {
+					rewriteErr = destination.Core().RegisterConstant(declaration, value)
+				} else {
+					created := false
+					if interpretation == nil {
+						interpretation, rewriteErr = model.NewFunctionInterpretation(e.manager, arity)
+						created = rewriteErr == nil
+					}
+					if rewriteErr == nil {
+						rewriteErr = interpretation.SetElse(value)
+					}
+					if rewriteErr == nil && created {
+						rewriteErr = destination.Core().RegisterFunction(declaration, interpretation)
+						if rewriteErr == nil {
+							interpretation = nil
+						}
+					}
+					if rewriteErr != nil && created && interpretation != nil {
+						rewriteErr = errors.Join(rewriteErr, interpretation.Close())
+					}
+				}
+			}
+			normalizeErr = errors.Join(rewriteErr, e.manager.DelRef(&rewritten))
+		}
+		normalizeErr = errors.Join(normalizeErr, e.manager.DelRef(&evaluated), e.manager.DelRef(&normalized))
+		if normalizeErr != nil {
+			return normalizeErr
+		}
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) hornInlineEliminated(conversions []hornModelConversion, declaration ast.ASTHandle) (bool, error) {
+	for _, conversion := range conversions {
+		if conversion.kind != hornConvertInline {
+			continue
+		}
+		for _, rule := range conversion.inline {
+			head, err := e.manager.RefGet(rule.Head)
+			if err != nil {
+				return false, err
+			}
+			headDeclaration, err := e.manager.GetDecl(head)
+			if err != nil {
+				return false, err
+			}
+			if headDeclaration == declaration {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }

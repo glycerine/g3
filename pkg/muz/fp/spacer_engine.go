@@ -15,7 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLossyResultTransforms bool) (_ *hornPreprocessResult, resultErr error) {
+func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLossyResultTransforms, allowInlineResultTransforms bool) (_ *hornPreprocessResult, resultErr error) {
 	var slicedPredicates map[ast.ASTHandle]ast.ASTHandle
 	var slicedColumns map[ast.ASTHandle][]bool
 	prepared, err := base.NewRuleSet(e.rules)
@@ -84,10 +84,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	// PDR exposes relation models and inductive certificates. Until the
-	// simplifier, subsumption, and inline model/proof converters are retained,
-	// preserve those declarations while sharing the convertible stages.
-	if !allowLossyResultTransforms {
+	// PDR exposes relation models and inductive certificates. Preserve stages
+	// whose result converters are not retained while sharing convertible ones.
+	if !allowInlineResultTransforms {
 		inlineEager = false
 		inlineLinear = false
 	}
@@ -161,8 +160,11 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	newInliner := func(priority uint32) base.RuleTransformPlugin {
-		return transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, []ast.ASTHandle{query}, inlineEager, inlineLinear, e.params, e.globals, priority)
+	var inliners []*transforms.RuleInlinerPlugin
+	newInliner := func(priority uint32) *transforms.RuleInlinerPlugin {
+		plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, []ast.ASTHandle{query}, inlineEager, inlineLinear, e.params, e.globals, priority)
+		inliners = append(inliners, plugin)
+		return plugin
 	}
 	if useSubsumption {
 		if err = transformer.Register(transforms.NewSubsumptionCheckerPlugin(useChecker, 35005)); err != nil {
@@ -308,10 +310,14 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	}
 	_, err = transformer.Apply(prepared)
 	var initialConeSteps, laterConeSteps, finalConeSteps []transforms.ConeModelStep
+	var inlineModelRules [][]transforms.InlineModelRule
 	var modelConversions []hornModelConversion
 	keepModelConversions := false
 	defer func() {
 		if !keepModelConversions {
+			for _, rules := range inlineModelRules {
+				resultErr = errors.Join(resultErr, transforms.CloseInlineModelRules(rules))
+			}
 			resultErr = errors.Join(resultErr,
 				transforms.CloseConeModelSteps(initialConeSteps),
 				transforms.CloseConeModelSteps(laterConeSteps),
@@ -327,6 +333,15 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	}
 	if err == nil {
 		finalConeSteps, err = finalCone.TakeModelSteps()
+	}
+	if err == nil {
+		inlineModelRules = make([][]transforms.InlineModelRule, len(inliners))
+		for index, inliner := range inliners {
+			inlineModelRules[index], err = inliner.TakeModelRules()
+			if err != nil {
+				break
+			}
+		}
 	}
 	if err == nil && quantifierAbstraction != nil {
 		quantifiedPredicates = quantifierAbstraction.FreshPredicates()
@@ -446,13 +461,24 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if len(karrInvariants) != 0 {
 		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertKarr, karr: karrInvariants})
 	}
+	appendInlineRules := func(index int) {
+		if index < len(inlineModelRules) && len(inlineModelRules[index]) != 0 {
+			modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertInline, inline: inlineModelRules[index]})
+			inlineModelRules[index] = nil
+		}
+	}
+	appendInlineRules(0)
 	if len(bitBlastedPredicates) != 0 {
 		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertBitBlast, predicates: bitBlastedPredicates})
 	}
 	appendConeSteps(laterConeSteps)
 	laterConeSteps = nil
+	appendInlineRules(1)
 	appendConeSteps(finalConeSteps)
 	finalConeSteps = nil
+	for index := 2; index < len(inlineModelRules); index++ {
+		appendInlineRules(index)
+	}
 	if len(slicedPredicates) != 0 {
 		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertSlice, predicates: slicedPredicates, columns: slicedColumns})
 	}
@@ -503,7 +529,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	preprocessed, err := e.preprocessHornRules(declaration, true)
+	preprocessed, err := e.preprocessHornRules(declaration, true, true)
 	if err != nil {
 		return lbool.Undef, err
 	}

@@ -75,6 +75,7 @@ const (
 	hornConvertScale
 	hornConvertKarr
 	hornConvertCone
+	hornConvertInline
 )
 
 type hornModelConversion struct {
@@ -83,12 +84,16 @@ type hornModelConversion struct {
 	columns    map[ast.ASTHandle][]bool
 	karr       map[ast.ASTHandle]rel.KarrMatrix
 	cone       transforms.ConeModelStep
+	inline     []transforms.InlineModelRule
 }
 
 func closeHornModelConversions(conversions []hornModelConversion) (result error) {
 	for i := len(conversions) - 1; i >= 0; i-- {
 		if conversions[i].kind == hornConvertCone {
 			result = errors.Join(result, transforms.CloseConeModelSteps([]transforms.ConeModelStep{conversions[i].cone}))
+		}
+		if conversions[i].kind == hornConvertInline {
+			result = errors.Join(result, transforms.CloseInlineModelRules(conversions[i].inline))
 		}
 	}
 	return result

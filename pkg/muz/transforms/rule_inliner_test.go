@@ -314,7 +314,9 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 	}
 	transformer := base.NewRuleTransformer()
 	t.Cleanup(func() { coneMust(t, transformer.Close()) })
-	plugin := transforms.NewRuleInlinerPlugin(f.manager, f.rules, []ast.ASTHandle{f.declarations["Goal"]}, 0)
+	// The rule set is authoritative for outputs that earlier transforms may
+	// derive after this plugin was constructed.
+	plugin := transforms.NewRuleInlinerPlugin(f.manager, f.rules, nil, 0)
 	coneMust(t, transformer.Register(plugin))
 	modified, err := transformer.Apply(f.set)
 	coneMust(t, err)

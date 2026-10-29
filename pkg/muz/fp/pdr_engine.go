@@ -227,7 +227,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	preprocessed, err := e.preprocessHornRules(declaration, false)
+	preprocessed, err := e.preprocessHornRules(declaration, false, true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
@@ -308,21 +308,31 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 		return ast.ASTRef{}, err
 	}
 	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
-		cover, err := e.spacer.CoverDelta(level, e.spacerPredicate(declaration))
+		derived := e.spacerPredicate(declaration)
+		_, found, err := e.spacer.Transformer(derived)
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		return e.expandSpacerFormula(declaration, cover)
+		cover, err := e.spacer.CoverDelta(level, derived)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return e.expandHornCover(declaration, derived, cover, found, e.spacerConversions)
 	}
 	context, err := e.pdrContext()
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	cover, err := context.CoverDelta(level, e.pdrPredicate(declaration))
+	derived := e.pdrPredicate(declaration)
+	_, found, err := context.Transformer(derived)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return expandSlicedFormula(e.manager, e.pdrSlices, declaration, cover)
+	cover, err := context.CoverDelta(level, derived)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return e.expandHornCover(declaration, derived, cover, found, e.pdrConversions)
 }
 
 // AddCover installs a bound-variable property in a retained PDR or Spacer
@@ -335,6 +345,13 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 		if err := e.rejectSlicedProperty(declaration); err != nil {
 			return err
 		}
+		eliminated, err := e.hornInlineEliminated(e.spacerConversions, declaration)
+		if err != nil {
+			return err
+		}
+		if eliminated {
+			return fmt.Errorf("muz/fp: covers and invariants are incompatible with eliminated predicates")
+		}
 		return e.spacer.AddCover(level, e.spacerPredicate(declaration), property)
 	}
 	context, err := e.pdrContext()
@@ -343,6 +360,13 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	}
 	if slicedPredicateHasRemovedColumns(e.pdrSlices, declaration) {
 		return fmt.Errorf("muz/fp: covers and invariants are incompatible with sliced predicate columns")
+	}
+	eliminated, err := e.hornInlineEliminated(e.pdrConversions, declaration)
+	if err != nil {
+		return err
+	}
+	if eliminated {
+		return fmt.Errorf("muz/fp: covers and invariants are incompatible with eliminated predicates")
 	}
 	return context.AddCover(level, e.pdrPredicate(declaration), property)
 }

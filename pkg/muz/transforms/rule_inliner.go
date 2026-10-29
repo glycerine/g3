@@ -869,6 +869,22 @@ func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	if p == nil || p.closed || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
+	outputs, err := source.OutputPredicates()
+	if err != nil {
+		return nil, err
+	}
+	addedOutputs := make([]ast.ASTHandle, 0, len(outputs))
+	for _, declaration := range outputs {
+		if !p.protected[declaration] {
+			p.protected[declaration] = true
+			addedOutputs = append(addedOutputs, declaration)
+		}
+	}
+	defer func() {
+		for _, declaration := range addedOutputs {
+			delete(p.protected, declaration)
+		}
+	}()
 	count, err := source.Len()
 	if err != nil || count == 0 {
 		return nil, err
