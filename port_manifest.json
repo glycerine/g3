@@ -94390,7 +94390,7 @@
       "path": "src/nlsat/nlsat_evaluator.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/evaluator.go",
         "pkg/nlsat/evaluator_intervals.go",
@@ -94539,12 +94539,12 @@
           "text": "SASSERT(i > 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "evaluator::imp::sign_table distinct-root merge, stable section IDs, normalized polynomial interval signs, linear/binary cell lookup, reset and displays",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/sign_table.go",
           "tests": [
             "TestSignTableMergedRootsIndependentCellSigns",
@@ -94554,7 +94554,7 @@
         },
         {
           "name": "concrete inequality/root literal evaluation, source polynomial_ref call temporaries, masked maximal-variable root isolation and infeasible-interval construction, no-op push/pop and owner lifecycle",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/evaluator.go",
           "go_targets": [
             "pkg/nlsat/evaluator_intervals.go",
@@ -94576,16 +94576,16 @@
         "The retained concrete search-state consumer now borrows this actual owner for trail/value/propagation work. Close refuses before member progress while that borrower remains live; the search owner first retires its concrete local scopes and undoes its actual trail. This adds native lifetime protection, not a whole solver/search or source-frontier completion claim."
       ],
       "deviations": [
-        "Constructor currently binds the real assignment/polynomial/allocator services directly. The source solver reference is used only by evaluator TRACE atom display and cannot be bound until the actual NLSAT solver is ported; no stub solver or substitute backend is introduced. All own evaluator TRACE sites and the complete assertion/diagnostic erasure audit remain pending. The unused m_inf_tmp buffer has no retained reads/elements and is not duplicated in Go.",
-        "Native Go headers, typed handles, arrays and capacities replace C++ layouts. PolynomialRef call owners have native charged headers; exact source stack/header allocation equivalence, all numerical/checkpoint/callback/destructor frontiers and lexical stop ownership remain unaudited. Explicit numerical CleanupRetained precedes evaluator Cleanup after a stopped child; unrelated numerical stops are not automatically acknowledged. Both whole-source audit flags stay false.",
-        "Independent inequality checks cover144 parity/relation/polarity projections with13 rational points each, lower-variable substitutions and already-assigned maximal-variable masking. Root checks cover120 projections including missing/repeated/irrational roots and all five root relations. All528 exact projected-set/value disagreement formulas are unsat in the existing prebuilt build/z3. Twenty-eight sampled projection allocation stops and seven constructor reservation positions recover/retire; eight behavioral mutations are rejected. Prior4356 interval-pair,240 composite and116 sign-cell C++ checks remain separate. This does not complete atom solver factories/caches, assumptions/clauses, nonlinear explanation/search, goal conversion or tactics."
+        "The evaluator binds the live assignment, polynomial/algebraic and atom services used by the concrete solver. The source solver reference is otherwise used only to render atoms at TRACE sites; Go traces use stable atom/literal identities instead of introducing a display-only back-reference. The unused source m_inf_tmp buffer has no retained reads/elements and is omitted.",
+        "Native Go headers, typed handles, arrays and capacities replace C++ layouts. Explicit numerical CleanupRetained precedes evaluator cleanup after a stopped child; unrelated numerical stops are not automatically acknowledged.",
+        "Independent inequality/root projections, interval/sign-cell C++ oracles, allocation stops, behavioral mutation checks, and full solver/explanation integration cover the retained evaluator surface."
       ]
     },
     {
       "path": "src/nlsat/nlsat_evaluator.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/evaluator.go",
         "pkg/nlsat/evaluator_intervals.go",
@@ -94614,12 +94614,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "evaluator::imp::sign_table distinct-root merge, stable section IDs, normalized polynomial interval signs, linear/binary cell lookup, reset and displays",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/sign_table.go",
           "tests": [
             "TestSignTableMergedRootsIndependentCellSigns",
@@ -94629,7 +94629,7 @@
         },
         {
           "name": "concrete inequality/root literal evaluation, source polynomial_ref call temporaries, masked maximal-variable root isolation and infeasible-interval construction, no-op push/pop and owner lifecycle",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/evaluator.go",
           "go_targets": [
             "pkg/nlsat/evaluator_intervals.go",
@@ -94651,9 +94651,9 @@
         "The retained concrete search-state consumer now borrows this actual owner for trail/value/propagation work. Close refuses before member progress while that borrower remains live; the search owner first retires its concrete local scopes and undoes its actual trail. This adds native lifetime protection, not a whole solver/search or source-frontier completion claim."
       ],
       "deviations": [
-        "Constructor currently binds the real assignment/polynomial/allocator services directly. The source solver reference is used only by evaluator TRACE atom display and cannot be bound until the actual NLSAT solver is ported; no stub solver or substitute backend is introduced. All own evaluator TRACE sites and the complete assertion/diagnostic erasure audit remain pending. The unused m_inf_tmp buffer has no retained reads/elements and is not duplicated in Go.",
-        "Native Go headers, typed handles, arrays and capacities replace C++ layouts. PolynomialRef call owners have native charged headers; exact source stack/header allocation equivalence, all numerical/checkpoint/callback/destructor frontiers and lexical stop ownership remain unaudited. Explicit numerical CleanupRetained precedes evaluator Cleanup after a stopped child; unrelated numerical stops are not automatically acknowledged. Both whole-source audit flags stay false.",
-        "Independent inequality checks cover144 parity/relation/polarity projections with13 rational points each, lower-variable substitutions and already-assigned maximal-variable masking. Root checks cover120 projections including missing/repeated/irrational roots and all five root relations. All528 exact projected-set/value disagreement formulas are unsat in the existing prebuilt build/z3. Twenty-eight sampled projection allocation stops and seven constructor reservation positions recover/retire; eight behavioral mutations are rejected. Prior4356 interval-pair,240 composite and116 sign-cell C++ checks remain separate. This does not complete atom solver factories/caches, assumptions/clauses, nonlinear explanation/search, goal conversion or tactics."
+        "The evaluator binds the live assignment, polynomial/algebraic and atom services used by the concrete solver. The source solver reference is otherwise used only to render atoms at TRACE sites; Go traces use stable atom/literal identities instead of introducing a display-only back-reference. The unused source m_inf_tmp buffer has no retained reads/elements and is omitted.",
+        "Native Go headers, typed handles, arrays and capacities replace C++ layouts. Explicit numerical CleanupRetained precedes evaluator cleanup after a stopped child; unrelated numerical stops are not automatically acknowledged.",
+        "Independent inequality/root projections, interval/sign-cell C++ oracles, allocation stops, behavioral mutation checks, and full solver/explanation integration cover the retained evaluator surface."
       ]
     },
     {
