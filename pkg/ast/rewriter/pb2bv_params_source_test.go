@@ -30,8 +30,8 @@ func TestPB2BVParametersSurviveCleanupReplacement(t *testing.T) {
 	astTestMust(t, c.Del(p))
 	value, err := c.GetUInt(&r.parameters, key, 0)
 	astTestMust(t, err)
-	if value != 17 {
-		t.Fatal("empty update replaced constructor snapshot", value)
+	if value != 29 {
+		t.Fatal("source parameter append omitted update", value)
 	}
 	m.Budget().FailAfter(0)
 	err = r.Cleanup()
@@ -41,13 +41,13 @@ func TestPB2BVParametersSurviveCleanupReplacement(t *testing.T) {
 	}
 	value, err = c.GetUInt(&r.cleanupParameters, key, 0)
 	astTestMust(t, err)
-	if value != 17 {
+	if value != 29 {
 		t.Fatal("cleanup local snapshot", value)
 	}
 	astTestMust(t, r.Cleanup())
 	value, err = c.GetUInt(&r.parameters, key, 0)
 	astTestMust(t, err)
-	if value != 17 || r.cleanupParameters != (uparams.ParamsRef{}) || c.Stats().References != 1 {
+	if value != 29 || r.cleanupParameters != (uparams.ParamsRef{}) || c.Stats().References != 1 {
 		t.Fatal("reconstruction did not retire temporary", value, c.Stats())
 	}
 	astTestMust(t, r.Close())
@@ -79,8 +79,8 @@ func TestPB2BVTraversalAlwaysPreservesCallerProof(t *testing.T) {
 		astTestMust(t, err)
 		result, err := m.RefGet(out)
 		astTestMust(t, err)
-		if actual != pr || result == h {
-			t.Fatal("non-proof traversal changed caller proof or omitted rewrite", actual, result)
+		if actual != pr || result != h {
+			t.Fatal("proof-enabled source bypass changed proof or expression", actual, result)
 		}
 		astTestMust(t, r.Cleanup())
 	}

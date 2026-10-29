@@ -52,13 +52,20 @@ type PB2BVRewriter struct {
 	freshLimits         []uint32
 	freshSeen           uint32
 	numTranslated       uint32
+	compileBV           uint32
+	compileCard         uint32
+	keepCardinality     bool
+	pbSolver            string
+	minArity            uint32
 	header              uint64
 	closed              bool
 }
 
 type PB2BVStatistics struct {
-	AuxiliaryVariables uint32
-	AuxiliaryClauses   uint32
+	CompiledBV          uint32
+	CompiledCardinality uint32
+	AuxiliaryVariables  uint32
+	AuxiliaryClauses    uint32
 }
 
 // NewPB2BVRewriter constructs the source implementation graph. A nonnil
@@ -88,6 +95,9 @@ func (r *PB2BVRewriter) constructMembers(p *uparams.ParamsRef) (err error) {
 		return err
 	}
 	if err = r.paramsContext.Assign(&r.parameters, p); err != nil {
+		return err
+	}
+	if err = r.loadProfile(); err != nil {
 		return err
 	}
 	m := r.manager
@@ -259,6 +269,7 @@ func (r *PB2BVRewriter) weightedPair(mode pb2BVComparison, formulas *[]ast.ASTHa
 }
 
 func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coefficients []*big.Rat, boundValue *big.Rat) (ast.ASTHandle, error) {
+	coefficients, boundValue = pb2BVNormalizeGCD(mode, coefficients, boundValue)
 	if boundValue.Sign() == 0 {
 		if mode == pb2BVGE {
 			return r.manager.MkTrue()
@@ -274,6 +285,9 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 	}
 	if !boundValue.IsInt() || boundValue.Num().BitLen() > int(^uint32(0)) {
 		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	if result, matched, err := r.profileWeighted(mode, args, coefficients, boundValue); err != nil || matched {
+		return result, err
 	}
 	width := uint32(boundValue.Num().BitLen())
 	zero, err := r.bitVectorNumeral(big.NewRat(0, 1), width)
@@ -357,6 +371,7 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 }
 
 func (r *PB2BVRewriter) weightedPB(kind int32, decl ast.ASTHandle, arguments ast.AppArguments, bound *big.Rat) (ast.ASTHandle, error) {
+	r.compileBV++
 	args := make([]ast.ASTHandle, arguments.Count())
 	coefficients := make([]*big.Rat, arguments.Count())
 	for i := range args {
@@ -668,6 +683,7 @@ func (r *PB2BVRewriter) cardinality(full bool, kind int32, k uint32, args ast.Ap
 		return result, ast.ErrASTDomain
 	}
 	if err == nil {
+		r.compileCard++
 		err = r.syncFresh()
 	}
 	return result, err
@@ -724,12 +740,18 @@ func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, ou
 		}
 	}
 	if !unsigned || !unit {
+		if r.retainWeighted(kind, decl, bound) {
+			return RewriteFailed, nil
+		}
 		result, err := r.weightedPB(kind, decl, args, bound)
 		if err != nil {
 			return RewriteFailed, err
 		}
 		r.numTranslated++
 		return RewriteDone, r.manager.SetRef(out, result)
+	}
+	if r.keepCardinality && args.Count() >= r.minArity {
+		return RewriteFailed, nil
 	}
 	result, err := r.cardinality(true, kind, k, args)
 	if err != nil {
@@ -744,6 +766,13 @@ func (r *PB2BVRewriter) rewriteApp(decl ast.ASTHandle, args ast.AppArguments, ou
 func (r *PB2BVRewriter) Rewrite(expression ast.ASTHandle, out, _ ast.ASTRef) error {
 	if err := r.open(); err != nil {
 		return err
+	}
+	proofs, err := r.manager.ProofsEnabled()
+	if err != nil {
+		return err
+	}
+	if proofs {
+		return r.manager.SetRef(out, expression)
 	}
 	return r.traversal.Rewrite(expression, out)
 }
@@ -762,8 +791,15 @@ func (r *PB2BVRewriter) Manager() (*ast.ASTManager, error) {
 	return r.manager, nil
 }
 
-// UpdateParams is intentionally empty, as in the source implementation.
-func (r *PB2BVRewriter) UpdateParams(_ *uparams.ParamsRef) error { return r.open() }
+func (r *PB2BVRewriter) UpdateParams(p *uparams.ParamsRef) error {
+	if err := r.open(); err != nil {
+		return err
+	}
+	if err := r.paramsContext.Append(&r.parameters, p); err != nil {
+		return err
+	}
+	return r.loadProfile()
+}
 
 func (r *PB2BVRewriter) NumTranslated() (uint32, error) {
 	if err := r.open(); err != nil {
@@ -848,7 +884,7 @@ func (r *PB2BVRewriter) CollectStatistics() (PB2BVStatistics, error) {
 	if err != nil {
 		return PB2BVStatistics{}, err
 	}
-	return PB2BVStatistics{AuxiliaryVariables: uint32(len(r.fresh)), AuxiliaryClauses: stats.CompiledClauses}, nil
+	return PB2BVStatistics{CompiledBV: r.compileBV, CompiledCardinality: r.compileCard, AuxiliaryVariables: uint32(len(r.fresh)), AuxiliaryClauses: stats.CompiledClauses}, nil
 }
 
 func (r *PB2BVRewriter) destroyMembers() error {
@@ -931,6 +967,8 @@ func (r *PB2BVRewriter) Cleanup() error {
 	r.header = n
 	r.freshSeen = 0
 	r.numTranslated = 0
+	r.compileBV = 0
+	r.compileCard = 0
 	r.arithFamily = ast.NullFamilyID
 	if err := r.constructMembers(&r.cleanupParameters); err != nil {
 		return err

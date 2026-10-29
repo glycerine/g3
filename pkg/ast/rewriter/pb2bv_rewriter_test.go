@@ -65,6 +65,12 @@ func TestPB2BVCardinalityTraversalAndOrShortcut(t *testing.T) {
 
 func TestPB2BVWeightedConversionAndScopeGuards(t *testing.T) {
 	m, r := pb2BVFixture(t)
+	name, value := "pb.solver", astTestSymbol(t, m, "bv")
+	params, err := r.paramsContext.NewValue()
+	astTestMust(t, err)
+	astTestMust(t, r.paramsContext.SetSymbolName(&params, &name, value))
+	astTestMust(t, r.UpdateParams(&params))
+	astTestMust(t, r.paramsContext.Del(&params))
 	a := goalTestAtom(t, m, "pb2bv-weight-a")
 	b := goalTestAtom(t, m, "pb2bv-weight-b")
 	values := pbTestRationals(t, m, "2", "3", "4")
