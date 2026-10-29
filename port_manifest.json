@@ -100339,12 +100339,17 @@
         "pkg/ast/rewriter/var_shifter_export.go",
         "pkg/ast/rewriter/var_substitution.go",
         "pkg/ast/rewriter/var_shifter.go",
-        "pkg/ast/ast_expr_abstract.go"
+        "pkg/ast/ast_expr_abstract.go",
+        "pkg/qe/solver_context.go",
+        "pkg/qe/conjunction_enum.go",
+        "pkg/qe/solver_context_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
-        "TestQSATRecursiveAllocationFrontiers"
+        "TestQSATRecursiveAllocationFrontiers",
+        "TestSolverContextSourcePluginDispatchAndLifecycle",
+        "TestConjunctionEnumSourceOrderAndEqualityExtraction"
       ],
       "conditionals": [
         {
@@ -100617,12 +100622,17 @@
         "pkg/ast/rewriter/var_shifter_export.go",
         "pkg/ast/rewriter/var_substitution.go",
         "pkg/ast/rewriter/var_shifter.go",
-        "pkg/ast/ast_expr_abstract.go"
+        "pkg/ast/ast_expr_abstract.go",
+        "pkg/qe/solver_context.go",
+        "pkg/qe/conjunction_enum.go",
+        "pkg/qe/solver_context_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
-        "TestQSATRecursiveAllocationFrontiers"
+        "TestQSATRecursiveAllocationFrontiers",
+        "TestSolverContextSourcePluginDispatchAndLifecycle",
+        "TestConjunctionEnumSourceOrderAndEqualityExtraction"
       ],
       "conditionals": [
         {
