@@ -8,6 +8,7 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // PushAppITEConfiguration lifts term-valued if-then-else arguments through an
@@ -19,6 +20,7 @@ type PushAppITEConfiguration struct {
 	manager       *ast.ASTManager
 	conservative  bool
 	nongroundOnly bool
+	trace         *diagnostic.TraceTags
 }
 
 func newPushAppITEConfiguration(m *ast.ASTManager, conservative, nongroundOnly bool) (*PushAppITEConfiguration, error) {
@@ -93,7 +95,17 @@ func (c *PushAppITEConfiguration) isTarget(decl ast.ASTHandle, args ast.AppArgum
 		found = true
 	}
 	if !found || !c.nongroundOnly {
+		if found {
+			if e := c.traceTarget(decl, args); e != nil {
+				return false, e
+			}
+		}
 		return found, nil
+	}
+	// The source nonground override invokes the base implementation first, so
+	// its target diagnostic is emitted even when this final filter refuses it.
+	if e := c.traceTarget(decl, args); e != nil {
+		return false, e
 	}
 	for i := uint32(0); i < args.Count(); i++ {
 		h, e := args.At(i)
@@ -167,6 +179,9 @@ func (c *PushAppITEConfiguration) ReduceApp(decl ast.ASTHandle, arguments ast.Ap
 	}
 	result, e := c.manager.MkIte(condition, thenApp, elseApp)
 	if e != nil {
+		return RewriteFailed, e
+	}
+	if e = c.traceResult(result); e != nil {
 		return RewriteFailed, e
 	}
 	if e = c.manager.SetRef(out, result); e != nil {
