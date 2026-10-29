@@ -100145,9 +100145,9 @@
       "path": "src/qe/nlarith_util.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/qe/nlarith_util.go", "pkg/qe/nlarith_polynomial.go", "pkg/qe/nlarith_polynomial_decompose.go", "pkg/qe/nlarith_polynomial_ops.go", "pkg/qe/nlarith_polynomial_derivative.go", "pkg/qe/nlarith_polynomial_division.go", "pkg/qe/nlarith_numeral.go", "pkg/qe/nlarith_literal.go", "pkg/qe/nlarith_analysis.go", "pkg/qe/nlarith_branch_conditions.go", "pkg/qe/nlarith_extract.go", "pkg/qe/nlarith_weights.go", "pkg/qe/nlarith_polynomial_test.go", "pkg/qe/nlarith_analysis_test.go", "pkg/qe/nlarith_extract_test.go", "pkg/qe/nlarith_test_helpers_test.go"],
+      "tests": ["TestNL"],
       "conditionals": [
         {
           "line": 493,
@@ -101182,9 +101182,9 @@
       "path": "src/qe/qe_arith_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/qe/arithmetic_qe_term.go", "pkg/qe/arithmetic_qe_relation.go", "pkg/qe/arithmetic_qe_construct.go", "pkg/qe/arithmetic_qe_term_test.go"],
+      "tests": ["TestArithmeticQE"],
       "assertions": [
         {
           "line": 317,
