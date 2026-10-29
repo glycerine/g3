@@ -86989,9 +86989,9 @@
       "path": "src/muz/rel/dl_lazy_table.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
         {
           "line": 87,
@@ -87060,9 +87060,9 @@
       "path": "src/muz/rel/dl_lazy_table.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "conditionals": [
         {
           "line": 21,
