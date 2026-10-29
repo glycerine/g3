@@ -272440,12 +272440,12 @@
     "full_suite_qualification": "Full native checkpoint17ecadb7 passed after this audit; subsequent commits changed only ledgers/documentation, so current Go code is covered by that run. Focused checked evidence remains separate."
   },
   "latest_full_native_checkpoint": {
-    "commit": "65aafa6762d5a3b06209065dc0eae83421bd0c2a",
-    "command": "go -C pkg test ./... -count=1 -timeout=35m",
-    "started_utc": "2026-10-28T09:40:07+00:00",
-    "completed_utc": "2026-10-28T09:43:05+00:00",
+    "commit": "dea73d053a57bb779710e8f79544046741c9120f",
+    "command": "taskset -c 8-16 env GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/mnt/oldrog/tmp/g3-go-cache GOTMPDIR=/mnt/oldrog/tmp/g3-go-tmp GOPROXY=off CGO_ENABLED=0 go test ./... -count=1",
+    "started_utc": "2026-10-29T18:10:08+00:00",
+    "completed_utc": "2026-10-29T18:16:08+00:00",
     "exit_code": 0,
-    "evidence": "interactive exec session 85572 completed and retired after emitting every package result",
+    "evidence": "interactive exec session 30006 completed and retired after emitting every package result",
     "cpu_affinity": [
       8,
       9,
@@ -272457,13 +272457,13 @@
       15,
       16
     ],
-    "GOMAXPROCS": 4,
-    "package_timeout": "35m",
+    "GOMAXPROCS": 2,
+    "package_timeout": "default",
     "packages_with_ok_result": 90,
     "packages_without_test_files": 5,
-    "lp_seconds": 2.457,
+    "lp_seconds": 2.311,
     "checkout_held_unchanged": true,
-    "scope_warning": "Verified clean 65aafa6762d5a3b06209065dc0eae83421bd0c2a with 95 packages exactly once, 90 tested and 5 without tests; canonical prebuilt build/z3 enabled, CPUs 8-16/GOMAXPROCS4, insdict v0.14.6. The strict pkg/cmd/g3 C++ differential package passed, as did API, command-context, interpolation, polynomial, QE, SAT, smtcore, tactics and all util packages. Default native suite skips guarded LP cases (LP 2.457s); no full LP -short or whole tagged-module audit. Smtcore still has explicit setup, arithmetic, array/BV/sequence and diagnostic gaps; broader solver/API/higher-engine completion remains required. Next hourly full native start is no earlier than 2026-10-28T10:40:07+00:00."
+    "scope_warning": "Verified clean dea73d053a57bb779710e8f79544046741c9120f with 95 packages exactly once, 90 tested and 5 without tests; CPUs 8-16/GOMAXPROCS2, local Go toolchain, offline module mode, cgo disabled, insdict v0.14.6. API, command-context, interpolation/PDR, polynomial, NLSAT/QE, SAT, smtcore, tactic portfolios and all util packages passed. Default native suite skips guarded LP cases (LP 2.311s); no full LP -short or whole tagged-module audit."
   },
   "latest_indexed_vector_forward_owner_increment": {
     "scope": "Exact indexed vector close now has an explicit forward dense-element path for retained source vector<T> members; pair core and primal core use it for their persistent rational and pair vectors. Reverse Close continues for lexical expression work. Source util/vector.h:47-52 destroys elements from begin to end. Three indexed source units remain partial pending all other retained owners and exact template-root reachability.",
