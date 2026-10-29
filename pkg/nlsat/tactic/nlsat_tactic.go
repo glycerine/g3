@@ -167,6 +167,9 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		{"minimize_conflicts", "minimize conflicts.", uparams.ParamBool},
 		{"randomize", "randomize selection of a witness.", uparams.ParamBool},
 		{"max_conflicts", "maximum number of conflicts.", uparams.ParamUInt},
+		{"reorder", "reorder variables.", uparams.ParamBool},
+		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
+		{"seed", "random seed.", uparams.ParamUInt},
 		{"factor", "factor polynomials produced during conflict resolution.", uparams.ParamBool},
 	}
 	for _, entry := range entries {
@@ -229,6 +232,14 @@ func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomia
 	if err != nil {
 		return nlsat.SolverConfig{}, err
 	}
+	shuffle, err := boolParameter("shuffle_vars", false)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
+	seed, err := uintParameter("seed", 0)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
 	factor, err := boolParameter("factor", true)
 	if err != nil {
 		return nlsat.SolverConfig{}, err
@@ -236,7 +247,8 @@ func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomia
 	return nlsat.SolverConfig{
 		Algebraic: algebraic, Polynomial: polynomials, Limit: &t.manager.Limit,
 		MaxMemory: umemory.MegabytesToBytes(megabytes), Lazy: lazy,
-		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor, Reorder: reorder, MaxConflicts: maxConflicts,
+		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor,
+		Reorder: reorder, ShuffleVars: shuffle, Seed: seed, MaxConflicts: maxConflicts,
 	}, nil
 }
 

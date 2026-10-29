@@ -96453,10 +96453,10 @@
           ]
         },
         {
-          "name": "var_info_collector polynomial degree/occurrence scoring, native heuristic permutation, root-atom reorder guard, polynomial/atom/assignment/integer-map mutation, clause reattachment, and external-order restoration (cpp1893-2091)",
+          "name": "var_info_collector polynomial degree/occurrence scoring, native heuristic and seeded shuffle permutations, root-atom reorder guard, polynomial/atom/assignment/integer-map mutation, clause reattachment, and external-order restoration (cpp1893-2091)",
           "status": "ported",
           "go_target": "pkg/nlsat/variable_order.go",
-          "tests": ["TestSolverHeuristicVariablePermutation"]
+          "tests": ["TestSolverHeuristicVariablePermutation", "TestSolverShuffledVariablePermutation", "TestSMTLibRunnerCPPReference/nlsat_shuffle.smt2"]
         },
         {
           "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1338,1875-2091; solver.h38-55,64-112,166-205,214-216), excluding inline-variable simplification",

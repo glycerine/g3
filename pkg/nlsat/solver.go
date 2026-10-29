@@ -27,6 +27,8 @@ type SolverConfig struct {
 	Randomize    bool
 	Factor       bool
 	Reorder      bool
+	ShuffleVars  bool
+	Seed         uint32
 	MaxConflicts uint32
 }
 
@@ -45,6 +47,7 @@ type Solver struct {
 	explanation *explanationAssumptions
 	projection  *projectionWorklist
 	resolution  *searchResolution
+	randomSeed  uint32
 	closed      bool
 }
 
@@ -54,7 +57,7 @@ type integerCut struct {
 }
 
 func NewSolver(config SolverConfig) (s *Solver, err error) {
-	s = &Solver{config: config}
+	s = &Solver{config: config, randomSeed: config.Seed}
 	if config.Algebraic == nil || config.Polynomial == nil || config.Limit == nil || config.Limit.Closed() {
 		return s, arena.ErrConfig
 	}
@@ -247,8 +250,15 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 	}
 	s.explanation.fullDimensional = fullDimensional
 	reordered := false
-	if s.config.Reorder {
-		permutation, supported, x := s.HeuristicVariablePermutation()
+	if s.config.ShuffleVars || s.config.Reorder {
+		var permutation []uint32
+		var supported bool
+		var x error
+		if s.config.ShuffleVars {
+			permutation, supported, x = s.ShuffledVariablePermutation()
+		} else {
+			permutation, supported, x = s.HeuristicVariablePermutation()
+		}
 		if x != nil {
 			return lbool.Undef, x
 		}

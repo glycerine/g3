@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
 
 func solverFixture(t *testing.T) *Solver {
@@ -226,5 +227,31 @@ func TestSolverHeuristicVariablePermutation(t *testing.T) {
 	assignmentMust(t, err)
 	if supported || permutation != nil {
 		t.Fatal("root-atom variable order was accepted", permutation)
+	}
+}
+
+func TestSolverShuffledVariablePermutation(t *testing.T) {
+	s := solverFixtureConfig(t, SolverConfig{Seed: 7})
+	for i := 0; i < 4; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	for attempt, seed := range []uint32{8, 9} {
+		got, supported, err := s.ShuffledVariablePermutation()
+		assignmentMust(t, err)
+		if !supported {
+			t.Fatal("shuffle refused inequality-only solver")
+		}
+		order := []uint32{0, 1, 2, 3}
+		z3rand.ShuffleUint32(order, z3rand.New(seed))
+		want := make([]uint32, len(order))
+		for position, variable := range order {
+			want[variable] = uint32(position)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatal("shuffle permutation", attempt, got, want)
+			}
+		}
 	}
 }

@@ -1,0 +1,5 @@
+(set-logic QF_NRA)
+(declare-const x Real)
+(declare-const y Real)
+(assert (= (+ (* x x) (* y y)) 1))
+(check-sat-using (using-params nlsat :shuffle_vars true :seed 7))

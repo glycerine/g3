@@ -382,6 +382,7 @@ var scriptResults = map[string]string{
 	"default_strategy_fragments.smt2":              "unsat\nunsat\nunsat\nunsat\nunsat\nunsat\n",
 	"qfnia_solver_bounded.smt2":                    "sat\n((x 2))\nunsat\nunsat\nunsat\n",
 	"nlsat_direct.smt2":                            "sat\n((x (/ 1.0 2.0)))\nunsat\nsat\n",
+	"nlsat_shuffle.smt2":                           "sat\n",
 	"qfnra_nlsat.smt2":                             "unsat\nsat\nunsat\nsat\nsat\nsat\nunsat\nsat\n",
 	"utvpi_mixed_sum_model.smt2":                   "sat\n",
 	"nla2bv_bounded_scopes.smt2":                   "sat\n((x 7))\nunsat\nsat\n((x 7))\n",

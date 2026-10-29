@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/glycerine/g3/pkg/math/polynomial"
+	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
 
 type variableOrderScore struct {
@@ -106,6 +107,32 @@ func (s *Solver) HeuristicVariablePermutation() (_ []uint32, supported bool, res
 		}
 		return order[i] < order[j]
 	})
+	permutation := make([]uint32, count)
+	for position, variable := range order {
+		permutation[variable] = uint32(position)
+	}
+	return permutation, true, nil
+}
+
+// ShuffledVariablePermutation returns the source shuffle_vars permutation and
+// advances the solver seed once per attempted order, before constructing the
+// local random generator.
+func (s *Solver) ShuffledVariablePermutation() ([]uint32, bool, error) {
+	if err := s.open(); err != nil {
+		return nil, false, err
+	}
+	for _, atom := range s.atoms.bools.atoms {
+		if root, ok := atom.(*RootAtom); ok && root != nil {
+			return nil, false, nil
+		}
+	}
+	count := len(s.clauses.vars.isInt)
+	order := make([]uint32, count)
+	for i := range order {
+		order[i] = uint32(i)
+	}
+	s.randomSeed++
+	z3rand.ShuffleUint32(order, z3rand.New(s.randomSeed))
 	permutation := make([]uint32, count)
 	for position, variable := range order {
 		permutation[variable] = uint32(position)
