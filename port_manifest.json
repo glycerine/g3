@@ -100146,8 +100146,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/nlarith_util.go", "pkg/qe/nlarith_polynomial.go", "pkg/qe/nlarith_polynomial_decompose.go", "pkg/qe/nlarith_polynomial_ops.go", "pkg/qe/nlarith_polynomial_derivative.go", "pkg/qe/nlarith_polynomial_division.go", "pkg/qe/nlarith_numeral.go", "pkg/qe/nlarith_literal.go", "pkg/qe/nlarith_analysis.go", "pkg/qe/nlarith_branch_conditions.go", "pkg/qe/nlarith_extract.go", "pkg/qe/nlarith_weights.go", "pkg/qe/nlarith_polynomial_test.go", "pkg/qe/nlarith_analysis_test.go", "pkg/qe/nlarith_extract_test.go", "pkg/qe/nlarith_test_helpers_test.go"],
-      "tests": ["TestNL"],
+      "go_targets": ["pkg/qe/nlarith_util.go", "pkg/qe/nlarith_polynomial.go", "pkg/qe/nlarith_polynomial_decompose.go", "pkg/qe/nlarith_polynomial_ops.go", "pkg/qe/nlarith_polynomial_derivative.go", "pkg/qe/nlarith_polynomial_division.go", "pkg/qe/nlarith_numeral.go", "pkg/qe/nlarith_literal.go", "pkg/qe/nlarith_analysis.go", "pkg/qe/nlarith_branch_conditions.go", "pkg/qe/nlarith_extract.go", "pkg/qe/nlarith_weights.go", "pkg/qe/nlarith_branch_algebra.go", "pkg/qe/nlarith_root_form.go", "pkg/qe/nlarith_root_instantiate.go", "pkg/qe/nlarith_root_compare.go", "pkg/qe/nlarith_epsilon.go", "pkg/qe/nlarith_infinity.go", "pkg/qe/nlarith_candidate.go", "pkg/qe/nlarith_branch_builder.go", "pkg/qe/qe_nlarith_plugin.go", "pkg/qe/qe_nlarith_plugin_classify.go", "pkg/qe/qe_nlarith_plugin_prepare.go", "pkg/qe/qe_nlarith_plugin_branch.go", "pkg/qe/qe_nlarith_plugin_substitute.go", "pkg/qe/nlarith_polynomial_test.go", "pkg/qe/nlarith_analysis_test.go", "pkg/qe/nlarith_extract_test.go", "pkg/qe/nlarith_root_branch_test.go", "pkg/qe/nlarith_create_branches_test.go", "pkg/qe/qe_nlarith_plugin_test.go", "pkg/qe/nlarith_test_helpers_test.go"],
+      "tests": ["TestNL", "TestNonlinearArithmeticPlugin"],
       "conditionals": [
         {
           "line": 493,
@@ -101183,8 +101183,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/arithmetic_qe_term.go", "pkg/qe/arithmetic_qe_relation.go", "pkg/qe/arithmetic_qe_construct.go", "pkg/qe/arithmetic_qe_term_test.go"],
-      "tests": ["TestArithmeticQE"],
+      "go_targets": ["pkg/qe/arithmetic_qe_term.go", "pkg/qe/arithmetic_qe_relation.go", "pkg/qe/arithmetic_qe_construct.go", "pkg/qe/arithmetic_qe_bound.go", "pkg/qe/arithmetic_qe_divisibility.go", "pkg/qe/arithmetic_qe_bounds.go", "pkg/qe/arithmetic_qe_bounds_relations.go", "pkg/qe/arithmetic_qe_bounds_divides.go", "pkg/qe/arithmetic_qe_nested_divides.go", "pkg/qe/arithmetic_qe_substitution.go", "pkg/qe/arithmetic_qe_branch_key.go", "pkg/qe/arithmetic_qe_branch_formula.go", "pkg/qe/arithmetic_qe_branch_cache.go", "pkg/qe/arithmetic_qe_resolve.go", "pkg/qe/arithmetic_qe_atom.go", "pkg/qe/qe_arithmetic_plugin.go", "pkg/qe/qe_arithmetic_plugin_cache.go", "pkg/qe/qe_arithmetic_plugin_prepare.go", "pkg/qe/qe_arithmetic_plugin_policy.go", "pkg/qe/qe_arithmetic_plugin_branch.go", "pkg/qe/qe_arithmetic_plugin_result.go", "pkg/qe/qe_arithmetic_plugin_constraints.go", "pkg/qe/qe_arithmetic_plugin_classify.go", "pkg/qe/qe_arithmetic_plugin_definition.go", "pkg/qe/qe_arithmetic_plugin_rewrite.go", "pkg/qe/qe_arithmetic_plugin_assign.go", "pkg/qe/qe_arithmetic_plugin_substitute.go", "pkg/qe/arithmetic_qe_term_test.go", "pkg/qe/arithmetic_qe_bounds_test.go", "pkg/qe/arithmetic_qe_substitution_test.go", "pkg/qe/arithmetic_qe_resolve_test.go", "pkg/qe/qe_arithmetic_plugin_policy_test.go", "pkg/qe/qe_arithmetic_plugin_assign_test.go", "pkg/qe/qe_arithmetic_plugin_classify_test.go"],
+      "tests": ["TestArithmeticQE", "TestArithmeticPlugin"],
       "assertions": [
         {
           "line": 317,

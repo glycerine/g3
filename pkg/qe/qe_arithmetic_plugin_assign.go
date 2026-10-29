@@ -1,0 +1,61 @@
+package qe
+
+import (
+	"errors"
+	"math/big"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
+)
+
+func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHandle, value *numeral.OwnedRational) (resultErr error) {
+	if value == nil {
+		return ast.ErrASTHandle
+	}
+	if err := p.open(); err != nil {
+		return err
+	}
+	e, target, err := p.entry(variable, formula)
+	if err != nil {
+		return err
+	}
+	if len(e.processor.Divisibilities(false))+len(e.processor.Divisibilities(true)) != 0 {
+		return ast.ErrASTDomain
+	}
+	branchNumber, err := p.manager.NumeralService().Unsigned(value)
+	if err != nil {
+		return err
+	}
+	v := new(big.Rat).SetInt64(int64(branchNumber))
+	selection, err := p.SelectBranch(variable, formula, v)
+	if err != nil {
+		return err
+	}
+	result, err := p.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	var definition ast.ASTRef
+	defer func() {
+		if resultErr != nil {
+			var definitionErr error
+			if definition != (ast.ASTRef{}) {
+				definitionErr = p.manager.DelRef(&definition)
+			}
+			resultErr = errors.Join(resultErr, definitionErr, p.manager.DelRef(&result))
+		}
+	}()
+	if selection.Kind == ArithmeticInfinityBranch {
+		err = p.rewriteInfinity(e, selection.Lower, result)
+	} else {
+		err = p.rewriteFinite(e, target, selection, result)
+		if err == nil && selection.Kind == ArithmeticEqualityBranch {
+			definition, err = p.boundDefinition(selection.Bound)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	key := ArithmeticBranchKey{Formula: formula, Variable: target, Branch: branchNumber}
+	return p.storeBranch(key, result, definition, selection)
+}
