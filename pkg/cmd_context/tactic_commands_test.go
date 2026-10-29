@@ -51,6 +51,19 @@ func TestCommandContextTacticExceptionBoundary(t *testing.T) {
 	}
 }
 
+func TestCommandContextRegistersClausePreprocessingTactics(t *testing.T) {
+	c := contextFixture(t)
+	for _, name := range []string{"occf", "split-clause"} {
+		selected, err := c.NewBuiltinTactic(name)
+		contextMust(t, err)
+		if selected == nil {
+			t.Fatal("nil registered tactic", name)
+		}
+		contextMust(t, selected.IncRef())
+		contextMust(t, selected.DecRef())
+	}
+}
+
 func TestCommandContextTacticResultsScopesAndModelLifetime(t *testing.T) {
 	c := contextFixture(t)
 	contextMust(t, c.SetLogic("QF_UF"))

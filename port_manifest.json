@@ -172126,9 +172126,9 @@
       "path": "src/tactic/core/occf_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/core/occf_tactic.go", "pkg/tactic/core/occf_tactic_test.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_commands_test.go"],
+      "tests": ["TestOCCFReusesAuxiliaryAndLeavesOneConstraintPerClause", "TestOCCFModelConverterAndProofGuard", "TestOCCFChecksCancellationBeforeCooperation", "TestCommandContextRegistersClausePreprocessingTactics"],
       "assertions": [
         {
           "line": 54,
@@ -172147,19 +172147,19 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"whole OCCF clause-preprocessing tactic, cancellation/cooperation order, auxiliary reuse, implication generation, model conversion, translation, cleanup and command registration","status":"ported","go_target":"pkg/tactic/core/occf_tactic.go","tests":["TestOCCFReusesAuxiliaryAndLeavesOneConstraintPerClause","TestOCCFModelConverterAndProofGuard","TestOCCFChecksCancellationBeforeCooperation"]}],
+      "ownership": ["The tactic owns its clean wrapper and per-run auxiliary maps/vectors; generated goal formulas and the optional filter-model converter transfer through the existing goal/tactic result owners."],
+      "deviations": ["Concrete Go maps replace C++ obj_map instances; traversal and publication order remain source-compatible."]
     },
     {
       "path": "src/tactic/core/occf_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/core/occf_tactic.go", "pkg/tactic/core/occf_tactic_test.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_commands_test.go"],
+      "tests": ["TestOCCFReusesAuxiliaryAndLeavesOneConstraintPerClause", "TestOCCFModelConverterAndProofGuard", "TestOCCFChecksCancellationBeforeCooperation", "TestCommandContextRegistersClausePreprocessingTactics"],
       "conditionals": [
         {
           "line": 24,
@@ -172170,10 +172170,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"OCCF tactic public factory, parameter update, translation, cleanup and application surface","status":"ported","go_target":"pkg/tactic/core/occf_tactic.go","tests":["TestOCCFModelConverterAndProofGuard","TestCommandContextRegistersClausePreprocessingTactics"]}],
+      "ownership": ["Factory results use the existing reference-counted tactic lifecycle; translation constructs an independent tactic against the destination manager."],
       "deviations": []
     },
     {
