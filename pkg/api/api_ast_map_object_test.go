@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -69,6 +70,44 @@ func TestAPIASTMapConcreteReferenceCleanup(t *testing.T) {
 	checkRefs(value, valueBase)
 	for _, h := range []ast.ASTHandle{key, value, sort} {
 		astTestMust(t, m.DecRef(h))
+	}
+}
+
+func TestAPIASTMapKeysOwnIndependentVectorRootsAndDisplay(t *testing.T) {
+	m, c := apiResultsFixture(t, false)
+	a, err := newAPIASTMapObject(c)
+	astTestMust(t, err)
+	astTestMust(t, c.saveObject(&a.object))
+	astTestMust(t, a.object.incRef()) // external map handle survives the next object result.
+	key := apiResultsAtom(t, m, "api-map-key-vector")
+	value := apiResultsAtom(t, m, "api-map-value-vector")
+	astTestMust(t, a.insert(key, value))
+
+	text, err := a.string()
+	astTestMust(t, err)
+	if !strings.HasPrefix(text, "(ast-map\n  (") || !strings.Contains(text, "api-map-key-vector") || !strings.Contains(text, "api-map-value-vector") || !strings.HasSuffix(text, "))") {
+		t.Fatal("source AST-map display", text)
+	}
+	v, err := a.keyVector()
+	astTestMust(t, err)
+	if n, e := v.size(); e != nil || n != 1 {
+		t.Fatal("key vector size", n, e)
+	}
+	ownedKey, err := v.get(0)
+	astTestMust(t, err)
+	if ownedKey != key {
+		t.Fatal("key vector changed handle", ownedKey, key)
+	}
+	astTestMust(t, a.reset())
+	if _, e := m.GetKind(value); !errors.Is(e, ast.ErrASTHandle) {
+		t.Fatal("map value survived reset", e)
+	}
+	if _, e := m.GetKind(ownedKey); e != nil {
+		t.Fatal("key vector borrowed map ownership", e)
+	}
+	astTestMust(t, c.Close())
+	if _, e := m.GetKind(ownedKey); !errors.Is(e, ast.ErrASTHandle) {
+		t.Fatal("key vector failed to release key", e)
 	}
 }
 

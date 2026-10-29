@@ -4,6 +4,7 @@ package api
 // src/util/dec_ref_util.h:24-36.
 
 import (
+	"bytes"
 	"errors"
 	"reflect"
 
@@ -147,6 +148,52 @@ func (a *apiASTMapObject) keys() ([]ast.ASTHandle, error) {
 		keys = append(keys, key)
 	}
 	return keys, nil
+}
+
+// keyVector implements Z3_ast_map_keys. Unlike keys, the returned object owns
+// each key independently, so it remains valid after the source map is reset.
+func (a *apiASTMapObject) keyVector() (*apiASTVectorObject, error) {
+	if e := a.check(); e != nil {
+		return nil, e
+	}
+	v, e := newAPIASTVectorObject(a.object.context)
+	if e != nil {
+		return nil, e
+	}
+	if e = a.object.context.saveObject(&v.object); e != nil {
+		return v, e
+	}
+	for key := range a.entries {
+		if e = v.push(key); e != nil {
+			return v, e
+		}
+	}
+	return v, nil
+}
+
+func (a *apiASTMapObject) string() (string, error) {
+	if e := a.check(); e != nil {
+		return "", e
+	}
+	printer, e := ast.NewSimpleASTPrinterContext(a.object.context.manager, nil, nil)
+	if e != nil {
+		return "", e
+	}
+	var out bytes.Buffer
+	out.WriteString("(ast-map")
+	for key, entry := range a.entries {
+		out.WriteString("\n  (")
+		if e = writeAPIAST(printer, &out, key, 0); e != nil {
+			return "", e
+		}
+		out.WriteString("\n   ")
+		if e = writeAPIAST(printer, &out, entry.value, 0); e != nil {
+			return "", e
+		}
+		out.WriteByte(')')
+	}
+	out.WriteByte(')')
+	return out.String(), nil
 }
 
 func (a *apiASTMapObject) queueOwned(key ast.ASTHandle, entry *apiASTMapEntry) {

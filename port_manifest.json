@@ -4937,6 +4937,7 @@
       "tests": [
         "TestAPIASTMapSourceMemoryWrapperReleaseSites",
         "TestAPIASTMapConcreteReferenceCleanup",
+        "TestAPIASTMapKeysOwnIndependentVectorRootsAndDisplay",
         "TestAPIASTMapResetNativeIDRecycleWithoutBackingReservation",
         "TestAPIASTMapExpressionPairTransfer"
       ],
@@ -5007,6 +5008,7 @@
       ],
       "tests": [
         "TestAPIASTMapConcreteReferenceCleanup",
+        "TestAPIASTMapKeysOwnIndependentVectorRootsAndDisplay",
         "TestAPIASTMapExpressionPairTransfer"
       ],
       "conditionals": [

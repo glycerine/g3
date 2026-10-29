@@ -6,6 +6,7 @@ package api
 import (
 	"bytes"
 	"errors"
+	"io"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -185,28 +186,31 @@ func (v *apiASTVectorObject) string() (string, error) {
 	out.WriteString("(ast-vector")
 	for _, h := range v.values {
 		out.WriteString("\n  ")
-		if h.IsNull() {
-			out.WriteString("null")
-			continue
-		}
-		kind, x := v.object.context.manager.GetKind(h)
-		if x != nil {
-			return "", x
-		}
-		switch kind {
-		case ast.ASTSort:
-			x = printer.DisplaySort(&out, h, 0)
-		case ast.ASTFuncDecl:
-			x = printer.DisplayFuncDecl(&out, h, 0)
-		default:
-			x = printer.DisplayExpr(&out, h, 0)
-		}
-		if x != nil {
+		if x := writeAPIAST(printer, &out, h, 0); x != nil {
 			return "", x
 		}
 	}
 	out.WriteByte(')')
 	return out.String(), nil
+}
+
+func writeAPIAST(printer *ast.SimpleASTPrinterContext, out io.Writer, h ast.ASTHandle, indent uint32) error {
+	if h.IsNull() {
+		_, e := io.WriteString(out, "null")
+		return e
+	}
+	kind, e := printer.Manager().GetKind(h)
+	if e != nil {
+		return e
+	}
+	switch kind {
+	case ast.ASTSort:
+		return printer.DisplaySort(out, h, indent)
+	case ast.ASTFuncDecl:
+		return printer.DisplayFuncDecl(out, h, indent)
+	default:
+		return printer.DisplayExpr(out, h, indent)
+	}
 }
 
 func (v *apiASTVectorObject) apiDestroy() error {
