@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 const (
@@ -155,6 +156,9 @@ func (c *factorCall) makeAdds(lhs, rhs ast.ASTHandle) error {
 	c.adds = append(c.adds[:0], factorTerm{lhs, true}, factorTerm{rhs, false})
 	for i := 0; i < len(c.adds); {
 		term := &c.adds[i]
+		if err := c.traceAddVisit(i, term.expr); err != nil {
+			return err
+		}
 		isAdd, err := c.app(term.expr, factorOpAdd)
 		if err != nil {
 			return err
@@ -205,7 +209,7 @@ func (c *factorCall) makeAdds(lhs, rhs ast.ASTHandle) error {
 			}
 		}
 	}
-	return nil
+	return c.traceAdds()
 }
 
 func (c *factorCall) expandMuls(row []ast.ASTHandle) ([]ast.ASTHandle, error) {
@@ -246,7 +250,7 @@ func (c *factorCall) makeMuls() error {
 		c.muls = append(c.muls, row)
 		i++
 	}
-	return nil
+	return c.traceMuls()
 }
 
 func (c *factorCall) collectPowers() {
@@ -362,6 +366,9 @@ func (c *factorCall) extractFactors() (bool, error) {
 		}
 		c.factors = append(c.factors, h)
 	}
+	if err := c.traceFactors(); err != nil {
+		return false, err
+	}
 	c.collectPowers()
 	return true, nil
 }
@@ -447,6 +454,9 @@ func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTH
 	}
 	ok, err := c.extractFactors()
 	if err != nil || !ok {
+		if err == nil {
+			err = c.traceRelationRefusal(op, lhs, rhs)
+		}
 		return ast.ASTHandle{}, RewriteFailed, err
 	}
 	if op == -1 {
@@ -475,6 +485,9 @@ func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTH
 	if op == factorOpLE {
 		eqs = append(eqs, negative)
 		h, err := c.owner.manager.MkOrArray(eqs)
+		if err == nil {
+			err = c.traceLessEqualResult(lhs, rhs, h)
+		}
 		return h, RewriteDone, err
 	}
 	for i, eq := range eqs {
@@ -488,6 +501,9 @@ func (c *factorCall) rewriteRelation(op int32, lhs, rhs ast.ASTHandle) (ast.ASTH
 	}
 	eqs = append(eqs, negative)
 	h, err := c.owner.manager.MkAndArray(eqs)
+	if err == nil {
+		err = c.traceStrictResult(h)
+	}
 	return h, RewriteDone, err
 }
 
@@ -512,6 +528,7 @@ type FactorRewriter struct {
 	arithFamily ast.FamilyID
 	config      factorRewriterConfiguration
 	traversal   *Traversal
+	trace       *diagnostic.TraceTags
 	closed      bool
 }
 
