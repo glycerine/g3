@@ -1,6 +1,6 @@
 package api
 
-// Source: src/api/api_tactic.cpp:461-514, excluding model conversion.
+// Source: src/api/api_tactic.cpp:461-531.
 
 import (
 	"errors"
@@ -11,10 +11,11 @@ import (
 )
 
 type APITacticResult struct {
-	owner   *smtContextState
-	manager *ast.ASTManager
-	goals   []*tactic.Goal
-	closed  bool
+	owner          *smtContextState
+	manager        *ast.ASTManager
+	goals          []*tactic.Goal
+	modelConverter tactic.ModelConverter
+	closed         bool
 }
 
 func (r *APITacticResult) open() error {
@@ -36,6 +37,13 @@ func (r *APITacticResult) Close() (result error) {
 			result = errors.Join(result, err)
 		} else {
 			r.goals[i] = nil
+		}
+	}
+	if r.modelConverter != nil {
+		if err := r.modelConverter.DecRef(); err != nil {
+			result = errors.Join(result, err)
+		} else {
+			r.modelConverter = nil
 		}
 	}
 	if result == nil {
