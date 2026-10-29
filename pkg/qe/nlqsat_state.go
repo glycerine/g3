@@ -119,6 +119,35 @@ func (n *nlqState) saveModel() error {
 	return nil
 }
 
+func (n *nlqState) saveAssumptionModel(assumptions []sat.Literal) error {
+	if err := n.saveModel(); err != nil {
+		return err
+	}
+	// CheckAssumptions removes its temporary unit clauses before returning.
+	// Variables used only to guard a projected QE clause can consequently be
+	// absent from the solver's saved Boolean assignment even though their
+	// assumption fixes the value needed by the model-based projection.
+	for _, literal := range assumptions {
+		variable := int(literal.Variable())
+		for len(n.booleanModel) <= variable {
+			n.booleanModel = append(n.booleanModel, lbool.Undef)
+		}
+		value := lbool.True
+		if literal.Sign() {
+			value = lbool.False
+		}
+		if current := n.booleanModel[variable]; current == lbool.Undef {
+			n.booleanModel[variable] = value
+		} else if current != value {
+			return arena.ErrConfig
+		}
+	}
+	if nlqExists(n.level()) {
+		n.answerBoolean = append(n.answerBoolean[:0], n.booleanModel...)
+	}
+	return nil
+}
+
 func (n *nlqState) restoreModel() error {
 	if !n.validModel {
 		return arena.ErrConfig

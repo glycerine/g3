@@ -99791,7 +99791,8 @@
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/qsat_test.go",
         "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2",
-        "pkg/cmd/g3/test_vectors/nlqsat_models.smt2"
+        "pkg/cmd/g3/test_vectors/nlqsat_models.smt2",
+        "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
       ],
       "tests": [
         "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
@@ -99805,6 +99806,10 @@
         "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
         "TestNLQSATTacticPurifiesSymbolicDivision",
         "TestNLQSATTacticParametersAndTranslation",
+        "TestNLQETacticEliminatesNonlinearExistential",
+        "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
+        "TestNLQETacticComposesWithNLQSATForFreeParameters",
+        "TestSMTLibRunnerNLQEProjection",
         "TestSMTLibRunnerQSATAndQuantifierElimination"
       ],
       "assertions": [
@@ -99938,6 +99943,25 @@
           "tests": [
             "TestSMTLibRunnerQSATAndQuantifierElimination"
           ]
+        },
+        {
+          "name": "Nonlinear elimination mode with model-based projection, guarded projection assumptions, projected-clause AST reconstruction and answer conjunction (cpp348-423,628-713,817-908)",
+          "status": "partial",
+          "go_target": "pkg/qe/nlqsat_loop.go",
+          "go_targets": [
+            "pkg/qe/nlqsat_state.go",
+            "pkg/qe/nlqsat_initialize.go",
+            "pkg/qe/nlqsat_tactic.go",
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd/g3/qsat_test.go",
+            "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
+          ],
+          "tests": [
+            "TestNLQETacticEliminatesNonlinearExistential",
+            "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
+            "TestNLQETacticComposesWithNLQSATForFreeParameters",
+            "TestSMTLibRunnerNLQEProjection"
+          ]
         }
       ],
       "ownership": [
@@ -99948,9 +99972,10 @@
         "Each NLQSATTactic application owns its hoisting preparation, retained free-variable references, CNF tactic/goal/result, prime generator, polynomial manager, NLSAT solver, GoalCompiler and nlqSearch in lexical dependency order. Projected/search literal owners close before the compiler and solver; the polynomial manager closes before its prime generator. A successful model contains only hoister-identified free expressions, transfers through a retained ModelRef into the stored converter, and remains usable after tactic/solver teardown.",
         "Division purification owns numerator, denominator and fresh-name references until all guarded and pairwise consistency axioms have been attached to the formula. Quantifier-block references independently retain every fresh quotient through level initialization and search.",
         "NLQSATTactic owns an independent parameter snapshot. Updates replace that snapshot, translation copies it, each application projects it into the full NLSAT solver configuration while forcing factor=false, and Close releases it before the tactic header."
+        ,"QE-mode search owns the AST references for projected answers and assumption-variable formulas. Temporary assumption units removed by CheckAssumptions are restored into the saved Boolean model before later model-based projection, and close releases answer and assumption references before retiring the borrowed solver relationship."
       ],
       "deviations": [
-        "The retained qsat-mode path now reaches a public tactic through quantifier hoisting, symbolic-division Ackermannization, full Tseitin fallback compilation, alternating NLSAT search, retained NLSAT parameters and free-expression-filtered SAT model publication. QE-mode answer construction, auxiliary-definition model conversion and broader C++ differential coverage remain pending, so the source unit and tactic method remain partial."
+        "The retained qsat-mode path reaches a public tactic through quantifier hoisting, symbolic-division Ackermannization, full Tseitin fallback compilation, alternating NLSAT search, retained NLSAT parameters and free-expression-filtered SAT model publication. QE mode now constructs and publishes nonlinear projected answers and composes with nlqsat for free parameters. The source answer_simplify substitution trail, auxiliary-definition model conversion and broader C++ differential coverage remain pending, so the source unit and QE method remain partial."
       ]
     },
     {
@@ -99958,8 +99983,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/nlqsat_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd/g3/qsat_test.go", "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"],
-      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "go_targets": ["pkg/qe/nlqsat_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd/g3/qsat_test.go", "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2", "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"],
+      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"],
       "conditionals": [
         {
           "line": 21,
@@ -99977,11 +100002,11 @@
           "name": "Public nonlinear quantified satisfiability tactic constructor and tactic interface",
           "status": "partial",
           "go_target": "pkg/qe/nlqsat_tactic.go",
-          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"]
         }
       ],
       "ownership": [],
-      "deviations": ["The qsat-mode public constructor is present. The separate nonlinear QE constructor and full parameter/model surface remain pending."]
+      "deviations": ["The qsat-mode and nonlinear QE constructors are present, share the retained parameter surface, and are registered for SMT-LIB tactic use. The C++ header leaves nlqe behind a disabled TBD_TACTIC declaration; Go intentionally exposes the now-tested implementation. Source answer-simplification parity remains pending."]
     },
     {
       "path": "src/qe/qe.cpp",
