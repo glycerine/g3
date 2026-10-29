@@ -95826,6 +95826,7 @@
         "pkg/nlsat/search_main.go",
         "pkg/nlsat/solver.go",
         "pkg/nlsat/solver_assumptions.go",
+        "pkg/nlsat/solver_model_state.go",
         "pkg/nlsat/inline_variables.go",
         "pkg/nlsat/univariate_conjunction.go"
       ],
@@ -95892,6 +95893,7 @@
             "TestSolverIntegerBranchAndBound",
             "TestSolverConflictMinimizationWithEquality",
         "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses",
+        "TestSolverModelStateAndLiteralVariableViews",
             "TestSolverInlineVariablesPatchesModelAndConflict",
             "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
             "TestFullDimensionalLiteralClassification",
@@ -96490,7 +96492,13 @@
           "tests": ["TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses"]
         },
         {
-          "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1338,1875-2091,2300-2378; solver.h38-55,64-112,166-205,214-216)",
+          "name": "Public arithmetic/Boolean model copy and restoration, current literal evaluation, and per-literal polynomial-variable enumeration (cpp429-451,3155-3169,3230-3241)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/solver_model_state.go",
+          "tests": ["TestSolverModelStateAndLiteralVariableViews"]
+        },
+        {
+          "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values/snapshots, literal inspection, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1416,1875-2091,2300-2378,3155-3169,3230-3241; solver.h38-55,64-112,132,159-166,193-216)",
           "status": "partial",
           "go_target": "pkg/nlsat/solver.go",
           "tests": [
@@ -96498,7 +96506,8 @@
             "TestSolverMixedLinearConflict",
             "TestSolverIntegerBranchAndBound",
             "TestSolverConflictMinimizationWithEquality",
-            "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses"
+            "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses",
+            "TestSolverModelStateAndLiteralVariableViews"
           ]
         }
       ],

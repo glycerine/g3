@@ -102,6 +102,63 @@ func TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses(t *testing
 	}
 }
 
+func TestSolverModelStateAndLiteralVariableViews(t *testing.T) {
+	s := solverFixture(t)
+	for i := 0; i < 2; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	p := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{1, 0, 1})
+	q := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 2, 0})
+	literal, err := s.MkInequality(AtomGT, []polynomial.Polynomial{p, q}, []bool{false, false}, false)
+	assignmentMust(t, err)
+	var variables []uint32
+	assignmentMust(t, s.LiteralVariables(literal, &variables))
+	wantVariables := []uint32{1, 0, 0}
+	if len(variables) != len(wantVariables) {
+		t.Fatal("literal variables", variables)
+	}
+	for i := range wantVariables {
+		if variables[i] != wantVariables[i] {
+			t.Fatal("literal variable order", variables, wantVariables)
+		}
+	}
+	assignmentMust(t, s.AddClause([]sat.Literal{literal}, Assumption{}))
+	result, err := s.Check()
+	assignmentMust(t, err)
+	if result != lbool.True {
+		t.Fatal("model-state fixture", result)
+	}
+	value, err := s.LiteralValue(literal)
+	assignmentMust(t, err)
+	if value != lbool.True {
+		t.Fatal("literal value", value)
+	}
+	snapshot, err := NewAssignment(s.config.Algebraic)
+	assignmentMust(t, err)
+	defer func() { assignmentMust(t, snapshot.Close()) }()
+	assignmentMust(t, s.GetRealValues(snapshot))
+	var booleans []lbool.LBool
+	assignmentMust(t, s.GetBooleanValues(&booleans))
+	empty, err := NewAssignment(s.config.Algebraic)
+	assignmentMust(t, err)
+	defer func() { assignmentMust(t, empty.Close()) }()
+	assignmentMust(t, s.SetRealValues(empty))
+	assignmentMust(t, s.SetBooleanValues(nil))
+	value, err = s.LiteralValue(literal)
+	assignmentMust(t, err)
+	if value != lbool.Undef {
+		t.Fatal("cleared model literal value", value)
+	}
+	assignmentMust(t, s.SetRealValues(snapshot))
+	assignmentMust(t, s.SetBooleanValues(booleans))
+	value, err = s.LiteralValue(literal)
+	assignmentMust(t, err)
+	if value != lbool.True {
+		t.Fatal("restored model literal value", value)
+	}
+}
+
 func solverUnit(t *testing.T, s *Solver, kind AtomKind, p polynomial.Polynomial) sat.Literal {
 	t.Helper()
 	literal, err := s.MkInequality(kind, []polynomial.Polynomial{p}, []bool{false}, false)
