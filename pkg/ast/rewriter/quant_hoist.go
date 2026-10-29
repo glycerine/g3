@@ -47,8 +47,26 @@ func NewQuantifierHoister(m *ast.ASTManager, c *uparams.ParamsContext, g *uparam
 	return h, nil
 }
 
+// NewQuantifierHoisterWithoutRewrite constructs the source hoister for
+// clients that only require quantifier movement.  Such clients pass rewrite
+// false to the pull operations, so the parameterized Boolean simplifier is
+// neither needed nor consulted.  The MUZ HNF pass is the retained consumer:
+// its RuleManager owns an AST manager but deliberately does not own the
+// command-layer parameter services.
+func NewQuantifierHoisterWithoutRewrite(m *ast.ASTManager) (*QuantifierHoister, error) {
+	if m == nil {
+		return nil, ast.ErrASTHandle
+	}
+	if _, err := m.ProofsEnabled(); err != nil {
+		return nil, err
+	}
+	h := &QuantifierHoister{m: m}
+	h.self = h
+	return h, nil
+}
+
 func (h *QuantifierHoister) open() error {
-	if h == nil || h.self != h || h.closed || h.m == nil || h.bool == nil {
+	if h == nil || h.self != h || h.closed || h.m == nil {
 		return ast.ErrASTHandle
 	}
 	return nil
@@ -477,6 +495,9 @@ func (h *QuantifierHoister) run(fml ast.ASTHandle, qt quantifierType, useFresh, 
 	if err = h.open(); err != nil {
 		return nil, err
 	}
+	if rewrite && h.bool == nil {
+		return nil, uparams.ErrParamsOwner
+	}
 	s := &quantifierHoistState{owner: h}
 	defer func() {
 		err = errors.Join(err, s.cleanup())
@@ -713,8 +734,10 @@ func (h *QuantifierHoister) Close() error {
 	if h.closed {
 		return nil
 	}
-	if err := h.bool.Close(); err != nil {
-		return err
+	if h.bool != nil {
+		if err := h.bool.Close(); err != nil {
+			return err
+		}
 	}
 	h.closed = true
 	return nil

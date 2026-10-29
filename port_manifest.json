@@ -37152,11 +37152,12 @@
       "component": "ast",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/ast/rewriter/quant_hoist.go"],
+      "go_targets": ["pkg/ast/rewriter/quant_hoist.go", "pkg/ast/rewriter/quant_hoist_without_rewrite_test.go"],
       "tests": [
         "TestQuantifierHoisterPolarityCompatibilityAndBooleanRewrite",
         "TestQuantifierHoisterIndexedTopChainAndNestedExtraction",
-        "TestQuantifierHoisterImplicationPolarityRewriteFlagAndInaccessibleTerm"
+        "TestQuantifierHoisterImplicationPolarityRewriteFlagAndInaccessibleTerm",
+        "TestQuantifierHoisterWithoutRewrite"
       ],
       "assertions": [
         {
@@ -82113,8 +82114,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/hnf.go"],
-      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate"],
+      "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_nested_fixture_test.go", "pkg/muz/base/hnf_nested_consequent_test.go", "pkg/muz/base/hnf_nested_antecedent_test.go", "pkg/muz/base/hnf_nested_negation_test.go", "pkg/muz/base/hnf_nested_disjunction_test.go", "pkg/muz/base/hnf_nested_boolean_eq_test.go", "pkg/muz/base/hnf_nested_ite_test.go"],
+      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizer"],
       "assertions": [
         {
           "line": 231,

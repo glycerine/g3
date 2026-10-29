@@ -8,6 +8,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -157,42 +158,20 @@ func (n *HornNormalizer) operator(expression ast.ASTHandle) (int32, bool, error)
 	return operator, err == nil, err
 }
 
-func (n *HornNormalizer) stripForall(formula ast.ASTHandle) (ast.ASTHandle, hornPrefix, error) {
-	current := formula
-	prefix := hornPrefix{}
-	for {
-		kind, err := n.manager.GetKind(current)
-		if err != nil || kind != ast.ASTQuantifier {
-			return current, prefix, err
-		}
-		forall, err := n.manager.IsForall(current)
-		if err != nil {
-			return ast.ASTHandle{}, hornPrefix{}, err
-		}
-		if !forall {
-			return current, prefix, nil
-		}
-		count, err := n.manager.GetNumDeclarations(current)
-		if err != nil {
-			return ast.ASTHandle{}, hornPrefix{}, err
-		}
-		for i := uint32(0); i < count; i++ {
-			sort, e := n.manager.GetDeclarationSort(current, i)
-			if e != nil {
-				return ast.ASTHandle{}, hornPrefix{}, e
-			}
-			name, e := n.manager.GetDeclarationName(current, i)
-			if e != nil {
-				return ast.ASTHandle{}, hornPrefix{}, e
-			}
-			prefix.sorts = append(prefix.sorts, sort)
-			prefix.names = append(prefix.names, name)
-		}
-		current, err = n.manager.GetQuantifierBody(current)
-		if err != nil {
-			return ast.ASTHandle{}, hornPrefix{}, err
-		}
+func (n *HornNormalizer) pullForall(hoister *rewriter.QuantifierHoister, formula ast.ASTHandle, locals *[]ast.ASTRef) (core ast.ASTHandle, prefix hornPrefix, resultErr error) {
+	pulled, err := hoister.PullQuantifierIndexed(true, formula, true, false)
+	if err != nil {
+		return ast.ASTHandle{}, hornPrefix{}, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, pulled.Close()) }()
+	core, err = n.manager.RefGet(pulled.Formula)
+	if err != nil {
+		return ast.ASTHandle{}, hornPrefix{}, err
+	}
+	if err = n.pin(locals, core); err != nil {
+		return ast.ASTHandle{}, hornPrefix{}, err
+	}
+	return core, hornPrefix{sorts: append([]ast.ASTHandle(nil), pulled.Sorts...), names: append([]usymbol.Symbol(nil), pulled.Names...)}, nil
 }
 
 func (n *HornNormalizer) bind(prefix hornPrefix, body ast.ASTHandle, locals *[]ast.ASTRef) (ast.ASTHandle, error) {
@@ -280,8 +259,8 @@ func (n *HornNormalizer) implication(body []ast.ASTHandle, head ast.ASTHandle, l
 }
 
 // Normalize returns the conjunction of Horn formulas and its fresh predicate
-// declarations. Proof production and general nested quantifier hoisting remain
-// outside this increment.
+// declarations.  Compatible nested universal quantifiers are first pulled
+// using the same polarity rules as the source quantifier_hoister.
 func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormalization, resultErr error) {
 	if n == nil || n.manager == nil {
 		return nil, ErrHornNormalizationOwner
@@ -303,13 +282,18 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 	if err := n.pin(&locals, formula); err != nil {
 		return result, err
 	}
+	hoister, err := rewriter.NewQuantifierHoisterWithoutRewrite(n.manager)
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, hoister.Close()) }()
 	work := []hornWork{{formula: formula}}
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	for len(work) != 0 {
 		last := len(work) - 1
 		item := work[last]
 		work = work[:last]
-		core, prefix, err := n.stripForall(item.formula)
+		core, prefix, err := n.pullForall(hoister, item.formula, &locals)
 		if err != nil {
 			return result, err
 		}
