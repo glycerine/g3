@@ -41,3 +41,38 @@ func (s *realValueStore) derivativeRationalPolynomial(coefficients []*realValue)
 	}
 	return result, nil
 }
+
+// derivativePolynomial is the source value-polynomial derivative. It keeps
+// algebraic coefficient ownership and uses only rational integer scaling.
+func (s *realValueStore) derivativePolynomial(coefficients []*realValue) ([]*realValue, error) {
+	if s == nil || s.numbers == nil {
+		return nil, arena.ErrInvalidSlot
+	}
+	for _, value := range coefficients {
+		if !s.realOperand(value) {
+			return nil, arena.ErrInvalidSlot
+		}
+	}
+	if len(coefficients) <= 1 {
+		return nil, nil
+	}
+	result := make([]*realValue, 0, len(coefficients)-1)
+	for i := 1; i < len(coefficients); i++ {
+		scalar, err := s.newRational(int64(i), 1)
+		if err != nil {
+			_ = s.releaseTemporaryCoefficients(result)
+			return nil, err
+		}
+		product, err := s.multiplyValues(scalar, coefficients[i])
+		if releaseErr := s.release(scalar); err == nil {
+			err = releaseErr
+		}
+		if err != nil {
+			_ = s.release(product)
+			_ = s.releaseTemporaryCoefficients(result)
+			return nil, err
+		}
+		result = append(result, product)
+	}
+	return trimRealCoefficients(result), nil
+}

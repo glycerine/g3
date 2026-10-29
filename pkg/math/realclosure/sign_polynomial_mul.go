@@ -129,6 +129,52 @@ func (s *realValueStore) multiplyRationalPolynomials(left, right []*realValue) (
 	return result, nil
 }
 
+// multiplyPolynomials is the retained value-polynomial convolution. This
+// concrete port accepts rational coefficients and algebraic coefficients when
+// each scalar product is rational or an algebraic value scaled by a rational.
+func (s *realValueStore) multiplyPolynomials(left, right []*realValue) ([]*realValue, error) {
+	if s == nil || s.numbers == nil {
+		return nil, arena.ErrInvalidSlot
+	}
+	for _, value := range append(append([]*realValue(nil), left...), right...) {
+		if !s.realOperand(value) {
+			return nil, arena.ErrInvalidSlot
+		}
+	}
+	result := make([]*realValue, len(left)*len(right))
+	if len(left) < len(right) {
+		left, right = right, left
+	}
+	for i, a := range left {
+		if a == nil {
+			continue
+		}
+		for j, b := range right {
+			product, err := s.multiplyValues(a, b)
+			if err != nil {
+				_ = s.releaseTemporaryCoefficients(result)
+				return nil, err
+			}
+			sum, err := s.addValues(result[i+j], product)
+			if releaseErr := s.release(product); err == nil {
+				err = releaseErr
+			}
+			if err != nil {
+				_ = s.release(sum)
+				_ = s.releaseTemporaryCoefficients(result)
+				return nil, err
+			}
+			if err = s.release(result[i+j]); err != nil {
+				_ = s.release(sum)
+				_ = s.releaseTemporaryCoefficients(result)
+				return nil, err
+			}
+			result[i+j] = sum
+		}
+	}
+	return trimRealCoefficients(result), nil
+}
+
 func (s *realValueStore) releaseCoefficients(values []*realValue) error {
 	for _, value := range values {
 		if err := s.release(value); err != nil {

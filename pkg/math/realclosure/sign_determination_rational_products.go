@@ -9,8 +9,9 @@ import (
 )
 
 // advanceRationalProducts builds the retained prs*1, prs*q, and optional
-// prs*q² rows before the Tarski/cardinality transition. The still-unported
-// Tarski query supplies the result for each row in that source order.
+// prs*q² rows before the Tarski/cardinality transition. Despite its retained
+// compatibility name, the source value-polynomial path also accepts the
+// concrete algebraic coefficients supported by multiplyPolynomials.
 func (s *signDetermination) advanceRationalProducts(equal, positive, negative int, q []*realValue, expandedTarski []int) (bool, bool, error) {
 	if s == nil || s.store == nil || len(s.prs) != s.matrix.rows {
 		return false, false, arena.ErrInvalidSlot
@@ -33,7 +34,7 @@ func (s *signDetermination) advanceRationalProducts(equal, positive, negative in
 	var square []*realValue
 	if qMatrix.cols == 3 {
 		var err error
-		square, err = s.store.multiplyRationalPolynomials(q, q)
+		square, err = s.store.multiplyPolynomials(q, q)
 		if err != nil {
 			return false, false, err
 		}
@@ -42,14 +43,14 @@ func (s *signDetermination) advanceRationalProducts(equal, positive, negative in
 	expanded := make([][]*realValue, 0, len(s.prs)*qMatrix.cols)
 	for _, prior := range s.prs {
 		expanded = append(expanded, prior.coefficients)
-		product, err := s.store.multiplyRationalPolynomials(prior.coefficients, q)
+		product, err := s.store.multiplyPolynomials(prior.coefficients, q)
 		if err != nil {
 			return false, false, errors.Join(err, cleanup())
 		}
 		owned = append(owned, product)
 		expanded = append(expanded, product)
 		if qMatrix.cols == 3 {
-			product, err = s.store.multiplyRationalPolynomials(prior.coefficients, square)
+			product, err = s.store.multiplyPolynomials(prior.coefficients, square)
 			if err != nil {
 				return false, false, errors.Join(err, cleanup())
 			}
