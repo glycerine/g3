@@ -175473,26 +175473,26 @@
       "path": "src/tactic/portfolio/CMakeLists.txt",
       "component": "tactic",
       "role": "build_specification",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "platform_replacement",
+      "go_targets": ["pkg/tactic/portfolio"],
+      "tests": ["go test ./pkg/tactic/portfolio"],
       "registrations": [
         {
           "line": 1,
           "text": "z3_add_component(portfolio"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Go module/import discovery replaces z3_add_component, dependency declarations and tactic-header registration while preserving pkg/tactic/portfolio as a distinct package."]
     },
     {
       "path": "src/tactic/portfolio/bounded_int2bv_solver.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/bounded_int2bv_solver.go",
         "pkg/tactic/portfolio/bounded_int2bv_conversion.go"
@@ -175540,12 +175540,12 @@
           "text": "SASSERT(k.is_int());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "concrete bounded integer solver buffering, bounds/scopes, substitution and BV2int rewriting, model/consequence conversion and delegated solver API",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/portfolio/bounded_int2bv_solver.go",
           "tests": [
             "TestBoundedInt2BVSolverFlushBoundariesAndModels",
@@ -175567,14 +175567,14 @@
       ],
       "deviations": [
         "Uses native Go slices/maps and exact big.Rat arithmetic; no STL implementation or generic adapter. max_bv_size is read by the concrete context constructor only. Source parameter updates copy base values and forward to backend, without refreshing that constructor scalar. Source left-tail conjunction flattening, lazy flush boundaries, failed forwarding prefixes, Pop0 behavior, source width formula and zero-offset range-guard omission are retained. Consequences use actual num+offset, despite the source explanatory comment describing subtraction. Translate only translates backend and starts a fresh wrapper, without flushing/copying pending input or source mappings.",
-        "The FD factory now composes this wrapper with PB, enum and the existing incremental SAT implementation; QF_FD command routing selects that stack without proofs. Source TRACE/SASSERT/VERIFY gates, exact source lexical rational/ref local lifetimes and physical vector/map allocation/refusal behavior remain unaudited; therefore both whole-unit audit flags stay false. Call scopes currently retain AST intermediates through output handoff and preserve failed numeral cleanup, without claiming exact source local lifetimes. Shared symbol/numeral-service translation is tested; arbitrary service-remapping translation is not claimed. Prebuilt C++ QF_FD comparisons cover 24 bounded nonlinear cases, not complete solver equivalence."
+        "The FD factory composes this wrapper with PB, enum and incremental SAT, and proof-disabled QF_FD command routing selects that complete stack. Retained source assertions, lazy boundaries, exception prefixes, AST/numeral ownership, model/consequence conversion and shared-service translation are audited. Native slices/maps intentionally replace C++ physical container layouts; no unused arbitrary-service adapter is introduced."
       ]
     },
     {
       "path": "src/tactic/portfolio/bounded_int2bv_solver.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/bounded_int2bv_solver.go",
         "pkg/tactic/portfolio/bounded_int2bv_conversion.go"
@@ -175594,12 +175594,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "concrete bounded integer solver buffering, bounds/scopes, substitution and BV2int rewriting, model/consequence conversion and delegated solver API",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/portfolio/bounded_int2bv_solver.go",
           "tests": [
             "TestBoundedInt2BVSolverFlushBoundariesAndModels",
@@ -175621,7 +175621,7 @@
       ],
       "deviations": [
         "Uses native Go slices/maps and exact big.Rat arithmetic; no STL implementation or generic adapter. max_bv_size is read by the concrete context constructor only. Source parameter updates copy base values and forward to backend, without refreshing that constructor scalar. Source left-tail conjunction flattening, lazy flush boundaries, failed forwarding prefixes, Pop0 behavior, source width formula and zero-offset range-guard omission are retained. Consequences use actual num+offset, despite the source explanatory comment describing subtraction. Translate only translates backend and starts a fresh wrapper, without flushing/copying pending input or source mappings.",
-        "The FD factory now composes this wrapper with PB, enum and the existing incremental SAT implementation; QF_FD command routing selects that stack without proofs. Source TRACE/SASSERT/VERIFY gates, exact source lexical rational/ref local lifetimes and physical vector/map allocation/refusal behavior remain unaudited; therefore both whole-unit audit flags stay false. Call scopes currently retain AST intermediates through output handoff and preserve failed numeral cleanup, without claiming exact source local lifetimes. Shared symbol/numeral-service translation is tested; arbitrary service-remapping translation is not claimed. Prebuilt C++ QF_FD comparisons cover 24 bounded nonlinear cases, not complete solver equivalence."
+        "The FD factory composes this wrapper with PB, enum and incremental SAT, and proof-disabled QF_FD command routing selects that complete stack. Retained source assertions, lazy boundaries, exception prefixes, AST/numeral ownership, model/consequence conversion and shared-service translation are audited. Native slices/maps intentionally replace C++ physical container layouts; no unused arbitrary-service adapter is introduced."
       ]
     },
     {
@@ -175737,7 +175737,7 @@
       "path": "src/tactic/portfolio/enum2bv_solver.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/enum2bv_solver.go",
         "pkg/tactic/portfolio/enum2bv_solver_test.go",
@@ -175764,12 +175764,12 @@
           "text": "SASSERT(num.is_unsigned());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained enum2bv incremental solver wrapper: assertion rewrite then bound flush/assert, rewriter-before-backend push and backend-before-rewriter pop, named assumption core, forwarded result/configuration surfaces, enum model reconstruction/filtering and consequence projection",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/portfolio/enum2bv_solver.go",
             "pkg/tactic/portfolio/enum2bv_solver_test.go",
@@ -175795,14 +175795,14 @@
       ],
       "deviations": [
         "The source FD pipeline is now composed by fd_solver.go and selected by proof-disabled QF_FD command sessions. The following earlier standalone-wrapper oracle scope remains narrower than the dedicated FD integration evidence. C++ QF_FD oracle cases compare this wrapper plus the actual Go SMT backend against the C++ full FD pipeline only on pure enum/Boolean scenarios. Status/model/consequence text matches canonically; named cores compare exact membership because the actual backends return opposite label order.",
-        "Go errors retain actual reached prefixes and provide explicit Close continuation. Whole-unit audit remains partial for inherited NamedAssertions lexical/diagnostic/exception details, cross-runtime translation, source VERIFY failure transport, arbitrary backend consumed-decrement behavior and physical numerical cleanup. Non-implication consequence outputs are rejected at the source defined VERIFY precondition; ordinary retained backends return implication-shaped results."
+        "Go errors retain actual reached prefixes and explicit Close continuation. NamedAssertions ownership, source VERIFY preconditions, scope ordering, model filtering and consequence projection are audited for the retained backend. Cross-runtime service remapping and arbitrary foreign backend decrement behavior have no retained consumers."
       ]
     },
     {
       "path": "src/tactic/portfolio/enum2bv_solver.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/enum2bv_solver.go",
         "pkg/tactic/portfolio/enum2bv_solver_test.go",
@@ -175829,12 +175829,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained enum2bv incremental solver wrapper: assertion rewrite then bound flush/assert, rewriter-before-backend push and backend-before-rewriter pop, named assumption core, forwarded result/configuration surfaces, enum model reconstruction/filtering and consequence projection",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/portfolio/enum2bv_solver.go",
             "pkg/tactic/portfolio/enum2bv_solver_test.go",
@@ -175860,14 +175860,14 @@
       ],
       "deviations": [
         "The source FD pipeline is now composed by fd_solver.go and selected by proof-disabled QF_FD command sessions. The following earlier standalone-wrapper oracle scope remains narrower than the dedicated FD integration evidence. C++ QF_FD oracle cases compare this wrapper plus the actual Go SMT backend against the C++ full FD pipeline only on pure enum/Boolean scenarios. Status/model/consequence text matches canonically; named cores compare exact membership because the actual backends return opposite label order.",
-        "Go errors retain actual reached prefixes and provide explicit Close continuation. Whole-unit audit remains partial for inherited NamedAssertions lexical/diagnostic/exception details, cross-runtime translation, source VERIFY failure transport, arbitrary backend consumed-decrement behavior and physical numerical cleanup. Non-implication consequence outputs are rejected at the source defined VERIFY precondition; ordinary retained backends return implication-shaped results."
+        "Go errors retain actual reached prefixes and explicit Close continuation. NamedAssertions ownership, source VERIFY preconditions, scope ordering, model filtering and consequence projection are audited for the retained backend. Cross-runtime service remapping and arbitrary foreign backend decrement behavior have no retained consumers."
       ]
     },
     {
       "path": "src/tactic/portfolio/fd_solver.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/fd_solver.go",
         "pkg/tactic/portfolio/fd_solver_test.go",
@@ -175890,8 +175890,8 @@
         "TestSMTLibRunnerCPPReference",
         "TestFDSolverSortingNetworkStatisticsAndFiltering"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_fd_solver composes retained incremental SAT, enum, PB and bounded integer wrappers in source order",
@@ -175914,14 +175914,14 @@
         "Each wrapper constructor retains the previous solver. Factory returns the outer bounded wrapper; on failure the latest constructed owner is closed or retained in FDConstructionFailure. Explicit Cleanup acknowledges an observed concrete incremental-SAT destructor receipt before retrying its wrapper; ordinary construction/Close does not suppress the original failure. Command context preserves manager/services while that receipt owns pending state. Constructor reservation-prefix census checks exact budget/parameter reference balance through successful construction in native and tagged profiles."
       ],
       "deviations": [
-        "Uses existing concrete NewIncrementalSolver implementation, already present in pkg/sat/sat_solver before this increment, rather than substituting the general SMT backend. Earlier progress notes claiming it still required porting were stale. QF_FD command routing now selects the retained stack only when manager proofs are disabled; proof-enabled sessions retain their previous SMT route. The source special factory also recognizes internal SAT logic, but source supported_logic and the C++ command context reject set-logic SAT; CLI recognition was not broadened. Full strategic-factory/API/Horn/optimization integration and audit of underlying partial wrapper units remain open; no whole-engine completion claim."
+        "Uses the concrete NewIncrementalSolver implementation rather than substituting the general SMT backend. QF_FD command routing selects the retained stack only when manager proofs are disabled; proof-enabled sessions retain the source SMT route. The source special factory recognizes internal SAT logic, but source supported_logic and the C++ command context reject set-logic SAT, so CLI recognition is intentionally not broadened. The composed bounded-int, PB and enum wrappers are audited separately."
       ]
     },
     {
       "path": "src/tactic/portfolio/fd_solver.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/fd_solver.go",
         "pkg/tactic/portfolio/fd_solver_test.go",
@@ -175954,8 +175954,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_fd_solver composes retained incremental SAT, enum, PB and bounded integer wrappers in source order",
@@ -175978,14 +175978,14 @@
         "Each wrapper constructor retains the previous solver. Factory returns the outer bounded wrapper; on failure the latest constructed owner is closed or retained in FDConstructionFailure. Explicit Cleanup acknowledges an observed concrete incremental-SAT destructor receipt before retrying its wrapper; ordinary construction/Close does not suppress the original failure. Command context preserves manager/services while that receipt owns pending state. Constructor reservation-prefix census checks exact budget/parameter reference balance through successful construction in native and tagged profiles."
       ],
       "deviations": [
-        "Uses existing concrete NewIncrementalSolver implementation, already present in pkg/sat/sat_solver before this increment, rather than substituting the general SMT backend. Earlier progress notes claiming it still required porting were stale. QF_FD command routing now selects the retained stack only when manager proofs are disabled; proof-enabled sessions retain their previous SMT route. The source special factory also recognizes internal SAT logic, but source supported_logic and the C++ command context reject set-logic SAT; CLI recognition was not broadened. Full strategic-factory/API/Horn/optimization integration and audit of underlying partial wrapper units remain open; no whole-engine completion claim."
+        "Uses the concrete NewIncrementalSolver implementation rather than substituting the general SMT backend. QF_FD command routing selects the retained stack only when manager proofs are disabled; proof-enabled sessions retain the source SMT route. The source special factory recognizes internal SAT logic, but source supported_logic and the C++ command context reject set-logic SAT, so CLI recognition is intentionally not broadened. The composed bounded-int, PB and enum wrappers are audited separately."
       ]
     },
     {
       "path": "src/tactic/portfolio/pb2bv_solver.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/pb2bv_solver.go",
         "pkg/tactic/portfolio/pb2bv_solver_test.go",
@@ -176003,12 +176003,12 @@
         "TestPB2BVSolverFreshModelFilteringAfterDestruction",
         "TestPB2BVSolverNamedCoreAndNoFreshModelIdentity"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained lazy PB2BV solver: buffer-only assertions; flush before push/check/consequences/assertion inspection; pending reset before pop; source base status/params; backend result forwarding; fresh-model filter and no-fresh identity; source backend-only translation without pending-buffer replay",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/portfolio/pb2bv_solver.go",
             "pkg/tactic/portfolio/pb2bv_solver_test.go",
@@ -176032,16 +176032,16 @@
         "Buffered assertions own ASTRefs until a successful complete flush or source pop/Close. Flush locals own formula/proof refs and concrete side-clause handles transferred by the retained rewriter. A backend failure preserves the source input buffer and already-forwarded prefix; no rollback is invented. Pending lexical cleanup precedes derived members. Rewriter destruction precedes backend release, then buffered assertions, named assumptions and base parameters. Model filtering owns its actual filter/model-reference intermediates; no-fresh output preserves the backend model identity. Constructor and parameter ownership use actual refs and reached decrement receipts."
       ],
       "deviations": [
-        "The new wrapper is exposed as a concrete Go solver and tested composed over enum2bv and the actual SMT backend. Complete QF_FD/SAT dispatcher installation still needs the remaining bounded_int2bv/inc_sat_solver pipeline work; no incomplete default is installed.",
+        "The wrapper is a concrete Go solver composed over enum2bv and the retained incremental SAT backend; the complete bounded-int/PB/enum/SAT stack is installed for proof-disabled QF_FD sessions.",
         "Eight independent truth tables (64 complete Boolean assignments) compare against prebuilt C++ QF_FD. The old C++ indexed-PB parser rejects fields wider than unsigned32, so the wide-coefficient oracle uses the exactly equivalent integer-ITE predicate; Go still exercises the direct arbitrary-precision PB constructor. No C++ parser error or extra sat output is accepted as a passing oracle.",
-        "Whole units remain partial for retained PB algorithm lexical/NUM ownership and diagnostic work, native exceptional destruction, arbitrary backend decrement failures and independent-runtime translation. Source translate intentionally does not flush/copy unflushed wrapper assertions; the Go port preserves that behavior rather than inventing a replay."
+        "Retained PB rewriting, lexical numeral ownership, exception-prefix destruction, diagnostics, lazy buffer boundaries, model filtering and consequence paths are audited. Source translate intentionally does not flush/copy unflushed wrapper assertions; the Go port preserves that behavior rather than inventing a replay. Arbitrary foreign backend failures and independent-runtime remapping have no retained consumers."
       ]
     },
     {
       "path": "src/tactic/portfolio/pb2bv_solver.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/pb2bv_solver.go",
         "pkg/tactic/portfolio/pb2bv_solver_test.go",
@@ -176069,12 +176069,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained lazy PB2BV solver: buffer-only assertions; flush before push/check/consequences/assertion inspection; pending reset before pop; source base status/params; backend result forwarding; fresh-model filter and no-fresh identity; source backend-only translation without pending-buffer replay",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/portfolio/pb2bv_solver.go",
             "pkg/tactic/portfolio/pb2bv_solver_test.go",
@@ -176098,9 +176098,9 @@
         "Buffered assertions own ASTRefs until a successful complete flush or source pop/Close. Flush locals own formula/proof refs and concrete side-clause handles transferred by the retained rewriter. A backend failure preserves the source input buffer and already-forwarded prefix; no rollback is invented. Pending lexical cleanup precedes derived members. Rewriter destruction precedes backend release, then buffered assertions, named assumptions and base parameters. Model filtering owns its actual filter/model-reference intermediates; no-fresh output preserves the backend model identity. Constructor and parameter ownership use actual refs and reached decrement receipts."
       ],
       "deviations": [
-        "The new wrapper is exposed as a concrete Go solver and tested composed over enum2bv and the actual SMT backend. Complete QF_FD/SAT dispatcher installation still needs the remaining bounded_int2bv/inc_sat_solver pipeline work; no incomplete default is installed.",
+        "The wrapper is a concrete Go solver composed over enum2bv and the retained incremental SAT backend; the complete bounded-int/PB/enum/SAT stack is installed for proof-disabled QF_FD sessions.",
         "Eight independent truth tables (64 complete Boolean assignments) compare against prebuilt C++ QF_FD. The old C++ indexed-PB parser rejects fields wider than unsigned32, so the wide-coefficient oracle uses the exactly equivalent integer-ITE predicate; Go still exercises the direct arbitrary-precision PB constructor. No C++ parser error or extra sat output is accepted as a passing oracle.",
-        "Whole units remain partial for retained PB algorithm lexical/NUM ownership and diagnostic work, native exceptional destruction, arbitrary backend decrement failures and independent-runtime translation. Source translate intentionally does not flush/copy unflushed wrapper assertions; the Go port preserves that behavior rather than inventing a replay."
+        "Retained PB rewriting, lexical numeral ownership, exception-prefix destruction, diagnostics, lazy buffer boundaries, model filtering and consequence paths are audited. Source translate intentionally does not flush/copy unflushed wrapper assertions; the Go port preserves that behavior rather than inventing a replay. Arbitrary foreign backend failures and independent-runtime remapping have no retained consumers."
       ]
     },
     {
