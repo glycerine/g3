@@ -325,6 +325,8 @@ func TestSMT2FixedpointPDRStatistics(t *testing.T) {
 	})
 	context.PrintSuccess = false
 	script := `(set-option :fixedpoint.engine pdr)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
 (declare-rel P (Int))
 (declare-rel Q (Int))
 (declare-var x Int)
