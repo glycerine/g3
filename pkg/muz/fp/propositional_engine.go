@@ -79,6 +79,8 @@ type PropositionalEngine struct {
 	pdrStatistics      statistics.Statistics
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
+	assertions         []ast.ASTRef
+	assertionScopes    []int
 	predicates         map[ast.ASTHandle]*predicateState
 	predicateOrder     []ast.ASTHandle
 	auxiliary          map[ast.ASTHandle]bool
@@ -223,6 +225,49 @@ func (e *PropositionalEngine) SetBackground(background ast.ASTHandle) error {
 	}
 	e.revision++
 	return nil
+}
+
+// AssertBackground retains a fixedpoint background assertion in the current
+// fixedpoint scope.
+func (e *PropositionalEngine) AssertBackground(formula ast.ASTHandle) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	reference, err := e.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	e.assertions = append(e.assertions, reference)
+	e.revision++
+	return nil
+}
+
+// BackgroundAssertions returns owning references in insertion order.
+func (e *PropositionalEngine) BackgroundAssertions() (result []ast.ASTRef, resultErr error) {
+	if err := e.open(); err != nil {
+		return nil, err
+	}
+	result = make([]ast.ASTRef, 0, len(e.assertions))
+	defer func() {
+		if resultErr != nil {
+			for i := len(result) - 1; i >= 0; i-- {
+				resultErr = errors.Join(resultErr, e.manager.DelRef(&result[i]))
+			}
+			result = nil
+		}
+	}()
+	for _, assertion := range e.assertions {
+		handle, err := e.manager.RefGet(assertion)
+		if err != nil {
+			return nil, err
+		}
+		reference, err := e.manager.NewRef(handle)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, reference)
+	}
+	return result, nil
 }
 
 // ParametersUpdated invalidates a retained backend context so the next query
@@ -461,8 +506,9 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	return prior.Close()
 }
 
-// Push retains a snapshot of the current rule set. Predicate registrations are
-// intentionally not scoped, matching dl_context::push.
+// Push retains a snapshot of the current rules and background assertions.
+// Predicate registrations are intentionally not scoped, matching
+// dl_context::push.
 func (e *PropositionalEngine) Push() error {
 	if err := e.open(); err != nil {
 		return err
@@ -475,6 +521,7 @@ func (e *PropositionalEngine) Push() error {
 		return errors.Join(err, snapshot.Close())
 	}
 	e.scopes = append(e.scopes, snapshot)
+	e.assertionScopes = append(e.assertionScopes, len(e.assertions))
 	return nil
 }
 
@@ -490,6 +537,9 @@ func (e *PropositionalEngine) Pop() error {
 	if e.queried {
 		return fmt.Errorf("muz/fp: pop operation is only supported before a query")
 	}
+	if len(e.assertionScopes) != len(e.scopes) {
+		return ErrPropositionalEngine
+	}
 	last := len(e.scopes) - 1
 	snapshot := e.scopes[last]
 	if err := e.set.ReplaceRules(snapshot); err != nil {
@@ -497,7 +547,14 @@ func (e *PropositionalEngine) Pop() error {
 	}
 	e.revision++
 	e.scopes = e.scopes[:last]
-	return snapshot.Close()
+	assertionSize := e.assertionScopes[last]
+	e.assertionScopes = e.assertionScopes[:last]
+	var result error
+	for i := len(e.assertions) - 1; i >= assertionSize; i-- {
+		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))
+	}
+	e.assertions = e.assertions[:assertionSize]
+	return errors.Join(result, snapshot.Close())
 }
 
 func (e *PropositionalEngine) hasUninterpretedRuleSymbol(root ast.ASTHandle) (bool, error) {
@@ -1830,6 +1887,11 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.scopes[i].Close())
 	}
 	e.scopes = nil
+	e.assertionScopes = nil
+	for i := len(e.assertions) - 1; i >= 0; i-- {
+		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))
+	}
+	e.assertions = nil
 	if e.guard != nil {
 		result = errors.Join(result, e.guard.Close())
 		e.guard = nil

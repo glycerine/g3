@@ -101,6 +101,26 @@ func (c *Context) AddFixedpointTableFact(declaration ast.ASTHandle, values []uin
 	return engine.AddTableFact(declaration, values)
 }
 
+// AssertFixedpoint adds a background assertion in the current fixedpoint
+// scope.
+func (c *Context) AssertFixedpoint(formula ast.ASTHandle) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.AssertBackground(formula)
+}
+
+// FixedpointAssertions returns owning fixedpoint background assertions in
+// insertion order.
+func (c *Context) FixedpointAssertions() ([]ast.ASTRef, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return nil, err
+	}
+	return engine.BackgroundAssertions()
+}
+
 // DeclareFixedpointVariable declares and registers an implicit Datalog
 // variable, matching the declare-var command's constant-to-bound-variable path.
 func (c *Context) DeclareFixedpointVariable(name string, sort ast.ASTHandle) error {
@@ -139,34 +159,59 @@ func (c *Context) PopFixedpoint() error {
 	return engine.Pop()
 }
 
-func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error) {
+func (c *Context) prepareFixedpointQuery() (*muzfp.PropositionalEngine, error) {
 	engine, err := c.fixedpointContext()
 	if err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
 	assertions, err := c.Assertions()
 	if err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
 	manager, err := c.Manager()
 	if err != nil {
-		return lbool.Undef, err
+		return nil, err
+	}
+	fixedpointAssertions, err := engine.BackgroundAssertions()
+	if err != nil {
+		return nil, err
+	}
+	for i := range fixedpointAssertions {
+		handle, x := manager.RefGet(fixedpointAssertions[i])
+		if x == nil {
+			assertions = append(assertions, handle)
+		}
+		err = errors.Join(err, x)
+	}
+	for i := len(fixedpointAssertions) - 1; i >= 0; i-- {
+		err = errors.Join(err, manager.DelRef(&fixedpointAssertions[i]))
+	}
+	if err != nil {
+		return nil, err
 	}
 	background, err := manager.MkAndArray(assertions)
 	if err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
 	if err = engine.SetBackground(background); err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
 	selection, supported, err := c.GetOption(":fixedpoint.engine")
 	if err != nil {
-		return lbool.Undef, err
+		return nil, err
 	}
 	if !supported {
-		return lbool.Undef, fmt.Errorf("cmd_context: fixedpoint.engine option is unavailable")
+		return nil, fmt.Errorf("cmd_context: fixedpoint.engine option is unavailable")
 	}
 	if err = engine.SelectEngine(selection); err != nil {
+		return nil, err
+	}
+	return engine, nil
+}
+
+func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error) {
+	engine, err := c.prepareFixedpointQuery()
+	if err != nil {
 		return lbool.Undef, err
 	}
 	return engine.QueryPredicate(declaration)
@@ -176,33 +221,8 @@ func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error
 // nonempty. PDR and Spacer accept exactly one relation, matching the native
 // fixedpoint engine contract.
 func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {
-	engine, err := c.fixedpointContext()
+	engine, err := c.prepareFixedpointQuery()
 	if err != nil {
-		return lbool.Undef, err
-	}
-	assertions, err := c.Assertions()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	manager, err := c.Manager()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	background, err := manager.MkAndArray(assertions)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if err = engine.SetBackground(background); err != nil {
-		return lbool.Undef, err
-	}
-	selection, supported, err := c.GetOption(":fixedpoint.engine")
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if !supported {
-		return lbool.Undef, fmt.Errorf("cmd_context: fixedpoint.engine option is unavailable")
-	}
-	if err = engine.SelectEngine(selection); err != nil {
 		return lbool.Undef, err
 	}
 	return engine.QueryPredicates(declarations)
@@ -211,33 +231,8 @@ func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.
 // QueryFixedpointFromLevel runs a Spacer query beginning at the requested
 // proof level.
 func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint32) (lbool.LBool, error) {
-	engine, err := c.fixedpointContext()
+	engine, err := c.prepareFixedpointQuery()
 	if err != nil {
-		return lbool.Undef, err
-	}
-	assertions, err := c.Assertions()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	manager, err := c.Manager()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	background, err := manager.MkAndArray(assertions)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if err = engine.SetBackground(background); err != nil {
-		return lbool.Undef, err
-	}
-	selection, supported, err := c.GetOption(":fixedpoint.engine")
-	if err != nil {
-		return lbool.Undef, err
-	}
-	if !supported {
-		return lbool.Undef, fmt.Errorf("cmd_context: fixedpoint.engine option is unavailable")
-	}
-	if err = engine.SelectEngine(selection); err != nil {
 		return lbool.Undef, err
 	}
 	return engine.QueryPredicateFromLevel(declaration, level)

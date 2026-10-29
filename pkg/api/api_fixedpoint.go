@@ -89,6 +89,24 @@ func (c *SMTContext) AddFixedpointTableFact(declaration ast.ASTHandle, values []
 	return c.command.AddFixedpointTableFact(declaration, values)
 }
 
+// AssertFixedpoint adds a background assertion in the current fixedpoint
+// scope.
+func (c *SMTContext) AssertFixedpoint(formula ast.ASTHandle) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	return c.command.AssertFixedpoint(formula)
+}
+
+// FixedpointAssertions returns owning fixedpoint background assertions in
+// insertion order. Release every result through Manager().DelRef.
+func (c *SMTContext) FixedpointAssertions() ([]ast.ASTRef, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	return c.command.FixedpointAssertions()
+}
+
 // PushFixedpoint saves the current fixedpoint rule set.
 func (c *SMTContext) PushFixedpoint() error {
 	if err := c.open(); err != nil {

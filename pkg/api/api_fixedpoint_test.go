@@ -30,6 +30,7 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	astTestMust(t, err)
 	integer := pin(manager.MkFamilySort(arithmetic, 1, nil))
 	zero := pin(manager.ArithmeticIntegerNumeralText("0"))
+	truth := pin(manager.MkTrue())
 
 	astTestMust(t, context.SetFixedpointEngine("pdr"))
 	p, err := context.DeclareRelation("api-fp-P", []ast.ASTHandle{integer})
@@ -46,6 +47,15 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	step := pin(manager.MkImplies(pX, qX))
 	astTestMust(t, context.PushFixedpoint())
 	astTestMust(t, context.AddFixedpointRuleWithBound(uZero, "api-fp-scoped", 3))
+	astTestMust(t, context.AssertFixedpoint(truth))
+	assertions, err := context.FixedpointAssertions()
+	astTestMust(t, err)
+	if len(assertions) != 1 {
+		t.Fatal("scoped fixedpoint assertion enumeration", len(assertions))
+	}
+	for index := range assertions {
+		astTestMust(t, manager.DelRef(&assertions[index]))
+	}
 	rules, err := context.FixedpointRules()
 	astTestMust(t, err)
 	if len(rules) != 1 {
@@ -60,9 +70,15 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	if len(rules) != 0 {
 		t.Fatal("popped fixedpoint rule enumeration", len(rules))
 	}
+	assertions, err = context.FixedpointAssertions()
+	astTestMust(t, err)
+	if len(assertions) != 0 {
+		t.Fatal("popped fixedpoint assertion enumeration", len(assertions))
+	}
 	astTestMust(t, context.AddFixedpointFact(p, []ast.ASTHandle{zero}))
 	astTestMust(t, context.AddFixedpointRule(step, "api-fp-step"))
 	astTestMust(t, context.UpdateFixedpointRule(step, "api-fp-step"))
+	astTestMust(t, context.AssertFixedpoint(truth))
 	rules, err = context.FixedpointRules()
 	astTestMust(t, err)
 	if len(rules) != 2 {
