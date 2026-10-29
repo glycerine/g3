@@ -24,6 +24,9 @@ func (s *Solver) HeuristicVariablePermutation() (_ []uint32, supported bool, res
 		return nil, false, err
 	}
 	count := len(s.clauses.vars.isInt)
+	if len(s.patches) != 0 {
+		return nil, false, nil
+	}
 	for _, atom := range s.atoms.bools.atoms {
 		if root, ok := atom.(*RootAtom); ok && root != nil {
 			return nil, false, nil
@@ -121,6 +124,9 @@ func (s *Solver) ShuffledVariablePermutation() ([]uint32, bool, error) {
 	if err := s.open(); err != nil {
 		return nil, false, err
 	}
+	if len(s.patches) != 0 {
+		return nil, false, nil
+	}
 	for _, atom := range s.atoms.bools.atoms {
 		if root, ok := atom.(*RootAtom); ok && root != nil {
 			return nil, false, nil
@@ -162,6 +168,9 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 		return err
 	}
 	count := len(s.clauses.vars.isInt)
+	if len(s.patches) != 0 {
+		return ErrSearchOwner
+	}
 	if err := validateVariablePermutation(permutation, count); err != nil {
 		return err
 	}

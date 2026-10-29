@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
 
@@ -62,6 +63,26 @@ func solverUnit(t *testing.T, s *Solver, kind AtomKind, p polynomial.Polynomial)
 	assignmentMust(t, err)
 	assignmentMust(t, s.AddClause([]sat.Literal{literal}, Assumption{}))
 	return literal
+}
+
+func solverPolynomial(t *testing.T, s *Solver, coefficients []int32, powers [][]polynomial.MonomialPower) polynomial.Polynomial {
+	t.Helper()
+	core, err := s.config.Polynomial.ArithmeticCore()
+	assignmentMust(t, err)
+	monomials, err := core.MonomialManager()
+	assignmentMust(t, err)
+	as := make([]unumeral.Int, len(coefficients))
+	ms := make([]polynomial.Monomial, len(coefficients))
+	for i := range coefficients {
+		as[i] = unumeral.NewInt(coefficients[i])
+		ms[i], err = monomials.MkMonomial(powers[i])
+		assignmentMust(t, err)
+	}
+	p, err := core.MkTerms(as, ms)
+	assignmentMust(t, err)
+	assignmentMust(t, core.IncRef(p))
+	t.Cleanup(func() { assignmentMust(t, core.DecRef(p)) })
+	return p
 }
 
 func TestSolverMixedPolynomialSearchAndRepeatedModel(t *testing.T) {
@@ -254,4 +275,119 @@ func TestSolverShuffledVariablePermutation(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestSolverInlineVariablesPatchesModelAndConflict(t *testing.T) {
+	t.Run("model-patch", func(t *testing.T) {
+		s := solverFixtureConfig(t, SolverConfig{InlineVars: true, Reorder: true})
+		for i := 0; i < 2; i++ {
+			_, err := s.MkVar(false)
+			assignmentMust(t, err)
+		}
+		xPlusYMinusThree := evaluatorPolynomial(t, s.evaluator,
+			evaluatorTerm{1, 1, 0}, evaluatorTerm{1, 0, 1}, evaluatorTerm{-3, 0, 0})
+		yMinusOne := evaluatorPolynomial(t, s.evaluator,
+			evaluatorTerm{1, 0, 1}, evaluatorTerm{-1, 0, 0})
+		solverUnit(t, s, AtomEQ, xPlusYMinusThree)
+		solverUnit(t, s, AtomEQ, yMinusOne)
+		result, err := s.Check()
+		assignmentMust(t, err)
+		if result != lbool.True || len(s.patches) != 2 {
+			t.Fatal("inline model", result, len(s.patches))
+		}
+		for _, constraint := range []polynomial.Polynomial{xPlusYMinusThree, yMinusOne} {
+			sign, err := s.config.Algebraic.EvalSign(s.config.Polynomial, constraint, s.assignment)
+			assignmentMust(t, err)
+			if sign != 0 {
+				t.Fatal("patched model violates eliminated equality", sign)
+			}
+		}
+	})
+
+	t.Run("substituted-conflict", func(t *testing.T) {
+		s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+		xMinusOne := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-1, 0, 0})
+		xMinusTwo := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-2, 0, 0})
+		solverUnit(t, s, AtomEQ, xMinusOne)
+		solverUnit(t, s, AtomGT, xMinusTwo)
+		result, err := s.Check()
+		assignmentMust(t, err)
+		if result != lbool.False {
+			t.Fatal("inline substituted conflict", result)
+		}
+	})
+
+	t.Run("eliminated-equality-remains-guarded", func(t *testing.T) {
+		s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+		xMinusOne := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-1, 0, 0})
+		equality := solverUnit(t, s, AtomEQ, xMinusOne)
+		guard, err := s.MkBoolVar()
+		assignmentMust(t, err)
+		guardLiteral := sat.MakeLiteral(guard, false)
+		assignmentMust(t, s.AddClause([]sat.Literal{equality, guardLiteral}, Assumption{}))
+		assignmentMust(t, s.AddClause([]sat.Literal{guardLiteral.Negated()}, Assumption{}))
+		result, err := s.Check()
+		assignmentMust(t, err)
+		if result != lbool.True {
+			t.Fatal("eliminated true equality falsified guarded clause", result)
+		}
+	})
+
+	t.Run("reorder-suppressed-with-patch", func(t *testing.T) {
+		s := solverFixtureConfig(t, SolverConfig{InlineVars: true, Reorder: true})
+		for i := 0; i < 2; i++ {
+			_, err := s.MkVar(false)
+			assignmentMust(t, err)
+		}
+		xMinusY := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0}, evaluatorTerm{-2, 0, 1})
+		y := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 1})
+		xTimesYMinusTwo := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 1}, evaluatorTerm{-2, 0, 0})
+		solverUnit(t, s, AtomEQ, xMinusY)
+		solverUnit(t, s, AtomGT, y)
+		solverUnit(t, s, AtomEQ, xTimesYMinusTwo)
+		result, err := s.Check()
+		assignmentMust(t, err)
+		if result != lbool.True {
+			t.Fatal("inline model with reorder option", result)
+		}
+		if s.patches[0].variable != 0 {
+			t.Fatal("restored inline model patch", s.patches[0].variable)
+		}
+		if err = s.ReorderVariables([]uint32{1, 0}); err == nil {
+			t.Fatal("manual reorder accepted live inline model patches")
+		}
+	})
+
+	t.Run("three-variable-substitution", func(t *testing.T) {
+		s := solverFixtureConfig(t, SolverConfig{InlineVars: true})
+		for i := 0; i < 3; i++ {
+			_, err := s.MkVar(false)
+			assignmentMust(t, err)
+		}
+		xMinusTwoY := solverPolynomial(t, s, []int32{1, -2}, [][]polynomial.MonomialPower{{{Var: 0, Degree: 1}}, {{Var: 1, Degree: 1}}})
+		xTimesZPlusTwo := solverPolynomial(t, s, []int32{1, 2}, [][]polynomial.MonomialPower{{{Var: 0, Degree: 1}, {Var: 2, Degree: 1}}, nil})
+		yMinusOne := solverPolynomial(t, s, []int32{1, -1}, [][]polynomial.MonomialPower{{{Var: 1, Degree: 1}}, nil})
+		zPlusOne := solverPolynomial(t, s, []int32{1, 1}, [][]polynomial.MonomialPower{{{Var: 2, Degree: 1}}, nil})
+		zMinusOne := solverPolynomial(t, s, []int32{1, -1}, [][]polynomial.MonomialPower{{{Var: 2, Degree: 1}}, nil})
+		solverUnit(t, s, AtomEQ, xMinusTwoY)
+		solverUnit(t, s, AtomEQ, xTimesZPlusTwo)
+		for _, bound := range []struct {
+			kind     AtomKind
+			value    polynomial.Polynomial
+			negative bool
+		}{{AtomLT, yMinusOne, true}, {AtomLT, zPlusOne, true}, {AtomGT, zMinusOne, true}} {
+			literal, err := s.MkInequality(bound.kind, []polynomial.Polynomial{bound.value}, []bool{false}, bound.negative)
+			assignmentMust(t, err)
+			assignmentMust(t, s.AddClause([]sat.Literal{literal}, Assumption{}))
+		}
+		result, err := s.Check()
+		assignmentMust(t, err)
+		if result != lbool.True {
+			t.Fatal("three-variable inline result", result)
+		}
+	})
 }

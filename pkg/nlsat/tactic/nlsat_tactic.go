@@ -171,6 +171,7 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
 		{"seed", "random seed.", uparams.ParamUInt},
 		{"factor", "factor polynomials produced during conflict resolution.", uparams.ParamBool},
+		{"inline_vars", "inline variables that can be isolated from equations.", uparams.ParamBool},
 	}
 	for _, entry := range entries {
 		if err := out.InsertName(entry.name, entry.kind, &entry.description, nil, nil); err != nil {
@@ -244,10 +245,14 @@ func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomia
 	if err != nil {
 		return nlsat.SolverConfig{}, err
 	}
+	inlineVars, err := boolParameter("inline_vars", false)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
 	return nlsat.SolverConfig{
 		Algebraic: algebraic, Polynomial: polynomials, Limit: &t.manager.Limit,
 		MaxMemory: umemory.MegabytesToBytes(megabytes), Lazy: lazy,
-		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor,
+		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor, InlineVars: inlineVars,
 		Reorder: reorder, ShuffleVars: shuffle, Seed: seed, MaxConflicts: maxConflicts,
 	}, nil
 }

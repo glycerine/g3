@@ -95825,6 +95825,7 @@
         "pkg/nlsat/search_resolution.go",
         "pkg/nlsat/search_main.go",
         "pkg/nlsat/solver.go",
+        "pkg/nlsat/inline_variables.go",
         "pkg/nlsat/univariate_conjunction.go"
       ],
       "tests": [
@@ -95889,6 +95890,7 @@
             "TestSolverMixedLinearConflict",
             "TestSolverIntegerBranchAndBound",
             "TestSolverConflictMinimizationWithEquality",
+            "TestSolverInlineVariablesPatchesModelAndConflict",
             "TestFullDimensionalLiteralClassification",
             "TestSolverCheckPublishesFullDimensionalExplanationMode",
         "TestUnivariateConjunctionRejectsMixedVariablesAndOwnsDomain",
@@ -96459,7 +96461,20 @@
           "tests": ["TestSolverHeuristicVariablePermutation", "TestSolverShuffledVariablePermutation", "TestSMTLibRunnerCPPReference/nlsat_shuffle.smt2"]
         },
         {
-          "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1338,1875-2091; solver.h38-55,64-112,166-205,214-216), excluding inline-variable simplification",
+          "name": "Nonincremental inline-variable simplification for isolatable real unit equalities, polynomial-fraction substitution through inequality atoms, clause rewriting, reverse model patches, and retained patch ownership (cpp2300-2378)",
+          "status": "partial",
+          "go_target": "pkg/nlsat/inline_variables.go",
+          "go_targets": [
+            "pkg/nlsat/solver.go",
+            "pkg/nlsat/tactic/nlsat_tactic.go"
+          ],
+          "tests": [
+            "TestSolverInlineVariablesPatchesModelAndConflict",
+            "TestSMTLibRunnerCPPReference/nlsat_inline.smt2"
+          ]
+        },
+        {
+          "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1338,1875-2091,2300-2378; solver.h38-55,64-112,166-205,214-216)",
           "status": "partial",
           "go_target": "pkg/nlsat/solver.go",
           "tests": [
@@ -96488,7 +96503,8 @@
         "Go native maps/slices and sort.Slice replace C++ containers/std::sort; the project comparator and successful ordering are tested independently, while a stopped Go sort may have a different partial permutation than C++ std::sort. Reflected clause-storage extent includes native owning-progress and acquired-prefix bookkeeping and differs from the C++ packed object, allocator class and reservation counts. The cold allocation campaigns qualify the actual native fixture, not every C++ allocation or TRACE/display prefix. The true unit clause is constructed and watched but is not propagated by an invented search engine. Arithmetic reordering, trail, explanation/projection, propagation/search, full solver construction/API and nonlinear tactic integration remain pending. Both whole-unit audit flags remain false.",
         "This is an actual trail/propagation component, not a completed Solver or replacement Boolean-only engine. Native slices replace source vectors; Go-local bookkeeping and reflected owner extents are not C++ allocator/capacity emulation. Native explicit continuations preserve safe ownership of reached exception prefixes, including a saved-but-untransferred domain entry, without claiming every C++ TRACE/display/lexical/physical prefix was audited. The existing Go evaluator returns one owned infeasible-set reference, which is transferred into the real current local. Actual main search, witness selection, explanation/projection, resolution/conflict analysis, public constructor/parameters and nonlinear goal/tactic/backend integration remain unported or incomplete; both whole-unit audit flags stay false.",
         "select_witness core operations are now present, but source cpp1194-1197 TRACE/display ordering, full solver construction/parameter application, integer search_check branching, explanation/projection, resolution and the main search/backend/SMT-LIB runner remain unaudited or unported. All whole-source audit flags remain false. New witness verification uses 32 selected-value counterexamples against the existing prebuilt build/z3, integer/fractional/irrational cases, exact random draw counts and interrupted lexical ownership; these local checks do not establish complete NLSAT or SMT solving.",
-        "Integration increment: the public Solver composes the actual allocator, polynomial cache, atom/assumption/clause stores, assignment/evaluator, explanation projection worklist, conflict resolution and main Boolean/arithmetic stage search over caller-borrowed compatible numerical/polynomial managers. It exposes source-shaped variable, Boolean, inequality/root, input-clause, check, model-value and core operations. Check now includes source integer search_check: every assigned noninteger integer variable is floored through the algebraic manager, receives the disjunction x<=floor(v) or x>=floor(v)+1, and restarts search until integral or UNSAT. Mixed quadratic SAT, mixed linear UNSAT/core, fractional integer UNSAT and integral quadratic SAT pass. Parameter/reordering/simplification frontends and QF_NIA SMT wiring remain pending. Whole-unit status and audit flags remain partial/false."
+        "Integration increment: the public Solver composes the actual allocator, polynomial cache, atom/assumption/clause stores, assignment/evaluator, explanation projection worklist, conflict resolution and main Boolean/arithmetic stage search over caller-borrowed compatible numerical/polynomial managers. It exposes source-shaped variable, Boolean, inequality/root, input-clause, check, model-value and core operations. Check now includes source integer search_check: every assigned noninteger integer variable is floored through the algebraic manager, receives the disjunction x<=floor(v) or x>=floor(v)+1, and restarts search until integral or UNSAT. Mixed quadratic SAT, mixed linear UNSAT/core, fractional integer UNSAT and integral quadratic SAT pass. Whole-unit status and audit flags remain partial/false.",
+        "Inline-variable simplification currently retains the live constant-coefficient subset: it isolates noninteger variables from positive unit equalities when the coefficient sign is directly decidable, substitutes the exact polynomial fraction, rewrites original clauses, and patches SAT models in reverse elimination order. Integer, root, learned-clause and nonconstant sign-inference cases remain on the ordinary complete search path. Because the current global polynomial rename path cannot safely rename retained patch owners, reorder/shuffle is suppressed while patches are live and explicit ReorderVariables is refused; reordering is a heuristic, so this changes performance rather than satisfiability or model semantics. Native Go slices/maps replace the source temporary vectors/table."
       ]
     },
     {

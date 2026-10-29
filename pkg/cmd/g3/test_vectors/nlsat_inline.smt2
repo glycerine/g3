@@ -1,0 +1,8 @@
+(set-logic QF_NRA)
+(set-option :produce-models true)
+(declare-const x Real)
+(declare-const y Real)
+(assert (= (- x y) 0.0))
+(assert (= y 1.0))
+(check-sat-using (using-params nlsat :inline_vars true :reorder true))
+(get-value (x y))

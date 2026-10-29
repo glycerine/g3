@@ -26,6 +26,7 @@ type SolverConfig struct {
 	MinimizeCore bool
 	Randomize    bool
 	Factor       bool
+	InlineVars   bool
 	Reorder      bool
 	ShuffleVars  bool
 	Seed         uint32
@@ -47,6 +48,8 @@ type Solver struct {
 	explanation *explanationAssumptions
 	projection  *projectionWorklist
 	resolution  *searchResolution
+	patches     []inlineVariablePatch
+	inlined     bool
 	randomSeed  uint32
 	closed      bool
 }
@@ -249,8 +252,14 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 		return lbool.Undef, err
 	}
 	s.explanation.fullDimensional = fullDimensional
+	if s.config.InlineVars && !s.inlined {
+		if err = s.inlineVariables(); err != nil {
+			return lbool.Undef, err
+		}
+		s.inlined = true
+	}
 	reordered := false
-	if s.config.ShuffleVars || s.config.Reorder {
+	if len(s.patches) == 0 && (s.config.ShuffleVars || s.config.Reorder) {
 		var permutation []uint32
 		var supported bool
 		var x error
@@ -330,6 +339,9 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 			cuts = append(cuts, cut)
 		}
 		if len(cuts) == 0 {
+			if err = s.fixInlineVariablePatches(); err != nil {
+				return lbool.Undef, err
+			}
 			return lbool.True, nil
 		}
 		for i := range cuts {
@@ -564,6 +576,9 @@ func (s *Solver) Close() (err error) {
 		if err == nil {
 			s.atoms = nil
 		}
+	}
+	if err == nil {
+		err = s.closeInlineVariablePatches()
 	}
 	if err == nil && s.cache != nil {
 		err = s.cache.Close()
