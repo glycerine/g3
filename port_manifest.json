@@ -266057,8 +266057,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_add_fact",
@@ -266066,8 +266066,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_add_invariant",
@@ -266075,8 +266075,8 @@
         "src/api/api_datalog_spacer.inc",
         "src/api/z3_spacer.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_add_rule",
@@ -266084,8 +266084,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_assert",
@@ -266093,8 +266093,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_dec_ref",
@@ -266102,8 +266102,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_from_file",
@@ -266111,8 +266111,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSMT2Replay"]
     },
     {
       "name": "Z3_fixedpoint_from_string",
@@ -266120,8 +266120,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSMT2Replay"]
     },
     {
       "name": "Z3_fixedpoint_get_answer",
@@ -266129,8 +266129,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_assertions",
@@ -266138,8 +266138,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_cover_delta",
@@ -266147,8 +266147,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_ground_sat_answer",
@@ -266156,8 +266156,8 @@
         "src/api/api_datalog_spacer.inc",
         "src/api/z3_spacer.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
       "name": "Z3_fixedpoint_get_help",
@@ -266165,8 +266165,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "partial",
+      "tests": ["TestSMTContextFixedpointParameterDescriptors"]
     },
     {
       "name": "Z3_fixedpoint_get_num_levels",
@@ -266174,8 +266174,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_param_descrs",
@@ -266183,8 +266183,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointParameterDescriptors"]
     },
     {
       "name": "Z3_fixedpoint_get_reachable",
@@ -266192,8 +266192,8 @@
         "src/api/api_datalog_spacer.inc",
         "src/api/z3_spacer.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
       "name": "Z3_fixedpoint_get_reason_unknown",
@@ -266201,8 +266201,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_rule_names_along_trace",
@@ -266210,8 +266210,8 @@
         "src/api/api_datalog_spacer.inc",
         "src/api/z3_spacer.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
       "name": "Z3_fixedpoint_get_rules",
@@ -266219,8 +266219,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_rules_along_trace",
@@ -266228,8 +266228,8 @@
         "src/api/api_datalog_spacer.inc",
         "src/api/z3_spacer.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
       "name": "Z3_fixedpoint_get_statistics",
@@ -266237,8 +266237,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_inc_ref",
@@ -266246,8 +266246,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_init",
@@ -266264,8 +266264,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_push",
@@ -266273,8 +266273,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_query",
@@ -266282,8 +266282,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_query_from_lvl",
@@ -266291,8 +266291,8 @@
         "src/api/api_datalog_spacer.inc",
         "src/api/z3_spacer.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"]
     },
     {
       "name": "Z3_fixedpoint_query_relations",
@@ -266300,8 +266300,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_register_relation",
@@ -266309,8 +266309,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_set_params",
@@ -266318,8 +266318,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextTypedFixedpointParameters"]
     },
     {
       "name": "Z3_fixedpoint_set_predicate_representation",
@@ -266355,8 +266355,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointSMT2Replay"]
     },
     {
       "name": "Z3_fixedpoint_update_rule",
@@ -266364,8 +266364,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fpa_get_ebits",
@@ -268396,8 +268396,8 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_mk_forall",
