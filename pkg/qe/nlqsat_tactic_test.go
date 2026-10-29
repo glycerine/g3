@@ -88,3 +88,54 @@ func TestNLQSATTacticQuantifiedNonlinearRealGoals(t *testing.T) {
 		})
 	}
 }
+
+func TestNLQSATTacticMixedRealAlternationAndProjection(t *testing.T) {
+	for _, tc := range []struct {
+		name                     string
+		outerForall, innerForall bool
+		body                     func(*fmFixture, ast.ASTHandle, ast.ASTHandle) ast.ASTHandle
+		sat                      bool
+	}{
+		{name: "exists-forall-unbounded", innerForall: true, body: func(f *fmFixture, x, y ast.ASTHandle) ast.ASTHandle {
+			return f.own(f.r.manager.MkArithmeticGE(x, y))
+		}, sat: false},
+		{name: "forall-exists-larger", outerForall: true, body: func(f *fmFixture, x, y ast.ASTHandle) ast.ASTHandle {
+			atMost := f.own(f.r.manager.MkArithmeticLE(y, x))
+			return f.own(f.r.manager.MkNot(atMost))
+		}, sat: true},
+		{name: "exists-forall-square-bound", innerForall: true, body: func(f *fmFixture, x, y ast.ASTHandle) ast.ASTHandle {
+			square := f.own(f.r.manager.MkArithmeticMul(y, y))
+			return f.own(f.r.manager.MkArithmeticLE(x, square))
+		}, sat: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFMFixture(t)
+			y, x := f.variable(0, f.real), f.variable(1, f.real)
+			xName, err := f.r.manager.Symbols.Intern("x")
+			fmMust(t, err)
+			yName, err := f.r.manager.Symbols.Intern("y")
+			fmMust(t, err)
+			inner := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.innerForall, Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{yName}, Body: tc.body(f, x, y)}))
+			formula := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.outerForall, Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{xName}, Body: inner}))
+			tactic, err := NewNLQSATTactic(f.r.manager, f.r.config)
+			fmMust(t, err)
+			t.Cleanup(func() { fmMust(t, tactic.Close()) })
+			goal := f.goal(false, false)
+			result := f.result()
+			fmMust(t, goal.Assert(formula))
+			fmMust(t, tactic.Apply(goal, result))
+			if tc.sat {
+				size, cause := goal.Size()
+				fmMust(t, cause)
+				if size != 0 {
+					t.Fatal("mixed quantified goal was not decided SAT", size)
+				}
+			} else if !goal.IsDecidedUnsat() {
+				t.Fatal("mixed quantified goal was not decided UNSAT")
+			}
+			if rounds := tactic.CollectStatistics()["qsat num rounds"]; rounds < 3 {
+				t.Fatal("mixed formula did not exercise projected alternation", rounds)
+			}
+		})
+	}
+}

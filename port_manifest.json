@@ -99783,7 +99783,8 @@
         "TestNLQSearchProjectsConflictAndBacktracksEvenScopes",
         "TestNLQInitializeMapsCompilerVariablesAndArithmeticLevels",
         "TestNLQSATTacticClosedExistentialAndFalseGoals",
-        "TestNLQSATTacticQuantifiedNonlinearRealGoals"
+        "TestNLQSATTacticQuantifiedNonlinearRealGoals",
+        "TestNLQSATTacticMixedRealAlternationAndProjection"
       ],
       "assertions": [
         {
@@ -99885,7 +99886,8 @@
           "go_target": "pkg/qe/nlqsat_tactic.go",
           "tests": [
             "TestNLQSATTacticClosedExistentialAndFalseGoals",
-            "TestNLQSATTacticQuantifiedNonlinearRealGoals"
+            "TestNLQSATTacticQuantifiedNonlinearRealGoals",
+            "TestNLQSATTacticMixedRealAlternationAndProjection"
           ]
         }
       ],
@@ -99905,7 +99907,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/qe/nlqsat_tactic.go"],
-      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals"],
+      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection"],
       "conditionals": [
         {
           "line": 21,
@@ -99923,7 +99925,7 @@
           "name": "Public nonlinear quantified satisfiability tactic constructor and tactic interface",
           "status": "partial",
           "go_target": "pkg/qe/nlqsat_tactic.go",
-          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals"]
+          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection"]
         }
       ],
       "ownership": [],

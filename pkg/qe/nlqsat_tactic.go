@@ -192,7 +192,12 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	}
 	defer func() {
 		if stats, cause := solver.Statistics(); cause == nil {
-			t.statistics = stats
+			if t.statistics == nil {
+				t.statistics = make(map[string]float64)
+			}
+			for name, value := range stats {
+				t.statistics[name] = value
+			}
 		} else {
 			err = errors.Join(err, cause)
 		}
@@ -215,6 +220,10 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	}
 	defer func() { err = errors.Join(err, search.close()) }()
 	status, err := search.check()
+	if t.statistics == nil {
+		t.statistics = make(map[string]float64)
+	}
+	t.statistics["qsat num rounds"] = float64(search.rounds)
 	if err != nil {
 		return tactic.NewTacticException(err.Error())
 	}
