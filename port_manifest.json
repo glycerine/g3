@@ -95710,19 +95710,24 @@
       "path": "src/nlsat/nlsat_params.hpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
         "pkg/nlsat/gparams_catalog_collectors.go",
-        "pkg/util/params/util_gparams_catalog_dispatch.go"
+        "pkg/util/params/util_gparams_catalog_dispatch.go",
+        "pkg/nlsat/tactic/nlsat_tactic.go",
+        "pkg/qe/nlqsat_tactic.go"
       ],
       "tests": [
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
         "TestGlobalParamsCatalogConcreteHookGuardsAndIndependentReuse",
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
         "TestGlobalParamsCatalogDescriptionBorrowReadAndClosedPublicationPrefix",
-        "TestGlobalParamsCatalogDispatcherFaultRoots"
+        "TestGlobalParamsCatalogDispatcherFaultRoots",
+        "TestNLSATTacticAdvertisesConflictMinimization",
+        "TestNLSATTacticRetainsParametersAcrossTranslation",
+        "TestNLQSATTacticParametersAndTranslation"
       ],
       "conditionals": [
         {
@@ -95734,11 +95739,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
+          "name": "complete preserved static descriptor collection, global catalog registration order and typed runtime projection into direct NLSAT and NLQSAT solver configurations",
           "status": "ported",
           "go_target": "pkg/nlsat/gparams_catalog_collectors.go",
           "tests": [
@@ -95749,14 +95754,16 @@
             "TestGlobalParamsCatalogDispatcherFaultRoots"
           ],
           "go_targets": [
-            "pkg/util/params/util_gparams_catalog_test.go"
+            "pkg/util/params/util_gparams_catalog_test.go",
+            "pkg/nlsat/tactic/nlsat_tactic.go",
+            "pkg/qe/nlqsat_tactic.go"
           ]
         }
       ],
       "ownership": [
-        "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
+        "Real descriptor ownership/merges and borrowed catalog-owned description bytes preserve source global temporary cleanup and unpublished descriptor pending roots. Tactics own copied ParamsRef snapshots, project every NLSAT field through typed getters for each scoped solver construction, and release snapshots on Close."
       ],
-      "deviations": []
+      "deviations": ["The generated C++ accessor struct is represented by typed Go parameter reads at the two retained construction sites rather than another generated wrapper type. Defaults and global catalog metadata remain identical."]
     },
     {
       "path": "src/nlsat/nlsat_params.pyg",
