@@ -97579,14 +97579,18 @@
       "path": "src/opt/opt_params.hpp",
       "component": "opt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/opt/opt_params.go",
+        "pkg/opt/opt_params_test.go",
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
         "pkg/opt/gparams_catalog_collectors.go",
         "pkg/util/params/util_gparams_catalog_dispatch.go"
       ],
       "tests": [
+        "TestOptParamsGeneratedDefaults",
+        "TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards",
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
         "TestGlobalParamsCatalogConcreteHookGuardsAndIndependentReuse",
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
@@ -97603,8 +97607,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -97620,10 +97624,16 @@
           "go_targets": [
             "pkg/util/params/util_gparams_catalog_test.go"
           ]
+        },
+        {
+          "name": "all 20 generated runtime getters with local-over-module fallback, source defaults and owned constructor snapshot",
+          "status": "ported",
+          "go_target": "pkg/opt/opt_params.go",
+          "tests": ["TestOptParamsGeneratedDefaults", "TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards"]
         }
       ],
       "ownership": [
-        "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
+        "Real descriptor ownership/merges and borrowed catalog-owned description bytes are preserved. Params borrows the local value and owns the constructor-time global opt-module snapshot until retryable Close."
       ],
       "deviations": []
     },
@@ -97631,13 +97641,13 @@
       "path": "src/opt/opt_params.pyg",
       "component": "opt",
       "role": "generated_input",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/opt/opt_params.go", "pkg/opt/opt_params_test.go", "pkg/opt/gparams_catalog_collectors.go"],
+      "tests": ["TestOptParamsGeneratedDefaults", "TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards", "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"generated opt parameter schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/opt/opt_params.go","go_targets":["pkg/opt/gparams_catalog_collectors.go"],"tests":["TestOptParamsGeneratedDefaults","TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
+      "ownership": ["Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or the C++ source."],
       "deviations": []
     },
     {
