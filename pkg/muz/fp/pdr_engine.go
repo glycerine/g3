@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
+	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -24,7 +25,7 @@ func (e *PropositionalEngine) closePDRForReplacement() error {
 	e.pdr = nil
 	e.pdrRevision = 0
 	e.pdrQuery = ast.ASTHandle{}
-	e.clearPDRPreprocessing()
+	result = errors.Join(result, e.clearPDRPreprocessing())
 	return result
 }
 
@@ -35,7 +36,8 @@ func (e *PropositionalEngine) pdrPredicate(declaration ast.ASTHandle) ast.ASTHan
 	return hornDerivedPredicate(declaration, e.pdrQuantified, e.pdrScaled, e.pdrMagic, e.pdrBitBlasted, e.pdrInstantiated, e.pdrPredicates)
 }
 
-func (e *PropositionalEngine) clearPDRPreprocessing() {
+func (e *PropositionalEngine) clearPDRPreprocessing() error {
+	result := transforms.CloseConeModelSteps(e.pdrConeSteps)
 	e.pdrDerived = nil
 	e.pdrPredicates = nil
 	e.pdrSlices = nil
@@ -45,6 +47,8 @@ func (e *PropositionalEngine) clearPDRPreprocessing() {
 	e.pdrScaled = nil
 	e.pdrMagic = nil
 	e.pdrKarr = nil
+	e.pdrConeSteps = nil
+	return result
 }
 
 func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResult) {
@@ -56,6 +60,7 @@ func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResu
 	e.pdrScaled = result.scaledPredicates
 	e.pdrMagic = result.magicPredicates
 	e.pdrKarr = result.karrInvariants
+	e.pdrConeSteps = result.takeConeModelSteps()
 }
 
 func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool, resultErr error) {
@@ -77,6 +82,10 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		e.spacerMagic = nil
 		e.spacerKarr = nil
 	}
+	if err := transforms.CloseConeModelSteps(e.spacerConeSteps); err != nil {
+		return lbool.Undef, errors.Join(resultErr, err)
+	}
+	e.spacerConeSteps = nil
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return lbool.Undef, err
@@ -229,7 +238,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	installed := false
 	defer func() {
 		if !installed {
-			e.clearPDRPreprocessing()
+			resultErr = errors.Join(resultErr, e.clearPDRPreprocessing())
 		}
 	}()
 	e.pdrDerived = make(map[ast.ASTHandle]ast.ASTHandle, len(e.predicateOrder)+len(e.auxiliary)+1)

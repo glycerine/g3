@@ -11,6 +11,7 @@ import (
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
 func (e *PropositionalEngine) spacerPredicate(declaration ast.ASTHandle) ast.ASTHandle {
@@ -222,11 +223,51 @@ func (e *PropositionalEngine) expandSpacerFunction(destination *model.ModelCore,
 }
 
 func (e *PropositionalEngine) expandSpacerModel(source *model.Model) (_ *model.Model, resultErr error) {
-	return e.expandHornModel(source, e.spacerPredicates, e.spacerSlices, e.spacerQuantified, e.spacerBitBlasted, e.spacerScaled, e.spacerKarr)
+	return e.expandHornModel(source, e.spacerPredicates, e.spacerSlices, e.spacerQuantified, e.spacerBitBlasted, e.spacerScaled, e.spacerKarr, e.spacerConeSteps)
 }
 
-func (e *PropositionalEngine) expandHornModel(source *model.Model, sliced map[ast.ASTHandle]ast.ASTHandle, columns map[ast.ASTHandle][]bool, quantified, bitBlasted, scaled map[ast.ASTHandle]ast.ASTHandle, karr map[ast.ASTHandle]rel.KarrMatrix) (_ *model.Model, resultErr error) {
-	if len(sliced) == 0 && len(quantified) == 0 && len(bitBlasted) == 0 && len(scaled) == 0 && len(karr) == 0 {
+func (e *PropositionalEngine) applyHornConeModelSteps(destination *model.ModelCore, steps []transforms.ConeModelStep) (resultErr error) {
+	for i := len(steps) - 1; i >= 0; i-- {
+		for j := len(steps[i]) - 1; j >= 0; j-- {
+			definition := steps[i][j]
+			formula, err := e.manager.RefGet(definition.Formula)
+			if err != nil {
+				return err
+			}
+			arity, err := e.manager.GetArity(definition.Declaration)
+			if err != nil {
+				return err
+			}
+			if arity == 0 {
+				if err = destination.RegisterConstant(definition.Declaration, formula); err != nil {
+					return err
+				}
+				continue
+			}
+			interpretation, err := model.NewFunctionInterpretation(e.manager, arity)
+			if err != nil {
+				return err
+			}
+			transferred := false
+			defer func() {
+				if !transferred {
+					resultErr = errors.Join(resultErr, interpretation.Close())
+				}
+			}()
+			if err = interpretation.SetElse(formula); err != nil {
+				return err
+			}
+			if err = destination.RegisterFunction(definition.Declaration, interpretation); err != nil {
+				return err
+			}
+			transferred = true
+		}
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) expandHornModel(source *model.Model, sliced map[ast.ASTHandle]ast.ASTHandle, columns map[ast.ASTHandle][]bool, quantified, bitBlasted, scaled map[ast.ASTHandle]ast.ASTHandle, karr map[ast.ASTHandle]rel.KarrMatrix, coneSteps []transforms.ConeModelStep) (_ *model.Model, resultErr error) {
+	if len(sliced) == 0 && len(quantified) == 0 && len(bitBlasted) == 0 && len(scaled) == 0 && len(karr) == 0 && len(coneSteps) == 0 {
 		return source, nil
 	}
 	source, err := expandSlicedModel(e.manager, sliced, columns, source)
@@ -260,6 +301,14 @@ func (e *PropositionalEngine) expandHornModel(source *model.Model, sliced map[as
 	}
 	if err := e.applyHornKarrInvariants(core, karr); err != nil {
 		return nil, err
+	}
+	if err := e.applyHornConeModelSteps(core, coneSteps); err != nil {
+		return nil, err
+	}
+	for declaration := range e.auxiliary {
+		if err := core.UnregisterDeclaration(declaration); err != nil {
+			return nil, err
+		}
 	}
 	return source, nil
 }

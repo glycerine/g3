@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
 // hornPreprocessResult owns the transformed rule set and keeps the borrowed
@@ -26,6 +27,7 @@ type hornPreprocessResult struct {
 	scaledPredicates       map[ast.ASTHandle]ast.ASTHandle
 	magicPredicates        map[ast.ASTHandle]ast.ASTHandle
 	karrInvariants         map[ast.ASTHandle]rel.KarrMatrix
+	coneModelSteps         []transforms.ConeModelStep
 
 	closed bool
 }
@@ -40,6 +42,7 @@ func (r *hornPreprocessResult) Close() (result error) {
 	if r.rules != nil {
 		result = errors.Join(result, r.rules.Close())
 	}
+	result = errors.Join(result, transforms.CloseConeModelSteps(r.coneModelSteps))
 	r.rules = nil
 	r.slicedPredicates = nil
 	r.slicedColumns = nil
@@ -49,6 +52,16 @@ func (r *hornPreprocessResult) Close() (result error) {
 	r.scaledPredicates = nil
 	r.magicPredicates = nil
 	r.karrInvariants = nil
+	r.coneModelSteps = nil
 	r.closed = true
 	return result
+}
+
+func (r *hornPreprocessResult) takeConeModelSteps() []transforms.ConeModelStep {
+	if r == nil || r.closed {
+		return nil
+	}
+	steps := r.coneModelSteps
+	r.coneModelSteps = nil
+	return steps
 }

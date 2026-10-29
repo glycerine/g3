@@ -75,6 +75,7 @@ type PropositionalEngine struct {
 	pdrScaled          map[ast.ASTHandle]ast.ASTHandle
 	pdrMagic           map[ast.ASTHandle]ast.ASTHandle
 	pdrKarr            map[ast.ASTHandle]rel.KarrMatrix
+	pdrConeSteps       []transforms.ConeModelStep
 	pdrStatistics      statistics.Statistics
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
@@ -94,6 +95,7 @@ type PropositionalEngine struct {
 	spacerScaled       map[ast.ASTHandle]ast.ASTHandle
 	spacerMagic        map[ast.ASTHandle]ast.ASTHandle
 	spacerKarr         map[ast.ASTHandle]rel.KarrMatrix
+	spacerConeSteps    []transforms.ConeModelStep
 	closed             bool
 }
 
@@ -1337,6 +1339,32 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 	return e.querySpacerFromLevel(declaration, level)
 }
 
+func (e *PropositionalEngine) inductiveModelAnswer(inductive *model.Model) (answer ast.ASTRef, result error) {
+	if inductive == nil {
+		return answer, ast.ErrASTHandle
+	}
+	defer func() { result = errors.Join(result, inductive.Close()) }()
+	builder, err := model.NewModel2ExprBuilder(inductive.Core())
+	if err != nil {
+		return answer, err
+	}
+	defer func() { result = errors.Join(result, builder.Close()) }()
+	answer, err = e.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return answer, err
+	}
+	defer func() {
+		if result != nil && answer != (ast.ASTRef{}) {
+			result = errors.Join(result, e.manager.DelRef(&answer))
+			answer = ast.ASTRef{}
+		}
+	}()
+	if err = builder.Build(answer); err != nil {
+		return answer, err
+	}
+	return answer, nil
+}
+
 // Answer returns an owning formula describing the current finite relation.
 // Each free variable corresponds to the predicate column with the same index.
 func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTRef, result error) {
@@ -1356,26 +1384,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 			if modelErr != nil {
 				return answer, modelErr
 			}
-			defer func() { result = errors.Join(result, inductive.Close()) }()
-			builder, modelErr := model.NewModel2ExprBuilder(inductive.Core())
-			if modelErr != nil {
-				return answer, modelErr
-			}
-			defer func() { result = errors.Join(result, builder.Close()) }()
-			answer, modelErr = e.manager.NewRef(ast.ASTHandle{})
-			if modelErr != nil {
-				return answer, modelErr
-			}
-			defer func() {
-				if result != nil && answer != (ast.ASTRef{}) {
-					result = errors.Join(result, e.manager.DelRef(&answer))
-					answer = ast.ASTRef{}
-				}
-			}()
-			if modelErr = builder.Build(answer); modelErr != nil {
-				return answer, modelErr
-			}
-			return answer, nil
+			return e.inductiveModelAnswer(inductive)
 		}
 		// Relation-query answers intentionally retain sliced predicate names,
 		// matching pdr_dl_interface's converter-free reachable-trace surface.
@@ -1384,6 +1393,17 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	if e.backend == "spacer" {
 		if e.spacer == nil || !e.queried || e.spacerRevision != e.revision {
 			return answer, ErrPropositionalEngine
+		}
+		status, err := e.spacer.LastResult()
+		if err != nil {
+			return answer, err
+		}
+		if status == lbool.False {
+			inductive, modelErr := e.Model(declaration)
+			if modelErr != nil {
+				return answer, modelErr
+			}
+			return e.inductiveModelAnswer(inductive)
 		}
 		answer, result = e.spacer.Answer(e.spacerPredicate(declaration))
 		if result != nil {
@@ -1475,7 +1495,7 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 		if err != nil {
 			return nil, err
 		}
-		return e.expandHornModel(result, e.pdrPredicates, e.pdrSlices, e.pdrQuantified, e.pdrBitBlasted, e.pdrScaled, e.pdrKarr)
+		return e.expandHornModel(result, e.pdrPredicates, e.pdrSlices, e.pdrQuantified, e.pdrBitBlasted, e.pdrScaled, e.pdrKarr, e.pdrConeSteps)
 	}
 	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
 		result, err := e.spacer.Model(e.spacerPredicate(declaration))
@@ -1526,7 +1546,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.pdr = nil
 		e.pdrRevision = 0
 		e.pdrQuery = ast.ASTHandle{}
-		e.clearPDRPreprocessing()
+		result = errors.Join(result, e.clearPDRPreprocessing())
 	}
 	if e.spacer != nil {
 		result = errors.Join(result, e.spacer.Close())
@@ -1541,6 +1561,8 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.spacerMagic = nil
 		e.spacerKarr = nil
 	}
+	result = errors.Join(result, transforms.CloseConeModelSteps(e.spacerConeSteps))
+	e.spacerConeSteps = nil
 	for i := len(e.scopes) - 1; i >= 0; i-- {
 		result = errors.Join(result, e.scopes[i].Close())
 	}

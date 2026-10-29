@@ -44,10 +44,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		return nil, err
 	}
 	transformer := base.NewRuleTransformer()
-	if allowLossyResultTransforms {
-		if err = transformer.Register(transforms.NewConePlugin(0)); err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
+	initialCone := transforms.NewConePlugin(0)
+	if err = transformer.Register(initialCone); err != nil {
+		return nil, errors.Join(err, initialCone.Close(), transformer.Close())
 	}
 	if allowLossyResultTransforms {
 		firstSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 40000)
@@ -310,6 +309,16 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		return nil, errors.Join(err, transformer.Close())
 	}
 	_, err = transformer.Apply(prepared)
+	var coneModelSteps []transforms.ConeModelStep
+	keepConeModelSteps := false
+	defer func() {
+		if !keepConeModelSteps {
+			resultErr = errors.Join(resultErr, transforms.CloseConeModelSteps(coneModelSteps))
+		}
+	}()
+	if err == nil {
+		coneModelSteps, err = initialCone.TakeModelSteps()
+	}
 	if err == nil && quantifierAbstraction != nil {
 		quantifiedPredicates = quantifierAbstraction.FreshPredicates()
 		for _, declaration := range quantifiedPredicates {
@@ -412,6 +421,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		}
 	}
 	keep = true
+	keepConeModelSteps = true
 	return &hornPreprocessResult{
 		rules:                  prepared,
 		slicedPredicates:       slicedPredicates,
@@ -422,6 +432,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		scaledPredicates:       scaledPredicates,
 		magicPredicates:        magicPredicates,
 		karrInvariants:         karrInvariants,
+		coneModelSteps:         coneModelSteps,
 	}, nil
 }
 
@@ -463,6 +474,10 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
+	if err = transforms.CloseConeModelSteps(e.spacerConeSteps); err != nil {
+		return lbool.Undef, err
+	}
+	e.spacerConeSteps = nil
 	e.spacerPredicates = preprocessed.slicedPredicates
 	e.spacerSlices = preprocessed.slicedColumns
 	e.spacerQuantified = preprocessed.quantifiedPredicates
@@ -471,6 +486,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	e.spacerScaled = preprocessed.scaledPredicates
 	e.spacerMagic = preprocessed.magicPredicates
 	e.spacerKarr = preprocessed.karrInvariants
+	e.spacerConeSteps = preprocessed.takeConeModelSteps()
 	queryDeclaration, deriveErr := prepared.DerivedPredicate(declaration)
 	if deriveErr != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed Spacer query: %w", deriveErr)
