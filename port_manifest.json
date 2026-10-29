@@ -170513,9 +170513,9 @@
       "path": "src/tactic/core/blast_term_ite_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/core/blast_term_ite_tactic.go", "pkg/tactic/core/blast_term_ite_config.go", "pkg/tactic/core/blast_term_ite_shapes.go", "pkg/tactic/core/blast_term_ite_rewrite.go", "pkg/tactic/core/blast_term_ite_apply.go", "pkg/tactic/core/blast_term_ite_standalone.go", "pkg/tactic/core/blast_term_ite_tactic_test.go", "pkg/tactic/core/blast_term_ite_proof_test.go", "pkg/tactic/core/blast_term_ite_boolean_test.go", "pkg/tactic/core/blast_term_ite_nested_test.go", "pkg/tactic/core/blast_term_ite_lifecycle_test.go"],
+      "tests": ["TestBlastTermITE"],
       "assertions": [
         {
           "line": 122,
