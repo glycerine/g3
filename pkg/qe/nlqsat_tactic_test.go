@@ -183,6 +183,43 @@ func TestNLQSATTacticPublishesOnlyFreeRealModelValues(t *testing.T) {
 	}
 }
 
+func TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries(t *testing.T) {
+	f := newFMFixture(t)
+	flag := f.constant("nlq-free-flag", f.boolean)
+	free := f.constant("nlq-free-value", f.real)
+	x := f.variable(0, f.real)
+	three := f.own(f.r.manager.ArithmeticRealNumeralText("3"))
+	freeValue := f.own(f.r.manager.MkEq(free, three))
+	body := f.own(f.r.manager.MkEq(x, free))
+	name, err := f.r.manager.Symbols.Intern("nlq-model-bound")
+	fmMust(t, err)
+	quantified := f.own(f.r.manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.real}, Names: []usymbol.Symbol{name}, Body: body}))
+	formula := f.own(f.r.manager.MkAndArray([]ast.ASTHandle{flag, freeValue, quantified}))
+	runner, err := NewNLQSATTactic(f.r.manager, f.r.config)
+	fmMust(t, err)
+	t.Cleanup(func() { fmMust(t, runner.Close()) })
+	goal := f.goal(false, false)
+	result := f.result()
+	fmMust(t, goal.Assert(formula))
+	fmMust(t, runner.Apply(goal, result))
+	if !goal.IsDecidedSat() || result.ModelConverter == nil {
+		t.Fatal("mixed free-variable model was not published")
+	}
+	var output basetactic.ModelRef
+	t.Cleanup(func() { fmMust(t, output.Close()) })
+	fmMust(t, result.ModelConverter.ApplyUnindexed(&output))
+	modelValue, err := output.Get()
+	fmMust(t, err)
+	for _, expression := range []ast.ASTHandle{flag, free} {
+		declaration, cause := f.r.manager.GetDecl(expression)
+		fmMust(t, cause)
+		value, cause := modelValue.ConstantInterpretation(declaration)
+		if cause != nil || value.IsNull() {
+			t.Fatal("free constant has no model value", expression, value, cause)
+		}
+	}
+}
+
 func TestNLQSATTacticPurifiesSymbolicDivision(t *testing.T) {
 	for _, consistency := range []bool{false, true} {
 		t.Run(map[bool]string{false: "satisfiable", true: "functional-consistency"}[consistency], func(t *testing.T) {

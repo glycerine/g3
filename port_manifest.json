@@ -99779,7 +99779,7 @@
       "path": "src/qe/nlqsat.cpp",
       "component": "qe",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/tactic/model_projection.go",
         "pkg/qe/nlqsat_state.go",
@@ -99804,6 +99804,7 @@
         "TestNLQSATTacticQuantifiedNonlinearRealGoals",
         "TestNLQSATTacticMixedRealAlternationAndProjection",
         "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
+        "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries",
         "TestNLQSATTacticPurifiesSymbolicDivision",
         "TestNLQSATTacticParametersAndTranslation",
         "TestNLQETacticEliminatesNonlinearExistential",
@@ -99871,8 +99872,8 @@
           "text": "VERIFY(mk_model(mc));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "NLSAT model-based projection over reverse-sorted real variables, final cube negation and projected-clause AST reconstruction (cpp181-223,383-400)",
@@ -99909,13 +99910,14 @@
         },
         {
           "name": "Public qsat-mode tactic path through formula conjunction, quantifier hoisting, Tseitin CNF, GoalCompiler, alternating NLSAT search, decided-goal publication and retained SAT model converter (cpp628-713,738-790,817-908)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/qe/nlqsat_tactic.go",
           "tests": [
             "TestNLQSATTacticClosedExistentialAndFalseGoals",
             "TestNLQSATTacticQuantifiedNonlinearRealGoals",
             "TestNLQSATTacticMixedRealAlternationAndProjection",
             "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
+            "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries",
             "TestNLQSATTacticParametersAndTranslation"
           ]
         },
@@ -99977,16 +99979,16 @@
         ,"QE-mode search owns the AST references for projected answers and assumption-variable formulas plus the cumulative safe-replacement trail that simplifies later answers using earlier projected clauses. Temporary assumption units removed by CheckAssumptions are restored into the saved Boolean model before later model-based projection, and close releases answer and assumption references and then the replacement trail before retiring the borrowed solver relationship."
       ],
       "deviations": [
-        "The retained qsat-mode path reaches a public tactic through quantifier hoisting, symbolic-division Ackermannization, full Tseitin fallback compilation, alternating NLSAT search, retained NLSAT parameters and free-expression-filtered SAT model publication. QE mode constructs, cumulatively simplifies and publishes nonlinear projected answers and composes with nlqsat for free parameters. Auxiliary-definition model conversion and broader C++ differential coverage remain pending, so the source unit and qsat tactic method remain partial."
+        "The Go model path reconstructs only hoister-identified free frontend constants, directly excluding Tseitin, quantified and division auxiliaries instead of constructing a larger model and filtering it with the source m_aux_vars set. Native C++ differential expectations remain explicit for cases where the reference nlqsat tactic reports unknown while Go decides the formula."
       ]
     },
     {
       "path": "src/qe/nlqsat.h",
       "component": "qe",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/qe/nlqsat_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd/g3/qsat_test.go", "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2", "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"],
-      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestNLQAnswerSimplificationUsesPriorProjectedClauses", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestNLQAnswerSimplificationUsesPriorProjectedClauses", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"],
       "conditionals": [
         {
           "line": 21,
@@ -99997,14 +99999,14 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Public nonlinear quantified satisfiability tactic constructor and tactic interface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/qe/nlqsat_tactic.go",
-          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestNLQAnswerSimplificationUsesPriorProjectedClauses", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestNLQAnswerSimplificationUsesPriorProjectedClauses", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"]
         }
       ],
       "ownership": [],
