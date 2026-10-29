@@ -85064,15 +85064,16 @@
       "path": "src/muz/pdr/pdr_util.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/pdr_util.go",
         "pkg/muz/pdr/fragment.go",
         "pkg/muz/pdr/fragment_test.go",
         "pkg/muz/pdr/model_projection.go",
-        "pkg/cmd/g3/test_vectors/fixedpoint_pdr_repeated_disequalities.smt2"
+        "pkg/cmd/g3/test_vectors/fixedpoint_pdr_repeated_disequalities.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
-      "tests": ["TestSMTLibRunnerScripts/fixedpoint_pdr_repeated_disequalities.smt2", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
+      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
       "assertions": [
         {
           "line": 133,
@@ -85131,14 +85132,15 @@
           "text": "SASSERT(!g.is_one());"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "repeated model-satisfied disequality reduction after QE-lite projection",
           "status": "ported",
           "go_target": "pkg/muz/pdr/pdr_util.go",
-          "tests": ["TestSMTLibRunnerScripts/fixedpoint_pdr_repeated_disequalities.smt2"]
+          "go_targets": ["pkg/cmd/g3/main_test.go"],
+          "tests": ["TestSMTLibRunnerScripts"]
         },
         {
           "name": "difference-logic and UTVPI expression traversal/classification used by default PDR arithmetic backend selection and Farkas fallback",
@@ -85148,25 +85150,24 @@
         },
         {
           "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "reference_only",
+          "reason": "ceil_log2 has no source caller; pp_cube is used only by the dormant farkas_learner::test self-test; normalize_arithmetic is used only by src/test/arith_rewriter.cpp"
         }
       ],
       "ownership": [
         "The reducer owns model-evaluated values, defining equalities and rewritten conjunct references until the returned conjunction reference is acquired."
       ],
       "deviations": [
-        "The default pdr.utvpi path uses the retained source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. Diagnostic cube formatting and the separately unused arithmetic normalizer remain unported."
+        "The default pdr.utvpi path uses the retained source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. Diagnostic cube formatting, ceil_log2 and the arithmetic normalizer have no retained production consumer."
       ]
     },
     {
       "path": "src/muz/pdr/pdr_util.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/pdr/pdr_util.go", "pkg/muz/pdr/fragment.go"],
-      "tests": ["TestSMTLibRunnerScripts/fixedpoint_pdr_repeated_disequalities.smt2", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/pdr/pdr_util.go", "pkg/muz/pdr/fragment.go", "pkg/cmd/g3/main_test.go"],
+      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
       "conditionals": [
         {
           "line": 20,
@@ -85177,14 +85178,15 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "retained reduce_disequalities declaration surface",
           "status": "ported",
           "go_target": "pkg/muz/pdr/pdr_util.go",
-          "tests": ["TestSMTLibRunnerScripts/fixedpoint_pdr_repeated_disequalities.smt2"]
+          "go_targets": ["pkg/cmd/g3/main_test.go"],
+          "tests": ["TestSMTLibRunnerScripts"]
         },
         {
           "name": "retained difference-logic and UTVPI classifier declarations",
@@ -85194,13 +85196,12 @@
         },
         {
           "name": "remaining utility declarations without retained consumers",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "reference_only",
+          "reason": "ceil_log2 has no source caller; pp_cube is used only by the dormant farkas_learner::test self-test; normalize_arithmetic is used only by src/test/arith_rewriter.cpp"
         }
       ],
       "ownership": ["The concrete Go helper returns one explicit owning AST reference."],
-      "deviations": []
+      "deviations": ["No universal Go adapters are introduced for diagnostic/test-only utility declarations without a retained production consumer."]
     },
     {
       "path": "src/muz/rel/CMakeLists.txt",
