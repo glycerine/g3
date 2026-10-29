@@ -96915,27 +96915,27 @@
       "path": "src/nlsat/tactic/qfnra_nlsat_tactic.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "complete",
+      "status": "ported",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go", "pkg/tactic/core/tseitin_cnf_tactic.go", "pkg/tactic/core/tseitin_cnf_encode.go"],
       "tests": ["TestTseitinCNFNestedIffAndITEChain", "TestTseitinCNFCommonPatternAndBoundedDistributivity", "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained polynomial-CNF route into NLSAT",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
           "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
         }
       ],
-      "ownership": [],
+      "ownership": ["The Go tactic builder retains every constructed child through the composed tactic tree and closes temporary construction owners on failure. Successful ownership transfers into the returned and-then/otherwise graph, whose reverse child teardown preserves the source pipeline dependencies."],
       "deviations": []
     },
     {
       "path": "src/nlsat/tactic/qfnra_nlsat_tactic.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "conditionals": [
@@ -96948,11 +96948,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": ["The retained route is complete through purification, factorization, and term-ITE elimination; Tseitin-CNF remains pending."]
+      "deviations": ["The retained route includes simplification, arithmetic purification, value propagation, equation solving, unconstrained and term-ITE elimination, optional factorization, core-preserving Tseitin CNF, and the NLSAT backend. The Go QFNRA portfolio also adds bounded and SMT fallbacks around this source NLSAT route."]
     },
     {
       "path": "src/opt/CMakeLists.txt",
