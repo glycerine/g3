@@ -20,6 +20,22 @@ func (s *Solver) applyFourierMotzkin(x uint32, clauses []*Clause) (changed bool,
 			}
 		}
 	}()
+	for _, clause := range clauses {
+		lower, upper, ok, cause := s.extractFourierMotzkinEquality(x, clause)
+		if cause != nil {
+			return false, cause
+		}
+		if !ok {
+			continue
+		}
+		lo, hi = append(lo, lower), append(hi, upper)
+		if err = s.substituteFourierMotzkinEquality(clauses, lower, upper); err != nil {
+			return false, err
+		}
+		s.fmBounds = append(s.fmBounds, lower, upper)
+		s.search.simplifications++
+		return true, nil
+	}
 	allSolved := true
 	for _, clause := range clauses {
 		if s.clauses.owned[clause] == nil {
@@ -52,6 +68,26 @@ func (s *Solver) applyFourierMotzkin(x uint32, clauses []*Clause) (changed bool,
 	}
 	if len(lo) == 0 && len(hi) == 0 {
 		return false, nil
+	}
+	if lower, upper, found, cause := s.matchFourierMotzkinEquality(lo, hi); cause != nil {
+		return false, cause
+	} else if found {
+		if err = s.substituteFourierMotzkinEquality(clauses, lower, upper); err != nil {
+			return false, err
+		}
+		s.fmBounds = append(s.fmBounds, lower, upper)
+		changed = true
+		for _, bounds := range [][]*fourierMotzkinBound{lo, hi} {
+			for _, bound := range bounds {
+				if bound != lower && bound != upper {
+					if err = bound.close(); err != nil {
+						return changed, err
+					}
+				}
+			}
+		}
+		s.search.simplifications += 2
+		return true, nil
 	}
 	if !allSolved {
 		return false, nil
