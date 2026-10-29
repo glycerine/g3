@@ -3,6 +3,7 @@ package api
 // Public fixedpoint/Horn integration over the retained command context.
 
 import (
+	"errors"
 	"io"
 	"strings"
 
@@ -244,6 +245,23 @@ func (c *SMTContext) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, er
 		return lbool.Undef, err
 	}
 	return c.command.QueryFixedpoint(declaration)
+}
+
+// QueryFixedpointWithOptions applies typed settings to one query without
+// changing the context's fixedpoint parameters or subsequent queries.
+func (c *SMTContext) QueryFixedpointWithOptions(declaration ast.ASTHandle, options *FixedpointQueryOptions) (status lbool.LBool, resultErr error) {
+	if err := c.open(); err != nil {
+		return lbool.Undef, err
+	}
+	if options == nil {
+		return c.command.QueryFixedpoint(declaration)
+	}
+	parameters, context, err := c.fixedpointQueryParameters(options)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, context.Del(&parameters)) }()
+	return c.command.QueryFixedpointWithParams(declaration, &parameters)
 }
 
 // QueryFixedpointRelations reports whether at least one requested relation is

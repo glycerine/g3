@@ -341,6 +341,48 @@ func TestSMTContextFixedpointParameterUpdateRebuildsPDR(t *testing.T) {
 	}
 }
 
+func TestSMTContextFixedpointQueryOptionsAreLocalAndTyped(t *testing.T) {
+	context, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, context.Close()) })
+	astTestMust(t, context.SetFixedpointEngine("duality"))
+	predicate, err := context.DeclareRelation("api-fp-local-P", nil)
+	astTestMust(t, err)
+	manager, err := context.Manager()
+	astTestMust(t, err)
+	fact, err := manager.MkApp(predicate, nil)
+	astTestMust(t, err)
+	astTestMust(t, context.AddFixedpointRule(fact, "api-fp-local-fact"))
+	options := &FixedpointQueryOptions{
+		Bool: map[FixedpointBoolParameter]bool{
+			FixedpointDatalogSubsumption: false,
+		},
+		UInt: map[FixedpointUIntParameter]uint32{
+			FixedpointTimeout: 0,
+		},
+		Symbol: map[FixedpointSymbolParameter]string{
+			FixedpointEngine: "datalog",
+		},
+	}
+	status, err := context.QueryFixedpointWithOptions(predicate, options)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("query-local fixedpoint options", status)
+	}
+	if _, err = context.QueryFixedpoint(predicate); err == nil || !strings.Contains(err.Error(), "fixedpoint engine duality is not ported") {
+		t.Fatal("query-local fixedpoint options leaked", err)
+	}
+	status, err = context.QueryFixedpointWithOptions(predicate, options)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("query-local fixedpoint options after global refusal", status)
+	}
+	bad := &FixedpointQueryOptions{Bool: map[FixedpointBoolParameter]bool{FixedpointBoolParameter(FixedpointEngine): true}}
+	if _, err = context.QueryFixedpointWithOptions(predicate, bad); err == nil || !strings.Contains(err.Error(), "has kind symbol, expected bool") {
+		t.Fatal("query-local fixedpoint kind guard", err)
+	}
+}
+
 func TestSMTContextFixedpointPDRProofTrace(t *testing.T) {
 	context, err := NewSMTContext()
 	astTestMust(t, err)
