@@ -2848,7 +2848,7 @@
       "path": "src/ackermannization/ackermannization_params.hpp",
       "component": "ackermannization",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -2884,11 +2884,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
+          "name": "complete static eager descriptor collection and catalog registration order",
           "status": "ported",
           "go_target": "pkg/ackermannization/gparams_catalog_collectors.go",
           "tests": [
@@ -2903,7 +2903,7 @@
           ]
         },
         {
-          "name": "Live concrete runtime accessor in Tactic.readEager using local/module fallback and source default; generated full-surface audit remains open",
+          "name": "eager runtime accessor using local/module fallback and source default",
           "status": "ported",
           "go_targets": [
             "pkg/ackermannization/tactic.go",
@@ -2924,7 +2924,7 @@
         }
       ],
       "ownership": [
-        "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
+        "Catalog descriptors are owned by the global parameter catalog. Runtime accessors borrow the local parameter map and release the acquired module-global parameter root after fallback lookup."
       ],
       "deviations": []
     },
@@ -2932,7 +2932,7 @@
       "path": "src/ackermannization/ackermannization_params.pyg",
       "component": "ackermannization",
       "role": "generated_input",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ackermannization/tactic.go",
         "pkg/ackermannization/ackermannization_cpp_test.go",
@@ -2949,11 +2949,11 @@
         "TestAckermannConstructorSnapshotAndRefusalOrder",
         "TestAckermannTacticAllocationFrontiers"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Live concrete runtime accessor in Tactic.readEager using local/module fallback and source default; generated full-surface audit remains open",
+          "name": "eager descriptor, module metadata, and runtime accessor with local/module fallback",
           "status": "ported",
           "go_targets": [
             "pkg/ackermannization/tactic.go",
@@ -3359,7 +3359,7 @@
       "path": "src/ackermannization/ackermannize_bv_tactic_params.hpp",
       "component": "ackermannization",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -3395,11 +3395,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
+          "name": "complete static div0_ackermann_limit descriptor collection and catalog registration order",
           "status": "ported",
           "go_target": "pkg/ackermannization/gparams_catalog_collectors.go",
           "tests": [
@@ -3414,7 +3414,7 @@
           ]
         },
         {
-          "name": "Live concrete runtime accessor in Tactic.UpdateParams using local/module fallback and source default; generated full-surface audit remains open",
+          "name": "div0_ackermann_limit runtime accessor using local/module fallback and source default",
           "status": "ported",
           "go_targets": [
             "pkg/ackermannization/tactic.go",
@@ -3435,7 +3435,7 @@
         }
       ],
       "ownership": [
-        "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
+        "Catalog descriptors are owned by the global parameter catalog. Tactic.UpdateParams borrows the local parameter map and releases the acquired rewriter-module parameter root after fallback lookup."
       ],
       "deviations": []
     },
@@ -3443,7 +3443,7 @@
       "path": "src/ackermannization/ackermannize_bv_tactic_params.pyg",
       "component": "ackermannization",
       "role": "generated_input",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ackermannization/tactic.go",
         "pkg/ackermannization/ackermannization_cpp_test.go",
@@ -3460,11 +3460,11 @@
         "TestAckermannConstructorSnapshotAndRefusalOrder",
         "TestAckermannTacticAllocationFrontiers"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Live concrete runtime accessor in Tactic.UpdateParams using local/module fallback and source default; generated full-surface audit remains open",
+          "name": "div0_ackermann_limit descriptor, module metadata, and runtime accessor with local/module fallback",
           "status": "ported",
           "go_targets": [
             "pkg/ackermannization/tactic.go",
