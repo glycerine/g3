@@ -5042,22 +5042,22 @@
       "path": "src/api/api_ast_vector.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_ast_vector_object.go", "pkg/api/api_ast_vector_object_test.go"],
+      "tests": ["TestAPIASTVectorSourceOperationsAndOwnership", "TestAPIASTVectorTranslateOwnsIndependentTargetRoots"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"AST-vector construction, reference lifecycle, size/get/set/resize/push, translation and SMT2 display","status":"ported","go_target":"pkg/api/api_ast_vector_object.go","tests":["TestAPIASTVectorSourceOperationsAndOwnership","TestAPIASTVectorTranslateOwnsIndependentTargetRoots"]}],
+      "ownership": ["Each non-null vector element owns one AST reference in its API context; replacement retains incoming AST before releasing the old one, translation owns independent target roots, and context destruction releases all elements."],
       "deviations": []
     },
     {
       "path": "src/api/api_ast_vector.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_ast_vector_object.go", "pkg/api/api_ast_vector_object_test.go"],
+      "tests": ["TestAPIASTVectorSourceOperationsAndOwnership", "TestAPIASTVectorTranslateOwnsIndependentTargetRoots"],
       "conditionals": [
         {
           "line": 18,
@@ -5068,10 +5068,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"concrete context-owned AST-vector wrapper and conversions","status":"ported","go_target":"pkg/api/api_ast_vector_object.go","tests":["TestAPIASTVectorSourceOperationsAndOwnership","TestAPIASTVectorTranslateOwnsIndependentTargetRoots"]}],
+      "ownership": ["apiASTVectorObject is registered with and destroyed by its API context and explicitly owns element references."],
       "deviations": []
     },
     {
