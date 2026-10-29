@@ -83429,14 +83429,14 @@
           "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers", "TestSMT2FixedpointPDRTraceReductionMatchesCPP"]
         },
         {
-          "name": "selected-rule hyper-resolution proof trace with complete bank-unified conclusion",
-          "status": "partial",
-          "go_target": "pkg/muz/pdr/proof_trace.go",
-          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_fixedpoint.go"],
-          "tests": ["TestSMTContextFixedpointPDRProofTrace"]
+          "name": "per-node selected-rule proof reconstruction with two-bank rule unification, reduced Horn conclusions, source substitutions and nested hyper-resolution",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/proof_rule_reduction.go",
+          "go_targets": ["pkg/muz/pdr/proof_trace.go", "pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_fixedpoint.go"],
+          "tests": ["TestContextBoundedQueryTraversesTaggedHornChain", "TestSMTContextFixedpointPDRProofTrace"]
         },
         {
-          "name": "remaining per-node reduced-rule proof substitutions and diagnostics",
+          "name": "remaining textual/debug diagnostics",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -83632,14 +83632,14 @@
           "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt"]
         },
         {
-          "name": "retained proof-trace selection and owning proof access surface",
-          "status": "partial",
+          "name": "retained proof-trace selection, per-node reduced-rule reconstruction and owning proof access surface",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/proof_trace.go",
-          "go_targets": ["pkg/muz/pdr/context.go", "pkg/api/api_fixedpoint.go"],
-          "tests": ["TestSMTContextFixedpointPDRProofTrace"]
+          "go_targets": ["pkg/muz/pdr/proof_rule_reduction.go", "pkg/muz/pdr/context.go", "pkg/api/api_fixedpoint.go"],
+          "tests": ["TestContextBoundedQueryTraversesTaggedHornChain", "TestSMTContextFixedpointPDRProofTrace"]
         },
         {
-          "name": "remaining per-node reduced-rule proof substitutions and diagnostics",
+          "name": "remaining textual/debug diagnostics",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -83822,7 +83822,7 @@
         "PropositionalEngine owns the current query-specific sliced RuleSet through PDR initialization, snapshots original/derived declarations and removed-column masks while the Context retains their ASTs, closes/replaces the Context before clearing those maps, and transfers returned expanded inductive models to the caller."
       ],
       "deviations": [
-        "The integration reuses PDR state only for the same query and exact normalized rules/background because slicing is query-dependent; it deliberately rebuilds after another query or tracked mutation instead of retaining the native transformed-rule subsumption optimization. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the selected-rule aggregate hyper-resolution trace; native per-node reduced-rule substitutions remain open."
+        "The integration reuses PDR state only for the same query and exact normalized rules/background because slicing is query-dependent; it deliberately rebuilds after another query or tracked mutation instead of retaining the native transformed-rule subsumption optimization. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
       ]
     },
     {
@@ -83966,7 +83966,7 @@
         "The fixedpoint engine owns its concrete PDR Context directly rather than through the native engine_base pointer."
       ],
       "deviations": [
-        "Query dispatch, revision-tracked exact-program context reuse, statistics, native-style banked acyclic/recursive answer traces, and owning proof forwarding are exposed. Native transformed-rule subsumption reuse is an intentionally omitted optimization because query-dependent preprocessing is rebuilt after tracked mutations; per-node reduced-rule proof substitutions and diagnostic surfaces remain open."
+        "Query dispatch, revision-tracked exact-program context reuse, statistics, native-style banked acyclic/recursive answer traces, and owning reduced-rule proof forwarding are exposed. Native transformed-rule subsumption reuse is an intentionally omitted optimization because query-dependent preprocessing is rebuilt after tracked mutations; textual/debug diagnostic surfaces remain open."
       ]
     },
     {

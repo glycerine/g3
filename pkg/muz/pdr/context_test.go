@@ -143,6 +143,7 @@ func TestContextBoundedQueryTraversesTaggedHornChain(t *testing.T) {
 	pdrMust(t, err)
 	context, err := pdr.NewContext(manager, nil, 4, pdr.ReachableHashCache, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
 	pdrMust(t, err)
+	pdrMust(t, context.SetGenerateProofTrace(true))
 	boolean, err := manager.MkBoolSort()
 	pdrMust(t, err)
 	declarations := []ast.ASTHandle{
@@ -216,6 +217,25 @@ func TestContextBoundedQueryTraversesTaggedHornChain(t *testing.T) {
 	pdrMust(t, err)
 	if status != lbool.True {
 		t.Fatal("unbounded Horn chain query", status)
+	}
+	proof, err := context.Proof(declarations[2])
+	pdrMust(t, err)
+	proofHandle, err := manager.RefGet(proof)
+	pdrMust(t, err)
+	hyper, err := manager.IsProofKind(proofHandle, ast.ASTPrHyperResolve)
+	pdrMust(t, err)
+	parents, err := manager.GetProofNumParents(proofHandle)
+	pdrMust(t, err)
+	if !hyper || parents != 2 {
+		t.Fatal("reduced Horn-chain proof", hyper, parents)
+	}
+	pdrMust(t, manager.DelRef(&proof))
+	proofBytes := manager.Budget().Used()
+	proof, err = context.Proof(declarations[2])
+	pdrMust(t, err)
+	pdrMust(t, manager.DelRef(&proof))
+	if manager.Budget().Used() != proofBytes {
+		t.Fatal("repeated proof reconstruction retained owner bytes", proofBytes, manager.Budget().Used())
 	}
 	stats := statistics.New()
 	pdrMust(t, context.CollectStatistics(stats))

@@ -375,6 +375,8 @@ func TestSMTContextFixedpointPDRProofTrace(t *testing.T) {
 	astTestMust(t, err)
 	hyper, err := manager.IsProofKind(proofHandle, ast.ASTPrHyperResolve)
 	astTestMust(t, err)
+	asserted, err := manager.IsProofKind(proofHandle, ast.ASTPrAsserted)
+	astTestMust(t, err)
 	parents, err := manager.GetProofNumParents(proofHandle)
 	astTestMust(t, err)
 	fact, err := manager.GetProofFact(proofHandle)
@@ -383,17 +385,19 @@ func TestSMTContextFixedpointPDRProofTrace(t *testing.T) {
 	astTestMust(t, err)
 	factSort, err := manager.GetSort(fact)
 	astTestMust(t, err)
-	if !hyper || parents == 0 || factSort != boolean {
-		t.Fatal("PDR hyper-resolution trace", hyper, parents, factSort, boolean)
+	if !hyper && !asserted || hyper && parents == 0 || factSort != boolean {
+		t.Fatal("PDR proof trace", hyper, asserted, parents, factSort, boolean)
 	}
 	answer, err := context.FixedpointAnswer(q)
 	astTestMust(t, err)
 	answerHandle, err := manager.RefGet(answer)
 	astTestMust(t, err)
-	answerIsProof, err := manager.IsProofKind(answerHandle, ast.ASTPrHyperResolve)
+	answerIsHyper, err := manager.IsProofKind(answerHandle, ast.ASTPrHyperResolve)
+	astTestMust(t, err)
+	answerIsAsserted, err := manager.IsProofKind(answerHandle, ast.ASTPrAsserted)
 	astTestMust(t, err)
 	astTestMust(t, manager.DelRef(&answer))
-	if !answerIsProof {
+	if !answerIsHyper && !answerIsAsserted {
 		t.Fatal("generate_proof_trace did not select the proof as the reachable answer")
 	}
 }

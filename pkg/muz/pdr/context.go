@@ -289,8 +289,8 @@ func (c *Context) SetFullTraceAnswer(enabled bool) error {
 }
 
 // SetGenerateProofTrace selects the source reachable-answer proof object.
-// It must be set before Initialize so proof production is active while the
-// rule system and its child solvers are constructed.
+// It must be set before Initialize so answer selection is fixed for the query
+// context. Proof mode itself is scoped around reconstruction after solving.
 func (c *Context) SetGenerateProofTrace(enabled bool) error {
 	if err := c.open(); err != nil {
 		return err
@@ -509,7 +509,7 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 		return err
 	}
 	c.farkasActive = c.useFarkas && nonBoolean
-	c.proofActive = c.generateProofTrace || nonBoolean || c.useConvexClosure || c.useConvexInterior
+	c.proofActive = nonBoolean || c.useConvexClosure || c.useConvexInterior
 	if nonBoolean {
 		selectMode := c.useUTVPI && !c.useConvexClosure && !c.useConvexInterior
 		mode := smtcore.SMTArithmeticSimplex

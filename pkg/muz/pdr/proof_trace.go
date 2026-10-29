@@ -58,74 +58,15 @@ func (c *Context) Proof(queryDeclaration ast.ASTHandle) (result ast.ASTRef, resu
 	if err = updateTraceModels(root); err != nil {
 		return result, err
 	}
-	restoreProofMode, err := c.enterPDRProofMode()
+	proofsEnabled, err := c.manager.ProofsEnabled()
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, restoreProofMode()) }()
-
-	references := make([]ast.ASTRef, 0)
-	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(c.manager, references)) }()
-	premises := make([]ast.ASTHandle, 0)
-	seen := make(map[ast.ASTHandle]bool)
-	work := []*ModelNode{root}
-	for len(work) != 0 {
-		last := len(work) - 1
-		node := work[last]
-		work = work[:last]
-		if seen[node.state] {
-			continue
+	if !proofsEnabled {
+		if err = c.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+			return result, err
 		}
-		seen[node.state] = true
-		rule, x := c.selectedTraceRule(node)
-		if x != nil {
-			return result, fmt.Errorf("pdr: select proof-trace rule: %w", x)
-		}
-		formula, x := rule.rule.ToFormula()
-		if x != nil {
-			return result, x
-		}
-		references = append(references, formula)
-		formulaHandle, x := c.manager.RefGet(formula)
-		if x != nil {
-			return result, x
-		}
-		proof, x := c.manager.MkProofAsserted(formulaHandle)
-		if x != nil {
-			return result, x
-		}
-		proofReference, x := c.manager.NewRef(proof)
-		if x != nil {
-			return result, x
-		}
-		references = append(references, proofReference)
-		premises = append(premises, proof)
-		children, x := node.Children()
-		if x != nil {
-			return result, x
-		}
-		work = append(work, children...)
+		defer func() { resultErr = errors.Join(resultErr, c.manager.ToggleProofMode(ast.ASTProofDisabled)) }()
 	}
-	if len(premises) == 0 {
-		return result, ast.ErrASTDomain
-	}
-	conclusion, err := c.completeTraceAnswer(root)
-	if err != nil {
-		return result, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&conclusion)) }()
-	conclusionHandle, err := c.manager.RefGet(conclusion)
-	if err != nil {
-		return result, err
-	}
-	positions := make([]ast.ASTProofPosition, len(premises)-1)
-	for index := range positions {
-		positions[index] = ast.ASTProofPosition{First: uint32(index + 1), Second: 0}
-	}
-	substitutions := make([][]ast.ASTHandle, len(premises))
-	proof, err := c.manager.MkProofHyperResolve(premises, conclusionHandle, positions, substitutions)
-	if err != nil {
-		return result, err
-	}
-	return c.manager.NewRef(proof)
+	return c.reducedProofTrace(root)
 }
