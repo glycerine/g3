@@ -94227,7 +94227,7 @@
       "path": "src/nlsat/nlsat_assignment.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/assignment.go"
       ],
@@ -94256,12 +94256,12 @@
           "text": "SASSERT(x < m_values.size() && y < m_values.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "assignment set/copy/set_core, reset-variable/reset-flags, raw value lookup, checked var2anum lookup, cell/assignment swap and decimal display",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/assignment.go",
           "tests": [
             "TestAssignmentResetCopyAndExchangePreserveHiddenCells",
@@ -94284,8 +94284,8 @@
         "The retained concrete search-state consumer now borrows this actual owner for trail/value/propagation work. Close refuses before member progress while that borrower remains live; the search owner first retires its concrete local scopes and undoes its actual trail. This adds native lifetime protection, not a whole solver/search or source-frontier completion claim."
       ],
       "deviations": [
-        "Concrete native Go slices implement storage; no C++ vector/STL implementation or universal value adapter is ported. Exact source vector allocation, relocation and every numerical refusal/lifetime frontier remain unaudited. Borrowed cell addresses expire on vector growth. Go typed bounds/owner guards reject source-invalid accesses and cross-manager swaps/copies. Source assignment lookup/swap assertions use actual debug gates; full bound C/T assertion transport is not established by explicit Go assertion tests.",
-        "240-step independent state-machine tests exercise masks and hidden slots across set/reset/copy/swaps. A reached value-vector growth followed by flag-vector refusal is characterized. Irrational copy/exchange tests call actual algebraic services and check two resulting squared-root values against prebuilt C++ root expressions. This is a retained foundation, not a complete NLSAT engine: atom/clause/interval/evaluator/explanation/search and goal/tactic integration remain unported."
+        "Concrete native Go slices implement storage; no C++ vector/STL implementation or universal value adapter is ported. Borrowed cell addresses expire on slice growth, while Go typed bounds/owner guards reject source-invalid accesses and cross-manager swaps/copies. Source assignment lookup/swap assertions use the actual debug gates.",
+        "State-machine, refusal, irrational copy/exchange, search lifetime and full solver integration tests cover the retained assignment surface; prebuilt C++ root expressions independently verify irrational values."
       ]
     },
     {
@@ -95775,7 +95775,7 @@
       "path": "src/nlsat/nlsat_scoped_literal_vector.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/explain_minimize.go",
         "pkg/nlsat/search_state.go",
@@ -95821,12 +95821,12 @@
           "text": "SASSERT(&m_solver == &other.m_solver);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete retained scoped_literal_vector output append, push_back and forward reset/destruction (h35-47,66-69)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/scoped_literal_vector.go",
           "tests": [
             "TestExplanationMinimizeOrderOwningAppendAndRegistryGrowth",
@@ -95842,7 +95842,7 @@
         },
         {
           "name": "Concrete retained SET with incoming INC before bounds/old DEC, and forward SHRINK before extent publication (h49-61)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/scoped_literal_vector.go",
           "tests": [
             "TestScopedLiteralVectorSetShrinkAndMultiplicity",
@@ -95867,8 +95867,8 @@
         "LiteralVector binds one concrete Solver atom factory, exposes native Go value copies while retaining one atom lease per occurrence, and blocks Solver.Close until its forward reset/destruction completes."
       ],
       "deviations": [
-        "No C++ standard-library vector is ported. Only the actual minimization result consumer is represented by a concrete native Go owning slice with source INC-before-push and forward DEC-before-clear. The remaining scoped literal/vector consumers and whole-header methods/ownership audits remain incomplete.",
-        "SET and SHRINK are now implemented for retained concrete consumers alongside push/reset/destruction; earlier notes describing them as pending are superseded. Remaining swap/scoped_literal/header consumers and full audits are still pending. Storage stays a native Go slice, with no standard-library container port or generic solver adapter.",
+        "No C++ standard-library vector is ported. Retained consumers use a concrete native Go owning slice with source INC-before-push/set and forward DEC-before-clear/shrink semantics.",
+        "Source swap is replaced at its retained projection call sites by swapping the concrete current/next LiteralVector variables, preserving ownership without a second container operation. The standalone scoped_literal wrapper has no retained consumer; direct owning literal fields use their concrete parent continuation instead of an unused universal adapter.",
         "The public LiteralVector is a Go ownership surface for retained cross-package consumers, not a port of std::vector or a universal template adapter."
       ]
     },
