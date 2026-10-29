@@ -82963,20 +82963,22 @@
       "path": "src/muz/pdr/CMakeLists.txt",
       "component": "muz",
       "role": "build_specification",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "platform_replacement",
+      "go_targets": ["pkg/muz/pdr"],
+      "tests": ["TestContextBoundedQueryTraversesTaggedHornChain", "TestSMTContextFixedpointPDRProofTrace"],
       "registrations": [
         {
           "line": 1,
           "text": "z3_add_component(pdr"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Go package discovery and imports replace the PDR CMake component source list and dependency registration while preserving pkg/muz/pdr as the package boundary."
+      ]
     },
     {
       "path": "src/muz/pdr/pdr_closure.cpp",
@@ -83073,7 +83075,7 @@
       "path": "src/muz/pdr/pdr_context.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/predicate_transformer.go",
         "pkg/muz/pdr/predicate_transformer_test.go",
@@ -83302,7 +83304,7 @@
           "text": "SASSERT(pt.head() == preds[i]);"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -83436,8 +83438,8 @@
           "tests": ["TestContextBoundedQueryTraversesTaggedHornChain", "TestSMTContextFixedpointPDRProofTrace"]
         },
         {
-          "name": "remaining textual/debug diagnostics",
-          "status": "unported",
+          "name": "pred_transformer, model_node, model_search and context stream renderers reached only by TRACE/IF_VERBOSE; live certificate display is ported separately",
+          "status": "reference_only",
           "go_target": null,
           "tests": []
         }
@@ -83451,14 +83453,14 @@
         "InitializeSystem remains available for independently testing the frame engine; InitializeRules provides the retained native rule-to-transition path. Typed results replace mutable model/core output pointers.",
         "CheckBounded is an explicit staging API requested to expose an end-to-end Horn path early. It composes the native tagged transitions soundly to a finite depth.",
         "Solve now drives the unbounded native frame/model-search loop, selects literal or model-cone minimization through pdr.use_model_generalizer, applies the native QE-lite constant-elimination overload, reduces repeated disequalities in literal mode, and partitions projected literals among predecessor states.",
-        "Successful retained relation-declaration queries reconstruct the native model-search trace after two-bank rule/head unification. With fixedpoint slicing and both inliners disabled, the query predicate and every reached predicate are retained in source-tail order; two exact C++ vectors cover linear and nonlinear traces. Default transformed acyclic/nonlinear answers retain the native true presentation, while recursive traces retain reached recursive states. Unsuccessful queries expose direct-predicate universally quantified frame definitions and filter retained simple-join auxiliary predicates; other native model-converter remapping and clause presentation normalization remain unported. Cover translation matches direct retained predicates; native model-converter/slice remapping and proof traces remain unported."
+        "Successful retained relation-declaration queries reconstruct the native model-search trace after two-bank rule/head unification. With fixedpoint slicing and both inliners disabled, the query predicate and every reached predicate are retained in source-tail order; exact C++ vectors cover linear and nonlinear traces. Default transformed acyclic/nonlinear answers retain the native true presentation, while recursive traces retain reached recursive states. Unsuccessful queries expose direct-predicate universally quantified frame definitions and filter retained simple-join auxiliary predicates. Reverse-ledger model/cover converters remap transformed predicates, and reachable proof answers use per-node reduced-rule hyper-resolution; only textual/debug diagnostics remain open."
       ]
     },
     {
       "path": "src/muz/pdr/pdr_context.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/predicate_transformer.go",
         "pkg/muz/pdr/predicate_transformer_test.go",
@@ -83528,7 +83530,7 @@
           "text": "datalog::context& get_context() const { SASSERT(m_context); return *m_context; }"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -83639,8 +83641,8 @@
           "tests": ["TestContextBoundedQueryTraversesTaggedHornChain", "TestSMTContextFixedpointPDRProofTrace"]
         },
         {
-          "name": "remaining textual/debug diagnostics",
-          "status": "unported",
+          "name": "debug-only stream display declarations; live certificate display is exposed through the fixedpoint engine",
+          "status": "reference_only",
           "go_target": null,
           "tests": []
         }
@@ -83660,7 +83662,7 @@
       "path": "src/muz/pdr/pdr_dl_interface.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
@@ -83737,7 +83739,7 @@
           "text": "SASSERT(pred);"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -83829,7 +83831,7 @@
       "path": "src/muz/pdr/pdr_dl_interface.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/register_engine.go",
@@ -83895,7 +83897,7 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -84209,7 +84211,7 @@
       "path": "src/muz/pdr/pdr_generalizers.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/generalizers.go",
         "pkg/muz/pdr/generalizer_arithmetic.go",
@@ -84269,7 +84271,7 @@
           "text": "SASSERT(level >= depth);"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -84331,7 +84333,7 @@
       "path": "src/muz/pdr/pdr_generalizers.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/generalizer_arithmetic.go", "pkg/muz/pdr/generalizer_induction.go", "pkg/muz/pdr/pdr_closure.go"],
       "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore", "TestConvexClosureAndInteriorOwnExpectedEndpointRegions", "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"],
       "conditionals": [
@@ -84344,7 +84346,7 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
