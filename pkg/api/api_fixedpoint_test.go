@@ -229,10 +229,14 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 	replay, err := NewSMTContext()
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, replay.Close()) })
+	astTestMust(t, replay.LoadFixedpointSMT2(strings.NewReader(script)))
 	var output strings.Builder
-	astTestMust(t, replay.ExecuteSMT2(strings.NewReader(script+"(query fp-replay-Q)\n"), &output))
+	astTestMust(t, replay.ExecuteSMT2(strings.NewReader("(query fp-replay-Q)\n"), &output))
 	if strings.TrimSpace(output.String()) != "sat" {
 		t.Fatalf("fixedpoint replay result %q from:\n%s", output.String(), script)
+	}
+	if err = replay.LoadFixedpointSMT2(nil); err == nil {
+		t.Fatal("nil fixedpoint replay reader succeeded")
 	}
 }
 

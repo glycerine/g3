@@ -36,6 +36,19 @@ func (c *SMTContext) FixedpointSMT2() (string, error) {
 	return output.String(), nil
 }
 
+// LoadFixedpointSMT2 executes fixedpoint SMT-LIB commands from input while
+// discarding command output. Callers use ordinary Go readers for strings,
+// files, or streams.
+func (c *SMTContext) LoadFixedpointSMT2(input io.Reader) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if input == nil {
+		return ErrSMTContextOwner
+	}
+	return c.ExecuteSMT2(input, io.Discard)
+}
+
 // SetFixedpointEngine selects the fixedpoint backend used by later queries.
 // Supported retained choices are auto-config, datalog, pdr, and spacer.
 func (c *SMTContext) SetFixedpointEngine(name string) error {
