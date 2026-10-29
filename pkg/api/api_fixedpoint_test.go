@@ -189,6 +189,53 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	}
 }
 
+func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
+	context, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, context.Close()) })
+	manager, err := context.Manager()
+	astTestMust(t, err)
+	p, err := context.DeclareRelation("fp-replay-P", nil)
+	astTestMust(t, err)
+	q, err := context.DeclareRelation("fp-replay-Q", nil)
+	astTestMust(t, err)
+	pAtom, err := manager.MkApp(p, nil)
+	astTestMust(t, err)
+	qAtom, err := manager.MkApp(q, nil)
+	astTestMust(t, err)
+	step, err := manager.MkImplies(pAtom, qAtom)
+	astTestMust(t, err)
+	truth, err := manager.MkTrue()
+	astTestMust(t, err)
+	astTestMust(t, context.AddFixedpointFact(p, nil))
+	astTestMust(t, context.AddFixedpointRule(step, "fp-replay-edge"))
+	astTestMust(t, context.AssertFixedpoint(truth))
+	script, err := context.FixedpointSMT2()
+	astTestMust(t, err)
+	for _, fragment := range []string{
+		"(declare-rel fp-replay-P ())",
+		"(declare-rel fp-replay-Q ())",
+		"(assert true)",
+		":named fp-replay-edge",
+	} {
+		if !strings.Contains(script, fragment) {
+			t.Fatalf("fixedpoint replay omitted %q:\n%s", fragment, script)
+		}
+	}
+	if err = context.WriteFixedpointSMT2(nil); err == nil {
+		t.Fatal("nil fixedpoint replay writer succeeded")
+	}
+
+	replay, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, replay.Close()) })
+	var output strings.Builder
+	astTestMust(t, replay.ExecuteSMT2(strings.NewReader(script+"(query fp-replay-Q)\n"), &output))
+	if strings.TrimSpace(output.String()) != "sat" {
+		t.Fatalf("fixedpoint replay result %q from:\n%s", output.String(), script)
+	}
+}
+
 func TestSMTContextFixedpointParameterUpdateRebuildsPDR(t *testing.T) {
 	context, err := NewSMTContext()
 	astTestMust(t, err)

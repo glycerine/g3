@@ -1524,12 +1524,19 @@ func (e *PropositionalEngine) ResetStatistics() error {
 // Rules returns owning formula references for the current scoped Horn rule
 // set in insertion order. The caller releases every reference.
 func (e *PropositionalEngine) Rules() (result []ast.ASTRef, resultErr error) {
+	result, _, resultErr = e.NamedRules()
+	return result, resultErr
+}
+
+// NamedRules returns owning formulas and their copied names in insertion
+// order.
+func (e *PropositionalEngine) NamedRules() (result []ast.ASTRef, names []string, resultErr error) {
 	if err := e.open(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	count, err := e.set.Len()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer func() {
 		if resultErr != nil {
@@ -1537,22 +1544,39 @@ func (e *PropositionalEngine) Rules() (result []ast.ASTRef, resultErr error) {
 				resultErr = errors.Join(resultErr, e.manager.DelRef(&result[index]))
 			}
 			result = nil
+			names = nil
 		}
 	}()
 	result = make([]ast.ASTRef, 0, count)
+	names = make([]string, 0, count)
 	for index := 0; index < count; index++ {
 		rule, getErr := e.set.Rule(index)
 		if getErr != nil {
-			return nil, getErr
+			return nil, nil, getErr
 		}
 		formula, formulaErr := rule.ToFormula()
+		name, nameErr := rule.Name()
+		formulaErr = errors.Join(formulaErr, nameErr)
 		formulaErr = errors.Join(formulaErr, rule.Close())
 		if formulaErr != nil {
-			return nil, formulaErr
+			if _, referenceErr := e.manager.RefGet(formula); referenceErr == nil {
+				formulaErr = errors.Join(formulaErr, e.manager.DelRef(&formula))
+			}
+			return nil, nil, formulaErr
 		}
 		result = append(result, formula)
+		names = append(names, name)
 	}
-	return result, nil
+	return result, names, nil
+}
+
+// Predicates returns borrowed registered relation declarations in declaration
+// order.
+func (e *PropositionalEngine) Predicates() ([]ast.ASTHandle, error) {
+	if err := e.open(); err != nil {
+		return nil, err
+	}
+	return append([]ast.ASTHandle(nil), e.predicateOrder...), nil
 }
 
 // QueryPredicate returns true exactly when the registered predicate relation
