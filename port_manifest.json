@@ -87950,9 +87950,9 @@
       "path": "src/muz/rel/dl_sieve_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
+      "tests": ["TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
       "conditionals": [
         {
           "line": 161,
@@ -88051,9 +88051,9 @@
       "path": "src/muz/rel/dl_sieve_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
+      "tests": ["TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
       "conditionals": [
         {
           "line": 20,
