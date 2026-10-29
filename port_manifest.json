@@ -82044,17 +82044,17 @@
       "path": "src/muz/base/rule_properties.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-      "tests": ["TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/base/rule_properties.go", "pkg/muz/base/rule_properties_test.go", "pkg/muz/fp/rule_fragment.go", "pkg/muz/fp/rule_fragment_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+      "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership", "TestFixedpointRulePropertyValidationWiring", "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"],
       "assertions": [
         {
           "line": 193,
           "text": "SASSERT(m_dt.is_datatype(s));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "PDR/Spacer check_uninterpreted_free rejection of ordinary uninterpreted constants and functions in interpreted rule tails (rule_properties.cpp:83-96)",
@@ -82087,10 +82087,10 @@
           "tests": ["TestDatalogRejectsQuantifiedInterpretedTails"]
         },
         {
-          "name": "remaining rule-property collection and existential-tail check",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "rule-property collection, nested predicate and existential-tail validation with reusable source state",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_properties.go",
+          "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership", "TestFixedpointRulePropertyValidationWiring"]
         }
       ],
       "ownership": [],
@@ -82100,9 +82100,9 @@
       "path": "src/muz/base/rule_properties.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/base/rule_properties.go", "pkg/muz/base/rule_properties_test.go", "pkg/muz/fp/rule_fragment.go", "pkg/muz/fp/rule_fragment_test.go", "pkg/muz/fp/propositional_engine.go"],
+      "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership", "TestFixedpointRulePropertyValidationWiring", "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"],
       "conditionals": [
         {
           "line": 21,
@@ -82113,8 +82113,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained engine-specific uninterpreted-free, partial-datatype-accessor, negative-predicate, infinite-sort and quantifier-free rule-check surface",
@@ -82123,10 +82123,10 @@
           "tests": ["TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"]
         },
         {
-          "name": "remaining rule_properties collection and validation surface",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "complete reusable rule_properties collection and validation surface",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_properties.go",
+          "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership"]
         }
       ],
       "ownership": [],

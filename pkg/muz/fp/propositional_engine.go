@@ -610,75 +610,10 @@ func (e *PropositionalEngine) Pop() error {
 	return errors.Join(result, snapshot.Close())
 }
 
-func (e *PropositionalEngine) hasUninterpretedRuleSymbol(root ast.ASTHandle) (bool, error) {
-	stack := []ast.ASTHandle{root}
-	seen := make(map[ast.ASTHandle]bool)
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		expression := stack[last]
-		stack = stack[:last]
-		if seen[expression] {
-			continue
-		}
-		seen[expression] = true
-		kind, err := e.manager.GetKind(expression)
-		if err != nil {
-			return false, err
-		}
-		if kind != ast.ASTApp {
-			continue
-		}
-		declaration, err := e.manager.GetDecl(expression)
-		if err != nil {
-			return false, err
-		}
-		family, err := e.manager.GetFamilyID(declaration)
-		if err != nil {
-			return false, err
-		}
-		if family == ast.NullFamilyID && e.predicates[declaration] == nil {
-			return true, nil
-		}
-		arguments, err := e.manager.GetNumArgs(expression)
-		if err != nil {
-			return false, err
-		}
-		datatypeFamily, datatypeErr := e.manager.DatatypeFamilyID()
-		if datatypeErr == nil && family == datatypeFamily && arguments != 0 {
-			declarationKind, x := e.manager.GetDeclKind(declaration)
-			if x != nil {
-				return false, x
-			}
-			if declarationKind == ast.ASTDatatypeAccessor {
-				argument, x := e.manager.GetArg(expression, 0)
-				if x != nil {
-					return false, x
-				}
-				sort, x := e.manager.GetSort(argument)
-				if x != nil {
-					return false, x
-				}
-				constructors, x := e.manager.DatatypeConstructors(sort)
-				if x != nil {
-					return false, x
-				}
-				if len(constructors) > 1 {
-					return true, nil
-				}
-			}
-		}
-		for index := uint32(0); index < arguments; index++ {
-			argument, x := e.manager.GetArg(expression, index)
-			if x != nil {
-				return false, x
-			}
-			stack = append(stack, argument)
-		}
-	}
-	return false, nil
-}
-
 func (e *PropositionalEngine) validateFragment() error {
+	if err := validateRuleSetProperties(e.rules, e.set, e.backend); err != nil {
+		return err
+	}
 	count, err := e.set.Len()
 	if err != nil {
 		return err
@@ -692,39 +627,12 @@ func (e *PropositionalEngine) validateFragment() error {
 		if x == nil && e.predicates[head] == nil {
 			x = ErrPropositionalHorn
 		}
-		if x == nil && e.backend == "datalog" {
-			arity, y := e.manager.GetArity(head)
-			for column := uint32(0); y == nil && column < arity; column++ {
-				sort, getErr := e.manager.GetDomain(head, column)
-				if getErr != nil {
-					y = getErr
-					break
-				}
-				size, getErr := e.manager.GetSortSize(sort)
-				if getErr != nil {
-					y = getErr
-					break
-				}
-				ruleSort, getErr := e.manager.IsDatalogRuleSort(sort)
-				if getErr != nil {
-					y = getErr
-					break
-				}
-				if !size.IsFinite() && !ruleSort {
-					y = fmt.Errorf("%w: rule contains an infinite predicate sort", ErrPropositionalHorn)
-				}
-			}
-			x = errors.Join(x, y)
-		}
 		positive, pErr := rule.PositiveTailSize()
 		uninterpreted, uErr := rule.UninterpretedTailSize()
 		tailSize, tErr := rule.TailSize()
 		x = errors.Join(x, pErr, uErr, tErr)
 		if x == nil && (positive > uninterpreted || uninterpreted > tailSize) {
 			x = ErrPropositionalHorn
-		}
-		if x == nil && (e.backend == "pdr" || e.backend == "spacer") && positive != uninterpreted {
-			x = fmt.Errorf("%w: rule contains a negative predicate", ErrPropositionalHorn)
 		}
 		for j := 0; x == nil && j < uninterpreted; j++ {
 			declaration, y := rule.TailDeclaration(j)
@@ -734,32 +642,6 @@ func (e *PropositionalEngine) validateFragment() error {
 			}
 			if e.predicates[declaration] == nil {
 				x = ErrPropositionalHorn
-			}
-		}
-		for j := uninterpreted; x == nil && j < tailSize; j++ {
-			tail, _, y := rule.Tail(j)
-			if y != nil {
-				x = y
-				break
-			}
-			if e.backend == "datalog" {
-				quantified, quantifierErr := e.manager.HasQuantifiers(tail)
-				if quantifierErr != nil {
-					x = quantifierErr
-					break
-				}
-				if quantified {
-					x = fmt.Errorf("%w: cannot process a quantifier in a Datalog rule", ErrPropositionalHorn)
-					break
-				}
-			}
-			unsupported, y := e.hasUninterpretedRuleSymbol(tail)
-			if y != nil {
-				x = y
-				break
-			}
-			if unsupported {
-				x = fmt.Errorf("%w: uninterpreted symbols in PDR rules are unsupported", ErrPropositionalHorn)
 			}
 		}
 		x = errors.Join(x, rule.Close())
