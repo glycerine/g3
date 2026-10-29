@@ -12,7 +12,7 @@ import (
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
-const satSolverChildDescriptorNames = "elim_blocked_clauses elim_blocked_clauses_at blocked_clause_limit resolution resolution.limit resolution.occ_cutoff resolution.occ_cutoff_range1 resolution.occ_cutoff_range2 resolution.occ_cutoff_range3 resolution.lit_cutoff_range1 resolution.lit_cutoff_range2 resolution.lit_cutoff_range3 resolution.cls_cutoff1 resolution.cls_cutoff2 elim_vars subsumption subsumption.limit asymm_branch asymm_branch.rounds asymm_branch.limit scc"
+const satSolverChildDescriptorNames = "elim_blocked_clauses elim_blocked_clauses_at blocked_clause_limit resolution resolution.limit resolution.occ_cutoff resolution.occ_cutoff_range1 resolution.occ_cutoff_range2 resolution.occ_cutoff_range3 resolution.lit_cutoff_range1 resolution.lit_cutoff_range2 resolution.lit_cutoff_range3 resolution.cls_cutoff1 resolution.cls_cutoff2 elim_vars subsumption subsumption.limit asymm_branch asymm_branch.rounds asymm_branch.limit scc scc.tr"
 
 func satSolverDescriptorNames() []string {
 	names := []string{}
@@ -28,7 +28,7 @@ func TestSATSolverReportParamsFiveActualDescriptorChildren(t *testing.T) {
 	names := satSolverDescriptorNames()
 	n, e := d.Size()
 	satOK(t, e)
-	if n != 45 || int(n) != len(names) {
+	if n != 46 || int(n) != len(names) {
 		t.Fatal(n, len(names))
 	}
 	for i, want := range names {
@@ -43,7 +43,7 @@ func TestSATSolverReportParamsFiveActualDescriptorChildren(t *testing.T) {
 	satOK(t, collectSolverParamDescrs(d))
 	n, e = d.Size()
 	satOK(t, e)
-	if n != 45 {
+	if n != 46 {
 		t.Fatal("source duplicate insertion", n)
 	}
 }

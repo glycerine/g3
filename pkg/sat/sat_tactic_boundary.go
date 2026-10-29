@@ -16,7 +16,7 @@ func (s *Solver) CollectStatistics(st *statistics.Statistics) error {
 		main:       [15]statistics.Key{"mk bool var", "mk binary clause", "mk ternary clause", "mk clause", "gc clause", "del clause", "conflicts", "propagations", "decisions", "binary propagations", "ternary propagations", "restarts", "minimized lits", "dyn subsumption resolution", "blocked correction sets"},
 		cleaner:    [2]statistics.Key{"elim clauses", "elim literals"},
 		simplifier: [5]statistics.Key{"subsumed", "subsumption resolution", "elim literals", "elim bool vars", "elim blocked clauses"},
-		scc:        "elim bool vars", asymm: "elim literals", probing: "probing assigned",
+		scc:        [2]statistics.Key{"sat scc elim vars", "sat scc elim binary"}, asymm: "elim literals", probing: "probing assigned",
 	}
 	return s.collectStatistics(st, keys)
 }

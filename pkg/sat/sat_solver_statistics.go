@@ -9,10 +9,11 @@ import (
 // Source-order keys for the solver's statistics counters.
 
 type satSolverStatisticsKeys struct {
-	main                [15]statistics.Key
-	cleaner             [2]statistics.Key
-	simplifier          [5]statistics.Key
-	scc, asymm, probing statistics.Key
+	main           [15]statistics.Key
+	cleaner        [2]statistics.Key
+	simplifier     [5]statistics.Key
+	scc            [2]statistics.Key
+	asymm, probing statistics.Key
 }
 
 func (s *Solver) collectMainStatistics(st *statistics.Statistics, keys [15]statistics.Key) error {

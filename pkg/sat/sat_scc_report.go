@@ -22,6 +22,14 @@ func (c *satSCC) emitReport() error {
 	if err = out.AppendUint32(c.numElim - c.reportNumElim); err != nil {
 		return err
 	}
+	if eliminated := c.numElimBinary - c.reportNumElimBinary; eliminated != 0 {
+		if err = out.AppendCString(" :elim-bin "); err != nil {
+			return err
+		}
+		if err = out.AppendUint32(eliminated); err != nil {
+			return err
+		}
+	}
 	if err = c.solver.appendCompactStat(out); err != nil {
 		return err
 	}
