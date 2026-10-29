@@ -5455,9 +5455,9 @@
       "path": "src/api/api_fpa.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_fpa_base.go", "pkg/api/api_fpa_sorts.go", "pkg/api/api_fpa_rounding.go", "pkg/api/api_fpa_values.go", "pkg/api/api_fpa_arithmetic.go", "pkg/api/api_fpa_comparisons.go", "pkg/api/api_fpa_predicates.go", "pkg/api/api_fpa_conversions.go", "pkg/api/api_fpa_numeral_classes.go", "pkg/api/api_fpa_sorts_test.go", "pkg/api/api_fpa_rounding_test.go", "pkg/api/api_fpa_values_test.go", "pkg/api/api_fpa_arithmetic_test.go", "pkg/api/api_fpa_relations_test.go", "pkg/api/api_fpa_conversions_test.go", "pkg/api/api_fpa_numeral_classes_test.go"],
+      "tests": ["TestSMTContextFloatingPoint"],
       "assertions": [
         {
           "line": 981,
