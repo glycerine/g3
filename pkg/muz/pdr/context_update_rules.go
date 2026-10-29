@@ -11,6 +11,25 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+// CanUpdateRules reports whether set can replace the current program without
+// rebuilding the source PDR solver configuration. Planning is read-only and
+// the temporary rule references are released before return.
+func (c *Context) CanUpdateRules(set *base.RuleSet) (compatible bool, resultErr error) {
+	if err := c.open(); err != nil {
+		return false, err
+	}
+	if !c.initialized || set == nil {
+		return false, ast.ErrASTDomain
+	}
+	plan, err := c.planRules(set)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, plan.close()) }()
+	requiredProof := plan.nonBoolean || c.useConvexClosure || c.useConvexInterior
+	return requiredProof == c.proofActive, nil
+}
+
 // UpdateRules rebuilds the executable rule transformers and inherits all
 // frame properties belonging to declarations retained by the new rule set.
 func (c *Context) UpdateRules(set *base.RuleSet) (resultErr error) {

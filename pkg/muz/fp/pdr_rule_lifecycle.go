@@ -9,5 +9,9 @@ func (e *PropositionalEngine) canReusePDRRules(prepared *base.RuleSet) (bool, er
 	if e.pdr == nil || e.pdrRules == nil || e.pdrRuleRevision != e.revision {
 		return false, nil
 	}
-	return hornRuleSetSubsumes(e.pdrRules, prepared)
+	subsumes, err := hornRuleSetSubsumes(e.pdrRules, prepared)
+	if err != nil || !subsumes {
+		return false, err
+	}
+	return e.pdr.CanUpdateRules(prepared)
 }
