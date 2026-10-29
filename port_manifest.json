@@ -95891,6 +95891,7 @@
             "TestSolverIntegerBranchAndBound",
             "TestSolverConflictMinimizationWithEquality",
             "TestSolverInlineVariablesPatchesModelAndConflict",
+            "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
             "TestFullDimensionalLiteralClassification",
             "TestSolverCheckPublishesFullDimensionalExplanationMode",
         "TestUnivariateConjunctionRejectsMixedVariablesAndOwnsDomain",
@@ -96453,6 +96454,13 @@
             "TestFullDimensionalLiteralClassification",
             "TestSolverCheckPublishesFullDimensionalExplanationMode"
           ]
+        },
+        {
+          "name": "Per-arithmetic-variable watched-clause ordering by clause degree and original index (cpp2190-2238)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/clause_order.go",
+          "go_targets": ["pkg/nlsat/solver.go"],
+          "tests": ["TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex"]
         },
         {
           "name": "var_info_collector polynomial degree/occurrence scoring, native heuristic and seeded shuffle permutations, root-atom reorder guard, polynomial/atom/assignment/integer-map mutation, clause reattachment, and external-order restoration (cpp1893-2091)",

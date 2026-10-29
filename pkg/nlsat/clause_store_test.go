@@ -555,6 +555,30 @@ func TestClauseStoreSourceDegreeQueriesAndFreshMetadataGuard(t *testing.T) {
 	}
 }
 
+func TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex(t *testing.T) {
+	e, s := clauseStoreFixture(t)
+	degrees := []uint32{3, 1, 2, 1}
+	clauses := make([]*Clause, len(degrees))
+	for i, degree := range degrees {
+		p := evaluatorPolynomial(t, e, evaluatorTerm{1, 0, degree})
+		b, err := s.atoms.mkInequality(AtomGT, []polynomial.Polynomial{p}, []bool{false})
+		assignmentMust(t, err)
+		assignmentMust(t, s.mkInputClause([]sat.Literal{sat.MakeLiteral(b, false)}, Assumption{}))
+		clauses[i] = s.originals[len(s.originals)-1]
+	}
+	assignmentMust(t, s.sortWatchedClauses())
+	watched := s.vars.watches[1]
+	want := []*Clause{clauses[1], clauses[3], clauses[2], clauses[0]}
+	if len(watched) != len(want) {
+		t.Fatal("sorted watch count", len(watched), len(want))
+	}
+	for i := range want {
+		if watched[i] != want[i] {
+			t.Fatal("sorted arithmetic watches", i, watched[i].ID(), want[i].ID())
+		}
+	}
+}
+
 func TestClauseStoreInputLiteralIdentityAndNullAssumption(t *testing.T) {
 	_, s := clauseStoreFixture(t)
 	inputs := []sat.Literal{TrueLiteral, TrueLiteral}

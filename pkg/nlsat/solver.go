@@ -292,6 +292,9 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 			resultErr = errors.Join(resultErr, s.RestoreVariableOrder())
 		}
 	}()
+	if err = s.clauses.sortWatchedClauses(); err != nil {
+		return lbool.Undef, err
+	}
 	for {
 		result, err := s.search.search(s.resolution, s.explanation)
 		if err != nil || result != lbool.True {

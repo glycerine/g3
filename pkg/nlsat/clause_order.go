@@ -3,6 +3,8 @@ package nlsat
 // Source: src/nlsat/nlsat_solver.cpp:300-387,660-694.
 
 import (
+	"sort"
+
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/sat"
 )
@@ -13,6 +15,45 @@ func (s *clauseStore) literalAtom(l sat.Literal) (ArithmeticAtom, error) {
 		return nil, arena.ErrBounds
 	}
 	return s.atoms.bools.atoms[b], nil
+}
+
+// sortWatchedClauses applies the source degree/index permutation to each
+// arithmetic watch list. Equal-degree clauses retain their existing order.
+func (s *clauseStore) sortWatchedClauses() error {
+	if err := s.open(); err != nil {
+		return err
+	}
+	for variable := range s.vars.watches {
+		watched := s.vars.watches[variable]
+		if len(watched) <= 1 {
+			continue
+		}
+		degrees := make([]uint32, len(watched))
+		for index, clause := range watched {
+			degree, err := s.clauseDegree(clause.Literals())
+			if err != nil {
+				return err
+			}
+			degrees[index] = degree
+		}
+		order := make([]int, len(watched))
+		for index := range order {
+			order[index] = index
+		}
+		sort.Slice(order, func(i, j int) bool {
+			left, right := order[i], order[j]
+			if degrees[left] != degrees[right] {
+				return degrees[left] < degrees[right]
+			}
+			return left < right
+		})
+		next := make([]*Clause, len(watched))
+		for index, old := range order {
+			next[index] = watched[old]
+		}
+		s.vars.watches[variable] = next
+	}
+	return nil
 }
 func (s *clauseStore) maxVar(lits []sat.Literal) (uint32, error) {
 	x := uint32(NullVariable)
