@@ -99770,11 +99770,14 @@
       "status": "partial",
       "go_targets": [
         "pkg/nlsat/tactic/model_projection.go",
-        "pkg/qe/nlqsat_state.go"
+        "pkg/qe/nlqsat_state.go",
+        "pkg/qe/nlqsat_loop.go"
       ],
       "tests": [
         "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
-        "TestNLQStateModelScopesAssumptionsAndPredicateLevels"
+        "TestNLQStateModelScopesAssumptionsAndPredicateLevels",
+        "TestNLQSearchTerminalAlternatingChecks",
+        "TestNLQSearchProjectsConflictAndBacktracksEvenScopes"
       ],
       "assertions": [
         {
@@ -99852,14 +99855,24 @@
           "tests": [
             "TestNLQStateModelScopesAssumptionsAndPredicateLevels"
           ]
+        },
+        {
+          "name": "Alternating NLSAT check loop with SAT model pushes, terminal level-zero/one results, UNSAT-core model projection, parity-clause learning and dependency-level even-scope backtracking (cpp80-102,178-223,312-345)",
+          "status": "ported",
+          "go_target": "pkg/qe/nlqsat_loop.go",
+          "tests": [
+            "TestNLQSearchTerminalAlternatingChecks",
+            "TestNLQSearchProjectsConflictAndBacktracksEvenScopes"
+          ]
         }
       ],
       "ownership": [
         "ModelProjector borrows the AST manager, NLSAT solver and compiler expression mappings while owning two alternating LiteralVectors. Each projection round resets the destination before acquiring projected atom leases; the final blocking clause owns an AST reference before temporary reconstructed-literal references are released. Closing the projector retires both literal vectors before the borrowed solver.",
-        "nlqState borrows the concrete NLSAT solver, owns its copied real assignment and every per-level predicate LiteralVector, and stores Boolean snapshots and assumption caches as native Go values. Predicate vectors are closed in reverse level order before the assignment and borrowed solver."
+        "nlqState borrows the concrete NLSAT solver, owns its copied real assignment and every per-level predicate LiteralVector, and stores Boolean snapshots and assumption caches as native Go values. Predicate vectors are closed in reverse level order before the assignment and borrowed solver.",
+        "nlqSearch owns two alternating projection LiteralVectors plus nlqState while borrowing its NLSAT solver. A projected core is evaluated only after restoring the saved SAT model; destination vectors reset before each elimination, learned clauses acquire their own atom references, and close retires projection vectors before state predicate vectors."
       ],
       "deviations": [
-        "The retained mbp/negate_clause/clause2fml bridge, alternating assumption caches, level tracking and model save/restore are supplied. Quantifier hoisting, learned-clause insertion/backtracking, division purification, answer construction and the public nlqsat tactic/search loop remain to be integrated, so the source unit remains partial."
+        "The retained mbp/negate_clause/clause2fml bridge, alternating assumption caches, level tracking, model save/restore and qsat-mode learned-clause/backtracking loop are supplied. Quantifier hoisting/CNF initialization, QE-mode answer construction, division purification, frontend model publication and the public nlqsat tactic surface remain to be integrated, so the source unit remains partial."
       ]
     },
     {
