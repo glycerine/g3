@@ -369,6 +369,7 @@ func (s *Solver) Statistics() (map[string]float64, error) {
 		"nlsat decisions":              float64(s.search.decisions),
 		"nlsat stages":                 float64(s.search.stages),
 		"nlsat irrational assignments": float64(s.search.irrationalAssignments),
+		"nlsat simplifications":        float64(s.search.simplifications),
 	}, nil
 }
 
@@ -381,6 +382,7 @@ func (s *Solver) ResetStatistics() error {
 	s.search.decisions = 0
 	s.search.stages = 0
 	s.search.irrationalAssignments = 0
+	s.search.simplifications = 0
 	return nil
 }
 

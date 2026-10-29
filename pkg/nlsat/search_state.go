@@ -76,6 +76,7 @@ type searchState struct {
 	level                           uint32
 	decisions, propagations, stages uint32
 	conflicts                       uint32
+	simplifications                 uint32
 	irrationalAssignments           uint32
 	witness                         polynomial.Algebraic
 	witnessActive                   bool
