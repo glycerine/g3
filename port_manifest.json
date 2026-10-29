@@ -4887,9 +4887,9 @@
       "path": "src/api/api_ast.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_ast_construction.go", "pkg/api/api_ast_construction_test.go", "pkg/api/api_ast_inspection.go", "pkg/api/api_ast_inspection_test.go"],
+      "tests": ["TestSMTContextAST"],
       "assertions": [
         {
           "line": 344,
