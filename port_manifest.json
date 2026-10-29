@@ -96691,8 +96691,8 @@
       "component": "nlsat",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go"],
-      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies"],
+      "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go", "pkg/nlsat/tactic/nlsat2goal.go"],
+      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies", "TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"],
       "assertions": [
         {
           "line": 102,
@@ -96727,10 +96727,16 @@
           "status": "partial",
           "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
           "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies"]
+        },
+        {
+          "name": "nlsat2goal Boolean abstraction, polynomial inequality reconstruction, complemented comparisons, and root-atom fallback (cpp298-445)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/nlsat2goal.go",
+          "tests": ["TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"]
         }
       ],
       "ownership": [],
-      "deviations": ["The nlsat2goal diagnostic conversion remains pending; solving uses the retained factor and nonfactor compiler branches."]
+      "deviations": ["Root atoms retain the source's fresh-Boolean fallback semantics with a deterministic nlsat-root variable name instead of embedding the solver display text."]
     },
     {
       "path": "src/nlsat/tactic/goal2nlsat.h",

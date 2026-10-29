@@ -36,6 +36,14 @@ func (m *ASTManager) MkArithmeticPower(base, exponent ASTHandle) (ASTHandle, err
 	return m.arithmeticApp(18, base, exponent)
 }
 
+func (m *ASTManager) MkArithmeticLT(left, right ASTHandle) (ASTHandle, error) {
+	return m.arithmeticApp(4, left, right)
+}
+
+func (m *ASTManager) MkArithmeticGT(left, right ASTHandle) (ASTHandle, error) {
+	return m.arithmeticApp(5, left, right)
+}
+
 func (m *ASTManager) MkArithmeticLE(left, right ASTHandle) (ASTHandle, error) {
 	return m.arithmeticApp(2, left, right)
 }

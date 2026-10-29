@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/nlsat"
+	"github.com/glycerine/g3/pkg/sat"
 	basetactic "github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/cooperate"
@@ -227,6 +228,141 @@ func TestGoalCompilerBooleanAbstractionModel(t *testing.T) {
 	compilerMust(t, err)
 	if kind, kindErr := fixture.manager.GetDeclKind(interpretation); kindErr != nil || kind != ast.ASTOpTrue {
 		t.Fatalf("p model kind = %d, err=%v", kind, kindErr)
+	}
+}
+
+func TestGoalConverterReconstructsBooleanAndArithmeticLiterals(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	booleanSort, err := fixture.manager.MkBoolSort()
+	compilerMust(t, err)
+	p := compilerConst(t, fixture.manager, "convert-p", booleanSort)
+	zero, err := fixture.manager.ArithmeticRealNumeralText("0")
+	compilerMust(t, err)
+	realSort, err := fixture.manager.GetSort(zero)
+	compilerMust(t, err)
+	x := compilerConst(t, fixture.manager, "convert-x", realSort)
+	bound, err := fixture.manager.MkArithmeticGE(x, zero)
+	compilerMust(t, err)
+	compilerMust(t, fixture.compiler.Compile(compilerGoal(t, fixture.manager, p)))
+	compilerMust(t, fixture.compiler.Compile(compilerGoal(t, fixture.manager, bound)))
+
+	converter, err := NewGoalConverter(fixture.manager, fixture.solver, fixture.compiler.AtomMapping(), fixture.compiler.TermMapping())
+	compilerMust(t, err)
+	booleanVariable, err := fixture.compiler.AtomMapping().ToVar(p)
+	compilerMust(t, err)
+	positive, err := converter.ConvertLiteral(sat.MakeLiteral(sat.BoolVar(booleanVariable), false))
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&positive)) }()
+	positiveHandle, err := fixture.manager.RefGet(positive)
+	compilerMust(t, err)
+	if positiveHandle != p {
+		t.Fatal("Boolean literal reconstruction", positiveHandle, p)
+	}
+	negative, err := converter.ConvertLiteral(sat.MakeLiteral(sat.BoolVar(booleanVariable), true))
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&negative)) }()
+	negativeHandle, err := fixture.manager.RefGet(negative)
+	compilerMust(t, err)
+	if kind, cause := fixture.manager.GetDeclKind(negativeHandle); cause != nil || kind != ast.ASTOpNot {
+		t.Fatal("negative Boolean reconstruction", kind, cause)
+	}
+	child, err := fixture.manager.GetArg(negativeHandle, 0)
+	compilerMust(t, err)
+	if child != p {
+		t.Fatal("negative Boolean child", child, p)
+	}
+
+	// The true variable is zero and p is allocated before the arithmetic atom.
+	arithmeticVariable := sat.BoolVar(booleanVariable + 1)
+	converted, err := converter.ConvertLiteral(sat.MakeLiteral(arithmeticVariable, true))
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&converted)) }()
+	convertedHandle, err := fixture.manager.RefGet(converted)
+	compilerMust(t, err)
+	if convertedHandle != bound {
+		got, _ := fixture.manager.SMT2PPExprTree(convertedHandle, nil)
+		want, _ := fixture.manager.SMT2PPExprTree(bound, nil)
+		t.Fatal("arithmetic literal reconstruction", got, want)
+	}
+	complement, err := converter.ConvertLiteral(sat.MakeLiteral(arithmeticVariable, false))
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&complement)) }()
+	complementHandle, err := fixture.manager.RefGet(complement)
+	compilerMust(t, err)
+	wantComplement, err := fixture.manager.MkArithmeticLT(x, zero)
+	compilerMust(t, err)
+	if complementHandle != wantComplement {
+		got, _ := fixture.manager.SMT2PPExprTree(complementHandle, nil)
+		want, _ := fixture.manager.SMT2PPExprTree(wantComplement, nil)
+		t.Fatal("arithmetic complement reconstruction", got, want)
+	}
+
+	termVariable, err := fixture.compiler.TermMapping().ToVar(x)
+	compilerMust(t, err)
+	polynomials, err := fixture.solver.PolynomialManager()
+	compilerMust(t, err)
+	core, err := polynomials.ArithmeticCore()
+	compilerMust(t, err)
+	factor, err := core.MkVariable(termVariable, 1)
+	compilerMust(t, err)
+	owned, err := polynomial.NewPolynomialRef(core)
+	compilerMust(t, err)
+	compilerMust(t, owned.Assign(factor))
+	defer func() { compilerMust(t, owned.Close()) }()
+	evenLiteral, err := fixture.solver.MkInequality(nlsat.AtomGT, []polynomial.Polynomial{factor}, []bool{true}, false)
+	compilerMust(t, err)
+	evenExpression, err := converter.ConvertLiteral(evenLiteral)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&evenExpression)) }()
+	evenHandle, err := fixture.manager.RefGet(evenExpression)
+	compilerMust(t, err)
+	power, err := fixture.manager.GetArg(evenHandle, 0)
+	compilerMust(t, err)
+	if kind, cause := fixture.manager.GetDeclKind(power); cause != nil || kind != 18 {
+		t.Fatal("even factor was not reconstructed as a square", kind, cause)
+	}
+}
+
+func TestGoalConverterRetainsRootFallbackIdentity(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	polynomials, err := fixture.solver.PolynomialManager()
+	compilerMust(t, err)
+	core, err := polynomials.ArithmeticCore()
+	compilerMust(t, err)
+	variable, err := fixture.solver.MkVar(false)
+	compilerMust(t, err)
+	p, err := core.MkVariable(variable, 1)
+	compilerMust(t, err)
+	owned, err := polynomial.NewPolynomialRef(core)
+	compilerMust(t, err)
+	compilerMust(t, owned.Assign(p))
+	defer func() { compilerMust(t, owned.Close()) }()
+	literal, err := fixture.solver.MkRoot(nlsat.AtomRootLT, variable, 1, p, false)
+	compilerMust(t, err)
+	converter, err := NewGoalConverter(fixture.manager, fixture.solver, fixture.compiler.AtomMapping(), fixture.compiler.TermMapping())
+	compilerMust(t, err)
+	first, err := converter.ConvertLiteral(literal)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&first)) }()
+	second, err := converter.ConvertLiteral(literal)
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&second)) }()
+	a, err := fixture.manager.RefGet(first)
+	compilerMust(t, err)
+	b, err := fixture.manager.RefGet(second)
+	compilerMust(t, err)
+	if a != b {
+		t.Fatal("root fallback was not stable", a, b)
+	}
+	negative, err := converter.ConvertLiteral(literal.Negated())
+	compilerMust(t, err)
+	defer func() { compilerMust(t, fixture.manager.DelRef(&negative)) }()
+	n, err := fixture.manager.RefGet(negative)
+	compilerMust(t, err)
+	child, err := fixture.manager.GetArg(n, 0)
+	compilerMust(t, err)
+	if child != a {
+		t.Fatal("root fallback negation lost identity", child, a)
 	}
 }
 

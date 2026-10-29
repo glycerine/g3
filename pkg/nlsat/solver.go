@@ -510,6 +510,19 @@ func (s *Solver) IsInterpreted(variable sat.BoolVar) (bool, error) {
 	return s.atoms.bools.atoms[variable] != nil, nil
 }
 
+// AtomForBooleanVariable returns the borrowed arithmetic atom associated with
+// variable. Frontend Boolean abstractions have no arithmetic atom.
+func (s *Solver) AtomForBooleanVariable(variable sat.BoolVar) (ArithmeticAtom, bool, error) {
+	if err := s.open(); err != nil {
+		return nil, false, err
+	}
+	if uint64(variable) >= uint64(len(s.atoms.bools.atoms)) || s.atoms.bools.dead[variable] {
+		return nil, false, arena.ErrBounds
+	}
+	atom := s.atoms.bools.atoms[variable]
+	return atom, atom != nil, nil
+}
+
 func (s *Solver) Core(out *[]Assumption) error {
 	if err := s.open(); err != nil {
 		return err
