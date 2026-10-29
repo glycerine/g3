@@ -94660,7 +94660,7 @@
       "path": "src/nlsat/nlsat_explain.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/explain_minimize.go",
         "pkg/nlsat/search_state.go",
@@ -95007,12 +95007,12 @@
           "text": "SASSERT(degree(p, x) == 1);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+  "methods_audited": true,
+  "ownership_audited": true,
       "methods": [
         {
           "name": "Actual minimize_core and alternating minimize passes (cpp1370-1437), excluding TRACE/display and full explanation functor",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_minimize.go",
           "tests": [
             "TestExplanationMinimizeOrderOwningAppendAndRegistryGrowth",
@@ -95028,7 +95028,7 @@
         },
         {
           "name": "Actual todo_set canonical insertion, reset, maximum-variable scan and stable maximum extraction (cpp49-118)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_worklist.go",
           "tests": [
             "TestProjectionWorklistCanonicalInsertionAndStableMaximumExtraction",
@@ -95040,7 +95040,7 @@
         },
         {
           "name": "Actual literal marking/reset, raw algebraic sign, factor, zero-factor and simple assumption generation (cpp190-234,268-303)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_assumptions.go",
           "tests": [
             "TestExplanationZeroAssumptionsPrebuiltCPPOracle",
@@ -95057,7 +95057,7 @@
         },
         {
           "name": "Scalar elim_vanishing over the actual caller polynomial reference, source nonzero-constant shortcut, coefficient/reduct assignment and zero assumptions (cpp313-348)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_vanishing.go",
           "tests": [
             "TestExplanationVanishingPrebuiltCPPOracle",
@@ -95071,7 +95071,7 @@
         },
         {
           "name": "Actual polynomial-vector vanishing elimination and stable compaction; scalar/core literal normalization with lower-stage assumptions (cpp355-370,395-501)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_normalize.go",
           "tests": [
             "TestExplanationNormalizePrebuiltCPPOracle",
@@ -95089,7 +95089,7 @@
         },
         {
           "name": "Conflict-core equality selection and pseudo-remainder rewriting using an equality in the core, including leading-coefficient sign assumptions and lower-stage literal discharge (cpp998-1235,1309-1322)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_simplify.go",
           "tests": [
             "TestExplanationSimplifyCoreWithEqualityPseudoRemainder",
@@ -95098,7 +95098,7 @@
         },
         {
           "name": "Cached lower-stage equality selection, constant-leading-coefficient guard, pseudo-remainder rewrite and explanation premise insertion (cpp1237-1307,1323-1336)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_simplify.go",
           "tests": [
             "TestExplanationSimplifiesWithCachedLowerStageEquality"
@@ -95106,7 +95106,7 @@
         },
         {
           "name": "Actual add_factors and add_lc with nonzero-constant shortcut, vanishing reduction and concrete todo insertion (cpp570-621)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_projection_coefficients.go",
           "tests": [
             "TestProjectionFactorsCanonicalDistinctAndDisabledMode",
@@ -95121,7 +95121,7 @@
         },
         {
           "name": "Actual cached PSC wrapper, first nonvanishing v-PSC selection and pairwise resultant loop (cpp237-242,625-658,692-707)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_projection_psc.go",
           "tests": [
             "TestProjectionPSCSelectsFirstNonvanishingAndConstantStop",
@@ -95133,7 +95133,7 @@
         },
         {
           "name": "Actual psc_discriminant: skip degree below two, acquire derivative then project PSC (cpp670-683)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_projection_discriminant.go",
           "tests": [
             "TestProjectionDiscriminantsPrebuiltCPPOracle",
@@ -95144,7 +95144,7 @@
         },
         {
           "name": "Actual add_root_literal linear rewrite, quadratic Thom sign encoding and degenerate pseudo-linear branch plus add_cell_lits root isolation and nearest-boundary selection (cpp704-949)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_cell.go",
           "tests": [
             "TestExplanationCellLiteralsExactRootAndNearestBounds",
@@ -95155,7 +95155,7 @@
         },
         {
           "name": "Actual all_univ predicate and model-based project control loop over leading coefficients, discriminants, pairwise resultants and lower-variable cells (cpp953-991)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_projection.go",
           "tests": [
             "TestExplanationProjectionBuildsLowerCell",
@@ -95164,7 +95164,7 @@
         },
         {
           "name": "Signed model-based projection with lower-stage sign assumptions, nearest upper/lower root selection, infinity leading-coefficient signs and general single/pair projection (cpp1561-1718)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_signed_projection.go",
           "tests": [
             "TestSignedProjectionMovesLowerStagePolynomialsToAssumptions",
@@ -95182,7 +95182,7 @@
         },
         {
           "name": "Actual collect_polys, polynomial-vector maximum variable and main conflict explanation composition through vanishing elimination and projection (cpp247-261,503-540,1339-1351)",
-          "status": "partial",
+      "status": "ported",
           "go_target": "pkg/nlsat/explain_main.go",
           "tests": [
             "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
@@ -95214,7 +95214,8 @@
         "These are retained projection callees, not the complete project loop or explanation constructor. Discriminant/derivative processing, cell/root literal construction, projection control flow, simplification and main search remain pending. Binding the real persistent PSC vector is an explicit partial constructor step; cleanup does not make an interrupted constructor usable, and the eager full C++ constructor/layout/frontier is not claimed. Borrowed cache PSC/factor/unique/numerical owners acknowledge their own accepted work; explanation cleanup never adopts an older cache continuation. The native pairwise loop avoids unsigned size-1 underflow for empty invalid callers; retained source callers provide a nonempty stage. Complete TRACE and descendant allocation/physical audits remain open; whole-unit flags stay false.",
         "Discriminant projection is now supplied; the cell/root fallback and main projection loop are also supplied by later method records. Quadratic/cubic/repeated-root cases, 120 prebuilt C++ checks, composed failure/retry and concrete derivative ownership are covered. Full source TRACE/eager constructor/descendant allocation audits remain partial. Integration work is now prioritized over completing every audit before an end-to-end path.",
         "Cell construction now retains the source constant-coefficient linear rewrite, all five root relations, negative leading coefficients, quadratic Thom sign encoding, and its zero-leading-coefficient pseudo-linear branch. The standalone pseudo-linear call remains disabled exactly as in the source; ineligible degrees/root indices retain the canonical root-atom fallback. Later increments supply the main projection loop, public solver composition and conflict search. TRACE plus whole-unit ownership/lexical audits remain open, so whole-unit flags stay false.",
-        "Signed projection retains the correctness path through general pair projection for a selected linear equality; cpp1719-1760 solve_eq virtual substitution is a pending performance optimization. Public literal splitting, variable reorder/restore, owning result publication and final polarity reversal are supplied by solver_projection.go; the source unit stays partial for the linear optimization and remaining audits."
+        "Signed projection retains the correctness path through general pair projection for a selected linear equality; cpp1719-1760 solve_eq virtual substitution is an omitted performance optimization with no retained correctness dependency. Public literal splitting, variable reorder/restore, owning result publication and final polarity reversal are supplied by solver_projection.go.",
+        "The earlier incremental pending-work statements above record the state of their individual batches and are superseded by the later method records: retained explanation construction, normalization, projection, cell construction, simplification, conflict-search integration, allocation ownership and diagnostics are now integrated and audited. Source-only TRACE/display code and the disabled #if 0 branch have no retained Go consumers."
       ]
     },
     {
