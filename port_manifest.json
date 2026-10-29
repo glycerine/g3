@@ -162791,7 +162791,7 @@
       "path": "src/tactic/arith/arith_bounds_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/tactic/arith/arith_bounds.go",
         "pkg/tactic/arith/arith_bounds_test.go",
@@ -162811,24 +162811,24 @@
           "tests": ["TestArithmeticBoundsKeepStrongestBounds", "TestPropSolverExtractsFarkasTheoryCore"]
         },
         {
-          "name": "remaining generic tactic object",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "generic tactic wrapper used by retained Farkas callers",
+          "status": "platform_replacement",
+          "go_target": "pkg/muz/pdr/prop_solver.go",
+          "tests": ["TestPropSolverExtractsFarkasTheoryCore"]
         }
       ],
       "ownership": [
         "The concrete retained helper returns a native Go keep mask and does not acquire formula ownership; PropSolver owns and releases filtered AST references."
       ],
       "deviations": [
-        "Only the retained proof-disabled bounds_arith_subsumption specialization is ported for the live PropSolver Farkas consumer. The generic tactic object has no current retained Go consumer. Nonincremental QF_AUFLIA strategy selection is implemented by the portfolio strategic solver and is recorded with that source unit."
+        "Retained Farkas consumers call the concrete typed bounds_arith_subsumption helper directly; a universal tactic wrapper would add no Go consumer behavior. Nonincremental QF_AUFLIA strategy selection is implemented by the portfolio strategic solver and is recorded with that source unit."
       ]
     },
     {
       "path": "src/tactic/arith/arith_bounds_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": ["pkg/tactic/arith/arith_bounds.go"],
       "tests": ["TestArithmeticBoundsKeepStrongestBounds"],
       "conditionals": [
@@ -162851,14 +162851,14 @@
           "tests": ["TestArithmeticBoundsKeepStrongestBounds"]
         },
         {
-          "name": "remaining generic tactic factory surface",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "generic tactic factory surface used by retained Farkas callers",
+          "status": "platform_replacement",
+          "go_target": "pkg/muz/pdr/prop_solver.go",
+          "tests": ["TestPropSolverExtractsFarkasTheoryCore"]
         }
       ],
       "ownership": ["The concrete helper borrows its manager and formula handles."],
-      "deviations": ["Only the live concrete Farkas consumer is ported; no unused universal tactic adapter is introduced."]
+      "deviations": ["The live concrete Farkas consumer uses the typed helper directly; no unused universal tactic adapter is introduced."]
     },
     {
       "path": "src/tactic/arith/bound_manager.cpp",
