@@ -72078,7 +72078,23 @@
         "pkg/math/realclosure/root_bisect_any_test.go",
         "pkg/math/realclosure/root_dispatch_any_test.go",
         "pkg/math/realclosure/root_zero_any_test.go",
-        "pkg/math/realclosure/root_dispatch_any_ownership_test.go"
+        "pkg/math/realclosure/root_dispatch_any_ownership_test.go",
+        "pkg/math/realclosure/value_rank_retained.go",
+        "pkg/math/realclosure/algebraic_polynomial_value_ranked.go",
+        "pkg/math/realclosure/algebraic_polynomial_reduce_ranked.go",
+        "pkg/math/realclosure/value_sign_ranked.go",
+        "pkg/math/realclosure/value_canonical_ranked.go",
+        "pkg/math/realclosure/value_negate_ranked.go",
+        "pkg/math/realclosure/value_add_ranked.go",
+        "pkg/math/realclosure/value_subtract_ranked.go",
+        "pkg/math/realclosure/value_multiply_ranked.go",
+        "pkg/math/realclosure/value_compare_ranked.go",
+        "pkg/math/realclosure/value_ranked_fixture_test.go",
+        "pkg/math/realclosure/value_add_ranked_test.go",
+        "pkg/math/realclosure/value_multiply_ranked_test.go",
+        "pkg/math/realclosure/value_negate_subtract_ranked_test.go",
+        "pkg/math/realclosure/value_compare_ranked_test.go",
+        "pkg/math/realclosure/value_ranked_ownership_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72142,7 +72158,8 @@
         "TestNormalizeMixed",
         "TestAnyPolynomial",
         "TestAnySturm",
-        "TestAnyRoot"
+        "TestAnyRoot",
+        "TestRankedValue"
       ],
       "conditionals": [
         {
