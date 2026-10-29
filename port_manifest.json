@@ -272730,12 +272730,12 @@
     "full_suite_qualification": "Full native checkpoint17ecadb7 passed after this audit; subsequent commits changed only ledgers/documentation, so current Go code is covered by that run. Focused checked evidence remains separate."
   },
   "latest_full_native_checkpoint": {
-    "commit": "412f1d55237ae5c24b33c2f7c5f451cba29cbbde",
-    "command": "taskset -c 8-16 env GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/mnt/oldrog/tmp/g3-go-cache GOTMPDIR=/mnt/oldrog/tmp/g3-go-tmp GOPROXY=off CGO_ENABLED=0 go test ./... -count=1",
-    "started_utc": "2026-10-29T18:36:10+00:00",
-    "completed_utc": "2026-10-29T18:40:16+00:00",
+    "commit": "4156bc96f8864eaded00aed1f8733564a5721ca5",
+    "command": "taskset -c 8-16 env GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/mnt/oldrog/tmp/g3-go-cache GOTMPDIR=/mnt/oldrog/tmp/g3-go-tmp GOPROXY=off CGO_ENABLED=0 go test ./pkg/... -count=1",
+    "started_utc": "2026-10-29T19:36:40+00:00",
+    "completed_utc": "2026-10-29T19:40:58+00:00",
     "exit_code": 0,
-    "evidence": "interactive exec session 45725 completed and retired after emitting every package result",
+    "evidence": "interactive exec session 69792 completed and retired after emitting every pkg package result",
     "cpu_affinity": [
       8,
       9,
@@ -272749,11 +272749,14 @@
     ],
     "GOMAXPROCS": 2,
     "package_timeout": "default",
-    "packages_with_ok_result": 90,
-    "packages_without_test_files": 5,
-    "lp_seconds": 3.023,
+    "packages_with_ok_result": 99,
+    "packages_without_test_files": 4,
+    "lp_seconds": 2.352,
     "checkout_held_unchanged": true,
-    "scope_warning": "Verified clean 412f1d55237ae5c24b33c2f7c5f451cba29cbbde with 95 packages exactly once, 90 tested and 5 without tests; CPUs 8-16/GOMAXPROCS2, local Go toolchain, offline module mode, cgo disabled, insdict v0.14.6. API, command-context, interpolation/PDR, polynomial, NLSAT/QE, SAT, smtcore, completed tactic portfolios and all util packages passed. Default native suite skips guarded LP cases (LP 3.023s); no full LP -short or whole tagged-module audit."
+    "smtlib_runner_go_command": "taskset -c 8-16 env GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/mnt/oldrog/tmp/g3-go-cache GOTMPDIR=/mnt/oldrog/tmp/g3-go-tmp GOPROXY=off CGO_ENABLED=0 G3_CPP_REFERENCE=/mnt/oldrog/home/jaten/go/src/github.com/glycerine/g3/build/z3 go test ./pkg/cmd/g3 -run '^TestSMTLibRunnerScripts$' -count=1",
+    "smtlib_runner_cpp_differential_command": "taskset -c 8-16 env GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/mnt/oldrog/tmp/g3-go-cache GOTMPDIR=/mnt/oldrog/tmp/g3-go-tmp GOPROXY=off CGO_ENABLED=0 G3_CPP_REFERENCE=/mnt/oldrog/home/jaten/go/src/github.com/glycerine/g3/build/z3 go test ./pkg/cmd/g3 -run '^TestSMTLibRunnerCPPReference$' -count=1",
+    "smtlib_runner_oracle_vectors": 593,
+    "scope_warning": "Verified clean 4156bc96f8864eaded00aed1f8733564a5721ca5 across all 103 pkg packages exactly once, 99 tested and 4 without tests; CPUs 8-16/GOMAXPROCS2, local Go toolchain, offline module mode, cgo disabled, insdict v0.14.6. API, command-context, interpolation/PDR/Spacer, polynomial, NLSAT/QE, SAT, smtcore, solver, tactic portfolios and all util packages passed. Separately, all 593 checked-in SMT-LIB oracle vectors passed both the Go runner and full Go/C++ differential runner. Default native suite skips guarded LP cases (LP 2.352s); no full LP -short or whole tagged-module audit."
   },
   "latest_indexed_vector_forward_owner_increment": {
     "scope": "Exact indexed vector close now has an explicit forward dense-element path for retained source vector<T> members; pair core and primal core use it for their persistent rational and pair vectors. Reverse Close continues for lexical expression work. Source util/vector.h:47-52 destroys elements from begin to end. Three indexed source units remain partial pending all other retained owners and exact template-root reachability.",
