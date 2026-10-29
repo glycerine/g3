@@ -82822,9 +82822,9 @@
       "path": "src/muz/fp/datalog_parser.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/cmd_context/datalog_token.go", "pkg/cmd_context/datalog_lexer.go", "pkg/cmd_context/datalog_parser.go", "pkg/cmd_context/datalog_parser_errors.go", "pkg/cmd_context/datalog_parser_domains.go", "pkg/cmd_context/datalog_parser_declarations.go", "pkg/cmd_context/datalog_parser_rules.go", "pkg/cmd_context/datalog_parser_terms.go", "pkg/cmd_context/datalog_parser_include.go", "pkg/cmd_context/datalog_parser_constants.go", "pkg/cmd_context/datalog_lexer_test.go", "pkg/cmd_context/datalog_parser_test.go", "pkg/cmd_context/datalog_parser_include_test.go"],
+      "tests": ["TestDatalogLexer", "TestDatalogParser"],
       "conditionals": [
         {
           "line": 67,
