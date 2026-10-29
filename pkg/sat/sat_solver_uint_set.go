@@ -87,6 +87,104 @@ func (s *satSolverUintSet) Insert(v uint32) error {
 	}
 	return nil
 }
+func (s *satSolverUintSet) Remove(v uint32) error {
+	if e := s.open(); e != nil {
+		return e
+	}
+	if !s.Contains(v) {
+		return nil
+	}
+	s.inSet[v] = 0
+	i := 0
+	for i < len(s.values) && s.values[i] != v {
+		i++
+	}
+	if i == len(s.values) {
+		if satStorageSourceDebug {
+			return ErrSATAssertion
+		}
+		return arena.ErrBounds
+	}
+	last := len(s.values) - 1
+	s.values[i] = s.values[last]
+	s.values[last] = 0
+	s.values = s.values[:last]
+	return nil
+}
+func (s *satSolverUintSet) Pop() (uint32, error) {
+	if e := s.open(); e != nil {
+		return 0, e
+	}
+	if len(s.values) == 0 {
+		if satStorageSourceDebug {
+			return 0, ErrSATAssertion
+		}
+		return 0, arena.ErrBounds
+	}
+	last := len(s.values) - 1
+	v := s.values[last]
+	s.values[last] = 0
+	s.values = s.values[:last]
+	if uint64(v) >= uint64(len(s.inSet)) {
+		return v, arena.ErrBounds
+	}
+	s.inSet[v] = 0
+	return v, nil
+}
+func (s *satSolverUintSet) Assign(other *satSolverUintSet) error {
+	if e := s.open(); e != nil {
+		return e
+	}
+	if e := other.open(); e != nil {
+		return e
+	}
+	if s == other {
+		return nil
+	}
+	s.inSet = append(s.inSet[:0], other.inSet...)
+	s.values = append(s.values[:0], other.values...)
+	return nil
+}
+func (s *satSolverUintSet) Intersect(other *satSolverUintSet) error {
+	if e := s.open(); e != nil {
+		return e
+	}
+	if e := other.open(); e != nil {
+		return e
+	}
+	if s == other {
+		return nil
+	}
+	j := 0
+	for _, v := range s.values {
+		if other.Contains(v) {
+			s.values[j] = v
+			j++
+		} else {
+			s.inSet[v] = 0
+		}
+	}
+	clear(s.values[j:])
+	s.values = s.values[:j]
+	return nil
+}
+func (s *satSolverUintSet) Union(other *satSolverUintSet) error {
+	if e := s.open(); e != nil {
+		return e
+	}
+	if e := other.open(); e != nil {
+		return e
+	}
+	if s == other {
+		return nil
+	}
+	for _, v := range other.values {
+		if e := s.Insert(v); e != nil {
+			return e
+		}
+	}
+	return nil
+}
 func (s *satSolverUintSet) Reset() error {
 	if e := s.open(); e != nil {
 		return e

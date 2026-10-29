@@ -112675,6 +112675,7 @@
       "status": "partial",
       "go_targets": [
         "pkg/sat/sat_solver_uint_set.go",
+        "pkg/sat/sat_solver_uint_set_test.go",
         "pkg/sat/sat_types.go",
         "pkg/sat/sat_solver_literal_set_storage.go",
         "pkg/sat/sat_solver_mus_set.go",
@@ -112735,7 +112736,9 @@
         "TestSATSolverStatDisplaySourceConditionalFields",
         "TestSATSolverStatDisplayEmptySourceMembers",
         "TestSATSolverStatDisplayEveryReservationPrefix",
-        "TestSATSolverStatDisplayWarmAndOwnerGuards"
+        "TestSATSolverStatDisplayWarmAndOwnerGuards",
+        "TestSATSolverUintSetSourceRemovePopCopyAndSetOperations",
+        "TestSATSolverUintSetIndependentMutationModel"
       ],
       "conditionals": [
         {
@@ -112873,7 +112876,7 @@
         },
         {
           "name": "sat::uint_set::insert",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/sat/sat_solver_uint_set.go",
           "tests": [
             "TestSATSolverUintSetNativeGrowthAndReset",
@@ -112883,7 +112886,7 @@
         },
         {
           "name": "sat::uint_set::contains",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/sat/sat_solver_uint_set.go",
           "tests": [
             "TestSATSolverUintSetNativeGrowthAndReset",
