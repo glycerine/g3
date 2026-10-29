@@ -49,6 +49,7 @@ type Solver struct {
 	projection     *projectionWorklist
 	resolution     *searchResolution
 	patches        []inlineVariablePatch
+	fmBounds       []*fourierMotzkinBound
 	literalVectors uint32
 	inlined        bool
 	randomSeed     uint32
@@ -343,6 +344,9 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 			cuts = append(cuts, cut)
 		}
 		if len(cuts) == 0 {
+			if err = s.fixFourierMotzkinBounds(); err != nil {
+				return lbool.Undef, err
+			}
 			if err = s.fixInlineVariablePatches(); err != nil {
 				return lbool.Undef, err
 			}
@@ -598,6 +602,9 @@ func (s *Solver) Close() (err error) {
 		if err == nil {
 			s.atoms = nil
 		}
+	}
+	if err == nil {
+		err = s.closeFourierMotzkinBounds()
 	}
 	if err == nil {
 		err = s.closeInlineVariablePatches()
