@@ -83376,7 +83376,14 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle"]
         },
         {
-          "name": "remaining cover model-converter remapping, non-simple-join model-converter application and general linear rule/model trace unification",
+          "name": "reverse-ledger model/cover converter application across slicing, cone filtering, subsumption, inlining, quantified arrays, scaling, Karr invariants and bit blasting, plus general linear rule/model trace unification",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/spacer_slice_results.go",
+          "go_targets": ["pkg/muz/fp/horn_inline_results.go", "pkg/muz/pdr/answer_trace.go"],
+          "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers", "TestSMT2FixedpointPDRTraceReductionMatchesCPP"]
+        },
+        {
+          "name": "remaining proof-trace reconstruction and diagnostics",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -83563,7 +83570,14 @@
           "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore", "TestContextSolveFindsInductiveUnreachablePredicate", "TestConvexClosureAndInteriorOwnExpectedEndpointRegions", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2"]
         },
         {
-          "name": "remaining cover and non-simple-join model-converter remapping plus general linear model-trace unification, proof reconstruction and optional multi/arithmetic/induction core generalizers",
+          "name": "cover and non-simple-join model-converter remapping, general linear model-trace unification, and optional multi/arithmetic/induction core generalizers",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/spacer_slice_results.go",
+          "go_targets": ["pkg/muz/pdr/answer_trace.go", "pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/generalizer_arithmetic.go", "pkg/muz/pdr/generalizer_induction.go"],
+          "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt"]
+        },
+        {
+          "name": "remaining proof reconstruction and diagnostics",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -83734,7 +83748,7 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestPDREngineExpandsSlicedModelsAndCovers"]
         },
         {
-          "name": "remaining proof traces, native transformed-rule subsumption reuse and unfold/coalesce integration",
+          "name": "remaining proof traces and native PDR unfold/coalesce integration",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -89440,7 +89454,7 @@
       "ownership_audited": true,
       "methods": [
         {"name": "retained context/predicate-transformer lifecycle, full propagation scheduling, configured and final-inductive frame unit-subsumption simplification, Farkas-only lemma generalization, solving, result validation, answers, inductive models, levels and covers", "status": "partial", "go_target": "pkg/muz/spacer/context.go", "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestContextConsumesResultValidationPolicy", "TestContextConsumesFrameSimplificationPolicies", "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation", "TestLemmaGeneralizerGateRequiresNonFalseFarkasLemma", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSMTContextFixedpointSpacerInductiveExports"]},
-        {"name": "remaining optional generalizers, transformed-rule inheritance, proof/trace diagnostics and reachable-summary export", "status": "unported", "go_target": null, "tests": []}
+        {"name": "remaining optional generalizers, transformed-rule inheritance, and proof/trace diagnostics", "status": "unported", "go_target": null, "tests": []}
       ],
       "ownership": ["Context owns predicate transformers and the proof-obligation queue; each transformer owns solver views, frames, reach facts, rules and signature roots. Cover exports transfer one ASTRef to the caller."],
       "deviations": ["Go errors replace source assertions and direct typed owners replace intrusive reference wrappers."]
@@ -89470,7 +89484,7 @@
         {"name": "parameter-controlled semantic slice, coalesce, and iterative unfold preprocessing with direct query predicate remapping", "status": "ported", "go_target": "pkg/muz/fp/spacer_engine.go", "tests": ["TestSMTLibRunnerCPPReference/fixedpoint_spacer_slice_columns.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_spacer_coalesce_unfold.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_spacer_unfold_rules.smt2"]},
         {"name": "reverse-ledger model, cover, and reachable reconstruction across slicing, cone filtering, subsumption, and inlining; sliced answer and ground-answer variable expansion", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedReachableColumns", "TestSpacerEngineReconstructsInlinedReachablePredicate", "TestSpacerEngineExpandsSlicedModelPredicates"]},
         {"name": "sliced model interpretation expansion to original predicate declarations and columns", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedModelPredicates"]},
-        {"name": "remaining transformed-rule subsumption reuse, slice proof expansion, and proof or diagnostic certificate display", "status": "unported", "go_target": null, "tests": []}
+        {"name": "remaining proof or diagnostic certificate display", "status": "unported", "go_target": null, "tests": []}
       ],
       "ownership": ["PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."],
       "deviations": ["Go selects direct predicate declarations through the typed engine API and reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported."]
@@ -89496,7 +89510,7 @@
       "ownership_audited": true,
       "methods": [
         {"name": "retained query/from-level query, answer, ground answer, trace rules/names, model, level, cover/invariant, reachable summary and statistics interface", "status": "ported", "go_target": "pkg/muz/fp/propositional_engine.go", "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]},
-        {"name": "remaining proof, transformed predicate remapping and certificate display surface", "status": "unported", "go_target": null, "tests": []}
+        {"name": "remaining proof and certificate display surface", "status": "unported", "go_target": null, "tests": []}
       ],
       "ownership": ["The Go engine owns one concrete Spacer Context and exposes explicit owner-returning answer/model methods."],
       "deviations": ["The virtual C++ engine boundary becomes direct typed dispatch in PropositionalEngine."]
