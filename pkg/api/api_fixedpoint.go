@@ -72,6 +72,23 @@ func (c *SMTContext) UpdateFixedpointRule(formula ast.ASTHandle, name string) er
 	return c.command.UpdateFixedpointRule(formula, name)
 }
 
+// AddFixedpointFact adds a ground relation tuple using concrete AST values.
+func (c *SMTContext) AddFixedpointFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	return c.command.AddFixedpointFact(declaration, values)
+}
+
+// AddFixedpointTableFact adds a ground relation tuple using native finite
+// table element numbers.
+func (c *SMTContext) AddFixedpointTableFact(declaration ast.ASTHandle, values []uint32) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	return c.command.AddFixedpointTableFact(declaration, values)
+}
+
 // PushFixedpoint saves the current fixedpoint rule set.
 func (c *SMTContext) PushFixedpoint() error {
 	if err := c.open(); err != nil {

@@ -69,6 +69,15 @@ func TestPropositionalEngineMatchesCPPFixedpointQueries(t *testing.T) {
 		fpMust(t, e)
 		fpMust(t, engine.RegisterPredicate(declarations[name]))
 	}
+	bitSymbol, err := manager.Symbols.Intern("fp-Bit")
+	fpMust(t, err)
+	bit, err := manager.MkFuncDecl(bitSymbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(bit))
+	fpMust(t, engine.AddTableFact(bit, []uint32{1}))
+	if err = engine.AddTableFact(bit, []uint32{2}); err == nil {
+		t.Fatal("out-of-domain table fact succeeded")
+	}
 	add := func(formula ast.ASTHandle, name string) {
 		t.Helper()
 		reference, e := manager.NewRef(formula)
@@ -76,7 +85,7 @@ func TestPropositionalEngineMatchesCPPFixedpointQueries(t *testing.T) {
 		t.Cleanup(func() { fpMust(t, manager.DelRef(&reference)) })
 		fpMust(t, engine.AddRule(formula, name))
 	}
-	add(applications["P"], "fact-P")
+	fpMust(t, engine.AddTableFact(declarations["P"], nil))
 	for _, edge := range []struct{ from, to string }{{"P", "Q"}, {"Q", "R"}} {
 		formula, e := manager.MkImplies(applications[edge.from], applications[edge.to])
 		fpMust(t, e)
@@ -101,6 +110,11 @@ func TestPropositionalEngineMatchesCPPFixedpointQueries(t *testing.T) {
 	fpMust(t, err)
 	if empty != lbool.True {
 		t.Fatal("empty relation-vector query", empty)
+	}
+	bitStatus, err := engine.QueryPredicate(bit)
+	fpMust(t, err)
+	if bitStatus != lbool.True {
+		t.Fatal("decoded table fact was not retained", bitStatus)
 	}
 
 	cpp := fpReference(t, `(set-option :fixedpoint.engine datalog)

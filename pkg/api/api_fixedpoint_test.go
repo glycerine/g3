@@ -60,7 +60,7 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	if len(rules) != 0 {
 		t.Fatal("popped fixedpoint rule enumeration", len(rules))
 	}
-	astTestMust(t, context.AddFixedpointRule(pZero, "api-fp-fact"))
+	astTestMust(t, context.AddFixedpointFact(p, []ast.ASTHandle{zero}))
 	astTestMust(t, context.AddFixedpointRule(step, "api-fp-step"))
 	astTestMust(t, context.UpdateFixedpointRule(step, "api-fp-step"))
 	rules, err = context.FixedpointRules()

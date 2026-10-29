@@ -264,6 +264,54 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	return getErr
 }
 
+// AddFact adds a ground predicate application as an unnamed rule.
+func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	if e.predicates[declaration] == nil {
+		return ErrPropositionalHorn
+	}
+	fact, err := e.manager.MkApp(declaration, values)
+	if err != nil {
+		return err
+	}
+	return e.AddRule(fact, "")
+}
+
+// AddTableFact decodes native finite-table element numbers and adds the
+// corresponding ground predicate application.
+func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []uint32) (resultErr error) {
+	if err := e.open(); err != nil {
+		return err
+	}
+	state := e.predicates[declaration]
+	if state == nil || len(values) != len(state.sorts) {
+		return fmt.Errorf("%w: table fact arity mismatch", ErrPropositionalHorn)
+	}
+	fact := make(rel.Fact, len(values))
+	for i, value := range values {
+		fact[i] = rel.Element(value)
+	}
+	references, err := e.relations.DecodeFact(state.sorts, fact)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for i := len(references) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&references[i]))
+		}
+	}()
+	handles := make([]ast.ASTHandle, len(references))
+	for i := range references {
+		handles[i], err = e.manager.RefGet(references[i])
+		if err != nil {
+			return err
+		}
+	}
+	return e.AddFact(declaration, handles)
+}
+
 func ruleSubsumes(stronger, weaker *base.Rule) (bool, error) {
 	strongerHead, err := stronger.Head()
 	if err != nil {

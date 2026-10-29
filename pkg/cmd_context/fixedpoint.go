@@ -82,6 +82,25 @@ func (c *Context) UpdateFixedpointRule(formula ast.ASTHandle, name string) error
 	return engine.UpdateRule(formula, name)
 }
 
+// AddFixedpointFact adds a ground relation tuple using concrete AST values.
+func (c *Context) AddFixedpointFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.AddFact(declaration, values)
+}
+
+// AddFixedpointTableFact adds a ground relation tuple using native finite
+// table element numbers.
+func (c *Context) AddFixedpointTableFact(declaration ast.ASTHandle, values []uint32) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.AddTableFact(declaration, values)
+}
+
 // DeclareFixedpointVariable declares and registers an implicit Datalog
 // variable, matching the declare-var command's constant-to-bound-variable path.
 func (c *Context) DeclareFixedpointVariable(name string, sort ast.ASTHandle) error {
