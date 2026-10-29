@@ -142,40 +142,21 @@ func (s *ArithmeticSolver) AddSoftObjective(terms []ast.ASTHandle, weights []*bi
 	if s == nil || s.backend == nil || len(terms) != len(weights) {
 		return ast.ErrASTHandle
 	}
-	objective := arithmeticObjective{soft: true}
-	defer func() {
-		if resultErr == nil {
-			return
-		}
-		for i := len(objective.softTerms) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, s.manager.DelRef(&objective.softTerms[i]))
-		}
-	}()
+	set, err := newWeightedSoftSet(s.manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, set.Close()) }()
 	for i, term := range terms {
-		if weights[i] == nil {
-			return ast.ErrASTHandle
-		}
-		weight := new(big.Rat).Set(weights[i])
-		if weight.Sign() == 0 {
-			continue
-		}
-		normalized := term
-		if weight.Sign() < 0 {
-			objective.softOffset.Add(&objective.softOffset, weight)
-			weight.Neg(weight)
-			var err error
-			normalized, err = s.manager.MkNot(term)
-			if err != nil {
-				return err
-			}
-		}
-		ref, err := s.manager.NewRef(normalized)
-		if err != nil {
+		if err = set.Add(term, weights[i]); err != nil {
 			return err
 		}
-		objective.softTerms = append(objective.softTerms, ref)
-		objective.softWeights = append(objective.softWeights, weight)
 	}
+	refs, normalizedWeights, offset, err := set.Release()
+	if err != nil {
+		return err
+	}
+	objective := arithmeticObjective{soft: true, softTerms: refs, softWeights: normalizedWeights, softOffset: offset}
 	s.objectives = append(s.objectives, objective)
 	return nil
 }
