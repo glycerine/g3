@@ -96595,9 +96595,22 @@
       "path": "src/nlsat/nlsat_solver.h",
       "component": "nlsat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/nlsat/solver.go",
+        "pkg/nlsat/solver_assumptions.go",
+        "pkg/nlsat/solver_model_state.go",
+        "pkg/nlsat/solver_projection.go",
+        "pkg/nlsat/variable_order.go",
+        "pkg/nlsat/literal_vector.go"
+      ],
+      "tests": [
+        "TestSolverConflictMinimizationWithEquality",
+        "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses",
+        "TestSolverModelStateAndLiteralVariableViews",
+        "TestSolverHeuristicVariablePermutation",
+        "TestSolverInlineVariablesPatchesModelAndConflict"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -96608,11 +96621,25 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Retained solver construction, variable/atom/clause creation, satisfiability and temporary-assumption checks, model/core access, variable reordering, projection, parameters-at-construction, statistics and teardown",
+          "status": "ported",
+          "go_target": "pkg/nlsat/solver.go",
+          "go_targets": ["pkg/nlsat/solver_assumptions.go", "pkg/nlsat/solver_model_state.go", "pkg/nlsat/solver_projection.go", "pkg/nlsat/variable_order.go"],
+          "tests": ["TestSolverConflictMinimizationWithEquality", "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses", "TestSolverModelStateAndLiteralVariableViews", "TestSolverHeuristicVariablePermutation", "TestSolverInlineVariablesPatchesModelAndConflict"]
+        }
+      ],
+      "ownership": [
+        "Solver borrows compatible algebraic/polynomial managers and a resource limit while owning atom, assumption, clause, assignment, evaluator, explanation, search, patch and statistics state. Close retires inline patches and search/explanation dependents before clause/atom stores and releases only the Solver header, never the borrowed numerical managers.",
+        "Public LiteralVector values are explicit solver-bound owners used where the source exposes scoped_literal_vector output. Their Close operation releases retained atom references before the borrowed solver can close."
+      ],
+      "deviations": [
+        "Source reset and parameter-update reuse are not reached: Go tactic consumers construct a fresh scoped Solver per Apply with an immutable typed SolverConfig. Rational/algebraic/polynomial managers are obtained through the borrowed configured services instead of duplicate qm/am/pm aliases.",
+        "Source set_display_var and pretty-printing callbacks only affect internal diagnostics. Go diagnostics retain stable numeric variable identities; no unused universal display adapter is introduced. Internal evaluator, explanation, atom-vector and asserted-equality access remains concrete package state rather than exported public handles."
+      ]
     },
     {
       "path": "src/nlsat/nlsat_types.cpp",
