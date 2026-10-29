@@ -222,6 +222,16 @@ func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error
 	return c.QueryFixedpointWithParams(declaration, nil)
 }
 
+// FixedpointPredicates returns borrowed registered relation declarations in
+// source declaration order for frontend saturation and inspection.
+func (c *Context) FixedpointPredicates() ([]ast.ASTHandle, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return nil, err
+	}
+	return engine.Predicates()
+}
+
 // QueryFixedpointWithParams applies query-local fixedpoint settings before
 // module settings and bounds the query with the effective fixedpoint timeout.
 func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {

@@ -114517,8 +114517,8 @@
       "component": "shell",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_map_line.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go", "pkg/cmd_context/wpa_relation_line.go", "pkg/cmd_context/wpa_map_test.go", "pkg/cmd_context/wpa_relation_test.go", "pkg/cmd_context/wpa_directory_test.go"],
-      "tests": ["TestWPA"],
+      "go_targets": ["pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_map_line.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go", "pkg/cmd_context/wpa_relation_line.go", "pkg/cmd_context/wpa_map_test.go", "pkg/cmd_context/wpa_relation_test.go", "pkg/cmd_context/wpa_directory_test.go", "pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_dispatch.go", "pkg/shell/datalog_frontend_test.go", "pkg/shell/datalog_frontend_directory_test.go", "pkg/shell/datalog_frontend_output_test.go", "pkg/cmd_context/fixedpoint.go"],
+      "tests": ["TestWPA", "TestDatalogFrontend"],
       "conditionals": [
         {
           "line": 24,

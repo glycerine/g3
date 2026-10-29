@@ -1,0 +1,45 @@
+package shell
+
+import "time"
+
+func (f *DatalogFrontend) Saturate() error {
+	if f == nil || !f.loaded || f.saturated {
+		return ErrDatalogFrontend
+	}
+	predicates, err := f.context.FixedpointPredicates()
+	if err != nil {
+		return err
+	}
+	f.results = make([]DatalogPredicateResult, 0, len(predicates))
+	manager, err := f.context.Manager()
+	if err != nil {
+		return err
+	}
+	for _, declaration := range predicates {
+		status, queryErr := f.context.QueryFixedpoint(declaration)
+		if queryErr != nil {
+			return queryErr
+		}
+		name, queryErr := manager.GetASTName(declaration)
+		if queryErr != nil {
+			return queryErr
+		}
+		text, queryErr := manager.Symbols.String(name)
+		if queryErr != nil {
+			return queryErr
+		}
+		f.results = append(f.results, DatalogPredicateResult{Declaration: declaration, Name: text, Status: status})
+	}
+	f.runFinished, f.saturated = time.Now(), true
+	return nil
+}
+
+func (f *DatalogFrontend) Run(path string) error {
+	if err := f.Load(path); err != nil {
+		return err
+	}
+	if err := f.Saturate(); err != nil {
+		return err
+	}
+	return f.WriteStatistics()
+}
