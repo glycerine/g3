@@ -5567,7 +5567,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go"],
-      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"],
+      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"],
       "conditionals": [
         {
           "line": 368,
@@ -5610,10 +5610,16 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "idiomatic private interpolation context, marker construction and UNSAT interpolant computation (api_interp.cpp:60-76,209-325)",
-          "status": "partial",
+          "name": "idiomatic private interpolation context, marker construction and complete SAT/UNSAT/UNKNOWN interpolation result with owning SAT/candidate model and borrowed UNSAT interpolants (api_interp.cpp:60-76,242-325)",
+          "status": "ported",
           "go_target": "pkg/api/api_interp.go",
-          "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"]
+          "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"]
+        },
+        {
+          "name": "existing-proof interpolation for a marked sequence/tree pattern (api_interp.cpp:209-240)",
+          "status": "ported",
+          "go_target": "pkg/api/api_interp.go",
+          "tests": ["TestInterpolationContextCompleteResultAndProofInput"]
         },
         {
           "name": "sequence/tree interpolant validation with diagnostics and background theory (api_interp.cpp:126-181)",
@@ -5622,14 +5628,14 @@
           "tests": ["TestInterpolationContextBinary", "TestInterpolationContextErrorsAndIsolation"]
         },
         {
-          "name": "remaining get-interpolant proof input, SAT model return, profile/options and interpolation-problem file/string operations",
+          "name": "remaining interpolation profile/options and interpolation-problem file/string operations",
           "status": "unported",
           "go_target": null,
           "tests": []
         }
       ],
-      "ownership": ["InterpolationContext owns a private proof-enabled AST manager, parameter services, solver factory, markers and returned interpolants. CheckInterpolants owns and closes one short-lived verification solver and returns copied Go diagnostics."],
-      "deviations": ["The Go API returns UNSAT interpolants as context-retained borrowed handles and distinct SAT/UNKNOWN errors instead of C output pointers. CheckInterpolants uses slices and returns (valid, diagnostics, error); it accepts the source root parent entry but does not inspect it."]
+      "ownership": ["InterpolationContext owns a private proof-enabled AST manager, parameter services, solver factory, markers and returned interpolants. Complete SAT/UNKNOWN results transfer one acquired model reference to the caller, which must decrement it before context teardown. CheckInterpolants owns and closes one short-lived verification solver and returns copied Go diagnostics."],
+      "deviations": ["The complete Go result returns status, borrowed interpolants and an owning model directly instead of C output pointers; the UNSAT-only convenience wrapper preserves distinct SAT/UNKNOWN errors. CheckInterpolants uses slices and returns (valid, diagnostics, error); it accepts the source root parent entry but does not inspect it."]
     },
     {
       "path": "src/api/api_log.cpp",

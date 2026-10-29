@@ -206,6 +206,62 @@ func TestInterpolationContextTree(t *testing.T) {
 	}
 }
 
+func TestInterpolationContextCompleteResultAndProofInput(t *testing.T) {
+	f := newInterpolationFixture(t)
+	boolean := f.pin(f.w.BoolType())
+	p := f.variable("result-p", boolean)
+	marked := f.pin(f.c.MkInterpolant(p))
+
+	satResult, err := f.c.ComputeInterpolation(marked)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if satResult.Status != lbool.True || len(satResult.Interpolants) != 0 || satResult.Model == nil {
+		t.Fatal("complete SAT interpolation result", satResult.Status, len(satResult.Interpolants), satResult.Model)
+	}
+	declaration, err := f.m.GetDecl(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := satResult.Model.ConstantInterpretation(declaration)
+	if err != nil || !f.m.IsTrue(value) {
+		t.Fatal("SAT interpolation model", value, err)
+	}
+	if err = satResult.Model.DecRef(); err != nil {
+		t.Fatal(err)
+	}
+
+	pattern := f.make(interp.OperatorAnd, marked, f.make(interp.OperatorNot, p))
+	s, err := f.c.factory.New(f.m, nil, true, true, true, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if _, err = interp.AssertConjuncts(f.w, s, pattern); err != nil {
+		t.Fatal(err)
+	}
+	status, err := s.CheckSat(nil)
+	if err != nil || status != lbool.False {
+		t.Fatal("proof-producing interpolation solve", status, err)
+	}
+	proof, err := s.Proof()
+	if err != nil {
+		t.Fatal(err)
+	}
+	results, err := f.c.InterpolantsFromProof(proof, pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 1 {
+		t.Fatal("proof interpolant count", len(results))
+	}
+	f.verify(pattern, results)
+}
+
 type unknownInterpolationSolver struct{ solver.Solver }
 
 func (s unknownInterpolationSolver) CheckSat([]ast.ASTHandle) (lbool.LBool, error) {
@@ -244,6 +300,16 @@ func TestInterpolationContextTeardownFailureReleasesResults(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.verify(pattern, results)
+
+	f.c.factory = solver.FactoryFunc(func(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, logic string) (solver.Solver, error) {
+		s, err := factory.New(m, p, proofs, models, cores, logic)
+		return failingCloseInterpolationSolver{s, failure}, err
+	})
+	complete, err := f.c.ComputeInterpolation(marked)
+	f.c.factory = factory
+	if !errors.Is(err, failure) || complete.Status != lbool.Undef || complete.Model != nil || complete.Interpolants != nil {
+		t.Fatal("failed SAT computation published result owners", complete, err)
+	}
 }
 
 func TestInterpolationContextErrorsAndIsolation(t *testing.T) {

@@ -51,6 +51,16 @@ type interpolationState struct {
 	closed      bool
 }
 
+// InterpolationResult is the complete result of an interpolation solve.
+// Interpolants are borrowed from the context until Close. Model is one owning
+// reference when Status is satisfiable; the caller must call DecRef before
+// closing the context.
+type InterpolationResult struct {
+	Status       lbool.LBool
+	Interpolants []ast.ASTHandle
+	Model        *model.ModelCore
+}
+
 // NewInterpolationContext is the native equivalent of
 // Z3_mk_interpolation_context: proof and model production are enabled from
 // construction. No state or symbol cache is shared with other contexts.
@@ -159,15 +169,111 @@ func (c *InterpolationContext) MkInterpolant(expression ast.ASTHandle) (ast.ASTH
 	return h, nil
 }
 
-// ComputeInterpolant implements goivy's UNSAT-only wrapper. Results follow
+// ComputeInterpolation solves a marked interpolation problem. UNSAT results
+// contain borrowed interpolants in marker traversal order. SAT results contain
+// an owning model reference when the backend can construct one. UNKNOWN may
+// likewise carry a candidate model, matching Z3_compute_interpolant.
+func (c *InterpolationContext) ComputeInterpolation(pattern ast.ASTHandle) (result InterpolationResult, resultErr error) {
+	if err := c.open(); err != nil {
+		return InterpolationResult{Status: lbool.Undef}, err
+	}
+	var refs []ast.ASTRef
+	var mdl *model.ModelCore
+	result.Status = lbool.Undef
+	// Publish owners only after every temporary owner has closed.
+	defer func() {
+		if resultErr == nil {
+			c.retained = append(c.retained, refs...)
+			return
+		}
+		for i := range refs {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&refs[i]))
+		}
+		if mdl != nil {
+			resultErr = errors.Join(resultErr, mdl.DecRef())
+		}
+		result = InterpolationResult{Status: lbool.Undef}
+	}()
+	sort, err := c.manager.GetSort(pattern)
+	if err != nil {
+		return result, err
+	}
+	boolean, err := c.terms.IsBoolType(sort)
+	if err != nil {
+		return result, err
+	}
+	if !boolean {
+		return result, ast.ErrASTDomain
+	}
+	// Pin the problem through solver teardown, including on translation errors.
+	root, err := c.manager.NewRef(pattern)
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&root)) }()
+	s, err := c.factory.New(c.manager, nil, true, true, true, "")
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, s.Close()) }()
+	config := &interp.RunConfig{SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
+		return model.NewModelEvaluator(md, c.evaluator)
+	}}
+	result.Status, _, refs, mdl, err = interp.SolveTree(c.terms, s, pattern, true, config)
+	if err != nil {
+		return result, err
+	}
+	result.Model = mdl
+	result.Interpolants = make([]ast.ASTHandle, len(refs))
+	for i, ref := range refs {
+		result.Interpolants[i], err = c.manager.RefGet(ref)
+		if err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+// ComputeInterpolant is the UNSAT-only convenience wrapper. Results follow
 // marker traversal order, so And(MkInterpolant(A), B) returns I at index zero
 // with A => I and I /\ B unsatisfiable. SAT and UNKNOWN return distinct errors.
-func (c *InterpolationContext) ComputeInterpolant(pattern ast.ASTHandle) (result []ast.ASTHandle, resultErr error) {
+func (c *InterpolationContext) ComputeInterpolant(pattern ast.ASTHandle) ([]ast.ASTHandle, error) {
+	result, err := c.ComputeInterpolation(pattern)
+	if err != nil {
+		return nil, err
+	}
+	if result.Model != nil {
+		if err = result.Model.DecRef(); err != nil {
+			return nil, err
+		}
+	}
+	if result.Status == lbool.True {
+		return nil, ErrInterpolationSAT
+	}
+	if result.Status != lbool.False {
+		return nil, ErrInterpolationUnknown
+	}
+	return result.Interpolants, nil
+}
+
+// InterpolantsFromProof computes interpolants from an existing UNSAT proof and
+// marked pattern, matching the retained Z3_get_interpolant proof-input path.
+// Returned handles are borrowed from the context until Close.
+func (c *InterpolationContext) InterpolantsFromProof(proof, pattern ast.ASTHandle) (result []ast.ASTHandle, resultErr error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	var refs []ast.ASTRef
-	// Transfer ownership only after every temporary owner has closed.
+	constraints, err := interp.CollectConjuncts(c.terms, pattern)
+	if err != nil {
+		return nil, err
+	}
+	config := &interp.RunConfig{SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
+		return model.NewModelEvaluator(md, c.evaluator)
+	}}
+	refs, err := interp.TreeInterpolants(c.terms, proof, constraints, pattern, config)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if resultErr == nil {
 			c.retained = append(c.retained, refs...)
@@ -178,45 +284,9 @@ func (c *InterpolationContext) ComputeInterpolant(pattern ast.ASTHandle) (result
 		}
 		result = nil
 	}()
-	sort, err := c.manager.GetSort(pattern)
-	if err != nil {
-		return nil, err
-	}
-	boolean, err := c.terms.IsBoolType(sort)
-	if err != nil {
-		return nil, err
-	}
-	if !boolean {
-		return nil, ast.ErrASTDomain
-	}
-	// Pin the problem through solver teardown, including on translation errors.
-	root, err := c.manager.NewRef(pattern)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&root)) }()
-	s, err := c.factory.New(c.manager, nil, true, true, true, "")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, s.Close()) }()
-	config := &interp.RunConfig{SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
-		return model.NewModelEvaluator(md, c.evaluator)
-	}}
-	var status lbool.LBool
-	status, _, refs, _, err = interp.SolveTree(c.terms, s, pattern, false, config)
-	if err != nil {
-		return nil, err
-	}
-	if status == lbool.True {
-		return nil, ErrInterpolationSAT
-	}
-	if status != lbool.False {
-		return nil, ErrInterpolationUnknown
-	}
 	result = make([]ast.ASTHandle, len(refs))
-	for i, ref := range refs {
-		result[i], err = c.manager.RefGet(ref)
+	for i := range refs {
+		result[i], err = c.manager.RefGet(refs[i])
 		if err != nil {
 			return nil, err
 		}
