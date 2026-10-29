@@ -5080,9 +5080,9 @@
       "path": "src/api/api_bv.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_bitvectors.go", "pkg/api/api_bitvectors_test.go"],
+      "tests": ["TestSMTContextBitVector"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -5937,8 +5937,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_quantifiers.go", "pkg/api/api_quantifiers_test.go"],
-      "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors"],
+      "go_targets": ["pkg/api/api_quantifiers.go", "pkg/api/api_quantifiers_test.go", "pkg/api/api_quantifier_constants.go", "pkg/api/api_quantifier_constants_test.go"],
+      "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors", "TestSMTContextConstantQuantifier"],
       "assertions": [
         {
           "line": 196,
