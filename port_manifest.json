@@ -6158,8 +6158,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_solver.go"],
-      "tests": ["TestSMTContextCheckSatUsingPublishesTacticModel"],
+      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_probe.go", "pkg/api/api_probe_composition.go", "pkg/api/api_probe_apply.go", "pkg/api/api_tactic.go", "pkg/api/api_tactic_composition.go", "pkg/api/api_tactic_apply.go", "pkg/api/api_tactic_result.go", "pkg/api/api_probe_test.go", "pkg/api/api_probe_composition_test.go", "pkg/api/api_tactic_lifecycle_test.go", "pkg/api/api_tactic_composition_test.go", "pkg/api/api_tactic_apply_test.go"],
+      "tests": ["TestSMTContextCheckSatUsingPublishesTacticModel", "TestAPIProbe", "TestAPITactic"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
