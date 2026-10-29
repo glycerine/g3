@@ -12,7 +12,6 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	uparams "github.com/glycerine/g3/pkg/util/params"
-	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 type strategicSolverFactory struct {
@@ -92,6 +91,10 @@ func (f *strategicSolverFactory) New(m *ast.ASTManager, p *uparams.ParamsRef, pr
 		return NewUFNIAStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "UFLRA":
 		return NewUFLRAStrategicSolver(m, p, proofs, models, cores, f.config)
+	case "LRA":
+		return NewLRAStrategicSolver(m, p, proofs, models, cores, f.config)
+	case "LIA":
+		return NewLIAStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "AUFLIA":
 		return NewAUFLIAStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "AUFLIRA":
@@ -103,7 +106,7 @@ func (f *strategicSolverFactory) New(m *ast.ASTManager, p *uparams.ParamsRef, pr
 	case "ALL":
 		return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
 	}
-	return nil, z3exception.NewDefaultException("strategic solver logic is not ported: " + selected)
+	return NewALLStrategicSolver(m, p, proofs, models, cores, f.config)
 }
 
 func (f *strategicSolverFactory) Close() error {

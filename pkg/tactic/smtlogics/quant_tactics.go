@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/tactic/arith"
 	"github.com/glycerine/g3/pkg/tactic/core"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
@@ -62,6 +63,19 @@ func NewAUFNIRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SM
 	return newQuantifiedArithmeticTactic(m, p, config, quantStandard)
 }
 
+// NewLRATactic retains the shared source LRA/LIA/LIRA quantified pipeline.
+func NewLRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig) (tactic.Tactic, error) {
+	return newQuantifiedArithmeticTactic(m, p, config, quantLRA)
+}
+
+func NewLIATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig) (tactic.Tactic, error) {
+	return newQuantifiedArithmeticTactic(m, p, config, quantLRA)
+}
+
+func NewLIRATactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore.SMTSolverConfig) (tactic.Tactic, error) {
+	return newQuantifiedArithmeticTactic(m, p, config, quantLRA)
+}
+
 // NewQuantifierFreeLIRATactic is the quantifier-free retained branch of
 // mk_lira_tactic: run the shared quantifier preprocessor, QE-lite, then SMT.
 // The general ALL dispatcher guards this specialization with !has-quantifier.
@@ -76,6 +90,7 @@ const (
 	quantAUFLIA
 	quantUFNIA
 	quantQFLIRA
+	quantLRA
 )
 
 // AUFLIA disables Gaussian elimination and tries qi.cost=0 only when the
@@ -169,7 +184,7 @@ func newQuantifiedArithmeticTactic(m *ast.ASTManager, p *uparams.ParamsRef, conf
 		b.keep(core.MakeSimplifyTactic(m, c, g, nil)))
 	var backend tactic.Tactic
 	var elimination tactic.Tactic
-	if strategy == quantUFNIA || strategy == quantQFLIRA {
+	if strategy == quantUFNIA || strategy == quantQFLIRA || strategy == quantLRA {
 		elimination = b.keep(qe.NewLiteTactic(m, p, qe.Config{Context: c, Globals: g, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace}))
 	}
 	if strategy == quantAUFLIA {
@@ -181,13 +196,22 @@ func newQuantifiedArithmeticTactic(m *ast.ASTManager, p *uparams.ParamsRef, conf
 		}
 		fast := b.then(b.guard(large, false), b.using(b.keep(smtcore.NewSMTTactic(m, nil, config)), qi), b.keep(tactic.NewFailIfUndecidedTactic(), nil))
 		backend = b.otherwise(fast, b.keep(smtcore.NewSMTTactic(m, nil, config)))
+	} else if strategy == quantLRA {
+		hasQuantifier := b.probe(tactic.NewProbe(m.Budget(), tactic.ProbeHasQuantifier, 0))
+		lira := b.probe(arith.NewArithmeticFragmentProbe(m.Budget(), c, g, arith.FragmentLIRA))
+		quantifiedLIRA := b.probe(tactic.NewBinaryProbe(m.Budget(), tactic.ProbeAnd, hasQuantifier, lira))
+		qsat := b.keep(qe.NewQSATTactic(m, p, qe.Config{Context: c, Globals: g, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace}))
+		qe2 := b.keep(qe.NewQE2Tactic(m, p, qe.Config{Context: c, Globals: g, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace}))
+		qeFallback := b.then(qe2, b.keep(smtcore.NewSMTTactic(m, nil, config)))
+		quantified := b.otherwise(qsat, qeFallback)
+		backend = b.keep(tactic.NewCondTactic(quantifiedLIRA, quantified, b.keep(smtcore.NewSMTTactic(m, nil, config))))
 	} else {
 		backend = b.keep(smtcore.NewSMTTactic(m, nil, config))
 	}
 	if b.err != nil {
 		return nil, b.err
 	}
-	if strategy == quantUFNIA || strategy == quantQFLIRA {
+	if strategy == quantUFNIA || strategy == quantQFLIRA || strategy == quantLRA {
 		result, err = tactic.NewAndThenTactic(pre, elimination, backend)
 	} else {
 		result, err = tactic.NewAndThenTactic(pre, backend)

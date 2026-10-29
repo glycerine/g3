@@ -176107,7 +176107,7 @@
       "path": "src/tactic/portfolio/smt_strategic_solver.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/all_as_array_probe.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
@@ -176447,8 +176447,11 @@
           "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
         },
         {
-          "name": "Remaining LRA and LIA logic dispatcher branches; the complete default classifier, stored-logic factory, QF_BV incremental-SAT and FD backend selections are recorded separately",
-          "status": "unported"
+          "name": "LRA and LIA logic dispatcher branches plus source default-strategy fallback for otherwise retained logic names",
+          "status": "ported",
+          "go_target": "pkg/tactic/portfolio/strategic_solver_factory.go",
+          "go_targets": ["pkg/tactic/portfolio/smt_strategic_solver.go", "pkg/tactic/smtlogics/quant_tactics.go"],
+          "tests": ["TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2", "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"]
         },
         {
           "name": "smt_strategic_solver_factory stored-logic selection, caller-logic fallback, public construction, borrowed session output and close guard over every retained dispatcher branch",
@@ -176655,7 +176658,7 @@
         "Construction uses local counted tactic/solver references. The returned combined solver owns both child solvers; the tactic solver owns the concrete strategy. Context closes the combined owner before manager/services teardown. Evaluator/parameter services are borrowed through the same concrete configuration used by the incremental backend."
       ],
       "deviations": [
-        "Retained QF_AUFLIA, QF_LRA, QF_UF, QF_IDL, QF_LIA, QF_FP, QF_FPBV, QF_BVFP and NRA branches use shared combined-solver construction. The general ALL dispatcher includes the complete default classifier and the OP_AS_ARRAY compatibility branch. Only the source LRA/LIA stored-logic dispatcher branches remain open. Output-taking QF_IDL/QF_LIA/QF_FP constructors borrow io.Writer; convenience factories default to os.Stdout."
+        "Retained logic branches use shared combined-solver construction; LRA/LIA use the shared quantified arithmetic pipeline, and unlisted retained logic names follow the source default-strategy fallback. The general ALL dispatcher includes the complete default classifier and the OP_AS_ARRAY compatibility branch. Output-taking QF_IDL/QF_LIA/QF_FP constructors borrow io.Writer; convenience factories default to os.Stdout."
       ]
     },
     {
@@ -180771,7 +180774,7 @@
       "path": "src/tactic/smtlogics/quant_tactics.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/smtlogics/quant_tactics.go",
         "pkg/tactic/smtlogics/quant_tactics_test.go",
@@ -180802,8 +180805,8 @@
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_quant_preprocessor/mk_no_solve_eq_preprocessor and complete UFLRA/AUFLIA/AUFLIRA/AUFNIRA factories: fixed preprocessing parameters, pattern-guarded solve-eqs, disabled AUFLIA Gaussian elimination, strict >128 expression guard and qi.cost=0 attempt with fail-if-undecided fallback",
@@ -180858,6 +180861,13 @@
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
           ]
+        },
+        {
+          "name": "Shared LRA/LIA/LIRA factory: quantified preprocessing, QE-lite, quantified-LIRA guard, QSAT, QE2 plus SMT fallback, and direct SMT for residual goals",
+          "status": "ported",
+          "go_target": "pkg/tactic/smtlogics/quant_tactics.go",
+          "go_targets": ["pkg/tactic/portfolio/smt_strategic_solver.go", "pkg/tactic/portfolio/strategic_solver_factory.go"],
+          "tests": ["TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2", "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"]
         }
       ],
       "ownership": [
@@ -180865,14 +180875,14 @@
         "UFNIA retains its counted QE-lite child through construction, cleanup and fresh-manager translation. Quantified constructor/application failure campaigns cover the nonlinear model-checker auxiliary substitution, including cleanup of partially constructed VarSubstitution owners; all charged fixture storage is released."
       ],
       "deviations": [
-        "LRA/LIA/LIRA still require QSAT and full QE; those factories remain unported and are not replaced by direct SMT substitutes. The complete source unit and header remain partial. UFNIA inherits the source QE-lite null-proof defect for quantified proof-enabled goals; native AST guards refuse that invalid source path without fabricating a proof."
+        "LRA/LIA/LIRA retain quantified preprocessing, QE-lite, the quantified-LIRA guard, QSAT and a QE2-plus-SMT fallback; QE2 is the native replacement for the source legacy qe_tactic at this call site. UFNIA inherits the source QE-lite null-proof defect for quantified proof-enabled goals; native AST guards refuse that invalid source path without fabricating a proof."
       ]
     },
     {
       "path": "src/tactic/smtlogics/quant_tactics.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/smtlogics/quant_tactics.go",
         "pkg/tactic/smtlogics/quant_tactics_test.go",
@@ -180913,8 +180923,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_quant_preprocessor/mk_no_solve_eq_preprocessor and complete UFLRA/AUFLIA/AUFLIRA/AUFNIRA factories: fixed preprocessing parameters, pattern-guarded solve-eqs, disabled AUFLIA Gaussian elimination, strict >128 expression guard and qi.cost=0 attempt with fail-if-undecided fallback",
@@ -180969,6 +180979,12 @@
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
           ]
+        },
+        {
+          "name": "Complete retained LRA/LIA/LIRA tactic factory declarations",
+          "status": "ported",
+          "go_target": "pkg/tactic/smtlogics/quant_tactics.go",
+          "tests": ["TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2", "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"]
         }
       ],
       "ownership": [
@@ -180976,7 +180992,7 @@
         "UFNIA retains its counted QE-lite child through construction, cleanup and fresh-manager translation. Quantified constructor/application failure campaigns cover the nonlinear model-checker auxiliary substitution, including cleanup of partially constructed VarSubstitution owners; all charged fixture storage is released."
       ],
       "deviations": [
-        "LRA/LIA/LIRA still require QSAT and full QE; those factories remain unported and are not replaced by direct SMT substitutes. The complete source unit and header remain partial. UFNIA inherits the source QE-lite null-proof defect for quantified proof-enabled goals; native AST guards refuse that invalid source path without fabricating a proof."
+        "LRA/LIA/LIRA retain quantified preprocessing, QE-lite, the quantified-LIRA guard, QSAT and a QE2-plus-SMT fallback; QE2 is the native replacement for the source legacy qe_tactic at this call site. The commented registration macros are represented by concrete strategic factory routes. UFNIA inherits the source QE-lite null-proof defect for quantified proof-enabled goals; native AST guards refuse that invalid source path without fabricating a proof."
       ]
     },
     {

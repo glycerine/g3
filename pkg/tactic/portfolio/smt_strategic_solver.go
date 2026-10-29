@@ -131,7 +131,7 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 	if err != nil {
 		return nil, err
 	}
-	lira, err := smtlogics.NewQuantifierFreeLIRATactic(m, p, config)
+	lira, err := smtlogics.NewLIRATactic(m, p, config)
 	lira, err = keepTactic(lira, err)
 	if err != nil {
 		return nil, err
@@ -192,24 +192,12 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 	if err != nil {
 		return nil, err
 	}
-	hasQuantifier, err := keepProbe(tactic.NewProbe(m.Budget(), tactic.ProbeHasQuantifier, 0))
-	if err != nil {
-		return nil, err
-	}
-	noQuantifier, err := keepProbe(tactic.NewNotProbe(m.Budget(), hasQuantifier))
-	if err != nil {
-		return nil, err
-	}
-	qfLIRA, err := keepProbe(tactic.NewBinaryProbe(m.Budget(), tactic.ProbeAnd, liraMixed, noQuantifier))
-	if err != nil {
-		return nil, err
-	}
 	route, err := tactic.NewCondTactic(nraProbe, nra, ordinary)
 	route, err = keepTactic(route, err)
 	if err != nil {
 		return nil, err
 	}
-	route, err = tactic.NewCondTactic(qfLIRA, lira, route)
+	route, err = tactic.NewCondTactic(liraMixed, lira, route)
 	route, err = keepTactic(route, err)
 	if err != nil {
 		return nil, err
@@ -417,6 +405,22 @@ func NewUFLRAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mo
 		return nil, err
 	}
 	return newStrategicSolver(m, strategy, "UFLRA", p, proofs, models, cores, config)
+}
+
+func NewLRAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (solver.Solver, error) {
+	strategy, err := smtlogics.NewLRATactic(m, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return newStrategicSolver(m, strategy, "LRA", p, proofs, models, cores, config)
+}
+
+func NewLIAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (solver.Solver, error) {
+	strategy, err := smtlogics.NewLIATactic(m, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return newStrategicSolver(m, strategy, "LIA", p, proofs, models, cores, config)
 }
 
 func NewUFNIAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (solver.Solver, error) {
