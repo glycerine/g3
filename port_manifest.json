@@ -80972,32 +80972,32 @@
       "path": "src/muz/base/dl_boogie_proof.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/base/boogie_proof.go", "pkg/muz/base/boogie_proof_test.go"],
+      "tests": ["TestBoogieProofSubstitutionAndOutput", "TestBoogieProofWriterFailureAndCloseGuards"],
       "assertions": [
         {
           "line": 221,
           "text": "SASSERT(sz == q->get_num_decls());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"whole Boogie proof certificate traversal, hyper-resolution substitution, reference numbering and output formatting","status":"ported","go_target":"pkg/muz/base/boogie_proof.go","tests":["TestBoogieProofSubstitutionAndOutput","TestBoogieProofWriterFailureAndCloseGuards"]}],
+      "ownership": ["The certificate writer borrows the AST manager and proof root while owning temporary substitution/reference state; Close retires only its own state."],
+      "deviations": ["The retained production caller supplies no model, so no unused universal model-printing adapter is included."]
     },
     {
       "path": "src/muz/base/dl_boogie_proof.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/base/boogie_proof.go", "pkg/muz/base/boogie_proof_test.go"],
+      "tests": ["TestBoogieProofSubstitutionAndOutput", "TestBoogieProofWriterFailureAndCloseGuards"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"Boogie proof public construction, display and lifecycle surface","status":"ported","go_target":"pkg/muz/base/boogie_proof.go","tests":["TestBoogieProofSubstitutionAndOutput","TestBoogieProofWriterFailureAndCloseGuards"]}],
+      "ownership": ["The Go owner rejects shallow copies and preserves borrowed AST handles through the call."],
       "deviations": []
     },
     {
