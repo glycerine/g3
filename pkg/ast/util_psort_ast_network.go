@@ -34,6 +34,7 @@ type PsortASTNetwork struct {
 	header          uint64
 	mode            uint8
 	modeInitialized bool
+	encoding        PsortASTEncoding
 	stats           PsortASTStats
 	frames          *psortASTVectorFrame
 	serial          uint64
@@ -92,7 +93,7 @@ func NewPsortASTNetwork(c *PsortASTContext, r *umemory.Runtime, b *arena.Budget,
 	if e := b.Reserve(bytes); e != nil {
 		return nil, e
 	}
-	s := &PsortASTNetwork{context: c, runtime: r, budget: b, debug: d, header: bytes}
+	s := &PsortASTNetwork{context: c, runtime: r, budget: b, debug: d, header: bytes, encoding: PsortASTGrouped}
 	s.self = s
 	return s, nil
 }

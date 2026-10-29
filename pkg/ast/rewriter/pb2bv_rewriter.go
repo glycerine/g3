@@ -57,6 +57,7 @@ type PB2BVRewriter struct {
 	keepCardinality     bool
 	pbSolver            string
 	minArity            uint32
+	cardinalityEncoding ast.PsortASTEncoding
 	header              uint64
 	closed              bool
 }
@@ -117,6 +118,9 @@ func (r *PB2BVRewriter) constructMembers(p *uparams.ParamsRef) (err error) {
 		return err
 	}
 	if r.network, err = ast.NewPsortASTNetwork(r.context, r.runtime, m.Budget(), nil); err != nil {
+		return err
+	}
+	if err = r.network.SetEncoding(r.cardinalityEncoding); err != nil {
 		return err
 	}
 	r.configuration = pb2BVConfiguration{owner: r}

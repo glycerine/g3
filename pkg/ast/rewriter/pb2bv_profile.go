@@ -5,6 +5,7 @@ package rewriter
 import (
 	"math"
 
+	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -56,6 +57,24 @@ func (r *PB2BVRewriter) loadProfile() error {
 			return e
 		}
 	}
-	r.keepCardinality, r.pbSolver, r.minArity = keep, solver, minimum
+	encodingName, e := r.profileSymbol("cardinality.encoding", "grouped")
+	if e != nil {
+		return e
+	}
+	encoding := ast.PsortASTGrouped
+	switch encodingName {
+	case "bimander":
+		encoding = ast.PsortASTBimander
+	case "ordered":
+		encoding = ast.PsortASTOrdered
+	case "unate":
+		encoding = ast.PsortASTUnate
+	case "circuit":
+		encoding = ast.PsortASTCircuit
+	}
+	r.keepCardinality, r.pbSolver, r.minArity, r.cardinalityEncoding = keep, solver, minimum, encoding
+	if r.network != nil {
+		return r.network.SetEncoding(encoding)
+	}
 	return nil
 }
