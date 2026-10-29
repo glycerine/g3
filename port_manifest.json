@@ -33446,7 +33446,7 @@
       "path": "src/ast/rewriter/enum2bv_rewriter.cpp",
       "component": "ast",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/rewriter/enum2bv_rewriter.go",
         "pkg/ast/rewriter/enum2bv_rewriter_test.go",
@@ -33459,7 +33459,8 @@
         "pkg/ast/rewriter/enum2bv_error_printer.go",
         "pkg/ast/rewriter/enum2bv_error_source_test.go",
         "pkg/ast/rewriter/enum2bv_proof_test.go",
-        "pkg/ast/rewriter/enum2bv_params_test.go"
+        "pkg/ast/rewriter/enum2bv_params_test.go",
+        "pkg/ast/rewriter/enum2bv_completion_audit_test.go"
       ],
       "tests": [
         "TestEnum2BVConstantsRecognizersMappingsBoundsAndScopes",
@@ -33489,7 +33490,9 @@
         "TestEnum2BVProofComposesRewrittenChild",
         "TestEnum2BVProofComposesQuantifierBody",
         "TestEnum2BVParametersSharedCopyAndCleanupRetention",
-        "TestEnum2BVParametersReplacementFailurePrefixes"
+        "TestEnum2BVParametersReplacementFailurePrefixes",
+        "TestEnum2BVSingletonFreshAndCachedArgumentSourceBehavior",
+        "TestEnum2BVMixedQuantifierSingletonBoundsAndBinderOrder"
       ],
       "assertions": [
         {
@@ -33505,8 +33508,8 @@
           "text": "SASSERT(num_scopes <= m_enum_consts_lim.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained enum2bv algorithms: constants, recognizers, bounds, quantifier sorts, maps and scopes; whole source lexical ownership/diagnostic/exceptional audit remains open",
@@ -33679,7 +33682,7 @@
       "path": "src/ast/rewriter/enum2bv_rewriter.h",
       "component": "ast",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/rewriter/enum2bv_rewriter.go",
         "pkg/ast/rewriter/enum2bv_rewriter_test.go",
@@ -33692,7 +33695,8 @@
         "pkg/ast/rewriter/enum2bv_error_printer.go",
         "pkg/ast/rewriter/enum2bv_error_source_test.go",
         "pkg/ast/rewriter/enum2bv_proof_test.go",
-        "pkg/ast/rewriter/enum2bv_params_test.go"
+        "pkg/ast/rewriter/enum2bv_params_test.go",
+        "pkg/ast/rewriter/enum2bv_completion_audit_test.go"
       ],
       "tests": [
         "TestEnum2BVConstantsRecognizersMappingsBoundsAndScopes",
@@ -33722,7 +33726,9 @@
         "TestEnum2BVProofComposesRewrittenChild",
         "TestEnum2BVProofComposesQuantifierBody",
         "TestEnum2BVParametersSharedCopyAndCleanupRetention",
-        "TestEnum2BVParametersReplacementFailurePrefixes"
+        "TestEnum2BVParametersReplacementFailurePrefixes",
+        "TestEnum2BVSingletonFreshAndCachedArgumentSourceBehavior",
+        "TestEnum2BVMixedQuantifierSingletonBoundsAndBinderOrder"
       ],
       "conditionals": [
         {
@@ -33734,8 +33740,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained enum2bv public operations with concrete caller-owned bound outputs; source parameter and exceptional interface audit remains open",
