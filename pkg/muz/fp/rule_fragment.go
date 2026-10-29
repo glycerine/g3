@@ -56,6 +56,10 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		}
 	}
 	if err != nil {
+		var property *base.RulePropertyError
+		if (kind == EnginePDR || kind == EngineSpacer) && errors.As(err, &property) && property.Kind == base.RulePropertyUninterpreted {
+			return fmt.Errorf("%w: uninterpreted symbols in PDR rules are unsupported: %w", ErrPropositionalHorn, err)
+		}
 		return fmt.Errorf("%w: validate %s rule fragment: %w", ErrPropositionalHorn, backend, err)
 	}
 	return nil
