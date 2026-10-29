@@ -89285,6 +89285,8 @@
         "pkg/muz/spacer/context_validate.go",
         "pkg/muz/spacer/context_frames.go",
         "pkg/muz/spacer/context.go",
+        "pkg/muz/spacer/context_diagnostics.go",
+        "pkg/muz/spacer/context_diagnostics_test.go",
         "pkg/muz/spacer/predicate_cover.go",
         "pkg/muz/spacer/predicate_reachable.go",
         "pkg/muz/spacer/predicate_reach_projection.go",
@@ -89297,6 +89299,7 @@
         "pkg/cmd/g3/test_vectors/fp_spacer_mutual_inv.smt2"
       ],
       "tests": [
+        "TestContextCertificateAndProofPresentationSurface",
         "TestSMT2FixedpointSpacerRebuildsAfterBoundedRecursiveSearch",
         "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP",
         "TestSpacerRulePredicateTransformerBuildsSourceStateSignature",
@@ -89652,8 +89655,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/predicate_cover.go", "pkg/muz/spacer/predicate_reachable.go", "pkg/muz/spacer/context_frames.go"],
-      "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSMTContextFixedpointSpacerInductiveExports"],
+      "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/context_diagnostics.go", "pkg/muz/spacer/context_diagnostics_test.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/predicate_cover.go", "pkg/muz/spacer/predicate_reachable.go", "pkg/muz/spacer/context_frames.go"],
+      "tests": ["TestContextCertificateAndProofPresentationSurface", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSMTContextFixedpointSpacerInductiveExports"],
       "conditionals": [
         {
           "line": 23,
