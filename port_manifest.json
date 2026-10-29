@@ -72011,7 +72011,24 @@
         "pkg/math/realclosure/algebraic_value_refine_general_test.go",
         "pkg/math/realclosure/value_interval_snapshot_any_test.go",
         "pkg/math/realclosure/value_precision_query_test.go",
-        "pkg/math/realclosure/value_refine_certified_test.go"
+        "pkg/math/realclosure/value_refine_certified_test.go",
+        "pkg/math/realclosure/algebraic_result_publish.go",
+        "pkg/math/realclosure/algebraic_clean_denominator.go",
+        "pkg/math/realclosure/value_lcm_denominator.go",
+        "pkg/math/realclosure/polynomial_clean_any.go",
+        "pkg/math/realclosure/integer_content_value.go",
+        "pkg/math/realclosure/integer_content_polynomial.go",
+        "pkg/math/realclosure/integer_scalar_value.go",
+        "pkg/math/realclosure/integer_exact_divide_value.go",
+        "pkg/math/realclosure/integer_content_normalize_any.go",
+        "pkg/math/realclosure/value_clean_any_query.go",
+        "pkg/math/realclosure/algebraic_clean_denominator_test.go",
+        "pkg/math/realclosure/value_lcm_denominator_test.go",
+        "pkg/math/realclosure/polynomial_clean_any_test.go",
+        "pkg/math/realclosure/integer_content_value_test.go",
+        "pkg/math/realclosure/integer_content_polynomial_test.go",
+        "pkg/math/realclosure/integer_exact_divide_value_test.go",
+        "pkg/math/realclosure/integer_content_normalize_any_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72065,7 +72082,14 @@
         "TestRefineGeneral",
         "TestSnapshotAny",
         "TestRetainedPrecision",
-        "TestRefineAndCertify"
+        "TestRefineAndCertify",
+        "TestCleanAlgebraic",
+        "TestLCMInteger",
+        "TestCleanMixed",
+        "TestAccumulateAlgebraic",
+        "TestMixedPolynomialInteger",
+        "TestExactDivideAlgebraic",
+        "TestNormalizeMixed"
       ],
       "conditionals": [
         {
