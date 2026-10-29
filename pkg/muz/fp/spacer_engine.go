@@ -48,14 +48,12 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err = transformer.Register(initialCone); err != nil {
 		return nil, errors.Join(err, initialCone.Close(), transformer.Close())
 	}
-	if allowLossyResultTransforms {
-		firstSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 40000)
-		if makeErr != nil {
-			return nil, errors.Join(makeErr, transformer.Close())
-		}
-		if err = transformer.Register(firstSimplifier); err != nil {
-			return nil, errors.Join(err, firstSimplifier.Close(), transformer.Close())
-		}
+	firstSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 40000)
+	if makeErr != nil {
+		return nil, errors.Join(makeErr, transformer.Close())
+	}
+	if err = transformer.Register(firstSimplifier); err != nil {
+		return nil, errors.Join(err, firstSimplifier.Close(), transformer.Close())
 	}
 	fixedpoint, err := e.globals.SourceGetModuleName("fixedpoint")
 	if err != nil {
@@ -252,14 +250,12 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err = transformer.Register(laterCone); err != nil {
 		return nil, errors.Join(err, laterCone.Close(), transformer.Close())
 	}
-	if allowLossyResultTransforms {
-		secondSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34980)
-		if makeErr != nil {
-			return nil, errors.Join(makeErr, transformer.Close())
-		}
-		if err = transformer.Register(secondSimplifier); err != nil {
-			return nil, errors.Join(err, secondSimplifier.Close(), transformer.Close())
-		}
+	secondSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34980)
+	if makeErr != nil {
+		return nil, errors.Join(makeErr, transformer.Close())
+	}
+	if err = transformer.Register(secondSimplifier); err != nil {
+		return nil, errors.Join(err, secondSimplifier.Close(), transformer.Close())
 	}
 	if useSubsumption {
 		if err = transformer.Register(transforms.NewSubsumptionCheckerPlugin(useChecker, 34975)); err != nil {
@@ -273,14 +269,12 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err = transformer.Register(finalCone); err != nil {
 		return nil, errors.Join(err, finalCone.Close(), transformer.Close())
 	}
-	if allowLossyResultTransforms {
-		thirdSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34950)
-		if makeErr != nil {
-			return nil, errors.Join(makeErr, transformer.Close())
-		}
-		if err = transformer.Register(thirdSimplifier); err != nil {
-			return nil, errors.Join(err, thirdSimplifier.Close(), transformer.Close())
-		}
+	thirdSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34950)
+	if makeErr != nil {
+		return nil, errors.Join(makeErr, transformer.Close())
+	}
+	if err = transformer.Register(thirdSimplifier); err != nil {
+		return nil, errors.Join(err, thirdSimplifier.Close(), transformer.Close())
 	}
 	if useSubsumption {
 		for _, stage := range []struct {
