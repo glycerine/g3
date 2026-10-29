@@ -25,6 +25,7 @@ type ArithmeticPlugin struct {
 	branches        map[ArithmeticBranchKey]*ArithmeticPluginBranch
 	constraints     []ArithmeticConstraint
 	pendingFresh    []ast.ASTRef
+	pendingEquation *ArithmeticEquationElimination
 	normalizedAtoms []ast.ASTRef
 	closed          bool
 }
@@ -92,7 +93,7 @@ func (p *ArithmeticPlugin) Close() (result error) {
 		result = errors.Join(result, p.manager.DelRef(&p.normalizedAtoms[i]))
 	}
 	p.normalizedAtoms = nil
-	result = errors.Join(result, p.clearConstraints(), p.clearPendingFresh(), p.replacer.Close(), p.util.Close())
+	result = errors.Join(result, p.clearConstraints(), p.clearPendingFresh(), p.discardPendingEquation(), p.replacer.Close(), p.util.Close())
 	if result == nil {
 		p.closed = true
 		p.context = nil
