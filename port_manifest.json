@@ -5494,10 +5494,21 @@
       "go_targets": [
         "pkg/api/api_goal_object.go",
         "pkg/api/api_goal_memory_trace.go",
-        "pkg/api/api_goal_memory_trace_debug_test.go"
+        "pkg/api/api_goal_memory_trace_debug_test.go",
+        "pkg/api/api_goal.go",
+        "pkg/api/api_goal_mutation.go",
+        "pkg/api/api_goal_queries.go",
+        "pkg/api/api_goal_translation.go",
+        "pkg/api/api_goal_display.go",
+        "pkg/api/api_goal_lifecycle_test.go",
+        "pkg/api/api_goal_mutation_test.go",
+        "pkg/api/api_goal_queries_test.go",
+        "pkg/api/api_goal_translation_test.go",
+        "pkg/api/api_goal_display_test.go"
       ],
       "tests": [
-        "TestAPIGoalSourceMemoryWrapperReleaseSites"
+        "TestAPIGoalSourceMemoryWrapperReleaseSites",
+        "TestAPIGoal"
       ],
       "assertions": [
         {
