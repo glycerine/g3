@@ -72028,7 +72028,24 @@
         "pkg/math/realclosure/integer_content_value_test.go",
         "pkg/math/realclosure/integer_content_polynomial_test.go",
         "pkg/math/realclosure/integer_exact_divide_value_test.go",
-        "pkg/math/realclosure/integer_content_normalize_any_test.go"
+        "pkg/math/realclosure/integer_content_normalize_any_test.go",
+        "pkg/math/realclosure/polynomial_validate_any.go",
+        "pkg/math/realclosure/polynomial_add_any.go",
+        "pkg/math/realclosure/polynomial_subtract_any.go",
+        "pkg/math/realclosure/polynomial_multiply_any.go",
+        "pkg/math/realclosure/polynomial_scalar_any.go",
+        "pkg/math/realclosure/polynomial_division_any.go",
+        "pkg/math/realclosure/polynomial_derivative_any.go",
+        "pkg/math/realclosure/polynomial_monic_any.go",
+        "pkg/math/realclosure/polynomial_gcd_any.go",
+        "pkg/math/realclosure/polynomial_square_free_any.go",
+        "pkg/math/realclosure/polynomial_add_subtract_any_test.go",
+        "pkg/math/realclosure/polynomial_multiply_any_test.go",
+        "pkg/math/realclosure/polynomial_scalar_any_test.go",
+        "pkg/math/realclosure/polynomial_division_any_test.go",
+        "pkg/math/realclosure/polynomial_derivative_monic_any_test.go",
+        "pkg/math/realclosure/polynomial_gcd_any_test.go",
+        "pkg/math/realclosure/polynomial_square_free_any_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72089,7 +72106,8 @@
         "TestAccumulateAlgebraic",
         "TestMixedPolynomialInteger",
         "TestExactDivideAlgebraic",
-        "TestNormalizeMixed"
+        "TestNormalizeMixed",
+        "TestAnyPolynomial"
       ],
       "conditionals": [
         {
