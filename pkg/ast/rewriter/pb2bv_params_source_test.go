@@ -79,8 +79,8 @@ func TestPB2BVTraversalAlwaysPreservesCallerProof(t *testing.T) {
 		astTestMust(t, err)
 		result, err := m.RefGet(out)
 		astTestMust(t, err)
-		if actual != pr || result != h {
-			t.Fatal("proof-enabled source bypass changed proof or expression", actual, result)
+		if actual != pr || result == h {
+			t.Fatal("non-proof traversal changed caller proof or omitted rewrite", actual, result)
 		}
 		astTestMust(t, r.Cleanup())
 	}

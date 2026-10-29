@@ -36,10 +36,6 @@ func TestPB2BVCleanupFailureRetiresFreshAndPreservesProofAndParams(t *testing.T)
 	out, err := m.NewRef(ast.ASTHandle{})
 	astTestMust(t, err)
 
-	// The source rewriter bypasses conversion while proof generation is enabled.
-	// Disable it after constructing the caller-owned proof so this lifetime audit
-	// still reaches the auxiliary-declaration cleanup path.
-	astTestMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
 	astTestMust(t, r.Rewrite(input, out, proof))
 	actualProof, err := m.RefGet(proof)
 	astTestMust(t, err)

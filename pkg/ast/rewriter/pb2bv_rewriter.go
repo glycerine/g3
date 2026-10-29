@@ -771,13 +771,6 @@ func (r *PB2BVRewriter) Rewrite(expression ast.ASTHandle, out, _ ast.ASTRef) err
 	if err := r.open(); err != nil {
 		return err
 	}
-	proofs, err := r.manager.ProofsEnabled()
-	if err != nil {
-		return err
-	}
-	if proofs {
-		return r.manager.SetRef(out, expression)
-	}
 	return r.traversal.Rewrite(expression, out)
 }
 

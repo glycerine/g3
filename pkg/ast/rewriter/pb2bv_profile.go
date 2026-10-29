@@ -40,7 +40,7 @@ func (r *PB2BVRewriter) loadProfile() error {
 		return e
 	}
 	if solver == "" {
-		solver, e = r.profileSymbol("pb.solver", "solver")
+		solver, e = r.profileSymbol("pb.solver", "bv")
 		if e != nil {
 			return e
 		}

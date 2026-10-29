@@ -46,8 +46,9 @@ func pb2BVWeightedFixture(t *testing.T, m *ast.ASTManager) ast.ASTHandle {
 	return h
 }
 
-func TestPB2BVSourceDefaultSolverRetainsSmallWeightedConstraint(t *testing.T) {
+func TestPB2BVProfileSolverRetainsSmallWeightedConstraint(t *testing.T) {
 	m, r := pb2BVFixture(t)
+	pb2BVSetProfile(t, r, "pb.solver", "solver")
 	h := pb2BVWeightedFixture(t, m)
 	out := astTestPin(t, m, ast.ASTHandle{})
 	astTestMust(t, r.Rewrite(h, out, ast.ASTRef{}))
