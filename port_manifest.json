@@ -5388,9 +5388,9 @@
       "path": "src/api/api_datatype.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_datatype_definitions.go", "pkg/api/api_datatype_tuple.go", "pkg/api/api_datatype_enumeration.go", "pkg/api/api_datatype_list.go", "pkg/api/api_datatype_queries.go", "pkg/api/api_datatype_tuple_queries.go", "pkg/api/api_datatype_update.go", "pkg/api/api_datatype_tuple_test.go", "pkg/api/api_datatype_enumeration_test.go", "pkg/api/api_datatype_list_test.go", "pkg/api/api_datatype_recursive_test.go", "pkg/api/api_datatype_update_test.go"],
+      "tests": ["TestSMTContextDatatype"],
       "assertions": [
         {
           "line": 65,
