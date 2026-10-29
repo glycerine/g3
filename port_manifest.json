@@ -172594,9 +172594,16 @@
       "path": "src/tactic/core/pb_preprocess_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/pb_preprocess_tactic.go",
+        "pkg/tactic/core/pb_preprocess_apply.go",
+        "pkg/tactic/core/pb_preprocess_resolve.go"
+      ],
+      "tests": [
+        "TestPBPreprocessEliminatesOneSidedVariables",
+        "TestPBPreprocessSpecialResolutionEliminatesUnitSide"
+      ],
       "assertions": [
         {
           "line": 52,
@@ -172653,9 +172660,15 @@
       "path": "src/tactic/core/pb_preprocess_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/pb_preprocess_tactic.go",
+        "pkg/tactic/core/pb_preprocess_classify.go"
+      ],
+      "tests": [
+        "TestPBPreprocessNormalizesNegatedGE",
+        "TestPBPreprocessTranslationIsFresh"
+      ],
       "conditionals": [
         {
           "line": 20,
