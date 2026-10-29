@@ -130561,11 +130561,22 @@
       "status": "ported",
       "go_targets": [
         "pkg/smtcore/smt_implied_equalities.go",
-        "pkg/smtcore/smt_implied_equalities_test.go"
+        "pkg/smtcore/smt_implied_equalities_test.go",
+        "pkg/smtcore/smt_implied_equalities_types.go",
+        "pkg/smtcore/smt_implied_equalities_partition.go",
+        "pkg/smtcore/smt_implied_equalities_probe.go",
+        "pkg/smtcore/smt_implied_equalities_fallback.go",
+        "pkg/smtcore/smt_implied_equalities_values.go",
+        "pkg/smtcore/smt_implied_equalities_engine.go",
+        "pkg/smtcore/smt_implied_equalities_provider.go",
+        "pkg/smtcore/smt_implied_equalities_model_source_test.go",
+        "pkg/smtcore/smt_implied_equalities_fallback_source_test.go",
+        "pkg/smtcore/smt_implied_equalities_array_source_test.go"
       ],
       "tests": [
         "TestSMTSolverImpliedEqualitiesPartitionsByProofAndSort",
-        "TestSMTSolverImpliedEqualitiesUnsatAndEmptyInputs"
+        "TestSMTSolverImpliedEqualitiesUnsatAndEmptyInputs",
+        "TestSMTImpliedEqualities"
       ],
       "conditionals": [
         {

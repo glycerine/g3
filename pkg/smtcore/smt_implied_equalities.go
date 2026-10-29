@@ -51,12 +51,17 @@ func (classes *smtImpliedEqualityClasses) merge(first, second uint32) {
 // different sorts always remain in separate classes. The solver assertion
 // stack is restored before return.
 func ImpliedEqualities(s solver.Solver, terms []ast.ASTHandle) (status lbool.LBool, classIDs []uint32, result error) {
+	status, classIDs, _, result = ImpliedEqualitiesWithStats(s, terms)
+	return status, classIDs, result
+}
+
+func ImpliedEqualitiesWithStats(s solver.Solver, terms []ast.ASTHandle) (status lbool.LBool, classIDs []uint32, stats SMTImpliedEqualityStats, result error) {
 	if s == nil {
-		return lbool.Undef, nil, ast.ErrASTHandle
+		return lbool.Undef, nil, stats, ast.ErrASTHandle
 	}
 	manager, err := s.Manager()
 	if err != nil {
-		return lbool.Undef, nil, err
+		return lbool.Undef, nil, stats, err
 	}
 	termRefs := make([]ast.ASTRef, 0, len(terms))
 	for index, term := range terms {
@@ -65,7 +70,7 @@ func ImpliedEqualities(s solver.Solver, terms []ast.ASTHandle) (status lbool.LBo
 			for held := range termRefs {
 				_ = manager.DelRef(&termRefs[held])
 			}
-			return lbool.Undef, nil, fmt.Errorf("implied equality term %d reference: %w", index, err)
+			return lbool.Undef, nil, stats, fmt.Errorf("implied equality term %d reference: %w", index, err)
 		}
 		termRefs = append(termRefs, ref)
 	}
@@ -74,17 +79,12 @@ func ImpliedEqualities(s solver.Solver, terms []ast.ASTHandle) (status lbool.LBo
 			result = errors.Join(result, manager.DelRef(&termRefs[index]))
 		}
 	}()
-	classes := newSMTImpliedEqualityClasses(len(terms))
-	bySort := make(map[ast.ASTHandle][]uint32)
-	for index, term := range terms {
-		sort, err := manager.GetSort(term)
-		if err != nil {
-			return lbool.Undef, nil, fmt.Errorf("implied equality term %d sort: %w", index, err)
-		}
-		bySort[sort] = append(bySort[sort], uint32(index))
+	engine := newSMTImpliedEqualityEngine(s, manager, terms)
+	if err := engine.partition(); err != nil {
+		return lbool.Undef, nil, stats, err
 	}
 	if err := s.Push(); err != nil {
-		return lbool.Undef, nil, fmt.Errorf("implied equality outer push: %w", err)
+		return lbool.Undef, nil, stats, fmt.Errorf("implied equality outer push: %w", err)
 	}
 	defer func() {
 		result = errors.Join(result, s.Pop(1))
@@ -94,54 +94,26 @@ func ImpliedEqualities(s solver.Solver, terms []ast.ASTHandle) (status lbool.LBo
 		if result != nil {
 			result = fmt.Errorf("implied equality initial check: %w", result)
 		}
-		return status, nil, result
+		return status, nil, stats, result
 	}
-	for _, indices := range bySort {
-		for position := 1; position < len(indices); position++ {
-			current := indices[position]
-			if classes.find(current) != current {
-				continue
-			}
-			for priorPosition := 0; priorPosition < position; priorPosition++ {
-				prior := indices[priorPosition]
-				equality, err := manager.MkEq(terms[current], terms[prior])
-				if err != nil {
-					return lbool.Undef, nil, fmt.Errorf("implied equality pair %d,%d expression: %w", current, prior, err)
-				}
-				negated, err := manager.MkNot(equality)
-				if err != nil {
-					return lbool.Undef, nil, fmt.Errorf("implied equality pair negation: %w", err)
-				}
-				if err = s.Push(); err != nil {
-					return lbool.Undef, nil, fmt.Errorf("implied equality pair push: %w", err)
-				}
-				if err = s.Assert(negated); err != nil {
-					return lbool.Undef, nil, fmt.Errorf("implied equality pair assertion: %w", errors.Join(err, s.Pop(1)))
-				}
-				pairStatus, err := s.CheckSat(nil)
-				popErr := s.Pop(1)
-				if err != nil || popErr != nil {
-					return lbool.Undef, nil, fmt.Errorf("implied equality pair check: %w", errors.Join(err, popErr))
-				}
-				if pairStatus == lbool.Undef {
-					return lbool.Undef, nil, nil
-				}
-				if pairStatus == lbool.False {
-					classes.merge(current, prior)
-					break
-				}
-			}
-		}
+	if err := engine.run(); err != nil {
+		return lbool.Undef, nil, engine.stats, err
 	}
-	classIDs = make([]uint32, len(terms))
-	for index := range classIDs {
-		classIDs[index] = classes.find(uint32(index))
-	}
-	return lbool.True, classIDs, nil
+	return lbool.True, engine.results(), engine.stats, nil
 }
 
 // ImpliedEqualities applies the package-level exact fallback to this concrete
 // SMT solver.
 func (s *SMTSolver) ImpliedEqualities(terms []ast.ASTHandle) (lbool.LBool, []uint32, error) {
-	return ImpliedEqualities(s, terms)
+	status, classes, _, err := s.ImpliedEqualitiesWithStats(terms)
+	return status, classes, err
+}
+
+func (s *SMTSolver) ImpliedEqualitiesWithStats(terms []ast.ASTHandle) (status lbool.LBool, classes []uint32, stats SMTImpliedEqualityStats, err error) {
+	previous := s.produceModels
+	if err := s.SetProduceModels(true); err != nil {
+		return lbool.Undef, nil, stats, err
+	}
+	status, classes, stats, err = ImpliedEqualitiesWithStats(s, terms)
+	return status, classes, stats, errors.Join(err, s.SetProduceModels(previous))
 }
