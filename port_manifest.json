@@ -72063,7 +72063,22 @@
         "pkg/math/realclosure/sturm_sequence_any_test.go",
         "pkg/math/realclosure/sturm_root_count_any_test.go",
         "pkg/math/realclosure/sturm_tarski_any_test.go",
-        "pkg/math/realclosure/sturm_sequence_any_ownership_test.go"
+        "pkg/math/realclosure/sturm_sequence_any_ownership_test.go",
+        "pkg/math/realclosure/root_coefficient_interval_any.go",
+        "pkg/math/realclosure/root_bounds_positive_any.go",
+        "pkg/math/realclosure/root_bounds_negative_any.go",
+        "pkg/math/realclosure/root_bisect_any.go",
+        "pkg/math/realclosure/root_isolate_nonlinear_any.go",
+        "pkg/math/realclosure/root_isolate_square_free_any.go",
+        "pkg/math/realclosure/root_isolate_clean_any.go",
+        "pkg/math/realclosure/root_isolate_nonzero_any.go",
+        "pkg/math/realclosure/root_dispatch_any.go",
+        "pkg/math/realclosure/root_bounds_any_test.go",
+        "pkg/math/realclosure/root_linear_any_test.go",
+        "pkg/math/realclosure/root_bisect_any_test.go",
+        "pkg/math/realclosure/root_dispatch_any_test.go",
+        "pkg/math/realclosure/root_zero_any_test.go",
+        "pkg/math/realclosure/root_dispatch_any_ownership_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72126,7 +72141,8 @@
         "TestExactDivideAlgebraic",
         "TestNormalizeMixed",
         "TestAnyPolynomial",
-        "TestAnySturm"
+        "TestAnySturm",
+        "TestAnyRoot"
       ],
       "conditionals": [
         {
