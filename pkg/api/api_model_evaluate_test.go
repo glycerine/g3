@@ -3,7 +3,7 @@ package api
 import "testing"
 
 func TestAPIModelEvaluateRegisteredConstant(t *testing.T) {
-	f := newAPIQEBooleanFixture(t)
+	f := newAPIModelEvaluateFixture(t)
 	value, err := f.model.Evaluate(f.x, false)
 	astTestMust(t, err)
 	got, err := f.m.RefGet(value)

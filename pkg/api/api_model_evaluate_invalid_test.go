@@ -8,7 +8,7 @@ import (
 )
 
 func TestAPIModelEvaluateRejectsForeignAndClosedOwners(t *testing.T) {
-	left := newAPIQEBooleanFixture(t)
+	left := newAPIModelEvaluateFixture(t)
 	right := newSMTAPIFixture(t, "ALL", nil)
 	foreign := right.pin(right.c.Bool(true))
 	if _, err := left.model.Evaluate(foreign, false); !errors.Is(err, ast.ErrASTHandle) {
