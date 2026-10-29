@@ -94670,6 +94670,7 @@
         "pkg/nlsat/explain_projection_discriminant.go",
         "pkg/nlsat/explain_cell.go",
         "pkg/nlsat/explain_projection.go",
+        "pkg/nlsat/explain_signed_projection.go",
         "pkg/nlsat/explain_main.go"
       ],
       "tests": [
@@ -94741,6 +94742,9 @@
         "TestExplanationCellLiteralsSkipLowerStagePolynomials",
         "TestExplanationProjectionBuildsLowerCell",
         "TestExplanationProjectionEmptyInputPreservesWorklist",
+        "TestSignedProjectionMovesLowerStagePolynomialsToAssumptions",
+        "TestSignedProjectionInfinityUsesLeadingCoefficientSigns",
+        "TestSignedProjectionEqualityUsesGeneralPairProjection",
         "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
         "TestExplanationCollectPolynomialsPreservesLiteralFactorOrder"
       ],
@@ -95152,6 +95156,16 @@
           ]
         },
         {
+          "name": "Signed model-based projection with lower-stage sign assumptions, nearest upper/lower root selection, infinity leading-coefficient signs and general single/pair projection (cpp1561-1718)",
+          "status": "partial",
+          "go_target": "pkg/nlsat/explain_signed_projection.go",
+          "tests": [
+            "TestSignedProjectionMovesLowerStagePolynomialsToAssumptions",
+            "TestSignedProjectionInfinityUsesLeadingCoefficientSigns",
+            "TestSignedProjectionEqualityUsesGeneralPairProjection"
+          ]
+        },
+        {
           "name": "Actual collect_polys, polynomial-vector maximum variable and main conflict explanation composition through vanishing elimination and projection (cpp247-261,503-540,1339-1351)",
           "status": "partial",
           "go_target": "pkg/nlsat/explain_main.go",
@@ -95172,6 +95186,7 @@
         "Discriminant projection owns the source p and later p_prime references, and borrows its input vector/cache. The derivative call captures only its actual accepted invocation. Younger derivative NUM destruction and nested PSC lexical scopes finish before caller p_prime/p; unjoined derivative/PSC children are acknowledged afterward. Callback entry remains guarded by the real explanation execution state. No complete projection/explanation constructor or search is implied.",
         "Cell construction persistently owns its algebraic root vector and temporary lower/upper bound copies while borrowing the assignment and stage polynomials. Root isolation resets the owned vector for each polynomial; exact matches stop immediately, while replacement bounds publish cleanup authority before copying so interrupted copies remain recoverable. Cleanup resets roots and deletes upper before lower. The project loop borrows the bound canonical worklist only through explanation-qualified reset, insertion, emptiness and maximum-extraction operations; foreign or idle callers remain rejected by the search-state guard.",
         "The main explanation composition borrows conflict literals and their canonical atoms, acquires every inequality factor/root polynomial into a local owning vector in literal/factor order, computes the source maximum before reduction, then composes the existing vanishing and project scopes under one explanation execution guard. Its local polynomial vector is destroyed after all nested projection/cell scopes finish."
+        ,"Signed projection owns its isolated-root vector and nearest lower/upper algebraic copies while borrowing the assignment and caller polynomial vector. Each root vector is reset before reuse, selected bounds are copied before the roots are invalidated, and upper/lower copies are deleted before vector destruction. Temporary single/pair vectors and leading-coefficient references acquire concrete polynomial ownership around the existing projection engine."
       ],
       "deviations": [
         "Only the retained core-minimization routines are ported here; public explain constructor/operator, normalization, vanishing-coefficient elimination, projection, simplification, result display/TRACE and solver resolution/main-search integration remain unported or unaudited. Native charged component storage and Go slices replace C++ object/vector layouts; no identical std::vector growth or allocation-prefix claim is made. The source empty-todo assertion at1373 remains observable for the qualified redundant order tested by TestExplanationMinimizeSourceEmptyTodoGuard; release still terminates by reconstructing the already-full core. No source progress or reference repair suppresses that difference. Thirty-six prebuilt C++ qfnra-nlsat queries verify unsatisfiability and deletion-minimality of nine reduced cores; these prove core properties rather than identical C++ internal selection order or whole-backend completeness. Source preconditions remain caller obligations.",
@@ -95182,7 +95197,8 @@
         "This supersedes earlier notes marking vector elimination/literal normalization entirely pending, but complete explanation construction/parameter binding, projection, simplification and main search remain required. Source TRACE, complete descendant allocation/lexical/physical audits and C++ layout/frontier equivalence are not claimed. All whole-unit flags remain false.",
         "These are retained projection callees, not the complete project loop or explanation constructor. Discriminant/derivative processing, cell/root literal construction, projection control flow, simplification and main search remain pending. Binding the real persistent PSC vector is an explicit partial constructor step; cleanup does not make an interrupted constructor usable, and the eager full C++ constructor/layout/frontier is not claimed. Borrowed cache PSC/factor/unique/numerical owners acknowledge their own accepted work; explanation cleanup never adopts an older cache continuation. The native pairwise loop avoids unsigned size-1 underflow for empty invalid callers; retained source callers provide a nonempty stage. Complete TRACE and descendant allocation/physical audits remain open; whole-unit flags stay false.",
         "Discriminant projection is now supplied; the cell/root fallback and main projection loop are also supplied by later method records. Quadratic/cubic/repeated-root cases, 120 prebuilt C++ checks, composed failure/retry and concrete derivative ownership are covered. Full source TRACE/eager constructor/descendant allocation audits remain partial. Integration work is now prioritized over completing every audit before an end-to-end path.",
-        "Cell construction now retains the source constant-coefficient linear rewrite, all five root relations, negative leading coefficients, quadratic Thom sign encoding, and its zero-leading-coefficient pseudo-linear branch. The standalone pseudo-linear call remains disabled exactly as in the source; ineligible degrees/root indices retain the canonical root-atom fallback. Later increments supply the main projection loop, public solver composition and conflict search. TRACE plus whole-unit ownership/lexical audits remain open, so whole-unit flags stay false."
+        "Cell construction now retains the source constant-coefficient linear rewrite, all five root relations, negative leading coefficients, quadratic Thom sign encoding, and its zero-leading-coefficient pseudo-linear branch. The standalone pseudo-linear call remains disabled exactly as in the source; ineligible degrees/root indices retain the canonical root-atom fallback. Later increments supply the main projection loop, public solver composition and conflict search. TRACE plus whole-unit ownership/lexical audits remain open, so whole-unit flags stay false.",
+        "Signed projection retains the correctness path through general pair projection for a selected linear equality; cpp1719-1760 solve_eq virtual substitution is a pending performance optimization. The public cpp1465-1514 literal splitting, variable reorder/restore, owning result interface and final polarity reversal are still pending, so this method remains internal and the source unit stays partial."
       ]
     },
     {
