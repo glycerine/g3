@@ -83728,7 +83728,7 @@
       "methods": [
         {
           "name": "PDR/Spacer engine selection, fixedpoint PDR Farkas/generalizer/UTVPI/search/flexible-trace/cache/context-limit parameter forwarding, parameter-update context invalidation, finalized rule-set and command-background handoff, revision-tracked unchanged-program context reuse and lbool solve dispatch (pdr_dl_interface.cpp:84-173)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -83807,7 +83807,7 @@
         "PropositionalEngine owns the current query-specific sliced RuleSet through PDR initialization, snapshots original/derived declarations and removed-column masks while the Context retains their ASTs, closes/replaces the Context before clearing those maps, and transfers returned expanded inductive models to the caller."
       ],
       "deviations": [
-        "The integration reuses PDR state only for the same query and exact normalized rules/background because slicing is query-dependent; it rebuilds after another query or tracked mutation instead of applying native transformed-rule subsumption reuse. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. Proof traces remain unported."
+        "The integration reuses PDR state only for the same query and exact normalized rules/background because slicing is query-dependent; it deliberately rebuilds after another query or tracked mutation instead of retaining the native transformed-rule subsumption optimization. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. Proof traces remain unported."
       ]
     },
     {
@@ -83885,7 +83885,7 @@
       "methods": [
         {
           "name": "retained query, engine-selection, parameter-update invalidation and unchanged-program context-reuse surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/pdr_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -83950,7 +83950,7 @@
         "The fixedpoint engine owns its concrete PDR Context directly rather than through the native engine_base pointer."
       ],
       "deviations": [
-        "Query dispatch, revision-tracked exact-program context reuse, statistics, and native-style banked acyclic/recursive answer traces are exposed; native transformed-rule subsumption reuse, proof traces and diagnostic surfaces remain open."
+        "Query dispatch, revision-tracked exact-program context reuse, statistics, and native-style banked acyclic/recursive answer traces are exposed. Native transformed-rule subsumption reuse is an intentionally omitted optimization because query-dependent preprocessing is rebuilt after tracked mutations; proof traces and diagnostic surfaces remain open."
       ]
     },
     {
