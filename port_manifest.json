@@ -177753,9 +177753,9 @@
       "path": "src/tactic/sls/sls_evaluator.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go"],
+      "tests": ["TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner"],
       "conditionals": [
         {
           "line": 20,
