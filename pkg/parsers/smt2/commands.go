@@ -649,6 +649,11 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "apply":
+		if err := p.applyTactic(!p.ignoreChecks); err != nil {
+			return false, err
+		}
+		success = false
 	case "check-sat", "check-sat-assuming":
 		var assumptions []ast.ASTHandle
 		if name == "check-sat-assuming" {
