@@ -170,3 +170,37 @@ func TestSolverIntegerBranchAndBound(t *testing.T) {
 		})
 	}
 }
+
+func TestSolverHeuristicVariablePermutation(t *testing.T) {
+	s := solverFixture(t)
+	for i := 0; i < 2; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	x0 := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0})
+	x1Cubed := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 3})
+	solverUnit(t, s, AtomGT, x0)
+	repeated := solverUnit(t, s, AtomGT, x1Cubed)
+	assignmentMust(t, s.AddClause([]sat.Literal{repeated}, Assumption{}))
+	permutation, supported, err := s.HeuristicVariablePermutation()
+	assignmentMust(t, err)
+	if !supported {
+		t.Fatal("inequality-only variable order was refused")
+	}
+	want := []uint32{1, 0}
+	if len(permutation) != len(want) {
+		t.Fatal("variable permutation length", permutation)
+	}
+	for i := range want {
+		if permutation[i] != want[i] {
+			t.Fatal("variable permutation", permutation, want)
+		}
+	}
+	_, err = s.MkRoot(AtomRootEQ, 1, 1, x1Cubed, false)
+	assignmentMust(t, err)
+	permutation, supported, err = s.HeuristicVariablePermutation()
+	assignmentMust(t, err)
+	if supported || permutation != nil {
+		t.Fatal("root-atom variable order was accepted", permutation)
+	}
+}

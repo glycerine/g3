@@ -96453,7 +96453,13 @@
           ]
         },
         {
-          "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1309,1875-1890; solver.h38-55,64-112,172-205,214-216), excluding reordering/simplification frontends",
+          "name": "var_info_collector polynomial degree/occurrence scoring, native heuristic permutation, and root-atom reorder guard (cpp1893-2023)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/variable_order.go",
+          "tests": ["TestSolverHeuristicVariablePermutation"]
+        },
+        {
+          "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1309,1875-1890; solver.h38-55,64-112,172-205,214-216), excluding variable permutation/restoration and simplification mutation frontends",
           "status": "partial",
           "go_target": "pkg/nlsat/solver.go",
           "tests": [
