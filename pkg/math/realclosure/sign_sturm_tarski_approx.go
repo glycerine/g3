@@ -11,8 +11,8 @@ import (
 
 // signApproxAtBinaryBound follows the source Horner interval sequence for
 // retained algebraic-root and rational coefficient intervals. Rational
-// coefficient refinement follows an ambiguous result. Exact fallback remains
-// separate work.
+// coefficient refinement follows an ambiguous result. If interval refinement
+// cannot decide the result, the source exact value fallback completes it.
 func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, bounds *numeral.BinaryRationalManager, bound *numeral.BinaryRational) (sign int32, err error) {
 	for _, value := range coefficients {
 		if value == nil {
@@ -135,7 +135,7 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 					return 0, e
 				}
 				if !refined {
-					return 0, arena.ErrInvalidSlot
+					return s.exactSignAtBinaryBound(coefficients, bounds, bound, true)
 				}
 			}
 		}
@@ -143,5 +143,5 @@ func (s *realValueStore) signApproxAtBinaryBound(coefficients []*realValue, boun
 			return sign, e
 		}
 	}
-	return 0, arena.ErrInvalidSlot
+	return s.exactSignAtBinaryBound(coefficients, bounds, bound, true)
 }

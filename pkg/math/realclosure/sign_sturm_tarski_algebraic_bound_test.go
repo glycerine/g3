@@ -103,7 +103,7 @@ func TestRealClosureAlgebraicConstantAndZeroBoundSigns(t *testing.T) {
 		}
 	}
 	if _, err := store.signAtBinaryBound([]*realValue{positive, negative}, bounds, &nonzero); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatal("ambiguous interval needs source refinement", err)
+		t.Fatal("independent-extension exact fallback", err)
 	}
 	// The source's initial 24-bit interval for -1/3 overlaps zero after
 	// adding this narrow positive algebraic enclosure. Refining the rational
@@ -145,8 +145,8 @@ func TestRealClosureAlgebraicConstantAndZeroBoundSigns(t *testing.T) {
 	oneBound := numeral.NewBinaryInt(1)
 	store.maxPrecisionBound = true
 	store.maxPrecision = 0
-	if _, err := store.signAtBinaryBound([]*realValue{negativeThird, closeValue}, bounds, &oneBound); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatal("zero refinement limit needs the still-open exact fallback", err)
+	if got, err := store.signAtBinaryBound([]*realValue{negativeThird, closeValue}, bounds, &oneBound); err != nil || got != 1 {
+		t.Fatal("zero refinement limit exact fallback", got, err)
 	}
 	if negativeThird.rationalInterval == nil {
 		t.Fatal("zero refinement limit lost the initial cached approximation")
