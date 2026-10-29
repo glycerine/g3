@@ -6,7 +6,7 @@
       "role": "reference_tool",
       "status": "partial",
       "go_targets": ["pkg/tactic/core/injectivity_tactic.go", "pkg/tactic/core/injectivity_relations.go", "pkg/tactic/core/injectivity_finder.go", "pkg/tactic/core/injectivity_rewrite.go", "pkg/tactic/core/injectivity_apply.go", "pkg/tactic/core/injectivity_tactic_test.go", "pkg/tactic/core/injectivity_finder_test.go", "pkg/tactic/core/injectivity_nested_test.go", "pkg/tactic/core/injectivity_refusal_test.go", "pkg/tactic/core/injectivity_lifecycle_test.go"],
-      "tests": ["TestInjectivity"],
+      "tests": ["TestInjectivityDiscoversInverseAndRewritesEquality"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -4791,9 +4791,17 @@
       "path": "src/api/api_algebraic.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_algebraic_arithmetic.go",
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_roots.go"
+      ],
+      "tests": [
+        "TestAPIAlgebraicRationalAndMixedArithmetic",
+        "TestAPIAlgebraicEvalAtIrrationalValue",
+        "TestAPIAlgebraicRootsIrrationalAssignment"
+      ],
       "assertions": [
         {
           "line": 61,
@@ -5660,9 +5668,15 @@
       "path": "src/api/api_log.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/z3_log_writer.go",
+        "pkg/api/z3_log_commands.go"
+      ],
+      "tests": [
+        "TestZ3LogScalarAndCommandRecords",
+        "TestZ3LogWriterRoundTripsThroughReplayer"
+      ],
       "conditionals": [
         {
           "line": 39,
@@ -5885,7 +5899,7 @@
       "path": "src/api/api_pb.cpp",
       "component": "api",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/api/api_pseudo_boolean.go", "pkg/api/api_pseudo_boolean_test.go"],
       "tests": ["TestSMTContextPseudoBooleanAPI"],
       "methods_audited": false,
@@ -5898,9 +5912,15 @@
       "path": "src/api/api_polynomial.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_subresultants.go"
+      ],
+      "tests": [
+        "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
+        "TestAPIPolynomialSubresultantsRationalCoefficients"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -5991,7 +6011,7 @@
       "path": "src/api/api_seq.cpp",
       "component": "api",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/api/api_sequences.go", "pkg/api/api_sequences_test.go"],
       "tests": ["TestSMTContextSequenceAndRegexAPI", "TestSMTContextSequenceAPIErrors"],
       "methods_audited": false,
@@ -10254,9 +10274,15 @@
       "path": "src/api/z3_logger.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/z3_log_writer.go",
+        "pkg/api/z3_log_file.go"
+      ],
+      "tests": [
+        "TestOpenZ3LogWritesHeaderAndOwnsFile",
+        "TestZ3LogWriterLatchesWriteFailures"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -10470,9 +10496,16 @@
       "path": "src/api/z3_replayer.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/z3_replayer.go",
+        "pkg/api/z3_replayer_commands.go",
+        "pkg/api/z3_replayer_parse.go"
+      ],
+      "tests": [
+        "TestZ3ReplayerCommandCanMutateOutArguments",
+        "TestZ3ReplayerTypedScalarArgumentsAndEscapes"
+      ],
       "conditionals": [
         {
           "line": 264,
@@ -10493,9 +10526,15 @@
       "path": "src/api/z3_replayer.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/z3_replayer.go",
+        "pkg/api/z3_replayer_objects.go"
+      ],
+      "tests": [
+        "TestZ3ReplayerLifecycleAndRegistrationGuards",
+        "TestZ3ReplayerResultHeapSurvivesReset"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -33467,7 +33506,7 @@
       "path": "src/ast/rewriter/enum2bv_rewriter.cpp",
       "component": "ast",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/ast/rewriter/enum2bv_rewriter.go",
         "pkg/ast/rewriter/enum2bv_rewriter_test.go",
@@ -33703,7 +33742,7 @@
       "path": "src/ast/rewriter/enum2bv_rewriter.h",
       "component": "ast",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/ast/rewriter/enum2bv_rewriter.go",
         "pkg/ast/rewriter/enum2bv_rewriter_test.go",
@@ -85635,9 +85674,16 @@
       "path": "src/muz/rel/aig_exporter.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/aag_exporter.go",
+        "pkg/muz/rel/aag_exporter_rules.go",
+        "pkg/muz/rel/aag_exporter_write.go"
+      ],
+      "tests": [
+        "TestAAGExporterLowersLinearRuleFactsAndOutput",
+        "TestAAGExporterRejectsNonlinearClause"
+      ],
       "conditionals": [
         {
           "line": 160,
@@ -85692,9 +85738,15 @@
       "path": "src/muz/rel/aig_exporter.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/aag_builder.go",
+        "pkg/muz/rel/aag_exporter.go"
+      ],
+      "tests": [
+        "TestAAGBuilderExpressionSharingAndSerialization",
+        "TestAAGExporterEmptyProgramAndLifecycle"
+      ],
       "conditionals": [
         {
           "line": 14,
@@ -86111,7 +86163,7 @@
       "path": "src/muz/rel/dl_check_table.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go"],
       "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
       "methods_audited": false,
@@ -86124,7 +86176,7 @@
       "path": "src/muz/rel/dl_check_table.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go"],
       "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
       "conditionals": [
@@ -87187,7 +87239,7 @@
       "path": "src/muz/rel/dl_lazy_table.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go"],
       "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
@@ -87258,7 +87310,7 @@
       "path": "src/muz/rel/dl_lazy_table.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go"],
       "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "conditionals": [
@@ -88148,7 +88200,7 @@
       "path": "src/muz/rel/dl_sieve_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
       "tests": ["TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
       "conditionals": [
@@ -88249,7 +88301,7 @@
       "path": "src/muz/rel/dl_sieve_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
       "tests": ["TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
       "conditionals": [
@@ -88635,7 +88687,7 @@
       "path": "src/muz/rel/dl_table_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go"],
       "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "assertions": [
@@ -88746,7 +88798,7 @@
       "path": "src/muz/rel/dl_table_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go"],
       "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "conditionals": [
@@ -89185,7 +89237,7 @@
       "path": "src/muz/rel/udoc_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go"],
       "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality"],
       "conditionals": [
@@ -89334,7 +89386,7 @@
       "path": "src/muz/rel/udoc_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go"],
       "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality"],
       "conditionals": [
@@ -97961,9 +98013,16 @@
       "path": "src/opt/opt_parse.cpp",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/opt/opb_document.go",
+        "pkg/opt/opb_parse.go",
+        "pkg/opt/opb_scanner.go"
+      ],
+      "tests": [
+        "TestParseOPBObjectivesConstraintsAndProducts",
+        "TestParseOPBPreservesMaxSyntaxAndEquality"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -169356,9 +169415,16 @@
       "path": "src/tactic/bv/bv_bounds_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/bv/bv_bounds_tactic.go",
+        "pkg/tactic/bv/bv_bounds_simplify.go",
+        "pkg/tactic/bv/bv_bounds_translate.go"
+      ],
+      "tests": [
+        "TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds",
+        "TestBVBoundsSourcePropagateEqualityAndTranslation"
+      ],
       "conditionals": [
         {
           "line": 157,
@@ -171771,9 +171837,16 @@
       "path": "src/tactic/core/dom_simplify_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/dom_simplify_tactic.go",
+        "pkg/tactic/core/dom_simplify_dominators.go",
+        "pkg/tactic/core/dom_simplify_rewrite.go"
+      ],
+      "tests": [
+        "TestDomSimplifySourceTraceTreeAndRewrite",
+        "TestDomSimplifyCleanupAndTranslation"
+      ],
       "assertions": [
         {
           "line": 32,
@@ -177908,7 +177981,7 @@
       "path": "src/tactic/sls/bvsls_opt_engine.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/tactic/sls/bvsls_optimizer.go", "pkg/tactic/sls/bvsls_moves.go", "pkg/tactic/sls/bvsls_model.go", "pkg/tactic/sls/bvsls_optimizer_test.go"],
       "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"],
       "conditionals": [
@@ -177997,7 +178070,7 @@
       "path": "src/tactic/sls/bvsls_opt_engine.h",
       "component": "tactic",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/tactic/sls/bvsls_optimizer.go", "pkg/tactic/sls/bvsls_moves.go", "pkg/tactic/sls/bvsls_model.go", "pkg/tactic/sls/bvsls_optimizer_test.go"],
       "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"],
       "conditionals": [
