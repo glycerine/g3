@@ -14,15 +14,20 @@ import (
 )
 
 func (e *PropositionalEngine) closePDRForReplacement() error {
-	if e.pdr == nil {
-		return nil
+	var result error
+	if e.pdr != nil {
+		archived := statistics.New()
+		result = e.pdr.CollectStatistics(archived)
+		e.pdrStatistics.Copy(*archived)
+		result = errors.Join(result, e.pdr.Close())
+		e.pdr = nil
 	}
-	archived := statistics.New()
-	result := e.pdr.CollectStatistics(archived)
-	e.pdrStatistics.Copy(*archived)
-	result = errors.Join(result, e.pdr.Close())
-	e.pdr = nil
+	if e.pdrRules != nil {
+		result = errors.Join(result, e.pdrRules.Close())
+		e.pdrRules = nil
+	}
 	e.pdrRevision = 0
+	e.pdrRuleRevision = 0
 	e.pdrQuery = ast.ASTHandle{}
 	result = errors.Join(result, e.clearPDRPreprocessing())
 	return result
@@ -106,11 +111,6 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	}
 	if e.pdr != nil && e.pdrRevision == e.revision && e.pdrQuery == declaration {
 		return e.pdr.Solve(e.pdrPredicate(declaration))
-	}
-	if e.pdr != nil {
-		if err = e.closePDRForReplacement(); err != nil {
-			return lbool.Undef, err
-		}
 	}
 	parameters, err := e.fixedpointParamView()
 	if err != nil {
@@ -234,20 +234,30 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
-	e.installPDRPreprocessing(preprocessed)
+	snapshot, err := snapshotHornRules(prepared)
+	if err != nil {
+		return lbool.Undef, errors.Join(err, context.Close())
+	}
+	keepSnapshot := false
+	defer func() {
+		if !keepSnapshot {
+			resultErr = errors.Join(resultErr, snapshot.Close())
+		}
+	}()
 	installed := false
 	defer func() {
 		if !installed {
-			resultErr = errors.Join(resultErr, e.clearPDRPreprocessing())
+			resultErr = errors.Join(resultErr, closeHornModelConversions(preprocessed.modelConversions))
+			preprocessed.modelConversions = nil
 		}
 	}()
-	e.pdrDerived = make(map[ast.ASTHandle]ast.ASTHandle, len(e.predicateOrder)+len(e.auxiliary)+1)
+	derivedPredicates := make(map[ast.ASTHandle]ast.ASTHandle, len(e.predicateOrder)+len(e.auxiliary)+1)
 	for _, original := range e.predicateOrder {
 		derived, deriveErr := prepared.DerivedPredicate(original)
 		if deriveErr != nil {
 			return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: resolve preprocessed PDR predicate: %w", deriveErr), context.Close())
 		}
-		e.pdrDerived[original] = derived
+		derivedPredicates[original] = derived
 	}
 	queryDeclaration, err := prepared.DerivedPredicate(declaration)
 	if err != nil {
@@ -255,24 +265,56 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	}
 	auxiliary := make([]ast.ASTHandle, 0, len(e.auxiliary))
 	for declaration := range e.auxiliary {
-		auxiliary = append(auxiliary, e.pdrPredicate(declaration))
+		derived := hornDerivedPredicate(declaration, preprocessed.quantifiedPredicates, preprocessed.scaledPredicates, preprocessed.magicPredicates, preprocessed.bitBlastedPredicates, preprocessed.instantiatedPredicates, preprocessed.slicedPredicates)
+		auxiliary = append(auxiliary, derived)
 	}
-	if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	background, err := e.manager.RefGet(e.background)
+	reuse, err := e.canReusePDRRules(prepared)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	if err = context.SetBackground(background); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
+	oldSnapshot := e.pdrRules
+	if reuse {
+		if err = context.Close(); err != nil {
+			return lbool.Undef, err
+		}
+		context = e.pdr
+		if err = context.UpdateRules(prepared); err != nil {
+			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+		}
+		if err = e.clearPDRPreprocessing(); err != nil {
+			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+		}
+	} else {
+		if err = e.closePDRForReplacement(); err != nil {
+			return lbool.Undef, errors.Join(err, context.Close())
+		}
+		if err = context.SetAuxiliaryPredicates(auxiliary); err != nil {
+			return lbool.Undef, errors.Join(err, context.Close())
+		}
+		background, backgroundErr := e.manager.RefGet(e.background)
+		if backgroundErr != nil {
+			return lbool.Undef, errors.Join(backgroundErr, context.Close())
+		}
+		if err = context.SetBackground(background); err != nil {
+			return lbool.Undef, errors.Join(err, context.Close())
+		}
+		if err = context.Initialize(prepared); err != nil {
+			return lbool.Undef, errors.Join(err, context.Close())
+		}
 	}
-	if err = context.Initialize(prepared); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
+	e.installPDRPreprocessing(preprocessed)
+	e.pdrDerived = derivedPredicates
 	e.pdr = context
+	e.pdrRules = snapshot
 	e.pdrRevision = e.revision
+	e.pdrRuleRevision = e.revision
 	e.pdrQuery = declaration
+	if reuse && oldSnapshot != nil {
+		if err = oldSnapshot.Close(); err != nil {
+			return lbool.Undef, errors.Join(err, e.closePDRForReplacement())
+		}
+	}
+	keepSnapshot = true
 	installed = true
 	return context.Solve(queryDeclaration)
 }

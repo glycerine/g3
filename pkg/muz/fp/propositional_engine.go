@@ -67,6 +67,8 @@ type PropositionalEngine struct {
 	globals            *uparams.GlobalParamsService
 	backend            string
 	pdr                *muzpdr.Context
+	pdrRules           *base.RuleSet
+	pdrRuleRevision    uint64
 	pdrQuery           ast.ASTHandle
 	pdrDerived         map[ast.ASTHandle]ast.ASTHandle
 	pdrPredicates      map[ast.ASTHandle]ast.ASTHandle
@@ -523,6 +525,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	e.set = replacement
 	keepReplacement = true
 	e.revision++
+	e.pdrRuleRevision = e.revision
 	return prior.Close()
 }
 
@@ -1889,6 +1892,11 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.pdrQuery = ast.ASTHandle{}
 		result = errors.Join(result, e.clearPDRPreprocessing())
 	}
+	if e.pdrRules != nil {
+		result = errors.Join(result, e.pdrRules.Close())
+		e.pdrRules = nil
+	}
+	e.pdrRuleRevision = 0
 	if e.spacer != nil {
 		result = errors.Join(result, e.spacer.Close())
 		e.spacer = nil
