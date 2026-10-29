@@ -71965,7 +71965,24 @@
         "pkg/math/realclosure/value_compare_determined_test.go",
         "pkg/math/realclosure/value_predicates_determined_test.go",
         "pkg/math/realclosure/value_canonical_zero_test.go",
-        "pkg/math/realclosure/algebraic_sign_scope_test.go"
+        "pkg/math/realclosure/algebraic_sign_scope_test.go",
+        "pkg/math/realclosure/multi_root_sign_counts.go",
+        "pkg/math/realclosure/multi_root_sign_expand.go",
+        "pkg/math/realclosure/multi_root_sign_solve.go",
+        "pkg/math/realclosure/multi_root_sign_select.go",
+        "pkg/math/realclosure/multi_root_sign_exact.go",
+        "pkg/math/realclosure/value_sign_any.go",
+        "pkg/math/realclosure/value_canonical_any.go",
+        "pkg/math/realclosure/value_arithmetic_any.go",
+        "pkg/math/realclosure/value_compare_any.go",
+        "pkg/math/realclosure/value_predicates_any.go",
+        "pkg/math/realclosure/multi_root_sign_fixture_test.go",
+        "pkg/math/realclosure/multi_root_sign_counts_test.go",
+        "pkg/math/realclosure/multi_root_sign_solve_test.go",
+        "pkg/math/realclosure/multi_root_sign_exact_test.go",
+        "pkg/math/realclosure/value_sign_any_test.go",
+        "pkg/math/realclosure/value_compare_any_test.go",
+        "pkg/math/realclosure/value_arithmetic_any_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72005,7 +72022,13 @@
         "TestDetermineRetained",
         "TestCanonicalArithmetic",
         "TestDeterminedComparison",
-        "TestCanonicalResultDeletes"
+        "TestCanonicalResultDeletes",
+        "TestMultiRoot",
+        "TestCompletedSign",
+        "TestExactMultiRoot",
+        "TestDetermineAny",
+        "TestAnyDetermined",
+        "TestAnyCanonical"
       ],
       "conditionals": [
         {
