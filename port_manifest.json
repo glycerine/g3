@@ -177997,9 +177997,16 @@
       "path": "src/tactic/sls/sls_powers.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/tactic/sls/sls_powers.go",
+        "pkg/tactic/sls/sls_powers_test.go"
+      ],
+      "tests": [
+        "TestPowersSourceLazyCacheAndBorrowIdentity",
+        "TestPowersMissFailureDoesNotPublishCacheEntry",
+        "TestPowersRejectsMissingAndEndedManager"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -178010,10 +178017,23 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "powers constructor, destructor and lazy operator() exact 2^n cache",
+          "status": "ported",
+          "go_target": "pkg/tactic/sls/sls_powers.go",
+          "tests": [
+            "TestPowersSourceLazyCacheAndBorrowIdentity",
+            "TestPowersMissFailureDoesNotPublishCacheEntry",
+            "TestPowersRejectsMissingAndEndedManager"
+          ]
+        }
+      ],
+      "ownership": [
+        "The cache owns each concrete numeral and returns borrowed immutable pointers. Retryable cleanup releases every initialized numeral before dropping native map and slice storage. Failed construction is not published."
+      ],
       "deviations": []
     },
     {
