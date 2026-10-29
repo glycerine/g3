@@ -94922,6 +94922,8 @@
         "pkg/nlsat/explain_cell.go",
         "pkg/nlsat/explain_projection.go",
         "pkg/nlsat/explain_signed_projection.go",
+        "pkg/nlsat/explain_virtual_substitution.go",
+        "pkg/nlsat/explain_maximize.go",
         "pkg/nlsat/solver_projection.go",
         "pkg/nlsat/explain_main.go"
       ],
@@ -94997,6 +94999,8 @@
         "TestSignedProjectionMovesLowerStagePolynomialsToAssumptions",
         "TestSignedProjectionInfinityUsesLeadingCoefficientSigns",
         "TestSignedProjectionEqualityUsesGeneralPairProjection",
+        "TestSignedSolveLinearEquality",
+        "TestSolverMaximize",
         "TestSolverProjectOwnsResultAndRestoresVariableOrder",
         "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
         "TestExplanationCollectPolynomialsPreservesLiteralFactorOrder"

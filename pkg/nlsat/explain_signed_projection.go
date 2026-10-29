@@ -185,9 +185,17 @@ func (n *explanationAssumptions) signedProject(ps *polynomial.PolynomialRefVecto
 		return n.signedProjectSingle(x, p)
 	}
 	if equalityValid {
-		// The source uses virtual substitution for a linear equality. Pair
-		// projection is the same general signed projection rule and preserves
-		// correctness while that performance optimization remains pending.
+		p, err := ps.Get(equality)
+		if err != nil {
+			return err
+		}
+		degree, err := core.Degree(p, x)
+		if err != nil {
+			return err
+		}
+		if degree == 1 {
+			return n.signedSolveLinearEquality(x, equality, ps)
+		}
 		return n.signedProjectPairs(x, equality, ps)
 	}
 
