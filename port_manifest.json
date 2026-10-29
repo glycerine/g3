@@ -100359,14 +100359,21 @@
         "pkg/ast/ast_expr_abstract.go",
         "pkg/qe/solver_context.go",
         "pkg/qe/conjunction_enum.go",
-        "pkg/qe/solver_context_test.go"
+        "pkg/qe/solver_context_test.go",
+        "pkg/qe/conjunction_partition.go",
+        "pkg/qe/definition_vector.go",
+        "pkg/qe/qe_core_contract_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
         "TestQSATRecursiveAllocationFrontiers",
         "TestSolverContextSourcePluginDispatchAndLifecycle",
-        "TestConjunctionEnumSourceOrderAndEqualityExtraction"
+        "TestConjunctionEnumSourceOrderAndEqualityExtraction",
+        "TestConjunctionPartitionSourceClassification",
+        "TestConjunctionPartitionMajorityAndUnionOrdering",
+        "TestDefinitionVectorNormalizeProjectAndOwnership",
+        "TestGuardedDefinitionsOwnsNormalizedCopies"
       ],
       "conditionals": [
         {
@@ -100642,14 +100649,21 @@
         "pkg/ast/ast_expr_abstract.go",
         "pkg/qe/solver_context.go",
         "pkg/qe/conjunction_enum.go",
-        "pkg/qe/solver_context_test.go"
+        "pkg/qe/solver_context_test.go",
+        "pkg/qe/conjunction_partition.go",
+        "pkg/qe/definition_vector.go",
+        "pkg/qe/qe_core_contract_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
         "TestQSATRecursiveAllocationFrontiers",
         "TestSolverContextSourcePluginDispatchAndLifecycle",
-        "TestConjunctionEnumSourceOrderAndEqualityExtraction"
+        "TestConjunctionEnumSourceOrderAndEqualityExtraction",
+        "TestConjunctionPartitionSourceClassification",
+        "TestConjunctionPartitionMajorityAndUnionOrdering",
+        "TestDefinitionVectorNormalizeProjectAndOwnership",
+        "TestGuardedDefinitionsOwnsNormalizedCopies"
       ],
       "conditionals": [
         {
@@ -101553,9 +101567,9 @@
       "path": "src/qe/qe_bool_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/qe/qe_bool_plugin.go", "pkg/qe/qe_core_contract_test.go"],
+      "tests": ["TestBoolPluginBranchAndSubstitutionContracts"],
       "assertions": [
         {
           "line": 43,
