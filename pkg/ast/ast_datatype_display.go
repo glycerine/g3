@@ -3,6 +3,7 @@ package ast
 // Source: src/ast/datatype_decl_plugin.cpp:1011-1070.
 
 import (
+	"errors"
 	"io"
 
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -134,10 +135,17 @@ func (m *ASTManager) DisplayDatatype(sort ASTHandle, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+	// std::ostream failure is sticky: operator<< stops touching its streambuf,
+	// but the source display loop keeps instantiating constructors/accessors.
+	// Retain the first stream error while preserving that reached computation.
+	var streamErr error
 	writeSymbol := func(symbolText string) error {
-		_, e := io.WriteString(out, symbolText)
-		return e
+		if streamErr == nil {
+			_, streamErr = io.WriteString(out, symbolText)
+		}
+		return nil
 	}
+	finish := func(e error) error { return errors.Join(streamErr, e) }
 	symbolText := func(symbol usymbol.Symbol) (string, error) {
 		return m.Symbols.Display(symbol)
 	}
@@ -156,11 +164,11 @@ func (m *ASTManager) DisplayDatatype(sort ASTHandle, out io.Writer) error {
 		stack = stack[:last]
 		definition, e := m.datatypeDefinitionForSort(current)
 		if e != nil {
-			return e
+			return finish(e)
 		}
 		name, e := symbolText(definition.name)
 		if e != nil {
-			return e
+			return finish(e)
 		}
 		if e = writeSymbol(name + " =\n"); e != nil {
 			return e
@@ -169,10 +177,10 @@ func (m *ASTManager) DisplayDatatype(sort ASTHandle, out io.Writer) error {
 			constructor := &definition.constructors[ci]
 			constructorName, e := symbolText(constructor.name)
 			if e != nil {
-				return e
+				return finish(e)
 			}
 			if e = writeSymbol("  " + constructorName + " :: "); e != nil {
-				return e
+				return finish(e)
 			}
 			ranges, e := m.datatypeInstantiatedRanges(current, definition, constructor)
 			if e != nil {
@@ -181,11 +189,11 @@ func (m *ASTManager) DisplayDatatype(sort ASTHandle, out io.Writer) error {
 			for i, field := range ranges {
 				accessorName, e := symbolText(constructor.accessors[i])
 				if e != nil {
-					return e
+					return finish(e)
 				}
 				fieldName, e := symbolText(m.sortAt(field.slot).name)
 				if e != nil {
-					return e
+					return finish(e)
 				}
 				if e = writeSymbol("(" + accessorName + ": " + fieldName + ") "); e != nil {
 					return e
@@ -201,5 +209,5 @@ func (m *ASTManager) DisplayDatatype(sort ASTHandle, out io.Writer) error {
 			}
 		}
 	}
-	return nil
+	return streamErr
 }
