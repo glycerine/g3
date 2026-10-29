@@ -1806,6 +1806,12 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	if err := e.open(); err != nil {
 		return false, err
 	}
+	if e.backend == "spacer" {
+		if e.spacer == nil || !e.queried || e.spacerRevision != e.revision {
+			return false, ErrPropositionalEngine
+		}
+		return false, e.spacer.DisplayCertificate(out)
+	}
 	if e.backend != "pdr" {
 		return false, nil
 	}

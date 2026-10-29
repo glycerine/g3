@@ -405,16 +405,12 @@ func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.AS
 	if e.backend != "spacer" || e.spacer == nil || e.spacerRevision != e.revision {
 		return ast.ASTRef{}, ErrPropositionalEngine
 	}
-	status, err := e.spacer.LastResult()
+	answer, err := e.spacer.GroundSatAnswer(e.spacerPredicate(declaration))
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	if status != lbool.True {
-		return ast.ASTRef{}, ErrPropositionalEngine
-	}
-	answer, err := e.spacer.Answer(e.spacerPredicate(declaration))
-	if err != nil {
-		return ast.ASTRef{}, err
+	if answer == (ast.ASTRef{}) {
+		return answer, nil
 	}
 	return e.expandSpacerFormula(declaration, answer)
 }

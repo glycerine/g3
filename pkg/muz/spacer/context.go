@@ -687,18 +687,41 @@ func (c *Context) Answer(declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := c.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if !c.solved || c.queryDecl != declaration || c.lastResult == lbool.Undef {
+	if c.query == nil || c.queryDecl != declaration {
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
 	if c.lastResult == lbool.True {
 		return c.groundSatAnswer()
 	}
-	property, err := c.inductiveProperty()
+	if c.lastResult == lbool.False {
+		property, err := c.inductiveProperty()
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		result, answerErr := property.Expr()
+		return result, errors.Join(answerErr, property.Close())
+	}
+	truth, err := c.manager.MkTrue()
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	result, answerErr := property.Expr()
-	return result, errors.Join(answerErr, property.Close())
+	return c.manager.NewRef(truth)
+}
+
+// GroundSatAnswer returns the concrete reach-fact explanation for a SAT
+// query. The retained context returns an empty expression reference, rather
+// than an operational error, when no satisfying answer is available.
+func (c *Context) GroundSatAnswer(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if err := c.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if c.query == nil || c.queryDecl != declaration {
+		return ast.ASTRef{}, ast.ErrASTDomain
+	}
+	if c.lastResult != lbool.True {
+		return ast.ASTRef{}, nil
+	}
+	return c.groundSatAnswer()
 }
 
 func (c *Context) CollectStatistics(destination *statistics.Statistics) error {

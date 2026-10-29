@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -23,6 +24,7 @@ type SMTContextManager struct {
 	maximum   uint32
 	created   uint32
 	factories []*VirtualSolverFactory
+	dump      VirtualSolverDumpConfig
 	closed    bool
 }
 
@@ -30,7 +32,50 @@ func NewSMTContextManager(manager *ast.ASTManager, params *uparams.ParamsRef, ma
 	if manager == nil || config.Params == nil || config.Globals == nil {
 		return nil, ErrSMTContextManagerOwner
 	}
-	return &SMTContextManager{manager: manager, params: params, config: config, maximum: maximum}, nil
+	result := &SMTContextManager{manager: manager, params: params, config: config, maximum: maximum}
+	dump, err := result.readDumpConfig(params)
+	if err != nil {
+		return nil, err
+	}
+	result.dump = dump
+	return result, nil
+}
+
+func (m *SMTContextManager) readDumpConfig(params *uparams.ParamsRef) (_ VirtualSolverDumpConfig, resultErr error) {
+	view, err := newFixedpointParamView(params, m.config.Params, m.config.Globals)
+	if err != nil {
+		return VirtualSolverDumpConfig{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, view.Close()) }()
+	enabled, err := view.Bool("spacer.vs.dump_benchmarks", false)
+	if err != nil {
+		return VirtualSolverDumpConfig{}, err
+	}
+	minimum, err := view.Double("spacer.vs.dump_min_time", 5.0)
+	if err != nil {
+		return VirtualSolverDumpConfig{}, err
+	}
+	recheck, err := view.Bool("spacer.vs.recheck", false)
+	if err != nil {
+		return VirtualSolverDumpConfig{}, err
+	}
+	result := VirtualSolverDumpConfig{Enabled: enabled, MinSeconds: minimum, Recheck: recheck}
+	result.recheck = m.recheck
+	return result, result.validate()
+}
+
+func (m *SMTContextManager) recheck(assertions, assumptions []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	backend, err := smtcore.NewSMTSolver(m.manager, m.params, "", m.config)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, backend.Close()) }()
+	for _, assertion := range assertions {
+		if err = backend.Assert(assertion); err != nil {
+			return lbool.Undef, err
+		}
+	}
+	return backend.CheckSat(assumptions)
 }
 
 func (m *SMTContextManager) open() error {
@@ -45,7 +90,7 @@ func (m *SMTContextManager) newFactory() (*VirtualSolverFactory, error) {
 	if err != nil {
 		return nil, err
 	}
-	factory, err := NewVirtualSolverFactory(backend)
+	factory, err := NewVirtualSolverFactoryWithDump(backend, m.dump)
 	if err != nil {
 		return nil, errors.Join(err, backend.Close())
 	}
@@ -76,8 +121,16 @@ func (m *SMTContextManager) UpdateParams(params *uparams.ParamsRef) error {
 		return err
 	}
 	m.params = params
+	dump, err := m.readDumpConfig(params)
+	if err != nil {
+		return err
+	}
+	m.dump = dump
 	for _, factory := range m.factories {
 		if err := factory.backend.UpdateParams(params); err != nil {
+			return err
+		}
+		if err := factory.UpdateDumpConfig(dump); err != nil {
 			return err
 		}
 	}

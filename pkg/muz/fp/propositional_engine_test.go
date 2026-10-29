@@ -4,7 +4,9 @@ package fp_test
 // fixedpoint Datalog result for the positive propositional Horn fragment.
 
 import (
+	"bytes"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -391,6 +393,18 @@ func TestSpacerEngineRunsReachableAndInductiveHornQueries(t *testing.T) {
 		t.Fatal("Spacer fallback answer", answerHandle)
 	}
 	fpMust(t, manager.DelRef(&answer))
+	ground, err := engine.GroundSatAnswer(declarations["Q"])
+	fpMust(t, err)
+	if ground == (ast.ASTRef{}) {
+		t.Fatal("Spacer reachable query exposed an empty ground answer")
+	}
+	fpMust(t, manager.DelRef(&ground))
+	if unexpected, err := engine.GroundSatAnswer(declarations["P"]); err == nil {
+		if unexpected != (ast.ASTRef{}) {
+			fpMust(t, manager.DelRef(&unexpected))
+		}
+		t.Fatal("Spacer ground answer accepted a declaration other than the latest query")
+	}
 	trace, names, err := engine.RulesAlongTrace()
 	fpMust(t, err)
 	if len(trace) != 1 || len(names) != 1 || names[0] != "spacer-step" {
@@ -417,12 +431,71 @@ func TestSpacerEngineRunsReachableAndInductiveHornQueries(t *testing.T) {
 		t.Fatal("Spacer unsuccessful query exposed an empty certificate")
 	}
 	fpMust(t, manager.DelRef(&certificate))
+	ground, err = engine.GroundSatAnswer(declarations["U"])
+	fpMust(t, err)
+	if ground != (ast.ASTRef{}) {
+		fpMust(t, manager.DelRef(&ground))
+		t.Fatal("Spacer unreachable query exposed a ground answer")
+	}
 	inductiveModel, err := engine.Model(declarations["U"])
 	fpMust(t, err)
 	if declarations, err := inductiveModel.Core().NumDeclarations(); err != nil || declarations == 0 {
 		t.Fatal("Spacer inductive model", declarations, err)
 	}
 	fpMust(t, inductiveModel.Close())
+}
+
+func TestSpacerEngineUndefinedAnswerAndGroundAvailability(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, context.Close()) })
+	manager, err := context.Manager()
+	fpMust(t, err)
+	globals, err := context.GlobalParameters()
+	fpMust(t, err)
+	fpMust(t, globals.SourceSetName("fixedpoint.spacer.max_level", "0"))
+	engine, err := fp.NewPropositionalEngineWithServices(manager, globals.Context, globals)
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, engine.Close()) })
+	fpMust(t, engine.SelectEngine("spacer"))
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	name, err := manager.Symbols.Intern("spacer-engine-undefined")
+	fpMust(t, err)
+	declaration, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(declaration))
+	head, err := manager.MkApp(declaration, nil)
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(head, "spacer-undefined-fact"))
+	status, err := engine.QueryPredicate(declaration)
+	fpMust(t, err)
+	if status != lbool.Undef {
+		t.Fatal("zero-level Spacer query", status)
+	}
+	answer, err := engine.Answer(declaration)
+	fpMust(t, err)
+	answerHandle, err := manager.RefGet(answer)
+	fpMust(t, err)
+	if !manager.IsTrue(answerHandle) {
+		t.Fatal("undefined Spacer answer is not true", answerHandle)
+	}
+	fpMust(t, manager.DelRef(&answer))
+	ground, err := engine.GroundSatAnswer(declaration)
+	fpMust(t, err)
+	if ground != (ast.ASTRef{}) {
+		fpMust(t, manager.DelRef(&ground))
+		t.Fatal("undefined Spacer query exposed a ground answer")
+	}
+	var certificate bytes.Buffer
+	found, err := engine.WriteCertificate(&certificate, declaration, func(io.Writer, ast.ASTHandle) error {
+		t.Fatal("empty Spacer certificate invoked expression writer")
+		return nil
+	})
+	fpMust(t, err)
+	if found || certificate.Len() != 0 {
+		t.Fatal("Spacer certificate presentation is not empty", found, certificate.String())
+	}
 }
 
 func TestSpacerEngineExpandsSlicedReachableColumns(t *testing.T) {

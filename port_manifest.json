@@ -89301,6 +89301,7 @@
         "pkg/muz/spacer/context.go",
         "pkg/muz/spacer/context_diagnostics.go",
         "pkg/muz/spacer/context_diagnostics_test.go",
+        "pkg/muz/spacer/context_answer_status_test.go",
         "pkg/muz/spacer/predicate_cover.go",
         "pkg/muz/spacer/predicate_reachable.go",
         "pkg/muz/spacer/predicate_reach_projection.go",
@@ -89314,6 +89315,7 @@
       ],
       "tests": [
         "TestContextCertificateAndProofPresentationSurface",
+        "TestContextAnswerStatusDispatchAndOwnership",
         "TestSMT2FixedpointSpacerRebuildsAfterBoundedRecursiveSearch",
         "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP",
         "TestSpacerRulePredicateTransformerBuildsSourceStateSignature",
@@ -89669,8 +89671,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/context_diagnostics.go", "pkg/muz/spacer/context_diagnostics_test.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/predicate_cover.go", "pkg/muz/spacer/predicate_reachable.go", "pkg/muz/spacer/context_frames.go"],
-      "tests": ["TestContextCertificateAndProofPresentationSurface", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSMTContextFixedpointSpacerInductiveExports"],
+      "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/context_diagnostics.go", "pkg/muz/spacer/context_diagnostics_test.go", "pkg/muz/spacer/context_answer_status_test.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/predicate_cover.go", "pkg/muz/spacer/predicate_reachable.go", "pkg/muz/spacer/context_frames.go"],
+      "tests": ["TestContextCertificateAndProofPresentationSurface", "TestContextAnswerStatusDispatchAndOwnership", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSMTContextFixedpointSpacerInductiveExports"],
       "conditionals": [
         {
           "line": 23,
@@ -91971,8 +91973,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go"],
-      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews"],
+      "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go", "pkg/muz/spacer/virtual_solver_dump.go", "pkg/muz/spacer/virtual_solver_dump_test.go", "pkg/muz/spacer/smt_context_manager.go"],
+      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix"],
       "assertions": [
         {
           "line": 58,
@@ -92058,8 +92060,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go"],
-      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews"],
+      "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go", "pkg/muz/spacer/virtual_solver_dump.go", "pkg/muz/spacer/virtual_solver_dump_test.go", "pkg/muz/spacer/smt_context_manager.go"],
+      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix"],
       "conditionals": [
         {
           "line": 19,

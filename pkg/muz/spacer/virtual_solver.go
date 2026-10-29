@@ -31,10 +31,15 @@ type VirtualSolverFactory struct {
 	satWatch     stopwatch.Stopwatch
 	unknownWatch stopwatch.Stopwatch
 	proofWatch   stopwatch.Stopwatch
+	dump         VirtualSolverDumpConfig
 	closed       bool
 }
 
 func NewVirtualSolverFactory(backend solver.Solver) (*VirtualSolverFactory, error) {
+	return NewVirtualSolverFactoryWithDump(backend, VirtualSolverDumpConfig{})
+}
+
+func NewVirtualSolverFactoryWithDump(backend solver.Solver, dump VirtualSolverDumpConfig) (*VirtualSolverFactory, error) {
 	if backend == nil {
 		return nil, ErrVirtualSolverOwner
 	}
@@ -42,7 +47,10 @@ func NewVirtualSolverFactory(backend solver.Solver) (*VirtualSolverFactory, erro
 	if err != nil || manager == nil {
 		return nil, errors.Join(err, ErrVirtualSolverOwner)
 	}
-	return &VirtualSolverFactory{backend: backend, manager: manager}, nil
+	if err = dump.validate(); err != nil {
+		return nil, err
+	}
+	return &VirtualSolverFactory{backend: backend, manager: manager, dump: dump}, nil
 }
 
 func (f *VirtualSolverFactory) open() error {
@@ -76,7 +84,7 @@ func (f *VirtualSolverFactory) Fresh() (*VirtualSolver, error) {
 	if err != nil {
 		return nil, errors.Join(err, f.manager.DelRef(&predicateRef))
 	}
-	result := &VirtualSolver{Solver: f.backend, factory: f, predicate: predicateRef, proof: proofRef}
+	result := &VirtualSolver{Solver: f.backend, factory: f, predicate: predicateRef, proof: proofRef, name: fmt.Sprintf("vsolver#%d", len(f.solvers)), dumpBenchmarks: f.dump.Enabled}
 	f.solvers = append(f.solvers, result)
 	return result, nil
 }
@@ -169,6 +177,9 @@ type VirtualSolver struct {
 	scopeLevel      uint32
 	pushed          bool
 	delayScope      bool
+	name            string
+	dumpBenchmarks  bool
+	dumpCounter     uint32
 	closed          bool
 }
 
@@ -362,6 +373,10 @@ func (s *VirtualSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, erro
 	if err != nil {
 		return status, err
 	}
+	seconds, err := elapsed.Seconds()
+	if err != nil {
+		return status, err
+	}
 	s.factory.checkWatch.Add(&elapsed)
 	if status == lbool.True {
 		s.factory.sat++
@@ -369,6 +384,11 @@ func (s *VirtualSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, erro
 	} else if status == lbool.Undef {
 		s.factory.unknown++
 		s.factory.unknownWatch.Add(&elapsed)
+	}
+	if s.dumpBenchmarks && seconds >= s.factory.dump.MinSeconds {
+		if err = s.dumpBenchmark(status, values, seconds); err != nil {
+			return status, err
+		}
 	}
 	return status, nil
 }
