@@ -5081,8 +5081,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_bitvectors.go", "pkg/api/api_bitvectors_test.go"],
-      "tests": ["TestSMTContextBitVector"],
+      "go_targets": ["pkg/api/api_bitvectors.go", "pkg/api/api_bitvectors_test.go", "pkg/api/api_bitvector_overflow.go", "pkg/api/api_bitvector_overflow_test.go"],
+      "tests": ["TestSMTContextBitVector", "TestSMTContextBitVectorOverflow", "TestSMTContextBitVectorExtrema"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -5799,8 +5799,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_numeral_string.go", "pkg/api/api_numeral_string_test.go", "pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_fpa_api_numeral_text_test.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
-      "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
+      "go_targets": ["pkg/api/api_numeral_string.go", "pkg/api/api_numeral_string_test.go", "pkg/api/api_numerals.go", "pkg/api/api_numerals_test.go", "pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_fpa_api_numeral_text_test.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
+      "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestSMTContextNumeral", "TestSMTContextBitVectorNumeralBits", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
       "assertions": [
         {
           "line": 337,
