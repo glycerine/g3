@@ -92,6 +92,16 @@ func TestPropositionalEngineMatchesCPPFixedpointQueries(t *testing.T) {
 	}
 	got[1], err = engine.Query(applications["U"])
 	fpMust(t, err)
+	combined, err := engine.QueryPredicates([]ast.ASTHandle{declarations["U"], declarations["R"]})
+	fpMust(t, err)
+	if combined != lbool.True {
+		t.Fatal("relation-vector query missed nonempty relation", combined)
+	}
+	empty, err := engine.QueryPredicates(nil)
+	fpMust(t, err)
+	if empty != lbool.True {
+		t.Fatal("empty relation-vector query", empty)
+	}
 
 	cpp := fpReference(t, `(set-option :fixedpoint.engine datalog)
 (declare-rel P ())

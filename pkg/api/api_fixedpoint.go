@@ -105,6 +105,15 @@ func (c *SMTContext) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, er
 	return c.command.QueryFixedpoint(declaration)
 }
 
+// QueryFixedpointRelations reports whether at least one requested relation is
+// nonempty. PDR and Spacer accept exactly one relation.
+func (c *SMTContext) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	if err := c.open(); err != nil {
+		return lbool.Undef, err
+	}
+	return c.command.QueryFixedpointRelations(declarations)
+}
+
 // QueryFixedpointFromLevel runs a Spacer query beginning at the requested
 // proof level.
 func (c *SMTContext) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint32) (lbool.LBool, error) {

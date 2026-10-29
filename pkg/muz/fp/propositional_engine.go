@@ -1469,6 +1469,31 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (lbool.L
 		e.compiled = false
 		return e.querySpacer(declaration)
 	}
+	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
+}
+
+// QueryPredicates returns true when at least one requested relation is
+// nonempty. Native PDR and Spacer only support a single relation in this form.
+func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	if err := e.open(); err != nil {
+		return lbool.Undef, err
+	}
+	for _, declaration := range declarations {
+		if e.predicates[declaration] == nil {
+			return lbool.Undef, ErrPropositionalHorn
+		}
+	}
+	if e.backend != "datalog" {
+		if len(declarations) != 1 {
+			return lbool.Undef, nil
+		}
+		return e.QueryPredicate(declarations[0])
+	}
+	e.queried = true
+	return e.queryDatalogPredicates(declarations)
+}
+
+func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (lbool.LBool, error) {
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return lbool.Undef, err
@@ -1488,8 +1513,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (lbool.L
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	if state.table == nil {
-		return lbool.Undef, ErrPropositionalHorn
+	for _, declaration := range declarations {
+		if e.predicates[declaration].table == nil {
+			return lbool.Undef, ErrPropositionalHorn
+		}
 	}
 	e.compiled, err = e.tryCompiledSaturation()
 	if err != nil {
@@ -1501,11 +1528,16 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (lbool.L
 	if err != nil {
 		return lbool.Undef, err
 	}
-	count, err := state.table.Len()
-	if err != nil {
-		return lbool.Undef, err
+	for _, declaration := range declarations {
+		count, x := e.predicates[declaration].table.Len()
+		if x != nil {
+			return lbool.Undef, x
+		}
+		if count != 0 {
+			return lbool.True, nil
+		}
 	}
-	return lbool.FromBool(count != 0), nil
+	return lbool.FromBool(len(declarations) == 0), nil
 }
 
 // QueryPredicateFromLevel runs a Spacer query beginning at the requested proof

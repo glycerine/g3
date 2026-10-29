@@ -153,6 +153,42 @@ func (c *Context) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error
 	return engine.QueryPredicate(declaration)
 }
 
+// QueryFixedpointRelations reports whether at least one requested relation is
+// nonempty. PDR and Spacer accept exactly one relation, matching the native
+// fixedpoint engine contract.
+func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	assertions, err := c.Assertions()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	manager, err := c.Manager()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	background, err := manager.MkAndArray(assertions)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if err = engine.SetBackground(background); err != nil {
+		return lbool.Undef, err
+	}
+	selection, supported, err := c.GetOption(":fixedpoint.engine")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if !supported {
+		return lbool.Undef, fmt.Errorf("cmd_context: fixedpoint.engine option is unavailable")
+	}
+	if err = engine.SelectEngine(selection); err != nil {
+		return lbool.Undef, err
+	}
+	return engine.QueryPredicates(declarations)
+}
+
 // QueryFixedpointFromLevel runs a Spacer query beginning at the requested
 // proof level.
 func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint32) (lbool.LBool, error) {

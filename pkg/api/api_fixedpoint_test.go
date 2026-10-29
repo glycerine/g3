@@ -72,7 +72,7 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 		astTestMust(t, manager.DelRef(&rules[index]))
 	}
 
-	status, err := context.QueryFixedpoint(q)
+	status, err := context.QueryFixedpointRelations([]ast.ASTHandle{q})
 	astTestMust(t, err)
 	if status != lbool.True {
 		t.Fatal("reachable public fixedpoint query", status)
