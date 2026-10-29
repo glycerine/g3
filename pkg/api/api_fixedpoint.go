@@ -283,6 +283,16 @@ func (c *SMTContext) FixedpointAnswer(declaration ast.ASTHandle) (ast.ASTRef, er
 	return c.command.FixedpointAnswer(declaration)
 }
 
+// FixedpointProof returns one owning PDR proof reference for the latest
+// reachable query when fixedpoint.generate_proof_trace is enabled. The caller
+// releases it through Manager().DelRef.
+func (c *SMTContext) FixedpointProof(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if err := c.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return c.command.FixedpointProof(declaration)
+}
+
 // FixedpointModel returns the inductive model from the latest unreachable PDR
 // or Spacer query. The caller owns and closes the returned model.
 func (c *SMTContext) FixedpointModel(declaration ast.ASTHandle) (*model.Model, error) {

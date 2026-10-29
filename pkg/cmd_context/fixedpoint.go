@@ -269,6 +269,16 @@ func (c *Context) FixedpointAnswer(declaration ast.ASTHandle) (ast.ASTRef, error
 	return engine.Answer(declaration)
 }
 
+// FixedpointProof returns the owning proof trace for the latest reachable PDR
+// query when fixedpoint.generate_proof_trace is enabled.
+func (c *Context) FixedpointProof(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return engine.Proof(declaration)
+}
+
 // WriteFixedpointCertificate writes the PDR certificate selected by the
 // fixedpoint query command. The Boolean result is false for backends whose
 // source certificate display is intentionally empty.

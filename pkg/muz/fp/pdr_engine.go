@@ -235,6 +235,14 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
+	proofTraceName := "generate_proof_trace"
+	generateProofTrace, err := e.globals.Context.GetBoolName(&fixedpoint, &proofTraceName, false)
+	if err != nil {
+		return lbool.Undef, errors.Join(err, context.Close())
+	}
+	if err = context.SetGenerateProofTrace(generateProofTrace); err != nil {
+		return lbool.Undef, errors.Join(err, context.Close())
+	}
 	preprocessed, err := e.preprocessHornRules(declaration, true, true)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())

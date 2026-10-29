@@ -22,39 +22,40 @@ var ErrContextOwner = errors.New("muz/pdr: invalid or closed context")
 // Context owns the PDR manager and the predicate transformers for one Horn
 // rule set. The conflict/search loop is layered on this initialized program.
 type Context struct {
-	manager           *ast.ASTManager
-	owner             *Manager
-	cacheMode         ReachableCacheMode
-	transformers      map[ast.ASTHandle]*PredicateTransformer
-	auxiliary         map[ast.ASTHandle]bool
-	order             []ast.ASTHandle
-	search            *ModelSearch
-	implicant         *model.ModelImplicant
-	lite              *qe.Lite
-	cooperation       *cooperate.Cooperation
-	ownedCoop         bool
-	lastResult        lbool.LBool
-	query             *PredicateTransformer
-	queryDecl         ast.ASTHandle
-	expanded          uint32
-	inductive         uint32
-	nodes             uint32
-	maxDepth          uint32
-	useFarkas         bool
-	farkasActive      bool
-	proofActive       bool
-	useModel          bool
-	useInductive      bool
-	useMultiCore      bool
-	useArithInductive bool
-	useInduction      bool
-	useConvexClosure  bool
-	useConvexInterior bool
-	useUTVPI          bool
-	flexibleTrace     bool
-	fullTraceAnswer   bool
-	initialized       bool
-	closed            bool
+	manager            *ast.ASTManager
+	owner              *Manager
+	cacheMode          ReachableCacheMode
+	transformers       map[ast.ASTHandle]*PredicateTransformer
+	auxiliary          map[ast.ASTHandle]bool
+	order              []ast.ASTHandle
+	search             *ModelSearch
+	implicant          *model.ModelImplicant
+	lite               *qe.Lite
+	cooperation        *cooperate.Cooperation
+	ownedCoop          bool
+	lastResult         lbool.LBool
+	query              *PredicateTransformer
+	queryDecl          ast.ASTHandle
+	expanded           uint32
+	inductive          uint32
+	nodes              uint32
+	maxDepth           uint32
+	useFarkas          bool
+	farkasActive       bool
+	proofActive        bool
+	useModel           bool
+	useInductive       bool
+	useMultiCore       bool
+	useArithInductive  bool
+	useInduction       bool
+	useConvexClosure   bool
+	useConvexInterior  bool
+	useUTVPI           bool
+	flexibleTrace      bool
+	fullTraceAnswer    bool
+	generateProofTrace bool
+	initialized        bool
+	closed             bool
 }
 
 func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, cacheMode ReachableCacheMode, config smtcore.SMTSolverConfig) (*Context, error) {
@@ -287,6 +288,20 @@ func (c *Context) SetFullTraceAnswer(enabled bool) error {
 	return nil
 }
 
+// SetGenerateProofTrace selects the source reachable-answer proof object.
+// It must be set before Initialize so proof production is active while the
+// rule system and its child solvers are constructed.
+func (c *Context) SetGenerateProofTrace(enabled bool) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	c.generateProofTrace = enabled
+	return nil
+}
+
 // SetAuxiliaryPredicates records declarations introduced by retained rule
 // transformations. Their transformer state participates in solving but is
 // omitted from externally visible inductive certificates, as in the source
@@ -494,7 +509,7 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 		return err
 	}
 	c.farkasActive = c.useFarkas && nonBoolean
-	c.proofActive = nonBoolean || c.useConvexClosure || c.useConvexInterior
+	c.proofActive = c.generateProofTrace || nonBoolean || c.useConvexClosure || c.useConvexInterior
 	if nonBoolean {
 		selectMode := c.useUTVPI && !c.useConvexClosure && !c.useConvexInterior
 		mode := smtcore.SMTArithmeticSimplex

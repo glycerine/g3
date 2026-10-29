@@ -341,6 +341,63 @@ func TestSMTContextFixedpointParameterUpdateRebuildsPDR(t *testing.T) {
 	}
 }
 
+func TestSMTContextFixedpointPDRProofTrace(t *testing.T) {
+	context, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, context.Close()) })
+	astTestMust(t, context.SetFixedpointEngine("pdr"))
+	astTestMust(t, context.SetBoolOption("fixedpoint.generate_proof_trace", true))
+	astTestMust(t, context.SetBoolOption("fixedpoint.xform.inline_eager", false))
+	astTestMust(t, context.SetBoolOption("fixedpoint.xform.inline_linear", false))
+	manager, err := context.Manager()
+	astTestMust(t, err)
+	p, err := context.DeclareRelation("api-proof-P", nil)
+	astTestMust(t, err)
+	q, err := context.DeclareRelation("api-proof-Q", nil)
+	astTestMust(t, err)
+	pAtom, err := manager.MkApp(p, nil)
+	astTestMust(t, err)
+	qAtom, err := manager.MkApp(q, nil)
+	astTestMust(t, err)
+	step, err := manager.MkImplies(pAtom, qAtom)
+	astTestMust(t, err)
+	astTestMust(t, context.AddFixedpointRule(pAtom, "api-proof-fact"))
+	astTestMust(t, context.AddFixedpointRule(step, "api-proof-step"))
+	status, err := context.QueryFixedpoint(q)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("proof-trace query", status)
+	}
+	proof, err := context.FixedpointProof(q)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, manager.DelRef(&proof)) }()
+	proofHandle, err := manager.RefGet(proof)
+	astTestMust(t, err)
+	hyper, err := manager.IsProofKind(proofHandle, ast.ASTPrHyperResolve)
+	astTestMust(t, err)
+	parents, err := manager.GetProofNumParents(proofHandle)
+	astTestMust(t, err)
+	fact, err := manager.GetProofFact(proofHandle)
+	astTestMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	astTestMust(t, err)
+	factSort, err := manager.GetSort(fact)
+	astTestMust(t, err)
+	if !hyper || parents == 0 || factSort != boolean {
+		t.Fatal("PDR hyper-resolution trace", hyper, parents, factSort, boolean)
+	}
+	answer, err := context.FixedpointAnswer(q)
+	astTestMust(t, err)
+	answerHandle, err := manager.RefGet(answer)
+	astTestMust(t, err)
+	answerIsProof, err := manager.IsProofKind(answerHandle, ast.ASTPrHyperResolve)
+	astTestMust(t, err)
+	astTestMust(t, manager.DelRef(&answer))
+	if !answerIsProof {
+		t.Fatal("generate_proof_trace did not select the proof as the reachable answer")
+	}
+}
+
 func TestSMTContextFixedpointSpacerInductiveExports(t *testing.T) {
 	context, err := NewSMTContext()
 	astTestMust(t, err)

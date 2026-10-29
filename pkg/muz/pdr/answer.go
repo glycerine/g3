@@ -455,6 +455,9 @@ func (c *Context) Answer(queryDeclaration ast.ASTHandle) (result ast.ASTRef, res
 	if c.lastResult != lbool.True || c.query == nil || c.query.head != queryDeclaration {
 		return result, ast.ErrASTDomain
 	}
+	if c.generateProofTrace {
+		return c.Proof(queryDeclaration)
+	}
 	root, found, err := c.search.Root()
 	if err != nil || !found {
 		if err != nil {

@@ -1900,6 +1900,19 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	return e.manager.NewRef(formula)
 }
 
+// Proof returns the owning reachable PDR proof trace selected by
+// fixedpoint.generate_proof_trace. The caller releases it through
+// ASTManager.DelRef.
+func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if err := e.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if e.backend != "pdr" || e.pdr == nil || !e.queried || e.pdrRevision != e.revision {
+		return ast.ASTRef{}, ErrPropositionalEngine
+	}
+	return e.pdr.Proof(e.pdrPredicate(declaration))
+}
+
 // WriteCertificate emits the PDR certificate selected by the source
 // fixedpoint query command. Unreachable queries use the converted inductive
 // model; reachable queries use the retained trace expression. Spacer owns a
