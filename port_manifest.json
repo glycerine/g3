@@ -95221,9 +95221,19 @@
       "path": "src/nlsat/nlsat_explain.h",
       "component": "nlsat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/nlsat/explain_assumptions.go",
+        "pkg/nlsat/explain_main.go",
+        "pkg/nlsat/explain_projection.go",
+        "pkg/nlsat/explain_signed_projection.go",
+        "pkg/nlsat/solver_projection.go"
+      ],
+      "tests": [
+        "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
+        "TestSolverConflictMinimizationWithEquality",
+        "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -95234,11 +95244,24 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Retained explanation construction/configuration, infeasible-core explanation and signed/ordinary model projection",
+          "status": "ported",
+          "go_target": "pkg/nlsat/explain_assumptions.go",
+          "go_targets": ["pkg/nlsat/explain_main.go", "pkg/nlsat/explain_projection.go", "pkg/nlsat/explain_signed_projection.go", "pkg/nlsat/solver_projection.go"],
+          "tests": ["TestExplanationMainCollectsAtomsAndBuildsProjectedCell", "TestSolverConflictMinimizationWithEquality", "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"]
+        }
+      ],
+      "ownership": [
+        "The concrete explanation component is solver-owned and borrows assignment, atom/equality registries, evaluator and canonical polynomial cache. It owns its worklist, minimizer, output literals, factor/PSC vectors and temporary cell/projection state; solver teardown closes explanation before those borrowed parents.",
+        "Public projection restores the saved model, owns intermediate polynomial and literal vectors, restores any temporary variable reorder, then transfers retained output literals into the caller-owned LiteralVector."
+      ],
+      "deviations": [
+        "The source maximize operation has no retained Go consumer; optimization and QE consumers use their dedicated model-based optimization/projection implementations. The source test_root_literal hook is unit-test-only dead code. Per the retained-consumer rule, neither receives an unused universal adapter."
+      ]
     },
     {
       "path": "src/nlsat/nlsat_interval_set.cpp",
