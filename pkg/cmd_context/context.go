@@ -111,6 +111,7 @@ type Context struct {
 	closed                           bool
 	initializationError              error
 	regularOutput                    io.Writer
+	diagnosticOutput                 io.Writer
 	logicChecker                     LogicChecker
 }
 
@@ -162,12 +163,32 @@ func (c *Context) SetRegularOutput(output io.Writer) error {
 	return nil
 }
 
+// SetDiagnosticOutput borrows the command session's diagnostic transport.
+// Source: cmd_context.h set_diagnostic_stream(std::ostream&).
+func (c *Context) SetDiagnosticOutput(output io.Writer) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	c.diagnosticOutput = output
+	return nil
+}
+
 type contextRegularOutput struct{ context *Context }
 
 func (w contextRegularOutput) Write(data []byte) (int, error) {
 	output := w.context.regularOutput
 	if output == nil {
 		output = os.Stdout
+	}
+	return output.Write(data)
+}
+
+type contextDiagnosticOutput struct{ context *Context }
+
+func (w contextDiagnosticOutput) Write(data []byte) (int, error) {
+	output := w.context.diagnosticOutput
+	if output == nil {
+		output = os.Stderr
 	}
 	return output.Write(data)
 }

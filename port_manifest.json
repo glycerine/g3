@@ -43781,28 +43781,28 @@
       "path": "src/cmd_context/echo_tactic.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/echo_tactic.go", "pkg/cmd_context/echo_tactic_test.go"],
+      "tests": ["TestEchoTacticsUseSeparateContextStreamsAndSourceFormatting", "TestEchoTacticOutputFailuresPrecedeGoalPublication"],
       "assertions": [
         {
           "line": 56,
           "text": "SASSERT(m_p);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"regular-stream echo tactic and diagnostic-stream probe-value tactic with skip-goal behavior","status":"ported","go_target":"pkg/cmd_context/echo_tactic.go","tests":["TestEchoTacticsUseSeparateContextStreamsAndSourceFormatting","TestEchoTacticOutputFailuresPrecedeGoalPublication"]}],
+      "ownership": ["Echo tactics borrow the command context and output transports. Probe-value tactics retain exactly one probe reference until final DecRef."],
       "deviations": []
     },
     {
       "path": "src/cmd_context/echo_tactic.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/echo_tactic.go", "pkg/cmd_context/echo_tactic_test.go"],
+      "tests": ["TestEchoTacticsUseSeparateContextStreamsAndSourceFormatting", "TestEchoTacticOutputFailuresPrecedeGoalPublication"],
       "conditionals": [
         {
           "line": 19,
@@ -43813,10 +43813,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"mk_echo_tactic and mk_probe_value_tactic public construction surface","status":"ported","go_target":"pkg/cmd_context/echo_tactic.go","tests":["TestEchoTacticsUseSeparateContextStreamsAndSourceFormatting","TestEchoTacticOutputFailuresPrecedeGoalPublication"]}],
+      "ownership": ["Constructed tactics own their reference count and borrow the command context."],
       "deviations": []
     },
     {
