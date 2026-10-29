@@ -177999,7 +177999,7 @@
       "path": "src/tactic/smtlogics/nra_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/tactic/smtlogics/nra_tactic.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -178012,7 +178012,7 @@
       "methods": [
         {
           "name": "NRA simplify/propagate/QE-lite prefix, QF_NRA probe split, quantifier-free NLSAT portfolio and NLQSAT-before-SMT quantified fallback",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/nra_tactic.go",
           "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
         }
