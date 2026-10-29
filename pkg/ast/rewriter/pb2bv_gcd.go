@@ -6,9 +6,11 @@ import "math/big"
 
 func pb2BVNormalizeGCD(mode pb2BVComparison, coefficients []*big.Rat, bound *big.Rat) ([]*big.Rat, *big.Rat) {
 	cs := make([]*big.Rat, len(coefficients))
-	g := new(big.Int)
 	for i, c := range coefficients {
 		cs[i] = new(big.Rat).Set(c)
+	}
+	g := new(big.Int)
+	for _, c := range coefficients {
 		if !c.IsInt() {
 			return cs, new(big.Rat).Set(bound)
 		}

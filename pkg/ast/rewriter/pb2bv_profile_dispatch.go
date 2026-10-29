@@ -14,6 +14,8 @@ func (r *PB2BVRewriter) profileWeighted(mode pb2BVComparison, args []ast.ASTHand
 		return r.totalizer(mode, args, coefficients, bound)
 	case "binary_merge":
 		return r.binaryMerge(mode, args, coefficients, bound)
+	case "sorting":
+		return r.sortingProfile(mode, args, coefficients, bound)
 	case "segmented":
 		return ast.ASTHandle{}, true, ast.ErrASTDomain
 	default:
