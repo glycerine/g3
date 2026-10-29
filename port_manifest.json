@@ -93760,28 +93760,28 @@
       "path": "src/muz/transforms/dl_mk_separate_negated_tails.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/transforms/separate_negated_tails.go", "pkg/muz/transforms/separate_negated_tails_test.go"],
+      "tests": ["TestSeparateNegatedTailsAbstractsOnlyPrivateVariables", "TestSeparateNegatedTailsReturnsNoChangeWithoutPrivateVariables"],
       "assertions": [
         {
           "line": 117,
           "text": "SASSERT(r.is_neg_tail(j));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"private-variable detection, fresh abstraction predicate definition, rule rewrite and rule-set transform","status":"ported","go_target":"pkg/muz/transforms/separate_negated_tails.go","tests":["TestSeparateNegatedTailsAbstractsOnlyPrivateVariables","TestSeparateNegatedTailsReturnsNoChangeWithoutPrivateVariables"]}],
+      "ownership": ["Temporary abstraction applications are retained by explicit ASTRefs through rule normalization and released in reverse order; RuleSet owns accepted rules and inherited output predicates."],
       "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_separate_negated_tails.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/transforms/separate_negated_tails.go", "pkg/muz/transforms/separate_negated_tails_test.go"],
+      "tests": ["TestSeparateNegatedTailsAbstractsOnlyPrivateVariables", "TestSeparateNegatedTailsReturnsNoChangeWithoutPrivateVariables"],
       "conditionals": [
         {
           "line": 32,
@@ -93792,10 +93792,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"separate-negated-tails plugin construction, priority, cancellation contract and transformation surface","status":"ported","go_target":"pkg/muz/transforms/separate_negated_tails.go","tests":["TestSeparateNegatedTailsAbstractsOnlyPrivateVariables","TestSeparateNegatedTailsReturnsNoChangeWithoutPrivateVariables"]}],
+      "ownership": ["Plugin borrows the AST and rule managers and owns no solver-global state."],
       "deviations": []
     },
     {
