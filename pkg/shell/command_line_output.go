@@ -22,8 +22,11 @@ func (c *CommandLine) WriteTerminalAction(out io.Writer) error {
 	if out == nil {
 		return ErrShellOptionService
 	}
-	if c.Action == CommandHelp || c.Action == CommandVersion {
-		return ErrShellTerminalOutputOpen
+	if c.Action == CommandHelp {
+		return WriteUsage(out)
+	}
+	if c.Action == CommandVersion {
+		return WriteVersion(out)
 	}
 	if c.Globals == nil {
 		return ErrShellOptionService
