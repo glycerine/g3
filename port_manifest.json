@@ -6068,35 +6068,42 @@
       "path": "src/api/api_stats.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_stats.go"],
-      "tests": ["TestAPIEstimatedAllocSizeReadsProcessCounterWithoutInitializing"],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_stats.go", "pkg/util/statistics/statistics.go"],
+      "tests": ["TestAPIEstimatedAllocSizeReadsProcessCounterWithoutInitializing", "TestSMTContextEndToEndModelScopesAndAssumptions", "TestContributionsCopyResetAndRawAccess", "TestRenderingAggregationOrderingAndShadow"],
       "assertions": [
         {
           "line": 35,
           "text": "SASSERT(result.size() > 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Z3_get_estimated_alloc_size direct synchronized memory counter getter",
           "status": "ported",
           "go_target": "pkg/api/api_stats.go",
           "tests": ["TestAPIEstimatedAllocSizeReadsProcessCounterWithoutInitializing"]
+        },
+        {
+          "name": "Retained statistics copy, size, ordered key/type/value access and SMT-LIB rendering",
+          "status": "ported",
+          "go_target": "pkg/util/statistics/statistics.go",
+          "go_targets": ["pkg/api/api_solver.go"],
+          "tests": ["TestContributionsCopyResetAndRawAccess", "TestRenderingAggregationOrderingAndShadow", "TestSMTContextEndToEndModelScopesAndAssumptions"]
         }
       ],
       "ownership": ["The API borrows the active generated process accounting owner and does not initialize memory or acquire an allocation."],
-      "deviations": ["Other statistics-object API methods in api_stats.cpp remain unported."]
+      "deviations": ["The C opaque statistics handle and explicit inc_ref/dec_ref entry points are replaced by an owning Go Statistics value returned from SMTContext. Bounds and type errors are expressed through typed Go access rather than a mutable C-context error code."]
     },
     {
       "path": "src/api/api_stats.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/util/statistics/statistics.go", "pkg/api/api_solver.go"],
+      "tests": ["TestContributionsCopyResetAndRawAccess", "TestSMTContextEndToEndModelScopesAndAssumptions"],
       "conditionals": [
         {
           "line": 18,
@@ -6107,11 +6114,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Retained owning statistics result wrapper and concrete statistics access",
+          "status": "ported",
+          "go_target": "pkg/util/statistics/statistics.go",
+          "go_targets": ["pkg/api/api_solver.go"],
+          "tests": ["TestContributionsCopyResetAndRawAccess", "TestSMTContextEndToEndModelScopesAndAssumptions"]
+        }
+      ],
+      "ownership": ["SMTContext.Statistics returns an independent Go value; its native slices own copied contributions and require no shared context reference count."],
+      "deviations": ["The opaque C handle casts and API-object reference count are not retained in the typed Go API."]
     },
     {
       "path": "src/api/api_tactic.cpp",
