@@ -38,9 +38,19 @@ func (p *astArithmeticPluginOwner) algebraicWrapper() (*astAlgebraicNumbersWrapp
 		return p.algebraic, nil
 	}
 	m := p.owner
-	g := uparams.BorrowProcessGlobalParamsService()
+	g := p.owner.globals
+	params := p.owner.params
+	if g == nil {
+		g = uparams.BorrowProcessGlobalParamsService()
+		if g != nil {
+			params = g.Context
+		}
+	}
 	if g == nil {
 		return nil, uparams.ErrGlobalParamsOwner
+	}
+	if params == nil || g.Context != params {
+		return nil, uparams.ErrParamsOwner
 	}
 	parameters, e := g.SourceGetRef()
 	if e != nil {

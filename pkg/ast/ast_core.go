@@ -47,6 +47,12 @@ func constructSourceASTManagerAt(c ASTManagerConfig, format bool, filename Trace
 	if c.Symbols == nil || c.Numerals == nil || c.ProofMode > ASTProofEnabled {
 		return nil, ErrASTDomain
 	}
+	if (c.Params == nil) != (c.Globals == nil) {
+		return nil, uparams.ErrParamsOwner
+	}
+	if c.Params != nil && (c.Params.Symbols() != c.Symbols || c.Params.Numerals() != c.Numerals || c.Globals.Context != c.Params) {
+		return nil, uparams.ErrParamsOwner
+	}
 	// Validate borrowed owners before publishing the concrete cold header.
 	if _, e := c.Symbols.Hash(usymbol.Symbol{}); e != nil {
 		return nil, e
@@ -62,7 +68,7 @@ func constructSourceASTManagerAt(c ASTManagerConfig, format bool, filename Trace
 	if e = c.Budget.Reserve(bytes); e != nil {
 		return nil, e
 	}
-	m := &ASTManager{origin: id, BudgetField: c.Budget, Symbols: c.Symbols, numerals: c.Numerals, traceTags: c.TraceTags, ownerBytes: bytes, proofMode: c.ProofMode, coercions: true, nextNode: 1, nextParameter: 1, nextInfo: 1, nextReference: 1}
+	m := &ASTManager{origin: id, BudgetField: c.Budget, Symbols: c.Symbols, numerals: c.Numerals, params: c.Params, globals: c.Globals, traceTags: c.TraceTags, ownerBytes: bytes, proofMode: c.ProofMode, coercions: true, nextNode: 1, nextParameter: 1, nextInfo: 1, nextReference: 1}
 	m.Self = m
 	if allocationLine != 0 {
 		m.formatTraceLive = true

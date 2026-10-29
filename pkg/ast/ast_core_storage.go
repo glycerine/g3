@@ -17,6 +17,7 @@ import (
 	udiag "github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/idgen"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
@@ -61,6 +62,8 @@ type ASTManagerConfig struct {
 	ProofMode   ASTProofMode
 	OutOfMemory func() bool
 	TraceTags   *udiag.TraceTags
+	Params      *uparams.ParamsContext
+	Globals     *uparams.GlobalParamsService
 }
 type ASTManagerStats struct {
 	LiveNodes, LiveParameters, LiveInfos, LiveReferences  uint32
@@ -245,6 +248,8 @@ type ASTManager struct {
 	Symbols                                                                                            *usymbol.Manager
 	recFun                                                                                             usymbol.Symbol
 	numerals                                                                                           *unumeral.RationalService
+	params                                                                                             *uparams.ParamsContext
+	globals                                                                                            *uparams.GlobalParamsService
 	families                                                                                           *FamilyManager
 	Limit                                                                                              control.Reslimit // source inline member, charged in the ASTManager header
 	allocator                                                                                          *arena.SmallBytes

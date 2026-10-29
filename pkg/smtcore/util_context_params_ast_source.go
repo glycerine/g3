@@ -52,6 +52,7 @@ func (s *ContextParams) MkASTManager(c ast.ASTManagerConfig) (*ast.ASTManager, e
 	if c.Symbols != s.context.Symbols() || c.Numerals != s.context.Numerals() {
 		return nil, uparams.ErrParamsOwner
 	}
+	c.Params, c.Globals = s.context, s.globals
 	c.ProofMode = ast.ASTProofDisabled
 	if s.state.Proof {
 		c.ProofMode = ast.ASTProofEnabled
