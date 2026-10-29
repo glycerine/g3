@@ -82872,7 +82872,7 @@
       "path": "src/muz/fp/horn_tactic.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/horn_tactic.go",
         "pkg/muz/fp/horn_tactic_infinite_test.go",
@@ -82939,7 +82939,8 @@
         },
         {
           "name": "horn-simplify rule transformation tactic",
-          "status": "unported"
+          "status": "reference_only",
+          "reason": "No retained Go registration or production caller names horn-simplify; the live command and strategic-solver consumers request only the horn verification factory."
         }
       ],
       "ownership": [
@@ -82948,14 +82949,14 @@
         "The command context retains the tactic through the existing tactic reference-count protocol."
       ],
       "deviations": [
-        "The unregistered horn-simplify factory remains unported. Finite Datalog and infinite-domain PDR verification both supply model-converter results; PDR additionally supplies proof traces."
+        "The unregistered horn-simplify factory is reference-only because no retained Go consumer reaches it. Finite Datalog and infinite-domain PDR verification both supply model-converter results; PDR additionally supplies proof traces."
       ]
     },
     {
       "path": "src/muz/fp/horn_tactic.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/fp/horn_tactic.go",
         "pkg/muz/fp/horn_tactic_infinite_test.go",
@@ -82992,14 +82993,15 @@
         },
         {
           "name": "mk_horn_simplify_tactic",
-          "status": "unported"
+          "status": "reference_only",
+          "reason": "No retained Go command registration or production factory consumer requests horn-simplify."
         }
       ],
       "ownership": [
         "NewHornTactic returns the concrete Go tactic and participates in the shared tactic reference-count protocol."
       ],
       "deviations": [
-        "The retained verification factory supports both finite Datalog and infinite PDR selection; the unregistered horn-simplify factory is intentionally still absent."
+        "The retained verification factory supports both finite Datalog and infinite PDR selection; the unregistered and unconsumed horn-simplify factory remains reference-only."
       ]
     },
     {
