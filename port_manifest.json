@@ -93142,9 +93142,9 @@
       "path": "src/muz/transforms/dl_mk_magic_sets.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/transforms/magic_sets.go", "pkg/muz/transforms/magic_sets_test.go"],
+      "tests": ["TestMagicSetsAdornsIntentionalChainAndSeedsGoal", "TestMagicSetsDisabledAndGoalMultiplicityGuards"],
       "assertions": [
         {
           "line": 46,
@@ -93225,9 +93225,9 @@
       "path": "src/muz/transforms/dl_mk_magic_sets.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/transforms/magic_sets.go", "pkg/muz/transforms/magic_sets_test.go"],
+      "tests": ["TestMagicSetsAdornsIntentionalChainAndSeedsGoal", "TestMagicSetsDisabledAndGoalMultiplicityGuards"],
       "conditionals": [
         {
           "line": 19,
@@ -94130,9 +94130,9 @@
       "path": "src/muz/transforms/dl_mk_unbound_compressor.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/transforms/unbound_compressor.go", "pkg/muz/transforms/unbound_compressor_test.go"],
+      "tests": ["TestUnboundCompressorProjectsHeadAndTailArgument", "TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads"],
       "assertions": [
         {
           "line": 53,
@@ -94185,9 +94185,9 @@
       "path": "src/muz/transforms/dl_mk_unbound_compressor.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/transforms/unbound_compressor.go", "pkg/muz/transforms/unbound_compressor_test.go"],
+      "tests": ["TestUnboundCompressorProjectsHeadAndTailArgument", "TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads"],
       "conditionals": [
         {
           "line": 19,
