@@ -230,6 +230,39 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 	if status == lbool.Undef {
 		return tactic.NewTacticException("search failed")
 	}
+	if status == lbool.True {
+		models, cause := goal.ModelsEnabled()
+		if cause != nil {
+			return cause
+		}
+		hasRealVariables := false
+		for _, block := range search.boundReal {
+			hasRealVariables = hasRealVariables || len(block) != 0
+		}
+		if models && !hasRealVariables {
+			if cause = search.state.restoreModel(); cause != nil {
+				return cause
+			}
+			modelValue, supported, cause := compiler.Model()
+			if cause != nil {
+				return cause
+			}
+			if supported && modelValue != nil {
+				var held tactic.ModelRef
+				if cause = held.Set(modelValue.Core()); cause != nil {
+					return errors.Join(cause, modelValue.Close())
+				}
+				defer func() { err = errors.Join(err, held.Close()) }()
+				converter, createErr := tactic.NewStoredModel(modelValue.Core())
+				if createErr != nil {
+					return createErr
+				}
+				if cause = result.SetModelConverter(converter); cause != nil {
+					return errors.Join(cause, converter.Close())
+				}
+			}
+		}
+	}
 	if err = goal.Reset(); err != nil {
 		return err
 	}

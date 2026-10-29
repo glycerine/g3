@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	basetactic "github.com/glycerine/g3/pkg/tactic"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -23,6 +24,17 @@ func TestNLQSATTacticClosedExistentialAndFalseGoals(t *testing.T) {
 		if size != 0 || len(result.Goals) != 1 || result.Goals[0] != goal {
 			t.Fatal("existential goal was not decided SAT", size, len(result.Goals))
 		}
+		if result.ModelConverter == nil {
+			t.Fatal("existential SAT model converter was not published")
+		}
+		var model basetactic.ModelRef
+		t.Cleanup(func() { fmMust(t, model.Close()) })
+		fmMust(t, result.ModelConverter.ApplyUnindexed(&model))
+		if core, cause := model.Get(); cause != nil || core == nil {
+			t.Fatal("published model is unavailable", core, cause)
+		}
+		fmMust(t, tactic.Close())
+		fmMust(t, result.ModelConverter.ApplyUnindexed(&model))
 	})
 	t.Run("false", func(t *testing.T) {
 		f := newFMFixture(t)

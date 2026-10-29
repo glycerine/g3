@@ -99881,7 +99881,7 @@
           ]
         },
         {
-          "name": "Public qsat-mode tactic path through formula conjunction, quantifier hoisting, Tseitin CNF, GoalCompiler, alternating NLSAT search and decided-goal publication (cpp628-713,817-908)",
+          "name": "Public qsat-mode tactic path through formula conjunction, quantifier hoisting, Tseitin CNF, GoalCompiler, alternating NLSAT search, decided-goal publication and retained SAT model converter (cpp628-713,738-790,817-908)",
           "status": "partial",
           "go_target": "pkg/qe/nlqsat_tactic.go",
           "tests": [
@@ -99895,10 +99895,10 @@
         "ModelProjector borrows the AST manager, NLSAT solver and compiler expression mappings while owning two alternating LiteralVectors. Each projection round resets the destination before acquiring projected atom leases; the final blocking clause owns an AST reference before temporary reconstructed-literal references are released. Closing the projector retires both literal vectors before the borrowed solver.",
         "nlqState borrows the concrete NLSAT solver, owns its copied real assignment and every per-level predicate LiteralVector, and stores Boolean snapshots and assumption caches as native Go values. Predicate vectors are closed in reverse level order before the assignment and borrowed solver.",
         "nlqSearch owns two alternating projection LiteralVectors plus nlqState while borrowing its NLSAT solver. A projected core is evaluated only after restoring the saved SAT model; destination vectors reset before each elimination, learned clauses acquire their own atom references, and close retires projection vectors before state predicate vectors.",
-        "Each NLQSATTactic application owns its hoisting preparation, CNF tactic/goal/result, prime generator, polynomial manager, NLSAT solver, GoalCompiler and nlqSearch in lexical dependency order. Projected/search literal owners close before the compiler and solver; the polynomial manager closes before its prime generator."
+        "Each NLQSATTactic application owns its hoisting preparation, CNF tactic/goal/result, prime generator, polynomial manager, NLSAT solver, GoalCompiler and nlqSearch in lexical dependency order. Projected/search literal owners close before the compiler and solver; the polynomial manager closes before its prime generator. A successful model is transferred through a retained ModelRef into the stored converter and remains usable after tactic/solver teardown."
       ],
       "deviations": [
-        "The retained qsat-mode path now reaches a public tactic through quantifier hoisting, CNF compilation and alternating NLSAT search. QE-mode answer construction, division purification, frontend SAT model publication, parameter parity and broader quantified nonlinear differential coverage remain pending, so the source unit and tactic method remain partial."
+        "The retained qsat-mode path now reaches a public tactic through quantifier hoisting, CNF compilation, alternating NLSAT search and SAT model publication. QE-mode answer construction, division purification, filtering bound/auxiliary declarations from published models, parameter parity and broader C++ differential coverage remain pending, so the source unit and tactic method remain partial."
       ]
     },
     {
