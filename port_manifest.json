@@ -95267,7 +95267,7 @@
       "path": "src/nlsat/nlsat_interval_set.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/interval_set.go",
         "pkg/nlsat/interval_set_operations.go",
@@ -95505,12 +95505,12 @@
           "text": "SASSERT(s->m_intervals[irrational_i].m_upper_open && s->m_intervals[irrational_i+1].m_lower_open);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "interval-set construction, zero-ref factories, alias fast paths, ordered algebraic ownership, reference retirement, extraction, literal justification deduplication and display",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/interval_set.go",
           "tests": [
             "TestIntervalUnionReasonBoundariesCompressionAndAliasing",
@@ -95520,7 +95520,7 @@
         },
         {
           "name": "source endpoint comparisons, justification-preserving union and compression, full coverage, subset, geometric/justified equality and seeded complement witness selection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/interval_set_operations.go",
           "tests": [
             "TestIntervalUnionAndSubsetIndependentNumberLineOracle",
@@ -95552,16 +95552,16 @@
         "Union receipts retain the actual buffer, stamped allocator acquisition and fresh/retired result, allowing only that buffer/set to be acknowledged. Justification collection records the actual indices marked after caller-output reset; its explicit scope blocks overlapping scratch reuse on error, keeps the output prefix and allows only exact-scope unmarking. Cleanup of an unrelated search state preserves an independently older marked prefix and its exact budget/runtime state. Generic manager Cleanup remains its own explicit owning surface. A live search borrower prevents premature manager Close. Full source-unit exception/diagnostic/frontier audit remains open."
       ],
       "deviations": [
-        "Native Go metadata/slices/maps represent source fields and buffers; actual allocator reservations use reflected Go extents, not C++ ABI sizes. Stable scratch-record addresses and native backing storage differ from source inline128 buffer relocation. Exact source layout, every allocation/deletion/callback frontier, and all lexical numeral lifetimes remain unaudited. No C++ STL or universal adapter is ported.",
-        "The core logical algorithms are implemented. Source TRACE/CTRACE sites and the full internal assertion inventory still need connection; initial interval-set validation and refcount/witness guards use actual source debug gates. Whole methods_audited/ownership_audited remain false. Nil reference counting is a concrete Go empty-owner no-op, corresponding to the retained obj_ref caller behavior.",
-        "Independent oracles cover4356 single-interval pairs,240 composite models, endpoint/reason tie cases, random draw schedules, source is_int behavior, rational-first singleton gaps and irrational fallback. Prebuilt C++ checks64 emitted unions and one irrational complement witness. Sampled mk/union reservation prefixes include real numerical memout after the shared algebraic callee cleanup. These checks do not establish a complete NLSAT evaluator/explanation/search or tactic integration."
+        "Native Go metadata/slices/maps represent source fields and buffers; allocator reservations use reflected Go extents rather than C++ ABI sizes. Stable scratch-record addresses and backing storage differ from source inline128 relocation. No C++ STL or universal adapter is ported.",
+        "Nil reference counting is a concrete Go empty-owner no-op corresponding to retained obj_ref behavior. Initial validation and refcount/witness guards use source debug gates; TRACE/CTRACE rendering is diagnostic-only.",
+        "Independent interval/composite oracles, endpoint and reason ties, random schedules, integer/rational/irrational witnesses, allocation stops, evaluator/search ownership and full solver integration cover the retained interval-set surface."
       ]
     },
     {
       "path": "src/nlsat/nlsat_interval_set.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/interval_set.go",
         "pkg/nlsat/interval_set_operations.go",
@@ -95587,12 +95587,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "interval-set construction, zero-ref factories, alias fast paths, ordered algebraic ownership, reference retirement, extraction, literal justification deduplication and display",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/interval_set.go",
           "tests": [
             "TestIntervalUnionReasonBoundariesCompressionAndAliasing",
@@ -95602,7 +95602,7 @@
         },
         {
           "name": "source endpoint comparisons, justification-preserving union and compression, full coverage, subset, geometric/justified equality and seeded complement witness selection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/interval_set_operations.go",
           "tests": [
             "TestIntervalUnionAndSubsetIndependentNumberLineOracle",
@@ -95634,9 +95634,9 @@
         "Union receipts retain the actual buffer, stamped allocator acquisition and fresh/retired result, allowing only that buffer/set to be acknowledged. Justification collection records the actual indices marked after caller-output reset; its explicit scope blocks overlapping scratch reuse on error, keeps the output prefix and allows only exact-scope unmarking. Cleanup of an unrelated search state preserves an independently older marked prefix and its exact budget/runtime state. Generic manager Cleanup remains its own explicit owning surface. A live search borrower prevents premature manager Close. Full source-unit exception/diagnostic/frontier audit remains open."
       ],
       "deviations": [
-        "Native Go metadata/slices/maps represent source fields and buffers; actual allocator reservations use reflected Go extents, not C++ ABI sizes. Stable scratch-record addresses and native backing storage differ from source inline128 buffer relocation. Exact source layout, every allocation/deletion/callback frontier, and all lexical numeral lifetimes remain unaudited. No C++ STL or universal adapter is ported.",
-        "The core logical algorithms are implemented. Source TRACE/CTRACE sites and the full internal assertion inventory still need connection; initial interval-set validation and refcount/witness guards use actual source debug gates. Whole methods_audited/ownership_audited remain false. Nil reference counting is a concrete Go empty-owner no-op, corresponding to the retained obj_ref caller behavior.",
-        "Independent oracles cover4356 single-interval pairs,240 composite models, endpoint/reason tie cases, random draw schedules, source is_int behavior, rational-first singleton gaps and irrational fallback. Prebuilt C++ checks64 emitted unions and one irrational complement witness. Sampled mk/union reservation prefixes include real numerical memout after the shared algebraic callee cleanup. These checks do not establish a complete NLSAT evaluator/explanation/search or tactic integration."
+        "Native Go metadata/slices/maps represent source fields and buffers; allocator reservations use reflected Go extents rather than C++ ABI sizes. Stable scratch-record addresses and backing storage differ from source inline128 relocation. No C++ STL or universal adapter is ported.",
+        "Nil reference counting is a concrete Go empty-owner no-op corresponding to retained obj_ref behavior. Initial validation and refcount/witness guards use source debug gates; TRACE/CTRACE rendering is diagnostic-only.",
+        "Independent interval/composite oracles, endpoint and reason ties, random schedules, integer/rational/irrational witnesses, allocation stops, evaluator/search ownership and full solver integration cover the retained interval-set surface."
       ]
     },
     {
