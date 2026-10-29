@@ -88631,8 +88631,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_cube_test.go"],
-      "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes"],
+      "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_projection.go", "pkg/muz/rel/doc_solver.go", "pkg/muz/rel/doc_cube_test.go", "pkg/muz/rel/doc_projection_test.go", "pkg/muz/rel/doc_solver_test.go"],
+      "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes", "TestDOCProjectionAllSourceActionsAgainstExistentialOracle", "TestDOCJoinAgainstConcatenationEqualityOracle", "TestDOCMergeEqualityClassesAgainstFiniteOracle", "TestDOCSourceSMTEmptinessOracleAndFormula", "TestDOCUnionCompleteEmptiness"],
       "assertions": [
         {
           "line": 58,
@@ -88710,8 +88710,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_cube_test.go"],
-      "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes"],
+      "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_projection.go", "pkg/muz/rel/doc_solver.go", "pkg/muz/rel/doc_cube_test.go", "pkg/muz/rel/doc_projection_test.go", "pkg/muz/rel/doc_solver_test.go"],
+      "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes", "TestDOCProjectionAllSourceActionsAgainstExistentialOracle", "TestDOCJoinAgainstConcatenationEqualityOracle", "TestDOCMergeEqualityClassesAgainstFiniteOracle", "TestDOCSourceSMTEmptinessOracleAndFormula", "TestDOCUnionCompleteEmptiness"],
       "conditionals": [
         {
           "line": 23,
@@ -88987,9 +88987,9 @@
       "path": "src/muz/rel/udoc_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality"],
       "conditionals": [
         {
           "line": 958,
@@ -89136,9 +89136,9 @@
       "path": "src/muz/rel/udoc_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality"],
       "conditionals": [
         {
           "line": 22,
