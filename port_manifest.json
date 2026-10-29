@@ -98417,9 +98417,15 @@
       "path": "src/parsers/smt2/marshal.cpp",
       "component": "parsers",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/parsers/smt2/marshal.go",
+        "pkg/parsers/smt2/unmarshal.go"
+      ],
+      "tests": [
+        "TestSMT2MarshalBooleanBenchmarkAndRoundTrip",
+        "TestSMT2MarshalQuantifierAndArithmeticRoundTrip"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -98430,9 +98436,16 @@
       "path": "src/parsers/smt2/marshal.h",
       "component": "parsers",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/parsers/smt2/marshal.go",
+        "pkg/parsers/smt2/marshal_string.go",
+        "pkg/parsers/smt2/unmarshal_string.go"
+      ],
+      "tests": [
+        "TestSMT2MarshalStringAndWriterFormsAreIdentical",
+        "TestSMT2UnmarshalResultOwnsTranslatedExpression"
+      ],
       "conditionals": [
         {
           "line": 12,
@@ -170022,9 +170035,16 @@
       "path": "src/tactic/bv/bvarray2uf_rewriter.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/bv/bvarray2uf_rewriter.go",
+        "pkg/tactic/bv/bvarray2uf_axioms.go",
+        "pkg/tactic/bv/bvarray2uf_models.go"
+      ],
+      "tests": [
+        "TestBVArray2UFStoreAddsUniversalAndGroundAxioms",
+        "TestBVArray2UFMapAddsPointwiseDefinition"
+      ],
       "assertions": [
         {
           "line": 64,
@@ -170101,9 +170121,15 @@
       "path": "src/tactic/bv/bvarray2uf_rewriter.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/bv/bvarray2uf_rewriter.go",
+        "pkg/tactic/bv/bvarray2uf_sorts.go"
+      ],
+      "tests": [
+        "TestBVArray2UFSelectAndArrayEquality",
+        "TestBVArray2UFCachePersistsCleanupAndTranslationFresh"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -170124,9 +170150,15 @@
       "path": "src/tactic/bv/bvarray2uf_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/bv/bvarray2uf_tactic.go",
+        "pkg/tactic/bv/bvarray2uf_trace.go"
+      ],
+      "tests": [
+        "TestBVArray2UFTacticPublishesSideConstraintsAndDepth",
+        "TestBVArray2UFComposesRewriteProof"
+      ],
       "assertions": [
         {
           "line": 62,
@@ -170147,9 +170179,14 @@
       "path": "src/tactic/bv/bvarray2uf_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/bv/bvarray2uf_tactic.go"
+      ],
+      "tests": [
+        "TestBVArray2UFRejectsCoresAndQuantifiers",
+        "TestBVArray2UFSourceCreationTrace"
+      ],
       "conditionals": [
         {
           "line": 20,
