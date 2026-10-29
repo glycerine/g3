@@ -40,6 +40,8 @@ type Tracker struct {
 	entryPoints    map[ast.ASTHandle]ast.ASTHandle
 	topExpressions map[ast.ASTHandle]struct{}
 	weights        map[ast.ASTHandle]uint32
+	constants      []ast.ASTHandle
+	constantSet    map[ast.ASTHandle]struct{}
 
 	topSum      float64
 	walksat     bool
@@ -70,6 +72,7 @@ func NewTracker(manager *ast.ASTManager, numbers *numeral.IntegerManager, powers
 		entryPoints:    make(map[ast.ASTHandle]ast.ASTHandle),
 		topExpressions: make(map[ast.ASTHandle]struct{}),
 		weights:        make(map[ast.ASTHandle]uint32),
+		constantSet:    make(map[ast.ASTHandle]struct{}),
 	}
 	t.self = t
 	return t, nil
@@ -447,8 +450,9 @@ func (t *Tracker) Close() error {
 		}
 		t.closeScore++
 	}
-	t.scores, t.uplinks, t.entryPoints, t.topExpressions, t.weights = nil, nil, nil, nil, nil
+	t.scores, t.uplinks, t.entryPoints, t.topExpressions, t.weights, t.constantSet = nil, nil, nil, nil, nil, nil
 	t.scoreOrder = nil
+	t.constants = nil
 	t.closed = true
 	return nil
 }

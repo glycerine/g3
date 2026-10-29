@@ -75,9 +75,6 @@ func (e *Evaluator) Evaluate(node ast.ASTHandle, result *numeral.Int) error {
 	if err != nil {
 		return err
 	}
-	if family != e.manager.BasicFamilyID() {
-		return ErrEvaluatorUnsupported
-	}
 	op, err := e.manager.GetDeclKind(node)
 	if err != nil {
 		return err
@@ -88,6 +85,16 @@ func (e *Evaluator) Evaluate(node ast.ASTHandle, result *numeral.Int) error {
 			return nil, x
 		}
 		return e.tracker.GetValue(h)
+	}
+	if family != e.manager.BasicFamilyID() {
+		bvFamily, x := e.manager.BitVectorUtilityFamilyID()
+		if x != nil {
+			return x
+		}
+		if family == bvFamily {
+			return e.evaluateBV(node, n, op, argValue, result)
+		}
+		return ErrEvaluatorUnsupported
 	}
 	switch op {
 	case ast.ASTOpAnd:
