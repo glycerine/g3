@@ -84,9 +84,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	// PDR exposes relation models and inductive certificates. Until the cone and
-	// inline model/proof converters are retained, preserve those declarations
-	// while still sharing the remaining Horn preprocessing pipeline with Spacer.
+	// PDR exposes relation models and inductive certificates. Until the
+	// simplifier, subsumption, and inline model/proof converters are retained,
+	// preserve those declarations while sharing the convertible stages.
 	if !allowLossyResultTransforms {
 		inlineEager = false
 		inlineLinear = false
@@ -246,10 +246,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 			return nil, errors.Join(err, arrayRewrite.Close(), transformer.Close())
 		}
 	}
-	if allowLossyResultTransforms {
-		if err = transformer.Register(transforms.NewConePlugin(34990)); err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
+	laterCone := transforms.NewConePlugin(34990)
+	if err = transformer.Register(laterCone); err != nil {
+		return nil, errors.Join(err, laterCone.Close(), transformer.Close())
 	}
 	if allowLossyResultTransforms {
 		secondSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34980)
@@ -268,10 +267,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err = transformer.Register(newInliner(34970)); err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	if allowLossyResultTransforms {
-		if err = transformer.Register(transforms.NewConePlugin(34960)); err != nil {
-			return nil, errors.Join(err, transformer.Close())
-		}
+	finalCone := transforms.NewConePlugin(34960)
+	if err = transformer.Register(finalCone); err != nil {
+		return nil, errors.Join(err, finalCone.Close(), transformer.Close())
 	}
 	if allowLossyResultTransforms {
 		thirdSimplifier, makeErr := transforms.NewInterpTailSimplifierPlugin(e.manager, e.rules, e.params, e.globals, 34950)
@@ -309,15 +307,26 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		return nil, errors.Join(err, transformer.Close())
 	}
 	_, err = transformer.Apply(prepared)
-	var coneModelSteps []transforms.ConeModelStep
-	keepConeModelSteps := false
+	var initialConeSteps, laterConeSteps, finalConeSteps []transforms.ConeModelStep
+	var modelConversions []hornModelConversion
+	keepModelConversions := false
 	defer func() {
-		if !keepConeModelSteps {
-			resultErr = errors.Join(resultErr, transforms.CloseConeModelSteps(coneModelSteps))
+		if !keepModelConversions {
+			resultErr = errors.Join(resultErr,
+				transforms.CloseConeModelSteps(initialConeSteps),
+				transforms.CloseConeModelSteps(laterConeSteps),
+				transforms.CloseConeModelSteps(finalConeSteps),
+				closeHornModelConversions(modelConversions))
 		}
 	}()
 	if err == nil {
-		coneModelSteps, err = initialCone.TakeModelSteps()
+		initialConeSteps, err = initialCone.TakeModelSteps()
+	}
+	if err == nil {
+		laterConeSteps, err = laterCone.TakeModelSteps()
+	}
+	if err == nil {
+		finalConeSteps, err = finalCone.TakeModelSteps()
 	}
 	if err == nil && quantifierAbstraction != nil {
 		quantifiedPredicates = quantifierAbstraction.FreshPredicates()
@@ -421,7 +430,33 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		}
 	}
 	keep = true
-	keepConeModelSteps = true
+	appendConeSteps := func(steps []transforms.ConeModelStep) {
+		for _, step := range steps {
+			modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertCone, cone: step})
+		}
+	}
+	appendConeSteps(initialConeSteps)
+	initialConeSteps = nil
+	if len(quantifiedPredicates) != 0 {
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertQuantifier, predicates: quantifiedPredicates})
+	}
+	if len(scaledPredicates) != 0 {
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertScale, predicates: scaledPredicates})
+	}
+	if len(karrInvariants) != 0 {
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertKarr, karr: karrInvariants})
+	}
+	if len(bitBlastedPredicates) != 0 {
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertBitBlast, predicates: bitBlastedPredicates})
+	}
+	appendConeSteps(laterConeSteps)
+	laterConeSteps = nil
+	appendConeSteps(finalConeSteps)
+	finalConeSteps = nil
+	if len(slicedPredicates) != 0 {
+		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertSlice, predicates: slicedPredicates, columns: slicedColumns})
+	}
+	keepModelConversions = true
 	return &hornPreprocessResult{
 		rules:                  prepared,
 		slicedPredicates:       slicedPredicates,
@@ -432,7 +467,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		scaledPredicates:       scaledPredicates,
 		magicPredicates:        magicPredicates,
 		karrInvariants:         karrInvariants,
-		coneModelSteps:         coneModelSteps,
+		modelConversions:       modelConversions,
 	}, nil
 }
 
@@ -474,10 +509,10 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
-	if err = transforms.CloseConeModelSteps(e.spacerConeSteps); err != nil {
+	if err = closeHornModelConversions(e.spacerConversions); err != nil {
 		return lbool.Undef, err
 	}
-	e.spacerConeSteps = nil
+	e.spacerConversions = nil
 	e.spacerPredicates = preprocessed.slicedPredicates
 	e.spacerSlices = preprocessed.slicedColumns
 	e.spacerQuantified = preprocessed.quantifiedPredicates
@@ -486,7 +521,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	e.spacerScaled = preprocessed.scaledPredicates
 	e.spacerMagic = preprocessed.magicPredicates
 	e.spacerKarr = preprocessed.karrInvariants
-	e.spacerConeSteps = preprocessed.takeConeModelSteps()
+	e.spacerConversions = preprocessed.takeModelConversions()
 	queryDeclaration, deriveErr := prepared.DerivedPredicate(declaration)
 	if deriveErr != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed Spacer query: %w", deriveErr)

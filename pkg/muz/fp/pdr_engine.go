@@ -8,7 +8,6 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
-	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -37,7 +36,7 @@ func (e *PropositionalEngine) pdrPredicate(declaration ast.ASTHandle) ast.ASTHan
 }
 
 func (e *PropositionalEngine) clearPDRPreprocessing() error {
-	result := transforms.CloseConeModelSteps(e.pdrConeSteps)
+	result := closeHornModelConversions(e.pdrConversions)
 	e.pdrDerived = nil
 	e.pdrPredicates = nil
 	e.pdrSlices = nil
@@ -47,7 +46,7 @@ func (e *PropositionalEngine) clearPDRPreprocessing() error {
 	e.pdrScaled = nil
 	e.pdrMagic = nil
 	e.pdrKarr = nil
-	e.pdrConeSteps = nil
+	e.pdrConversions = nil
 	return result
 }
 
@@ -60,7 +59,7 @@ func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResu
 	e.pdrScaled = result.scaledPredicates
 	e.pdrMagic = result.magicPredicates
 	e.pdrKarr = result.karrInvariants
-	e.pdrConeSteps = result.takeConeModelSteps()
+	e.pdrConversions = result.takeModelConversions()
 }
 
 func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool, resultErr error) {
@@ -82,10 +81,10 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		e.spacerMagic = nil
 		e.spacerKarr = nil
 	}
-	if err := transforms.CloseConeModelSteps(e.spacerConeSteps); err != nil {
+	if err := closeHornModelConversions(e.spacerConversions); err != nil {
 		return lbool.Undef, errors.Join(resultErr, err)
 	}
-	e.spacerConeSteps = nil
+	e.spacerConversions = nil
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return lbool.Undef, err

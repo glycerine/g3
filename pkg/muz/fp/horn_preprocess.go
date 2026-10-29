@@ -27,7 +27,7 @@ type hornPreprocessResult struct {
 	scaledPredicates       map[ast.ASTHandle]ast.ASTHandle
 	magicPredicates        map[ast.ASTHandle]ast.ASTHandle
 	karrInvariants         map[ast.ASTHandle]rel.KarrMatrix
-	coneModelSteps         []transforms.ConeModelStep
+	modelConversions       []hornModelConversion
 
 	closed bool
 }
@@ -42,7 +42,7 @@ func (r *hornPreprocessResult) Close() (result error) {
 	if r.rules != nil {
 		result = errors.Join(result, r.rules.Close())
 	}
-	result = errors.Join(result, transforms.CloseConeModelSteps(r.coneModelSteps))
+	result = errors.Join(result, closeHornModelConversions(r.modelConversions))
 	r.rules = nil
 	r.slicedPredicates = nil
 	r.slicedColumns = nil
@@ -52,16 +52,44 @@ func (r *hornPreprocessResult) Close() (result error) {
 	r.scaledPredicates = nil
 	r.magicPredicates = nil
 	r.karrInvariants = nil
-	r.coneModelSteps = nil
+	r.modelConversions = nil
 	r.closed = true
 	return result
 }
 
-func (r *hornPreprocessResult) takeConeModelSteps() []transforms.ConeModelStep {
+func (r *hornPreprocessResult) takeModelConversions() []hornModelConversion {
 	if r == nil || r.closed {
 		return nil
 	}
-	steps := r.coneModelSteps
-	r.coneModelSteps = nil
-	return steps
+	conversions := r.modelConversions
+	r.modelConversions = nil
+	return conversions
+}
+
+type hornModelConversionKind uint8
+
+const (
+	hornConvertSlice hornModelConversionKind = iota + 1
+	hornConvertQuantifier
+	hornConvertBitBlast
+	hornConvertScale
+	hornConvertKarr
+	hornConvertCone
+)
+
+type hornModelConversion struct {
+	kind       hornModelConversionKind
+	predicates map[ast.ASTHandle]ast.ASTHandle
+	columns    map[ast.ASTHandle][]bool
+	karr       map[ast.ASTHandle]rel.KarrMatrix
+	cone       transforms.ConeModelStep
+}
+
+func closeHornModelConversions(conversions []hornModelConversion) (result error) {
+	for i := len(conversions) - 1; i >= 0; i-- {
+		if conversions[i].kind == hornConvertCone {
+			result = errors.Join(result, transforms.CloseConeModelSteps([]transforms.ConeModelStep{conversions[i].cone}))
+		}
+	}
+	return result
 }

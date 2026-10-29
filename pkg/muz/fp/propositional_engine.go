@@ -75,7 +75,7 @@ type PropositionalEngine struct {
 	pdrScaled          map[ast.ASTHandle]ast.ASTHandle
 	pdrMagic           map[ast.ASTHandle]ast.ASTHandle
 	pdrKarr            map[ast.ASTHandle]rel.KarrMatrix
-	pdrConeSteps       []transforms.ConeModelStep
+	pdrConversions     []hornModelConversion
 	pdrStatistics      statistics.Statistics
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
@@ -95,7 +95,7 @@ type PropositionalEngine struct {
 	spacerScaled       map[ast.ASTHandle]ast.ASTHandle
 	spacerMagic        map[ast.ASTHandle]ast.ASTHandle
 	spacerKarr         map[ast.ASTHandle]rel.KarrMatrix
-	spacerConeSteps    []transforms.ConeModelStep
+	spacerConversions  []hornModelConversion
 	closed             bool
 }
 
@@ -1495,7 +1495,7 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 		if err != nil {
 			return nil, err
 		}
-		return e.expandHornModel(result, e.pdrPredicates, e.pdrSlices, e.pdrQuantified, e.pdrBitBlasted, e.pdrScaled, e.pdrKarr, e.pdrConeSteps)
+		return e.expandHornModel(result, e.pdrConversions)
 	}
 	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
 		result, err := e.spacer.Model(e.spacerPredicate(declaration))
@@ -1561,8 +1561,8 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.spacerMagic = nil
 		e.spacerKarr = nil
 	}
-	result = errors.Join(result, transforms.CloseConeModelSteps(e.spacerConeSteps))
-	e.spacerConeSteps = nil
+	result = errors.Join(result, closeHornModelConversions(e.spacerConversions))
+	e.spacerConversions = nil
 	for i := len(e.scopes) - 1; i >= 0; i-- {
 		result = errors.Join(result, e.scopes[i].Close())
 	}
