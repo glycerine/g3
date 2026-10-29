@@ -177762,8 +177762,8 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go"],
-      "tests": ["TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner"],
+      "go_targets": ["pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go"],
+      "tests": ["TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorAddPowerMissFailurePreservesReachedPrefix", "TestBVEvaluatorUnsignedDivCopyFailureCleansSourceLocals"],
       "conditionals": [
         {
           "line": 20,
