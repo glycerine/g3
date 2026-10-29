@@ -115270,13 +115270,28 @@
       "status": "partial",
       "go_targets": [
         "pkg/cmd/g3/main.go",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/shell/smtlib_frontend.go",
+        "pkg/shell/smtlib_frontend_owner.go",
+        "pkg/shell/smtlib_frontend_file.go",
+        "pkg/shell/smtlib_frontend_statistics.go",
+        "pkg/shell/smtlib_frontend_result.go",
+        "pkg/shell/smtlib_frontend_run.go",
+        "pkg/shell/smtlib_frontend_test_helpers_test.go",
+        "pkg/shell/smtlib_frontend_commands_test.go",
+        "pkg/shell/smtlib_frontend_statistics_test.go",
+        "pkg/shell/smtlib_frontend_file_test.go",
+        "pkg/shell/smtlib_frontend_errors_test.go",
+        "pkg/shell/smtlib_frontend_ownership_test.go"
       ],
       "tests": [
         "TestSMTLibRunnerCommandLine",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
-        "TestSMTLibRunnerProofScript"
+        "TestSMTLibRunnerProofScript",
+        "TestSMTLIBFrontend",
+        "TestRunSMTLIBStream",
+        "TestOpenSMTLIBFrontend"
       ],
       "methods_audited": false,
       "ownership_audited": false,
