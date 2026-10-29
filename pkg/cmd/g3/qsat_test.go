@@ -23,6 +23,7 @@ func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 		{"qe_rec_blocked_terms.smt2", "unsat\n", false},
 		{"qe_rec_free_boolean.smt2", "sat\n", true},
 		{"qsat_scopes.smt2", "sat\nunsat\nsat\n((k 3))\n", false},
+		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\n", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			script, err := os.ReadFile(filepath.Join("test_vectors", tc.name))

@@ -99780,7 +99780,10 @@
         "pkg/qe/nlqsat_state.go",
         "pkg/qe/nlqsat_loop.go",
         "pkg/qe/nlqsat_initialize.go",
-        "pkg/qe/nlqsat_tactic.go"
+        "pkg/qe/nlqsat_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qsat_test.go",
+        "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"
       ],
       "tests": [
         "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
@@ -99791,7 +99794,8 @@
         "TestNLQSATTacticClosedExistentialAndFalseGoals",
         "TestNLQSATTacticQuantifiedNonlinearRealGoals",
         "TestNLQSATTacticMixedRealAlternationAndProjection",
-        "TestNLQSATTacticPublishesOnlyFreeRealModelValues"
+        "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
+        "TestSMTLibRunnerQSATAndQuantifierElimination"
       ],
       "assertions": [
         {
@@ -99897,6 +99901,18 @@
             "TestNLQSATTacticMixedRealAlternationAndProjection",
             "TestNLQSATTacticPublishesOnlyFreeRealModelValues"
           ]
+        },
+        {
+          "name": "Public nlqsat tactic registration and direct SMT-LIB check-sat-using route (nlqsat.h:27-33)",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/tactic_commands.go",
+          "go_targets": [
+            "pkg/cmd/g3/qsat_test.go",
+            "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"
+          ],
+          "tests": [
+            "TestSMTLibRunnerQSATAndQuantifierElimination"
+          ]
         }
       ],
       "ownership": [
@@ -99914,8 +99930,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/nlqsat_tactic.go"],
-      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues"],
+      "go_targets": ["pkg/qe/nlqsat_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd/g3/qsat_test.go", "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"],
+      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestSMTLibRunnerQSATAndQuantifierElimination"],
       "conditionals": [
         {
           "line": 21,
@@ -99933,7 +99949,7 @@
           "name": "Public nonlinear quantified satisfiability tactic constructor and tactic interface",
           "status": "partial",
           "go_target": "pkg/qe/nlqsat_tactic.go",
-          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues"]
+          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestSMTLibRunnerQSATAndQuantifierElimination"]
         }
       ],
       "ownership": [],
