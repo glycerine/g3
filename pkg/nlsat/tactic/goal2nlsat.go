@@ -379,6 +379,16 @@ func (c *GoalCompiler) Compile(goal *basetactic.Goal) error {
 	return nil
 }
 
+// Literal returns the canonical solver literal for an expression using this
+// compiler's existing mappings. It is used by nlqsat for its distinguished
+// truth predicate and quantified Boolean assumptions.
+func (c *GoalCompiler) Literal(expression ast.ASTHandle) (sat.Literal, error) {
+	if c == nil || c.closed {
+		return sat.DefaultLiteral(), arena.ErrClosed
+	}
+	return c.processLiteral(expression)
+}
+
 func (c *GoalCompiler) AtomMapping() *ast.Expr2Var { return c.atoms }
 func (c *GoalCompiler) TermMapping() *ast.Expr2Var { return c.terms }
 func (c *GoalCompiler) DependencyAttachments() []DependencyAttachment {

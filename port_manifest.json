@@ -96762,7 +96762,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go", "pkg/nlsat/tactic/nlsat2goal.go"],
-      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies", "TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"],
+      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies", "TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity", "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"],
       "assertions": [
         {
           "line": 102,
@@ -96797,6 +96797,12 @@
           "status": "partial",
           "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
           "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies"]
+        },
+        {
+          "name": "Canonical public literal lookup through the retained compiler mappings for quantified-search assumptions",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
+          "tests": ["TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"]
         },
         {
           "name": "nlsat2goal Boolean abstraction, polynomial inequality reconstruction, complemented comparisons, and root-atom fallback (cpp298-445)",
@@ -99763,10 +99769,12 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/nlsat/tactic/model_projection.go"
+        "pkg/nlsat/tactic/model_projection.go",
+        "pkg/qe/nlqsat_state.go"
       ],
       "tests": [
-        "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
+        "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
+        "TestNLQStateModelScopesAssumptionsAndPredicateLevels"
       ],
       "assertions": [
         {
@@ -99836,13 +99844,22 @@
           "tests": [
             "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
           ]
+        },
+        {
+          "name": "Alternating scope stack, arithmetic/Boolean model save/restore, cached-assumption reconstruction and predicate maximum-level classification (cpp103-176,224-257,278-310,566-587)",
+          "status": "ported",
+          "go_target": "pkg/qe/nlqsat_state.go",
+          "tests": [
+            "TestNLQStateModelScopesAssumptionsAndPredicateLevels"
+          ]
         }
       ],
       "ownership": [
-        "ModelProjector borrows the AST manager, NLSAT solver and compiler expression mappings while owning two alternating LiteralVectors. Each projection round resets the destination before acquiring projected atom leases; the final blocking clause owns an AST reference before temporary reconstructed-literal references are released. Closing the projector retires both literal vectors before the borrowed solver."
+        "ModelProjector borrows the AST manager, NLSAT solver and compiler expression mappings while owning two alternating LiteralVectors. Each projection round resets the destination before acquiring projected atom leases; the final blocking clause owns an AST reference before temporary reconstructed-literal references are released. Closing the projector retires both literal vectors before the borrowed solver.",
+        "nlqState borrows the concrete NLSAT solver, owns its copied real assignment and every per-level predicate LiteralVector, and stores Boolean snapshots and assumption caches as native Go values. Predicate vectors are closed in reverse level order before the assignment and borrowed solver."
       ],
       "deviations": [
-        "This increment supplies the retained mbp/negate_clause/clause2fml bridge. Quantifier hoisting, alternating assumption caches, level tracking, learned-clause insertion, model save/restore, division purification, answer construction and the public nlqsat tactic/search loop remain to be integrated, so the source unit remains partial."
+        "The retained mbp/negate_clause/clause2fml bridge, alternating assumption caches, level tracking and model save/restore are supplied. Quantifier hoisting, learned-clause insertion/backtracking, division purification, answer construction and the public nlqsat tactic/search loop remain to be integrated, so the source unit remains partial."
       ]
     },
     {
