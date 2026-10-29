@@ -34,6 +34,12 @@ func (t *APITactic) Apply(goal *APIGoal) (result *APITacticResult, resultErr err
 		return nil, err
 	}
 	result = &APITacticResult{owner: t.owner, manager: goal.manager}
+	if native.ModelConverter != nil {
+		if err = native.ModelConverter.IncRef(); err != nil {
+			return result, err
+		}
+		result.modelConverter = native.ModelConverter
+	}
 	for _, subgoal := range native.Goals {
 		copy, copyErr := tactic.NewGoalCopy(subgoal)
 		if copyErr != nil {
