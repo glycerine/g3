@@ -264,6 +264,155 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	return getErr
 }
 
+func ruleSubsumes(stronger, weaker *base.Rule) (bool, error) {
+	strongerHead, err := stronger.Head()
+	if err != nil {
+		return false, err
+	}
+	weakerHead, err := weaker.Head()
+	if err != nil || strongerHead != weakerHead {
+		return false, err
+	}
+	strongerSize, err := stronger.TailSize()
+	if err != nil {
+		return false, err
+	}
+	weakerSize, err := weaker.TailSize()
+	if err != nil {
+		return false, err
+	}
+	for i := 0; i < strongerSize; i++ {
+		candidate, _, x := stronger.Tail(i)
+		if x != nil {
+			return false, x
+		}
+		found := false
+		for j := 0; j < weakerSize && !found; j++ {
+			other, _, x := weaker.Tail(j)
+			if x != nil {
+				return false, x
+			}
+			found = candidate == other
+		}
+		if !found {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// UpdateRule adds a named rule or replaces the unique existing rule with that
+// name. A replacement must preserve the head and may only strengthen the body.
+func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (resultErr error) {
+	if err := e.open(); err != nil {
+		return err
+	}
+	candidateSet, err := base.NewRuleSet(e.rules)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, candidateSet.Close()) }()
+	bound, err := e.binder.Bind(formula, true)
+	if err != nil {
+		return err
+	}
+	boundFormula, err := e.manager.RefGet(bound)
+	if err == nil {
+		err = e.rules.AddFormula(candidateSet, boundFormula, name)
+	}
+	err = errors.Join(err, e.manager.DelRef(&bound))
+	if err != nil {
+		return err
+	}
+	candidateCount, err := candidateSet.Len()
+	if err != nil {
+		return err
+	}
+	if candidateCount != 1 {
+		return fmt.Errorf("muz/fp: rule %s has a non-trivial body; it cannot be modified", name)
+	}
+	candidate, err := candidateSet.Rule(0)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, candidate.Close()) }()
+
+	count, err := e.set.Len()
+	if err != nil {
+		return err
+	}
+	oldIndex := -1
+	for i := 0; i < count; i++ {
+		rule, x := e.set.Rule(i)
+		if x != nil {
+			return x
+		}
+		ruleName, x := rule.Name()
+		x = errors.Join(x, rule.Close())
+		if x != nil {
+			return x
+		}
+		if ruleName != name {
+			continue
+		}
+		if oldIndex >= 0 {
+			return fmt.Errorf("muz/fp: rule %s occurs twice; it cannot be modified", name)
+		}
+		oldIndex = i
+	}
+	if oldIndex >= 0 {
+		old, x := e.set.Rule(oldIndex)
+		if x != nil {
+			return x
+		}
+		subsumes, x := ruleSubsumes(old, candidate)
+		x = errors.Join(x, old.Close())
+		if x != nil {
+			return x
+		}
+		if !subsumes {
+			return fmt.Errorf("muz/fp: old rule %s does not subsume its replacement", name)
+		}
+	}
+
+	replacement, err := base.NewRuleSet(e.rules)
+	if err != nil {
+		return err
+	}
+	keepReplacement := false
+	defer func() {
+		if !keepReplacement {
+			resultErr = errors.Join(resultErr, replacement.Close())
+		}
+	}()
+	for i := 0; i < count; i++ {
+		if i == oldIndex {
+			continue
+		}
+		rule, x := e.set.Rule(i)
+		if x == nil {
+			x = replacement.Add(rule)
+		}
+		if rule != nil {
+			x = errors.Join(x, rule.Close())
+		}
+		if x != nil {
+			return x
+		}
+	}
+	if err = replacement.Add(candidate); err != nil {
+		return err
+	}
+	if err = replacement.InheritPredicates(e.set); err != nil {
+		return err
+	}
+	prior := e.set
+	e.set = replacement
+	keepReplacement = true
+	e.revision++
+	return prior.Close()
+}
+
 // Push retains a snapshot of the current rule set. Predicate registrations are
 // intentionally not scoped, matching dl_context::push.
 func (e *PropositionalEngine) Push() error {

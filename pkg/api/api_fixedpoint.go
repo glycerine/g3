@@ -63,6 +63,15 @@ func (c *SMTContext) AddFixedpointRuleWithBound(formula ast.ASTHandle, name stri
 	return c.command.AddFixedpointRuleWithBound(formula, name, bound)
 }
 
+// UpdateFixedpointRule adds a named Horn rule or strengthens the unique
+// existing rule carrying that name.
+func (c *SMTContext) UpdateFixedpointRule(formula ast.ASTHandle, name string) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	return c.command.UpdateFixedpointRule(formula, name)
+}
+
 // PushFixedpoint saves the current fixedpoint rule set.
 func (c *SMTContext) PushFixedpoint() error {
 	if err := c.open(); err != nil {

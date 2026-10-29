@@ -115,6 +115,114 @@ func TestPropositionalEngineMatchesCPPFixedpointQueries(t *testing.T) {
 	}
 }
 
+func TestPropositionalEngineNamedRuleUpdate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, context.Close()) })
+	manager, err := context.Manager()
+	fpMust(t, err)
+	references := make([]ast.ASTRef, 0)
+	pin := func(handle ast.ASTHandle, x error) ast.ASTHandle {
+		t.Helper()
+		fpMust(t, x)
+		reference, x := manager.NewRef(handle)
+		fpMust(t, x)
+		references = append(references, reference)
+		return handle
+	}
+	t.Cleanup(func() {
+		for i := len(references) - 1; i >= 0; i-- {
+			fpMust(t, manager.DelRef(&references[i]))
+		}
+	})
+	engine, err := fp.NewPropositionalEngine(manager)
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, engine.Close()) })
+	boolean := pin(manager.MkBoolSort())
+	applications := make(map[string]ast.ASTHandle)
+	for _, name := range []string{"P", "Q", "U"} {
+		symbol, x := manager.Symbols.Intern("update-" + name)
+		fpMust(t, x)
+		declaration := pin(manager.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{}))
+		applications[name] = pin(manager.MkApp(declaration, nil))
+		fpMust(t, engine.RegisterPredicate(declaration))
+	}
+	oldRule := pin(manager.MkImplies(applications["P"], applications["Q"]))
+	body := pin(manager.MkAndArgs([]ast.ASTHandle{applications["P"], applications["U"]}))
+	strongerRule := pin(manager.MkImplies(body, applications["Q"]))
+
+	fpMust(t, engine.AddRule(applications["P"], "fact"))
+	fpMust(t, engine.AddRule(oldRule, "edge"))
+	fpMust(t, engine.Push())
+	fpMust(t, engine.UpdateRule(strongerRule, "edge"))
+	fpMust(t, engine.Pop())
+	status, err := engine.Query(applications["Q"])
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("pop did not restore named rule", status)
+	}
+
+	inserted, err := fp.NewPropositionalEngine(manager)
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, inserted.Close()) })
+	for _, name := range []string{"P", "Q", "U"} {
+		declaration, x := manager.GetDecl(applications[name])
+		fpMust(t, x)
+		fpMust(t, inserted.RegisterPredicate(declaration))
+	}
+	fpMust(t, inserted.UpdateRule(applications["P"], "new-fact"))
+	status, err = inserted.Query(applications["P"])
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("update with a fresh name did not insert", status)
+	}
+
+	rejected, err := fp.NewPropositionalEngine(manager)
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, rejected.Close()) })
+	for _, name := range []string{"P", "Q", "U"} {
+		declaration, x := manager.GetDecl(applications[name])
+		fpMust(t, x)
+		fpMust(t, rejected.RegisterPredicate(declaration))
+	}
+	fpMust(t, rejected.AddRule(applications["P"], "fact"))
+	fpMust(t, rejected.AddRule(strongerRule, "edge"))
+	if err = rejected.UpdateRule(oldRule, "edge"); err == nil {
+		t.Fatal("weakening a named rule succeeded")
+	}
+	status, err = rejected.Query(applications["Q"])
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal("rejected update mutated the rule set", status)
+	}
+
+	validation, err := fp.NewPropositionalEngine(manager)
+	fpMust(t, err)
+	t.Cleanup(func() { fpMust(t, validation.Close()) })
+	for _, name := range []string{"P", "Q", "U"} {
+		declaration, x := manager.GetDecl(applications[name])
+		fpMust(t, x)
+		fpMust(t, validation.RegisterPredicate(declaration))
+	}
+	fpMust(t, validation.AddRule(applications["P"], "duplicate"))
+	fpMust(t, validation.AddRule(applications["U"], "duplicate"))
+	if err = validation.UpdateRule(applications["Q"], "duplicate"); err == nil {
+		t.Fatal("updating a duplicate rule name succeeded")
+	}
+	multiple := pin(manager.MkAndArgs([]ast.ASTHandle{applications["P"], applications["U"]}))
+	if err = validation.UpdateRule(multiple, "multiple"); err == nil {
+		t.Fatal("multi-rule update succeeded")
+	}
+	rules, err := validation.Rules()
+	fpMust(t, err)
+	if len(rules) != 2 {
+		t.Fatal("rejected validation update mutated the rule set", len(rules))
+	}
+	for i := len(rules) - 1; i >= 0; i-- {
+		fpMust(t, manager.DelRef(&rules[i]))
+	}
+}
+
 func TestPDREngineMatchesCPPIntegerHornQueries(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)

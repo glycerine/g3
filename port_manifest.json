@@ -5312,13 +5312,13 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "idiomatic Go relation registration, implicit-variable and rule insertion, scoped rule enumeration, rule scopes, backend selection, relation and Spacer-from-level query, owning trace/inductive-certificate answer, inductive model and model evaluation, PDR/Spacer frame cover/invariant, Spacer reachable summary and copied statistics surface",
+          "name": "idiomatic Go relation registration, implicit-variable and named rule insertion/replacement, scoped rule enumeration, rule scopes, backend selection, relation and Spacer-from-level query, owning trace/inductive-certificate answer, inductive model and model evaluation, PDR/Spacer frame cover/invariant, Spacer reachable summary and copied statistics surface",
           "status": "partial",
           "go_target": "pkg/api/api_fixedpoint.go",
           "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointSpacerInductiveExports"]
         },
         {
-          "name": "remaining standalone fixedpoint owner, table facts/assertions, relation-vector queries, rule update, parser/file, parameter descriptors, callbacks and string display surface",
+          "name": "remaining standalone fixedpoint owner, table facts/assertions, relation-vector queries, parser/file, parameter descriptors, callbacks and string display surface",
           "status": "unported",
           "go_target": null,
           "tests": []

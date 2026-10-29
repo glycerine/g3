@@ -72,6 +72,16 @@ func (c *Context) AddFixedpointRuleWithBound(formula ast.ASTHandle, name string,
 	return engine.AddRule(formula, name)
 }
 
+// UpdateFixedpointRule adds a named Horn rule or strengthens the unique
+// existing rule carrying that name.
+func (c *Context) UpdateFixedpointRule(formula ast.ASTHandle, name string) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.UpdateRule(formula, name)
+}
+
 // DeclareFixedpointVariable declares and registers an implicit Datalog
 // variable, matching the declare-var command's constant-to-bound-variable path.
 func (c *Context) DeclareFixedpointVariable(name string, sort ast.ASTHandle) error {
