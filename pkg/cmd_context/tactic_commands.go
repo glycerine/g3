@@ -11,6 +11,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ackermannization"
 	"github.com/glycerine/g3/pkg/ast"
+	subpavingtactic "github.com/glycerine/g3/pkg/math/subpaving/tactic"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/qe"
@@ -57,7 +58,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return nil, err
 	}
 	switch name {
-	case "qe-light", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "simplify", "ctx-simplify", "add-bounds", "elim-and", "elim-term-ite", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
+	case "qe-light", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "simplify", "ctx-simplify", "add-bounds", "elim-and", "elim-term-ite", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
 	default:
 		return nil, fmt.Errorf("invalid tactic, unknown tactic %s", name)
 	}
@@ -103,6 +104,8 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return sattactic.MakeSATTactic(c.config.Params, nil, c.config.ModelEvaluator, output)
 	case "sat-preprocess":
 		return sattactic.MakeSATPreprocessorTactic(c.config.Params, nil, c.config.ModelEvaluator, output)
+	case "subpaving":
+		return subpavingtactic.NewSubpavingTactic(m, c.config.Params, c.config.Globals, nil)
 	case "simplify":
 		return core.MakeSimplifyTactic(m, c.config.Params, c.config.Globals, nil)
 	case "ctx-simplify":

@@ -17,6 +17,14 @@ type commandExceptionTactic struct {
 	failure error
 }
 
+func TestCommandContextRegistersRetainedSubpavingTactic(t *testing.T) {
+	c := contextFixture(t)
+	selected, err := c.NewBuiltinTactic("subpaving")
+	contextMust(t, err)
+	contextMust(t, selected.IncRef())
+	contextMust(t, selected.DecRef())
+}
+
 func (t *commandExceptionTactic) Apply(*tactic.Goal, *tactic.TacticResult) error { return t.failure }
 
 func TestCommandContextTacticExceptionBoundary(t *testing.T) {

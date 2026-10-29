@@ -78870,7 +78870,24 @@
         "pkg/math/subpaving/tactic/fixed_core_tactic_test.go",
         "pkg/math/subpaving/tactic/fixed_variable_display.go",
         "pkg/math/subpaving/inequality_buffer_release.go",
-        "pkg/math/subpaving/inequality_buffer_release_test.go"
+        "pkg/math/subpaving/inequality_buffer_release_test.go",
+        "pkg/math/subpaving/tactic/public_simplify_params.go",
+        "pkg/math/subpaving/tactic/public_simplify_params_test.go",
+        "pkg/math/subpaving/tactic/arbitrary_core_tactic.go",
+        "pkg/math/subpaving/tactic/arbitrary_core_tactic_test.go",
+        "pkg/math/subpaving/tactic/arbitrary_variable_display.go",
+        "pkg/math/subpaving/tactic/hardware_core_tactic.go",
+        "pkg/math/subpaving/tactic/hardware_core_tactic_test.go",
+        "pkg/math/subpaving/tactic/hardware_variable_display.go",
+        "pkg/math/subpaving/tactic/rational_tactic_adapter.go",
+        "pkg/math/subpaving/tactic/arbitrary_tactic_adapter.go",
+        "pkg/math/subpaving/tactic/hardware_tactic_adapter.go",
+        "pkg/math/subpaving/tactic/fast_tactic_adapter.go",
+        "pkg/math/subpaving/tactic/fixed_tactic_adapter.go",
+        "pkg/math/subpaving/tactic/public_factory.go",
+        "pkg/math/subpaving/tactic/public_factory_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_commands_test.go"
       ],
       "tests": [
         "TestSubpavingTacticOptionSelectionAndDescriptions",
@@ -78885,7 +78902,11 @@
         "TestFastExprConverterTermsAndClause",
         "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats",
         "TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup",
-        "TestSubpavingTemporaryInequalityBufferUnwind"
+        "TestSubpavingTemporaryInequalityBufferUnwind",
+        "TestSubpaving",
+        "TestArbitraryCore",
+        "TestHardwareCore",
+        "TestCommandContextRegistersRetainedSubpavingTactic"
       ],
       "methods_audited": false,
       "ownership_audited": false,

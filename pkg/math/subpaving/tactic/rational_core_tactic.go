@@ -34,7 +34,25 @@ type RationalCoreTactic struct {
 	converter   *RationalExprConverter
 	cooperation *cooperate.Cooperation
 	stats       statistics.Statistics
+	ownsNumbers bool
 	closed      bool
+}
+
+func NewRationalCoreTacticOwned(m *ast.ASTManager, pc *params.ParamsContext, p *params.ParamsRef) (*RationalCoreTactic, error) {
+	if m == nil || m.NumeralService() == nil {
+		return nil, arena.ErrInvalidSlot
+	}
+	numbers, err := m.NumeralService().NewPrivateRationalManager()
+	if err != nil {
+		return nil, err
+	}
+	t, err := NewRationalCoreTactic(m, numbers, pc, p)
+	if err != nil {
+		_ = numbers.CloseChecked()
+		return t, err
+	}
+	t.ownsNumbers = true
+	return t, nil
 }
 
 func NewRationalCoreTactic(m *ast.ASTManager, numbers *numeral.RationalManager, pc *params.ParamsContext, p *params.ParamsRef) (*RationalCoreTactic, error) {
@@ -287,6 +305,12 @@ func (t *RationalCoreTactic) Close() error {
 	}
 	if err := t.pc.Del(&t.params); err != nil {
 		return err
+	}
+	if t.ownsNumbers && t.numbers != nil {
+		if err := t.numbers.CloseChecked(); err != nil {
+			return err
+		}
+		t.numbers = nil
 	}
 	t.closed = true
 	return nil

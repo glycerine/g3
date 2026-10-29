@@ -92,6 +92,21 @@ func (e *HardwareEngine) Options() (Options, error) {
 	return e.options, nil
 }
 
+func (e *HardwareEngine) UpdateParamsRef(pc *params.ParamsContext, p *params.ParamsRef) error {
+	if err := e.check(); err != nil {
+		return err
+	}
+	selected, err := ReadOptions(pc, p)
+	if err != nil {
+		return err
+	}
+	if selected.Engine != EngineHWF {
+		return ErrHardwareEngineSelection
+	}
+	e.options = selected
+	return e.shell.UpdateParamsRef(pc, p)
+}
+
 func (e *HardwareEngine) Close() error {
 	if e == nil || e.self != e {
 		return arena.ErrInvalidSlot

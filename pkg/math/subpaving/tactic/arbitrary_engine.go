@@ -72,6 +72,21 @@ func (e *ArbitraryEngine) Options() (Options, error) {
 	return e.options, nil
 }
 
+func (e *ArbitraryEngine) UpdateParamsRef(pc *params.ParamsContext, p *params.ParamsRef) error {
+	if err := e.check(); err != nil {
+		return err
+	}
+	selected, err := ReadOptions(pc, p)
+	if err != nil {
+		return err
+	}
+	if selected.Engine != EngineMPF {
+		return ErrArbitraryEngineSelection
+	}
+	e.options = selected
+	return e.shell.UpdateParamsRef(pc, p)
+}
+
 func (e *ArbitraryEngine) Close() error {
 	if e == nil || e.self != e {
 		return arena.ErrInvalidSlot
