@@ -1,6 +1,7 @@
 package sat
 
 import (
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -27,21 +28,35 @@ func (j satJustification) Binary() bool   { return j.val2 == 1 }
 func (j satJustification) Ternary() bool  { return j.Kind() == 2 }
 func (j satJustification) Clause() bool   { return j.val2 == 3 }
 func (j satJustification) External() bool { return j.val2 == 4 }
+func satJustificationAssertion(ok bool, line int32, condition string) error {
+	if ok || !satStorageSourceDebug {
+		return nil
+	}
+	d := diagnostic.BorrowProcessDebugContext()
+	enabled, err := d.AssertionsEnabled()
+	if err != nil || !enabled {
+		return err
+	}
+	if !d.HasAssertionActions() {
+		return ErrSATAssertion
+	}
+	return diagnostic.DebugAssertionFailure(d, "src/sat/sat_justification.h", line, condition)
+}
 func (j satJustification) Literal() (Literal, error) {
-	if satStorageSourceDebug && !j.Binary() {
-		return 0, ErrSATAssertion
+	if err := satJustificationAssertion(j.Binary(), 43, "is_binary_clause()"); err != nil {
+		return 0, err
 	}
 	return Literal(j.val1), nil
 }
 func (j satJustification) Literal1() (Literal, error) {
-	if satStorageSourceDebug && !j.Ternary() {
-		return 0, ErrSATAssertion
+	if err := satJustificationAssertion(j.Ternary(), 46, "is_ternary_clause()"); err != nil {
+		return 0, err
 	}
 	return Literal(j.val1), nil
 }
 func (j satJustification) Literal2() (Literal, error) {
-	if satStorageSourceDebug && !j.Ternary() {
-		return 0, ErrSATAssertion
+	if err := satJustificationAssertion(j.Ternary(), 47, "is_ternary_clause()"); err != nil {
+		return 0, err
 	}
 	return Literal(j.val2 >> 3), nil
 }

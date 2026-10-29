@@ -105232,11 +105232,15 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/sat/sat_clause_set.go"
+        "pkg/sat/sat_clause_set.go",
+        "pkg/sat/sat_clause_set_test.go"
       ],
       "tests": [
         "TestSATClauseSetNativeCollections",
-        "TestSATClauseSetCopyMoveAndHeaderFailure"
+        "TestSATClauseSetCopyMoveAndHeaderFailure",
+        "TestSATClauseSetConditionalInvariantActionsPreserveMutation",
+        "TestSATClauseSetPopAssertionPrefixesAndContinuation",
+        "TestSATClauseSetConditionalInvariantExtentAndReverseBounds"
       ],
       "assertions": [
         {
@@ -105307,11 +105311,15 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/sat/sat_clause_set.go"
+        "pkg/sat/sat_clause_set.go",
+        "pkg/sat/sat_clause_set_test.go"
       ],
       "tests": [
         "TestSATClauseSetNativeCollections",
-        "TestSATClauseSetCopyMoveAndHeaderFailure"
+        "TestSATClauseSetCopyMoveAndHeaderFailure",
+        "TestSATClauseSetConditionalInvariantActionsPreserveMutation",
+        "TestSATClauseSetPopAssertionPrefixesAndContinuation",
+        "TestSATClauseSetConditionalInvariantExtentAndReverseBounds"
       ],
       "conditionals": [
         {
@@ -106868,6 +106876,7 @@
       "status": "partial",
       "go_targets": [
         "pkg/sat/sat_justification.go",
+        "pkg/sat/sat_justification_test.go",
         "pkg/sat/sat_solver_justifications.go",
         "pkg/sat/sat_solver_justifications_test.go"
       ],
@@ -106877,7 +106886,8 @@
         "TestSATSolverNativeMkVarFirstPublicationWithoutBackingReservation",
         "TestSATSolverNativeJustificationAssignmentWithoutMetadataReservation",
         "TestSATSolverNativeJustificationFiveKindsGrowthBoundsAndWarmWrites",
-        "TestSATSolverNativeJustificationStaleGenerationAndForeignAllocator"
+        "TestSATSolverNativeJustificationStaleGenerationAndForeignAllocator",
+        "TestSATJustificationGetterAssertionsUseProcessActions"
       ],
       "conditionals": [
         {

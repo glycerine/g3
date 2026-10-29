@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // satClauseSet keeps the source swap-erase order while using Go collections for
@@ -15,6 +16,7 @@ type satClauseSet struct {
 	refs              []StoredClauseRef
 	budget            *arena.Budget
 	ownerBytes, epoch uint64
+	idExtent          uint64 // source m_id2pos logical size; erase does not shrink it.
 	closed            bool
 }
 
@@ -66,8 +68,39 @@ func (s *satClauseSet) Contains(r StoredClauseRef) (bool, error) {
 	if e != nil {
 		return false, e
 	}
+	if uint64(id) >= s.idExtent {
+		return false, nil
+	}
 	_, ok := s.positions[id]
 	return ok, nil
+}
+func satClauseSetAssertion(ok bool, line int32, condition string) error {
+	if ok {
+		return nil
+	}
+	d := diagnostic.BorrowProcessDebugContext()
+	if !d.HasAssertionActions() {
+		return ErrSATAssertion
+	}
+	return diagnostic.DebugAssertionFailure(d, "src/sat/sat_clause_set.cpp", line, condition)
+}
+func (s *satClauseSet) sourceAssertionsEnabled() (bool, error) {
+	if !satStorageSourceDebug {
+		return false, nil
+	}
+	return diagnostic.BorrowProcessDebugContext().AssertionsEnabled()
+}
+func (s *satClauseSet) cassertInvariant() error {
+	if !satStorageSourceDebug {
+		return nil
+	}
+	d := diagnostic.BorrowProcessDebugContext()
+	enabled, err := d.ConditionalAssertionEnabled("clause_set")
+	if err != nil || !enabled {
+		return err
+	}
+	_, err = s.checkInvariant(true)
+	return err
 }
 func (s *satClauseSet) Insert(r StoredClauseRef) error {
 	if e := s.change(); e != nil {
@@ -86,10 +119,13 @@ func (s *satClauseSet) Insert(r StoredClauseRef) error {
 	if s.positions == nil {
 		s.positions = make(map[uint32]uint32)
 	}
+	if uint64(id)+1 > s.idExtent {
+		s.idExtent = uint64(id) + 1
+	}
 	s.positions[id] = uint32(len(s.refs))
 	s.refs = append(s.refs, r)
 	s.epoch++
-	return nil
+	return s.cassertInvariant()
 }
 func (s *satClauseSet) Erase(r StoredClauseRef) error {
 	if e := s.change(); e != nil {
@@ -98,6 +134,9 @@ func (s *satClauseSet) Erase(r StoredClauseRef) error {
 	id, e := s.owner.ID(r)
 	if e != nil {
 		return e
+	}
+	if uint64(id) >= s.idExtent {
+		return nil
 	}
 	pos, ok := s.positions[id]
 	if !ok {
@@ -120,15 +159,21 @@ func (s *satClauseSet) Erase(r StoredClauseRef) error {
 	s.refs[last] = StoredClauseRef{}
 	s.refs = s.refs[:last]
 	s.epoch++
-	return nil
+	return s.cassertInvariant()
 }
 func (s *satClauseSet) Pop() (StoredClauseRef, error) {
 	if e := s.change(); e != nil {
 		return StoredClauseRef{}, e
 	}
+	assertions, e := s.sourceAssertionsEnabled()
+	if e != nil {
+		return StoredClauseRef{}, e
+	}
 	if len(s.refs) == 0 {
-		if satStorageSourceDebug {
-			return StoredClauseRef{}, ErrSATAssertion
+		if assertions {
+			if e = satClauseSetAssertion(false, 55, "!empty()"); e != nil {
+				return StoredClauseRef{}, e
+			}
 		}
 		return StoredClauseRef{}, arena.ErrBounds
 	}
@@ -138,12 +183,23 @@ func (s *satClauseSet) Pop() (StoredClauseRef, error) {
 	if e != nil {
 		return r, e
 	}
-	if satStorageSourceDebug {
+	if assertions {
+		if uint64(id) >= s.idExtent {
+			if e = satClauseSetAssertion(false, 57, "c.id() < m_id2pos.size()"); e != nil {
+				return r, e
+			}
+			// A source C action would continue into an invalid vector index.
+			return r, arena.ErrBounds
+		}
 		if pos, ok := s.positions[id]; !ok || int(pos) != last {
-			return r, ErrSATAssertion
+			if e = satClauseSetAssertion(false, 58, "m_id2pos[c.id()] == m_set.size()-1"); e != nil {
+				return r, e
+			}
 		}
 	}
-	delete(s.positions, id)
+	if uint64(id) < s.idExtent {
+		delete(s.positions, id)
+	}
 	s.refs[last] = StoredClauseRef{}
 	s.refs = s.refs[:last]
 	s.epoch++
@@ -159,22 +215,59 @@ func (s *satClauseSet) Get(i uint32) (StoredClauseRef, error) {
 	return s.refs[i], nil
 }
 func (s *satClauseSet) CheckInvariant() (bool, error) {
+	return s.checkInvariant(false)
+}
+func (s *satClauseSet) checkInvariant(actions bool) (bool, error) {
 	if e := s.open(); e != nil {
 		return false, e
 	}
 	if !satStorageSourceDebug {
 		return true, nil
 	}
-	if len(s.positions) != len(s.refs) {
-		return false, ErrSATAssertion
-	}
 	for pos, r := range s.refs {
 		id, e := s.owner.ID(r)
 		if e != nil {
 			return false, e
 		}
+		if uint64(id) >= s.idExtent {
+			if !actions {
+				return false, ErrSATAssertion
+			}
+			if e = satClauseSetAssertion(false, 73, "c.id() < m_id2pos.size()"); e != nil {
+				return false, e
+			}
+		}
 		if got, ok := s.positions[id]; !ok || int(got) != pos {
-			return false, ErrSATAssertion
+			if !actions {
+				return false, ErrSATAssertion
+			}
+			if e = satClauseSetAssertion(false, 74, "m_id2pos[c.id()] == pos"); e != nil {
+				return false, e
+			}
+		}
+	}
+	for id, pos := range s.positions {
+		if uint64(pos) >= uint64(len(s.refs)) {
+			if !actions {
+				return false, ErrSATAssertion
+			}
+			if e := satClauseSetAssertion(false, 84, "pos < m_set.size()"); e != nil {
+				return false, e
+			}
+			// A source C action would continue into an invalid vector index.
+			continue
+		}
+		actual, e := s.owner.ID(s.refs[pos])
+		if e != nil {
+			return false, e
+		}
+		if actual != id {
+			if !actions {
+				return false, ErrSATAssertion
+			}
+			if e = satClauseSetAssertion(false, 85, "m_set[pos]->id() == id"); e != nil {
+				return false, e
+			}
 		}
 	}
 	return true, nil
@@ -186,6 +279,7 @@ func (s *satClauseSet) Reset() error {
 	clear(s.positions)
 	clear(s.refs)
 	s.refs = s.refs[:0]
+	s.idExtent = 0
 	s.epoch++
 	return nil
 }
@@ -195,6 +289,7 @@ func (s *satClauseSet) Finalize() error {
 	}
 	s.positions = nil
 	s.refs = nil
+	s.idExtent = 0
 	s.epoch++
 	return nil
 }
@@ -208,6 +303,7 @@ func (s *satClauseSet) Close() error {
 	s.budget.Release(s.ownerBytes)
 	s.positions = nil
 	s.refs = nil
+	s.idExtent = 0
 	s.ownerBytes = 0
 	s.closed = true
 	return nil
@@ -227,6 +323,7 @@ func (s *satClauseSet) Clone(b *arena.Budget) (*satClauseSet, error) {
 		return nil, e
 	}
 	v.refs = append(v.refs, s.refs...)
+	v.idExtent = s.idExtent
 	if len(s.positions) != 0 {
 		v.positions = make(map[uint32]uint32, len(s.positions))
 		for id, pos := range s.positions {
@@ -256,6 +353,7 @@ func (s *satClauseSet) Assign(src *satClauseSet) error {
 		s.positions[id] = pos
 	}
 	s.refs = append(s.refs[:0], src.refs...)
+	s.idExtent = src.idExtent
 	s.epoch++
 	return nil
 }
@@ -269,7 +367,9 @@ func (s *satClauseSet) MoveClone(b *arena.Budget) (*satClauseSet, error) {
 		return nil, e
 	}
 	v.positions, v.refs = s.positions, s.refs
+	v.idExtent = s.idExtent
 	s.positions, s.refs = nil, nil
+	s.idExtent = 0
 	s.epoch++
 	return v, nil
 }
