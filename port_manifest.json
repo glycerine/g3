@@ -80899,8 +80899,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPDREngineMatchesCPPIntegerHornQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
+      "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal", "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPDREngineMatchesCPPIntegerHornQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
       "assertions": [
         {
           "line": 82,
@@ -80986,6 +80986,12 @@
           "tests": ["TestSMTContextFixedpointPredicateRepresentation", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
         },
         {
+          "name": "Finite least-fixed-point model materialization with exact Boolean predicate interpretations and synthetic-query filtering (dl_context.cpp get_model)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_model.go",
+          "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal"]
+        },
+        {
           "name": "infinite-domain predicate registration, PDR/Spacer uninterpreted-symbol rule guard and query dispatch through the retained rule context",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
@@ -80993,7 +80999,8 @@
         }
       ],
       "ownership": [
-        "PropositionalEngine owns its RuleManager, RuleSet, VariableBinder, RelationManager with finite predicate tables, and optional AST theory rewriter. Compiled instruction blocks own their predicate references and per-rule accounting parents until execution completes; the engine borrows the AST manager and releases all owned references before it."
+        "PropositionalEngine owns its RuleManager, RuleSet, VariableBinder, RelationManager with finite predicate tables, and optional AST theory rewriter. Compiled instruction blocks own their predicate references and per-rule accounting parents until execution completes; the engine borrows the AST manager and releases all owned references before it.",
+        "Finite model materialization copies saturated table rows into a caller-owned Model. Function graphs retain decoded row values before the temporary DecodeFact references are released, and model registration transfers graph ownership."
       ],
       "deviations": [
         "The Datalog slice remains finite-domain and produces tuple answers. Infinite-domain positive Horn rules may now dispatch through PDR/Spacer, consume current command assertions as background constraints, and reconstruct successful existential answers including recursive-SCC state traces and native nonlinear-rule reduction; remaining general trace unification, certificate/model/proof reconstruction, full transformations, parameters and broader engine selection remain open."
@@ -82926,7 +82933,9 @@
         },
         {
           "name": "Finite Datalog model conversion",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_model.go",
+          "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal"]
         },
         {
           "name": "horn-simplify rule transformation tactic",
@@ -82939,7 +82948,7 @@
         "The command context retains the tactic through the existing tactic reference-count protocol."
       ],
       "deviations": [
-        "The unregistered horn-simplify factory and finite Datalog model conversion remain unported. Infinite-domain PDR verification now supplies both proof and model-converter results."
+        "The unregistered horn-simplify factory remains unported. Finite Datalog and infinite-domain PDR verification both supply model-converter results; PDR additionally supplies proof traces."
       ]
     },
     {

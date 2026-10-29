@@ -1952,14 +1952,17 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	return true, writeExpression(out, handle)
 }
 
-// Model returns the inductive PDR or Spacer model for the latest unreachable
-// query. The caller owns and closes the returned model.
+// Model returns the finite least-fixed-point or inductive PDR/Spacer model for
+// the latest unreachable query. The caller owns and closes the returned model.
 func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
 	if !e.queried {
 		return nil, ErrPropositionalEngine
+	}
+	if e.backend == "datalog" {
+		return e.datalogModel(declaration)
 	}
 	if e.backend == "pdr" && e.pdr != nil {
 		result, err := e.pdr.Model(e.pdrPredicate(declaration))
