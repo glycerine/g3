@@ -71813,14 +71813,17 @@
       "path": "src/math/realclosure/rcf_params.hpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/math/realclosure/rcf_params.go",
+        "pkg/math/realclosure/rcf_params_test.go",
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
         "pkg/math/realclosure/gparams_catalog_collectors.go",
         "pkg/util/params/util_gparams_catalog_dispatch.go"
       ],
       "tests": [
+        "TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence",
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
         "TestGlobalParamsCatalogConcreteHookGuardsAndIndependentReuse",
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
@@ -71837,8 +71840,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -71854,7 +71857,8 @@
           "go_targets": [
             "pkg/util/params/util_gparams_catalog_test.go"
           ]
-        }
+        },
+        {"name":"all six generated runtime getters with local/module/default fallback and owned module snapshot","status":"ported","go_target":"pkg/math/realclosure/rcf_params.go","tests":["TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence"]}
       ],
       "ownership": [
         "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
@@ -71865,13 +71869,13 @@
       "path": "src/math/realclosure/rcf_params.pyg",
       "component": "math",
       "role": "generated_input",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/math/realclosure/rcf_params.go", "pkg/math/realclosure/rcf_params_test.go", "pkg/math/realclosure/gparams_catalog_collectors.go"],
+      "tests": ["TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence", "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"generated RCF schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/math/realclosure/rcf_params.go","go_targets":["pkg/math/realclosure/gparams_catalog_collectors.go"],"tests":["TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
+      "ownership": ["Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or C++ source."],
       "deviations": []
     },
     {
