@@ -82462,9 +82462,9 @@
       "path": "src/muz/ddnf/ddnf.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose"],
       "assertions": [
         {
           "line": 87,
@@ -82501,9 +82501,9 @@
       "path": "src/muz/ddnf/ddnf.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose"],
       "conditionals": [
         {
           "line": 19,
