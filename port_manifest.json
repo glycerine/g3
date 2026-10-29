@@ -94031,7 +94031,8 @@
         "TestSMTLibRunnerCPPReference/fp_spacer_karr.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_magic.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_bit_blast.smt2",
-        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_scale.smt2"
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_scale.smt2",
+        "TestHornModelConversionsReplayInReverseApplicationOrder"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -94052,12 +94053,15 @@
           ]
         },
         {
-          "name": "PDR cone, interpreted-tail simplification, subsumption, and inline stages with complete model/proof result conversion",
-          "status": "partial",
+          "name": "PDR cone, interpreted-tail simplification, subsumption, and inline stages with ordered model and certificate result conversion",
+          "status": "ported",
           "go_target": "pkg/muz/fp/spacer_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
-            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestHornModelConversionsReplayInReverseApplicationOrder",
+            "TestSubsumptionCheckerRemovesTotalPositiveTail"
           ]
         },
         {
@@ -94100,11 +94104,11 @@
       ],
       "ownership": [
         "Each PDR or Spacer query owns a finalized transformed RuleSet clone until Context initialization has retained its rules; the engine's original set remains available for subsequent queries.",
-        "RuleTransformer owns every registered transform through application and closure; model-reconstruction state is copied into the consuming engine before those plugins close."
+        "RuleTransformer owns every registered transform through application and closure; the consuming engine takes an ordered owning ledger of cone definitions, total-relation interpretations, and removed inline clauses before those plugins close."
       ],
       "deviations": [
         "The source apply_default_transformation entry point is retained as a shared per-query preparation path. Transform implementations remain split into concrete Go plugins rather than a universal factory layer.",
-        "PDR defers cone, interpreted-tail simplification, subsumption, and inlining until their source model/proof converter chain is retained; enabling those stages without it loses public certificate declarations."
+        "PDR and Spacer reconstruct public models, model-derived certificates, and covers through the reverse transformation ledger. Standalone proof-object conversion remains outside the retained public fixedpoint result surface."
       ]
     },
     {

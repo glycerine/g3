@@ -21,7 +21,8 @@ func TestSubsumptionCheckerDropsTautologicalSelfRule(t *testing.T) {
 	}
 	transformer := base.NewRuleTransformer()
 	t.Cleanup(func() { coneMust(t, transformer.Close()) })
-	coneMust(t, transformer.Register(transforms.NewSubsumptionCheckerPlugin(true, 0)))
+	plugin := transforms.NewSubsumptionCheckerPlugin(true, 0)
+	coneMust(t, transformer.Register(plugin))
 	modified, err := transformer.Apply(f.set)
 	coneMust(t, err)
 	if !modified {
@@ -44,7 +45,8 @@ func TestSubsumptionCheckerRemovesTotalPositiveTail(t *testing.T) {
 	}
 	transformer := base.NewRuleTransformer()
 	t.Cleanup(func() { coneMust(t, transformer.Close()) })
-	coneMust(t, transformer.Register(transforms.NewSubsumptionCheckerPlugin(true, 0)))
+	plugin := transforms.NewSubsumptionCheckerPlugin(true, 0)
+	coneMust(t, transformer.Register(plugin))
 	modified, err := transformer.Apply(f.set)
 	coneMust(t, err)
 	if !modified {
@@ -62,6 +64,17 @@ func TestSubsumptionCheckerRemovesTotalPositiveTail(t *testing.T) {
 	coneMust(t, err)
 	if head != f.declarations["Goal"] || tails != 0 {
 		t.Fatal("total-tail result", head, tails)
+	}
+	steps, err := plugin.TakeModelSteps()
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, transforms.CloseConeModelSteps(steps)) })
+	if len(steps) != 1 || len(steps[0]) != 1 || steps[0][0].Declaration != f.declarations["Total"] {
+		t.Fatal("total-relation model step", steps)
+	}
+	formula, err := f.manager.RefGet(steps[0][0].Formula)
+	coneMust(t, err)
+	if !f.manager.IsTrue(formula) {
+		t.Fatal("total-relation interpretation is not true", formula)
 	}
 }
 

@@ -1,8 +1,8 @@
 package transforms
 
 // Source: src/muz/transforms/dl_mk_subsumption_checker.cpp/.h retained
-// rule pruning. Relation-table cardinality discovery and model conversion are
-// outside the fixedpoint preprocessing consumer.
+// rule pruning and total-relation model reconstruction. Relation-table
+// cardinality discovery is outside the retained fixedpoint consumer.
 
 import (
 	"errors"
@@ -14,9 +14,10 @@ import (
 )
 
 type SubsumptionCheckerPlugin struct {
-	priority uint32
-	enabled  bool
-	closed   bool
+	priority   uint32
+	enabled    bool
+	modelSteps []ConeModelStep
+	closed     bool
 }
 
 func NewSubsumptionCheckerPlugin(enabled bool, priority uint32) *SubsumptionCheckerPlugin {
@@ -37,7 +38,20 @@ func (p *SubsumptionCheckerPlugin) Close() error {
 		return base.ErrRuleTransformerOwner
 	}
 	p.closed = true
-	return nil
+	result := closeConeModelSteps(p.modelSteps)
+	p.modelSteps = nil
+	return result
+}
+
+// TakeModelSteps transfers the ordered total-relation interpretations emitted
+// by this subsumption stage.
+func (p *SubsumptionCheckerPlugin) TakeModelSteps() ([]ConeModelStep, error) {
+	if p == nil || p.closed {
+		return nil, base.ErrRuleTransformerOwner
+	}
+	steps := p.modelSteps
+	p.modelSteps = nil
+	return steps, nil
 }
 
 type subsumptionIndex struct {
@@ -175,6 +189,55 @@ func closeTotalRules(total map[ast.ASTHandle]*base.Rule) (result error) {
 		delete(total, declaration)
 	}
 	return result
+}
+
+func totalRelationModelStep(source *base.RuleSet) (_ ConeModelStep, resultErr error) {
+	total, err := discoverTotalRules(source)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, closeTotalRules(total)) }()
+	count, err := source.Len()
+	if err != nil {
+		return nil, err
+	}
+	step := make(ConeModelStep, 0, len(total))
+	keep := false
+	defer func() {
+		if !keep {
+			resultErr = errors.Join(resultErr, closeConeModelSteps([]ConeModelStep{step}))
+		}
+	}()
+	seen := make(map[ast.ASTHandle]bool, len(total))
+	for index := 0; index < count; index++ {
+		rule, getErr := source.Rule(index)
+		if getErr != nil {
+			return nil, getErr
+		}
+		declaration, getErr := rule.HeadDeclaration()
+		if getErr == nil && total[declaration] != nil && !seen[declaration] {
+			manager, managerErr := rule.ASTManager()
+			if managerErr == nil {
+				var truth ast.ASTHandle
+				truth, managerErr = manager.MkTrue()
+				if managerErr == nil {
+					var formula ast.ASTRef
+					formula, managerErr = manager.NewRef(truth)
+					if managerErr == nil {
+						step = append(step, ConeModelDefinition{Declaration: declaration, Formula: formula, manager: manager})
+						seen[declaration] = true
+					}
+				}
+			}
+			getErr = managerErr
+		}
+		getErr = errors.Join(getErr, rule.Close())
+		if getErr != nil {
+			return nil, getErr
+		}
+	}
+	keep = true
+	return step, nil
 }
 
 func transformSubsumedRule(manager *base.RuleManager, rule *base.Rule, total map[ast.ASTHandle]*base.Rule, index *subsumptionIndex) (_ *base.Rule, retain, changed bool, resultErr error) {
@@ -350,6 +413,16 @@ func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (*base.RuleSe
 	if !p.enabled {
 		return nil, nil
 	}
+	step, err := totalRelationModelStep(source)
+	if err != nil {
+		return nil, err
+	}
 	result, _, err := subsumptionPass(source)
+	if err != nil {
+		return nil, errors.Join(err, closeConeModelSteps([]ConeModelStep{step}))
+	}
+	if len(step) != 0 {
+		p.modelSteps = append(p.modelSteps, step)
+	}
 	return result, err
 }

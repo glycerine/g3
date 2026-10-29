@@ -15,7 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLossyResultTransforms, allowInlineResultTransforms bool) (_ *hornPreprocessResult, resultErr error) {
+func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubsumptionResultTransforms, allowInlineResultTransforms bool) (_ *hornPreprocessResult, resultErr error) {
 	var slicedPredicates map[ast.ASTHandle]ast.ASTHandle
 	var slicedColumns map[ast.ASTHandle][]bool
 	prepared, err := base.NewRuleSet(e.rules)
@@ -64,7 +64,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	if !allowLossyResultTransforms {
+	if !allowSubsumptionResultTransforms {
 		useSubsumption = false
 	}
 	checkerName := "xform.subsumption_checker"
@@ -159,13 +159,19 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		return nil, errors.Join(err, transformer.Close())
 	}
 	var inliners []*transforms.RuleInlinerPlugin
+	var subsumers []*transforms.SubsumptionCheckerPlugin
 	newInliner := func(priority uint32) *transforms.RuleInlinerPlugin {
 		plugin := transforms.NewRuleInlinerPluginWithServices(e.manager, e.rules, []ast.ASTHandle{query}, inlineEager, inlineLinear, e.params, e.globals, priority)
 		inliners = append(inliners, plugin)
 		return plugin
 	}
+	newSubsumption := func(priority uint32) *transforms.SubsumptionCheckerPlugin {
+		plugin := transforms.NewSubsumptionCheckerPlugin(useChecker, priority)
+		subsumers = append(subsumers, plugin)
+		return plugin
+	}
 	if useSubsumption {
-		if err = transformer.Register(transforms.NewSubsumptionCheckerPlugin(useChecker, 35005)); err != nil {
+		if err = transformer.Register(newSubsumption(35005)); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}
@@ -258,7 +264,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		return nil, errors.Join(err, secondSimplifier.Close(), transformer.Close())
 	}
 	if useSubsumption {
-		if err = transformer.Register(transforms.NewSubsumptionCheckerPlugin(useChecker, 34975)); err != nil {
+		if err = transformer.Register(newSubsumption(34975)); err != nil {
 			return nil, errors.Join(err, transformer.Close())
 		}
 	}
@@ -293,7 +299,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 			if stage.inlining {
 				plugin = newInliner(stage.priority)
 			} else {
-				plugin = transforms.NewSubsumptionCheckerPlugin(useChecker, stage.priority)
+				plugin = newSubsumption(stage.priority)
 			}
 			if err = transformer.Register(plugin); err != nil {
 				return nil, errors.Join(err, plugin.Close(), transformer.Close())
@@ -305,12 +311,16 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 	_, err = transformer.Apply(prepared)
 	var initialConeSteps, laterConeSteps, finalConeSteps []transforms.ConeModelStep
 	var inlineModelRules [][]transforms.InlineModelRule
+	var subsumptionModelSteps [][]transforms.ConeModelStep
 	var modelConversions []hornModelConversion
 	keepModelConversions := false
 	defer func() {
 		if !keepModelConversions {
 			for _, rules := range inlineModelRules {
 				resultErr = errors.Join(resultErr, transforms.CloseInlineModelRules(rules))
+			}
+			for _, steps := range subsumptionModelSteps {
+				resultErr = errors.Join(resultErr, transforms.CloseConeModelSteps(steps))
 			}
 			resultErr = errors.Join(resultErr,
 				transforms.CloseConeModelSteps(initialConeSteps),
@@ -332,6 +342,15 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 		inlineModelRules = make([][]transforms.InlineModelRule, len(inliners))
 		for index, inliner := range inliners {
 			inlineModelRules[index], err = inliner.TakeModelRules()
+			if err != nil {
+				break
+			}
+		}
+	}
+	if err == nil {
+		subsumptionModelSteps = make([][]transforms.ConeModelStep, len(subsumers))
+		for index, subsumer := range subsumers {
+			subsumptionModelSteps[index], err = subsumer.TakeModelSteps()
 			if err != nil {
 				break
 			}
@@ -461,16 +480,26 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowLoss
 			inlineModelRules[index] = nil
 		}
 	}
+	appendSubsumptionSteps := func(index int) {
+		if index >= len(subsumptionModelSteps) {
+			return
+		}
+		appendConeSteps(subsumptionModelSteps[index])
+		subsumptionModelSteps[index] = nil
+	}
+	appendSubsumptionSteps(0)
 	appendInlineRules(0)
 	if len(bitBlastedPredicates) != 0 {
 		modelConversions = append(modelConversions, hornModelConversion{kind: hornConvertBitBlast, predicates: bitBlastedPredicates})
 	}
 	appendConeSteps(laterConeSteps)
 	laterConeSteps = nil
+	appendSubsumptionSteps(1)
 	appendInlineRules(1)
 	appendConeSteps(finalConeSteps)
 	finalConeSteps = nil
-	for index := 2; index < len(inlineModelRules); index++ {
+	for index := 2; index < len(subsumptionModelSteps) || index < len(inlineModelRules); index++ {
+		appendSubsumptionSteps(index)
 		appendInlineRules(index)
 	}
 	if len(slicedPredicates) != 0 {
