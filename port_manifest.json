@@ -175628,7 +175628,7 @@
       "path": "src/tactic/portfolio/default_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/all_as_array_probe.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
@@ -175661,12 +175661,12 @@
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Retained ALL default-strategy integration for the native ordered QF_BV, QF_AUFBV, QF_LIA, QF_AUFLIA, QF_LRA, bounded QF_NIA, QF_FP/QF_FPBV and QF_FPLRA classifiers, OP_AS_ARRAY compatibility routing, and quantifier-free mixed linear integer/real goals: simplify before selecting the source preprocessing branch and preserve ordinary combined-solver incremental fallback and exception behavior",
-          "status": "partial",
+          "name": "Retained ALL default-strategy integration for the native ordered QF_BV, QF_AUFBV, QF_LIA, QF_AUFLIA, QF_LRA, QF_NRA, bounded QF_NIA, mixed LIRA, quantified NRA, QF_FP/QF_FPBV and QF_FPLRA classifiers plus OP_AS_ARRAY compatibility routing: simplify before source branch selection and preserve ordinary combined-solver incremental fallback and exception behavior",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/portfolio/all_as_array_probe.go",
             "pkg/tactic/portfolio/smt_strategic_solver.go",
@@ -175700,16 +175700,16 @@
       ],
       "ownership": [],
       "deviations": [
-        "The nested default tactic classifier now retains the source simplify-first ordering and the QF_BV, QF_AUFBV, QF_LIA, QF_AUFLIA, QF_LRA, bounded QF_NIA, mixed LIRA, QF_FP/QF_FPBV and QF_FPLRA branches. QF_NRA and NRA remain pending, so those and other unmatched ALL goals retain the direct SMT tactic path. QF_NIA retains its first bounded bit-vector solver and final SMT fallback while the intervening NLSAT attempts remain pending. The OP_AS_ARRAY compatibility route remains ahead of the source classifiers. End-to-end vectors cover each retained classifier, strict array and mixed UTVPI combined-solver fallback, native model-construction exception conversion and unrelated single-sort unknown preservation."
+        "The nested default tactic classifier retains source simplify-first ordering and every active source branch: QF_BV, QF_AUFBV, QF_LIA, QF_AUFLIA, QF_LRA, QF_NRA, bounded QF_NIA, mixed LIRA, quantified NRA, QF_FP/QF_FPBV and QF_FPLRA, followed by ordinary SMT. The source-commented QF_UFNRA branch has no retained consumer. The OP_AS_ARRAY compatibility route remains ahead of the source classifiers. End-to-end vectors cover the retained classifiers, quantified NRA alternation, strict array and mixed UTVPI combined-solver fallback, native model-construction exception conversion and unrelated single-sort unknown preservation."
       ]
     },
     {
       "path": "src/tactic/portfolio/default_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/portfolio/smt_strategic_solver.go"],
+      "tests": ["TestSMTLibRunnerScripts/nra_default_portfolio.smt2", "TestSMTLibRunnerCPPReference/nra_default_portfolio.smt2"],
       "conditionals": [
         {
           "line": 19,
@@ -175720,11 +175720,18 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Complete retained default tactic factory and parameterized strategy ownership",
+          "status": "ported",
+          "go_target": "pkg/tactic/portfolio/smt_strategic_solver.go",
+          "tests": ["TestSMTLibRunnerScripts/nra_default_portfolio.smt2"]
+        }
+      ],
+      "ownership": ["NewALLStrategicSolver owns the complete tactic/probe tree until it transfers the root strategy into the combined solver."],
+      "deviations": ["The source registration comment is represented by the retained default strategic-solver factory rather than a C++ tactic-header macro."]
     },
     {
       "path": "src/tactic/portfolio/enum2bv_solver.cpp",
@@ -176257,8 +176264,8 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "Retained general ALL factory operator integration for the native ordered QF_BV, QF_AUFBV, QF_LIA, QF_AUFLIA, QF_LRA and bounded QF_NIA classifiers, OP_AS_ARRAY compatibility routing, and quantifier-free mixed LIRA goals: simplify-first tactic solver plus direct ALL incremental SMT under combined-solver scope, unknown fallback, source exception conversion and result-provider policy",
-          "status": "partial",
+          "name": "Retained general ALL factory operator integration for the native ordered QF_BV, QF_AUFBV, QF_LIA, QF_AUFLIA, QF_LRA, QF_NRA, bounded QF_NIA, mixed LIRA, quantified NRA, QF_FP/QF_FPBV and QF_FPLRA classifiers plus OP_AS_ARRAY compatibility routing: simplify-first tactic solver plus direct ALL incremental SMT under combined-solver scope, unknown fallback, source exception conversion and result-provider policy",
+          "status": "ported",
           "go_targets": [
             "pkg/tactic/portfolio/all_as_array_probe.go",
             "pkg/tactic/portfolio/smt_strategic_solver.go",
@@ -176440,7 +176447,7 @@
           "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
         },
         {
-          "name": "Remaining logic dispatcher branches and complete default tactic classifier; the stored-logic factory surface and concrete QF_BV incremental-SAT and FD backend selections are recorded separately",
+          "name": "Remaining LRA and LIA logic dispatcher branches; the complete default classifier, stored-logic factory, QF_BV incremental-SAT and FD backend selections are recorded separately",
           "status": "unported"
         },
         {
@@ -176648,7 +176655,7 @@
         "Construction uses local counted tactic/solver references. The returned combined solver owns both child solvers; the tactic solver owns the concrete strategy. Context closes the combined owner before manager/services teardown. Evaluator/parameter services are borrowed through the same concrete configuration used by the incremental backend."
       ],
       "deviations": [
-        "Retained QF_AUFLIA, QF_LRA, QF_UF, QF_IDL, QF_LIA, QF_FP, QF_FPBV, QF_BVFP and NRA branches use shared combined-solver construction. The general ALL dispatcher now has a narrow OP_AS_ARRAY branch; its complete default classifier and other remaining branches are unported. Output-taking QF_IDL/QF_LIA/QF_FP constructors borrow io.Writer; convenience factories default to os.Stdout."
+        "Retained QF_AUFLIA, QF_LRA, QF_UF, QF_IDL, QF_LIA, QF_FP, QF_FPBV, QF_BVFP and NRA branches use shared combined-solver construction. The general ALL dispatcher includes the complete default classifier and the OP_AS_ARRAY compatibility branch. Only the source LRA/LIA stored-logic dispatcher branches remain open. Output-taking QF_IDL/QF_LIA/QF_FP constructors borrow io.Writer; convenience factories default to os.Stdout."
       ]
     },
     {

@@ -1,7 +1,7 @@
 package portfolio
 
 // Source: src/tactic/portfolio/smt_strategic_solver.cpp retained QF_AUFLIA and
-// QF_LRA/QF_UF/QF_IDL/QF_LIA/QF_BV/QF_AUFBV/QF_ABV/QF_UFBV/QF_FP and
+// QF_LRA/QF_UF/QF_IDL/QF_LIA/QF_BV/QF_AUFBV/QF_ABV/QF_UFBV/QF_FP, NRA and
 // UFNIA/UFLRA/AUFLIA/AUFLIRA/AUFNIRA branches and
 // smt_strategic_solver_factory::operator().
 
@@ -106,6 +106,11 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 	if err != nil {
 		return nil, err
 	}
+	nra, err := smtlogics.NewNRATactic(m, p, config)
+	nra, err = keepTactic(nra, err)
+	if err != nil {
+		return nil, err
+	}
 	qfFP, err := smtlogics.NewQFFPTactic(m, p, config)
 	qfFP, err = keepTactic(qfFP, err)
 	if err != nil {
@@ -155,6 +160,10 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 	if err != nil {
 		return nil, err
 	}
+	nraProbe, err := keepProbe(arith.NewArithmeticFragmentProbe(m.Budget(), config.Params, config.Globals, arith.FragmentNRA))
+	if err != nil {
+		return nil, err
+	}
 	qfFPProbe, err := keepProbe(smtlogics.NewIsQFFPProbe(m.Budget()))
 	if err != nil {
 		return nil, err
@@ -195,7 +204,12 @@ func NewALLStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mode
 	if err != nil {
 		return nil, err
 	}
-	route, err := tactic.NewCondTactic(qfLIRA, lira, ordinary)
+	route, err := tactic.NewCondTactic(nraProbe, nra, ordinary)
+	route, err = keepTactic(route, err)
+	if err != nil {
+		return nil, err
+	}
+	route, err = tactic.NewCondTactic(qfLIRA, lira, route)
 	route, err = keepTactic(route, err)
 	if err != nil {
 		return nil, err
