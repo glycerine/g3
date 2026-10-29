@@ -104310,28 +104310,59 @@
       "path": "src/sat/dimacs.cpp",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/sat/dimacs.go",
+        "pkg/sat/dimacs_test.go"
+      ],
+      "tests": [
+        "TestParseDIMACSSourceGrammarAndVariableNumbering",
+        "TestParseDIMACSEmptyClauseAndHeaderCountsIgnored",
+        "TestParseDIMACSMalformedInputPreservesReachedPrefix",
+        "TestParseDIMACSOwnerAndClosedSolver"
+      ],
       "assertions": [
         {
           "line": 104,
           "text": "SASSERT(var > 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "stream buffer, source whitespace and line skipping, signed integer parsing, clause publication and complete DIMACS dispatch",
+          "status": "ported",
+          "go_target": "pkg/sat/dimacs.go",
+          "tests": [
+            "TestParseDIMACSSourceGrammarAndVariableNumbering",
+            "TestParseDIMACSEmptyClauseAndHeaderCountsIgnored",
+            "TestParseDIMACSMalformedInputPreservesReachedPrefix"
+          ]
+        }
+      ],
+      "ownership": [
+        "The parser owns its buffered reader and reusable literal slice and borrows the caller-owned SAT solver. Variables and clauses already published to the solver remain published after later parse errors."
+      ],
+      "deviations": [
+        "Malformed C++ command-line input prints a diagnostic and exits the process. The Go library returns ErrDIMACSUnexpectedChar with the same offending integer character so its caller owns process policy."
+      ]
     },
     {
       "path": "src/sat/dimacs.h",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/sat/dimacs.go",
+        "pkg/sat/dimacs_test.go"
+      ],
+      "tests": [
+        "TestParseDIMACSSourceGrammarAndVariableNumbering",
+        "TestParseDIMACSEmptyClauseAndHeaderCountsIgnored",
+        "TestParseDIMACSMalformedInputPreservesReachedPrefix",
+        "TestParseDIMACSOwnerAndClosedSolver"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -104342,11 +104373,25 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "parse_dimacs public parser entry",
+          "status": "ported",
+          "go_target": "pkg/sat/dimacs.go",
+          "tests": [
+            "TestParseDIMACSSourceGrammarAndVariableNumbering",
+            "TestParseDIMACSOwnerAndClosedSolver"
+          ]
+        }
+      ],
+      "ownership": [
+        "ParseDIMACS borrows the input reader and solver for the duration of the call; it does not close either owner."
+      ],
+      "deviations": [
+        "The Go public entry returns parse and solver errors instead of terminating the hosting process."
+      ]
     },
     {
       "path": "src/sat/sat_asymm_branch.cpp",
