@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func TestVirtualSolverSharesBackendAndIsolatesGuardedViews(t *testing.T) {
@@ -64,6 +65,11 @@ func TestVirtualSolverSharesBackendAndIsolatesGuardedViews(t *testing.T) {
 	}
 	proof, err := first.Proof()
 	spacerMust(t, err)
+	proofAgain, err := first.Proof()
+	spacerMust(t, err)
+	if proofAgain != proof {
+		t.Fatal("virtual proof cache changed identity", proof, proofAgain)
+	}
 	var printed bytes.Buffer
 	spacerMust(t, ast.DisplayLegacySMT(&printed, manager, proof, 0, nil))
 	if strings.Contains(printed.String(), "vsolver#") {
@@ -71,6 +77,25 @@ func TestVirtualSolverSharesBackendAndIsolatesGuardedViews(t *testing.T) {
 	}
 	if assumptions, err := first.NumAssumptions(); err != nil || assumptions != 1 {
 		t.Fatal("private guard counted as public assumption", assumptions, err)
+	}
+	stats := statistics.New()
+	spacerMust(t, factory.CollectStatistics(stats))
+	counts := map[statistics.Key]uint32{}
+	for index := 0; index < stats.Size(); index++ {
+		if stats.IsUint(index) {
+			counts[stats.Key(index)] += stats.UintValue(index)
+		}
+	}
+	if counts["virtual_solver.checks"] != 4 || counts["virtual_solver.checks.sat"] != 2 {
+		t.Fatal("virtual solver source statistics", counts)
+	}
+	spacerMust(t, factory.ResetStatistics())
+	stats.Reset()
+	spacerMust(t, factory.CollectStatistics(stats))
+	for index := 0; index < stats.Size(); index++ {
+		if stats.Key(index) == "virtual_solver.checks" || stats.Key(index) == "virtual_solver.checks.sat" || stats.Key(index) == "virtual_solver.checks.undef" {
+			t.Fatal("virtual solver reset retained counters", stats.Key(index))
+		}
 	}
 
 	spacerMust(t, first.Close())

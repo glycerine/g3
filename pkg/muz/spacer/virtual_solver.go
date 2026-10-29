@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 var ErrVirtualSolverOwner = errors.New("muz/spacer: invalid or closed virtual solver")
@@ -20,13 +21,17 @@ var ErrVirtualSolverOwner = errors.New("muz/spacer: invalid or closed virtual so
 // VirtualSolverFactory gives several guarded solver views of one SMT backend.
 // It owns the backend; every VirtualSolver must be closed before the factory.
 type VirtualSolverFactory struct {
-	backend solver.Solver
-	manager *ast.ASTManager
-	solvers []*VirtualSolver
-	checks  uint32
-	sat     uint32
-	unknown uint32
-	closed  bool
+	backend      solver.Solver
+	manager      *ast.ASTManager
+	solvers      []*VirtualSolver
+	checks       uint32
+	sat          uint32
+	unknown      uint32
+	checkWatch   stopwatch.Stopwatch
+	satWatch     stopwatch.Stopwatch
+	unknownWatch stopwatch.Stopwatch
+	proofWatch   stopwatch.Stopwatch
+	closed       bool
 }
 
 func NewVirtualSolverFactory(backend solver.Solver) (*VirtualSolverFactory, error) {
@@ -86,6 +91,26 @@ func (f *VirtualSolverFactory) CollectStatistics(destination *statistics.Statist
 	if err := f.backend.CollectStatistics(destination); err != nil {
 		return err
 	}
+	checkSeconds, err := f.checkWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	satSeconds, err := f.satWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	unknownSeconds, err := f.unknownWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	proofSeconds, err := f.proofWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	destination.UpdateDouble("time.virtual_solver.smt.total", checkSeconds)
+	destination.UpdateDouble("time.virtual_solver.smt.total.sat", satSeconds)
+	destination.UpdateDouble("time.virtual_solver.smt.total.undef", unknownSeconds)
+	destination.UpdateDouble("time.virtual_solver.proof", proofSeconds)
 	destination.UpdateUint("virtual_solver.checks", f.checks)
 	destination.UpdateUint("virtual_solver.checks.sat", f.sat)
 	destination.UpdateUint("virtual_solver.checks.undef", f.unknown)
@@ -97,6 +122,10 @@ func (f *VirtualSolverFactory) ResetStatistics() error {
 		return err
 	}
 	f.checks, f.sat, f.unknown = 0, 0, 0
+	f.checkWatch.Reset()
+	f.satWatch.Reset()
+	f.unknownWatch.Reset()
+	f.proofWatch.Reset()
 	if resetter, yes := f.backend.(interface{ ResetStatistics() error }); yes {
 		return resetter.ResetStatistics()
 	}
@@ -320,15 +349,26 @@ func (s *VirtualSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, erro
 	values = append(values, predicate)
 	values = append(values, assumptions...)
 	s.lastAssumptions = append(s.lastAssumptions[:0], assumptions...)
+	var elapsed stopwatch.Stopwatch
+	watch, err := stopwatch.NewScopedWatch(&elapsed, false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	s.factory.checks++
 	status, err := s.Solver.CheckSat(values)
+	if closeErr := watch.Close(); err == nil {
+		err = closeErr
+	}
 	if err != nil {
 		return status, err
 	}
-	s.factory.checks++
+	s.factory.checkWatch.Add(&elapsed)
 	if status == lbool.True {
 		s.factory.sat++
+		s.factory.satWatch.Add(&elapsed)
 	} else if status == lbool.Undef {
 		s.factory.unknown++
+		s.factory.unknownWatch.Add(&elapsed)
 	}
 	return status, nil
 }
@@ -391,6 +431,15 @@ func (s *VirtualSolver) UnsatCore() ([]ast.ASTHandle, error) {
 func (s *VirtualSolver) Proof() (ast.ASTHandle, error) {
 	if err := s.open(); err != nil {
 		return ast.ASTHandle{}, err
+	}
+	watch, err := stopwatch.NewScopedWatch(&s.factory.proofWatch, false)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer watch.Close()
+	cached, err := s.factory.manager.RefGet(s.proof)
+	if err != nil || !cached.IsNull() {
+		return cached, err
 	}
 	root, err := s.Solver.Proof()
 	if err != nil || root.IsNull() {
