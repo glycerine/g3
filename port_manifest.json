@@ -177797,7 +177797,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_owner.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_core_tactic_test.go"],
       "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
@@ -177828,7 +177828,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_owner.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_core_tactic_test.go"],
       "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
@@ -178153,7 +178153,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
       "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "assertions": [
         {
@@ -178176,7 +178176,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
       "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
