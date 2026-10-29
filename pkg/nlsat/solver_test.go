@@ -196,6 +196,30 @@ func TestSolverHeuristicVariablePermutation(t *testing.T) {
 			t.Fatal("variable permutation", permutation, want)
 		}
 	}
+	if err = s.ReorderVariables([]uint32{0}); err == nil {
+		t.Fatal("short variable permutation accepted")
+	}
+	if err = s.ReorderVariables([]uint32{0, 0}); err == nil {
+		t.Fatal("duplicate variable permutation accepted")
+	}
+	assignmentMust(t, s.ReorderVariables(permutation))
+	if s.clauses.vars.perm[0] != 1 || s.clauses.vars.perm[1] != 0 {
+		t.Fatal("composed variable map", s.clauses.vars.perm, s.clauses.vars.inv)
+	}
+	status, err := s.Check()
+	assignmentMust(t, err)
+	if status != lbool.True {
+		t.Fatal("reordered solver result", status)
+	}
+	assignmentMust(t, s.RestoreVariableOrder())
+	for variable := uint32(0); variable < 2; variable++ {
+		if s.clauses.vars.perm[variable] != variable || s.clauses.vars.inv[variable] != variable {
+			t.Fatal("restored variable map", s.clauses.vars.perm, s.clauses.vars.inv)
+		}
+		var value polynomial.Algebraic
+		assignmentMust(t, s.Value(variable, &value))
+		assignmentMust(t, s.config.Algebraic.Del(&value))
+	}
 	_, err = s.MkRoot(AtomRootEQ, 1, 1, x1Cubed, false)
 	assignmentMust(t, err)
 	permutation, supported, err = s.HeuristicVariablePermutation()

@@ -26,6 +26,7 @@ type SolverConfig struct {
 	MinimizeCore bool
 	Randomize    bool
 	Factor       bool
+	Reorder      bool
 	MaxConflicts uint32
 }
 
@@ -236,16 +237,43 @@ func (s *Solver) AddClause(literals []sat.Literal, assumption Assumption) error 
 	return s.clauses.mkInputClause(literals, assumption)
 }
 
-func (s *Solver) Check() (lbool.LBool, error) {
+func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 	if err := s.open(); err != nil {
 		return lbool.Undef, err
 	}
-	for {
-		fullDimensional, err := s.clauses.isFullDimensional()
-		if err != nil {
-			return lbool.Undef, err
+	fullDimensional, err := s.clauses.isFullDimensional()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	s.explanation.fullDimensional = fullDimensional
+	reordered := false
+	if s.config.Reorder {
+		permutation, supported, x := s.HeuristicVariablePermutation()
+		if x != nil {
+			return lbool.Undef, x
 		}
-		s.explanation.fullDimensional = fullDimensional
+		if supported {
+			identity := true
+			for variable, target := range permutation {
+				if uint32(variable) != target {
+					identity = false
+					break
+				}
+			}
+			if !identity {
+				if x = s.ReorderVariables(permutation); x != nil {
+					return lbool.Undef, x
+				}
+				reordered = true
+			}
+		}
+	}
+	defer func() {
+		if reordered {
+			resultErr = errors.Join(resultErr, s.RestoreVariableOrder())
+		}
+	}()
+	for {
 		result, err := s.search.search(s.resolution, s.explanation)
 		if err != nil || result != lbool.True {
 			return result, err

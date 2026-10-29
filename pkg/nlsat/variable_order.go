@@ -112,3 +112,128 @@ func (s *Solver) HeuristicVariablePermutation() (_ []uint32, supported bool, res
 	}
 	return permutation, true, nil
 }
+
+func validateVariablePermutation(permutation []uint32, count int) error {
+	if len(permutation) != count {
+		return ErrSearchOwner
+	}
+	seen := make([]bool, count)
+	for _, target := range permutation {
+		if uint64(target) >= uint64(count) || seen[target] {
+			return ErrSearchOwner
+		}
+		seen[target] = true
+	}
+	return nil
+}
+
+// ReorderVariables applies an old-position-to-new-position permutation to the
+// live inequality-only solver. It preserves the current arithmetic model and
+// composes the external/internal variable maps exactly as the source does.
+func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
+	if err := s.open(); err != nil {
+		return err
+	}
+	count := len(s.clauses.vars.isInt)
+	if err := validateVariablePermutation(permutation, count); err != nil {
+		return err
+	}
+	for _, atom := range s.atoms.bools.atoms {
+		if root, ok := atom.(*RootAtom); ok && root != nil {
+			return ErrSearchOwner
+		}
+	}
+	nextAssignment, err := NewAssignment(s.config.Algebraic)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, nextAssignment.Close()) }()
+	for old := 0; old < count; old++ {
+		assigned, x := s.assignment.Contains(uint32(old))
+		if x != nil {
+			return x
+		}
+		if !assigned {
+			continue
+		}
+		value, x := s.assignment.Value(uint32(old))
+		if x != nil {
+			return x
+		}
+		if x = nextAssignment.Set(permutation[old], value); x != nil {
+			return x
+		}
+	}
+	if err = s.search.undoUntilEmpty(); err != nil {
+		return err
+	}
+	if err = s.cache.Reset(); err != nil {
+		return err
+	}
+	for i := range s.clauses.vars.watches {
+		s.clauses.vars.watches[i] = nil
+	}
+	for i := range s.atoms.bools.watches {
+		s.atoms.bools.watches[i] = nil
+	}
+	variables := &s.clauses.vars
+	oldInteger := append([]bool(nil), variables.isInt...)
+	oldInverse := append([]uint32(nil), variables.inv...)
+	newInteger := make([]bool, count)
+	newInverse := make([]uint32, count)
+	newPermutation := make([]uint32, count)
+	for old := 0; old < count; old++ {
+		newInteger[permutation[old]] = oldInteger[old]
+	}
+	for external := 0; external < count; external++ {
+		newInverse[external] = permutation[oldInverse[external]]
+		newPermutation[newInverse[external]] = uint32(external)
+	}
+	if err = s.config.Polynomial.Rename(permutation); err != nil {
+		return err
+	}
+	core, err := s.config.Polynomial.ArithmeticCore()
+	if err != nil {
+		return err
+	}
+	for _, atom := range s.atoms.bools.atoms {
+		inequality, ok := atom.(*InequalityAtom)
+		if !ok || inequality == nil {
+			continue
+		}
+		maximum := uint32(NullVariable)
+		for _, factor := range inequality.factors {
+			x, xErr := core.MaxVariable(factor.Polynomial)
+			if xErr != nil {
+				return xErr
+			}
+			if x != NullVariable && (maximum == NullVariable || x > maximum) {
+				maximum = x
+			}
+		}
+		inequality.maxVar = maximum
+	}
+	variables.isInt = newInteger
+	variables.inv = newInverse
+	variables.perm = newPermutation
+	if err = s.assignment.Swap(nextAssignment); err != nil {
+		return err
+	}
+	for _, clauses := range [][]*Clause{s.clauses.originals, s.clauses.learned} {
+		for _, clause := range clauses {
+			if err = s.clauses.attach(clause); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// RestoreVariableOrder maps the current internal variables back to their
+// original externally visible positions.
+func (s *Solver) RestoreVariableOrder() error {
+	if err := s.open(); err != nil {
+		return err
+	}
+	return s.ReorderVariables(append([]uint32(nil), s.clauses.vars.perm...))
+}

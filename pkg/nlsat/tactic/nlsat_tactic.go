@@ -225,6 +225,10 @@ func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomia
 	if err != nil {
 		return nlsat.SolverConfig{}, err
 	}
+	reorder, err := boolParameter("reorder", true)
+	if err != nil {
+		return nlsat.SolverConfig{}, err
+	}
 	factor, err := boolParameter("factor", true)
 	if err != nil {
 		return nlsat.SolverConfig{}, err
@@ -232,7 +236,7 @@ func (t *NLSATTactic) solverConfig(polynomials *polynomial.MultivariatePolynomia
 	return nlsat.SolverConfig{
 		Algebraic: algebraic, Polynomial: polynomials, Limit: &t.manager.Limit,
 		MaxMemory: umemory.MegabytesToBytes(megabytes), Lazy: lazy,
-		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor, MaxConflicts: maxConflicts,
+		SimplifyCore: simplify, MinimizeCore: minimize, Randomize: randomize, Factor: factor, Reorder: reorder, MaxConflicts: maxConflicts,
 	}, nil
 }
 
