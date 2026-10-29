@@ -44081,7 +44081,7 @@
       "path": "src/cmd_context/interpolant_cmds.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": ["pkg/cmd_context/interpolation.go", "pkg/parsers/smt2/commands.go"],
       "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
@@ -44094,7 +44094,7 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
