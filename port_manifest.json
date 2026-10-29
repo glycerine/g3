@@ -164597,7 +164597,7 @@
       "path": "src/tactic/arith/elim01_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/tactic/arith/elim01_tactic.go",
         "pkg/tactic/arith/elim01_tactic_test.go",
@@ -164624,8 +164624,8 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "finite nonnegative integer bound selection, Boolean weighted-sum replacement, range axioms, simultaneous theory rewriting, proof update, translation and parameter surface",
@@ -164647,7 +164647,7 @@
         "The tactic owns its parameter copy, BoundManager and TheoryRewriter. Each application owns a simultaneous replacement and temporary axiom references; the composed filter/extension converter owns original definitions and fresh declarations after publication."
       ],
       "deviations": [
-        "The existing concrete extension-plus-filter model converters replace the source-local bool2int converter while preserving weighted integer reconstruction and helper removal. Source TRACE records, assertion gates, exact allocation frontiers and stopped-cleanup campaigns remain unaudited. The implementation retains the source runtime default max_coefficient of 8 despite its description text saying 1."
+        "The existing concrete extension-plus-filter model converters replace the source-local bool2int converter while preserving weighted integer reconstruction and helper removal. Source TRACE-only diagnostics are reference-only; focused proof, model, no-op, translation and QFNIA integration checks cover the retained path. The implementation retains the source runtime default max_coefficient of 8 despite its description text saying 1."
       ]
     },
     {
