@@ -177778,8 +177778,8 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go", "pkg/tactic/sls/sls_evaluator_signed.go", "pkg/tactic/sls/sls_evaluator_bitwise.go", "pkg/tactic/sls/sls_evaluator_shifts.go", "pkg/tactic/sls/sls_evaluator_remaining_test.go"],
-      "tests": ["TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorAddPowerMissFailurePreservesReachedPrefix", "TestBVEvaluatorUnsignedDivCopyFailureCleansSourceLocals", "TestBVEvaluatorSignedDivisionRemainderModuloOracles", "TestBVEvaluatorBitwiseAndComparisonOracles", "TestBVEvaluatorShiftOraclesAndOverflow", "TestBVEvaluatorShiftLeftPowerFailurePreservesLoopPrefix"],
+      "go_targets": ["pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go", "pkg/tactic/sls/sls_evaluator_signed.go", "pkg/tactic/sls/sls_evaluator_bitwise.go", "pkg/tactic/sls/sls_evaluator_shifts.go", "pkg/tactic/sls/sls_evaluator_remaining_test.go", "pkg/tactic/sls/sls_evaluator_boolean.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go"],
+      "tests": ["TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorAddPowerMissFailurePreservesReachedPrefix", "TestBVEvaluatorUnsignedDivCopyFailureCleansSourceLocals", "TestBVEvaluatorSignedDivisionRemainderModuloOracles", "TestBVEvaluatorBitwiseAndComparisonOracles", "TestBVEvaluatorShiftOraclesAndOverflow", "TestBVEvaluatorShiftLeftPowerFailurePreservesLoopPrefix", "TestSLSEvaluatorBooleanFamilyAndBorrowedTrackerValues", "TestSLSEvaluatorCopyFailurePrefix"],
       "conditionals": [
         {
           "line": 20,
@@ -178125,9 +178125,9 @@
       "path": "src/tactic/sls/sls_tracker.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/sls/sls_tracker_foundation.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go"],
+      "tests": ["TestSLSTrackerFoundationParamsStateAndAccessors", "TestSLSTrackerAndEvaluatorOwnerGuards", "TestSLSTrackerValueCopyFailurePrefix"],
       "conditionals": [
         {
           "line": 20,
