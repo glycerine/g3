@@ -95825,6 +95825,7 @@
         "pkg/nlsat/search_resolution.go",
         "pkg/nlsat/search_main.go",
         "pkg/nlsat/solver.go",
+        "pkg/nlsat/solver_assumptions.go",
         "pkg/nlsat/inline_variables.go",
         "pkg/nlsat/univariate_conjunction.go"
       ],
@@ -95890,6 +95891,7 @@
             "TestSolverMixedLinearConflict",
             "TestSolverIntegerBranchAndBound",
             "TestSolverConflictMinimizationWithEquality",
+        "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses",
             "TestSolverInlineVariablesPatchesModelAndConflict",
             "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
             "TestFullDimensionalLiteralClassification",
@@ -96482,6 +96484,12 @@
           ]
         },
         {
+          "name": "Temporary literal-assumption unit clauses, input-element identity, UNSAT-core filtering, and assumption-dependent original/learned clause collection (cpp1354-1416)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/solver_assumptions.go",
+          "tests": ["TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses"]
+        },
+        {
           "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values, Boolean values, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1338,1875-2091,2300-2378; solver.h38-55,64-112,166-205,214-216)",
           "status": "partial",
           "go_target": "pkg/nlsat/solver.go",
@@ -96489,7 +96497,8 @@
             "TestSolverMixedPolynomialSearchAndRepeatedModel",
             "TestSolverMixedLinearConflict",
             "TestSolverIntegerBranchAndBound",
-            "TestSolverConflictMinimizationWithEquality"
+            "TestSolverConflictMinimizationWithEquality",
+            "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses"
           ]
         }
       ],
@@ -96505,7 +96514,7 @@
       ],
       "deviations": [
         "The NLSAT assumption specialization is concrete and AST-independent: leaf values carry either a frontend attachment identity or a borrowed pointer to an actual input literal. Nonzero-sized attachment tokens preserve distinct native identities; the retained goal frontend must map its concrete AST dependencies to these identities when integrated. Equal-valued literals at different input positions remain distinct. No any-valued callback/value adapter or C++ standard-library container is introduced. Native Go layouts/array capacities differ from source; caller output slices use Go storage. Every allocation/lexical/diagnostic frontier and full solver integration remain unaudited.",
-        "Only the actual retained assumption-manager/dconfig subobject is implemented by this entry. The solver constructor, Boolean-variable arrays, atom canonicalization/factories, clause/watch integration, assumption-check/core protocol, explanation/search, root permutation, model handling and own diagnostics remain unported. This is not a complete NLSAT solver or substitute general backend.",
+        "The staged solver port now includes the retained assumption manager, atoms, clauses/watches, search/explanation, model access, variable ordering, temporary-assumption/core protocol, and public composition tracked above. The whole source unit remains partial for unretained diagnostics and any consumer-facing surfaces still identified separately.",
         "Go maps/slices replace source hashtable/vector internals. Native reflected storage extents and per-factor PolynomialRef owner headers differ from the C++ packed atom layout and introduce native allocation frontiers; focused failures verify native cleanup, not identical C++ allocation counts. Inner factory TRACE/display frontiers, complete physical/lexical ownership audit, outer Boolean registration, root factory, explanation and search remain unported or unaudited. Both whole-unit audit flags remain false.",
         "Native maps/slices and existing concrete idgen replace source STL/container mechanisms; source vector capacity/failure machinery is not ported. Reflected native factory/root storage and charged PolynomialRef owner headers differ from the C++ layout and introduce Go reservation frontiers; the consecutive cold-root ladder covers this fixture through success, including an actual refusal after Boolean publication. Explicit native owner/precondition guards are not a whole C++ diagnostic-prefix audit. The component is an actual solver subobject, not a fake Solver: source true-clause construction, clause factories/sorting/watches, explanation/search, complete TRACE/display frontiers and general solver/tactic integration remain pending. Both whole-unit audit flags remain false.",
         "Go native maps/slices and sort.Slice replace C++ containers/std::sort; the project comparator and successful ordering are tested independently, while a stopped Go sort may have a different partial permutation than C++ std::sort. Reflected clause-storage extent includes native owning-progress and acquired-prefix bookkeeping and differs from the C++ packed object, allocator class and reservation counts. The cold allocation campaigns qualify the actual native fixture, not every C++ allocation or TRACE/display prefix. The true unit clause is constructed and watched but is not propagated by an invented search engine. Arithmetic reordering, trail, explanation/projection, propagation/search, full solver construction/API and nonlinear tactic integration remain pending. Both whole-unit audit flags remain false.",

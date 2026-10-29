@@ -57,6 +57,51 @@ func TestSolverConflictMinimizationWithEquality(t *testing.T) {
 	}
 }
 
+func TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses(t *testing.T) {
+	s := solverFixture(t)
+	_, err := s.MkVar(false)
+	assignmentMust(t, err)
+	p := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0})
+	positive, err := s.MkInequality(AtomGT, []polynomial.Polynomial{p}, []bool{false}, false)
+	assignmentMust(t, err)
+	negative, err := s.MkInequality(AtomLT, []polynomial.Polynomial{p}, []bool{false}, false)
+	assignmentMust(t, err)
+	// Retain both atoms independently of the temporary unit clauses.
+	assignmentMust(t, s.AddClause([]sat.Literal{positive, negative}, Assumption{}))
+	permanent := len(s.clauses.originals)
+
+	assumptions := []sat.Literal{positive, negative}
+	result, err := s.CheckAssumptions(&assumptions)
+	assignmentMust(t, err)
+	if result != lbool.False || len(assumptions) != 2 {
+		t.Fatal("temporary assumption core", result, assumptions)
+	}
+	seen := map[sat.Literal]bool{}
+	for _, literal := range assumptions {
+		seen[literal] = true
+	}
+	if !seen[positive] || !seen[negative] {
+		t.Fatal("temporary assumption core lost a literal", assumptions)
+	}
+	if len(s.clauses.originals) != permanent {
+		t.Fatal("temporary input clauses survived", len(s.clauses.originals), permanent)
+	}
+	for _, clause := range s.clauses.learned {
+		found, cause := s.clauseUsesInputLiteral(clause, map[*sat.Literal]struct{}{&assumptions[0]: {}, &assumptions[1]: {}})
+		assignmentMust(t, cause)
+		if found {
+			t.Fatal("temporary learned clause survived", clause.ID())
+		}
+	}
+
+	assumptions = []sat.Literal{positive}
+	result, err = s.CheckAssumptions(&assumptions)
+	assignmentMust(t, err)
+	if result != lbool.True || len(assumptions) != 0 {
+		t.Fatal("satisfiable assumptions were not cleared", result, assumptions)
+	}
+}
+
 func solverUnit(t *testing.T, s *Solver, kind AtomKind, p polynomial.Polynomial) sat.Literal {
 	t.Helper()
 	literal, err := s.MkInequality(kind, []polynomial.Polynomial{p}, []bool{false}, false)
