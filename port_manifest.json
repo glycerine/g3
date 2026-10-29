@@ -42345,6 +42345,7 @@
           "name": "optimization lifecycle: scoped hard/soft objectives, lexicographic, box and Pareto continuation checks, model/result publication and objective display",
           "status": "ported",
           "go_target": "pkg/cmd_context/optimization.go",
+          "go_targets": ["pkg/api/api_solver_test.go", "pkg/cmd/g3/main_test.go"],
           "tests": [
             "TestSMTLibRunnerScripts",
             "TestSMTContextOptimizationObjectivesAndSoftConstraints"
@@ -43133,6 +43134,7 @@
           "name": "optimization lifecycle: scoped hard/soft objectives, lexicographic, box and Pareto continuation checks, model/result publication and objective display",
           "status": "ported",
           "go_target": "pkg/cmd_context/optimization.go",
+          "go_targets": ["pkg/api/api_solver_test.go", "pkg/cmd/g3/main_test.go"],
           "tests": [
             "TestSMTLibRunnerScripts",
             "TestSMTContextOptimizationObjectivesAndSoftConstraints"
@@ -44035,6 +44037,7 @@
         "pkg/cmd_context/interpolation.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/parsers/smt2/interpolation_test.go",
+        "pkg/cmd/g3/main_test.go",
         "pkg/cmd/g3/test_vectors/interpolation_commands.smt2"
       ],
       "tests": [
@@ -44060,7 +44063,7 @@
           "name": "make_tree plus get-interpolant and compute-interpolant command registration, proof/fresh-solver execution, SAT/UNSAT status and interpolant display",
           "status": "ported",
           "go_target": "pkg/cmd_context/interpolation.go",
-          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/interpolation_test.go", "pkg/cmd/g3/test_vectors/interpolation_commands.smt2"],
+          "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/interpolation_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/interpolation_commands.smt2"],
           "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMT2InterpolantCommandGuards", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
@@ -44082,7 +44085,7 @@
       "component": "cmd_context",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/cmd_context/interpolation.go", "pkg/parsers/smt2/commands.go"],
+      "go_targets": ["pkg/cmd_context/interpolation.go", "pkg/parsers/smt2/commands.go", "pkg/cmd/g3/main_test.go"],
       "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
@@ -44101,6 +44104,7 @@
           "name": "interpolant command installation surface",
           "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
+          "go_targets": ["pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2ComputeAndGetInterpolantUseNativeBackend", "TestSMTLibRunnerCPPReference"]
         }
       ],
@@ -44148,7 +44152,7 @@
       "component": "cmd_context",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/smtcore/param_datatype_refs.go", "pkg/ast/ast_sort_substitution.go", "pkg/cmd_context/sort_declarations.go", "pkg/cmd_context/datatype_declarations.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/datatypes.go"],
+      "go_targets": ["pkg/smtcore/param_datatype_refs.go", "pkg/ast/ast_sort_substitution.go", "pkg/cmd_context/sort_declarations.go", "pkg/cmd_context/datatype_declarations.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/datatypes.go", "pkg/cmd/g3/main_test.go"],
       "tests": ["TestParamDatatypeFixMissingRefsSourceOrderAndOverwrite", "TestParamDatatypeValidationFirstMissingAndDuplicateAcrossConstructors", "TestSMT2ParametricDatatypeInstantiationAndRecursiveFields", "TestSMT2ParametricDatatypeInstantiationFunctionsFollowScopes", "TestSMT2ParametricSortDeclarationsAndDefinitions", "TestSMTLibRunnerCPPReference"],
       "assertions": [
         {
@@ -44253,21 +44257,21 @@
           "name": "psort constants, variables and applications plus user/builtin/datatype declarations: arity checks, canonical instantiation, define-sort substitution and source-order scoped declaration lookup",
           "status": "platform_replacement",
           "go_target": "pkg/cmd_context/sort_declarations.go",
-          "go_targets": ["pkg/ast/ast_sort_substitution.go", "pkg/parsers/smt2/commands.go"],
+          "go_targets": ["pkg/ast/ast_sort_substitution.go", "pkg/parsers/smt2/commands.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2ParametricSortDeclarationsAndDefinitions", "TestSMT2ParametricSortArityAndScopeRefusals", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "paccessor/pconstructor/pdatatype/pdatatypes construction, recursive type instantiation, commit and lazy concrete constructor/recognizer/accessor publication",
           "status": "ported",
           "go_target": "pkg/cmd_context/datatype_declarations.go",
-          "go_targets": ["pkg/ast/ast_datatype_definition.go", "pkg/parsers/smt2/datatypes.go"],
+          "go_targets": ["pkg/ast/ast_datatype_definition.go", "pkg/parsers/smt2/datatypes.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2ParametricDatatypeInstantiationAndRecursiveFields", "TestSMT2ParametricDatatypeInstantiationFunctionsFollowScopes", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "pdecl manager hash-consing, instantiation caches, sort-info display and intrusive lifetime graph",
           "status": "platform_replacement",
-          "go_target": "pkg/ast",
-          "go_targets": ["pkg/cmd_context/sort_declarations.go", "pkg/cmd_context/context.go"],
+          "go_target": "pkg/ast/ast_datatype_definition.go",
+          "go_targets": ["pkg/cmd_context/sort_declarations.go", "pkg/cmd_context/context.go", "pkg/parsers/smt2/commands.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2ParametricSortDeclarationsAndDefinitions", "TestSMT2ParametricDatatypeInstantiationFunctionsFollowScopes", "TestSMTLibRunnerCPPReference"]
         }
       ],
@@ -44279,7 +44283,7 @@
       "component": "cmd_context",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/smtcore/param_datatype_refs.go", "pkg/cmd_context/sort_declarations.go", "pkg/cmd_context/datatype_declarations.go", "pkg/parsers/smt2/datatypes.go"],
+      "go_targets": ["pkg/smtcore/param_datatype_refs.go", "pkg/cmd_context/sort_declarations.go", "pkg/cmd_context/datatype_declarations.go", "pkg/parsers/smt2/datatypes.go", "pkg/cmd/g3/main_test.go"],
       "tests": ["TestParamDatatypeFixMissingRefsSourceOrderAndOverwrite", "TestParamDatatypeValidationFirstMissingAndDuplicateAcrossConstructors", "TestSMT2ParametricDatatypeInstantiationAndRecursiveFields", "TestSMT2ParametricSortDeclarationsAndDefinitions", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
@@ -44324,7 +44328,7 @@
           "name": "Concrete ptype missing/recursive/formal tags and parametric datatype accessor/constructor/group declarations through validation, AST commit and lazy instantiation",
           "status": "ported",
           "go_target": "pkg/smtcore/param_datatype_refs.go",
-          "go_targets": ["pkg/parsers/smt2/datatypes.go", "pkg/cmd_context/datatype_declarations.go"],
+          "go_targets": ["pkg/parsers/smt2/datatypes.go", "pkg/cmd_context/datatype_declarations.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestParamDatatypeFixMissingRefsSourceOrderAndOverwrite", "TestSMT2ParametricDatatypeInstantiationAndRecursiveFields", "TestSMTLibRunnerCPPReference"]
         },
         {
@@ -44337,7 +44341,7 @@
           "name": "Retained pdecl/psort declaration manager interfaces, typed applications, datatype callbacks and scoped owner aliases",
           "status": "platform_replacement",
           "go_target": "pkg/cmd_context/sort_declarations.go",
-          "go_targets": ["pkg/ast/ast_sort_substitution.go", "pkg/cmd_context/datatype_declarations.go"],
+          "go_targets": ["pkg/ast/ast_sort_substitution.go", "pkg/cmd_context/datatype_declarations.go", "pkg/parsers/smt2/commands.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2ParametricSortDeclarationsAndDefinitions", "TestSMT2ParametricDatatypeInstantiationFunctionsFollowScopes", "TestSMTLibRunnerCPPReference"]
         }
       ],
@@ -44349,7 +44353,7 @@
       "component": "cmd_context",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/cmd_context/simplify.go", "pkg/parsers/smt2/simplify.go", "pkg/cmd/g3/test_vectors/simplify_command.smt2", "pkg/cmd/g3/test_vectors/simplify_sequence_command.smt2"],
+      "go_targets": ["pkg/cmd_context/simplify.go", "pkg/parsers/smt2/simplify.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/simplify_command.smt2", "pkg/cmd/g3/test_vectors/simplify_sequence_command.smt2"],
       "tests": ["TestSMT2SimplifyCommandEndToEnd", "TestSMT2SimplifyCommandStatistics", "TestSMT2SimplifyCommandRecoversFromRewriterFailure", "TestSMT2SimplifyCommandRejectsUnknownParameterBeforeOutput", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
       "methods_audited": true,
       "ownership_audited": true,
@@ -44358,7 +44362,7 @@
           "name": "simplify_cmd term and optional rewrite-proof production, lazy SMT sequence-expression callback, theory-rewriter parameter validation, som/flat normalization, conditional result printing and statistics fields (simplify_cmd.cpp:30-148)",
           "status": "ported",
           "go_target": "pkg/parsers/smt2/simplify.go",
-          "go_targets": ["pkg/cmd_context/simplify.go"],
+          "go_targets": ["pkg/cmd_context/simplify.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2SimplifyCommandEndToEnd", "TestSMT2SimplifyCommandStatistics", "TestSMT2SimplifyCommandRecoversFromRewriterFailure", "TestSMT2SimplifyCommandRejectsUnknownParameterBeforeOutput", "TestSMTLibRunnerCPPReference"]
         }
       ],
@@ -44370,7 +44374,7 @@
       "component": "cmd_context",
       "role": "production",
       "status": "platform_replacement",
-      "go_targets": ["pkg/cmd_context/simplify.go", "pkg/parsers/smt2/simplify.go"],
+      "go_targets": ["pkg/cmd_context/simplify.go", "pkg/parsers/smt2/simplify.go", "pkg/cmd/g3/main_test.go"],
       "tests": ["TestSMT2SimplifyCommandEndToEnd", "TestSMT2SimplifyCommandRecoversFromRewriterFailure", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
@@ -44389,6 +44393,7 @@
           "name": "retained simplify command installation and default execution surface (simplify_cmd.h:23)",
           "status": "platform_replacement",
           "go_target": "pkg/parsers/smt2/commands.go",
+          "go_targets": ["pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMT2SimplifyCommandEndToEnd", "TestSMTLibRunnerCPPReference"]
         }
       ],
