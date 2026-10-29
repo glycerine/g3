@@ -94292,7 +94292,7 @@
       "path": "src/nlsat/nlsat_clause.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/clause.go",
         "pkg/nlsat/clause_store.go"
@@ -94303,12 +94303,12 @@
         "TestClauseStoreAssumptionsPartialINCAndActualDeletionContinuation",
         "TestClauseStoreConsumedAtomDECAndIDRetirementOrder"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "clause placement construction, mutable/const literal access, active-prefix membership, retained capacity, activity counters, shrinking and borrowed assumptions",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/clause.go",
           "tests": [
             "TestClausePlacementMutablePrefixCapacityAndAssumptions",
@@ -94322,14 +94322,14 @@
         "Actual retained NLSAT solver consumer integration now constructs the placement clause over owning allocator storage, acquires literal/assumption references outside the constructor, sorts the active literals, publishes/watches the clause and releases references in source order during retirement. The native storage owner keeps its charged original extent for deallocation. This is not a claim about unsupported post-construction resizing or complete source diagnostic/allocation frontiers; full source audits remain open."
       ],
       "deviations": [
-        "Go slices/fields and reflected native storage extents replace C++ flexible-array layout. The actual solver clause allocation, reference acquisition, sorting, watches and deletion are not yet wired. Full allocation/lexical and diagnostic audits remain open; source index/shrink assertions are connected. Both whole-source audit flags remain false."
+        "Go slices/fields and reflected native storage extents replace the C++ flexible-array layout. The actual solver clause store performs allocation, literal/assumption reference acquisition, sorting, watch attachment and staged deletion; source index/shrink assertions are connected."
       ]
     },
     {
       "path": "src/nlsat/nlsat_clause.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/clause.go",
         "pkg/nlsat/clause_store.go"
@@ -94364,12 +94364,12 @@
           "text": "void shrink(unsigned num_lits) { SASSERT(num_lits <= m_size); if (num_lits < m_size) { m_size = num_lits; } }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "clause placement construction, mutable/const literal access, active-prefix membership, retained capacity, activity counters, shrinking and borrowed assumptions",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/clause.go",
           "tests": [
             "TestClausePlacementMutablePrefixCapacityAndAssumptions",
@@ -94383,7 +94383,7 @@
         "Actual retained NLSAT solver consumer integration now constructs the placement clause over owning allocator storage, acquires literal/assumption references outside the constructor, sorts the active literals, publishes/watches the clause and releases references in source order during retirement. The native storage owner keeps its charged original extent for deallocation. This is not a claim about unsupported post-construction resizing or complete source diagnostic/allocation frontiers; full source audits remain open."
       ],
       "deviations": [
-        "Go slices/fields and reflected native storage extents replace C++ flexible-array layout. The actual solver clause allocation, reference acquisition, sorting, watches and deletion are not yet wired. Full allocation/lexical and diagnostic audits remain open; source index/shrink assertions are connected. Both whole-source audit flags remain false."
+        "Go slices/fields and reflected native storage extents replace the C++ flexible-array layout. The actual solver clause store performs allocation, literal/assumption reference acquisition, sorting, watch attachment and staged deletion; source index/shrink assertions are connected."
       ]
     },
     {
@@ -95643,7 +95643,7 @@
       "path": "src/nlsat/nlsat_justification.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/justification.go"
       ],
@@ -95684,12 +95684,12 @@
           "text": "justification(lazy_justification * j):m_data(TAG(void *, j, LAZY)) { SASSERT(is_lazy()); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "null/decision/clause/lazy tagged reasons, lazy literal copying/readout, actual allocator construction and lazy-only destruction",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/justification.go",
           "tests": [
             "TestJustificationTagsIdentityCopiesAndRetirement",
@@ -95703,7 +95703,7 @@
         "Justification values borrow concrete clause/lazy pointers and preserve tag-sensitive identity, including tagged nil clause values. Lazy reasons allocate through the actual SmallAllocator, copy input literals and track exact accepted allocation outcomes plus physical release progress. Partial owners are returned on allocation errors so explicit deletion can release only the accepted owner; rejected younger entries cannot clear an older assumption/lazy pending raw block. Non-lazy deletion is a no-op."
       ],
       "deviations": [
-        "A concrete comparable tagged union replaces pointer tagging. Native owner headers and slices use reflected Go extents rather than C++ ABI layout. Source lazy-index and constructor-kind assertions are connected; the implicit Go null zero value has no C++ constructor call. Full diagnostic/erasure, lexical and every physical destructor frontier remain unaudited. Actual solver reason creation/retirement remains to be integrated. Both whole-source audit flags remain false."
+        "A concrete comparable tagged union replaces pointer tagging. Native owner headers and slices use reflected Go extents rather than C++ ABI layout. Source lazy-index and constructor-kind assertions are connected; the implicit Go null zero value has no C++ constructor call. Search propagation and conflict resolution create, consume and retire the actual clause and lazy reasons through this concrete representation."
       ]
     },
     {
