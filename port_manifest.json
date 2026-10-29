@@ -46802,9 +46802,9 @@
       "path": "src/duality/duality_wrapper.cpp",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go"],
+      "tests": ["TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals"],
       "conditionals": [
         {
           "line": 21,
@@ -46853,9 +46853,9 @@
       "path": "src/duality/duality_wrapper.h",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go"],
+      "tests": ["TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals"],
       "conditionals": [
         {
           "line": 20,
