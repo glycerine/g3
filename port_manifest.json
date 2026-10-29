@@ -177814,22 +177814,38 @@
       "path": "src/tactic/smtlogics/nra_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/smtlogics/nra_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qsat_test.go",
+        "pkg/cmd/g3/test_vectors/nra_portfolio.smt2"
+      ],
+      "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "NRA simplify/propagate/QE-lite prefix, QF_NRA probe split, quantifier-free NLSAT portfolio and NLQSAT-before-SMT quantified fallback",
+          "status": "partial",
+          "go_target": "pkg/tactic/smtlogics/nra_tactic.go",
+          "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
+        }
+      ],
+      "ownership": [
+        "NewNRATactic retains every child and probe during construction, transfers references into the final AndThen composition, then releases the temporary construction owners without closing the returned tactic."
+      ],
+      "deviations": [
+        "The QF_NRA arm reuses the broader retained NewQFNRATactic portfolio, which includes the source seeded NLSAT attempts plus additional bounded and SMT fallbacks. The quantified arm retains the source NLQSAT-first then SMT ordering."
+      ]
     },
     {
       "path": "src/tactic/smtlogics/nra_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/smtlogics/nra_tactic.go", "pkg/cmd_context/tactic_commands.go"],
+      "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"],
       "conditionals": [
         {
           "line": 19,
@@ -177840,9 +177856,17 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Public NRA tactic constructor and builtin tactic registration",
+          "status": "ported",
+          "go_target": "pkg/tactic/smtlogics/nra_tactic.go",
+          "go_targets": ["pkg/cmd_context/tactic_commands.go"],
+          "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },

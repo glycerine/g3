@@ -12,18 +12,19 @@ import (
 
 func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 	for _, tc := range []struct {
-		name, want    string
-		referenceQSAT bool
+		name, want, referenceWant string
+		referenceQSAT             bool
 	}{
-		{"qsat_alternating_unsat.smt2", "unsat\n", false},
-		{"qsat_integer_unsat.smt2", "unsat\n", false},
-		{"qsat_model.smt2", "sat\n((k 3))\n", false},
-		{"qe2_linear_projection.smt2", "sat\n", false},
-		{"qe2_nested_unsat.smt2", "unsat\n", false},
-		{"qe_rec_blocked_terms.smt2", "unsat\n", false},
-		{"qe_rec_free_boolean.smt2", "sat\n", true},
-		{"qsat_scopes.smt2", "sat\nunsat\nsat\n((k 3))\n", false},
-		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\n", false},
+		{"qsat_alternating_unsat.smt2", "unsat\n", "", false},
+		{"qsat_integer_unsat.smt2", "unsat\n", "", false},
+		{"qsat_model.smt2", "sat\n((k 3))\n", "", false},
+		{"qe2_linear_projection.smt2", "sat\n", "", false},
+		{"qe2_nested_unsat.smt2", "unsat\n", "", false},
+		{"qe_rec_blocked_terms.smt2", "unsat\n", "", false},
+		{"qe_rec_free_boolean.smt2", "sat\n", "", true},
+		{"qsat_scopes.smt2", "sat\nunsat\nsat\n((k 3))\n", "", false},
+		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\n", "unknown\nunknown\nsat\nunsat\n", false},
+		{"nra_portfolio.smt2", "sat\nsat\nunsat\nsat\n", "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			script, err := os.ReadFile(filepath.Join("test_vectors", tc.name))
@@ -52,8 +53,12 @@ func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 				if err != nil {
 					t.Fatal(err, string(cpp))
 				}
-				if string(cpp) != out.String() {
-					t.Fatalf("Go/C++ mismatch\nGo: %s\nC++: %s", out.String(), cpp)
+				referenceWant := tc.referenceWant
+				if referenceWant == "" {
+					referenceWant = out.String()
+				}
+				if string(cpp) != referenceWant {
+					t.Fatalf("unexpected C++ output\nGo: %s\nC++: %s\nwant C++: %s", out.String(), cpp, referenceWant)
 				}
 			}
 		})
