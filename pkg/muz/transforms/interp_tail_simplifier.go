@@ -386,17 +386,12 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 		if getErr != nil {
 			return nil, false, getErr
 		}
-		duplicate := false
-		for prior := range tails {
-			if tails[prior] == tail && negated[prior] == negative {
-				duplicate = true
-				break
-			}
-		}
-		if !duplicate {
-			tails = append(tails, tail)
-			negated = append(negated, negative)
-		}
+		tails = append(tails, tail)
+		negated = append(negated, negative)
+	}
+	tails, negated, err = base.RemoveDuplicateRuleTails(tails, negated)
+	if err != nil {
+		return nil, false, fmt.Errorf("muz/transforms: remove duplicate simplified tails: %w", err)
 	}
 	name, err := rule.Name()
 	if err != nil {

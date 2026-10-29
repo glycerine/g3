@@ -342,6 +342,16 @@ func (r *Rule) AccountingCosts() (Costs, error) {
 	return state.accounting.TotalCosts()
 }
 
+// SetAccountingParentRule retains parent and propagates processed instruction
+// costs to it, matching rule::set_accounting_parent_object.
+func (r *Rule) SetAccountingParentRule(parent *Rule) error {
+	state, err := r.open()
+	if err != nil || state.accounting == nil {
+		return errors.Join(ErrRuleOwner, err)
+	}
+	return state.accounting.SetAccountingParentRule(parent)
+}
+
 // HeadDeclaration returns the borrowed predicate declaration of the rule head.
 func (r *Rule) HeadDeclaration() (ast.ASTHandle, error) {
 	state, err := r.open()

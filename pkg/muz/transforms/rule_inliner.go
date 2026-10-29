@@ -10,6 +10,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/substitution"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -23,6 +25,8 @@ type RuleInlinerPlugin struct {
 	params     *uparams.ParamsContext
 	globals    *uparams.GlobalParamsService
 	simplifier *InterpTailSimplifierPlugin
+	lite       *qe.Lite
+	cooperate  *cooperate.Cooperation
 	modelRules []InlineModelRule
 	closed     bool
 }
@@ -247,17 +251,8 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 			if getErr != nil {
 				return getErr
 			}
-			duplicate := false
-			for prior := range tails {
-				if tails[prior] == updated && negatives[prior] == negative {
-					duplicate = true
-					break
-				}
-			}
-			if !duplicate {
-				tails = append(tails, updated)
-				negatives = append(negatives, negative)
-			}
+			tails = append(tails, updated)
+			negatives = append(negatives, negative)
 		}
 		return nil
 	}
@@ -266,6 +261,10 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 	}
 	if err = appendRule(source, 1, -1); err != nil {
 		return nil, fmt.Errorf("muz/transforms: apply inline source tail: %w", err)
+	}
+	tails, negatives, err = base.RemoveDuplicateRuleTails(tails, negatives)
+	if err != nil {
+		return nil, fmt.Errorf("muz/transforms: remove duplicate inline tails: %w", err)
 	}
 	targetName, err := target.Name()
 	if err != nil {
@@ -282,6 +281,36 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 	if p.params == nil || p.globals == nil {
 		return resolved, nil
 	}
+	if p.cooperate == nil {
+		p.cooperate, err = cooperate.NewCooperation(p.manager.Budget())
+		if err != nil {
+			return nil, errors.Join(err, resolved.Close())
+		}
+	}
+	if p.lite == nil {
+		p.lite, err = qe.NewLite(p.manager, nil, false, qe.Config{Context: p.params, Globals: p.globals, Cooperation: p.cooperate})
+		if err != nil {
+			return nil, errors.Join(err, resolved.Close())
+		}
+	}
+	fixedpoint, err := p.globals.SourceGetModuleName("fixedpoint")
+	if err != nil {
+		return nil, errors.Join(err, resolved.Close())
+	}
+	fixName := "xform.fix_unbound_vars"
+	fix, getErr := p.params.GetBoolName(&fixedpoint, &fixName, false)
+	err = errors.Join(getErr, p.params.Del(&fixedpoint))
+	if err != nil {
+		return nil, errors.Join(err, resolved.Close())
+	}
+	corrected, _, err := p.rules.FixUnboundVariables(resolved, p.lite, fix)
+	if err != nil {
+		return nil, errors.Join(err, resolved.Close())
+	}
+	if err = resolved.Close(); err != nil {
+		return nil, errors.Join(err, corrected.Close())
+	}
+	resolved = corrected
 	if p.simplifier == nil {
 		p.simplifier, err = NewInterpTailSimplifierPlugin(p.manager, p.rules, p.params, p.globals, p.priority)
 		if err != nil {
@@ -1245,6 +1274,14 @@ func (p *RuleInlinerPlugin) Close() error {
 	if p.simplifier != nil {
 		result = errors.Join(result, p.simplifier.Close())
 		p.simplifier = nil
+	}
+	if p.lite != nil {
+		result = errors.Join(result, p.lite.Close())
+		p.lite = nil
+	}
+	if p.cooperate != nil {
+		result = errors.Join(result, p.cooperate.Close())
+		p.cooperate = nil
 	}
 	return result
 }

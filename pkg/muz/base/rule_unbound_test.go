@@ -1,0 +1,164 @@
+package base_test
+
+import (
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/cmd_context"
+	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/util/cooperate"
+)
+
+func TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	ruleMust(t, err)
+	defer func() { ruleMust(t, context.Close()) }()
+	manager, err := context.Manager()
+	ruleMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	ruleMust(t, err)
+	a, err := manager.MkVar(0, boolean)
+	ruleMust(t, err)
+	b, err := manager.MkVar(1, boolean)
+	ruleMust(t, err)
+	c, err := manager.MkVar(2, boolean)
+	ruleMust(t, err)
+	tails := []ast.ASTHandle{a, b, a, c, b, a}
+	negative := []bool{false, false, false, false, true, true}
+	got, signs, err := base.RemoveDuplicateRuleTails(tails, negative)
+	ruleMust(t, err)
+	want := []ast.ASTHandle{a, b, a, c, b}
+	wantSigns := []bool{false, false, true, false, true}
+	if len(got) != len(want) {
+		t.Fatalf("tail count %d, want %d", len(got), len(want))
+	}
+	for index := range want {
+		if got[index] != want[index] || signs[index] != wantSigns[index] {
+			t.Fatalf("tail %d = (%v,%v), want (%v,%v)", index, got[index], signs[index], want[index], wantSigns[index])
+		}
+	}
+	if _, _, err = base.RemoveDuplicateRuleTails(got, signs[:len(signs)-1]); err == nil {
+		t.Fatal("mismatched parallel tail vectors accepted")
+	}
+}
+
+type unboundFixture struct {
+	manager *ast.ASTManager
+	rules   *base.RuleManager
+	lite    *qe.Lite
+}
+
+func newUnboundFixture(t *testing.T) *unboundFixture {
+	t.Helper()
+	context, err := cmd_context.NewStandaloneContext()
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, context.Close()) })
+	manager, err := context.Manager()
+	ruleMust(t, err)
+	globals, err := context.GlobalParameters()
+	ruleMust(t, err)
+	rules, err := base.NewRuleManager(manager)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, rules.Close()) })
+	cooperation, err := cooperate.NewCooperation(manager.Budget())
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, cooperation.Close()) })
+	lite, err := qe.NewLite(manager, nil, false, qe.Config{Context: globals.Context, Globals: globals, Cooperation: cooperation})
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, lite.Close()) })
+	return &unboundFixture{manager: manager, rules: rules, lite: lite}
+}
+
+func (f *unboundFixture) predicate(t *testing.T, name string, domain []ast.ASTHandle, arguments []ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	symbol, err := f.manager.Symbols.Intern(name)
+	ruleMust(t, err)
+	declaration, err := f.manager.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	ruleMust(t, f.rules.RegisterPredicate(declaration))
+	application, err := f.manager.MkApp(declaration, arguments)
+	ruleMust(t, err)
+	return application
+}
+
+func TestRuleManagerReducesUnboundInterpretedEquality(t *testing.T) {
+	f := newUnboundFixture(t)
+	arithmetic, err := f.manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := f.manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	x, err := f.manager.MkVar(0, integer)
+	ruleMust(t, err)
+	y, err := f.manager.MkVar(1, integer)
+	ruleMust(t, err)
+	head := f.predicate(t, "reduce-head", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	bound := f.predicate(t, "reduce-bound", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	three, err := f.manager.ArithmeticIntegerNumeralText("3")
+	ruleMust(t, err)
+	definition, err := f.manager.MkEq(y, three)
+	ruleMust(t, err)
+	rule, err := f.rules.NewRule(head, []ast.ASTHandle{bound, definition}, nil, "reduce-unbound")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	reduced, changed, err := f.rules.ReduceUnboundVariables(rule, f.lite)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, reduced.Close()) }()
+	if !changed {
+		t.Fatal("unbound definition was not reduced")
+	}
+	if size, err := reduced.TailSize(); err != nil || size != 1 {
+		t.Fatal("reduced tail size", size, err)
+	}
+	if name, err := reduced.Name(); err != nil || name != "reduce-unbound" {
+		t.Fatal("reduced rule name", name, err)
+	}
+}
+
+func TestRuleManagerFixesResidualUnboundPredicateExistentially(t *testing.T) {
+	f := newUnboundFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	x, err := f.manager.MkVar(0, boolean)
+	ruleMust(t, err)
+	y, err := f.manager.MkVar(1, boolean)
+	ruleMust(t, err)
+	head := f.predicate(t, "fix-head", []ast.ASTHandle{boolean}, []ast.ASTHandle{x})
+	symbol, err := f.manager.Symbols.Intern("fix-opaque")
+	ruleMust(t, err)
+	opaqueDecl, err := f.manager.MkFuncDecl(symbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	opaque, err := f.manager.MkApp(opaqueDecl, []ast.ASTHandle{y})
+	ruleMust(t, err)
+	rule, err := f.rules.NewRule(head, []ast.ASTHandle{opaque}, nil, "fix-unbound")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	fixed, changed, err := f.rules.FixUnboundVariables(rule, f.lite, true)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, fixed.Close()) }()
+	if !changed {
+		t.Fatal("residual unbound predicate was not fixed")
+	}
+	if size, err := fixed.TailSize(); err != nil || size != 1 {
+		t.Fatal("fixed tail size", size, err)
+	}
+	tail, negative, err := fixed.Tail(0)
+	ruleMust(t, err)
+	if negative {
+		t.Fatal("fixed interpreted tail became negative")
+	}
+	if operation, err := f.manager.GetDeclKind(tail); err != nil || operation != ast.ASTOpIff {
+		t.Fatal("quantified Boolean tail wrapper", operation, err)
+	}
+	left, err := f.manager.GetArg(tail, 0)
+	ruleMust(t, err)
+	if kind, err := f.manager.GetKind(left); err != nil || kind != ast.ASTQuantifier {
+		t.Fatal("fixed tail did not contain existential", kind, err)
+	}
+	if forall, err := f.manager.IsForall(left); err != nil || forall {
+		t.Fatal("fixed quantifier is not existential", forall, err)
+	}
+}

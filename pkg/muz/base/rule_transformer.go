@@ -7,9 +7,43 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 var ErrRuleTransformerOwner = errors.New("muz/base: invalid or closed rule transformer")
+
+// RemoveDuplicateRuleTails implements rule_transformer::plugin's shared tail
+// cleanup. Positive and negative occurrences are distinct. Erasure is the
+// source vector's swap-with-last operation, so survivors are deliberately not
+// stable when a duplicate is removed before the end.
+func RemoveDuplicateRuleTails(tails []ast.ASTHandle, negated []bool) ([]ast.ASTHandle, []bool, error) {
+	if len(tails) != len(negated) {
+		return nil, nil, fmt.Errorf("muz/base: negation count does not match tail size")
+	}
+	seen := [2]map[ast.ASTHandle]struct{}{
+		make(map[ast.ASTHandle]struct{}),
+		make(map[ast.ASTHandle]struct{}),
+	}
+	for index := 0; index < len(tails); {
+		set := 0
+		if negated[index] {
+			set = 1
+		}
+		if _, found := seen[set][tails[index]]; !found {
+			seen[set][tails[index]] = struct{}{}
+			index++
+			continue
+		}
+		last := len(tails) - 1
+		if index != last {
+			tails[index], negated[index] = tails[last], negated[last]
+		}
+		tails = tails[:last]
+		negated = negated[:last]
+	}
+	return tails, negated, nil
+}
 
 // RuleTransformPlugin is an owned transformation stage. Transform returns nil
 // when it made no change and transfers any non-nil RuleSet owner to its caller.
