@@ -180640,19 +180640,26 @@
       "path": "src/tactic/smtlogics/qfufbv_tactic_params.hpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
         "pkg/tactic/smtlogics/params/gparams_catalog_collectors.go",
-        "pkg/util/params/util_gparams_catalog_dispatch.go"
+        "pkg/util/params/util_gparams_catalog_dispatch.go",
+        "pkg/tactic/smtlogics/qfufbv_ackr_tactic.go",
+        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
         "TestGlobalParamsCatalogConcreteHookGuardsAndIndependentReuse",
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
         "TestGlobalParamsCatalogDescriptionBorrowReadAndClosedPublicationPrefix",
-        "TestGlobalParamsCatalogDispatcherFaultRoots"
+        "TestGlobalParamsCatalogDispatcherFaultRoots",
+        "TestQFUFBVAckrConstructorSnapshotAndTranslationBackendReset",
+        "TestSMTLibRunnerQFUFBVAckrBranchEvidence",
+        "TestSMTLibRunnerCPPReference"
       ],
       "conditionals": [
         {
@@ -180664,11 +180671,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
+          "name": "ackermannization sat_backend/inc_sat_backend Boolean descriptors, false defaults and local/module/default accessor precedence",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/params/gparams_catalog_collectors.go",
           "tests": [
@@ -180679,12 +180686,16 @@
             "TestGlobalParamsCatalogDispatcherFaultRoots"
           ],
           "go_targets": [
-            "pkg/util/params/util_gparams_catalog_test.go"
+            "pkg/util/params/util_gparams_catalog_test.go",
+            "pkg/tactic/smtlogics/qfufbv_ackr_tactic.go",
+            "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go",
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
       "ownership": [
-        "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
+        "Generated source values use the concrete global-parameter catalog and counted module snapshot. The raw tactic stores its constructor dictionary separately from later backend-only selection updates."
       ],
       "deviations": [
         "The existing static collector lives in smtlogics/params so lower-layer catalog initialization can remain independent of smtlogics strategy factories that depend on the SMT backend. Collector names, metadata, order and registration semantics are unchanged."
