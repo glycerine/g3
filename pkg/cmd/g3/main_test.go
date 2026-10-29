@@ -1262,7 +1262,7 @@ func TestSMTLibRunnerCommandLine(t *testing.T) {
 			t.Fatal(args, out.String())
 		}
 	}
-	for _, args := range [][]string{nil, {"-in", "test_vectors/uf_congruence.smt2"}, {"-dimacs", "-in"}} {
+	for _, args := range [][]string{nil, {"-in", "test_vectors/uf_congruence.smt2"}} {
 		var out bytes.Buffer
 		if err := runArguments(args, strings.NewReader(""), &out); err == nil {
 			t.Fatal("invalid frontend selection accepted", args)
