@@ -54842,6 +54842,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/math/polynomial/gparams_catalog_collectors.go",
+        "pkg/math/polynomial/polynomial_factor_params_source_test.go",
         "pkg/math/polynomial/polynomial_constructor_assertions.go",
         "pkg/math/polynomial/polynomial_cell_assertions.go",
         "pkg/math/polynomial/polynomial_divides_trace.go",
@@ -55349,6 +55351,7 @@
         "pkg/math/polynomial/polynomial_derivative_public_call.go"
       ],
       "tests": [
+        "TestPolynomialFactorParameterDescriptorSchemaSourceOrder",
         "TestPolynomialDividesTraceZeroKeepsOlderAlgorithmReceipt",
         "TestPolynomialDividesTracePrecedesZeroShortcut",
         "TestPolynomialDividesTraceQuotientAndRefusal",
@@ -61508,6 +61511,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/math/polynomial/gparams_catalog_collectors.go",
+        "pkg/math/polynomial/polynomial_factor_params_source_test.go",
         "pkg/math/polynomial/polynomial_factors_assertions.go",
         "pkg/math/polynomial/polynomial_factors_assertions_test.go",
         "pkg/math/polynomial/polynomial_deletion_execution_test.go",
@@ -61826,6 +61831,7 @@
         "pkg/math/polynomial/polynomial_derivative_public_call.go"
       ],
       "tests": [
+        "TestPolynomialFactorParameterDescriptorSchemaSourceOrder",
         "TestAlgebraicEvalSignExactResultantsAndSignedBounds",
         "TestAlgebraicEvalSignEveryExactCheckpointCleanupRetry",
         "TestAlgebraicEvalSignPublicRationalShortCircuit",

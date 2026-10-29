@@ -36,6 +36,33 @@ func catalogCollectAlgebraicParams(d *uparams.ParamDescrs) error {
 	return nil
 }
 
+// Source: src/math/polynomial/polynomial.cpp:58-62;
+// src/math/polynomial/polynomial.h:96.
+//
+// The source registers factor_params::get_param_descrs as the "factor"
+// module's global parameter collector. Keep these descriptions separate from
+// the algebraic module's similarly named factor_* parameters: their names,
+// defaults and public namespaces are observably different.
+func catalogCollectPolynomialFactorParams(d *uparams.ParamDescrs) error {
+	if e := catalogInsert(d, "max_search_size", uparams.ParamUInt, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter can be used to limit the search space.", "4294967295", "factor"); e != nil {
+		return e
+	}
+	if e := catalogInsert(d, "max_prime", uparams.ParamUInt, "(default: infty) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter limits the maximum prime number p to be used in the first step.", "4294967295", "factor"); e != nil {
+		return e
+	}
+	if e := catalogInsert(d, "num_primes", uparams.ParamUInt, "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.", "1", "factor"); e != nil {
+		return e
+	}
+	return nil
+}
+
+// CollectPolynomialFactorParamDescriptions exposes the source collector to
+// callers constructing a component-local parameter schema.
+func CollectPolynomialFactorParamDescriptions(d *uparams.ParamDescrs) error {
+	return catalogCollectPolynomialFactorParams(d)
+}
+
 func init() {
 	uparams.RegisterGlobalParamsCollector("catalogCollectAlgebraicParams", catalogCollectAlgebraicParams)
+	uparams.RegisterGlobalParamsCollector("catalogCollectPolynomialFactorParams", catalogCollectPolynomialFactorParams)
 }
