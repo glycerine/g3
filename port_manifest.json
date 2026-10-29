@@ -4888,8 +4888,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_ast_construction.go", "pkg/api/api_ast_construction_test.go", "pkg/api/api_ast_inspection.go", "pkg/api/api_ast_inspection_test.go", "pkg/api/api_ast_update.go", "pkg/api/api_ast_update_test.go", "pkg/api/api_ast_substitution.go", "pkg/api/api_ast_substitution_test.go", "pkg/api/api_ast_translation.go", "pkg/api/api_ast_translation_test.go", "pkg/api/api_ast_simplify.go", "pkg/api/api_ast_simplify_test.go", "pkg/api/api_ast_declaration_parameters.go", "pkg/api/api_ast_declaration_parameters_test.go"],
-      "tests": ["TestSMTContextAST", "TestSMTContextASTUpdate", "TestSMTContextASTSubstitute", "TestSMTContextASTTranslation", "TestSMTContextASTSimplify", "TestSMTContextASTDeclarationParameter"],
+      "go_targets": ["pkg/api/api_ast_construction.go", "pkg/api/api_ast_construction_test.go", "pkg/api/api_ast_inspection.go", "pkg/api/api_ast_inspection_test.go", "pkg/api/api_ast_update.go", "pkg/api/api_ast_update_test.go", "pkg/api/api_ast_substitution.go", "pkg/api/api_ast_substitution_test.go", "pkg/api/api_ast_translation.go", "pkg/api/api_ast_translation_test.go", "pkg/api/api_ast_simplify.go", "pkg/api/api_ast_simplify_test.go", "pkg/api/api_ast_declaration_parameters.go", "pkg/api/api_ast_declaration_parameters_test.go", "pkg/api/api_ast_sort_kind.go", "pkg/api/api_ast_sort_kind_test.go", "pkg/api/api_ast_symbols.go", "pkg/api/api_ast_symbols_test.go", "pkg/api/api_ast_identity.go", "pkg/api/api_ast_identity_test.go", "pkg/api/api_ast_printer.go", "pkg/api/api_ast_printer_test.go", "pkg/api/api_ast_benchmark.go", "pkg/api/api_ast_benchmark_test.go"],
+      "tests": ["TestSMTContextAST", "TestSMTContextASTUpdate", "TestSMTContextASTSubstitute", "TestSMTContextASTTranslation", "TestSMTContextASTSimplify", "TestSMTContextASTDeclarationParameter", "TestSMTContextASTSortKind", "TestSMTContextASTSymbol", "TestSMTContextASTTypedIdentity", "TestSMTContextASTPrinter", "TestSMTContextASTBenchmark"],
       "assertions": [
         {
           "line": 344,
