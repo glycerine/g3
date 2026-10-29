@@ -381,6 +381,7 @@ var scriptResults = map[string]string{
 	"array_as_array_combined_fallback_gap.smt2":    "sat\nunsat\nsat\n",
 	"default_strategy_fragments.smt2":              "unsat\nunsat\nunsat\nunsat\nunsat\nunsat\n",
 	"qfnia_solver_bounded.smt2":                    "sat\n((x 2))\nunsat\nunsat\nunsat\n",
+	"qfnia_cofactor_term_ite.smt2":                 "sat\n((p false)\n (x 2))\nunsat\n",
 	"nlsat_direct.smt2":                            "sat\n((x (/ 1.0 2.0)))\nunsat\nsat\n",
 	"nlsat_shuffle.smt2":                           "sat\n",
 	"nlsat_inline.smt2":                            "sat\n((x 1.0)\n (y 1.0))\n",

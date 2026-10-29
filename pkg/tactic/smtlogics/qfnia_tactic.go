@@ -51,13 +51,14 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 		}
 		return value
 	}
-	main, pullParams, contextParams := copyParams(), copyParams(), copyParams()
+	main, pullParams, contextParams, cofactorParams := copyParams(), copyParams(), copyParams(), copyParams()
 	simplifyParams, nlaParams, smtParams, nlsatParams := copyParams(), copyParams(), copyParams(), copyParams()
 	b.boolean(pullParams, "pull_cheap_ite", true)
 	b.boolean(pullParams, "local_ctx", true)
 	b.uint(pullParams, "local_ctx_limit", 10000000)
 	b.uint(contextParams, "max_depth", 30)
 	b.uint(contextParams, "max_steps", 5000000)
+	b.uint(cofactorParams, "max_memory", 20)
 	b.boolean(simplifyParams, "hoist_mul", true)
 	b.uint(nlaParams, "nla2bv_max_bv_size", 64)
 	b.boolean(smtParams, "som", true)
@@ -69,6 +70,8 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 	simplify := func(params *uparams.ParamsRef) tactic.Tactic {
 		return b.using(b.clean(b.keep(core.NewSimplifyTactic(m, c, g, nil))), params)
 	}
+	cofactor := b.using(b.keep(core.MakeCofactorTermITETactic(m, c, g, nil, config.ModelEvaluator)), cofactorParams)
+	cofactor = b.keep(tactic.NewSkipIfFailedTactic(cofactor))
 	preamble := b.then(
 		simplify(main),
 		b.keep(core.NewPropagateValuesTactic(m, c, g, nil)),
@@ -76,6 +79,7 @@ func NewQFNIATacticWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, config sm
 		simplify(pullParams),
 		b.clean(b.keep(core.NewEliminateUnconstrainedTactic(m, c, g, nil, config.ModelEvaluator))),
 		b.keep(arith.MakeElim01Tactic(m, c, g, nil, config.ModelEvaluator)),
+		cofactor,
 	)
 	nla := b.keep(arith.NewNLA2BVTactic(m, c, g, nlaParams, config.ModelEvaluator))
 	bvSolver := b.keep(NewQFBVTacticWithOutput(m, p, config, output))

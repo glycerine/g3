@@ -170054,9 +170054,9 @@
       "path": "src/tactic/core/cofactor_elim_term_ite.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "complete",
+      "go_targets": ["pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic_test.go", "pkg/cmd/g3/test_vectors/qfnia_cofactor_term_ite.smt2"],
+      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITENegatedConditionPropagatesAtom", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"],
       "conditionals": [
         {
           "line": 640,
@@ -170105,19 +170105,24 @@
           "text": "SASSERT(new_t.get() != 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "active bottom_up_elim traversal, atom classification, term-ITE propagation and rebuilt application cache", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]},
+        {"name": "get_best condition selection by depth, occurrence count and equality tie-break", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]},
+        {"name": "positive/negative cofactor substitution, negated-atom propagation, equality-to-unique-value propagation and theory simplification", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITENegatedConditionPropagatesAtom", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"]},
+        {"name": "disabled analyzer/main_rw alternative under #if 0", "status": "dead_unretained"}
+      ],
+      "ownership": ["Each application owns a temporary ASTRef set for rebuilt and cofactored terms. Goal.Update acquires the published result before the temporary set closes; expression replacement and theory-rewriter outputs close in reverse order."],
+      "deviations": ["Native maps and slices replace source hash tables and frame buffers. Quantifiers remain black boxes, and the active source bottom-up path—not the disabled analyzer path—is retained."]
     },
     {
       "path": "src/tactic/core/cofactor_elim_term_ite.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "complete",
+      "go_targets": ["pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic.go"],
+      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"],
       "conditionals": [
         {
           "line": 19,
@@ -170128,19 +170133,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "construction, parameter update, expression rewrite and cleanup surface", "status": "ported", "go_targets": ["pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic.go"], "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]}],
+      "ownership": ["The tactic owns its theory rewriter and parameter copy; each rewrite invocation owns its temporary reference set."],
       "deviations": []
     },
     {
       "path": "src/tactic/core/cofactor_term_ite_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "complete",
+      "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic_test.go", "pkg/tactic/smtlogics/qfnia_tactic.go"],
+      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITEGuardsProofsAndCores", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"],
       "assertions": [
         {
           "line": 62,
@@ -170151,19 +170156,19 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "goal processing, proof/core guards, depth/result publication, parameters, cleanup and translation", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_tactic.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITEGuardsProofsAndCores"]}],
+      "ownership": ["The counted tactic owns its parameter dictionary and theory rewriter. Apply borrows the goal, publishes it through TacticResult, and closes all temporary expression roots after Goal.Update acquires them."],
+      "deviations": ["Go returns explicit cancellation, memory-limit and cleanup errors in place of source exceptions and scoped destruction."]
     },
     {
       "path": "src/tactic/core/cofactor_term_ite_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "complete",
+      "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/smtlogics/qfnia_tactic.go"],
+      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"],
       "conditionals": [
         {
           "line": 20,
@@ -170174,10 +170179,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "clean cofactor-term-ite tactic factory and QFNIA registration surface", "status": "ported", "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/smtlogics/qfnia_tactic.go"], "tests": ["TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"]}],
+      "ownership": ["MakeCofactorTermITETactic transfers the concrete child into the standard counted clean wrapper."],
       "deviations": []
     },
     {
@@ -179746,29 +179751,35 @@
       "path": "src/tactic/smtlogics/qfnia_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "complete",
       "go_targets": [
         "pkg/tactic/smtlogics/qfnia_tactic.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
         "pkg/cmd_context/context.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/main_test.go",
-        "pkg/cmd/g3/test_vectors/qfnia_solver_bounded.smt2"
+        "pkg/cmd/g3/test_vectors/qfnia_solver_bounded.smt2",
+        "pkg/tactic/core/cofactor_term_ite_tactic.go",
+        "pkg/cmd/g3/test_vectors/qfnia_cofactor_term_ite.smt2"
       ],
       "tests": [
         "TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2",
-        "TestSMTLibRunnerCPPReference/qfnia_solver_bounded.smt2"
+        "TestSMTLibRunnerCPPReference/qfnia_solver_bounded.smt2",
+        "TestCofactorTermITEEliminatesArithmeticChoice",
+        "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2",
+        "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "QF_NIA preamble through elim01, bounded NIA simplify/nla2bv/QF_BV route, timed SOM-SMT attempt, final SMT fallback, tactic command, strategic QF_NIA solver and ALL classifier integration",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnia_tactic.go",
           "tests": [
             "TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2",
-            "TestSMTLibRunnerCPPReference/qfnia_solver_bounded.smt2"
+            "TestSMTLibRunnerCPPReference/qfnia_solver_bounded.smt2",
+            "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"
           ]
         }
       ],
@@ -179776,16 +179787,16 @@
         "The construction scope owns every concrete child tactic and parameter copy until the using-params graph acquires them; error cleanup releases children in reverse construction order."
       ],
       "deviations": [
-        "The preamble through elim01, first bounded nla2bv route, timed SOM-SMT attempt and final complete SMT fallback are retained. Optional skip-if-failed cofactor-term-ITE finishes the preamble; the intervening QF_NRA/NLSAT attempt remains pending with its unported constituent tactics."
+        "The complete source route is retained: preamble through elim01 and skip-if-failed cofactor-term-ITE, bounded nla2bv/QF_BV, timed SOM-SMT, timed SOM-NLSAT, and final complete SMT fallback. The QF_BV child reuses the broader retained native portfolio while preserving the source decision order."
       ]
     },
     {
       "path": "src/tactic/smtlogics/qfnia_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/tactic/smtlogics/qfnia_tactic.go"],
-      "tests": ["TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2"],
+      "status": "complete",
+      "go_targets": ["pkg/tactic/smtlogics/qfnia_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/tactic/portfolio/smt_strategic_solver.go"],
+      "tests": ["TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"],
       "conditionals": [
         {
           "line": 19,
@@ -179796,12 +179807,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "retained partial QF_NIA factory surface",
-          "status": "partial",
+          "name": "complete QF_NIA tactic factory and command/strategic registration surface",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnia_tactic.go",
           "tests": ["TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2"]
         }
@@ -179809,9 +179820,7 @@
       "ownership": [
         "The returned uncounted tactic graph owns counted child references and parameter copies."
       ],
-      "deviations": [
-        "Factory completion depends on the remaining QF_NRA/NLSAT and preamble tactics."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/smtlogics/qfnra_tactic.cpp",
