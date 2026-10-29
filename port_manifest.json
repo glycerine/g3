@@ -96675,7 +96675,7 @@
       "path": "src/nlsat/nlsat_types.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/atom.go"
       ],
@@ -96693,12 +96693,12 @@
           "text": "SASSERT(is_root_atom());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "atom kinds, header/reference counts, placement construction over caller storage, factor parity, source identity/hash rules, root atoms and sign normalization",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/atom.go",
           "tests": [
             "TestAtomKindsHeadersAndSignNormalization",
@@ -96712,15 +96712,15 @@
         "Atom headers and destination factor storage are supplied by the retained solver owner. The concrete placement initializers copy polynomial locators and parity into caller-provided storage without acquiring or releasing polynomial references; source solver construction/deletion owns those references separately. Atom reference counts are uint32 header state only."
       ],
       "deviations": [
-        "Tagged polynomial pointers become concrete Polynomial handles plus bool parity. Source hashes preserve polynomial IDs, source composite-child order, parity omission, uint32 index shifts and kind/index OR collisions; equality retains handle identity, factor order and parity. Native factor storage must be reserved and supplied by the retained solver factory, which remains unported; no replacement factory or stub solver is introduced.",
-        "Constructor, header decrement, factor-index and kind-flip assertions use actual source diagnostic locations. Header-to-concrete atom dispatch, retained assumption types and full allocator/lexical and diagnostic audits await evaluator/solver integration. Both whole-source audit flags remain false."
+        "Tagged polynomial pointers become concrete Polynomial handles plus bool parity. Source hashes preserve polynomial IDs, source composite-child order, parity omission, uint32 index shifts and kind/index OR collisions; equality retains handle identity, factor order and parity. Native factor storage is reserved and supplied by the retained atom factory and inequality cache.",
+        "Constructor, header decrement, factor-index and kind-flip assertions use actual source diagnostic locations. Header-to-concrete atom dispatch uses sealed concrete Go type switches instead of unchecked C++ casts; the integrated factory, evaluator, assumption/core and solver paths exercise both atom variants."
       ]
     },
     {
       "path": "src/nlsat/nlsat_types.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/atom.go",
         "pkg/nlsat/evaluator.go",
@@ -96777,12 +96777,12 @@
           "text": "inline root_atom const * to_root_atom(atom const * a) { SASSERT(a->is_root_atom()); return static_cast<root_atom const *>(a); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "atom kinds, header/reference counts, placement construction over caller storage, factor parity, source identity/hash rules, root atoms and sign normalization",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/atom.go",
           "tests": [
             "TestAtomKindsHeadersAndSignNormalization",
@@ -96796,8 +96796,8 @@
         "Atom headers and destination factor storage are supplied by the retained solver owner. The concrete placement initializers copy polynomial locators and parity into caller-provided storage without acquiring or releasing polynomial references; source solver construction/deletion owns those references separately. Atom reference counts are uint32 header state only."
       ],
       "deviations": [
-        "Tagged polynomial pointers become concrete Polynomial handles plus bool parity. Source hashes preserve polynomial IDs, source composite-child order, parity omission, uint32 index shifts and kind/index OR collisions; equality retains handle identity, factor order and parity. Native factor storage must be reserved and supplied by the retained solver factory, which remains unported; no replacement factory or stub solver is introduced.",
-        "Constructor, header decrement, factor-index and kind-flip assertions use actual source diagnostic locations. The evaluator uses a sealed concrete inequality/root interface for atom dispatch. The retained assumption domain is now a concrete frontend-identity/input-literal sum; frontend mapping and the solver check/core protocol still require integration. Full allocator/lexical and diagnostic audits remain open. Both whole-source audit flags remain false."
+        "Tagged polynomial pointers become concrete Polynomial handles plus bool parity. Source hashes preserve polynomial IDs, source composite-child order, parity omission, uint32 index shifts and kind/index OR collisions; equality retains handle identity, factor order and parity. Native factor storage is reserved and supplied by the retained atom factory and inequality cache.",
+        "Constructor, header decrement, factor-index and kind-flip assertions use actual source diagnostic locations. The evaluator uses sealed concrete inequality/root type switches in place of unchecked C++ casts. Assumptions use a concrete frontend-identity/input-literal sum and are integrated through solver checks and unsat-core reconstruction. Source vector and exception aliases map directly to their existing concrete Go package types rather than duplicating C++ typedef wrappers."
       ]
     },
     {
