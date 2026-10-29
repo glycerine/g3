@@ -50,6 +50,16 @@ func (p *commandParser) annotatedExpression(quantifier *ast.ASTQuantifierSpec) (
 		switch key {
 		case ":named":
 			named, err = p.symbol()
+			if err == nil {
+				var free bool
+				free, err = p.manager.HasFreeVars(body)
+				if err == nil && free {
+					err = fmt.Errorf("invalid named expression, expression contains free variables")
+				}
+			}
+			if err == nil {
+				err = p.context.DefineFunction(named, nil, body)
+			}
 		case ":lblpos", ":lblneg":
 			var name string
 			name, err = p.symbol()

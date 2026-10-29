@@ -5567,7 +5567,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go"],
-      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"],
+      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextSMT2Replay", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"],
       "conditionals": [
         {
           "line": 368,
@@ -5628,14 +5628,20 @@
           "tests": ["TestInterpolationContextBinary", "TestInterpolationContextErrorsAndIsolation"]
         },
         {
-          "name": "remaining interpolation profile/options and interpolation-problem file/string operations",
+          "name": "interpolation-problem SMT-LIB writer over ordinary Go output (api_interp.cpp:385-529)",
+          "status": "ported",
+          "go_target": "pkg/api/api_interp.go",
+          "tests": ["TestInterpolationContextSMT2Replay", "TestSMT2InterpolationReplayScriptMatchesCPP"]
+        },
+        {
+          "name": "remaining interpolation profile/options and interpolation-problem reader operations",
           "status": "unported",
           "go_target": null,
           "tests": []
         }
       ],
       "ownership": ["InterpolationContext owns a private proof-enabled AST manager, parameter services, solver factory, markers and returned interpolants. Complete SAT/UNKNOWN results transfer one acquired model reference to the caller, which must decrement it before context teardown. CheckInterpolants owns and closes one short-lived verification solver and returns copied Go diagnostics."],
-      "deviations": ["The complete Go result returns status, borrowed interpolants and an owning model directly instead of C output pointers; the UNSAT-only convenience wrapper preserves distinct SAT/UNKNOWN errors. CheckInterpolants uses slices and returns (valid, diagnostics, error); it accepts the source root parent entry but does not inspect it."]
+      "deviations": ["The complete Go result returns status, borrowed interpolants and an owning model directly instead of C output pointers; the UNSAT-only convenience wrapper preserves distinct SAT/UNKNOWN errors. Interpolation problem export writes to an io.Writer or returns an owned Go string instead of accepting a native filename. CheckInterpolants uses slices and returns (valid, diagnostics, error); it accepts the source root parent entry but does not inspect it."]
     },
     {
       "path": "src/api/api_log.cpp",
@@ -42305,10 +42311,11 @@
           ]
         },
         {
-          "name": "builtin plugin registration, sole-declaration arithmetic coercions and exact-domain UF overload resolution; full logic validation remains open",
+          "name": "builtin plugin registration including the retained interpolation marker, sole-declaration arithmetic coercions and exact-domain UF overload resolution; full logic validation remains open",
           "status": "partial",
           "go_target": "pkg/cmd_context/applications.go",
           "tests": [
+            "TestSMT2InterpolationReplayScriptMatchesCPP",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
           ],
@@ -47789,11 +47796,14 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/interp/pp.go"
+        "pkg/interp/pp.go",
+        "pkg/api/api_interp.go"
       ],
       "tests": [
         "TestInterpolationPrettyPrintProblemExactTreeAndNames",
-        "TestInterpolationPrettyPrintDuplicateAndBadTree"
+        "TestInterpolationPrettyPrintDuplicateAndBadTree",
+        "TestInterpolationContextSMT2Replay",
+        "TestSMT2InterpolationReplayScriptMatchesCPP"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -47804,7 +47814,9 @@
           "go_target": "pkg/interp/pp.go",
           "tests": [
             "TestInterpolationPrettyPrintProblemExactTreeAndNames",
-            "TestInterpolationPrettyPrintDuplicateAndBadTree"
+            "TestInterpolationPrettyPrintDuplicateAndBadTree",
+            "TestInterpolationContextSMT2Replay",
+            "TestSMT2InterpolationReplayScriptMatchesCPP"
           ]
         }
       ],
@@ -98879,10 +98891,13 @@
           ]
         },
         {
-          "name": "assertion-root named attributes for unsat cores; general annotation and named alias publication remain open",
-          "status": "partial",
-          "go_target": "pkg/parsers/smt2/expressions.go",
+          "name": "ground :named attribute publication as scoped zero-argument named expressions plus assertion-root unsat-core metadata, with free-variable and duplicate-name guards",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/annotations.go",
           "tests": [
+            "TestSMT2NamedExpressionIsReusableAndScoped",
+            "TestSMT2NamedExpressionRejectsFreeVariables",
+            "TestSMT2InterpolationReplayScriptMatchesCPP",
             "TestSMTLibRunnerScripts"
           ],
           "go_targets": [

@@ -4,11 +4,36 @@ package smt2
 
 import (
 	"bytes"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
 )
+
+func interpolationReference(t *testing.T, script string) string {
+	t.Helper()
+	path := os.Getenv("G3_CPP_REFERENCE")
+	if path == "" {
+		var err error
+		path, err = filepath.Abs("../../../build/z3")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Skip("C++ reference executable unavailable:", err)
+	}
+	command := exec.Command(path, "-in")
+	command.Stdin = strings.NewReader(script)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatal(err, string(output))
+	}
+	return string(output)
+}
 
 func TestSMT2ComputeAndGetInterpolantUseNativeBackend(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
@@ -57,5 +82,33 @@ func TestSMT2InterpolantCommandGuards(t *testing.T) {
 				t.Fatal("interpolation guard accepted", script, output.String())
 			}
 		})
+	}
+}
+
+func TestSMT2InterpolationReplayScriptMatchesCPP(t *testing.T) {
+	script := `(set-option :produce-interpolants true)
+(declare-fun replay-p () Bool)
+(assert (! replay-p :named f!1))
+(assert (! (not replay-p) :named f!2))
+(check-sat)
+(get-interpolant (and (interp f!1) f!2))
+`
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	context.PrintSuccess = false
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	cpp := interpolationReference(t, script)
+	if output.String() != cpp || cpp != "unsat\n(interpolants\n replay-p)\n" {
+		t.Fatal("interpolation replay differential", output.String(), cpp)
 	}
 }

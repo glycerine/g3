@@ -5,6 +5,8 @@ package api
 import (
 	"bytes"
 	"errors"
+	"io"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -292,6 +294,32 @@ func (c *InterpolationContext) InterpolantsFromProof(proof, pattern ast.ASTHandl
 		}
 	}
 	return result, nil
+}
+
+// WriteInterpolationSMT2 exports a marked interpolation problem as replayable
+// SMT-LIB using ordinary Go output rather than a native filename.
+func (c *InterpolationContext) WriteInterpolationSMT2(out io.Writer, pattern ast.ASTHandle) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if out == nil {
+		return ast.ErrASTHandle
+	}
+	constraints, err := interp.CollectConjuncts(c.terms, pattern)
+	if err != nil {
+		return err
+	}
+	return interp.PrettyPrintProblem(c.manager, constraints, pattern, out)
+}
+
+// InterpolationSMT2 returns the replay stream produced by
+// WriteInterpolationSMT2.
+func (c *InterpolationContext) InterpolationSMT2(pattern ast.ASTHandle) (string, error) {
+	var output strings.Builder
+	if err := c.WriteInterpolationSMT2(&output, pattern); err != nil {
+		return "", err
+	}
+	return output.String(), nil
 }
 
 // CheckInterpolants validates sequence or tree interpolants and their symbol

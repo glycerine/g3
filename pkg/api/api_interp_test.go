@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -260,6 +261,36 @@ func TestInterpolationContextCompleteResultAndProofInput(t *testing.T) {
 		t.Fatal("proof interpolant count", len(results))
 	}
 	f.verify(pattern, results)
+}
+
+func TestInterpolationContextSMT2Replay(t *testing.T) {
+	f := newInterpolationFixture(t)
+	boolean := f.pin(f.w.BoolType())
+	p := f.variable("replay-p", boolean)
+	pattern := f.make(interp.OperatorAnd, f.pin(f.c.MkInterpolant(p)), f.make(interp.OperatorNot, p))
+	script, err := f.c.InterpolationSMT2(pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(script, "(set-option :produce-interpolants true)") || !strings.Contains(script, "(get-interpolant ") {
+		t.Fatal("incomplete interpolation replay stream", script)
+	}
+	replay, err := NewSMTContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := replay.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var output bytes.Buffer
+	if err = replay.ExecuteSMT2(strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, script)
+	}
+	if output.String() != "unsat\n(interpolants\n replay-p)\n" {
+		t.Fatal("interpolation replay output", output.String(), script)
+	}
 }
 
 type unknownInterpolationSolver struct{ solver.Solver }

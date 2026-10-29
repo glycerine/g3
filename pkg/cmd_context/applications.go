@@ -28,7 +28,7 @@ func (c *Context) initBuiltins() error {
 	for _, item := range []struct {
 		name string
 		kind int32
-	}{{"true", ast.ASTOpTrue}, {"false", ast.ASTOpFalse}, {"and", ast.ASTOpAnd}, {"or", ast.ASTOpOr}, {"not", ast.ASTOpNot}, {"=>", ast.ASTOpImplies}, {"xor", ast.ASTOpXor}, {"=", ast.ASTOpEq}, {"distinct", ast.ASTOpDistinct}, {"ite", ast.ASTOpIte}} {
+	}{{"true", ast.ASTOpTrue}, {"false", ast.ASTOpFalse}, {"and", ast.ASTOpAnd}, {"or", ast.ASTOpOr}, {"not", ast.ASTOpNot}, {"interp", ast.ASTOpInterp}, {"=>", ast.ASTOpImplies}, {"xor", ast.ASTOpXor}, {"=", ast.ASTOpEq}, {"distinct", ast.ASTOpDistinct}, {"ite", ast.ASTOpIte}} {
 		c.builtins[item.name] = []builtin{{m.BasicFamilyID(), item.kind}}
 	}
 	var logic usymbol.Symbol
