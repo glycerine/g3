@@ -7,6 +7,7 @@ package cmd_context
 import (
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -266,6 +267,17 @@ func (c *Context) FixedpointAnswer(declaration ast.ASTHandle) (ast.ASTRef, error
 		return ast.ASTRef{}, err
 	}
 	return engine.Answer(declaration)
+}
+
+// WriteFixedpointCertificate writes the PDR certificate selected by the
+// fixedpoint query command. The Boolean result is false for backends whose
+// source certificate display is intentionally empty.
+func (c *Context) WriteFixedpointCertificate(out io.Writer, declaration ast.ASTHandle) (bool, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return false, err
+	}
+	return engine.WriteCertificate(out, declaration, c.WriteExpression)
 }
 
 // FixedpointModel returns the inductive model produced by the latest

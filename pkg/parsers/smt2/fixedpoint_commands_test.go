@@ -4,16 +4,25 @@ package smt2_test
 
 import (
 	"bytes"
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 )
+
+type fixedpointCertificateRefusingWriter struct{}
+
+func (fixedpointCertificateRefusingWriter) Write([]byte) (int, error) {
+	return 0, io.ErrClosedPipe
+}
 
 func fixedpointReference(t *testing.T, script string) string {
 	t.Helper()
@@ -456,6 +465,53 @@ func TestSMT2FixedpointSpacerIntegerQueriesMatchCPP(t *testing.T) {
 	cpp := fixedpointReference(t, script)
 	if output.String() != cpp || cpp != "sat\ntrue\n\nunsat\n" {
 		t.Fatal("spacer integer SMT-LIB differential", output.String(), cpp)
+	}
+}
+
+func TestSMT2FixedpointPDRPrintCertificate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	context.PrintSuccess = false
+	script := `(set-option :fixedpoint.engine pdr)
+(declare-rel P (Int))
+(declare-rel U (Int))
+(declare-var x Int)
+(rule (P 0))
+(query U :print-answer false :print-certificate true)
+(query P :print-answer false :print-certificate true)
+`
+	var output bytes.Buffer
+	if err = smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unsat\n(define-fun P ((x!0 Int)) Bool\n  (= x!0 0))\n\nsat\ntrue\n"; got != want {
+		t.Fatalf("PDR certificate = %q, want %q", got, want)
+	}
+	integer, err := context.LookupSort("Int")
+	if err != nil {
+		t.Fatal(err)
+	}
+	boolean, err := context.LookupSort("Bool")
+	if err != nil {
+		t.Fatal(err)
+	}
+	predicate, err := context.FindFunctionDeclaration("P", nil, []ast.ASTHandle{integer}, boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found, err := context.WriteFixedpointCertificate(fixedpointCertificateRefusingWriter{}, predicate); !found || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatalf("refused PDR certificate = %v, %v", found, err)
+	}
+	var retry bytes.Buffer
+	if found, err := context.WriteFixedpointCertificate(&retry, predicate); err != nil || !found || retry.String() != "true" {
+		t.Fatalf("retried PDR certificate = %q, %v, %v", retry.String(), found, err)
 	}
 }
 

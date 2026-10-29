@@ -7,6 +7,7 @@ package fp
 import (
 	"errors"
 	"fmt"
+	"io"
 	"math/bits"
 	"sort"
 
@@ -1897,6 +1898,44 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		return answer, err
 	}
 	return e.manager.NewRef(formula)
+}
+
+// WriteCertificate emits the PDR certificate selected by the source
+// fixedpoint query command. Unreachable queries use the converted inductive
+// model; reachable queries use the retained trace expression. Spacer owns a
+// separate certificate presentation path and reports no output here.
+func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.ASTHandle, writeExpression func(io.Writer, ast.ASTHandle) error) (found bool, resultErr error) {
+	if err := e.open(); err != nil {
+		return false, err
+	}
+	if e.backend != "pdr" {
+		return false, nil
+	}
+	status, err := e.pdr.LastResult()
+	if err != nil {
+		return false, err
+	}
+	if status == lbool.False {
+		inductive, x := e.Model(declaration)
+		if x != nil {
+			return false, x
+		}
+		defer func() { resultErr = errors.Join(resultErr, inductive.Close()) }()
+		return true, inductive.Core().WriteSMT2(out, e.params, e.globals, 0)
+	}
+	if status != lbool.True {
+		return false, nil
+	}
+	answer, err := e.Answer(declaration)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&answer)) }()
+	handle, err := e.manager.RefGet(answer)
+	if err != nil {
+		return false, err
+	}
+	return true, writeExpression(out, handle)
 }
 
 // Model returns the inductive PDR or Spacer model for the latest unreachable

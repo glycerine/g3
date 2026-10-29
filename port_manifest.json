@@ -82738,10 +82738,10 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "declare-rel, declare-var, named/bounded rule, command-assertion background handoff and declaration-query execution for retained Horn programs, including query-local answer, empty-certificate and statistics output plus finite tuple-answer formulas (dl_cmds.cpp:64-370)",
+          "name": "declare-rel, declare-var, named/bounded rule, command-assertion background handoff and declaration-query execution for retained Horn programs, including query-local answer, PDR certificate and statistics output plus finite tuple-answer formulas (dl_cmds.cpp:64-370)",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2FixedpointEmptyProgramQueryMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleNameAndBoundMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointTupleAnswerMatchesCPP", "TestSMT2FixedpointQueryRefusesUnknownOutputParameters", "TestSMT2FixedpointPDRStatistics", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"]
+          "tests": ["TestSMT2FixedpointEmptyProgramQueryMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleNameAndBoundMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointTupleAnswerMatchesCPP", "TestSMT2FixedpointQueryRefusesUnknownOutputParameters", "TestSMT2FixedpointPDRStatistics", "TestSMT2FixedpointPDRPrintCertificate", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"]
         },
         {
           "name": "fixedpoint-push and fixedpoint-pop command dispatch with scoped rule restoration (dl_cmds.cpp:481-525)",
@@ -83409,9 +83409,10 @@
         },
         {
           "name": "unsuccessful-query direct-predicate inductive model and model-to-expression certificate construction (pdr_context.cpp:1864-1877,1945-1961,1989-1995; pdr_manager.cpp:57-122)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/parsers/smt2/commands.go"],
+          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMTContextFixedpointPDRLifecycle", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestSMT2FixedpointPDRPrintCertificate"]
         },
         {
           "name": "pred_transformer/context finite-level count, bound-variable cover insertion and exact finite/invariant cover-delta retrieval (pdr_context.cpp:359-412,1563-1594)",
@@ -83590,9 +83591,10 @@
         },
         {
           "name": "retained direct-predicate unsuccessful-query inductive certificate surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/parsers/smt2/commands.go"],
+          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTContextFixedpointPDRLifecycle", "TestSMT2FixedpointPDRPrintCertificate"]
         },
         {
           "name": "retained pred_transformer/context finite-level count and direct-predicate cover surface",
@@ -84370,17 +84372,20 @@
       "path": "src/muz/pdr/pdr_manager.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/manager.go",
         "pkg/muz/pdr/manager_test.go",
-        "pkg/muz/pdr/answer.go"
+        "pkg/muz/pdr/answer.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/parsers/smt2/commands.go"
       ],
       "tests": [
         "TestManagerStateCreationConversionAndAtomRecognition",
         "TestManagerBooleanBackgroundSolverAndImplicationIntegration",
         "TestContextSolveFindsInductiveUnreachablePredicate",
-        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+        "TestSMT2FixedpointPDRPrintCertificate"
       ],
       "assertions": [
         {
@@ -84400,7 +84405,7 @@
           "text": "SASSERT(res);"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -84414,8 +84419,9 @@
         },
         {
           "name": "inductive_property direct-predicate universally quantified expression construction (pdr_manager.cpp:57-76,85-122)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go"],
           "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTContextFixedpointPDRLifecycle", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
         },
         {
@@ -84425,33 +84431,42 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle"]
         },
         {
-          "name": "remaining inductive_property model-converter application, model string and rule display (pdr_manager.cpp:42-84,123-156)",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "inductive_property model-converter application and model string certificate display (pdr_manager.cpp:76-84,85-122)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": ["pkg/parsers/smt2/commands.go"],
+          "tests": ["TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestSMT2FixedpointPDRPrintCertificate"]
+        },
+        {
+          "name": "inductive_property rule-manager diagnostic display (pdr_manager.cpp:123-156)",
+          "status": "reference_only",
+          "reason": "No source production caller invokes inductive_property::display; retained fixedpoint certificate output calls to_string instead"
         }
       ],
       "ownership": [
         "Manager owns one background AST reference, one SymbolMux and one SMTContextManager. Close rejects active proposition solvers through the context manager, then releases contexts, mux pins and the background in dependency order."
       ],
       "deviations": [
-        "Typed errors replace assertion-only zero-arity state and lookup conditions. Go returns borrowed handles and native slices instead of source pointer/reference-vector iterators. Direct-predicate certificates construct model-to-expression equalities and owning models while applying the retained simple-join auxiliary filter; source clause presentation normalization and other model-converter remapping remain open."
+        "Typed errors replace assertion-only zero-arity state and lookup conditions. Go returns borrowed handles and native slices instead of source pointer/reference-vector iterators. Direct-predicate certificates construct model-to-expression equalities and owning models, apply retained Horn model conversions, and use model_smt2_pp-compatible output; the uncalled rule-manager diagnostic display has no Go adapter."
       ]
     },
     {
       "path": "src/muz/pdr/pdr_manager.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/pdr/manager.go",
         "pkg/muz/pdr/manager_test.go",
-        "pkg/muz/pdr/answer.go"
+        "pkg/muz/pdr/answer.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/parsers/smt2/commands.go"
       ],
       "tests": [
         "TestManagerStateCreationConversionAndAtomRecognition",
         "TestManagerBooleanBackgroundSolverAndImplicationIntegration",
-        "TestContextSolveFindsInductiveUnreachablePredicate"
+        "TestContextSolveFindsInductiveUnreachablePredicate",
+        "TestSMT2FixedpointPDRPrintCertificate"
       ],
       "conditionals": [
         {
@@ -84473,7 +84488,7 @@
           "text": "SASSERT(o_index(0)==1);"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -84487,8 +84502,9 @@
         },
         {
           "name": "direct-predicate inductive_property expression surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go"],
           "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTContextFixedpointPDRLifecycle"]
         },
         {
@@ -84498,10 +84514,16 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle"]
         },
         {
-          "name": "remaining inductive_property converter and rule-manager display surface",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "inductive_property converter and model-string certificate surface",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": ["pkg/parsers/smt2/commands.go"],
+          "tests": ["TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestSMT2FixedpointPDRPrintCertificate"]
+        },
+        {
+          "name": "inductive_property rule-manager diagnostic display declaration",
+          "status": "reference_only",
+          "reason": "No source production caller invokes inductive_property::display"
         }
       ],
       "ownership": [

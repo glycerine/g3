@@ -693,6 +693,10 @@ func (p *commandParser) command() (bool, error) {
 				}
 			}
 			if printCertificate {
+				_, y := p.context.WriteFixedpointCertificate(p.out, declaration)
+				if y != nil {
+					return false, y
+				}
 				if _, x = fmt.Fprintln(p.out); x != nil {
 					return false, x
 				}
