@@ -36,22 +36,23 @@ type SolverConfig struct {
 // Solver composes the retained concrete NLSAT components. The numerical and
 // polynomial managers are borrowed and must outlive Close.
 type Solver struct {
-	config      SolverConfig
-	allocator   *umemory.SmallAllocator
-	cache       *polynomial.PolynomialCache
-	atoms       *atomFactory
-	assumptions *assumptionManager
-	clauses     *clauseStore
-	assignment  *Assignment
-	evaluator   *Evaluator
-	search      *searchState
-	explanation *explanationAssumptions
-	projection  *projectionWorklist
-	resolution  *searchResolution
-	patches     []inlineVariablePatch
-	inlined     bool
-	randomSeed  uint32
-	closed      bool
+	config         SolverConfig
+	allocator      *umemory.SmallAllocator
+	cache          *polynomial.PolynomialCache
+	atoms          *atomFactory
+	assumptions    *assumptionManager
+	clauses        *clauseStore
+	assignment     *Assignment
+	evaluator      *Evaluator
+	search         *searchState
+	explanation    *explanationAssumptions
+	projection     *projectionWorklist
+	resolution     *searchResolution
+	patches        []inlineVariablePatch
+	literalVectors uint32
+	inlined        bool
+	randomSeed     uint32
+	closed         bool
 }
 
 type integerCut struct {
@@ -537,6 +538,9 @@ func (s *Solver) Core(out *[]Assumption) error {
 func (s *Solver) Close() (err error) {
 	if s == nil || s.closed {
 		return nil
+	}
+	if s.literalVectors != 0 {
+		return ErrSearchPending
 	}
 	if s.resolution != nil {
 		err = errors.Join(err, s.resolution.close())

@@ -94671,6 +94671,7 @@
         "pkg/nlsat/explain_cell.go",
         "pkg/nlsat/explain_projection.go",
         "pkg/nlsat/explain_signed_projection.go",
+        "pkg/nlsat/solver_projection.go",
         "pkg/nlsat/explain_main.go"
       ],
       "tests": [
@@ -94745,6 +94746,7 @@
         "TestSignedProjectionMovesLowerStagePolynomialsToAssumptions",
         "TestSignedProjectionInfinityUsesLeadingCoefficientSigns",
         "TestSignedProjectionEqualityUsesGeneralPairProjection",
+        "TestSolverProjectOwnsResultAndRestoresVariableOrder",
         "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
         "TestExplanationCollectPolynomialsPreservesLiteralFactorOrder"
       ],
@@ -95166,6 +95168,14 @@
           ]
         },
         {
+          "name": "Public signed projection with literal splitting, dependent-polynomial collection, temporary maximal-variable reorder/restoration and final result polarity (cpp1465-1529)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/solver_projection.go",
+          "tests": [
+            "TestSolverProjectOwnsResultAndRestoresVariableOrder"
+          ]
+        },
+        {
           "name": "Actual collect_polys, polynomial-vector maximum variable and main conflict explanation composition through vanishing elimination and projection (cpp247-261,503-540,1339-1351)",
           "status": "partial",
           "go_target": "pkg/nlsat/explain_main.go",
@@ -95185,8 +95195,9 @@
         "Projection binds the actual existing search-owned canonical worklist and factor setting, and owns its persistent PSC output vector. Guarded insertion shares the real worklist algorithm while validating the specific executing explanation caller; idle/foreign callers cannot bypass search guards. Factor expansion owns one lexical f, leading coefficients own p then lc, PSC selection owns s, and pairwise resultants own p then q. Nested scalar/factor/PSC lexical destruction finishes before older caller locals; accepted unjoined polynomial children are aborted only after those locals. Exact coefficient/predicate receipts remain concrete and generation-bound. The shared factor-vector extent is reread each iteration as in source.",
         "Discriminant projection owns the source p and later p_prime references, and borrows its input vector/cache. The derivative call captures only its actual accepted invocation. Younger derivative NUM destruction and nested PSC lexical scopes finish before caller p_prime/p; unjoined derivative/PSC children are acknowledged afterward. Callback entry remains guarded by the real explanation execution state. No complete projection/explanation constructor or search is implied.",
         "Cell construction persistently owns its algebraic root vector and temporary lower/upper bound copies while borrowing the assignment and stage polynomials. Root isolation resets the owned vector for each polynomial; exact matches stop immediately, while replacement bounds publish cleanup authority before copying so interrupted copies remain recoverable. Cleanup resets roots and deletes upper before lower. The project loop borrows the bound canonical worklist only through explanation-qualified reset, insertion, emptiness and maximum-extraction operations; foreign or idle callers remain rejected by the search-state guard.",
-        "The main explanation composition borrows conflict literals and their canonical atoms, acquires every inequality factor/root polynomial into a local owning vector in literal/factor order, computes the source maximum before reduction, then composes the existing vanishing and project scopes under one explanation execution guard. Its local polynomial vector is destroyed after all nested projection/cell scopes finish."
-        ,"Signed projection owns its isolated-root vector and nearest lower/upper algebraic copies while borrowing the assignment and caller polynomial vector. Each root vector is reset before reuse, selected bounds are copied before the roots are invalidated, and upper/lower copies are deleted before vector destruction. Temporary single/pair vectors and leading-coefficient references acquire concrete polynomial ownership around the existing projection engine."
+        "The main explanation composition borrows conflict literals and their canonical atoms, acquires every inequality factor/root polynomial into a local owning vector in literal/factor order, computes the source maximum before reduction, then composes the existing vanishing and project scopes under one explanation execution guard. Its local polynomial vector is destroyed after all nested projection/cell scopes finish.",
+        "Signed projection owns its isolated-root vector and nearest lower/upper algebraic copies while borrowing the assignment and caller polynomial vector. Each root vector is reset before reuse, selected bounds are copied before the roots are invalidated, and upper/lower copies are deleted before vector destruction. Temporary single/pair vectors and leading-coefficient references acquire concrete polynomial ownership around the existing projection engine.",
+        "The public projection operation borrows model-true input literals, owns dependent polynomials through a local reference vector, and copies final complements into a caller-owned LiteralVector before resetting the internal explanation output. Temporary reorder restoration precedes publication so returned atoms are observed in external variable order."
       ],
       "deviations": [
         "Only the retained core-minimization routines are ported here; public explain constructor/operator, normalization, vanishing-coefficient elimination, projection, simplification, result display/TRACE and solver resolution/main-search integration remain unported or unaudited. Native charged component storage and Go slices replace C++ object/vector layouts; no identical std::vector growth or allocation-prefix claim is made. The source empty-todo assertion at1373 remains observable for the qualified redundant order tested by TestExplanationMinimizeSourceEmptyTodoGuard; release still terminates by reconstructing the already-full core. No source progress or reference repair suppresses that difference. Thirty-six prebuilt C++ qfnra-nlsat queries verify unsatisfiability and deletion-minimality of nine reduced cores; these prove core properties rather than identical C++ internal selection order or whole-backend completeness. Source preconditions remain caller obligations.",
@@ -95198,7 +95209,7 @@
         "These are retained projection callees, not the complete project loop or explanation constructor. Discriminant/derivative processing, cell/root literal construction, projection control flow, simplification and main search remain pending. Binding the real persistent PSC vector is an explicit partial constructor step; cleanup does not make an interrupted constructor usable, and the eager full C++ constructor/layout/frontier is not claimed. Borrowed cache PSC/factor/unique/numerical owners acknowledge their own accepted work; explanation cleanup never adopts an older cache continuation. The native pairwise loop avoids unsigned size-1 underflow for empty invalid callers; retained source callers provide a nonempty stage. Complete TRACE and descendant allocation/physical audits remain open; whole-unit flags stay false.",
         "Discriminant projection is now supplied; the cell/root fallback and main projection loop are also supplied by later method records. Quadratic/cubic/repeated-root cases, 120 prebuilt C++ checks, composed failure/retry and concrete derivative ownership are covered. Full source TRACE/eager constructor/descendant allocation audits remain partial. Integration work is now prioritized over completing every audit before an end-to-end path.",
         "Cell construction now retains the source constant-coefficient linear rewrite, all five root relations, negative leading coefficients, quadratic Thom sign encoding, and its zero-leading-coefficient pseudo-linear branch. The standalone pseudo-linear call remains disabled exactly as in the source; ineligible degrees/root indices retain the canonical root-atom fallback. Later increments supply the main projection loop, public solver composition and conflict search. TRACE plus whole-unit ownership/lexical audits remain open, so whole-unit flags stay false.",
-        "Signed projection retains the correctness path through general pair projection for a selected linear equality; cpp1719-1760 solve_eq virtual substitution is a pending performance optimization. The public cpp1465-1514 literal splitting, variable reorder/restore, owning result interface and final polarity reversal are still pending, so this method remains internal and the source unit stays partial."
+        "Signed projection retains the correctness path through general pair projection for a selected linear equality; cpp1719-1760 solve_eq virtual substitution is a pending performance optimization. Public literal splitting, variable reorder/restore, owning result publication and final polarity reversal are supplied by solver_projection.go; the source unit stays partial for the linear optimization and remaining audits."
       ]
     },
     {
@@ -95741,6 +95752,7 @@
         "pkg/nlsat/explain_minimize.go",
         "pkg/nlsat/search_state.go",
         "pkg/nlsat/scoped_literal_vector.go",
+        "pkg/nlsat/literal_vector.go",
         "pkg/nlsat/explain_assumptions.go",
         "pkg/nlsat/explain_normalize.go"
       ],
@@ -95757,6 +95769,7 @@
         "TestScopedLiteralVectorSetShrinkAndMultiplicity",
         "TestScopedLiteralVectorSetBoundsOwnsOnlyIncoming",
         "TestScopedLiteralVectorStoppedSetAndShrinkContinueExactDEC",
+        "TestLiteralVectorBlocksSolverCloseUntilReleased",
         "TestExplanationNormalizeCoreCompactionAndFalseReset",
         "TestExplanationNormalizeCorePreservesBorrowedPendingSET"
       ],
@@ -95808,16 +95821,27 @@
             "TestScopedLiteralVectorSetBoundsOwnsOnlyIncoming",
             "TestScopedLiteralVectorStoppedSetAndShrinkContinueExactDEC"
           ]
+        },
+        {
+          "name": "Public owning literal-vector wrapper for retained projection consumers (h27-75)",
+          "status": "platform_replacement",
+          "go_target": "pkg/nlsat/literal_vector.go",
+          "tests": [
+            "TestSolverProjectOwnsResultAndRestoresVariableOrder",
+            "TestLiteralVectorBlocksSolverCloseUntilReleased"
+          ]
         }
       ],
       "ownership": [
         "The actual minimization result stores Go literal values and acquires one live atomFactory reference per appended occurrence. Reset walks forward and records consumed reference drops and only the exact pending atom retirement. Older output remains owned across append and component cleanup; it is retired only by explicit resetResult or component/parent close. Source set, shrink, swap, scoped_literal and other retained consumers remain pending; this is not a universal solver adapter or fake complete Solver.",
         "The shared concrete scopedLiteralVector now serves actual minimization and assumption output. SET acquires incoming ownership before reading the old slot, including self-aliases. A stopped old DEC records only its consumed lease and exact atom retirement; explicit abort retires only those accepted operations and the unpublished incoming lease, leaving a null owning slot after the old lease was consumed. SHRINK releases the tail forward before publishing its new extent. Pending/reset callback entry is guarded. Pure Boolean/null literals use actual factory no-op reference behavior.",
-        "The actual normalize(scoped_literal_vector&,max) consumer now uses this concrete vector's owning SET/SHRINK/RESET. Surviving literal order and duplicate leases are preserved, true results are removed and false results reset the core. Component cleanup does not consume an older borrowed vector SET; qualified pending incoming leases/refcounts remain unchanged until that vector owner acknowledges them."
+        "The actual normalize(scoped_literal_vector&,max) consumer now uses this concrete vector's owning SET/SHRINK/RESET. Surviving literal order and duplicate leases are preserved, true results are removed and false results reset the core. Component cleanup does not consume an older borrowed vector SET; qualified pending incoming leases/refcounts remain unchanged until that vector owner acknowledges them.",
+        "LiteralVector binds one concrete Solver atom factory, exposes native Go value copies while retaining one atom lease per occurrence, and blocks Solver.Close until its forward reset/destruction completes."
       ],
       "deviations": [
         "No C++ standard-library vector is ported. Only the actual minimization result consumer is represented by a concrete native Go owning slice with source INC-before-push and forward DEC-before-clear. The remaining scoped literal/vector consumers and whole-header methods/ownership audits remain incomplete.",
-        "SET and SHRINK are now implemented for retained concrete consumers alongside push/reset/destruction; earlier notes describing them as pending are superseded. Remaining swap/scoped_literal/header consumers and full audits are still pending. Storage stays a native Go slice, with no standard-library container port or generic solver adapter."
+        "SET and SHRINK are now implemented for retained concrete consumers alongside push/reset/destruction; earlier notes describing them as pending are superseded. Remaining swap/scoped_literal/header consumers and full audits are still pending. Storage stays a native Go slice, with no standard-library container port or generic solver adapter.",
+        "The public LiteralVector is a Go ownership surface for retained cross-package consumers, not a port of std::vector or a universal template adapter."
       ]
     },
     {
@@ -95843,6 +95867,8 @@
         "pkg/nlsat/solver.go",
         "pkg/nlsat/solver_assumptions.go",
         "pkg/nlsat/solver_model_state.go",
+        "pkg/nlsat/solver_projection.go",
+        "pkg/nlsat/literal_vector.go",
         "pkg/nlsat/inline_variables.go",
         "pkg/nlsat/univariate_conjunction.go"
       ],
@@ -95910,6 +95936,8 @@
             "TestSolverConflictMinimizationWithEquality",
         "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses",
         "TestSolverModelStateAndLiteralVariableViews",
+        "TestSolverProjectOwnsResultAndRestoresVariableOrder",
+        "TestLiteralVectorBlocksSolverCloseUntilReleased",
             "TestSolverInlineVariablesPatchesModelAndConflict",
             "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
             "TestFullDimensionalLiteralClassification",
@@ -96514,6 +96542,13 @@
           "tests": ["TestSolverModelStateAndLiteralVariableViews"]
         },
         {
+          "name": "Public owning signed model-projection operation used by quantified nonlinear consumers",
+          "status": "ported",
+          "go_target": "pkg/nlsat/solver_projection.go",
+          "go_targets": ["pkg/nlsat/literal_vector.go"],
+          "tests": ["TestSolverProjectOwnsResultAndRestoresVariableOrder", "TestLiteralVectorBlocksSolverCloseUntilReleased"]
+        },
+        {
           "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values/snapshots, literal inspection, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1416,1875-2091,2300-2378,3155-3169,3230-3241; solver.h38-55,64-112,132,159-166,193-216)",
           "status": "partial",
           "go_target": "pkg/nlsat/solver.go",
@@ -96535,7 +96570,8 @@
         "The actual searchState borrows the real clause/atom/assumption store, evaluator, assignment and interval manager. Its resource limit is the same actual service passed to the test algebraic manager and polynomial checkpoint, not a constant callback stand-in. Five concrete undo predicates and five tagged trail records replace only retained source instantiations. Undo consumes scalar/justification/reference mutations in source order, retaining reached phases on stops and finishing an already-entered undo even if its predicate changes. Equality pointers borrow clause-owned atoms and are replaced only by eligible strictly smaller-degree equalities. Infeasible updates save the old pointer before union construction, explicitly track whether the current reference was transferred, and preserve that trail publication after a stopped union; owning cleanup never decrements an unchanged old current set. Alias unions retain distinct trail/current references. Concrete union-buffer, returned-set and justification-mark scopes authorize only their actually accepted work, protecting older independent scratch. A fresh zero-reference union result or unacquired lazy reason is retired only through its real owner, without invented reference repairs. Parent destructors refuse before field progress while search state remains live.",
         "Witness selection owns one actual lexical algebraic value through PeekInComplement, IsRational and Assignment.SetCore. The actual integer flag and randomization parameter reach the interval manager. The irrational counter advances before SET_CORE and remains cumulative through assignment-growth failures and undo. SET_CORE swaps the old hidden assignment value into the lexical witness, whose normal destructor deletes it; on interruption, only that reachable value is retired by search cleanup after the actual numerical callee is acknowledged explicitly. No assignment flag, source reference count or statistics are repaired. Consecutive native reservation failures and tagged algebraic-copy prefixes are tested through successful retry; cleanup is checked before retry so it cannot be hidden by a later overwrite.",
         "The concrete resolution scratch borrows one search state and owns its mark slice plus scoped lemma, lazy-clause literal references and the current assumption-set reference. Mark publication precedes owning lemma insertion as in source; duplicate antecedents do not acquire another reference. Same-level compaction delegates INC-before-DEC SET and forward tail retirement to the concrete scoped literal vector. Lazy-clause construction resets its owned vector, invokes the composed explanation on the borrowed reason, acquires each projected literal, resets the explanation result, then appends negated reasons in source order. The backward trail walk resolves clause and lazy antecedents, emits the false decision literal, performs the source same-stage backtrack loop and clears every mark before handoff. Each resolved conflict/reason assumption DAG is joined into the owned lemma dependency; learned clause construction acquires that join before later analysis resets its scratch owner. It backjumps by stage, Boolean variable or arithmetic level, publishes the owned lemma through the actual learned clause factory, processes it immediately and restarts analysis if it still conflicts. Empty analysis reports UNSAT without constructing an invalid zero-literal clause and retains its assumption join for core extraction. The main loop consumes the actual Boolean/arithmetic watch vectors and preserves the assignment as the SAT model.",
-        "The public Solver owns the native allocator/cache/factory/assumption/clause/assignment/evaluator/search/explanation/projection/resolution composition while borrowing compatible caller numerical and polynomial managers. Construction follows dependency order and returns a partial owner on failure. Close releases resolution assumptions/literals before search-owned explanation state, then evaluator/assignment, clauses and dependency DAGs, remaining zero-reference atoms, the polynomial cache and allocator. Clause retirement owns learned and input dependencies independently; exported model copies belong to the caller. The borrowed managers remain usable after Solver Close."
+        "The public Solver owns the native allocator/cache/factory/assumption/clause/assignment/evaluator/search/explanation/projection/resolution composition while borrowing compatible caller numerical and polynomial managers. Construction follows dependency order and returns a partial owner on failure. Close releases resolution assumptions/literals before search-owned explanation state, then evaluator/assignment, clauses and dependency DAGs, remaining zero-reference atoms, the polynomial cache and allocator. Clause retirement owns learned and input dependencies independently; exported model copies belong to the caller. The borrowed managers remain usable after Solver Close.",
+        "Public projected results own atom references through LiteralVector. Solver Close refuses before mutating member state while any such result remains live; closing the result releases its literals forward and removes that borrower."
       ],
       "deviations": [
         "The NLSAT assumption specialization is concrete and AST-independent: leaf values carry either a frontend attachment identity or a borrowed pointer to an actual input literal. Nonzero-sized attachment tokens preserve distinct native identities; the retained goal frontend must map its concrete AST dependencies to these identities when integrated. Equal-valued literals at different input positions remain distinct. No any-valued callback/value adapter or C++ standard-library container is introduced. Native Go layouts/array capacities differ from source; caller output slices use Go storage. Every allocation/lexical/diagnostic frontier and full solver integration remain unaudited.",
