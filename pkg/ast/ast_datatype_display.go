@@ -69,10 +69,16 @@ func (m *ASTManager) DatatypeDefinitions(sort ASTHandle) ([]DatatypeDefinitionDe
 			}
 			for i, field := range ranges {
 				constructorDescription.Accessors = append(constructorDescription.Accessors, DatatypeAccessorDescription{Name: constructor.accessors[i], Range: m.external(field)})
-				fieldDefinition, x := m.datatypeDefinitionForSort(field)
+				// datatype::util::get_defs returns the instantiated range in
+				// its description, but discovers sibling definitions through
+				// accessor_decl::get_range(), the declaration's raw range.
+				// Looking through field here over-collects a sibling that merely
+				// happens to be supplied as a type argument.
+				declaredField := constructor.ranges[i]
+				fieldDefinition, x := m.datatypeDefinitionForSort(declaredField)
 				if x == nil && fieldDefinition.classID == rootDefinition.classID && !marked[fieldDefinition.name] {
 					marked[fieldDefinition.name] = true
-					stack = append(stack, field)
+					stack = append(stack, declaredField)
 				}
 			}
 			description.Constructors = append(description.Constructors, constructorDescription)
@@ -180,11 +186,11 @@ func (m *ASTManager) DisplayDatatype(sort ASTHandle, out io.Writer) error {
 				return finish(e)
 			}
 			if e = writeSymbol("  " + constructorName + " :: "); e != nil {
-				return finish(e)
+				return e
 			}
 			ranges, e := m.datatypeInstantiatedRanges(current, definition, constructor)
 			if e != nil {
-				return e
+				return finish(e)
 			}
 			for i, field := range ranges {
 				accessorName, e := symbolText(constructor.accessors[i])
