@@ -19,9 +19,6 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 	if err != nil {
 		return err
 	}
-	if len(e.processor.Divisibilities(false))+len(e.processor.Divisibilities(true)) != 0 {
-		return ast.ErrASTDomain
-	}
 	branchNumber, err := p.manager.NumeralService().Unsigned(value)
 	if err != nil {
 		return err
@@ -45,6 +42,9 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 			resultErr = errors.Join(resultErr, definitionErr, p.manager.DelRef(&result))
 		}
 	}()
+	if _, err = p.applyCooper(target, e.processor, result); err != nil {
+		return err
+	}
 	if selection.Kind == ArithmeticInfinityBranch {
 		err = p.rewriteInfinity(e, selection.Lower, result)
 	} else {
