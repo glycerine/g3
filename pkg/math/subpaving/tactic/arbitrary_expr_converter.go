@@ -283,7 +283,7 @@ func (c *ArbitraryExprConverter) asPower(h ast.ASTHandle) (ast.ASTHandle, uint32
 		return h, 1, err
 	}
 	k, yes, err := c.unsignedExponent(exponent)
-	if err != nil || !yes {
+	if err != nil || !yes || k == 0 {
 		return h, 1, err
 	}
 	base, err := c.ast.GetArg(h, 0)
@@ -303,12 +303,14 @@ func (c *ArbitraryExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) 
 	if err != nil {
 		return 0, err
 	}
-	_, _, numeric, err := c.ast.ArithmeticNumeralText(first)
+	coefficientText, _, numeric, err := c.ast.ArithmeticNumeralText(first)
 	if err != nil {
 		return 0, err
 	}
 	m := t
-	if numeric {
+	nonzeroCoefficient := false
+	coefficient, parsed := new(big.Rat).SetString(coefficientText)
+	if numeric && parsed && coefficient.Sign() != 0 {
 		if count != 2 {
 			return 0, ErrExprConverterNonSimplified
 		}
@@ -319,7 +321,9 @@ func (c *ArbitraryExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) 
 		if err != nil {
 			return 0, err
 		}
-	} else {
+		nonzeroCoefficient = true
+	}
+	if !nonzeroCoefficient {
 		if err = z.SetInt32(n, 1); err != nil {
 			return 0, err
 		}
@@ -380,9 +384,6 @@ func (c *ArbitraryExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) 
 			return 0, e
 		}
 		if x != math.MaxUint32 {
-			if degree == 0 {
-				return 0, ErrExprConverterUnsupported
-			}
 			powers = append(powers, subpaving.ArbitraryPower{Variable: x, Degree: degree})
 		}
 	}
@@ -415,7 +416,7 @@ func (c *ArbitraryExprConverter) processPower(t ast.ASTHandle, n, d *numeral.Int
 	if err != nil {
 		return 0, err
 	}
-	if !yes {
+	if !yes || k == 0 {
 		return c.mkVarFor(t, integer, n, d)
 	}
 	base, err := c.ast.GetArg(t, 0)
@@ -427,9 +428,6 @@ func (c *ArbitraryExprConverter) processPower(t ast.ASTHandle, n, d *numeral.Int
 		return 0, err
 	}
 	if x != math.MaxUint32 {
-		if k == 0 {
-			return 0, ErrExprConverterUnsupported
-		}
 		shell, e := c.engine.Shell()
 		if e != nil {
 			return 0, e

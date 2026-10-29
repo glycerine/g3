@@ -312,8 +312,38 @@ func TestHardwareExprConverterTerms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := converter.InternalizeTerm(zeroPower, &n, &d); !errors.Is(err, ErrExprConverterUnsupported) {
-		t.Fatalf("zero-degree monomial still open: %v", err)
+	zeroPowerVar, err := converter.InternalizeTerm(zeroPower, &n, &d)
+	if err != nil || zeroPowerVar == math.MaxUint32 || zeroPowerVar == first {
+		t.Fatalf("zero power must remain an atomic variable: %d, %v", zeroPowerVar, err)
+	}
+	if yes, err := converter.IsVar(zeroPower); err != nil || !yes {
+		t.Fatalf("zero power atom mapping: %v, %v", yes, err)
+	}
+	if got, err := qm.Z.String(&n); err != nil || got != "1" {
+		t.Fatalf("zero power numerator: %s, %v", got, err)
+	}
+	zeroPowerProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zeroPower, y})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := converter.InternalizeTerm(zeroPowerProduct, &n, &d); err != nil || got == math.MaxUint32 || got == zeroPowerVar {
+		t.Fatalf("zero power must have degree one in a product: %d, %v", got, err)
+	}
+	if got, err := qm.Z.String(&n); err != nil || got != "1" {
+		t.Fatalf("zero power product numerator: %s, %v", got, err)
+	}
+	zeroProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x, y})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := converter.InternalizeTerm(zeroProduct, &n, &d); err != nil || got == math.MaxUint32 {
+		t.Fatalf("n-ary zero product: %d, %v", got, err)
+	}
+	if got, err := qm.Z.String(&n); err != nil || got != "0" {
+		t.Fatalf("n-ary zero product numerator: %s, %v", got, err)
+	}
+	if got, err := qm.Z.String(&d); err != nil || got != "1" {
+		t.Fatalf("n-ary zero product denominator: %s, %v", got, err)
 	}
 	for _, tc := range []struct {
 		name string

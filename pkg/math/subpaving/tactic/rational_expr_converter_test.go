@@ -201,8 +201,39 @@ func TestRationalExprConverterExactLeafGoalAndCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := converter.InternalizeTerm(zeroPower, &n, &d); !errors.Is(err, ErrExprConverterUnsupported) {
-		t.Fatal("zero-degree monomial violates source assertion", err)
+	if err := m.IncRef(zeroPower); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.DecRef(zeroPower); err != nil {
+			t.Error(err)
+		}
+	}()
+	zeroPowerVar, err := converter.InternalizeTerm(zeroPower, &n, &d)
+	if err != nil || zeroPowerVar == math.MaxUint32 || zeroPowerVar == variable {
+		t.Fatal("zero power must remain an atomic variable", zeroPowerVar, err)
+	}
+	if again, err := converter.InternalizeTerm(zeroPower, &n, &d); err != nil || again != zeroPowerVar {
+		t.Fatal("zero power atom mapping", again, err)
+	}
+	if got, err := qm.Z.String(&n); err != nil || got != "1" {
+		t.Fatal("zero power numerator", got, err)
+	}
+	if base, degree, err := converter.asPower(zeroPower); err != nil || base != zeroPower || degree != 1 {
+		t.Fatal("zero power must have degree one in a product", base, degree, err)
+	}
+	zeroProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x, sum})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := converter.InternalizeTerm(zeroProduct, &n, &d); err != nil || got == math.MaxUint32 {
+		t.Fatal("n-ary zero product", got, err)
+	}
+	if got, err := qm.Z.String(&n); err != nil || got != "0" {
+		t.Fatal("n-ary zero product numerator", got, err)
+	}
+	if got, err := qm.Z.String(&d); err != nil || got != "2" {
+		t.Fatal("n-ary zero product denominator", got, err)
 	}
 	sumLE, err := m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{sum, two})
 	if err != nil {
