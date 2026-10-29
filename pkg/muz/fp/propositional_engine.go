@@ -1267,6 +1267,40 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	return nil
 }
 
+// Rules returns owning formula references for the current scoped Horn rule
+// set in insertion order. The caller releases every reference.
+func (e *PropositionalEngine) Rules() (result []ast.ASTRef, resultErr error) {
+	if err := e.open(); err != nil {
+		return nil, err
+	}
+	count, err := e.set.Len()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			for index := len(result) - 1; index >= 0; index-- {
+				resultErr = errors.Join(resultErr, e.manager.DelRef(&result[index]))
+			}
+			result = nil
+		}
+	}()
+	result = make([]ast.ASTRef, 0, count)
+	for index := 0; index < count; index++ {
+		rule, getErr := e.set.Rule(index)
+		if getErr != nil {
+			return nil, getErr
+		}
+		formula, formulaErr := rule.ToFormula()
+		formulaErr = errors.Join(formulaErr, rule.Close())
+		if formulaErr != nil {
+			return nil, formulaErr
+		}
+		result = append(result, formula)
+	}
+	return result, nil
+}
+
 // QueryPredicate returns true exactly when the registered predicate relation
 // contains at least one tuple after positive Horn saturation.
 func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (lbool.LBool, error) {

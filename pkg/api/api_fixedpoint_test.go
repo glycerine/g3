@@ -46,9 +46,30 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	step := pin(manager.MkImplies(pX, qX))
 	astTestMust(t, context.PushFixedpoint())
 	astTestMust(t, context.AddFixedpointRuleWithBound(uZero, "api-fp-scoped", 3))
+	rules, err := context.FixedpointRules()
+	astTestMust(t, err)
+	if len(rules) != 1 {
+		t.Fatal("scoped fixedpoint rule enumeration", len(rules))
+	}
+	for index := range rules {
+		astTestMust(t, manager.DelRef(&rules[index]))
+	}
 	astTestMust(t, context.PopFixedpoint())
+	rules, err = context.FixedpointRules()
+	astTestMust(t, err)
+	if len(rules) != 0 {
+		t.Fatal("popped fixedpoint rule enumeration", len(rules))
+	}
 	astTestMust(t, context.AddFixedpointRule(pZero, "api-fp-fact"))
 	astTestMust(t, context.AddFixedpointRule(step, "api-fp-step"))
+	rules, err = context.FixedpointRules()
+	astTestMust(t, err)
+	if len(rules) != 2 {
+		t.Fatal("fixedpoint rule enumeration", len(rules))
+	}
+	for index := range rules {
+		astTestMust(t, manager.DelRef(&rules[index]))
+	}
 
 	status, err := context.QueryFixedpoint(q)
 	astTestMust(t, err)

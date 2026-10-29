@@ -79,6 +79,15 @@ func (c *SMTContext) PopFixedpoint() error {
 	return c.command.PopFixedpoint()
 }
 
+// FixedpointRules returns owning formulas for the current scoped Horn rules in
+// insertion order. Release every result through Manager().DelRef.
+func (c *SMTContext) FixedpointRules() ([]ast.ASTRef, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	return c.command.FixedpointRules()
+}
+
 // QueryFixedpoint asks whether the registered relation is reachable.
 func (c *SMTContext) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, error) {
 	if err := c.open(); err != nil {

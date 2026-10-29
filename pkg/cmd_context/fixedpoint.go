@@ -315,3 +315,13 @@ func (c *Context) ResetFixedpointStatistics() error {
 	}
 	return engine.ResetStatistics()
 }
+
+// FixedpointRules returns owning formulas for the current scoped Horn rules in
+// insertion order. The caller releases every reference through Manager.DelRef.
+func (c *Context) FixedpointRules() ([]ast.ASTRef, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return nil, err
+	}
+	return engine.Rules()
+}
