@@ -92434,8 +92434,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/transforms/coi.go", "pkg/muz/dataflow/reachability.go"],
-      "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"],
+      "go_targets": ["pkg/muz/transforms/coi.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/spacer_slice_results.go"],
+      "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestConePluginCapturesOrderedModelDefinitions", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
       "assertions": [
         {
           "line": 73,
@@ -92450,13 +92450,21 @@
           "status": "partial",
           "go_target": "pkg/muz/transforms/coi.go",
           "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"]
+        },
+        {
+          "name": "top-down extension definitions, bottom-up unreachable=false definitions, reverse replay, and model-first inductive-certificate reconstruction",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/coi.go",
+          "go_targets": ["pkg/muz/transforms/coi_plugin.go", "pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/spacer_slice_results.go", "pkg/muz/fp/propositional_engine.go"],
+          "tests": ["TestConePluginCapturesOrderedModelDefinitions", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestPDREngineExpandsSlicedModelsAndCovers"]
         }
       ],
       "ownership": [
-        "Each changed pass returns one finalized owning RuleSet, closes every temporary Rule wrapper and discarded intermediate set, and retains source rules through RuleSet.Add."
+        "Each changed pass returns one finalized owning RuleSet, closes every temporary Rule wrapper and discarded intermediate set, and retains source rules through RuleSet.Add.",
+        "Each converter step owns its formula references until transfer into a Horn backend; replacement, failure, and close release them in reverse order."
       ],
       "deviations": [
-        "Fixedpoint-context fact-table bailout and extension_model_converter construction remain pending the Go dl_context/model-converter integration; the rule-pruning semantics are live."
+        "The fixedpoint-context fact-table bailout remains pending. Initial cone conversion is replayed by both Horn backends; the two later interleaved cone stages await the general ordered conversion ledger."
       ]
     },
     {
@@ -92465,7 +92473,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/transforms/coi.go", "pkg/muz/transforms/coi_plugin.go"],
-      "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleTransformerAppliesConePlugin"],
+      "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleTransformerAppliesConePlugin", "TestConePluginCapturesOrderedModelDefinitions"],
       "conditionals": [
         {
           "line": 20,
@@ -92481,16 +92489,16 @@
       "methods": [
         {
           "name": "mk_coi_filter callable transformation surface and its top-down/bottom-up pass composition (dl_mk_coi_filter.h:27-47)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/coi.go",
-          "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleTransformerAppliesConePlugin"]
+          "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleTransformerAppliesConePlugin", "TestConePluginCapturesOrderedModelDefinitions"]
         }
       ],
       "ownership": [
-        "ConeOfInfluence returns nil for source no-change or transfers one finalized RuleSet owner to its caller."
+        "ConeOfInfluence returns nil for source no-change or transfers one finalized RuleSet owner to its caller; ConePlugin separately transfers or closes its ordered owning converter steps."
       ],
       "deviations": [
-        "Fixedpoint-context fact-table bailout and extension-model conversion remain with the pending dl_context/model-converter integration; the prioritized plugin surface is live."
+        "The prioritized plugin and converter-transfer surfaces are live; the fixedpoint-context fact-table bailout remains outside this package."
       ]
     },
     {
