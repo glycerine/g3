@@ -40,6 +40,7 @@ type BV2RealUtil struct {
 	tracePending                            []*bv2RealTrace
 	maxBits                                 uint32
 	header                                  uint64
+	borrowers                               uint32
 	resetting, closing, closed              bool
 	ready                                   bool
 }
@@ -234,6 +235,9 @@ func (u *BV2RealUtil) Close() error {
 	}
 	if err := u.owner(); err != nil {
 		return err
+	}
+	if u.borrowers != 0 {
+		return ast.ErrASTPending
 	}
 	u.closing = true
 	for len(u.tracePending) > 0 {

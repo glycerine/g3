@@ -27,6 +27,7 @@ type BV2IntContext struct {
 	side, trail                []ast.ASTHandle
 	power2                     map[ast.ASTHandle]ast.ASTHandle
 	header                     uint64
+	borrowers                  uint32
 	resetting, closing, closed bool
 }
 
@@ -302,6 +303,9 @@ func (r *BV2IntContext) Close() error {
 	}
 	if err := r.owner(); err != nil {
 		return err
+	}
+	if r.borrowers != 0 {
+		return ast.ErrASTPending
 	}
 	r.closing = true
 	// Implicit destruction reverses member order, unlike explicit reset.

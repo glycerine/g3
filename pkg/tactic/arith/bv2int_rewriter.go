@@ -38,6 +38,7 @@ type BV2IntRewriter struct {
 	traversal       *rewriter.Traversal
 	pending         []*bv2IntCall
 	header          uint64
+	borrowed        bool
 	closing, closed bool
 }
 
@@ -62,6 +63,11 @@ func NewBV2IntRewriter(ctx *BV2IntContext) (*BV2IntRewriter, error) {
 	}
 	r := &BV2IntRewriter{manager: m, context: ctx, arith: a, bv: b, header: n}
 	r.self = r
+	if err = ctx.borrowRewriter(); err != nil {
+		m.Budget().Release(n)
+		return nil, err
+	}
+	r.borrowed = true
 	r.cfg.owner = r
 	r.traversal, err = rewriter.NewTraversal(m, &r.cfg)
 	return r, err
@@ -113,6 +119,12 @@ func (r *BV2IntRewriter) Close() error {
 			return err
 		}
 		r.traversal = nil
+	}
+	if r.borrowed {
+		if err := r.context.releaseRewriter(); err != nil {
+			return err
+		}
+		r.borrowed = false
 	}
 	r.manager.Budget().Release(r.header)
 	r.header = 0

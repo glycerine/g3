@@ -34,6 +34,7 @@ type BV2RealRewriter struct {
 	traversal *rewriter.Traversal
 	eliminate bool
 	header    uint64
+	borrowed  bool
 	closed    bool
 }
 
@@ -53,6 +54,11 @@ func newBV2RealRewriter(u *BV2RealUtil, eliminate bool) (*BV2RealRewriter, error
 	}
 	r := &BV2RealRewriter{utility: u, eliminate: eliminate, header: bytes}
 	r.self = r
+	if err := u.borrowRewriter(); err != nil {
+		u.manager.Budget().Release(bytes)
+		return nil, err
+	}
+	r.borrowed = true
 	r.cfg.owner = r
 	var err error
 	r.traversal, err = rewriter.NewTraversal(u.manager, &r.cfg)
@@ -79,6 +85,12 @@ func (r *BV2RealRewriter) Close() error {
 			return err
 		}
 		r.traversal = nil
+	}
+	if r.borrowed {
+		if err := r.utility.releaseRewriter(); err != nil {
+			return err
+		}
+		r.borrowed = false
 	}
 	r.utility.manager.Budget().Release(r.header)
 	r.header = 0
