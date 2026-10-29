@@ -257,6 +257,38 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 	}
 }
 
+func TestSMTContextFixedpointPredicateRepresentation(t *testing.T) {
+	context, err := NewSMTContext()
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, context.Close()) })
+	manager, err := context.Manager()
+	astTestMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	astTestMust(t, err)
+	predicate, err := context.DeclareRelation("api-fp-representation", []ast.ASTHandle{boolean})
+	astTestMust(t, err)
+	astTestMust(t, context.SetFixedpointPredicateRepresentation(predicate, "tr_sparse", "tr_hashtable", "tr_bitvector", "tr_lazy_sparse"))
+	zero, err := context.DeclareRelation("api-fp-zero-representation", nil)
+	astTestMust(t, err)
+	if err = context.SetFixedpointPredicateRepresentation(zero, "tr_sparse"); err == nil {
+		t.Fatal("sparse representation accepted zero-arity relation")
+	}
+	if err = context.SetFixedpointPredicateRepresentation(zero, "missing"); err == nil {
+		t.Fatal("unknown predicate representation accepted")
+	}
+	truth, err := manager.MkTrue()
+	astTestMust(t, err)
+	astTestMust(t, context.AddFixedpointFact(predicate, []ast.ASTHandle{truth}))
+	status, err := context.QueryFixedpoint(predicate)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("represented fixedpoint relation", status)
+	}
+	if err = context.SetFixedpointPredicateRepresentation(predicate, "tr_hashtable"); err == nil {
+		t.Fatal("predicate representation changed after query")
+	}
+}
+
 func TestSMTContextFixedpointParameterDescriptors(t *testing.T) {
 	context, err := NewSMTContext()
 	astTestMust(t, err)

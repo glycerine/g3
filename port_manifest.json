@@ -80948,6 +80948,12 @@
           "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
         },
         {
+          "name": "finite-table predicate representation selection before the first query (dl_context.cpp:433-441)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/propositional_engine.go",
+          "tests": ["TestSMTContextFixedpointPredicateRepresentation", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
+        },
+        {
           "name": "infinite-domain predicate registration, PDR/Spacer uninterpreted-symbol rule guard and query dispatch through the retained rule context",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
@@ -82710,6 +82716,12 @@
           "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
           "tests": ["TestSMT2FixedpointRuleScopesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
+        },
+        {
+          "name": "declare-rel optional finite-table representation symbols (dl_cmds.cpp:376-427)",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/commands.go",
+          "tests": ["TestSMTLibRunnerScripts/fixedpoint_relation_representations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
         }
       ],
       "ownership": [
@@ -266315,8 +266327,9 @@
         "src/api/api_datalog.cpp",
         "src/api/z3_fixedpoint.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "go_target": "pkg/api/api_fixedpoint.go",
+      "tests": ["TestSMTContextFixedpointPredicateRepresentation", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
     },
     {
       "name": "Z3_fixedpoint_set_reduce_app_callback",

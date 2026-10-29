@@ -122,6 +122,16 @@ func (c *SMTContext) DeclareRelation(name string, domain []ast.ASTHandle) (ast.A
 	return c.command.DeclareRelation(name, domain)
 }
 
+// SetFixedpointPredicateRepresentation selects one or more native finite
+// table storage kinds before the first fixedpoint query. The retained kinds
+// are tr_sparse, tr_hashtable, tr_bitvector, and tr_lazy_sparse.
+func (c *SMTContext) SetFixedpointPredicateRepresentation(declaration ast.ASTHandle, kinds ...string) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	return c.command.SetFixedpointPredicateRepresentation(declaration, kinds)
+}
+
 // DeclareFixedpointVariable declares one implicit variable used by later
 // fixedpoint rules and returns its borrowed constant application.
 func (c *SMTContext) DeclareFixedpointVariable(name string, sort ast.ASTHandle) (ast.ASTHandle, error) {

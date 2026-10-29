@@ -57,6 +57,16 @@ func (c *Context) DeclareRelation(name string, domain []ast.ASTHandle) (ast.ASTH
 	return declaration, nil
 }
 
+// SetFixedpointPredicateRepresentation selects native finite-table storage
+// names for a registered relation before its first query.
+func (c *Context) SetFixedpointPredicateRepresentation(declaration ast.ASTHandle, kinds []string) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.SetPredicateRepresentation(declaration, kinds)
+}
+
 func (c *Context) AddFixedpointRule(formula ast.ASTHandle, name string) error {
 	return c.AddFixedpointRuleWithBound(formula, name, ^uint32(0))
 }

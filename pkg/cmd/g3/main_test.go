@@ -339,6 +339,7 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 
 var scriptResults = map[string]string{
 	"fixedpoint_propositional.smt2":                "unsat\nsat\ntrue\nunsat\n",
+	"fixedpoint_relation_representations.smt2":     "sat\nsat\nsat\nsat\n",
 	"fixedpoint_pdr_integer.smt2":                  "sat\nunsat\n",
 	"fixedpoint_pdr_background.smt2":               "sat\nunsat\n",
 	"fixedpoint_pdr_recursive_trace.smt2":          "sat\n(and (P 2) (P 1) (P 0))\nunsat\n",

@@ -7,6 +7,7 @@ package fp
 import (
 	"errors"
 	"fmt"
+	"math/bits"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -192,6 +193,53 @@ func (e *PropositionalEngine) RegisterPredicate(declaration ast.ASTHandle) error
 		e.predicateOrder = append(e.predicateOrder, declaration)
 	}
 	e.predicates[declaration] = state
+	e.revision++
+	return nil
+}
+
+// SetPredicateRepresentation accepts the native finite-table implementation
+// names. The Go backend uses one exact tuple-set
+// representation for all four storage-equivalent native table plugins.
+func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHandle, kinds []string) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	state := e.predicates[declaration]
+	if state == nil {
+		return ErrPropositionalHorn
+	}
+	if len(kinds) == 0 {
+		return nil
+	}
+	if e.queried {
+		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
+	}
+	signature, err := state.table.Signature()
+	if err != nil {
+		return err
+	}
+	for _, kind := range kinds {
+		switch kind {
+		case "tr_hashtable":
+		case "tr_sparse", "tr_lazy_sparse":
+			if signature.Len() == 0 {
+				return fmt.Errorf("muz/fp: relation plugin %s cannot represent a zero-arity predicate", kind)
+			}
+		case "tr_bitvector":
+			shift := 0
+			for _, domain := range signature.Domains() {
+				if domain > uint64(^uint32(0)) || domain&(domain-1) != 0 {
+					return fmt.Errorf("muz/fp: relation plugin bitvector cannot represent the predicate signature")
+				}
+				shift += bits.Len64(domain)
+				if shift >= 32 {
+					return fmt.Errorf("muz/fp: relation plugin bitvector cannot represent the predicate signature")
+				}
+			}
+		default:
+			return fmt.Errorf("muz/fp: relation plugin %s does not exist", kind)
+		}
+	}
 	e.revision++
 	return nil
 }

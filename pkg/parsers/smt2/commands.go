@@ -429,10 +429,22 @@ func (p *commandParser) command() (bool, error) {
 		if err = p.advance(); err != nil {
 			return false, err
 		}
+		var representations []string
+		for p.token != RightParenToken {
+			representation, x := p.symbol()
+			if x != nil {
+				return false, x
+			}
+			representations = append(representations, representation)
+		}
 		if err = p.requireEnd(); err != nil {
 			return false, err
 		}
-		if _, err = p.context.DeclareRelation(relation, domain); err != nil {
+		declaration, x := p.context.DeclareRelation(relation, domain)
+		if x != nil {
+			return false, x
+		}
+		if err = p.context.SetFixedpointPredicateRepresentation(declaration, representations); err != nil {
 			return false, err
 		}
 	case "declare-var":
