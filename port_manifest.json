@@ -35504,12 +35504,14 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/ast/rewriter/pb2bv_lifetime_audit_test.go",
         "pkg/ast/rewriter/pb2bv_rewriter.go",
         "pkg/ast/util_psort_ast_context.go",
         "pkg/ast/rewriter/pb2bv_params_source_test.go",
         "pkg/tactic/arith/card2bv_tactic.go"
       ],
       "tests": [
+        "TestPB2BVCleanupFailureRetiresFreshAndPreservesProofAndParams",
         "TestPB2BVCardinalityTraversalAndOrShortcut",
         "TestPB2BVWeightedConversionAndScopeGuards",
         "TestPB2BVArithmeticBooleanITERecognition",
@@ -35632,11 +35634,13 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/ast/rewriter/pb2bv_lifetime_audit_test.go",
         "pkg/ast/rewriter/pb2bv_rewriter.go",
         "pkg/ast/rewriter/pb2bv_params_source_test.go",
         "pkg/tactic/arith/card2bv_tactic.go"
       ],
       "tests": [
+        "TestPB2BVCleanupFailureRetiresFreshAndPreservesProofAndParams",
         "TestPB2BVCardinalityTraversalAndOrShortcut",
         "TestPB2BVWeightedConversionAndScopeGuards",
         "TestPB2BVArithmeticBooleanITERecognition",
