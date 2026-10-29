@@ -8,7 +8,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func TestNLSATTacticAdvertisesConflictMinimization(t *testing.T) {
+func TestNLSATTacticAdvertisesSourceParameterCatalog(t *testing.T) {
 	fixture := newGoalCompilerFixture(t)
 	value, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)
 	compilerMust(t, err)
@@ -17,10 +17,45 @@ func TestNLSATTacticAdvertisesConflictMinimization(t *testing.T) {
 	compilerMust(t, err)
 	t.Cleanup(func() { compilerMust(t, descriptions.Close()) })
 	compilerMust(t, value.CollectParamDescrs(descriptions))
-	found, err := descriptions.ContainsName("minimize_conflicts")
+	want := []struct {
+		name, description string
+		kind              uparams.ParamKind
+	}{
+		{"max_memory", "(default: infty) maximum amount of memory in megabytes.", uparams.ParamUInt},
+		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
+		{"reorder", "reorder variables.", uparams.ParamBool},
+		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
+		{"minimize_conflicts", "minimize conflicts", uparams.ParamBool},
+		{"randomize", "randomize selection of a witness.", uparams.ParamBool},
+		{"max_conflicts", "maximum number of conflicts.", uparams.ParamUInt},
+		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
+		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
+		{"seed", "random seed.", uparams.ParamUInt},
+		{"factor", "factor polynomials produced during conflict resolution.", uparams.ParamBool},
+	}
+	size, err := descriptions.Size()
 	compilerMust(t, err)
-	if !found {
-		t.Fatal("minimize_conflicts is not accepted by using-params")
+	if size != uint32(len(want)) {
+		t.Fatalf("descriptor count = %d, want %d", size, len(want))
+	}
+	for i, entry := range want {
+		name, cause := descriptions.ParamName(uint32(i))
+		compilerMust(t, cause)
+		got, cause := fixture.manager.Symbols.String(name)
+		compilerMust(t, cause)
+		if got != entry.name {
+			t.Fatalf("descriptor %d = %q, want %q", i, got, entry.name)
+		}
+		kind, cause := descriptions.Kind(name)
+		compilerMust(t, cause)
+		if kind != entry.kind {
+			t.Fatalf("%s kind = %v, want %v", got, kind, entry.kind)
+		}
+		description, present, cause := descriptions.Description(name)
+		compilerMust(t, cause)
+		if !present || description != entry.description {
+			t.Fatalf("%s description = %q, present %v, want %q", got, description, present, entry.description)
+		}
 	}
 }
 

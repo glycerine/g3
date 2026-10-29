@@ -94208,20 +94208,22 @@
       "path": "src/nlsat/CMakeLists.txt",
       "component": "nlsat",
       "role": "build_specification",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "platform_replacement",
+      "go_targets": ["pkg/nlsat"],
+      "tests": ["go test ./pkg/nlsat"],
       "registrations": [
         {
           "line": 1,
           "text": "z3_add_component(nlsat"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Go module/import discovery replaces z3_add_component and its CMake dependency declarations while preserving pkg/nlsat as a distinct package importing the retained polynomial and SAT packages."
+      ]
     },
     {
       "path": "src/nlsat/nlsat_assignment.h",
@@ -95770,14 +95772,24 @@
       "path": "src/nlsat/nlsat_params.pyg",
       "component": "nlsat",
       "role": "generated_input",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "status": "ported",
+      "go_targets": ["pkg/nlsat/tactic/nlsat_tactic.go", "pkg/nlsat/solver.go"],
+      "tests": ["TestNLSATTacticAdvertisesSourceParameterCatalog", "TestNLSATTacticRetainsParametersAcrossTranslation"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Complete nlsat parameter schema, source order, kinds, descriptions, defaults and typed solver configuration",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/nlsat_tactic.go",
+          "go_targets": ["pkg/nlsat/solver.go"],
+          "tests": ["TestNLSATTacticAdvertisesSourceParameterCatalog", "TestNLSATTacticRetainsParametersAcrossTranslation"]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "The static generated-input declaration is represented by typed descriptor collection and immutable SolverConfig construction; no C++ code generator or generated helper class is retained."
+      ]
     },
     {
       "path": "src/nlsat/nlsat_scoped_literal_vector.h",
@@ -96806,20 +96818,22 @@
       "path": "src/nlsat/tactic/CMakeLists.txt",
       "component": "nlsat",
       "role": "build_specification",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "platform_replacement",
+      "go_targets": ["pkg/nlsat/tactic", "pkg/tactic/smtlogics"],
+      "tests": ["go test ./pkg/nlsat/tactic ./pkg/tactic/smtlogics"],
       "registrations": [
         {
           "line": 1,
           "text": "z3_add_component(nlsat_tactic"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Go module/import discovery replaces z3_add_component, tactic-header registration and CMake dependency declarations. The retained NLSAT frontend remains a distinct pkg/nlsat/tactic package and QF_NRA routing is registered by pkg/tactic/smtlogics."
+      ]
     },
     {
       "path": "src/nlsat/tactic/goal2nlsat.cpp",

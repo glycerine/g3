@@ -163,15 +163,15 @@ func (t *NLSATTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		kind              uparams.ParamKind
 	}{
 		{"lazy", "how lazy the solver is.", uparams.ParamUInt},
+		{"reorder", "reorder variables.", uparams.ParamBool},
 		{"simplify_conflicts", "simplify conflicts using equalities before resolving them.", uparams.ParamBool},
-		{"minimize_conflicts", "minimize conflicts.", uparams.ParamBool},
+		{"minimize_conflicts", "minimize conflicts", uparams.ParamBool},
 		{"randomize", "randomize selection of a witness.", uparams.ParamBool},
 		{"max_conflicts", "maximum number of conflicts.", uparams.ParamUInt},
-		{"reorder", "reorder variables.", uparams.ParamBool},
 		{"shuffle_vars", "use a random variable order.", uparams.ParamBool},
+		{"inline_vars", "inline variables that can be isolated from equations", uparams.ParamBool},
 		{"seed", "random seed.", uparams.ParamUInt},
 		{"factor", "factor polynomials produced during conflict resolution.", uparams.ParamBool},
-		{"inline_vars", "inline variables that can be isolated from equations.", uparams.ParamBool},
 	}
 	for _, entry := range entries {
 		if err := out.InsertName(entry.name, entry.kind, &entry.description, nil, nil); err != nil {
