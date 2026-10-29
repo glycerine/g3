@@ -89451,7 +89451,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/spacer_slice_results.go", "pkg/muz/spacer/context.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_fixedpoint.go"],
-      "tests": ["TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSpacerEngineExpandsSlicedReachableColumns", "TestSpacerEngineExpandsSlicedModelPredicates", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP"],
+      "tests": ["TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSpacerEngineExpandsSlicedReachableColumns", "TestSpacerEngineReconstructsInlinedReachablePredicate", "TestSpacerEngineExpandsSlicedModelPredicates", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP"],
       "assertions": [
         {
           "line": 274,
@@ -89468,12 +89468,12 @@
         {"name": "direct-predicate and from-level query selection, Spacer context construction and solve routing", "status": "ported", "go_target": "pkg/muz/fp/propositional_engine.go", "tests": ["TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP"]},
         {"name": "answer, ground answer, trace rules/names, inductive model, level count, cover/invariant, reachable summary, statistics and reset forwarding", "status": "ported", "go_target": "pkg/muz/fp/propositional_engine.go", "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "parameter-controlled semantic slice, coalesce, and iterative unfold preprocessing with direct query predicate remapping", "status": "ported", "go_target": "pkg/muz/fp/spacer_engine.go", "tests": ["TestSMTLibRunnerCPPReference/fixedpoint_spacer_slice_columns.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_spacer_coalesce_unfold.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_spacer_unfold_rules.smt2"]},
-        {"name": "sliced-predicate forwarding and answer, cover, reachable, and ground-answer variable expansion to original columns", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedReachableColumns"]},
+        {"name": "reverse-ledger model, cover, and reachable reconstruction across slicing, cone filtering, subsumption, and inlining; sliced answer and ground-answer variable expansion", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedReachableColumns", "TestSpacerEngineReconstructsInlinedReachablePredicate", "TestSpacerEngineExpandsSlicedModelPredicates"]},
         {"name": "sliced model interpretation expansion to original predicate declarations and columns", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedModelPredicates"]},
         {"name": "remaining transformed-rule subsumption reuse, slice proof expansion, and proof or diagnostic certificate display", "status": "unported", "go_target": null, "tests": []}
       ],
       "ownership": ["PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."],
-      "deviations": ["Go selects direct predicate declarations through the typed engine API, remaps sliced predicates through RuleSet metadata, and expands exported formulas and model interpretations to original free-variable columns. The Go model converter expands the complete interpretation expression instead of storing non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported."]
+      "deviations": ["Go selects direct predicate declarations through the typed engine API and reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported."]
     },
     {
       "path": "src/muz/spacer/spacer_dl_interface.h",

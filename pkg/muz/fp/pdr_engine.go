@@ -392,11 +392,16 @@ func (e *PropositionalEngine) Reachable(declaration ast.ASTHandle) (ast.ASTRef, 
 	if e.backend != "spacer" || e.spacer == nil || e.spacerRevision != e.revision {
 		return ast.ASTRef{}, ErrPropositionalEngine
 	}
-	result, err := e.spacer.Reachable(e.spacerPredicate(declaration))
+	derived := e.spacerPredicate(declaration)
+	_, found, err := e.spacer.Transformer(derived)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	return e.expandSpacerFormula(declaration, result)
+	result, err := e.spacer.Reachable(derived)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return e.expandHornCover(declaration, derived, result, found, e.spacerConversions)
 }
 
 // GroundSatAnswer returns the latest successful Spacer reach-fact answer.
