@@ -4,36 +4,49 @@ package fp
 
 import "fmt"
 
+func (e *PropositionalEngine) selectBackend(kind EngineKind) {
+	if e.backend != kind.String() {
+		e.queryReady = false
+	}
+	e.backend = kind.String()
+}
+
 // SelectEngine applies the retained fixedpoint engine factory branch.
 func (e *PropositionalEngine) SelectEngine(name string) error {
 	if err := e.open(); err != nil {
 		return err
 	}
-	switch name {
-	case "auto-config":
-		e.backend = "datalog"
+	if name == "auto-config" {
+		kind := EngineDatalog
 		for _, state := range e.predicates {
 			if state.table == nil {
 				if e.params == nil || e.globals == nil {
 					return fmt.Errorf("muz/fp: fixedpoint auto-config requires parameter services for infinite-domain predicates")
 				}
-				e.backend = "pdr"
+				kind = EnginePDR
 				break
 			}
 		}
+		e.selectBackend(kind)
 		return nil
-	case "datalog":
-		e.backend = "datalog"
+	}
+	kind, err := parseEngineKind(name)
+	if err != nil {
+		return err
+	}
+	if !kind.Retained() {
+		return fmt.Errorf("muz/fp: fixedpoint engine %s is not ported", name)
+	}
+	switch kind {
+	case EngineDatalog:
+		e.selectBackend(kind)
 		return nil
-	case "pdr", "spacer":
+	case EnginePDR, EngineSpacer:
 		if e.params == nil || e.globals == nil {
 			return fmt.Errorf("muz/fp: fixedpoint engine %s requires parameter services", name)
 		}
-		e.backend = name
+		e.selectBackend(kind)
 		return nil
-	case "bmc", "tab", "clp", "duality", "ddnf", "qpdr", "qbmc":
-		return fmt.Errorf("muz/fp: fixedpoint engine %s is not ported", name)
-	default:
-		return fmt.Errorf("muz/fp: unknown fixedpoint engine %s", name)
 	}
+	return fmt.Errorf("muz/fp: fixedpoint engine %s is not ported", name)
 }

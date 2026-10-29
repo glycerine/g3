@@ -379,11 +379,8 @@ func (e *PropositionalEngine) AddInvariant(declaration, property ast.ASTHandle) 
 
 // Reachable returns the accumulated Spacer reach summary for a predicate.
 func (e *PropositionalEngine) Reachable(declaration ast.ASTHandle) (ast.ASTRef, error) {
-	if err := e.open(); err != nil {
+	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return ast.ASTRef{}, err
-	}
-	if e.backend != "spacer" || e.spacer == nil || e.spacerRevision != e.revision {
-		return ast.ASTRef{}, ErrPropositionalEngine
 	}
 	derived := e.spacerPredicate(declaration)
 	_, found, err := e.spacer.Transformer(derived)
@@ -399,11 +396,8 @@ func (e *PropositionalEngine) Reachable(declaration ast.ASTHandle) (ast.ASTRef, 
 
 // GroundSatAnswer returns the latest successful Spacer reach-fact answer.
 func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.ASTRef, error) {
-	if err := e.open(); err != nil {
+	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return ast.ASTRef{}, err
-	}
-	if e.backend != "spacer" || e.spacer == nil || e.spacerRevision != e.revision {
-		return ast.ASTRef{}, ErrPropositionalEngine
 	}
 	answer, err := e.spacer.GroundSatAnswer(e.spacerPredicate(declaration))
 	if err != nil {
@@ -418,11 +412,8 @@ func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.AS
 // RulesAlongTrace returns owning rule formulas and their names in preorder for
 // the latest successful Spacer query. The caller releases every ASTRef.
 func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []string, resultErr error) {
-	if err := e.open(); err != nil {
+	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return nil, nil, err
-	}
-	if e.backend != "spacer" || e.spacer == nil || e.spacerRevision != e.revision {
-		return nil, nil, ErrPropositionalEngine
 	}
 	rules, err := e.spacer.RulesAlongTrace()
 	if err != nil {

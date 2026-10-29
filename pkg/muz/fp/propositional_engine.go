@@ -88,6 +88,10 @@ type PropositionalEngine struct {
 	auxiliary          map[ast.ASTHandle]bool
 	compiled           bool
 	queried            bool
+	queryReady         bool
+	queryRevision      uint64
+	queryEngine        EngineKind
+	lastResult         lbool.LBool
 	revision           uint64
 	pdrRevision        uint64
 	spacerRevision     uint64
@@ -410,43 +414,6 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 	return e.AddFact(declaration, handles)
 }
 
-func ruleSubsumes(stronger, weaker *base.Rule) (bool, error) {
-	strongerHead, err := stronger.Head()
-	if err != nil {
-		return false, err
-	}
-	weakerHead, err := weaker.Head()
-	if err != nil || strongerHead != weakerHead {
-		return false, err
-	}
-	strongerSize, err := stronger.TailSize()
-	if err != nil {
-		return false, err
-	}
-	weakerSize, err := weaker.TailSize()
-	if err != nil {
-		return false, err
-	}
-	for i := 0; i < strongerSize; i++ {
-		candidate, _, x := stronger.Tail(i)
-		if x != nil {
-			return false, x
-		}
-		found := false
-		for j := 0; j < weakerSize && !found; j++ {
-			other, _, x := weaker.Tail(j)
-			if x != nil {
-				return false, x
-			}
-			found = candidate == other
-		}
-		if !found {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 // UpdateRule adds a named rule or replaces the unique existing rule with that
 // name. A replacement must preserve the head and may only strengthen the body.
 func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (resultErr error) {
@@ -511,7 +478,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		if x != nil {
 			return x
 		}
-		subsumes, x := ruleSubsumes(old, candidate)
+		subsumes, x := base.BasicRuleSubsumes(old, candidate)
 		x = errors.Join(x, old.Close())
 		if x != nil {
 			return x
@@ -1622,6 +1589,7 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 }
 
 func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
+	e.recordResultSnapshot(result, err)
 	if err != nil {
 		e.lastStatus = "input error"
 		return
@@ -1675,10 +1643,14 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	if err := e.open(); err != nil {
 		return answer, err
 	}
+	kind, err := parseEngineKind(e.backend)
+	if err != nil {
+		return answer, err
+	}
+	if err = e.requireResultSnapshot(kind); err != nil {
+		return answer, err
+	}
 	if e.backend == "pdr" {
-		if e.pdr == nil || !e.queried || e.pdrRevision != e.revision {
-			return answer, ErrPropositionalEngine
-		}
 		status, err := e.pdr.LastResult()
 		if err != nil {
 			return answer, err
@@ -1695,9 +1667,6 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		return e.pdr.Answer(e.pdrPredicate(declaration))
 	}
 	if e.backend == "spacer" {
-		if e.spacer == nil || !e.queried || e.spacerRevision != e.revision {
-			return answer, ErrPropositionalEngine
-		}
 		status, err := e.spacer.LastResult()
 		if err != nil {
 			return answer, err
@@ -1789,11 +1758,8 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 // fixedpoint.generate_proof_trace. The caller releases it through
 // ASTManager.DelRef.
 func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
-	if err := e.open(); err != nil {
+	if err := e.requireResultSnapshot(EnginePDR); err != nil {
 		return ast.ASTRef{}, err
-	}
-	if e.backend != "pdr" || e.pdr == nil || !e.queried || e.pdrRevision != e.revision {
-		return ast.ASTRef{}, ErrPropositionalEngine
 	}
 	return e.pdr.Proof(e.pdrPredicate(declaration))
 }
@@ -1807,13 +1773,16 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		return false, err
 	}
 	if e.backend == "spacer" {
-		if e.spacer == nil || !e.queried || e.spacerRevision != e.revision {
-			return false, ErrPropositionalEngine
+		if err := e.requireResultSnapshot(EngineSpacer); err != nil {
+			return false, err
 		}
 		return false, e.spacer.DisplayCertificate(out)
 	}
 	if e.backend != "pdr" {
 		return false, nil
+	}
+	if err := e.requireResultSnapshot(EnginePDR); err != nil {
+		return false, err
 	}
 	status, err := e.pdr.LastResult()
 	if err != nil {
@@ -1848,8 +1817,12 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 	if err := e.open(); err != nil {
 		return nil, err
 	}
-	if !e.queried {
-		return nil, ErrPropositionalEngine
+	kind, err := parseEngineKind(e.backend)
+	if err != nil {
+		return nil, err
+	}
+	if err = e.requireResultSnapshot(kind); err != nil {
+		return nil, err
 	}
 	if e.backend == "datalog" {
 		return e.datalogModel(declaration)

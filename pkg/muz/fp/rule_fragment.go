@@ -15,6 +15,13 @@ import (
 // is observable: the first failing property is the diagnostic returned to the
 // fixedpoint caller.
 func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backend string) (resultErr error) {
+	kind, err := parseEngineKind(backend)
+	if err != nil || !kind.Retained() {
+		if err == nil {
+			err = fmt.Errorf("unsupported fixedpoint engine %q", backend)
+		}
+		return fmt.Errorf("%w: %w", ErrPropositionalHorn, err)
+	}
 	properties, err := base.NewRuleProperties(rules)
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrPropositionalHorn, err)
@@ -27,8 +34,8 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 	if err = properties.Collect(set); err != nil {
 		return fmt.Errorf("%w: collect rule properties: %w", ErrPropositionalHorn, err)
 	}
-	switch backend {
-	case "datalog":
+	switch kind {
+	case EngineDatalog:
 		err = properties.CheckQuantifierFree()
 		if err == nil {
 			err = properties.CheckUninterpretedFree()
@@ -39,7 +46,7 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		if err == nil {
 			err = properties.CheckInfiniteSorts()
 		}
-	case "pdr", "spacer":
+	case EnginePDR, EngineSpacer:
 		err = properties.CheckExistentialTail()
 		if err == nil {
 			err = properties.CheckNegativePredicates()
@@ -47,8 +54,6 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		if err == nil {
 			err = properties.CheckUninterpretedFree()
 		}
-	default:
-		err = fmt.Errorf("unsupported fixedpoint engine %q", backend)
 	}
 	if err != nil {
 		return fmt.Errorf("%w: validate %s rule fragment: %w", ErrPropositionalHorn, backend, err)
