@@ -97,6 +97,21 @@ func (r *algebraicRoot) release() error {
 	return nil
 }
 
+// discardUnpublished closes the gap between mk_algebraic registration and
+// add_root's rational-function publication. It is used only when the latter
+// fails before taking the root's first reference.
+func (r *algebraicRoot) discardUnpublished() error {
+	if r == nil || r.deleted || r.owner == nil || r.index < 0 || r.index >= len(r.owner.roots) || r.owner.roots[r.index] != r || r.refs != 0 {
+		return arena.ErrInvalidSlot
+	}
+	if err := r.destroy(); err != nil {
+		return err
+	}
+	r.deleted = true
+	r.owner.roots[r.index] = nil
+	return nil
+}
+
 // destroy follows del_algebraic: polynomial, approximation interval,
 // isolating interval, then the shared sign-determination owner.
 func (r *algebraicRoot) destroy() error {
