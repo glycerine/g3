@@ -64,6 +64,8 @@ func (f *strategicSolverFactory) New(m *ast.ASTManager, p *uparams.ParamsRef, pr
 		return NewQFLRAStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "QF_NRA":
 		return NewQFNRAStrategicSolver(m, p, proofs, models, cores, f.config)
+	case "NRA":
+		return NewNRAStrategicSolver(m, p, proofs, models, cores, f.config)
 	case "QF_FP", "QF_FPBV", "QF_BVFP", "QF_FPLRA":
 		return NewQFFPStrategicSolverWithOutput(m, p, proofs, models, cores, selected, f.config, f.output)
 	case "QF_NIA":

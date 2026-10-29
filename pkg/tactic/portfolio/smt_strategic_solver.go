@@ -260,6 +260,14 @@ func NewQFNRAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, mo
 	return newStrategicSolver(m, strategy, "QF_NRA", p, proofs, models, cores, config)
 }
 
+func NewNRAStrategicSolver(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, config smtcore.SMTSolverConfig) (solver.Solver, error) {
+	strategy, err := smtlogics.NewNRATactic(m, p, config)
+	if err != nil {
+		return nil, err
+	}
+	return newStrategicSolver(m, strategy, "NRA", p, proofs, models, cores, config)
+}
+
 func NewQFFPStrategicSolverWithOutput(m *ast.ASTManager, p *uparams.ParamsRef, proofs, models, cores bool, logic string, config smtcore.SMTSolverConfig, output io.Writer) (solver.Solver, error) {
 	var strategy tactic.Tactic
 	var err error

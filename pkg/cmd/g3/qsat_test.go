@@ -25,6 +25,7 @@ func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 		{"qsat_scopes.smt2", "sat\nunsat\nsat\n((k 3))\n", "", false},
 		{"nlqsat_nonlinear_quantifiers.smt2", "sat\nsat\nsat\nunsat\n", "unknown\nunknown\nsat\nunsat\n", false},
 		{"nra_portfolio.smt2", "sat\nsat\nunsat\nsat\n", "", false},
+		{"nra_solver_quantifiers.smt2", "sat\nsat\nunsat\nsat\n", "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			script, err := os.ReadFile(filepath.Join("test_vectors", tc.name))

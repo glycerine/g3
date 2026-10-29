@@ -41958,7 +41958,11 @@
         "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2",
         "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2",
         "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2",
-        "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2"
+        "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2",
+        "pkg/tactic/smtlogics/nra_tactic.go",
+        "pkg/tactic/portfolio/strategic_solver_factory.go",
+        "pkg/cmd/g3/qsat_test.go",
+        "pkg/cmd/g3/test_vectors/nra_solver_quantifiers.smt2"
       ],
       "tests": [
         "TestSMT2FunctionDeclarationReferenceErrors",
@@ -42049,7 +42053,8 @@
         "TestFDSolverMixedConsequencesAndModelAfterClose",
         "TestFDSolverWideWeightedPseudoBooleanTruthTable",
         "TestCommandContextFiniteDomainSolverProofGate",
-        "TestCommandContextFiniteDomainStoppedConstructorPreservesManager"
+        "TestCommandContextFiniteDomainStoppedConstructorPreservesManager",
+        "TestSMTLibRunnerQSATAndQuantifierElimination"
       ],
       "conditionals": [
         {
@@ -176270,6 +176275,19 @@
           ]
         },
         {
+          "name": "Retained NRA mk_tactic_for_logic branch and factory operator(): NRA tactic2solver plus incremental NRA SMT under combined-solver fallback and result-provider policy",
+          "status": "ported",
+          "go_target": "pkg/tactic/portfolio/smt_strategic_solver.go",
+          "go_targets": [
+            "pkg/tactic/smtlogics/nra_tactic.go",
+            "pkg/tactic/portfolio/strategic_solver_factory.go",
+            "pkg/cmd_context/context.go",
+            "pkg/cmd/g3/qsat_test.go",
+            "pkg/cmd/g3/test_vectors/nra_solver_quantifiers.smt2"
+          ],
+          "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
+        },
+        {
           "name": "Remaining logic dispatcher branches and complete default tactic classifier; the stored-logic factory surface and concrete QF_BV incremental-SAT and FD backend selections are recorded separately",
           "status": "unported"
         },
@@ -176478,7 +176496,7 @@
         "Construction uses local counted tactic/solver references. The returned combined solver owns both child solvers; the tactic solver owns the concrete strategy. Context closes the combined owner before manager/services teardown. Evaluator/parameter services are borrowed through the same concrete configuration used by the incremental backend."
       ],
       "deviations": [
-        "Retained QF_AUFLIA, QF_LRA, QF_UF, QF_IDL, QF_LIA, QF_FP, QF_FPBV and QF_BVFP branches use shared combined-solver construction. The general ALL dispatcher now has a narrow OP_AS_ARRAY branch; its complete default classifier and other remaining branches are unported. Output-taking QF_IDL/QF_LIA/QF_FP constructors borrow io.Writer; convenience factories default to os.Stdout."
+        "Retained QF_AUFLIA, QF_LRA, QF_UF, QF_IDL, QF_LIA, QF_FP, QF_FPBV, QF_BVFP and NRA branches use shared combined-solver construction. The general ALL dispatcher now has a narrow OP_AS_ARRAY branch; its complete default classifier and other remaining branches are unported. Output-taking QF_IDL/QF_LIA/QF_FP constructors borrow io.Writer; convenience factories default to os.Stdout."
       ]
     },
     {
