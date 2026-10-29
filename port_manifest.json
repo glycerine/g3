@@ -72046,7 +72046,24 @@
         "pkg/math/realclosure/polynomial_division_any_test.go",
         "pkg/math/realclosure/polynomial_derivative_monic_any_test.go",
         "pkg/math/realclosure/polynomial_gcd_any_test.go",
-        "pkg/math/realclosure/polynomial_square_free_any_test.go"
+        "pkg/math/realclosure/polynomial_square_free_any_test.go",
+        "pkg/math/realclosure/polynomial_remainder_any.go",
+        "pkg/math/realclosure/polynomial_pseudo_remainder_any.go",
+        "pkg/math/realclosure/polynomial_normalize_sequence_any.go",
+        "pkg/math/realclosure/polynomial_evaluate_bound_any.go",
+        "pkg/math/realclosure/sturm_sequence_any.go",
+        "pkg/math/realclosure/sturm_sequence_root_any.go",
+        "pkg/math/realclosure/sturm_sequence_tarski_any.go",
+        "pkg/math/realclosure/sturm_variations_interval_any.go",
+        "pkg/math/realclosure/sturm_query_any.go",
+        "pkg/math/realclosure/sturm_query_interval_any.go",
+        "pkg/math/realclosure/sturm_any_fixture_test.go",
+        "pkg/math/realclosure/polynomial_remainder_any_test.go",
+        "pkg/math/realclosure/polynomial_pseudo_remainder_any_test.go",
+        "pkg/math/realclosure/sturm_sequence_any_test.go",
+        "pkg/math/realclosure/sturm_root_count_any_test.go",
+        "pkg/math/realclosure/sturm_tarski_any_test.go",
+        "pkg/math/realclosure/sturm_sequence_any_ownership_test.go"
       ],
       "tests": [
         "TestRealClosureBinaryExtendedNumeralBranches",
@@ -72108,7 +72125,8 @@
         "TestMixedPolynomialInteger",
         "TestExactDivideAlgebraic",
         "TestNormalizeMixed",
-        "TestAnyPolynomial"
+        "TestAnyPolynomial",
+        "TestAnySturm"
       ],
       "conditionals": [
         {
