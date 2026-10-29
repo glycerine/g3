@@ -99761,9 +99761,13 @@
       "path": "src/qe/nlqsat.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/nlsat/tactic/model_projection.go"
+      ],
+      "tests": [
+        "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
+      ],
       "assertions": [
         {
           "line": 129,
@@ -99824,9 +99828,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "NLSAT model-based projection over reverse-sorted real variables, final cube negation and projected-clause AST reconstruction (cpp181-223,383-400)",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/model_projection.go",
+          "tests": [
+            "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
+          ]
+        }
+      ],
+      "ownership": [
+        "ModelProjector borrows the AST manager, NLSAT solver and compiler expression mappings while owning two alternating LiteralVectors. Each projection round resets the destination before acquiring projected atom leases; the final blocking clause owns an AST reference before temporary reconstructed-literal references are released. Closing the projector retires both literal vectors before the borrowed solver."
+      ],
+      "deviations": [
+        "This increment supplies the retained mbp/negate_clause/clause2fml bridge. Quantifier hoisting, alternating assumption caches, level tracking, learned-clause insertion, model save/restore, division purification, answer construction and the public nlqsat tactic/search loop remain to be integrated, so the source unit remains partial."
+      ]
     },
     {
       "path": "src/qe/nlqsat.h",
