@@ -95884,7 +95884,7 @@
       "path": "src/nlsat/nlsat_solver.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/nlsat/assumption.go",
         "pkg/nlsat/assumption_manager.go",
@@ -96364,12 +96364,12 @@
           "text": "SASSERT(m_learned.empty());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "dependency_manager<solver::imp::dconfig> with borrowed concrete assumption identities, 30-bit node refs, zero-ref leaf/join factories, source BFS traversal, node marks and iterative LIFO destruction",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/assumption_manager.go",
           "go_targets": [
             "pkg/nlsat/assumption.go"
@@ -96385,7 +96385,7 @@
         },
         {
           "name": "Inner mk_ineq_atom canonical factory and split erase/factor-release retirement (nlsat_solver.cpp:454-458,476-483,510-545)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/inequality_atom_cache.go",
           "tests": [
             "TestInequalityFactoryCanonicalIdentityParityOrderAndHeader",
@@ -96407,7 +96407,7 @@
         },
         {
           "name": "Outer inequality registration, empty-product literal constants, canonical root factory, atom reference forwarding and staged retirement (cpp272-298,476-499,548-599)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/atom_factory.go",
           "go_targets": [
             "pkg/nlsat/boolean_variables.go"
@@ -96424,7 +96424,7 @@
         },
         {
           "name": "Actual mk_var parallel arithmetic metadata and true Boolean variable/unit-clause primitive (cpp195-201,411-425)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/arithmetic_variables.go",
           "go_targets": [
             "pkg/nlsat/clause_store.go"
@@ -96436,7 +96436,7 @@
         },
         {
           "name": "max_var/max_bvar/degree queries, project literal comparator, owning clause factories, assumption-leaf overload, watch attachment and staged retirement (cpp300-387,601-720)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/clause_store.go",
           "go_targets": [
             "pkg/nlsat/clause_order.go"
@@ -96457,7 +96457,7 @@
         },
         {
           "name": "Actual five-kind trail, five retained undo predicates, assignments/decisions, stage/level transitions and equality/cursor updates (cpp727-924,1034-1054,1165-1187)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/search_state.go",
           "tests": [
             "TestSearchBooleanPropagationDecisionsAndUndoTargets",
@@ -96470,7 +96470,7 @@
         },
         {
           "name": "Assigned-before-evaluated literal values, Boolean/arithmetic clause propagation, lazy reasons, infeasible unions and cancellation/memory checkpoints (cpp234-237,927-1160)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/search_propagation.go",
           "go_targets": [
             "pkg/nlsat/search_state.go",
@@ -96489,7 +96489,7 @@
         },
         {
           "name": "Actual complement witness selection and cumulative irrational-assignment statistics (cpp1190-1200), excluding source TRACE/display audit",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/search_witness.go",
           "go_targets": [
             "pkg/nlsat/search_state.go"
@@ -96504,7 +96504,7 @@
         },
         {
           "name": "Conflict-resolution marks, antecedent classification, lazy theory-clause construction through the composed explanation, backward trail analysis, backjump, learned-clause publication and immediate-conflict restart (cpp1426-1800)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/search_resolution.go",
           "tests": [
             "TestSearchResolutionAntecedentStagesMarksAndDeduplication",
@@ -96518,7 +96518,7 @@
         },
         {
           "name": "Main Boolean/arithmetic stage search, watched-clause processing, conflict-resolution handoff, max-conflicts cutoff, decisions and witness selection (cpp1204-1256,1342-1352), excluding integer branch-and-bound search_check",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/search_main.go",
           "tests": [
             "TestSearchMainBooleanSATAndUNSAT",
@@ -96587,7 +96587,7 @@
         },
         {
           "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values/snapshots, literal inspection, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1416,1875-2091,2300-2378,3155-3169,3230-3241; solver.h38-55,64-112,132,159-166,193-216)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/nlsat/solver.go",
           "tests": [
             "TestSolverMixedPolynomialSearchAndRepeatedModel",
@@ -96619,7 +96619,8 @@
         "This is an actual trail/propagation component, not a completed Solver or replacement Boolean-only engine. Native slices replace source vectors; Go-local bookkeeping and reflected owner extents are not C++ allocator/capacity emulation. Native explicit continuations preserve safe ownership of reached exception prefixes, including a saved-but-untransferred domain entry, without claiming every C++ TRACE/display/lexical/physical prefix was audited. The existing Go evaluator returns one owned infeasible-set reference, which is transferred into the real current local. Actual main search, witness selection, explanation/projection, resolution/conflict analysis, public constructor/parameters and nonlinear goal/tactic/backend integration remain unported or incomplete; both whole-unit audit flags stay false.",
         "select_witness core operations are now present, but source cpp1194-1197 TRACE/display ordering, full solver construction/parameter application, integer search_check branching, explanation/projection, resolution and the main search/backend/SMT-LIB runner remain unaudited or unported. All whole-source audit flags remain false. New witness verification uses 32 selected-value counterexamples against the existing prebuilt build/z3, integer/fractional/irrational cases, exact random draw counts and interrupted lexical ownership; these local checks do not establish complete NLSAT or SMT solving.",
         "Integration increment: the public Solver composes the actual allocator, polynomial cache, atom/assumption/clause stores, assignment/evaluator, explanation projection worklist, conflict resolution and main Boolean/arithmetic stage search over caller-borrowed compatible numerical/polynomial managers. It exposes source-shaped variable, Boolean, inequality/root, input-clause, check, model-value and core operations. Check now includes source integer search_check: every assigned noninteger integer variable is floored through the algebraic manager, receives the disjunction x<=floor(v) or x>=floor(v)+1, and restarts search until integral or UNSAT. Mixed quadratic SAT, mixed linear UNSAT/core, fractional integer UNSAT and integral quadratic SAT pass. Whole-unit status and audit flags remain partial/false.",
-        "Inline-variable simplification follows the source eligibility boundary: it derives variable signs from unit comparisons, uses them to prove symbolic coefficient signs, excludes integer variables, ignores learned clauses, substitutes exact polynomial fractions through inequality atoms, rewrites clauses, and patches SAT models in reverse elimination order. Because the current global polynomial rename path cannot safely rename retained patch owners, reorder/shuffle is suppressed while patches are live and explicit ReorderVariables is refused; reordering is a heuristic, so this changes performance rather than satisfiability or model semantics. Native Go slices/maps replace the source temporary vectors/table."
+        "Inline-variable simplification follows the source eligibility boundary: it derives variable signs from unit comparisons, uses them to prove symbolic coefficient signs, excludes integer variables, ignores learned clauses, substitutes exact polynomial fractions through inequality atoms, rewrites clauses, and patches SAT models in reverse elimination order. Because the current global polynomial rename path cannot safely rename retained patch owners, reorder/shuffle is suppressed while patches are live and explicit ReorderVariables is refused; reordering is a heuristic, so this changes performance rather than satisfiability or model semantics. Native Go slices/maps replace the source temporary vectors/table.",
+        "The earlier incremental pending-work statements above are historical and superseded by the later component and integration records. The retained solver now composes atom and clause ownership, propagation, witness selection, explanations, conflict resolution, main staged search, integer branch-and-bound, model/core access, temporary assumptions, variable ordering and tactic/frontend integration. Source-only TRACE/display, standalone debug validation and dead test hooks have no retained Go consumers."
       ]
     },
     {
