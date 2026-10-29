@@ -88437,9 +88437,9 @@
       "path": "src/muz/rel/dl_table_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go"],
+      "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "assertions": [
         {
           "line": 86,
@@ -88548,9 +88548,9 @@
       "path": "src/muz/rel/dl_table_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go"],
+      "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "conditionals": [
         {
           "line": 19,
