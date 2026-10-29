@@ -82477,8 +82477,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose"],
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth"],
       "assertions": [
         {
           "line": 87,
@@ -82516,8 +82516,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose"],
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth"],
       "conditionals": [
         {
           "line": 19,
@@ -88628,9 +88628,9 @@
       "path": "src/muz/rel/doc.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_cube_test.go"],
+      "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes"],
       "assertions": [
         {
           "line": 58,
@@ -88707,9 +88707,9 @@
       "path": "src/muz/rel/doc.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_cube_test.go"],
+      "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes"],
       "conditionals": [
         {
           "line": 23,
