@@ -177684,9 +177684,9 @@
       "path": "src/tactic/sls/bvsls_opt_engine.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/sls/bvsls_optimizer.go", "pkg/tactic/sls/bvsls_moves.go", "pkg/tactic/sls/bvsls_model.go", "pkg/tactic/sls/bvsls_optimizer_test.go"],
+      "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"],
       "conditionals": [
         {
           "line": 209,
@@ -177773,9 +177773,9 @@
       "path": "src/tactic/sls/bvsls_opt_engine.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/sls/bvsls_optimizer.go", "pkg/tactic/sls/bvsls_moves.go", "pkg/tactic/sls/bvsls_model.go", "pkg/tactic/sls/bvsls_optimizer_test.go"],
+      "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"],
       "conditionals": [
         {
           "line": 19,
