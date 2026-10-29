@@ -173667,9 +173667,9 @@
       "path": "src/tactic/core/split_clause_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/core/split_clause_tactic.go", "pkg/tactic/core/split_clause_tactic_test.go"],
+      "tests": ["TestSplitClauseSelectsFirstOrStrictlyLargestClause", "TestSplitClauseFailureAndRuntimeParameterUpdate", "TestSplitClauseProofConverterClosesBranchHypotheses"],
       "assertions": [
         {
           "line": 68,
@@ -173680,19 +173680,19 @@
           "text": "SASSERT(in->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"clause selection, branching, goal/dependency/proof preservation, proof conversion, parameters, translation and cleanup","status":"ported","go_target":"pkg/tactic/core/split_clause_tactic.go","tests":["TestSplitClauseSelectsFirstOrStrictlyLargestClause","TestSplitClauseFailureAndRuntimeParameterUpdate","TestSplitClauseProofConverterClosesBranchHypotheses"]}],
+      "ownership": ["SplitClauseTactic owns its budgeted object; branch goals and proof hypotheses transfer to TacticResult, while the proof converter retains the original clause and proof until conversion/close."],
       "deviations": []
     },
     {
       "path": "src/tactic/core/split_clause_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/core/split_clause_tactic.go", "pkg/tactic/core/split_clause_tactic_test.go"],
+      "tests": ["TestSplitClauseSelectsFirstOrStrictlyLargestClause", "TestSplitClauseFailureAndRuntimeParameterUpdate", "TestSplitClauseProofConverterClosesBranchHypotheses"],
       "conditionals": [
         {
           "line": 20,
@@ -173703,10 +173703,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"mk_split_clause_tactic factory and split_largest_clause parameter surface","status":"ported","go_target":"pkg/tactic/core/split_clause_tactic.go","tests":["TestSplitClauseSelectsFirstOrStrictlyLargestClause","TestSplitClauseFailureAndRuntimeParameterUpdate"]}],
+      "ownership": ["The clean tactic wrapper owns the concrete counted SplitClauseTactic."],
       "deviations": []
     },
     {
