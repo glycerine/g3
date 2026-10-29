@@ -177946,14 +177946,18 @@
       "path": "src/tactic/sls/sls_params.hpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/tactic/sls/sls_params.go",
+        "pkg/tactic/sls/sls_params_test.go",
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
         "pkg/tactic/sls/gparams_catalog_collectors.go",
         "pkg/util/params/util_gparams_catalog_dispatch.go"
       ],
       "tests": [
+        "TestSLSParamsGeneratedDefaults",
+        "TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards",
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
         "TestGlobalParamsCatalogConcreteHookGuardsAndIndependentReuse",
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
@@ -177970,8 +177974,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -177987,7 +177991,8 @@
           "go_targets": [
             "pkg/util/params/util_gparams_catalog_test.go"
           ]
-        }
+        },
+        {"name":"all 22 generated runtime getters with local/module/default fallback and owned module snapshot","status":"ported","go_target":"pkg/tactic/sls/sls_params.go","tests":["TestSLSParamsGeneratedDefaults","TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards"]}
       ],
       "ownership": [
         "Real descriptor ownership/merges and borrowed catalog-owned description bytes; source global temporary cleanup and unpublished heap descriptor pending roots preserved. All458ordered metadata rows independently checked. See PORT_PROGRESS.md#audit-gparams-catalog-port-status-md; generated value accessors, alternative catalogs and process/runtime binding remain open."
@@ -177998,13 +178003,13 @@
       "path": "src/tactic/sls/sls_params.pyg",
       "component": "tactic",
       "role": "generated_input",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/sls/sls_params.go", "pkg/tactic/sls/sls_params_test.go", "pkg/tactic/sls/gparams_catalog_collectors.go"],
+      "tests": ["TestSLSParamsGeneratedDefaults", "TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards", "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"generated SLS schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/tactic/sls/sls_params.go","go_targets":["pkg/tactic/sls/gparams_catalog_collectors.go"],"tests":["TestSLSParamsGeneratedDefaults","TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
+      "ownership": ["Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or C++ source."],
       "deviations": []
     },
     {
