@@ -71640,8 +71640,8 @@
       "component": "math",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/math/realclosure/sign_matrix.go", "pkg/math/realclosure/sign_matrix_test.go", "pkg/math/realclosure/sign_matrix_solve.go", "pkg/math/realclosure/sign_matrix_solve_test.go"],
-      "tests": ["TestSignDeterminationSourceMatrices", "TestSignMatrixTensorAndCopyOwnCells", "TestSignMatrixSourceIntegerSolutions", "TestSignMatrixFilterColumnsOwnsValues", "TestSignMatrixIntegerSolverSignedTwoByTwoGrid", "TestSignMatrixIndependentRowsPreserveOriginalPriority"],
+      "go_targets": ["pkg/math/realclosure/sign_matrix.go", "pkg/math/realclosure/sign_matrix_test.go", "pkg/math/realclosure/sign_matrix_solve.go", "pkg/math/realclosure/sign_matrix_solve_test.go", "pkg/math/realclosure/sign_matrix_display.go", "pkg/math/realclosure/sign_matrix_display_test.go"],
+      "tests": ["TestSignDeterminationSourceMatrices", "TestSignMatrixTensorAndCopyOwnCells", "TestSignMatrixSourceIntegerSolutions", "TestSignMatrixFilterColumnsOwnsValues", "TestSignMatrixIntegerSolverSignedTwoByTwoGrid", "TestSignMatrixIndependentRowsPreserveOriginalPriority", "TestSignMatrixSourceDisplayAndWriterPrefixes"],
       "assertions": [
         {
           "line": 43,
@@ -71748,8 +71748,8 @@
       "component": "math",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/math/realclosure/sign_matrix.go", "pkg/math/realclosure/sign_matrix_test.go", "pkg/math/realclosure/sign_matrix_solve.go", "pkg/math/realclosure/sign_matrix_solve_test.go"],
-      "tests": ["TestSignDeterminationSourceMatrices", "TestSignMatrixTensorAndCopyOwnCells", "TestSignMatrixSourceIntegerSolutions", "TestSignMatrixFilterColumnsOwnsValues", "TestSignMatrixIntegerSolverSignedTwoByTwoGrid", "TestSignMatrixIndependentRowsPreserveOriginalPriority"],
+      "go_targets": ["pkg/math/realclosure/sign_matrix.go", "pkg/math/realclosure/sign_matrix_test.go", "pkg/math/realclosure/sign_matrix_solve.go", "pkg/math/realclosure/sign_matrix_solve_test.go", "pkg/math/realclosure/sign_matrix_display.go", "pkg/math/realclosure/sign_matrix_display_test.go"],
+      "tests": ["TestSignDeterminationSourceMatrices", "TestSignMatrixTensorAndCopyOwnCells", "TestSignMatrixSourceIntegerSolutions", "TestSignMatrixFilterColumnsOwnsValues", "TestSignMatrixIntegerSolverSignedTwoByTwoGrid", "TestSignMatrixIndependentRowsPreserveOriginalPriority", "TestSignMatrixSourceDisplayAndWriterPrefixes"],
       "conditionals": [
         {
           "line": 31,
@@ -71915,6 +71915,7 @@
         "pkg/math/realclosure/sign_determination_rational_products_test.go",
         "pkg/math/realclosure/sign_tarski_counts.go",
         "pkg/math/realclosure/sign_tarski_counts_test.go",
+        "pkg/math/realclosure/sign_tarski_counts_producer_test.go",
         "pkg/math/realclosure/sign_polynomial_derivative.go",
         "pkg/math/realclosure/sign_polynomial_derivative_test.go",
         "pkg/math/realclosure/sign_polynomial_div.go",
@@ -71942,6 +71943,8 @@
         "TestAlgebraicRootsShareSignDetAndReleaseSourceOrder",
         "TestSignDeterminationRationalProductsAndThreeWayExpansion",
         "TestRealClosureSourceTarskiSignCountBranches",
+        "TestRealClosureBoundedRationalSignCountProducer",
+        "TestRealClosureBoundedSignCountAllocationPrefixes",
         "TestRealClosureRationalDerivativeKeepsCoefficientOwnership",
         "TestRealClosureBoundedRationalSturmTarskiEndpoints",
         "TestRealClosureRationalSturmSequenceOwnsBorrowedCoefficients",
