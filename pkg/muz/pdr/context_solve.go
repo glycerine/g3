@@ -10,7 +10,19 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
+
+func (c *Context) checkpoint() error {
+	canceled, err := c.manager.Canceled()
+	if err != nil {
+		return err
+	}
+	if canceled {
+		return z3exception.NewDefaultException(c.manager.ResourceLimit().CancelMessage())
+	}
+	return nil
+}
 
 func (c *Context) closeNode(node *ModelNode) error {
 	if err := node.SetClosed(); err != nil {
@@ -103,6 +115,9 @@ func (c *Context) checkReachability(level uint32) (bool, error) {
 		return false, err
 	}
 	for {
+		if x := c.checkpoint(); x != nil {
+			return false, x
+		}
 		node, found, x := c.search.Next()
 		if x != nil {
 			return false, x
@@ -123,8 +138,14 @@ func (c *Context) checkReachability(level uint32) (bool, error) {
 
 func (c *Context) propagate(maximum uint32) (bool, error) {
 	for level := c.expanded; level <= maximum; level++ {
+		if err := c.checkpoint(); err != nil {
+			return false, err
+		}
 		all := true
 		for _, declaration := range c.order {
+			if err := c.checkpoint(); err != nil {
+				return false, err
+			}
 			empty, err := c.transformers[declaration].PropagateToNextLevel(level)
 			if err != nil {
 				return false, err
@@ -168,6 +189,9 @@ func (c *Context) Solve(queryDeclaration ast.ASTHandle) (result lbool.LBool, res
 	}
 	c.query = query
 	for level := uint32(0); ; level++ {
+		if err = c.checkpoint(); err != nil {
+			return lbool.Undef, err
+		}
 		c.expanded = level
 		reachable, err := c.checkReachability(level)
 		if err != nil {

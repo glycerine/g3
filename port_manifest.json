@@ -83348,7 +83348,7 @@
         },
         {
           "name": "bounded tag-selected transition composition used as the narrow Go end-to-end integration path while native model_search is ported",
-          "status": "partial",
+          "status": "platform_replacement",
           "go_target": "pkg/muz/pdr/context_bounded.go",
           "tests": [
             "TestContextBoundedQueryTraversesTaggedHornChain"
@@ -83369,7 +83369,7 @@
         },
         {
           "name": "frame reachability expansion, tagged rule selection, selectable model-implicant literal/model-cone minimization, QE-lite/model-value projection, predecessor-literal partitioning, child obligations, ordered multi-core convex/Boolean blocking with aggregate flexible-trace level raising, propagation, top-level PDR solve loop and search statistics (pdr_context.cpp:1544-1769,1810-1860,1893-2215,2255-2335)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/context_solve.go",
           "tests": [
             "TestContextBoundedQueryTraversesTaggedHornChain",
@@ -83386,7 +83386,7 @@
         },
         {
           "name": "successful existential relation-declaration answer, banked rule/head unification across acyclic and recursive model-search traces, initial-rule model recovery and native nonlinear-rule reduction surface (pdr_context.cpp:777-869,1142-1288,1942-1950,1977-1988)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -83562,7 +83562,7 @@
         },
         {
           "name": "retained unbounded context frame expansion, tagged rule selection, selectable model-implicant literal/model-cone minimization, QE-lite/model substitution, predecessor-literal partitioning, child obligations, blocking, propagation and search-statistics surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/context_solve.go",
           "tests": [
             "TestContextBoundedQueryTraversesTaggedHornChain",
@@ -83573,7 +83573,7 @@
         },
         {
           "name": "retained successful existential relation-declaration answer, recursive-SCC trace, initial-rule model recovery and nonlinear-rule reduction surface",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -83754,7 +83754,7 @@
         },
         {
           "name": "successful existential relation-declaration trace and unsuccessful direct-predicate inductive-certificate/model forwarding, including banked rule/head unification, acyclic and recursive traces, initial-rule model recovery and nonlinear-rule reduction (pdr_dl_interface.cpp:175-182,208-227)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",
@@ -83904,7 +83904,7 @@
         },
         {
           "name": "successful existential relation-declaration trace and unsuccessful direct-predicate inductive-certificate surface, including banked rule/head unification, acyclic and recursive traces, initial-rule model recovery and nonlinear-rule reduction",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": [
             "TestPDREngineMatchesCPPIntegerHornQueries",

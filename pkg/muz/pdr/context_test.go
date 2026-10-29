@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/messages"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -289,6 +290,13 @@ func TestContextSolveFindsInductiveUnreachablePredicate(t *testing.T) {
 		t.Fatal("single-query-relation certificate is not the empty conjunction")
 	}
 	pdrMust(t, manager.DelRef(&certificate))
+	before := manager.ResourceLimit().Count()
+	manager.ResourceLimit().Cancel()
+	status, err = context.Solve(predicate)
+	manager.ResourceLimit().ResetCancel()
+	if status != lbool.Undef || err == nil || err.Error() != messages.Canceled || manager.ResourceLimit().Count() != before+1 {
+		t.Fatal("source solve checkpoint", status, err, manager.ResourceLimit().Count()-before)
+	}
 
 	pdrMust(t, context.Close())
 	pdrMust(t, set.Close())
