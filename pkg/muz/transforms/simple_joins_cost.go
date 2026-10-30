@@ -104,11 +104,11 @@ func (p *SimpleJoinsPlugin) tailCost(tail ast.ASTHandle) (float32, map[uint32]as
 }
 
 func (p *SimpleJoinsPlugin) estimatedPairCost(tails []ast.ASTHandle, outside []ast.ASTHandle, leftIndex, rightIndex int) (float32, error) {
-	left, leftVars, err := p.tailCost(tails[leftIndex])
+	left, _, err := p.tailCost(tails[leftIndex])
 	if err != nil {
 		return 0, err
 	}
-	right, rightVars, err := p.tailCost(tails[rightIndex])
+	right, _, err := p.tailCost(tails[rightIndex])
 	if err != nil {
 		return 0, err
 	}
@@ -124,19 +124,87 @@ func (p *SimpleJoinsPlugin) estimatedPairCost(tails []ast.ASTHandle, outside []a
 		return 0, err
 	}
 	intersectionSize := float32(1)
-	for variable, leftSort := range leftVars {
-		if rightSort, common := rightVars[variable]; common {
-			if _, live := nonLocal[variable]; live {
-				intersectionSize *= p.domainCost(leftSort)
-			}
-			_ = rightSort // Well-typed predicate applications share the variable sort.
-		}
+	leftArity, err := p.manager.GetNumArgs(tails[leftIndex])
+	if err != nil {
+		return 0, err
 	}
-	for _, variables := range []map[uint32]ast.ASTHandle{leftVars, rightVars} {
-		for variable, sort := range variables {
+	rightArity, err := p.manager.GetNumArgs(tails[rightIndex])
+	if err != nil {
+		return 0, err
+	}
+	leftDecl, err := p.manager.GetDecl(tails[leftIndex])
+	if err != nil {
+		return 0, err
+	}
+	rightDecl, err := p.manager.GetDecl(tails[rightIndex])
+	if err != nil {
+		return 0, err
+	}
+	// The source variable_intersection records positional matches, including
+	// repeated occurrences of one variable. Its projected-column loops are
+	// positional too, so keep multiplicity here instead of collapsing to sets.
+	leftIndices := make([]uint32, 0, leftArity)
+	leftVariables := make([]uint32, 0, leftArity)
+	for index := uint32(0); index < leftArity; index++ {
+		argument, x := p.manager.GetArg(tails[leftIndex], index)
+		if x != nil {
+			return 0, x
+		}
+		kind, x := p.manager.GetKind(argument)
+		if x != nil {
+			return 0, x
+		}
+		if kind == ast.ASTVar {
+			variable, x := p.manager.GetVarIndex(argument)
+			if x != nil {
+				return 0, x
+			}
+			leftIndices = append(leftIndices, index)
+			leftVariables = append(leftVariables, variable)
 			if _, live := nonLocal[variable]; !live {
+				sort, x := p.manager.GetDomain(leftDecl, index)
+				if x != nil {
+					return 0, x
+				}
 				intersectionSize *= p.domainCost(sort)
 			}
+		}
+	}
+	for index := uint32(0); index < rightArity; index++ {
+		argument, x := p.manager.GetArg(tails[rightIndex], index)
+		if x != nil {
+			return 0, x
+		}
+		kind, x := p.manager.GetKind(argument)
+		if x != nil {
+			return 0, x
+		}
+		if kind != ast.ASTVar {
+			continue
+		}
+		variable, x := p.manager.GetVarIndex(argument)
+		if x != nil {
+			return 0, x
+		}
+		if _, live := nonLocal[variable]; !live {
+			sort, x := p.manager.GetDomain(rightDecl, index)
+			if x != nil {
+				return 0, x
+			}
+			intersectionSize *= p.domainCost(sort)
+		}
+		for occurrence, leftVariable := range leftVariables {
+			if leftVariable != variable {
+				continue
+			}
+			if _, live := nonLocal[variable]; !live {
+				continue
+			}
+			leftSort, x := p.manager.GetDomain(leftDecl, leftIndices[occurrence])
+			if x != nil {
+				return 0, x
+			}
+			intersectionSize *= p.domainCost(leftSort)
 		}
 	}
 	if intersectionSize == 0 {
