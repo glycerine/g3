@@ -98879,6 +98879,13 @@
           "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure", "TestOptimizationUnknownReasonPreservesCancellation"]
         },
         {
+          "name": "setup_arith_solver switches the global arithmetic mode to AS_OPTINF for farkas and symba optimization engines (opt_context.cpp:608-615)",
+          "status": "partial",
+          "go_target": "pkg/cmd_context/optimization.go",
+          "go_targets": ["pkg/cmd_context/optimization.go", "pkg/smtcore/smt_setup_mixed_arithmetic.go"],
+          "tests": ["TestOptimizationArithmeticEngineForcesInfiniteArithmeticMode", "TestOptimizationArithmeticEngineSetupSkipsParetoContinuation", "TestActiveBoxEnumerationSurvivesPriorityUpdate"]
+        },
+        {
           "name": "context::updt_params updates the active solver while existing Pareto and box continuation state takes precedence over new priority selection (opt_context.cpp:255-259,434-467,1423-1433)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_parameters.go",
@@ -99275,7 +99282,7 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "bounded, strict and unbounded arithmetic objectives plus attained, unattained and open-bound lexicographic result handling and exact blocker iteration (optsmt.cpp:93-221,463-521,563-591)",
+          "name": "bounded, strict and unbounded arithmetic objectives plus attained, unattained and open-bound lexicographic result handling; basic, geometric, Farkas and Symba strategy loops remain incomplete (optsmt.cpp:66-347,463-591)",
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
           "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]

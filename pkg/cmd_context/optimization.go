@@ -285,6 +285,26 @@ func (c *Context) optimizationPriority() (priority string, resultErr error) {
 	return priority, err
 }
 
+func (c *Context) setupOptimizationArithmeticSolver() (resultErr error) {
+	parameters, err := opt.NewParams(c.config.Params, c.config.Globals, &c.params)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	engine, err := parameters.OptSMTEngine()
+	if err != nil {
+		return err
+	}
+	name, _, err := c.config.Params.SymbolsField.BareString(engine)
+	if err != nil {
+		return err
+	}
+	if name == "symba" || name == "farkas" {
+		return c.config.Globals.SourceSetName("smt.arith.solver", "5")
+	}
+	return nil
+}
+
 func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.ArithmeticSolver, resultErr error) {
 	optimizer, err := opt.NewArithmeticSolver(c.manager, &c.params, c.logic, c.config)
 	if err != nil {
@@ -451,6 +471,11 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	boxContinuation := c.optimizationBoxActive
 	if !paretoContinuation && priority != "pareto" {
 		if err = c.closeParetoBackend(); err != nil {
+			return lbool.Undef, err
+		}
+	}
+	if !paretoContinuation && !boxContinuation {
+		if err = c.setupOptimizationArithmeticSolver(); err != nil {
 			return lbool.Undef, err
 		}
 	}

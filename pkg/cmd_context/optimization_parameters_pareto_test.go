@@ -117,11 +117,20 @@ func TestActiveBoxEnumerationSurvivesPriorityUpdate(t *testing.T) {
 	pareto, err := m.Symbols.Intern("pareto")
 	contextMust(t, err)
 	contextMust(t, c.config.Params.SetSymbolName(&parameters, &priorityName, pareto))
+	engineName := "optsmt_engine"
+	symba, err := m.Symbols.Intern("symba")
+	contextMust(t, err)
+	contextMust(t, c.config.Params.SetSymbolName(&parameters, &engineName, symba))
 	contextMust(t, c.UpdateOptimizationParameters(&parameters))
 	status, err = c.CheckSat(nil)
 	contextMust(t, err)
 	if status != lbool.True || !c.optimizationBoxActive || c.optimizationBoxNext != 2 {
 		t.Fatal("box continuation after priority update", status, c.optimizationBoxActive, c.optimizationBoxNext)
+	}
+	mode, err := c.config.Globals.SourceGetValueName("smt.arith.solver")
+	contextMust(t, err)
+	if mode != "2" {
+		t.Fatal("box continuation reconfigured arithmetic solver", mode, "want 2")
 	}
 	secondModel, err := c.OptimizationModel()
 	contextMust(t, err)
