@@ -1,0 +1,133 @@
+package spacer
+
+// Source: src/muz/spacer/spacer_util.cpp qe_project native arithmetic branch.
+
+import (
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/smtcore"
+)
+
+func TestSpacerNativeProjectionUsesSharedStages(t *testing.T) {
+	m, globals := newSpacerTestServices(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(globals.SourceSetName("fixedpoint.spacer.native_mbp", "true"))
+	owner, err := NewManager(m, nil, 1, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	must(err)
+	defer func() { must(owner.Close()) }()
+	var pins []ast.ASTRef
+	defer func() { must(releaseNormalizeRefs(m, pins)) }()
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		must(err)
+		r, err := m.NewRef(h)
+		must(err)
+		pins = append(pins, r)
+		return h
+	}
+	boolean := own(m.MkBoolSort())
+	symbol, err := m.Symbols.Intern("native-projection-p")
+	must(err)
+	predicate := own(m.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{}))
+	pt, err := NewRulePredicateTransformer(owner, predicate, PropSolverConfig{})
+	must(err)
+	defer func() { must(pt.Close()) }()
+	rules, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rules.Close()) }()
+	must(rules.RegisterPredicate(predicate))
+	head := own(m.MkApp(predicate, nil))
+	rule, err := rules.NewRule(head, nil, nil, "native-projection")
+	must(err)
+	defer func() { must(rule.Close()) }()
+	truth := own(m.MkTrue())
+	root, err := pt.NewProofObligation(nil, 2, 1, truth, nil)
+	must(err)
+	d, err := NewDerivation(root, rule, truth, nil)
+	must(err)
+	defer func() { must(d.Close()) }()
+	md, err := model.NewModel(m)
+	must(err)
+	defer func() { must(md.Close()) }()
+	zero := own(m.ArithmeticIntegerNumeralText("0"))
+	one := own(m.ArithmeticIntegerNumeralText("1"))
+	integer, err := m.GetSort(zero)
+	must(err)
+	constant := func(text string, sort ast.ASTHandle, value ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		symbol, err := m.Symbols.Intern(text)
+		must(err)
+		h := own(m.MkConst(symbol, sort))
+		decl, err := m.GetDecl(h)
+		must(err)
+		must(md.Core().RegisterConstant(decl, value))
+		return h
+	}
+	arraySort := own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer))
+	baseArray := own(m.MkConstArray(arraySort, zero))
+	a := constant("native-projection-a", arraySort, baseArray)
+	i := constant("native-projection-i", integer, zero)
+	j := constant("native-projection-j", integer, zero)
+	arrays, err := m.ArrayFamilyID()
+	must(err)
+	stored := own(m.MkFamilyApp(arrays, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, i, one}))
+	selected := own(m.MkFamilyApp(arrays, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{stored, j}))
+	formula := own(m.MkEq(selected, one))
+	t.Run("array-reduction-with-no-variables", func(t *testing.T) {
+		result, remaining, err := d.project(false, true, md.Core(), nil, formula)
+		must(err)
+		defer func() { must(m.DelRef(&result)); must(releaseNormalizeRefs(m, remaining)) }()
+		h, err := m.RefGet(result)
+		must(err)
+		occurs, err := m.OccursExpr(stored, h)
+		must(err)
+		if occurs {
+			t.Fatal("native arithmetic mode skipped the shared array reduction stage")
+		}
+	})
+	t.Run("repeat-lite-for-boolean-array-auxiliary", func(t *testing.T) {
+		falsity := own(m.MkFalse())
+		boolArraySort := own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), boolean))
+		boolBase := own(m.MkConstArray(boolArraySort, falsity))
+		boolArray := constant("native-projection-bool-array", boolArraySort, boolBase)
+		b := constant("native-projection-bool", boolean, falsity)
+		selectBool := own(m.MkFamilyApp(arrays, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{boolArray, zero}))
+		formula := own(m.MkEq(selectBool, b))
+		result, remaining, err := d.project(false, true, md.Core(), []ast.ASTHandle{boolArray}, formula)
+		must(err)
+		defer func() { must(m.DelRef(&result)); must(releaseNormalizeRefs(m, remaining)) }()
+		h, err := m.RefGet(result)
+		must(err)
+		if len(remaining) != 0 || !m.IsTrue(h) {
+			t.Fatal("native mode failed to eliminate the fresh Boolean equality symbolically", len(remaining))
+		}
+	})
+	t.Run("native-arithmetic-forces-elimination", func(t *testing.T) {
+		two := own(m.ArithmeticIntegerNumeralText("2"))
+		four := own(m.ArithmeticIntegerNumeralText("4"))
+		x := constant("native-projection-x", integer, two)
+		square := own(m.MkArithmeticMul(x, x))
+		formula := own(m.MkEq(square, four))
+		result, remaining, err := d.project(false, false, md.Core(), []ast.ASTHandle{x}, formula)
+		must(err)
+		defer func() { must(m.DelRef(&result)); must(releaseNormalizeRefs(m, remaining)) }()
+		if len(remaining) != 0 {
+			t.Fatal("native arithmetic must force elimination even with dont_sub enabled", len(remaining))
+		}
+		h, err := m.RefGet(result)
+		must(err)
+		occurs, err := m.OccursExpr(x, h)
+		must(err)
+		if occurs {
+			t.Fatal("native arithmetic left the projected variable in the formula")
+		}
+	})
+}

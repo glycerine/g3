@@ -140,7 +140,18 @@ func (p *LegacyProjection) substituteModelValues(md *model.ModelCore, formula as
 	return result, nil
 }
 
-func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool) (result *LegacyProjectionResult, resultErr error) {
+func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool) (*LegacyProjectionResult, error) {
+	return p.project(md, variables, formula, reduceAllSelects, retainFailures, false)
+}
+
+// ProjectNativeArithmetic follows Spacer's qe_project with use_native_mbp:
+// Boolean and array stages stay unchanged, and only arithmetic uses native MBP.
+// The native arithmetic call forces elimination independently of retainFailures.
+func (p *LegacyProjection) ProjectNativeArithmetic(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures bool) (*LegacyProjectionResult, error) {
+	return p.project(md, variables, formula, reduceAllSelects, retainFailures, true)
+}
+
+func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects, retainFailures, nativeArithmetic bool) (result *LegacyProjectionResult, resultErr error) {
 	if p == nil || p.manager == nil || md == nil || md.Manager() != p.manager {
 		return nil, ast.ErrASTHandle
 	}
@@ -277,28 +288,35 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 		if err != nil {
 			return nil, err
 		}
-		projected, err := p.arithmetic.projectFormula(md, arithmetic, handle)
-		if err != nil {
-			return nil, err
-		}
-		nextHandle, err := p.manager.RefGet(projected.formula)
-		if err == nil {
-			err = p.manager.SetRef(current, nextHandle)
-		}
-		remaining := make([]ast.ASTHandle, 0, len(projected.variables))
-		for _, variableRef := range projected.variables {
+		var remaining []ast.ASTHandle
+		if nativeArithmetic {
+			if err = p.projectNativeArithmetic(md, arithmetic, current); err != nil {
+				return nil, err
+			}
+		} else {
+			projected, err := p.arithmetic.projectFormula(md, arithmetic, handle)
 			if err != nil {
-				break
+				return nil, err
 			}
-			var handle ast.ASTHandle
-			handle, err = p.manager.RefGet(variableRef)
+			nextHandle, err := p.manager.RefGet(projected.formula)
 			if err == nil {
-				remaining = append(remaining, handle)
+				err = p.manager.SetRef(current, nextHandle)
 			}
-		}
-		err = errors.Join(err, projected.Close())
-		if err != nil {
-			return nil, err
+			remaining = make([]ast.ASTHandle, 0, len(projected.variables))
+			for _, variableRef := range projected.variables {
+				if err != nil {
+					break
+				}
+				var handle ast.ASTHandle
+				handle, err = p.manager.RefGet(variableRef)
+				if err == nil {
+					remaining = append(remaining, handle)
+				}
+			}
+			err = errors.Join(err, projected.Close())
+			if err != nil {
+				return nil, err
+			}
 		}
 		if len(remaining) != 0 {
 			remaining, err = p.projectModelTerms(md, current, remaining)
