@@ -27,7 +27,9 @@ type satSolverConflictResolution struct {
 	assumptionSet                                                                   satLiteralSetStorage
 	conflictLevel, conflictStat, conflicts, conflictsSinceRestart, conflictsSinceGC uint32
 	phaseCounter                                                                    uint32
+	parallelLimitIn, parallelLimitOut, parallelNumVars                              uint32
 	phaseCacheOn, minCoreValid, parallelPresent                                     bool
+	parallel                                                                        *ParallelUnitExchange
 	ownerBytes                                                                      uint64
 	closing, closed                                                                 bool
 }

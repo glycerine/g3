@@ -21,12 +21,10 @@ func (s *satSolverConflictResolution) isAssumption(l Literal) (bool, error) {
 	return s.assumptionSet.contains(l), nil
 }
 func (s *satSolverConflictResolution) exchangeParallel() error {
-	// Source constructor m_par=nullptr, independently of configured num_threads.
-	// No actual par instance is supplied yet; nonnull dispatch cannot fake exchange.
-	if s.parallelPresent && s.analysis.propagation.variables.scopeLevel == 0 {
-		return ErrSATMissingParallelBinding
+	if !s.parallelPresent || s.analysis.propagation.variables.scopeLevel != 0 {
+		return nil
 	}
-	return nil
+	return s.exchangeParallelBound()
 }
 func (s *satSolverConflictResolution) popReinit(n uint32) error {
 	if e := s.open(); e != nil {
