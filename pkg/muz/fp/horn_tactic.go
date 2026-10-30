@@ -4,7 +4,6 @@ package fp
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -14,18 +13,32 @@ import (
 )
 
 type HornTactic struct {
-	manager    *ast.ASTManager
-	context    *uparams.ParamsContext
-	globals    *uparams.GlobalParamsService
-	references uint32
-	closed     bool
+	manager     *ast.ASTManager
+	context     *uparams.ParamsContext
+	globals     *uparams.GlobalParamsService
+	params      uparams.ParamsRef
+	paramsReady bool
+	simplify    bool
+	statistics  map[string]float64
+	progress    func(uint32)
+	logic       usymbol.Symbol
+	references  uint32
+	closed      bool
 }
 
 func NewHornTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*HornTactic, error) {
+	return newHornTactic(manager, context, globals, false)
+}
+
+func newHornTactic(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, simplify bool) (*HornTactic, error) {
 	if manager == nil || context == nil || globals == nil {
 		return nil, tactic.NewTacticException("horn tactic services are unavailable")
 	}
-	return &HornTactic{manager: manager, context: context, globals: globals}, nil
+	params, err := context.NewValue()
+	if err != nil {
+		return nil, err
+	}
+	return &HornTactic{manager: manager, context: context, globals: globals, params: params, paramsReady: true, simplify: simplify, statistics: make(map[string]float64)}, nil
 }
 
 func (t *HornTactic) open() error {
@@ -52,8 +65,14 @@ func (t *HornTactic) DecRef() error {
 	}
 	t.references--
 	if t.references == 0 {
+		var result error
+		if t.paramsReady {
+			result = t.context.Del(&t.params)
+			t.paramsReady = false
+		}
 		t.closed = true
 		t.manager, t.context, t.globals = nil, nil, nil
+		return result
 	}
 	return nil
 }
@@ -307,6 +326,12 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, engine.Close()) }()
+	if t.paramsReady {
+		if err = engine.SetQueryParameters(&t.params); err != nil {
+			return err
+		}
+	}
+	defer func() { t.recordEngineStatistics(engine) }()
 	engine.forceProofTrace = proofsEnabled
 	var temporaries []ast.ASTRef
 	defer func() {
@@ -370,6 +395,9 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			return x
 		}
 	}
+	if t.simplify {
+		return t.simplifyGoal(goal, out, engine, query, declaration)
+	}
 	// The source fixedpoint context selects Datalog for finite predicates and
 	// PDR for infinite-domain Horn relations. All predicates are registered at
 	// this point, so the concrete Go factory can make the same choice.
@@ -425,23 +453,8 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 			return err
 		}
 	}
+	if t.progress != nil {
+		t.progress(1)
+	}
 	return out.AddGoal(goal)
-}
-
-func (t *HornTactic) UpdateParams(*uparams.ParamsRef) error         { return t.open() }
-func (t *HornTactic) CollectParamDescrs(*uparams.ParamDescrs) error { return t.open() }
-func (t *HornTactic) CollectStatistics() map[string]float64         { return nil }
-func (t *HornTactic) ResetStatistics() error                        { return t.open() }
-func (t *HornTactic) Cleanup() error                                { return t.open() }
-func (t *HornTactic) Reset() error                                  { return t.open() }
-func (t *HornTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
-func (t *HornTactic) SetProgressCallback(func(uint32)) error        { return t.open() }
-func (t *HornTactic) Translate(manager *ast.ASTManager) (tactic.Tactic, error) {
-	if err := t.open(); err != nil {
-		return nil, err
-	}
-	if manager != t.manager {
-		return nil, fmt.Errorf("horn tactic translation requires matching services")
-	}
-	return NewHornTactic(manager, t.context, t.globals)
 }
