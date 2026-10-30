@@ -734,8 +734,7 @@ func (c *Context) AssertWithText(formula ast.ASTHandle, name, displayText string
 	if err = c.logicChecker.CheckExpression(formula); err != nil {
 		return err
 	}
-	c.checked = false
-	if err = c.clearCheckSatResult(); err != nil {
+	if err = c.invalidateOptimizationState(); err != nil {
 		return err
 	}
 	ref, err := m.NewRef(formula)

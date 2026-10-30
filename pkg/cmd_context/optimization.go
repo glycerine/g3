@@ -51,6 +51,9 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 	if kind != ast.ASTApp {
 		return fmt.Errorf("malformed objective term: it cannot be a quantifier or bound variable")
 	}
+	if err = c.invalidateOptimizationState(); err != nil {
+		return err
+	}
 	sort, err := m.GetSort(expression)
 	if err != nil {
 		return err
@@ -72,10 +75,6 @@ func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
 		return fmt.Errorf("objective must be bit-vector, integer or real")
 	}
 	if err = c.logicChecker.CheckExpression(expression); err != nil {
-		return err
-	}
-	c.checked = false
-	if err = c.clearCheckSatResult(); err != nil {
 		return err
 	}
 	ref, err := m.NewRef(expression)
@@ -104,6 +103,9 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	if err != nil {
 		return err
 	}
+	if err = c.invalidateOptimizationState(); err != nil {
+		return err
+	}
 	sort, err := m.GetSort(expression)
 	if err != nil {
 		return err
@@ -116,10 +118,6 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 		return fmt.Errorf("invalid type for expression: expected Boolean type")
 	}
 	if err = c.logicChecker.CheckExpression(expression); err != nil {
-		return err
-	}
-	c.checked = false
-	if err = c.clearCheckSatResult(); err != nil {
 		return err
 	}
 	index, found := c.softObjectiveIndex[id]
@@ -140,6 +138,17 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	c.objectives[index].softTerms = append(c.objectives[index].softTerms, term)
 	c.softObjectiveTrail = append(c.softObjectiveTrail, index)
 	return nil
+}
+
+// Source: opt::context::clear_state, called before adding an objective or a
+// soft constraint. Drop the active Pareto solver and published check result
+// before validating/publishing the changed objective set.
+func (c *Context) invalidateOptimizationState() error {
+	c.checked = false
+	if err := c.closeParetoBackend(); err != nil {
+		return err
+	}
+	return c.clearCheckSatResult()
 }
 
 func (c *Context) restoreObjectives(size, softTerms int) error {
