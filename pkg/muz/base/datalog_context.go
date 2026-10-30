@@ -25,7 +25,8 @@ type DatalogContext struct {
 	references     []ast.ASTRef
 	sorts          map[ast.ASTHandle]*datalogSortDomain
 	argumentNames  map[ast.ASTHandle][]usymbol.Symbol
-	scopes         []int
+	scopes         []datalogContextScope
+	background     []ast.ASTRef
 	bindVariables  bool
 	closed         bool
 }
@@ -95,6 +96,10 @@ func (c *DatalogContext) Close() (result error) {
 		return nil
 	}
 	c.closed = true
+	for i := len(c.background) - 1; i >= 0; i-- {
+		result = errors.Join(result, c.manager.DelRef(&c.background[i]))
+	}
+	c.background = nil
 	if c.rules != nil {
 		result = errors.Join(result, c.rules.Close())
 	}

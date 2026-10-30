@@ -2,6 +2,11 @@ package base
 
 import "fmt"
 
+type datalogContextScope struct {
+	rules      int
+	background int
+}
+
 func (c *DatalogContext) Push() error {
 	if err := c.open(); err != nil {
 		return err
@@ -10,7 +15,7 @@ func (c *DatalogContext) Push() error {
 	if err != nil {
 		return err
 	}
-	c.scopes = append(c.scopes, n)
+	c.scopes = append(c.scopes, datalogContextScope{rules: n, background: len(c.background)})
 	return nil
 }
 func (c *DatalogContext) Pop(count uint32) error {
@@ -23,6 +28,12 @@ func (c *DatalogContext) Pop(count uint32) error {
 	for ; count > 0; count-- {
 		target := c.scopes[len(c.scopes)-1]
 		c.scopes = c.scopes[:len(c.scopes)-1]
+		for i := len(c.background) - 1; i >= target.background; i-- {
+			if err := c.manager.DelRef(&c.background[i]); err != nil {
+				return err
+			}
+		}
+		c.background = c.background[:target.background]
 		finalized, err := c.rules.IsFinalized()
 		if err != nil {
 			return err
@@ -37,7 +48,7 @@ func (c *DatalogContext) Pop(count uint32) error {
 			if err != nil {
 				return err
 			}
-			if n <= target {
+			if n <= target.rules {
 				break
 			}
 			rule, err := c.rules.Rule(n - 1)
