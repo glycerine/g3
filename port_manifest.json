@@ -88001,7 +88001,7 @@
       "path": "src/muz/rel/dl_mk_simple_joins.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/simple_joins.go"],
       "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP"],
       "conditionals": [
@@ -88014,8 +88014,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [{"name": "Owned priority-1000 simple-join transformer plugin surface (dl_mk_simple_joins.h:38-59)", "status": "ported", "go_target": "pkg/muz/transforms/simple_joins.go", "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames"]}],
       "ownership": ["RuleTransformer owns and closes SimpleJoinsPlugin after applying its returned RuleSet."],
       "deviations": ["Planner-specific private C++ containers are replaced by concrete Go slices and maps for the retained deterministic normalization path."]
