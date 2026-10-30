@@ -50610,6 +50610,8 @@
         "TestFixedRootRetainedNewtonAndCertifiedBounds",
         "TestSubpavingFixedIntervalXnEqYRetainedCases",
         "TestSubpavingFastMutableIntervalRetainedCore",
+        "TestSubpavingFastConstantIntervalSelfAssignment",
+        "TestSubpavingFastNodeConstantIntervalViews",
         "TestSubpavingFastIntervalNegAddSubDirectedAndAlias",
         "TestSubpavingFastIntervalMulSignClasses",
         "TestSubpavingFastIntervalDivSignBranches",
@@ -51396,10 +51398,17 @@
         },
         {
           "name": "Concrete mpff mutable subpaving interval endpoints, reset, set, invariant, zero containment and display (src/math/interval/interval_def.h:597-680)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval.go",
+          "go_targets": [
+            "pkg/math/subpaving/fast_interval.go",
+            "pkg/math/subpaving/fast_interval_test.go",
+            "pkg/math/subpaving/fast_node_test.go"
+          ],
           "tests": [
-            "TestSubpavingFastMutableIntervalRetainedCore"
+            "TestSubpavingFastMutableIntervalRetainedCore",
+            "TestSubpavingFastConstantIntervalSelfAssignment",
+            "TestSubpavingFastNodeConstantIntervalViews"
           ]
         },
         {
@@ -75650,10 +75659,16 @@
       "methods": [
         {
           "name": "Concrete config_mpff interval manager binding to fast-float numerals and mutable endpoints",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval.go",
+          "go_targets": [
+            "pkg/math/subpaving/fast_interval.go",
+            "pkg/math/subpaving/fast_interval_arith.go"
+          ],
           "tests": [
             "TestSubpavingFastMutableIntervalRetainedCore",
+            "TestSubpavingFastConstantIntervalSelfAssignment",
+            "TestSubpavingFastNodeConstantIntervalViews",
             "TestSubpavingFastIntervalNegAddSubDirectedAndAlias"
           ]
         },
