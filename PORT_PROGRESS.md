@@ -50745,3 +50745,6 @@ Relational table domain-bound regression repair (2026-10-30 UTC): corrected stal
 
 
 Permutation header concrete instantiations (2026-10-30 UTC): closed `src/util/permutation.h` by mapping its retained polynomial payload cycle and NLSAT clause-pointer ordering to their concrete Go implementations. The NLSAT degree/original-index watch-order regression and focused polynomial lex tests pass; generic template and test-only instantiations remain excluded.
+
+
+Datalog utility retained-consumer closure (2026-10-30 UTC): audited `dl_util.cpp/.h` call sites and marked both units ported for the retained consumers, including rule-tail construction/resolution, output formatting, variable intersections and set operations, concrete relational column helpers, WPA path discovery, and uint64 parsing. Focused base, transform, context, and relational tests pass; utilities whose only callers are unported or test-only units remain excluded under the retained-consumer boundary.
