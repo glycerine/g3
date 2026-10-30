@@ -235,6 +235,57 @@ func TestBV2IntDirectRefusalFallbackAndPartialFold(t *testing.T) {
 	f.wantInt(t, prefix, 5)
 }
 
+func TestBV2IntUnsupportedArithmeticSurfaceFallsBack(t *testing.T) {
+	f := bv2IntRewriteFixture(t, ^uint32(0))
+	integerX, integerY := fixDLConst(t, f.m, true, "unsupported-int-x"), fixDLConst(t, f.m, true, "unsupported-int-y")
+	realX, realY := fixDLConst(t, f.m, false, "unsupported-real-x"), fixDLConst(t, f.m, false, "unsupported-real-y")
+	forms := []struct {
+		name string
+		expr ast.ASTHandle
+	}{
+		{name: "numeral", expr: fixDLNumber(t, f.m, true, "7")},
+		{name: "div", expr: fixDLApp(t, f.m, 10, realX, realY)},
+		{name: "idiv", expr: fixDLApp(t, f.m, 11, integerX, integerY)},
+		{name: "rem", expr: fixDLApp(t, f.m, 12, integerX, integerY)},
+		{name: "to-real", expr: fixDLApp(t, f.m, 14, integerX)},
+		{name: "to-int", expr: fixDLApp(t, f.m, 15, realX)},
+		{name: "is-int", expr: fixDLApp(t, f.m, 16, realX)},
+	}
+	out, err := f.m.NewRef(ast.ASTHandle{})
+	equationMust(t, err)
+	defer func() { equationMust(t, f.m.DelRef(&out)) }()
+	for _, test := range forms {
+		t.Run(test.name, func(t *testing.T) {
+			decl, getErr := f.m.GetDecl(test.expr)
+			equationMust(t, getErr)
+			count, getErr := f.m.GetNumArgs(test.expr)
+			equationMust(t, getErr)
+			args := make([]ast.ASTHandle, count)
+			for i := range args {
+				args[i], getErr = f.m.GetArg(test.expr, uint32(i))
+				equationMust(t, getErr)
+			}
+			equationMust(t, f.m.SetRef(out, ast.ASTHandle{}))
+			status, coreErr := f.r.MkAppCore(decl, ast.SliceArguments(args), out)
+			equationMust(t, coreErr)
+			if status != rewriter.RewriteFailed {
+				t.Fatalf("source-declined operator status %v", status)
+			}
+			unchanged, getErr := f.m.RefGet(out)
+			equationMust(t, getErr)
+			if !unchanged.IsNull() {
+				t.Fatal("failed rewrite published a result")
+			}
+			equationMust(t, f.r.MkApp(decl, ast.SliceArguments(args), out))
+			got, getErr := f.m.RefGet(out)
+			equationMust(t, getErr)
+			if got != test.expr {
+				t.Fatal("fallback changed a source-declined expression")
+			}
+		})
+	}
+}
+
 func TestBV2IntCallCleanupSkipsAlreadyConsumedReferences(t *testing.T) {
 	f := bv2IntRewriteFixture(t, ^uint32(0))
 	root := fixDLConst(t, f.m, true, "cleanup-consumed")
