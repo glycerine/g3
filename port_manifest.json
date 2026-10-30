@@ -165337,7 +165337,8 @@
             "TestBV2RealTraceComparisonPublicationAndErasure",
             "TestBV2RealTraceDivisibilityPrefixes",
             "TestBV2RealTraceStreamFailureStillEvaluatesOperands",
-            "TestBV2RealTraceFormattingAllocationFrontiers"
+            "TestBV2RealTraceFormattingAllocationFrontiers",
+            "TestDebugAssertionFailureUsesBoundInteractiveAction"
           ]
         }
       ],
@@ -165347,7 +165348,7 @@
       "deviations": [
         "Only the actual retained nla2bv uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps and slices implement signature caches and traversal. Exact big.Rat metadata is used in both caches without duplicating source project-numeral owners for each signature copy; cache ownership/allocation audit remains open.",
         "Source sqrt(2) comparisons are under-approximations, not equivalences. Tests check both side-condition feasibility and exclusion of incorrect polarity against the prebuilt C++ executable for 72 closed comparisons, plus 18 arithmetic/elimination and 18 signed real interpretation equivalences. No whole-source completion claim follows from these bounded checks.",
-        "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Full action-bound C/T assertion transport is not established by the legacy explicit Go assertion fixtures. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
+        "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Bound interactive assertion action transport is verified by a real BV2Real source-location notification, prompt, C continuation, and consumed input byte. The general action-bound T exception path remains covered separately by diagnostic action tests. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
         "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Exact per-expression source printer/local allocation lifetime and project-numeral rational insertion audits remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion."
       ]
     },
@@ -165418,7 +165419,8 @@
             "TestBV2RealTraceComparisonPublicationAndErasure",
             "TestBV2RealTraceDivisibilityPrefixes",
             "TestBV2RealTraceStreamFailureStillEvaluatesOperands",
-            "TestBV2RealTraceFormattingAllocationFrontiers"
+            "TestBV2RealTraceFormattingAllocationFrontiers",
+            "TestDebugAssertionFailureUsesBoundInteractiveAction"
           ]
         }
       ],
@@ -165428,7 +165430,7 @@
       "deviations": [
         "Only the actual retained nla2bv uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps and slices implement signature caches and traversal. Exact big.Rat metadata is used in both caches without duplicating source project-numeral owners for each signature copy; cache ownership/allocation audit remains open.",
         "Source sqrt(2) comparisons are under-approximations, not equivalences. Tests check both side-condition feasibility and exclusion of incorrect polarity against the prebuilt C++ executable for 72 closed comparisons, plus 18 arithmetic/elimination and 18 signed real interpretation equivalences. No whole-source completion claim follows from these bounded checks.",
-        "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Full action-bound C/T assertion transport is not established by the legacy explicit Go assertion fixtures. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
+        "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Bound interactive assertion action transport is verified by a real BV2Real source-location notification, prompt, C continuation, and consumed input byte. The general action-bound T exception path remains covered separately by diagnostic action tests. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
         "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Exact per-expression source printer/local allocation lifetime and project-numeral rational insertion audits remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion."
       ]
     },

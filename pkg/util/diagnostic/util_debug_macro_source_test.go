@@ -105,6 +105,26 @@ func TestDebugMacroVerifyFalsePrefixAndContinue(t *testing.T) {
 		t.Fatal(string(data), want)
 	}
 }
+
+func TestDebugAssertionFailureUsesBoundInteractiveAction(t *testing.T) {
+	_, d, _, in, s := debugActionFixture(t, "C")
+	e := DebugAssertionFailure(d, "src/tactic/arith/bv2real_rewriter.cpp", 51, "sig.m_d.is_pos()")
+	if e != nil {
+		t.Fatal(e)
+	}
+	data, err := os.ReadFile(s.StderrField.File.Name())
+	paramsMust(t, err)
+	want := "ASSERTION VIOLATION\nFile: src/tactic/arith/bv2real_rewriter.cpp\nLine: 51\nsig.m_d.is_pos()\n" + DebugSourcePrompt
+	if string(data) != want {
+		t.Fatalf("assertion action output mismatch:\n got %q\nwant %q", data, want)
+	}
+	state, err := in.State()
+	paramsMust(t, err)
+	if state.Position != 1 {
+		t.Fatalf("continue action consumed %d bytes", state.Position)
+	}
+}
+
 func TestDebugMacroXAssertionLiteralExtraBeforeAction(t *testing.T) {
 	_, d, _, in, s := debugActionFixture(t, "T")
 	var reached uint32
