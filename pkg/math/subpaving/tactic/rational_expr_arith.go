@@ -68,9 +68,9 @@ func (c *RationalExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) (
 		return 0, err
 	}
 	m := t
-	nonzeroCoefficient := false
-	coefficient, parsed := new(big.Rat).SetString(coefficientText)
-	if numeric && parsed && coefficient.Sign() != 0 {
+	hasCoefficient := false
+	_, parsed := new(big.Rat).SetString(coefficientText)
+	if numeric && parsed {
 		if count != 2 {
 			return 0, ErrExprConverterNonSimplified
 		}
@@ -81,9 +81,9 @@ func (c *RationalExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) (
 		if err != nil {
 			return 0, err
 		}
-		nonzeroCoefficient = true
+		hasCoefficient = true
 	}
-	if !nonzeroCoefficient {
+	if !hasCoefficient {
 		if err = z.SetInt32(n, 1); err != nil {
 			return 0, err
 		}

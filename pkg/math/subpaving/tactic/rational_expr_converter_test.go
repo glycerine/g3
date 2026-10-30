@@ -226,14 +226,21 @@ func TestRationalExprConverterExactLeafGoalAndCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := converter.InternalizeTerm(zeroProduct, &n, &d); err != nil || got == math.MaxUint32 {
-		t.Fatal("n-ary zero product", got, err)
+	if _, err := converter.InternalizeTerm(zeroProduct, &n, &d); !errors.Is(err, ErrExprConverterNonSimplified) {
+		t.Fatal("source rejects n-ary product with numeric first factor", err)
+	}
+	zeroScalar, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, err := converter.InternalizeTerm(zeroScalar, &n, &d); err != nil || got != variable {
+		t.Fatal("binary zero scalar product", got, err)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "0" {
-		t.Fatal("n-ary zero product numerator", got, err)
+		t.Fatal("binary zero scalar product numerator", got, err)
 	}
-	if got, err := qm.Z.String(&d); err != nil || got != "2" {
-		t.Fatal("n-ary zero product denominator", got, err)
+	if got, err := qm.Z.String(&d); err != nil || got != "1" {
+		t.Fatal("binary zero scalar product denominator", got, err)
 	}
 	sumLE, err := m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{sum, two})
 	if err != nil {
