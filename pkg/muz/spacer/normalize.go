@@ -4,32 +4,35 @@ package spacer
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+// Source ast_lt_proc compares get_id(), unlike the structural ast_lt order.
+// Read IDs once while the concrete ASTRef owners keep every node live.
 func normalizeLess(manager *ast.ASTManager, values []ast.ASTRef) error {
-	for i := 1; i < len(values); i++ {
-		for j := i; j > 0; j-- {
-			left, err := manager.RefGet(values[j])
-			if err != nil {
-				return err
-			}
-			right, err := manager.RefGet(values[j-1])
-			if err != nil {
-				return err
-			}
-			less, err := manager.ASTLess(left, right)
-			if err != nil {
-				return err
-			}
-			if !less {
-				break
-			}
-			values[j-1], values[j] = values[j], values[j-1]
+	type entry struct {
+		ref ast.ASTRef
+		id  uint32
+	}
+	entries := make([]entry, len(values))
+	for i, ref := range values {
+		handle, err := manager.RefGet(ref)
+		if err != nil {
+			return err
 		}
+		id, err := manager.GetASTID(handle)
+		if err != nil {
+			return err
+		}
+		entries[i] = entry{ref: ref, id: id}
+	}
+	sort.SliceStable(entries, func(i, j int) bool { return entries[i].id < entries[j].id })
+	for i, item := range entries {
+		values[i] = item.ref
 	}
 	return nil
 }

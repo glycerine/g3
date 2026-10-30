@@ -90651,6 +90651,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
         {
           "name": "bounded proof-obligation search with Luby lemma restarts, configurable ground-CTI derivation projection, parameterized concrete reach-fact projection, and preorder ground satisfying-answer reconstruction",
           "status": "partial",
@@ -90757,6 +90758,7 @@
       "methods_audited": false,
       "ownership_audited": true,
       "methods": [
+        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
         {"name": "retained context/predicate-transformer lifecycle, full propagation scheduling, configured and final-inductive frame unit-subsumption simplification, Farkas-only lemma generalization, solving, result validation, answers, inductive models, levels and covers", "status": "partial", "go_target": "pkg/muz/spacer/context.go", "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestContextConsumesResultValidationPolicy", "TestContextConsumesFrameSimplificationPolicies", "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation", "TestLemmaGeneralizerGateRequiresNonFalseFarkasLemma", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSMTContextFixedpointSpacerInductiveExports"]},
         {"name": "remaining optional generalizers, transformed-rule inheritance, and proof/trace diagnostics", "status": "unported", "go_target": null, "tests": []}
       ],
@@ -92942,6 +92944,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
         {"name": "adhoc_rewriter_cfg concrete bottom-up normalization rewrites integer thresholds and double negation after child rebuilding, including quantifier body/annotation updates and owning result cache (spacer_util.cpp:980-1055)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go"], "tests": ["TestNormalizeAdhocRewritesChildrenBeforeParentThreshold", "TestNormalizeFormulaIntegerThresholds"]},
         {"name": "qe_project unconditional array stage preserves reduce_all_selects when no array variables remain, including model-selected store index guards (spacer_util.cpp:556-581; spacer_qe_project.cpp:2298-2335)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionReducesAllSelectsWithoutArrayVariables"]},
         {"name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_round.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"]},
@@ -93009,6 +93012,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
         {"name": "adhoc_rewriter_cfg concrete bottom-up normalization rewrites integer thresholds and double negation after child rebuilding, including quantifier body/annotation updates and owning result cache (spacer_util.cpp:980-1055)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go"], "tests": ["TestNormalizeAdhocRewritesChildrenBeforeParentThreshold", "TestNormalizeFormulaIntegerThresholds"]},
         {"name": "qe_project unconditional array stage preserves reduce_all_selects when no array variables remain, including model-selected store index guards (spacer_util.cpp:556-581; spacer_qe_project.cpp:2298-2335)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionReducesAllSelectsWithoutArrayVariables"]},
         {"name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_round.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"]},

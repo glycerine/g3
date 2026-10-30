@@ -171,3 +171,44 @@ func TestNormalizeAdhocRewritesChildrenBeforeParentThreshold(t *testing.T) {
 	}
 
 }
+
+// Source: spacer_util.cpp normalize uses ast_lt_proc (AST IDs), not ast_lt.
+func TestNormalizeFormulaSortsConjunctsBySourceASTID(t *testing.T) {
+	m, globals := newSpacerTestServices(t)
+	boolean, err := m.MkBoolSort()
+	normalizeMust(t, err)
+	name, err := m.Symbols.Intern("id-sort-p")
+	normalizeMust(t, err)
+	p, err := m.MkConst(name, boolean)
+	normalizeMust(t, err)
+	notP, err := m.MkNot(p)
+	normalizeMust(t, err)
+	name, err = m.Symbols.Intern("id-sort-q")
+	normalizeMust(t, err)
+	q, err := m.MkConst(name, boolean)
+	normalizeMust(t, err)
+	firstID, err := m.GetASTID(notP)
+	normalizeMust(t, err)
+	secondID, err := m.GetASTID(q)
+	normalizeMust(t, err)
+	if firstID >= secondID {
+		t.Fatal("fixture requires earlier compound AST", firstID, secondID)
+	}
+	formula, err := m.MkAndArray([]ast.ASTHandle{q, notP})
+	normalizeMust(t, err)
+	input, err := m.NewRef(formula)
+	normalizeMust(t, err)
+	defer func() { normalizeMust(t, m.DelRef(&input)) }()
+	result, err := normalizeFormula(m, globals.Context, globals, formula, false, false)
+	normalizeMust(t, err)
+	defer func() { normalizeMust(t, m.DelRef(&result)) }()
+	root, err := m.RefGet(result)
+	normalizeMust(t, err)
+	for index, want := range []ast.ASTHandle{notP, q} {
+		actual, err := m.GetArg(root, uint32(index))
+		normalizeMust(t, err)
+		if actual != want {
+			t.Fatal("conjunction used structural order instead of source AST IDs", index, actual, want)
+		}
+	}
+}
