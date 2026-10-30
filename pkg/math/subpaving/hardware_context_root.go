@@ -61,6 +61,7 @@ type HardwareContext struct {
 	displayVariable       HardwareVariableDisplay
 	trace                 *diagnostic.TraceTags
 	initStage             uint8
+	rootInitStarted       bool
 	initDefHead           uint32
 	initConstraintsTraced bool
 	initUnitBoundsTraced  bool

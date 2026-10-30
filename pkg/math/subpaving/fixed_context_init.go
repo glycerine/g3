@@ -4,13 +4,16 @@ package subpaving
 // concrete config_mpfx root initialization order.
 
 // InitializeRoot asserts units, propagates definitions in variable order and
-// drains the resulting queue. Each completed stage is retained so a resource
-// cancellation can resume without asserting units or definitions twice.
+// drains the resulting queue. A canceled source initialization is not resumed
+// because the root remains allocated.
 func (c *FixedContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	n := c.root
+	if c.rootInitStarted {
+		return nil
+	}
 	if err := n.open(); err != nil {
 		return err
 	}
@@ -21,6 +24,7 @@ func (c *FixedContext) InitializeRoot() error {
 			}
 			c.initConstraintsTraced = true
 		}
+		c.rootInitStarted = true
 		if err := c.AssertUnitClauses(n); err != nil {
 			return err
 		}

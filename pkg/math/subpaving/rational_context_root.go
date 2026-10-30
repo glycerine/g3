@@ -37,6 +37,7 @@ type RationalContext struct {
 	unitClauses      []rationalUnitClause
 	unitHead         int
 	initStage        uint8
+	rootInitStarted  bool
 
 	initConstraintsTraced, initUnitBoundsTraced, initRootBoundsTraced bool
 

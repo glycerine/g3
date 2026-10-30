@@ -3,6 +3,8 @@ package subpaving
 import (
 	"errors"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
 )
 
 func TestArbitraryContextRootInitializationStagesAndConflict(t *testing.T) {
@@ -34,7 +36,7 @@ func TestArbitraryContextRootInitializationStagesAndConflict(t *testing.T) {
 		}
 		return f, out
 	}
-	t.Run("canceled unit resumes through definition and queue", func(t *testing.T) {
+	t.Run("canceled unit leaves source root initialization incomplete", func(t *testing.T) {
 		f, out := setup(t, false)
 		c := f.context
 		c.limit.Limit, c.limit.Steps = 1, 0
@@ -48,27 +50,11 @@ func TestArbitraryContextRootInitializationStagesAndConflict(t *testing.T) {
 		if err := c.InitializeRoot(); err != nil {
 			t.Fatal(err)
 		}
-		if c.initStage != 3 || c.initDefHead != uint32(len(c.variables)) || c.unitHead != 2 || len(c.queue) != 0 || c.queueHead != 0 {
-			t.Fatal("root initialization stages did not drain", c.initStage, c.initDefHead, c.unitHead, len(c.queue), c.queueHead)
+		if c.initStage != 0 || c.initDefHead != 0 || c.unitHead != 1 || c.root.upper[f.x] != nil || c.root.lower[out] != nil || c.root.upper[out] != nil {
+			t.Fatal("later initialization resumed the canceled source prefix", c.initStage, c.initDefHead, c.unitHead)
 		}
-		core, err := f.numbers.BorrowCore()
-		if err != nil {
-			t.Fatal(err)
-		}
-		lo, err := core.ToDouble(&c.root.lower[out].value)
-		if err != nil {
-			t.Fatal(err)
-		}
-		hi, err := core.ToDouble(&c.root.upper[out].value)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if lo != 16 || hi != 25 || !c.root.lower[out].definitionReason {
-			t.Fatal("definition sweep must precede queue drain and publish square bounds", lo, hi)
-		}
-		trail, timestamp, visits := c.root.trail, c.timestamp, c.numVisited
-		if err := c.InitializeRoot(); err != nil || c.root.trail != trail || c.timestamp != timestamp || c.numVisited != visits {
-			t.Fatal("completed initialization must not replay work", err)
+		if _, err := c.NewVariable(false); !errors.Is(err, arena.ErrInvalidSlot) {
+			t.Fatal("variable growth after root creation", err)
 		}
 	})
 	t.Run("unit conflict skips definitions", func(t *testing.T) {
@@ -81,7 +67,7 @@ func TestArbitraryContextRootInitializationStagesAndConflict(t *testing.T) {
 			t.Fatal("root conflict must stop definition sweep and clear queue")
 		}
 	})
-	t.Run("canceled queue resumes after definition sweep", func(t *testing.T) {
+	t.Run("canceled queue remains pending after root initialization", func(t *testing.T) {
 		f, out := setup(t, false)
 		c := f.context
 		c.limit.Limit, c.limit.Steps = 2, 0
@@ -90,8 +76,8 @@ func TestArbitraryContextRootInitializationStagesAndConflict(t *testing.T) {
 		}
 		visits, trail := c.numVisited, c.root.trail
 		c.limit.Limit, c.limit.Steps = 0, 0
-		if err := c.InitializeRoot(); err != nil || c.initStage != 3 || c.root.trail != trail || c.numVisited != visits+1 || len(c.queue) != 0 {
-			t.Fatal("queue resume must run the due output watch without replaying the sweep", err, c.initStage, c.numVisited, visits)
+		if err := c.InitializeRoot(); err != nil || c.initStage != 2 || c.root.trail != trail || c.numVisited != visits || c.queueHead != 0 || len(c.queue) == 0 {
+			t.Fatal("later initialization drained the canceled source queue", err, c.initStage, c.numVisited, visits)
 		}
 	})
 }

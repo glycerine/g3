@@ -42,6 +42,7 @@ type ArbitraryContext struct {
 	unitClauses                                     []arbitraryUnitClause
 	unitHead                                        int
 	initStage                                       uint8
+	rootInitStarted                                 bool
 	initDefHead                                     uint32
 	initConstraintsTraced                           bool
 	initUnitBoundsTraced                            bool

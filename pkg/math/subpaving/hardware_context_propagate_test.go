@@ -70,9 +70,9 @@ func TestHardwareContextRootDefinitionOrderAndQueuedWatchers(t *testing.T) {
 	if err := c.InitializeRoot(); err != nil {
 		t.Fatal(err)
 	}
-	if c.initStage != 3 || c.unitHead != 2 || len(c.queue) != 0 || c.queueHead != 0 ||
+	if c.initStage != 2 || c.unitHead != 2 || len(c.queue) == 0 || c.queueHead != 1 ||
 		m.ToFloat64(&n.lower[z].value) != 6 || m.ToFloat64(&n.upper[z].value) != 12 {
-		t.Fatal("resumed queue must drain without replaying root units")
+		t.Fatal("later call drained the source queue after cancellation")
 	}
 	if err := c.PropagateBound(n, x, &half, true, false); err != nil {
 		t.Fatal(err)

@@ -6,7 +6,8 @@ package subpaving
 import "math"
 
 // InitializeRoot asserts units, visits definitions in variable order, then
-// drains the resulting bound queue. Completed stages survive cancellation.
+// drains the resulting bound queue. A canceled source initialization is not
+// resumed because the root remains allocated.
 func (c *HardwareContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
@@ -15,6 +16,9 @@ func (c *HardwareContext) InitializeRoot() error {
 		if _, err := c.CreateRootNode(); err != nil {
 			return err
 		}
+	}
+	if c.rootInitStarted {
+		return nil
 	}
 	n := c.root
 	if err := n.open(); err != nil {
@@ -27,6 +31,7 @@ func (c *HardwareContext) InitializeRoot() error {
 			}
 			c.initConstraintsTraced = true
 		}
+		c.rootInitStarted = true
 		if err := c.AssertUnitClauses(n); err != nil {
 			return err
 		}

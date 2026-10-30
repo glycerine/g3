@@ -5,8 +5,8 @@ package subpaving
 
 import "math"
 
-// InitializeRoot resumes after a stopped unit or queue checkpoint without
-// asserting an already-published unit or redispatching an older bound.
+// InitializeRoot follows context_t::init; after a stopped source checkpoint,
+// the existing root prevents a later call from resuming initialization.
 func (c *RationalContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
@@ -15,6 +15,9 @@ func (c *RationalContext) InitializeRoot() error {
 	if err != nil {
 		return err
 	}
+	if c.rootInitStarted {
+		return nil
+	}
 	if c.initStage == 0 {
 		if !c.initConstraintsTraced {
 			if err := c.traceInitialConstraints(); err != nil {
@@ -22,6 +25,7 @@ func (c *RationalContext) InitializeRoot() error {
 			}
 			c.initConstraintsTraced = true
 		}
+		c.rootInitStarted = true
 		if _, err := c.AssertRootUnits(); err != nil {
 			return err
 		}

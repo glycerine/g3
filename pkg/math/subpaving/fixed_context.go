@@ -62,6 +62,7 @@ type FixedContext struct {
 	displayVariable       FixedVariableDisplay
 	trace                 *diagnostic.TraceTags
 	initStage             uint8
+	rootInitStarted       bool
 	initDefHead           uint32
 	initConstraintsTraced bool
 	initUnitBoundsTraced  bool
@@ -184,7 +185,7 @@ func (c *FixedContext) NewVariable(integer bool) (uint32, error) {
 	if err := c.open(); err != nil {
 		return 0, err
 	}
-	if len(c.isInt) >= math.MaxUint32 || c.initStage != 0 || c.root.children != 0 || c.root.trail != nil {
+	if len(c.isInt) >= math.MaxUint32 || c.rootInitStarted || c.initStage != 0 || c.root.children != 0 || c.root.trail != nil {
 		return 0, arena.ErrInvalidSlot
 	}
 	x := uint32(len(c.isInt))

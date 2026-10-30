@@ -27,7 +27,7 @@ func (c *FixedContext) DefineMonomial(powers []FixedPower) (uint32, error) {
 	if err := c.open(); err != nil {
 		return 0, err
 	}
-	if len(powers) == 0 || len(c.isInt) >= math.MaxUint32 || c.root.children != 0 {
+	if len(powers) == 0 || len(c.isInt) >= math.MaxUint32 || c.rootInitStarted || c.root.children != 0 {
 		return 0, arena.ErrInvalidSlot
 	}
 	merged := append([]FixedPower(nil), powers...)

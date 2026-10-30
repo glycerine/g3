@@ -75787,7 +75787,7 @@
           ],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsResumeAndCleanup"
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
           ]
         }
       ],
@@ -75854,7 +75854,7 @@
           ],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsResumeAndCleanup"
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
           ]
         }
       ],
@@ -76293,7 +76293,7 @@
           ],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsResumeAndCleanup"
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
           ]
         },
         {
@@ -76789,7 +76789,7 @@
           ]
         },
         {
-          "name": "Concrete config_hwf bound queue head, definition visits and resumable root initialization state",
+          "name": "Concrete config_hwf bound queue head, definition visits and non-resuming source root initialization state",
           "status": "partial",
           "go_target": "pkg/math/subpaving/hardware_context_propagate.go",
           "tests": [
@@ -76985,25 +76985,25 @@
           "tests": ["TestFixedSearchSourceParameterDisplayAndTrace", "TestFixedSearchBranchTraceIDsAndDepthLimit"]
         },
         {
-          "name": "Concrete config_hwf root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_hwf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_init_trace.go",
           "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
-          "name": "Concrete config_mpf root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_init_trace.go",
           "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
-          "name": "Concrete config_mpff root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpff root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_init_trace.go",
           "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
-          "name": "Concrete config_mpfx root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpfx root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_init_trace.go",
           "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"]
@@ -77847,7 +77847,7 @@
           ],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsResumeAndCleanup"
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
           ]
         },
         {
@@ -78728,25 +78728,25 @@
           "tests": ["TestFixedSearchSourceParameterDisplayAndTrace", "TestFixedSearchBranchTraceIDsAndDepthLimit"]
         },
         {
-          "name": "Concrete config_hwf root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_hwf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_init_trace.go",
           "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
-          "name": "Concrete config_mpf root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_init_trace.go",
           "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
-          "name": "Concrete config_mpff root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpff root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_init_trace.go",
           "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
-          "name": "Concrete config_mpfx root initialization constraints, unit, post-unit bounds and post-propagation bounds TRACE with resumable stage guards (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpfx root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_init_trace.go",
           "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"]

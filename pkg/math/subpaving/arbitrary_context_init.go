@@ -5,8 +5,8 @@ package subpaving
 
 import "math"
 
-// InitializeRoot retains completed stages so a canceled unit or queue
-// checkpoint resumes without replaying earlier bound publications.
+// InitializeRoot follows context_t::init: after the root initialization has
+// started, a canceled checkpoint leaves its partial state and is not resumed.
 func (c *ArbitraryContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
@@ -15,6 +15,9 @@ func (c *ArbitraryContext) InitializeRoot() error {
 	if err != nil {
 		return err
 	}
+	if c.rootInitStarted {
+		return nil
+	}
 	if c.initStage == 0 {
 		if !c.initConstraintsTraced {
 			if err := c.traceInitialConstraints(); err != nil {
@@ -22,6 +25,7 @@ func (c *ArbitraryContext) InitializeRoot() error {
 			}
 			c.initConstraintsTraced = true
 		}
+		c.rootInitStarted = true
 		if _, err := c.AssertRootUnits(); err != nil {
 			return err
 		}

@@ -10,12 +10,11 @@ func (c *FastContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	// C++ sets m_root before asserting units. If a checkpoint throws, a later
-	// operator() sees a non-nil root and skips init() instead of resuming it.
+	// C++ sets m_root before asserting units. A source checkpoint cancellation
+	// leaves that root in place, so a later operator() does not resume init().
 	if c.rootInitStarted {
 		return nil
 	}
-	c.rootInitStarted = true
 	n := c.root
 	if err := n.open(); err != nil {
 		return err
@@ -27,6 +26,7 @@ func (c *FastContext) InitializeRoot() error {
 			}
 			c.initConstraintsTraced = true
 		}
+		c.rootInitStarted = true
 		if err := c.AssertUnitClauses(n); err != nil {
 			return err
 		}

@@ -4,9 +4,11 @@ import (
 	"errors"
 	"math"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
 )
 
-func TestRationalContextInitializeRootResumesUnitsAndWatchedQueue(t *testing.T) {
+func TestRationalContextInitializeRootDoesNotResumeCanceledSourceInit(t *testing.T) {
 	c, m, value, x, y := rationalClauseFixture(t)
 	if err := m.SetInt32(value, 5); err != nil {
 		t.Fatal(err)
@@ -40,19 +42,18 @@ func TestRationalContextInitializeRootResumesUnitsAndWatchedQueue(t *testing.T) 
 		t.Fatal("root did not retain first unit on cancellation", err, c.unitHead, c.initStage)
 	}
 	c.limit.Limit = 3
-	if err := c.InitializeRoot(); !errors.Is(err, ErrRationalContextCanceled) || c.unitHead != 2 || c.initStage != 2 || len(c.queue) != 2 || c.queueHead != 0 || c.numBounds != 2 {
-		t.Fatal("root did not retain second unit before queued cancellation", err, c.unitHead, c.initStage)
+	if err := c.InitializeRoot(); err != nil || c.unitHead != 1 || c.initStage != 0 || len(c.queue) != 1 || c.queueHead != 0 || c.numBounds != 1 {
+		t.Fatal("later call resumed the canceled unit prefix", err, c.unitHead, c.initStage)
 	}
 	c.limit.Limit = 0
 	if err := c.InitializeRoot(); err != nil {
 		t.Fatal(err)
 	}
 	n := c.root
-	if n == nil || n.conflictVar != math.MaxUint32 || n.lower[y] == nil || n.lower[y].reasonClause != clause || c.initStage != 3 || c.numBounds != 3 || c.numVisited != 1 || len(c.queue) != 0 || c.queueHead != 0 {
-		t.Fatal("root did not finish watched propagation once", n, c.initStage, c.numBounds, c.numVisited)
+	if n == nil || n.conflictVar != math.MaxUint32 || n.lower[y] != nil || c.initStage != 0 || c.numBounds != 1 || c.numVisited != 0 || len(c.queue) != 1 || c.queueHead != 0 {
+		t.Fatal("later call changed the partial source root", n, c.initStage, c.numBounds, c.numVisited, clause)
 	}
-	steps := c.limit.Steps
-	if err := c.InitializeRoot(); err != nil || c.limit.Steps != steps || c.numBounds != 3 || c.numVisited != 1 {
-		t.Fatal("completed root initialization replayed", err, c.limit.Steps, steps)
+	if _, err := c.NewVariable(false); !errors.Is(err, arena.ErrInvalidSlot) {
+		t.Fatal("variable growth after root creation", err)
 	}
 }

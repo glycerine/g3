@@ -48,7 +48,7 @@ func (c *FixedContext) NewInequality(variable uint32, value *numeral.FixedPoint,
 	if err = c.open(); err != nil {
 		return nil, err
 	}
-	if variable >= uint32(len(c.isInt)) || c.root.children != 0 {
+	if variable >= uint32(len(c.isInt)) || c.rootInitStarted || c.root.children != 0 {
 		return nil, arena.ErrInvalidSlot
 	}
 	v, err := c.numbers.New()
@@ -135,7 +135,7 @@ func (c *FixedContext) AddClause(atoms []*FixedInequality, lemma, watched bool) 
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	if len(atoms) == 0 || !lemma && !watched || c.root.children != 0 {
+	if len(atoms) == 0 || !lemma && !watched || c.rootInitStarted || c.root.children != 0 {
 		return nil, arena.ErrInvalidSlot
 	}
 	for _, atom := range atoms {
@@ -169,6 +169,9 @@ func (c *FixedContext) AddClause(atoms []*FixedInequality, lemma, watched bool) 
 func (c *FixedContext) AddUnitClause(atom *FixedInequality, axiom bool) error {
 	if err := c.open(); err != nil {
 		return err
+	}
+	if c.rootInitStarted {
+		return arena.ErrInvalidSlot
 	}
 	if err := c.checkInequality(atom); err != nil {
 		return err
