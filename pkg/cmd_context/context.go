@@ -72,6 +72,7 @@ type Context struct {
 	params                           uparams.ParamsRef
 	paramsReady                      bool
 	manager                          *ast.ASTManager
+	borrowedManager                  bool
 	fixedpoint                       *muzfp.PropositionalEngine
 	solver                           solver.Solver
 	tacticResult                     *solver.SimpleCheckSatResult
@@ -235,13 +236,16 @@ func (c *Context) SetLogic(logic string) error {
 	if c.logic != "" {
 		return fmt.Errorf("the logic has already been set")
 	}
-	if c.manager != nil {
+	if c.manager != nil && !c.borrowedManager {
 		return fmt.Errorf("logic must be set before initialization")
 	}
 	if !solver.SupportedLogic(logic) {
 		return fmt.Errorf("unsupported logic %s", logic)
 	}
 	c.logic = logic
+	if c.manager != nil {
+		return c.logicChecker.SetLogic(c.manager, logic)
+	}
 	return nil
 }
 
@@ -1003,7 +1007,18 @@ func (c *Context) Reset() error {
 	if err := c.valid(); err != nil {
 		return err
 	}
-	return c.resetManagerState()
+	if !c.borrowedManager {
+		return c.resetManagerState()
+	}
+	manager := c.manager
+	if err := c.resetManagerState(); err != nil {
+		return err
+	}
+	c.manager = manager
+	if err := c.initBuiltins(); err != nil {
+		return err
+	}
+	return c.mkSolver(manager)
 }
 
 // Also used by Close, including partial context construction where valid()
@@ -1051,8 +1066,10 @@ func (c *Context) resetManagerState() error {
 		if err := c.restoreSortConstructors(0); err != nil {
 			return err
 		}
-		if err := c.manager.Close(); err != nil {
-			return err
+		if !c.borrowedManager {
+			if err := c.manager.Close(); err != nil {
+				return err
+			}
 		}
 		c.manager = nil
 	}
