@@ -30,16 +30,19 @@ type vector struct {
 }
 
 type Basis struct {
-	inequalities []inequality
-	integers     map[uint32]bool
-	basis        []*vector
-	current      int
-	checkpoint   func() bool
-	useSupport   bool
+	inequalities       []inequality
+	integers           map[uint32]bool
+	basis              []*vector
+	current            int
+	checkpoint         func() bool
+	useSupport         bool
+	orderedSupport     bool
+	orderedSubsumption bool
+	stats              basisStatistics
 }
 
 func New(checkpoint func() bool) *Basis {
-	return &Basis{integers: make(map[uint32]bool), checkpoint: checkpoint, useSupport: true}
+	return &Basis{integers: make(map[uint32]bool), checkpoint: checkpoint, useSupport: true, orderedSupport: true, orderedSubsumption: true}
 }
 
 func (b *Basis) Reset() {
@@ -292,6 +295,11 @@ func resolve(left, right *vector) (*vector, error) {
 	return result, nil
 }
 
+func (b *Basis) resolve(left, right *vector) (*vector, error) {
+	b.stats.numResolves++
+	return resolve(left, right)
+}
+
 func absGE(left, right int64) bool {
 	if right < 0 {
 		return left <= right
@@ -391,7 +399,7 @@ func (b *Basis) saturateOne(row []int64, equal bool) (lbool.LBool, error) {
 		}
 		for _, prior := range active {
 			if (!b.useSupport || support[prior]) && b.canResolve(candidate, prior) {
-				resolved, resolveErr := resolve(candidate, prior)
+				resolved, resolveErr := b.resolve(candidate, prior)
 				if resolveErr != nil {
 					return lbool.Undef, resolveErr
 				}
@@ -434,7 +442,8 @@ func (b *Basis) Saturate() (lbool.LBool, error) {
 		if err := b.selectInequality(); err != nil {
 			return lbool.Undef, err
 		}
-		result, err := b.saturateOne(b.inequalities[b.current].values, b.inequalities[b.current].equal)
+		result, err := b.saturateOrdered(b.inequalities[b.current].values, b.inequalities[b.current].equal)
+		b.stats.numSaturations++
 		if err != nil || result != lbool.True {
 			return result, err
 		}
