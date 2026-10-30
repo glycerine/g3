@@ -68,7 +68,7 @@ func (p *SimpleJoinsPlugin) variables(root ast.ASTHandle, result map[uint32]ast.
 	return nil
 }
 
-func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle) (ast.ASTHandle, *base.Rule, error) {
+func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle, prefix usymbol.Symbol) (ast.ASTHandle, *base.Rule, error) {
 	pairVariables := make(map[uint32]ast.ASTHandle)
 	live := make(map[uint32]ast.ASTHandle)
 	for _, expression := range pair {
@@ -103,11 +103,11 @@ func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle) (ast.ASTHan
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	prefix, err := p.manager.Symbols.Intern("simple-join")
+	suffix, err := p.manager.Symbols.Intern("split")
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
-	declaration, err := p.manager.MkFreshFuncDecl(prefix, usymbol.Symbol{}, domain, boolean)
+	declaration, err := p.manager.MkFreshFuncDecl(prefix, suffix, domain, boolean)
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
@@ -124,7 +124,7 @@ func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle) (ast.ASTHan
 		return ast.ASTHandle{}, nil, err
 	}
 	p.pins = append(p.pins, pin)
-	rule, err := p.rules.NewRule(head, pair, nil, "simple-join")
+	rule, err := p.rules.NewRule(head, pair, nil, "")
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
@@ -179,6 +179,14 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 		if x != nil {
 			return nil, errors.Join(x, rule.Close())
 		}
+		headDeclaration, x := p.manager.GetDecl(head)
+		if x != nil {
+			return nil, errors.Join(x, rule.Close())
+		}
+		prefix, x := p.manager.GetASTName(headDeclaration)
+		if x != nil {
+			return nil, errors.Join(x, rule.Close())
+		}
 		tailCount, x := rule.TailSize()
 		if x != nil {
 			return nil, errors.Join(x, rule.Close())
@@ -193,7 +201,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 		}
 		for positive > 2 {
 			outside := append([]ast.ASTHandle{head}, tails[2:]...)
-			auxiliary, definition, y := p.auxiliary(tails[:2], outside)
+			auxiliary, definition, y := p.auxiliary(tails[:2], outside, prefix)
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}

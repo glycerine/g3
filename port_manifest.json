@@ -87876,7 +87876,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
+      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
       "assertions": [
         {
           "line": 64,
@@ -87990,7 +87990,7 @@
           "name": "Rule-shape normalization to at most two positive predicate tails using fresh auxiliary predicates that retain exactly the variables live in the head or remaining body (dl_mk_simple_joins.cpp:306-573,684-728)",
           "status": "ported",
           "go_target": "pkg/muz/transforms/simple_joins.go",
-          "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
+          "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
         }
       ],
       "ownership": ["SimpleJoinsPlugin borrows the AST and rule managers, owns temporary pins for original-index auxiliary applications until transformed parent rules retain them, and registers each fresh declaration with RuleManager. Returned RuleSet owns all introduced and replacement rules."],
@@ -88002,7 +88002,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/transforms/simple_joins.go"],
-      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP"],
+      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -88015,7 +88015,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "Owned priority-1000 simple-join transformer plugin surface (dl_mk_simple_joins.h:38-59)", "status": "ported", "go_target": "pkg/muz/transforms/simple_joins.go", "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization"]}],
+      "methods": [{"name": "Owned priority-1000 simple-join transformer plugin surface (dl_mk_simple_joins.h:38-59)", "status": "ported", "go_target": "pkg/muz/transforms/simple_joins.go", "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames"]}],
       "ownership": ["RuleTransformer owns and closes SimpleJoinsPlugin after applying its returned RuleSet."],
       "deviations": ["Planner-specific private C++ containers are replaced by concrete Go slices and maps for the retained deterministic normalization path."]
     },
