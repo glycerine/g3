@@ -187,6 +187,36 @@ func TestSubpavingFastIntervalDivSignBranches(t *testing.T) {
 	must(den.ResetUpper())
 	must(out.Div(num, den))
 	check(out, 0, 2, false, false, true, false)
+	// Exercise infinite endpoints on the numerator and denominator separately.
+	set(num, -4, -2, false, false)
+	must(num.ResetLower()) // (-oo, -2]
+	set(den, 1, 2, false, false)
+	must(out.Div(num, den))
+	shape(out, true, false, true, false)
+	_, upper, err = out.endpoints()
+	must(err)
+	must(m.SetInt32(values[2], -1))
+	equal, err = m.Equal(upper, values[2])
+	must(err)
+	if !equal {
+		t.Fatal("negative infinite numerator quotient")
+	}
+	set(num, 2, 4, false, false)
+	set(den, -2, -1, false, false)
+	must(den.ResetLower()) // (-oo, -1]
+	must(out.Div(num, den))
+	shape(out, false, false, false, true)
+	lower, upper, err = out.endpoints()
+	must(err)
+	must(m.SetInt32(values[2], -4))
+	equal, err = m.Equal(lower, values[2])
+	must(err)
+	must(m.SetInt32(values[2], 0))
+	upperEqual, err := m.Equal(upper, values[2])
+	must(err)
+	if !equal || !upperEqual {
+		t.Fatal("positive numerator over negative infinite denominator")
+	}
 	set(num, 1, 1, false, false)
 	set(den, 3, 3, false, false)
 	must(out.Div(num, den))

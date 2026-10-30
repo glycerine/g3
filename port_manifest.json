@@ -51429,7 +51429,7 @@
         },
         {
           "name": "Concrete mpff interval division: six sign branches, open-zero and infinite denominator bounds, directed results and denominator alias (src/math/interval/interval_def.h:1672-1849)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval_div.go",
           "tests": [
             "TestSubpavingFastIntervalDivSignBranches"
