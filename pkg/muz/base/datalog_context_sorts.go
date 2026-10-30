@@ -2,6 +2,7 @@ package base
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -119,14 +120,25 @@ func (c *DatalogContext) SortSizeEstimate(sort ast.ASTHandle) (uint64, error) {
 	if err := c.open(); err != nil {
 		return 0, err
 	}
+	ruleSort, err := c.manager.IsDatalogRuleSort(sort)
+	if err != nil {
+		return 0, err
+	}
+	if ruleSort {
+		return 1, nil
+	}
 	d := c.sorts[sort]
-	if d == nil {
-		return 0, fmt.Errorf("muz/base: sort domain is not registered")
+	if d != nil {
+		return c.ConstantCount(sort)
 	}
-	if d.finite {
-		return d.limit, nil
+	size, err := c.manager.GetSortSize(sort)
+	if err != nil {
+		return 0, err
 	}
-	return c.ConstantCount(sort)
+	if size.IsFinite() {
+		return size.Size()
+	}
+	return math.MaxUint64, nil
 }
 func (c *DatalogContext) FormatConstant(sort ast.ASTHandle, number uint64) (string, error) {
 	if err := c.open(); err != nil {
