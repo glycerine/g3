@@ -92189,12 +92189,15 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/spacer/simplify_bounds.go",
+        "pkg/muz/spacer/implicant_literals.go",
+        "pkg/muz/spacer/implicant_literals_test.go",
         "pkg/muz/spacer/derivation.go",
         "pkg/muz/spacer/manager.go",
         "pkg/qe/legacy_projection.go"
       ],
       "tests": [
         "TestSimplifyBoundsRunsValuesThenInequalities",
+        "TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder",
         "TestContextConsumesNativeMBPPolicy",
         "TestLegacyProjectionCombinesBooleanArrayAndArithmetic",
         "TestLegacyProjectionRunsLiteBeforeTheoryDispatch"
@@ -92329,6 +92332,12 @@
           ]
         },
         {
+      "name": "source implicant picker for model-true theory literals and branch-sensitive Boolean paths",
+      "status": "ported",
+      "go_target": "pkg/muz/spacer/implicant_literals.go",
+      "tests": ["TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder"]
+    },
+    {
           "name": "remaining Spacer utility algorithms",
           "status": "unported",
           "go_target": null,
@@ -92345,11 +92354,13 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/spacer/simplify_bounds.go",
+        "pkg/muz/spacer/implicant_literals.go",
         "pkg/muz/spacer/derivation.go",
         "pkg/qe/legacy_projection.go"
       ],
       "tests": [
         "TestSimplifyBoundsRunsValuesThenInequalities",
+        "TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder",
         "TestContextConsumesNativeMBPPolicy",
         "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"
       ],
@@ -92382,6 +92393,12 @@
           ]
         },
         {
+      "name": "retained model implicant picker interface",
+      "status": "ported",
+      "go_target": "pkg/muz/spacer/implicant_literals.go",
+      "tests": ["TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder"]
+    },
+    {
           "name": "remaining Spacer utility declarations",
           "status": "unported",
           "go_target": null,

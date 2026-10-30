@@ -502,12 +502,7 @@ func (d *Derivation) modelImplicant(md *model.ModelCore, formula ast.ASTHandle) 
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
 	config := d.parent.transformer.owner.contexts[0].config.ModelEvaluator
-	implicant, err := model.NewModelImplicant(manager, config)
-	if err != nil {
-		return ast.ASTRef{}, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, implicant.Close()) }()
-	literals, err := implicant.MinimizeLiterals([]ast.ASTHandle{formula}, md.DerivedModel())
+	literals, err := computeImplicantLiterals(manager, md, config, []ast.ASTHandle{formula})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}

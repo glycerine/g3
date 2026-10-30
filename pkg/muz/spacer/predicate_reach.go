@@ -457,12 +457,7 @@ func (p *PredicateTransformer) OriginSummary(md *model.ModelCore, level, oldInde
 	if err != nil {
 		return ast.ASTRef{}, nil, err
 	}
-	implicant, err := model.NewModelImplicant(p.manager, p.owner.contexts[0].config.ModelEvaluator)
-	if err != nil {
-		return ast.ASTRef{}, nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, implicant.Close()) }()
-	literals, err := implicant.MinimizeLiterals([]ast.ASTHandle{origin}, md.DerivedModel())
+	literals, err := computeImplicantLiterals(p.manager, md, p.owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{origin})
 	if err != nil {
 		return ast.ASTRef{}, nil, err
 	}
