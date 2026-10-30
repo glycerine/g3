@@ -106683,9 +106683,9 @@
       "path": "src/sat/sat_extension.h",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/sat/sat_extension.go", "pkg/sat/sat_extension_binding.go", "pkg/sat/sat_extension_propagation.go", "pkg/sat/sat_extension_antecedents.go", "pkg/sat/sat_extension_check.go", "pkg/sat/sat_extension_clauses.go", "pkg/sat/sat_solver_propagation.go", "pkg/sat/sat_solver_conflict_analysis.go", "pkg/sat/sat_solver_search.go"],
+      "tests": ["TestSATExtensionBindingAndMissingBindingGuard", "TestSATExtensionPropagatesExternalWatch", "TestSATExtensionPublishesAntecedents", "TestSATExtensionFinalCheckOutcomes", "TestSATExtensionSimplifyProblemNotificationOrder"],
       "conditionals": [
         {
           "line": 19,
@@ -106698,8 +106698,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "typed extension binding, asserted/scope/phase/cleaner callbacks, external-watch propagation, antecedents, final check, clause notifications and maintenance hooks", "status": "partial", "go_target": "pkg/sat/sat_extension.go", "tests": ["TestSATExtensionBindingAndMissingBindingGuard", "TestSATExtensionPropagatesExternalWatch", "TestSATExtensionPublishesAntecedents", "TestSATExtensionFinalCheckOutcomes", "TestSATExtensionSimplifyProblemNotificationOrder"]}],
+      "ownership": ["The solver borrows its extension implementation; callback literal slices and clause notifications are copied or consumed synchronously, and clearing the binding does not close the extension."],
       "deviations": []
     },
     {
