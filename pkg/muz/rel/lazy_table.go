@@ -241,7 +241,31 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 			if sourceErr != nil {
 				return nil, sourceErr
 			}
-			result, err = source.Project(node.columns1)
+			interpreted := filter.interpreted
+			conditions, conditionErr := interpreted.handles()
+			if conditionErr != nil {
+				return nil, conditionErr
+			}
+			relation := &TableRelation{manager: interpreted.manager, sorts: interpreted.relationSorts, table: source}
+			projected, projectErr := relation.FilterInterpretedAndProject(
+				interpreted.rewriter,
+				conditions,
+				interpreted.columns,
+				interpreted.sorts,
+				node.columns1,
+			)
+			if projectErr != nil {
+				if projected != nil {
+					result := projected.Table()
+					projected.Close()
+					if result != nil {
+						projectErr = errors.Join(projectErr, result.Close())
+					}
+				}
+				return nil, projectErr
+			}
+			result = projected.Table()
+			projected.Close()
 			e.stats.InterpretedProjects++
 		} else {
 			source, sourceErr := e.evaluate(node.left)
