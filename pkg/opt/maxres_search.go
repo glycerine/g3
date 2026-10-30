@@ -8,9 +8,14 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+const maxResIterationLimit = 10000
+
 func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, optimal bool, err error) {
 	if e == nil || e.solver == nil || e.solver.backend == nil || result == nil {
 		return lbool.Undef, false, errMaxResState
+	}
+	if err = e.trySLSCandidate(result); err != nil {
+		return lbool.Undef, false, err
 	}
 	// Mutex discovery uses its own backend query. Re-establish the source
 	// solver's candidate model before deriving the first upper bound.
