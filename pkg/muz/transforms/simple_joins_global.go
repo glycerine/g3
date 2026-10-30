@@ -49,10 +49,27 @@ func (p *SimpleJoinsPlugin) statePairOutside(state *simpleJoinRuleState, left, r
 // application. Cost and stratification entries persist while a normalized
 // pair remains active, matching pair_info's first-cost and sticky-stratum
 // accounting; entries disappear when their final edge disappears.
-func (p *SimpleJoinsPlugin) activeJoinGroups(states []*simpleJoinRuleState, strata *base.RuleSet, costs map[normalizedPairKey]float32, stratified map[normalizedPairKey]bool, outputSets map[normalizedPairKey]map[uint32]struct{}) ([]*simpleJoinGroup, error) {
+func (p *SimpleJoinsPlugin) activeJoinGroups(states []*simpleJoinRuleState, strata *base.RuleSet, costs map[normalizedPairKey]float32, stratified map[normalizedPairKey]bool, outputSets map[normalizedPairKey]map[uint32]struct{}, registrationHistory map[normalizedPairKey][]*simpleJoinRuleState) ([]*simpleJoinGroup, error) {
 	groups := make(map[normalizedPairKey]*simpleJoinGroup)
 	order := make([]normalizedPairKey, 0)
 	active := make(map[normalizedPairKey]bool)
+	initialRegistrations := make(map[normalizedPairKey][]*simpleJoinRuleState)
+	for _, state := range states {
+		for left := 0; left+1 < state.positive; left++ {
+			for right := left + 1; right < state.positive; right++ {
+				pair, err := p.normalizePair(state.tails[left], state.tails[right])
+				if err != nil {
+					return nil, err
+				}
+				initialRegistrations[pair.key] = append(initialRegistrations[pair.key], state)
+			}
+		}
+	}
+	for key, registrations := range initialRegistrations {
+		if registrationHistory[key] == nil {
+			registrationHistory[key] = append([]*simpleJoinRuleState(nil), registrations...)
+		}
+	}
 	for _, state := range states {
 		for left := 0; left+1 < state.positive; left++ {
 			for right := left + 1; right < state.positive; right++ {
@@ -132,6 +149,7 @@ func (p *SimpleJoinsPlugin) activeJoinGroups(states []*simpleJoinRuleState, stra
 			delete(costs, key)
 			delete(stratified, key)
 			delete(outputSets, key)
+			delete(registrationHistory, key)
 		}
 	}
 	result := make([]*simpleJoinGroup, 0, len(order))
@@ -150,6 +168,12 @@ func (p *SimpleJoinsPlugin) activeJoinGroups(states []*simpleJoinRuleState, stra
 		}
 		group.cost = costs[key]
 		group.stratified = stratified[key]
+		group.registrations = uint32(len(registrationHistory[key]))
+		if len(registrationHistory[key]) != 0 {
+			last := registrationHistory[key][len(registrationHistory[key])-1]
+			group.parentRule = last.rule
+			group.parentPrefix = last.prefix
+		}
 		if group.consumers != 0 {
 			result = append(result, group)
 		}
@@ -188,7 +212,7 @@ func groupOutputs(group *simpleJoinGroup, history map[normalizedPairKey]map[uint
 	return outputs
 }
 
-func (p *SimpleJoinsPlugin) applySimpleJoinGroup(group *simpleJoinGroup, states []*simpleJoinRuleState, outputs map[normalizedPairKey][]uint32, shared map[sharedJoinKey]sharedJoinDefinition, introduced *[]*base.Rule) error {
+func (p *SimpleJoinsPlugin) applySimpleJoinGroup(group *simpleJoinGroup, outputs map[normalizedPairKey][]uint32, shared map[sharedJoinKey]sharedJoinDefinition, introduced *[]*base.Rule, registrationHistory map[normalizedPairKey][]*simpleJoinRuleState) error {
 	prefix := group.parentPrefix
 	if group.registrations > 1 {
 		name, err := p.manager.Symbols.String(prefix)
@@ -200,7 +224,19 @@ func (p *SimpleJoinsPlugin) applySimpleJoinGroup(group *simpleJoinGroup, states 
 			return err
 		}
 	}
-	for _, state := range states {
+	ordered := make([]*simpleJoinRuleState, 0)
+	seen := make(map[*simpleJoinRuleState]bool)
+	for _, state := range registrationHistory[group.key] {
+		if !seen[state] {
+			seen[state] = true
+			ordered = append(ordered, state)
+		}
+	}
+	for _, state := range ordered {
+		before, err := p.statePairRegistrationCounts(state)
+		if err != nil {
+			return err
+		}
 		for {
 			joined := false
 			for left := 0; left+1 < state.positive && !joined; left++ {
@@ -241,8 +277,47 @@ func (p *SimpleJoinsPlugin) applySimpleJoinGroup(group *simpleJoinGroup, states 
 				break
 			}
 		}
+		after, err := p.statePairRegistrationCounts(state)
+		if err != nil {
+			return err
+		}
+		updateSimpleJoinRegistrationHistory(registrationHistory, state, before, after)
 	}
 	return nil
+}
+
+func updateSimpleJoinRegistrationHistory(history map[normalizedPairKey][]*simpleJoinRuleState, state *simpleJoinRuleState, before, after map[normalizedPairKey]int) {
+	for key, count := range before {
+		removed := count - after[key]
+		for range removed {
+			registrations := history[key]
+			for index, registered := range registrations {
+				if registered == state {
+					history[key] = append(registrations[:index], registrations[index+1:]...)
+					break
+				}
+			}
+		}
+	}
+	for key, count := range after {
+		for range count - before[key] {
+			history[key] = append(history[key], state)
+		}
+	}
+}
+
+func (p *SimpleJoinsPlugin) statePairRegistrationCounts(state *simpleJoinRuleState) (map[normalizedPairKey]int, error) {
+	counts := make(map[normalizedPairKey]int)
+	for left := 0; left+1 < state.positive; left++ {
+		for right := left + 1; right < state.positive; right++ {
+			pair, err := p.normalizePair(state.tails[left], state.tails[right])
+			if err != nil {
+				return nil, err
+			}
+			counts[pair.key]++
+		}
+	}
+	return counts, nil
 }
 
 func newSimpleJoinState(p *SimpleJoinsPlugin, rule *base.Rule) (*simpleJoinRuleState, error) {

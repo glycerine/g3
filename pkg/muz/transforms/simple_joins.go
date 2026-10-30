@@ -246,6 +246,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	costs := make(map[normalizedPairKey]float32)
 	stratified := make(map[normalizedPairKey]bool)
 	outputHistory := make(map[normalizedPairKey]map[uint32]struct{})
+	registrationHistory := make(map[normalizedPairKey][]*simpleJoinRuleState)
 	defer func() {
 		for _, definition := range introduced {
 			if definition != nil {
@@ -255,7 +256,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	}()
 	changed := false
 	for {
-		groups, x := p.activeJoinGroups(states, strata, costs, stratified, outputHistory)
+		groups, x := p.activeJoinGroups(states, strata, costs, stratified, outputHistory, registrationHistory)
 		if x != nil {
 			return nil, x
 		}
@@ -264,7 +265,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 			break
 		}
 		outputs := groupOutputs(selected, outputHistory)
-		if x = p.applySimpleJoinGroup(selected, states, outputs, shared, &introduced); x != nil {
+		if x = p.applySimpleJoinGroup(selected, outputs, shared, &introduced, registrationHistory); x != nil {
 			return nil, x
 		}
 		changed = true

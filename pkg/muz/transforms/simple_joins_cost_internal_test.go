@@ -110,3 +110,19 @@ func TestSimpleJoinPairCostCountsRepeatedVariablePositions(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder(t *testing.T) {
+	key := normalizedPairKey{}
+	first, second := &simpleJoinRuleState{}, &simpleJoinRuleState{}
+	history := map[normalizedPairKey][]*simpleJoinRuleState{key: {first, second}}
+	updateSimpleJoinRegistrationHistory(history, first, map[normalizedPairKey]int{key: 1}, map[normalizedPairKey]int{key: 2})
+	registrations := history[key]
+	if len(registrations) != 3 || registrations[0] != first || registrations[1] != second || registrations[2] != first {
+		t.Fatal("dynamic pair registrations do not preserve append order")
+	}
+	updateSimpleJoinRegistrationHistory(history, first, map[normalizedPairKey]int{key: 2}, map[normalizedPairKey]int{key: 1})
+	registrations = history[key]
+	if len(registrations) != 2 || registrations[0] != second || registrations[1] != first {
+		t.Fatal("removed pair registration does not delete the first matching rule")
+	}
+}
