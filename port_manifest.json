@@ -81689,8 +81689,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "assertions": [
         {
           "line": 64,
@@ -81771,6 +81771,12 @@
           "status": "partial",
           "go_target": "pkg/muz/base/rule_formula.go",
           "tests": ["TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal"]
+        },
+        {
+          "name": "mk_horn_rule proof transfer for already-Horn formulas via rewritten rule fact and modus ponens (dl_rule.cpp:355-417)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_formula_proof.go",
+          "tests": ["TestRuleManagerBuildsHornRuleAndCarriesFormulaProof"]
         },
         {
           "name": "mk_rule_core HNF integration: normalize a general retained formula, register fresh predicates, and add every resulting Horn rule (dl_rule.cpp:173-183)",

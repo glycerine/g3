@@ -95,6 +95,80 @@ func TestRuleManagerBuildsHornRuleFromQuantifiedFormula(t *testing.T) {
 	}
 }
 
+func TestRuleManagerBuildsHornRuleAndCarriesFormulaProof(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, context.Close()) })
+	manager, err := context.Manager()
+	ruleMust(t, err)
+	rules, err := base.NewRuleManager(manager)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, rules.Close()) })
+	boolean, err := manager.MkBoolSort()
+	ruleMust(t, err)
+	arithmetic, err := manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	decl := make(map[string]ast.ASTHandle)
+	for _, name := range []string{"proof-formula-P", "proof-formula-Q"} {
+		symbol, e := manager.Symbols.Intern(name)
+		ruleMust(t, e)
+		decl[name], e = manager.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		ruleMust(t, e)
+		ruleMust(t, rules.RegisterPredicate(decl[name]))
+	}
+	functionName, err := manager.Symbols.Intern("proof-formula-f")
+	ruleMust(t, err)
+	function, err := manager.MkFuncDecl(functionName, []ast.ASTHandle{integer}, integer, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	x, err := manager.MkVar(0, integer)
+	ruleMust(t, err)
+	fX, err := manager.MkApp(function, []ast.ASTHandle{x})
+	ruleMust(t, err)
+	pFX, err := manager.MkApp(decl["proof-formula-P"], []ast.ASTHandle{fX})
+	ruleMust(t, err)
+	qX, err := manager.MkApp(decl["proof-formula-Q"], []ast.ASTHandle{x})
+	ruleMust(t, err)
+	implication, err := manager.MkImplies(pFX, qX)
+	ruleMust(t, err)
+	name, err := manager.Symbols.Intern("proof-formula-x")
+	ruleMust(t, err)
+	formula, err := manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{name}, Body: implication})
+	ruleMust(t, err)
+	if err = manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+		t.Fatal(err)
+	}
+	proof, err := manager.MkProofAsserted(formula)
+	ruleMust(t, err)
+	if err = manager.ToggleProofMode(ast.ASTProofDisabled); err != nil {
+		t.Fatal(err)
+	}
+	rule, err := rules.NewRuleFromFormulaWithProof(formula, proof, "proof-formula")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	if mode, e := manager.ProofMode(); e != nil || mode != ast.ASTProofDisabled {
+		t.Fatal("formula normalization did not restore proof mode", mode, e)
+	}
+	translated, found, err := rule.Proof()
+	ruleMust(t, err)
+	if !found {
+		t.Fatal("normalized rule lost its proof")
+	}
+	proofFact, err := manager.GetProofFact(translated)
+	ruleMust(t, err)
+	resultFormula, err := rule.ToFormula()
+	ruleMust(t, err)
+	defer func() { ruleMust(t, manager.DelRef(&resultFormula)) }()
+	result, err := manager.RefGet(resultFormula)
+	ruleMust(t, err)
+	equal, err := manager.AreEqual(proofFact, result)
+	ruleMust(t, err)
+	if !equal || result == formula {
+		t.Fatal("translated proof does not establish the rewritten rule formula", equal, result, formula)
+	}
+}
+
 func TestRuleManagerFormulaNegationAndNonHornRefusal(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q")
 	notP, err := f.manager.MkNot(f.app["P"])

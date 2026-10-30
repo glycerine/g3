@@ -50754,3 +50754,5 @@ Rule-set retained-consumer closure (2026-10-30 UTC): completed the `dl_rule_set.
 
 
 Expression visitor retained-instantiation audit (2026-10-30 UTC): reconciled dt2bv classification, bv2real encoding search, and NLA2BV goal traversal as concrete retained `for_each_expr` instantiations. Focused `tactic/bv` and `tactic/arith` test groups pass; the header remains partial because other template consumers still require independent audits.
+
+Rule formula proof transfer (2026-10-30 UTC): added a proof-aware constructor for already-Horn formulas that carries the source proof through rule-formula rewriting with rewrite and modus ponens, restoring proof mode and releasing temporary AST ownership on errors. A regression checks the translated proof establishes the normalized rule formula; the focused base test passes. General-formula HNF ingestion and unbound-variable fixing remain separate open source paths.
