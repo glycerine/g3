@@ -28,6 +28,9 @@ func TestArbitraryIntervalLiveRootBoundViewAndOwnedCopy(t *testing.T) {
 	if err := v.SetConstant(root, f.x); err != nil {
 		t.Fatal(err)
 	}
+	if err := v.SetFrom(v); err != nil {
+		t.Fatalf("constant self-assignment must be a no-op: %v", err)
+	}
 	if _, _, err := v.endpoints(); err != nil || !v.lowerInf || !v.upperInf {
 		t.Fatalf("initial unbounded node view: %v, %v, %v", v.lowerInf, v.upperInf, err)
 	}

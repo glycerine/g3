@@ -145,3 +145,22 @@ func TestSubpavingFastMutableIntervalRetainedCore(t *testing.T) {
 		t.Fatal("closed interval", err)
 	}
 }
+
+func TestSubpavingFastConstantIntervalSelfAssignment(t *testing.T) {
+	m, _, _, root := fastMonomialFixture(t, []bool{false})
+	view, err := NewFastInterval(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := view.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := view.SetConstant(root, 0); err != nil {
+		t.Fatal(err)
+	}
+	if err := view.SetFrom(view); err != nil {
+		t.Fatalf("constant self-assignment must be a no-op: %v", err)
+	}
+}

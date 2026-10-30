@@ -188,11 +188,11 @@ func (v *FixedInterval) Reset() error {
 }
 
 func (v *FixedInterval) SetFrom(src *FixedInterval) error {
+	if v == src {
+		return v.open()
+	}
 	if err := v.pair(src); err != nil {
 		return err
-	}
-	if v == src {
-		return nil
 	}
 	if !src.lowerInf {
 		if err := v.numbers.Copy(v.lower, src.lower); err != nil {

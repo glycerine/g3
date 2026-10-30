@@ -57,6 +57,7 @@ func TestRationalIntervalLiveNodeBoundsAndOwnedCopy(t *testing.T) {
 		t.Fatalf("out-of-range variable: %v", err)
 	}
 	must(view.SetConstant(root, 0))
+	must(view.SetFrom(view))
 	var shown bytes.Buffer
 	must(view.Display(&shown))
 	if shown.String() != "(-oo, +oo)" {

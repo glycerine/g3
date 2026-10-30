@@ -40,6 +40,7 @@ func TestSubpavingFixedNodeConstantIntervalViews(t *testing.T) {
 		must(n.PushBound(x, value, lower, open))
 	}
 	must(view.SetConstant(root, 0))
+	must(view.SetFrom(view))
 	if got := show(view); got != "(-oo, +oo)" {
 		t.Fatalf("unbounded view = %q", got)
 	}

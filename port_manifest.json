@@ -50769,7 +50769,11 @@
         "pkg/math/interval/root_trace_stream.go",
         "pkg/math/interval/fixed_fast_root_trace_test.go",
         "pkg/math/interval/rational_root_trace.go",
-        "pkg/math/interval/rational_root_trace_test.go"
+        "pkg/math/interval/rational_root_trace_test.go",
+        "pkg/math/subpaving/arbitrary_interval_node_test.go",
+        "pkg/math/subpaving/rational_interval_node_test.go",
+        "pkg/math/subpaving/hardware_interval_constant_test.go",
+        "pkg/math/subpaving/fixed_node_test.go"
       ],
       "tests": [
         "TestRationalIntervalRetainedPredicatesAddSubAndOwnership",
@@ -50808,7 +50812,12 @@
         "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
         "TestSubpavingHardwareIntervalXnEqYRetainedCases",
         "TestArbitraryRootRetainedShortTraceAfterCertifiedBounds",
-        "TestHardwareRootRetainedTraceSitesSourceOrder"
+        "TestHardwareRootRetainedTraceSitesSourceOrder",
+        "TestArbitraryIntervalLiveRootBoundViewAndOwnedCopy",
+        "TestRationalIntervalLiveNodeBoundsAndOwnedCopy",
+        "TestHardwareIntervalConstantNodeViewAndMutationGuards",
+        "TestSubpavingFixedNodeConstantIntervalViews",
+        "TestSubpavingFastConstantIntervalSelfAssignment"
       ],
       "conditionals": [
         {
@@ -51157,6 +51166,24 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "Concrete interval_manager set returns before destination mutability checks on exact self-assignment for all retained subpaving numeral contexts (src/math/interval/interval_def.h:668-688)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/math/subpaving/arbitrary_interval.go",
+            "pkg/math/subpaving/rational_interval.go",
+            "pkg/math/subpaving/fast_interval.go",
+            "pkg/math/subpaving/fixed_interval.go",
+            "pkg/math/subpaving/hardware_interval.go"
+          ],
+          "tests": [
+            "TestArbitraryIntervalLiveRootBoundViewAndOwnedCopy",
+            "TestRationalIntervalLiveNodeBoundsAndOwnedCopy",
+            "TestHardwareIntervalConstantNodeViewAndMutationGuards",
+            "TestSubpavingFixedNodeConstantIntervalViews",
+            "TestSubpavingFastConstantIntervalSelfAssignment"
+          ]
+        },
         {
           "name": "Concrete mpq interval invariant checks extended structural equality before extended less-than (src/math/interval/interval_def.h:655-699)",
           "status": "ported",

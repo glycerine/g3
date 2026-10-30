@@ -47,6 +47,9 @@ func TestHardwareIntervalConstantNodeViewAndMutationGuards(t *testing.T) {
 	if err := view.SetConstant(root, x); err != nil {
 		t.Fatal(err)
 	}
+	if err := view.SetFrom(view); err != nil {
+		t.Fatalf("constant self-assignment must be a no-op: %v", err)
+	}
 	if !view.lowerInf || !view.upperInf || !view.lowerOpen || !view.upperOpen {
 		t.Fatal("unbounded root view")
 	}

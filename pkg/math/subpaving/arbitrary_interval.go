@@ -184,6 +184,10 @@ func (v *ArbitraryInterval) Reset() error {
 }
 
 func (v *ArbitraryInterval) SetFrom(src *ArbitraryInterval) error {
+	if v == src {
+		_, _, err := v.endpoints()
+		return err
+	}
 	if err := v.mutable(); err != nil {
 		return err
 	}
@@ -197,9 +201,6 @@ func (v *ArbitraryInterval) SetFrom(src *ArbitraryInterval) error {
 	}
 	if v.numbers != src.numbers {
 		return arena.ErrInvalidSlot
-	}
-	if v == src {
-		return nil
 	}
 	if !src.lowerInf {
 		if err := v.numbers.Copy(lo, slo); err != nil {

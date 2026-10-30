@@ -191,6 +191,9 @@ func (v *RationalInterval) Reset() error {
 }
 
 func (v *RationalInterval) SetFrom(src *RationalInterval) error {
+	if v == src {
+		return v.open()
+	}
 	if err := v.mutable(); err != nil {
 		return err
 	}
@@ -200,9 +203,6 @@ func (v *RationalInterval) SetFrom(src *RationalInterval) error {
 	}
 	if v.numbers != src.numbers {
 		return arena.ErrInvalidSlot
-	}
-	if v == src {
-		return nil
 	}
 	if !src.lowerInf {
 		if err := v.numbers.Copy(&v.lower, slo); err != nil {

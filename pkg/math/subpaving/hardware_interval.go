@@ -183,11 +183,12 @@ func (v *HardwareInterval) Reset() error {
 	return v.ResetUpper()
 }
 func (v *HardwareInterval) SetFrom(src *HardwareInterval) error {
-	if err := v.writablePair(src); err != nil {
+	if v == src {
+		_, _, err := v.endpoints()
 		return err
 	}
-	if v == src {
-		return nil
+	if err := v.writablePair(src); err != nil {
+		return err
 	}
 	lo, hi, _ := v.endpoints()
 	slo, shi, _ := src.endpoints()

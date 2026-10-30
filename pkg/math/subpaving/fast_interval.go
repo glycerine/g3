@@ -197,6 +197,10 @@ func (v *FastInterval) Reset() error {
 }
 
 func (v *FastInterval) SetFrom(src *FastInterval) error {
+	if v == src {
+		_, _, err := v.endpoints()
+		return err
+	}
 	if err := v.mutable(); err != nil {
 		return err
 	}
@@ -210,9 +214,6 @@ func (v *FastInterval) SetFrom(src *FastInterval) error {
 	}
 	if v.numbers != src.numbers {
 		return arena.ErrInvalidSlot
-	}
-	if v == src {
-		return nil
 	}
 	if !src.lowerInf {
 		if err := v.numbers.Copy(lo, slo); err != nil {
