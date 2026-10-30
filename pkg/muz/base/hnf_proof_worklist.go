@@ -198,6 +198,9 @@ func (s *hornProofNormalizer) disjunction(expression ast.ASTHandle) (parts []ast
 
 func (s *hornProofNormalizer) step(item hornProofWork, hoister *rewriter.QuantifierHoister) error {
 	n, m := s.n, s.n.manager
+	if err := n.beginHornStep(); err != nil {
+		return err
+	}
 	core, prefix, err := n.pullForall(hoister, item.formula, &s.refs)
 	if err != nil {
 		return err
@@ -239,6 +242,9 @@ func (s *hornProofNormalizer) step(item hornProofWork, hoister *rewriter.Quantif
 	}
 	body, err = m.FlattenAnd(body)
 	if err != nil {
+		return err
+	}
+	if err = n.storeHornBody(body); err != nil {
 		return err
 	}
 	normalized, err := n.implication(body, head, &s.refs)
@@ -357,8 +363,16 @@ func (s *hornProofNormalizer) step(item hornProofWork, hoister *rewriter.Quantif
 			}
 			definition = hornProofDefinition{fresh, application}
 			s.memo[expression] = definition
+			for _, root := range []ast.ASTHandle{application, expression, fresh} {
+				if err := n.rememberHornRoot(root); err != nil {
+					return err
+				}
+			}
 		}
 		body[i] = definition.head
+		if err := n.replaceHornBody(i, body[i]); err != nil {
+			return err
+		}
 		defs = append(defs, definition.proof)
 	}
 	rewrite, err = s.congruence(rewrite, body, head, defs)
@@ -420,6 +434,9 @@ func (s *hornProofNormalizer) step(item hornProofWork, hoister *rewriter.Quantif
 		if err != nil {
 			return err
 		}
+		if err = n.replaceHornBody(i, body[i]); err != nil {
+			return err
+		}
 		application, err := s.keep(m.MkProofApplyDef(inner, fresh, intro))
 		if err != nil {
 			return err
@@ -466,8 +483,8 @@ func (s *hornProofNormalizer) step(item hornProofWork, hoister *rewriter.Quantif
 // NormalizeWithProof follows the source proof-carrying Horn worklist. Returned
 // formula/proof pairs and fresh predicates have independent owning references.
 func (n *HornNormalizer) NormalizeWithProof(formula, proof ast.ASTHandle) (result *HornNormalization, resultErr error) {
-	if n == nil || n.manager == nil {
-		return nil, ErrHornNormalizationOwner
+	if err := n.open(); err != nil {
+		return nil, err
 	}
 	if proof.IsNull() {
 		return n.Normalize(formula)
@@ -482,9 +499,7 @@ func (n *HornNormalizer) NormalizeWithProof(formula, proof ast.ASTHandle) (resul
 	}
 	s := &hornProofNormalizer{n: n, result: &HornNormalization{manager: m}, memo: make(map[ast.ASTHandle]hornProofDefinition)}
 	defer func() {
-		for i := len(s.refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&s.refs[i]))
-		}
+		resultErr = errors.Join(resultErr, closeASTRefs(m, s.refs))
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, s.result.Close())
 			result = nil
@@ -523,11 +538,10 @@ func (n *HornNormalizer) NormalizeWithProof(formula, proof ast.ASTHandle) (resul
 		s.result.Proofs = append(s.result.Proofs, proofRef)
 		return s.result, nil
 	}
-	hoister, err := rewriter.NewDefaultQuantifierHoister(m)
-	if err != nil {
+	if err = n.Reset(); err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, hoister.Close()) }()
+	hoister := n.hoister
 	s.work = []hornProofWork{{formula, proof}}
 	for len(s.work) != 0 {
 		canceled, err := m.Canceled()

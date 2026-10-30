@@ -80,7 +80,7 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 	if err != nil {
 		return err
 	}
-	normalizer, err := NewHornNormalizer(m.manager, name)
+	normalizer, err := m.prepareHornNormalizer(name)
 	if err != nil {
 		return err
 	}
@@ -105,14 +105,8 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 			return err
 		}
 	}
-	for _, reference := range normalized.FreshPredicates {
-		declaration, e := m.manager.RefGet(reference)
-		if e != nil {
-			return e
-		}
-		if e = m.RegisterPredicate(declaration); e != nil {
-			return e
-		}
+	if err = m.registerHornPredicates(); err != nil {
+		return err
 	}
 	for i, clause := range clauses {
 		clauseProof := clauseProofs[i]

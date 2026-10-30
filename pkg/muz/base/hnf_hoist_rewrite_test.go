@@ -66,6 +66,7 @@ func TestHornNormalizerHoistingRewritesBooleanGates(t *testing.T) {
 					}
 					normalizer, err := base.NewHornNormalizer(m, "hoist-rewrite")
 					ruleMust(t, err)
+					t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 					var result *base.HornNormalization
 					if withProof {
 						ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))

@@ -366,6 +366,7 @@ func TestHornProofNormalizerPreservesAlreadyHornBeforeCancellation(t *testing.T)
 	ruleMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
 	normalizer, err := base.NewHornNormalizer(m, "horn-fast-path")
 	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 	m.Limit.Cancel()
 	defer m.Limit.ResetCancel()
 	result, err := normalizer.NormalizeWithProof(formula, original)
@@ -427,6 +428,7 @@ func TestHornProofNormalizerCarriesQuantifiedBodyDefinition(t *testing.T) {
 			ruleMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
 			normalizer, err := base.NewHornNormalizer(m, "proof-quant-body")
 			ruleMust(t, err)
+			t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 			result, err := normalizer.NormalizeWithProof(formula, original)
 			ruleMust(t, err)
 			defer func() { ruleMust(t, result.Close()) }()
@@ -512,6 +514,7 @@ func TestHornProofNormalizerMemoizesDefinitionProofAcrossOccurrences(t *testing.
 	ruleMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
 	normalizer, err := base.NewHornNormalizer(m, "proof-memo")
 	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 	result, err := normalizer.NormalizeWithProof(formula, original)
 	ruleMust(t, err)
 	defer func() { ruleMust(t, result.Close()) }()
@@ -594,6 +597,7 @@ func TestHornNormalizerDefinitionNegationMatchesSource(t *testing.T) {
 				formula := own(m.MkImplies(own(m.MkAnd(expression, f.app["R"])), f.app["H"]))
 				normalizer, err := base.NewHornNormalizer(m, "proof-negation")
 				ruleMust(t, err)
+				t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 				var result *base.HornNormalization
 				if withProof {
 					ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
@@ -651,6 +655,7 @@ func TestHornNormalizerKeepsImmediateNegatedConjunctionChildren(t *testing.T) {
 			defer func() { ruleMust(t, m.DelRef(&pin)) }()
 			normalizer, err := base.NewHornNormalizer(m, "nested-negative")
 			ruleMust(t, err)
+			t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 			var result *base.HornNormalization
 			if withProof {
 				ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))

@@ -49,6 +49,7 @@ type Rule struct {
 // rule heads and tails. Rules own their AST references independently.
 type RuleManager struct {
 	manager    *ast.ASTManager
+	normalizer *HornNormalizer
 	predicates map[ast.ASTHandle]ast.ASTRef
 	closed     bool
 }
@@ -57,7 +58,11 @@ func NewRuleManager(manager *ast.ASTManager) (*RuleManager, error) {
 	if manager == nil {
 		return nil, ErrRuleOwner
 	}
-	return &RuleManager{manager: manager, predicates: make(map[ast.ASTHandle]ast.ASTRef)}, nil
+	normalizer, err := NewHornNormalizer(manager, "")
+	if err != nil {
+		return nil, err
+	}
+	return &RuleManager{manager: manager, normalizer: normalizer, predicates: make(map[ast.ASTHandle]ast.ASTRef)}, nil
 }
 
 func (m *RuleManager) open() error {
@@ -618,6 +623,7 @@ func (m *RuleManager) Close() (result error) {
 	if m.closed {
 		return nil
 	}
+	result = errors.Join(result, m.normalizer.Close())
 	for declaration, reference := range m.predicates {
 		ref := reference
 		result = errors.Join(result, m.manager.DelRef(&ref))

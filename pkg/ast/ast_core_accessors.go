@@ -2,7 +2,10 @@ package ast
 
 // Source AST scalar/indexed readers. All public borrows remain handle values.
 
-import "github.com/glycerine/g3/pkg/util/diagnostic"
+import (
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+	uparams "github.com/glycerine/g3/pkg/util/params"
+)
 
 func (m *ASTManager) declIdentity(r astNodeRef) (FamilyID, int32, error) {
 	if e := m.validNode(r); e != nil {
@@ -289,4 +292,14 @@ func (m *ASTManager) BorrowSourceTraceTags() *diagnostic.TraceTags {
 		return m.traceTags
 	}
 	return diagnostic.BorrowProcessTraceTags()
+}
+
+// RewriterParameterServices borrows the constructor-supplied parameter owners
+// for source-default rewriters. Plain AST managers may have no such services.
+func (m *ASTManager) RewriterParameterServices() (*uparams.ParamsContext, *uparams.GlobalParamsService, error) {
+	if err := m.lock(); err != nil {
+		return nil, nil, err
+	}
+	defer m.mu.Unlock()
+	return m.params, m.globals, nil
 }

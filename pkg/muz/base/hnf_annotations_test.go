@@ -87,6 +87,7 @@ func TestHornNormalizerUsesSourceAnnotationTraversalAndFreeVariableScope(t *test
 					formula := own(m.MkImplies(antecedent, f.app["H"]))
 					normalizer, err := base.NewHornNormalizer(m, "hnf-annotations")
 					ruleMust(t, err)
+					t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 					var result *base.HornNormalization
 					if withProof {
 						ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))

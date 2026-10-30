@@ -48,14 +48,20 @@ func NewQuantifierHoister(m *ast.ASTManager, c *uparams.ParamsContext, g *uparam
 	return h, nil
 }
 
-// NewDefaultQuantifierHoister uses the source default Boolean gate reducer.
-// It borrows only the AST manager, matching HNF's default-parameter hoister.
+// NewDefaultQuantifierHoister captures source-default Boolean parameters from
+// the AST manager's services. Plain AST managers use intrinsic gate defaults.
 func NewDefaultQuantifierHoister(m *ast.ASTManager) (*QuantifierHoister, error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	if _, err := m.ProofsEnabled(); err != nil {
+	context, globals, err := m.RewriterParameterServices()
+	if err != nil {
 		return nil, err
+	}
+	if context != nil && globals != nil {
+		// bool_rewriter(m) captures the current global module defaults at
+		// construction, without a caller-local parameter overlay.
+		return NewQuantifierHoister(m, context, globals, nil)
 	}
 	h := &QuantifierHoister{m: m, defaultBoolean: true}
 	h.self = h

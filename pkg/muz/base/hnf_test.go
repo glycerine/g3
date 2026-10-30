@@ -37,6 +37,7 @@ func TestHornNormalizerPreservesAlreadyHornUniversalPrefix(t *testing.T) {
 
 	normalizer, err := base.NewHornNormalizer(f.manager, "prefix")
 	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 	normalized, err := normalizer.Normalize(formula)
 	ruleMust(t, err)
 	defer func() { ruleMust(t, normalized.Close()) }()
@@ -194,6 +195,7 @@ func TestHornNormalizerStopsWorklistWhenManagerIsCanceled(t *testing.T) {
 	t.Cleanup(func() { ruleMust(t, f.manager.DelRef(&reference)) })
 	normalizer, err := base.NewHornNormalizer(f.manager, "cancel")
 	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, normalizer.Close()) })
 	f.manager.Limit.Cancel()
 	result, err := normalizer.Normalize(formula)
 	ruleMust(t, err)

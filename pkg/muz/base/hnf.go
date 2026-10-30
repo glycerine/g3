@@ -60,11 +60,17 @@ type hornWork struct {
 	prefix  hornPrefix
 }
 
-// HornNormalizer converts formulas into a conjunction represented as a slice
-// of Horn formulas. It borrows the AST manager.
+// HornNormalizer converts formulas into a conjunction of Horn formulas. It
+// owns its hoister and source cache/body roots, and borrows the AST manager.
+// Close it before closing the manager; returned results own independent refs.
 type HornNormalizer struct {
-	manager *ast.ASTManager
-	prefix  usymbol.Symbol
+	manager         *ast.ASTManager
+	prefix          usymbol.Symbol
+	hoister         *rewriter.QuantifierHoister
+	workRefs        []ast.ASTRef
+	bodyRefs        []ast.ASTRef
+	freshPredicates []ast.ASTRef
+	closed          bool
 }
 
 func NewHornNormalizer(manager *ast.ASTManager, name string) (*HornNormalizer, error) {
@@ -78,7 +84,11 @@ func NewHornNormalizer(manager *ast.ASTManager, name string) (*HornNormalizer, e
 	if err != nil {
 		return nil, err
 	}
-	return &HornNormalizer{manager: manager, prefix: prefix}, nil
+	hoister, err := rewriter.NewDefaultQuantifierHoister(manager)
+	if err != nil {
+		return nil, err
+	}
+	return &HornNormalizer{manager: manager, prefix: prefix, hoister: hoister}, nil
 }
 
 func (n *HornNormalizer) pin(locals *[]ast.ASTRef, handle ast.ASTHandle) error {
@@ -348,6 +358,11 @@ func (n *HornNormalizer) freshHead(expression ast.ASTHandle, result *HornNormali
 		return ast.ASTHandle{}, err
 	}
 	result.FreshPredicates = append(result.FreshPredicates, declarationRef)
+	cached, err := n.manager.NewRef(declaration)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	n.freshPredicates = append(n.freshPredicates, cached)
 	head, err := n.manager.MkApp(declaration, arguments)
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -387,8 +402,8 @@ func (n *HornNormalizer) implication(body []ast.ASTHandle, head ast.ASTHandle, l
 // declarations.  Compatible nested universal quantifiers are first pulled
 // using the same polarity rules as the source quantifier_hoister.
 func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormalization, resultErr error) {
-	if n == nil || n.manager == nil {
-		return nil, ErrHornNormalizationOwner
+	if err := n.open(); err != nil {
+		return nil, err
 	}
 	result = &HornNormalization{manager: n.manager}
 	failed := true
@@ -411,20 +426,15 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 		failed = false
 		return result, nil
 	}
+	if err = n.Reset(); err != nil {
+		return result, err
+	}
 	var locals []ast.ASTRef
-	defer func() {
-		for i := len(locals) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, n.manager.DelRef(&locals[i]))
-		}
-	}()
+	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(n.manager, locals)) }()
 	if err := n.pin(&locals, formula); err != nil {
 		return result, err
 	}
-	hoister, err := rewriter.NewDefaultQuantifierHoister(n.manager)
-	if err != nil {
-		return result, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, hoister.Close()) }()
+	hoister := n.hoister
 	work := []hornWork{{formula: formula}}
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	for len(work) != 0 {
@@ -438,6 +448,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 		last := len(work) - 1
 		item := work[last]
 		work = work[:last]
+		if err := n.beginHornStep(); err != nil {
+			return result, err
+		}
 		core, prefix, err := n.pullForall(hoister, item.formula, &locals)
 		if err != nil {
 			return result, err
@@ -467,6 +480,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 		}
 		body, err = n.manager.FlattenAnd(body)
 		if err != nil {
+			return result, err
+		}
+		if err = n.storeHornBody(body); err != nil {
 			return result, err
 		}
 		if len(body) == 1 {
@@ -582,6 +598,12 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 					return result, e
 				}
 				memo[expression] = fresh
+				if err := n.rememberHornRoot(expression); err != nil {
+					return result, err
+				}
+				if err := n.rememberHornRoot(fresh); err != nil {
+					return result, err
+				}
 				for _, disjunct := range disjuncts {
 					if negate {
 						disjunct, e = n.manager.MkNot(disjunct)
@@ -604,6 +626,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				}
 			}
 			body[i] = fresh
+			if err := n.replaceHornBody(i, fresh); err != nil {
+				return result, err
+			}
 		}
 		// Source eliminate_quantifier_body names compound predicate bodies
 		// under universal antecedents after disjunction elimination. Each
@@ -659,6 +684,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				return result, err
 			}
 			if err = n.pin(&locals, body[i]); err != nil {
+				return result, err
+			}
+			if err = n.replaceHornBody(i, body[i]); err != nil {
 				return result, err
 			}
 		}
@@ -725,7 +753,7 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name strin
 	if err != nil {
 		return err
 	}
-	normalizer, err := NewHornNormalizer(m.manager, name)
+	normalizer, err := m.prepareHornNormalizer(name)
 	if err != nil {
 		return err
 	}
@@ -736,14 +764,8 @@ func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name strin
 	if err != nil {
 		return err
 	}
-	for _, reference := range normalized.FreshPredicates {
-		declaration, e := m.manager.RefGet(reference)
-		if e != nil {
-			return e
-		}
-		if e = m.RegisterPredicate(declaration); e != nil {
-			return e
-		}
+	if err = m.registerHornPredicates(); err != nil {
+		return err
 	}
 	for _, reference := range normalized.Formulas {
 		horn, e := m.manager.RefGet(reference)
