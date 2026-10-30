@@ -222,50 +222,39 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 				todo = append(todo, args[0])
 			case ast.ASTOpDistinct:
 				if f {
+					// project_plugin::pick_equality remembers the first expression
+					// for each identical model value. Keep those values owned while
+					// looking for the first duplicate, rather than reevaluating all
+					// preceding arguments for every new term.
+					values := make(map[ast.ASTHandle]ast.ASTHandle)
+					var valueRefs []ast.ASTRef
 					found := false
-					for j := 0; j < len(args) && !found; j++ {
-						vj, e := evaluator.EvaluateValue(args[j])
-						if e != nil {
-							return e
-						}
-						valueJ, e := manager.RefGet(vj)
-						if e != nil {
-							_ = manager.DelRef(&vj)
-							return e
-						}
-						for k := 0; k < j; k++ {
-							vk, e := evaluator.EvaluateValue(args[k])
+					pickErr := func() error {
+						for _, argument := range args {
+							ref, e := evaluator.EvaluateValue(argument)
 							if e != nil {
-								return errors.Join(e, manager.DelRef(&vj))
-							}
-							valueK, e := manager.RefGet(vk)
-							if e != nil {
-								return errors.Join(e, manager.DelRef(&vk), manager.DelRef(&vj))
-							}
-							equal, e := manager.AreEqual(valueJ, valueK)
-							if e != nil {
-								_ = manager.DelRef(&vk)
-								_ = manager.DelRef(&vj)
 								return e
 							}
-							e = manager.DelRef(&vk)
+							valueRefs = append(valueRefs, ref)
+							value, e := manager.RefGet(ref)
 							if e != nil {
-								return errors.Join(e, manager.DelRef(&vj))
+								return e
 							}
-							if equal {
-								eq, e := manager.MkEq(args[j], args[k])
+							if previous, ok := values[value]; ok {
+								eq, e := manager.MkEq(argument, previous)
 								if e != nil {
-									return errors.Join(e, manager.DelRef(&vj))
+									return e
 								}
 								todo = append(todo, eq)
 								found = true
-								break
+								return nil
 							}
+							values[value] = argument
 						}
-						err = manager.DelRef(&vj)
-						if err != nil {
-							return err
-						}
+						return nil
+					}()
+					if e := errors.Join(pickErr, releaseNormalizeRefs(manager, valueRefs)); e != nil {
+						return e
 					}
 					if !found {
 						return ast.ErrASTDomain

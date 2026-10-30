@@ -3,6 +3,8 @@ package spacer
 // Source: src/muz/spacer/spacer_util.cpp implicant_picker traversal policy.
 
 import (
+	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -424,6 +426,79 @@ func TestSpacerImplicantSourceFlatteningAndSharedVisits(t *testing.T) {
 				if h != tc.expected[i] {
 					t.Fatalf("literal %d differs from source traversal order", i)
 				}
+			}
+		})
+	}
+}
+
+func TestSpacerImplicantFalseDistinctPicksFirstRepeatedModelValue(t *testing.T) {
+	m, globals := newSpacerTestServices(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	owner, err := NewManager(m, nil, 1, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	must(err)
+	defer func() { must(owner.Close()) }()
+	var pins []ast.ASTRef
+	defer func() { must(releaseNormalizeRefs(m, pins)) }()
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		must(err)
+		r, err := m.NewRef(h)
+		must(err)
+		pins = append(pins, r)
+		return h
+	}
+	zero := own(m.ArithmeticIntegerNumeralText("0"))
+	integer, err := m.GetSort(zero)
+	must(err)
+	for _, tc := range []struct {
+		name              string
+		values            []int
+		current, previous int
+	}{
+		{"first-pair", []int{0, 0, 1, 1}, 1, 0},
+		{"first-value-repeats", []int{0, 1, 0, 1}, 2, 0},
+		{"second-value-repeats", []int{0, 1, 1, 0}, 2, 1},
+		{"late-repeat", func() []int {
+			values := make([]int, 257)
+			for i := range values {
+				values[i] = i
+			}
+			values[256] = 128
+			return values
+		}(), 256, 128},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			md, err := model.NewModel(m)
+			must(err)
+			defer func() { must(md.Close()) }()
+			args := make([]ast.ASTHandle, len(tc.values))
+			for i, value := range tc.values {
+				symbol, err := m.Symbols.Intern(fmt.Sprintf("false-distinct-%s-%d", tc.name, i))
+				must(err)
+				args[i] = own(m.MkConst(symbol, integer))
+				numeral := own(m.ArithmeticIntegerNumeralText(strconv.Itoa(value)))
+				decl, err := m.GetDecl(args[i])
+				must(err)
+				must(md.Core().RegisterConstant(decl, numeral))
+			}
+			distinct := own(m.MkDistinct(args))
+			input := own(m.MkNot(distinct))
+			literals, err := computeImplicantLiterals(m, md.Core(), owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{input})
+			must(err)
+			defer func() { must(releaseNormalizeRefs(m, literals)) }()
+			if len(literals) != 1 {
+				t.Fatalf("got %d literals, want one equality", len(literals))
+			}
+			actual, err := m.RefGet(literals[0])
+			must(err)
+			expected := own(m.MkEq(args[tc.current], args[tc.previous]))
+			if actual != expected {
+				t.Fatal("did not choose the first repeated model value in source operand order")
 			}
 		})
 	}
