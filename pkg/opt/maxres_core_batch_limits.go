@@ -9,5 +9,5 @@ func (e *maxResEngine) coreBatchLimitReached(count, lastSize int) bool {
 	if e.config.maxNumCores == 0 || uint64(count) >= uint64(e.config.maxNumCores) {
 		return true
 	}
-	return e.config.maxCoreSize != 0 && uint64(lastSize) >= uint64(e.config.maxCoreSize)
+	return uint64(lastSize) >= uint64(e.config.maxCoreSize)
 }
