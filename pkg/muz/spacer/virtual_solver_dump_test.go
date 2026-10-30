@@ -128,3 +128,38 @@ func TestVirtualSolverDumpThresholdParamsAndFailurePrefix(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestVirtualSolverRecheckRestoresProofMode(t *testing.T) {
+	manager, globals := newSpacerTestServices(t)
+	if err := manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+		t.Fatal(err)
+	}
+	contexts, err := NewSMTContextManager(manager, nil, 1, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := contexts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	boolean, err := manager.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	name, err := manager.Symbols.Intern("recheck-proof-mode")
+	if err != nil {
+		t.Fatal(err)
+	}
+	predicate, err := manager.MkConst(name, boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status, err := contexts.recheck([]ast.ASTHandle{predicate}, nil); err != nil || status != lbool.True {
+		t.Fatal("proof-disabled benchmark recheck", status, err)
+	}
+	mode, err := manager.ProofMode()
+	if err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("benchmark recheck did not restore proof mode", mode, err)
+	}
+}

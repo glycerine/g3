@@ -65,6 +65,11 @@ func (m *SMTContextManager) readDumpConfig(params *uparams.ParamsRef) (_ Virtual
 }
 
 func (m *SMTContextManager) recheck(assertions, assumptions []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	noProof, err := ast.NewScopedNoProof(m.manager)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, noProof.Close()) }()
 	backend, err := smtcore.NewSMTSolver(m.manager, m.params, "", m.config)
 	if err != nil {
 		return lbool.Undef, err

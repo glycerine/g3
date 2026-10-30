@@ -92395,9 +92395,9 @@
       "path": "src/muz/spacer/spacer_virtual_solver.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go", "pkg/muz/spacer/virtual_solver_dump.go", "pkg/muz/spacer/virtual_solver_dump_test.go", "pkg/muz/spacer/smt_context_manager.go"],
-      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix"],
+      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix", "TestVirtualSolverRecheckRestoresProofMode"],
       "assertions": [
         {
           "line": 58,
@@ -92465,9 +92465,13 @@
         },
         {
           "name": "timed SMT-LIB benchmark dumping and dump recheck diagnostics",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+      "status": "ported",
+      "go_target": "pkg/muz/spacer/virtual_solver_dump.go",
+      "tests": [
+        "TestVirtualSolverTimedBenchmarkDumpAndRecheck",
+        "TestVirtualSolverDumpThresholdParamsAndFailurePrefix",
+        "TestVirtualSolverRecheckRestoresProofMode"
+      ]
         },
         {
           "name": "translate unreachable stub and constant-false unconditional benchmark dump",
@@ -92482,9 +92486,9 @@
       "path": "src/muz/spacer/spacer_virtual_solver.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go", "pkg/muz/spacer/virtual_solver_dump.go", "pkg/muz/spacer/virtual_solver_dump_test.go", "pkg/muz/spacer/smt_context_manager.go"],
-      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix"],
+      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix", "TestVirtualSolverRecheckRestoresProofMode"],
       "conditionals": [
         {
           "line": 19,
@@ -92506,9 +92510,11 @@
         },
         {
           "name": "benchmark dump configuration surface",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+      "status": "ported",
+      "go_target": "pkg/muz/spacer/virtual_solver_dump.go",
+      "tests": [
+        "TestVirtualSolverDumpThresholdParamsAndFailurePrefix"
+      ]
         }
       ],
       "ownership": ["The Go types make factory ownership of the backend and solver ownership of guard/proof references explicit."],
