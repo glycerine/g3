@@ -167921,7 +167921,8 @@
             "TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata",
             "TestNLA2BVConstructorAndApplicationAllocationPrefixes",
             "TestSMTLibRunnerScripts",
-            "TestSMTLibRunnerCPPReference"
+            "TestSMTLibRunnerCPPReference",
+            "TestNLA2BVModelConverterSurvivesInvocationAndTacticClose"
           ]
         }
       ],

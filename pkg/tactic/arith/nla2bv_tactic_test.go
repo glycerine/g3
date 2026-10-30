@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -227,6 +228,52 @@ func TestNLA2BVReferenceCountClosesAtLastRelease(t *testing.T) {
 	if err := r.IncRef(); !errors.Is(err, ast.ErrASTHandle) {
 		t.Fatal("closed tactic accepted another reference", err)
 	}
+}
+
+func TestNLA2BVModelConverterSurvivesInvocationAndTacticClose(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	m := r.manager
+	x := fixDLConst(t, m, true, "converter-lifetime-x")
+	decl, err := m.GetDecl(x)
+	equationMust(t, err)
+	three, nine := fixDLNumber(t, m, true, "3"), fixDLNumber(t, m, true, "9")
+	square := fixDLApp(t, m, 9, x, x)
+	goal := fixDLGoal(t, m, false, true, false,
+		fixDLApp(t, m, 3, x, three),
+		fixDLApp(t, m, 2, x, three),
+		mustNLA2BVEq(t, m, square, nine))
+	t.Cleanup(func() { equationMust(t, goal.Close()) })
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	equationMust(t, r.Apply(goal, &result))
+	if result.ModelConverter == nil {
+		t.Fatal("NLA2BV did not publish a model converter")
+	}
+	equationMust(t, r.Close())
+
+	md, err := model.NewModel(m)
+	equationMust(t, err)
+	var converted tactic.ModelRef
+	equationMust(t, converted.Set(&md.CoreField))
+	t.Cleanup(func() { equationMust(t, converted.Close()) })
+	equationMust(t, result.ModelConverter.ApplyModel(&converted, 0))
+	out, err := converted.Get()
+	equationMust(t, err)
+	value, err := out.ConstantInterpretation(decl)
+	equationMust(t, err)
+	text, integer, found, err := m.ArithmeticNumeralText(value)
+	equationMust(t, err)
+	if !integer || !found || text != "3" {
+		t.Fatalf("reconstructed x = %q, integer=%v, found=%v", text, integer, found)
+	}
+}
+
+func mustNLA2BVEq(t *testing.T, m *ast.ASTManager, left, right ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	eq, err := m.MkEq(left, right)
+	equationMust(t, err)
+	fixDLPin(t, m, eq)
+	return eq
 }
 
 func TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata(t *testing.T) {
