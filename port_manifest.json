@@ -75105,8 +75105,12 @@
       "path": "src/math/subpaving/subpaving.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/math/subpaving/rational_shell_coefficients.go",
+        "pkg/math/subpaving/arbitrary_shell_coefficients.go",
+        "pkg/math/subpaving/fast_shell_coefficients.go",
+        "pkg/math/subpaving/fixed_shell_coefficients.go",
         "pkg/math/subpaving/hardware_shell_coefficients.go",
         "pkg/math/subpaving/hardware_shell_search_test.go",
         "pkg/math/subpaving/hardware_statistics_test.go",
@@ -75132,9 +75136,31 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
+        {
+          "name": "Abstract context contract and all five concrete Go engine routes: rational manager access, variable/type inspection and creation, monomial/sum construction, inequality references and clauses, display, parameters, statistics, search, bounds, and factories",
+          "status": "ported",
+          "go_targets": [
+            "pkg/math/subpaving/rational_shell_coefficients.go",
+            "pkg/math/subpaving/arbitrary_shell_coefficients.go",
+            "pkg/math/subpaving/fast_shell_coefficients.go",
+            "pkg/math/subpaving/fixed_shell_coefficients.go",
+            "pkg/math/subpaving/hardware_shell_coefficients.go"
+          ],
+          "tests": [
+            "TestRationalShellPersistentCoefficientGrowthAndContextTransfer",
+            "TestArbitraryShellCoefficientSourceConversionAndCleanup",
+            "TestFastShellExactCoefficientsAndDirectedInequalities",
+            "TestFixedShellExactCoefficientOwnerAndDirectedBound",
+            "TestHardwareShellRetainedClauseAndSearchRoute",
+            "TestHardwareShellStatisticsCountersAndReset",
+            "TestHardwareDisplayConstraintsAndLeafBoundsSourceOrder",
+            "TestHardwareShellParamDescriptionsSourceOrder",
+            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
+          ]
+        },
         {
           "name": "Concrete hardware wrapper mk_var, mk_monomial, add_clause and search entries reached by subpaving tactic",
           "status": "ported",
@@ -75184,8 +75210,14 @@
           ]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "The C++ context is an abstract interface; concrete wrappers own their typed context and scratch numerals while borrowing resource limits and numeral managers. Go uses five typed engine/shell owners and avoids an unused universal context adapter.",
+        "C++ callers own the returned factory context and explicitly adjust ineq references. Go constructors return explicit Close owners; clause insertion and context teardown retain/release typed inequalities at the same source publication points."
+      ],
+      "deviations": [
+        "The abstract C++ interface erases engine-specific numeral and inequality types. Go exposes concrete typed implementations because only the five live instantiations are retained; the rational manager is carried by each engine/shell owner rather than returned from a universal qm() interface.",
+        "The context API's C++ pointer-level inc_ref/dec_ref operations are represented by typed Go inequality ownership and clause insertion/cleanup, avoiding raw pointers while preserving reference lifetimes."
+      ]
     },
     {
       "path": "src/math/subpaving/subpaving_hwf.cpp",
