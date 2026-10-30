@@ -70,3 +70,45 @@ func TestOptimizationBoundsPreserveStrictLexicographicEndpoints(t *testing.T) {
 		})
 	}
 }
+
+func TestOptimizationBoundsPreserveUnboundedLexicographicEndpoints(t *testing.T) {
+	c := contextFixture(t)
+	contextMust(t, c.SetLogic("QF_LRA"))
+	real, err := c.LookupSort("Real")
+	contextMust(t, err)
+	for _, name := range []string{"unbounded-bound-x", "unbounded-bound-y"} {
+		_, err = c.DeclareFunction(name, nil, real)
+		contextMust(t, err)
+	}
+	x, err := c.MakeApp("unbounded-bound-x", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	y, err := c.MakeApp("unbounded-bound-y", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	contextMust(t, c.AddObjective(x, true))
+	contextMust(t, c.AddObjective(y, false))
+	status, err := c.CheckSat(nil)
+	contextMust(t, err)
+	if status != lbool.True {
+		t.Fatal("optimization status", status)
+	}
+	cases := []struct {
+		index        uint32
+		lower        bool
+		wantInfinity int64
+	}{
+		{index: 0, lower: true, wantInfinity: 1},
+		{index: 0, lower: false, wantInfinity: 1},
+		{index: 1, lower: true, wantInfinity: -1},
+		{index: 1, lower: false, wantInfinity: 1},
+	}
+	for _, tc := range cases {
+		bound, boundErr := c.ObjectiveBound(tc.index, tc.lower)
+		contextMust(t, boundErr)
+		if bound.Value.Infinity.Cmp(big.NewRat(tc.wantInfinity, 1)) != 0 || bound.Value.Main.Sign() != 0 || bound.Value.Epsilon.Sign() != 0 {
+			t.Fatalf("objective %d lower=%t endpoint infinity=%s main=%s epsilon=%s; want infinity=%d", tc.index, tc.lower, bound.Value.Infinity.RatString(), bound.Value.Main.RatString(), bound.Value.Epsilon.RatString(), tc.wantInfinity)
+		}
+		if !bound.Integer {
+			t.Fatalf("objective %d lower=%t infinity endpoint should have integer numeral sort", tc.index, tc.lower)
+		}
+	}
+}

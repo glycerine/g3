@@ -98830,7 +98830,7 @@
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
           "go_targets": ["pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_bounds.go", "pkg/cmd_context/optimization_bounds_source_test.go"],
-          "tests": ["TestOptimizationBoundsPreserveStrictLexicographicEndpoints", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestOptimizationBoundsPreserveStrictLexicographicEndpoints", "TestOptimizationBoundsPreserveUnboundedLexicographicEndpoints", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "scoped_state grouped soft terms, negative-weight normalization, MaxSMT objective order, scoped rollback, model publication and exact rational assignment display (opt_context.cpp:49-107,156-180,227-230,800-925,1264-1283)",
