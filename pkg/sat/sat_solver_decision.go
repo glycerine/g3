@@ -169,44 +169,53 @@ func (d *satSolverDecision) decide() (bool, error) {
 	}
 	d.decisions++
 	p := l.propagation
-	if p.extensionPresent {
-		return false, ErrSATMissingSourceExtBinding
-	}
 	phase := lbool.Undef
+	if p.extensionPresent {
+		extension, err := p.sourceExtension()
+		if err != nil {
+			return false, err
+		}
+		phase, err = extension.GetPhase(next)
+		if err != nil {
+			return false, err
+		}
+	}
 	cfg, e := p.config.State()
 	if e != nil {
 		return false, e
 	}
-	switch cfg.Phase {
-	case satPhaseAlwaysTrue:
-		phase = lbool.True
-	case satPhaseAlwaysFalse:
-		phase = lbool.False
-	case satPhaseCaching:
-		phase = lbool.False
-		if d.conflict.phaseCacheOn {
-			cached, e := p.variables.phaseAt(next)
-			if e != nil {
-				return false, e
-			}
-			if cached != 2 {
-				cached, e = p.variables.phaseAt(next)
+	if phase == lbool.Undef {
+		switch cfg.Phase {
+		case satPhaseAlwaysTrue:
+			phase = lbool.True
+		case satPhaseAlwaysFalse:
+			phase = lbool.False
+		case satPhaseCaching:
+			phase = lbool.False
+			if d.conflict.phaseCacheOn {
+				cached, e := p.variables.phaseAt(next)
 				if e != nil {
 					return false, e
 				}
-				if cached == 0 {
-					phase = lbool.True
+				if cached != 2 {
+					cached, e = p.variables.phaseAt(next)
+					if e != nil {
+						return false, e
+					}
+					if cached == 0 {
+						phase = lbool.True
+					}
 				}
 			}
+		case satPhaseRandom:
+			if d.rng.Next()%2 == 0 {
+				phase = lbool.True
+			} else {
+				phase = lbool.False
+			}
+		default:
+			return false, ErrSATAssertion
 		}
-	case satPhaseRandom:
-		if d.rng.Next()%2 == 0 {
-			phase = lbool.True
-		} else {
-			phase = lbool.False
-		}
-	default:
-		return false, ErrSATAssertion
 	}
 	if satStorageSourceDebug && phase == lbool.Undef {
 		return false, ErrSATAssertion

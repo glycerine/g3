@@ -40,6 +40,7 @@ type satSolverPropagationState struct {
 	memory                                                                      *umemory.Runtime
 	config                                                                      *satMainConfig
 	traceTags                                                                   *diagnostic.TraceTags
+	extension                                                                   SATExtension
 	budget                                                                      *arena.Budget
 	diffLevels                                                                  satVariableCharColumn
 	conflict                                                                    satJustification

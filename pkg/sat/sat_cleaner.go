@@ -154,7 +154,16 @@ func (c *satCleaner) cleanup() error {
 		return e
 	}
 	if done && p.extensionPresent {
-		return ErrSATMissingSourceExtBinding
+		extension, err := p.sourceExtension()
+		if err != nil {
+			return err
+		}
+		if err = extension.ClausesModified(); err != nil {
+			return err
+		}
+		if err = extension.Simplify(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

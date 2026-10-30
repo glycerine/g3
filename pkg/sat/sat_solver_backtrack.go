@@ -34,7 +34,13 @@ func (s *satSolverClauseLifecycle) push() error {
 	s.scopes[len(s.scopes)-1].reinitLimit = uint32(len(s.reinit))
 	s.scopes[len(s.scopes)-1].inconsistent = p.inconsistent
 	if p.extensionPresent {
-		return ErrSATMissingSourceExtBinding
+		extension, e := p.sourceExtension()
+		if e != nil {
+			return e
+		}
+		if e = extension.Push(); e != nil {
+			return e
+		}
 	}
 	return nil
 }
@@ -48,7 +54,13 @@ func (s *satSolverClauseLifecycle) pop(n uint32) error {
 	p := s.propagation
 	v := p.variables
 	if p.extensionPresent {
-		return ErrSATMissingSourceExtBinding
+		extension, e := p.sourceExtension()
+		if e != nil {
+			return e
+		}
+		if e = extension.Pop(n); e != nil {
+			return e
+		}
 	}
 	if satStorageSourceDebug && n > v.scopeLevel {
 		return ErrSATAssertion

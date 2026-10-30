@@ -78,7 +78,13 @@ func (s *satSolverPropagationState) assignCore(l Literal, j satJustification) er
 			return e
 		}
 		if ext {
-			return ErrSATMissingSourceExtBinding
+			extension, e := s.sourceExtension()
+			if e != nil {
+				return e
+			}
+			if e = extension.Asserted(l); e != nil {
+				return e
+			}
 		}
 	}
 	if satStorageSourceDebug {
