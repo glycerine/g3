@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 func (p *wpaParser) files(extension string) ([]string, error) {
@@ -26,6 +28,5 @@ func (p *wpaParser) files(extension string) ([]string, error) {
 }
 
 func wpaBase(path string) string {
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
+	return base.FileNameWithoutExtension(path)
 }

@@ -33,3 +33,15 @@ func TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories(t *testing.T) {
 		t.Fatalf("files=%v want=%v", files, want)
 	}
 }
+
+func TestWPAFileBaseMatchesDatalogExtensionRule(t *testing.T) {
+	for path, want := range map[string]string{
+		"/tmp/predicate.rel": "predicate",
+		"/tmp/.rel":          ".rel",
+		`C:\data\predicate.rel`: "predicate",
+	} {
+		if got := wpaBase(path); got != want {
+			t.Errorf("wpaBase(%q) = %q, want %q", path, got, want)
+		}
+	}
+}
