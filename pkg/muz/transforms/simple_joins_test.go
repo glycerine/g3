@@ -75,6 +75,7 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	set, err := base.NewRuleSet(rules)
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, set.Close()) })
+	coneMust(t, manager.ToggleProofMode(ast.ASTProofEnabled))
 	sorts := make([]ast.ASTHandle, 5)
 	for i, width := range []uint32{1, 2, 3, 4, 5} {
 		sorts[i], err = manager.BitVectorSort(width)
@@ -103,6 +104,14 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	head := makePredicate("Goal", sorts, handles[:])
 	rule, err := rules.NewRule(head, []ast.ASTHandle{a, b, c}, nil, "estimated-pair")
 	coneMust(t, err)
+	formula, err := rule.ToFormula()
+	coneMust(t, err)
+	formulaHandle, err := manager.RefGet(formula)
+	coneMust(t, err)
+	asserted, err := manager.MkProofAsserted(formulaHandle)
+	coneMust(t, err)
+	coneMust(t, rule.SetProof(asserted))
+	coneMust(t, manager.DelRef(&formula))
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
 	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
@@ -115,8 +124,22 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, transformed.Close())
 		coneMust(t, plugin.Close())
 	})
-	definition, err := transformed.Rule(0)
+	main, err := transformed.Rule(0)
 	coneMust(t, err)
+	mainName, err := main.Name()
+	coneMust(t, err)
+	if _, found, proofErr := main.Proof(); proofErr != nil || !found {
+		t.Fatalf("rewritten source rule lost its proof: found=%v err=%v", found, proofErr)
+	}
+	coneMust(t, main.Close())
+	if mainName != "estimated-pair" {
+		t.Fatalf("first transformed rule name %q, want rewritten source rule", mainName)
+	}
+	definition, err := transformed.Rule(1)
+	coneMust(t, err)
+	if _, found, proofErr := definition.Proof(); proofErr != nil || !found {
+		t.Fatalf("introduced helper rule has no asserted proof: found=%v err=%v", found, proofErr)
+	}
 	tails := make([]string, 2)
 	for i := range tails {
 		declaration, x := definition.TailDeclaration(i)

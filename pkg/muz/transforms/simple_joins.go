@@ -68,7 +68,7 @@ func (p *SimpleJoinsPlugin) variables(root ast.ASTHandle, result map[uint32]ast.
 	return nil
 }
 
-func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle, prefix usymbol.Symbol) (ast.ASTHandle, *base.Rule, error) {
+func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle, prefix usymbol.Symbol, parent *base.Rule) (_ ast.ASTHandle, result *base.Rule, resultErr error) {
 	pairVariables := make(map[uint32]ast.ASTHandle)
 	live := make(map[uint32]ast.ASTHandle)
 	for _, expression := range pair {
@@ -128,7 +128,36 @@ func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle, prefix usym
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
 	}
+	if parent != nil {
+		if err = rule.SetAccountingParentRule(parent); err != nil {
+			return ast.ASTHandle{}, nil, errors.Join(err, rule.Close())
+		}
+	}
+	if err = p.attachAssertedProof(rule); err != nil {
+		return ast.ASTHandle{}, nil, errors.Join(err, rule.Close())
+	}
 	return head, rule, nil
+}
+
+func (p *SimpleJoinsPlugin) attachAssertedProof(rule *base.Rule) error {
+	enabled, err := p.manager.ProofsEnabled()
+	if err != nil || !enabled {
+		return err
+	}
+	formula, err := rule.ToFormula()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = p.manager.DelRef(&formula) }()
+	formulaHandle, err := p.manager.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	proof, err := p.manager.MkProofAsserted(formulaHandle)
+	if err != nil {
+		return err
+	}
+	return rule.SetProof(proof)
 }
 
 func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -153,6 +182,14 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 	if err = result.InheritPredicates(source); err != nil {
 		return nil, err
 	}
+	var introduced []*base.Rule
+	defer func() {
+		for _, definition := range introduced {
+			if definition != nil {
+				resultErr = errors.Join(resultErr, definition.Close())
+			}
+		}
+	}()
 	for index := 0; index < count; index++ {
 		rule, x := source.Rule(index)
 		if x != nil {
@@ -216,15 +253,11 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 					outside = append(outside, tail)
 				}
 			}
-			auxiliary, definition, y := p.auxiliary(pair, outside, prefix)
+			auxiliary, definition, y := p.auxiliary(pair, outside, prefix, rule)
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}
-			y = result.Add(definition)
-			y = errors.Join(y, definition.Close())
-			if y != nil {
-				return nil, errors.Join(y, rule.Close())
-			}
+			introduced = append(introduced, definition)
 			tails[leftIndex] = auxiliary
 			negated[leftIndex] = false
 			lastPositive := positive - 1
@@ -238,10 +271,25 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 		}
 		replacement, x := p.rules.NewRule(head, tails, negated, name)
 		if x == nil {
+			x = replacement.SetAccountingParentRule(rule)
+		}
+		if x == nil {
+			x = p.rules.MkRuleRewriteProof(rule, replacement)
+		}
+		if x == nil {
 			x = result.Add(replacement)
 			x = errors.Join(x, replacement.Close())
 		}
 		x = errors.Join(x, rule.Close())
+		if x != nil {
+			return nil, x
+		}
+	}
+	for i := len(introduced) - 1; i >= 0; i-- {
+		definition := introduced[i]
+		x := result.Add(definition)
+		x = errors.Join(x, definition.Close())
+		introduced[i] = nil
 		if x != nil {
 			return nil, x
 		}
