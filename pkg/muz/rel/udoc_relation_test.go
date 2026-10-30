@@ -415,6 +415,12 @@ func TestUDocFilterByNegationRepeatedColumnsAndZeroArity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err = target.FilterByNegation(zeroArity, nil, nil, nil); err != nil {
+		t.Fatal("empty zero-arity negative relation", err)
+	}
+	requireFact(t, target, []uint64{0}, true)
+	requireFact(t, target, []uint64{2}, true)
+	requireFact(t, target, []uint64{3}, true)
 	if _, err = zeroArity.AddFact(nil); err != nil {
 		t.Fatal(err)
 	}
