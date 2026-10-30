@@ -4,8 +4,8 @@ package opt
 
 import "math/big"
 
-func (e *maxResEngine) assertUpperBound(satisfied *big.Rat, correctionSize int) error {
-	if !e.upperBoundEligible(correctionSize) {
+func (e *maxResEngine) assertUpperBound(satisfied *big.Rat) error {
+	if !e.upperBoundEligible() {
 		return nil
 	}
 	block, err := e.solver.softBound(e.objective, satisfied, true)
@@ -19,7 +19,6 @@ func (e *maxResEngine) assertUpperBound(satisfied *big.Rat, correctionSize int) 
 	if err = e.solver.backend.Assert(block); err != nil {
 		return err
 	}
-	e.upperBoundActive = true
 	e.stats.UpperBoundBlocks++
 	return nil
 }

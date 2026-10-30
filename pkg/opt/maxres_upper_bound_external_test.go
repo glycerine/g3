@@ -109,7 +109,7 @@ func TestMaxResUpperBoundBlockProvesImprovedCandidateOptimal(t *testing.T) {
 	if value.SoftSatisfied.Cmp(big.NewRat(3, 1)) != 0 || value.SoftCost.Cmp(big.NewRat(5, 2)) != 0 {
 		t.Fatal("upper-bound optimum", &value.SoftSatisfied, &value.SoftCost)
 	}
-	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "maxres" || result.MaxSMT[0].UpperBoundBlocks == 0 || result.MaxSMT[0].UpperBoundProofs == 0 {
+	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "maxres" || result.MaxSMT[0].UpperBoundBlocks == 0 {
 		t.Fatal("upper-bound statistics", result.MaxSMT)
 	}
 }

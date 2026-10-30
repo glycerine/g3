@@ -5,11 +5,22 @@ package opt
 import "errors"
 import "fmt"
 
+import "github.com/glycerine/g3/pkg/model"
+
 func (e *maxResEngine) updateCandidate(result *ArithmeticResult) error {
 	md, err := e.solver.backend.AcquireModel()
 	if err != nil {
 		return fmt.Errorf("maxres candidate model: %w", err)
 	}
+	if md == nil {
+		return errMaxResState
+	}
+	return e.updateCandidateModel(result, md)
+}
+
+// updateCandidateModel consumes one model reference, matching the source
+// maxsmt_solver_base model owner passed into MaxRes initialization.
+func (e *maxResEngine) updateCandidateModel(result *ArithmeticResult, md *model.ModelCore) error {
 	if md == nil {
 		return errMaxResState
 	}
@@ -22,7 +33,7 @@ func (e *maxResEngine) updateCandidate(result *ArithmeticResult) error {
 	if err != nil {
 		return errors.Join(fmt.Errorf("maxres candidate correction: %w", err), md.DecRef())
 	}
-	if e.bestSet && cost.Cmp(&e.upper) >= 0 {
+	if e.bestSet && cost.Cmp(&e.upper) > 0 {
 		return md.DecRef()
 	}
 	if result.Model != nil {
@@ -39,5 +50,5 @@ func (e *maxResEngine) updateCandidate(result *ArithmeticResult) error {
 	e.bestSet = true
 	e.correction = append(e.correction[:0], correction...)
 	e.stats.Improvements++
-	return e.assertUpperBound(&satisfied, len(correction))
+	return e.assertUpperBound(&satisfied)
 }

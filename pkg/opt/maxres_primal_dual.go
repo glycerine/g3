@@ -26,16 +26,16 @@ func (e *maxResEngine) optimizePrimalDual(result *ArithmeticResult) (lbool.LBool
 		if err != nil {
 			return lbool.Undef, false, err
 		}
-		proven, err := e.upperBoundProvesOptimal()
-		if err != nil {
+		var roundStatus lbool.LBool
+		if roundStatus, err = e.processUnsatRound(rawCore, result); err != nil {
 			return lbool.Undef, false, err
 		}
-		if proven {
+		if roundStatus == lbool.Undef {
+			return lbool.Undef, false, nil
+		}
+		if roundStatus == lbool.False {
 			e.lower.Set(&e.upper)
 			return lbool.False, true, nil
-		}
-		if err = e.processUnsatRound(rawCore, result); err != nil {
-			return lbool.Undef, false, err
 		}
 		e.clampPrimalDualLower()
 	}

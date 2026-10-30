@@ -98566,8 +98566,58 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/maxres_engine.go", "pkg/opt/maxres_assumption.go", "pkg/opt/maxres_boolean_eval.go", "pkg/opt/maxres_boundaries.go", "pkg/opt/maxres_literal.go", "pkg/opt/maxres_mutex_order.go", "pkg/opt/maxres_mutex_preprocess.go", "pkg/opt/maxres_mutex_term.go", "pkg/opt/maxres_mutex_transform.go", "pkg/opt/maxres_mutex_weights.go", "pkg/opt/maxres_proxy.go", "pkg/opt/maxres_proxy_filter.go", "pkg/opt/maxres_stats.go", "pkg/opt/maxres_weight_order.go", "pkg/opt/maxres_core.go", "pkg/opt/maxres_core_minimize.go", "pkg/opt/maxres_process.go", "pkg/opt/maxres_resolve.go", "pkg/opt/maxres_split.go", "pkg/opt/maxres_candidate.go", "pkg/opt/maxres_correction_set.go", "pkg/opt/maxres_cs_process.go", "pkg/opt/maxres_hill_climb.go", "pkg/opt/maxres_upper_proof.go", "pkg/opt/maxres_core_batch.go", "pkg/opt/maxres_search.go", "pkg/opt/maxres_search_sat.go", "pkg/opt/maxres_search_unsat.go", "pkg/opt/maxres_register.go", "pkg/opt/maxres_termination.go", "pkg/opt/maxres_primal_dual.go", "pkg/opt/maxres_sls.go", "pkg/opt/maxres_sls_assignment.go", "pkg/opt/maxres_sls_compile.go", "pkg/opt/maxres_sls_search.go", "pkg/opt/maxres_sls_seed.go", "pkg/opt/maxres_sls_types.go", "pkg/opt/maxres_sls_external_test.go", "pkg/opt/maxres_sls_guard_test.go", "pkg/opt/maxres_registration_test.go"],
-      "tests": ["TestMaxResBase", "TestMaxResBoundaries", "TestMaxResMutexOrder", "TestMaxResMutexTransform"],
+      "go_targets": [
+        "pkg/opt/maxres_engine.go",
+        "pkg/opt/maxres_assumption.go",
+        "pkg/opt/maxres_boolean_eval.go",
+        "pkg/opt/maxres_boundaries.go",
+        "pkg/opt/maxres_literal.go",
+        "pkg/opt/maxres_mutex_order.go",
+        "pkg/opt/maxres_mutex_preprocess.go",
+        "pkg/opt/maxres_mutex_term.go",
+        "pkg/opt/maxres_mutex_transform.go",
+        "pkg/opt/maxres_mutex_weights.go",
+        "pkg/opt/maxres_proxy.go",
+        "pkg/opt/maxres_proxy_filter.go",
+        "pkg/opt/maxres_stats.go",
+        "pkg/opt/maxres_weight_order.go",
+        "pkg/opt/maxres_core.go",
+        "pkg/opt/maxres_core_minimize.go",
+        "pkg/opt/maxres_process.go",
+        "pkg/opt/maxres_resolve.go",
+        "pkg/opt/maxres_split.go",
+        "pkg/opt/maxres_candidate.go",
+        "pkg/opt/maxres_correction_set.go",
+        "pkg/opt/maxres_cs_process.go",
+        "pkg/opt/maxres_hill_climb.go",
+        "pkg/opt/maxres_core_batch.go",
+        "pkg/opt/maxres_search.go",
+        "pkg/opt/maxres_search_sat.go",
+        "pkg/opt/maxres_search_unsat.go",
+        "pkg/opt/maxres_register.go",
+        "pkg/opt/maxres_termination.go",
+        "pkg/opt/maxres_primal_dual.go",
+        "pkg/opt/maxres_sls.go",
+        "pkg/opt/maxres_sls_assignment.go",
+        "pkg/opt/maxres_sls_compile.go",
+        "pkg/opt/maxres_sls_search.go",
+        "pkg/opt/maxres_sls_seed.go",
+        "pkg/opt/maxres_sls_types.go",
+        "pkg/opt/maxres_sls_external_test.go",
+        "pkg/opt/maxres_sls_guard_test.go",
+        "pkg/opt/maxres_registration_test.go",
+        "pkg/opt/maxres_search_round.go",
+        "pkg/opt/maxres_unsat.go",
+        "pkg/opt/maxres_upper_eligibility.go",
+        "pkg/solver/mus.go"
+      ],
+      "tests": [
+        "TestMaxResBase",
+        "TestMaxResBoundaries",
+        "TestMaxResMutexOrder",
+        "TestMaxResMutexTransform",
+        "TestMaxResCoreMinimizationMatchesSourceForMoreThanThirtyTwoLiterals"
+      ],
       "assertions": [
         {
           "line": 205,
@@ -98600,7 +98650,74 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name":"base state, assumptions, proxy filtering, exact-rational mutex decomposition, weighted boundaries and statistics","status":"partial","go_target":"pkg/opt/maxres_engine.go","go_targets":["pkg/opt/maxres_assumption.go","pkg/opt/maxres_boundaries.go","pkg/opt/maxres_mutex_preprocess.go","pkg/opt/maxres_proxy.go","pkg/opt/maxres_stats.go"],"tests":["TestMaxResBase","TestMaxResBoundaries","TestMaxResMutexOrder","TestMaxResMutexTransform"]},{"name":"skip MUS core minimization when opt_context selects the SAT core path","status":"partial","go_target":"pkg/opt/maxres_core_minimize.go","go_targets":["pkg/opt/maxres_core_minimize.go","pkg/opt/maxsmt_config.go","pkg/opt/maxsmt_config_decode.go","pkg/opt/maxres_core_test.go","pkg/opt/maxres_search_result_external_test.go"],"tests":["TestMaxResSATCoreModeSkipsCoreMinimization","TestMaxResSearchPublishesEngineResult"]}],
+      "methods": [
+        {
+          "name": "base state, assumptions, proxy filtering, exact-rational mutex decomposition, weighted boundaries and statistics",
+          "status": "partial",
+          "go_target": "pkg/opt/maxres_engine.go",
+          "go_targets": [
+            "pkg/opt/maxres_assumption.go",
+            "pkg/opt/maxres_boundaries.go",
+            "pkg/opt/maxres_mutex_preprocess.go",
+            "pkg/opt/maxres_proxy.go",
+            "pkg/opt/maxres_stats.go"
+          ],
+          "tests": [
+            "TestMaxResBase",
+            "TestMaxResBoundaries",
+            "TestMaxResMutexOrder",
+            "TestMaxResMutexTransform"
+          ]
+        },
+        {
+          "name": "skip MUS core minimization when opt_context selects the SAT core path",
+          "status": "ported",
+          "go_target": "pkg/opt/maxres_core_minimize.go",
+          "go_targets": [
+            "pkg/opt/maxres_core_minimize.go",
+            "pkg/opt/maxsmt_config.go",
+            "pkg/opt/maxsmt_config_decode.go",
+            "pkg/opt/maxres_core_test.go",
+            "pkg/opt/maxres_search_result_external_test.go"
+          ],
+          "tests": [
+            "TestMaxResSATCoreModeSkipsCoreMinimization",
+            "TestMaxResSearchPublishesEngineResult"
+          ]
+        },
+        {
+          "name": "reverse-order MUS core refinement and source batch-limit status propagation",
+          "status": "ported",
+          "go_target": "pkg/opt/maxres_core_minimize.go",
+          "go_targets": [
+            "pkg/opt/maxres_core_minimize.go",
+            "pkg/opt/maxres_core_batch.go",
+            "pkg/opt/maxres_search_round.go",
+            "pkg/opt/maxres_unsat.go",
+            "pkg/solver/mus.go"
+          ],
+          "tests": [
+            "TestMaxResCoreMinimizationMatchesSourceForMoreThanThirtyTwoLiterals",
+            "TestMaxResSATCoreModeSkipsCoreMinimization"
+          ]
+        },
+        {
+          "name": "initial model capture, upper-bound block gating and optimum publication",
+          "status": "ported",
+          "go_target": "pkg/opt/maxres_search.go",
+          "go_targets": [
+            "pkg/opt/maxres_candidate.go",
+            "pkg/opt/maxres_search.go",
+            "pkg/opt/maxres_upper_eligibility.go",
+            "pkg/opt/maxres_upper_block.go",
+            "pkg/opt/maxres_termination.go"
+          ],
+          "tests": [
+            "TestMaxResUpperBoundBlockProvesImprovedCandidateOptimal",
+            "TestMaxResSearchPublishesEngineResult"
+          ]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -162541,7 +162658,7 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "construction, reset, literal validation, soft constraints, additional assumptions and deletion-based get_mus/get_mus1",
+          "name": "construction, reset, literal validation, soft constraints, additional assumptions and reverse-order assumption/core-refinement get_mus/get_mus1",
           "status": "ported",
           "go_target": "pkg/solver/mus.go",
           "tests": [
@@ -162560,7 +162677,7 @@
         {
           "name": "private correction-set alternative get_mus2/get_next_mcs and helpers",
           "status": "reference_only",
-          "reason": "No retained source consumer calls the private alternative; every public get_mus overload dispatches get_mus1."
+          "reason": "No source consumer calls the private alternative; every public get_mus overload dispatches get_mus1."
         }
       ],
       "ownership": [

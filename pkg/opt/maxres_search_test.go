@@ -3,6 +3,7 @@ package opt
 // Source: src/opt/maxres.cpp mus_solver end-to-end without global dispatch.
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -62,5 +63,48 @@ func TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration(t *testing.
 	value := result.Values[0]
 	if value.SoftCost.Cmp(big.NewRat(2, 1)) != 0 || value.SoftSatisfied.Cmp(big.NewRat(5, 2)) != 0 {
 		t.Fatal("MaxRes optimum", &value.SoftCost, &value.SoftSatisfied)
+	}
+}
+
+func TestMaxResCoreMinimizationMatchesSourceForMoreThanThirtyTwoLiterals(t *testing.T) {
+	manager, fixture := pbSLSFixture(t)
+	const count = 33
+	terms := make([]ast.ASTHandle, count)
+	weights := make([]*big.Rat, count)
+	for index := range terms {
+		terms[index] = maxResTestBool(t, manager, fmt.Sprintf("maxres-large-mus-%d", index))
+		weights[index] = big.NewRat(1, 1)
+	}
+	all, err := manager.MkAndArray(terms)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notAll, err := manager.MkNot(all)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := smtcore.SMTSolverConfig{Params: fixture.Context, Globals: fixture.Globals, ModelEvaluator: fixture.Model}
+	solver, err := NewArithmeticSolver(manager, fixture.Model.Params, "", config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer solver.Close()
+	if err = solver.Assert(notAll); err != nil {
+		t.Fatal(err)
+	}
+	if err = solver.AddSoftObjective(terms, weights); err != nil {
+		t.Fatal(err)
+	}
+	engine, err := newMaxResEngine(solver, &solver.objectives[0], 0, maxSMTConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.close()
+	core, status, err := engine.minimizeCore(terms)
+	if err != nil || status != lbool.True {
+		t.Fatal("source MUS status", status, err)
+	}
+	if len(core) != count || engine.stats.CoreMinChecks != count {
+		t.Fatal("source MUS must check every core literal", len(core), engine.stats.CoreMinChecks)
 	}
 }

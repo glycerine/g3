@@ -17,16 +17,15 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	if err = e.trySLSCandidate(result); err != nil {
 		return lbool.Undef, false, err
 	}
-	// Mutex discovery uses its own backend query. Re-establish the source
-	// solver's candidate model before deriving the first upper bound.
-	e.stats.Checks++
-	status, err = e.solver.backend.CheckSat(nil)
-	if err != nil || status != lbool.True {
-		return status, false, err
+	// maxsmt_solver_base::init reads its model captured before MaxRes mutex
+	// discovery. Those preprocessing checks must not replace that candidate.
+	if result.Model == nil {
+		return lbool.Undef, false, fmt.Errorf("maxres source initial model missing: %w", errMaxResState)
 	}
-	// The enclosing maxsmt driver has already retained the first satisfiable
-	// model. Native MaxRes immediately derives its upper bound and assignment.
-	if err = e.updateCandidate(result); err != nil {
+	if err = result.Model.IncRef(); err != nil {
+		return lbool.Undef, false, err
+	}
+	if err = e.updateCandidateModel(result, result.Model); err != nil {
 		return lbool.Undef, false, fmt.Errorf("maxres initial candidate: %w", err)
 	}
 	e.sortAssumptions()
@@ -58,12 +57,15 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 				return lbool.False, true, nil
 			}
 		case lbool.False:
-			done, e2 := e.processSearchUNSAT(result)
+			roundStatus, e2 := e.processSearchUNSAT(result)
 			if e2 != nil {
 				return lbool.Undef, false, e2
 			}
-			if done {
+			if roundStatus == lbool.False {
 				return lbool.False, true, nil
+			}
+			if roundStatus == lbool.Undef {
+				return lbool.Undef, false, nil
 			}
 		case lbool.Undef:
 			return status, false, nil

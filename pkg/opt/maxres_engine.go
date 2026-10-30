@@ -8,6 +8,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/solver"
 )
 
 type maxResEngine struct {
@@ -20,11 +21,11 @@ type maxResEngine struct {
 	active           []ast.ASTHandle
 	weights          map[ast.ASTHandle]*big.Rat
 	proxies          map[ast.ASTHandle]ast.ASTHandle
+	mus              *solver.MUS
 	lower            big.Rat
 	upper            big.Rat
 	bestSet          bool
 	correction       []ast.ASTHandle
-	upperBoundActive bool
 	stats            maxResStatistics
 }
 
@@ -32,6 +33,11 @@ func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index 
 	e := &maxResEngine{solver: s, objective: objective, index: index, config: config, strategy: maxResStrategyFromConfig(config), weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle)}
 	e.lower.Set(&objective.softOffset)
 	e.owner.manager = s.manager
+	mus, err := solver.NewMUS(s.backend, solver.MUSConfig{})
+	if err != nil {
+		return nil, err
+	}
+	e.mus = mus
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, e.close())
@@ -55,5 +61,10 @@ func (e *maxResEngine) close() error {
 		return nil
 	}
 	e.active, e.correction, e.weights, e.proxies = nil, nil, nil, nil
-	return e.owner.close()
+	var musErr error
+	if e.mus != nil {
+		musErr = e.mus.Close()
+		e.mus = nil
+	}
+	return errors.Join(musErr, e.owner.close())
 }

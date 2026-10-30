@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestMaxResCoreFiltersDuplicatesAndUsesSizeAsBatchLimit(t *testing.T) {
@@ -30,8 +31,8 @@ func TestMaxResSATCoreModeSkipsCoreMinimization(t *testing.T) {
 	q := maxResTestBool(t, manager, "maxres-sat-core-q")
 	core := []ast.ASTHandle{p, q}
 	engine := &maxResEngine{config: maxSMTConfig{satCoreEnabled: true}}
-	got, err := engine.minimizeCore(core)
-	if err != nil || len(got) != len(core) || got[0] != p || got[1] != q || engine.stats.CoreMinChecks != 0 {
+	got, status, err := engine.minimizeCore(core)
+	if err != nil || status != lbool.True || len(got) != len(core) || got[0] != p || got[1] != q || engine.stats.CoreMinChecks != 0 {
 		t.Fatal("SAT core mode changed the extracted core", got, engine.stats, err)
 	}
 }

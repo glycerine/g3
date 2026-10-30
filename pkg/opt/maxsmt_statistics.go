@@ -17,7 +17,6 @@ type MaxSMTStatistics struct {
 	CorrectionResolutions  uint32
 	Pivots                 uint32
 	UpperBoundBlocks       uint32
-	UpperBoundProofs       uint32
 	Mutexes                uint32
 	MutexTerms             uint32
 	Auxiliaries            uint32

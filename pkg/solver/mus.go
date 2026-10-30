@@ -32,6 +32,7 @@ type MUS struct {
 	soft                  []ast.ASTRef
 	weights               []*big.Rat
 	weight                big.Rat
+	checks                uint32
 	ownerBytes            uint64
 	closed                bool
 }
@@ -196,6 +197,7 @@ func (u *MUS) GetMUS() (status lbool.LBool, result []ast.ASTHandle, err error) {
 	if err = u.open(); err != nil {
 		return lbool.Undef, nil, err
 	}
+	u.checks = 0
 	if err = u.clearBestModel(); err != nil {
 		return lbool.Undef, nil, err
 	}
@@ -226,6 +228,7 @@ func (u *MUS) GetMUS() (status lbool.LBool, result []ast.ASTHandle, err error) {
 		query = append(query, assumptions...)
 		query = append(query, notLiteral)
 		check, e := u.solver.CheckSat(query)
+		u.checks++
 		if e != nil {
 			return lbool.Undef, nil, e
 		}
@@ -253,6 +256,15 @@ func (u *MUS) GetMUS() (status lbool.LBool, result []ast.ASTHandle, err error) {
 		}
 	}
 	return lbool.True, mus, nil
+}
+
+// CheckCount reports the assumption checks performed by the most recent
+// GetMUS call.
+func (u *MUS) CheckCount() uint32 {
+	if u == nil || u.self != u || u.closed {
+		return 0
+	}
+	return u.checks
 }
 
 func (u *MUS) Reset() error {
