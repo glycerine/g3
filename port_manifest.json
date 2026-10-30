@@ -114822,7 +114822,7 @@
       "path": "src/sat/tactic/goal2sat.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/tactic/sat_goal_to_sat_trace.go",
         "pkg/sat/tactic/sat_goal_recovery.go",
@@ -114971,8 +114971,8 @@
           "text": "SASSERT(m_lit2expr.get((~l).index()) != 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained unsupported Boolean operator source SMT2 diagnostic with process-bound parameters and standalone source-default formatting (cpp192-197)",
@@ -115115,6 +115115,12 @@
             "TestSATGoalBorrowedAtomMapBooleanModelIncludesEarlierAtoms",
             "TestSimplifyCountedReleaseAfterFailedCleanupReconstruction"
           ]
+        },
+        {
+          "name": "goal2sat::has_unsupported_bool convenience preflight",
+          "status": "reference_only",
+          "reason": "Whole-src caller search finds only the declaration and definition; retained translation performs the actual unsupported-operator check in goal2sat::imp::visit.",
+          "evidence": "rg -n 'has_unsupported_bool' src --glob '*.{cpp,h,hpp}' returns only src/sat/tactic/goal2sat.h:51 and src/sat/tactic/goal2sat.cpp:524."
         }
       ],
       "ownership": [
@@ -115126,7 +115132,7 @@
         "Incremental translators borrow the original Expr2Var owner and never retain or release a duplicate map root. Closing one translator leaves scoped atom identities alive. Default standalone translators retain their existing owned insertion-ordered atom dictionary. Fresh compilation caches and interpreted/dependency lists remain translator-local; source UINT_MAX lookup misses are converted before constructing SAT literals."
       ],
       "deviations": [
-        "Goal dependency guards, dep2asm, unsupported-operator SMT2 diagnostics, sat2goal recovery/model conversion and public SAT tactic integration are implemented. Source checkpoint failures and unsupported operators retain their tactic_exception classification. Wrapper parameter updates, retained has_unsupported_bool inspection and interpreted-atom wrapper state remain open, so this source unit is still partial. Translation checkpoints borrow the actual AST-manager resource limit.",
+        "Goal dependency guards, dep2asm, unsupported-operator SMT2 diagnostics, sat2goal recovery/model conversion and public SAT tactic integration are implemented. Per-application parameters enter a fresh translator/recovery call; interpreted atoms are exposed from that call only. The uncalled has_unsupported_bool convenience preflight is recorded reference_only. Source checkpoint failures and unsupported operators retain their tactic_exception classification. Translation checkpoints borrow the actual AST-manager resource limit.",
         "Strict memory-checkpoint tests use an explicit real caller Runtime allocation; native SAT backing no longer guarantees a positive Runtime allocation counter. The checkpoint still reads the actual Runtime counter, without fabricated slice-allocation events."
       ]
     },
