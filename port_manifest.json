@@ -75766,10 +75766,11 @@
         "TestFixedSearchStopsAtSourceNodeLimit",
         "TestFixedSearchRetainsRefusedSplitChildrenForClose",
         "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
-        "TestSubpavingFixedMidpointSourceCasesAndNoInterior",
+        "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
+      ,
         "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
         "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-      ],
+],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
@@ -75800,18 +75801,21 @@
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause.go",
           "go_targets": [
+            "pkg/math/subpaving/fixed_context_init.go",
+            "pkg/math/subpaving/fixed_context_propagate.go"
+          ,
             "pkg/math/subpaving/fixed_clause.go",
             "pkg/math/subpaving/fixed_context.go",
-            "pkg/math/subpaving/fixed_context_init.go",
-            "pkg/math/subpaving/fixed_context_propagate.go",
             "pkg/math/subpaving/fixed_node.go"
-          ],
+],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
             "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+            "TestSubpavingFixedContextInitialDefinitionSweep"
+          ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
             "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-          ]
+]
         },
         {
           "name": "breadth-first search, round-robin variable selection and midpoint splitting",
@@ -75866,10 +75870,11 @@
         "TestFixedSearchStopsAtSourceNodeLimit",
         "TestFixedSearchRetainsRefusedSplitChildrenForClose",
         "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
-        "TestSubpavingFixedMidpointSourceCasesAndNoInterior",
+        "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
+      ,
         "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
         "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-      ],
+],
       "conditionals": [
         {
           "line": 19,
@@ -75910,18 +75915,21 @@
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause.go",
           "go_targets": [
+            "pkg/math/subpaving/fixed_context_init.go",
+            "pkg/math/subpaving/fixed_context_propagate.go"
+          ,
             "pkg/math/subpaving/fixed_clause.go",
             "pkg/math/subpaving/fixed_context.go",
-            "pkg/math/subpaving/fixed_context_init.go",
-            "pkg/math/subpaving/fixed_context_propagate.go",
             "pkg/math/subpaving/fixed_node.go"
-          ],
+],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
             "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+            "TestSubpavingFixedContextInitialDefinitionSweep"
+          ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
             "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-          ]
+]
         },
         {
           "name": "breadth-first search, round-robin variable selection and midpoint splitting",
@@ -76257,12 +76265,11 @@
         "TestFastMidpointSplitterSourceBranchesAndRefusal",
         "TestFastSearchBreadthFirstCancellationAndOwnedChildren",
         "TestFastSearchMaxNodesStopsBeforeNextLeaf",
-        "TestFastSearchRetainsRefusedSplitChildrenForOwnerClose",
-        "TestSubpavingFixedClauseWatchPropagationAndConflict",
-        "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+        "TestFastSearchRetainsRefusedSplitChildrenForOwnerClose"
+      ,
         "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
         "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-      ],
+],
       "conditionals": [
         {
           "line": 19,
@@ -76377,18 +76384,20 @@
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause.go",
           "go_targets": [
-            "pkg/math/subpaving/fixed_clause.go",
-            "pkg/math/subpaving/fixed_context.go",
             "pkg/math/subpaving/fixed_context_init.go",
             "pkg/math/subpaving/fixed_context_propagate.go",
             "pkg/math/subpaving/fixed_node.go"
-          ],
+          ,
+            "pkg/math/subpaving/fixed_clause.go",
+            "pkg/math/subpaving/fixed_context.go"
+],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
+          ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
             "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-          ]
+]
         },
         {
           "name": "Concrete config_mpf node-bound interval::set_constant live borrowed view and set_mutable scratch detachment (src/math/subpaving/subpaving_t.h:146-316)",
@@ -76976,17 +76985,13 @@
           "name": "Concrete config_mpfx wrapper variable registration grows native kind, watcher and root-view slices before definitions (subpaving_t_def.h:681-688)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_context.go",
-          "tests": [
-            "TestFixedShellExactCoefficientOwnerAndDirectedBound"
-          ]
+          "tests": ["TestFixedShellExactCoefficientOwnerAndDirectedBound"]
         },
         {
           "name": "Concrete config_mpfx constructor and updt_params read six named unsigned options in source order with immediate numeric mutations (subpaving_t_def.h:416-435,476-505)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_context_params.go",
-          "tests": [
-            "TestFixedContextNamedParamsSourceOrderAndStoppedOwner"
-          ]
+          "tests": ["TestFixedContextNamedParamsSourceOrderAndStoppedOwner"]
         },
         {
           "name": "Concrete config_mpff tactic variable registration before root initialization (src/math/subpaving/subpaving_t_def.h:630-637)",
@@ -77068,354 +77073,217 @@
           "name": "Concrete config_mpfx breadth-first loop, source queue failure prefix, node limit and context-owned child retirement (subpaving_t_def.h:1806-1843)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_search.go",
-          "tests": [
-            "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
-            "TestFixedSearchStopsAtSourceNodeLimit",
-            "TestFixedSearchRetainsRefusedSplitChildrenForClose"
-          ]
+          "tests": ["TestFixedSearchBreadthFirstCancellationAndOwnedChildren", "TestFixedSearchStopsAtSourceNodeLimit", "TestFixedSearchRetainsRefusedSplitChildrenForClose"]
         },
         {
           "name": "Concrete config_mpfx display_params source-order live numeral display and reached search-entry TRACE (subpaving_t_def.h:516-523,1810)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_search_params_trace.go",
-          "tests": [
-            "TestFixedSearchSourceParameterDisplayAndTrace"
-          ]
+          "tests": ["TestFixedSearchSourceParameterDisplayAndTrace"]
         },
         {
           "name": "Concrete config_mpfx search statistics, node selection, post-propagation, inconsistency, depth-limit and variable TRACE with source node-ID LIFO reuse (subpaving_t_def.h:1809-1844)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_search_trace.go",
-          "tests": [
-            "TestFixedSearchSourceParameterDisplayAndTrace",
-            "TestFixedSearchBranchTraceIDsAndDepthLimit"
-          ]
+          "tests": ["TestFixedSearchSourceParameterDisplayAndTrace", "TestFixedSearchBranchTraceIDsAndDepthLimit"]
         },
         {
           "name": "Concrete config_hwf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_init_trace.go",
-          "tests": [
-            "TestHardwareRootInitializationTraceSourceOrderAndResume",
-            "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_init_trace.go",
-          "tests": [
-            "TestArbitraryRootInitializationTraceSourceOrderAndResume",
-            "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_init_trace.go",
-          "tests": [
-            "TestFastRootInitializationTraceSourceOrderAndResume",
-            "TestFastRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_init_trace.go",
-          "tests": [
-            "TestFixedRootInitializationTraceSourceOrderAndResume",
-            "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx bound publication and conflict TRACE before conflict/timestamp/queue transitions (subpaving_t_def.h:563-566)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_bound_trace.go",
-          "tests": [
-            "TestFixedBoundTracePublicationAndConflictOrder",
-            "TestFixedBoundTraceStreamAndPrinterFailurePrefix"
-          ]
+          "tests": ["TestFixedBoundTracePublicationAndConflictOrder", "TestFixedBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
           "name": "Concrete config_mpfx unit and stable-sorted clause TRACE at their source ownership boundaries (subpaving_t_def.h:841,865-868)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause_trace.go",
-          "tests": [
-            "TestFixedClauseAndUnitTracePublicationOrder",
-            "TestFixedClauseAndUnitTraceFailureBoundaries"
-          ]
+          "tests": ["TestFixedClauseAndUnitTracePublicationOrder", "TestFixedClauseAndUnitTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_mpfx inequality pre-increment and pre-decrement reference TRACE (subpaving_t_def.h:786-799)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_refcount_trace.go",
-          "tests": [
-            "TestFixedInequalityReferenceTraceSourceOrder",
-            "TestFixedInequalityReferenceTraceClauseInputOrder",
-            "TestFixedInequalityReferenceTraceRefusalAndStoppedRelease"
-          ]
+          "tests": ["TestFixedInequalityReferenceTraceSourceOrder", "TestFixedInequalityReferenceTraceClauseInputOrder", "TestFixedInequalityReferenceTraceRefusalAndStoppedRelease"]
         },
         {
           "name": "Concrete config_mpfx clause-propagation TRACE before visit and before selected inequality bound publication (subpaving_t_def.h:1376,1400)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause_propagate_trace.go",
-          "tests": [
-            "TestFixedClausePropagationTraceSourceOrder",
-            "TestFixedClausePropagationTraceFailureBoundaries"
-          ]
+          "tests": ["TestFixedClausePropagationTraceSourceOrder", "TestFixedClausePropagationTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_mpff relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/fast_context_bounds.go",
-            "pkg/math/subpaving/fast_relevance_trace.go"
-          ],
-          "tests": [
-            "TestFastContextRelevanceEpsilonUsesMaximumOfMinimumAndOne",
-            "TestFastRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestFastRelevanceTraceRefusalAndPrinterPrefix",
-            "TestFastRelevanceTraceEpsilonGapRecords"
-          ]
+          "go_targets": ["pkg/math/subpaving/fast_context_bounds.go", "pkg/math/subpaving/fast_relevance_trace.go"],
+          "tests": ["TestFastContextRelevanceEpsilonUsesMaximumOfMinimumAndOne", "TestFastRelevanceTraceConflictThresholdAndImprovementBranches", "TestFastRelevanceTraceRefusalAndPrinterPrefix", "TestFastRelevanceTraceEpsilonGapRecords"]
         },
         {
           "name": "Concrete config_hwf relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/hardware_context_relevance.go",
-            "pkg/math/subpaving/hardware_relevance_trace.go"
-          ],
-          "tests": [
-            "TestHardwareContextRelevantNewBoundSourceBranches",
-            "TestHardwareRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestHardwareRelevanceTraceRefusalAndPrinterPrefix",
-            "TestHardwareRelevanceTraceEpsilonGapRecords"
-          ]
+          "go_targets": ["pkg/math/subpaving/hardware_context_relevance.go", "pkg/math/subpaving/hardware_relevance_trace.go"],
+          "tests": ["TestHardwareContextRelevantNewBoundSourceBranches", "TestHardwareRelevanceTraceConflictThresholdAndImprovementBranches", "TestHardwareRelevanceTraceRefusalAndPrinterPrefix", "TestHardwareRelevanceTraceEpsilonGapRecords"]
         },
         {
           "name": "Concrete config_mpf relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/arbitrary_context_relevance.go",
-            "pkg/math/subpaving/arbitrary_relevance_trace.go"
-          ],
-          "tests": [
-            "TestArbitraryContextSourceCandidateRelevanceAndNormalization",
-            "TestArbitraryRelevanceTraceBranchesAndEpsilonGap",
-            "TestArbitraryRelevanceTraceRefusalAndPrinterPrefix"
-          ]
+          "go_targets": ["pkg/math/subpaving/arbitrary_context_relevance.go", "pkg/math/subpaving/arbitrary_relevance_trace.go"],
+          "tests": ["TestArbitraryContextSourceCandidateRelevanceAndNormalization", "TestArbitraryRelevanceTraceBranchesAndEpsilonGap", "TestArbitraryRelevanceTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpq relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/rational_context_relevance.go",
-            "pkg/math/subpaving/rational_relevance_trace.go"
-          ],
-          "tests": [
-            "TestRationalContextDefaultRelevantBoundSourceOrder",
-            "TestRationalRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestRationalRelevanceTraceRefusalAndPrinterPrefix",
-            "TestRationalRelevanceTraceEpsilonGapRecords"
-          ]
+          "go_targets": ["pkg/math/subpaving/rational_context_relevance.go", "pkg/math/subpaving/rational_relevance_trace.go"],
+          "tests": ["TestRationalContextDefaultRelevantBoundSourceOrder", "TestRationalRelevanceTraceConflictThresholdAndImprovementBranches", "TestRationalRelevanceTraceRefusalAndPrinterPrefix", "TestRationalRelevanceTraceEpsilonGapRecords"]
         },
         {
           "name": "Concrete config_mpfx relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/fixed_context_bounds.go",
-            "pkg/math/subpaving/fixed_relevance_trace.go"
-          ],
-          "tests": [
-            "TestFixedRelevanceUsesSourceMaximumOfGapAndOne",
-            "TestFixedRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestFixedRelevanceTraceRefusalAndPrinterPrefix"
-          ]
+          "go_targets": ["pkg/math/subpaving/fixed_context_bounds.go", "pkg/math/subpaving/fixed_relevance_trace.go"],
+          "tests": ["TestFixedRelevanceUsesSourceMaximumOfGapAndOne", "TestFixedRelevanceTraceConflictThresholdAndImprovementBranches", "TestFixedRelevanceTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_propagate_trace.go",
-          "tests": [
-            "TestFastQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestFastQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestFastQueuedBoundPropagationTraceAndConsumedPrefix", "TestFastQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_hwf queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_propagate_trace.go",
-          "tests": [
-            "TestHardwareQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestHardwareQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestHardwareQueuedBoundPropagationTraceAndConsumedPrefix", "TestHardwareQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_mpq queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_propagate_trace.go",
-          "tests": [
-            "TestRationalQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestRationalQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestRationalQueuedBoundPropagationTraceAndConsumedPrefix", "TestRationalQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_mpf queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_propagate_trace.go",
-          "tests": [
-            "TestArbitraryQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestArbitraryQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestArbitraryQueuedBoundPropagationTraceAndConsumedPrefix", "TestArbitraryQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_mpfx queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_propagate_trace.go",
-          "tests": [
-            "TestFixedQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestFixedQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestFixedQueuedBoundPropagationTraceAndConsumedPrefix", "TestFixedQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_hwf may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_may_propagate_trace.go",
-          "tests": [
-            "TestHardwareMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestHardwareMayPropagateDefinitionSkippedTimestampTrace",
-            "TestHardwareMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestHardwareMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestHardwareMayPropagateDefinitionSkippedTimestampTrace", "TestHardwareMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpq may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_may_propagate_trace.go",
-          "tests": [
-            "TestRationalMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestRationalMayPropagateDefinitionSkippedTimestampTrace",
-            "TestRationalMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestRationalMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestRationalMayPropagateDefinitionSkippedTimestampTrace", "TestRationalMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpf may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_may_propagate_trace.go",
-          "tests": [
-            "TestArbitraryMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestArbitraryMayPropagateDefinitionSkippedTimestampTrace",
-            "TestArbitraryMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestArbitraryMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestArbitraryMayPropagateDefinitionSkippedTimestampTrace", "TestArbitraryMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpff may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_may_propagate_trace.go",
-          "tests": [
-            "TestFastMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestFastMayPropagateDefinitionSkippedTimestampTrace",
-            "TestFastMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestFastMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestFastMayPropagateDefinitionSkippedTimestampTrace", "TestFastMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpfx may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_may_propagate_trace.go",
-          "tests": [
-            "TestFixedMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestFixedMayPropagateDefinitionSkippedTimestampTrace",
-            "TestFixedMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestFixedMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestFixedMayPropagateDefinitionSkippedTimestampTrace", "TestFixedMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_hwf polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_polynomial_propagate_trace.go",
-          "tests": [
-            "TestHardwarePolynomialPropagationSourceTraceOrder",
-            "TestHardwarePolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestHardwarePolynomialPropagationSourceTraceOrder", "TestHardwarePolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpq polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_polynomial_propagate_trace.go",
-          "tests": [
-            "TestRationalPolynomialPropagationSourceTraceOrder",
-            "TestRationalPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestRationalPolynomialPropagationSourceTraceOrder", "TestRationalPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_polynomial_propagate_trace.go",
-          "tests": [
-            "TestArbitraryPolynomialPropagationSourceTraceOrder",
-            "TestArbitraryPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestArbitraryPolynomialPropagationSourceTraceOrder", "TestArbitraryPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_polynomial_propagate_trace.go",
-          "tests": [
-            "TestFastPolynomialPropagationSourceTraceOrder",
-            "TestFastPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFastPolynomialPropagationSourceTraceOrder", "TestFastPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_polynomial_propagate_trace.go",
-          "tests": [
-            "TestFixedPolynomialPropagationSourceTraceOrder",
-            "TestFixedPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFixedPolynomialPropagationSourceTraceOrder", "TestFixedPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_monomial_propagate_trace.go",
-          "tests": [
-            "TestFastMonomialPropagationSourceTrace",
-            "TestFastMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFastMonomialPropagationSourceTrace", "TestFastMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_hwf monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_monomial_propagate_trace.go",
-          "tests": [
-            "TestHardwareMonomialPropagationSourceTrace",
-            "TestHardwareMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestHardwareMonomialPropagationSourceTrace", "TestHardwareMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpq monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_monomial_propagate_trace.go",
-          "tests": [
-            "TestRationalMonomialPropagationSourceTrace",
-            "TestRationalMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestRationalMonomialPropagationSourceTrace", "TestRationalMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_monomial_propagate_trace.go",
-          "tests": [
-            "TestArbitraryMonomialPropagationSourceTrace",
-            "TestArbitraryMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestArbitraryMonomialPropagationSourceTrace", "TestArbitraryMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_monomial_propagate_trace.go",
-          "tests": [
-            "TestFixedMonomialPropagationSourceTrace",
-            "TestFixedMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFixedMonomialPropagationSourceTrace", "TestFixedMonomialPropagationTraceRefusalAndPrinterPrefix"]
         }
       ],
       "ownership": [
@@ -77714,12 +77582,11 @@
         "TestFastSearchRetainsRefusedSplitChildrenForOwnerClose",
         "TestSubpavingCheckpointCooperatesAfterResourceAndMemory",
         "TestFastSearchUsesBoundCooperation",
-        "TestFixedContextRootUsesBoundCooperation",
-        "TestSubpavingFixedClauseWatchPropagationAndConflict",
-        "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+        "TestFixedContextRootUsesBoundCooperation"
+      ,
         "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
         "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-      ],
+],
       "assertions": [
         {
           "line": 85,
@@ -78080,18 +77947,20 @@
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause.go",
           "go_targets": [
-            "pkg/math/subpaving/fixed_clause.go",
-            "pkg/math/subpaving/fixed_context.go",
             "pkg/math/subpaving/fixed_context_init.go",
             "pkg/math/subpaving/fixed_context_propagate.go",
             "pkg/math/subpaving/fixed_node.go"
-          ],
+          ,
+            "pkg/math/subpaving/fixed_clause.go",
+            "pkg/math/subpaving/fixed_context.go"
+],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
+          ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
             "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-          ]
+]
         },
         {
           "name": "Concrete config_mpff node bound publication and parent/child copied bound views (src/math/subpaving/subpaving_t_def.h:296-348)",
@@ -78494,395 +78363,235 @@
           "name": "Concrete config_mpq mk_sum integrality TRACE before the second is_int query and variable publication (subpaving_t_def.h:762-763)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_polynomial_integer_trace.go",
-          "tests": [
-            "TestRationalPolynomialSourceIntegerTraceBeforeVariablePublication",
-            "TestRationalPolynomialTraceStreamRefusalKeepsDefinition"
-          ]
+          "tests": ["TestRationalPolynomialSourceIntegerTraceBeforeVariablePublication", "TestRationalPolynomialTraceStreamRefusalKeepsDefinition"]
         },
         {
           "name": "Concrete config_mpq is_int(polynomial) first failing term TRACE with variable, coefficient and explicit flush (subpaving_t_def.h:668-679)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_polynomial_integer_trace.go",
-          "tests": [
-            "TestRationalPolynomialSourceIntegerTraceBeforeVariablePublication",
-            "TestRationalPolynomialTraceStreamRefusalKeepsDefinition"
-          ]
+          "tests": ["TestRationalPolynomialSourceIntegerTraceBeforeVariablePublication", "TestRationalPolynomialTraceStreamRefusalKeepsDefinition"]
         },
         {
           "name": "Concrete config_mpf mk_sum and is_int(polynomial) nested integer-status and first-failing-term TRACE before variable publication (subpaving_t_def.h:668-679,762-763)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_polynomial_integer_trace.go",
-          "tests": [
-            "TestArbitraryPolynomialSourceIntegerTraceAndPublication",
-            "TestArbitraryPolynomialTraceStreamRefusalKeepsDefinition"
-          ]
+          "tests": ["TestArbitraryPolynomialSourceIntegerTraceAndPublication", "TestArbitraryPolynomialTraceStreamRefusalKeepsDefinition"]
         },
         {
           "name": "Concrete config_mpf inequality reference TRACE and resumable clause release (subpaving_t_def.h:786-799)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/arbitrary_refcount_trace.go",
-            "pkg/math/subpaving/arbitrary_context_root.go"
-          ],
-          "tests": [
-            "TestArbitraryInequalityReferenceTraceSourceOrder",
-            "TestArbitraryInequalityReferenceTraceRefusalAndStoppedClause"
-          ]
+          "go_targets": ["pkg/math/subpaving/arbitrary_refcount_trace.go", "pkg/math/subpaving/arbitrary_context_root.go"],
+          "tests": ["TestArbitraryInequalityReferenceTraceSourceOrder", "TestArbitraryInequalityReferenceTraceRefusalAndStoppedClause"]
         },
         {
           "name": "Concrete config_mpf bound-publication and conflict TRACE at ownership boundaries (subpaving_t_def.h:563-566)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_bound_trace.go",
-          "tests": [
-            "TestArbitraryBoundTracePublicationAndConflictOrder",
-            "TestArbitraryBoundTraceStreamAndPrinterFailurePrefix"
-          ]
+          "tests": ["TestArbitraryBoundTracePublicationAndConflictOrder", "TestArbitraryBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
           "name": "Concrete config_mpf clause-propagation TRACE before visit and selected bound publication (subpaving_t_def.h:1376,1400)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_clause_propagate_trace.go",
-          "tests": [
-            "TestArbitraryClausePropagationTraceSourceOrder",
-            "TestArbitraryClausePropagationTraceRefusalAndPrinterPrefixes"
-          ]
+          "tests": ["TestArbitraryClausePropagationTraceSourceOrder", "TestArbitraryClausePropagationTraceRefusalAndPrinterPrefixes"]
         },
         {
           "name": "Concrete config_mpf unit and sorted-clause TRACE at source ownership boundaries (subpaving_t_def.h:841,866)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_clause_trace.go",
-          "tests": [
-            "TestArbitraryClauseAndUnitTracePublicationOrder",
-            "TestArbitraryClauseAndUnitTraceFailureBoundaries"
-          ]
+          "tests": ["TestArbitraryClauseAndUnitTracePublicationOrder", "TestArbitraryClauseAndUnitTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_mpff mk_sum and is_int(polynomial) nested integer-status and first-failing-term TRACE before variable publication (subpaving_t_def.h:668-679,762-763)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_polynomial_integer_trace.go",
-          "tests": [
-            "TestFastPolynomialSourceIntegerTraceAndPublication",
-            "TestFastPolynomialTraceStreamRefusalKeepsDefinition"
-          ]
+          "tests": ["TestFastPolynomialSourceIntegerTraceAndPublication", "TestFastPolynomialTraceStreamRefusalKeepsDefinition"]
         },
         {
           "name": "Concrete config_mpff inequality pre-increment and pre-decrement reference TRACE (subpaving_t_def.h:786-799)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_refcount_trace.go",
-          "tests": [
-            "TestFastInequalityReferenceTraceClauseOrder",
-            "TestFastInequalityReferenceTraceRefusalAndStoppedRelease"
-          ]
+          "tests": ["TestFastInequalityReferenceTraceClauseOrder", "TestFastInequalityReferenceTraceRefusalAndStoppedRelease"]
         },
         {
           "name": "Concrete config_mpff bound-publication/conflict TRACE and post-mk_bound queue ownership (subpaving_t_def.h:563-580)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/fast_bound_trace.go",
-            "pkg/math/subpaving/fast_context_bounds.go"
-          ],
-          "tests": [
-            "TestFastBoundTracePublicationAndConflictOrder",
-            "TestFastBoundTraceStreamAndPrinterFailurePrefix",
-            "TestFastBoundTimestampSourceExceptionAfterPublication"
-          ]
+          "go_targets": ["pkg/math/subpaving/fast_bound_trace.go", "pkg/math/subpaving/fast_context_bounds.go"],
+          "tests": ["TestFastBoundTracePublicationAndConflictOrder", "TestFastBoundTraceStreamAndPrinterFailurePrefix", "TestFastBoundTimestampSourceExceptionAfterPublication"]
         },
         {
           "name": "Concrete config_mpff clause-propagation TRACE before visit and selected bound publication (subpaving_t_def.h:1376,1400)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_clause_propagate_trace.go",
-          "tests": [
-            "TestFastClausePropagationTraceSourceOrder",
-            "TestFastClausePropagationTraceRefusalAndPrinterPrefixes"
-          ]
+          "tests": ["TestFastClausePropagationTraceSourceOrder", "TestFastClausePropagationTraceRefusalAndPrinterPrefixes"]
         },
         {
           "name": "Concrete config_mpff unit and sorted-clause TRACE at source ownership boundaries (subpaving_t_def.h:841,866)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_clause_trace.go",
-          "tests": [
-            "TestFastClauseAndUnitTracePublicationOrder",
-            "TestFastClauseAndUnitTraceFailureBoundaries"
-          ]
+          "tests": ["TestFastClauseAndUnitTracePublicationOrder", "TestFastClauseAndUnitTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_hwf mk_sum and is_int(polynomial) nested integer-status and first-failing-term TRACE before variable publication (subpaving_t_def.h:668-679,762-763)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_polynomial_integer_trace.go",
-          "tests": [
-            "TestHardwarePolynomialSourceIntegerTraceAndPublication",
-            "TestHardwarePolynomialTraceStreamRefusalKeepsDefinition"
-          ]
+          "tests": ["TestHardwarePolynomialSourceIntegerTraceAndPublication", "TestHardwarePolynomialTraceStreamRefusalKeepsDefinition"]
         },
         {
           "name": "Concrete config_hwf inequality reference TRACE and resumable clause release (subpaving_t_def.h:786-799)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/hardware_refcount_trace.go",
-            "pkg/math/subpaving/hardware_context_root.go"
-          ],
-          "tests": [
-            "TestHardwareInequalityReferenceTraceSourceOrder",
-            "TestHardwareInequalityReferenceTraceRefusalAndStoppedClause"
-          ]
+          "go_targets": ["pkg/math/subpaving/hardware_refcount_trace.go", "pkg/math/subpaving/hardware_context_root.go"],
+          "tests": ["TestHardwareInequalityReferenceTraceSourceOrder", "TestHardwareInequalityReferenceTraceRefusalAndStoppedClause"]
         },
         {
           "name": "Concrete config_hwf bound-publication and conflict TRACE (subpaving_t_def.h:563-566)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_bound_trace.go",
-          "tests": [
-            "TestHardwareBoundTracePublicationAndConflictOrder",
-            "TestHardwareBoundTraceStreamAndPrinterFailurePrefix"
-          ]
+          "tests": ["TestHardwareBoundTracePublicationAndConflictOrder", "TestHardwareBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
           "name": "Concrete config_hwf unit/clause TRACE and input-order pre-sort reference increments (subpaving_t_def.h:815-866)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/hardware_clause_trace.go",
-            "pkg/math/subpaving/hardware_clause.go"
-          ],
-          "tests": [
-            "TestHardwareClauseAndUnitTracePublicationOrder",
-            "TestHardwareClauseAndUnitTraceFailureBoundaries",
-            "TestHardwareInequalityReferenceTraceSourceOrder"
-          ]
+          "go_targets": ["pkg/math/subpaving/hardware_clause_trace.go", "pkg/math/subpaving/hardware_clause.go"],
+          "tests": ["TestHardwareClauseAndUnitTracePublicationOrder", "TestHardwareClauseAndUnitTraceFailureBoundaries", "TestHardwareInequalityReferenceTraceSourceOrder"]
         },
         {
           "name": "Concrete config_hwf clause-propagation TRACE before visit and selected bound publication (subpaving_t_def.h:1376,1400)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_clause_propagate_trace.go",
-          "tests": [
-            "TestHardwareClausePropagationTraceSourceOrder",
-            "TestHardwareClausePropagationTraceRefusalAndPrinterPrefixes"
-          ]
+          "tests": ["TestHardwareClausePropagationTraceSourceOrder", "TestHardwareClausePropagationTraceRefusalAndPrinterPrefixes"]
         },
         {
           "name": "Concrete config_mpfx mk_sum and is_int(polynomial) nested integer-status and first-failing-term TRACE before variable publication (subpaving_t_def.h:668-679,762-763)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_polynomial_integer_trace.go",
-          "tests": [
-            "TestFixedPolynomialSourceIntegerTraceAndPublication",
-            "TestFixedPolynomialTraceStreamRefusalKeepsDefinition",
-            "TestFixedPolynomialTraceUsesBorrowedVariablePrinter"
-          ]
+          "tests": ["TestFixedPolynomialSourceIntegerTraceAndPublication", "TestFixedPolynomialTraceStreamRefusalKeepsDefinition", "TestFixedPolynomialTraceUsesBorrowedVariablePrinter"]
         },
         {
           "name": "Concrete config_mpq midpoint split child-bound TRACE after both decision bounds and before local numeral cleanup (subpaving_t_def.h:243-246)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_split_trace.go",
-          "tests": [
-            "TestRationalMidpointSplitSourceBoundsTrace",
-            "TestRationalMidpointSplitTraceRefusalKeepsChildren",
-            "TestRationalMidpointSplitTracePrinterFailureKeepsChildren"
-          ]
+          "tests": ["TestRationalMidpointSplitSourceBoundsTrace", "TestRationalMidpointSplitTraceRefusalKeepsChildren", "TestRationalMidpointSplitTracePrinterFailureKeepsChildren"]
         },
         {
           "name": "Concrete config_mpf midpoint split child-bound TRACE after both decision bounds and before local numeral cleanup (subpaving_t_def.h:243-246)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_split_trace.go",
-          "tests": [
-            "TestArbitraryMidpointSplitSourceBoundsTrace",
-            "TestArbitraryMidpointSplitTraceRefusalKeepsChildren",
-            "TestArbitraryMidpointSplitTracePrinterFailureKeepsChildren"
-          ]
+          "tests": ["TestArbitraryMidpointSplitSourceBoundsTrace", "TestArbitraryMidpointSplitTraceRefusalKeepsChildren", "TestArbitraryMidpointSplitTracePrinterFailureKeepsChildren"]
         },
         {
           "name": "Concrete config_mpff midpoint split child-bound TRACE after both decision bounds and before local numeral cleanup (subpaving_t_def.h:243-246)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_split_trace.go",
-          "tests": [
-            "TestFastMidpointSplitSourceBoundsTrace",
-            "TestFastMidpointSplitTraceRefusalKeepsChildren",
-            "TestFastMidpointSplitTracePrinterFailureKeepsChildren"
-          ]
+          "tests": ["TestFastMidpointSplitSourceBoundsTrace", "TestFastMidpointSplitTraceRefusalKeepsChildren", "TestFastMidpointSplitTracePrinterFailureKeepsChildren"]
         },
         {
           "name": "Concrete config_hwf midpoint split child-bound TRACE after both decision bounds (subpaving_t_def.h:243-246)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_split_trace.go",
-          "tests": [
-            "TestHardwareMidpointSplitSourceBoundsTrace",
-            "TestHardwareMidpointSplitTraceRefusalKeepsChildren",
-            "TestHardwareMidpointSplitTracePrinterFailureKeepsChildren"
-          ]
+          "tests": ["TestHardwareMidpointSplitSourceBoundsTrace", "TestHardwareMidpointSplitTraceRefusalKeepsChildren", "TestHardwareMidpointSplitTracePrinterFailureKeepsChildren"]
         },
         {
           "name": "Concrete config_mpfx midpoint child construction before local numeral allocation and arithmetic, with both children retained and source subpaving::exception classification on no-interior refusal (subpaving_t_def.h:198-239)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_split.go",
-          "tests": [
-            "TestSubpavingFixedMidpointSourceCasesAndNoInterior",
-            "TestFixedMidpointSplitSourceBoundsTrace",
-            "TestFixedSearchRetainsRefusedSplitChildrenForClose"
-          ]
+          "tests": ["TestSubpavingFixedMidpointSourceCasesAndNoInterior", "TestFixedMidpointSplitSourceBoundsTrace", "TestFixedSearchRetainsRefusedSplitChildrenForClose"]
         },
         {
           "name": "Concrete config_mpfx midpoint split child-bound TRACE after both decision bounds (subpaving_t_def.h:243-246)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_split_trace.go",
-          "tests": [
-            "TestFixedMidpointSplitSourceBoundsTrace",
-            "TestFixedMidpointSplitTraceRefusalKeepsChildren",
-            "TestFixedMidpointSplitTracePrinterFailureKeepsChildren"
-          ]
+          "tests": ["TestFixedMidpointSplitSourceBoundsTrace", "TestFixedMidpointSplitTraceRefusalKeepsChildren", "TestFixedMidpointSplitTracePrinterFailureKeepsChildren"]
         },
         {
           "name": "Concrete config_mpq add_unit_clause inequality TRACE before inc_ref and unit publication (subpaving_t_def.h:865-868)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_unit_trace.go",
-          "tests": [
-            "TestRationalUnitTracePrecedesReferenceAndPublication",
-            "TestRationalUnitTraceFailureBoundaries"
-          ]
+          "tests": ["TestRationalUnitTracePrecedesReferenceAndPublication", "TestRationalUnitTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_mpq clause-propagation TRACE before visit and selected bound publication (subpaving_t_def.h:1376,1400)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_clause_propagate_trace.go",
-          "tests": [
-            "TestRationalClausePropagationTraceSourceOrder",
-            "TestRationalClausePropagationTraceRefusalAndPrinterPrefixes"
-          ]
+          "tests": ["TestRationalClausePropagationTraceSourceOrder", "TestRationalClausePropagationTraceRefusalAndPrinterPrefixes"]
         },
         {
           "name": "Concrete config_mpq add_clause_core sorted-clause TRACE after references, watches and publication (subpaving_t_def.h:802-841)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_clause_trace.go",
-          "tests": [
-            "TestRationalClauseTraceSortedAfterOwnership",
-            "TestRationalClauseTraceRefusalAndPrinterFailureKeepClause"
-          ]
+          "tests": ["TestRationalClauseTraceSortedAfterOwnership", "TestRationalClauseTraceRefusalAndPrinterFailureKeepClause"]
         },
         {
           "name": "Concrete config_mpq inequality reference TRACE and resumable clause release (subpaving_t_def.h:786-799)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/rational_refcount_trace.go",
-            "pkg/math/subpaving/rational_context_root.go"
-          ],
-          "tests": [
-            "TestRationalInequalityReferenceTraceSourceOrder",
-            "TestRationalInequalityReferenceTraceRefusalAndStoppedClose",
-            "TestRationalInequalityReferenceTraceResumeSecondClauseAtom"
-          ]
+          "go_targets": ["pkg/math/subpaving/rational_refcount_trace.go", "pkg/math/subpaving/rational_context_root.go"],
+          "tests": ["TestRationalInequalityReferenceTraceSourceOrder", "TestRationalInequalityReferenceTraceRefusalAndStoppedClose", "TestRationalInequalityReferenceTraceResumeSecondClauseAtom"]
         },
         {
           "name": "Concrete config_mpq mk_bound publication and conflict TRACE before source state transitions (subpaving_t_def.h:563-566)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_bound_trace.go",
-          "tests": [
-            "TestRationalBoundTracePublicationAndConflictOrder",
-            "TestRationalBoundTraceStreamAndPrinterFailurePrefix"
-          ]
+          "tests": ["TestRationalBoundTracePublicationAndConflictOrder", "TestRationalBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
           "name": "Concrete config_mpq init constraint, unit assertion, post-unit and post-propagation TRACE sites with Go writer retry; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_init_trace.go",
-          "tests": [
-            "TestRationalRootInitializationTraceSourceOrderAndResume",
-            "TestRationalRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestRationalRootInitializationTraceSourceOrderAndResume", "TestRationalRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf search parameter, pre-removal selected-node, post-propagation bound, conflict, depth-limit and split-variable TRACE sites (subpaving_t_def.h:1810,1819,1825,1828,1833,1837)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/arbitrary_search.go",
-            "pkg/math/subpaving/arbitrary_search_trace.go"
-          ],
-          "tests": [
-            "TestArbitrarySearchTraceSelectionSplitDepthAndStatistics",
-            "TestArbitrarySearchTraceNullVariableAndNodeLimit",
-            "TestArbitrarySearchTraceRefusalAndStoppedPrinter",
-            "TestArbitrarySearchTraceChildConflict"
-          ]
+          "go_targets": ["pkg/math/subpaving/arbitrary_search.go", "pkg/math/subpaving/arbitrary_search_trace.go"],
+          "tests": ["TestArbitrarySearchTraceSelectionSplitDepthAndStatistics", "TestArbitrarySearchTraceNullVariableAndNodeLimit", "TestArbitrarySearchTraceRefusalAndStoppedPrinter", "TestArbitrarySearchTraceChildConflict"]
         },
         {
           "name": "Concrete config_hwf search parameter, pre-removal selected-node, post-propagation bound, conflict, depth-limit and split-variable TRACE sites (subpaving_t_def.h:1810,1819,1825,1828,1833,1837)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/hardware_search.go",
-            "pkg/math/subpaving/hardware_search_trace.go"
-          ],
-          "tests": [
-            "TestHardwareSearchTraceSelectionSplitDepthAndStatistics",
-            "TestHardwareSearchTraceNullVariableAndBorrowedRefusal",
-            "TestHardwareSearchTraceStoppedBoundsPrinterPreservesSelectedNode",
-            "TestHardwareSearchTraceChildConflict"
-          ]
+          "go_targets": ["pkg/math/subpaving/hardware_search.go", "pkg/math/subpaving/hardware_search_trace.go"],
+          "tests": ["TestHardwareSearchTraceSelectionSplitDepthAndStatistics", "TestHardwareSearchTraceNullVariableAndBorrowedRefusal", "TestHardwareSearchTraceStoppedBoundsPrinterPreservesSelectedNode", "TestHardwareSearchTraceChildConflict"]
         },
         {
           "name": "Concrete config_mpff search parameter, pre-removal selected-node, post-propagation bound, conflict, depth-limit and split-variable TRACE sites (subpaving_t_def.h:1810,1819,1825,1828,1833,1837)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/fast_search.go",
-            "pkg/math/subpaving/fast_search_trace.go"
-          ],
-          "tests": [
-            "TestFastSearchTraceSelectionSplitDepthAndStatistics",
-            "TestFastSearchTraceNullVariableAndBorrowedRefusal",
-            "TestFastSearchTraceStoppedBoundsPrinterPreservesSelectedNode",
-            "TestFastSearchTraceChildConflict"
-          ]
+          "go_targets": ["pkg/math/subpaving/fast_search.go", "pkg/math/subpaving/fast_search_trace.go"],
+          "tests": ["TestFastSearchTraceSelectionSplitDepthAndStatistics", "TestFastSearchTraceNullVariableAndBorrowedRefusal", "TestFastSearchTraceStoppedBoundsPrinterPreservesSelectedNode", "TestFastSearchTraceChildConflict"]
         },
         {
           "name": "Concrete config_mpq search parameter, pre-removal selected-node, post-propagation bound, depth-limit and split-variable TRACE sites (subpaving_t_def.h:1810,1819,1825,1833,1837)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_search_trace.go",
-          "tests": [
-            "TestRationalSearchTraceSelectionPropagationSplitAndDepth",
-            "TestRationalSearchTraceNullVariable",
-            "TestRationalSearchTraceRefusalAndPrinterResume"
-          ]
+          "tests": ["TestRationalSearchTraceSelectionPropagationSplitAndDepth", "TestRationalSearchTraceNullVariable", "TestRationalSearchTraceRefusalAndPrinterResume"]
         },
         {
           "name": "Concrete config_mpq inconsistent-node TRACE after selected-child propagation (subpaving_t_def.h:1828)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_search_trace.go",
-          "tests": [
-            "TestRationalSearchTraceChildConflictAfterPropagation"
-          ]
+          "tests": ["TestRationalSearchTraceChildConflictAfterPropagation"]
         },
         {
           "name": "Concrete config_mpf search entry and exit statistics TRACE sites, including node-limit break (subpaving_t_def.h:1809,1844)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_search_statistics_trace.go",
-          "tests": [
-            "TestArbitrarySearchTraceSelectionSplitDepthAndStatistics",
-            "TestArbitrarySearchTraceNullVariableAndNodeLimit",
-            "TestArbitrarySearchTraceNullVariableAndNodeLimit"
-          ]
+          "tests": ["TestArbitrarySearchTraceSelectionSplitDepthAndStatistics", "TestArbitrarySearchTraceNullVariableAndNodeLimit", "TestArbitrarySearchTraceNullVariableAndNodeLimit"]
         },
         {
           "name": "Concrete config_hwf search entry and exit statistics TRACE sites, including node-limit break (subpaving_t_def.h:1809,1844)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_search_statistics_trace.go",
-          "tests": [
-            "TestHardwareSearchTraceSelectionSplitDepthAndStatistics",
-            "TestHardwareSearchTraceNodeLimitStillEmitsExitStatistics",
-            "TestHardwareSearchTraceNullVariableAndBorrowedRefusal"
-          ]
+          "tests": ["TestHardwareSearchTraceSelectionSplitDepthAndStatistics", "TestHardwareSearchTraceNodeLimitStillEmitsExitStatistics", "TestHardwareSearchTraceNullVariableAndBorrowedRefusal"]
         },
         {
           "name": "Concrete config_mpff search entry and exit statistics TRACE sites, including node-limit break (subpaving_t_def.h:1809,1844)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_search_statistics_trace.go",
-          "tests": [
-            "TestFastSearchTraceSelectionSplitDepthAndStatistics",
-            "TestFastSearchTraceNodeLimitStillEmitsExitStatistics",
-            "TestFastSearchTraceNullVariableAndBorrowedRefusal"
-          ]
+          "tests": ["TestFastSearchTraceSelectionSplitDepthAndStatistics", "TestFastSearchTraceNodeLimitStillEmitsExitStatistics", "TestFastSearchTraceNullVariableAndBorrowedRefusal"]
         },
         {
           "name": "Concrete config_mpq search entry and exit statistics TRACE sites, including node-limit break (subpaving_t_def.h:1809,1844)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_search_statistics_trace.go",
-          "tests": [
-            "TestRationalSearchStatisticsTraceEntryExitAndNodeLimit",
-            "TestRationalSearchStatisticsTraceStreamRefusalKeepsExit"
-          ]
+          "tests": ["TestRationalSearchStatisticsTraceEntryExitAndNodeLimit", "TestRationalSearchStatisticsTraceStreamRefusalKeepsExit"]
         },
         {
           "name": "Concrete config_hwf mk_var, mk_sum, and mk_ineq construction with sorted duplicate coefficient swaps (src/math/subpaving/subpaving_t_def.h:666-687,741-780)",
@@ -78985,16 +78694,8 @@
           "name": "Concrete config_mpfx bound/conflict/split/visited/live-node counters and reset_statistics/collect_statistics (subpaving_t_def.h:527,888-891,1163-1167,1869-1884)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_statistics.go",
-          "go_targets": [
-            "pkg/math/subpaving/fixed_context.go",
-            "pkg/math/subpaving/fixed_context_bounds.go",
-            "pkg/math/subpaving/fixed_node.go",
-            "pkg/math/subpaving/fixed_search.go"
-          ],
-          "tests": [
-            "TestFixedStatisticsSourceEventsOrderAndLiveNodes",
-            "TestFixedSearchBreadthFirstCancellationAndOwnedChildren"
-          ]
+          "go_targets": ["pkg/math/subpaving/fixed_context.go", "pkg/math/subpaving/fixed_context_bounds.go", "pkg/math/subpaving/fixed_node.go", "pkg/math/subpaving/fixed_search.go"],
+          "tests": ["TestFixedStatisticsSourceEventsOrderAndLiveNodes", "TestFixedSearchBreadthFirstCancellationAndOwnedChildren"]
         },
         {
           "name": "Concrete config_hwf definition, inequality, clause and leaf display implementations (src/math/subpaving/subpaving_t_def.h:254-287,376-415,614-650,1067-1084,1135-1156,1848-1861)",
@@ -79077,9 +78778,7 @@
           "name": "Concrete config_mpfx wrapper variable registration grows native kind, watcher and root-view slices before definitions (subpaving_t_def.h:681-688)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_context.go",
-          "tests": [
-            "TestFixedShellExactCoefficientOwnerAndDirectedBound"
-          ]
+          "tests": ["TestFixedShellExactCoefficientOwnerAndDirectedBound"]
         },
         {
           "name": "Concrete config_mpff tactic variable registration before root initialization (src/math/subpaving/subpaving_t_def.h:630-637)",
@@ -79126,353 +78825,217 @@
           "name": "Concrete config_mpfx definition, clause and consistent leaf-bound display with source fixed-rational spelling and writer prefixes (subpaving_t_def.h:254-281,636-650,1135-1156,1848-1861)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_display.go",
-          "tests": [
-            "TestFixedDisplayConstraintsSourceDefinitionsAndClause",
-            "TestFixedDisplayBoundsSearchOrderAndWriterPrefixes"
-          ]
+          "tests": ["TestFixedDisplayConstraintsSourceDefinitionsAndClause", "TestFixedDisplayBoundsSearchOrderAndWriterPrefixes"]
         },
         {
           "name": "Concrete config_mpfx display_params source-order live numeral display and reached search-entry TRACE (subpaving_t_def.h:516-523,1810)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_search_params_trace.go",
-          "tests": [
-            "TestFixedSearchSourceParameterDisplayAndTrace"
-          ]
+          "tests": ["TestFixedSearchSourceParameterDisplayAndTrace"]
         },
         {
           "name": "Concrete config_mpfx search statistics, node selection, post-propagation, inconsistency, depth-limit and variable TRACE with source node-ID LIFO reuse (subpaving_t_def.h:1809-1844)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_search_trace.go",
-          "tests": [
-            "TestFixedSearchSourceParameterDisplayAndTrace",
-            "TestFixedSearchBranchTraceIDsAndDepthLimit"
-          ]
+          "tests": ["TestFixedSearchSourceParameterDisplayAndTrace", "TestFixedSearchBranchTraceIDsAndDepthLimit"]
         },
         {
           "name": "Concrete config_hwf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_init_trace.go",
-          "tests": [
-            "TestHardwareRootInitializationTraceSourceOrderAndResume",
-            "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestHardwareRootInitializationTraceSourceOrderAndResume", "TestHardwareRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_init_trace.go",
-          "tests": [
-            "TestArbitraryRootInitializationTraceSourceOrderAndResume",
-            "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestArbitraryRootInitializationTraceSourceOrderAndResume", "TestArbitraryRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_init_trace.go",
-          "tests": [
-            "TestFastRootInitializationTraceSourceOrderAndResume",
-            "TestFastRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFastRootInitializationTraceSourceOrderAndResume", "TestFastRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx root initialization TRACE order and Go trace-writer recovery guards; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_init_trace.go",
-          "tests": [
-            "TestFixedRootInitializationTraceSourceOrderAndResume",
-            "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFixedRootInitializationTraceSourceOrderAndResume", "TestFixedRootInitializationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx bound publication and conflict TRACE before conflict/timestamp/queue transitions (subpaving_t_def.h:563-566)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_bound_trace.go",
-          "tests": [
-            "TestFixedBoundTracePublicationAndConflictOrder",
-            "TestFixedBoundTraceStreamAndPrinterFailurePrefix"
-          ]
+          "tests": ["TestFixedBoundTracePublicationAndConflictOrder", "TestFixedBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
           "name": "Concrete config_mpfx unit and stable-sorted clause TRACE at their source ownership boundaries (subpaving_t_def.h:841,865-868)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause_trace.go",
-          "tests": [
-            "TestFixedClauseAndUnitTracePublicationOrder",
-            "TestFixedClauseAndUnitTraceFailureBoundaries"
-          ]
+          "tests": ["TestFixedClauseAndUnitTracePublicationOrder", "TestFixedClauseAndUnitTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_mpfx inequality pre-increment and pre-decrement reference TRACE (subpaving_t_def.h:786-799)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_refcount_trace.go",
-          "tests": [
-            "TestFixedInequalityReferenceTraceSourceOrder",
-            "TestFixedInequalityReferenceTraceClauseInputOrder",
-            "TestFixedInequalityReferenceTraceRefusalAndStoppedRelease"
-          ]
+          "tests": ["TestFixedInequalityReferenceTraceSourceOrder", "TestFixedInequalityReferenceTraceClauseInputOrder", "TestFixedInequalityReferenceTraceRefusalAndStoppedRelease"]
         },
         {
           "name": "Concrete config_mpfx clause-propagation TRACE before visit and before selected inequality bound publication (subpaving_t_def.h:1376,1400)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause_propagate_trace.go",
-          "tests": [
-            "TestFixedClausePropagationTraceSourceOrder",
-            "TestFixedClausePropagationTraceFailureBoundaries"
-          ]
+          "tests": ["TestFixedClausePropagationTraceSourceOrder", "TestFixedClausePropagationTraceFailureBoundaries"]
         },
         {
           "name": "Concrete config_mpff relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/fast_context_bounds.go",
-            "pkg/math/subpaving/fast_relevance_trace.go"
-          ],
-          "tests": [
-            "TestFastContextRelevanceEpsilonUsesMaximumOfMinimumAndOne",
-            "TestFastRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestFastRelevanceTraceRefusalAndPrinterPrefix",
-            "TestFastRelevanceTraceEpsilonGapRecords"
-          ]
+          "go_targets": ["pkg/math/subpaving/fast_context_bounds.go", "pkg/math/subpaving/fast_relevance_trace.go"],
+          "tests": ["TestFastContextRelevanceEpsilonUsesMaximumOfMinimumAndOne", "TestFastRelevanceTraceConflictThresholdAndImprovementBranches", "TestFastRelevanceTraceRefusalAndPrinterPrefix", "TestFastRelevanceTraceEpsilonGapRecords"]
         },
         {
           "name": "Concrete config_hwf relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/hardware_context_relevance.go",
-            "pkg/math/subpaving/hardware_relevance_trace.go"
-          ],
-          "tests": [
-            "TestHardwareContextRelevantNewBoundSourceBranches",
-            "TestHardwareRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestHardwareRelevanceTraceRefusalAndPrinterPrefix",
-            "TestHardwareRelevanceTraceEpsilonGapRecords"
-          ]
+          "go_targets": ["pkg/math/subpaving/hardware_context_relevance.go", "pkg/math/subpaving/hardware_relevance_trace.go"],
+          "tests": ["TestHardwareContextRelevantNewBoundSourceBranches", "TestHardwareRelevanceTraceConflictThresholdAndImprovementBranches", "TestHardwareRelevanceTraceRefusalAndPrinterPrefix", "TestHardwareRelevanceTraceEpsilonGapRecords"]
         },
         {
           "name": "Concrete config_mpf relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/arbitrary_context_relevance.go",
-            "pkg/math/subpaving/arbitrary_relevance_trace.go"
-          ],
-          "tests": [
-            "TestArbitraryContextSourceCandidateRelevanceAndNormalization",
-            "TestArbitraryRelevanceTraceBranchesAndEpsilonGap",
-            "TestArbitraryRelevanceTraceRefusalAndPrinterPrefix"
-          ]
+          "go_targets": ["pkg/math/subpaving/arbitrary_context_relevance.go", "pkg/math/subpaving/arbitrary_relevance_trace.go"],
+          "tests": ["TestArbitraryContextSourceCandidateRelevanceAndNormalization", "TestArbitraryRelevanceTraceBranchesAndEpsilonGap", "TestArbitraryRelevanceTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpq relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/rational_context_relevance.go",
-            "pkg/math/subpaving/rational_relevance_trace.go"
-          ],
-          "tests": [
-            "TestRationalContextDefaultRelevantBoundSourceOrder",
-            "TestRationalRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestRationalRelevanceTraceRefusalAndPrinterPrefix",
-            "TestRationalRelevanceTraceEpsilonGapRecords"
-          ]
+          "go_targets": ["pkg/math/subpaving/rational_context_relevance.go", "pkg/math/subpaving/rational_relevance_trace.go"],
+          "tests": ["TestRationalContextDefaultRelevantBoundSourceOrder", "TestRationalRelevanceTraceConflictThresholdAndImprovementBranches", "TestRationalRelevanceTraceRefusalAndPrinterPrefix", "TestRationalRelevanceTraceEpsilonGapRecords"]
         },
         {
           "name": "Concrete config_mpfx relevant_new_bound source max(min(gap,abs),1) epsilon threshold and candidate/reason TRACE branches (subpaving_t_def.h:1210-1311)",
           "status": "ported",
-          "go_targets": [
-            "pkg/math/subpaving/fixed_context_bounds.go",
-            "pkg/math/subpaving/fixed_relevance_trace.go"
-          ],
-          "tests": [
-            "TestFixedRelevanceUsesSourceMaximumOfGapAndOne",
-            "TestFixedRelevanceTraceConflictThresholdAndImprovementBranches",
-            "TestFixedRelevanceTraceRefusalAndPrinterPrefix"
-          ]
+          "go_targets": ["pkg/math/subpaving/fixed_context_bounds.go", "pkg/math/subpaving/fixed_relevance_trace.go"],
+          "tests": ["TestFixedRelevanceUsesSourceMaximumOfGapAndOne", "TestFixedRelevanceTraceConflictThresholdAndImprovementBranches", "TestFixedRelevanceTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_propagate_trace.go",
-          "tests": [
-            "TestFastQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestFastQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestFastQueuedBoundPropagationTraceAndConsumedPrefix", "TestFastQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_hwf queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_propagate_trace.go",
-          "tests": [
-            "TestHardwareQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestHardwareQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestHardwareQueuedBoundPropagationTraceAndConsumedPrefix", "TestHardwareQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_mpq queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_propagate_trace.go",
-          "tests": [
-            "TestRationalQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestRationalQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestRationalQueuedBoundPropagationTraceAndConsumedPrefix", "TestRationalQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_mpf queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_propagate_trace.go",
-          "tests": [
-            "TestArbitraryQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestArbitraryQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestArbitraryQueuedBoundPropagationTraceAndConsumedPrefix", "TestArbitraryQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_mpfx queued-bound propagation TRACE after dequeue and before watcher traversal (subpaving_t_def.h:1703,1740-1751)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_propagate_trace.go",
-          "tests": [
-            "TestFixedQueuedBoundPropagationTraceAndConsumedPrefix",
-            "TestFixedQueuedBoundPropagationTraceRefusalAndPrinterStop"
-          ]
+          "tests": ["TestFixedQueuedBoundPropagationTraceAndConsumedPrefix", "TestFixedQueuedBoundPropagationTraceRefusalAndPrinterStop"]
         },
         {
           "name": "Concrete config_hwf may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_may_propagate_trace.go",
-          "tests": [
-            "TestHardwareMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestHardwareMayPropagateDefinitionSkippedTimestampTrace",
-            "TestHardwareMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestHardwareMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestHardwareMayPropagateDefinitionSkippedTimestampTrace", "TestHardwareMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpq may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_may_propagate_trace.go",
-          "tests": [
-            "TestRationalMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestRationalMayPropagateDefinitionSkippedTimestampTrace",
-            "TestRationalMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestRationalMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestRationalMayPropagateDefinitionSkippedTimestampTrace", "TestRationalMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpf may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_may_propagate_trace.go",
-          "tests": [
-            "TestArbitraryMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestArbitraryMayPropagateDefinitionSkippedTimestampTrace",
-            "TestArbitraryMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestArbitraryMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestArbitraryMayPropagateDefinitionSkippedTimestampTrace", "TestArbitraryMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpff may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_may_propagate_trace.go",
-          "tests": [
-            "TestFastMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestFastMayPropagateDefinitionSkippedTimestampTrace",
-            "TestFastMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestFastMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestFastMayPropagateDefinitionSkippedTimestampTrace", "TestFastMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_mpfx may_propagate clause/definition diagnostic with strict-result text and inclusive timestamp gate (subpaving_t_def.h:1170-1175)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_may_propagate_trace.go",
-          "tests": [
-            "TestFixedMayPropagateClauseEqualTimestampAndSkippedVisitTrace",
-            "TestFixedMayPropagateDefinitionSkippedTimestampTrace",
-            "TestFixedMayPropagateTracePrinterFailureAfterQueueConsumption"
-          ]
+          "tests": ["TestFixedMayPropagateClauseEqualTimestampAndSkippedVisitTrace", "TestFixedMayPropagateDefinitionSkippedTimestampTrace", "TestFixedMayPropagateTracePrinterFailureAfterQueueConsumption"]
         },
         {
           "name": "Concrete config_hwf polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_polynomial_propagate_trace.go",
-          "tests": [
-            "TestHardwarePolynomialPropagationSourceTraceOrder",
-            "TestHardwarePolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestHardwarePolynomialPropagationSourceTraceOrder", "TestHardwarePolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpq polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_polynomial_propagate_trace.go",
-          "tests": [
-            "TestRationalPolynomialPropagationSourceTraceOrder",
-            "TestRationalPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestRationalPolynomialPropagationSourceTraceOrder", "TestRationalPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_polynomial_propagate_trace.go",
-          "tests": [
-            "TestArbitraryPolynomialPropagationSourceTraceOrder",
-            "TestArbitraryPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestArbitraryPolynomialPropagationSourceTraceOrder", "TestArbitraryPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_polynomial_propagate_trace.go",
-          "tests": [
-            "TestFastPolynomialPropagationSourceTraceOrder",
-            "TestFastPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFastPolynomialPropagationSourceTraceOrder", "TestFastPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx polynomial propagation variable/bounds/unbounded and backward-coefficient/interval TRACE sites (subpaving_t_def.h:1441-1484)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_polynomial_propagate_trace.go",
-          "tests": [
-            "TestFixedPolynomialPropagationSourceTraceOrder",
-            "TestFixedPolynomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFixedPolynomialPropagationSourceTraceOrder", "TestFixedPolynomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fast_monomial_propagate_trace.go",
-          "tests": [
-            "TestFastMonomialPropagationSourceTrace",
-            "TestFastMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFastMonomialPropagationSourceTrace", "TestFastMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_hwf monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_monomial_propagate_trace.go",
-          "tests": [
-            "TestHardwareMonomialPropagationSourceTrace",
-            "TestHardwareMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestHardwareMonomialPropagationSourceTrace", "TestHardwareMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpq monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_monomial_propagate_trace.go",
-          "tests": [
-            "TestRationalMonomialPropagationSourceTrace",
-            "TestRationalMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestRationalMonomialPropagationSourceTrace", "TestRationalMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpf monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_monomial_propagate_trace.go",
-          "tests": [
-            "TestArbitraryMonomialPropagationSourceTrace",
-            "TestArbitraryMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestArbitraryMonomialPropagationSourceTrace", "TestArbitraryMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpfx monomial entry, zero/unbounded and downward TRACE sites (subpaving_t_def.h:1501,1525,1603)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_monomial_propagate_trace.go",
-          "tests": [
-            "TestFixedMonomialPropagationSourceTrace",
-            "TestFixedMonomialPropagationTraceRefusalAndPrinterPrefix"
-          ]
+          "tests": ["TestFixedMonomialPropagationSourceTrace", "TestFixedMonomialPropagationTraceRefusalAndPrinterPrefix"]
         },
         {
           "name": "Concrete config_mpff round-robin variable selector after latest child axiom (src/math/subpaving/subpaving_t_def.h:66-101)",
