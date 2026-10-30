@@ -246,6 +246,47 @@ func TestUDocFilterEqualBigPreservesWideValues(t *testing.T) {
 	}
 }
 
+func TestUDocFilterIdenticalColumns(t *testing.T) {
+	manager, _ := newTestDocManager(t, 4)
+	relation, err := NewUDocRelation(manager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	for _, fact := range [][]uint64{{0, 0}, {1, 1}, {0, 1}, {2, 3}, {3, 3}} {
+		if _, e := relation.AddFact(fact); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if err = relation.FilterIdentical([]uint32{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]uint64{{0, 0}, {1, 1}, {0, 1}, {2, 3}, {3, 3}} {
+		requireFact(t, relation, fact, fact[0] == fact[1])
+	}
+	count := relation.NumRecords()
+	if err = relation.FilterIdentical([]uint32{0, 2}); err == nil {
+		t.Fatal("out-of-range column accepted")
+	}
+	if relation.NumRecords() != count {
+		t.Fatal("invalid filter mutated relation")
+	}
+
+	unequalManager, _ := newTestDocManager(t, 3)
+	unequal, err := NewUDocRelation(unequalManager, []uint32{2, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, unequal)
+	if _, err = unequal.AddFact([]uint64{1, 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err = unequal.FilterIdentical([]uint32{0, 1}); err == nil {
+		t.Fatal("different-width columns accepted")
+	}
+	requireFact(t, unequal, []uint64{1, 1}, true)
+}
+
 func TestUDocFilterByNegationFastAndJoinProjectPaths(t *testing.T) {
 	manager, _ := newTestDocManager(t, 2)
 	target, err := NewUDocRelation(manager, []uint32{2})

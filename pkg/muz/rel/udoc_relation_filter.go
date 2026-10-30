@@ -7,7 +7,53 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/backtrack"
 )
+
+// FilterIdentical retains rows whose selected columns are bitwise equal.
+func (r *UDocRelation) FilterIdentical(columns []uint32) error {
+	if err := r.check(); err != nil {
+		return err
+	}
+	if len(columns) == 0 {
+		return ErrDOC
+	}
+	width, err := r.ColumnNumBits(columns[0])
+	if err != nil {
+		return err
+	}
+	classes := backtrack.NewDefaultUnionFind()
+	for i := uint32(0); i < r.NumBits(); i++ {
+		classes.MkVar()
+	}
+	for _, column := range columns {
+		if column >= uint32(len(r.widths)) || r.widths[column] != width {
+			return ErrDOC
+		}
+	}
+	base := r.offsets[columns[0]]
+	for _, column := range columns[1:] {
+		other := r.offsets[column]
+		for bit := uint32(0); bit < width; bit++ {
+			classes.Merge(base+bit, other+bit)
+		}
+	}
+	discarded := make([]bool, r.NumBits())
+	for i := 0; i < len(r.elems.values); {
+		valid, err := r.manager.MergeRange(r.elems.values[i], base, width, classes, discarded)
+		if err != nil {
+			return err
+		}
+		if !valid {
+			if err = r.elems.erase(i); err != nil {
+				return err
+			}
+			continue
+		}
+		i++
+	}
+	return nil
+}
 
 // FilterEqual keeps rows whose selected bit-vector column equals value.
 func (r *UDocRelation) FilterEqual(column uint32, value uint64) (resultErr error) {
