@@ -244,15 +244,19 @@ func (d *Derivation) Transition() (ast.ASTHandle, error) {
 	return d.parent.transformer.manager.RefGet(d.transition)
 }
 
-func (d *Derivation) project(force bool, md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (result ast.ASTRef, remaining []ast.ASTRef, resultErr error) {
-	manager := d.parent.transformer.manager
-	// Every derivation::create_next_child projection in C++ is guarded by
-	// !vars.empty(). In particular, reduce_all_selects must not specialize a
-	// symbolic transition to the model when there is nothing to eliminate.
+// projectIfNonempty preserves the three derivation::create_next_child guards.
+// Other callers of qe_project (create_children and mk_reach_fact) do not guard
+// the call, so the empty-variable check must stay outside the shared driver.
+func (d *Derivation) projectIfNonempty(force bool, md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (ast.ASTRef, []ast.ASTRef, error) {
 	if len(variables) == 0 {
-		result, resultErr = manager.NewRef(formula)
-		return result, nil, resultErr
+		result, err := d.parent.transformer.manager.NewRef(formula)
+		return result, nil, err
 	}
+	return d.project(force, true, md, variables, formula)
+}
+
+func (d *Derivation) project(force, reduceAllSelects bool, md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (result ast.ASTRef, remaining []ast.ASTRef, resultErr error) {
+	manager := d.parent.transformer.manager
 	defer func() {
 		if resultErr != nil {
 			if result != (ast.ASTRef{}) {
@@ -291,7 +295,7 @@ func (d *Derivation) project(force bool, md *model.ModelCore, variables []ast.AS
 		if err != nil {
 			return ast.ASTRef{}, nil, err
 		}
-		projected, err := projector.Project(md, variables, conjunction, true, !force)
+		projected, err := projector.Project(md, variables, conjunction, reduceAllSelects, !force)
 		if err != nil {
 			return ast.ASTRef{}, nil, errors.Join(err, projector.Close())
 		}
@@ -404,7 +408,7 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 	if err != nil {
 		return nil, err
 	}
-	preimage, remaining, err := d.project(d.parent.transformer.groundCTI, md, variables, preFormula)
+	preimage, remaining, err := d.projectIfNonempty(d.parent.transformer.groundCTI, md, variables, preFormula)
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +465,7 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 	if err != nil {
 		return nil, err
 	}
-	postRef, remaining, err := d.project(d.parent.transformer.groundCTI, md, variables, postFormula)
+	postRef, remaining, err := d.projectIfNonempty(d.parent.transformer.groundCTI, md, variables, postFormula)
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +623,7 @@ func (d *Derivation) CreateNextChild() (_ *ProofObligation, resultErr error) {
 		}
 		variables = append(variables, value)
 	}
-	projected, remaining, err := d.project(d.parent.transformer.groundCTI, md, variables, combined)
+	projected, remaining, err := d.projectIfNonempty(d.parent.transformer.groundCTI, md, variables, combined)
 	if err != nil {
 		return nil, err
 	}

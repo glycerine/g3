@@ -149,7 +149,7 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 			}
 		}()
 	}
-	projectedRef, remaining, err := temporary.project(false, md, variables, formula)
+	projectedRef, remaining, err := temporary.project(true, false, md, variables, formula)
 	if err != nil {
 		return nil, fmt.Errorf("spacer: reach fact projection: %w", err)
 	}

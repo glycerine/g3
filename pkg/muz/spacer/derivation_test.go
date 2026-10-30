@@ -210,6 +210,10 @@ func TestSpacerDerivationSkipsProjectionWithoutVariables(t *testing.T) {
 	rule, err := rules.NewRule(head, nil, nil, "no-vars")
 	spacerMust(t, err)
 	defer func() { spacerMust(t, rule.Close()) }()
+	recursive, err := rules.NewRule(head, []ast.ASTHandle{head}, []bool{false}, "no-vars-recursive")
+	spacerMust(t, err)
+	defer func() { spacerMust(t, recursive.Close()) }()
+	spacerMust(t, transformer.InitializeRules(map[ast.ASTHandle]*spacer.PredicateTransformer{predicate: transformer}, []*base.Rule{rule, recursive}))
 	truth, err := manager.MkTrue()
 	spacerMust(t, err)
 	root, err := transformer.NewProofObligation(nil, 2, 1, truth, nil)
@@ -288,4 +292,75 @@ func TestSpacerDerivationSkipsProjectionWithoutVariables(t *testing.T) {
 		}
 		spacerMust(t, derivation.Close())
 	}
+	// context::create_children calls QE unconditionally, even for a zero-arity
+	// head and no auxiliaries. Its initial reduction must still happen before
+	// the guarded derivation stages above.
+	obligation, err := transformer.NewProofObligation(nil, 2, 1, transition, nil)
+	spacerMust(t, err)
+	child, err := transformer.CreateDerivationChild(obligation, recursive, md.Core(), []bool{false}, false)
+	spacerMust(t, err)
+	if child == nil {
+		t.Fatal("missing child after initial projection")
+	}
+	derivation, found, err := child.Derivation()
+	spacerMust(t, err)
+	if !found {
+		t.Fatal("missing projected derivation")
+	}
+	actual, err := derivation.Transition()
+	spacerMust(t, err)
+	containsStore, err := manager.OccursExpr(stored, actual)
+	spacerMust(t, err)
+	if containsStore {
+		t.Fatal("create_children skipped unconditional initial store/select reduction")
+	}
+
+	// mk_reach_fact uses the same driver, but requires full elimination and
+	// disables reduction of stores belonging to arrays outside the variable set.
+	t.Run("reach-fact-projection-policy", func(t *testing.T) {
+		name, err := manager.Symbols.Intern("reach-policy-p")
+		spacerMust(t, err)
+		predicate, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+		spacerMust(t, err)
+		pt, err := spacer.NewRulePredicateTransformer(owner, predicate, spacer.PropSolverConfig{})
+		spacerMust(t, err)
+		defer func() { spacerMust(t, pt.Close()) }()
+		spacerMust(t, rules.RegisterPredicate(predicate))
+		head := own(manager.MkApp(predicate, nil))
+		x := own(manager.MkVar(0, integer))
+		four := own(manager.ArithmeticIntegerNumeralText("4"))
+		square := own(manager.MkArithmeticMul(x, x))
+		nonlinear := own(manager.MkEq(square, four))
+		rule, err := rules.NewRule(head, []ast.ASTHandle{transition, nonlinear}, nil, "reach-policy")
+		spacerMust(t, err)
+		defer func() { spacerMust(t, rule.Close()) }()
+		spacerMust(t, pt.InitializeRules(map[ast.ASTHandle]*spacer.PredicateTransformer{predicate: pt}, []*base.Rule{rule}))
+		auxiliaries, err := pt.RuleAuxiliaries(rule)
+		spacerMust(t, err)
+		if len(auxiliaries) != 1 {
+			t.Fatal("expected one nonlinear rule auxiliary", len(auxiliaries))
+		}
+		two := own(manager.ArithmeticIntegerNumeralText("2"))
+		decl, err := manager.GetDecl(auxiliaries[0])
+		spacerMust(t, err)
+		spacerMust(t, md.Core().RegisterConstant(decl, two))
+		obligation, err := pt.NewProofObligation(nil, 0, 1, truth, nil)
+		spacerMust(t, err)
+		fact, err := pt.MakeReachFact(obligation, rule, md.Core(), true, false)
+		spacerMust(t, err)
+		defer func() { spacerMust(t, fact.Close()) }()
+		formula, err := fact.Fact()
+		spacerMust(t, err)
+		containsStore, err := manager.OccursExpr(stored, formula)
+		spacerMust(t, err)
+		if !containsStore {
+			t.Fatal("reach projection reduced an array outside its elimination set")
+		}
+		containsAuxiliary, err := manager.OccursExpr(auxiliaries[0], formula)
+		spacerMust(t, err)
+		if containsAuxiliary {
+			t.Fatal("reach projection failed to substitute the remaining nonlinear auxiliary")
+		}
+	})
+
 }
