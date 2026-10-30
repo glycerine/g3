@@ -29,6 +29,7 @@ type Context struct {
 	queue            ProofObligationQueue
 	lastResult       lbool.LBool
 	inductive        uint32
+	cexDepth         uint32
 	skipPropagate    bool
 	resetQueue       bool
 	flexibleTrace    bool
@@ -673,7 +674,11 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 		}
 		if reachable {
 			c.lastResult = lbool.True
-			return c.lastResult, c.validate()
+			if err = c.validate(); err != nil {
+				return c.lastResult, err
+			}
+			c.cexDepth, err = c.counterexampleDepth()
+			return c.lastResult, err
 		}
 		if level > 0 && !c.skipPropagate {
 			inductive, err := c.propagate(c.queue.ExpandedLevel(), level)
@@ -814,6 +819,7 @@ func (c *Context) CollectStatistics(destination *statistics.Statistics) error {
 			return err
 		}
 	}
+	destination.UpdateUint("SPACER cex depth", c.cexDepth)
 	destination.UpdateUint64("SPACER restarts", c.queue.RestartCount())
 	return nil
 }
@@ -831,6 +837,7 @@ func (c *Context) ResetStatistics() error {
 		}
 	}
 	c.queue.restarts = 0
+	c.cexDepth = 0
 	return nil
 }
 

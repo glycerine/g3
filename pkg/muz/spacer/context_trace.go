@@ -10,8 +10,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-// RulesAlongTrace returns owning rule references in preorder for the latest
-// successful query. The caller closes every returned rule.
+// RulesAlongTrace returns owning rule references in the source queue order for
+// the latest successful query. The caller closes every returned rule.
 func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 	if err := c.open(); err != nil {
 		return nil, err
@@ -52,6 +52,53 @@ func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 			return result, err
 		}
 		queue = append(queue, children...)
+		if current == 0 && len(children) != 1 {
+			return result, resultErr
+		}
 	}
 	return result, resultErr
+}
+
+// counterexampleDepth follows get_cex_depth's breadth-first traversal, excluding
+// the query wrapper. A query with zero or multiple premises has source depth zero.
+func (c *Context) counterexampleDepth() (depth uint32, resultErr error) {
+	if c.lastResult != lbool.True {
+		return 0, nil
+	}
+	facts, err := c.query.ReachFacts()
+	if err != nil {
+		return 0, err
+	}
+	// Every reference acquired below stays owned until the traversal completes.
+	defer func() {
+		for i := len(facts) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, facts[i].Close())
+		}
+	}()
+	if len(facts) == 0 {
+		return 0, nil
+	}
+	children, err := facts[len(facts)-1].Justifications()
+	if err != nil {
+		return 0, err
+	}
+	start := len(facts)
+	facts = append(facts, children...)
+	if len(children) != 1 {
+		return 0, nil
+	}
+	// Frontier boundaries serve as the source queue's null depth markers.
+	for start < len(facts) {
+		end := len(facts)
+		for i := start; i < end; i++ {
+			children, err = facts[i].Justifications()
+			if err != nil {
+				return 0, err
+			}
+			facts = append(facts, children...)
+		}
+		depth++
+		start = end
+	}
+	return depth, nil
 }
