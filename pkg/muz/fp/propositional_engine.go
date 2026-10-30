@@ -1990,7 +1990,15 @@ func (e *PropositionalEngine) Close() (result error) {
 		return ErrPropositionalEngine
 	}
 	if e.closed {
-		return nil
+		if e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
+			e.ddnf.registry.Close()
+			e.ddnf.registry = nil
+		}
+		result = e.ddnf.closeTrail(e.manager)
+		if result == nil {
+			e.ddnf = ddnfEngineState{}
+		}
+		return result
 	}
 	if e.queryParamsReady {
 		result = errors.Join(result, e.params.Del(&e.queryParams))
@@ -2046,9 +2054,13 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	if e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
 		e.ddnf.registry.Close()
+		e.ddnf.registry = nil
 	}
-	result = errors.Join(result, e.ddnf.closeTrail(e.manager))
-	e.ddnf = ddnfEngineState{}
+	trailErr := e.ddnf.closeTrail(e.manager)
+	result = errors.Join(result, trailErr)
+	if trailErr == nil {
+		e.ddnf = ddnfEngineState{}
+	}
 	if e.set != nil {
 		result = errors.Join(result, e.set.Close())
 		e.set = nil
