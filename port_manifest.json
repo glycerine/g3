@@ -167916,7 +167916,9 @@
             "TestNLA2BVSourceSatPreservationControlsGoalPrecision",
             "TestNLA2BVPrecisionMatchesCPPReference",
             "TestNLA2BVSourcePower2SubstitutionTrace",
-            "TestNLA2BVCollectsVariablesBeforeRejectingQuantifier"
+            "TestNLA2BVCollectsVariablesBeforeRejectingQuantifier",
+            "TestNLA2BVSourceNoBoundsAndUnsupportedTraces",
+            "TestNLA2BVSourceSideConditionTrace"
           ]
         },
         {

@@ -97,6 +97,32 @@ func (c *nla2BVInvocation) tracePower2Substitution(key, value ast.ASTHandle) {
 		})
 }
 
+func (c *nla2BVInvocation) traceExpressionLine(method string, line int, prefix string, expression ast.ASTHandle) {
+	c.traceExpressionLines(method, line, prefix, []ast.ASTHandle{expression})
+}
+
+func (c *nla2BVInvocation) traceExpressionLines(method string, line int, prefix string, expressions []ast.ASTHandle) {
+	tags := c.t.traceTags()
+	if !tags.ShouldTrace("nla2bv") {
+		return
+	}
+	_ = tags.EmitConditional("nla2bv", method, "src/tactic/arith/nla2bv_tactic.cpp", line,
+		func() bool { return true }, func(out io.Writer) error {
+			for _, expression := range expressions {
+				if err := nla2BVTraceWrite(out, prefix); err != nil {
+					return err
+				}
+				if err := c.writeTraceExpr(out, expression); err != nil {
+					return err
+				}
+				if err := nla2BVTraceWrite(out, "\n"); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+}
+
 func (c *nla2BVInvocation) writeTraceExpr(out io.Writer, expression ast.ASTHandle) (err error) {
 	manager := c.t.manager
 	format, err := manager.SMT2PPExprTree(expression, nil)

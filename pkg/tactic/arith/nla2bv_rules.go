@@ -308,6 +308,7 @@ func (c *nla2BVInvocation) assertSide(g *tactic.Goal, side []ast.ASTHandle) erro
 		}
 		c.satPreserving = false
 	}
+	c.traceExpressionLines("assert_side_conditions", 175, "", side)
 	return nil
 }
 
@@ -397,6 +398,7 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 		span.Add(span, big.NewRat(1, 1))
 		bits = nla2BVLog2(span)
 	} else {
+		c.traceExpressionLine("add_int_var", 230, "no bounds for ", variable)
 		c.satPreserving = false
 	}
 	fresh, err := c.fresh(variable, "", bits)
@@ -507,6 +509,7 @@ func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
 		} else if family == ast.NullFamilyID && n == 0 && sf == m.BasicFamilyID() {
 			// Uninterpreted Boolean constants are retained.
 		} else if !(family == c.real.arith && (op == 0 || op >= 2 && op <= 9) || decl == lt || decl == le || family == m.BasicFamilyID()) {
+			c.traceExpressionLine("get_uninterp_proc", 347, "Not supported: ", h)
 			supported = false
 		}
 		text, integer, numeral, err := m.ArithmeticNumeralText(h)
