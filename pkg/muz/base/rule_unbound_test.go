@@ -165,6 +165,87 @@ func TestRuleManagerFixesResidualUnboundPredicateExistentially(t *testing.T) {
 	}
 }
 
+func TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential(t *testing.T) {
+	f := newUnboundFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	arithmetic, err := f.manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := f.manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	x, err := f.manager.MkVar(0, integer)
+	ruleMust(t, err)
+	y, err := f.manager.MkVar(1, integer)
+	ruleMust(t, err)
+	z, err := f.manager.MkVar(2, boolean)
+	ruleMust(t, err)
+	head := f.predicate(t, "multi-fix-head", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	bound := f.predicate(t, "multi-fix-bound", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	integerName, err := f.manager.Symbols.Intern("multi-fix-int")
+	ruleMust(t, err)
+	integerDecl, err := f.manager.MkFuncDecl(integerName, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	booleanName, err := f.manager.Symbols.Intern("multi-fix-bool")
+	ruleMust(t, err)
+	booleanDecl, err := f.manager.MkFuncDecl(booleanName, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	integerTail, err := f.manager.MkApp(integerDecl, []ast.ASTHandle{y})
+	ruleMust(t, err)
+	booleanTail, err := f.manager.MkApp(booleanDecl, []ast.ASTHandle{z})
+	ruleMust(t, err)
+	rule, err := f.rules.NewRule(head, []ast.ASTHandle{bound, integerTail, booleanTail}, nil, "multi-fix")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	fixed, changed, err := f.rules.FixUnboundVariables(rule, f.lite, true)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, fixed.Close()) }()
+	if !changed {
+		t.Fatal("multiple residual variables were not fixed")
+	}
+	if size, err := fixed.TailSize(); err != nil || size != 2 {
+		t.Fatal("tails should retain the bound predicate and one grouped existential", size, err)
+	}
+	grouped, negative, err := fixed.Tail(1)
+	ruleMust(t, err)
+	if negative {
+		t.Fatal("grouped existential tail became negative")
+	}
+	if operation, err := f.manager.GetDeclKind(grouped); err != nil || operation != ast.ASTOpIff {
+		t.Fatal("grouped Boolean existential wrapper", operation, err)
+	}
+	quantified, err := f.manager.GetArg(grouped, 0)
+	ruleMust(t, err)
+	if kind, err := f.manager.GetKind(quantified); err != nil || kind != ast.ASTQuantifier {
+		t.Fatal("residual tail group is not quantified", kind, err)
+	}
+	if forall, err := f.manager.IsForall(quantified); err != nil || forall {
+		t.Fatal("residual tail group is not existential", forall, err)
+	}
+	body, err := f.manager.GetQuantifierBody(quantified)
+	ruleMust(t, err)
+	if operation, err := f.manager.GetDeclKind(body); err != nil || operation != ast.ASTOpAnd {
+		t.Fatal("multiple residual tails were not conjoined", operation, err)
+	}
+	count, err := f.manager.GetNumArgs(body)
+	ruleMust(t, err)
+	if count != 2 {
+		t.Fatal("grouped residual conjunct count", count)
+	}
+	seenSorts := make(map[ast.ASTHandle]bool)
+	for index := uint32(0); index < count; index++ {
+		conjunct, e := f.manager.GetArg(body, index)
+		ruleMust(t, e)
+		argument, e := f.manager.GetArg(conjunct, 0)
+		ruleMust(t, e)
+		sort, e := f.manager.GetSort(argument)
+		ruleMust(t, e)
+		seenSorts[sort] = true
+	}
+	if !seenSorts[integer] || !seenSorts[boolean] || len(seenSorts) != 2 {
+		t.Fatal("existential substitution did not preserve both variable sorts", seenSorts)
+	}
+}
+
 func TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix(t *testing.T) {
 	f := newUnboundFixture(t)
 	arithmetic, err := f.manager.ArithmeticFamilyID()
