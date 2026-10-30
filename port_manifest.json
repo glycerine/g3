@@ -98852,6 +98852,13 @@
           "tests": ["TestActiveBoxEnumerationSurvivesPriorityUpdate", "TestSMT2BoxOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
+          "name": "execute_box advances the cursor with one unknown result per remaining objective when a fresh run produced no cached models, then reports terminal false (opt_context.cpp:434-467)",
+          "status": "partial",
+          "go_target": "pkg/cmd_context/optimization.go",
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_state_test.go"],
+          "tests": ["TestBoxUnknownAdvancesEveryRemainingObjectiveSlot"]
+        },
+        {
           "name": "arithmetic, unsigned bit-vector and normalized weighted-soft Pareto comparison construction, persistent frontier enumeration, objective publication and terminal unsat/reset lifecycle (opt_context.cpp:470-565)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",

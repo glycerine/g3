@@ -36,6 +36,7 @@ func (c *Context) clearOptimizationBoxModels() error {
 	if err == nil {
 		c.optimizationBoxModels = nil
 		c.optimizationBoxValues = nil
+		c.optimizationBoxReasonUnknown = ""
 	}
 	return err
 }
@@ -381,8 +382,22 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	}
 	c.optimizationBoxActive = true
 	if !fresh {
+		if len(c.optimizationBoxModels) == 0 {
+			if c.optimizationBoxNext < len(c.objectives) {
+				c.optimizationBoxNext++
+				return &opt.ArithmeticResult{
+					Status:        lbool.Undef,
+					ReasonUnknown: c.optimizationBoxReasonUnknown,
+					Values:        make([]opt.ObjectiveValue, len(c.objectives)),
+				}, nil
+			}
+			c.optimizationBoxActive = false
+			c.optimizationBoxReasonUnknown = ""
+			return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
+		}
 		if c.optimizationBoxNext >= len(c.optimizationBoxModels) {
 			c.optimizationBoxActive = false
+			c.optimizationBoxReasonUnknown = ""
 			return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
 		}
 		selected := c.optimizationBoxNext
@@ -429,6 +444,9 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 		if one.Status != lbool.True || !one.Optimal || len(one.Values) != 1 {
 			combined.Status, combined.Optimal = one.Status, one.Optimal
 			combined.ReasonUnknown = one.ReasonUnknown
+			if one.Status == lbool.Undef {
+				c.optimizationBoxReasonUnknown = one.ReasonUnknown
+			}
 			return combined, one.Close()
 		}
 		if fresh {

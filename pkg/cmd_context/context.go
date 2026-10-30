@@ -96,6 +96,7 @@ type Context struct {
 	optimizationBoxActive            bool
 	optimizationBoxModels            []*model.ModelCore
 	optimizationBoxValues            []opt.ObjectiveValue
+	optimizationBoxReasonUnknown     string
 	optimizationParetoActive         bool
 	optimizationParetoBackend        *smtcore.SMTSolver
 	scopes                           []scope

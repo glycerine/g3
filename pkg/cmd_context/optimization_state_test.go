@@ -162,3 +162,28 @@ func TestPopResetsActiveBoxOptimization(t *testing.T) {
 		t.Fatal("box enumeration reused models from the popped optimization run")
 	}
 }
+
+func TestBoxUnknownAdvancesEveryRemainingObjectiveSlot(t *testing.T) {
+	c := contextFixture(t)
+	for _, name := range []string{"box-unknown-x", "box-unknown-y", "box-unknown-z"} {
+		term := optimizationComparisonInteger(t, c, name)
+		contextMust(t, c.AddObjective(term, true))
+	}
+	c.optimizationBoxActive = true
+	c.optimizationBoxNext = 1
+	c.optimizationBoxReasonUnknown = "(incomplete quantifiers)"
+	for i, want := range []lbool.LBool{lbool.Undef, lbool.Undef, lbool.False} {
+		result, err := c.checkOptimizeBox(nil, true)
+		contextMust(t, err)
+		if result.Status != want {
+			t.Fatalf("box continuation %d status = %s, want %s", i, result.Status, want)
+		}
+		if want == lbool.Undef && result.ReasonUnknown != "(incomplete quantifiers)" {
+			t.Fatalf("box continuation %d reason = %q", i, result.ReasonUnknown)
+		}
+		contextMust(t, result.Close())
+	}
+	if c.optimizationBoxActive || c.optimizationBoxNext != 3 {
+		t.Fatal("terminal box cursor state", c.optimizationBoxActive, c.optimizationBoxNext)
+	}
+}
