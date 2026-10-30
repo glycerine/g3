@@ -117,8 +117,17 @@ func TestNLA2BVProofAndCoreGuardsPreserveResult(t *testing.T) {
 }
 
 func TestNLA2BVConstructorAndApplicationAllocationPrefixes(t *testing.T) {
+	lastApplicationRefusal := int64(-1)
 	for _, phase := range []string{"constructor", "apply"} {
-		for _, stop := range []int64{0, 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 512, -1} {
+		stops := []int64{0, 1, 2, 3, 4, 8, 16, 32, 64, 128, 256, 512, -1}
+		if phase == "apply" {
+			stops = make([]int64, 259)
+			for i := int64(0); i <= 257; i++ {
+				stops[i] = i
+			}
+			stops[258] = -1
+		}
+		for _, stop := range stops {
 			t.Run(fmt.Sprintf("%s/%d", phase, stop), func(t *testing.T) {
 				r := nla2BVFixture(t, false)
 				m := r.manager
@@ -141,6 +150,9 @@ func TestNLA2BVConstructorAndApplicationAllocationPrefixes(t *testing.T) {
 				m.Budget().FailAfter(stop)
 				err := r.Apply(g, &result)
 				m.Budget().FailAfter(-1)
+				if errors.Is(err, arena.ErrInjectedFailure) {
+					lastApplicationRefusal = stop
+				}
 				if err != nil && !errors.Is(err, arena.ErrInjectedFailure) {
 					t.Fatal(err)
 				}
@@ -151,7 +163,19 @@ func TestNLA2BVConstructorAndApplicationAllocationPrefixes(t *testing.T) {
 				if len(r.pending) != 0 {
 					t.Fatal("invocation cleanup retained")
 				}
+				if errors.Is(err, arena.ErrInjectedFailure) {
+					retryX := fixDLConst(t, m, true, "failure_retry_x")
+					retry := fixDLGoal(t, m, false, true, false, fixDLApp(t, m, 3, retryX, fixDLNumber(t, m, true, "0")))
+					var retryResult tactic.TacticResult
+					if retryErr := r.Apply(retry, &retryResult); retryErr != nil {
+						t.Fatal("application did not recover after allocation refusal", retryErr)
+					}
+					equationMust(t, retryResult.Close())
+				}
 			})
 		}
+	}
+	if lastApplicationRefusal < 8 {
+		t.Fatalf("allocation refusal sweep reached only boundary %d", lastApplicationRefusal)
 	}
 }
