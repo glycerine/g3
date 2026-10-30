@@ -5856,7 +5856,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_numeral_string.go", "pkg/api/api_numeral_string_test.go", "pkg/api/api_numerals.go", "pkg/api/api_numerals_test.go", "pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_fpa_api_numeral_text_test.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
-      "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestSMTContextNumeral", "TestSMTContextBitVectorNumeralBits", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
+      "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestSMTContextNumeralConstructionAndQueries", "TestSMTContextBitVectorNumeralBits", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
       "assertions": [
         {
           "line": 337,
@@ -5883,7 +5883,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_optimize_assertion_refs.go", "pkg/api/api_optimize_objective_expressions.go", "pkg/api/api_optimize_interrupt.go", "pkg/api/api_optimize_model.go", "pkg/cmd_context/optimization_assertion_queries.go", "pkg/cmd_context/optimization_failure.go", "pkg/cmd_context/optimization_model.go", "pkg/api/api_optimization_diagnostics.go", "pkg/api/api_optimization_diagnostics_test.go", "pkg/api/api_optimization_model_comparison.go", "pkg/api/api_optimization_model_comparison_test.go", "pkg/api/api_optimize_diagnostics.go", "pkg/api/api_optimize_model_comparison.go", "pkg/cmd_context/optimization_diagnostics.go", "pkg/cmd_context/optimization_diagnostics_test.go", "pkg/cmd_context/optimization_model_comparison.go", "pkg/cmd_context/optimization_model_comparison_test.go"],
-      "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestAPIOptimizeAssertionRefsOwnership", "TestAPIOptimizeObjectiveExpressionsArithmetic", "TestAPIOptimizeObjectiveExpressionsSoft", "TestAPIOptimizeObjectiveExpressionsBitVector"],
+      "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestAPIOptimizeAssertionRefsOwnResultsAfterPop", "TestAPIOptimizeObjectiveExpressionsNormalizeArithmeticDirection", "TestAPIOptimizeObjectiveExpressionsBuildSoftPenaltySum", "TestAPIOptimizeObjectiveExpressionsNegateBitVectorMaximum"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
