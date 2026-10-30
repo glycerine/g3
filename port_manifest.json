@@ -137079,6 +137079,7 @@
         "TestSMT2RelevancyUpdatesRestoreCachedBooleanAndTermITEWatches",
         "TestSMTLibRunnerRelevancyUpdatesKeepModelsValidWithKnownCPPDefect",
         "TestSMTRelevancyNegatedArgumentsAndLiteralWatches",
+        "TestSMTRelevancySourceHeadInsertionOrder",
         "TestSMTBoundedWeightedDisequalitiesModel",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
@@ -137241,7 +137242,8 @@
           "go_target": "pkg/smtcore/smt_relevancy.go",
           "tests": [
             "TestSMTRelevancyBooleanConnectivePropagation",
-            "TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses"
+            "TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses",
+            "TestSMTRelevancySourceHeadInsertionOrder"
           ]
         },
         {
@@ -206160,7 +206162,8 @@
         "TestSMTAlmostCongruenceTableGroupsSpecialRoots",
         "TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses",
         "TestSMTRelevancySharedAssignmentWatches",
-        "TestSMTRelevancyDisabledAndTermITEHandler"
+        "TestSMTRelevancyDisabledAndTermITEHandler",
+        "TestSMTRelevancySourceHeadInsertionOrder"
       ],
       "conditionals": [
         {
@@ -206190,7 +206193,8 @@
           "tests": [
             "TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses",
             "TestSMTRelevancySharedAssignmentWatches",
-            "TestSMTRelevancyDisabledAndTermITEHandler"
+            "TestSMTRelevancyDisabledAndTermITEHandler",
+            "TestSMTRelevancySourceHeadInsertionOrder"
           ]
         },
         {

@@ -67,6 +67,33 @@ func TestSMTRelevancyNegatedArgumentsAndLiteralWatches(t *testing.T) {
 	}
 }
 
+func TestSMTRelevancySourceHeadInsertionOrder(t *testing.T) {
+	m := astTestManager(t)
+	source := smtRelevancyBool(t, m, "head-order-source")
+	older := smtRelevancyBool(t, m, "head-order-older")
+	newer := smtRelevancyBool(t, m, "head-order-newer")
+	context, err := NewSMTCheckerContext(m)
+	astTestMust(t, err)
+	propagator, err := NewSMTRelevancyPropagator(context, true)
+	astTestMust(t, err)
+	// C++ list<T> constructs each new node at the head, so the most recently
+	// registered handler runs first when the source expression is propagated.
+	astTestMust(t, propagator.AddDependency(source, older))
+	astTestMust(t, propagator.AddDependency(source, newer))
+	astTestMust(t, propagator.MarkRelevant(source))
+	astTestMust(t, propagator.Propagate())
+	got := propagator.RelevantExpressions()
+	want := []ast.ASTHandle{source, newer, older}
+	if len(got) != len(want) {
+		t.Fatalf("source handler order length=%d want=%d: %v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("source handler order[%d]=%v want %v (all %v)", i, got[i], want[i], got)
+		}
+	}
+}
+
 func TestSMTRelevancyBooleanConnectivePropagation(t *testing.T) {
 	for _, test := range []struct {
 		name        string
