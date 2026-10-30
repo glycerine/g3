@@ -103539,14 +103539,61 @@
       "path": "src/qe/qe_bv_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/qe/qe_bv_plugin.go", "pkg/qe/qe_bv_plugin_classify.go", "pkg/qe/qe_bv_plugin_inputs.go", "pkg/qe/qe_bv_plugin_branch.go", "pkg/qe/qe_bv_plugin_substitute.go", "pkg/qe/qe_bv_plugin_contract.go"],
-      "tests": ["TestBitVectorPluginBranchCountUsesFullWidth", "TestBitVectorPluginSubstitutionNormalizesBranchValue", "TestBitVectorPluginUninterpretedDivisionKinds", "TestBitVectorPluginPolicyCallbacks", "TestBitVectorPluginContextDispatchAndClose", "TestBitVectorPluginRejectsNonBitVectorTarget"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "bit-vector QE plugin classification, finite branch count, branch substitution and host policy callbacks", "status": "partial", "go_target": "pkg/qe/qe_bv_plugin.go", "go_targets": ["pkg/qe/qe_bv_plugin_classify.go", "pkg/qe/qe_bv_plugin_branch.go", "pkg/qe/qe_bv_plugin_substitute.go", "pkg/qe/qe_bv_plugin_contract.go"], "tests": ["TestBitVectorPluginBranchCountUsesFullWidth", "TestBitVectorPluginSubstitutionNormalizesBranchValue", "TestBitVectorPluginPolicyCallbacks"]}],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/qe/qe_bv_plugin.go",
+        "pkg/qe/qe_bv_plugin_classify.go",
+        "pkg/qe/qe_bv_plugin_inputs.go",
+        "pkg/qe/qe_bv_plugin_branch.go",
+        "pkg/qe/qe_bv_plugin_substitute.go",
+        "pkg/qe/qe_bv_plugin_contract.go",
+        "pkg/qe/qe_bv_plugin_project.go",
+        "pkg/qe/qe_bv_plugin_project_call.go",
+        "pkg/qe/qe_bv_plugin_project_value.go",
+        "pkg/qe/qe_bv_plugin_project_test.go",
+        "pkg/qe/qe_bv_plugin_substitute_test.go"
+      ],
+      "tests": [
+        "TestBitVectorPluginBranchCountUsesFullWidth",
+        "TestBitVectorPluginSubstitutionNormalizesBranchValue",
+        "TestBitVectorPluginUninterpretedDivisionKinds",
+        "TestBitVectorPluginPolicyCallbacks",
+        "TestBitVectorPluginContextDispatchAndClose",
+        "TestBitVectorPluginRejectsNonBitVectorTarget",
+        "TestBitVectorPluginProjectModelSubstitutesConcreteValue",
+        "TestBitVectorPluginProjectModelPreservesWidths",
+        "TestBitVectorPluginProjectModelDefaultsNonNumeralToZero",
+        "TestBitVectorPluginSubstitutesWideAndNegativeValuesUnderBinders"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "bv_plugin constructor/factory, empty assign, full-width branch count, modular safe substitution with optional definition, constant weight, declining solve, division-kind classification and model projection with source zero fallback",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_bv_plugin.go",
+          "go_targets": [
+            "pkg/qe/qe_bv_plugin_classify.go",
+            "pkg/qe/qe_bv_plugin_branch.go",
+            "pkg/qe/qe_bv_plugin_substitute.go",
+            "pkg/qe/qe_bv_plugin_contract.go",
+            "pkg/qe/qe_bv_plugin_project.go",
+            "pkg/qe/qe_bv_plugin_project_call.go",
+            "pkg/qe/qe_bv_plugin_project_value.go"
+          ],
+          "tests": [
+            "TestBitVectorPluginBranchCountUsesFullWidth",
+            "TestBitVectorPluginSubstitutionNormalizesBranchValue",
+            "TestBitVectorPluginPolicyCallbacks"
+          ]
+        }
+      ],
+      "ownership": [
+        "BitVectorPlugin owns its ExprSafeReplace and borrows the solver context/AST manager. Each ProjectModel invocation owns and closes its evaluator, evaluated AST root and rational value. Caller formula and optional definition references are updated in source order; substitution below binders uses ExprSafeReplace."
+      ],
+      "deviations": [
+        "Concrete Go callbacks return explicit owner/domain errors for invalid handles and closed owners; source valid-input algorithms and non-numeral model projection zero fallback are preserved."
+      ]
     },
     {
       "path": "src/qe/qe_cmd.cpp",

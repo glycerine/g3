@@ -12,19 +12,9 @@ func (c *bitVectorModelProjectCall) evaluate(target ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	matched, err := c.plugin.manager.BitVectorNumeralValue(evaluated, &c.numeral, &c.width)
-	if err != nil {
-		return err
-	}
-	if !matched {
-		return ast.ErrASTDomain
-	}
-	targetWidth, err := c.plugin.manager.BitVectorSize(target)
-	if err != nil {
-		return err
-	}
-	if c.width != targetWidth {
-		return ast.ErrASTDomain
-	}
-	return nil
+	// Source starts val at zero and ignores is_numeral's Boolean result.
+	// The evaluator uses model_completion=false, so an uninterpreted value
+	// follows that zero branch without changing the model.
+	_, err = c.plugin.manager.BitVectorNumeralValue(evaluated, &c.numeral, &c.width)
+	return err
 }
