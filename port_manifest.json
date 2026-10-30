@@ -87886,7 +87886,7 @@
       "path": "src/muz/rel/dl_mk_simple_joins.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/base/rule_display.go", "pkg/muz/fp/propositional_engine.go"],
       "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestRuleManagerWriteSourceRuleDisplay", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
       "assertions": [
@@ -87995,19 +87995,19 @@
           "text": "SASSERT(content.size()<=2);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Global cost-based simple-join planner, normalized pair sharing, strata and output accounting, source-style binary rule rewriting, and result publication (dl_mk_simple_joins.cpp:38-745)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/simple_joins.go",
           "supporting_go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go"],
           "tests": ["TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinsSelectsLowestEstimatedPair", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestRuleManagerWriteSourceRuleDisplay", "TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
         }
       ],
       "ownership": ["SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules."],
-      "deviations": ["The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, ordered registration history, and one-time registration trace state. Regressions cover dynamic registration append/removal order and trace de-duplication across rebuilds. Both report_costs and dl TRACE paths are implemented with source-shaped predicate/rule text and amortized cost output; trace stream refusal is ignored by the planner as in the C++ TRACE calls. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression."]
+      "deviations": ["The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, ordered registration history, and one-time registration trace state. Regressions cover dynamic registration append/removal order and trace de-duplication across rebuilds. Both report_costs and dl TRACE paths are implemented with source-shaped predicate/rule text and amortized cost output; trace stream refusal is ignored by the planner as in the C++ TRACE calls. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression. The optional context-controlled output_profile suffix on rule::display is not exposed by retained Go trace callers; those callers use the source default profile setting (false)."]
     },
     {
       "path": "src/muz/rel/dl_mk_simple_joins.h",
