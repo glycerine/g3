@@ -432,3 +432,47 @@ func TestUDocFilterByNegationRepeatedColumnsAndZeroArity(t *testing.T) {
 		t.Fatal("matching zero-arity negative row must remove every target row")
 	}
 }
+
+func TestUDocFilterByNegationSourceCubeMatrix(t *testing.T) {
+	manager, _ := newTestDocManager(t, 3)
+	columns := []uint32{0, 1, 2}
+	cases := []struct {
+		name    string
+		removed func(uint64) bool
+	}{
+		{"fixed trailing bits", func(value uint64) bool { return value&6 == 6 }},
+		{"equal trailing bits", func(value uint64) bool { return (value>>1)&1 == (value>>2)&1 }},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			target, err := NewUDocRelation(manager, []uint32{1, 1, 1})
+			if err != nil {
+				t.Fatal(err)
+			}
+			negative, err := NewUDocRelation(manager, []uint32{1, 1, 1})
+			if err != nil {
+				_ = target.Close()
+				t.Fatal(err)
+			}
+			closeUDoc(t, target, negative)
+			for value := uint64(0); value < 8; value++ {
+				fact := []uint64{value & 1, (value >> 1) & 1, (value >> 2) & 1}
+				if _, err = target.AddFact(fact); err != nil {
+					t.Fatal(err)
+				}
+				if test.removed(value) {
+					if _, err = negative.AddFact(fact); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if err = target.FilterByNegation(negative, columns, columns, nil); err != nil {
+				t.Fatal(err)
+			}
+			for value := uint64(0); value < 8; value++ {
+				fact := []uint64{value & 1, (value >> 1) & 1, (value >> 2) & 1}
+				requireFact(t, target, fact, !test.removed(value))
+			}
+		})
+	}
+}

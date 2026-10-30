@@ -50658,3 +50658,4 @@ UDoc identical-column filter (2026-10-30 UTC): ported the source union-find merg
 
 UDoc cyclic join/project regression (2026-10-30 UTC): added the C++ fixture's swapped two-column join mapping followed by removal of the left input columns. The Go test checks the exact remaining tuple and rejects nonmatching right facts; focused UDoc tests pass.
 UDoc anti-join regression coverage (2026-10-30): Added deterministic Go cases for repeated target-column mappings in the general join/project subtraction path, the empty zero-arity negative fast return, and subtraction by a populated zero-arity negative relation. Focused `TestUDocFilterByNegation` tests pass; the full suite was not run.
+UDoc anti-join cube matrix (2026-10-30 UTC): added an exhaustive eight-row oracle for the C++ fixture's fixed trailing-bit and equal-trailing-bit negative cubes. All retained rows match the independent predicate in the focused `TestUDocFilterByNegation` run.
