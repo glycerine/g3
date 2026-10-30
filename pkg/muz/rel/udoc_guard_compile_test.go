@@ -418,6 +418,25 @@ func TestUDocCompileConcatenatedBitVectorEqualities(t *testing.T) {
 			}
 		}
 	}
+	if err = variableRows.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]uint64{{1, 2, 6}, {1, 2, 7}, {2, 1, 3}} {
+		if _, e := variableRows.AddFact(fact); e != nil {
+			t.Fatal(e)
+		}
+	}
+	projectManager, _ := newTestDocManager(t, 4)
+	projected, err = variableRows.FilterGuardAndProject(m, equalVariable, []uint32{2}, projectManager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, projected)
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			requireFact(t, projected, []uint64{left, right}, left == 1 && right == 2)
+		}
+	}
 }
 
 func TestUDocCompileConcatsWithDifferentSegmentBoundaries(t *testing.T) {

@@ -264,6 +264,14 @@ func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.A
 			return ast.ASTHandle{}, equalities, err
 		}
 		if !leftOK || !rightOK {
+			handled, pieces, e := r.extractConcatEquality(m, left, right, &equalities)
+			if e != nil {
+				return ast.ASTHandle{}, equalities, e
+			}
+			if handled {
+				remaining = append(remaining, pieces...)
+				continue
+			}
 			remaining = append(remaining, term)
 			continue
 		}
@@ -282,6 +290,114 @@ func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.A
 	}
 	rest, err := udocMakeAnd(m, remaining)
 	return rest, equalities, err
+}
+
+func (r *UDocRelation) extractConcatEquality(m *ast.ASTManager, left, right ast.ASTHandle, equalities *udocRangeEqualities) (handled bool, residual []ast.ASTHandle, err error) {
+	_, leftConcat, err := m.BitVectorConcatArguments(left)
+	if err != nil {
+		return false, nil, err
+	}
+	_, rightConcat, err := m.BitVectorConcatArguments(right)
+	if err != nil {
+		return false, nil, err
+	}
+	if !leftConcat && !rightConcat {
+		return false, nil, nil
+	}
+	leftParts, _, err := udocFlattenConcat(m, left)
+	if err != nil {
+		return false, nil, err
+	}
+	rightParts, _, err := udocFlattenConcat(m, right)
+	if err != nil {
+		return false, nil, err
+	}
+	leftWidths, leftTotal, err := udocPartWidths(m, leftParts)
+	if err != nil {
+		return false, nil, err
+	}
+	rightWidths, rightTotal, err := udocPartWidths(m, rightParts)
+	if err != nil {
+		return false, nil, err
+	}
+	if leftTotal != rightTotal {
+		return false, nil, ErrDOC
+	}
+	i, j := 0, 0
+	leftRemain, rightRemain := leftWidths[0], rightWidths[0]
+	for i < len(leftParts) && j < len(rightParts) {
+		length := leftRemain
+		if rightRemain < length {
+			length = rightRemain
+		}
+		leftSlice, e := udocSliceBitVector(m, leftParts[i], leftRemain-1, leftRemain-length)
+		if e != nil {
+			return false, nil, e
+		}
+		rightSlice, e := udocSliceBitVector(m, rightParts[j], rightRemain-1, rightRemain-length)
+		if e != nil {
+			return false, nil, e
+		}
+		leftVar, leftLow, leftHigh, leftRange, e := udocGuardRange(m, leftSlice)
+		if e != nil {
+			return false, nil, e
+		}
+		rightVar, rightLow, rightHigh, rightRange, e := udocGuardRange(m, rightSlice)
+		if e != nil {
+			return false, nil, e
+		}
+		if leftRange && rightRange {
+			if leftVar >= uint32(len(r.widths)) || rightVar >= uint32(len(r.widths)) || leftHigh-leftLow != rightHigh-rightLow {
+				return false, nil, ErrDOC
+			}
+			leftIndex, rightIndex := r.offsets[leftVar]+leftLow, r.offsets[rightVar]+rightLow
+			for bit := uint32(0); bit < length; bit++ {
+				equalities.classes.Merge(leftIndex+bit, rightIndex+bit)
+				equalities.roots = append(equalities.roots, leftIndex+bit)
+			}
+		} else {
+			equality, e := m.MkEq(leftSlice, rightSlice)
+			if e != nil {
+				return false, nil, e
+			}
+			residual = append(residual, equality)
+		}
+		leftRemain -= length
+		rightRemain -= length
+		if leftRemain == 0 {
+			i++
+			if i < len(leftParts) {
+				leftRemain = leftWidths[i]
+			}
+		}
+		if rightRemain == 0 {
+			j++
+			if j < len(rightParts) {
+				rightRemain = rightWidths[j]
+			}
+		}
+	}
+	return true, residual, nil
+}
+
+func udocPartWidths(m *ast.ASTManager, parts []ast.ASTHandle) ([]uint32, uint32, error) {
+	widths := make([]uint32, len(parts))
+	var total uint32
+	for i, part := range parts {
+		sort, err := m.GetSort(part)
+		if err != nil {
+			return nil, 0, err
+		}
+		widths[i], err = m.BitVectorSize(sort)
+		if err != nil || widths[i] == 0 || widths[i] > ^uint32(0)-total {
+			return nil, 0, ErrDOC
+		}
+		total += widths[i]
+	}
+	if len(widths) == 0 {
+		return nil, 0, ErrDOC
+	}
+	return widths, total, nil
 }
 
 // FilterGuard intersects the relation with the DOC union compiled from a guard.
