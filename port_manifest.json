@@ -75223,28 +75223,32 @@
       "path": "src/math/subpaving/subpaving_hwf.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/hardware_search.go",
         "pkg/math/subpaving/hardware_search_test.go"
       ],
       "tests": [
-        "TestHardwareSearchBreadthFirstSplitLimitAndChildResume"
+        "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete config_hwf default context search loop via context_t<config_hwf> instantiation (src/math/subpaving/subpaving_t_def.h:1806-1843)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_search.go",
           "tests": [
-            "TestHardwareSearchBreadthFirstSplitLimitAndChildResume"
+            "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation"
           ]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "The C++ file explicitly instantiates context_t<config_hwf> and owns no separate runtime object. The instantiated context owns its tree and allocator state while borrowing the hardware numeral manager and resource limit; Go represents it directly as HardwareContext with explicit Close."
+      ],
+      "deviations": [
+        "Go compiles the concrete HardwareContext implementation directly rather than emitting a C++-style template instantiation unit. Cancellation during selected-child propagation preserves the partial queue prefix but drops the source-local node pointer, matching the C++ operator's exception boundary rather than adding a resumable selected-node API."
+      ]
     },
     {
       "path": "src/math/subpaving/subpaving_hwf.h",
@@ -75275,7 +75279,7 @@
         "TestSubpavingHardwareIntervalXnEqYRetainedCases",
         "TestSubpavingHardwareContextBoundPolicyAndRootDispatch",
         "TestSubpavingHardwareContextReadsParamsRefInSourceOrder",
-        "TestHardwareSearchBreadthFirstSplitLimitAndChildResume"
+        "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation"
       ],
       "conditionals": [
         {
@@ -76102,7 +76106,7 @@
         "TestHardwareClauseOpenTruthAndQueuedUnitPropagation",
         "TestHardwareMonomialDefinitionForwardAndZero",
         "TestHardwareMonomialReverseCubicAndSourceProduct",
-        "TestHardwareSearchBreadthFirstSplitLimitAndChildResume",
+        "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation",
         "TestHardwareClauseJustificationChildTrailAndContextClose",
         "TestHardwareShellRetainedClauseAndSearchRoute",
         "TestHardwareShellStatisticsCountersAndReset",
@@ -76355,7 +76359,7 @@
             "TestRationalMidpointSplitterSourceBounds",
             "TestRationalMidpointSplitterSingletonRefusalLeavesChildren",
             "TestRationalSearchBreadthFirstChildrenAndDefinitionPropagation",
-            "TestRationalSearchResumesSelectedChildAfterQueueCancellation",
+            "TestRationalSearchChildCancellationLeavesSourceQueue",
             "TestRationalAddRecentBoundsOnlyNewestDirection"
           ]
         },
@@ -76901,8 +76905,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpff breadth-first loop, cancellation phases and search-owned child retirement (src/math/subpaving/subpaving_t_def.h:1806-1843)",
-          "status": "partial",
+          "name": "Concrete config_mpff breadth-first loop, source queue failure prefix, and search-owned child retirement (src/math/subpaving/subpaving_t_def.h:1806-1843)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_search.go",
           "tests": [
             "TestFastSearchBreadthFirstCancellationAndOwnedChildren",
@@ -76911,8 +76915,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpfx breadth-first loop, cancellation phases, node limit and context-owned child retirement (subpaving_t_def.h:1806-1843)",
-          "status": "partial",
+          "name": "Concrete config_mpfx breadth-first loop, source queue failure prefix, node limit and context-owned child retirement (subpaving_t_def.h:1806-1843)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_search.go",
           "tests": ["TestFixedSearchBreadthFirstCancellationAndOwnedChildren", "TestFixedSearchStopsAtSourceNodeLimit", "TestFixedSearchRetainsRefusedSplitChildrenForClose"]
         },
@@ -77138,7 +77142,7 @@
         "The config_mpff context now displays definitions, units and clauses through the source MPFF to_rational_string spelling, which delegates to the ordinary String formatter. Borrowed variable display and shell forwarding are concrete; search remains open.",
         "The config_mpff context now records child creation order, displays consistent leaves with inherited bounds and exact MPFF numeral text, and omits conflicting leaves. Search, splitting and statistics remain open.",
         "The config_mpff round-robin variable selector and midpoint splitter now use concrete FastFloat arithmetic. Integer-bound normalization, directed unbounded splits and adjacent-value refusal preserve source order; the enclosing search queue, depth/node budgets and full tactic lifecycle remain open.",
-        "The config_mpff search loop now initializes the root, selects leaves breadth-first, replays child decisions, resumes canceled propagation, enforces depth/node limits and owns split children through cleanup. Fast and arbitrary-float checkpoints read their numeric Runtime when no shared process is bound, and read ProcessAccounting when it is bound; the pointer-free hardware context needs an explicit process binding. Standalone runtimes cannot include allocations from unrelated owners, and the complete tactic result/simplify lifecycle remains open."
+        "The config_mpff search loop now initializes the root, selects leaves breadth-first, replays child decisions, preserves a canceled propagation queue prefix without retaining the source-local selected node, enforces depth/node limits and owns split children through cleanup. Fast and arbitrary-float checkpoints read their numeric Runtime when no shared process is bound, and read ProcessAccounting when it is bound; the pointer-free hardware context needs an explicit process binding. Standalone runtimes cannot include allocations from unrelated owners, and the complete tactic result/simplify lifecycle remains open."
       ]
     },
     {
@@ -77311,7 +77315,7 @@
         "TestArbitraryChildRecentBoundReplayAndPolynomialWatcher",
         "TestArbitraryMidpointSplitterSourceBranches",
         "TestArbitrarySelectorsBreadthFirstAndRoundRobin",
-        "TestArbitrarySearchBreadthFirstLimitAndChildResume",
+        "TestArbitrarySearchBreadthFirstLimitAndChildCancellation",
         "TestArbitraryStatisticsConflictLeafAndTreeCleanup",
         "TestRationalStatisticsConflictResetAndNodeRetention",
         "TestRationalDisplayDefinitionsClausesLeavesAndWriterPrefix",
@@ -77406,7 +77410,7 @@
         "TestHardwareClauseOpenTruthAndQueuedUnitPropagation",
         "TestHardwareMonomialDefinitionForwardAndZero",
         "TestHardwareMonomialReverseCubicAndSourceProduct",
-        "TestHardwareSearchBreadthFirstSplitLimitAndChildResume",
+        "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation",
         "TestHardwareClauseJustificationChildTrailAndContextClose",
         "TestHardwareShellRetainedClauseAndSearchRoute",
         "TestHardwareShellStatisticsCountersAndReset",
@@ -78126,8 +78130,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpf root initialization, breadth-first search, node/depth cutoffs, child replay, and queue-checkpoint resumption (src/math/subpaving/subpaving_t_def.h:1806-1843)",
-          "status": "partial",
+          "name": "Concrete config_mpf breadth-first loop, child replay, node/depth cutoffs, and source queue checkpoint failure behavior (src/math/subpaving/subpaving_t_def.h:1806-1843)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_search.go",
           "go_targets": [
             "pkg/math/subpaving/arbitrary_context_init.go",
@@ -78135,7 +78139,7 @@
             "pkg/math/subpaving/arbitrary_split.go"
           ],
           "tests": [
-            "TestArbitrarySearchBreadthFirstLimitAndChildResume"
+            "TestArbitrarySearchBreadthFirstLimitAndChildCancellation"
           ]
         },
         {
@@ -78895,8 +78899,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpff breadth-first loop, cancellation phases and search-owned child retirement (src/math/subpaving/subpaving_t_def.h:1806-1843)",
-          "status": "partial",
+          "name": "Concrete config_mpff breadth-first loop, source queue failure prefix, and search-owned child retirement (src/math/subpaving/subpaving_t_def.h:1806-1843)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_search.go",
           "tests": [
             "TestFastSearchBreadthFirstCancellationAndOwnedChildren",
@@ -78916,7 +78920,7 @@
         "The config_mpff context now displays definitions, units and clauses through the source MPFF to_rational_string spelling, which delegates to the ordinary String formatter. Borrowed variable display and shell forwarding are concrete; search remains open.",
         "The config_mpff context now records child creation order, displays consistent leaves with inherited bounds and exact MPFF numeral text, and omits conflicting leaves. Search, splitting and statistics remain open.",
         "The config_mpff round-robin variable selector and midpoint splitter now use concrete FastFloat arithmetic. Integer-bound normalization, directed unbounded splits and adjacent-value refusal preserve source order; the enclosing search queue, depth/node budgets and full tactic lifecycle remain open.",
-        "The config_mpff search loop now initializes the root, selects leaves breadth-first, replays child decisions, resumes canceled propagation, enforces depth/node limits and owns split children through cleanup. Fast and arbitrary-float checkpoints read their numeric Runtime when no shared process is bound, and read ProcessAccounting when it is bound; the pointer-free hardware context needs an explicit process binding. Standalone runtimes cannot include allocations from unrelated owners, and the complete tactic result/simplify lifecycle remains open."
+        "The config_mpff search loop now initializes the root, selects leaves breadth-first, replays child decisions, preserves a canceled propagation queue prefix without retaining the source-local selected node, enforces depth/node limits and owns split children through cleanup. Fast and arbitrary-float checkpoints read their numeric Runtime when no shared process is bound, and read ProcessAccounting when it is bound; the pointer-free hardware context needs an explicit process binding. Standalone runtimes cannot include allocations from unrelated owners, and the complete tactic result/simplify lifecycle remains open."
       ]
     },
     {
@@ -266336,7 +266340,7 @@
         "TestHardwareClauseOpenTruthAndQueuedUnitPropagation",
         "TestHardwareMonomialDefinitionForwardAndZero",
         "TestHardwareMonomialReverseCubicAndSourceProduct",
-        "TestHardwareSearchBreadthFirstSplitLimitAndChildResume",
+        "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation",
         "TestHardwareClauseJustificationChildTrailAndContextClose",
         "TestPatternInferenceCollectorNestedDepthForbiddenAndOwnership",
         "TestPatternInferenceCollectorArithmeticNestedAndDivisionException"

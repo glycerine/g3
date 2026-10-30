@@ -75,6 +75,7 @@ func (c *RationalContext) Search() error {
 		if c.searchPhase == 0 {
 			if n != c.root {
 				if err := c.AddRecentBounds(n); err != nil {
+					c.searchNode, c.searchPhase = nil, 0
 					return err
 				}
 			}
@@ -83,6 +84,7 @@ func (c *RationalContext) Search() error {
 		if c.searchPhase == 1 {
 			if n != c.root {
 				if err := c.PropagateQueued(n); err != nil {
+					c.searchNode, c.searchPhase = nil, 0
 					return err
 				}
 			}

@@ -32,7 +32,7 @@ func TestRationalSearchBreadthFirstChildrenAndDefinitionPropagation(t *testing.T
 	}
 }
 
-func TestRationalSearchResumesSelectedChildAfterQueueCancellation(t *testing.T) {
+func TestRationalSearchChildCancellationLeavesSourceQueue(t *testing.T) {
 	c, _, _, x, _ := rationalClauseFixture(t)
 	c.maxDepth = 1
 	if err := c.InitializeRoot(); err != nil {
@@ -49,15 +49,8 @@ func TestRationalSearchResumesSelectedChildAfterQueueCancellation(t *testing.T) 
 	c.limit.Limit = 1
 	err = c.Search()
 	var source z3exception.DefaultException
-	if !errors.Is(err, ErrRationalContextCanceled) || !errors.As(err, &source) || source.Message() != messages.Canceled || c.searchNode != left || c.searchPhase != 1 || c.queueHead != 0 || len(c.queue) != 1 || c.queue[0] != left.trail || c.queue[0].timestamp != c.timestamp {
-		t.Fatal("canceled child propagation did not retain selected decision", err)
-	}
-	c.limit.Limit = 0
-	if err := c.Search(); err != nil {
-		t.Fatal(err)
-	}
-	if c.searchNode != nil || c.leafHead != nil || c.leafTail != nil || c.queueHead != 0 || len(c.queue) != 0 || left.depth != 1 || right.depth != 1 || c.numBounds != 2 {
-		t.Fatal("resumed search replayed a decision or failed to drain children")
+	if !errors.Is(err, ErrRationalContextCanceled) || !errors.As(err, &source) || source.Message() != messages.Canceled || c.searchNode != nil || c.searchPhase != 0 || c.leafHead != right || c.queueHead != 0 || len(c.queue) != 1 || c.queue[0] != left.trail || c.queue[0].timestamp != c.timestamp {
+		t.Fatal("canceled child propagation must retain only the source queue prefix", err)
 	}
 }
 

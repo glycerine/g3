@@ -31,15 +31,8 @@ func TestFixedSearchBreadthFirstCancellationAndOwnedChildren(t *testing.T) {
 		t.Fatal("oldest child selection order")
 	}
 	c.limit.Limit, c.limit.Steps = 2, 1
-	if err := c.Search(); !errors.Is(err, ErrFixedContextCanceled) || c.searchNode != c.searchOwned[0] || c.searchPhase != 1 || len(c.queue) != 1 || len(c.leafQueue) != 1 {
-		t.Fatal("selected child propagation prefix", err)
-	}
-	c.limit.Limit, c.limit.Steps = 100, 0
-	if err := c.Search(); err != nil || c.numSplits != 1 || len(c.leafQueue) != 0 || c.searchNode != nil {
-		t.Fatal("resumed breadth-first search", err)
-	}
-	if err := c.Search(); err != nil || c.numSplits != 1 {
-		t.Fatal("completed search replayed root", err)
+	if err := c.Search(); !errors.Is(err, ErrFixedContextCanceled) || c.searchNode != nil || c.searchPhase != 0 || len(c.queue) != 1 || len(c.leafQueue) != 1 || c.leafQueue[0] != c.searchOwned[1] {
+		t.Fatal("selected child cancellation must retain the source queue prefix", err)
 	}
 	if err := c.Close(); err != nil || root.children != 0 || len(c.searchOwned) != 0 {
 		t.Fatal("owned child cleanup", err)

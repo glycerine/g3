@@ -7,7 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func TestArbitrarySearchBreadthFirstLimitAndChildResume(t *testing.T) {
+func TestArbitrarySearchBreadthFirstLimitAndChildCancellation(t *testing.T) {
 	f := newArbitraryClauseFixtureWithPolicy(t, 0, true)
 	c := f.context
 	x := f.y
@@ -75,16 +75,8 @@ func TestArbitrarySearchBreadthFirstLimitAndChildResume(t *testing.T) {
 	}
 	c.maxNodes = 3
 	c.limit.Limit, c.limit.Steps = 2, 0
-	if err := c.Search(); !errors.Is(err, ErrArbitraryContextCanceled) || c.searchNode != left || c.searchPhase != 1 ||
+	if err := c.Search(); !errors.Is(err, ErrArbitraryContextCanceled) || c.searchNode != nil || c.searchPhase != 0 || c.leafHead != right ||
 		c.queueHead != 1 || len(c.queue) != 2 || left.queuedLeaf || !right.queuedLeaf {
-		t.Fatal("selected child queue must retain its unprocessed suffix", err, c.searchPhase, c.queueHead, len(c.queue))
-	}
-	c.limit.Limit = 1000
-	if err := c.Search(); err != nil {
-		t.Fatal(err)
-	}
-	if c.searchNode != nil || c.leafHead != nil || c.numSplits != 1 ||
-		value(left.upper[out]) != 8 || value(right.lower[out]) != 12 || len(c.queue) != 0 {
-		t.Fatal("resumed child propagation and depth stop")
+		t.Fatal("canceled child must not retain the source-local selected node", err, c.searchPhase, c.queueHead, len(c.queue))
 	}
 }

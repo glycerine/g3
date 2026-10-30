@@ -10,8 +10,9 @@ import (
 )
 
 // Search initializes the root, then processes breadth-first leaves using the
-// default midpoint splitter and round-robin variable selector. A canceled
-// child queue keeps its selected node and unprocessed suffix for resumption.
+// default midpoint splitter and round-robin variable selector. If propagation
+// fails after a child is removed from the leaf list, the source leaves its
+// queue prefix in place and does not retain that local selected node.
 func (c *HardwareContext) Search() error {
 	if err := c.InitializeRoot(); err != nil {
 		return err
@@ -51,6 +52,7 @@ func (c *HardwareContext) Search() error {
 		if c.searchPhase == 0 {
 			if n != c.root {
 				if err := c.AddRecentBounds(n); err != nil {
+					c.searchNode, c.searchPhase = nil, 0
 					return err
 				}
 			}
@@ -59,6 +61,7 @@ func (c *HardwareContext) Search() error {
 		if c.searchPhase == 1 {
 			if n != c.root {
 				if err := c.PropagateQueued(n); err != nil {
+					c.searchNode, c.searchPhase = nil, 0
 					return err
 				}
 			}

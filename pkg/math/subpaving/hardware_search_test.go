@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func TestHardwareSearchBreadthFirstSplitLimitAndChildResume(t *testing.T) {
+func TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation(t *testing.T) {
 	m, err := numeral.NewHardwareFloatNumeralManager(numeral.NewHardwareFloatManager(), 11, 53)
 	if err != nil {
 		t.Fatal(err)
@@ -71,18 +71,9 @@ func TestHardwareSearchBreadthFirstSplitLimitAndChildResume(t *testing.T) {
 	if err := c.Search(); !errors.Is(err, ErrHardwareContextCanceled) {
 		t.Fatal("child queue checkpoint", err)
 	}
-	if c.searchNode != left || c.searchPhase != 1 || c.queueHead != 1 || len(c.queue) != 2 ||
+	if c.searchNode != nil || c.searchPhase != 0 || c.queueHead != 1 || len(c.queue) != 2 || c.leafHead != right ||
 		left.queuedLeaf || !right.queuedLeaf {
-		t.Fatalf("canceled selected child: pending=%p left=%p phase=%d head=%d queue=%d leftLeaf=%t rightLeaf=%t", c.searchNode, left, c.searchPhase, c.queueHead, len(c.queue), left.queuedLeaf, right.queuedLeaf)
-	}
-	limit.Limit = 1000
-	if err := c.Search(); err != nil {
-		t.Fatal(err)
-	}
-	if c.searchNode != nil || c.leafHead != nil || c.numSplits != 1 ||
-		left.upper[y] == nil || m.ToFloat64(&left.upper[y].value) != 1 ||
-		right.lower[y] == nil || m.ToFloat64(&right.lower[y].value) != 4 {
-		t.Fatal("resumed child propagation and depth stop")
+		t.Fatalf("canceled selected child state: pending=%p phase=%d head=%d queue=%d leaf=%p leftLeaf=%t rightLeaf=%t", c.searchNode, c.searchPhase, c.queueHead, len(c.queue), c.leafHead, left.queuedLeaf, right.queuedLeaf)
 	}
 	if err := c.Close(); err != nil {
 		t.Fatal(err)
