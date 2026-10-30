@@ -99319,9 +99319,57 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/cmd_context/optimization_normalized_execution.go","pkg/opt/bound_expressions.go", "pkg/opt/bound_expressions_test.go", "pkg/opt/bound_expression.go", "pkg/opt/bound_expression_test.go", "pkg/opt/arithmetic_value_expression.go", "pkg/opt/objective_decomposition_types.go", "pkg/opt/objective_decomposition.go", "pkg/opt/objective_decomposition_restore.go", "pkg/opt/objective_purifier.go", "pkg/opt/objective_pipeline.go", "pkg/opt/objective_pipeline_check.go", "pkg/opt/objective_purified_pipeline.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go", "pkg/cmd_context/optimization_parameters.go", "pkg/cmd_context/optimization_parameters_pareto_test.go", "pkg/cmd_context/optimization_state_test.go", "pkg/parsers/smt2/optimization_test.go", "pkg/cmd_context/optimization_diagnostics.go", "pkg/cmd_context/optimization_diagnostics_test.go", "pkg/cmd_context/optimization_model_comparison.go", "pkg/cmd_context/optimization_model_comparison_test.go"],
+        "pkg/cmd_context/optimization_normalized_execution.go",
+        "pkg/opt/bound_expressions.go",
+        "pkg/opt/bound_expressions_test.go",
+        "pkg/opt/bound_expression.go",
+        "pkg/opt/bound_expression_test.go",
+        "pkg/opt/arithmetic_value_expression.go",
+        "pkg/opt/objective_decomposition_types.go",
+        "pkg/opt/objective_decomposition.go",
+        "pkg/opt/objective_decomposition_restore.go",
+        "pkg/opt/objective_purifier.go",
+        "pkg/opt/objective_pipeline.go",
+        "pkg/opt/objective_pipeline_check.go",
+        "pkg/opt/objective_purified_pipeline.go",
+        "pkg/cmd_context/optimization.go",
+        "pkg/cmd_context/optimization_pareto.go",
+        "pkg/cmd_context/optimization_parameters.go",
+        "pkg/cmd_context/optimization_parameters_pareto_test.go",
+        "pkg/cmd_context/optimization_state_test.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/cmd_context/optimization_diagnostics.go",
+        "pkg/cmd_context/optimization_diagnostics_test.go",
+        "pkg/cmd_context/optimization_model_comparison.go",
+        "pkg/cmd_context/optimization_model_comparison_test.go"
+      ],
       "tests": [
-        "pkg/cmd/g3/optimization_normalization_test.go","TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease", "TestOptBoundExpressionSourceBranchesAndOwnedResult", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestOptimizationUnknownReasonPreservesCancellation", "TestOptimizationObjectiveMutationClosesParetoSolverImmediately", "TestActiveParetoEnumerationSurvivesParameterUpdate", "TestActiveBoxEnumerationSurvivesPriorityUpdate", "TestOptimizationExecutionSettingsReadOptimizeLocalOverrides", "TestSMTLibRunnerCPPReference"],
+        "pkg/cmd/g3/optimization_normalization_test.go",
+        "TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease",
+        "TestOptBoundExpressionSourceBranchesAndOwnedResult",
+        "TestSMT2BoundedIntegerOptimizationEndToEnd",
+        "TestSMT2OptimizationObjectivesFollowScopes",
+        "TestSMT2WeightedSoftOptimizationEndToEnd",
+        "TestSMT2BitVectorOptimizationEndToEnd",
+        "TestSMT2StrictLexicographicIntervalEndToEnd",
+        "TestSMT2UnboundedLexicographicIntervalEndToEnd",
+        "TestSMT2BoxOptimizationEndToEnd",
+        "TestSMT2ParetoOptimizationEndToEnd",
+        "TestSMT2BitVectorParetoOptimizationEndToEnd",
+        "TestSMT2SoftParetoOptimizationEndToEnd",
+        "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+        "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete",
+        "TestParetoIncomparableObjectiveUsesNeutralComparison",
+        "TestOptimizationUnknownReasonPreservesCancellation",
+        "TestOptimizationObjectiveMutationClosesParetoSolverImmediately",
+        "TestActiveParetoEnumerationSurvivesParameterUpdate",
+        "TestActiveBoxEnumerationSurvivesPriorityUpdate",
+        "TestOptimizationExecutionSettingsReadOptimizeLocalOverrides",
+        "TestSMTLibRunnerCPPReference",
+        "TestOptimizationModelComparisonsPreserveIncompleteModels",
+        "TestOptimizationSoftModelComparisonDoesNotCompleteNegatedTerm",
+        "TestOptimizationComparisonCatchesSourceEvaluatorStepFailure"
+      ],
       "conditionals": [
         {
           "line": 271,
@@ -99378,95 +99426,192 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "mk_cmp/mk_gt model-evaluation semantics: incomplete models stay incomplete, model::eval constructs an evaluator per call and catches only rewriter exceptions, failed soft terms do not increase the bound, strict comparison uses source mk_not simplification (opt_context.cpp:472-534; model.cpp:79-92)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/optimization_model_comparison.go",
+            "pkg/cmd_context/optimization_model_comparison_test.go"
+          ],
+          "tests": [
+            "TestOptimizationModelComparisonsPreserveIncompleteModels",
+            "TestOptimizationSoftModelComparisonDoesNotCompleteNegatedTerm",
+            "TestOptimizationComparisonCatchesSourceEvaluatorStepFailure"
+          ]
+        },
+        {
           "name": "context::to_exprs copies infinity, rational and infinitesimal components before appending three owning arithmetic numeral references in source order (opt_context.cpp:1343-1350)",
           "status": "ported",
           "go_target": "pkg/opt/bound_expressions.go",
-          "tests": ["TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease"]
+          "tests": [
+            "TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease"
+          ]
         },
         {
           "name": "context::to_expr builds the zero/singleton/add expression from source-ordered infinity, finite and epsilon terms, including Int-sort fractional-infinity refusal (opt_context.cpp:1352-1381)",
           "status": "ported",
           "go_target": "pkg/opt/bound_expression.go",
-          "tests": ["TestOptBoundExpressionSourceBranchesAndOwnedResult"]
+          "tests": [
+            "TestOptBoundExpressionSourceBranchesAndOwnedResult"
+          ]
         },
         {
           "name": "scoped_state arithmetic objective registration, rollback, bounded single-objective optimize, model publication and assignment display (opt_context.cpp:49-55,109-116,156-165,232-235,255-322,1264-1283)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes"]
+          "tests": [
+            "TestSMT2BoundedIntegerOptimizationEndToEnd",
+            "TestSMT2OptimizationObjectivesFollowScopes"
+          ]
         },
         {
           "name": "objective display conversion and lower/upper interval bounds for exact finite, infinitesimal, unbounded and strict lexicographic results (opt_context.cpp:1264-1283,1299-1340,1352-1381)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "go_targets": ["pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_bounds.go", "pkg/cmd_context/optimization_bounds_source_test.go"],
-          "tests": ["TestOptimizationBoundsPreserveStrictLexicographicEndpoints", "TestOptimizationBoundsPreserveUnboundedLexicographicEndpoints", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "go_targets": [
+            "pkg/cmd_context/optimization.go",
+            "pkg/cmd_context/optimization_bounds.go",
+            "pkg/cmd_context/optimization_bounds_source_test.go"
+          ],
+          "tests": [
+            "TestOptimizationBoundsPreserveStrictLexicographicEndpoints",
+            "TestOptimizationBoundsPreserveUnboundedLexicographicEndpoints",
+            "TestSMT2StrictLexicographicIntervalEndToEnd",
+            "TestSMT2UnboundedLexicographicIntervalEndToEnd",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         },
         {
           "name": "scoped_state grouped soft terms, negative-weight normalization, MaxSMT objective order, scoped rollback, model publication and exact rational assignment display (opt_context.cpp:49-107,156-180,227-230,800-925,1264-1283)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "tests": ["TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2WeightedSoftOptimizationEndToEnd",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         },
         {
           "name": "unsigned bit-vector maximize/minimize lowering to weighted bit equalities, adjusted decimal objective values and lexicographic commitment (opt_context.cpp:895-917)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "tests": ["TestSMT2BitVectorOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2BitVectorOptimizationEndToEnd",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         },
         {
           "name": "box priority independent objective optimization, objective-wide bounds, cached per-objective model/value enumeration and terminal unsat/reset lifecycle (opt_context.cpp:255-322,434-467)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_parameters_pareto_test.go"],
-          "tests": ["TestActiveBoxEnumerationSurvivesPriorityUpdate", "TestSMT2BoxOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "go_targets": [
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/optimization.go",
+            "pkg/cmd_context/optimization_parameters_pareto_test.go"
+          ],
+          "tests": [
+            "TestActiveBoxEnumerationSurvivesPriorityUpdate",
+            "TestSMT2BoxOptimizationEndToEnd",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         },
         {
           "name": "execute_box advances the cursor with one unknown result per remaining objective when a fresh run produced no cached models, then reports terminal false (opt_context.cpp:434-467)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_state_test.go"],
-          "tests": ["TestBoxUnknownAdvancesEveryRemainingObjectiveSlot"]
+          "go_targets": [
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/optimization.go",
+            "pkg/cmd_context/optimization_state_test.go"
+          ],
+          "tests": [
+            "TestBoxUnknownAdvancesEveryRemainingObjectiveSlot"
+          ]
         },
         {
           "name": "arithmetic, unsigned bit-vector and normalized weighted-soft Pareto comparison construction, persistent frontier enumeration, objective publication and terminal unsat/reset lifecycle (opt_context.cpp:470-565)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestOptimizationObjectiveMutationClosesParetoSolverImmediately", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2ParetoOptimizationEndToEnd",
+            "TestSMT2BitVectorParetoOptimizationEndToEnd",
+            "TestSMT2SoftParetoOptimizationEndToEnd",
+            "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+            "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete",
+            "TestParetoIncomparableObjectiveUsesNeutralComparison",
+            "TestOptimizationObjectiveMutationClosesParetoSolverImmediately",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         },
         {
           "name": "context::pop resets active Pareto state and the box cursor while cached box models persist until the next box run (opt_context.cpp:160-168,1390-1397)",
           "status": "partial",
           "go_target": "pkg/cmd_context/context.go",
-          "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization_state_test.go"],
-          "tests": ["TestPopResetsActiveParetoOptimization", "TestPopResetsActiveBoxOptimization"]
+          "go_targets": [
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/optimization_state_test.go"
+          ],
+          "tests": [
+            "TestPopResetsActiveParetoOptimization",
+            "TestPopResetsActiveBoxOptimization"
+          ]
         },
         {
           "name": "update_solver SAT-core eligibility for propositional/PB/BV objectives, parameter gates, proof mode and priority (opt_context.cpp:617-640,649-690)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_sat_eligibility.go",
-          "go_targets": ["pkg/cmd_context/optimization_sat_eligibility.go", "pkg/cmd_context/optimization.go", "pkg/opt/arithmetic_solver.go", "pkg/opt/maxsmt_config.go", "pkg/opt/maxsmt_config_decode.go"],
-          "tests": ["TestOptimizationSATCoreEligibilityMatchesSourceGate", "TestOptimizationSATCoreEligibilityChecksAdditionalHardAssumptions"]
+          "go_targets": [
+            "pkg/cmd_context/optimization_sat_eligibility.go",
+            "pkg/cmd_context/optimization.go",
+            "pkg/opt/arithmetic_solver.go",
+            "pkg/opt/maxsmt_config.go",
+            "pkg/opt/maxsmt_config_decode.go"
+          ],
+          "tests": [
+            "TestOptimizationSATCoreEligibilityMatchesSourceGate",
+            "TestOptimizationSATCoreEligibilityChecksAdditionalHardAssumptions"
+          ]
         },
         {
           "name": "adjust_unknown and reason_unknown preserve the underlying solver failure after quantifier incompleteness, with cancellation taking precedence (opt_context.cpp:325-330,568-575; opt_solver.cpp:288-296,313-315)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "go_targets": ["pkg/cmd_context/optimization.go", "pkg/opt/arithmetic_solver.go"],
-          "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure", "TestOptimizationUnknownReasonPreservesCancellation"]
+          "go_targets": [
+            "pkg/cmd_context/optimization.go",
+            "pkg/opt/arithmetic_solver.go"
+          ],
+          "tests": [
+            "TestOptimizationUnknownReasonUsesBackendFailure",
+            "TestOptimizationCancellationOverridesBackendFailure",
+            "TestOptimizationUnknownReasonPreservesCancellation"
+          ]
         },
         {
           "name": "setup_arith_solver switches the global arithmetic mode to AS_OPTINF for farkas and symba optimization engines (opt_context.cpp:608-615)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "go_targets": ["pkg/cmd_context/optimization.go", "pkg/smtcore/smt_setup_mixed_arithmetic.go"],
-          "tests": ["TestOptimizationArithmeticEngineForcesInfiniteArithmeticMode", "TestOptimizationArithmeticEngineSetupSkipsParetoContinuation", "TestActiveBoxEnumerationSurvivesPriorityUpdate"]
+          "go_targets": [
+            "pkg/cmd_context/optimization.go",
+            "pkg/smtcore/smt_setup_mixed_arithmetic.go"
+          ],
+          "tests": [
+            "TestOptimizationArithmeticEngineForcesInfiniteArithmeticMode",
+            "TestOptimizationArithmeticEngineSetupSkipsParetoContinuation",
+            "TestActiveBoxEnumerationSurvivesPriorityUpdate"
+          ]
         },
         {
           "name": "context::updt_params updates the active solver while existing Pareto and box continuation state takes precedence over new priority selection (opt_context.cpp:255-259,434-467,1423-1433)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_parameters.go",
-          "tests": ["TestOptimizationExecutionSettingsReadOptimizeLocalOverrides", "TestActiveParetoEnumerationSurvivesParameterUpdate", "TestActiveBoxEnumerationSurvivesPriorityUpdate"]
+          "tests": [
+            "TestOptimizationExecutionSettingsReadOptimizeLocalOverrides",
+            "TestActiveParetoEnumerationSurvivesParameterUpdate",
+            "TestActiveBoxEnumerationSurvivesPriorityUpdate"
+          ]
         }
       ],
       "ownership": [],
@@ -99588,8 +99733,24 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
+      "go_targets": [
+        "pkg/cmd_context/optimization_pareto.go",
+        "pkg/cmd_context/optimization_pareto_source_test.go"
+      ],
+      "tests": [
+        "TestSMT2ParetoOptimizationEndToEnd",
+        "TestSMT2BitVectorParetoOptimizationEndToEnd",
+        "TestSMT2SoftParetoOptimizationEndToEnd",
+        "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+        "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete",
+        "TestParetoIncomparableObjectiveUsesNeutralComparison",
+        "TestAPIOptimizeSetParametersSelectsLocalParetoPriority",
+        "TestOptimizationUnknownReasonPreservesCancellation",
+        "TestSMTLibRunnerScripts",
+        "TestSMTLibRunnerCPPReference",
+        "TestParetoDominanceFormulaKeepsSourceArgumentOrder",
+        "TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch"
+      ],
       "assertions": [
         {
           "line": 54,
@@ -99600,14 +99761,42 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "GIA calls actual objective GE/GT callbacks in source interleaved order, builds one flat dominance conjunction, invokes only LE callbacks for permanent blockers and checks cancellation before acquiring the next model (opt_pareto.cpp:30-86)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/optimization_pareto.go",
+            "pkg/cmd_context/optimization_pareto_source_test.go"
+          ],
+          "tests": [
+            "TestParetoDominanceFormulaKeepsSourceArgumentOrder",
+            "TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch",
+            "TestParetoIncomparableObjectiveUsesNeutralComparison"
+          ]
+        },
+        {
           "name": "GIA arithmetic, unsigned bit-vector and normalized weighted-soft Pareto improvement loop, retained best model and persistent not-dominated blockers across checks (opt_pareto.cpp:31-86)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2ParetoOptimizationEndToEnd",
+            "TestSMT2BitVectorParetoOptimizationEndToEnd",
+            "TestSMT2SoftParetoOptimizationEndToEnd",
+            "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+            "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete",
+            "TestParetoIncomparableObjectiveUsesNeutralComparison",
+            "TestAPIOptimizeSetParametersSelectsLocalParetoPriority",
+            "TestOptimizationUnknownReasonPreservesCancellation",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         }
       ],
-      "ownership": ["The initial Go model is snapshotted before PushCore clears the published solver result; subsequent models are acquired after each satisfiable dominance check. Temporary dominance AST references are released in reverse order."],
-      "deviations": ["The retained GIA path covers arithmetic, unsigned bit-vector and normalized weighted-soft objectives; the alternative OIA algorithm remains unported."]
+      "ownership": [
+        "The initial model is snapshotted before Push clears the Go solver result. Later models are acquired after the source cancellation check. Objective callbacks and constructed Pareto formulas own temporary AST references; returned formulas have independent references. Completed optimum values are evaluated at result publication."
+      ],
+      "deviations": [
+        "The GIA control flow and formula callbacks are implemented; full diagnostic/verbose, label and ownership closure remains under audit. The OIA class has no source constructor consumer: opt_context.cpp:556 instantiates gia_pareto exclusively, so the uncalled alternative is not an implementation target under AGENTS.md."
+      ]
     },
     {
       "path": "src/opt/opt_pareto.h",

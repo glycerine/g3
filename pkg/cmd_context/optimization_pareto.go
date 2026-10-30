@@ -13,7 +13,6 @@ import (
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
-	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 type paretoModelValue struct {
@@ -100,88 +99,27 @@ func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModel
 	return values, nil
 }
 
-func (c *Context) paretoSoftComparison(objective *optimizationObjective, bound *big.Rat, ge bool, hold func(ast.ASTHandle, error) (ast.ASTHandle, error)) (result ast.ASTHandle, resultErr error) {
-	if objective == nil || !objective.soft || bound == nil || hold == nil {
-		return result, ast.ErrASTHandle
-	}
-	service := c.manager.NumeralService()
-	if service == nil {
-		return result, ast.ErrASTHandle
-	}
-	coefficients := make([]unumeral.OwnedRational, 0, len(objective.softTerms))
-	arguments := make([]ast.ASTHandle, 0, len(objective.softTerms))
-	var threshold unumeral.OwnedRational
-	defer func() {
-		if threshold != (unumeral.OwnedRational{}) {
-			resultErr = errors.Join(resultErr, service.Del(&threshold))
-		}
-		for i := len(coefficients) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, service.Del(&coefficients[i]))
-		}
-	}()
-	for i := range objective.softTerms {
-		term := &objective.softTerms[i]
-		if term.weight.Sign() == 0 {
-			continue
-		}
-		weight := new(big.Rat).Set(&term.weight)
-		argument := term.expression
-		if weight.Sign() < 0 {
-			weight.Neg(weight)
-			var err error
-			argument, err = hold(c.manager.MkNot(argument))
-			if err != nil {
-				return result, err
-			}
-		}
-		coefficient, err := service.NewValue()
-		if err != nil {
-			return result, err
-		}
-		coefficients = append(coefficients, coefficient)
-		if err = service.SetString(&coefficients[len(coefficients)-1], weight.RatString()); err != nil {
-			return result, err
-		}
-		arguments = append(arguments, argument)
-	}
-	var err error
-	threshold, err = service.NewValue()
-	if err != nil {
-		return result, err
-	}
-	if err = service.SetString(&threshold, bound.RatString()); err != nil {
-		return result, err
-	}
-	if ge {
-		return c.manager.MkPseudoBooleanGE(coefficients, arguments, &threshold)
-	}
-	return c.manager.MkPseudoBooleanLE(coefficients, arguments, &threshold)
-}
-
-func (c *Context) paretoBitVectorNumeral(value *big.Rat, width uint32) (result ast.ASTHandle, resultErr error) {
-	if value == nil || !value.IsInt() || value.Sign() < 0 || width == 0 {
-		return result, ast.ErrASTDomain
-	}
-	service := c.manager.NumeralService()
-	if service == nil {
-		return result, ast.ErrASTHandle
-	}
-	numeral, err := service.NewValue()
-	if err != nil {
-		return result, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, service.Del(&numeral)) }()
-	if err = service.SetString(&numeral, value.RatString()); err != nil {
-		return result, err
-	}
-	return c.manager.BitVectorNumeral(&numeral, width)
-}
-
-func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, values []paretoModelValue, dominates bool) (resultErr error) {
-	if backend == nil || len(values) != len(c.objectives) {
-		return ast.ErrASTHandle
+// makeParetoFormula follows pareto_base's callback order. Dominance uses
+// each GE then GT comparison, followed by one flat conjunction; the persistent
+// blocker invokes only LE comparisons, never constructing unused improvements.
+func (c *Context) makeParetoFormula(md *model.ModelCore, dominates bool) (_ ast.ASTRef, resultErr error) {
+	if md == nil {
+		return ast.ASTRef{}, ast.ErrASTHandle
 	}
 	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&refs[i]))
+		}
+	}()
+	compare := func(index uint32, kind OptimizationModelComparison) (ast.ASTHandle, error) {
+		ref, err := c.OptimizationCompareModel(index, md, kind)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		refs = append(refs, ref)
+		return c.manager.RefGet(ref)
+	}
 	hold := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -193,112 +131,55 @@ func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, values []paret
 		refs = append(refs, ref)
 		return h, nil
 	}
-	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, c.manager.DelRef(&refs[i]))
-		}
-	}()
-	weak := make([]ast.ASTHandle, len(c.objectives))
-	strict := make([]ast.ASTHandle, len(c.objectives))
-	notBetter := make([]ast.ASTHandle, len(c.objectives))
+	var weak, strict []ast.ASTHandle
 	for i := range c.objectives {
-		objective := &c.objectives[i]
-		var numeral ast.ASTHandle
-		var err error
-		if objective.soft {
-			weak[i], err = hold(c.paretoSoftComparison(objective, &values[i].measure, true, hold))
-			if err == nil {
-				notBetter[i], err = hold(c.paretoSoftComparison(objective, &values[i].measure, false, hold))
-			}
-		} else if objective.bitVector {
-			numeral, err = hold(c.paretoBitVectorNumeral(&values[i].measure, objective.bitWidth))
-		} else {
-			sort, e := c.manager.GetSort(objective.expression)
-			if e != nil {
-				return e
-			}
-			kind, e := c.manager.GetDeclKind(sort)
-			if e != nil {
-				return e
-			}
-			if kind == 1 {
-				numeral, err = hold(c.manager.ArithmeticIntegerNumeralText(values[i].measure.RatString()))
-			} else {
-				numeral, err = hold(c.manager.ArithmeticRealNumeralText(values[i].measure.RatString()))
-			}
+		kind := OptimizationModelLE
+		if dominates {
+			kind = OptimizationModelGE
 		}
+		h, err := compare(uint32(i), kind)
 		if err != nil {
-			return err
+			return ast.ASTRef{}, err
 		}
-		if !objective.soft && !values[i].comparable {
-			weak[i], err = hold(c.manager.MkTrue())
-			if err == nil {
-				notBetter[i], err = hold(c.manager.MkTrue())
-			}
-			if err == nil {
-				strict[i], err = hold(c.manager.MkFalse())
-			}
+		weak = append(weak, h)
+		if dominates {
+			h, err = compare(uint32(i), OptimizationModelGT)
 			if err != nil {
-				return err
+				return ast.ASTRef{}, err
 			}
-			continue
+			strict = append(strict, h)
 		}
-		if objective.soft {
-			strict[i], err = hold(c.manager.MkNot(notBetter[i]))
-			if err != nil {
-				return err
-			}
-			continue
-		}
-		term := objective.expression
-		if objective.bitVector && objective.maximize {
-			weak[i], err = hold(c.manager.MkBitVectorULE(numeral, term))
-			if err == nil {
-				notBetter[i], err = hold(c.manager.MkBitVectorULE(term, numeral))
-			}
-		} else if objective.bitVector {
-			weak[i], err = hold(c.manager.MkBitVectorULE(term, numeral))
-			if err == nil {
-				notBetter[i], err = hold(c.manager.MkBitVectorULE(numeral, term))
-			}
-		} else if objective.maximize {
-			weak[i], err = hold(c.manager.MkArithmeticGE(term, numeral))
-			if err == nil {
-				notBetter[i], err = hold(c.manager.MkArithmeticLE(term, numeral))
-			}
-		} else {
-			weak[i], err = hold(c.manager.MkArithmeticLE(term, numeral))
-			if err == nil {
-				notBetter[i], err = hold(c.manager.MkArithmeticGE(term, numeral))
-			}
-		}
-		if err == nil {
-			strict[i], err = hold(c.manager.MkNot(notBetter[i]))
-		}
+	}
+	if dominates {
+		disjunction, err := hold(c.manager.MkOrArgs(strict))
 		if err != nil {
-			return err
+			return ast.ASTRef{}, err
 		}
+		weak = append(weak, disjunction)
+	}
+	formula, err := hold(c.manager.MkAndArgs(weak))
+	if err != nil {
+		return ast.ASTRef{}, err
 	}
 	if !dominates {
-		conjunction, err := hold(c.manager.MkAndArgs(notBetter))
+		formula, err = hold(c.manager.MkNot(formula))
 		if err != nil {
-			return err
+			return ast.ASTRef{}, err
 		}
-		formula, err := hold(c.manager.MkNot(conjunction))
-		if err != nil {
-			return err
-		}
-		return backend.Assert(formula)
 	}
-	conjunction, err := hold(c.manager.MkAndArgs(weak))
+	return c.manager.NewRef(formula)
+}
+
+func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, md *model.ModelCore, dominates bool) (resultErr error) {
+	if backend == nil {
+		return ast.ErrASTHandle
+	}
+	ref, err := c.makeParetoFormula(md, dominates)
 	if err != nil {
 		return err
 	}
-	disjunction, err := hold(c.manager.MkOrArgs(strict))
-	if err != nil {
-		return err
-	}
-	formula, err := hold(c.manager.MkAnd(conjunction, disjunction))
+	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&ref)) }()
+	formula, err := c.manager.RefGet(ref)
 	if err != nil {
 		return err
 	}
@@ -394,7 +275,6 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		return &opt.ArithmeticResult{Status: lbool.Undef, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
 	}
 	var best *model.ModelCore
-	var values []paretoModelValue
 	defer func() {
 		if resultErr != nil && best != nil {
 			resultErr = errors.Join(resultErr, best.DecRef())
@@ -409,10 +289,6 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	if best == nil {
 		return nil, ast.ErrASTHandle
-	}
-	values, err = c.evaluateParetoModel(best)
-	if err != nil {
-		return nil, err
 	}
 	if err = backend.Push(); err != nil {
 		return nil, err
@@ -434,9 +310,20 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 				status = lbool.Undef
 				break
 			}
+			candidate, acquireErr := backend.AcquireModel()
+			if acquireErr != nil {
+				return nil, acquireErr
+			}
+			if candidate == nil {
+				return nil, ast.ErrASTHandle
+			}
+			if err = best.DecRef(); err != nil {
+				return nil, errors.Join(err, candidate.DecRef())
+			}
+			best = candidate
 		}
 		firstIteration = false
-		if err = c.assertParetoFormula(backend, values, true); err != nil {
+		if err = c.assertParetoFormula(backend, best, true); err != nil {
 			return nil, err
 		}
 		status, err = backend.CheckSat(nil)
@@ -448,23 +335,6 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			if err != nil {
 				return nil, err
 			}
-		}
-		if status == lbool.True {
-			candidate, acquireErr := backend.AcquireModel()
-			if acquireErr != nil {
-				return nil, acquireErr
-			}
-			if candidate == nil {
-				return nil, ast.ErrASTHandle
-			}
-			candidateValues, evaluateErr := c.evaluateParetoModel(candidate)
-			if evaluateErr != nil {
-				return nil, errors.Join(evaluateErr, candidate.DecRef())
-			}
-			if err = best.DecRef(); err != nil {
-				return nil, errors.Join(err, candidate.DecRef())
-			}
-			best, values = candidate, candidateValues
 		}
 	}
 	if err = backend.Pop(1); err != nil {
@@ -479,9 +349,14 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		best = nil
 		return result, nil
 	}
-	if err = c.assertParetoFormula(backend, values, false); err != nil {
+	if err = c.assertParetoFormula(backend, best, false); err != nil {
 		return nil, err
 	}
+	values, err := c.evaluateParetoModel(best)
+	if err != nil {
+		return nil, err
+	}
+
 	result = &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Optimal: true}
 	best = nil
 	for i := range values {

@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -69,7 +70,7 @@ func (c *Context) OptimizationCompareModel(index uint32, md *model.ModelCore, co
 		return ast.ASTRef{}, err
 	}
 	if comparison == OptimizationModelGT {
-		formula, err = hold(c.manager.MkNot(formula))
+		formula, err = hold(c.manager.MkNotSimplified(formula))
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
@@ -84,19 +85,11 @@ func (c *Context) optimizationTermModelComparison(objective *optimizationObjecti
 	if !objective.maximize {
 		isGE = !isGE
 	}
-	evaluator, err := model.NewModelEvaluator(md, c.config.ModelEvaluator)
-	if evaluator != nil {
-		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	}
+	ref, evaluated, err := c.evaluateOptimizationModel(md, objective.expression)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = evaluator.SetModelCompletion(true); err != nil {
-		return ast.ASTHandle{}, err
-	}
-	ref, err := evaluator.EvaluateValue(objective.expression)
-	if err != nil {
-		// Native returns true when model evaluation does not yield a numeral.
+	if !evaluated {
 		return c.manager.MkTrue()
 	}
 	defer func() { resultErr = errors.Join(resultErr, c.manager.DelRef(&ref)) }()
@@ -136,16 +129,7 @@ func (c *Context) optimizationSoftModelComparison(objective *optimizationObjecti
 	if objective == nil || !objective.soft {
 		return result, ast.ErrASTHandle
 	}
-	evaluator, err := model.NewModelEvaluator(md, c.config.ModelEvaluator)
-	if evaluator != nil {
-		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	}
-	if err != nil {
-		return result, err
-	}
-	if err = evaluator.SetModelCompletion(true); err != nil {
-		return result, err
-	}
+	var err error
 	service := c.manager.NumeralService()
 	if service == nil {
 		return result, ast.ErrASTHandle
@@ -174,9 +158,12 @@ func (c *Context) optimizationSoftModelComparison(objective *optimizationObjecti
 		if err = service.SetString(&coefficients[i], term.weight.RatString()); err != nil {
 			return result, err
 		}
-		ref, err := evaluator.EvaluateValue(term.expression)
+		ref, evaluated, err := c.evaluateOptimizationModel(md, term.expression)
 		if err != nil {
 			return result, err
+		}
+		if !evaluated {
+			continue
 		}
 		value, err := c.manager.RefGet(ref)
 		truth := err == nil && c.manager.IsTrue(value)
@@ -199,6 +186,35 @@ func (c *Context) optimizationSoftModelComparison(objective *optimizationObjecti
 		return hold(c.manager.MkPseudoBooleanGE(coefficients, arguments, &threshold))
 	}
 	return hold(c.manager.MkPseudoBooleanLE(coefficients, arguments, &threshold))
+}
+
+// Source model::eval constructs an evaluator per call and catches only
+// model_evaluator_exception (the rewriter_exception typedef). Allocation and
+// owner failures propagate; evaluation failure leaves the comparison neutral.
+func (c *Context) evaluateOptimizationModel(md *model.ModelCore, expression ast.ASTHandle) (ref ast.ASTRef, evaluated bool, resultErr error) {
+	defer func() {
+		if resultErr != nil && ref != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&ref))
+			ref = ast.ASTRef{}
+			evaluated = false
+		}
+	}()
+
+	evaluator, err := model.NewModelEvaluator(md, c.config.ModelEvaluator)
+	if evaluator != nil {
+		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	}
+	if err != nil {
+		return ast.ASTRef{}, false, err
+	}
+	if err = evaluator.SetModelCompletion(false); err != nil {
+		return ast.ASTRef{}, false, err
+	}
+	ref, err = evaluator.EvaluateValue(expression)
+	if rewriter.IsRewriterException(err) {
+		return ast.ASTRef{}, false, nil
+	}
+	return ref, err == nil, err
 }
 
 func (c *Context) OptimizationModelLE(index uint32, md *model.ModelCore) (ast.ASTRef, error) {
