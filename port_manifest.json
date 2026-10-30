@@ -10300,9 +10300,9 @@
       "path": "src/api/z3_interp.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_interp.go"],
-      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextErrorsAndIsolation"],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_read.go", "pkg/api/api_interp_write.go", "pkg/api/api_interp_test.go", "pkg/api/api_interp_read_test.go", "pkg/api/api_interp_write_test.go"],
+      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextSMT2Replay", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationReadEmptySequenceAndTheoryCountClamp", "TestInterpolationWriteProblemSerializesSequenceAndTree", "TestInterpolationWriteProblemRejectsInvalidParentsAndSorts"],
       "conditionals": [
         {
           "line": 19,
@@ -10329,23 +10329,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
-      "methods": [
-        {
-          "name": "retained interpolation context, marker, compute and checker contracts",
-          "status": "partial",
-          "go_target": "pkg/api/api_interp.go",
-          "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextErrorsAndIsolation"]
-        },
-        {
-          "name": "remaining profile/options, direct proof interpolation and interpolation-problem IO declarations",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
-        }
-      ],
-      "ownership": ["The Go InterpolationContext is an explicit Close owner; computed handles borrow its retained roots, and checker diagnostics are copied strings."],
+      "methods": [{"name": "interpolation context, marker construction, proof and computed interpolation, checking, profiling, and sequence/tree problem IO (z3_interp.h:32-276)", "status": "ported", "go_target": "pkg/api/api_interp.go", "go_targets": ["pkg/api/api_interp_read.go", "pkg/api/api_interp_write.go"], "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationWriteProblemSerializesSequenceAndTree", "TestInterpolationWriteProblemRejectsInvalidParentsAndSorts"]}],
+      "ownership": ["InterpolationContext explicitly owns its private proof-enabled AST context; computed handles borrow retained roots. The problem writer borrows input formulas and releases temporary marker roots, while the reader retains translated results in its context; checker diagnostics are copied strings."],
       "deviations": ["Idiomatic Go methods replace the legacy C pointer/vector surface while preserving the retained single-context ownership boundary."]
     },
     {
@@ -268127,8 +268114,13 @@
       "sources": [
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationContextBinary",
+        "TestInterpolationContextTree",
+        "TestInterpolationContextErrorsAndIsolation"
+      ],
+      "go_target": "pkg/api/api_interp.go"
     },
     {
       "name": "Z3_close_log",
@@ -268145,8 +268137,13 @@
         "src/api/api_interp.cpp",
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationContextBinary",
+        "TestInterpolationContextTree",
+        "TestInterpolationContextCompleteResultAndProofInput"
+      ],
+      "go_target": "pkg/api/api_interp.go"
     },
     {
       "name": "Z3_datatype_update_field",
@@ -269251,8 +269248,11 @@
         "src/api/api_interp.cpp",
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationContextCompleteResultAndProofInput"
+      ],
+      "go_target": "pkg/api/api_interp.go"
     },
     {
       "name": "Z3_get_model_constant",
@@ -269820,16 +269820,22 @@
       "sources": [
         "src/api/api_interp.cpp"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "dead_deleted",
+      "tests": [],
+      "deviations": [
+        "The only implementation is disabled under #if 0 in src/api/api_interp.cpp and no live declaration is retained."
+      ]
     },
     {
       "name": "Z3_interpolation_profile",
       "sources": [
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationContextBinary"
+      ],
+      "go_target": "pkg/api/api_interp.go"
     },
     {
       "name": "Z3_interrupt",
@@ -271351,16 +271357,24 @@
       "sources": [
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationContextBinary",
+        "TestInterpolationContextTree"
+      ],
+      "go_target": "pkg/api/api_interp.go"
     },
     {
       "name": "Z3_mk_interpolation_context",
       "sources": [
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationContextBinary",
+        "TestInterpolationContextErrorsAndIsolation"
+      ],
+      "go_target": "pkg/api/api_interp.go"
     },
     {
       "name": "Z3_mk_is_int",
@@ -273027,8 +273041,14 @@
       "sources": [
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationReadSequenceTheoryPrefix",
+        "TestInterpolationReadTreeParentsAndLocalConstraints",
+        "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader",
+        "TestInterpolationReadEmptySequenceAndTheoryCountClamp"
+      ],
+      "go_target": "pkg/api/api_interp_read.go"
     },
     {
       "name": "Z3_reset_memory",
@@ -273683,8 +273703,12 @@
       "sources": [
         "src/api/z3_interp.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestInterpolationWriteProblemSerializesSequenceAndTree",
+        "TestInterpolationWriteProblemRejectsInvalidParentsAndSorts"
+      ],
+      "go_target": "pkg/api/api_interp_write.go"
     }
   ],
   "baseline": "patched Z3 4.7.1.0",
