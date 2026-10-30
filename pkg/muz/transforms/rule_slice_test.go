@@ -150,6 +150,57 @@ func TestRuleSliceLeavesZeroArityOutputRulesUnchanged(t *testing.T) {
 	}
 }
 
+func TestRuleSliceRetainsNegatedPredicateColumns(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := f.manager.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		symbol, makeErr := f.manager.Symbols.Intern("slice-negated-" + name)
+		coneMust(t, makeErr)
+		declaration, makeErr := f.manager.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, makeErr)
+		coneMust(t, f.rules.RegisterPredicate(declaration))
+		return declaration
+	}
+	p := declare("P", []ast.ASTHandle{integer, integer})
+	goal := declare("Goal", nil)
+	x, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	y, err := f.manager.MkVar(1, integer)
+	coneMust(t, err)
+	pXY, err := f.manager.MkApp(p, []ast.ASTHandle{x, y})
+	coneMust(t, err)
+	goalApp, err := f.manager.MkApp(goal, nil)
+	coneMust(t, err)
+	rule, err := f.rules.NewRule(goalApp, []ast.ASTHandle{pXY}, []bool{true}, "negated-columns")
+	coneMust(t, err)
+	coneMust(t, f.set.Add(rule))
+	coneMust(t, rule.Close())
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("negated slice fixture rejected")
+	}
+
+	plugin := transforms.NewRuleSlicePlugin(f.manager, f.rules, 0)
+	transformer := base.NewRuleTransformer()
+	t.Cleanup(func() { coneMust(t, transformer.Close()) })
+	coneMust(t, transformer.Register(plugin))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if modified {
+		t.Fatal("negative-tail columns must remain unsliced")
+	}
+	if _, found := plugin.DerivedPredicate(p); found {
+		t.Fatal("negative-tail predicate acquired a sliced declaration")
+	}
+}
+
 func TestRuleSliceRetainsConstantConstrainedColumn(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
