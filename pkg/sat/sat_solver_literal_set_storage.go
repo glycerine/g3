@@ -32,6 +32,95 @@ func (s *satLiteralSetStorage) contains(l Literal) bool {
 	return uint64(l.index()) < uint64(len(s.membership)) && s.membership[l.index()]
 }
 func (s *satLiteralSetStorage) size() uint32 { return uint32(len(s.values)) }
+
+// Remove preserves uint_set::remove's swap-with-last compaction. Consequently
+// removal does not preserve insertion order, while all untouched entries keep
+// their current relative storage positions.
+func (s *satLiteralSetStorage) Remove(l Literal) error {
+	if !s.contains(l) {
+		return nil
+	}
+	index := l.index()
+	s.membership[index] = false
+	for i, value := range s.values {
+		if value != l {
+			continue
+		}
+		last := len(s.values) - 1
+		s.values[i] = s.values[last]
+		s.values[last] = 0
+		s.values = s.values[:last]
+		return nil
+	}
+	return ErrSATAssertion
+}
+
+// Pop preserves literal_set::pop and uint_set::erase: the last stored literal
+// is removed and its membership bit is cleared.
+func (s *satLiteralSetStorage) Pop() (Literal, error) {
+	if len(s.values) == 0 {
+		return 0, arena.ErrBounds
+	}
+	last := len(s.values) - 1
+	literal := s.values[last]
+	s.values[last] = 0
+	s.values = s.values[:last]
+	index := literal.index()
+	if uint64(index) >= uint64(len(s.membership)) {
+		return literal, arena.ErrBounds
+	}
+	s.membership[index] = false
+	return literal, nil
+}
+
+func (s *satLiteralSetStorage) AssignLiterals(values []Literal) error {
+	s.Reset()
+	for _, literal := range values {
+		if err := s.Insert(literal); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *satLiteralSetStorage) Assign(other *satLiteralSetStorage) {
+	if s == other {
+		return
+	}
+	s.membership = append(s.membership[:0], other.membership...)
+	s.values = append(s.values[:0], other.values...)
+}
+
+func (s *satLiteralSetStorage) ToVector() []Literal {
+	return append([]Literal(nil), s.values...)
+}
+
+func (s *satLiteralSetStorage) Intersect(other *satLiteralSetStorage) {
+	if s == other {
+		return
+	}
+	j := 0
+	for _, literal := range s.values {
+		if other.contains(literal) {
+			s.values[j] = literal
+			j++
+		} else {
+			s.membership[literal.index()] = false
+		}
+	}
+	clear(s.values[j:])
+	s.values = s.values[:j]
+}
+
+func (s *satLiteralSetStorage) Union(other *satLiteralSetStorage) error {
+	for _, literal := range other.values {
+		if err := s.Insert(literal); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *satLiteralSetStorage) Reset() {
 	s.membership = s.membership[:0]
 	s.values = s.values[:0]

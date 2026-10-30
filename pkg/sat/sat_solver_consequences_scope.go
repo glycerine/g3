@@ -173,16 +173,5 @@ func (f *satConsequenceFrame) indexSet() {
 	f.completed[k] = true
 }
 func satConsequenceSetRemove(s *satMUSLiteralSet, v uint32) error {
-	if !s.contains(Literal(v)) {
-		return nil
-	}
-	s.membership[v] = false
-	for i, l := range s.values {
-		if l.index() == v {
-			s.values[i] = s.values[len(s.values)-1]
-			s.values = s.values[:len(s.values)-1]
-			return nil
-		}
-	}
-	return ErrSATAssertion
+	return s.Remove(Literal(v))
 }
