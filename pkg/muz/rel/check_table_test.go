@@ -73,6 +73,21 @@ func TestCheckTableSourceDirectOperationsAndValidationCount(t *testing.T) {
 	}
 }
 
+func TestCheckTableBulkRemoveChecksEachFactInOrder(t *testing.T) {
+	table := newCheckTableWithFacts(t, lazySignature(t, 2), Fact{0}, Fact{1})
+	closeCheckTables(t, table)
+	before := table.CheckCount()
+	if err := table.RemoveFacts([]Fact{{0}, {0}, {1}}); err != nil {
+		t.Fatal(err)
+	}
+	if table.CheckCount()-before != 3 {
+		t.Fatal("bulk removal did not validate each source fact", before, table.CheckCount())
+	}
+	if empty, err := table.Empty(); err != nil || !empty {
+		t.Fatal("empty after bulk removal", empty, err)
+	}
+}
+
 func TestCheckTableCloneResetComplementAndLifecycle(t *testing.T) {
 	table := newCheckTableWithFacts(t, lazySignature(t, 3), Fact{0}, Fact{2})
 	clone, err := table.Clone()

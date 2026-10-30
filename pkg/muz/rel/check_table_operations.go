@@ -108,6 +108,17 @@ func (t *CheckTable) UnionFrom(source, delta *CheckTable) error {
 	return nil
 }
 
+// RemoveFacts follows table_base::remove_facts, dispatching each fact through
+// CheckTable.Remove so both backing tables are checked after each removal.
+func (t *CheckTable) RemoveFacts(facts []Fact) error {
+	for _, fact := range facts {
+		if _, err := t.Remove(fact); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *CheckTable) FilterEqual(value Element, column int) error {
 	if err := t.open(); err != nil {
 		return err
