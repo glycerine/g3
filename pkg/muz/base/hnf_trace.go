@@ -26,6 +26,16 @@ func (n *HornNormalizer) writeHornTraceExpr(w io.Writer, h ast.ASTHandle) (resul
 	if err != nil {
 		return err
 	}
+	// mk_ismt2_pp's format_ref releases the printer tree after insertion.
+	formats, err := m.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 	if err != nil {
 		return err
