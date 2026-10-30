@@ -49,7 +49,9 @@ func TestInterpolationWriteProblemSerializesSequenceAndTree(t *testing.T) {
 	if err := f.c.WriteInterpolationProblem(&withTheory, constraints[:2], nil, theory); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(withTheory.String(), "write-background") {
+	constraintPosition := strings.Index(withTheory.String(), "write-a")
+	theoryPosition := strings.Index(withTheory.String(), "write-background")
+	if constraintPosition < 0 || theoryPosition <= constraintPosition {
 		t.Fatal("writer omitted a source theory assertion")
 	}
 	var empty bytes.Buffer

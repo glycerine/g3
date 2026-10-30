@@ -13,7 +13,8 @@ import (
 
 // WriteInterpolationProblem writes the source interpolation file format for
 // sequence constraints (parents == nil) or a tree whose root is the last
-// constraint. Theory formulas are emitted before the constraints.
+// constraint. Theory formulas follow the constraints, matching the source
+// vector append order.
 func (c *InterpolationContext) WriteInterpolationProblem(out io.Writer, constraints []ast.ASTHandle, parents []int, theory []ast.ASTHandle) (resultErr error) {
 	if err := c.open(); err != nil {
 		return err
@@ -99,7 +100,7 @@ func (c *InterpolationContext) WriteInterpolationProblem(out io.Writer, constrai
 		return err
 	}
 	allAssertions := make([]ast.ASTHandle, 0, len(theory)+len(constraints))
-	allAssertions = append(allAssertions, theory...)
 	allAssertions = append(allAssertions, constraints...)
+	allAssertions = append(allAssertions, theory...)
 	return interp.PrettyPrintProblem(c.manager, allAssertions, pattern, out)
 }
