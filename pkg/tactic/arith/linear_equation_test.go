@@ -90,6 +90,9 @@ func TestLinearEquationIntegerCoalesceSortNormalizeAndReuse(t *testing.T) {
 	if eq == nil || eq.Size() != 2 || eq.Pos(1) != 0 || eq.Pos(3) != 1 || eq.Pos(5) != noEquationPosition {
 		t.Fatalf("coalesced equation variables: eq=%v xs=%v", eq, xs)
 	}
+	if x, err := eq.Var(0); err != nil || x != 1 {
+		t.Fatalf("first sorted variable = %d, %v", x, err)
+	}
 	var out bytes.Buffer
 	equationMust(t, l.Display(&out, eq))
 	if got := out.String(); got != "1*x1 + 2*x3 = 0" {

@@ -167605,12 +167605,18 @@
       "path": "src/tactic/arith/linear_equation.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/linear_equation.go",
         "pkg/tactic/arith/linear_equation_test.go",
         "pkg/tactic/arith/linear_equation_trace.go",
-        "pkg/tactic/arith/linear_equation_debug.go"
+        "pkg/tactic/arith/linear_equation_debug.go",
+        "pkg/tactic/arith/bound_equation_store.go",
+        "pkg/tactic/arith/bound_equation_store_test.go",
+        "pkg/tactic/arith/bound_propagation.go",
+        "pkg/tactic/arith/bound_propagation_test.go",
+        "pkg/tactic/arith/propagate_ineq_tactic.go",
+        "pkg/tactic/arith/propagate_ineq_tactic_test.go"
       ],
       "tests": [
         "TestLinearEquationIntegerCoalesceSortNormalizeAndReuse",
@@ -167619,7 +167625,12 @@
         "TestLinearEquationSourceConstructionTrace",
         "TestLinearEquationCoreSourceSortedDebugGuard",
         "TestLinearEquationNormalizedSourceDuplicateDebugGuard",
-        "TestLinearEquationCombineZeroMultiplierSourceAssertionProfile"
+        "TestLinearEquationCombineZeroMultiplierSourceAssertionProfile",
+        "TestBoundEquationStoreVariablesWatchesAndConstraintOwnership",
+        "TestBoundEquationImmediateAndWatchedPropagation",
+        "TestBoundEquationNegativeCoefficientAndDeadConstraint",
+        "TestBoundEquationFullyBoundedTighteningAndStrictness",
+        "TestPropagateIneqTacticParameterSnapshotCleanupAndGoalReuse"
       ],
       "assertions": [
         {
@@ -167655,14 +167666,16 @@
           "text": "SASSERT(m_int_buffer.size() == m_var_buffer.size());"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete linear_equation::del coefficient-order release with stopped Go numeral cleanup continuation (linear_equation.cpp:273-280)",
           "status": "ported",
           "go_target": "pkg/tactic/arith/linear_equation.go",
-          "tests": ["TestLinearEquationCloseResumesAfterStoppedCoefficientRelease"]
+          "tests": [
+            "TestLinearEquationCloseResumesAfterStoppedCoefficientRelease"
+          ]
         },
         {
           "name": "concrete integer and rational equation constructors, exact duplicate coalescing, denominator clearing, sorting, gcd normalization and owned coefficient copy",
@@ -167683,10 +167696,14 @@
           ]
         },
         {
-          "name": "integration into bound_propagator and propagate_ineqs_tactic, source assertion and failure paths",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "Construction integration, assertions and failure handling through the Go bound-equation store and propagate-inequalities tactic",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bound_equation_store.go",
+          "tests": [
+            "TestBoundEquationStoreVariablesWatchesAndConstraintOwnership",
+            "TestBoundEquationImmediateAndWatchedPropagation",
+            "TestPropagateIneqTacticParameterSnapshotCleanupAndGoalReuse"
+          ]
         },
         {
           "name": "Retained rational LCM and before/after coefficient TRACE, and integer gcd normalization TRACE at source sites",
@@ -167724,30 +167741,45 @@
           "name": "Rational constructor SASSERT(sz > 1) at line 60 with normalized release singleton continuation",
           "status": "ported",
           "go_target": "pkg/tactic/arith/linear_equation_debug.go",
-          "go_targets": ["pkg/tactic/arith/linear_equation.go"],
-          "tests": ["TestLinearEquationRationalSingletonSourceAssertionProfile"]
+          "go_targets": [
+            "pkg/tactic/arith/linear_equation.go"
+          ],
+          "tests": [
+            "TestLinearEquationRationalSingletonSourceAssertionProfile"
+          ]
         }
       ],
       "ownership": [
         "The equation owns copies of integer coefficients; caller inputs remain caller-owned but are mutated by source constructors. The manager borrows the rational numeral owner and owns reusable integer buffers, which close after equations are released."
       ],
       "deviations": [
-        "Native Go slices replace small-object allocator storage, scalar vectors and mark bits. Source C++ integer/rational algorithm branches are represented by concrete Go methods; consumer integration and full source diagnostic/failure behavior remain open."
+        "Native Go slices replace the source small-object allocator, scalar vectors, and mark bits. Only the concrete exact-integer, exact-rational, and approximate-double behavior used by bound propagation is implemented; the C++ get_a template overloads have no source call sites and are not represented as generic adapters."
       ]
     },
     {
       "path": "src/tactic/arith/linear_equation.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/linear_equation.go",
-        "pkg/tactic/arith/linear_equation_test.go"
+        "pkg/tactic/arith/linear_equation_test.go",
+        "pkg/tactic/arith/bound_equation_store.go",
+        "pkg/tactic/arith/bound_equation_store_test.go",
+        "pkg/tactic/arith/bound_propagation.go",
+        "pkg/tactic/arith/bound_propagation_test.go",
+        "pkg/tactic/arith/propagate_ineq_tactic.go",
+        "pkg/tactic/arith/propagate_ineq_tactic_test.go"
       ],
       "tests": [
         "TestLinearEquationIntegerCoalesceSortNormalizeAndReuse",
         "TestLinearEquationIntegerCancellationAndLargeOwnership",
-        "TestLinearEquationRationalDenominatorClearingAndCombination"
+        "TestLinearEquationRationalDenominatorClearingAndCombination",
+        "TestBoundEquationStoreVariablesWatchesAndConstraintOwnership",
+        "TestBoundEquationImmediateAndWatchedPropagation",
+        "TestBoundEquationNegativeCoefficientAndDeadConstraint",
+        "TestBoundEquationFullyBoundedTighteningAndStrictness",
+        "TestPropagateIneqTacticParameterSnapshotCleanupAndGoalReuse"
       ],
       "conditionals": [
         {
@@ -167773,14 +167805,16 @@
           "text": "var x(unsigned idx) const { SASSERT(idx < m_size); return m_xs[idx]; }"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete owned linear_equation coefficient release and stopped Go cleanup continuation (linear_equation.cpp:273-280)",
           "status": "ported",
           "go_target": "pkg/tactic/arith/linear_equation.go",
-          "tests": ["TestLinearEquationCloseResumesAfterStoppedCoefficientRelease"]
+          "tests": [
+            "TestLinearEquationCloseResumesAfterStoppedCoefficientRelease"
+          ]
         },
         {
           "name": "concrete integer and rational equation constructors, exact duplicate coalescing, denominator clearing, sorting, gcd normalization and owned coefficient copy",
@@ -167801,17 +167835,21 @@
           ]
         },
         {
-          "name": "integration into bound_propagator and propagate_ineqs_tactic, source assertion and failure paths",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "Construction integration, assertions and failure handling through the Go bound-equation store and propagate-inequalities tactic",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bound_equation_store.go",
+          "tests": [
+            "TestBoundEquationStoreVariablesWatchesAndConstraintOwnership",
+            "TestBoundEquationImmediateAndWatchedPropagation",
+            "TestPropagateIneqTacticParameterSnapshotCleanupAndGoalReuse"
+          ]
         }
       ],
       "ownership": [
         "The equation owns copies of integer coefficients; caller inputs remain caller-owned but are mutated by source constructors. The manager borrows the rational numeral owner and owns reusable integer buffers, which close after equations are released."
       ],
       "deviations": [
-        "Native Go slices replace small-object allocator storage, scalar vectors and mark bits. Source C++ integer/rational algorithm branches are represented by concrete Go methods; consumer integration and full source diagnostic/failure behavior remain open."
+        "Native Go slices replace the source small-object allocator, scalar vectors, and mark bits. Only the concrete exact-integer, exact-rational, and approximate-double behavior used by bound propagation is implemented; the C++ get_a template overloads have no source call sites and are not represented as generic adapters."
       ]
     },
     {
