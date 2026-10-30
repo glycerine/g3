@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
@@ -39,6 +40,7 @@ type ExecutionContext struct {
 	annotations map[uint32]string
 	relations   *RelationManager
 	terminate   func() bool
+	process     *memory.ProcessAccounting
 	timeLimit   time.Duration
 	started     time.Time
 	stats       ExecutionStats
@@ -55,7 +57,11 @@ func NewExecutionContextWithRelations(relations *RelationManager, terminate func
 	if err := relations.open(); err != nil {
 		return nil, err
 	}
-	return &ExecutionContext{annotations: make(map[uint32]string), relations: relations, terminate: terminate}, nil
+	var process *memory.ProcessAccounting
+	if numerals := relations.manager.NumeralService(); numerals != nil && numerals.RuntimeOwner() != nil {
+		process = numerals.RuntimeOwner().ProcessOwner()
+	}
+	return &ExecutionContext{annotations: make(map[uint32]string), relations: relations, terminate: terminate, process: process}, nil
 }
 
 func (c *ExecutionContext) open() error {
@@ -142,7 +148,7 @@ func (c *ExecutionContext) SetRegisterAnnotation(index uint32, value string) err
 }
 
 func (c *ExecutionContext) ShouldTerminate() bool {
-	return c == nil || c.closed || c.terminate != nil && c.terminate() || c.timeLimit != 0 && time.Since(c.started) > c.timeLimit
+	return c == nil || c.closed || c.terminate != nil && c.terminate() || c.process != nil && c.process.AboveWatermark() || c.timeLimit != 0 && time.Since(c.started) > c.timeLimit
 }
 
 // SetTimeLimit starts a fresh source-style per-execution timeout. A zero limit
@@ -268,6 +274,7 @@ func (c *ExecutionContext) Close() error {
 	c.registers = nil
 	clear(c.annotations)
 	c.annotations = nil
+	c.process = nil
 	c.closed = true
 	return err
 }

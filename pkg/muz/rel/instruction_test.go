@@ -9,7 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func instructionTable(t *testing.T, values ...Element) *HashTable {
@@ -196,6 +201,102 @@ func TestExecutionContextTimeoutReportingAndRegisterOwnership(t *testing.T) {
 	}
 	if _, err := last.Len(); err == nil {
 		t.Fatal("close did not retire register table")
+	}
+}
+
+func TestExecutionContextRelationBindingChecksProcessWatermark(t *testing.T) {
+	budget := arena.NewBudget(1 << 26)
+	t.Cleanup(func() {
+		if budget.Used() != 0 {
+			t.Errorf("process-bound test retained budget %d", budget.Used())
+		}
+	})
+	process := memory.NewProcessAccounting()
+	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, Process: process, SizeTBits: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	symbols, err := symbol.NewManager(symbol.Config{Budget: budget})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := symbols.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	numerals, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{
+		Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}},
+		Memory: runtime, Process: process,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := numerals.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numerals, Budget: budget})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := manager.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	relations, err := NewRelationManager(manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := relations.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	context, err := NewExecutionContextWithRelations(relations, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	block, err := runtime.Allocate(8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if block != (memory.Block{}) {
+			if err := runtime.Deallocate(&block); err != nil {
+				t.Error(err)
+			}
+		}
+	})
+	if err = runtime.SetWatermark(1); err != nil {
+		t.Fatal(err)
+	}
+	if !context.ShouldTerminate() {
+		t.Fatal("execution context ignored the bound process high watermark")
+	}
+	if err = runtime.Deallocate(&block); err != nil {
+		t.Fatal(err)
+	}
+	if err = runtime.SetWatermark(process.AllocationSize()); err != nil {
+		t.Fatal(err)
+	}
+	if process.AboveWatermark() {
+		t.Fatal("process remained above watermark after release")
+	}
+	if context.ShouldTerminate() {
+		t.Fatal("execution context retained a stale watermark result")
 	}
 }
 
