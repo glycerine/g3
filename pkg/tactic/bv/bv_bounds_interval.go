@@ -2,49 +2,57 @@ package bv
 
 // Source: src/ast/rewriter/bv_bounds_base.h interval operations.
 
-import "math/big"
+import (
+	"math/big"
+
+	"github.com/glycerine/g3/pkg/math/interval"
+)
 
 type bvBoundsRange struct{ lo, hi *big.Int }
 type bvBoundsSet struct {
 	width  uint32
 	ranges []bvBoundsRange
+	tight  bool
 }
 
 func bvBI(v *big.Int) *big.Int { return new(big.Int).Set(v) }
 func bvBoundsSingleton(width uint32, v *big.Int) bvBoundsSet {
-	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{bvBI(v), bvBI(v)}}}
+	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{bvBI(v), bvBI(v)}}, tight: true}
 }
 func bvBoundsRangeSet(width uint32, lo, hi *big.Int) bvBoundsSet {
 	if lo.Cmp(hi) > 0 {
-		return bvBoundsSet{width: width}
+		return bvBoundsSet{width: width, tight: true}
 	}
-	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{bvBI(lo), bvBI(hi)}}}
+	return bvBoundsSet{width: width, ranges: []bvBoundsRange{{bvBI(lo), bvBI(hi)}}, tight: true}
+}
+func bvBoundsLooseRangeSet(width uint32, lo, hi *big.Int) bvBoundsSet {
+	b := bvBoundsRangeSet(width, lo, hi)
+	b.tight = false
+	return b
 }
 func (b bvBoundsSet) singleton() (*big.Int, bool) {
-	if len(b.ranges) == 1 && b.ranges[0].lo.Cmp(b.ranges[0].hi) == 0 {
-		return bvBI(b.ranges[0].lo), true
+	v, ok := b.modularInterval()
+	if ok && v.IsSingleton() {
+		return v.Lower(), true
 	}
 	return nil, false
 }
 func (b bvBoundsSet) empty() bool { return len(b.ranges) == 0 }
 func (b bvBoundsSet) intersect(o bvBoundsSet) bvBoundsSet {
-	r := bvBoundsSet{width: b.width}
-	for _, a := range b.ranges {
-		for _, z := range o.ranges {
-			lo := a.lo
-			if z.lo.Cmp(lo) > 0 {
-				lo = z.lo
-			}
-			hi := a.hi
-			if z.hi.Cmp(hi) < 0 {
-				hi = z.hi
-			}
-			if lo.Cmp(hi) <= 0 {
-				r.ranges = append(r.ranges, bvBoundsRange{bvBI(lo), bvBI(hi)})
-			}
-		}
+	if b.empty() || o.empty() || b.width != o.width {
+		return bvBoundsSet{width: b.width, tight: b.tight && o.tight}
 	}
-	return r.normalize()
+	a, aok := b.modularInterval()
+	z, zok := o.modularInterval()
+	if !aok || !zok {
+		return bvBoundsSet{width: b.width}
+	}
+	var result interval.ModularInterval
+	used, err := a.Intersect(z, &result)
+	if err != nil || !used {
+		return bvBoundsSet{width: b.width, tight: b.tight && o.tight}
+	}
+	return bvBoundsFromModularInterval(&result)
 }
 func (b bvBoundsSet) normalize() bvBoundsSet {
 	if len(b.ranges) < 2 {
@@ -57,7 +65,7 @@ func (b bvBoundsSet) normalize() bvBoundsSet {
 			}
 		}
 	}
-	out := bvBoundsSet{width: b.width}
+	out := bvBoundsSet{width: b.width, tight: b.tight}
 	for _, r := range b.ranges {
 		n := len(out.ranges)
 		if n == 0 || new(big.Int).Add(out.ranges[n-1].hi, big.NewInt(1)).Cmp(r.lo) < 0 {
@@ -70,32 +78,48 @@ func (b bvBoundsSet) normalize() bvBoundsSet {
 	}
 	return out
 }
-func (b bvBoundsSet) implies(o bvBoundsSet) bool { return b.intersect(o).equal(b) }
-func (b bvBoundsSet) equal(o bvBoundsSet) bool {
-	b = b.normalize()
-	o = o.normalize()
-	if b.width != o.width || len(b.ranges) != len(o.ranges) {
+func (b bvBoundsSet) implies(o bvBoundsSet) bool {
+	if b.width != o.width {
 		return false
 	}
-	for i := range b.ranges {
-		if b.ranges[i].lo.Cmp(o.ranges[i].lo) != 0 || b.ranges[i].hi.Cmp(o.ranges[i].hi) != 0 {
-			return false
-		}
+	if b.empty() {
+		return true
 	}
-	return true
+	if o.empty() {
+		return false
+	}
+	a, aok := b.modularInterval()
+	z, zok := o.modularInterval()
+	if !aok || !zok {
+		return false
+	}
+	result, err := a.Implies(z)
+	return err == nil && result
+}
+func (b bvBoundsSet) equal(o bvBoundsSet) bool {
+	if b.width != o.width || b.empty() || o.empty() {
+		return b.width == o.width && b.empty() && o.empty() && b.tight == o.tight
+	}
+	a, aok := b.modularInterval()
+	z, zok := o.modularInterval()
+	if !aok || !zok {
+		return false
+	}
+	result, err := a.Equal(z)
+	return err == nil && result
 }
 func (b bvBoundsSet) complement() bvBoundsSet {
-	max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(b.width)), big.NewInt(1))
-	cur := big.NewInt(0)
-	out := bvBoundsSet{width: b.width}
-	for _, r := range b.normalize().ranges {
-		if cur.Cmp(r.lo) < 0 {
-			out.ranges = append(out.ranges, bvBoundsRange{bvBI(cur), new(big.Int).Sub(r.lo, big.NewInt(1))})
-		}
-		cur = new(big.Int).Add(r.hi, big.NewInt(1))
+	if b.empty() {
+		return bvBoundsRangeSet(b.width, big.NewInt(0), bvBoundsMaximum(b.width))
 	}
-	if cur.Cmp(max) <= 0 {
-		out.ranges = append(out.ranges, bvBoundsRange{bvBI(cur), max})
+	v, ok := b.modularInterval()
+	if !ok {
+		return bvBoundsSet{width: b.width}
 	}
-	return out
+	var result interval.ModularInterval
+	used, err := v.Negate(&result)
+	if err != nil || !used {
+		return bvBoundsSet{width: b.width, tight: true}
+	}
+	return bvBoundsFromModularInterval(&result)
 }
