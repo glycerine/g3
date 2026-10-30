@@ -31,6 +31,9 @@ func TestSparseTablePackedFunctionalStorage(t *testing.T) {
 	if !ok {
 		t.Fatal()
 	}
+	if ok, e = x.Contains(Fact{2, 4, 0}); e != nil || ok {
+		t.Fatalf("same functional key with a different suffix: found=%v err=%v", ok, e)
+	}
 	facts, e := x.Facts()
 	must(t, e)
 	if len(facts) != 1 || facts[0][2] != 1 {

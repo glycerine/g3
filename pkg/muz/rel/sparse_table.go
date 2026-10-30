@@ -39,8 +39,20 @@ func (t *SparseTable) Contains(f Fact) (bool, error) {
 	if e != nil {
 		return false, e
 	}
-	_, ok := t.data.find(packed)
-	return ok, nil
+	index, ok := t.data.find(packed)
+	if !ok {
+		return false, nil
+	}
+	if t.functional == 0 {
+		return true, nil
+	}
+	stored := t.layout.unpack(t.data.entries[index])
+	for column := t.signature.Len() - t.functional; column < t.signature.Len(); column++ {
+		if stored[column] != f[column] {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 func (t *SparseTable) Remove(f Fact) (bool, error) {
 	if e := t.open(); e != nil {
