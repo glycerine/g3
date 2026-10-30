@@ -5613,7 +5613,7 @@
       "path": "src/api/api_interp.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go", "pkg/api/api_interp_read.go", "pkg/api/api_interp_read_test.go", "pkg/interp/orchestration.go"],
       "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextSMT2Replay", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults", "TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationReadEmptySequenceAndTheoryCountClamp"],
       "conditionals": [
@@ -5654,7 +5654,7 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
@@ -5696,14 +5696,14 @@
           "tests": ["TestInterpolationContextBinary"]
         },
         {
-          "name": "private interpolation options surface",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "private interpolation option typedef/setter helpers and disabled direct interpolation entry point",
+          "status": "platform_replacement",
+          "go_target": "pkg/interp/interpolator.go",
+          "tests": ["TestInterpolationOptionsErrorsAndLinearParents"]
         }
       ],
       "ownership": ["InterpolationContext owns a private proof-enabled AST manager, parameter services, solver factory, markers and returned interpolants. Complete SAT/UNKNOWN results transfer one acquired model reference to the caller, which must decrement it before context teardown. CheckInterpolants owns and closes one short-lived verification solver and returns copied Go diagnostics."],
-      "deviations": ["The complete Go result returns status, borrowed interpolants and an owning model directly instead of C output pointers; the UNSAT-only convenience wrapper preserves distinct SAT/UNKNOWN errors. Interpolation problem export writes to an io.Writer or returns an owned Go string instead of accepting a native filename. CheckInterpolants uses slices and returns (valid, diagnostics, error); it accepts the source root parent entry but does not inspect it."]
+      "deviations": ["The complete Go result returns status, borrowed interpolants and an owning model directly instead of C output pointers; the UNSAT-only convenience wrapper preserves distinct SAT/UNKNOWN errors. Interpolation problem export writes to an io.Writer or returns an owned Go string instead of accepting a native filename. CheckInterpolants uses slices and returns (valid, diagnostics, error); it accepts the source root parent entry but does not inspect it. Private interpolation option helpers are not declared in the public interpolation header; the live weak-mode behavior is carried by interp.Options/RunConfig. Public compute/proof APIs ignore the legacy options pointer, and Z3_interpolate remains disabled under #if 0."]
     },
     {
       "path": "src/api/api_log.cpp",

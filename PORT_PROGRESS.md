@@ -50789,3 +50789,6 @@ Interpolation-problem reader (2026-10-30 UTC): ported `Z3_read_interpolation_pro
 
 
 Interpolation profiling API (2026-10-30 UTC): connected the retained profiler to context solve, proof preparation, proof translation, and proof interpolation phases, and exposed the per-context report as `InterpolationProfile`. The focused `interp` and API interpolation suites pass, and tests verify all four source phase labels. The unexposed private options type remains open for consumer audit.
+
+
+Interpolation API source-unit audit (2026-10-30 UTC): closed `src/api/api_interp.cpp` after verifying its live context, proof-input, solve, check, write/read, and profile operations. The private option helpers are absent from the public interpolation header; weak-mode behavior is represented by `interp.Options`, the public interpolation API ignores its legacy options pointer, and the direct `Z3_interpolate` entry point is disabled under `#if 0`. Focused interpolation API tests pass.
