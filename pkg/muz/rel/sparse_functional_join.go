@@ -34,21 +34,11 @@ func (left *SparseTable) JoinFunctional(right *SparseTable, leftColumns, rightCo
 	rightFacts, _ := right.Facts()
 	leftFirst := left.signature.Len() - left.functional
 	rightFirst := right.signature.Len() - right.functional
-	for _, first := range leftFacts {
-		for _, second := range rightFacts {
-			match := true
-			for i := range leftColumns {
-				if first[leftColumns[i]] != second[rightColumns[i]] {
-					match = false
-					break
-				}
-			}
-			if match {
-				if _, err = result.Add(sparseFunctionalJoinFact(first, second, leftFirst, rightFirst)); err != nil {
-					return nil, err
-				}
-			}
-		}
+	if err = sparseJoinTraversal(leftFacts, rightFacts, leftColumns, rightColumns, func(first, second Fact) error {
+		_, addErr := result.Add(sparseFunctionalJoinFact(first, second, leftFirst, rightFirst))
+		return addErr
+	}); err != nil {
+		return nil, err
 	}
 	return result, nil
 }

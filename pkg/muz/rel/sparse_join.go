@@ -1,5 +1,39 @@
 package rel
 
+func sparseJoinTraversal(leftFacts, rightFacts []Fact, leftColumns, rightColumns []int, emit func(Fact, Fact) error) error {
+	match := func(left, right Fact, leftCols, rightCols []int) bool {
+		for index := range leftCols {
+			if left[leftCols[index]] != right[rightCols[index]] {
+				return false
+			}
+		}
+		return true
+	}
+	swapped := (len(leftFacts) > len(rightFacts)) == (len(leftColumns) != 0)
+	if swapped {
+		for _, right := range rightFacts {
+			for _, left := range leftFacts {
+				if match(left, right, leftColumns, rightColumns) {
+					if err := emit(left, right); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	}
+	for _, left := range leftFacts {
+		for _, right := range rightFacts {
+			if match(left, right, leftColumns, rightColumns) {
+				if err := emit(left, right); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, error) {
 	if e := a.open(); e != nil {
 		return nil, e
@@ -21,37 +55,11 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 	}
 	af, _ := a.Facts()
 	bf, _ := b.Facts()
-	// Match sparse_table_plugin::join_project_fn: for joins, scan the smaller
-	// table outside and index the larger one; for a product, keep the larger
-	// table outside. Preserve the original left/right result column order when
-	// the scan roles are swapped.
-	swapped := (len(af) > len(bf)) == (len(left) != 0)
-	if swapped {
-		af, bf = bf, af
-		left, right = right, left
-	}
-	for _, outer := range af {
-		for _, inner := range bf {
-			match := true
-			for i := range left {
-				if outer[left[i]] != inner[right[i]] {
-					match = false
-					break
-				}
-			}
-			if match {
-				var row Fact
-				if swapped {
-					row = append(append(Fact(nil), inner...), outer...)
-				} else {
-					row = append(append(Fact(nil), outer...), inner...)
-				}
-				_, e = out.Add(row)
-				if e != nil {
-					return nil, e
-				}
-			}
-		}
+	if e = sparseJoinTraversal(af, bf, left, right, func(x, y Fact) error {
+		_, addErr := out.Add(append(append(Fact(nil), x...), y...))
+		return addErr
+	}); e != nil {
+		return nil, e
 	}
 	return out, nil
 }
