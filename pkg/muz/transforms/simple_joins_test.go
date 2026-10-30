@@ -47,14 +47,18 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 	coneMust(t, err)
 	coneMust(t, set.Add(rule2))
 	coneMust(t, rule2.Close())
+	shortConsumer, err := rules.NewRule(applications[4], applications[:2], nil, "two-tail-consumer")
+	coneMust(t, err)
+	coneMust(t, set.Add(shortConsumer))
+	coneMust(t, shortConsumer.Close())
 	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
 	transformed, err := plugin.Transform(set)
 	coneMust(t, err)
 	if transformed == nil {
 		t.Fatal("four-tail rules were not transformed")
 	}
-	if count, x := transformed.Len(); x != nil || count != 4 {
-		t.Fatalf("two four-tail rules yielded %d outputs, want two parents and two shared helpers: %v", count, x)
+	if count, x := transformed.Len(); x != nil || count != 5 {
+		t.Fatalf("four-tail rules and a short consumer yielded %d outputs, want three parents and two shared helpers: %v", count, x)
 	}
 	main, err := transformed.Rule(0)
 	coneMust(t, err)
@@ -78,14 +82,26 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 	if len(fresh) != 2 {
 		t.Fatalf("fresh split predicates = %d, want two staged binary joins", len(fresh))
 	}
+	suffixes := make(map[string]bool)
 	for _, declaration := range fresh {
 		name, x := manager.GetASTName(declaration)
 		coneMust(t, x)
 		text, x := manager.Symbols.String(name)
 		coneMust(t, x)
-		if !strings.HasPrefix(text, "simple-name-Goal_and_1!split!") {
+		if !strings.HasPrefix(text, "simple-name-Goal_and_") || !strings.Contains(text, "!split!") {
 			t.Fatalf("shared split predicate name %q does not retain source multi-parent naming", text)
 		}
+		for _, suffix := range []string{"_and_1!split!", "_and_2!split!"} {
+			if strings.Contains(text, suffix) {
+				suffixes[suffix] = true
+			}
+		}
+	}
+	if !suffixes["_and_1!split!"] || !suffixes["_and_2!split!"] {
+		t.Fatalf("shared helper names did not preserve source pair-consumer counts: %v", suffixes)
+	}
+	if count, x := transformed.Len(); x != nil || count != 5 {
+		t.Fatalf("long and short consumers yielded %d outputs, want three rewritten rules and two helpers: %v", count, x)
 	}
 }
 
