@@ -115,6 +115,27 @@ func TestHashTableSetCloneAndValidation(t *testing.T) {
 	}
 }
 
+func TestHashTableSourceDefaultSizeEstimates(t *testing.T) {
+	table := rel.NewHashTable(newSignature(t, []uint64{3, 2, 4}))
+	add(t, table, 1, 0, 2)
+	add(t, table, 2, 1, 3)
+	if rows, err := table.SizeEstimateRows(); err != nil || rows != ^uint32(0) {
+		t.Fatalf("row estimate: %d, %v", rows, err)
+	}
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != ^uint32(0) {
+		t.Fatalf("byte estimate: %d, %v", bytes, err)
+	}
+	emptySignature := newSignature(t, nil)
+	empty := rel.NewHashTable(emptySignature)
+	add(t, empty)
+	if rows, err := empty.SizeEstimateRows(); err != nil || rows != ^uint32(0) {
+		t.Fatalf("zero-arity row estimate: %d, %v", rows, err)
+	}
+	if bytes, err := empty.SizeEstimateBytes(); err != nil || bytes != ^uint32(0) {
+		t.Fatalf("zero-arity byte estimate: %d, %v", bytes, err)
+	}
+}
+
 func TestHashTableJoinProjectSelectionAndRename(t *testing.T) {
 	left := rel.NewHashTable(newSignature(t, []uint64{4, 3}))
 	right := rel.NewHashTable(newSignature(t, []uint64{3, 2}))

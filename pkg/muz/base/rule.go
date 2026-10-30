@@ -23,16 +23,18 @@ type ruleTail struct {
 }
 
 type ruleState struct {
-	manager       *ast.ASTManager
-	head          ast.ASTHandle
-	headReference ast.ASTRef
-	tail          []ruleTail
-	positive      int
-	uninterpreted int
-	name          string
-	references    uint32
-	accounting    *AccountedObject
-	released      bool
+	manager        *ast.ASTManager
+	head           ast.ASTHandle
+	headReference  ast.ASTRef
+	tail           []ruleTail
+	positive       int
+	uninterpreted  int
+	name           string
+	proofReference ast.ASTRef
+	hasProof       bool
+	references     uint32
+	accounting     *AccountedObject
+	released       bool
 }
 
 // Rule is one owning reference to a Horn-rule representation. Tail order
@@ -369,6 +371,50 @@ func (r *Rule) Name() (string, error) {
 	return state.name, nil
 }
 
+// Proof returns the borrowed proof currently attached to this shared rule.
+func (r *Rule) Proof() (ast.ASTHandle, bool, error) {
+	state, err := r.open()
+	if err != nil {
+		return ast.ASTHandle{}, false, err
+	}
+	if !state.hasProof {
+		return ast.ASTHandle{}, false, nil
+	}
+	proof, err := state.manager.RefGet(state.proofReference)
+	return proof, err == nil, err
+}
+
+// SetProof replaces the source rule's owning proof reference. Passing a null
+// handle clears it, matching rule::set_proof(nullptr).
+func (r *Rule) SetProof(proof ast.ASTHandle) (resultErr error) {
+	state, err := r.open()
+	if err != nil {
+		return err
+	}
+	var replacement ast.ASTRef
+	hasReplacement := !proof.IsNull()
+	if hasReplacement {
+		isProof, proofErr := state.manager.IsProof(proof)
+		if proofErr != nil {
+			return proofErr
+		}
+		if !isProof {
+			return fmt.Errorf("muz/base: rule proof is not an AST proof")
+		}
+		replacement, err = state.manager.NewRef(proof)
+		if err != nil {
+			return err
+		}
+	}
+	previous, hadPrevious := state.proofReference, state.hasProof
+	state.proofReference = replacement
+	state.hasProof = hasReplacement
+	if hadPrevious {
+		resultErr = state.manager.DelRef(&previous)
+	}
+	return resultErr
+}
+
 func (r *Rule) TailSize() (int, error) {
 	state, err := r.open()
 	if err != nil {
@@ -551,6 +597,10 @@ func (r *Rule) Close() (result error) {
 	if state.accounting != nil {
 		result = errors.Join(result, state.accounting.Close())
 		state.accounting = nil
+	}
+	if state.hasProof {
+		result = errors.Join(result, state.manager.DelRef(&state.proofReference))
+		state.hasProof = false
 	}
 	for i := len(state.tail) - 1; i >= 0; i-- {
 		result = errors.Join(result, state.manager.DelRef(&state.tail[i].reference))

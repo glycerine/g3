@@ -95,6 +95,36 @@ func TestHornNormalizerKeepsVariableAntecedent(t *testing.T) {
 	}
 }
 
+func TestRuleManagerAddFormulaRemovesNestedLabels(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q")
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	labelName, err := f.manager.Symbols.Intern("source-label")
+	ruleMust(t, err)
+	inner, err := f.manager.MkLabel(true, []symbol.Symbol{labelName}, f.app["P"])
+	ruleMust(t, err)
+	outer, err := f.manager.MkLabel(false, []symbol.Symbol{labelName}, inner)
+	ruleMust(t, err)
+	formula, err := f.manager.MkImplies(outer, f.app["Q"])
+	ruleMust(t, err)
+	formulaReference, err := f.manager.NewRef(formula)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, f.manager.DelRef(&formulaReference)) })
+	ruleMust(t, f.rules.AddFormula(set, formula, "labelled-rule"))
+	if count, getErr := set.Len(); getErr != nil || count != 1 {
+		t.Fatalf("labelled formula generated %d rules, %v", count, getErr)
+	}
+	rule, err := set.Rule(0)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, rule.Close()) })
+	tail, negated, err := rule.Tail(0)
+	ruleMust(t, err)
+	if tail != f.app["P"] || negated {
+		t.Fatalf("label removal produced tail %v (negated %v), want P", tail, negated)
+	}
+}
+
 func TestHornNormalizerSplitsSingletonDisjunction(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q", "R")
 	set, err := base.NewRuleSet(f.rules)

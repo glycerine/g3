@@ -2,7 +2,6 @@ package base_test
 
 import (
 	"bytes"
-	"strings"
 	"testing"
 )
 
@@ -15,7 +14,7 @@ func TestRuleManagerWriteRuleFormulaAndString(t *testing.T) {
 	ruleMust(t, f.rules.WriteRuleFormula(&out, rule))
 	text, err := f.rules.RuleFormulaString(rule)
 	ruleMust(t, err)
-	if out.String() != text || !strings.Contains(text, "forall") || !strings.Contains(text, "analysis-P") {
+	if out.String() != text || text != "(forall ((A Int)) (analysis-P A))" {
 		t.Fatal("rule display", text)
 	}
 }

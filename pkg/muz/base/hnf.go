@@ -486,6 +486,28 @@ func (m *RuleManager) AddFormula(set *RuleSet, formula ast.ASTHandle, name strin
 	if set == nil || set.manager != m {
 		return ErrRuleSetOwner
 	}
+	labelRewriter, err := rewriter.NewLabelRewriter(m.manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, labelRewriter.Close()) }()
+	formulaReference, err := m.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&formulaReference)) }()
+	proofReference, err := m.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&proofReference)) }()
+	if err = labelRewriter.RemoveLabels(formulaReference, proofReference); err != nil {
+		return err
+	}
+	formula, err = m.manager.RefGet(formulaReference)
+	if err != nil {
+		return err
+	}
 	normalizer, err := NewHornNormalizer(m.manager, name)
 	if err != nil {
 		return err

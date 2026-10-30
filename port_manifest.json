@@ -81685,8 +81685,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestReachabilityRunsFromIngestedHornProgram"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "assertions": [
         {
           "line": 64,
@@ -81733,10 +81733,28 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "rule_manager::mk concrete head/tail construction and native positive-predicate, negative-predicate, interpreted-tail layout; rule::norm_vars sparse de-Bruijn compaction; to_formula with source binder-sort reversal and collision-free names; check_valid_head; rule ownership, tail queries, negation and dependency lookup (dl_rule.cpp:467-607,833-901,939-1011)",
+          "name": "rule_manager::mk concrete head/tail construction and native positive-predicate, negative-predicate, interpreted-tail layout; rule::norm_vars sparse de-Bruijn compaction; to_formula with source binder-sort reversal and collision-free names; check_valid_head; rule ownership, proof ownership and rewrite transfer, tail queries, negation and dependency lookup (dl_rule.cpp:467-607,792-801,833-901,878-885,939-1011)",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
-          "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram"]
+          "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState"]
+        },
+        {
+          "name": "rule::set_proof ownership and rule_manager::mk_rule_rewrite_proof transfer via rewrite and modus ponens (dl_rule.cpp:792-801,878-885)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_proof.go",
+          "tests": ["TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState"]
+        },
+        {
+          "name": "rule_manager::display_smt2 quantified rule-formula output (dl_rule.cpp:602)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_formula_display.go",
+          "tests": ["TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"]
+        },
+        {
+          "name": "mk_rule label elimination for no-proof formula ingestion (dl_rule.cpp:79-80,151)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/hnf.go",
+          "tests": ["TestRuleManagerAddFormulaRemovesNestedLabels"]
         },
         {
           "name": "Already-Horn mk_rule/mk_horn_rule fast path: universal-prefix removal, implication/conjunction extraction, compound predicate argument hoisting, negated predicate recognition, and explicit HNF-definition refusal (dl_rule.cpp:143-232,233-263,355-417,449-465)",
@@ -81759,8 +81777,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestReachabilityRunsFromIngestedHornProgram"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "conditionals": [
         {
           "line": 20,
@@ -81801,6 +81819,12 @@
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
           "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram"]
+        },
+        {
+          "name": "rule_manager::display_smt2 quantified rule-formula output declaration (dl_rule.h:265)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_formula_display.go",
+          "tests": ["TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"]
         }
       ],
       "ownership": [],
@@ -85966,7 +85990,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/table.go"],
-      "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
+      "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableSourceDefaultSizeEstimates", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
       "conditionals": [
         {
           "line": 71,
@@ -86038,7 +86062,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/table.go"],
-      "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
+      "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableSourceDefaultSizeEstimates", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
       "conditionals": [
         {
           "line": 19,
@@ -86311,12 +86335,12 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go"],
-      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
+      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go", "pkg/muz/rel/table.go"],
+      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableZeroArityComplementAndIndependentCopies", "TestCheckTableRejectsInvalidOperationsWithoutMutation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
-      "ownership": [],
+      "ownership": ["CheckTable owns both adopted HashTables and closes them with the wrapper; previously borrowed primary and checker handles become unusable after owner close."],
       "deviations": []
     },
     {
@@ -86324,8 +86348,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go"],
-      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
+      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go", "pkg/muz/rel/table.go"],
+      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableZeroArityComplementAndIndependentCopies", "TestCheckTableRejectsInvalidOperationsWithoutMutation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
       "conditionals": [
         {
           "line": 21,
@@ -86345,7 +86369,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
-      "ownership": [],
+      "ownership": ["CheckTable owns both adopted HashTables and closes them with the wrapper; previously borrowed primary and checker handles become unusable after owner close."],
       "deviations": []
     },
     {
@@ -92634,11 +92658,16 @@
       "go_targets": [
         "pkg/muz/transforms/array_blast.go",
         "pkg/muz/transforms/array_blast_test.go",
+        "pkg/muz/transforms/array_blast_coverage_test.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/test_vectors/fp_spacer_array_blast.smt2"
       ],
       "tests": [
         "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
+        "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+        "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
+        "TestArrayBlastAckermannizesEverySelectIndex",
+        "TestArrayBlastTransfersRuleRewriteProof",
         "TestSMTLibRunnerScripts/fp_spacer_array_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_array_blast.smt2"
       ],
@@ -92651,6 +92680,10 @@
           "go_target": "pkg/muz/transforms/array_blast.go",
           "tests": [
             "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
+            "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+            "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
+            "TestArrayBlastAckermannizesEverySelectIndex",
+            "TestArrayBlastTransfersRuleRewriteProof",
             "TestSMTLibRunnerCPPReference/fp_spacer_array_blast.smt2"
           ]
         }
@@ -92659,7 +92692,7 @@
         "Temporary rewritten and Ackermann expressions remain pinned until the replacement Rule owns every published tail."
       ],
       "deviations": [
-        "Rule semantics and the retained fixedpoint.xform.array_blast Spacer stage are ported. Native rewrite-proof attachment remains pending fixedpoint proof conversion."
+        "Rule semantics and the retained fixedpoint.xform.array_blast Spacer stage are ported. Rule-owned proof rewrite transfer is implemented; broader source-unit and ownership audit remains open."
       ]
     },
     {
@@ -92668,10 +92701,13 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/muz/transforms/array_blast.go"
+        "pkg/muz/transforms/array_blast.go",
+        "pkg/muz/transforms/array_blast_coverage_test.go"
       ],
       "tests": [
-        "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs"
+        "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
+        "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+        "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution"
       ],
       "conditionals": [
         {

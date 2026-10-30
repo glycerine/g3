@@ -95,6 +95,7 @@ func projectedSignature(source Signature, removed []int) (Signature, error) {
 type HashTable struct {
 	signature Signature
 	rows      *insdict.Dict[string, Fact]
+	closed    bool
 }
 
 func NewHashTable(signature Signature) *HashTable {
@@ -102,9 +103,20 @@ func NewHashTable(signature Signature) *HashTable {
 }
 
 func (t *HashTable) open() error {
-	if t == nil || t.rows == nil {
+	if t == nil || t.closed || t.rows == nil {
 		return ErrTable
 	}
+	return nil
+}
+
+// Close retires the table's owned rows and makes subsequent operations fail.
+func (t *HashTable) Close() error {
+	if t == nil || t.closed {
+		return nil
+	}
+	t.closed = true
+	t.rows = nil
+	t.signature = Signature{}
 	return nil
 }
 
@@ -184,6 +196,24 @@ func (t *HashTable) Len() (int, error) {
 		return 0, err
 	}
 	return t.rows.Len(), nil
+}
+
+// SizeEstimateRows mirrors table_base's default estimate for the retained
+// hashtable_table backend. That backend does not override the source estimate
+// and therefore reports UINT_MAX rather than its exact storage count.
+func (t *HashTable) SizeEstimateRows() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return ^uint32(0), nil
+}
+
+// SizeEstimateBytes mirrors table_base's default estimate for hashtable_table.
+func (t *HashTable) SizeEstimateBytes() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return ^uint32(0), nil
 }
 
 func (t *HashTable) Facts() ([]Fact, error) {

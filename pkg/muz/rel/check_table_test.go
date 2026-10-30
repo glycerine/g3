@@ -43,6 +43,12 @@ func requireCheckedFact(t *testing.T, table *CheckTable, fact Fact, want bool) {
 func TestCheckTableSourceDirectOperationsAndValidationCount(t *testing.T) {
 	table := newCheckTableWithFacts(t, lazySignature(t, 2, 3), Fact{0, 1}, Fact{1, 2})
 	closeCheckTables(t, table)
+	if rows, err := table.SizeEstimateRows(); err != nil || rows != ^uint32(0) {
+		t.Fatalf("row estimate: %d, %v", rows, err)
+	}
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != ^uint32(0) {
+		t.Fatalf("byte estimate: %d, %v", bytes, err)
+	}
 	before := table.CheckCount()
 	inserted, err := table.Add(Fact{0, 1})
 	if err != nil || inserted {
@@ -83,6 +89,11 @@ func TestCheckTableCloneResetComplementAndLifecycle(t *testing.T) {
 	if err = table.Reset(); err != nil {
 		t.Fatal(err)
 	}
+	primary, err := table.Primary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	checker := table.checker
 	empty, err := table.Empty()
 	if err != nil || !empty {
 		t.Fatal("reset empty", empty, err)
@@ -93,6 +104,12 @@ func TestCheckTableCloneResetComplementAndLifecycle(t *testing.T) {
 	}
 	if _, err = table.Facts(); !errors.Is(err, ErrCheckTable) {
 		t.Fatal("closed table", err)
+	}
+	if _, err = primary.Add(Fact{0, 1}); !errors.Is(err, ErrTable) {
+		t.Fatal("owner close left adopted primary table usable", err)
+	}
+	if _, err = checker.Add(Fact{0, 1}); !errors.Is(err, ErrTable) {
+		t.Fatal("owner close left adopted checker table usable", err)
 	}
 	wide := newCheckTableWithFacts(t, lazySignature(t, 2, 2))
 	closeCheckTables(t, wide)
@@ -143,5 +160,51 @@ func TestCheckTableSignatureAndOwnershipValidation(t *testing.T) {
 	}
 	if _, err := AdoptCheckTable(first, first); !errors.Is(err, ErrCheckTable) {
 		t.Fatal("aliased ownership", err)
+	}
+}
+
+func TestCheckTableZeroArityComplementAndIndependentCopies(t *testing.T) {
+	empty := newCheckTableWithFacts(t, lazySignature(t))
+	complement, err := empty.Complement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeCheckTables(t, empty, complement)
+	if rows, err := complement.Facts(); err != nil || len(rows) != 1 || len(rows[0]) != 0 {
+		t.Fatalf("empty zero-arity complement: %#v, %v", rows, err)
+	}
+	if err := complement.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := empty.Facts(); err != nil || len(rows) != 0 {
+		t.Fatalf("complement reset changed source: %#v, %v", rows, err)
+	}
+
+	full := newCheckTableWithFacts(t, lazySignature(t), Fact{})
+	fullComplement, err := full.Complement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeCheckTables(t, full, fullComplement)
+	if rows, err := fullComplement.Facts(); err != nil || len(rows) != 0 {
+		t.Fatalf("full zero-arity complement: %#v, %v", rows, err)
+	}
+}
+
+func TestCheckTableRejectsInvalidOperationsWithoutMutation(t *testing.T) {
+	target := newCheckTableWithFacts(t, lazySignature(t, 2, 2), Fact{0, 1})
+	wrongSignature := newCheckTableWithFacts(t, lazySignature(t, 2), Fact{1})
+	closeCheckTables(t, target, wrongSignature)
+	if _, err := target.Join(wrongSignature, []int{2}, []int{0}); err == nil {
+		t.Fatal("join accepted an out-of-range column")
+	}
+	if err := target.UnionFrom(wrongSignature, nil); !errors.Is(err, ErrCheckTable) {
+		t.Fatalf("union mismatch: %v", err)
+	}
+	if err := target.FilterByNegation(wrongSignature, []int{0}, []int{2}); err == nil {
+		t.Fatal("negation accepted an out-of-range column")
+	}
+	if rows, err := target.Facts(); err != nil || len(rows) != 1 || rows[0][0] != 0 || rows[0][1] != 1 {
+		t.Fatalf("rejected operation changed target: %#v, %v", rows, err)
 	}
 }

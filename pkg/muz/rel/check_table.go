@@ -59,9 +59,10 @@ func (t *CheckTable) Close() error {
 		return nil
 	}
 	t.closed = true
+	primary, checker := t.primary, t.checker
 	t.primary = nil
 	t.checker = nil
-	return nil
+	return errors.Join(primary.Close(), checker.Close())
 }
 
 func (t *CheckTable) Signature() (Signature, error) {
@@ -140,6 +141,24 @@ func (t *CheckTable) Empty() (bool, error) {
 		return false, fmt.Errorf("%w: empty results differ", ErrCheckTable)
 	}
 	return primaryLength == 0, nil
+}
+
+// SizeEstimateRows forwards the estimate from the implementation under test,
+// matching check_table::get_size_estimate_rows.
+func (t *CheckTable) SizeEstimateRows() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return t.primary.SizeEstimateRows()
+}
+
+// SizeEstimateBytes forwards the estimate from the implementation under test,
+// matching check_table::get_size_estimate_bytes.
+func (t *CheckTable) SizeEstimateBytes() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return t.primary.SizeEstimateBytes()
 }
 
 func (t *CheckTable) Contains(fact Fact) (bool, error) {

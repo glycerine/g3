@@ -677,6 +677,16 @@ func (p *ArrayBlastPlugin) transformRule(rule *base.Rule) (_ *base.Rule, changed
 	if dropped {
 		return nil, true, replacement.Close()
 	}
+	finalRule := replacement
+	if simplifiedChanged {
+		finalRule = simplified
+	}
+	if err = p.rules.MkRuleRewriteProof(rule, finalRule); err != nil {
+		if simplifiedChanged {
+			return nil, false, errors.Join(err, simplified.Close(), replacement.Close())
+		}
+		return nil, false, errors.Join(err, replacement.Close())
+	}
 	if simplifiedChanged {
 		return simplified, true, replacement.Close()
 	}
