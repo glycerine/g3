@@ -72,6 +72,25 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 	defer func() {
 		resultErr = errors.Join(resultErr, closeReachFacts(facts), releaseNormalizeRefs(c.manager, constraints), releaseNormalizeRefs(c.manager, counterexample))
 	}()
+	rootHead, err := rootTransformers[0].Head()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	rootArity, err := c.manager.GetArity(rootHead)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if rootArity == 0 {
+		root, err := c.manager.MkApp(rootHead, nil)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		rootRef, err := c.manager.NewRef(root)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		counterexample = append(counterexample, rootRef)
+	}
 
 	for current := 0; current < len(facts); current++ {
 		fact, transformer := facts[current], transformers[current]
@@ -157,6 +176,9 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 		evaluator, evalErr := model.NewModelEvaluator(localModel, c.owner.contexts[0].config.ModelEvaluator)
 		if evalErr != nil {
 			return ast.ASTRef{}, errors.Join(evalErr, localModel.DecRef())
+		}
+		if evalErr = evaluator.SetModelCompletion(true); evalErr != nil {
+			return ast.ASTRef{}, errors.Join(evalErr, evaluator.Close(), localModel.DecRef())
 		}
 		for index, childTransformer := range childTransformers {
 			signature, signatureErr := childTransformer.Signature()
