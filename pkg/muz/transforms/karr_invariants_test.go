@@ -96,6 +96,33 @@ func TestKarrInvariantsAnnotatesAffineRecurrence(t *testing.T) {
 	}
 }
 
+func TestKarrInvariantsStopsAfterCanceledForwardAnalysis(t *testing.T) {
+	manager, rules, set, declaration, application := karrSupportFixture(t)
+	fact, err := rules.NewRule(application, nil, nil, "base")
+	coneMust(t, err)
+	recursive, err := rules.NewRule(application, []ast.ASTHandle{application}, nil, "step")
+	coneMust(t, err)
+	coneMust(t, set.Add(fact))
+	coneMust(t, set.Add(recursive))
+	coneMust(t, fact.Close())
+	coneMust(t, recursive.Close())
+	coneMust(t, set.SetOutputPredicate(declaration))
+	valid, err := set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("Karr cancellation fixture is unstratified")
+	}
+	plugin := transforms.NewKarrInvariantsPlugin(manager, rules, 36010)
+	t.Cleanup(func() { coneMust(t, plugin.Close()) })
+	manager.Limit.Cancel()
+	result, err := plugin.Transform(set)
+	coneMust(t, err)
+	if result != nil {
+		coneMust(t, result.Close())
+		t.Fatal("canceled forward analysis continued to reverse analysis")
+	}
+}
+
 func TestKarrInvariantsSkipsNegatedPrograms(t *testing.T) {
 	manager, rules, set, declaration, application := karrSupportFixture(t)
 	rule, err := rules.NewRule(application, []ast.ASTHandle{application}, []bool{true}, "negative")

@@ -866,6 +866,10 @@ func (p *KarrInvariantsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet,
 	if err != nil || forward == nil {
 		return nil, err
 	}
+	canceled, err := p.manager.Canceled()
+	if err != nil || canceled {
+		return nil, err
+	}
 	backwards := NewBackwardsPlugin(p.manager, p.rules, 0)
 	defer func() { resultErr = errors.Join(resultErr, backwards.Close()) }()
 	reversed, err := backwards.Transform(loopRules)

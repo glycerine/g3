@@ -93782,7 +93782,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/muz/transforms/karr_invariants.go", "pkg/muz/transforms/karr_invariants_test.go", "pkg/muz/fp/spacer_karr_results.go", "pkg/muz/fp/spacer_karr_results_test.go", "pkg/muz/fp/spacer_engine.go"],
-      "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsSkipsNegatedPrograms", "TestSpacerKarrConjoinsInvariantWithPredicateModel", "TestSMTLibRunnerScripts/fp_spacer_karr.smt2", "TestSMTLibRunnerCPPReference/fp_spacer_karr.smt2"],
+      "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsStopsAfterCanceledForwardAnalysis", "TestKarrInvariantsSkipsNegatedPrograms", "TestSpacerKarrConjoinsInvariantWithPredicateModel", "TestSMTLibRunnerScripts/fp_spacer_karr.smt2", "TestSMTLibRunnerCPPReference/fp_spacer_karr.smt2"],
       "assertions": [
         {
           "line": 129,
@@ -93801,7 +93801,7 @@
           "status": "ported",
           "go_target": "pkg/muz/transforms/karr_invariants.go",
           "go_targets": ["pkg/muz/fp/spacer_karr_results.go", "pkg/muz/fp/spacer_engine.go"],
-          "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsSkipsNegatedPrograms", "TestSpacerKarrConjoinsInvariantWithPredicateModel"]
+          "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsStopsAfterCanceledForwardAnalysis", "TestKarrInvariantsSkipsNegatedPrograms", "TestSpacerKarrConjoinsInvariantWithPredicateModel"]
         }
       ],
       "ownership": ["The transformation owns transient loop/backward rule sets and concrete Karr relations. Exported model matrices are deep copies; the Spacer engine owns them until reset and conjoins them into model interpretations."],
@@ -93813,7 +93813,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/muz/transforms/karr_invariants.go", "pkg/muz/transforms/karr_invariants_test.go"],
-      "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsSkipsNegatedPrograms"],
+      "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsStopsAfterCanceledForwardAnalysis", "TestKarrInvariantsSkipsNegatedPrograms"],
       "conditionals": [
         {
           "line": 19,
@@ -93831,7 +93831,7 @@
           "name": "matrix and mk_karr_invariants retained surface",
           "status": "ported",
           "go_target": "pkg/muz/transforms/karr_invariants.go",
-          "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsSkipsNegatedPrograms"]
+          "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsStopsAfterCanceledForwardAnalysis", "TestKarrInvariantsSkipsNegatedPrograms"]
         }
       ],
       "ownership": ["Karr matrices contain owned exact rational rows; the plugin owns discovered invariant maps until closure."],
