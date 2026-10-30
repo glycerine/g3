@@ -359,6 +359,16 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		}
 		return &opt.ArithmeticResult{Status: status, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: status == lbool.False}, nil
 	}
+	canceled, cancelErr := c.manager.Canceled()
+	if cancelErr != nil {
+		return nil, cancelErr
+	}
+	if canceled {
+		if closeErr := c.closeParetoBackend(); closeErr != nil {
+			return nil, closeErr
+		}
+		return &opt.ArithmeticResult{Status: lbool.Undef, Values: make([]opt.ObjectiveValue, len(c.objectives))}, nil
+	}
 	var best *model.ModelCore
 	var values []paretoModelValue
 	defer func() {
@@ -366,18 +376,20 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			resultErr = errors.Join(resultErr, best.DecRef())
 		}
 	}()
-	candidate, err := backend.AcquireModel()
+	// PushCore clears the Go solver's published result. The C++ scoped push
+	// leaves get_model available, so take an owned snapshot before pushing.
+	// It represents the same model the first iteration reads in gia_pareto.
+	best, err = backend.AcquireModel()
 	if err != nil {
 		return nil, err
 	}
-	if candidate == nil {
+	if best == nil {
 		return nil, ast.ErrASTHandle
 	}
-	values, err = c.evaluateParetoModel(candidate)
+	values, err = c.evaluateParetoModel(best)
 	if err != nil {
-		return nil, errors.Join(err, candidate.DecRef())
+		return nil, err
 	}
-	best = candidate
 	if err = backend.Push(); err != nil {
 		return nil, err
 	}
@@ -387,7 +399,19 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			resultErr = errors.Join(resultErr, backend.Pop(1))
 		}
 	}()
+	firstIteration := true
 	for status == lbool.True {
+		if !firstIteration {
+			canceled, cancelErr = c.manager.Canceled()
+			if cancelErr != nil {
+				return nil, cancelErr
+			}
+			if canceled {
+				status = lbool.Undef
+				break
+			}
+		}
+		firstIteration = false
 		if err = c.assertParetoFormula(backend, values, true); err != nil {
 			return nil, err
 		}
@@ -395,26 +419,23 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		if err != nil {
 			return nil, err
 		}
-		if status != lbool.True {
-			break
-		}
-		candidate, err = backend.AcquireModel()
-		if err != nil {
-			return nil, err
-		}
-		if candidate == nil {
-			return nil, ast.ErrASTHandle
-		}
-		candidateValues, err := c.evaluateParetoModel(candidate)
-		if err != nil {
-			return nil, errors.Join(err, candidate.DecRef())
-		}
-		if best != nil {
+		if status == lbool.True {
+			candidate, acquireErr := backend.AcquireModel()
+			if acquireErr != nil {
+				return nil, acquireErr
+			}
+			if candidate == nil {
+				return nil, ast.ErrASTHandle
+			}
+			candidateValues, evaluateErr := c.evaluateParetoModel(candidate)
+			if evaluateErr != nil {
+				return nil, errors.Join(evaluateErr, candidate.DecRef())
+			}
 			if err = best.DecRef(); err != nil {
 				return nil, errors.Join(err, candidate.DecRef())
 			}
+			best, values = candidate, candidateValues
 		}
-		best, values = candidate, candidateValues
 	}
 	if err = backend.Pop(1); err != nil {
 		return nil, err

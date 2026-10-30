@@ -98976,7 +98976,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
+      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
       "assertions": [
         {
           "line": 54,
@@ -98990,10 +98990,10 @@
           "name": "GIA arithmetic, unsigned bit-vector and normalized weighted-soft Pareto improvement loop, retained best model and persistent not-dominated blockers across checks (opt_pareto.cpp:31-86)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         }
       ],
-      "ownership": ["Persistent solver and retained model lifetimes are explicit; temporary dominance AST references are released in reverse order."],
+      "ownership": ["The initial Go model is snapshotted before PushCore clears the published solver result; subsequent models are acquired after each satisfiable dominance check. Temporary dominance AST references are released in reverse order."],
       "deviations": ["The retained GIA path covers arithmetic, unsigned bit-vector and normalized weighted-soft objectives; the alternative OIA algorithm remains unported."]
     },
     {
@@ -99002,7 +99002,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"],
+      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
           "line": 20,
@@ -99020,10 +99020,10 @@
           "name": "concrete arithmetic, unsigned bit-vector and normalized weighted-soft Pareto state and callback lifecycle used by the retained optimizer path (opt_pareto.h:31-109)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"]
         }
       ],
-      "ownership": ["Go context owns the persistent Pareto backend and closes it on reset, terminal status, or failure."],
+      "ownership": ["Go context owns the persistent Pareto backend and closes it on reset, terminal status, or failure. The initial model is acquired before PushCore clears the published solver result."],
       "deviations": ["The generic C++ callback interface is represented only by its live concrete arithmetic, unsigned bit-vector and weighted-soft uses; OIA and unused template generality are not ported."]
     },
     {

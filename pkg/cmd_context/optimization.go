@@ -433,7 +433,11 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	if optimized.Status == lbool.Undef {
-		if err = result.SetReasonUnknown("optimization returned unknown"); err != nil {
+		reason, reasonErr := c.optimizationUnknownReason()
+		if reasonErr != nil {
+			return lbool.Undef, reasonErr
+		}
+		if err = result.SetReasonUnknown(reason); err != nil {
 			return lbool.Undef, err
 		}
 	}
@@ -464,6 +468,17 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	c.status, c.checked = optimized.Status, true
 	published = true
 	return optimized.Status, nil
+}
+
+func (c *Context) optimizationUnknownReason() (string, error) {
+	canceled, err := c.manager.Canceled()
+	if err != nil {
+		return "", err
+	}
+	if canceled {
+		return c.manager.ResourceLimit().CancelMessage(), nil
+	}
+	return "optimization returned unknown", nil
 }
 
 func (c *Context) WriteObjectives(out io.Writer) error {
