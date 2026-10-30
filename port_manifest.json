@@ -50746,6 +50746,8 @@
         "pkg/math/interval/arbitrary_root.go",
         "pkg/math/subpaving/arbitrary_interval_root.go",
         "pkg/math/subpaving/hardware_interval.go",
+        "pkg/math/subpaving/hardware_interval_test.go",
+        "pkg/math/subpaving/hardware_interval_constant_test.go",
         "pkg/math/subpaving/hardware_interval_arith.go",
         "pkg/math/subpaving/hardware_interval_scalar.go",
         "pkg/math/subpaving/hardware_interval_power.go",
@@ -50812,6 +50814,7 @@
         "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds",
         "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
         "TestSubpavingHardwareIntervalXnEqYRetainedCases",
+        "TestHardwareIntervalConstantNodeViewAndMutationGuards",
         "TestArbitraryRootRetainedShortTraceAfterCertifiedBounds",
         "TestHardwareRootRetainedTraceSitesSourceOrder",
         "TestArbitraryIntervalLiveRootBoundViewAndOwnedCopy",
@@ -51519,10 +51522,11 @@
         },
         {
           "name": "Concrete config_hwf mutable scalar interval reset, set, invariant, containment, ordering and display (src/math/interval/interval_def.h:597-709)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval.go",
           "tests": [
-            "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
+            "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic",
+            "TestHardwareIntervalConstantNodeViewAndMutationGuards"
           ]
         },
         {
@@ -75286,6 +75290,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/math/subpaving/hardware_interval.go",
+        "pkg/math/subpaving/hardware_interval_test.go",
+        "pkg/math/subpaving/hardware_interval_constant_test.go",
         "pkg/math/subpaving/hardware_interval_arith.go",
         "pkg/math/subpaving/hardware_interval_scalar.go",
         "pkg/math/subpaving/hardware_interval_power.go",
@@ -75306,6 +75312,7 @@
         "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds",
         "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
         "TestSubpavingHardwareIntervalXnEqYRetainedCases",
+        "TestHardwareIntervalConstantNodeViewAndMutationGuards",
         "TestSubpavingHardwareContextBoundPolicyAndRootDispatch",
         "TestSubpavingHardwareContextReadsParamsRefInSourceOrder",
         "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation"
@@ -75325,10 +75332,11 @@
       "methods": [
         {
           "name": "Concrete config_hwf mutable scalar interval reset, set, invariant, containment, ordering and display (src/math/interval/interval_def.h:597-709)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval.go",
           "tests": [
-            "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
+            "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic",
+            "TestHardwareIntervalConstantNodeViewAndMutationGuards"
           ]
         },
         {
