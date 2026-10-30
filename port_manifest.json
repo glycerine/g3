@@ -74915,7 +74915,7 @@
         },
         {
           "name": "Concrete context_hwf wrapper integer coefficient and directed rational inequality conversion (src/math/subpaving/subpaving.cpp:144-206)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_shell_coefficients.go",
           "tests": [
             "TestSubpavingHardwareShellCoefficientAndInequalityConversion"
@@ -74932,7 +74932,7 @@
         },
         {
           "name": "Concrete context_hwf wrapper mk_sum and mk_ineq conversion and construction (src/math/subpaving/subpaving.cpp:144-206)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_shell_coefficients.go",
           "tests": [
             "TestSubpavingHardwareShellCoefficientAndInequalityConversion"
@@ -74940,7 +74940,7 @@
         },
         {
           "name": "Concrete hardware wrapper mk_var, mk_monomial, add_clause and search entries reached by subpaving tactic",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_shell_coefficients.go",
           "tests": [
             "TestHardwareShellRetainedClauseAndSearchRoute"

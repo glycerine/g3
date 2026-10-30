@@ -55,9 +55,12 @@ func TestHardwareShellRetainedClauseAndSearchRoute(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	y, err := w.MkVar(false)
+	y, err := w.MkVar(true)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if c.isInt[x] || !c.isInt[y] {
+		t.Fatal("wrapper must preserve each variable's integer flag")
 	}
 	z, err := w.MkMonomial([]HardwarePower{{Variable: x, Degree: 2}})
 	if err != nil {
