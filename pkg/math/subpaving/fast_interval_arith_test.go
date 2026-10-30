@@ -1,6 +1,7 @@
 package subpaving
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -110,6 +111,32 @@ func TestSubpavingFastIntervalNegAddSubDirectedAndAlias(t *testing.T) {
 	must(err)
 	if !less {
 		t.Fatal("fast-float addition did not apply opposite rounding directions")
+	}
+	// C++ negation swaps one-sided infinite bounds and their openness. Subtraction
+	// combines the upper bound of the second interval with the first's lower.
+	must(m.SetInt32(values[0], -2))
+	must(m.SetInt32(values[1], 3))
+	must(a.SetFinite(values[0], values[1], false, false))
+	must(a.ResetLower()) // (-oo, 3]
+	must(out.Neg(a))
+	var rendered bytes.Buffer
+	must(out.Display(&rendered))
+	if rendered.String() != "[-3, +oo)" {
+		t.Fatal("negated upper-bounded interval", rendered.String())
+	}
+	must(b.SetFinite(values[0], values[1], false, false))
+	must(b.ResetUpper()) // [-2, +oo)
+	must(out.Neg(b))
+	rendered.Reset()
+	must(out.Display(&rendered))
+	if rendered.String() != "(-oo, 2]" {
+		t.Fatal("negated lower-bounded interval", rendered.String())
+	}
+	must(out.Sub(a, b))
+	rendered.Reset()
+	must(out.Display(&rendered))
+	if rendered.String() != "(-oo, 5]" {
+		t.Fatal("one-sided subtraction", rendered.String())
 	}
 	for _, v := range intervals {
 		must(v.CheckInvariant())

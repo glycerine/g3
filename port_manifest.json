@@ -51413,7 +51413,7 @@
         },
         {
           "name": "Concrete mpff interval negation, directed addition and subtraction with alias-safe endpoint scratch (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval_arith.go",
           "tests": [
             "TestSubpavingFastIntervalNegAddSubDirectedAndAlias"
