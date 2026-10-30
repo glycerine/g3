@@ -136,6 +136,66 @@ func TestHashTableSourceDefaultSizeEstimates(t *testing.T) {
 	}
 }
 
+func TestHashTableComplementSourceZeroAndOneColumnRules(t *testing.T) {
+	zero := newSignature(t, nil)
+	emptyZero := rel.NewHashTable(zero)
+	zeroComplement, err := emptyZero.Complement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows, _ := zeroComplement.Facts(); len(rows) != 1 || len(rows[0]) != 0 {
+		t.Fatalf("empty zero-arity complement = %#v", rows)
+	}
+	if err = emptyZero.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = zeroComplement.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	zero, _ = rel.NewSignature(nil)
+	fullZero := rel.NewHashTable(zero)
+	if _, err = fullZero.Add(rel.Fact{}); err != nil {
+		t.Fatal(err)
+	}
+	zeroComplement, err = fullZero.Complement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rows, _ := zeroComplement.Facts(); len(rows) != 0 {
+		t.Fatalf("true zero-arity complement = %#v", rows)
+	}
+	_ = fullZero.Close()
+	_ = zeroComplement.Close()
+
+	single := newSignature(t, []uint64{4})
+	input := rel.NewHashTable(single)
+	for _, value := range []uint64{1, 3} {
+		if _, err = input.Add(rel.Fact{rel.Element(value)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	complement, err := input.Complement()
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := complement.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []rel.Fact{{0}, {2}}
+	if fmt.Sprint(rows) != fmt.Sprint(want) {
+		t.Fatalf("one-column complement = %v, want %v", rows, want)
+	}
+	wide := rel.NewHashTable(newSignature(t, []uint64{2, 2}))
+	if _, err = wide.Complement(); !errors.Is(err, rel.ErrTable) {
+		t.Fatalf("wide complement error = %v", err)
+	}
+	_ = input.Close()
+	_ = complement.Close()
+	_ = wide.Close()
+}
+
 func TestHashTableJoinProjectSelectionAndRename(t *testing.T) {
 	left := rel.NewHashTable(newSignature(t, []uint64{4, 3}))
 	right := rel.NewHashTable(newSignature(t, []uint64{3, 2}))

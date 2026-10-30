@@ -246,6 +246,42 @@ func (t *HashTable) Reset() error {
 	return nil
 }
 
+// Complement returns the source table_base complement specialization for
+// zero- and one-column ordinary tables. Wider complements are decomposed by
+// the relational compiler before reaching table_base::complement.
+func (t *HashTable) Complement() (*HashTable, error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	if len(t.signature.domains) > 1 {
+		return nil, fmt.Errorf("%w: complement requires compiler decomposition", ErrTable)
+	}
+	result := NewHashTable(t.signature)
+	if len(t.signature.domains) == 0 {
+		if t.rows.Len() == 0 {
+			if _, err := result.Add(Fact{}); err != nil {
+				return nil, err
+			}
+		}
+		return result, nil
+	}
+	for value := uint64(0); value < t.signature.domains[0]; value++ {
+		fact := Fact{Element(value)}
+		found, err := t.Contains(fact)
+		if err != nil {
+			_ = result.Close()
+			return nil, err
+		}
+		if !found {
+			if _, err = result.Add(fact); err != nil {
+				_ = result.Close()
+				return nil, err
+			}
+		}
+	}
+	return result, nil
+}
+
 // FilterEqual retains rows whose selected column equals value.
 func (t *HashTable) FilterEqual(value Element, column int) error {
 	if err := t.open(); err != nil {

@@ -86003,7 +86003,8 @@
         "TestTableRelationToFormulaEmptyAndBooleanRows",
         "TestTableRelationToFormulaZeroArityAndMixedSortRows",
         "TestHashTableAndRelationDisplaySourceFormat",
-        "TestHashTableDisplayEmptyAndWriterFailure"
+        "TestHashTableDisplayEmptyAndWriterFailure",
+        "TestHashTableComplementSourceZeroAndOneColumnRules"
       ],
       "conditionals": [
         {
@@ -86067,6 +86068,15 @@
           ]
         },
         {
+          "name": "Concrete ordinary table complement for zero- and one-column signatures, with wider tables rejected for compiler decomposition (dl_base.cpp:367-404)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table.go",
+          "tests": [
+            "TestHashTableComplementSourceZeroAndOneColumnRules",
+            "TestTableRelationComplementSourceWidthContract"
+          ]
+        },
+        {
           "name": "Concrete table-to-formula conversion using ordered row disjunctions, de-Bruijn variable equalities, and source Boolean gate simplification",
           "status": "ported",
           "go_target": "pkg/muz/rel/table_relation_formula.go",
@@ -86110,7 +86120,8 @@
         "TestTableRelationToFormulaEmptyAndBooleanRows",
         "TestTableRelationToFormulaZeroArityAndMixedSortRows",
         "TestHashTableAndRelationDisplaySourceFormat",
-        "TestHashTableDisplayEmptyAndWriterFailure"
+        "TestHashTableDisplayEmptyAndWriterFailure",
+        "TestHashTableComplementSourceZeroAndOneColumnRules"
       ],
       "conditionals": [
         {
@@ -86272,13 +86283,14 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Concrete ordinary table signature, fact ownership, set operations, join/project/select/rename, union-delta, and negation-filter surface (dl_base.h:81-704,831-1248)",
+          "name": "Concrete ordinary table signature, fact ownership, set operations, join/project/select/rename, union-delta, one-column complement, and negation-filter surface (dl_base.h:81-704,831-1248)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
           "tests": [
             "TestHashTableSetCloneAndValidation",
             "TestHashTableJoinProjectSelectionAndRename",
-            "TestHashTableUnionDeltaAndNegation"
+            "TestHashTableUnionDeltaAndNegation",
+            "TestHashTableComplementSourceZeroAndOneColumnRules"
           ]
         },
         {

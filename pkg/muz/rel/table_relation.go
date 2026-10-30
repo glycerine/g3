@@ -187,31 +187,12 @@ func (r *TableRelation) Complement() (*TableRelation, error) {
 	if err := r.open(); err != nil {
 		return nil, err
 	}
-	signature, err := r.table.Signature()
+	result, err := r.table.Complement()
 	if err != nil {
+		if errors.Is(err, ErrTable) {
+			return nil, fmt.Errorf("%w: %v", ErrTableRelation, err)
+		}
 		return nil, err
-	}
-	if signature.Len() > 1 {
-		return nil, fmt.Errorf("%w: complement requires compiler decomposition", ErrTableRelation)
-	}
-	result := NewHashTable(signature)
-	if signature.Len() == 0 {
-		if r.Empty() {
-			_, err = result.Add(Fact{})
-		}
-	} else {
-		for value := uint64(0); value < signature.domains[0]; value++ {
-			fact := Fact{Element(value)}
-			found, containsErr := r.table.Contains(fact)
-			if containsErr != nil {
-				return nil, containsErr
-			}
-			if !found {
-				if _, err = result.Add(fact); err != nil {
-					return nil, err
-				}
-			}
-		}
 	}
 	return AdoptTableRelation(r.manager, r.sorts, result)
 }
