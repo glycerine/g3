@@ -5825,7 +5825,7 @@
       "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_model_object.go", "pkg/api/api_model_object_test.go", "pkg/api/api_model_evaluate.go", "pkg/api/api_model_evaluate_test.go", "pkg/api/api_model_evaluate_completion_test.go", "pkg/api/api_model_evaluate_invalid_test.go"],
       "tests": ["TestSMTContextEvaluateReturnsOwningValue", "TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries", "TestAPIModelEvaluateRegisteredConstant", "TestAPIModelEvaluateCompletionRegistersMissingConstant", "TestAPIModelEvaluateRejectsForeignAndClosedOwners"],
       "methods_audited": true,
-      "ownership_audited": false,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Model creation, reference lifecycle, interpretation queries and updates, enumeration, evaluation, universe, translation, as-array helpers, function entries, compatibility aliases and string display (api_model.cpp:33-511)",
@@ -5835,7 +5835,9 @@
           "tests": ["TestSMTContextEvaluateReturnsOwningValue", "TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries", "TestAPIModelEvaluateRegisteredConstant", "TestAPIModelEvaluateCompletionRegistersMissingConstant", "TestAPIModelEvaluateRejectsForeignAndClosedOwners"]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "APIModel acquires and releases a ModelCore reference; function-interpretation and function-entry wrappers acquire independent model references so their borrowed interpretation pointers stay valid. Translation and universe results own their destination model or AST references, and evaluation returns an owning ASTRef."
+      ],
       "deviations": [
         "SMTContext.Evaluate borrows the latest published model and returns an explicit owning ASTRef instead of saving the result on an opaque C context trail."
       ]
@@ -6252,7 +6254,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_probe.go", "pkg/api/api_probe_composition.go", "pkg/api/api_probe_apply.go", "pkg/api/api_tactic.go", "pkg/api/api_tactic_composition.go", "pkg/api/api_tactic_apply.go", "pkg/api/api_tactic_result.go", "pkg/api/api_probe_test.go", "pkg/api/api_probe_composition_test.go", "pkg/api/api_tactic_lifecycle_test.go", "pkg/api/api_tactic_composition_test.go", "pkg/api/api_tactic_apply_test.go"],
-      "tests": ["TestSMTContextCheckSatUsingPublishesTacticModel", "TestAPIProbe", "TestAPITactic"],
+      "tests": ["TestSMTContextCheckSatUsingPublishesTacticModel", "TestAPIProbeGoalMeasurementsAndLifecycle", "TestAPITacticConstructorsAndLifecycle"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
@@ -37279,7 +37281,7 @@
         "TestQuantifierHoisterPolarityCompatibilityAndBooleanRewrite",
         "TestQuantifierHoisterIndexedTopChainAndNestedExtraction",
         "TestQuantifierHoisterImplicationPolarityRewriteFlagAndInaccessibleTerm",
-        "TestQuantifierHoisterWithoutRewrite"
+        "TestQuantifierHoisterWithoutRewriteOwnsNoParameterizedRewriter"
       ],
       "assertions": [
         {
@@ -42482,7 +42484,8 @@
             "TestSMTLibRunnerCPPReference"
           ],
           "go_targets": [
-            "pkg/cmd/g3/main_test.go"
+            "pkg/cmd/g3/main_test.go",
+            "pkg/parsers/smt2/interpolation_test.go"
           ]
         },
         {
@@ -47959,7 +47962,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/interp/pp.go",
-        "pkg/api/api_interp.go"
+        "pkg/api/api_interp.go",
+        "pkg/parsers/smt2/interpolation_test.go"
       ],
       "tests": [
         "TestInterpolationPrettyPrintProblemExactTreeAndNames",
@@ -47974,6 +47978,7 @@
           "name": "free declaration collection, constraint naming, assertion output, recursive and/interp tree output, and complete interpolation problem printing",
           "status": "ported",
           "go_target": "pkg/interp/pp.go",
+          "go_targets": ["pkg/parsers/smt2/interpolation_test.go", "pkg/api/api_interp_test.go"],
           "tests": [
             "TestInterpolationPrettyPrintProblemExactTreeAndNames",
             "TestInterpolationPrettyPrintDuplicateAndBadTree",
@@ -56476,7 +56481,7 @@
         "TestPolynomialSubstitutionInvocationReservationPrefixes",
         "TestPolynomialSubstitutionNumericContextRejectsReplacementEpoch",
         "TestPolynomialGCDMGCDCheckRereadsTagAndConstructsDebugLocals",
-        "pkg/math/polynomial/polynomial_flip_sign_test.go",
+        "TestPolynomialFlipSignRetainedNLSATLeadingOrderAndContent",
         "TestPolynomialProjectionIDReadsOnlyIDField",
         "TestPolynomialNonzeroConstantCoefficientIndependentCases",
         "TestPolynomialNonzeroConstantCoefficientActualTLSFailureAndRetry",
@@ -61146,6 +61151,7 @@
           "name": "Concrete lc = coeff(p,x,k) owning caller overload without reduct, including its real source trace path (cpp3264-3277,7034-7036)",
           "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_coefficient_public_call.go",
+          "go_targets": ["pkg/nlsat/explain_projection_coefficients_test.go"],
           "tests": [
             "TestPolynomialCoefficientOwningSimpleCall",
             "TestProjectionLeadingCoefficientsFactorAndSkipConstants",
@@ -64963,6 +64969,7 @@
           "name": "Concrete lc = coeff(p,x,k) owning caller overload without reduct, including its real source trace path (cpp3264-3277,7034-7036)",
           "status": "ported",
           "go_target": "pkg/math/polynomial/polynomial_coefficient_public_call.go",
+          "go_targets": ["pkg/nlsat/explain_projection_coefficients_test.go"],
           "tests": [
             "TestPolynomialCoefficientOwningSimpleCall",
             "TestProjectionLeadingCoefficientsFactorAndSkipConstants",
@@ -65153,7 +65160,8 @@
         "pkg/math/polynomial/polynomial_cache_constructor_callback_test.go",
         "pkg/math/polynomial/polynomial_cache_replay_prefix_test.go",
         "pkg/math/polynomial/polynomial_cache_publication_test.go",
-        "pkg/math/polynomial/polynomial_cache_unique_cleanup_test.go"
+        "pkg/math/polynomial/polynomial_cache_unique_cleanup_test.go",
+        "pkg/nlsat/explain_projection_psc_test.go"
       ],
       "tests": [
         "TestPolynomialCacheKnownIDReadsOnlyIDField",
@@ -65410,7 +65418,8 @@
         "pkg/math/polynomial/polynomial_cache_constructor_callback_test.go",
         "pkg/math/polynomial/polynomial_cache_replay_prefix_test.go",
         "pkg/math/polynomial/polynomial_cache_publication_test.go",
-        "pkg/math/polynomial/polynomial_cache_unique_cleanup_test.go"
+        "pkg/math/polynomial/polynomial_cache_unique_cleanup_test.go",
+        "pkg/nlsat/explain_projection_psc_test.go"
       ],
       "tests": [
         "TestPolynomialCacheKnownIDReadsOnlyIDField",
@@ -72082,11 +72091,11 @@
       "component": "math",
       "role": "generated_input",
       "status": "ported",
-      "go_targets": ["pkg/math/realclosure/rcf_params.go", "pkg/math/realclosure/rcf_params_test.go", "pkg/math/realclosure/gparams_catalog_collectors.go"],
+      "go_targets": ["pkg/math/realclosure/rcf_params.go", "pkg/math/realclosure/rcf_params_test.go", "pkg/math/realclosure/gparams_catalog_collectors.go", "pkg/util/params/util_gparams_catalog_test.go"],
       "tests": ["TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence", "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"generated RCF schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/math/realclosure/rcf_params.go","go_targets":["pkg/math/realclosure/gparams_catalog_collectors.go"],"tests":["TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
+      "methods": [{"name":"generated RCF schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/math/realclosure/rcf_params.go","go_targets":["pkg/math/realclosure/gparams_catalog_collectors.go", "pkg/util/params/util_gparams_catalog_test.go"],"tests":["TestRCFParamsDefaultsModuleFallbackAndLocalPrecedence","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
       "ownership": ["Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or C++ source."],
       "deviations": []
     },
@@ -72124,6 +72133,12 @@
         "pkg/math/realclosure/sign_tarski_counts.go",
         "pkg/math/realclosure/sign_tarski_counts_test.go",
         "pkg/math/realclosure/sign_tarski_counts_producer_test.go",
+        "pkg/math/realclosure/algebraic_sign_exact_test.go",
+        "pkg/math/realclosure/algebraic_sign_interval_test.go",
+        "pkg/math/realclosure/value_sign_determined_test.go",
+        "pkg/math/realclosure/value_canonical_arithmetic_test.go",
+        "pkg/math/realclosure/value_compare_determined_test.go",
+        "pkg/math/realclosure/value_canonical_zero_test.go",
         "pkg/math/realclosure/sign_determination_bounded.go",
         "pkg/math/realclosure/sign_determination_bounded_test.go",
         "pkg/math/realclosure/sign_determination_bounded_failure_test.go",
@@ -72309,37 +72324,37 @@
         "TestRealClosureRationalSturmSequenceOwnsBorrowedCoefficients",
         "TestRealClosureSturmSequenceRefusedDestructorRetainsRows",
         "TestRealClosureSturmTemporaryRefusalPrecedesOlderRows",
-        "TestExactSingleRoot",
-        "TestRestrictBinary",
-        "TestDetermineRetained",
-        "TestCanonicalArithmetic",
-        "TestDeterminedComparison",
-        "TestCanonicalResultDeletes",
-        "TestMultiRoot",
-        "TestCompletedSign",
-        "TestExactMultiRoot",
-        "TestDetermineAny",
-        "TestAnyDetermined",
-        "TestAnyCanonical",
-        "TestRefineSingle",
-        "TestEvaluateRationalPolynomialInterval",
-        "TestRefineRationalCoefficient",
-        "TestUpdateAlgebraic",
-        "TestRefineGeneral",
-        "TestSnapshotAny",
-        "TestRetainedPrecision",
-        "TestRefineAndCertify",
-        "TestCleanAlgebraic",
-        "TestLCMInteger",
-        "TestCleanMixed",
-        "TestAccumulateAlgebraic",
-        "TestMixedPolynomialInteger",
-        "TestExactDivideAlgebraic",
-        "TestNormalizeMixed",
-        "TestAnyPolynomial",
-        "TestAnySturm",
-        "TestAnyRoot",
-        "TestRankedValue"
+        "TestExactSingleRootPolynomialSign",
+        "TestRestrictBinaryIntervalToCertifiedSign",
+        "TestDetermineRetainedValueSignUpdatesAmbiguousInterval",
+        "TestCanonicalArithmeticDeterminesAmbiguousSigns",
+        "TestDeterminedComparisonUsesExactSignFallback",
+        "TestCanonicalResultDeletesExactAlgebraicZero",
+        "TestMultiRootPolynomialSignCounts",
+        "TestCompletedSignExtensionSolveAndSelection",
+        "TestExactMultiRootPolynomialSigns",
+        "TestDetermineAnyRetainedValueSignAndCanonicalZero",
+        "TestAnyDeterminedCompareAndPredicates",
+        "TestAnyCanonicalArithmeticOnSharedRoots",
+        "TestRefineSingleAlgebraicRootToPrecision",
+        "TestEvaluateRationalPolynomialIntervalHorner",
+        "TestRefineRationalCoefficientIntervals",
+        "TestUpdateAlgebraicPolynomialValueInterval",
+        "TestRefineGeneralAlgebraicPolynomialValue",
+        "TestSnapshotAnyRetainedIntervalDoesNotAlias",
+        "TestRetainedPrecisionAndMagnitudeQueries",
+        "TestRefineAndCertifyGeneralAlgebraicValue",
+        "TestCleanAlgebraicValueDenominator",
+        "TestLCMIntegerDenominatorValues",
+        "TestCleanMixedAlgebraicPolynomialDenominators",
+        "TestAccumulateAlgebraicIntegerContent",
+        "TestMixedPolynomialIntegerContent",
+        "TestExactDivideAlgebraicValueByInteger",
+        "TestNormalizeMixedAlgebraicIntegerContent",
+        "TestAnyPolynomialAddSubtract",
+        "TestAnySturmSequenceAlgebraicCoefficients",
+        "TestAnyRootDispatchCleansAndSquareFrees",
+        "TestRankedValueComparisonUsesNestedExactSign"
       ],
       "conditionals": [
         {
@@ -73740,7 +73755,7 @@
         "pkg/math/realclosure/real_value_function_add.go",
         "pkg/math/realclosure/real_value_function_neg.go",
         "pkg/math/realclosure/real_value_function_scale.go",
-        "pkg/math/realclosure/real_value_function_mul.go",
+        "pkg/math/realclosure/real_value_function_multiply.go",
         "pkg/math/realclosure/manager_slot_owner.go",
         "pkg/math/realclosure/manager_slot_copy.go",
         "pkg/math/realclosure/manager_slot_set_integer.go",
@@ -74343,7 +74358,7 @@
           ]
         },
         {"name": "Corrective source set_value/update_value canonical-row fidelity (simplex_def.h:248-253,418-440): include a basic column self-row so its opposite contribution cancels the initial seed delta; nonbasic seeds still propagate exact rational/epsilon movement through dependent bases", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/basic_seed_test.go", "pkg/smtcore/theory_diff_logic_objective_test.go"], "tests": ["TestSimplexBasicSeedPreservesCanonicalRow", "TestSMTDiffObjectiveIncrementalEdgesReuseCanonicalRows"]},
-        {"name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/arith_optimize.go", "pkg/math/simplex/arith_freedom.go", "pkg/math/simplex/arith_integer_patch.go", "pkg/math/simplex/arith_gcd.go", "pkg/math/simplex/arith_gomory.go", "pkg/math/simplex/infinite_value_test.go"], "tests": ["TestInfiniteValueLexicographicOrderAndOwnedCopies", "TestInfiniteValueCoordinateArithmeticOracle", "TestInfiniteTableauFeasibilityPivotAndMinimize", "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel", "TestInfiniteTableauBoundsAndBasicSeed", "TestInfiniteTableauRationalIntegerGuards", "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"]}
+        {"name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/arith_optimize.go", "pkg/math/simplex/arith_freedom.go", "pkg/math/simplex/arith_integer_patch.go", "pkg/math/simplex/arith_gcd.go", "pkg/math/simplex/arith_gomory.go", "pkg/math/simplex/infinite_value_test.go", "pkg/smtcore/theory_arith_objective_bound_test.go"], "tests": ["TestInfiniteValueLexicographicOrderAndOwnedCopies", "TestInfiniteValueCoordinateArithmeticOracle", "TestInfiniteTableauFeasibilityPivotAndMinimize", "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel", "TestInfiniteTableauBoundsAndBasicSeed", "TestInfiniteTableauRationalIntegerGuards", "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"]}
       ],
       "ownership": [
         "Scoped native equality bounds borrow context enodes. Simplex retains opaque premise identifiers and deep-owned coefficients; pop removes child bounds before parent replay. Context justifications own their proof parameters.",
@@ -74622,7 +74637,7 @@
           ]
         },
         {"name": "Corrective source set_value/update_value canonical-row fidelity (simplex_def.h:248-253,418-440): include a basic column self-row so its opposite contribution cancels the initial seed delta; nonbasic seeds still propagate exact rational/epsilon movement through dependent bases", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/basic_seed_test.go", "pkg/smtcore/theory_diff_logic_objective_test.go"], "tests": ["TestSimplexBasicSeedPreservesCanonicalRow", "TestSMTDiffObjectiveIncrementalEdgesReuseCanonicalRows"]},
-        {"name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/arith_optimize.go", "pkg/math/simplex/arith_freedom.go", "pkg/math/simplex/arith_integer_patch.go", "pkg/math/simplex/arith_gcd.go", "pkg/math/simplex/arith_gomory.go", "pkg/math/simplex/infinite_value_test.go"], "tests": ["TestInfiniteValueLexicographicOrderAndOwnedCopies", "TestInfiniteValueCoordinateArithmeticOracle", "TestInfiniteTableauFeasibilityPivotAndMinimize", "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel", "TestInfiniteTableauBoundsAndBasicSeed", "TestInfiniteTableauRationalIntegerGuards", "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"]}
+        {"name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/arith_optimize.go", "pkg/math/simplex/arith_freedom.go", "pkg/math/simplex/arith_integer_patch.go", "pkg/math/simplex/arith_gcd.go", "pkg/math/simplex/arith_gomory.go", "pkg/math/simplex/infinite_value_test.go", "pkg/smtcore/theory_arith_objective_bound_test.go"], "tests": ["TestInfiniteValueLexicographicOrderAndOwnedCopies", "TestInfiniteValueCoordinateArithmeticOracle", "TestInfiniteTableauFeasibilityPivotAndMinimize", "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel", "TestInfiniteTableauBoundsAndBasicSeed", "TestInfiniteTableauRationalIntegerGuards", "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"]}
       ],
       "ownership": [
         "Scoped native equality bounds borrow context enodes. Simplex retains opaque premise identifiers and deep-owned coefficients; pop removes child bounds before parent replay. Context justifications own their proof parameters.",
@@ -76460,14 +76475,14 @@
             "pkg/math/subpaving/rational_context_propagate.go",
             "pkg/math/subpaving/rational_clause.go",
             "pkg/math/subpaving/rational_context_init.go"
-          ],
+          , "pkg/math/subpaving/rational_context_init_test.go"],
           "tests": [
             "TestRationalContextRootUnitCheckpointConflictAndOwnership",
             "TestRationalContextQueuedBoundCheckpointResume",
             "TestRationalClauseExactTruthAndRegistration",
             "TestRationalClauseQueuedWatchCancellationAndConflict",
             "TestRationalClauseAllFalseFirstAtomConflict",
-            "TestRationalContextInitializeRootResumesUnitsAndWatchedQueue"
+            "TestRationalContextInitializeRootDoesNotResumeCanceledSourceInit"
           ]
         },
         {
@@ -79372,9 +79387,9 @@
         "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats",
         "TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup",
         "TestSubpavingTemporaryInequalityBufferUnwind",
-        "TestSubpaving",
-        "TestArbitraryCore",
-        "TestHardwareCore",
+        "TestSubpavingCoreFactoryAllConcreteEngines",
+        "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
+        "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
         "TestCommandContextRegistersRetainedSubpavingTactic"
       ],
       "methods_audited": false,
@@ -81689,6 +81704,7 @@
           "name": "Retained register_predicate/add_rule/close-reopen/query orchestration for finite-domain Horn programs, including compiled relational-bytecode execution and recursive least-fixpoint saturation for positive rules with up to two tails and complete structural head assembly, implicit-variable binding, HNF ingestion with computed head terms, stratified negation, finite direct guards and ground theory-rewritten guards, dependency-ordered fallback table saturation, tuple answers, and lbool results (dl_context.cpp:122-190,344-469,680-738,861-889)",
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": ["pkg/muz/rel/compiler_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
           "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerSaturatesRecursiveRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"]
 
         },
@@ -81696,6 +81712,7 @@
           "name": "Rule-set push/pop snapshots and native Datalog post-query pop refusal (dl_context.cpp:180-195)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
         },
         {
@@ -81708,6 +81725,7 @@
           "name": "finite-table predicate representation selection before the first query (dl_context.cpp:433-441)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": ["pkg/api/api_fixedpoint_test.go", "pkg/cmd/g3/main_test.go"],
           "tests": ["TestSMTContextFixedpointPredicateRepresentation", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
         },
         {
@@ -81720,6 +81738,7 @@
           "name": "infinite-domain predicate registration, PDR/Spacer uninterpreted-symbol rule guard and query dispatch through the retained rule context",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
+          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go"],
           "tests": ["TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP", "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP"]
         }
       ],
@@ -81763,13 +81782,15 @@
           "name": "Retained positive-propositional subset of context predicate registration, rule addition, query, and owned lifecycle surface (dl_context.h:127-616)",
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineRefusesRicherHornFragments", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleScopesMatchCPP"]
+          "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleScopesMatchCPP"]
 
         },
         {
           "name": "Retained context push/pop lifecycle for rule snapshots (dl_context.h:142-143,440-441)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go"],
           "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP"]
         }
       ],
@@ -81875,8 +81896,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
-      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineRefusesRicherHornFragments", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -81894,7 +81915,8 @@
           "name": "Concrete query and cleanup contract for the first exact positive-propositional fixedpoint engine slice (dl_engine_base.h:40-114)",
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineRefusesRicherHornFragments", "TestSMT2FixedpointPropositionalQueriesMatchCPP"]
+          "go_targets": ["pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+          "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestSMT2FixedpointPropositionalQueriesMatchCPP"]
         }
       ],
       "ownership": [
@@ -81909,7 +81931,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/dataflow/reachability_test.go"],
       "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "assertions": [
         {
@@ -81960,6 +81982,7 @@
           "name": "rule_manager::mk concrete head/tail construction and native positive-predicate, negative-predicate, interpreted-tail layout; rule::norm_vars sparse de-Bruijn compaction; to_formula with source binder-sort reversal and collision-free names; check_valid_head; rule ownership, proof ownership and rewrite transfer, tail queries, negation and dependency lookup (dl_rule.cpp:467-607,792-801,833-901,878-885,939-1011)",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
+          "go_targets": ["pkg/muz/dataflow/reachability_test.go"],
           "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState"]
         },
         {
@@ -82032,7 +82055,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/dataflow/reachability_test.go"],
       "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "conditionals": [
         {
@@ -82073,6 +82096,7 @@
           "name": "Concrete rule and rule_manager retained representation, registered predicates, head/tail/name accessors, native tail partitions, variable normalization, formula conversion, and explicit shared Go ownership; general substitution, proof traces, HNF/query construction, and quantifier analysis remain open",
           "status": "partial",
           "go_target": "pkg/muz/base/rule.go",
+          "go_targets": ["pkg/muz/dataflow/reachability_test.go"],
           "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestReachabilityRunsFromIngestedHornProgram"]
         },
         {
@@ -83170,7 +83194,7 @@
       "path": "src/muz/ddnf/ddnf.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go", "pkg/muz/fp/ddnf_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/register_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/ddnf_engine_internal_test.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/ddnf_engine_lifetime.go", "pkg/muz/fp/ddnf_engine_lifetime_test.go"],
       "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFPreprocessorPrintsFirstRejectedRule", "TestDDNFRejectedRuleIsPrintedBeforeUnknown", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRegistryPersistsAcrossQueryClones", "TestDDNFCoreInsertionAllocationRefusalCanRetry", "TestDDNFQueryExpressionTransfersCompiledASTTrail", "TestDDNFEngineCloseRetriesUnreleasedTrailAfterClosed"],
       "assertions": [
@@ -99678,7 +99702,7 @@
         {"name": "fresh output declarations and comparator ASTs stay owned by maxSMTASTOwner through backend checks; the model filter removes source fresh declarations before result publication", "status": "ported", "go_targets": ["pkg/opt/maxsmt_sort_engine.go", "pkg/opt/maxsmt_owner.go", "pkg/opt/sortmax_fresh.go", "pkg/opt/maxsmt_sort_search.go"]}
       ],
       "deviations": [
-        {"name": "sortmax.cpp calls psort_nw::sorting without initializing m_t; the installed 4.7.1 reference follows the zero-valued LE path, which Go selects explicitly and tests against the source's objective/model output", "status": "documented", "go_targets": ["pkg/opt/sortmax_encoded_network.go", "pkg/opt/maxsmt_sort_search.go"]}
+        "sortmax.cpp calls psort_nw::sorting without initializing m_t; the installed 4.7.1 reference follows the zero-valued LE path, which Go selects explicitly and tests against the source's objective/model output (pkg/opt/sortmax_encoded_network.go, pkg/opt/maxsmt_sort_search.go)."
       ]
     },
     {
@@ -171020,55 +171044,55 @@
       "methods": [
         {
           "name": "64-bit modular interval construction, implication, intersection and negation (lines 28-154)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_interval.go",
           "tests": ["TestBVBoundsSourceModularSetIntersectionComplement", "TestBVBoundsModularTightComplementPolicy", "TestBVBoundsModularIntersectionAndImplication"]
         },
         {
           "name": "Numeral recognition and unsigned/signed/equality bound parsing (lines 186-242)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_recognize.go",
           "tests": ["TestBVBoundsSourceRecognizesUnsignedSignedAndEquality", "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64", "TestBVBoundsSourceEqualityBoundTargetsExtractTerm"]
         },
         {
           "name": "Parameter update and propagate-eq descriptor (lines 303-314, 612-623)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_params.go",
           "tests": ["TestBVBoundsSourcePropagateEqualityAndTranslation"]
         },
         {
           "name": "Contextual assertion, interval refinement and scope rollback (lines 325-354, 507-534)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_state.go",
           "tests": ["TestBVBoundsSourceAssertionIntersectionAndPop", "TestBVBoundsSourceContradictionAndNegatedBound"]
         },
         {
           "name": "Context simplification and optional singleton equality propagation (lines 356-405)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_simplify.go",
           "tests": ["TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds", "TestBVBoundsSimplifyTightNegation", "TestBVBoundsSimplifyNegatedIntersectionPropagatesEquality", "TestBVBoundsSimplifyFullWithoutContext", "TestBVBoundsSourceSingletonReplacesVariable"]
         },
         {
           "name": "Expression containment and repeated-bound discovery (lines 407-468)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_contains.go",
           "tests": ["TestBVBoundsContainsExpressionNestedTarget", "TestBVBoundsContainsExpressionSharedDAG", "TestBVBoundsContainsBoundFromContext", "TestBVBoundsContainsBoundRepeatedVariable"]
         },
         {
           "name": "May-simplify eligibility and single-bound fast path (lines 470-508)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_simplify.go",
           "tests": ["TestBVBoundsMaySimplifyNumeralAndSingleBound", "TestBVBoundsMaySimplifyContextAndNegation"]
         },
         {
           "name": "Dominator callback assertions, rewrites and branch-local scopes (lines 538-818)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
           "tests": ["TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds", "TestBVBoundsDominatorPropagatesSingletonEquality", "TestBVBoundsDominatorDetectsContradictorySiblingBounds", "TestBVBoundsDominatorScopesITEBranchBounds"]
         },
         {
           "name": "Translation, scope reporting and both tactic factories (lines 529-534, 806-810, 817-823)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_translate.go",
           "tests": ["TestBVBoundsSourcePropagateEqualityAndTranslation", "TestBVBoundsDominatorPropagatesSingletonEquality"]
         }
@@ -171094,7 +171118,9 @@
       "tests": [
         "TestBuiltinTacticRegistryRetainsFactoryOrder",
         "TestBuiltinTacticDescriptionsRetainSourceText",
-        "TestBuiltinTacticRegistryDrivesFactoryValidation"
+        "TestBuiltinTacticRegistryDrivesFactoryValidation",
+        "TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds",
+        "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds"
       ],
       "conditionals": [
         {
@@ -171106,23 +171132,37 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
+          "name": "mk_bv_bounds_tactic factory with clean tactic ownership",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bv_bounds_tactic.go",
+          "tests": ["TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds"]
+        },
+        {
+          "name": "mk_dom_bv_bounds_tactic factory with clean dominator tactic ownership",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bv_bounds_tactic.go",
+          "tests": ["TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds"]
+        },
+        {
           "name": "propagate-bv-bounds registration",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/cmd_context/tactic_commands.go",
           "tests": ["TestBuiltinTacticRegistryDrivesFactoryValidation"]
         },
         {
           "name": "propagate-bv-bounds-new registration",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/cmd_context/tactic_commands.go",
           "tests": ["TestBuiltinTacticRegistryDrivesFactoryValidation"]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "Each factory borrows the AST manager and parameter services, creates a bounds simplifier, and transfers it into an owning tactic wrapper; MakeBVBoundsTactic and MakeBVBoundsDomTactic close the child tactic if clean-wrapper construction fails."
+      ],
       "deviations": []
     },
     {
@@ -172372,7 +172412,7 @@
       "methods": [
         {
           "name": "Tactic construction, parameter snapshot/update and max-memory/max-steps/max-args descriptors (lines 29-54, 153-177)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_tactic.go",
           "tests": [
             "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
@@ -172381,7 +172421,7 @@
         },
         {
           "name": "Rewriter config cooperation, commented-out memory refusal, and no pattern rewriting (lines 29-69)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_config.go",
           "tests": [
             "TestBlastTermITEIgnoresUnconsumedMaxArgsAndMaxMemoryOptions"
@@ -172389,7 +172429,7 @@
         },
         {
           "name": "Greedy application argument ITE recognition, Boolean-sort exclusion, equal-branch BR_REWRITE1 and conditional BR_REWRITE3 (lines 54-81)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_rewrite.go",
           "tests": [
             "TestBlastTermITEHoistsApplicationArgument",
@@ -172399,7 +172439,7 @@
         },
         {
           "name": "Goal application traversal, proof modus-ponens composition, dependency preservation, progress report, and depth increment (lines 83-145)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_apply.go",
           "tests": [
             "TestBlastTermITEHoistsApplicationArgument",
@@ -172408,7 +172448,7 @@
         },
         {
           "name": "Cleanup reconstruction, translation, statistics defaults, and reset behavior (lines 145-180)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_tactic.go",
           "tests": [
             "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation"
@@ -172416,7 +172456,7 @@
         },
         {
           "name": "Standalone no-proof helper and manager proof-mode scope (lines 181-194)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_standalone.go",
           "tests": [
             "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
@@ -172478,7 +172518,7 @@
       "methods": [
         {
           "name": "Public tactic factory and builtin registration (lines 31-37)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_tactic.go",
           "tests": [
             "TestBuiltinTacticRegistryDrivesFactoryValidation",
@@ -172488,7 +172528,7 @@
         },
         {
           "name": "Standalone expression helper declaration (line 40)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/blast_term_ite_standalone.go",
           "tests": [
             "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
@@ -173736,7 +173776,7 @@
       "methods": [
         {
           "name": "Post-order graph construction and parent edges; immediate dominators, tree extraction and non-convergence return (lines 25-103)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_dominators.go",
           "tests": [
             "TestExpressionDominatorsDiamondAndTree",
@@ -173745,7 +173785,7 @@
         },
         {
           "name": "Compile, reset and dominator tree display (lines 105-161)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_dominators.go",
           "tests": [
             "TestExpressionDominatorsDiamondAndTree",
@@ -173755,7 +173795,7 @@
         },
         {
           "name": "Goal application, two directional passes, proof/dependency gates, proof composition and failed dominator compilation (lines 175-206, 316-379)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
           "tests": [
             "TestDomSimplifyForwardConjunctionContext",
@@ -173767,7 +173807,7 @@
         },
         {
           "name": "Recursive dominator traversal, cache application and depth cutoff (lines 255-315)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_rewrite.go",
           "tests": [
             "TestDomSimplifyForwardConjunctionContext",
@@ -173777,7 +173817,7 @@
         },
         {
           "name": "And/or context order, branch-exclusive children and scope rollback (lines 318-379)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_rewrite.go",
           "tests": [
             "TestDomSimplifyForwardConjunctionContext",
@@ -173786,7 +173826,7 @@
         },
         {
           "name": "ITE condition handling and then/else branch scopes (lines 208-250)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_rewrite.go",
           "tests": [
             "TestDomSimplifyITEBranchContexts",
@@ -173795,7 +173835,7 @@
         },
         {
           "name": "Dominator ancestry queries and pair-cache behavior (lines 381-414)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
           "tests": [
             "TestBVBoundsDominatorScopesITEBranchBounds"
@@ -173803,7 +173843,7 @@
         },
         {
           "name": "Tactic cleanup, translation, empty parameter hooks and default callback factory (lines 165-206, 552-555)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
           "tests": [
             "TestDomSimplifyCleanupAndTranslation",
@@ -173812,7 +173852,7 @@
         },
         {
           "name": "Context substitution scopes, equality/iff ordering, negation and direct rewrite callback (lines 447-550)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_context.go",
           "tests": [
             "TestDomSimplifyEqualitySubstitution",
@@ -173895,7 +173935,7 @@
       "methods": [
         {
           "name": "Immediate dominator tree owner and compile/reset/display declarations (lines 25-66)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_dominators.go",
           "tests": [
             "TestExpressionDominatorsDiamondAndTree",
@@ -173904,7 +173944,7 @@
         },
         {
           "name": "Dominator simplifier callback contract and implicit assertion scopes (lines 68-90)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
           "tests": [
             "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff",
@@ -173913,7 +173953,7 @@
         },
         {
           "name": "Tactic state, construction, parameter no-ops, translation, application and cleanup surface (lines 92-146)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
           "tests": [
             "TestDomSimplifyCleanupAndTranslation",
@@ -173922,7 +173962,7 @@
         },
         {
           "name": "Default scoped expression substitution equality/iff implementation and translation (lines 149-180)",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_context.go",
           "tests": [
             "TestDomSimplifyEqualitySubstitution",
@@ -185872,7 +185912,7 @@
         },
         {
           "name": "conditional TRACE sizeof(ast/expr/app/foo) output",
-          "status": "platform_replacement",
+          "status": "reference_only",
           "tests": []
         }
       ],

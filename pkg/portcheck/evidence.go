@@ -52,7 +52,42 @@ func VerifyEvidence(m Manifest, root string) error {
 		}
 
 		for _, name := range tests {
-			if !names[name] {
+			if strings.HasPrefix(name, "pkg/") {
+				if !validPath(name) {
+					return fmt.Errorf("%s invalid test evidence path %q", label, name)
+				}
+				info, err := os.Stat(filepath.Join(root, filepath.FromSlash(name)))
+				if err != nil {
+					return fmt.Errorf("%s test evidence path: %w", label, err)
+				}
+				if info.IsDir() {
+					return fmt.Errorf("%s test evidence path is not a file: %s", label, name)
+				}
+				continue
+			}
+			if strings.HasPrefix(name, "go test ") {
+				fields := strings.Fields(name)
+				if len(fields) < 3 || fields[0] != "go" || fields[1] != "test" {
+					return fmt.Errorf("%s invalid Go test command evidence %q", label, name)
+				}
+				for _, pkg := range fields[2:] {
+					pkg = strings.TrimPrefix(pkg, "./")
+					pkg = strings.TrimSuffix(pkg, "/...")
+					if pkg == "..." {
+						pkg = "."
+					}
+					info, err := os.Stat(filepath.Join(root, filepath.FromSlash(pkg)))
+					if err != nil || !info.IsDir() {
+						return fmt.Errorf("%s Go test package evidence %q is unavailable", label, pkg)
+					}
+				}
+				continue
+			}
+			entry := name
+			if slash := strings.IndexByte(entry, '/'); slash >= 0 {
+				entry = entry[:slash]
+			}
+			if !names[entry] {
 				return fmt.Errorf("%s missing runnable test declaration %s", label, name)
 			}
 		}
