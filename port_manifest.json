@@ -194994,9 +194994,13 @@
       "path": "src/test/symbol_table.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/parsers/smt2/local_environment_test.go"
+      ],
+      "tests": [
+        "TestSMT2LocalSymbolTableSourceAssertions"
+      ],
       "assertions": [
         {
           "line": 24,
@@ -195043,17 +195047,19 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "tst_symbol_table all ten ENSURE assertions",
-          "status": "partial",
-          "go_target": "",
-          "tests": []
+          "name": "tst_symbol_table all ten ENSURE assertions through the retained parser local-table specialization",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/local_environment_test.go",
+          "tests": [
+            "TestSMT2LocalSymbolTableSourceAssertions"
+          ]
         }
       ],
       "ownership": [
-        "Owner-local SymbolManager and concrete int32 table replace source global spelling cache and template; all test fixtures close owners."
+        "The source shadow/restore behavior is exercised on the parser's concrete smt2LocalEnv and its real interned symbols; no test-only generic symbol_table<int> adapter is introduced."
       ],
       "deviations": [
-        "Independent scope/bucket oracles and predictable failure tests supplement original assertions."
+        "Go testing replaces ENSURE. The existing nested/repeated-binding tests add deeper scopes and repeated writes beyond the original one-scope sequence."
       ]
     },
     {

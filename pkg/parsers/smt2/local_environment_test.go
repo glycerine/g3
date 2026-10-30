@@ -49,6 +49,53 @@ func TestSMT2LocalSymbolTableNestedAndRepeatedBindings(t *testing.T) {
 	check(x, 8, true)
 }
 
+// Source: src/test/symbol_table.cpp::tst1. The value is the parser's retained
+// concrete symbol_table<local> specialization rather than an int-only adapter.
+func TestSMT2LocalSymbolTableSourceAssertions(t *testing.T) {
+	m := localLookupManager(t)
+	foo, err := m.Symbols.Intern("foo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	boo, err := m.Symbols.Intern("boo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env smt2LocalEnv
+	env.insert(foo, smt2Local{level: 35})
+	if !env.contains(foo) || env.contains(boo) {
+		t.Fatal("source initial membership")
+	}
+	env.beginScope()
+	env.insert(boo, smt2Local{level: 20})
+	if !env.contains(boo) {
+		t.Fatal("source scoped membership")
+	}
+	if value, found := env.find(boo); !found || value.level != 20 {
+		t.Fatal("source scoped lookup", value, found)
+	}
+	if value, found := env.find(foo); !found || value.level != 35 {
+		t.Fatal("source outer lookup", value, found)
+	}
+	env.insert(foo, smt2Local{level: 100})
+	if value, found := env.find(foo); !found || value.level != 100 {
+		t.Fatal("source scoped overwrite", value, found)
+	}
+	if err := env.endScope(); err != nil {
+		t.Fatal(err)
+	}
+	if value, found := env.find(foo); !found || value.level != 35 {
+		t.Fatal("source shadow restoration", value, found)
+	}
+	if env.contains(boo) {
+		t.Fatal("source scoped key removal")
+	}
+	env.reset()
+	if env.contains(boo) || env.contains(foo) {
+		t.Fatal("source reset")
+	}
+}
+
 func TestSMT2LocalSymbolTableResetDiscardsOpenScopes(t *testing.T) {
 	var env smt2LocalEnv
 	x, y := symbol.Numerical(1), symbol.Numerical(2)
