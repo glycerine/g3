@@ -278,8 +278,8 @@ func TestBoolPluginBranchAndSubstitutionContracts(t *testing.T) {
 	fmMust(t, service.SetFraction(&half, 1, 2))
 	fmMust(t, plugin.Assign(contains, formula, &zero))
 	fmMust(t, plugin.Assign(contains, formula, &one))
-	if err := plugin.Assign(contains, formula, &half); !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatalf("non-Boolean branch error = %v", err)
+	if err := plugin.Assign(contains, formula, &half); err != nil {
+		t.Fatalf("source release assign ignores its assertion-only branch value: %v", err)
 	}
 
 	formulaRef, err := m.NewRef(formula)
@@ -298,6 +298,18 @@ func TestBoolPluginBranchAndSubstitutionContracts(t *testing.T) {
 	fmMust(t, err)
 	if !m.IsFalse(defined) {
 		t.Fatalf("Boolean definition = %v, want false", defined)
+	}
+	fmMust(t, m.DelRef(&definition))
+	fmMust(t, m.DelRef(&formulaRef))
+	formulaRef, err = m.NewRef(formula)
+	fmMust(t, err)
+	definition, err = m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	fmMust(t, plugin.Substitute(contains, &half, formulaRef, &definition))
+	defined, err = m.RefGet(definition)
+	fmMust(t, err)
+	if !m.IsFalse(defined) {
+		t.Fatal("source release substitution must map non-one values to false")
 	}
 	fmMust(t, m.DelRef(&definition))
 	fmMust(t, m.DelRef(&formulaRef))

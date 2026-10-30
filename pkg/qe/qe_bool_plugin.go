@@ -124,18 +124,10 @@ func (p *BoolPlugin) branchTruth(value *numeral.OwnedRational) (bool, error) {
 		return false, ast.ErrASTHandle
 	}
 	service := p.manager.NumeralService()
-	one, err := service.IsOne(value)
-	if err != nil || one {
-		return one, err
-	}
-	zero, err := service.IsZero(value)
-	if err != nil {
-		return false, err
-	}
-	if !zero {
-		return false, ast.ErrASTDomain
-	}
-	return false, nil
+	// C++ only SASSERTs that this is zero or one. In release builds, both
+	// assign and subst use is_one() as the branch test, so every other value
+	// follows the false branch too.
+	return service.IsOne(value)
 }
 
 // Assign has no side effects for Boolean branches; the source method only

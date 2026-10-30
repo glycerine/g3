@@ -103188,8 +103188,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/qe_bool_plugin.go", "pkg/qe/qe_core_contract_test.go"],
-      "tests": ["TestBoolPluginBranchAndSubstitutionContracts"],
+      "go_targets": ["pkg/qe/qe_bool_plugin.go", "pkg/qe/bool_project.go", "pkg/qe/bool_weight.go", "pkg/qe/bool_solve.go", "pkg/qe/bool_solve_units.go", "pkg/qe/bool_solve_polarity.go", "pkg/qe/bool_elimination.go", "pkg/qe/bool_plugin_project_test.go", "pkg/qe/bool_plugin_solve_test.go", "pkg/qe/qe_core_contract_test.go"],
+      "tests": ["TestBoolPluginBranchAndSubstitutionContracts", "TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse", "TestBoolPluginSolveUnitsInSourceOrder", "TestBoolPluginPolarizedSolveWeightAndRejection", "TestBoolPluginPolarizedAbsentVariableProducesFalseRealizer", "TestQENNFAtomIndexFeedsBooleanPolarizedSolver"],
       "assertions": [
         {
           "line": 43,
@@ -103202,7 +103202,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "Boolean QE plugin branching, assignment, substitution, model projection, atom weight and source-order unit/polarity solving; source SASSERT-only branch validation follows release behavior", "status": "partial", "go_target": "pkg/qe/qe_bool_plugin.go", "go_targets": ["pkg/qe/bool_project.go", "pkg/qe/bool_weight.go", "pkg/qe/bool_solve.go", "pkg/qe/bool_solve_units.go", "pkg/qe/bool_solve_polarity.go", "pkg/qe/bool_elimination.go"], "tests": ["TestBoolPluginBranchAndSubstitutionContracts", "TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse", "TestBoolPluginSolveUnitsInSourceOrder", "TestBoolPluginPolarizedSolveWeightAndRejection", "TestBoolPluginPolarizedAbsentVariableProducesFalseRealizer", "TestQENNFAtomIndexFeedsBooleanPolarizedSolver"]}],
       "ownership": [],
       "deviations": []
     },
