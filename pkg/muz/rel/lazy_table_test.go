@@ -146,6 +146,23 @@ func TestLazyTableIdenticalFilterAllowsDifferentDomains(t *testing.T) {
 	instructionWantFacts(t, facts, Fact{0, 0}, Fact{1, 1})
 }
 
+func TestLazyTableJoinAllowsDifferentMatchedDomains(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(engine.Close)
+	left := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{0}, Fact{1})
+	right := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{1}, Fact{2})
+	joined, err := left.Join(right, []int{0}, []int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeLazyTables(t, left, right, joined)
+	facts, err := joined.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, facts, Fact{1, 1})
+}
+
 func TestLazyTableValidationAndEngineOwnership(t *testing.T) {
 	firstEngine := NewLazyTableEngine()
 	secondEngine := NewLazyTableEngine()

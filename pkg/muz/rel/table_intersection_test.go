@@ -39,3 +39,12 @@ func TestHashTableIntersectionMatchesSelectedColumns(t *testing.T) {
 	}
 	intersectionWantFacts(t, target, Fact{0, 1}, Fact{2, 1}, Fact{3, 3})
 }
+
+func TestHashTableIntersectionAllowsDifferentMatchedDomains(t *testing.T) {
+	target := intersectionTestTable(t, []uint64{2}, Fact{0}, Fact{1})
+	source := intersectionTestTable(t, []uint64{3}, Fact{1}, Fact{2})
+	if err := target.FilterByIntersection(source, []int{0}, []int{0}); err != nil {
+		t.Fatal(err)
+	}
+	intersectionWantFacts(t, target, Fact{1})
+}

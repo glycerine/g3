@@ -92,6 +92,20 @@ func TestFiniteTableJoinProjectionRenameInstructions(t *testing.T) {
 	}
 }
 
+func TestHashTableJoinAllowsDifferentMatchedDomains(t *testing.T) {
+	left := instructionRows(t, []uint64{2}, Fact{0}, Fact{1})
+	right := instructionRows(t, []uint64{3}, Fact{1}, Fact{2})
+	joined, err := left.Join(right, []int{0}, []int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := joined.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, facts, Fact{1, 1})
+}
+
 func TestFiniteTableUnionDeltaFiltersAndSelectionInstructions(t *testing.T) {
 	context := NewExecutionContext(nil)
 	t.Cleanup(func() { _ = context.Close() })

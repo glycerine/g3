@@ -64,9 +64,6 @@ func validateColumns(left, right Signature, leftColumns, rightColumns []int) err
 		if lc < 0 || lc >= left.Len() || rc < 0 || rc >= right.Len() {
 			return fmt.Errorf("%w: join column index out of bounds", ErrTable)
 		}
-		if left.domains[lc] != right.domains[rc] {
-			return fmt.Errorf("%w: joined column domains differ", ErrTable)
-		}
 	}
 	return nil
 }
