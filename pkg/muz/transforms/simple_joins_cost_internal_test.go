@@ -1,12 +1,15 @@
 package transforms
 
 import (
+	"bytes"
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -21,7 +24,10 @@ func TestSimpleJoinPairCostCountsRepeatedVariablePositions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numerals, Budget: budget})
+	var traceOutput bytes.Buffer
+	traceTags := diagnostic.NewTraceTagsWithWriter(&traceOutput)
+	traceTags.Enable("report_costs")
+	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: symbols, Numerals: numerals, Budget: budget, TraceTags: traceTags})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,6 +92,19 @@ func TestSimpleJoinPairCostCountsRepeatedVariablePositions(t *testing.T) {
 	// the right occurrence: 4*2/(2*2)=2. Set-based accounting yields 4.
 	if math.Abs(float64(got-2)) > 1e-6 {
 		t.Fatalf("repeated-position pair cost = %g, want 2", got)
+	}
+	if err = plugin.tracePairCost(left, right, got); err != nil {
+		t.Fatal(err)
+	}
+	if traceTags.ShouldTrace("report_costs") {
+		output := traceOutput.String()
+		for _, want := range []string{"simple-cost-repeated-left(#0,#0)", "simple-cost-repeated-right(#0)", "2\n"} {
+			if !strings.Contains(output, want) {
+				t.Fatalf("report_costs output %q is missing %q", output, want)
+			}
+		}
+	} else if traceOutput.Len() != 0 {
+		t.Fatalf("disabled report_costs emitted output: %q", traceOutput.String())
 	}
 	if err := plugin.Close(); err != nil {
 		t.Fatal(err)

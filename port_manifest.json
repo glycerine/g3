@@ -87875,7 +87875,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/fp/propositional_engine.go"],
+      "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/fp/propositional_engine.go"],
       "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
       "assertions": [
         {
@@ -87987,14 +87987,15 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Rule-shape normalization to at most two positive predicate tails using fresh auxiliary predicates that retain exactly the variables live in the head or remaining body (dl_mk_simple_joins.cpp:306-573,684-728)",
-          "status": "ported",
+          "name": "Global cost-based simple-join planner, normalized pair sharing, strata and output accounting, source-style binary rule rewriting, and result publication (dl_mk_simple_joins.cpp:38-745)",
+          "status": "partial",
           "go_target": "pkg/muz/transforms/simple_joins.go",
-          "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
+          "supporting_go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go"],
+          "tests": ["TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinsSelectsLowestEstimatedPair", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
         }
       ],
-      "ownership": ["SimpleJoinsPlugin borrows the AST and rule managers, owns temporary pins for original-index auxiliary applications until transformed parent rules retain them, and registers each fresh declaration with RuleManager. Returned RuleSet owns all introduced and replacement rules."],
-      "deviations": ["The retained Go path deterministically associates joins from the left, creates per-rule auxiliaries, and records those auxiliaries for PDR certificate filtering. The source planner's relation-size costing, normalized pair cache, and cross-rule auxiliary sharing remain open performance work; transformed rule semantics and the at-most-two-positive-tail contract are preserved."]
+      "ownership": ["SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules."],
+      "deviations": ["The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, and output-union history. Exact observable registration order for dynamically re-created groups remains under audit. The optional report_costs TRACE output is implemented with source-style predicate text and cost formatting; trace output refusal is ignored by the planner as in the C++ TRACE call. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression."]
     },
     {
       "path": "src/muz/rel/dl_mk_simple_joins.h",

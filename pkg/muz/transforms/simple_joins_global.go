@@ -73,6 +73,7 @@ func (p *SimpleJoinsPlugin) activeJoinGroups(states []*simpleJoinRuleState, stra
 					if _, found := costs[pair.key]; !found {
 						costs[pair.key] = cost
 						stratified[pair.key] = true
+						_ = p.tracePairCost(state.tails[left], state.tails[right], cost)
 					}
 					group.cost = costs[pair.key]
 					group.stratified = stratified[pair.key]

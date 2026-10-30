@@ -3,10 +3,68 @@ package transforms
 // Source: src/muz/rel/dl_mk_simple_joins.cpp join_planner pair cost model.
 
 import (
+	"fmt"
+	"io"
 	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
+
+func (p *SimpleJoinsPlugin) tracePairCost(left, right ast.ASTHandle, cost float32) error {
+	return p.manager.EmitTrace("report_costs", "compute_cost", "src/muz/rel/dl_mk_simple_joins.cpp", 655, func(w io.Writer) error {
+		for _, predicate := range []ast.ASTHandle{left, right} {
+			declaration, err := p.manager.GetDecl(predicate)
+			if err != nil {
+				return err
+			}
+			name, err := p.manager.GetASTName(declaration)
+			if err != nil {
+				return err
+			}
+			text, err := p.manager.Symbols.String(name)
+			if err != nil {
+				return err
+			}
+			if _, err = fmt.Fprintf(w, "%s(", text); err != nil {
+				return err
+			}
+			count, err := p.manager.GetNumArgs(predicate)
+			if err != nil {
+				return err
+			}
+			for index := uint32(0); index < count; index++ {
+				if index != 0 {
+					if _, err = io.WriteString(w, ","); err != nil {
+						return err
+					}
+				}
+				argument, x := p.manager.GetArg(predicate, index)
+				if x != nil {
+					return x
+				}
+				kind, x := p.manager.GetKind(argument)
+				if x != nil {
+					return x
+				}
+				if kind != ast.ASTVar {
+					return fmt.Errorf("muz/transforms: report_costs expects variable predicate arguments: %w", ast.ErrASTDomain)
+				}
+				variable, x := p.manager.GetVarIndex(argument)
+				if x != nil {
+					return x
+				}
+				if _, err = fmt.Fprintf(w, "#%d", variable); err != nil {
+					return err
+				}
+			}
+			if _, err = io.WriteString(w, ")\n"); err != nil {
+				return err
+			}
+		}
+		_, err := fmt.Fprintf(w, "%g\n", cost)
+		return err
+	})
+}
 
 func (p *SimpleJoinsPlugin) variableSorts(expressions []ast.ASTHandle) (map[uint32]ast.ASTHandle, error) {
 	result := make(map[uint32]ast.ASTHandle)
