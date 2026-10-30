@@ -172295,9 +172295,34 @@
       "path": "src/tactic/core/blast_term_ite_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/tactic/core/blast_term_ite_tactic.go", "pkg/tactic/core/blast_term_ite_config.go", "pkg/tactic/core/blast_term_ite_shapes.go", "pkg/tactic/core/blast_term_ite_rewrite.go", "pkg/tactic/core/blast_term_ite_apply.go", "pkg/tactic/core/blast_term_ite_standalone.go", "pkg/tactic/core/blast_term_ite_tactic_test.go", "pkg/tactic/core/blast_term_ite_proof_test.go", "pkg/tactic/core/blast_term_ite_boolean_test.go", "pkg/tactic/core/blast_term_ite_nested_test.go", "pkg/tactic/core/blast_term_ite_lifecycle_test.go"],
-      "tests": ["TestBlastTermITE"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/tactic/core/blast_term_ite_tactic.go",
+        "pkg/tactic/core/blast_term_ite_config.go",
+        "pkg/tactic/core/blast_term_ite_shapes.go",
+        "pkg/tactic/core/blast_term_ite_rewrite.go",
+        "pkg/tactic/core/blast_term_ite_apply.go",
+        "pkg/tactic/core/blast_term_ite_standalone.go",
+        "pkg/tactic/core/blast_term_ite_tactic_test.go",
+        "pkg/tactic/core/blast_term_ite_proof_test.go",
+        "pkg/tactic/core/blast_term_ite_boolean_test.go",
+        "pkg/tactic/core/blast_term_ite_nested_test.go",
+        "pkg/tactic/core/blast_term_ite_lifecycle_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_descriptions.go"
+      ],
+      "tests": [
+        "TestBlastTermITEHoistsApplicationArgument",
+        "TestBlastTermITELeavesBooleanChoiceAndCollapsesEqualTermBranches",
+        "TestBlastTermITEMultipleArgumentsExpandRecursively",
+        "TestBlastTermITEIgnoresUnconsumedMaxArgsAndMaxMemoryOptions",
+        "TestBlastTermITEProofAndCoreDependency",
+        "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
+        "TestBlastTermITEStandaloneLeavesProofModeEnabled",
+        "TestBuiltinTacticRegistryDrivesFactoryValidation",
+        "TestBuiltinTacticRegistryRetainsFactoryOrder",
+        "TestBuiltinTacticDescriptionsRetainSourceText"
+      ],
       "assertions": [
         {
           "line": 122,
@@ -172308,19 +172333,102 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Tactic construction, parameter snapshot/update and max-memory/max-steps/max-args descriptors (lines 29-54, 153-177)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_tactic.go",
+          "tests": [
+            "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
+            "TestBlastTermITEIgnoresUnconsumedMaxArgsAndMaxMemoryOptions"
+          ]
+        },
+        {
+          "name": "Rewriter config cooperation, commented-out memory refusal, and no pattern rewriting (lines 29-69)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_config.go",
+          "tests": [
+            "TestBlastTermITEIgnoresUnconsumedMaxArgsAndMaxMemoryOptions"
+          ]
+        },
+        {
+          "name": "Greedy application argument ITE recognition, Boolean-sort exclusion, equal-branch BR_REWRITE1 and conditional BR_REWRITE3 (lines 54-81)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_rewrite.go",
+          "tests": [
+            "TestBlastTermITEHoistsApplicationArgument",
+            "TestBlastTermITELeavesBooleanChoiceAndCollapsesEqualTermBranches",
+            "TestBlastTermITEMultipleArgumentsExpandRecursively"
+          ]
+        },
+        {
+          "name": "Goal application traversal, proof modus-ponens composition, dependency preservation, progress report, and depth increment (lines 83-145)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_apply.go",
+          "tests": [
+            "TestBlastTermITEHoistsApplicationArgument",
+            "TestBlastTermITEProofAndCoreDependency"
+          ]
+        },
+        {
+          "name": "Cleanup reconstruction, translation, statistics defaults, and reset behavior (lines 145-180)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_tactic.go",
+          "tests": [
+            "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation"
+          ]
+        },
+        {
+          "name": "Standalone no-proof helper and manager proof-mode scope (lines 181-194)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_standalone.go",
+          "tests": [
+            "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
+            "TestBlastTermITEStandaloneLeavesProofModeEnabled"
+          ]
+        }
+      ],
+      "ownership": [
+        "The tactic owns copied params, a rewriter traversal/configuration, and tactic storage; AST manager, parameter services, cooperation and memory runtime are borrowed. Per-application refs are released after goal update, while the goal owns rewritten expressions, proofs and dependencies. Cleanup replaces traversal state and resets the source expansion counter."
+      ],
+      "deviations": [
+        "The source documents max_args but does not read it, and stores max_memory while its allocation-size check is commented out; Go preserves both behaviors. Progress is emitted through the tactic-report channel, while C++ base statistics collection and reset hooks remain no-ops."
+      ]
     },
     {
       "path": "src/tactic/core/blast_term_ite_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/tactic/core/blast_term_ite_tactic.go",
+        "pkg/tactic/core/blast_term_ite_config.go",
+        "pkg/tactic/core/blast_term_ite_shapes.go",
+        "pkg/tactic/core/blast_term_ite_rewrite.go",
+        "pkg/tactic/core/blast_term_ite_apply.go",
+        "pkg/tactic/core/blast_term_ite_standalone.go",
+        "pkg/tactic/core/blast_term_ite_tactic_test.go",
+        "pkg/tactic/core/blast_term_ite_proof_test.go",
+        "pkg/tactic/core/blast_term_ite_boolean_test.go",
+        "pkg/tactic/core/blast_term_ite_nested_test.go",
+        "pkg/tactic/core/blast_term_ite_lifecycle_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_descriptions.go"
+      ],
+      "tests": [
+        "TestBlastTermITEHoistsApplicationArgument",
+        "TestBlastTermITELeavesBooleanChoiceAndCollapsesEqualTermBranches",
+        "TestBlastTermITEMultipleArgumentsExpandRecursively",
+        "TestBlastTermITEIgnoresUnconsumedMaxArgsAndMaxMemoryOptions",
+        "TestBlastTermITEProofAndCoreDependency",
+        "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
+        "TestBlastTermITEStandaloneLeavesProofModeEnabled",
+        "TestBuiltinTacticRegistryDrivesFactoryValidation",
+        "TestBuiltinTacticRegistryRetainsFactoryOrder",
+        "TestBuiltinTacticDescriptionsRetainSourceText"
+      ],
       "conditionals": [
         {
           "line": 23,
@@ -172331,11 +172439,35 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Public tactic factory and builtin registration (lines 31-37)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_tactic.go",
+          "tests": [
+            "TestBuiltinTacticRegistryDrivesFactoryValidation",
+            "TestBuiltinTacticRegistryRetainsFactoryOrder",
+            "TestBuiltinTacticDescriptionsRetainSourceText"
+          ]
+        },
+        {
+          "name": "Standalone expression helper declaration (line 40)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/blast_term_ite_standalone.go",
+          "tests": [
+            "TestBlastTermITEStandaloneStatisticsCleanupAndTranslation",
+            "TestBlastTermITEStandaloneLeavesProofModeEnabled"
+          ]
+        }
+      ],
+      "ownership": [
+        "The Go factory returns an owned reference-counted tactic; the standalone helper returns a borrowed manager-owned AST handle after restoring proof mode."
+      ],
+      "deviations": [
+        "The source helper mutates expr_ref in place; Go returns the resulting AST handle because ASTHandle is a value."
+      ]
     },
     {
       "path": "src/tactic/core/cofactor_elim_term_ite.cpp",

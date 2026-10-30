@@ -94,6 +94,9 @@ func (t *BlastTermITETactic) Apply(goal *tactic.Goal, result *tactic.TacticResul
 			return e
 		}
 	}
+	if err = tactic.ReportTacticProgress(":blast-term-ite-consts", t.numFresh); err != nil {
+		return err
+	}
 	if err = goal.IncDepth(); err != nil {
 		return err
 	}

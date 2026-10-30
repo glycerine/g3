@@ -198,17 +198,10 @@ func (t *BlastTermITETactic) CollectParamDescrs(out *uparams.ParamDescrs) error 
 	return out.InsertName("max_args", uparams.ParamUInt, &description, nil, nil)
 }
 func (t *BlastTermITETactic) CollectStatistics() map[string]float64 {
-	if t == nil || t.self != t || t.closed || t.numFresh == 0 {
-		return nil
-	}
-	return map[string]float64{"blast-term-ite-consts": float64(t.numFresh)}
+	return nil
 }
 func (t *BlastTermITETactic) ResetStatistics() error {
-	if err := t.open(); err != nil {
-		return err
-	}
-	t.numFresh = 0
-	return nil
+	return t.open()
 }
 func (t *BlastTermITETactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *BlastTermITETactic) SetProgressCallback(func(uint32)) error { return t.open() }

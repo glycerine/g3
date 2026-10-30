@@ -27,9 +27,12 @@ func TestBlastTermITEStandaloneStatisticsCleanupAndTranslation(t *testing.T) {
 	var result tactic.TacticResult
 	t.Cleanup(func() { simplifyMust(t, result.Close()) })
 	simplifyMust(t, f.runner.Apply(goal, &result))
-	stats := f.runner.CollectStatistics()
-	if stats["blast-term-ite-consts"] != 2 {
-		t.Fatal("expansion statistic", stats)
+	if f.runner.CollectStatistics() != nil || f.runner.numFresh != 2 {
+		t.Fatal("source progress counter", f.runner.CollectStatistics(), f.runner.numFresh)
+	}
+	simplifyMust(t, f.runner.ResetStatistics())
+	if f.runner.numFresh != 2 {
+		t.Fatal("base tactic reset_statistics should not clear progress count", f.runner.numFresh)
 	}
 	simplifyMust(t, f.runner.Cleanup())
 	if f.runner.CollectStatistics() != nil {
@@ -48,4 +51,23 @@ func TestBlastTermITEStandaloneStatisticsCleanupAndTranslation(t *testing.T) {
 		t.Fatal("translation lost parameter snapshot")
 	}
 	simplifyMust(t, translated.Close())
+}
+
+func TestBlastTermITEStandaloneLeavesProofModeEnabled(t *testing.T) {
+	f := newBlastTermITEFixture(t, false)
+	simplifyMust(t, f.m.ToggleProofMode(ast.ASTProofEnabled))
+	choice, err := f.m.MkIte(f.cond, f.one, f.two)
+	simplifyMust(t, err)
+	app, err := f.m.MkApp(f.f, []ast.ASTHandle{choice})
+	simplifyMust(t, err)
+	formula, err := f.m.MkEq(app, f.one)
+	simplifyMust(t, err)
+	if _, err = BlastTermITE(f.m, formula); err != nil {
+		t.Fatal(err)
+	}
+	proofs, err := f.m.ProofsEnabled()
+	simplifyMust(t, err)
+	if !proofs {
+		t.Fatal("standalone helper did not restore manager proof mode")
+	}
 }
