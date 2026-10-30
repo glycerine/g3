@@ -157,7 +157,11 @@ func TestHashTableFiniteFiltersValidateAndMutate(t *testing.T) {
 	if err = table.FilterIdentical([]int{0, 2}); err == nil {
 		t.Fatal("out-of-range identical filter accepted")
 	}
-	if err = table.FilterEqual(3, 0); err == nil {
-		t.Fatal("out-of-domain equality filter accepted")
+	if err = table.FilterEqual(3, 0); err != nil {
+		t.Fatal("out-of-domain equality filter rejected", err)
+	}
+	facts, err = table.Facts()
+	if err != nil || len(facts) != 0 {
+		t.Fatal("out-of-domain equality filter did not remove every row", facts, err)
 	}
 }

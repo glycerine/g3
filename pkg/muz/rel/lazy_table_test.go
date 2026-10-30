@@ -142,8 +142,19 @@ func TestLazyTableValidationAndEngineOwnership(t *testing.T) {
 	if _, err := first.Join(second, nil, nil); !errors.Is(err, ErrLazyTable) {
 		t.Fatal("cross-engine join", err)
 	}
-	if err := first.FilterEqual(2, 0); !errors.Is(err, ErrLazyTable) {
-		t.Fatal("out-of-domain filter", err)
+	if err := first.FilterEqual(2, 0); err != nil {
+		t.Fatal("out-of-domain filter rejected", err)
+	}
+	filtered, err := first.Eval()
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := filtered.Facts()
+	if err != nil || len(facts) != 0 {
+		t.Fatal("out-of-domain filter did not remove every row", facts, err)
+	}
+	if err := first.FilterEqual(0, 1); !errors.Is(err, ErrLazyTable) {
+		t.Fatal("out-of-range filter column", err)
 	}
 	if _, err := first.Project([]int{1}); err == nil {
 		t.Fatal("out-of-range project accepted")

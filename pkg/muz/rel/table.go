@@ -300,8 +300,8 @@ func (t *HashTable) FilterEqual(value Element, column int) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if column < 0 || column >= t.signature.Len() || uint64(value) >= t.signature.domains[column] {
-		return fmt.Errorf("%w: filter value or column out of range", ErrTable)
+	if column < 0 || column >= t.signature.Len() {
+		return fmt.Errorf("%w: filter column out of range", ErrTable)
 	}
 	for key, fact := range t.rows.All() {
 		if fact[column] != value {

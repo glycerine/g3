@@ -81,8 +81,8 @@ func (t *LazyTable) FilterEqual(value Element, column int) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if column < 0 || column >= t.root.signature.Len() || uint64(value) >= t.root.signature.domains[column] {
-		return fmt.Errorf("%w: filter value or column out of range", ErrLazyTable)
+	if column < 0 || column >= t.root.signature.Len() {
+		return fmt.Errorf("%w: filter column out of range", ErrLazyTable)
 	}
 	t.root = &lazyTableNode{kind: LazyTableFilterEqual, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, value: value, column: column}
 	return nil
