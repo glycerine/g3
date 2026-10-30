@@ -167860,6 +167860,8 @@
       "go_targets": [
         "pkg/tactic/arith/nla2bv_tactic.go",
         "pkg/tactic/arith/nla2bv_rules.go",
+        "pkg/tactic/arith/nla2bv_trace.go",
+        "pkg/tactic/arith/nla2bv_trace_source_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/tactic/arith/nla2bv_goal_visit.go",
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -167911,7 +167913,8 @@
             "TestNLA2BVIntegerLexicalRefsEndAtDefinitionHandoff",
             "TestNLA2BVSourceTraversalVisitsSharedNodesOnceAcrossGoalRoots",
             "TestNLA2BVSourceSatPreservationControlsGoalPrecision",
-            "TestNLA2BVPrecisionMatchesCPPReference"
+            "TestNLA2BVPrecisionMatchesCPPReference",
+            "TestNLA2BVSourcePower2SubstitutionTrace"
           ]
         },
         {

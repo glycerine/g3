@@ -138,6 +138,7 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 		if err = c.t.manager.ExprSubstitutionInsert(c.sub, key, value, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
 			return errors.Join(err, c.local.releaseTo(mark))
 		}
+		c.tracePower2Substitution(key, value)
 		if err = c.local.releaseTo(mark); err != nil {
 			return err
 		}

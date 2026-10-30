@@ -3,11 +3,14 @@ package arith
 // Source: src/tactic/arith/nla2bv_tactic.cpp:85-88,111.
 
 import (
+	"errors"
 	"io"
 	"strconv"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/text"
 )
 
 // BindTrace borrows an isolated trace stream. Nil restores the manager stream.
@@ -72,4 +75,46 @@ func (c *nla2BVInvocation) traceGoalDisplay(g *tactic.Goal, tag string, line int
 			}
 			return g.Display(out)
 		})
+}
+
+func (c *nla2BVInvocation) tracePower2Substitution(key, value ast.ASTHandle) {
+	tags := c.t.traceTags()
+	if !tags.ShouldTrace("nla2bv") {
+		return
+	}
+	_ = tags.EmitConditional("nla2bv", "collect_power2", "src/tactic/arith/nla2bv_tactic.cpp", 135,
+		func() bool { return true }, func(out io.Writer) error {
+			if err := c.writeTraceExpr(out, key); err != nil {
+				return err
+			}
+			if err := nla2BVTraceWrite(out, " "); err != nil {
+				return err
+			}
+			if err := c.writeTraceExpr(out, value); err != nil {
+				return err
+			}
+			return nla2BVTraceWrite(out, "\n")
+		})
+}
+
+func (c *nla2BVInvocation) writeTraceExpr(out io.Writer, expression ast.ASTHandle) (err error) {
+	manager := c.t.manager
+	format, err := manager.SMT2PPExprTree(expression, nil)
+	if err != nil {
+		return err
+	}
+	stream, err := text.NewNumericTextStream(text.NumericTextStreamConfig{Budget: manager.Budget()})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, stream.Close()) }()
+	empty := c.t.context.EmptyValue()
+	if err = manager.PrintFormat(stream, format, c.t.context, &empty, c.t.globals); err != nil {
+		return err
+	}
+	formatted, err := stream.String()
+	if err != nil {
+		return err
+	}
+	return nla2BVTraceWrite(out, formatted)
 }

@@ -48,3 +48,37 @@ func TestNLA2BVSourceTraceSitesDisplayAndCount(t *testing.T) {
 		t.Fatalf("source logs multiplication count before and after reduction, got %d records:\n%s", gotCount, got)
 	}
 }
+
+func TestNLA2BVSourcePower2SubstitutionTrace(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("nla2bv")
+	if !tags.ShouldTrace("nla2bv") {
+		t.Skip("source TRACE macro erased")
+	}
+	equationMust(t, r.BindTrace(tags))
+	m := r.manager
+	x := fixDLConst(t, m, true, "power-trace-x")
+	y := fixDLConst(t, m, true, "power-trace-y")
+	powers := bv2IntDisjunction(t, m, x, []string{"1", "2", "4"})
+	lower := fixDLApp(t, m, 3, y, fixDLNumber(t, m, true, "0"))
+	upper := fixDLApp(t, m, 2, y, fixDLNumber(t, m, true, "1"))
+	g := fixDLGoal(t, m, false, false, false, powers, lower, upper)
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	err := r.Apply(g, &result)
+	if err == nil || !strings.Contains(err.Error(), "goal is not in the fragment supported by nla2bv") {
+		t.Fatalf("power-of-two preprocessing refusal = %v", err)
+	}
+	got := output.String()
+	for _, want := range []string{
+		"src/tactic/arith/nla2bv_tactic.cpp:135",
+		"power-trace-x",
+		"bv2int",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("power-of-two substitution trace lacks %q:\n%s", want, got)
+		}
+	}
+}
