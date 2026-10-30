@@ -106,6 +106,21 @@ func TestHashTableJoinAllowsDifferentMatchedDomains(t *testing.T) {
 	instructionWantFacts(t, facts, Fact{1, 1})
 }
 
+func TestHashTableSelectEqualAndProjectOutOfDomainValue(t *testing.T) {
+	source := instructionRows(t, []uint64{2, 3}, Fact{0, 1}, Fact{1, 2})
+	selected, err := source.SelectEqualAndProject(3, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := selected.Facts()
+	if err != nil || len(facts) != 0 {
+		t.Fatal("out-of-domain selection did not produce an empty projection", facts, err)
+	}
+	if _, err = source.SelectEqualAndProject(0, 2); err == nil {
+		t.Fatal("out-of-range selection column accepted")
+	}
+}
+
 func TestFiniteTableUnionDeltaFiltersAndSelectionInstructions(t *testing.T) {
 	context := NewExecutionContext(nil)
 	t.Cleanup(func() { _ = context.Close() })

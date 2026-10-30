@@ -406,8 +406,8 @@ func (t *HashTable) SelectEqualAndProject(value Element, column int) (*HashTable
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	if column < 0 || column >= t.signature.Len() || uint64(value) >= t.signature.domains[column] {
-		return nil, fmt.Errorf("%w: selection value or column out of range", ErrTable)
+	if column < 0 || column >= t.signature.Len() {
+		return nil, fmt.Errorf("%w: selection column out of range", ErrTable)
 	}
 	signature, err := projectedSignature(t.signature, []int{column})
 	if err != nil {
