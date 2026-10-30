@@ -3,6 +3,7 @@ package arith
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -57,6 +58,25 @@ func nla2BVGoalWidth(t *testing.T, r *NLA2BVTactic, number string) uint32 {
 	}
 	t.Fatal("missing generated BV constant")
 	return 0
+}
+
+func TestNLA2BVLog2SourceBoundaries(t *testing.T) {
+	for denominator := int64(1); denominator <= 17; denominator++ {
+		for numerator := int64(1); numerator <= 1024; numerator++ {
+			n := new(big.Rat).SetFrac64(numerator, denominator)
+			got := nla2BVLog2(n)
+			upper := new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(got)))
+			lower := new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(got-1)))
+			if n.Cmp(upper) > 0 || got > 1 && n.Cmp(lower) <= 0 {
+				t.Fatalf("ceil(log2(%s)) = %d violates power-of-two bounds [%s, %s)", n.RatString(), got, lower, upper)
+			}
+		}
+	}
+	for _, n := range []*big.Rat{big.NewRat(0, 1), big.NewRat(-1, 2), big.NewRat(-8, 1)} {
+		if got := nla2BVLog2(n); got != 1 {
+			t.Fatalf("source minimum for %s = %d, want 1", n, got)
+		}
+	}
 }
 
 func TestNLA2BVParametersFreshInvocationsCleanupAndTranslation(t *testing.T) {

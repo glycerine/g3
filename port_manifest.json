@@ -167346,7 +167346,8 @@
           "tests": [
             "TestNLA2BVExactGoalsPrebuiltCPP",
             "TestNLA2BVSMTLIBSolvingAndModelsPrebuiltCPP",
-            "TestNLA2BVParametersFreshInvocationsCleanupAndTranslation"
+            "TestNLA2BVParametersFreshInvocationsCleanupAndTranslation",
+            "TestNLA2BVLog2SourceBoundaries"
           ]
         },
         {
@@ -167410,7 +167411,8 @@
           "tests": [
             "TestNLA2BVExactGoalsPrebuiltCPP",
             "TestNLA2BVSMTLIBSolvingAndModelsPrebuiltCPP",
-            "TestNLA2BVParametersFreshInvocationsCleanupAndTranslation"
+            "TestNLA2BVParametersFreshInvocationsCleanupAndTranslation",
+            "TestNLA2BVLog2SourceBoundaries"
           ]
         },
         {
