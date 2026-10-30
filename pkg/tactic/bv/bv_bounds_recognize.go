@@ -1,6 +1,6 @@
 package bv
 
-// Source: src/ast/rewriter/bv_bounds_base.h is_bound.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp is_bound.
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
@@ -100,21 +100,6 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 	}
 	if w > 64 {
 		return variable, bound, false, nil
-	}
-	if v.Sign() == 0 {
-		var low, high uint32
-		var base ast.ASTHandle
-		if extract, x := m.BitVectorExtractValue(rhs, &low, &high, &base); x != nil {
-			return variable, bound, false, x
-		} else if extract {
-			size, x := m.BitVectorSize(base)
-			if x != nil {
-				return variable, bound, false, x
-			}
-			if high == size-1 && low > 0 {
-				return base, bvBoundsLooseRangeSet(size, big.NewInt(0), new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(low)), big.NewInt(1))), true, nil
-			}
-		}
 	}
 	return rhs, bvBoundsSingleton(w, v), true, nil
 }

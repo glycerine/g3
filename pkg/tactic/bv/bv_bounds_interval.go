@@ -123,3 +123,33 @@ func (b bvBoundsSet) complement() bvBoundsSet {
 	}
 	return bvBoundsFromModularInterval(&result)
 }
+
+// sourceComplement follows bv_bounds_tactic.cpp::interval::negate, whose
+// loose intervals complement to the full set and whose tight intervals use
+// the source's inclusive endpoints directly.
+func (b bvBoundsSet) sourceComplement() bvBoundsSet {
+	maximum := bvBoundsMaximum(b.width)
+	if !b.tight {
+		return bvBoundsRangeSet(b.width, big.NewInt(0), maximum)
+	}
+	if b.empty() || b.full() {
+		return bvBoundsSet{width: b.width, tight: true}
+	}
+	if len(b.ranges) == 2 {
+		// The two stored ranges are the wrapped interval [l..max] U [0..h].
+		return bvBoundsRangeSet(b.width,
+			new(big.Int).Add(b.ranges[0].hi, big.NewInt(1)),
+			new(big.Int).Sub(b.ranges[1].lo, big.NewInt(1)))
+	}
+	r := b.ranges[0]
+	if r.lo.Sign() == 0 {
+		return bvBoundsRangeSet(b.width, new(big.Int).Add(r.hi, big.NewInt(1)), maximum)
+	}
+	if r.hi.Cmp(maximum) == 0 {
+		return bvBoundsRangeSet(b.width, big.NewInt(0), new(big.Int).Sub(r.lo, big.NewInt(1)))
+	}
+	return bvBoundsSet{width: b.width, ranges: []bvBoundsRange{
+		{lo: big.NewInt(0), hi: new(big.Int).Sub(r.lo, big.NewInt(1))},
+		{lo: new(big.Int).Add(r.hi, big.NewInt(1)), hi: maximum},
+	}, tight: true}
+}

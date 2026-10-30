@@ -12,7 +12,7 @@ var builtinTacticNames = [...]string{
 	"simplify", "ctx-simplify", "add-bounds", "elim-and", "elim-term-ite",
 	"tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values",
 	"propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast",
-	"elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "reduce-bv-size",
+	"elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size",
 	"reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr",
 	"occf", "split-clause", "symmetry-reduce", "der", "distribute-forall",
 	"nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv",

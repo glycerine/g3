@@ -19,6 +19,33 @@ func NewBVBoundsTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.G
 	}
 	return t, nil
 }
+
+// NewBVBoundsDomTactic constructs the registered propagate-bv-bounds-new
+// tactic, whose bounds state is scoped by the dominator traversal.
+func NewBVBoundsDomTactic(m *ast.ASTManager, c *uparams.ParamsContext, p *uparams.ParamsRef) (*core.DomSimplifyTactic, error) {
+	if m == nil || c == nil {
+		return nil, uparams.ErrParamsOwner
+	}
+	s := NewBVBoundsSimplifier(m, c)
+	t, err := core.NewDomSimplifyTacticWithSimplifier(m, s, p)
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
+}
+
+func MakeBVBoundsDomTactic(m *ast.ASTManager, c *uparams.ParamsContext, p *uparams.ParamsRef) (tactic.Tactic, error) {
+	t, err := NewBVBoundsDomTactic(m, c, p)
+	if err != nil {
+		return nil, err
+	}
+	w, err := tactic.NewCleanTactic(t)
+	if err != nil {
+		return nil, errors.Join(err, t.Close())
+	}
+	return w, nil
+}
+
 func MakeBVBoundsTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService, p *uparams.ParamsRef, services model.ModelEvaluatorConfig) (tactic.Tactic, error) {
 	t, e := NewBVBoundsTactic(m, c, g, p, services)
 	if e != nil {

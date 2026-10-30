@@ -49,9 +49,6 @@ func (s *BVBoundsSimplifier) Simplify(h ast.ASTHandle, out ast.ASTRef) (bool, er
 			return true, s.manager.SetRef(out, v)
 		}
 	}
-	if done, e := s.zeroPatch(h, out); e != nil || done {
-		return done, e
-	}
 	core, sign, e := s.stripBoundNots(h)
 	if e != nil {
 		return false, e

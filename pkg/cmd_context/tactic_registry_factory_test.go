@@ -7,7 +7,7 @@ import (
 
 func TestBuiltinTacticRegistryDrivesFactoryValidation(t *testing.T) {
 	c := contextFixture(t)
-	for _, name := range []string{"skip", "fail", "simplify"} {
+	for _, name := range []string{"skip", "fail", "simplify", "propagate-bv-bounds", "propagate-bv-bounds-new"} {
 		created, err := c.NewBuiltinTactic(name)
 		contextMust(t, err)
 		if created == nil {

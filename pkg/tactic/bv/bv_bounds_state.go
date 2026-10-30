@@ -47,7 +47,7 @@ func (s *BVBoundsSimplifier) AssertExpression(h ast.ASTHandle, sign bool) (bool,
 		return e == nil, e
 	}
 	if sign {
-		b = b.complement()
+		b = b.sourceComplement()
 	}
 	if old, exists := s.bounds[key]; exists {
 		next := old.intersect(b)

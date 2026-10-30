@@ -170852,12 +170852,22 @@
         "pkg/tactic/bv/bv_bounds_simplify.go",
         "pkg/tactic/bv/bv_bounds_recognize.go",
         "pkg/tactic/bv/bv_bounds_translate.go",
-        "pkg/tactic/bv/bv_bounds_width_limit_test.go"
+        "pkg/tactic/bv/bv_bounds_width_limit_test.go",
+        "pkg/tactic/bv/bv_bounds_top_extract_test.go",
+        "pkg/tactic/core/dom_simplify_plugin.go"
       ],
       "tests": [
         "TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds",
         "TestBVBoundsSourcePropagateEqualityAndTranslation",
-        "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64"
+        "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64",
+        "TestBVBoundsSourceEqualityBoundTargetsExtractTerm",
+        "TestBVBoundsNegatedExtractEqualityTargetsExtractTerm",
+        "TestBVBoundsDoesNotSimplifyNegatedExtractFromBaseBound",
+        "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
+        "TestBVBoundsDominatorPropagatesSingletonEquality",
+        "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
+        "TestBVBoundsDominatorScopesITEBranchBounds",
+        "TestBVBoundsSourceRecognizesUnsignedSignedAndEquality"
       ],
       "conditionals": [
         {
@@ -170945,7 +170955,29 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "Dominator callback factory mk_dom_bv_bounds_tactic (src/tactic/bv/bv_bounds_tactic.cpp:822-823)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_tactic.go",
+          "tests": [
+            "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
+            "TestBVBoundsDominatorPropagatesSingletonEquality",
+            "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
+            "TestBVBoundsDominatorScopesITEBranchBounds"
+          ]
+        },
+        {
+          "name": "Bound recognition and output term selection in is_bound (src/tactic/bv/bv_bounds_tactic.cpp:195-239)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_recognize.go",
+          "tests": [
+            "TestBVBoundsSourceRecognizesUnsignedSignedAndEquality",
+            "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64",
+            "TestBVBoundsSourceEqualityBoundTargetsExtractTerm"
+          ]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -170953,9 +170985,18 @@
       "path": "src/tactic/bv/bv_bounds_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/tactic/bv/bv_bounds_tactic.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/cmd_context/tactic_commands.go"
+      ],
+      "tests": [
+        "TestBuiltinTacticRegistryRetainsFactoryOrder",
+        "TestBuiltinTacticDescriptionsRetainSourceText",
+        "TestBuiltinTacticRegistryDrivesFactoryValidation"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -170968,7 +171009,20 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "propagate-bv-bounds registration",
+          "status": "complete",
+          "go_target": "pkg/cmd_context/tactic_commands.go",
+          "tests": ["TestBuiltinTacticRegistryDrivesFactoryValidation"]
+        },
+        {
+          "name": "propagate-bv-bounds-new registration",
+          "status": "complete",
+          "go_target": "pkg/cmd_context/tactic_commands.go",
+          "tests": ["TestBuiltinTacticRegistryDrivesFactoryValidation"]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -173372,11 +173426,16 @@
       "go_targets": [
         "pkg/tactic/core/dom_simplify_tactic.go",
         "pkg/tactic/core/dom_simplify_dominators.go",
-        "pkg/tactic/core/dom_simplify_rewrite.go"
+        "pkg/tactic/core/dom_simplify_rewrite.go",
+        "pkg/tactic/core/dom_simplify_plugin.go"
       ],
       "tests": [
         "TestDomSimplifySourceTraceTreeAndRewrite",
-        "TestDomSimplifyCleanupAndTranslation"
+        "TestDomSimplifyCleanupAndTranslation",
+        "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
+        "TestBVBoundsDominatorPropagatesSingletonEquality",
+        "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
+        "TestBVBoundsDominatorScopesITEBranchBounds"
       ],
       "assertions": [
         {
@@ -173422,7 +173481,19 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "Custom dominator simplifier callback traversal used by mk_dom_bv_bounds_tactic",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
+          "tests": [
+            "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
+            "TestBVBoundsDominatorPropagatesSingletonEquality",
+        "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
+        "TestBVBoundsDominatorScopesITEBranchBounds"
+          ]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -173430,9 +173501,16 @@
       "path": "src/tactic/core/dom_simplify_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/dom_simplify_tactic.go"
+      ],
+      "tests": [
+        "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
+        "TestBVBoundsDominatorPropagatesSingletonEquality",
+        "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
+        "TestBVBoundsDominatorScopesITEBranchBounds"
+      ],
       "conditionals": [
         {
           "line": 20,

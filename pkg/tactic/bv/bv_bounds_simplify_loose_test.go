@@ -6,7 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestBVBoundsSimplifyLooseNegationAfterContext(t *testing.T) {
+func TestBVBoundsDoesNotSimplifyNegatedExtractFromBaseBound(t *testing.T) {
 	f := newBVBoundsFixture(t)
 	ok, err := f.simp.AssertExpression(f.ule(t, f.x, f.num(t, 15)), false)
 	sharingMust(t, err)
@@ -26,11 +26,7 @@ func TestBVBoundsSimplifyLooseNegationAfterContext(t *testing.T) {
 	defer f.m.DelRef(&out)
 	done, err := f.simp.Simplify(query, out)
 	sharingMust(t, err)
-	value, err := f.m.RefGet(out)
-	sharingMust(t, err)
-	not, child, err := f.m.IsNot(value)
-	sharingMust(t, err)
-	if !done || !not || !f.m.IsTrue(child) {
-		t.Fatal("loose negation must remain outside the contextual result")
+	if done {
+		t.Fatal("a bound on the base vector must not be applied to a distinct extract term")
 	}
 }

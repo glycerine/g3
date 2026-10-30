@@ -5,7 +5,10 @@ package bv
 import uparams "github.com/glycerine/g3/pkg/util/params"
 
 func (s *BVBoundsSimplifier) UpdateParams(p *uparams.ParamsRef) error {
-	if p == nil || s.context == nil {
+	if p == nil {
+		return nil
+	}
+	if s.context == nil {
 		return uparams.ErrParamsOwner
 	}
 	name := "propagate_eq"

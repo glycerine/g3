@@ -58,7 +58,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return nil, err
 	}
 	switch name {
-	case "qe-light", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "simplify", "ctx-simplify", "add-bounds", "elim-and", "elim-term-ite", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
+	case "qe-light", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "simplify", "ctx-simplify", "add-bounds", "elim-and", "elim-term-ite", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
 	default:
 		return nil, fmt.Errorf("invalid tactic, unknown tactic %s", name)
 	}
@@ -142,6 +142,10 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return bv.MakeBVSizeReductionTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
 	case "bv_bound_chk":
 		return bv.NewBVBoundCheckTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
+	case "propagate-bv-bounds":
+		return bv.MakeBVBoundsTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
+	case "propagate-bv-bounds-new":
+		return bv.MakeBVBoundsDomTactic(m, c.config.Params, nil)
 	case "ackermannize_bv":
 		return ackermannization.NewTactic(m, nil, c.config.ModelEvaluator)
 	case "aig":

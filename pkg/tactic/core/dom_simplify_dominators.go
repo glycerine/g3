@@ -37,8 +37,19 @@ func (d *expressionDominators) compile(root ast.ASTHandle) (bool, error) {
 	if err != nil || !ok {
 		return ok, err
 	}
-	for child, parent := range d.idom {
-		d.tree[parent] = append(d.tree[parent], child)
+	// C++ inserts the root into m_doms first and then inserts other nodes in
+	// post-order. Preserve that order when extracting the immediate-dominator
+	// tree; ranging over a Go map makes traversal order unstable.
+	if parent, ok := d.idom[d.root]; ok {
+		d.tree[parent] = append(d.tree[parent], d.root)
+	}
+	for _, child := range d.post {
+		if child == d.root {
+			continue
+		}
+		if parent, ok := d.idom[child]; ok {
+			d.tree[parent] = append(d.tree[parent], child)
+		}
 	}
 	return true, nil
 }

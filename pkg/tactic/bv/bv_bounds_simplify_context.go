@@ -7,7 +7,7 @@ import "github.com/glycerine/g3/pkg/ast"
 func (s *BVBoundsSimplifier) simplifyRecognizedBound(key ast.ASTHandle, want bvBoundsSet, sign bool) (ast.ASTHandle, bool, error) {
 	if sign && want.tight {
 		sign = false
-		want = want.complement()
+		want = want.sourceComplement()
 		if want.empty() {
 			value, err := s.manager.MkFalse()
 			return value, err == nil, err

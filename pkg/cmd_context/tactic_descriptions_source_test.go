@@ -4,11 +4,13 @@ import "testing"
 
 func TestBuiltinTacticDescriptionsRetainSourceText(t *testing.T) {
 	want := map[string]string{
-		"skip":             "do nothing tactic.",
-		"sat":              "(try to) solve goal using a SAT solver.",
-		"qe-light":         "apply light-weight quantifier elimination.",
-		"ackermannize_bv":  "A tactic for performing full Ackermannization on bv instances.",
-		"tseitin-cnf-core": "convert goal into CNF using tseitin-like encoding (note: quantifiers are ignored). This tactic does not apply required simplifications to the input goal like the tseitin-cnf tactic.",
+		"skip":                    "do nothing tactic.",
+		"sat":                     "(try to) solve goal using a SAT solver.",
+		"qe-light":                "apply light-weight quantifier elimination.",
+		"ackermannize_bv":         "A tactic for performing full Ackermannization on bv instances.",
+		"tseitin-cnf-core":        "convert goal into CNF using tseitin-like encoding (note: quantifiers are ignored). This tactic does not apply required simplifications to the input goal like the tseitin-cnf tactic.",
+		"propagate-bv-bounds":     "propagate bit-vector bounds by simplifying implied or contradictory bounds.",
+		"propagate-bv-bounds-new": "propagate bit-vector bounds by simplifying implied or contradictory bounds.",
 	}
 	for name, expected := range want {
 		got, err := BuiltinTacticDescription(name)

@@ -23,6 +23,21 @@ type DomSimplifyTactic struct {
 	refs       uint32
 	ownerBytes uint64
 	closed     bool
+	domSimp    DomSimplifier
+	domCache   map[ast.ASTHandle]ast.ASTHandle
+	domPins    []ast.ASTRef
+}
+
+// DomSimplifier is the callback contract used by the source's dominator
+// simplification tactic. Assertion callbacks create one scope per assertion.
+type DomSimplifier interface {
+	AssertExpression(ast.ASTHandle, bool) (bool, error)
+	Rewrite(ast.ASTRef) error
+	Pop(uint32) error
+	ScopeLevel() uint32
+	TranslateDom(*ast.ASTManager) (DomSimplifier, error)
+	UpdateParams(*uparams.ParamsRef) error
+	Close() error
 }
 
 func (t *DomSimplifyTactic) BindTrace(tags *diagnostic.TraceTags) error {
@@ -46,6 +61,28 @@ func NewDomSimplifyTactic(m *ast.ASTManager, _ *uparams.ParamsRef) (*DomSimplify
 	t := &DomSimplifyTactic{manager: m, maxDepth: 1024, ownerBytes: n}
 	t.self = t
 	t.dominators = newExpressionDominators(m)
+	return t, nil
+}
+
+func NewDomSimplifyTacticWithSimplifier(m *ast.ASTManager, s DomSimplifier, p *uparams.ParamsRef) (*DomSimplifyTactic, error) {
+	t, err := NewDomSimplifyTactic(m, p)
+	if err != nil {
+		if s != nil {
+			err = errors.Join(err, s.Close())
+		}
+		return nil, err
+	}
+	if s == nil {
+		_ = t.Close()
+		return nil, ast.ErrASTHandle
+	}
+	if p != nil {
+		err = s.UpdateParams(p)
+	}
+	if err != nil {
+		return nil, errors.Join(err, s.Close(), t.Close())
+	}
+	t.domSimp = s
 	return t, nil
 }
 func (t *DomSimplifyTactic) open() error {
@@ -84,10 +121,16 @@ func (t *DomSimplifyTactic) Close() error {
 	if t.closed {
 		return nil
 	}
+	var err error
+	err = errors.Join(err, t.clearDomPins())
+	if t.domSimp != nil {
+		err = errors.Join(err, t.domSimp.Close())
+		t.domSimp = nil
+	}
 	t.manager.Budget().Release(t.ownerBytes)
 	t.ownerBytes = 0
 	t.closed = true
-	return nil
+	return err
 }
 func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
@@ -104,6 +147,9 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 		return err
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
+	if t.domSimp != nil {
+		return t.applyDomSimplifier(g, out)
+	}
 	changed := true
 	for changed {
 		inconsistent, checkErr := g.Inconsistent()
@@ -197,12 +243,20 @@ func (t *DomSimplifyTactic) Cleanup() error {
 		return e
 	}
 	t.dominators.reset()
-	return nil
+	t.domCache = nil
+	return t.clearDomPins()
 }
 func (t *DomSimplifyTactic) Reset() error { return t.Cleanup() }
 func (t *DomSimplifyTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if e := t.open(); e != nil {
 		return nil, e
+	}
+	if t.domSimp != nil {
+		s, err := t.domSimp.TranslateDom(m)
+		if err != nil {
+			return nil, err
+		}
+		return NewDomSimplifyTacticWithSimplifier(m, s, nil)
 	}
 	return NewDomSimplifyTactic(m, nil)
 }
