@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -13,56 +14,119 @@ import (
 func (p *SimpleJoinsPlugin) tracePairCost(left, right ast.ASTHandle, cost float32) error {
 	return p.manager.EmitTrace("report_costs", "compute_cost", "src/muz/rel/dl_mk_simple_joins.cpp", 655, func(w io.Writer) error {
 		for _, predicate := range []ast.ASTHandle{left, right} {
-			declaration, err := p.manager.GetDecl(predicate)
-			if err != nil {
+			if err := p.writeSimpleJoinPredicate(w, predicate); err != nil {
 				return err
 			}
-			name, err := p.manager.GetASTName(declaration)
-			if err != nil {
-				return err
-			}
-			text, err := p.manager.Symbols.String(name)
-			if err != nil {
-				return err
-			}
-			if _, err = fmt.Fprintf(w, "%s(", text); err != nil {
-				return err
-			}
-			count, err := p.manager.GetNumArgs(predicate)
-			if err != nil {
-				return err
-			}
-			for index := uint32(0); index < count; index++ {
-				if index != 0 {
-					if _, err = io.WriteString(w, ","); err != nil {
-						return err
-					}
-				}
-				argument, x := p.manager.GetArg(predicate, index)
-				if x != nil {
-					return x
-				}
-				kind, x := p.manager.GetKind(argument)
-				if x != nil {
-					return x
-				}
-				if kind != ast.ASTVar {
-					return fmt.Errorf("muz/transforms: report_costs expects variable predicate arguments: %w", ast.ErrASTDomain)
-				}
-				variable, x := p.manager.GetVarIndex(argument)
-				if x != nil {
-					return x
-				}
-				if _, err = fmt.Fprintf(w, "#%d", variable); err != nil {
-					return err
-				}
-			}
-			if _, err = io.WriteString(w, ")\n"); err != nil {
+			if _, err := io.WriteString(w, "\n"); err != nil {
 				return err
 			}
 		}
 		_, err := fmt.Fprintf(w, "%g\n", cost)
 		return err
+	})
+}
+
+func (p *SimpleJoinsPlugin) writeSimpleJoinPredicate(w io.Writer, predicate ast.ASTHandle) error {
+	declaration, err := p.manager.GetDecl(predicate)
+	if err != nil {
+		return err
+	}
+	name, err := p.manager.GetASTName(declaration)
+	if err != nil {
+		return err
+	}
+	text, err := p.manager.Symbols.String(name)
+	if err != nil {
+		return err
+	}
+	if _, err = fmt.Fprintf(w, "%s(", text); err != nil {
+		return err
+	}
+	count, err := p.manager.GetNumArgs(predicate)
+	if err != nil {
+		return err
+	}
+	for index := uint32(0); index < count; index++ {
+		if index != 0 {
+			if _, err = io.WriteString(w, ","); err != nil {
+				return err
+			}
+		}
+		argument, x := p.manager.GetArg(predicate, index)
+		if x != nil {
+			return x
+		}
+		kind, x := p.manager.GetKind(argument)
+		if x != nil {
+			return x
+		}
+		if kind != ast.ASTVar {
+			return fmt.Errorf("muz/transforms: simple-join trace expects variable predicate arguments: %w", ast.ErrASTDomain)
+		}
+		variable, x := p.manager.GetVarIndex(argument)
+		if x != nil {
+			return x
+		}
+		if _, err = fmt.Fprintf(w, "#%d", variable); err != nil {
+			return err
+		}
+	}
+	_, err = io.WriteString(w, ")")
+	return err
+}
+
+func (p *SimpleJoinsPlugin) tracePairRegistration(state *simpleJoinRuleState, left, right ast.ASTHandle, outside []ast.ASTHandle, cost float32, consumers uint32, stratified bool) error {
+	return p.manager.EmitTrace("dl", "register_pair", "src/muz/rel/dl_mk_simple_joins.cpp", 290, func(w io.Writer) error {
+		if err := p.writeSimpleJoinPredicate(w, left); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, " "); err != nil {
+			return err
+		}
+		if err := p.writeSimpleJoinPredicate(w, right); err != nil {
+			return err
+		}
+		pair, err := p.normalizePair(left, right)
+		if err != nil {
+			return err
+		}
+		live := make(map[uint32]ast.ASTHandle)
+		for _, expression := range outside {
+			if err = p.variables(expression, live); err != nil {
+				return err
+			}
+		}
+		variables := make([]uint32, 0)
+		for variable := range pair.actualToCanonical {
+			if _, needed := live[variable]; needed {
+				variables = append(variables, variable)
+			}
+		}
+		sort.Slice(variables, func(i, j int) bool { return variables[i] < variables[j] })
+		for _, variable := range variables {
+			if _, err = fmt.Fprintf(w, " %d", variable); err != nil {
+				return err
+			}
+		}
+		if _, err = io.WriteString(w, "\n"); err != nil {
+			return err
+		}
+		if err = p.rules.WriteRuleDisplay(w, state.rule); err != nil {
+			return err
+		}
+		if consumers > 0 {
+			amortized := cost / float32(consumers)
+			if stratified {
+				if amortized > 0 {
+					amortized /= 16
+				} else {
+					amortized *= 16
+				}
+			}
+			_, err = fmt.Fprintf(w, "cost: %g\n", amortized)
+			return err
+		}
+		return nil
 	})
 }
 

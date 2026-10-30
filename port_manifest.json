@@ -81686,8 +81686,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "assertions": [
         {
           "line": 64,
@@ -81752,6 +81752,12 @@
           "tests": ["TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"]
         },
         {
+          "name": "rule::display Datalog text for facts, predicate tails and negation (dl_rule.cpp:1005-1034)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_display.go",
+          "tests": ["TestRuleManagerWriteSourceRuleDisplay"]
+        },
+        {
           "name": "mk_rule label elimination for no-proof formula ingestion (dl_rule.cpp:79-80,151)",
           "status": "ported",
           "go_target": "pkg/muz/base/hnf.go",
@@ -81778,8 +81784,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "conditionals": [
         {
           "line": 20,
@@ -81826,6 +81832,12 @@
           "status": "ported",
           "go_target": "pkg/muz/base/rule_formula_display.go",
           "tests": ["TestRuleManagerWriteRuleFormulaAndString", "TestRuleFormulaPublicOwnershipAndClosedFailures"]
+        },
+        {
+          "name": "rule::display Datalog diagnostic declaration (dl_rule.h:356)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_display.go",
+          "tests": ["TestRuleManagerWriteSourceRuleDisplay"]
         }
       ],
       "ownership": [],
@@ -87875,8 +87887,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
+      "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/base/rule_display.go", "pkg/muz/fp/propositional_engine.go"],
+      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestRuleManagerWriteSourceRuleDisplay", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
       "assertions": [
         {
           "line": 64,
@@ -87991,11 +88003,11 @@
           "status": "partial",
           "go_target": "pkg/muz/transforms/simple_joins.go",
           "supporting_go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go"],
-          "tests": ["TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinsSelectsLowestEstimatedPair", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
+          "tests": ["TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinsSelectsLowestEstimatedPair", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestRuleManagerWriteSourceRuleDisplay", "TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
         }
       ],
       "ownership": ["SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules."],
-      "deviations": ["The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, and ordered registration history. A regression covers dynamic registration append and removal order, which controls the source's final-parent helper name and rule-processing order. The optional report_costs TRACE output is implemented with source-style predicate text and cost formatting; trace output refusal is ignored by the planner as in the C++ TRACE call. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression."]
+      "deviations": ["The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, ordered registration history, and one-time registration trace state. Regressions cover dynamic registration append/removal order and trace de-duplication across rebuilds. Both report_costs and dl TRACE paths are implemented with source-shaped predicate/rule text and amortized cost output; trace stream refusal is ignored by the planner as in the C++ TRACE calls. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression."]
     },
     {
       "path": "src/muz/rel/dl_mk_simple_joins.h",
