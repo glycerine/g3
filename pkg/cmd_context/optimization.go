@@ -497,25 +497,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 			return lbool.Undef, err
 		}
 	}
-	if paretoContinuation {
-		optimized, err = c.checkOptimizePareto(assumptions, true)
-	} else if boxContinuation {
-		optimized, err = c.checkOptimizeBox(assumptions, true)
-	} else if priority == "pareto" {
-		if err = c.clearOptimizationBoxModels(); err != nil {
-			return lbool.Undef, err
-		}
-		c.optimizationBoxActive = false
-		optimized, err = c.checkOptimizePareto(assumptions, continuation)
-	} else if priority == "box" {
-		optimized, err = c.checkOptimizeBox(assumptions, continuation)
-	} else {
-		if err = c.clearOptimizationBoxModels(); err != nil {
-			return lbool.Undef, err
-		}
-		c.optimizationBoxActive = false
-		optimized, err = c.checkOptimizeLex(assumptions)
-	}
+	optimized, err = c.runNormalizedOptimization(assumptions, continuation, priority, paretoContinuation, boxContinuation)
 	if err != nil {
 		return lbool.Undef, err
 	}
