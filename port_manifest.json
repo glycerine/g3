@@ -87290,7 +87290,7 @@
       "path": "src/muz/rel/dl_instruction.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_saturation.go", "pkg/muz/rel/instruction_table.go"],
       "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout"],
       "assertions": [
@@ -87319,12 +87319,12 @@
           "text": "SASSERT(ctx.reg(m_tgt)->get_signature()==m_sig);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "execution_context register ownership, annotations, reset/close, time limits, big-relation reporting, runtime/process watermark termination for relation-backed contexts, and statistics collection (dl_instruction.cpp:41-141)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/instruction.go",
           "tests": ["TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout"]
         },
@@ -87369,14 +87369,14 @@
         "ExecutionContext owns register tables and move transfers the exact pointer while clone creates an independent table. Load clones the stored relation; store transfers its register table into RelationManager and empties the register. Relation I/O instructions retain their predicate declarations. InstructionBlock owns and closes instructions in source order; each instruction owns its AccountedObject. WhileInstruction owns and closes its nested body."
       ],
       "deviations": [
-        "ExecutionContext retains finite HashTable registers and a borrowed finite RelationManager; register replacement, reset, and close retire owned tables, while load/store transfers ownership explicitly. Timer and big-relation reporting are implemented; relation-backed contexts check the AST numeral runtime's live memory/process watermark. Context-only construction still relies on caller cancellation, and operation-function caches plus non-table relation implementations remain open."
+        "ExecutionContext retains finite HashTable registers and a borrowed finite RelationManager; register replacement, reset, and close retire owned tables, while load/store transfers ownership explicitly. Timer and big-relation reporting are implemented; relation-backed contexts check the AST numeral runtime's live memory/process watermark. The retained Go bytecode path is finite-table based; context-only callers supply cancellation, while C++ operation-function cache dispatch and non-table relation implementations have no retained Go consumer and are excluded per the port boundary."
       ]
     },
     {
       "path": "src/muz/rel/dl_instruction.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_table.go"],
       "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout"],
       "conditionals": [
@@ -87415,12 +87415,12 @@
           "text": "SASSERT(o==0 || m_observer==0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained execution_context register surface including relation-backed process watermark binding, concrete instruction contract, and instruction_block surface (dl_instruction.h:48-163,177-365)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/instruction.go",
           "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextRelationBindingChecksProcessWatermark"]
         },
@@ -87447,7 +87447,7 @@
         "The Go instruction interface is the live concrete relational bytecode boundary; no any-valued callback or unused template adapter is introduced."
       ],
       "deviations": [
-        "Function caches, observers and instruction constructors whose concrete relation operations are not yet ported remain absent."
+        "C++ family-keyed function caches and observer dispatch support non-table relation implementations that have no retained Go consumers; the retained finite-table instruction path dispatches concrete operations directly. Context-only execution receives cancellation from its caller."
       ]
     },
     {
