@@ -79,6 +79,58 @@ func TestNLA2BVLog2SourceBoundaries(t *testing.T) {
 	}
 }
 
+func TestNLA2BVIntegerLexicalRefsEndAtDefinitionHandoff(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	variable := fixDLConst(t, r.manager, true, "lexical-int")
+	inv, err := r.newInvocation()
+	equationMust(t, err)
+	if inv == nil {
+		t.Fatal("missing invocation")
+	}
+	filter, err := tactic.NewFilterModel(r.manager)
+	equationMust(t, err)
+	equationMust(t, inv.filterOwner.Prepare(r.manager))
+	if err = inv.filterOwner.SetModelConverter(filter); err != nil {
+		equationMust(t, filter.Close())
+		t.Fatal(err)
+	}
+	inv.filter = filter
+	if err = inv.addInteger(variable); err != nil {
+		equationMust(t, inv.close())
+		t.Fatal(err)
+	}
+	if len(inv.local.refs) != 0 || len(inv.local.numbers) != 0 {
+		t.Fatal("temporary lexical refs survived definition handoff", len(inv.local.refs), len(inv.local.numbers))
+	}
+	if len(inv.trail) != 1 || len(inv.vars) != 1 || len(inv.defs) != 1 {
+		t.Fatal("definition owners were not retained", len(inv.trail), len(inv.vars), len(inv.defs))
+	}
+	equationMust(t, inv.close())
+
+	realVariable := fixDLConst(t, r.manager, false, "lexical-real")
+	realInvocation, err := r.newInvocation()
+	equationMust(t, err)
+	realFilter, err := tactic.NewFilterModel(r.manager)
+	equationMust(t, err)
+	equationMust(t, realInvocation.filterOwner.Prepare(r.manager))
+	if err = realInvocation.filterOwner.SetModelConverter(realFilter); err != nil {
+		equationMust(t, realFilter.Close())
+		t.Fatal(err)
+	}
+	realInvocation.filter = realFilter
+	if err = realInvocation.addReal(realVariable); err != nil {
+		equationMust(t, realInvocation.close())
+		t.Fatal(err)
+	}
+	if len(realInvocation.local.refs) != 0 || len(realInvocation.local.numbers) != 0 {
+		t.Fatal("real encoding temporaries survived definition handoff", len(realInvocation.local.refs), len(realInvocation.local.numbers))
+	}
+	if len(realInvocation.trail) != 1 || len(realInvocation.vars) != 1 || len(realInvocation.defs) != 1 {
+		t.Fatal("real encoding owners were not retained", len(realInvocation.trail), len(realInvocation.vars), len(realInvocation.defs))
+	}
+	equationMust(t, realInvocation.close())
+}
+
 func TestNLA2BVParametersFreshInvocationsCleanupAndTranslation(t *testing.T) {
 	r := nla2BVFixture(t, false)
 	p, err := r.context.NewValue()

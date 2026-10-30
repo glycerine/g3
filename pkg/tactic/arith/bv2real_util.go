@@ -289,6 +289,37 @@ type bv2RealCall struct {
 	traceLine int
 }
 
+type bv2RealCallCheckpoint struct {
+	refs, numbers int
+}
+
+func (c *bv2RealCall) checkpoint() bv2RealCallCheckpoint {
+	return bv2RealCallCheckpoint{refs: len(c.refs), numbers: len(c.numbers)}
+}
+
+// releaseTo ends a source lexical expr_ref/rational scope. Failed releases
+// remain attached to the call so the enclosing owner can retry cleanup.
+func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
+	for len(c.numbers) > mark.numbers {
+		index := len(c.numbers) - 1
+		if c.numbers[index] != nil {
+			if err := c.u.manager.NumeralService().Del(c.numbers[index]); err != nil {
+				return err
+			}
+			c.numbers[index] = nil
+		}
+		c.numbers = c.numbers[:index]
+	}
+	for len(c.refs) > mark.refs {
+		index := len(c.refs) - 1
+		if err := c.u.manager.DelRef(&c.refs[index]); err != nil {
+			return err
+		}
+		c.refs = c.refs[:index]
+	}
+	return nil
+}
+
 func (c *bv2RealCall) close() error {
 	for i := len(c.numbers) - 1; i >= 0; i-- {
 		if c.numbers[i] != nil {

@@ -125,16 +125,20 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 		return nil
 	}
 	for key, exponent := range powers {
+		mark := c.local.checkpoint()
 		width, err := c.t.manager.BitVectorSize(exponent)
 		if err != nil {
-			return err
+			return errors.Join(err, c.local.releaseTo(mark))
 		}
 		bits := c.local.bv(45, c.local.numeral(big.NewRat(1, 1), width), exponent)
 		value := c.local.hold(c.t.manager.MkBitVectorToInt(bits))
 		if err = c.appendOwned(&c.trail, value); err != nil {
-			return err
+			return errors.Join(err, c.local.releaseTo(mark))
 		}
 		if err = c.t.manager.ExprSubstitutionInsert(c.sub, key, value, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
+			return errors.Join(err, c.local.releaseTo(mark))
+		}
+		if err = c.local.releaseTo(mark); err != nil {
 			return err
 		}
 	}
@@ -143,7 +147,10 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 	}
 	return c.t.manager.ExprSubstitutionReset(c.sub)
 }
-func (c *nla2BVInvocation) substitute(g *tactic.Goal) error {
+
+func (c *nla2BVInvocation) substitute(g *tactic.Goal) (resultErr error) {
+	mark := c.local.checkpoint()
+	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
 	var err error
 	c.replacer, err = rewriter.NewDefaultExprReplacer(c.t.manager)
 	if err != nil {
@@ -186,7 +193,10 @@ func (c *nla2BVInvocation) substitute(g *tactic.Goal) error {
 	c.replacer = nil
 	return nil
 }
-func (c *nla2BVInvocation) reduceInteger(g *tactic.Goal) error {
+
+func (c *nla2BVInvocation) reduceInteger(g *tactic.Goal) (resultErr error) {
+	mark := c.local.checkpoint()
+	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
 	var err error
 	c.intRewrite, err = NewBV2IntRewriter(c.integer)
 	if err != nil {
@@ -233,7 +243,10 @@ func (c *nla2BVInvocation) reduceInteger(g *tactic.Goal) error {
 	c.intRewrite = nil
 	return nil
 }
-func (c *nla2BVInvocation) reduceReal(g *tactic.Goal) error {
+
+func (c *nla2BVInvocation) reduceReal(g *tactic.Goal) (resultErr error) {
+	mark := c.local.checkpoint()
+	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
 	var err error
 	c.realRewrite, err = NewBV2RealRewriter(c.real)
 	if err != nil {
@@ -355,7 +368,9 @@ func (c *nla2BVInvocation) addDefinition(variable, definition ast.ASTHandle) err
 	}
 	return c.appendOwned(&c.defs, definition)
 }
-func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) error {
+func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) {
+	mark := c.local.checkpoint()
+	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
 	low, strict, hasLow, err := c.bounds.Lower(variable)
 	if err != nil {
 		return err
@@ -403,7 +418,9 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) error {
 	}
 	return c.addDefinition(variable, value)
 }
-func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) error {
+func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) (resultErr error) {
+	mark := c.local.checkpoint()
+	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
 	c.satPreserving = false
 	s, err := c.fresh(variable, "", c.numBits)
 	if err != nil {
