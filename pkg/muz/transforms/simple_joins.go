@@ -5,6 +5,7 @@ package transforms
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -21,6 +22,16 @@ type SimpleJoinsPlugin struct {
 	fresh     []ast.ASTHandle
 	pins      []ast.ASTRef
 	closed    bool
+}
+
+type sharedJoinKey struct {
+	pair    normalizedPairKey
+	outputs string
+}
+
+type sharedJoinDefinition struct {
+	declaration ast.ASTHandle
+	outputs     []uint32
 }
 
 func NewSimpleJoinsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32, relations ...*rel.RelationManager) *SimpleJoinsPlugin {
@@ -74,78 +85,90 @@ func (p *SimpleJoinsPlugin) variables(root ast.ASTHandle, result map[uint32]ast.
 	return nil
 }
 
-func (p *SimpleJoinsPlugin) auxiliary(pair, outside []ast.ASTHandle, prefix usymbol.Symbol, parent *base.Rule) (_ ast.ASTHandle, result *base.Rule, resultErr error) {
-	pairVariables := make(map[uint32]ast.ASTHandle)
+func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHandle, prefix usymbol.Symbol, parent *base.Rule, shared map[sharedJoinKey]sharedJoinDefinition) (ast.ASTHandle, *base.Rule, error) {
+	var err error
 	live := make(map[uint32]ast.ASTHandle)
-	for _, expression := range pair {
-		if err := p.variables(expression, pairVariables); err != nil {
-			return ast.ASTHandle{}, nil, err
-		}
-	}
 	for _, expression := range outside {
 		if err := p.variables(expression, live); err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
 	}
-	indices := make([]int, 0)
-	for variable := range pairVariables {
+	outputs := make([]uint32, 0)
+	for variable := range pair.actualToCanonical {
 		if _, found := live[variable]; found {
-			indices = append(indices, int(variable))
+			outputs = append(outputs, pair.actualToCanonical[variable])
 		}
 	}
-	sort.Ints(indices)
-	domain := make([]ast.ASTHandle, 0, len(indices))
-	arguments := make([]ast.ASTHandle, 0, len(indices))
-	for _, raw := range indices {
-		variable := uint32(raw)
-		domain = append(domain, pairVariables[variable])
-		argument, err := p.manager.MkVar(variable, pairVariables[variable])
+	sort.Slice(outputs, func(i, j int) bool { return outputs[i] < outputs[j] })
+	key := sharedJoinKey{pair: pair.key, outputs: fmt.Sprint(outputs)}
+	entry, found := shared[key]
+	var definition *base.Rule
+	if !found {
+		domain := make([]ast.ASTHandle, len(outputs))
+		canonicalArguments := make([]ast.ASTHandle, len(outputs))
+		for i, output := range outputs {
+			domain[i] = pair.canonicalSorts[output]
+			canonicalArguments[i], err = p.manager.MkVar(output, domain[i])
+			if err != nil {
+				return ast.ASTHandle{}, nil, err
+			}
+		}
+		boolean, err := p.manager.MkBoolSort()
 		if err != nil {
 			return ast.ASTHandle{}, nil, err
 		}
-		arguments = append(arguments, argument)
+		suffix, err := p.manager.Symbols.Intern("split")
+		if err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		declaration, err := p.manager.MkFreshFuncDecl(prefix, suffix, domain, boolean)
+		if err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		if err = p.rules.RegisterPredicate(declaration); err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		p.fresh = append(p.fresh, declaration)
+		canonicalHead, err := p.manager.MkApp(declaration, canonicalArguments)
+		if err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		definition, err = p.rules.NewRule(canonicalHead, pair.terms[:], nil, "")
+		if err != nil {
+			return ast.ASTHandle{}, nil, err
+		}
+		if parent != nil {
+			if err = definition.SetAccountingParentRule(parent); err != nil {
+				return ast.ASTHandle{}, nil, errors.Join(err, definition.Close())
+			}
+		}
+		if err = p.attachAssertedProof(definition); err != nil {
+			return ast.ASTHandle{}, nil, errors.Join(err, definition.Close())
+		}
+		entry = sharedJoinDefinition{declaration: declaration, outputs: append([]uint32(nil), outputs...)}
+		shared[key] = entry
 	}
-	boolean, err := p.manager.MkBoolSort()
+	arguments := make([]ast.ASTHandle, len(entry.outputs))
+	for i, output := range entry.outputs {
+		actual := pair.canonicalToActual[output]
+		arguments[i], err = p.manager.MkVar(actual, pair.canonicalSorts[output])
+		if err != nil {
+			return ast.ASTHandle{}, definition, err
+		}
+	}
+	head, err := p.manager.MkApp(entry.declaration, arguments)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
-	}
-	suffix, err := p.manager.Symbols.Intern("split")
-	if err != nil {
-		return ast.ASTHandle{}, nil, err
-	}
-	declaration, err := p.manager.MkFreshFuncDecl(prefix, suffix, domain, boolean)
-	if err != nil {
-		return ast.ASTHandle{}, nil, err
-	}
-	if err = p.rules.RegisterPredicate(declaration); err != nil {
-		return ast.ASTHandle{}, nil, err
-	}
-	p.fresh = append(p.fresh, declaration)
-	head, err := p.manager.MkApp(declaration, arguments)
-	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, definition, err
 	}
 	pin, err := p.manager.NewRef(head)
 	if err != nil {
-		return ast.ASTHandle{}, nil, err
+		return ast.ASTHandle{}, definition, err
 	}
 	p.pins = append(p.pins, pin)
-	rule, err := p.rules.NewRule(head, pair, nil, "")
-	if err != nil {
-		return ast.ASTHandle{}, nil, err
-	}
-	if parent != nil {
-		if err = rule.SetAccountingParentRule(parent); err != nil {
-			return ast.ASTHandle{}, nil, errors.Join(err, rule.Close())
-		}
-	}
-	if err = p.attachAssertedProof(rule); err != nil {
-		return ast.ASTHandle{}, nil, errors.Join(err, rule.Close())
-	}
-	return head, rule, nil
+	return head, definition, nil
 }
 
-func (p *SimpleJoinsPlugin) attachAssertedProof(rule *base.Rule) error {
+func (p *SimpleJoinsPlugin) attachAssertedProof(rule *base.Rule) (resultErr error) {
 	enabled, err := p.manager.ProofsEnabled()
 	if err != nil || !enabled {
 		return err
@@ -154,7 +177,7 @@ func (p *SimpleJoinsPlugin) attachAssertedProof(rule *base.Rule) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = p.manager.DelRef(&formula) }()
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formula)) }()
 	formulaHandle, err := p.manager.RefGet(formula)
 	if err != nil {
 		return err
@@ -189,6 +212,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 		return nil, err
 	}
 	var introduced []*base.Rule
+	shared := make(map[sharedJoinKey]sharedJoinDefinition)
 	defer func() {
 		for _, definition := range introduced {
 			if definition != nil {
@@ -253,17 +277,22 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}
-			pair := []ast.ASTHandle{tails[leftIndex], tails[rightIndex]}
+			pair, y := p.normalizePair(tails[leftIndex], tails[rightIndex])
+			if y != nil {
+				return nil, errors.Join(y, rule.Close())
+			}
 			for i, tail := range tails[:positive] {
 				if i != leftIndex && i != rightIndex {
 					outside = append(outside, tail)
 				}
 			}
-			auxiliary, definition, y := p.auxiliary(pair, outside, prefix, rule)
+			auxiliary, definition, y := p.auxiliary(pair, outside, prefix, rule, shared)
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}
-			introduced = append(introduced, definition)
+			if definition != nil {
+				introduced = append(introduced, definition)
+			}
 			tails[leftIndex] = auxiliary
 			negated[leftIndex] = false
 			lastPositive := positive - 1

@@ -140,11 +140,45 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	coneMust(t, manager.DelRef(&formula))
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
+	var secondHandles [5]ast.ASTHandle
+	for i := range secondHandles {
+		secondHandles[i], err = manager.MkVar(uint32(i+10), sorts[i])
+		coneMust(t, err)
+	}
+	a2 := makePredicate("A", sorts[:2], secondHandles[0:2])
+	b2 := makePredicate("B", []ast.ASTHandle{sorts[0], sorts[2]}, []ast.ASTHandle{secondHandles[0], secondHandles[2]})
+	c2 := makePredicate("C", sorts[3:], secondHandles[3:])
+	head2 := makePredicate("Goal", sorts, secondHandles[:])
+	rule2, err := rules.NewRule(head2, []ast.ASTHandle{a2, b2, c2}, nil, "renamed-estimated-pair")
+	coneMust(t, err)
+	coneMust(t, set.Add(rule2))
+	coneMust(t, rule2.Close())
 	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0, relations)
 	transformed, err := plugin.Transform(set)
 	coneMust(t, err)
 	if transformed == nil {
 		t.Fatal("three-tail rule was not transformed")
+	}
+	if transformedCount, x := transformed.Len(); x != nil || transformedCount != 3 {
+		t.Fatalf("renamed pair consumers yielded %d rules, want two parents and one shared helper: %v", transformedCount, x)
+	}
+	if fresh := plugin.FreshPredicates(); len(fresh) != 1 {
+		t.Fatalf("renamed equivalent pairs created %d helper predicates, want one", len(fresh))
+	} else {
+		for index := 0; index < 2; index++ {
+			parent, x := transformed.Rule(index)
+			coneMust(t, x)
+			found := false
+			for tailIndex := 0; tailIndex < 2; tailIndex++ {
+				declaration, y := parent.TailDeclaration(tailIndex)
+				coneMust(t, y)
+				found = found || declaration == fresh[0]
+			}
+			coneMust(t, parent.Close())
+			if !found {
+				t.Fatalf("rewritten parent %d does not call the shared helper", index)
+			}
+		}
 	}
 	t.Cleanup(func() {
 		coneMust(t, transformed.Close())
@@ -161,7 +195,7 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	if mainName != "estimated-pair" {
 		t.Fatalf("first transformed rule name %q, want rewritten source rule", mainName)
 	}
-	definition, err := transformed.Rule(1)
+	definition, err := transformed.Rule(2)
 	coneMust(t, err)
 	if _, found, proofErr := definition.Proof(); proofErr != nil || !found {
 		t.Fatalf("introduced helper rule has no asserted proof: found=%v err=%v", found, proofErr)
@@ -176,7 +210,7 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, x)
 	}
 	coneMust(t, definition.Close())
-	if !strings.Contains(tails[0], "simple-cost-B") || !strings.Contains(tails[1], "simple-cost-C") {
+	if !(strings.Contains(tails[0], "simple-cost-B") && strings.Contains(tails[1], "simple-cost-C") || strings.Contains(tails[0], "simple-cost-C") && strings.Contains(tails[1], "simple-cost-B")) {
 		t.Fatalf("selected helper pair %v, want saturated low-cardinality B and C", tails)
 	}
 	plain := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
@@ -189,7 +223,13 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, plainResult.Close())
 		coneMust(t, plain.Close())
 	})
-	plainHelper, err := plainResult.Rule(1)
+	if plainCount, x := plainResult.Len(); x != nil || plainCount != 3 {
+		t.Fatalf("unsaturated renamed pair consumers yielded %d rules, want two parents and one shared helper: %v", plainCount, x)
+	}
+	if fresh := plain.FreshPredicates(); len(fresh) != 1 {
+		t.Fatalf("unsaturated renamed equivalent pairs created %d helpers, want one", len(fresh))
+	}
+	plainHelper, err := plainResult.Rule(2)
 	coneMust(t, err)
 	plainTails := make([]string, 2)
 	for i := range plainTails {
@@ -201,7 +241,7 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, x)
 	}
 	coneMust(t, plainHelper.Close())
-	if !strings.Contains(plainTails[0], "simple-cost-A") || !strings.Contains(plainTails[1], "simple-cost-B") {
+	if !(strings.Contains(plainTails[0], "simple-cost-A") && strings.Contains(plainTails[1], "simple-cost-B") || strings.Contains(plainTails[0], "simple-cost-B") && strings.Contains(plainTails[1], "simple-cost-A")) {
 		t.Fatalf("unsaturated estimate selected %v, want A and B", plainTails)
 	}
 }
