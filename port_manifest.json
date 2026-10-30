@@ -51437,7 +51437,7 @@
         },
         {
           "name": "Concrete mpff interval scalar multiply/divide: zero reset, signed bound reversal, directed scalar reciprocal and destination alias (src/math/interval/interval_def.h:839-925)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval_scalar.go",
           "tests": [
             "TestSubpavingFastIntervalScalarMulDiv"

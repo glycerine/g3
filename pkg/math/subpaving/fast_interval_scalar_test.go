@@ -111,6 +111,8 @@ func TestSubpavingFastIntervalScalarMulDiv(t *testing.T) {
 	must(m.SetInt32(values[1], 2))
 	must(a.SetFinite(values[0], values[1], false, false))
 	must(m.SetInt32(k, 3))
+	must(out.MulScalar(k, a))
+	check(out, 3, 6, false, false, false, false)
 	must(out.DivScalar(a, k))
 	lo, hi, err := out.endpoints()
 	must(err)
