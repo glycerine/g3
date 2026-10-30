@@ -89644,8 +89644,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated"],
       "conditionals": [
         {
           "line": 958,
@@ -89784,17 +89784,17 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "Ordered document relation formula as a disjunction of DOC formulas (udoc_relation.cpp:106-123)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_formula.go", "tests": ["TestUDocRelationFormulaEmptyAndPopulated"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The surrounding UDoc relation source unit remains partial; guard extraction/compilation, interpreted filtering, and relation-plugin factory integration are still unaudited."]
     },
     {
       "path": "src/muz/rel/udoc_relation.h",
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated"],
       "conditionals": [
         {
           "line": 22,
