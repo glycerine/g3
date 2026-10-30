@@ -387,7 +387,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) (status lbool.LBool, resultErr error) {
 	execution, err := c.beginOptimizationExecution()
 	if err != nil {
-		return lbool.Undef, err
+		return c.handleOptimizationFailure(err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, execution.Close()) }()
 	priority, err := c.optimizationPriority()
