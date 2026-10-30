@@ -86482,9 +86482,9 @@
       "path": "src/muz/rel/dl_compiler.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2"],
+      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2"],
       "conditionals": [
         {
           "line": 742,
@@ -86721,12 +86721,12 @@
           "text": "SASSERT(r->get_decl()==head_pred);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Finite predicate register allocation, load-once behavior, fresh signature tracking, and termination stores (dl_compiler.cpp:35-167,1295-1335)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
           "tests": ["TestFiniteCompilerOrdersFactsAndIdentityRules"]
         },
@@ -86750,9 +86750,9 @@
         },
         {
           "name": "Recursive finite least-fixpoint bytecode using per-predicate current/next control deltas, semi-naive one-tail-at-a-time delta substitution, loop termination on empty deltas, and temporary ownership transfer (dl_compiler.cpp:902-1188)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerSaturatesRecursiveRules", "TestSMT2FixedpointRecursiveClosureMatchesCPP"]
+          "tests": ["TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestSMT2FixedpointRecursiveClosureMatchesCPP"]
         },
         {
           "name": "Stratified negative-predicate anti-joins, including constant selection, repeated variables, finite expansion of unbound variables, lower-stratum ordering, and mutable-target ownership (dl_compiler.cpp:634-683,1189-1275)",
@@ -86762,25 +86762,25 @@
         },
         {
           "name": "Dependency-first acyclic compilation and recursive fallback-loop compilation for positive zero-, one-, and two-tail rules with explicit pre-execution refusal for unsupported rules (dl_compiler.cpp:1002-1018,1196-1245)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP"]
+          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP"]
         }
       ],
       "ownership": [
         "CompileFiniteRules transfers two instruction blocks to its caller. Each generated rule instruction retains its Rule accounting parent; load/store instructions retain predicate declarations; every partial compilation failure closes all generated instructions and owned references before returning."
       ],
       "deviations": [
-        "The compiler currently accepts stratified finite rules with zero, one, or two positive tails, negated predicate anti-joins, theory-rewritten interpreted finite filters, complete structural head assembly, recursive semi-naive least-fixpoint loops grouped by finalized predicate stratum, and post-store saturation marks reused by later queries. Widening and finer SCC/local-delta partitioning remain open; wider bodies are normalized by the simple-joins transformer. Unsupported programs are rejected before bytecode execution and use the existing exact finite evaluator."
+        "The retained compiler path accepts stratified finite rules with zero, one, or two positive tails, negated predicate anti-joins, theory-rewritten interpreted finite filters, complete structural head assembly, per-predicate semi-naive deltas within finalized SCC strata, and post-store saturation marks reused by later queries. Wider bodies are normalized by the simple-joins transformer; unsupported programs are rejected before bytecode execution and use the existing finite evaluator. C++ widening options and instruction-observer dispatch are not exposed by retained Go consumers."
       ]
     },
     {
       "path": "src/muz/rel/dl_compiler.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/compiler.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules"],
+      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace"],
       "conditionals": [
         {
           "line": 19,
@@ -86797,21 +86797,21 @@
           "text": "void start_rule(rule * r) { SASSERT(!m_current); m_current=r; }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete typed finite compiler state, register/signature allocation, rule cost parentage, and execution/termination block ownership surface (dl_compiler.h:37-285)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules"]
+          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace"]
         }
       ],
       "ownership": [
         "The Go compiler uses concrete finite HashTable registers and typed AST handles; it does not port the unused C++ container/template machinery. Returned blocks own all generated instructions."
       ],
       "deviations": [
-        "Only the live stratified finite-rule slice with up to two positive tails is exposed; recursive loops use semi-naive tail deltas within finalized strata, interpreted finite filters reuse the borrowed theory rewriter, and successful termination marks stored strata saturated. Finer SCC/local-delta partitioning and widening remain open with the source unit marked partial."
+        "The live Go interface exposes the stratified finite-rule slice with up to two positive tails; recursive loops use per-predicate semi-naive deltas within finalized SCC strata, interpreted finite filters reuse the borrowed theory rewriter, and successful termination marks stored strata saturated. Unsupported rule fragments use the retained finite evaluator; widening options and instruction-observer dispatch have no retained Go consumer."
       ]
     },
     {

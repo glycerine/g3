@@ -6,6 +6,7 @@ package rel
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -1217,6 +1218,35 @@ func (c *finiteCompiler) compile(set *base.RuleSet) (resultErr error) {
 		if allSaturated {
 			continue
 		}
+		_ = c.manager.EmitTrace("dl", "compile_strats", "src/muz/rel/dl_compiler.cpp", 1272, func(out io.Writer) error {
+			if _, err := io.WriteString(out, "Stratum: "); err != nil {
+				return err
+			}
+			seenHeads := make(map[ast.ASTHandle]bool)
+			for _, rule := range group {
+				declaration, err := c.manager.GetDecl(rule.head)
+				if err != nil {
+					return err
+				}
+				if seenHeads[declaration] {
+					continue
+				}
+				seenHeads[declaration] = true
+				name, err := c.manager.GetASTName(declaration)
+				if err != nil {
+					return err
+				}
+				text, err := c.manager.Symbols.String(name)
+				if err != nil {
+					return err
+				}
+				if _, err = fmt.Fprintf(out, "%s ", text); err != nil {
+					return err
+				}
+			}
+			_, err := io.WriteString(out, "\n")
+			return err
+		})
 		ordered, x := c.orderRules(group)
 		if x != nil {
 			if !errors.Is(x, ErrCompilerUnsupported) {
