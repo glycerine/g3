@@ -12,12 +12,13 @@ import (
 
 func TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody(t *testing.T) {
 	for _, tc := range []struct {
-		name              string
-		duplicate, simple bool
+		name                        string
+		duplicate, simple, distinct bool
 	}{
-		{"compound-body", false, false},
-		{"repeated-quantifier", true, false},
-		{"predicate-body-already-normal", false, true},
+		{"compound-body", false, false, false},
+		{"duplicate-reduced-before-naming", true, false, false},
+		{"two-distinct-quantifiers", false, false, true},
+		{"predicate-body-already-normal", false, true, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newRuleSetFixture(t, "H")
@@ -57,6 +58,11 @@ func TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody(t *testing
 			if tc.duplicate {
 				antecedent = own(m.MkAnd(quantified, quantified))
 			}
+			if tc.distinct {
+				reversed := own(m.MkAnd(q, p))
+				other := own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: reversed}))
+				antecedent = own(m.MkAnd(quantified, other))
+			}
 			formula := own(m.MkImplies(antecedent, f.app["H"]))
 			normalizer, err := base.NewHornNormalizer(m, "quant-body")
 			ruleMust(t, err)
@@ -64,7 +70,7 @@ func TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody(t *testing
 			ruleMust(t, err)
 			defer func() { ruleMust(t, result.Close()) }()
 			count := 1
-			if tc.duplicate {
+			if tc.distinct {
 				count = 2
 			}
 			if tc.simple {
@@ -77,7 +83,7 @@ func TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody(t *testing
 			ruleMust(t, err)
 			mainBody, err := m.GetArg(main, 0)
 			ruleMust(t, err)
-			if tc.duplicate {
+			if tc.distinct {
 				mainBody, err = m.GetArg(mainBody, 0)
 				ruleMust(t, err)
 			}

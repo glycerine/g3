@@ -523,7 +523,7 @@ func (n *HornNormalizer) NormalizeWithProof(formula, proof ast.ASTHandle) (resul
 		s.result.Proofs = append(s.result.Proofs, proofRef)
 		return s.result, nil
 	}
-	hoister, err := rewriter.NewQuantifierHoisterWithoutRewrite(m)
+	hoister, err := rewriter.NewDefaultQuantifierHoister(m)
 	if err != nil {
 		return nil, err
 	}

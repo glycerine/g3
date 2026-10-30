@@ -281,7 +281,7 @@ func (n *HornNormalizer) operator(expression ast.ASTHandle) (int32, bool, error)
 }
 
 func (n *HornNormalizer) pullForall(hoister *rewriter.QuantifierHoister, formula ast.ASTHandle, locals *[]ast.ASTRef) (core ast.ASTHandle, prefix hornPrefix, resultErr error) {
-	pulled, err := hoister.PullQuantifierIndexed(true, formula, true, false)
+	pulled, err := hoister.PullQuantifierIndexed(true, formula, true, true)
 	if err != nil {
 		return ast.ASTHandle{}, hornPrefix{}, err
 	}
@@ -420,7 +420,7 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 	if err := n.pin(&locals, formula); err != nil {
 		return result, err
 	}
-	hoister, err := rewriter.NewQuantifierHoisterWithoutRewrite(n.manager)
+	hoister, err := rewriter.NewDefaultQuantifierHoister(n.manager)
 	if err != nil {
 		return result, err
 	}

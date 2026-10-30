@@ -25,10 +25,11 @@ const (
 )
 
 type QuantifierHoister struct {
-	self   *QuantifierHoister
-	m      *ast.ASTManager
-	bool   *boolRewriter
-	closed bool
+	self           *QuantifierHoister
+	m              *ast.ASTManager
+	bool           *boolRewriter
+	defaultBoolean bool
+	closed         bool
 }
 
 func NewQuantifierHoister(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService, p *uparams.ParamsRef) (*QuantifierHoister, error) {
@@ -47,12 +48,23 @@ func NewQuantifierHoister(m *ast.ASTManager, c *uparams.ParamsContext, g *uparam
 	return h, nil
 }
 
-// NewQuantifierHoisterWithoutRewrite constructs the source hoister for
-// clients that only require quantifier movement.  Such clients pass rewrite
-// false to the pull operations, so the parameterized Boolean simplifier is
-// neither needed nor consulted.  The MUZ HNF pass is the retained consumer:
-// its RuleManager owns an AST manager but deliberately does not own the
-// command-layer parameter services.
+// NewDefaultQuantifierHoister uses the source default Boolean gate reducer.
+// It borrows only the AST manager, matching HNF's default-parameter hoister.
+func NewDefaultQuantifierHoister(m *ast.ASTManager) (*QuantifierHoister, error) {
+	if m == nil {
+		return nil, ast.ErrASTHandle
+	}
+	if _, err := m.ProofsEnabled(); err != nil {
+		return nil, err
+	}
+	h := &QuantifierHoister{m: m, defaultBoolean: true}
+	h.self = h
+	return h, nil
+}
+
+// NewQuantifierHoisterWithoutRewrite supports clients that explicitly request
+// quantifier movement without Boolean reduction. Rewrite requests still require
+// a configured or default Boolean reducer.
 func NewQuantifierHoisterWithoutRewrite(m *ast.ASTManager) (*QuantifierHoister, error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
@@ -234,7 +246,12 @@ func (s *quantifierHoistState) mkAnd(args []ast.ASTHandle, rewrite bool) (ast.AS
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = s.owner.bool.mkAnd(args, out); err != nil {
+	if s.owner.defaultBoolean {
+		err = SimplifyBooleanGateDefault(s.owner.m, ast.ASTOpAnd, args, out)
+	} else {
+		err = s.owner.bool.mkAnd(args, out)
+	}
+	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return s.owner.m.RefGet(out)
@@ -247,7 +264,12 @@ func (s *quantifierHoistState) mkOr(args []ast.ASTHandle, rewrite bool) (ast.AST
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if err = s.owner.bool.mkOr(args, out); err != nil {
+	if s.owner.defaultBoolean {
+		err = SimplifyBooleanGateDefault(s.owner.m, ast.ASTOpOr, args, out)
+	} else {
+		err = s.owner.bool.mkOr(args, out)
+	}
+	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	return s.owner.m.RefGet(out)
@@ -495,7 +517,7 @@ func (h *QuantifierHoister) run(fml ast.ASTHandle, qt quantifierType, useFresh, 
 	if err = h.open(); err != nil {
 		return nil, err
 	}
-	if rewrite && h.bool == nil {
+	if rewrite && h.bool == nil && !h.defaultBoolean {
 		return nil, uparams.ErrParamsOwner
 	}
 	s := &quantifierHoistState{owner: h}
