@@ -36,8 +36,10 @@ func (o *algebraicRootOwner) mkAlgebraic(coefficients []*realValue, enclosure, i
 	if o == nil || o.values == nil || o.intervals == nil || enclosure == nil || isolating == nil || (signs != nil && (signs.store != o.values || signs.deleted || signIndex < 0 || signIndex >= len(signs.conditions))) || (signs == nil && signIndex != -1) {
 		return nil, arena.ErrInvalidSlot
 	}
-	r := &algebraicRoot{owner: o, index: len(o.roots), signIndex: signIndex}
-	o.roots = append(o.roots, r)
+	r := &algebraicRoot{owner: o, signIndex: signIndex}
+	if err := o.registerAlgebraicRoot(r); err != nil {
+		return nil, err
+	}
 	cleanup := func(err error) (*algebraicRoot, error) {
 		_ = r.destroy()
 		o.roots[r.index] = nil
