@@ -85990,8 +85990,18 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/table.go"],
-      "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableSourceDefaultSizeEstimates", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
+      "go_targets": [
+        "pkg/muz/rel/table.go",
+        "pkg/muz/rel/table_relation_formula.go"
+      ],
+      "tests": [
+        "TestHashTableSetCloneAndValidation",
+        "TestHashTableSourceDefaultSizeEstimates",
+        "TestHashTableJoinProjectSelectionAndRename",
+        "TestHashTableUnionDeltaAndNegation",
+        "TestTableRelationToFormulaEmptyAndBooleanRows",
+        "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+      ],
       "conditionals": [
         {
           "line": 71,
@@ -86047,14 +86057,27 @@
           "name": "Retained ordinary table signature projection/join layout and concrete table clone, reset, containment, selection, union-delta, and negation-filter behavior (dl_base.cpp:81-142,228-348)",
           "status": "partial",
           "go_target": "pkg/muz/rel/table.go",
-          "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"]
+          "tests": [
+            "TestHashTableSetCloneAndValidation",
+            "TestHashTableJoinProjectSelectionAndRename",
+            "TestHashTableUnionDeltaAndNegation"
+          ]
+        },
+        {
+          "name": "Concrete table-to-formula conversion using ordered row disjunctions, de-Bruijn variable equalities, and source Boolean gate simplification",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_relation_formula.go",
+          "tests": [
+            "TestTableRelationToFormulaEmptyAndBooleanRows",
+            "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+          ]
         }
       ],
       "ownership": [
         "HashTable owns copied signatures and facts; returned signatures, facts, projections, joins, and clones are independent Go values with no borrowed tuple storage."
       ],
       "deviations": [
-        "This is the concrete ordinary non-functional table slice needed by the retained relational compiler. Functional columns, formula conversion, complement, row reducers, and the abstract relation/plugin operation matrix remain open."
+        "This is the concrete ordinary non-functional table slice needed by the retained relational compiler. Functional columns, complement beyond the table-relation specialization, row reducers, and the abstract relation/plugin operation matrix remain open."
       ]
     },
     {
@@ -86062,8 +86085,18 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/table.go"],
-      "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableSourceDefaultSizeEstimates", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
+      "go_targets": [
+        "pkg/muz/rel/table.go",
+        "pkg/muz/rel/table_relation_formula.go"
+      ],
+      "tests": [
+        "TestHashTableSetCloneAndValidation",
+        "TestHashTableSourceDefaultSizeEstimates",
+        "TestHashTableJoinProjectSelectionAndRename",
+        "TestHashTableUnionDeltaAndNegation",
+        "TestTableRelationToFormulaEmptyAndBooleanRows",
+        "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -86227,7 +86260,20 @@
           "name": "Concrete ordinary table signature, fact ownership, set operations, join/project/select/rename, union-delta, and negation-filter surface (dl_base.h:81-704,831-1248)",
           "status": "partial",
           "go_target": "pkg/muz/rel/table.go",
-          "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"]
+          "tests": [
+            "TestHashTableSetCloneAndValidation",
+            "TestHashTableJoinProjectSelectionAndRename",
+            "TestHashTableUnionDeltaAndNegation"
+          ]
+        },
+        {
+          "name": "Concrete table-to-formula conversion using ordered row disjunctions, de-Bruijn variable equalities, and source Boolean gate simplification",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_relation_formula.go",
+          "tests": [
+            "TestTableRelationToFormulaEmptyAndBooleanRows",
+            "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+          ]
         }
       ],
       "ownership": [
@@ -88860,8 +88906,35 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go", "pkg/muz/rel/table_intersection.go", "pkg/muz/rel/table_intersection_index.go", "pkg/muz/rel/table_intersection_validate.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_capability.go", "pkg/muz/rel/table_intersection_test.go", "pkg/muz/rel/table_relation_intersection_test.go", "pkg/muz/rel/table_relation_capability_test.go"],
-      "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter", "TestTableRelationPositiveIntersectionForwarding", "TestTableRelationInterpretedBooleanFilter", "TestTableRelationInterpretedProjectLeavesInput", "TestTableRelationInterpretedValidation", "TestTableRelationInterpretedMultipleConditions", "TestTableRelationInterpretedFailureIsAtomic", "TestTableRelationFiniteSignatureCapability"],
+      "go_targets": [
+        "pkg/muz/rel/table_relation.go",
+        "pkg/muz/rel/table_relation_operations.go",
+        "pkg/muz/rel/table_relation_test.go",
+        "pkg/muz/rel/table_relation_operations_test.go",
+        "pkg/muz/rel/table_intersection.go",
+        "pkg/muz/rel/table_intersection_index.go",
+        "pkg/muz/rel/table_intersection_validate.go",
+        "pkg/muz/rel/table_relation_intersection.go",
+        "pkg/muz/rel/table_relation_capability.go",
+        "pkg/muz/rel/table_intersection_test.go",
+        "pkg/muz/rel/table_relation_intersection_test.go",
+        "pkg/muz/rel/table_relation_capability_test.go"
+      ],
+      "tests": [
+        "TestTableRelationSourceFactConversionCloneAndOwnership",
+        "TestTableRelationComplementSourceWidthContract",
+        "TestTableRelationPredicateConstructionValidationAndClose",
+        "TestTableRelationJoinProjectRenameAndSelection",
+        "TestTableRelationUnionDeltaAndFilters",
+        "TestTableRelationNegationFilter",
+        "TestTableRelationPositiveIntersectionForwarding",
+        "TestTableRelationInterpretedBooleanFilter",
+        "TestTableRelationInterpretedProjectLeavesInput",
+        "TestTableRelationInterpretedValidation",
+        "TestTableRelationInterpretedMultipleConditions",
+        "TestTableRelationInterpretedFailureIsAtomic",
+        "TestTableRelationFiniteSignatureCapability"
+      ],
       "assertions": [
         {
           "line": 86,
@@ -88962,8 +89035,34 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "table-backed relation capability, construction, facts, clone/complement, join/project/rename/select, union, interpreted/equality filters and intersection/negation (dl_table_relation.cpp:23-490)", "status": "ported", "go_target": "pkg/muz/rel/table_relation.go", "go_targets": ["pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_interpreted_filter.go", "pkg/muz/rel/table_relation_interpreted_project.go", "pkg/muz/rel/table_relation_capability.go"], "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter", "TestTableRelationPositiveIntersectionForwarding", "TestTableRelationInterpretedBooleanFilter", "TestTableRelationInterpretedProjectLeavesInput", "TestTableRelationInterpretedFailureIsAtomic", "TestTableRelationFiniteSignatureCapability"]}],
-      "ownership": ["TableRelation exclusively owns its backing HashTable and copied signature/sort roots; derived operations return independent owners and Close releases the backing table"],
+      "methods": [
+        {
+          "name": "table-backed relation capability, construction, facts, clone/complement, join/project/rename/select, union, interpreted/equality filters and intersection/negation (dl_table_relation.cpp:23-490)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_relation.go",
+          "go_targets": [
+            "pkg/muz/rel/table_relation_operations.go",
+            "pkg/muz/rel/table_relation_intersection.go",
+            "pkg/muz/rel/table_relation_interpreted_filter.go",
+            "pkg/muz/rel/table_relation_interpreted_project.go",
+            "pkg/muz/rel/table_relation_capability.go"
+          ],
+          "tests": [
+            "TestTableRelationSourceFactConversionCloneAndOwnership",
+            "TestTableRelationJoinProjectRenameAndSelection",
+            "TestTableRelationUnionDeltaAndFilters",
+            "TestTableRelationNegationFilter",
+            "TestTableRelationPositiveIntersectionForwarding",
+            "TestTableRelationInterpretedBooleanFilter",
+            "TestTableRelationInterpretedProjectLeavesInput",
+            "TestTableRelationInterpretedFailureIsAtomic",
+            "TestTableRelationFiniteSignatureCapability"
+          ]
+        }
+      ],
+      "ownership": [
+        "TableRelation exclusively owns its backing HashTable and copied signature/sort roots; derived operations return independent owners and Close releases the backing table"
+      ],
       "deviations": []
     },
     {
@@ -88971,8 +89070,31 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go", "pkg/muz/rel/table_intersection.go", "pkg/muz/rel/table_intersection_index.go", "pkg/muz/rel/table_intersection_validate.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_capability.go", "pkg/muz/rel/table_intersection_test.go", "pkg/muz/rel/table_relation_intersection_test.go", "pkg/muz/rel/table_relation_capability_test.go"],
-      "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
+      "go_targets": [
+        "pkg/muz/rel/table_relation.go",
+        "pkg/muz/rel/table_relation_operations.go",
+        "pkg/muz/rel/table_relation_test.go",
+        "pkg/muz/rel/table_relation_operations_test.go",
+        "pkg/muz/rel/table_intersection.go",
+        "pkg/muz/rel/table_intersection_index.go",
+        "pkg/muz/rel/table_intersection_validate.go",
+        "pkg/muz/rel/table_relation_intersection.go",
+        "pkg/muz/rel/table_relation_capability.go",
+        "pkg/muz/rel/table_intersection_test.go",
+        "pkg/muz/rel/table_relation_intersection_test.go",
+        "pkg/muz/rel/table_relation_capability_test.go",
+        "pkg/muz/rel/table_relation_formula.go"
+      ],
+      "tests": [
+        "TestTableRelationSourceFactConversionCloneAndOwnership",
+        "TestTableRelationComplementSourceWidthContract",
+        "TestTableRelationPredicateConstructionValidationAndClose",
+        "TestTableRelationJoinProjectRenameAndSelection",
+        "TestTableRelationUnionDeltaAndFilters",
+        "TestTableRelationNegationFilter",
+        "TestTableRelationToFormulaEmptyAndBooleanRows",
+        "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -88991,8 +89113,34 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "table relation wrapper and plugin interface, including all operation factories (dl_table_relation.h:27-129)", "status": "ported", "go_target": "pkg/muz/rel/table_relation.go", "go_targets": ["pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_interpreted_filter.go", "pkg/muz/rel/table_relation_interpreted_project.go", "pkg/muz/rel/table_relation_capability.go"], "tests": ["TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationPositiveIntersectionForwarding", "TestTableRelationInterpretedValidation", "TestTableRelationFiniteSignatureCapability"]}],
-      "ownership": ["RelationManager is borrowed; TableRelation owns its concrete table and operation results transfer new table ownership to their returned relation"],
+      "methods": [
+        {
+          "name": "table relation wrapper and plugin interface, including all operation factories (dl_table_relation.h:27-129)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_relation.go",
+          "go_targets": [
+            "pkg/muz/rel/table_relation_operations.go",
+            "pkg/muz/rel/table_relation_intersection.go",
+            "pkg/muz/rel/table_relation_interpreted_filter.go",
+            "pkg/muz/rel/table_relation_interpreted_project.go",
+            "pkg/muz/rel/table_relation_capability.go",
+            "pkg/muz/rel/table_relation_formula.go"
+          ],
+          "tests": [
+            "TestTableRelationPredicateConstructionValidationAndClose",
+            "TestTableRelationJoinProjectRenameAndSelection",
+            "TestTableRelationUnionDeltaAndFilters",
+            "TestTableRelationPositiveIntersectionForwarding",
+            "TestTableRelationInterpretedValidation",
+            "TestTableRelationFiniteSignatureCapability",
+            "TestTableRelationToFormulaEmptyAndBooleanRows",
+            "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+          ]
+        }
+      ],
+      "ownership": [
+        "RelationManager is borrowed; TableRelation owns its concrete table and operation results transfer new table ownership to their returned relation"
+      ],
       "deviations": []
     },
     {

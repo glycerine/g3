@@ -132,13 +132,19 @@ func TestExecutionContextTimeoutReportingAndRegisterOwnership(t *testing.T) {
 	if err := context.SetRegisterAnnotation(0, "current"); err != nil {
 		t.Fatal("annotation", err)
 	}
-	if err := context.SetTimeLimit(1); err != nil {
+	if err := context.SetRegister(1, nil); err != nil {
+		t.Fatal("set empty register", err)
+	}
+	if err := context.SetRegisterAnnotation(1, "empty"); err != nil {
+		t.Fatal("empty register annotation", err)
+	}
+	if err := context.SetTimeLimit(100); err != nil {
 		t.Fatal("set timeout", err)
 	}
 	if context.ShouldTerminate() {
 		t.Fatal("fresh timeout already expired")
 	}
-	time.Sleep(3 * time.Millisecond)
+	time.Sleep(110 * time.Millisecond)
 	if !context.ShouldTerminate() {
 		t.Fatal("expired timeout was ignored")
 	}
@@ -154,6 +160,14 @@ func TestExecutionContextTimeoutReportingAndRegisterOwnership(t *testing.T) {
 	want := fmt.Sprintf("bytes %d\nbytes\trows\tannotation\n%d\t%d\tcurrent\n", maximum, maximum, maximum)
 	if report.String() != want {
 		t.Fatalf("profile output\n got: %q\nwant: %q", report.String(), want)
+	}
+	report.Reset()
+	if err := context.ReportBigRelations(0, &report); err != nil {
+		t.Fatal("report empty registers", err)
+	}
+	want = fmt.Sprintf("bytes %d\nbytes\trows\tannotation\n%d\t%d\tcurrent\n0\t0\tempty\n", maximum, maximum, maximum)
+	if report.String() != want {
+		t.Fatalf("unfiltered profile output\n got: %q\nwant: %q", report.String(), want)
 	}
 
 	owned, _ := context.Register(0)
