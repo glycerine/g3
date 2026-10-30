@@ -157,6 +157,13 @@ func (t *RuleTransformer) Apply(rules *RuleSet) (modified bool, resultErr error)
 	}
 	defer func() { resultErr = errors.Join(resultErr, current.Close()) }()
 	for _, plugin := range t.plugins {
+		canceled, cancelErr := rules.manager.manager.Canceled()
+		if cancelErr != nil {
+			return modified, cancelErr
+		}
+		if canceled {
+			break
+		}
 		next, e := plugin.Transform(current)
 		if e != nil {
 			if next != nil && next != current {

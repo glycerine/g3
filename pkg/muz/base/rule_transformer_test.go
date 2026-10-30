@@ -99,6 +99,32 @@ func TestRuleTransformerOrdersOwnsAndCancelsPlugins(t *testing.T) {
 	ruleMust(t, transformer.Close())
 }
 
+func TestRuleTransformerSkipsPluginWhenManagerIsCanceled(t *testing.T) {
+	f := newRuleSetFixture(t, "P")
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	rule := f.rule("P", nil, nil)
+	ruleMust(t, set.Add(rule))
+	ruleMust(t, rule.Close())
+	valid, err := set.Finalize()
+	ruleMust(t, err)
+	if !valid {
+		t.Fatal("transformer fixture rejected")
+	}
+	var order []string
+	plugin := &recordingTransformPlugin{priority: 1, id: "must-not-run", order: &order}
+	transformer := base.NewRuleTransformer()
+	ruleMust(t, transformer.Register(plugin))
+	t.Cleanup(func() { ruleMust(t, transformer.Close()) })
+	f.manager.Limit.Cancel()
+	modified, err := transformer.Apply(set)
+	ruleMust(t, err)
+	if modified || len(order) != 0 {
+		t.Fatalf("canceled transformer ran a plugin or modified rules: modified=%v order=%v", modified, order)
+	}
+}
+
 func TestRuleTransformerSkipsAllowedDestratification(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q")
 	set, err := base.NewRuleSet(f.rules)

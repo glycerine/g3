@@ -82091,8 +82091,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/base/rule_transformer.go", "pkg/muz/transforms/coi_plugin.go"],
-      "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin", "TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"],
+      "go_targets": ["pkg/muz/base/rule_transformer.go", "pkg/muz/base/rule_transformer_test.go", "pkg/muz/transforms/coi_plugin.go"],
+      "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsPluginWhenManagerIsCanceled", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin", "TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
@@ -82100,7 +82100,7 @@
           "name": "Owned plugin reset/cancel/register lifecycle, descending priority ordering, no-op and changed-stage composition, destratification rejection, finalized intermediate ownership, and final rule replacement (dl_rule_transformer.cpp:29-128)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",
-          "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
+          "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsPluginWhenManagerIsCanceled", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
         },
         {
           "name": "plugin::remove_duplicate_tails polarity-separated swap-with-last duplicate removal",
@@ -82113,7 +82113,7 @@
         "RuleTransformer owns registered plugins, an Apply invocation owns its copied current RuleSet and every non-nil plugin result, and discarded destratifying results are closed before continuing."
       ],
       "deviations": [
-        "The source loop's dl_context cancellation poll is outside the transformer abstraction; current retained single-goroutine consumers use explicit plugin Cancel propagation. Timing/TRACE output is omitted."
+        "Timing and TRACE output are omitted."
       ]
     },
     {
@@ -82122,7 +82122,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/muz/base/rule_transformer.go", "pkg/muz/transforms/coi_plugin.go"],
-      "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin", "TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"],
+      "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsPluginWhenManagerIsCanceled", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin", "TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"],
       "conditionals": [
         {
           "line": 19,
@@ -82140,7 +82140,7 @@
           "name": "rule_transformer and plugin runtime surface: owned registration/reset, cancellation, priority, destratification metadata, transformation invocation, and close (dl_rule_transformer.h:31-107)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",
-          "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
+          "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsPluginWhenManagerIsCanceled", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
         }
       ],
       "ownership": [
