@@ -99,6 +99,16 @@ func TestSubpavingFastIntervalXnEqYRetainedCases(t *testing.T) {
 	set(4, 9, false, false)
 	must(b.XnEqY(a, 2, p, roots))
 	checkEncloses(b, -3, 3)
+	must(a.XnEqY(a, 2, p, roots)) // even-power output may alias y
+	checkEncloses(a, -3, 3)
+	set(4, 9, true, true)
+	must(b.XnEqY(a, 1, p, roots)) // source n=1 delegates to interval set
+	if got := show(b); got != "(4, 9)" {
+		t.Fatalf("degree-one inverse = %q", got)
+	}
+	if e := b.XnEqY(a, 0, p, roots); !errors.Is(e, interval.ErrExtendedDomain) {
+		t.Fatal("zero-degree inverse precondition", e)
+	}
 	set(4, 9, false, true)
 	must(b.XnEqY(a, 2, p, roots))
 	checkEncloses(b, -3, 3)
