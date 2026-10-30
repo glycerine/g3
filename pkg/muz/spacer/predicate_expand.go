@@ -48,15 +48,14 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 	result := ExpansionResult{Status: check.Status, Concrete: check.IsConcrete}
 	switch check.Status {
 	case lbool.True:
-		if check.Rule == nil {
-			if err = obligation.Close(); err != nil {
+		// A reach-summary extension can satisfy the obligation without a
+		// selected rule. It still completes this premise of its derivation.
+		var predecessors []*PredicateTransformer
+		if check.Rule != nil {
+			predecessors, err = p.RulePredecessors(check.Rule)
+			if err != nil {
 				return ExpansionResult{}, err
 			}
-			return result, nil
-		}
-		predecessors, err := p.RulePredecessors(check.Rule)
-		if err != nil {
-			return ExpansionResult{}, err
 		}
 		if check.IsConcrete {
 			if len(predecessors) != 0 {

@@ -215,9 +215,21 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 				}
 			}
 		}
-		expansion, err := node.transformer.ExpandObligation(node)
-		if err != nil {
-			return false, err
+		// context::expand_node returns immediately for a frame-blocked
+		// flexible obligation, without generating a lemma or lowering expanded.
+		frameBlocked := false
+		if flexible {
+			frameBlocked, _, err = node.transformer.IsBlocked(node)
+			if err != nil {
+				return false, err
+			}
+		}
+		expansion := ExpansionResult{Status: lbool.False}
+		if !frameBlocked {
+			expansion, err = node.transformer.ExpandObligation(node)
+			if err != nil {
+				return false, err
+			}
 		}
 		switch expansion.Status {
 		case lbool.True:
@@ -265,7 +277,7 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			if levelErr != nil {
 				return false, levelErr
 			}
-			if level < q.expanded {
+			if !frameBlocked && level < q.expanded {
 				q.expanded = level
 			}
 			if _, err = q.Pop(); err != nil {
