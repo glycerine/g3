@@ -169,6 +169,9 @@ func (p *PredicateTransformer) MakeReachFact(obligation *ProofObligation, rule *
 	if eliminateAuxiliaries {
 		retainedAuxiliaries = nil
 	}
+	if p.contextStats != nil {
+		p.contextStats.reachQueries++
+	}
 	result, err = NewReachFact(p.manager, rule, projected, retainedAuxiliaries, false)
 	if err != nil {
 		return nil, fmt.Errorf("spacer: retain reach fact: %w", err)

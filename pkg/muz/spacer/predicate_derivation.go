@@ -159,5 +159,8 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 			}
 		}
 	}
+	if p.contextStats != nil {
+		p.contextStats.queries++
+	}
 	return child, nil
 }

@@ -30,6 +30,7 @@ type Context struct {
 	lastResult       lbool.LBool
 	inductive        uint32
 	cexDepth         uint32
+	stats            contextStatistics
 	skipPropagate    bool
 	resetQueue       bool
 	flexibleTrace    bool
@@ -381,6 +382,7 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 		if err != nil {
 			return err
 		}
+		transformer.contextStats = &c.stats
 		created[declaration] = transformer
 		if err = transformer.SetProofObligationNormalization(c.simplifyPOBs, c.config.UseEqClassGeneralizer); err != nil {
 			return err
@@ -517,6 +519,7 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 		if err != nil {
 			return err
 		}
+		transformer.contextStats = &c.stats
 		c.transformers[declaration] = transformer
 		c.order = append(c.order, declaration)
 	}
@@ -605,15 +608,7 @@ func (c *Context) simplifyFormulas() error {
 }
 
 func (c *Context) lemmaAdditions() (uint64, error) {
-	var result uint64
-	for _, declaration := range c.order {
-		count, err := c.transformers[declaration].frames.LemmaAdditions()
-		if err != nil {
-			return 0, err
-		}
-		result += count
-	}
-	return result, nil
+	return uint64(c.stats.lemmas), nil
 }
 
 // Solve runs bounded Spacer search starting at fromLevel. maxLevels is the
@@ -668,6 +663,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 		if err := spacerCheckpoint(c.manager); err != nil {
 			return lbool.Undef, err
 		}
+		c.stats.maxQueryLevel = level
 		reachable, err := c.queue.checkReachability(c.resetQueue, c.flexibleTrace, c.flexibleDepth, c.useRestarts, c.restartInitial, c.lemmaAdditions)
 		if err != nil {
 			return lbool.Undef, err
@@ -697,6 +693,9 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 			return lbool.Undef, err
 		}
 		level = c.queue.MaximumLevel()
+		if level > c.stats.maxDepth {
+			c.stats.maxDepth = level
+		}
 	}
 	c.lastResult = lbool.Undef
 	return c.lastResult, nil
@@ -819,8 +818,16 @@ func (c *Context) CollectStatistics(destination *statistics.Statistics) error {
 			return err
 		}
 	}
+	destination.UpdateUint("SPACER num queries", c.stats.queries)
+	destination.UpdateUint("SPACER num reach queries", c.stats.reachQueries)
+	destination.UpdateUint("SPACER num reuse reach facts", c.stats.reuseReach)
+	destination.UpdateUint("SPACER max query lvl", c.stats.maxQueryLevel)
+	destination.UpdateUint("SPACER max depth", c.stats.maxDepth)
+	destination.UpdateUint("SPACER inductive level", c.inductive)
 	destination.UpdateUint("SPACER cex depth", c.cexDepth)
-	destination.UpdateUint64("SPACER restarts", c.queue.RestartCount())
+	destination.UpdateUint("SPACER expand node undef", c.stats.expandUndef)
+	destination.UpdateUint("SPACER num lemmas", c.stats.lemmas)
+	destination.UpdateUint("SPACER restarts", c.stats.restarts)
 	return nil
 }
 
@@ -838,6 +845,7 @@ func (c *Context) ResetStatistics() error {
 	}
 	c.queue.restarts = 0
 	c.cexDepth = 0
+	c.stats = contextStatistics{}
 	return nil
 }
 

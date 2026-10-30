@@ -48,6 +48,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 	result := ExpansionResult{Status: check.Status, Concrete: check.IsConcrete}
 	switch check.Status {
 	case lbool.True:
+		if p.contextStats != nil {
+			p.contextStats.reuseReach += check.NumReuseReach
+		}
 		// A reach-summary extension can satisfy the obligation without a
 		// selected rule. It still completes this premise of its derivation.
 		var predecessors []*PredicateTransformer
@@ -209,6 +212,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		if err != nil {
 			return ExpansionResult{}, errors.Join(err, lemma.Close())
 		}
+		if added && p.contextStats != nil {
+			p.contextStats.lemmas++
+		}
 		result.LemmaAdded = added
 		if added && cti != (ast.ASTRef{}) {
 			post, getErr := p.manager.RefGet(cti)
@@ -230,6 +236,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		}
 		if weakness >= 100 {
 			return ExpansionResult{}, ErrWeakAbstractionExhausted
+		}
+		if p.contextStats != nil {
+			p.contextStats.expandUndef++
 		}
 		if check.Rule != nil && check.Model != nil {
 			reachPredUsed := make([]bool, len(check.ReachPredUsed))

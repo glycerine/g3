@@ -63,4 +63,15 @@ func TestSpacerRestartKeepsObligationsBehindRoot(t *testing.T) {
 	if root.level != 1 {
 		t.Fatal("root was not processed after restarting", root.level)
 	}
+	if got := spacerContextStatistic(t, c, "SPACER restarts"); got != 1 {
+		t.Fatal("context restart count", got)
+	}
+	must(c.Reset())
+	if got := spacerContextStatistic(t, c, "SPACER restarts"); got != 1 {
+		t.Fatal("reset lost context restart count", got)
+	}
+	must(c.ResetStatistics())
+	if got := spacerContextStatistic(t, c, "SPACER restarts"); got != 0 {
+		t.Fatal("statistics reset left restart count", got)
+	}
 }

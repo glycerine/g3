@@ -108,6 +108,22 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 			if status != lbool.True {
 				t.Fatal("expected satisfiable derivation", status)
 			}
+			if !tc.branches {
+				// query -> root -> leaf needs two child searches (root at
+				// levels zero and one), three lemma additions/promotions and two reach facts.
+				for key, expected := range map[string]uint32{
+					"SPACER num queries":           2,
+					"SPACER num reach queries":     2,
+					"SPACER num reuse reach facts": 1,
+					"SPACER num lemmas":            3,
+					"SPACER max query lvl":         2,
+					"SPACER max depth":             2,
+				} {
+					if got := spacerContextStatistic(t, ctx, key); got != expected {
+						t.Fatalf("%s = %d, want %d", key, got, expected)
+					}
+				}
+			}
 			answer, err := ctx.GroundSatAnswer(queryDecl)
 			must(err)
 			defer func() { must(m.DelRef(&answer)) }()

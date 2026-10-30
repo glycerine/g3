@@ -196,6 +196,9 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			}
 			if restartNow {
 				q.restarts++
+				if stats := q.root.transformer.contextStats; stats != nil {
+					stats.restarts++
+				}
 				// Source pops only up to the root. Obligations ordered after
 				// it remain pending for subsequent levels/depths.
 				for {
