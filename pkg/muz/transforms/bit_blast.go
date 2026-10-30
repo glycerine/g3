@@ -162,6 +162,13 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 	}
 	changed := false
 	for i := 0; i < count; i++ {
+		canceled, cancelErr := p.manager.Canceled()
+		if cancelErr != nil {
+			return nil, cancelErr
+		}
+		if canceled {
+			break
+		}
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr

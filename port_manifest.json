@@ -93249,6 +93249,7 @@
       ],
       "tests": [
         "TestBitBlastExpandsBitVectorPredicateSignatures",
+        "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
         "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
@@ -93275,11 +93276,12 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "full/quantified bit blasting, mkbv predicate expansion, output forwarding, and reverse predicate-model reconstruction",
+          "name": "full/quantified bit blasting, mkbv predicate expansion, output forwarding, reverse predicate-model reconstruction, and per-rule cancellation",
           "status": "partial",
           "go_target": "pkg/muz/transforms/bit_blast.go",
           "tests": [
             "TestBitBlastExpandsBitVectorPredicateSignatures",
+        "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
             "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
             "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
           ]
@@ -93299,7 +93301,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/transforms/bit_blast.go"],
-      "tests": ["TestBitBlastExpandsBitVectorPredicateSignatures"],
+      "tests": ["TestBitBlastExpandsBitVectorPredicateSignatures",
+        "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled"],
       "conditionals": [
         {
           "line": 19,
