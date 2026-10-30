@@ -92741,11 +92741,16 @@
       "go_targets": [
         "pkg/muz/transforms/array_eq_rewrite.go",
         "pkg/muz/transforms/array_eq_rewrite_test.go",
+        "pkg/muz/transforms/array_eq_rewrite_coverage_test.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/test_vectors/fp_spacer_array_eq_rewrite.smt2"
       ],
       "tests": [
         "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
+        "TestArrayEqRewriteMergesPreviouslySeparateClasses",
+        "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
+        "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
+        "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -92754,17 +92759,21 @@
       "methods": [
         {
           "name": "option-gated array equivalence-class collection, non-variable representative preference, application replacement, restored equalities, and expand_select_store rewriting (dl_mk_array_eq_rewrite.cpp:29-119)",
-          "status": "partial",
+          "status": "complete",
           "go_target": "pkg/muz/transforms/array_eq_rewrite.go",
           "tests": [
             "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
+            "TestArrayEqRewriteMergesPreviouslySeparateClasses",
+            "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
+            "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
+            "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
             "TestSMTLibRunnerCPPReference"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Rule semantics and the retained fixedpoint.xform.transform_arrays Spacer pipeline stage are ported. Native proof attachment remains pending the fixedpoint proof-conversion path, so the unit remains partial."
+        "The rule transformation method is implemented and covered; native proof attachment and full ownership/method audits remain open, so the unit remains partial."
       ]
     },
     {
@@ -92773,10 +92782,15 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/muz/transforms/array_eq_rewrite.go"
+        "pkg/muz/transforms/array_eq_rewrite.go",
+        "pkg/muz/transforms/array_eq_rewrite_coverage_test.go"
       ],
       "tests": [
-        "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore"
+        "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
+        "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
+        "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
+        "TestArrayEqRewriteMergesPreviouslySeparateClasses",
+        "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce"
       ],
       "conditionals": [
         {
@@ -92793,10 +92807,14 @@
       "methods": [
         {
           "name": "mk_array_eq_rewrite concrete rule-transform plugin surface",
-          "status": "partial",
+          "status": "complete",
           "go_target": "pkg/muz/transforms/array_eq_rewrite.go",
           "tests": [
-            "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore"
+            "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
+            "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
+            "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
+            "TestArrayEqRewriteMergesPreviouslySeparateClasses",
+            "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce"
           ]
         }
       ],

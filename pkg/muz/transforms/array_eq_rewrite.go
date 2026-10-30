@@ -5,6 +5,7 @@ package transforms
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
@@ -46,37 +47,100 @@ func (p *ArrayEqRewritePlugin) Cancel()                     {}
 
 type arrayEqClass struct {
 	members []ast.ASTHandle
+	ids     []uint32
+	root    uint32
 }
 
-func mergeArrayEq(classes *[]arrayEqClass, left, right ast.ASTHandle) {
+func mergeArrayEq(classes *[]arrayEqClass, ids map[ast.ASTHandle]uint32, nextID *uint32, left, right ast.ASTHandle) {
+	leftID, leftKnown := ids[left]
+	if !leftKnown {
+		leftID = *nextID
+		*nextID = *nextID + 1
+		ids[left] = leftID
+	}
+	rightID, rightKnown := ids[right]
+	if !rightKnown {
+		rightID = *nextID
+		*nextID = *nextID + 1
+		ids[right] = rightID
+	}
 	leftClass, rightClass := -1, -1
 	for i := range *classes {
-		for _, member := range (*classes)[i].members {
-			if member == left {
+		for _, id := range (*classes)[i].ids {
+			if id == leftID {
 				leftClass = i
 			}
-			if member == right {
+			if id == rightID {
 				rightClass = i
 			}
 		}
 	}
 	if leftClass < 0 && rightClass < 0 {
-		*classes = append(*classes, arrayEqClass{members: []ast.ASTHandle{left, right}})
+		if leftID == rightID {
+			*classes = append(*classes, arrayEqClass{
+				members: []ast.ASTHandle{left},
+				ids:     []uint32{leftID},
+				root:    leftID,
+			})
+			return
+		}
+		*classes = append(*classes, arrayEqClass{
+			members: []ast.ASTHandle{right, left},
+			ids:     []uint32{rightID, leftID},
+			root:    rightID,
+		})
 		return
 	}
 	if leftClass < 0 {
-		(*classes)[rightClass].members = append((*classes)[rightClass].members, left)
+		class := (*classes)[rightClass]
+		class.members = append(append(class.members[:1:1], left), class.members[1:]...)
+		class.ids = append(append(class.ids[:1:1], leftID), class.ids[1:]...)
+		(*classes)[rightClass] = class
 		return
 	}
 	if rightClass < 0 {
-		(*classes)[leftClass].members = append((*classes)[leftClass].members, right)
+		class := (*classes)[leftClass]
+		if len(class.members) == 1 {
+			class.members = []ast.ASTHandle{right, class.members[0]}
+			class.ids = []uint32{rightID, class.ids[0]}
+			class.root = rightID
+		} else {
+			class.members = append(append(class.members[:1:1], right), class.members[1:]...)
+			class.ids = append(append(class.ids[:1:1], rightID), class.ids[1:]...)
+		}
+		(*classes)[leftClass] = class
 		return
 	}
 	if leftClass == rightClass {
 		return
 	}
-	(*classes)[leftClass].members = append((*classes)[leftClass].members, (*classes)[rightClass].members...)
-	*classes = append((*classes)[:rightClass], (*classes)[rightClass+1:]...)
+	leftGroup, rightGroup := (*classes)[leftClass], (*classes)[rightClass]
+	var merged arrayEqClass
+	if len(leftGroup.members) > len(rightGroup.members) {
+		merged = arrayEqClass{
+			members: append(append([]ast.ASTHandle{leftGroup.members[0]}, rightGroup.members[1:]...), rightGroup.members[0]),
+			ids:     append(append([]uint32{leftGroup.ids[0]}, rightGroup.ids[1:]...), rightGroup.ids[0]),
+			root:    leftGroup.root,
+		}
+		merged.members = append(merged.members, leftGroup.members[1:]...)
+		merged.ids = append(merged.ids, leftGroup.ids[1:]...)
+	} else {
+		merged = arrayEqClass{
+			members: append(append([]ast.ASTHandle{rightGroup.members[0]}, leftGroup.members[1:]...), leftGroup.members[0]),
+			ids:     append(append([]uint32{rightGroup.ids[0]}, leftGroup.ids[1:]...), leftGroup.ids[0]),
+			root:    rightGroup.root,
+		}
+		merged.members = append(merged.members, rightGroup.members[1:]...)
+		merged.ids = append(merged.ids, rightGroup.ids[1:]...)
+	}
+	(*classes)[leftClass] = merged
+	if rightClass > leftClass {
+		*classes = append((*classes)[:rightClass], (*classes)[rightClass+1:]...)
+	} else {
+		*classes = append((*classes)[:rightClass], (*classes)[rightClass+1:]...)
+		leftClass--
+		(*classes)[leftClass] = merged
+	}
 }
 
 func (p *ArrayEqRewritePlugin) arrayEquality(expression ast.ASTHandle) (left, right ast.ASTHandle, yes bool, err error) {
@@ -185,6 +249,8 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 		tails, negated = append(tails, tail), append(negated, negative)
 	}
 	var classes []arrayEqClass
+	classIDs := make(map[ast.ASTHandle]uint32)
+	var nextClassID uint32
 	for i := uninterpreted; i < total; i++ {
 		tail, _, getErr := rule.Tail(i)
 		if getErr != nil {
@@ -195,11 +261,12 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 			return nil, getErr
 		}
 		if equality {
-			mergeArrayEq(&classes, left, right)
+			mergeArrayEq(&classes, classIDs, &nextClassID, left, right)
 		} else {
 			tails, negated = append(tails, tail), append(negated, false)
 		}
 	}
+	sort.Slice(classes, func(i, j int) bool { return classes[i].root < classes[j].root })
 	owned := make([]ast.ASTRef, 0)
 	defer func() {
 		for i := len(owned) - 1; i >= 0; i-- {
