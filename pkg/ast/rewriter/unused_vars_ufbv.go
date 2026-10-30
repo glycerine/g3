@@ -38,7 +38,25 @@ func ElimUnusedVarsWithParams(m *ast.ASTManager, q ast.ASTHandle, c *uparams.Par
 	return elimUnusedVars(m, q, ignore)
 }
 
-func elimUnusedVars(m *ast.ASTManager, q ast.ASTHandle, ignorePatternsOnGroundBody bool) (_ ast.ASTRef, result error) {
+func elimUnusedVars(m *ast.ASTManager, q ast.ASTHandle, ignorePatternsOnGroundBody bool) (out ast.ASTRef, result error) {
+	if m == nil {
+		return ast.ASTRef{}, ast.ErrASTHandle
+	}
+	if result = traceUnusedVarsEntry(m, q); result != nil {
+		return ast.ASTRef{}, result
+	}
+	out, result = elimUnusedVarsCore(m, q, ignorePatternsOnGroundBody)
+	if result != nil {
+		return out, result
+	}
+	if result = traceUnusedVarsResult(m, q, out); result != nil {
+		result = errors.Join(result, m.DelRef(&out))
+		return ast.ASTRef{}, result
+	}
+	return out, nil
+}
+
+func elimUnusedVarsCore(m *ast.ASTManager, q ast.ASTHandle, ignorePatternsOnGroundBody bool) (_ ast.ASTRef, result error) {
 	if m == nil {
 		return ast.ASTRef{}, ast.ErrASTHandle
 	}
