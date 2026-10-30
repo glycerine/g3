@@ -86529,6 +86529,7 @@
       "ownership_audited": false,
       "methods": [
         {"name": "inherited table_base::remove_facts dispatches in input order through check_table::remove_fact and validates each prefix (dl_base.cpp:245-256; dl_check_table.cpp:416-422)", "status": "ported", "go_target": "pkg/muz/rel/check_table_operations.go", "tests": ["TestCheckTableBulkRemoveChecksEachFactInOrder"]},
+        {"name": "check_table paired operation factories preserve source checker/primary dispatch order, including fused join-project (dl_check_table.cpp:66-264)", "status": "ported", "go_target": "pkg/muz/rel/check_table_operations.go", "tests": ["TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"]},
         {"name": "check_table_plugin::filter_interpreted_fn evaluates the checker then primary tables and validates the paired result (dl_check_table.cpp:264-285)", "status": "ported", "go_target": "pkg/muz/rel/check_table_interpreted.go", "tests": ["TestCheckTableInterpretedFilterAndProject"]},
         {"name": "check_table_plugin::filter_interpreted_and_project_fn transforms checker then primary tables into a paired result (dl_check_table.cpp:288-313)", "status": "ported", "go_target": "pkg/muz/rel/check_table_interpreted.go", "tests": ["TestCheckTableInterpretedFilterAndProject"]}
       ],
