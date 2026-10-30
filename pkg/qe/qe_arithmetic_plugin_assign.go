@@ -42,16 +42,17 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 			resultErr = errors.Join(resultErr, definitionErr, p.manager.DelRef(&result))
 		}
 	}()
-	if _, err = p.applyCooper(target, e.processor, result); err != nil {
+	substitution, _, err := p.applyCooper(target, e.processor, result)
+	if err != nil {
 		return err
 	}
 	if selection.Kind == ArithmeticInfinityBranch {
 		err = p.rewriteInfinity(e, selection.Lower, result)
 	} else {
 		err = p.rewriteFinite(e, target, selection, result)
-		if err == nil && selection.Kind == ArithmeticEqualityBranch {
-			definition, err = p.boundDefinition(selection.Bound)
-		}
+	}
+	if err == nil {
+		definition, err = p.branchDefinition(selection, substitution)
 	}
 	if err != nil {
 		return err
