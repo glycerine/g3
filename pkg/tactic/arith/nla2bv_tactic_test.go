@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 func nla2BVFixture(t *testing.T, proofs bool) *NLA2BVTactic {
@@ -90,6 +91,47 @@ func TestNLA2BVParametersFreshInvocationsCleanupAndTranslation(t *testing.T) {
 	copy := *r
 	if err := copy.Cleanup(); err == nil {
 		t.Fatal("copied tactic accepted")
+	}
+}
+
+func TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	descriptions, err := uparams.NewParamDescrs(r.manager.Symbols, uparams.ParamDescrsConfig{Budget: r.manager.Budget()})
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, descriptions.Close()) })
+	equationMust(t, r.CollectParamDescrs(descriptions))
+	equationMust(t, r.CollectParamDescrs(descriptions))
+	size, err := descriptions.Size()
+	equationMust(t, err)
+	if size != 4 {
+		t.Fatalf("descriptor count = %d, want 4", size)
+	}
+	for index, want := range []struct {
+		name, description string
+	}{
+		{"nla2bv_max_bv_size", "(default: inf) maximum bit-vector size used by nla2bv tactic"},
+		{"nla2bv_bv_size", "(default: 4) default bit-vector size used by nla2bv tactic."},
+		{"nla2bv_root", "(default: 2) nla2bv tactic encodes reals into bit-vectors using expressions of the form a+b*sqrt(c), this parameter sets the value of c used in the encoding."},
+		{"nla2bv_divisor", "(default: 2) nla2bv tactic parameter."},
+	} {
+		name, e := descriptions.ParamName(uint32(index))
+		equationMust(t, e)
+		if got, e := r.manager.Symbols.String(name); e != nil || got != want.name {
+			t.Fatalf("descriptor %d = %q, want %q: %v", index, got, want.name, e)
+		}
+		kind, e := descriptions.Kind(name)
+		equationMust(t, e)
+		if kind != uparams.ParamUInt {
+			t.Fatalf("%s kind = %v, want unsigned integer", want.name, kind)
+		}
+		got, present, e := descriptions.Description(name)
+		equationMust(t, e)
+		if !present || got != want.description {
+			t.Fatalf("%s description = %q, present %v", want.name, got, present)
+		}
+		if _, present, e = descriptions.Default(name); e != nil || present {
+			t.Fatalf("%s unexpectedly has a separate default: %v, %v", want.name, present, e)
+		}
 	}
 }
 
