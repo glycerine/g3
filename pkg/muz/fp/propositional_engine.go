@@ -1641,7 +1641,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		}
 	}
 	e.datalogStats.Reset()
-	started := time.Now()
 	if err = e.relations.ResetSaturatedMarks(); err != nil {
 		return lbool.Undef, err
 	}
@@ -1651,6 +1650,7 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err = e.resetNegationDependentTables(); err != nil {
 		return lbool.Undef, err
 	}
+	started := time.Now()
 	e.compiled, err = e.tryCompiledSaturation()
 	if err != nil {
 		e.datalogElapsed += time.Since(started).Seconds()
