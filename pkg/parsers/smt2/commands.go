@@ -963,17 +963,7 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "echo":
-		if p.token != StringToken {
-			return false, fmt.Errorf("string expected")
-		}
-		text := p.scanner.String()
-		if err = p.advance(); err != nil {
-			return false, err
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
-		if _, err = fmt.Fprintln(p.out, text); err != nil {
+		if err = p.echoCommand(); err != nil {
 			return false, err
 		}
 		success = false
