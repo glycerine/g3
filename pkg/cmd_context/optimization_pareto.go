@@ -370,11 +370,18 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	if err != nil {
 		return nil, err
 	}
+	unknownReason := ""
+	if status == lbool.Undef {
+		unknownReason, err = backend.ReasonUnknown()
+		if err != nil {
+			return nil, err
+		}
+	}
 	if status != lbool.True {
 		if closeErr := c.closeParetoBackend(); closeErr != nil {
 			return nil, closeErr
 		}
-		return &opt.ArithmeticResult{Status: status, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: status == lbool.False}, nil
+		return &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: status == lbool.False}, nil
 	}
 	canceled, cancelErr := c.manager.Canceled()
 	if cancelErr != nil {
@@ -436,6 +443,12 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		if err != nil {
 			return nil, err
 		}
+		if status == lbool.Undef {
+			unknownReason, err = backend.ReasonUnknown()
+			if err != nil {
+				return nil, err
+			}
+		}
 		if status == lbool.True {
 			candidate, acquireErr := backend.AcquireModel()
 			if acquireErr != nil {
@@ -462,7 +475,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		if closeErr := c.closeParetoBackend(); closeErr != nil {
 			return nil, closeErr
 		}
-		result = &opt.ArithmeticResult{Status: status, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best}
+		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best}
 		best = nil
 		return result, nil
 	}

@@ -98872,6 +98872,13 @@
           "tests": ["TestOptimizationSATCoreEligibilityMatchesSourceGate", "TestOptimizationSATCoreEligibilityChecksAdditionalHardAssumptions"]
         },
         {
+          "name": "adjust_unknown and reason_unknown preserve the underlying solver failure after quantifier incompleteness, with cancellation taking precedence (opt_context.cpp:325-330,568-575; opt_solver.cpp:288-296,313-315)",
+          "status": "partial",
+          "go_target": "pkg/cmd_context/optimization.go",
+          "go_targets": ["pkg/cmd_context/optimization.go", "pkg/opt/arithmetic_solver.go"],
+          "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure", "TestOptimizationUnknownReasonPreservesCancellation"]
+        },
+        {
           "name": "context::updt_params updates the active solver while existing Pareto and box continuation state takes precedence over new priority selection (opt_context.cpp:255-259,434-467,1423-1433)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_parameters.go",
@@ -99043,6 +99050,12 @@
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
           "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"]
+        },
+        {
+          "name": "capture unknown solver reason before closing the Pareto backend, both before the first model and after a feasible model (opt_context.cpp:568-575; opt_pareto.cpp:39-103)",
+          "status": "partial",
+          "go_target": "pkg/cmd_context/optimization_pareto.go",
+          "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure"]
         }
       ],
       "ownership": ["Go context owns the persistent Pareto backend and closes it on reset, terminal status, or failure. The initial model is acquired before PushCore clears the published solver result."],
@@ -99178,6 +99191,13 @@
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
           "tests": ["TestSMTSolverArithmeticObjectiveFacade", "TestSMT2BoundedIntegerOptimizationEndToEnd"]
+        },
+        {
+          "name": "capture backend unknown reason before objective-scope pop, preserve the lexicographic model, and leave the fresh box model empty on unknown (opt_solver.cpp:195-250; opt_context.cpp:325-330,434-467)",
+          "status": "partial",
+          "go_target": "pkg/opt/arithmetic_solver.go",
+          "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/cmd_context/optimization.go"],
+          "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure"]
         }
       ],
       "ownership": [],

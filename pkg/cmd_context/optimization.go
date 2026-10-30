@@ -408,6 +408,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 		}
 		if one.Status != lbool.True || !one.Optimal || len(one.Values) != 1 {
 			combined.Status, combined.Optimal = one.Status, one.Optimal
+			combined.ReasonUnknown = one.ReasonUnknown
 			return combined, one.Close()
 		}
 		if fresh {
@@ -490,7 +491,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	if optimized.Status == lbool.Undef {
-		reason, reasonErr := c.optimizationUnknownReason()
+		reason, reasonErr := c.optimizationResultUnknownReason(optimized)
 		if reasonErr != nil {
 			return lbool.Undef, reasonErr
 		}
@@ -534,6 +535,20 @@ func (c *Context) optimizationUnknownReason() (string, error) {
 	}
 	if canceled {
 		return c.manager.ResourceLimit().CancelMessage(), nil
+	}
+	return "optimization returned unknown", nil
+}
+
+func (c *Context) optimizationResultUnknownReason(result *opt.ArithmeticResult) (string, error) {
+	canceled, err := c.manager.Canceled()
+	if err != nil {
+		return "", err
+	}
+	if canceled {
+		return c.manager.ResourceLimit().CancelMessage(), nil
+	}
+	if result != nil && result.ReasonUnknown != "" {
+		return result.ReasonUnknown, nil
 	}
 	return "optimization returned unknown", nil
 }

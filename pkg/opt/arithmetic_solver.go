@@ -39,6 +39,7 @@ type ObjectiveValue struct {
 // Values are expressed in the caller's original maximize/minimize orientation.
 type ArithmeticResult struct {
 	Status        lbool.LBool
+	ReasonUnknown string
 	Values        []ObjectiveValue
 	Model         *model.ModelCore
 	Optimal       bool
@@ -551,6 +552,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 			}
 		}
 		status, optimal, err := s.optimizeOne(i, result)
+		if err == nil && status == lbool.Undef {
+			result.ReasonUnknown, err = s.backend.ReasonUnknown()
+		}
 		if outer {
 			err = errors.Join(err, s.backend.Pop(1))
 		}
