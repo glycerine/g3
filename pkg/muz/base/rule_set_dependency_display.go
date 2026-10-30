@@ -13,14 +13,8 @@ func (s *RuleSet) WriteDependencies(out io.Writer) error {
 	if err != nil {
 		return err
 	}
-	nonempty := false
 	for _, stratum := range strata {
-		if nonempty {
-			if _, err = io.WriteString(out, "\n"); err != nil {
-				return err
-			}
-			nonempty = false
-		}
+		nonempty := false
 		for _, first := range stratum {
 			firstName, e := s.manager.manager.GetASTName(first)
 			if e != nil {
@@ -43,6 +37,11 @@ func (s *RuleSet) WriteDependencies(out io.Writer) error {
 					return x
 				}
 				nonempty = true
+			}
+		}
+		if nonempty {
+			if _, err = io.WriteString(out, "\n"); err != nil {
+				return err
 			}
 		}
 	}

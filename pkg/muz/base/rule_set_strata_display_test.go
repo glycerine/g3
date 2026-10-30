@@ -29,6 +29,10 @@ func TestRuleSetStrataAndDependencyDisplay(t *testing.T) {
 	var out bytes.Buffer
 	ruleMust(t, set.WriteDependencies(&out))
 	text := out.String()
+	want := "ruleset-Q -> ruleset-R\n\nruleset-P -> ruleset-Q\n\n"
+	if text != want {
+		t.Fatalf("dependency display = %q, want %q", text, want)
+	}
 	for _, edge := range []string{"ruleset-P -> ruleset-Q", "ruleset-Q -> ruleset-R"} {
 		if !strings.Contains(text, edge) {
 			t.Fatalf("dependency display missing %q:\n%s", edge, text)
