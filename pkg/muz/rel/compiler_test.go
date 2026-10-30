@@ -534,7 +534,12 @@ func TestFiniteCompilerSaturatesRecursiveRules(t *testing.T) {
 	domain := []ast.ASTHandle{boolean, boolean}
 	edge := compilerDeclaration(t, manager, "recursive-Edge", domain, boolean)
 	path := compilerDeclaration(t, manager, "recursive-Path", domain, boolean)
-	for _, predicate := range []ast.ASTHandle{edge, path} {
+	mutualA := compilerDeclaration(t, manager, "recursive-MutualA", []ast.ASTHandle{boolean}, boolean)
+	mutualB := compilerDeclaration(t, manager, "recursive-MutualB", []ast.ASTHandle{boolean}, boolean)
+	allowed := compilerDeclaration(t, manager, "recursive-Allowed", []ast.ASTHandle{boolean}, boolean)
+	blocked := compilerDeclaration(t, manager, "recursive-Blocked", []ast.ASTHandle{boolean}, boolean)
+	accepted := compilerDeclaration(t, manager, "recursive-Accepted", []ast.ASTHandle{boolean}, boolean)
+	for _, predicate := range []ast.ASTHandle{edge, path, mutualA, mutualB, allowed, blocked, accepted} {
 		if err = rules.RegisterPredicate(predicate); err != nil {
 			t.Fatal(err)
 		}
@@ -553,6 +558,57 @@ func TestFiniteCompilerSaturatesRecursiveRules(t *testing.T) {
 			t.Fatal(x)
 		}
 		compilerRule(t, rules, set, fact, nil, "recursive-edge-"+string(rune('0'+index)))
+	}
+	mutualSeed, err := manager.MkApp(mutualA, []ast.ASTHandle{truth})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compilerRule(t, rules, set, mutualSeed, nil, "recursive-mutual-seed")
+	allowedTrue, err := manager.MkApp(allowed, []ast.ASTHandle{truth})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compilerRule(t, rules, set, allowedTrue, nil, "recursive-allowed-true")
+	allowedFalse, err := manager.MkApp(allowed, []ast.ASTHandle{falsity})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compilerRule(t, rules, set, allowedFalse, nil, "recursive-allowed-false")
+	blockedFalse, err := manager.MkApp(blocked, []ast.ASTHandle{falsity})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compilerRule(t, rules, set, blockedFalse, nil, "recursive-blocked-false")
+	acceptedVariable, err := manager.MkVar(4, boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptedVariableRef, err := manager.NewRef(acceptedVariable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.DelRef(&acceptedVariableRef) })
+	acceptedHead, err := manager.MkApp(accepted, []ast.ASTHandle{acceptedVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowedTail, err := manager.MkApp(allowed, []ast.ASTHandle{acceptedVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	blockedTail, err := manager.MkApp(blocked, []ast.ASTHandle{acceptedVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	negativeRule, err := rules.NewRule(acceptedHead, []ast.ASTHandle{allowedTail, blockedTail}, []bool{false, true}, "recursive-stratified-negation")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = set.Add(negativeRule); err != nil {
+		t.Fatal(err)
+	}
+	if err = negativeRule.Close(); err != nil {
+		t.Fatal(err)
 	}
 	x, err := manager.MkVar(0, boolean)
 	if err != nil {
@@ -588,6 +644,42 @@ func TestFiniteCompilerSaturatesRecursiveRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	compilerRule(t, rules, set, pathXZ, []ast.ASTHandle{pathXY, edgeYZ}, "recursive-step")
+	mutualVariable, err := manager.MkVar(3, boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutualVariableRef, err := manager.NewRef(mutualVariable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = manager.DelRef(&mutualVariableRef) })
+	mutualAFromB, err := manager.MkApp(mutualA, []ast.ASTHandle{mutualVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutualBFromA, err := manager.MkApp(mutualB, []ast.ASTHandle{mutualVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	compilerRule(t, rules, set, mutualBFromA, []ast.ASTHandle{mutualAFromB}, "recursive-mutual-forward")
+	mutualAHead, err := manager.MkApp(mutualA, []ast.ASTHandle{mutualVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutualBTail, err := manager.MkApp(mutualB, []ast.ASTHandle{mutualVariable})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutualBackward, err := rules.NewRule(mutualAHead, []ast.ASTHandle{mutualBTail}, nil, "recursive-mutual-backward")
+	if err != nil {
+		t.Fatal("construct mutually recursive backward rule", err)
+	}
+	if err = set.Add(mutualBackward); err != nil {
+		t.Fatal("add mutually recursive backward rule", err)
+	}
+	if err = mutualBackward.Close(); err != nil {
+		t.Fatal("close mutually recursive backward rule", err)
+	}
 	valid, err := set.Finalize()
 	if err != nil || !valid {
 		t.Fatal("finalize", valid, err)
@@ -616,6 +708,18 @@ func TestFiniteCompilerSaturatesRecursiveRules(t *testing.T) {
 			t.Fatal("recursive predicate not marked saturated", predicate, saturated, x)
 		}
 	}
+	for _, predicate := range []ast.ASTHandle{mutualA, mutualB} {
+		table, found, x := relations.TryGetRelation(predicate)
+		if x != nil || !found || table == nil {
+			t.Fatal("mutually recursive relation", predicate, table, found, x)
+		}
+		compilerWantFacts(t, table, rel.Fact{1})
+	}
+	acceptedTable, found, err := relations.TryGetRelation(accepted)
+	if err != nil || !found || acceptedTable == nil {
+		t.Fatal("stratified negation relation", acceptedTable, found, err)
+	}
+	compilerWantFacts(t, acceptedTable, rel.Fact{1})
 	table, found, err := relations.TryGetRelation(path)
 	if err != nil || !found || table == nil {
 		t.Fatal("recursive path relation", table, found, err)
