@@ -74923,7 +74923,7 @@
         },
         {
           "name": "Concrete context_mpf wrapper exact integer coefficient preparation, mk_sum, mk_monomial, mk_var, add_clause and directed mk_ineq construction (src/math/subpaving/subpaving.cpp:44-48,85-136)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_shell_coefficients.go",
           "tests": [
             "TestArbitraryShellCoefficientSourceConversionAndCleanup",
