@@ -75761,7 +75761,12 @@
         "TestSubpavingFixedContextRelevanceArithmeticFailure",
         "TestSubpavingFixedClauseWatchPropagationAndConflict",
         "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
-        "TestSubpavingFixedContextInitialDefinitionSweep"
+        "TestSubpavingFixedContextInitialDefinitionSweep",
+        "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
+        "TestFixedSearchStopsAtSourceNodeLimit",
+        "TestFixedSearchRetainsRefusedSplitChildrenForClose",
+        "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
+        "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -75801,6 +75806,26 @@
             "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
             "TestSubpavingFixedContextInitialDefinitionSweep"
           ]
+        },
+        {
+          "name": "breadth-first search, round-robin variable selection and midpoint splitting",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/fixed_search.go",
+          "go_targets": [
+            "pkg/math/subpaving/fixed_context_init.go",
+            "pkg/math/subpaving/fixed_search.go",
+            "pkg/math/subpaving/fixed_selector.go",
+            "pkg/math/subpaving/fixed_split.go",
+            "pkg/math/subpaving/fixed_context_propagate.go",
+            "pkg/math/subpaving/fixed_context_propagate.go"
+          ],
+          "tests": [
+            "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
+            "TestFixedSearchStopsAtSourceNodeLimit",
+            "TestFixedSearchRetainsRefusedSplitChildrenForClose",
+            "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
+            "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
+          ]
         }
       ],
       "ownership": [
@@ -75830,7 +75855,12 @@
         "TestSubpavingFixedContextRelevanceArithmeticFailure",
         "TestSubpavingFixedClauseWatchPropagationAndConflict",
         "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
-        "TestSubpavingFixedContextInitialDefinitionSweep"
+        "TestSubpavingFixedContextInitialDefinitionSweep",
+        "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
+        "TestFixedSearchStopsAtSourceNodeLimit",
+        "TestFixedSearchRetainsRefusedSplitChildrenForClose",
+        "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
+        "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
       ],
       "conditionals": [
         {
@@ -75879,6 +75909,26 @@
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
             "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
             "TestSubpavingFixedContextInitialDefinitionSweep"
+          ]
+        },
+        {
+          "name": "breadth-first search, round-robin variable selection and midpoint splitting",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/fixed_search.go",
+          "go_targets": [
+            "pkg/math/subpaving/fixed_context_init.go",
+            "pkg/math/subpaving/fixed_search.go",
+            "pkg/math/subpaving/fixed_selector.go",
+            "pkg/math/subpaving/fixed_split.go",
+            "pkg/math/subpaving/fixed_context_propagate.go",
+            "pkg/math/subpaving/fixed_context_propagate.go"
+          ],
+          "tests": [
+            "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
+            "TestFixedSearchStopsAtSourceNodeLimit",
+            "TestFixedSearchRetainsRefusedSplitChildrenForClose",
+            "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
+            "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
           ]
         }
       ],
