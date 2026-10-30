@@ -44,4 +44,7 @@ func TestNLA2BVSourceTraceSitesDisplayAndCount(t *testing.T) {
 			t.Fatal("missing source trace fragment", want, got)
 		}
 	}
+	if gotCount := strings.Count(got, "Muls: 1\n"); gotCount != 2 {
+		t.Fatalf("source logs multiplication count before and after reduction, got %d records:\n%s", gotCount, got)
+	}
 }
