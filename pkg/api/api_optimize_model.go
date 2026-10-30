@@ -8,7 +8,7 @@ func (o *APIOptimize) Model() (*APIModel, error) {
 	if err := o.open(); err != nil {
 		return nil, err
 	}
-	core, err := o.command.Model()
+	core, err := o.command.OptimizationModel()
 	if err != nil {
 		return nil, err
 	}
