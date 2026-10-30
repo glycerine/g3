@@ -16057,6 +16057,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/ast/ast_bv_plugin.go",
+        "pkg/ast/ast_bv_bigint_value.go",
+        "pkg/ast/ast_bv_bigint_value_test.go",
         "pkg/ast/ast_bv_plugin_source_test.go",
         "pkg/ast/ast_bv_numeral.go",
         "pkg/ast/ast_bv_numeral_source_test.go",
@@ -16110,6 +16112,7 @@
         "pkg/api/api_numeral_string_test.go"
       ],
       "tests": [
+        "TestBitVectorNumeralBigIntExactWideRead",
         "TestASTBitVectorAllOneSourceTrace",
         "TestASTBitVectorSourceEagerSortsAndPinnedDeclarations",
         "TestASTBitVectorSourcePinnedKindsAndEveryASTReservation",
@@ -89644,8 +89647,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean"],
       "conditionals": [
         {
           "line": 958,
@@ -89784,7 +89787,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "Ordered document relation formula as a disjunction of DOC formulas (udoc_relation.cpp:106-123)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_formula.go", "tests": ["TestUDocRelationFormulaEmptyAndPopulated"]}, {"name": "Finite bit-vector column equality filter using a DOC cube (udoc_relation.cpp:536-558)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_filter.go", "tests": ["TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues"]}, {"name": "UDoc anti-join direct subtraction and join/project fallback (udoc_relation.cpp:1085-1188)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_filter.go", "tests": ["TestUDocFilterByNegationFastAndJoinProjectPaths"]}, {"name": "Recursive guard recognition and conjunction extraction into guards and residual formulas (udoc_relation.cpp:621-670)", "status": "ported", "go_target": "pkg/muz/rel/udoc_guard.go", "tests": ["TestUDocGuardRecognition"]}],
+      "methods": [{"name": "Ordered document relation formula as a disjunction of DOC formulas (udoc_relation.cpp:106-123)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_formula.go", "tests": ["TestUDocRelationFormulaEmptyAndPopulated"]}, {"name": "Finite bit-vector column equality filter using a DOC cube (udoc_relation.cpp:536-558)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_filter.go", "tests": ["TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues"]}, {"name": "UDoc anti-join direct subtraction and join/project fallback (udoc_relation.cpp:1085-1188)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_filter.go", "tests": ["TestUDocFilterByNegationFastAndJoinProjectPaths"]}, {"name": "Recursive guard recognition and conjunction extraction into guards and residual formulas (udoc_relation.cpp:621-656)", "status": "ported", "go_target": "pkg/muz/rel/udoc_guard.go", "tests": ["TestUDocGuardRecognition"]}, {"name": "DOC compilation for Boolean guards and ground bit-vector equalities (udoc_relation.cpp:730-950)", "status": "ported", "go_target": "pkg/muz/rel/udoc_guard_compile.go", "tests": ["TestUDocCompileAndFilterGuardBitVectorAndBoolean"]}],
       "ownership": [],
       "deviations": ["The surrounding UDoc relation source unit remains partial; guard extraction/compilation, interpreted filtering, and relation-plugin factory integration are still unaudited."]
     },
@@ -89793,8 +89796,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean"],
       "conditionals": [
         {
           "line": 22,
