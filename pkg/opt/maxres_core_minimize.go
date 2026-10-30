@@ -11,6 +11,9 @@ import (
 const maxResCoreMinimizeLimit = 32
 
 func (e *maxResEngine) minimizeCore(core []ast.ASTHandle) ([]ast.ASTHandle, error) {
+	if e.config.satCoreEnabled {
+		return core, nil
+	}
 	limit := maxResCoreMinimizeLimit
 	if len(core) > limit {
 		return core, nil

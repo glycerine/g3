@@ -23,3 +23,15 @@ func TestMaxResCoreFiltersDuplicatesAndUsesSizeAsBatchLimit(t *testing.T) {
 		t.Fatal("core batch limit", engine.stats)
 	}
 }
+
+func TestMaxResSATCoreModeSkipsCoreMinimization(t *testing.T) {
+	manager := newWeightedSoftFixture(t).manager
+	p := maxResTestBool(t, manager, "maxres-sat-core-p")
+	q := maxResTestBool(t, manager, "maxres-sat-core-q")
+	core := []ast.ASTHandle{p, q}
+	engine := &maxResEngine{config: maxSMTConfig{satCoreEnabled: true}}
+	got, err := engine.minimizeCore(core)
+	if err != nil || len(got) != len(core) || got[0] != p || got[1] != q || engine.stats.CoreMinChecks != 0 {
+		t.Fatal("SAT core mode changed the extracted core", got, engine.stats, err)
+	}
+}

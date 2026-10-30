@@ -5,6 +5,7 @@ package opt
 import "errors"
 
 func loadMaxSMTConfig(s *ArithmeticSolver) (config maxSMTConfig, resultErr error) {
+	config.satCoreEnabled = s.satCoreEnabled
 	globals := s.config.Globals
 	if globals == nil {
 		globals = s.config.ModelEvaluator.Globals

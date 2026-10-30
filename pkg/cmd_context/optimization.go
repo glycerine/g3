@@ -290,6 +290,13 @@ func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.Arit
 	if err != nil {
 		return nil, err
 	}
+	satCoreEnabled, err := c.optimizationSATCoreEligible(assumptions)
+	if err != nil {
+		return nil, errors.Join(err, optimizer.Close())
+	}
+	if err = optimizer.SetSATCoreEnabled(satCoreEnabled); err != nil {
+		return nil, errors.Join(err, optimizer.Close())
+	}
 	published := false
 	defer func() {
 		if !published {

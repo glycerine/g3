@@ -4,6 +4,7 @@ package opt
 
 type maxSMTConfig struct {
 	engine               string
+	satCoreEnabled       bool
 	enableSLS            bool
 	hillClimb            bool
 	addUpperBoundBlock   bool

@@ -98600,7 +98600,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name":"base state, assumptions, proxy filtering, exact-rational mutex decomposition, weighted boundaries and statistics","status":"partial","go_target":"pkg/opt/maxres_engine.go","go_targets":["pkg/opt/maxres_assumption.go","pkg/opt/maxres_boundaries.go","pkg/opt/maxres_mutex_preprocess.go","pkg/opt/maxres_proxy.go","pkg/opt/maxres_stats.go"],"tests":["TestMaxResBase","TestMaxResBoundaries","TestMaxResMutexOrder","TestMaxResMutexTransform"]}],
+      "methods": [{"name":"base state, assumptions, proxy filtering, exact-rational mutex decomposition, weighted boundaries and statistics","status":"partial","go_target":"pkg/opt/maxres_engine.go","go_targets":["pkg/opt/maxres_assumption.go","pkg/opt/maxres_boundaries.go","pkg/opt/maxres_mutex_preprocess.go","pkg/opt/maxres_proxy.go","pkg/opt/maxres_stats.go"],"tests":["TestMaxResBase","TestMaxResBoundaries","TestMaxResMutexOrder","TestMaxResMutexTransform"]},{"name":"skip MUS core minimization when opt_context selects the SAT core path","status":"partial","go_target":"pkg/opt/maxres_core_minimize.go","go_targets":["pkg/opt/maxres_core_minimize.go","pkg/opt/maxsmt_config.go","pkg/opt/maxsmt_config_decode.go","pkg/opt/maxres_core_test.go","pkg/opt/maxres_search_result_external_test.go"],"tests":["TestMaxResSATCoreModeSkipsCoreMinimization","TestMaxResSearchPublishesEngineResult"]}],
       "ownership": [],
       "deviations": []
     },
@@ -98863,6 +98863,13 @@
           "go_target": "pkg/cmd_context/context.go",
           "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization_state_test.go"],
           "tests": ["TestPopResetsActiveParetoOptimization", "TestPopResetsActiveBoxOptimization"]
+        },
+        {
+          "name": "update_solver SAT-core eligibility for propositional/PB/BV objectives, parameter gates, proof mode and priority (opt_context.cpp:617-640,649-690)",
+          "status": "partial",
+          "go_target": "pkg/cmd_context/optimization_sat_eligibility.go",
+          "go_targets": ["pkg/cmd_context/optimization_sat_eligibility.go", "pkg/cmd_context/optimization.go", "pkg/opt/arithmetic_solver.go", "pkg/opt/maxsmt_config.go", "pkg/opt/maxsmt_config_decode.go"],
+          "tests": ["TestOptimizationSATCoreEligibilityMatchesSourceGate", "TestOptimizationSATCoreEligibilityChecksAdditionalHardAssumptions"]
         },
         {
           "name": "context::updt_params updates the active solver while existing Pareto and box continuation state takes precedence over new priority selection (opt_context.cpp:255-259,434-467,1423-1433)",

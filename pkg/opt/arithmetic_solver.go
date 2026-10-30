@@ -62,12 +62,13 @@ func (r *ArithmeticResult) Close() error {
 // owns a dedicated SMT backend, as native optimization does, so temporary
 // blockers cannot mutate the command context's ordinary incremental solver.
 type ArithmeticSolver struct {
-	backend    *smtcore.SMTSolver
-	manager    *ast.ASTManager
-	config     smtcore.SMTSolverConfig
-	objectives []arithmeticObjective
-	filter     *tactic.FilterModelConverter
-	prepared   bool
+	backend        *smtcore.SMTSolver
+	manager        *ast.ASTManager
+	config         smtcore.SMTSolverConfig
+	objectives     []arithmeticObjective
+	filter         *tactic.FilterModelConverter
+	satCoreEnabled bool
+	prepared       bool
 }
 
 type arithmeticObjective struct {
@@ -103,6 +104,16 @@ func (s *ArithmeticSolver) Assert(formula ast.ASTHandle) error {
 		return ast.ErrASTHandle
 	}
 	return s.backend.Assert(formula)
+}
+
+// SetSATCoreEnabled records the source optimizer's eligible incremental SAT
+// path for MaxRes core handling. Call it before registering objectives.
+func (s *ArithmeticSolver) SetSATCoreEnabled(enabled bool) error {
+	if s == nil || s.backend == nil || len(s.objectives) != 0 {
+		return ast.ErrASTHandle
+	}
+	s.satCoreEnabled = enabled
+	return nil
 }
 
 // AddObjective registers one lexicographic objective. Minimization uses the
