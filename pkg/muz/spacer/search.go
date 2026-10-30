@@ -196,10 +196,23 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			}
 			if restartNow {
 				q.restarts++
-				if err = q.Reset(); err != nil {
-					return false, err
+				// Source pops only up to the root. Obligations ordered after
+				// it remain pending for subsequent levels/depths.
+				for {
+					node, err = q.Top()
+					if err != nil {
+						return false, err
+					}
+					if node == nil {
+						return false, ErrManagerOwner
+					}
+					if q.IsRoot(node) {
+						break
+					}
+					if _, err = q.Pop(); err != nil {
+						return false, err
+					}
 				}
-				continue
 			}
 		}
 		expansion, err := node.transformer.ExpandObligation(node)
