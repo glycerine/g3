@@ -5322,7 +5322,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_params.go", "pkg/api/api_fixedpoint_test.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go", "pkg/api/api_fixedpoint_object_display.go", "pkg/api/api_fixedpoint_object_load.go", "pkg/api/api_fixedpoint_object_load_string.go", "pkg/api/api_fixedpoint_object_load_file.go", "pkg/api/api_fixedpoint_object_scopes.go", "pkg/api/api_datalog_finite_domain_sort.go", "pkg/api/api_datalog_relation_sort_queries.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/cmd_context/fixedpoint_relation_registration.go", "pkg/cmd_context/fixedpoint_query_display.go"],
-      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState", "TestAPIFixedpointRulesScopesAndQueries", "TestAPIFixedpointOwningAnswerAndStatistics", "TestAPIFixedpointSMT2", "TestSMTContextFiniteDomainSort", "TestSMTContextRelationSort"],
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState", "TestAPIFixedpointRulesScopesAndQueries", "TestAPIFixedpointOwningAnswerAndStatistics", "TestAPIFixedpointSMT2IncludesOrderedQueries", "TestSMTContextFiniteDomainSortAndNumeral", "TestSMTContextRelationSortQueries"],
       "assertions": [
         {
           "line": 57,
@@ -5425,7 +5425,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_datatype_definitions.go", "pkg/api/api_datatype_tuple.go", "pkg/api/api_datatype_enumeration.go", "pkg/api/api_datatype_list.go", "pkg/api/api_datatype_queries.go", "pkg/api/api_datatype_tuple_queries.go", "pkg/api/api_datatype_update.go", "pkg/api/api_datatype_tuple_test.go", "pkg/api/api_datatype_enumeration_test.go", "pkg/api/api_datatype_list_test.go", "pkg/api/api_datatype_recursive_test.go", "pkg/api/api_datatype_update_test.go"],
-      "tests": ["TestSMTContextDatatype"],
+      "tests": ["TestSMTContextListDatatypeConstruction", "TestSMTContextEnumerationDatatypeConstruction", "TestSMTContextTupleDatatypeConstructionAndQueries", "TestSMTContextMutuallyRecursiveDatatypeDefinitions", "TestSMTContextDatatypeFieldUpdate", "TestSMTContextAssertSMT2ParametricDatatypeIntegration"],
       "assertions": [
         {
           "line": 65,
@@ -5492,7 +5492,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_fpa_base.go", "pkg/api/api_fpa_sorts.go", "pkg/api/api_fpa_rounding.go", "pkg/api/api_fpa_values.go", "pkg/api/api_fpa_arithmetic.go", "pkg/api/api_fpa_comparisons.go", "pkg/api/api_fpa_predicates.go", "pkg/api/api_fpa_conversions.go", "pkg/api/api_fpa_numeral_classes.go", "pkg/api/api_fpa_native_numerals.go", "pkg/api/api_fpa_component_numeral.go", "pkg/api/api_fpa_numeral_parts.go", "pkg/api/api_fpa_numeral_bits.go", "pkg/api/api_fpa_numeral_exponent_string.go", "pkg/api/api_fpa_numeral_significand_string.go", "pkg/api/api_fpa_exponent_significand.go", "pkg/api/api_fpa_rounding_short_aliases.go", "pkg/api/api_fpa_sort_numeric_aliases.go", "pkg/api/api_fpa_sort_dimensions.go", "pkg/api/api_fpa_sorts_test.go", "pkg/api/api_fpa_rounding_test.go", "pkg/api/api_fpa_values_test.go", "pkg/api/api_fpa_arithmetic_test.go", "pkg/api/api_fpa_relations_test.go", "pkg/api/api_fpa_conversions_test.go", "pkg/api/api_fpa_numeral_classes_test.go"],
-      "tests": ["TestSMTContextFloatingPoint", "TestFloatingPointNativeFloat32NumeralParts", "TestFloatingPointNativeFloat64NumeralParts", "TestFloatingPointComponentNumeralSingle", "TestFloatingPointComponentNumeralDouble", "TestFloatingPointNumeralBitVectorWidthsAndValues", "TestFloatingPointNumeralStrings", "TestFloatingPointExponentSignificandPositive", "TestFloatingPointExponentSignificandNegative", "TestFloatingPointExponentSignificandNearestTie"],
+      "tests": ["TestSMTContextFloatingPointSortsAndShapes", "TestSMTContextFloatingPointArithmeticConstructors", "TestSMTContextFloatingPointRelationsAndClassifications", "TestSMTContextFloatingPointConversions", "TestSMTContextFloatingPointSpecialValuesAndComponents", "TestSMTContextFloatingPointRoundingModes", "TestSMTContextFloatingPointNumeralClasses", "TestFloatingPointNativeFloat32NumeralParts", "TestFloatingPointNativeFloat64NumeralParts", "TestFloatingPointComponentNumeralSingle", "TestFloatingPointComponentNumeralDouble", "TestFloatingPointNumeralBitVectorWidthsAndValues", "TestFloatingPointNumeralStrings", "TestFloatingPointExponentSignificandPositive", "TestFloatingPointExponentSignificandNegative", "TestFloatingPointExponentSignificandNearestTie"],
       "assertions": [
         {
           "line": 981,
@@ -5679,6 +5679,7 @@
           "name": "interpolation-problem SMT-LIB writer over ordinary Go output (api_interp.cpp:385-529)",
           "status": "ported",
           "go_target": "pkg/api/api_interp.go",
+          "go_targets": ["pkg/parsers/smt2/interpolation_test.go"],
           "tests": ["TestInterpolationContextSMT2Replay", "TestSMT2InterpolationReplayScriptMatchesCPP"]
         },
         {
@@ -197844,7 +197845,7 @@
       "path": "src/util/debug.cpp",
       "component": "util",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/sat/sat_solver_probing_branches_test.go",
         "pkg/sat/sat_solver_probing_conditional.go",
@@ -197955,7 +197956,7 @@
         },
         {
           "name": "Selected var_subst pre/post well-sorted SASSERT process gate and diagnostic action at var_subst.cpp:27,34",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/rewriter/var_substitution_assert.go",
           "tests": [
             "TestVarSubstitutionSourceWellSortedAssertionSites"
@@ -198316,7 +198317,7 @@
       "path": "src/util/debug.h",
       "component": "util",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/sat/sat_solver_probing_branches_test.go",
         "pkg/sat/sat_solver_probing_conditional.go",
@@ -198523,7 +198524,7 @@
         },
         {
           "name": "Selected var_subst pre/post well-sorted SASSERT process gate and diagnostic action at var_subst.cpp:27,34",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/rewriter/var_substitution_assert.go",
           "tests": [
             "TestVarSubstitutionSourceWellSortedAssertionSites"
@@ -258885,7 +258886,7 @@
       "path": "src/util/trace.cpp",
       "component": "util",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/ast/ast_fpa_fp_trace.go",
         "pkg/ast/ast_fpa_to_ieee_bv_trace.go",
@@ -259158,7 +259159,7 @@
         },
         {
           "name": "Selected live var_subst::operator() post-rewrite TRACE at var_subst.cpp:35 with Boolean binding/result SMT2",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/rewriter/var_substitution_trace.go",
           "tests": [
             "TestVarSubstitutionResultSourceTrace"
@@ -261393,7 +261394,7 @@
       "path": "src/util/trace.h",
       "component": "util",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/ast/ast_fpa_fp_trace.go",
         "pkg/ast/ast_fpa_to_ieee_bv_trace.go",
@@ -261674,7 +261675,7 @@
         },
         {
           "name": "Selected live var_subst::operator() post-rewrite TRACE at var_subst.cpp:35 with Boolean binding/result SMT2",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/rewriter/var_substitution_trace.go",
           "tests": [
             "TestVarSubstitutionResultSourceTrace"
@@ -266656,6 +266657,8 @@
         {
           "name": "scoped_timer.cpp:212-224 pthread teardown warnings exist only in the excluded Apple branch of the selected Linux profile",
           "status": "platform_replacement",
+          "go_target": "pkg/util/stopwatch/clock_portable.go",
+          "evidence": "The selected Linux source profile excludes the Apple-only pthread teardown warning branch.",
           "tests": []
         },
         {
@@ -266871,6 +266874,8 @@
         {
           "name": "scoped_timer.cpp:212-224 pthread teardown warnings exist only in the excluded Apple branch of the selected Linux profile",
           "status": "platform_replacement",
+          "go_target": "pkg/util/stopwatch/clock_portable.go",
+          "evidence": "The selected Linux source profile excludes the Apple-only pthread teardown warning branch.",
           "tests": []
         },
         {
