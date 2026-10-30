@@ -4,7 +4,7 @@ func (table *SparseTable) SelectEqualProjectFunctional(value Element, column int
 	if err := table.open(); err != nil {
 		return nil, err
 	}
-	if column < 0 || column >= table.signature.Len() || uint64(value) >= table.signature.domains[column] || table.signature.Len() == 1 {
+	if column < 0 || column >= table.signature.Len() || column >= table.signature.Len()-table.functional || uint64(value) >= table.signature.domains[column] || table.signature.Len() == 1 {
 		return nil, ErrTable
 	}
 	signature, err := projectedSignature(table.signature, []int{column})

@@ -15,15 +15,10 @@ func TestSparseFunctionalSelectProjectTracksBoundary(t *testing.T) {
 	if exact, _ := keyProjection.ContainsExact(Fact{2, 3}); !exact {
 		t.Fatal("selected key row missing")
 	}
-	valueProjection, err := table.SelectEqualProjectFunctional(3, 2)
-	if err != nil {
-		t.Fatal(err)
+	if _, err := table.SelectEqualProjectFunctional(3, 2); err != ErrTable {
+		t.Fatalf("functional-column selection error=%v, want %v", err, ErrTable)
 	}
-	defer valueProjection.Close()
-	if functional, _ := valueProjection.FunctionalColumns(); functional != 0 {
-		t.Fatalf("value projection functional=%d", functional)
-	}
-	if exact, _ := valueProjection.ContainsExact(Fact{1, 2}); !exact {
-		t.Fatal("selected value row missing")
+	if exact, _ := table.ContainsExact(Fact{1, 2, 3}); !exact {
+		t.Fatal("rejected functional-column selection mutated the source table")
 	}
 }
