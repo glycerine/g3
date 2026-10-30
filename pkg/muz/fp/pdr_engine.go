@@ -72,11 +72,9 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		return lbool.Undef, fmt.Errorf("muz/fp: PDR requires parameter and global services")
 	}
 	if e.spacer != nil {
-		if err := e.spacer.Close(); err != nil {
+		if err := e.closeSpacerForReplacement(); err != nil {
 			return lbool.Undef, err
 		}
-		e.spacer = nil
-		e.spacerRevision = 0
 		e.spacerPredicates = nil
 		e.spacerSlices = nil
 		e.spacerQuantified = nil

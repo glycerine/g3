@@ -109,6 +109,7 @@ type PropositionalEngine struct {
 	lastResult         lbool.LBool
 	revision           uint64
 	pdrRevision        uint64
+	spacerRules        *base.RuleSet
 	spacerRevision     uint64
 	spacerPredicates   map[ast.ASTHandle]ast.ASTHandle
 	spacerSlices       map[ast.ASTHandle][]bool
@@ -2028,6 +2029,10 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.spacerScaled = nil
 		e.spacerMagic = nil
 		e.spacerKarr = nil
+	}
+	if e.spacerRules != nil {
+		result = errors.Join(result, e.spacerRules.Close())
+		e.spacerRules = nil
 	}
 	result = errors.Join(result, closeHornModelConversions(e.spacerConversions))
 	e.spacerConversions = nil

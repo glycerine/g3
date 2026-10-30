@@ -10,8 +10,9 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-// hornRuleSetSubsumes reports whether every new transformed rule is covered
-// by an old transformed rule. Only then may learned frame properties survive.
+// hornRuleSetSubsumes reports whether every new rule is covered by an old
+// rule. Only then may learned frame properties survive. Each caller supplies
+// the rule sets from its source lifecycle stage.
 func hornRuleSetSubsumes(oldSet, newSet *base.RuleSet) (_ bool, resultErr error) {
 	if oldSet == nil || newSet == nil {
 		return false, nil

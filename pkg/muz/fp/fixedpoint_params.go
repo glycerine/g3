@@ -67,6 +67,11 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	if err := e.open(); err != nil {
 		return err
 	}
+	// spacer_dl_interface::updt_params rebuilds the context so constructor
+	// policy snapshots cannot survive a parameter update.
+	if err := e.closeSpacerForReplacement(); err != nil {
+		return err
+	}
 	if e.queryParamsReady {
 		result = e.params.Del(&e.queryParams)
 		e.queryParamsReady = false

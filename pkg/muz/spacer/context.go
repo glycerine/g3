@@ -265,9 +265,6 @@ func (c *Context) SetBackground(background ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if c.initialized {
-		return ast.ErrASTDomain
-	}
 	return c.owner.SetBackground(background)
 }
 
@@ -427,19 +424,8 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 				}
 			}
 		}
-		c.queue = ProofObligationQueue{}
-		c.query = nil
-		c.lastResult = lbool.Undef
-		c.inductive = 0
-		c.solved = false
-		for index := len(c.order) - 1; index >= 0; index-- {
-			declaration := c.order[index]
-			if previous := c.transformers[declaration]; previous != nil {
-				if err = previous.Close(); err != nil {
-					return err
-				}
-				c.transformers[declaration] = nil
-			}
+		if err = c.Reset(); err != nil {
+			return err
 		}
 	}
 	c.transformers = created
@@ -816,6 +802,36 @@ func (c *Context) ResetStatistics() error {
 		}
 	}
 	c.queue.restarts = 0
+	return nil
+}
+
+// Reset translates context::reset without replacing its manager or selected
+// query declaration. New rules can then be installed into the same context.
+func (c *Context) Reset() (result error) {
+	if err := c.open(); err != nil {
+		return err
+	}
+	c.queue = ProofObligationQueue{}
+	for index := len(c.order) - 1; index >= 0; index-- {
+		declaration := c.order[index]
+		if transformer := c.transformers[declaration]; transformer != nil {
+			if err := transformer.Close(); err != nil {
+				result = errors.Join(result, err)
+			} else {
+				c.transformers[declaration] = nil
+			}
+		}
+	}
+	if result != nil {
+		return result
+	}
+	c.transformers = make(map[ast.ASTHandle]*PredicateTransformer)
+	c.order = nil
+	c.query = nil
+	c.lastResult = lbool.Undef
+	c.inductive = 0
+	c.solved = false
+	c.initialized = false
 	return nil
 }
 
