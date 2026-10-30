@@ -1,0 +1,82 @@
+package rel
+
+import (
+	"bytes"
+	"errors"
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+type tableDisplayRefusingWriter struct{ err error }
+
+func (w tableDisplayRefusingWriter) Write([]byte) (int, error) { return 0, w.err }
+
+func TestHashTableAndRelationDisplaySourceFormat(t *testing.T) {
+	signature, err := NewSignature([]uint64{3, 2})
+	if err != nil {
+		t.Fatal("signature", err)
+	}
+	table := NewHashTable(signature)
+	if _, err = table.Add(Fact{1, 0}); err != nil {
+		t.Fatal("first row", err)
+	}
+	if _, err = table.Add(Fact{2, 1}); err != nil {
+		t.Fatal("second row", err)
+	}
+	var output bytes.Buffer
+	if err = table.Display(&output); err != nil {
+		t.Fatal("display table", err)
+	}
+	const want = "table with signature (3,2):\n(1,0)\n(2,1)\n\n"
+	if output.String() != want {
+		t.Fatalf("table display\n got: %q\nwant: %q", output.String(), want)
+	}
+
+	f := newTableRelationFixture(t)
+	relation, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean, f.bits})
+	if err != nil {
+		t.Fatal("relation", err)
+	}
+	closeTableRelations(t, relation)
+	if _, err = relation.AddFact([]ast.ASTHandle{f.truth, f.bv(2)}); err != nil {
+		t.Fatal("relation row", err)
+	}
+	output.Reset()
+	if err = relation.Display(&output); err != nil {
+		t.Fatal("display relation", err)
+	}
+	const relationWant = "table with signature (2,4):\n(1,2)\n\n"
+	if output.String() != relationWant {
+		t.Fatalf("relation display\n got: %q\nwant: %q", output.String(), relationWant)
+	}
+}
+
+func TestHashTableDisplayEmptyAndWriterFailure(t *testing.T) {
+	signature, err := NewSignature(nil)
+	if err != nil {
+		t.Fatal("zero-arity signature", err)
+	}
+	table := NewHashTable(signature)
+	var output bytes.Buffer
+	if err = table.Display(&output); err != nil {
+		t.Fatal("display empty table", err)
+	}
+	if got, want := output.String(), "table with signature ():\n\n"; got != want {
+		t.Fatalf("empty display: got %q, want %q", got, want)
+	}
+	if _, err = table.Add(Fact{}); err != nil {
+		t.Fatal("zero-arity row", err)
+	}
+	output.Reset()
+	if err = table.Display(&output); err != nil {
+		t.Fatal("display zero-arity fact", err)
+	}
+	if got, want := output.String(), "table with signature ():\n()\n\n"; got != want {
+		t.Fatalf("zero-arity fact display: got %q, want %q", got, want)
+	}
+	refusal := errors.New("table display writer refused output")
+	if err = table.Display(tableDisplayRefusingWriter{err: refusal}); !errors.Is(err, refusal) {
+		t.Fatal("display ignored writer refusal", err)
+	}
+}

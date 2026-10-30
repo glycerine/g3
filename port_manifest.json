@@ -85992,7 +85992,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/rel/table.go",
-        "pkg/muz/rel/table_relation_formula.go"
+        "pkg/muz/rel/table_relation_formula.go",
+        "pkg/muz/rel/table_display.go"
       ],
       "tests": [
         "TestHashTableSetCloneAndValidation",
@@ -86000,7 +86001,9 @@
         "TestHashTableJoinProjectSelectionAndRename",
         "TestHashTableUnionDeltaAndNegation",
         "TestTableRelationToFormulaEmptyAndBooleanRows",
-        "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+        "TestTableRelationToFormulaZeroArityAndMixedSortRows",
+        "TestHashTableAndRelationDisplaySourceFormat",
+        "TestHashTableDisplayEmptyAndWriterFailure"
       ],
       "conditionals": [
         {
@@ -86055,7 +86058,7 @@
       "methods": [
         {
           "name": "Retained ordinary table signature projection/join layout and concrete table clone, reset, containment, selection, union-delta, and negation-filter behavior (dl_base.cpp:81-142,228-348)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
           "tests": [
             "TestHashTableSetCloneAndValidation",
@@ -86070,6 +86073,15 @@
           "tests": [
             "TestTableRelationToFormulaEmptyAndBooleanRows",
             "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+          ]
+        },
+        {
+          "name": "Concrete table display with source signature and insertion-ordered tuple formatting",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_display.go",
+          "tests": [
+            "TestHashTableAndRelationDisplaySourceFormat",
+            "TestHashTableDisplayEmptyAndWriterFailure"
           ]
         }
       ],
@@ -86087,7 +86099,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/rel/table.go",
-        "pkg/muz/rel/table_relation_formula.go"
+        "pkg/muz/rel/table_relation_formula.go",
+        "pkg/muz/rel/table_display.go"
       ],
       "tests": [
         "TestHashTableSetCloneAndValidation",
@@ -86095,7 +86108,9 @@
         "TestHashTableJoinProjectSelectionAndRename",
         "TestHashTableUnionDeltaAndNegation",
         "TestTableRelationToFormulaEmptyAndBooleanRows",
-        "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+        "TestTableRelationToFormulaZeroArityAndMixedSortRows",
+        "TestHashTableAndRelationDisplaySourceFormat",
+        "TestHashTableDisplayEmptyAndWriterFailure"
       ],
       "conditionals": [
         {
@@ -86258,7 +86273,7 @@
       "methods": [
         {
           "name": "Concrete ordinary table signature, fact ownership, set operations, join/project/select/rename, union-delta, and negation-filter surface (dl_base.h:81-704,831-1248)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
           "tests": [
             "TestHashTableSetCloneAndValidation",
@@ -86273,6 +86288,15 @@
           "tests": [
             "TestTableRelationToFormulaEmptyAndBooleanRows",
             "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+          ]
+        },
+        {
+          "name": "Concrete table display with source signature and insertion-ordered tuple formatting",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_display.go",
+          "tests": [
+            "TestHashTableAndRelationDisplaySourceFormat",
+            "TestHashTableDisplayEmptyAndWriterFailure"
           ]
         }
       ],
@@ -89083,7 +89107,8 @@
         "pkg/muz/rel/table_intersection_test.go",
         "pkg/muz/rel/table_relation_intersection_test.go",
         "pkg/muz/rel/table_relation_capability_test.go",
-        "pkg/muz/rel/table_relation_formula.go"
+        "pkg/muz/rel/table_relation_formula.go",
+        "pkg/muz/rel/table_display.go"
       ],
       "tests": [
         "TestTableRelationSourceFactConversionCloneAndOwnership",
@@ -89093,7 +89118,9 @@
         "TestTableRelationUnionDeltaAndFilters",
         "TestTableRelationNegationFilter",
         "TestTableRelationToFormulaEmptyAndBooleanRows",
-        "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+        "TestTableRelationToFormulaZeroArityAndMixedSortRows",
+        "TestHashTableAndRelationDisplaySourceFormat",
+        "TestHashTableDisplayEmptyAndWriterFailure"
       ],
       "conditionals": [
         {
@@ -89124,7 +89151,8 @@
             "pkg/muz/rel/table_relation_interpreted_filter.go",
             "pkg/muz/rel/table_relation_interpreted_project.go",
             "pkg/muz/rel/table_relation_capability.go",
-            "pkg/muz/rel/table_relation_formula.go"
+            "pkg/muz/rel/table_relation_formula.go",
+            "pkg/muz/rel/table_display.go"
           ],
           "tests": [
             "TestTableRelationPredicateConstructionValidationAndClose",
@@ -89134,7 +89162,9 @@
             "TestTableRelationInterpretedValidation",
             "TestTableRelationFiniteSignatureCapability",
             "TestTableRelationToFormulaEmptyAndBooleanRows",
-            "TestTableRelationToFormulaZeroArityAndMixedSortRows"
+            "TestTableRelationToFormulaZeroArityAndMixedSortRows",
+            "TestHashTableAndRelationDisplaySourceFormat",
+            "TestHashTableDisplayEmptyAndWriterFailure"
           ]
         }
       ],
