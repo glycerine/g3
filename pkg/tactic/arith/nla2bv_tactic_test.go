@@ -94,6 +94,22 @@ func TestNLA2BVParametersFreshInvocationsCleanupAndTranslation(t *testing.T) {
 	}
 }
 
+func TestNLA2BVReferenceCountClosesAtLastRelease(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	equationMust(t, r.IncRef())
+	equationMust(t, r.IncRef())
+	if err := r.DecRef(); err != nil || r.closed {
+		t.Fatal("non-final release closed tactic", r.closed, err)
+	}
+	equationMust(t, r.DecRef())
+	if !r.closed {
+		t.Fatal("last release did not close tactic")
+	}
+	if err := r.IncRef(); !errors.Is(err, ast.ErrASTHandle) {
+		t.Fatal("closed tactic accepted another reference", err)
+	}
+}
+
 func TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata(t *testing.T) {
 	r := nla2BVFixture(t, false)
 	descriptions, err := uparams.NewParamDescrs(r.manager.Symbols, uparams.ParamDescrsConfig{Budget: r.manager.Budget()})

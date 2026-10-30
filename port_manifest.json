@@ -167353,6 +167353,7 @@
           "go_target": "pkg/tactic/arith/nla2bv_tactic.go",
           "tests": [
             "TestNLA2BVProofAndCoreGuardsPreserveResult",
+            "TestNLA2BVReferenceCountClosesAtLastRelease",
             "TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata",
             "TestNLA2BVConstructorAndApplicationAllocationPrefixes",
             "TestSMTLibRunnerScripts",
@@ -167416,6 +167417,7 @@
           "go_target": "pkg/tactic/arith/nla2bv_tactic.go",
           "tests": [
             "TestNLA2BVProofAndCoreGuardsPreserveResult",
+            "TestNLA2BVReferenceCountClosesAtLastRelease",
             "TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata",
             "TestNLA2BVConstructorAndApplicationAllocationPrefixes",
             "TestSMTLibRunnerScripts",
