@@ -721,7 +721,12 @@ func (c *Context) inductiveProperty() (_ *InductiveProperty, resultErr error) {
 			continue
 		}
 		transformer := c.transformers[declaration]
-		body, err := transformer.Formulas(c.inductive, false)
+		bodyRef, err := transformer.Formulas(c.inductive, false)
+		if err != nil {
+			return nil, err
+		}
+		bodies = append(bodies, bodyRef)
+		body, err := c.manager.RefGet(bodyRef)
 		if err != nil {
 			return nil, err
 		}

@@ -443,8 +443,12 @@ func (p *PredicateTransformer) OriginSummary(md *model.ModelCore, level, oldInde
 			return ast.ASTRef{}, nil, err
 		}
 	} else {
-		var err error
-		summary, err = p.Formulas(level, false)
+		summaryRef, err := p.Formulas(level, false)
+		if err != nil {
+			return ast.ASTRef{}, nil, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&summaryRef)) }()
+		summary, err = p.manager.RefGet(summaryRef)
 		if err != nil {
 			return ast.ASTRef{}, nil, err
 		}

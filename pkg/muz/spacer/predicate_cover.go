@@ -19,7 +19,11 @@ func (p *PredicateTransformer) AddCover(level int, property ast.ASTHandle) (resu
 	if level < -1 {
 		return ast.ErrASTDomain
 	}
-	arguments := make([]ast.ASTHandle, len(p.signature))
+	substitution, err := p.manager.NewExprSubstitution()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelExprSubstitution(&substitution)) }()
 	for index, signature := range p.signature {
 		declaration, err := p.manager.RefGet(signature)
 		if err != nil {
@@ -29,22 +33,38 @@ func (p *PredicateTransformer) AddCover(level int, property ast.ASTHandle) (resu
 		if err != nil {
 			return err
 		}
-		arguments[index], err = p.manager.MkApp(current, nil)
+		constant, err := p.manager.MkApp(current, nil)
 		if err != nil {
 			return err
 		}
+		sort, err := p.manager.GetRange(declaration)
+		if err != nil {
+			return err
+		}
+		variable, err := p.manager.MkVar(uint32(index), sort)
+		if err != nil {
+			return err
+		}
+		if err = p.manager.ExprSubstitutionInsert(substitution, variable, constant, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
+			return err
+		}
 	}
-	substitution, err := rewriter.NewVarSubstitution(p.manager, false)
+	// The source replaces matching variable expressions directly, including
+	// beneath quantifiers, rather than applying binder-aware var_subst.
+	replacer, err := rewriter.NewDefaultExprReplacer(p.manager)
 	if err != nil {
 		return err
 	}
-	defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
+	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
+	if err = replacer.SetSubstitution(&substitution); err != nil {
+		return err
+	}
 	converted, err := p.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&converted)) }()
-	if err = substitution.Substitute(property, arguments, converted); err != nil {
+	if err = replacer.Rewrite(property, converted); err != nil {
 		return err
 	}
 	handle, err := p.manager.RefGet(converted)
@@ -89,7 +109,15 @@ func (p *PredicateTransformer) CoverDelta(level int) (result ast.ASTRef, resultE
 	if err != nil {
 		return result, err
 	}
-	formula, err := p.manager.MkAndArray(lemmas)
+	formulaRef, err := p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formulaRef)) }()
+	if err = p.owner.boolean.MkAnd(lemmas, formulaRef); err != nil {
+		return result, err
+	}
+	formula, err := p.manager.RefGet(formulaRef)
 	if err != nil {
 		return result, err
 	}

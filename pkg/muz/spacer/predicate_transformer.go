@@ -545,18 +545,20 @@ func (p *PredicateTransformer) NumLevels() (uint32, error) {
 	return p.frames.Size()
 }
 
-func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHandle, error) {
+// Formulas returns an owning reference to the source Boolean conjunction of
+// frame lemmas and optional axioms. The caller releases the reference.
+func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (result ast.ASTRef, resultErr error) {
 	if err := p.open(); err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	var formulas []ast.ASTHandle
 	if addAxioms {
 		if !p.initialized {
-			return ast.ASTHandle{}, ast.ErrASTDomain
+			return ast.ASTRef{}, ast.ErrASTDomain
 		}
 		background, err := p.owner.Background()
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTRef{}, err
 		}
 		formulas = append(formulas, background)
 		var state ast.ASTHandle
@@ -566,16 +568,23 @@ func (p *PredicateTransformer) Formulas(level uint32, addAxioms bool) (ast.ASTHa
 			state, err = p.manager.RefGet(p.transition)
 		}
 		if err != nil {
-			return ast.ASTHandle{}, err
+			return ast.ASTRef{}, err
 		}
 		formulas = append(formulas, state)
 	}
 	lemmas, err := p.frames.FrameGEQLemmas(level)
 	if err != nil {
-		return ast.ASTHandle{}, err
+		return ast.ASTRef{}, err
 	}
 	formulas = append(formulas, lemmas...)
-	return p.manager.MkAndArray(formulas)
+	result, err = p.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if err = p.owner.boolean.MkAnd(formulas, result); err != nil {
+		return ast.ASTRef{}, errors.Join(err, p.manager.DelRef(&result))
+	}
+	return result, nil
 }
 
 func (p *PredicateTransformer) CollectStatistics(destination *statistics.Statistics) error {

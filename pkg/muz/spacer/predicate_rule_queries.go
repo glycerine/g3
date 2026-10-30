@@ -229,9 +229,14 @@ func (p *PredicateTransformer) RemovePredecessors(literals []ast.ASTHandle) ([]a
 	return result, nil
 }
 
-func (p *PredicateTransformer) appendRulePremises(level uint32, normalized *spacerNormalizedRule, result *[]ast.ASTRef) error {
+func (p *PredicateTransformer) appendRulePremises(level uint32, normalized *spacerNormalizedRule, result *[]ast.ASTRef) (resultErr error) {
 	for index, predecessor := range normalized.predecessors {
-		formula, err := predecessor.Formulas(level, false)
+		formulaRef, err := predecessor.Formulas(level, false)
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formulaRef)) }()
+		formula, err := p.manager.RefGet(formulaRef)
 		if err != nil {
 			return err
 		}

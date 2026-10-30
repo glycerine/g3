@@ -234,11 +234,14 @@ func TestSpacerPredicateTransformerConnectsFramesAndSolver(t *testing.T) {
 	if !all {
 		t.Fatal("transition-implied lemma did not propagate")
 	}
-	formula, err := transformer.Formulas(spacer.InfinityLevel, false)
+	formulaRef, err := transformer.Formulas(spacer.InfinityLevel, false)
+	spacerMust(t, err)
+	formula, err := manager.RefGet(formulaRef)
 	spacerMust(t, err)
 	if formula != p {
 		t.Fatal("infinity formula", formula, p)
 	}
+	spacerMust(t, manager.DelRef(&formulaRef))
 	collected := statistics.New()
 	spacerMust(t, transformer.CollectStatistics(collected))
 	if collected.Size() == 0 {
@@ -272,9 +275,9 @@ func TestSpacerRulePredicateTransformerBuildsSourceStateSignature(t *testing.T) 
 	falsehood, err := manager.MkFalse()
 	spacerMust(t, err)
 	spacerMust(t, transformer.InitializeSystem(falsehood, truth))
-	if _, err = transformer.Formulas(0, true); err != nil {
-		t.Fatal("initialized rule predicate formulas", err)
-	}
+	formulas, err := transformer.Formulas(0, true)
+	spacerMust(t, err)
+	spacerMust(t, manager.DelRef(&formulas))
 	first, err := manager.MkVar(0, boolean)
 	spacerMust(t, err)
 	second, err := manager.MkVar(1, boolean)

@@ -65,11 +65,14 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 		if _, err := previous.Head(); err == nil {
 			t.Fatal("old transformer survived rule update")
 		}
-		invariant, err := current.Formulas(spacer.InfinityLevel, false)
+		invariantRef, err := current.Formulas(spacer.InfinityLevel, false)
+		must(err)
+		invariant, err := m.RefGet(invariantRef)
 		must(err)
 		if !m.IsFalse(invariant) {
 			t.Fatal("covered rule update lost its known invariant")
 		}
+		must(m.DelRef(&invariantRef))
 		previous = current
 	}
 	// The old recursive body cannot subsume a fresh fact. Keeping its learned
