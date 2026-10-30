@@ -11,7 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestHornNormalizerMergesConsecutiveUniversalPrefix(t *testing.T) {
+func TestHornNormalizerPreservesAlreadyHornUniversalPrefix(t *testing.T) {
 	f := newRuleSetFixture(t, "P")
 	boolean, err := f.manager.MkBoolSort()
 	ruleMust(t, err)
@@ -45,10 +45,15 @@ func TestHornNormalizerMergesConsecutiveUniversalPrefix(t *testing.T) {
 	}
 	result, err := f.manager.RefGet(normalized.Formulas[0])
 	ruleMust(t, err)
-	if count, err := f.manager.GetNumDeclarations(result); err != nil || count != 2 {
-		t.Fatal("merged universal declaration count", count, err)
+	if result != formula {
+		t.Fatal("already-Horn prefix was reconstructed instead of returned unchanged")
 	}
 	body, err := f.manager.GetQuantifierBody(result)
+	ruleMust(t, err)
+	if body != inner {
+		t.Fatal("already-Horn nested universal prefix changed")
+	}
+	body, err = f.manager.GetQuantifierBody(body)
 	ruleMust(t, err)
 	antecedent, err := f.manager.GetArg(body, 0)
 	ruleMust(t, err)
@@ -180,7 +185,9 @@ func TestHornNormalizerSplitsSingletonDisjunction(t *testing.T) {
 
 func TestHornNormalizerStopsWorklistWhenManagerIsCanceled(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q")
-	formula, err := f.manager.MkImplies(f.app["P"], f.app["Q"])
+	antecedent, err := f.manager.MkOr(f.app["P"], f.app["Q"])
+	ruleMust(t, err)
+	formula, err := f.manager.MkImplies(antecedent, f.app["Q"])
 	ruleMust(t, err)
 	reference, err := f.manager.NewRef(formula)
 	ruleMust(t, err)

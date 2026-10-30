@@ -12,9 +12,8 @@ import (
 	"github.com/glycerine/g3/pkg/qe"
 )
 
-// AddFormulaWithProof ingests a source formula and proof through the retained
-// direct disjunctive split and HNF definition-introduction paths. Other HNF
-// proof transformations return an error instead of attaching an unrelated proof.
+// AddFormulaWithProof ingests a formula and proof through the source Horn
+// normalization worklist, carrying proofs through each transformation.
 func (m *RuleManager) AddFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name string) (resultErr error) {
 	return m.addFormulaWithProof(set, formula, proof, name, nil, false)
 }
@@ -85,7 +84,7 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 	if err != nil {
 		return err
 	}
-	normalized, err := normalizer.Normalize(formula)
+	normalized, err := normalizer.NormalizeWithProof(formula, proof)
 	if normalized != nil {
 		defer func() { resultErr = errors.Join(resultErr, normalized.Close()) }()
 	}
@@ -99,9 +98,12 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 			return err
 		}
 	}
-	clauseProofs, err := m.hnfClauseProofs(formula, proof, clauses, normalized.FreshPredicates)
-	if err != nil {
-		return err
+	clauseProofs := make([]ast.ASTHandle, len(normalized.Proofs))
+	for i, ref := range normalized.Proofs {
+		clauseProofs[i], err = m.manager.RefGet(ref)
+		if err != nil {
+			return err
+		}
 	}
 	for _, reference := range normalized.FreshPredicates {
 		declaration, e := m.manager.RefGet(reference)
@@ -139,121 +141,4 @@ func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 		}
 	}
 	return nil
-}
-
-func (m *RuleManager) hnfClauseProofs(formula, proof ast.ASTHandle, clauses []ast.ASTHandle, freshRefs []ast.ASTRef) ([]ast.ASTHandle, error) {
-	proofs := make([]ast.ASTHandle, len(clauses))
-	if len(freshRefs) == 0 {
-		if len(clauses) == 1 {
-			proofs[0] = proof
-			return proofs, nil
-		}
-		if len(clauses) < 2 {
-			return nil, fmt.Errorf("muz/base: HNF produced no clauses for a proof-bearing formula")
-		}
-		conjunction, err := m.manager.MkAndArgs(clauses)
-		if err != nil {
-			return nil, err
-		}
-		equivalence, err := m.manager.MkIff(formula, conjunction)
-		if err != nil {
-			return nil, err
-		}
-		definition, err := m.manager.MkProofDefAxiom(equivalence)
-		if err != nil {
-			return nil, err
-		}
-		conjunctionProof, err := m.manager.MkProofModusPonens(proof, definition)
-		if err != nil {
-			return nil, err
-		}
-		for i, clause := range clauses {
-			proofs[i], err = m.manager.MkProofAndElim(conjunctionProof, uint32(i))
-			if err != nil {
-				return nil, err
-			}
-			fact, e := m.manager.GetProofFact(proofs[i])
-			if e != nil {
-				return nil, e
-			}
-			if fact != clause {
-				return nil, fmt.Errorf("muz/base: HNF proof clause %d has the wrong fact", i)
-			}
-		}
-		return proofs, nil
-	}
-
-	fresh := make(map[ast.ASTHandle]struct{}, len(freshRefs))
-	for _, reference := range freshRefs {
-		declaration, err := m.manager.RefGet(reference)
-		if err != nil {
-			return nil, err
-		}
-		fresh[declaration] = struct{}{}
-	}
-	main := -1
-	var definitions []ast.ASTHandle
-	for index, clause := range clauses {
-		head, err := m.hnfFormulaHead(clause)
-		if err != nil {
-			return nil, err
-		}
-		declaration, err := m.manager.GetDecl(head)
-		if err != nil {
-			return nil, fmt.Errorf("muz/base: generated HNF clause has no predicate head")
-		}
-		if _, isDefinition := fresh[declaration]; isDefinition {
-			proofs[index], err = m.manager.MkProofDefIntro(clause)
-			if err != nil {
-				return nil, err
-			}
-			definitions = append(definitions, proofs[index])
-		} else if main < 0 {
-			main = index
-		} else {
-			return nil, fmt.Errorf("muz/base: HNF proof transfer requires one main clause")
-		}
-	}
-	if main < 0 || len(definitions) == 0 {
-		return nil, fmt.Errorf("muz/base: unsupported HNF definition proof shape")
-	}
-	application, err := m.manager.MkProofApplyDefs(formula, clauses[main], definitions)
-	if err != nil {
-		return nil, err
-	}
-	proofs[main], err = m.manager.MkProofModusPonens(proof, application)
-	if err != nil {
-		return nil, err
-	}
-	return proofs, nil
-}
-
-func (m *RuleManager) hnfFormulaHead(formula ast.ASTHandle) (ast.ASTHandle, error) {
-	for {
-		kind, err := m.manager.GetKind(formula)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		if kind != ast.ASTQuantifier {
-			break
-		}
-		formula, err = m.manager.GetQuantifierBody(formula)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-	}
-	kind, err := m.manager.GetKind(formula)
-	if err != nil {
-		return ast.ASTHandle{}, err
-	}
-	if kind == ast.ASTApp {
-		operator, e := m.manager.GetDeclKind(formula)
-		if e != nil {
-			return ast.ASTHandle{}, e
-		}
-		if operator == ast.ASTOpImplies {
-			return m.manager.GetArg(formula, 1)
-		}
-	}
-	return formula, nil
 }

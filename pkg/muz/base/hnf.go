@@ -16,11 +16,13 @@ import (
 
 var ErrHornNormalizationOwner = errors.New("muz/base: invalid or closed Horn normalization")
 
-// HornNormalization owns every normalized formula and fresh predicate
-// declaration produced by HornNormalizer.Normalize.
+// HornNormalization owns normalized formulas, optional matching proofs, and
+// fresh predicate declarations produced by a HornNormalizer.
 type HornNormalization struct {
-	manager         *ast.ASTManager
-	Formulas        []ast.ASTRef
+	manager  *ast.ASTManager
+	Formulas []ast.ASTRef
+	// Proofs is parallel to Formulas when NormalizeWithProof is used.
+	Proofs          []ast.ASTRef
 	FreshPredicates []ast.ASTRef
 	closed          bool
 }
@@ -32,12 +34,16 @@ func (r *HornNormalization) Close() (result error) {
 	if r.closed {
 		return nil
 	}
+	for i := len(r.Proofs) - 1; i >= 0; i-- {
+		result = errors.Join(result, r.manager.DelRef(&r.Proofs[i]))
+	}
 	for i := len(r.Formulas) - 1; i >= 0; i-- {
 		result = errors.Join(result, r.manager.DelRef(&r.Formulas[i]))
 	}
 	for i := len(r.FreshPredicates) - 1; i >= 0; i-- {
 		result = errors.Join(result, r.manager.DelRef(&r.FreshPredicates[i]))
 	}
+	r.Proofs = nil
 	r.Formulas = nil
 	r.FreshPredicates = nil
 	r.closed = true
@@ -105,6 +111,90 @@ func (n *HornNormalizer) predicate(expression ast.ASTHandle) (bool, error) {
 	return family == ast.NullFamilyID && rangeSort == boolean, err
 }
 
+// isHorn is the source invocation fast path, before resetting worklists or
+// checking cancellation. It preserves an already-Horn formula and its proof.
+func (n *HornNormalizer) isHorn(formula ast.ASTHandle) (bool, error) {
+	m := n.manager
+	for {
+		kind, err := m.GetKind(formula)
+		if err != nil {
+			return false, err
+		}
+		if kind != ast.ASTQuantifier {
+			break
+		}
+		forall, err := m.IsForall(formula)
+		if err != nil {
+			return false, err
+		}
+		if !forall {
+			break
+		}
+		formula, err = m.GetQuantifierBody(formula)
+		if err != nil {
+			return false, err
+		}
+	}
+	op, app, err := n.operator(formula)
+	if err != nil || !app || op != ast.ASTOpImplies {
+		return false, err
+	}
+	head, err := m.GetArg(formula, 1)
+	if err != nil {
+		return false, err
+	}
+	predicate, err := n.predicate(head)
+	if err != nil || !predicate {
+		return false, err
+	}
+	body, err := m.GetArg(formula, 0)
+	if err != nil {
+		return false, err
+	}
+	kind, err := m.GetKind(body)
+	if err != nil {
+		return false, err
+	}
+	if kind == ast.ASTVar {
+		return true, nil
+	}
+	if kind == ast.ASTQuantifier {
+		return false, nil
+	}
+	op, app, err = n.operator(body)
+	if err != nil {
+		return false, err
+	}
+	parts := []ast.ASTHandle{body}
+	if app && op == ast.ASTOpAnd {
+		count, err := m.GetNumArgs(body)
+		if err != nil {
+			return false, err
+		}
+		parts = nil
+		for i := uint32(0); i < count; i++ {
+			part, err := m.GetArg(body, i)
+			if err != nil {
+				return false, err
+			}
+			parts = append(parts, part)
+		}
+	}
+	for _, part := range parts {
+		predicate, err := n.predicate(part)
+		if err != nil {
+			return false, err
+		}
+		if !predicate {
+			contains, err := n.containsPredicate(part)
+			if err != nil || contains {
+				return false, err
+			}
+		}
+	}
+	return true, nil
+}
+
 func (n *HornNormalizer) containsPredicate(root ast.ASTHandle) (bool, error) {
 	stack := []ast.ASTHandle{root}
 	seen := make(map[ast.ASTHandle]bool)
@@ -154,6 +244,10 @@ func (n *HornNormalizer) containsPredicate(root ast.ASTHandle) (bool, error) {
 func (n *HornNormalizer) operator(expression ast.ASTHandle) (int32, bool, error) {
 	kind, err := n.manager.GetKind(expression)
 	if err != nil || kind != ast.ASTApp {
+		return -1, false, err
+	}
+	family, err := n.manager.GetFamilyID(expression)
+	if err != nil || family != n.manager.BasicFamilyID() {
 		return -1, false, err
 	}
 	operator, err := n.manager.GetDeclKind(expression)
@@ -275,6 +369,19 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 			result = nil
 		}
 	}()
+	horn, err := n.isHorn(formula)
+	if err != nil {
+		return result, err
+	}
+	if horn {
+		ref, err := n.manager.NewRef(formula)
+		if err != nil {
+			return result, err
+		}
+		result.Formulas = append(result.Formulas, ref)
+		failed = false
+		return result, nil
+	}
 	var locals []ast.ASTRef
 	defer func() {
 		for i := len(locals) - 1; i >= 0; i-- {
@@ -311,33 +418,22 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 		}
 		head := core
 		var body []ast.ASTHandle
-		kind, err := n.manager.GetKind(core)
-		if err != nil {
-			return result, err
-		}
-		if kind == ast.ASTApp {
-			operator, e := n.manager.GetDeclKind(core)
-			if e != nil {
-				return result, e
+		for {
+			operator, application, err := n.operator(head)
+			if err != nil {
+				return result, err
 			}
-			for operator == ast.ASTOpImplies {
-				antecedent, x := n.manager.GetArg(head, 0)
-				if x != nil {
-					return result, x
-				}
-				body = append(body, antecedent)
-				head, x = n.manager.GetArg(head, 1)
-				if x != nil {
-					return result, x
-				}
-				headKind, x := n.manager.GetKind(head)
-				if x != nil || headKind != ast.ASTApp {
-					break
-				}
-				operator, x = n.manager.GetDeclKind(head)
-				if x != nil {
-					return result, x
-				}
+			if !application || operator != ast.ASTOpImplies {
+				break
+			}
+			antecedent, err := n.manager.GetArg(head, 0)
+			if err != nil {
+				return result, err
+			}
+			body = append(body, antecedent)
+			head, err = n.manager.GetArg(head, 1)
+			if err != nil {
+				return result, err
 			}
 		}
 		body, err = n.manager.FlattenAnd(body)
@@ -426,7 +522,7 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				if x != nil {
 					return result, x
 				}
-				notLeft, x := n.manager.MkNot(left)
+				notLeft, x := n.manager.MkNotSimplified(left)
 				if x != nil {
 					return result, x
 				}
