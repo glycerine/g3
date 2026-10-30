@@ -4828,7 +4828,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_arithmetic.go", "pkg/api/api_arithmetic_rationals.go", "pkg/api/api_arithmetic_test.go", "pkg/api/api_arithmetic_rationals_test.go"],
-      "tests": ["TestSMTContextArithmetic"],
+      "tests": ["TestSMTContextArithmeticSortsAndFactories", "TestSMTContextArithmeticValidation", "TestSMTContextArithmeticRationalParts"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -4897,7 +4897,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_ast_construction.go", "pkg/api/api_ast_construction_test.go", "pkg/api/api_ast_inspection.go", "pkg/api/api_ast_inspection_test.go", "pkg/api/api_ast_update.go", "pkg/api/api_ast_update_test.go", "pkg/api/api_ast_substitution.go", "pkg/api/api_ast_substitution_test.go", "pkg/api/api_ast_translation.go", "pkg/api/api_ast_translation_test.go", "pkg/api/api_ast_simplify.go", "pkg/api/api_ast_simplify_test.go", "pkg/api/api_ast_declaration_parameters.go", "pkg/api/api_ast_declaration_parameters_test.go", "pkg/api/api_ast_sort_kind.go", "pkg/api/api_ast_sort_kind_test.go", "pkg/api/api_ast_symbols.go", "pkg/api/api_ast_symbols_test.go", "pkg/api/api_ast_identity.go", "pkg/api/api_ast_identity_test.go", "pkg/api/api_ast_printer.go", "pkg/api/api_ast_printer_test.go", "pkg/api/api_ast_benchmark.go", "pkg/api/api_ast_benchmark_test.go"],
-      "tests": ["TestSMTContextAST", "TestSMTContextASTUpdate", "TestSMTContextASTSubstitute", "TestSMTContextASTTranslation", "TestSMTContextASTSimplify", "TestSMTContextASTDeclarationParameter", "TestSMTContextASTSortKind", "TestSMTContextASTSymbol", "TestSMTContextASTTypedIdentity", "TestSMTContextASTPrinter", "TestSMTContextASTBenchmark"],
+      "tests": ["TestSMTContextASTConstruction", "TestSMTContextASTUpdateApplicationsQuantifiersAndLeaves", "TestSMTContextASTSubstituteIsSimultaneousAndOwning", "TestSMTContextASTTranslationReturnsTargetOwnedReference", "TestSMTContextASTSimplifyDefaultAndConfigured", "TestSMTContextASTDeclarationParameterKindsAndValues", "TestSMTContextASTSortKindCoreFamilies", "TestSMTContextASTSymbolKindsAndValues", "TestSMTContextASTTypedIdentityAndDomainSize", "TestSMTContextASTPrinterModesAndConfiguration", "TestSMTContextASTBenchmarkSMT2MetadataAssumptionsAndFormula"],
       "assertions": [
         {
           "line": 344,
@@ -5090,7 +5090,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_bitvectors.go", "pkg/api/api_bitvectors_test.go", "pkg/api/api_bitvector_overflow.go", "pkg/api/api_bitvector_overflow_test.go"],
-      "tests": ["TestSMTContextBitVector", "TestSMTContextBitVectorOverflow", "TestSMTContextBitVectorExtrema"],
+      "tests": ["TestSMTContextBitVectorCoreAPI", "TestSMTContextBitVectorOverflowPredicates", "TestSMTContextBitVectorExtrema"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -5511,21 +5511,7 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": [
-        "pkg/api/api_goal_object.go",
-        "pkg/api/api_goal_memory_trace.go",
-        "pkg/api/api_goal_memory_trace_debug_test.go",
-        "pkg/api/api_goal.go",
-        "pkg/api/api_goal_mutation.go",
-        "pkg/api/api_goal_queries.go",
-        "pkg/api/api_goal_translation.go",
-        "pkg/api/api_goal_display.go",
-        "pkg/api/api_goal_lifecycle_test.go",
-        "pkg/api/api_goal_mutation_test.go",
-        "pkg/api/api_goal_queries_test.go",
-        "pkg/api/api_goal_translation_test.go",
-        "pkg/api/api_goal_display_test.go"
-      ],
+      "go_targets": ["pkg/api/api_goal_object.go", "pkg/api/api_goal_memory_trace.go", "pkg/api/api_goal_memory_trace_debug_test.go", "pkg/api/api_goal.go", "pkg/api/api_goal_mutation.go", "pkg/api/api_goal_queries.go", "pkg/api/api_goal_translation.go", "pkg/api/api_goal_display.go", "pkg/api/api_goal_lifecycle_test.go", "pkg/api/api_goal_mutation_test.go", "pkg/api/api_goal_queries_test.go", "pkg/api/api_goal_translation_test.go", "pkg/api/api_goal_display_test.go", "pkg/api/api_goal_dimacs.go", "pkg/api/api_goal_dimacs_invalid_test.go", "pkg/api/api_goal_dimacs_lifecycle_test.go", "pkg/api/api_goal_dimacs_test.go"],
       "tests": [
         "TestAPIGoalSourceMemoryWrapperReleaseSites",
         "TestAPIGoal"
@@ -5863,7 +5849,7 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_optimize_assertion_refs.go", "pkg/api/api_optimize_objective_expressions.go", "pkg/api/api_optimize_interrupt.go", "pkg/api/api_optimize_model.go", "pkg/cmd_context/optimization_assertion_queries.go", "pkg/cmd_context/optimization_failure.go", "pkg/cmd_context/optimization_model.go"],
+      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_optimize_assertion_refs.go", "pkg/api/api_optimize_objective_expressions.go", "pkg/api/api_optimize_interrupt.go", "pkg/api/api_optimize_model.go", "pkg/cmd_context/optimization_assertion_queries.go", "pkg/cmd_context/optimization_failure.go", "pkg/cmd_context/optimization_model.go", "pkg/api/api_optimization_diagnostics.go", "pkg/api/api_optimization_diagnostics_test.go", "pkg/api/api_optimization_model_comparison.go", "pkg/api/api_optimization_model_comparison_test.go", "pkg/api/api_optimize_diagnostics.go", "pkg/api/api_optimize_model_comparison.go", "pkg/cmd_context/optimization_diagnostics.go", "pkg/cmd_context/optimization_diagnostics_test.go", "pkg/cmd_context/optimization_model_comparison.go", "pkg/cmd_context/optimization_model_comparison_test.go"],
       "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestAPIOptimizeAssertionRefsOwnership", "TestAPIOptimizeObjectiveExpressionsArithmetic", "TestAPIOptimizeObjectiveExpressionsSoft", "TestAPIOptimizeObjectiveExpressionsBitVector"],
       "methods_audited": false,
       "ownership_audited": false,
@@ -50381,7 +50367,7 @@
       "component": "math",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/math/hilbert/hilbert_basis.go", "pkg/math/hilbert/hilbert_basis_test.go"],
+      "go_targets": ["pkg/math/hilbert/hilbert_basis.go", "pkg/math/hilbert/hilbert_basis_test.go", "pkg/math/hilbert/hilbert_display.go", "pkg/math/hilbert/hilbert_options.go", "pkg/math/hilbert/hilbert_statistics.go", "pkg/math/hilbert/ordered_index.go", "pkg/math/hilbert/ordered_passive.go", "pkg/math/hilbert/ordered_resolve.go", "pkg/math/hilbert/ordered_saturate.go", "pkg/math/hilbert/ordered_original_equivalence_test.go", "pkg/math/hilbert/ordered_source_test.go"],
       "tests": ["TestBasisSourceExamples", "TestBasisIntegerCoordinatesAndCancellation", "TestBasisRefusesInvalidNumeralsAndDimensions"],
       "assertions": [
         {
@@ -50429,6 +50415,13 @@
           "status": "ported",
           "go_target": "pkg/math/hilbert/hilbert_basis.go",
           "tests": ["TestBasisSourceExamples", "TestBasisIntegerCoordinatesAndCancellation", "TestBasisRefusesInvalidNumeralsAndDimensions"]
+        },
+        {
+          "name": "ordered passive-set saturation, support/subsumption controls, counters and diagnostic display",
+          "status": "ported",
+          "go_target": "pkg/math/hilbert/ordered_saturate.go",
+          "go_targets": ["pkg/math/hilbert/ordered_index.go", "pkg/math/hilbert/ordered_passive.go", "pkg/math/hilbert/ordered_resolve.go", "pkg/math/hilbert/hilbert_options.go", "pkg/math/hilbert/hilbert_statistics.go", "pkg/math/hilbert/hilbert_display.go"],
+          "tests": ["TestOrderedSaturationMatchesOriginalWorkList", "TestOrderedSaturationSourceExample"]
         }
       ],
       "ownership": ["Basis owns its exact integer inequality rows, work vectors and resulting basis. BasisSolution and Inequality return independent math/big.Rat values."],
@@ -50439,7 +50432,7 @@
       "component": "math",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/math/hilbert/hilbert_basis.go", "pkg/math/hilbert/hilbert_basis_test.go"],
+      "go_targets": ["pkg/math/hilbert/hilbert_basis.go", "pkg/math/hilbert/hilbert_basis_test.go", "pkg/math/hilbert/hilbert_display.go", "pkg/math/hilbert/hilbert_options.go", "pkg/math/hilbert/hilbert_statistics.go", "pkg/math/hilbert/ordered_index.go", "pkg/math/hilbert/ordered_passive.go", "pkg/math/hilbert/ordered_resolve.go", "pkg/math/hilbert/ordered_saturate.go", "pkg/math/hilbert/ordered_original_equivalence_test.go", "pkg/math/hilbert/ordered_source_test.go"],
       "tests": ["TestBasisSourceExamples", "TestBasisIntegerCoordinatesAndCancellation", "TestBasisRefusesInvalidNumeralsAndDimensions"],
       "conditionals": [
         {
@@ -50459,10 +50452,17 @@
           "status": "ported",
           "go_target": "pkg/math/hilbert/hilbert_basis.go",
           "tests": ["TestBasisSourceExamples", "TestBasisIntegerCoordinatesAndCancellation", "TestBasisRefusesInvalidNumeralsAndDimensions"]
+        },
+        {
+          "name": "ordered saturation controls, statistics and display surface",
+          "status": "ported",
+          "go_target": "pkg/math/hilbert/ordered_saturate.go",
+          "go_targets": ["pkg/math/hilbert/ordered_index.go", "pkg/math/hilbert/ordered_passive.go", "pkg/math/hilbert/ordered_resolve.go", "pkg/math/hilbert/hilbert_options.go", "pkg/math/hilbert/hilbert_statistics.go", "pkg/math/hilbert/hilbert_display.go"],
+          "tests": ["TestOrderedSaturationMatchesOriginalWorkList", "TestOrderedSaturationSourceExample"]
         }
       ],
       "ownership": ["The Go owner contains all asserted constraints and generated basis vectors; no borrowed vector storage escapes."],
-      "deviations": ["Unused statistics, display tuning and alternate ordered-support controls are omitted because no retained Go consumer selects them."]
+      "deviations": ["Concrete Go slices and stable indexes replace the source heap-trie and region allocation while preserving ordered support, subsumption and saturation behavior."]
     },
     {
       "path": "src/math/interval/CMakeLists.txt",
@@ -88756,7 +88756,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go"],
+      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go", "pkg/muz/rel/table_intersection.go", "pkg/muz/rel/table_intersection_index.go", "pkg/muz/rel/table_intersection_validate.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_capability.go", "pkg/muz/rel/table_intersection_test.go", "pkg/muz/rel/table_relation_intersection_test.go", "pkg/muz/rel/table_relation_capability_test.go"],
       "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "assertions": [
         {
@@ -88867,7 +88867,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go"],
+      "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go", "pkg/muz/rel/table_intersection.go", "pkg/muz/rel/table_intersection_index.go", "pkg/muz/rel/table_intersection_validate.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_capability.go", "pkg/muz/rel/table_intersection_test.go", "pkg/muz/rel/table_relation_intersection_test.go", "pkg/muz/rel/table_relation_capability_test.go"],
       "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "conditionals": [
         {
@@ -97617,7 +97617,7 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/maxres_engine.go", "pkg/opt/maxres_assumption.go", "pkg/opt/maxres_boolean_eval.go", "pkg/opt/maxres_boundaries.go", "pkg/opt/maxres_literal.go", "pkg/opt/maxres_mutex_order.go", "pkg/opt/maxres_mutex_preprocess.go", "pkg/opt/maxres_mutex_term.go", "pkg/opt/maxres_mutex_transform.go", "pkg/opt/maxres_mutex_weights.go", "pkg/opt/maxres_proxy.go", "pkg/opt/maxres_proxy_filter.go", "pkg/opt/maxres_stats.go", "pkg/opt/maxres_weight_order.go", "pkg/opt/maxres_core.go", "pkg/opt/maxres_core_minimize.go", "pkg/opt/maxres_process.go", "pkg/opt/maxres_resolve.go", "pkg/opt/maxres_split.go", "pkg/opt/maxres_candidate.go", "pkg/opt/maxres_correction_set.go", "pkg/opt/maxres_cs_process.go", "pkg/opt/maxres_hill_climb.go", "pkg/opt/maxres_upper_proof.go", "pkg/opt/maxres_core_batch.go", "pkg/opt/maxres_search.go", "pkg/opt/maxres_search_sat.go", "pkg/opt/maxres_search_unsat.go", "pkg/opt/maxres_register.go", "pkg/opt/maxres_termination.go"],
+      "go_targets": ["pkg/opt/maxres_engine.go", "pkg/opt/maxres_assumption.go", "pkg/opt/maxres_boolean_eval.go", "pkg/opt/maxres_boundaries.go", "pkg/opt/maxres_literal.go", "pkg/opt/maxres_mutex_order.go", "pkg/opt/maxres_mutex_preprocess.go", "pkg/opt/maxres_mutex_term.go", "pkg/opt/maxres_mutex_transform.go", "pkg/opt/maxres_mutex_weights.go", "pkg/opt/maxres_proxy.go", "pkg/opt/maxres_proxy_filter.go", "pkg/opt/maxres_stats.go", "pkg/opt/maxres_weight_order.go", "pkg/opt/maxres_core.go", "pkg/opt/maxres_core_minimize.go", "pkg/opt/maxres_process.go", "pkg/opt/maxres_resolve.go", "pkg/opt/maxres_split.go", "pkg/opt/maxres_candidate.go", "pkg/opt/maxres_correction_set.go", "pkg/opt/maxres_cs_process.go", "pkg/opt/maxres_hill_climb.go", "pkg/opt/maxres_upper_proof.go", "pkg/opt/maxres_core_batch.go", "pkg/opt/maxres_search.go", "pkg/opt/maxres_search_sat.go", "pkg/opt/maxres_search_unsat.go", "pkg/opt/maxres_register.go", "pkg/opt/maxres_termination.go", "pkg/opt/maxres_primal_dual.go", "pkg/opt/maxres_sls.go", "pkg/opt/maxres_sls_assignment.go", "pkg/opt/maxres_sls_compile.go", "pkg/opt/maxres_sls_search.go", "pkg/opt/maxres_sls_seed.go", "pkg/opt/maxres_sls_types.go", "pkg/opt/maxres_sls_external_test.go", "pkg/opt/maxres_sls_guard_test.go", "pkg/opt/maxres_registration_test.go"],
       "tests": ["TestMaxResBase", "TestMaxResBoundaries", "TestMaxResMutexOrder", "TestMaxResMutexTransform"],
       "assertions": [
         {
@@ -97801,7 +97801,7 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/bound_expressions.go", "pkg/opt/bound_expressions_test.go", "pkg/opt/bound_expression.go", "pkg/opt/bound_expression_test.go", "pkg/opt/arithmetic_value_expression.go", "pkg/opt/objective_decomposition_types.go", "pkg/opt/objective_decomposition.go", "pkg/opt/objective_decomposition_restore.go", "pkg/opt/objective_purifier.go", "pkg/opt/objective_pipeline.go", "pkg/opt/objective_pipeline_check.go", "pkg/opt/objective_purified_pipeline.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go", "pkg/parsers/smt2/optimization_test.go"],
+      "go_targets": ["pkg/opt/bound_expressions.go", "pkg/opt/bound_expressions_test.go", "pkg/opt/bound_expression.go", "pkg/opt/bound_expression_test.go", "pkg/opt/arithmetic_value_expression.go", "pkg/opt/objective_decomposition_types.go", "pkg/opt/objective_decomposition.go", "pkg/opt/objective_decomposition_restore.go", "pkg/opt/objective_purifier.go", "pkg/opt/objective_pipeline.go", "pkg/opt/objective_pipeline_check.go", "pkg/opt/objective_purified_pipeline.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go", "pkg/parsers/smt2/optimization_test.go", "pkg/cmd_context/optimization_diagnostics.go", "pkg/cmd_context/optimization_diagnostics_test.go", "pkg/cmd_context/optimization_model_comparison.go", "pkg/cmd_context/optimization_model_comparison_test.go"],
       "tests": ["TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease", "TestOptBoundExpressionSourceBranchesAndOwnedResult", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
@@ -100699,22 +100699,7 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": [
-        "pkg/qe/qsat_recursive.go",
-        "pkg/qe/qsat_recursive_test.go",
-        "pkg/qe/qsat_search.go",
-        "pkg/qe/qsat_search_loop.go",
-        "pkg/ast/rewriter/var_shifter_export.go",
-        "pkg/ast/rewriter/var_substitution.go",
-        "pkg/ast/rewriter/var_shifter.go",
-        "pkg/ast/ast_expr_abstract.go",
-        "pkg/qe/solver_context.go",
-        "pkg/qe/conjunction_enum.go",
-        "pkg/qe/solver_context_test.go",
-        "pkg/qe/conjunction_partition.go",
-        "pkg/qe/definition_vector.go",
-        "pkg/qe/qe_core_contract_test.go"
-      ],
+      "go_targets": ["pkg/qe/qsat_recursive.go", "pkg/qe/qsat_recursive_test.go", "pkg/qe/qsat_search.go", "pkg/qe/qsat_search_loop.go", "pkg/ast/rewriter/var_shifter_export.go", "pkg/ast/rewriter/var_substitution.go", "pkg/ast/rewriter/var_shifter.go", "pkg/ast/ast_expr_abstract.go", "pkg/qe/solver_context.go", "pkg/qe/conjunction_enum.go", "pkg/qe/solver_context_test.go", "pkg/qe/conjunction_partition.go", "pkg/qe/definition_vector.go", "pkg/qe/qe_core_contract_test.go", "pkg/qe/solver_context_contains.go", "pkg/qe/solver_context_variables.go", "pkg/qe/solver_context_formula.go", "pkg/qe/solver_context_mutation_close.go", "pkg/qe/solver_context_eliminate.go", "pkg/qe/solver_context_contains_mutation_test.go", "pkg/qe/solver_context_add_variable_test.go", "pkg/qe/solver_context_eliminate_mutation_test.go", "pkg/qe/solver_context_formula_mutation_test.go", "pkg/qe/solver_context_mutation_validation_test.go"],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
@@ -100989,22 +100974,7 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": [
-        "pkg/qe/qsat_recursive.go",
-        "pkg/qe/qsat_recursive_test.go",
-        "pkg/qe/qsat_search.go",
-        "pkg/qe/qsat_search_loop.go",
-        "pkg/ast/rewriter/var_shifter_export.go",
-        "pkg/ast/rewriter/var_substitution.go",
-        "pkg/ast/rewriter/var_shifter.go",
-        "pkg/ast/ast_expr_abstract.go",
-        "pkg/qe/solver_context.go",
-        "pkg/qe/conjunction_enum.go",
-        "pkg/qe/solver_context_test.go",
-        "pkg/qe/conjunction_partition.go",
-        "pkg/qe/definition_vector.go",
-        "pkg/qe/qe_core_contract_test.go"
-      ],
+      "go_targets": ["pkg/qe/qsat_recursive.go", "pkg/qe/qsat_recursive_test.go", "pkg/qe/qsat_search.go", "pkg/qe/qsat_search_loop.go", "pkg/ast/rewriter/var_shifter_export.go", "pkg/ast/rewriter/var_substitution.go", "pkg/ast/rewriter/var_shifter.go", "pkg/ast/ast_expr_abstract.go", "pkg/qe/solver_context.go", "pkg/qe/conjunction_enum.go", "pkg/qe/solver_context_test.go", "pkg/qe/conjunction_partition.go", "pkg/qe/definition_vector.go", "pkg/qe/qe_core_contract_test.go", "pkg/qe/solver_context_contains.go", "pkg/qe/solver_context_variables.go", "pkg/qe/solver_context_formula.go", "pkg/qe/solver_context_mutation_close.go", "pkg/qe/solver_context_eliminate.go", "pkg/qe/solver_context_contains_mutation_test.go", "pkg/qe/solver_context_add_variable_test.go", "pkg/qe/solver_context_eliminate_mutation_test.go", "pkg/qe/solver_context_formula_mutation_test.go", "pkg/qe/solver_context_mutation_validation_test.go"],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
@@ -176676,17 +176646,7 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": [
-        "pkg/tactic/portfolio/fd_solver.go",
-        "pkg/tactic/portfolio/fd_solver_test.go",
-        "pkg/cmd_context/context.go",
-        "pkg/cmd_context/fd_solver_test.go",
-        "pkg/cmd/g3/main_test.go",
-        "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2",
-        "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2",
-        "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2",
-        "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2"
-      ],
+      "go_targets": ["pkg/tactic/portfolio/fd_solver.go", "pkg/tactic/portfolio/fd_solver_test.go", "pkg/cmd_context/context.go", "pkg/cmd_context/fd_solver_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2", "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2", "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2", "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2", "pkg/tactic/portfolio/fd_tactic.go", "pkg/tactic/portfolio/fd_tactic_factory.go", "pkg/tactic/portfolio/fd_lazy_tactic.go", "pkg/tactic/portfolio/fd_tactic_apply_test.go", "pkg/tactic/portfolio/fd_tactic_constructor_test.go", "pkg/tactic/portfolio/fd_tactic_factory_test.go", "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go", "pkg/tactic/portfolio/fd_tactic_params_test.go", "pkg/tactic/portfolio/fd_tactic_statistics_test.go", "pkg/tactic/portfolio/fd_lazy_tactic_test.go"],
       "tests": [
         "TestFDSolverRetainedMixedStackAndScopes",
         "TestFDSolverConstructorRefusals",
@@ -176730,17 +176690,7 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": [
-        "pkg/tactic/portfolio/fd_solver.go",
-        "pkg/tactic/portfolio/fd_solver_test.go",
-        "pkg/cmd_context/context.go",
-        "pkg/cmd_context/fd_solver_test.go",
-        "pkg/cmd/g3/main_test.go",
-        "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2",
-        "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2",
-        "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2",
-        "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2"
-      ],
+      "go_targets": ["pkg/tactic/portfolio/fd_solver.go", "pkg/tactic/portfolio/fd_solver_test.go", "pkg/cmd_context/context.go", "pkg/cmd_context/fd_solver_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2", "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2", "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2", "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2", "pkg/tactic/portfolio/fd_tactic.go", "pkg/tactic/portfolio/fd_tactic_factory.go", "pkg/tactic/portfolio/fd_lazy_tactic.go", "pkg/tactic/portfolio/fd_tactic_apply_test.go", "pkg/tactic/portfolio/fd_tactic_constructor_test.go", "pkg/tactic/portfolio/fd_tactic_factory_test.go", "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go", "pkg/tactic/portfolio/fd_tactic_params_test.go", "pkg/tactic/portfolio/fd_tactic_statistics_test.go", "pkg/tactic/portfolio/fd_lazy_tactic_test.go"],
       "tests": [
         "TestFDSolverRetainedMixedStackAndScopes",
         "TestFDSolverConstructorRefusals",
