@@ -17,7 +17,7 @@ func (c *SMTContext) Simplify(expression ast.ASTHandle) (ast.ASTRef, error) {
 	if err := c.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	return c.command.Simplify(expression, nil)
+	return c.simplifyWithAPIInterrupt(expression, nil)
 }
 
 // SimplifyWithParameters rewrites expression with a caller-owned parameter
@@ -33,7 +33,7 @@ func (c *SMTContext) SimplifyWithParameters(expression ast.ASTHandle, parameters
 	if parameters.owner != c.smtContextState {
 		return ast.ASTRef{}, ErrSMTContextOwner
 	}
-	return c.command.Simplify(expression, &parameters.value)
+	return c.simplifyWithAPIInterrupt(expression, &parameters.value)
 }
 
 // SimplifyParameterDescriptions returns an owning description object for the

@@ -9,12 +9,14 @@ import (
 	"io"
 	"math/big"
 	"strings"
+	"sync"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine" // generated parameter collectors
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -29,8 +31,11 @@ var ErrSMTContextOwner = errors.New("api: invalid or closed SMT context")
 type SMTContext struct{ *smtContextState }
 
 type smtContextState struct {
-	command *cmd_context.Context
-	closed  bool
+	command        *cmd_context.Context
+	interruptMu    sync.Mutex
+	interruptable  control.EventHandler
+	interruptScope *smtContextInterruptScope
+	closed         bool
 }
 
 // NewSMTContext constructs an independent solver context with source defaults.
