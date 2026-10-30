@@ -55,31 +55,11 @@ func (p *legacyArithmeticProjection) factorModTerms(md *model.ModelCore, formula
 		return nil, err
 	}
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
-	definitions := make([]ast.ASTHandle, 0)
-	var rewrite func(ast.ASTHandle) (ast.ASTHandle, error)
-	rewrite = func(current ast.ASTHandle) (ast.ASTHandle, error) {
-		if cached, ok := memo[current]; ok {
-			return cached, nil
-		}
-		kind, err := p.syntax.manager.GetKind(current)
-		if err != nil || kind != ast.ASTApp {
-			return current, err
-		}
-		count, err := p.syntax.manager.GetNumArgs(current)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		children := make([]ast.ASTHandle, count)
-		for index := range children {
-			child, err := p.syntax.manager.GetArg(current, uint32(index))
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-			children[index], err = rewrite(child)
-			if err != nil {
-				return ast.ASTHandle{}, err
-			}
-		}
+	definitions := make([]ast.ASTRef, 0)
+	defer func() { resultErr = errors.Join(resultErr, truncateLiteVector(p.syntax.manager, &definitions, 0)) }()
+	cachedRefs := make([]ast.ASTRef, 0)
+	defer func() { resultErr = errors.Join(resultErr, truncateLiteVector(p.syntax.manager, &cachedRefs, 0)) }()
+	rewriteApp := func(current ast.ASTHandle, children []ast.ASTHandle) (ast.ASTHandle, error) {
 		decl, err := p.syntax.manager.GetDecl(current)
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -109,6 +89,16 @@ func (p *legacyArithmeticProjection) factorModTerms(md *model.ModelCore, formula
 			return ast.ASTHandle{}, err
 		}
 		result.variables = append(result.variables, freshRef)
+		definition, err := p.syntax.manager.MkEq(fresh, rebuilt)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		definitionRef, err := p.syntax.manager.NewRef(definition)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		definitions = append(definitions, definitionRef)
+
 		value, err := evaluator.EvaluateValue(rebuilt)
 		if err != nil {
 			return ast.ASTHandle{}, err
@@ -125,20 +115,77 @@ func (p *legacyArithmeticProjection) factorModTerms(md *model.ModelCore, formula
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		definition, err := p.syntax.manager.MkEq(fresh, rebuilt)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		definitions = append(definitions, definition)
 		memo[current] = fresh
 		return fresh, nil
 	}
-	rewritten, err := rewrite(formula)
+	rewritten := formula
+	rootKind, err := p.syntax.manager.GetKind(formula)
 	if err != nil {
 		return nil, err
 	}
+	var todo []ast.ASTHandle
+	if rootKind == ast.ASTApp {
+		todo = append(todo, formula)
+	}
+	for len(todo) != 0 {
+		current := todo[len(todo)-1]
+		if _, done := memo[current]; done {
+			todo = todo[:len(todo)-1]
+			continue
+		}
+		count, err := p.syntax.manager.GetNumArgs(current)
+		if err != nil {
+			return nil, err
+		}
+		children := make([]ast.ASTHandle, 0, count)
+		allDone := true
+		for index := uint32(0); index < count; index++ {
+			original, err := p.syntax.manager.GetArg(current, index)
+			if err != nil {
+				return nil, err
+			}
+			kind, err := p.syntax.manager.GetKind(original)
+			if err != nil {
+				return nil, err
+			}
+			if child, done := memo[original]; done {
+				children = append(children, child)
+			} else if kind != ast.ASTApp {
+				children = append(children, original)
+			} else {
+				todo = append(todo, original)
+				allDone = false
+			}
+		}
+		if !allDone {
+			continue
+		}
+		next, err := rewriteApp(current, children)
+		if err != nil {
+			return nil, err
+		}
+		if next != current {
+			ref, err := p.syntax.manager.NewRef(next)
+			if err != nil {
+				return nil, err
+			}
+			cachedRefs = append(cachedRefs, ref)
+		}
+		todo = todo[:len(todo)-1]
+	}
+	if replacement, found := memo[formula]; found {
+		rewritten = replacement
+	}
 	if len(definitions) != 0 {
-		conjunction, err := p.syntax.manager.MkAndArray(definitions)
+		handles := make([]ast.ASTHandle, 0, len(definitions))
+		for _, ref := range definitions {
+			handle, err := p.syntax.manager.RefGet(ref)
+			if err != nil {
+				return nil, err
+			}
+			handles = append(handles, handle)
+		}
+		conjunction, err := p.syntax.manager.MkAndArray(handles)
 		if err != nil {
 			return nil, err
 		}
