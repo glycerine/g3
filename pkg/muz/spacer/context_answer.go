@@ -92,6 +92,17 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 		counterexample = append(counterexample, rootRef)
 	}
 
+	// C++ keeps one counterexample solver for the whole derivation and
+	// scopes each local consistency check, preserving its incremental state.
+	local, err := c.owner.Fresh(2)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, local.Close()) }()
+	if err = local.SetProduceModels(true); err != nil {
+		return ast.ASTRef{}, err
+	}
+
 	for current := 0; current < len(facts); current++ {
 		fact, transformer := facts[current], transformers[current]
 		rule, ruleErr := fact.Rule()
@@ -109,17 +120,16 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 		facts = append(facts, children...)
 		transformers = append(transformers, childTransformers...)
 
-		local, localErr := c.owner.Fresh(2)
-		if localErr != nil {
-			return ast.ASTRef{}, errors.Join(localErr, rule.Close())
-		}
-		if localErr = local.SetProduceModels(true); localErr == nil {
+		localErr := local.Push()
+		pushed := localErr == nil
+		if localErr == nil {
 			var constraint ast.ASTHandle
 			constraint, localErr = c.manager.RefGet(constraints[current])
 			if localErr == nil {
 				localErr = local.Assert(constraint)
 			}
 		}
+
 		var renamed []ast.ASTRef
 		for index, child := range children {
 			if localErr != nil {
@@ -165,7 +175,10 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 				localModel, localErr = local.AcquireModel()
 			}
 		}
-		localErr = errors.Join(localErr, releaseNormalizeRefs(c.manager, renamed), local.Close(), rule.Close())
+		if pushed {
+			localErr = errors.Join(localErr, local.Pop(1))
+		}
+		localErr = errors.Join(localErr, releaseNormalizeRefs(c.manager, renamed), rule.Close())
 		if localErr != nil {
 			if localModel != nil {
 				localErr = errors.Join(localErr, localModel.DecRef())

@@ -12,8 +12,15 @@ import (
 )
 
 func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T) {
-	for _, withArgument := range []bool{false, true} {
-		t.Run(map[bool]string{false: "nullary-leaf", true: "unconstrained-leaf-argument"}[withArgument], func(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		withArgument, branches bool
+	}{
+		{"nullary-leaf", false, false},
+		{"unconstrained-leaf-argument", true, false},
+		{"opposite-sibling-values", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			m, globals := newSpacerTestServices(t)
 			must := func(err error) {
 				t.Helper()
@@ -46,7 +53,7 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 			queryDecl := decl("ground-answer-query", nil)
 			rootDecl := decl("ground-answer-root", nil)
 			var domain, args []ast.ASTHandle
-			if withArgument {
+			if tc.withArgument {
 				domain = []ast.ASTHandle{boolean}
 				args = []ast.ASTHandle{own(m.MkVar(0, boolean))}
 			}
@@ -57,7 +64,7 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 			set, err := base.NewRuleSet(rules)
 			must(err)
 			defer func() { must(set.Close()) }()
-			for _, item := range []struct {
+			items := []struct {
 				head ast.ASTHandle
 				tail []ast.ASTHandle
 				name string
@@ -65,7 +72,27 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 				{query, []ast.ASTHandle{root}, "query"},
 				{root, []ast.ASTHandle{leaf}, "root"},
 				{leaf, nil, "leaf"},
-			} {
+			}
+			var expectedBranch []ast.ASTHandle
+			if tc.branches {
+				left := own(m.MkApp(decl("ground-answer-left", nil), nil))
+				right := own(m.MkApp(decl("ground-answer-right", nil), nil))
+				leafTrue := own(m.MkApp(leafDecl, []ast.ASTHandle{own(m.MkTrue())}))
+				leafFalse := own(m.MkApp(leafDecl, []ast.ASTHandle{own(m.MkFalse())}))
+				items[1].tail = []ast.ASTHandle{left, right}
+				items = append(items, struct {
+					head ast.ASTHandle
+					tail []ast.ASTHandle
+					name string
+				}{left, []ast.ASTHandle{leafTrue}, "left"})
+				items = append(items, struct {
+					head ast.ASTHandle
+					tail []ast.ASTHandle
+					name string
+				}{right, []ast.ASTHandle{leafFalse}, "right"})
+				expectedBranch = []ast.ASTHandle{root, left, right, leafTrue, leafFalse}
+			}
+			for _, item := range items {
 				rule, err := rules.NewRule(item.head, item.tail, nil, item.name)
 				must(err)
 				must(set.Add(rule))
@@ -88,6 +115,19 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 			must(err)
 			count, err := m.GetNumArgs(h)
 			must(err)
+			if tc.branches {
+				if int(count) != len(expectedBranch) {
+					t.Fatal("branching answer length", count)
+				}
+				for i, expected := range expectedBranch {
+					actual, err := m.GetArg(h, uint32(i))
+					must(err)
+					if actual != expected {
+						t.Fatal("branching answer order or sibling model scope", i, actual, expected)
+					}
+				}
+				return
+			}
 			if count != 2 {
 				t.Fatalf("answer must contain the nullary root and leaf, got %d arguments", count)
 			}
@@ -103,7 +143,7 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 			if actualDecl != leafDecl {
 				t.Fatal("answer did not contain the leaf predicate")
 			}
-			if withArgument {
+			if tc.withArgument {
 				value, err := m.GetArg(second, 0)
 				must(err)
 				if !m.IsTrue(value) && !m.IsFalse(value) {
