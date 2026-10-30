@@ -1,0 +1,91 @@
+package fp
+
+// Source: dparser::parse_pred and parse_args declaration branch.
+
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+)
+
+func (p *datalogParser) parseDeclarationOrRule() error {
+	name := p.token.text
+	nameSymbol, err := p.symbol(name)
+	if err != nil {
+		return err
+	}
+	p.advance()
+	declaration, exists, err := p.context.Predicate(nameSymbol)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return p.parseDeclaration(nameSymbol)
+	}
+	return p.parseRule(name, declaration)
+}
+
+func (p *datalogParser) parseDeclaration(name usymbol.Symbol) error {
+	var domain []ast.ASTHandle
+	var names []usymbol.Symbol
+	if p.token.kind == datalogLeftParen {
+		p.advance()
+		if p.token.kind != datalogRightParen {
+			for {
+				if p.token.kind != datalogIdentifier {
+					return p.fail("expected argument name in predicate declaration")
+				}
+				argument, err := p.symbol(p.token.text)
+				if err != nil {
+					return err
+				}
+				p.advance()
+				if err = p.expect(datalogColon, "expected ':' in predicate declaration"); err != nil {
+					return err
+				}
+				if p.token.kind != datalogIdentifier {
+					return p.fail("expected argument sort")
+				}
+				sortName, ok := domainBaseName(p.token.text)
+				if !ok || p.sorts[sortName].IsNull() {
+					return p.fail("unknown argument sort")
+				}
+				domain = append(domain, p.sorts[sortName])
+				names = append(names, argument)
+				p.advance()
+				if p.token.kind == datalogRightParen {
+					break
+				}
+				if err = p.expect(datalogComma, "expected ',' or ')' in predicate declaration"); err != nil {
+					return err
+				}
+			}
+		}
+		p.advance()
+	}
+	boolean, err := p.manager.MkBoolSort()
+	if err != nil {
+		return err
+	}
+	declaration, err := p.manager.MkFuncDecl(name, domain, boolean, ast.ASTFuncDeclInfo{})
+	if err != nil {
+		return err
+	}
+	if err = p.context.RegisterPredicate(declaration, true); err != nil {
+		return err
+	}
+	if err = p.context.SetArgumentNames(declaration, names); err != nil {
+		return err
+	}
+	for p.token.kind == datalogIdentifier {
+		if p.token.text == "printtuples" || p.token.text == "outputtuples" {
+			if err = p.context.SetOutputPredicate(declaration); err != nil {
+				return err
+			}
+		}
+		p.advance()
+	}
+	if p.token.kind != datalogNewline && p.token.kind != datalogEOF {
+		return p.fail("predicate declaration should not end with '.'")
+	}
+	return nil
+}
