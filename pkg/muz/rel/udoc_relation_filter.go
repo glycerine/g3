@@ -40,3 +40,57 @@ func (r *UDocRelation) FilterEqualBig(column uint32, value *big.Int) (resultErr 
 	}
 	return r.elems.IntersectDoc(document)
 }
+
+// FilterByNegation removes target documents that join with a negative row.
+// productManager owns intermediate documents for the general join/project path.
+func (r *UDocRelation) FilterByNegation(negative *UDocRelation, targetColumns, negativeColumns []uint32, productManager *DocManager) (resultErr error) {
+	if err := r.check(); err != nil {
+		return err
+	}
+	if negative == nil || negative.check() != nil || len(targetColumns) != len(negativeColumns) {
+		return ErrDOC
+	}
+	if r.FastEmpty() || negative.FastEmpty() {
+		return nil
+	}
+	if len(negative.widths) == 0 {
+		return r.Reset()
+	}
+	targetBits, err := r.ExpandColumns(targetColumns, nil)
+	if err != nil {
+		return err
+	}
+	negativeBits, err := negative.ExpandColumns(negativeColumns, nil)
+	if err != nil || len(targetBits) != len(negativeBits) {
+		return errors.Join(ErrDOC, err)
+	}
+	canSubtract := r.manager == negative.manager && len(targetColumns) == len(r.widths) && len(negativeColumns) == len(negative.widths)
+	seen := make(map[uint32]bool, len(targetColumns))
+	for i := range targetColumns {
+		if targetColumns[i] != negativeColumns[i] || seen[targetColumns[i]] {
+			canSubtract = false
+		}
+		seen[targetColumns[i]] = true
+	}
+	if canSubtract {
+		return r.elems.Subtract(negative.elems)
+	}
+	if productManager == nil || productManager.closed || productManager.NumTBits() != r.NumBits()+negative.NumBits() {
+		return ErrDOC
+	}
+	joined, err := r.Join(negative, targetColumns, negativeColumns, productManager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, joined.Close()) }()
+	removed := make([]uint32, len(negative.widths))
+	for i := range removed {
+		removed[i] = uint32(len(r.widths) + i)
+	}
+	projected, err := joined.Project(removed, r.manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, projected.Close()) }()
+	return r.elems.Subtract(projected.elems)
+}

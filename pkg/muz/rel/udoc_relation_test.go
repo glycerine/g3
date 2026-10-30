@@ -245,3 +245,58 @@ func TestUDocFilterEqualBigPreservesWideValues(t *testing.T) {
 		t.Fatal("wide filter selected wrong value", equal, err)
 	}
 }
+
+func TestUDocFilterByNegationFastAndJoinProjectPaths(t *testing.T) {
+	manager, _ := newTestDocManager(t, 2)
+	target, err := NewUDocRelation(manager, []uint32{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	negative, err := NewUDocRelation(manager, []uint32{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, target, negative)
+	for value := uint64(0); value < 4; value++ {
+		_, _ = target.AddFact([]uint64{value})
+	}
+	_, _ = negative.AddFact([]uint64{1})
+	_, _ = negative.AddFact([]uint64{3})
+	if err = target.FilterByNegation(negative, []uint32{0}, []uint32{0}, nil); err != nil {
+		t.Fatal("direct subtraction path", err)
+	}
+	if target.NumRecords() != 2 {
+		t.Fatal("direct subtraction count", target.NumRecords())
+	}
+	requireFact(t, target, []uint64{0}, true)
+	requireFact(t, target, []uint64{1}, false)
+	requireFact(t, target, []uint64{2}, true)
+	requireFact(t, target, []uint64{3}, false)
+
+	targetManager, _ := newTestDocManager(t, 4)
+	negativeManager, _ := newTestDocManager(t, 2)
+	productManager, _ := newTestDocManager(t, 6)
+	wideTarget, err := NewUDocRelation(targetManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	wideNegative, err := NewUDocRelation(negativeManager, []uint32{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, wideTarget, wideNegative)
+	for _, fact := range [][]uint64{{0, 0}, {0, 1}, {1, 0}, {1, 1}} {
+		_, _ = wideTarget.AddFact(fact)
+	}
+	_, _ = wideNegative.AddFact([]uint64{1})
+	if err = wideTarget.FilterByNegation(wideNegative, []uint32{1}, []uint32{0}, productManager); err != nil {
+		t.Fatal("join/project subtraction path", err)
+	}
+	if wideTarget.NumRecords() != 2 {
+		t.Fatal("join/project subtraction count", wideTarget.NumRecords())
+	}
+	requireFact(t, wideTarget, []uint64{0, 0}, true)
+	requireFact(t, wideTarget, []uint64{1, 0}, true)
+	requireFact(t, wideTarget, []uint64{0, 1}, false)
+	requireFact(t, wideTarget, []uint64{1, 1}, false)
+}
