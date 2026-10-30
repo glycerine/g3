@@ -296,6 +296,12 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 		if err != nil {
 			return nil, err
 		}
+		if len(remaining) != 0 {
+			remaining, err = p.projectModelTerms(md, current, remaining)
+			if err != nil {
+				return nil, err
+			}
+		}
 		if len(remaining) != 0 && !retainFailures {
 			handle, err := p.manager.RefGet(current)
 			if err != nil {

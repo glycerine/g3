@@ -92938,6 +92938,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_model_terms.go", "pkg/qe/legacy_projection_model_terms_test.go"], "tests": ["TestLegacyModelTermProjectionUsesFirstEquivalentIndex", "TestLegacyModelTermProjectionRejectsSelfOccurrence", "TestLegacyModelTermProjectionEqualityDirections"]},
         {"name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open", "status": "partial", "go_targets": ["pkg/muz/spacer/lemma_generalizer.go", "pkg/muz/spacer/lemma_generalizer_test.go"], "tests": ["TestExpandInductiveDatatypeAndBitVectorEqualities"]},
         {
           "name": "simplify_bounds_new and simplify_bounds: proof-disabled goal, propagate-values followed by propagate-inequalities, and single-goal result transfer",
@@ -93001,6 +93002,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_model_terms.go", "pkg/qe/legacy_projection_model_terms_test.go"], "tests": ["TestLegacyModelTermProjectionUsesFirstEquivalentIndex", "TestLegacyModelTermProjectionRejectsSelfOccurrence", "TestLegacyModelTermProjectionEqualityDirections"]},
         {"name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open", "status": "partial", "go_targets": ["pkg/muz/spacer/lemma_generalizer.go", "pkg/muz/spacer/lemma_generalizer_test.go"], "tests": ["TestExpandInductiveDatatypeAndBitVectorEqualities"]},
         {
           "name": "simplify_bounds retained lemma-vector simplification interface",
