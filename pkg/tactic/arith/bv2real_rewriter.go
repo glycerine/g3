@@ -16,7 +16,7 @@ type bv2RealConfiguration struct {
 	owner *BV2RealRewriter
 }
 
-func (c *bv2RealConfiguration) RewritePatterns() bool               { return !c.owner.eliminate }
+func (*bv2RealConfiguration) RewritePatterns() bool                 { return false }
 func (*bv2RealConfiguration) FlatAssoc(ast.ASTHandle) (bool, error) { return false, nil }
 func (c *bv2RealConfiguration) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {
 	if err := c.owner.utility.manager.SetRef(proof, ast.ASTHandle{}); err != nil {

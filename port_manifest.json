@@ -165845,7 +165845,7 @@
             "TestBV2RealRewriterEqualityAndConditional",
             "TestBV2RealRewriterPositivePredicatesAndStrictStatus",
             "TestBV2RealRewriterComparisonsPrebuiltCPPOracle",
-            "TestBV2RealRewriterPatternTraversalMatchesSourceModes"
+            "TestBV2RealRewritersPreserveQuantifierAnnotations"
           ]
         },
         {

@@ -211,7 +211,7 @@ func TestBV2RealRewriterEqualityAndConditional(t *testing.T) {
 
 // Source: src/tactic/arith/bv2real_rewriter.h normal and elimination configs;
 // src/ast/rewriter/rewriter_def.h:491-514.
-func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
+func TestBV2RealRewritersPreserveQuantifierAnnotations(t *testing.T) {
 	u, f := bv2RealFixture(t, 64)
 	m := f.m
 	encoded := bv2RealEncoding(t, u, 1, 1, 2, 2)
@@ -243,7 +243,7 @@ func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
 				rewrite, err = NewBV2RealRewriter(u)
 			}
 			equationMust(t, err)
-			if got, want := rewrite.cfg.RewritePatterns(), !eliminate; got != want {
+			if got, want := rewrite.cfg.RewritePatterns(), false; got != want {
 				t.Fatal("rewriter pattern policy", eliminate, got, want)
 			}
 			t.Cleanup(func() { equationMust(t, rewrite.Close()) })
@@ -253,13 +253,8 @@ func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
 			equationMust(t, rewrite.Rewrite(q, out))
 			afterDecls, err := u.AuxDecls()
 			equationMust(t, err)
-			if place == "no-pattern" {
-				if eliminate && len(afterDecls) != len(beforeDecls) {
-					t.Fatal("elimination config traversed no-pattern declarations", len(beforeDecls), len(afterDecls))
-				}
-				if !eliminate && len(afterDecls) <= len(beforeDecls) {
-					t.Fatal("normal config did not visit and construct the no-pattern expression", len(beforeDecls), len(afterDecls))
-				}
+			if len(afterDecls) != len(beforeDecls) {
+				t.Fatal("annotation traversal created encoding declarations", len(beforeDecls), len(afterDecls))
 			}
 			got, err := m.RefGet(out)
 			equationMust(t, err)
@@ -275,20 +270,8 @@ func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
 				annotationExpr, err = m.GetArg(annotation, 0)
 				equationMust(t, err)
 			}
-			actualDecl, err := m.GetDecl(annotationExpr)
-			equationMust(t, err)
-			if eliminate || place == "no-pattern" {
-				wantDecl, err := m.GetDecl(combined)
-				equationMust(t, err)
-				if actualDecl != wantDecl {
-					t.Fatalf("%s elimination preserved decl %v, want %v", place, actualDecl, wantDecl)
-				}
-			} else {
-				isEncoding, err := u.IsEncodingDecl(actualDecl)
-				equationMust(t, err)
-				if !isEncoding {
-					t.Fatalf("%s normal rewrite did not process the encoded annotation: actual=%v", place, actualDecl)
-				}
+			if annotationExpr != combined {
+				t.Fatalf("%s elimination=%v changed an annotation", place, eliminate)
 			}
 			equationMust(t, rewrite.Close())
 		}
