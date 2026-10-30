@@ -19,10 +19,10 @@ type apiFixedpointFixture struct {
 func newAPIFixedpointFixture(t *testing.T) *apiFixedpointFixture {
 	t.Helper()
 	f := newSMTAPIFixture(t, "HORN", nil)
+	astTestMust(t, f.c.SetFixedpointEngine("pdr"))
 	fixedpoint, err := f.c.NewFixedpoint()
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, fixedpoint.Close()) })
-	astTestMust(t, fixedpoint.SetEngine("pdr"))
 	p, err := fixedpoint.DeclareRelation("api-object-fp-p", nil)
 	astTestMust(t, err)
 	q, err := fixedpoint.DeclareRelation("api-object-fp-q", nil)

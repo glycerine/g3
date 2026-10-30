@@ -4,13 +4,6 @@ package api
 
 import "github.com/glycerine/g3/pkg/ast"
 
-func (f *APIFixedpoint) SetEngine(name string) error {
-	if err := f.open(); err != nil {
-		return err
-	}
-	return f.command.SetSymbolOption("fixedpoint.engine", name)
-}
-
 func (f *APIFixedpoint) DeclareRelation(name string, domain []ast.ASTHandle) (ast.ASTHandle, error) {
 	if err := f.open(); err != nil {
 		return ast.ASTHandle{}, err

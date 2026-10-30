@@ -12,7 +12,6 @@ func TestAPIFixedpointObjectsHaveIndependentState(t *testing.T) {
 	other, err := f.c.NewFixedpoint()
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, other.Close()) })
-	astTestMust(t, other.SetEngine("pdr"))
 	boolean := f.pin(f.m.MkBoolSort())
 	name, err := f.m.Symbols.Intern("api-object-fp-other-p")
 	astTestMust(t, err)
