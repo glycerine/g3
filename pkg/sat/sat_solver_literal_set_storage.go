@@ -11,6 +11,14 @@ type satLiteralSetStorage struct {
 	values     []Literal
 }
 
+// satLiteralSetIterator is the concrete live specialization of
+// literal_set::iterator. Begin captures the source begin/end pair; callers must
+// not mutate the set until iteration finishes.
+type satLiteralSetIterator struct {
+	values []Literal
+	next   int
+}
+
 func (s *satLiteralSetStorage) Insert(l Literal) error {
 	v := l.index()
 	// Source v+1 wraps at the invalid all-ones literal index. Guard that
@@ -93,6 +101,19 @@ func (s *satLiteralSetStorage) Assign(other *satLiteralSetStorage) {
 
 func (s *satLiteralSetStorage) ToVector() []Literal {
 	return append([]Literal(nil), s.values...)
+}
+
+func (s *satLiteralSetStorage) Begin() satLiteralSetIterator {
+	return satLiteralSetIterator{values: s.values}
+}
+
+func (i *satLiteralSetIterator) Next() (Literal, bool) {
+	if i.next >= len(i.values) {
+		return 0, false
+	}
+	literal := i.values[i.next]
+	i.next++
+	return literal, true
 }
 
 func (s *satLiteralSetStorage) Intersect(other *satLiteralSetStorage) {

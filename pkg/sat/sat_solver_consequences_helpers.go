@@ -288,12 +288,11 @@ func (s *Solver) extractFixedConsequence(lit Literal, assumptions, unfixed *satM
 	}
 }
 func (s *Solver) extractFixedSet(lits, assumptions, unfixed *satMUSLiteralSet, out *satSolverLiteralRows) error {
-	span := satSolverLiteralSpan{literals: lits.values}
-	n := lits.size()
-	for i := uint32(0); i < n; i++ {
-		l, e := span.literal(i)
-		if e != nil {
-			return e
+	it := lits.Begin()
+	for {
+		l, yes := it.Next()
+		if !yes {
+			break
 		}
 		s.traceExtractFixedLiteral(l)
 		level, e := s.Variables.levelVar(l.variable())
@@ -355,12 +354,11 @@ func (s *Solver) deleteUnfixed(lits, vars *satMUSLiteralSet) (err error) {
 	if err = f.set(s, 0, nil); err != nil {
 		return err
 	}
-	span := satSolverLiteralSpan{literals: lits.values}
-	n := lits.size()
-	for i := uint32(0); i < n; i++ {
-		l, e := span.literal(i)
-		if e != nil {
-			return e
+	it := lits.Begin()
+	for {
+		l, yes := it.Next()
+		if !yes {
+			break
 		}
 		value, e := s.Variables.valueLiteral(l)
 		if e != nil {
@@ -388,15 +386,14 @@ func (s *Solver) updateUnfixed(lits, vars *satMUSLiteralSet) (err error) {
 	if err = f.vector(s, 0, nil); err != nil {
 		return err
 	}
-	span := satSolverLiteralSpan{literals: lits.values}
-	n := lits.size()
-	for i := uint32(0); i < n; i++ {
-		l, e := span.literal(i)
-		if e != nil {
-			return e
-		}
-		yes := vars.contains(Literal(uint32(l.variable())))
+	it := lits.Begin()
+	for {
+		l, yes := it.Next()
 		if !yes {
+			break
+		}
+		contains := vars.contains(Literal(uint32(l.variable())))
+		if !contains {
 			if err = f.vectors[0].Push(l.index()); err != nil {
 				return err
 			}

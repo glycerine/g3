@@ -428,15 +428,10 @@ func (m *satSolverMUSMembers) setFromColumn(dst *satMUSLiteralSet, src *satUintC
 }
 func (m *satSolverMUSMembers) toVector(set *satMUSLiteralSet, dst *satUintColumn) error {
 	// Named return-value move is explicit: one source result vector, whose
-	// lexical caller owns its destruction. Captured begin/end never rebind.
-	n := set.size()
-	span := satSolverLiteralSpan{literals: set.values}
-	for i := uint32(0); i < n; i++ {
-		l, e := span.literal(i)
-		if e != nil {
-			return e
-		}
-		if e = dst.Push(uint32(l)); e != nil {
+	// lexical caller owns its destruction.
+	vector := set.ToVector()
+	for _, l := range vector {
+		if e := dst.Push(uint32(l)); e != nil {
 			return e
 		}
 	}
@@ -477,11 +472,11 @@ func (m *satSolverMUSMembers) split(a, b *satMUSLiteralSet) (e error) {
 		return e
 	}
 	defer func() { e = m.drop(f, e) }()
-	span := satSolverLiteralSpan{literals: a.values}
+	it := a.Begin()
 	for i := uint32(0); i < n; i++ {
-		v, e := span.literal(i)
-		if e != nil {
-			return e
+		v, yes := it.Next()
+		if !yes {
+			return ErrSATAssertion
 		}
 		dst := b
 		if i < half {
@@ -500,16 +495,15 @@ func (m *satSolverMUSMembers) unsplit(a, b *satMUSLiteralSet) (e error) {
 		return e
 	}
 	defer func() { e = m.drop(f, e) }()
-	n := a.size()
-	span := satSolverLiteralSpan{literals: a.values}
-	for i := uint32(0); i < n; i++ {
-		v, e := span.literal(i)
-		if e != nil {
-			return e
+	it := a.Begin()
+	for {
+		v, yes := it.Next()
+		if !yes {
+			break
 		}
-		yes := b.contains(v)
+		contains := b.contains(v)
 		idx := 0
-		if yes {
+		if contains {
 			idx = 1
 		}
 		if e = f.sets[idx].insert(v); e != nil {
