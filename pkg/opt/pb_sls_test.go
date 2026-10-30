@@ -242,3 +242,205 @@ func TestPBSLSPseudoBooleanCompileNegationAndOwnedModel(t *testing.T) {
 		}
 	}
 }
+
+func TestPBSLSBooleanEqualityAndIffCompilationMatchSource(t *testing.T) {
+	manager, config := pbSLSFixture(t)
+	p, q := pbSLSBool(t, manager, "pb-sls-eq-p"), pbSLSBool(t, manager, "pb-sls-eq-q")
+	boolEq, err := manager.MkEq(p, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	iff, err := manager.MkIff(p, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expression := range []ast.ASTHandle{p, q, boolEq, iff} {
+		if err = manager.IncRef(expression); err != nil {
+			t.Fatal(err)
+		}
+		defer manager.DecRef(expression)
+	}
+	initial := pbSLSModel(t, manager, map[ast.ASTHandle]bool{p: true, q: false})
+	defer initial.Close()
+	solver, err := NewPBSLS(manager, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer solver.Close()
+	if err = solver.SetModel(initial); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = solver.makeLiteral(boolEq); err != nil {
+		t.Fatal(err)
+	}
+	if len(solver.hard) != 4 {
+		t.Fatalf("Boolean equality generated %d clauses, want four biconditional clauses", len(solver.hard))
+	}
+	if _, err = solver.makeLiteral(iff); err != nil {
+		t.Fatal(err)
+	}
+	if len(solver.hard) != 8 {
+		t.Fatalf("iff generated %d clauses total, want eight biconditional clauses", len(solver.hard))
+	}
+}
+
+func TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral(t *testing.T) {
+	manager, config := pbSLSFixture(t)
+	valueSortName, err := manager.Symbols.Intern("pb-sls-value")
+	if err != nil {
+		t.Fatal(err)
+	}
+	valueSort, err := manager.MkUninterpretedSort(valueSortName, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	xName, err := manager.Symbols.Intern("pb-sls-value-x")
+	if err != nil {
+		t.Fatal(err)
+	}
+	yName, err := manager.Symbols.Intern("pb-sls-value-y")
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := manager.MkConst(xName, valueSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := manager.MkConst(yName, valueSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equality, err := manager.MkEq(x, y)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expression := range []ast.ASTHandle{x, y, equality} {
+		if err = manager.IncRef(expression); err != nil {
+			t.Fatal(err)
+		}
+		defer manager.DecRef(expression)
+	}
+	initial, err := model.NewModel(manager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer initial.Close()
+	for _, expression := range []ast.ASTHandle{x, y} {
+		decl, e := manager.GetDecl(expression)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = initial.Core().RegisterConstant(decl, expression); e != nil {
+			t.Fatal(e)
+		}
+	}
+	solver, err := NewPBSLS(manager, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer solver.Close()
+	if err = solver.SetModel(initial); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = solver.makeLiteral(equality); err != nil {
+		t.Fatal(err)
+	}
+	if len(solver.hard) != 0 || len(solver.variableExprs) != 2 {
+		t.Fatalf("non-Boolean equality decomposition: %d clauses, %d variables", len(solver.hard), len(solver.variableExprs))
+	}
+}
+
+func TestPBSLSPseudoBooleanRelationsMatchAllAssignments(t *testing.T) {
+	manager, config := pbSLSFixture(t)
+	p, q := pbSLSBool(t, manager, "pb-sls-rel-p"), pbSLSBool(t, manager, "pb-sls-rel-q")
+	for _, expression := range []ast.ASTHandle{p, q} {
+		if err := manager.IncRef(expression); err != nil {
+			t.Fatal(err)
+		}
+		defer manager.DecRef(expression)
+	}
+	service := manager.NumeralService()
+	coefficients := make([]unumeral.OwnedRational, 2)
+	bound, err := service.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer service.Del(&bound)
+	for i, value := range []int64{2, 3} {
+		coefficients[i], err = service.NewValue()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = service.SetInt64(&coefficients[i], value); err != nil {
+			t.Fatal(err)
+		}
+		defer service.Del(&coefficients[i])
+	}
+	if err = service.SetInt64(&bound, 3); err != nil {
+		t.Fatal(err)
+	}
+	args := []ast.ASTHandle{p, q}
+	makeRelation := func(kind string) ast.ASTHandle {
+		t.Helper()
+		var expression ast.ASTHandle
+		var makeErr error
+		switch kind {
+		case "ge":
+			expression, makeErr = manager.MkPseudoBooleanGE(coefficients, args, &bound)
+		case "eq":
+			expression, makeErr = manager.MkPseudoBooleanEQ(coefficients, args, &bound)
+		case "le":
+			expression, makeErr = manager.MkPseudoBooleanLE(coefficients, args, &bound)
+		}
+		if makeErr != nil {
+			t.Fatal(makeErr)
+		}
+		return expression
+	}
+	for _, kind := range []string{"ge", "eq", "le"} {
+		relation := makeRelation(kind)
+		if err = manager.IncRef(relation); err != nil {
+			t.Fatal(err)
+		}
+		for mask := 0; mask < 4; mask++ {
+			pValue, qValue := mask&1 != 0, mask&2 != 0
+			value := int64(0)
+			if pValue {
+				value += 2
+			}
+			if qValue {
+				value += 3
+			}
+			want := value >= 3
+			if kind == "eq" {
+				want = value == 3
+			} else if kind == "le" {
+				want = value <= 3
+			}
+			initial := pbSLSModel(t, manager, map[ast.ASTHandle]bool{p: pValue, q: qValue})
+			solver, createErr := NewPBSLS(manager, config)
+			if createErr != nil {
+				t.Fatal(createErr)
+			}
+			if createErr = solver.SetModel(initial); createErr == nil {
+				createErr = solver.AddHard(relation)
+			}
+			if createErr != nil {
+				t.Fatal(createErr)
+			}
+			got := solver.evalClause(&solver.hard[0])
+			if got != want {
+				t.Errorf("%s at p=%t q=%t: got %t, want %t", kind, pValue, qValue, got, want)
+			}
+			if closeErr := solver.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+			if closeErr := initial.Close(); closeErr != nil {
+				t.Fatal(closeErr)
+			}
+		}
+		if err = manager.DecRef(relation); err != nil {
+			t.Fatal(err)
+		}
+	}
+}

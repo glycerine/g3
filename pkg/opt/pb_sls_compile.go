@@ -142,7 +142,27 @@ func (s *PBSLS) makeLiteral(expression ast.ASTHandle) (pbSLSLiteral, error) {
 	if err != nil {
 		return pbSLSNullLiteral, err
 	}
-	if !isAnd && !isOr && !(isEq && n == 2) {
+	isIff, err := s.basicOperation(expression, ast.ASTOpIff)
+	if err != nil {
+		return pbSLSNullLiteral, err
+	}
+	isBooleanEq := false
+	if isEq && n == 2 {
+		lhs, e := s.manager.GetArg(expression, 0)
+		if e != nil {
+			return pbSLSNullLiteral, e
+		}
+		lhsSort, e := s.manager.GetSort(lhs)
+		if e != nil {
+			return pbSLSNullLiteral, e
+		}
+		boolSort, e := s.manager.MkBoolSort()
+		if e != nil {
+			return pbSLSNullLiteral, e
+		}
+		isBooleanEq = lhsSort == boolSort
+	}
+	if !isAnd && !isOr && !(isBooleanEq || isIff) {
 		return s.newVariable(expression)
 	}
 	literals := make([]pbSLSLiteral, n)

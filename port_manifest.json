@@ -99325,9 +99325,9 @@
       "path": "src/opt/pb_sls.cpp",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/opt/pb_sls_types.go", "pkg/opt/pb_sls_compile.go", "pkg/opt/pb_sls_search.go", "pkg/opt/pb_sls_model.go"],
+      "tests": ["TestPBSLSBooleanHardSoftSearchStatisticsAndModel", "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel", "TestPBSLSBooleanEqualityAndIffCompilationMatchSource", "TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral", "TestPBSLSPseudoBooleanRelationsMatchAllAssignments"],
       "assertions": [
         {
           "line": 61,
@@ -99378,19 +99378,25 @@
           "text": "SASSERT(lit != false_literal && lit != true_literal);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "PB clause compilation, Boolean literal encoding, weighted hard/soft clause evaluation and source negation normalization (pb_sls.cpp:522-739)", "status": "ported", "go_target": "pkg/opt/pb_sls_compile.go", "tests": ["TestPBSLSPseudoBooleanCompileNegationAndOwnedModel", "TestPBSLSBooleanEqualityAndIffCompilationMatchSource", "TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral", "TestPBSLSPseudoBooleanRelationsMatchAllAssignments"]},
+        {"name": "initial model import, violated-clause sets, source seeded flip loop, weighted penalty updates, hard/soft move selection, 40-round recovery and statistics (pb_sls.cpp:187-521)", "status": "ported", "go_target": "pkg/opt/pb_sls_search.go", "tests": ["TestPBSLSBooleanHardSoftSearchStatisticsAndModel"]},
+        {"name": "Boolean model publication, soft-clause query, reset and lifecycle APIs (pb_sls.cpp:253-302; pb_sls.h:28-44)", "status": "ported", "go_target": "pkg/opt/pb_sls_model.go", "tests": ["TestPBSLSBooleanHardSoftSearchStatisticsAndModel"]}
+      ],
+      "ownership": [
+        {"name": "input model is copied on SetModel and closed on replacement/reset/Close; generated clause origins and variable AST handles are reference-counted until releaseState, and returned models own their AST manager reference", "status": "ported", "go_targets": ["pkg/opt/pb_sls_compile.go", "pkg/opt/pb_sls_types.go", "pkg/opt/pb_sls_model.go"]}
+      ],
       "deviations": []
     },
     {
       "path": "src/opt/pb_sls.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/opt/pb_sls_types.go", "pkg/opt/pb_sls_compile.go", "pkg/opt/pb_sls_search.go", "pkg/opt/pb_sls_model.go"],
+      "tests": ["TestPBSLSBooleanHardSoftSearchStatisticsAndModel", "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel", "TestPBSLSBooleanEqualityAndIffCompilationMatchSource", "TestPBSLSNonBooleanEqualityRemainsOneAtomicLiteral", "TestPBSLSPseudoBooleanRelationsMatchAllAssignments"],
       "conditionals": [
         {
           "line": 19,
@@ -99401,10 +99407,14 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "public PB SLS construction, clause registration, model input/output, checking, statistics, parameter update, reset and soft_holds operations (pb_sls.h:28-44)", "status": "ported", "go_target": "pkg/opt/pb_sls_types.go", "tests": ["TestPBSLSBooleanHardSoftSearchStatisticsAndModel", "TestPBSLSPseudoBooleanCompileNegationAndOwnedModel"]}
+      ],
+      "ownership": [
+        {"name": "opaque implementation ownership maps to PBSLS; Close releases its rewriter, source model copy, clause-origin references and Boolean variable references", "status": "ported", "go_target": "pkg/opt/pb_sls_types.go"}
+      ],
       "deviations": []
     },
     {
