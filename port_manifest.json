@@ -51421,7 +51421,7 @@
         },
         {
           "name": "Concrete mpff interval multiplication: nine sign classes, zero/infinity bounds, mixed extrema ties, directed products and destination alias (src/math/interval/interval_def.h:1017-1214)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval_mul.go",
           "tests": [
             "TestSubpavingFastIntervalMulSignClasses"

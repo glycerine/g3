@@ -102,6 +102,19 @@ func TestSubpavingFastIntervalMulSignClasses(t *testing.T) {
 			check(out, tc.lo, tc.hi, false, false)
 		})
 	}
+	// When equal mixed-sign extrema have different attainability, the C++
+	// manager selects the closed candidate; the Go result must keep that tie.
+	set(a, -2, 2, false, false)
+	set(b, -2, 2, true, false)
+	must(out.Mul(a, b))
+	check(out, -4, 4, false, false)
+	set(a, 0, 2, true, false) // (0, 2]
+	set(b, 0, 3, false, false) // [0, 3]
+	must(out.Mul(a, b))
+	check(out, 0, 6, false, false)
+	set(b, 0, 3, true, false) // (0, 3]
+	must(out.Mul(a, b))
+	check(out, 0, 6, true, false)
 	set(a, -2, 0, false, false)
 	set(b, 1, 3, false, false)
 	must(out.Mul(a, b))
