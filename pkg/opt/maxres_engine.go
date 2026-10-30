@@ -15,6 +15,7 @@ type maxResEngine struct {
 	objective        *arithmeticObjective
 	index            int
 	config           maxSMTConfig
+	strategy         maxResStrategy
 	owner            maxSMTASTOwner
 	active           []ast.ASTHandle
 	weights          map[ast.ASTHandle]*big.Rat
@@ -28,7 +29,7 @@ type maxResEngine struct {
 }
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {
-	e := &maxResEngine{solver: s, objective: objective, index: index, config: config, weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle)}
+	e := &maxResEngine{solver: s, objective: objective, index: index, config: config, strategy: maxResStrategyFromConfig(config), weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle)}
 	e.owner.manager = s.manager
 	defer func() {
 		if resultErr != nil {

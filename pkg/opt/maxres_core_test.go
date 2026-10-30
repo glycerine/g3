@@ -1,6 +1,6 @@
 package opt
 
-// Source: src/opt/maxres.cpp get_cores and minimize_core limits.
+// Source: src/opt/maxres.cpp get_cores filtering and batch-size limit.
 
 import (
 	"math/big"
@@ -9,7 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestMaxResCoreFiltersDuplicatesAndHonorsMinimizeLimit(t *testing.T) {
+func TestMaxResCoreFiltersDuplicatesAndUsesSizeAsBatchLimit(t *testing.T) {
 	manager := newWeightedSoftFixture(t).manager
 	p := maxResTestBool(t, manager, "maxres-core-p")
 	q := maxResTestBool(t, manager, "maxres-core-q")
@@ -19,8 +19,7 @@ func TestMaxResCoreFiltersDuplicatesAndHonorsMinimizeLimit(t *testing.T) {
 	if err != nil || len(core) != 2 || core[0] != p || core[1] != q {
 		t.Fatal("filtered core", core, err)
 	}
-	minimized, err := engine.minimizeCore(core)
-	if err != nil || len(minimized) != 2 || engine.stats.CoreMinChecks != 0 {
-		t.Fatal("core limit", minimized, engine.stats, err)
+	if !engine.coreBatchLimitReached(1, len(core)) || engine.stats.CoreMinChecks != 0 {
+		t.Fatal("core batch limit", engine.stats)
 	}
 }

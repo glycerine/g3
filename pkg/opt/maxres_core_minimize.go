@@ -12,9 +12,6 @@ const maxResCoreMinimizeLimit = 32
 
 func (e *maxResEngine) minimizeCore(core []ast.ASTHandle) ([]ast.ASTHandle, error) {
 	limit := maxResCoreMinimizeLimit
-	if e.config.maxCoreSize != 0 && int(e.config.maxCoreSize) < limit {
-		limit = int(e.config.maxCoreSize)
-	}
 	if len(core) > limit {
 		return core, nil
 	}

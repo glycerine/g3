@@ -14,7 +14,7 @@ type maxResStatistics struct {
 
 func (e *maxResEngine) statistics() MaxSMTStatistics {
 	return MaxSMTStatistics{
-		Engine: "maxres", Checks: e.stats.Checks, Candidates: e.stats.Candidates,
+		Engine: e.strategy.name(), Checks: e.stats.Checks, Candidates: e.stats.Candidates,
 		Improvements: e.stats.Improvements, Cores: e.stats.Cores,
 		CoreMinimizationChecks: e.stats.CoreMinChecks, Assumptions: e.stats.Assumptions,
 		Resolutions: e.stats.Resolutions, CorrectionSets: e.stats.CorrectionSets,
