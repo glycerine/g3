@@ -558,3 +558,140 @@ func TestUDocCompileBooleanIffAndEquality(t *testing.T) {
 		}
 	}
 }
+
+func TestUDocGuardSourceExpressionMatrix(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 12)
+	source, err := NewUDocRelation(docManager, []uint32{3, 3, 3, 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, source)
+	m := docASTManager(t)
+	if _, err = m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	sort, err := m.BitVectorSort(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := m.MkVar(0, sort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := m.MkVar(1, sort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := m.MkVar(2, sort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := m.MkVar(3, sort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ground := func(value uint64, width uint32) ast.ASTHandle {
+		h, e := m.BitVectorNumeralUint64(value, width)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return h
+	}
+	eq := func(x, y ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkEq(x, y)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return h
+	}
+	not := func(x ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkNot(x)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return h
+	}
+	or := func(x, y ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkOr(x, y)
+		if e != nil {
+			t.Fatal(e)
+		}
+		return h
+	}
+	aSlice, err := m.MkBitVectorExtract(2, 1, a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bSlice, err := m.MkBitVectorExtract(1, 0, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cSlice, err := m.MkBitVectorExtract(2, 1, c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dSlice, err := m.MkBitVectorExtract(1, 0, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	trueExpr, err := m.MkTrue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	falseExpr, err := m.MkFalse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	conditions := []struct {
+		expr ast.ASTHandle
+		keep func([]uint64) bool
+	}{
+		{trueExpr, func([]uint64) bool { return true }},
+		{falseExpr, func([]uint64) bool { return false }},
+		{eq(a, b), func(v []uint64) bool { return v[0] == v[1] }},
+		{not(eq(a, b)), func(v []uint64) bool { return v[0] != v[1] }},
+		{eq(a, ground(2, 3)), func(v []uint64) bool { return v[0] == 2 }},
+		{eq(aSlice, ground(3, 2)), func(v []uint64) bool { return (v[0]>>1)&3 == 3 }},
+		{or(eq(aSlice, ground(3, 2)), eq(c, d)), func(v []uint64) bool { return (v[0]>>1)&3 == 3 || v[2] == v[3] }},
+		{eq(cSlice, dSlice), func(v []uint64) bool { return (v[2]>>1)&3 == v[3]&3 }},
+		{or(eq(a, b), eq(c, d)), func(v []uint64) bool { return v[0] == v[1] || v[2] == v[3] }},
+		{or(eq(a, b), eq(a, d)), func(v []uint64) bool { return v[0] == v[1] || v[0] == v[3] }},
+		{or(eq(aSlice, bSlice), eq(c, d)), func(v []uint64) bool { return (v[0]>>1)&3 == v[1]&3 || v[2] == v[3] }},
+		{or(eq(aSlice, ground(3, 2)), eq(cSlice, dSlice)), func(v []uint64) bool { return (v[0]>>1)&3 == 3 || (v[2]>>1)&3 == v[3]&3 }},
+		{or(eq(aSlice, ground(3, 2)), eq(c, ground(3, 3))), func(v []uint64) bool { return (v[0]>>1)&3 == 3 || v[2] == 3 }},
+		{or(eq(a, ground(5, 3)), eq(c, ground(5, 3))), func(v []uint64) bool { return v[0] == 5 || v[2] == 5 }},
+		{or(eq(a, ground(7, 3)), eq(c, ground(7, 3))), func(v []uint64) bool { return v[0] == 7 || v[2] == 7 }},
+		{not(or(eq(a, b), eq(c, d))), func(v []uint64) bool { return v[0] != v[1] && v[2] != v[3] }},
+	}
+	values := []uint64{0, 1, 2, 3, 5, 7}
+	var rows [][]uint64
+	for i, x := range values {
+		rows = append(rows, []uint64{x, x, values[(i+1)%len(values)], values[(i+2)%len(values)]})
+		rows = append(rows, []uint64{x, values[(i+1)%len(values)], values[(i+3)%len(values)], values[(i+5)%len(values)]})
+		rows = append(rows, []uint64{x, values[(i+4)%len(values)], values[(i+2)%len(values)], values[(i+2)%len(values)]})
+	}
+	for _, row := range rows {
+		if _, err = source.AddFact(row); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i, condition := range conditions {
+		filtered, e := source.Clone()
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = filtered.FilterGuard(m, condition.expr); e != nil {
+			_ = filtered.Close()
+			t.Fatalf("condition %d: %v", i, e)
+		}
+		for _, row := range rows {
+			requireFact(t, filtered, row, condition.keep(row))
+		}
+		if e = filtered.Close(); e != nil {
+			t.Fatal(e)
+		}
+	}
+}
