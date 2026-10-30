@@ -559,6 +559,43 @@ func TestUDocCompileBooleanIffAndEquality(t *testing.T) {
 	}
 }
 
+func TestUDocFilterGuardAndProjectRejectsUnsupportedResidual(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 2)
+	relation, err := NewUDocRelation(docManager, []uint32{1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	m := docASTManager(t)
+	boolSort, err := m.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := m.MkVar(0, boolSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := m.MkVar(1, boolSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	condition, err := m.MkXor(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]uint64{{0, 0}, {0, 1}, {1, 0}, {1, 1}} {
+		if _, err = relation.AddFact(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = relation.FilterGuardAndProject(m, condition, nil, docManager); err == nil {
+		t.Fatal("unsupported residual formula was accepted")
+	}
+	for _, fact := range [][]uint64{{0, 0}, {0, 1}, {1, 0}, {1, 1}} {
+		requireFact(t, relation, fact, true)
+	}
+}
+
 func TestUDocGuardSourceExpressionMatrix(t *testing.T) {
 	docManager, _ := newTestDocManager(t, 12)
 	source, err := NewUDocRelation(docManager, []uint32{3, 3, 3, 3})
