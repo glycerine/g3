@@ -5476,8 +5476,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fpa_base.go", "pkg/api/api_fpa_sorts.go", "pkg/api/api_fpa_rounding.go", "pkg/api/api_fpa_values.go", "pkg/api/api_fpa_arithmetic.go", "pkg/api/api_fpa_comparisons.go", "pkg/api/api_fpa_predicates.go", "pkg/api/api_fpa_conversions.go", "pkg/api/api_fpa_numeral_classes.go", "pkg/api/api_fpa_sorts_test.go", "pkg/api/api_fpa_rounding_test.go", "pkg/api/api_fpa_values_test.go", "pkg/api/api_fpa_arithmetic_test.go", "pkg/api/api_fpa_relations_test.go", "pkg/api/api_fpa_conversions_test.go", "pkg/api/api_fpa_numeral_classes_test.go"],
-      "tests": ["TestSMTContextFloatingPoint"],
+      "go_targets": ["pkg/api/api_fpa_base.go", "pkg/api/api_fpa_sorts.go", "pkg/api/api_fpa_rounding.go", "pkg/api/api_fpa_values.go", "pkg/api/api_fpa_arithmetic.go", "pkg/api/api_fpa_comparisons.go", "pkg/api/api_fpa_predicates.go", "pkg/api/api_fpa_conversions.go", "pkg/api/api_fpa_numeral_classes.go", "pkg/api/api_fpa_native_numerals.go", "pkg/api/api_fpa_component_numeral.go", "pkg/api/api_fpa_numeral_parts.go", "pkg/api/api_fpa_numeral_bits.go", "pkg/api/api_fpa_numeral_exponent_string.go", "pkg/api/api_fpa_numeral_significand_string.go", "pkg/api/api_fpa_exponent_significand.go", "pkg/api/api_fpa_sorts_test.go", "pkg/api/api_fpa_rounding_test.go", "pkg/api/api_fpa_values_test.go", "pkg/api/api_fpa_arithmetic_test.go", "pkg/api/api_fpa_relations_test.go", "pkg/api/api_fpa_conversions_test.go", "pkg/api/api_fpa_numeral_classes_test.go"],
+      "tests": ["TestSMTContextFloatingPoint", "TestFloatingPointNativeFloat32NumeralParts", "TestFloatingPointNativeFloat64NumeralParts", "TestFloatingPointComponentNumeralSingle", "TestFloatingPointComponentNumeralDouble", "TestFloatingPointNumeralBitVectorWidthsAndValues", "TestFloatingPointNumeralStrings", "TestFloatingPointExponentSignificandPositive", "TestFloatingPointExponentSignificandNegative", "TestFloatingPointExponentSignificandNearestTie"],
       "assertions": [
         {
           "line": 981,
@@ -73622,6 +73622,7 @@
         "pkg/math/realclosure/real_value_function_add.go",
         "pkg/math/realclosure/real_value_function_neg.go",
         "pkg/math/realclosure/real_value_function_scale.go",
+        "pkg/math/realclosure/real_value_function_mul.go",
         "pkg/math/realclosure/manager_slot_owner.go",
         "pkg/math/realclosure/manager_slot_copy.go",
         "pkg/math/realclosure/manager_slot_set_integer.go",
@@ -73635,6 +73636,9 @@
         "TestRealValueAlgebraicPlusRationalRetainsNumeratorAndInterval",
         "TestRealValueAlgebraicNegationAndSubtraction",
         "TestRealValueAlgebraicRationalScaleBothOrders",
+        "TestRealValueAlgebraicSquareReducesToRational",
+        "TestRealValueAlgebraicConjugateProductCanonicalizesRational",
+        "TestRealPolynomialConvolutionReducesAlgebraicSquare",
         "TestManagerNumeralSlotSetInteger",
         "TestManagerNumeralSlotCopyOwnership",
         "TestManagerNumeralSlotResetDeletesLastOwner",
@@ -81322,7 +81326,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/datalog_snapshots.go", "pkg/muz/fp/datalog_profile.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_datalog_snapshots.go", "pkg/cmd_context/fixedpoint_datalog_profile.go", "pkg/parsers/smt2/commands.go"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/datalog_snapshots.go", "pkg/muz/fp/datalog_profile.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/base/datalog_context_background.go", "pkg/muz/base/datalog_context_background_snapshot.go", "pkg/muz/base/datalog_context_background_formula.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_datalog_snapshots.go", "pkg/cmd_context/fixedpoint_datalog_profile.go", "pkg/parsers/smt2/commands.go"],
       "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal", "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPDREngineMatchesCPPIntegerHornQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
       "assertions": [
         {
@@ -97679,7 +97683,7 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/cmd_context/optimization.go", "pkg/parsers/smt2/optimization_test.go", "pkg/cmd/g3/test_vectors/weighted_soft_optimization.smt2"],
+      "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/opt/maxsmt_assignment.go", "pkg/opt/maxsmt_assignment_value.go", "pkg/opt/maxsmt_assignment_weight.go", "pkg/opt/maxsmt_commit_validate.go", "pkg/opt/maxsmt_labels.go", "pkg/opt/maxsmt_label_clone.go", "pkg/opt/maxsmt_model_filter.go", "pkg/opt/maxsmt_result_bounds.go", "pkg/opt/maxsmt_statistics.go", "pkg/cmd_context/optimization.go", "pkg/parsers/smt2/optimization_test.go", "pkg/cmd/g3/test_vectors/weighted_soft_optimization.smt2"],
       "tests": ["TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
       "assertions": [
         {
@@ -97719,7 +97723,7 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/maxsmt_config.go", "pkg/opt/maxsmt_config_decode.go", "pkg/opt/maxsmt_owner.go", "pkg/opt/maxsmt_weighted_terms.go", "pkg/opt/maxsmt_mutex_decomposition.go"],
+      "go_targets": ["pkg/opt/maxsmt_config.go", "pkg/opt/maxsmt_config_decode.go", "pkg/opt/maxsmt_owner.go", "pkg/opt/maxsmt_weighted_terms.go", "pkg/opt/maxsmt_mutex_decomposition.go", "pkg/opt/maxsmt_assignment_api.go", "pkg/opt/maxsmt_statistics_api.go"],
       "tests": ["TestMaxSMTConfigDecodesLocalEngineAndMaxResControls", "TestMaxSMTASTOwnerHoldsAndReleasesExpressions", "TestMaxSMTIntegralTermsAndExpansionPreserveMultiplicity", "TestMaxSMTMutexDecompositionPreservesTotalAndLowerOffset"],
       "conditionals": [
         {
@@ -97797,7 +97801,7 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/bound_expressions.go", "pkg/opt/bound_expressions_test.go", "pkg/opt/bound_expression.go", "pkg/opt/bound_expression_test.go", "pkg/opt/arithmetic_value_expression.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go", "pkg/parsers/smt2/optimization_test.go"],
+      "go_targets": ["pkg/opt/bound_expressions.go", "pkg/opt/bound_expressions_test.go", "pkg/opt/bound_expression.go", "pkg/opt/bound_expression_test.go", "pkg/opt/arithmetic_value_expression.go", "pkg/opt/objective_decomposition_types.go", "pkg/opt/objective_decomposition.go", "pkg/opt/objective_decomposition_restore.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go", "pkg/parsers/smt2/optimization_test.go"],
       "tests": ["TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease", "TestOptBoundExpressionSourceBranchesAndOwnedResult", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
@@ -98081,11 +98085,16 @@
       "go_targets": [
         "pkg/opt/opb_document.go",
         "pkg/opt/opb_parse.go",
-        "pkg/opt/opb_scanner.go"
+        "pkg/opt/opb_scanner.go",
+        "pkg/opt/wcnf_document.go",
+        "pkg/opt/wcnf_parse.go",
+        "pkg/opt/wcnf_scanner.go"
       ],
       "tests": [
         "TestParseOPBObjectivesConstraintsAndProducts",
-        "TestParseOPBPreservesMaxSyntaxAndEquality"
+        "TestParseOPBPreservesMaxSyntaxAndEquality",
+        "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder",
+        "TestParseWCNFRejectsMalformedAndOutOfRangeInput"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -115116,6 +115125,12 @@
         "pkg/shell/command_line.go",
         "pkg/shell/command_line_output.go",
         "pkg/shell/dispatch_memory.go",
+        "pkg/shell/runner_dispatch.go",
+        "pkg/shell/wcnf_frontend.go",
+        "pkg/shell/wcnf_frontend_file.go",
+        "pkg/shell/wcnf_frontend_run.go",
+        "pkg/shell/wcnf_frontend_output.go",
+        "pkg/shell/wcnf_frontend_stats.go",
         "pkg/cmd/g3/main.go",
         "pkg/cmd/g3/main_test.go"
       ],
