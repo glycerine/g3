@@ -347,3 +347,51 @@ func TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix(t *testing.T
 		t.Fatal("residual tail quantifier is not existential", forall, e)
 	}
 }
+
+func TestRuleManagerNullProofIngestionKeepsUnboundReduction(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		name := "reduction-only"
+		if enabled {
+			name = "fix-enabled"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newUnboundFixture(t)
+			m := f.manager
+			three, err := m.ArithmeticIntegerNumeralText("3")
+			ruleMust(t, err)
+			integer, err := m.GetSort(three)
+			ruleMust(t, err)
+			x, err := m.MkVar(1, integer)
+			ruleMust(t, err)
+			y, err := m.MkVar(0, integer)
+			ruleMust(t, err)
+			head := f.predicate(t, "null-proof-head", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+			bound := f.predicate(t, "null-proof-bound", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+			equality, err := m.MkEq(y, three)
+			ruleMust(t, err)
+			body, err := m.MkAnd(bound, equality)
+			ruleMust(t, err)
+			implication, err := m.MkImplies(body, head)
+			ruleMust(t, err)
+			formula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer}, Names: []usymbol.Symbol{usymbol.Numerical(0), usymbol.Numerical(1)}, Body: implication})
+			ruleMust(t, err)
+			set, err := base.NewRuleSet(f.rules)
+			ruleMust(t, err)
+			defer func() { ruleMust(t, set.Close()) }()
+			ruleMust(t, f.rules.AddFormulaWithProofAndUnboundFix(set, formula, ast.ASTHandle{}, "null-proof-fix", f.lite, enabled))
+			rule, err := set.Rule(0)
+			ruleMust(t, err)
+			defer func() { ruleMust(t, rule.Close()) }()
+			size, err := rule.TailSize()
+			ruleMust(t, err)
+			if size != 1 {
+				t.Fatal("null proof bypassed requested unbound reduction", size)
+			}
+			_, found, err := rule.Proof()
+			ruleMust(t, err)
+			if found {
+				t.Fatal("null-proof ingestion synthesized a proof")
+			}
+		})
+	}
+}

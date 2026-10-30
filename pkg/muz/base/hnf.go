@@ -231,11 +231,37 @@ func (n *HornNormalizer) containsPredicate(root ast.ASTHandle) (bool, error) {
 				stack = append(stack, argument)
 			}
 		case ast.ASTQuantifier:
+			// quick_for_each_expr visits body, patterns and no-patterns.
 			body, e := n.manager.GetQuantifierBody(current)
 			if e != nil {
 				return false, e
 			}
-			stack = append(stack, body)
+			children := []ast.ASTHandle{body}
+			patterns, e := n.manager.GetNumPatterns(current)
+			if e != nil {
+				return false, e
+			}
+			for i := uint32(0); i < patterns; i++ {
+				child, e := n.manager.GetPattern(current, i)
+				if e != nil {
+					return false, e
+				}
+				children = append(children, child)
+			}
+			noPatterns, e := n.manager.GetNumNoPatterns(current)
+			if e != nil {
+				return false, e
+			}
+			for i := uint32(0); i < noPatterns; i++ {
+				child, e := n.manager.GetNoPattern(current, i)
+				if e != nil {
+					return false, e
+				}
+				children = append(children, child)
+			}
+			for i := len(children) - 1; i >= 0; i-- {
+				stack = append(stack, children[i])
+			}
 		}
 	}
 	return false, nil
@@ -285,17 +311,20 @@ func (n *HornNormalizer) bind(prefix hornPrefix, body ast.ASTHandle, locals *[]a
 }
 
 func (n *HornNormalizer) freshHead(expression ast.ASTHandle, result *HornNormalization, locals *[]ast.ASTRef) (ast.ASTHandle, error) {
-	used, err := ast.NewASTUsedVars(n.manager)
+	used, err := rewriter.NewExprFreeVars(n.manager)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	if err = used.Collect(expression); err != nil {
 		return ast.ASTHandle{}, err
 	}
-	domain := make([]ast.ASTHandle, 0, used.NumVars())
-	arguments := make([]ast.ASTHandle, 0, used.NumVars())
-	for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
-		sort := used.Contains(i)
+	domain := make([]ast.ASTHandle, 0, used.Size())
+	arguments := make([]ast.ASTHandle, 0, used.Size())
+	for i := uint32(0); i < used.Size(); i++ {
+		sort, err := used.Get(i)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
 		if sort.IsNull() {
 			continue
 		}
@@ -508,7 +537,19 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 					return result, x
 				}
 				if op, app, x := n.operator(argument); x == nil && app && op == ast.ASTOpAnd {
-					disjuncts, e = n.manager.FlattenAnd([]ast.ASTHandle{argument})
+					// Source uses the immediate conjunction arguments. Nested
+					// conjunctions receive their own definition in a later step.
+					count, x := n.manager.GetNumArgs(argument)
+					if x != nil {
+						return result, x
+					}
+					for j := uint32(0); j < count; j++ {
+						part, x := n.manager.GetArg(argument, j)
+						if x != nil {
+							return result, x
+						}
+						disjuncts = append(disjuncts, part)
+					}
 					negate = true
 				} else if x != nil {
 					return result, x

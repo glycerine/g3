@@ -29,7 +29,7 @@ func (m *RuleManager) AddFormulaWithProofAndUnboundFix(set *RuleSet, formula, pr
 
 func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name string, lite *qe.Lite, fixUnbound bool) (resultErr error) {
 	if proof.IsNull() {
-		return m.AddFormula(set, formula, name)
+		return m.addFormula(set, formula, name, lite, fixUnbound)
 	}
 	if err := m.open(); err != nil {
 		return err

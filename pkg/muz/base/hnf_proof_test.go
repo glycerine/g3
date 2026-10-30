@@ -628,3 +628,58 @@ func TestHornNormalizerDefinitionNegationMatchesSource(t *testing.T) {
 		}
 	}
 }
+
+func TestHornNormalizerKeepsImmediateNegatedConjunctionChildren(t *testing.T) {
+	for _, withProof := range []bool{false, true} {
+		name := "without-proof"
+		if withProof {
+			name = "with-proof"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newRuleSetFixture(t, "P", "Q", "R", "H")
+			m := f.manager
+			inner, err := m.MkAnd(f.app["P"], f.app["Q"])
+			ruleMust(t, err)
+			outer, err := m.MkAnd(inner, f.app["R"])
+			ruleMust(t, err)
+			negative, err := m.MkNot(outer)
+			ruleMust(t, err)
+			formula, err := m.MkImplies(negative, f.app["H"])
+			ruleMust(t, err)
+			pin, err := m.NewRef(formula)
+			ruleMust(t, err)
+			defer func() { ruleMust(t, m.DelRef(&pin)) }()
+			normalizer, err := base.NewHornNormalizer(m, "nested-negative")
+			ruleMust(t, err)
+			var result *base.HornNormalization
+			if withProof {
+				ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+				p, err := m.MkProofAsserted(formula)
+				ruleMust(t, err)
+				ruleMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
+				result, err = normalizer.NormalizeWithProof(formula, p)
+				ruleMust(t, err)
+			} else {
+				result, err = normalizer.Normalize(formula)
+				ruleMust(t, err)
+			}
+			defer func() { ruleMust(t, result.Close()) }()
+			// C++ first names ~(inner && R), then separately names ~inner.
+			// Flattening inner early changes both the fresh symbols and rule graph.
+			if len(result.FreshPredicates) != 2 || len(result.Formulas) != 5 {
+				t.Fatalf("nested negated conjunction produced %d predicates/%d formulas, want 2/5", len(result.FreshPredicates), len(result.Formulas))
+			}
+			for i, ref := range result.Proofs {
+				p, err := m.RefGet(ref)
+				ruleMust(t, err)
+				fact, err := m.GetProofFact(p)
+				ruleMust(t, err)
+				formula, err := m.RefGet(result.Formulas[i])
+				ruleMust(t, err)
+				if fact != formula {
+					t.Fatal("nested definition proof fact", i)
+				}
+			}
+		})
+	}
+}
