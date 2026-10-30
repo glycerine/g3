@@ -187304,7 +187304,7 @@
       "path": "src/test/hashtable.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -187391,15 +187391,14 @@
           "text": "ENSURE(h2.size() == 2);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [
-        "Concrete scalar u_map<uint32> specialization with budgeted cold header and pointer-free entries. Other key/entry variants and source string map or Windows sentinel set remain unported. See PORT_PROGRESS.md#audit-utilhash-port-status-md."
+        "The active _WINDOWS branch instantiates int_hashtable<int_hash_proc> only for this C++ test and compares it with std::unordered_set; no Go production consumer uses this test-only specialization."
       ],
       "deviations": [
-        "Checked cold owner/epoch snapshots replace borrowed entry pointers; structural mutation invalidates snapshots.",
-        "Budgeted reset/finalize/cross-owner swap reserve before publication. A failed post-removal tombstone cleanup preserves the completed removal."
+        "The non-Windows registered test body is empty, and the Windows-only int_set specialization is used only by this test unit. It remains source reference material rather than a reason to add a Go adapter for an unused test type."
       ]
     },
     {
@@ -188323,7 +188322,7 @@
       "path": "src/test/list.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -188348,14 +188347,18 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "tst1 construction, nil append identities, concatenation and self append",
-          "status": "partial",
+          "name": "test-only list<int> construction and non-destructive append assertions",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "The sole concrete list<int> consumer is this C++ test. Production enode and relevancy chains use concrete slice representations at their Go consumers."
+      ],
+      "deviations": [
+        "length and append are reference-only because their only source callers are in this test unit; no generic linked-list adapter is added for an unused specialization."
+      ]
     },
     {
       "path": "src/test/lp.cpp",
@@ -206148,9 +206151,17 @@
       "path": "src/util/list.h",
       "component": "util",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "platform_replacement",
+      "go_targets": [
+        "pkg/smtcore/smt_almost_cg_table.go",
+        "pkg/smtcore/smt_relevancy.go"
+      ],
+      "tests": [
+        "TestSMTAlmostCongruenceTableGroupsSpecialRoots",
+        "TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses",
+        "TestSMTRelevancySharedAssignmentWatches",
+        "TestSMTRelevancyDisabledAndTermITEHandler"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -206165,12 +206176,22 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "list<enode*> prepend/head/tail/iteration for SMT almost_cg_table buckets and context disequality scan",
-          "status": "unported"
+          "name": "Concrete almost-CG candidate chains use prepended []*SMTEnode slices with source traversal order",
+          "status": "platform_replacement",
+          "go_target": "pkg/smtcore/smt_almost_cg_table.go",
+          "tests": [
+            "TestSMTAlmostCongruenceTableGroupsSpecialRoots"
+          ]
         },
         {
-          "name": "list<relevancy_eh*> prepend/head/tail for SMT relevancy handler and watch trails",
-          "status": "unported"
+          "name": "Concrete relevancy handlers and watches use typed slices traversed newest-first and trailed by suffix",
+          "status": "platform_replacement",
+          "go_target": "pkg/smtcore/smt_relevancy.go",
+          "tests": [
+            "TestSMTRelevancyDependenciesWatchesScopesAndEqualityClasses",
+            "TestSMTRelevancySharedAssignmentWatches",
+            "TestSMTRelevancyDisabledAndTermITEHandler"
+          ]
         },
         {
           "name": "length and non-destructive append have only src/test/list.cpp callers",
@@ -206178,10 +206199,10 @@
         }
       ],
       "ownership": [
-        "The live enode and relevancy-handler list nodes are allocated in each SMT consumer's region and borrow their pointer payloads. Region reset retires nodes together; list traversal and trail pop do not individually delete them. The Go SMT consumers are still unported, so typed slices or nodes must preserve prepend order, shared tails and trail restoration there."
+      "The almost-CG table stores concrete node groups in slices and prepends each matching node to preserve source order. Relevancy handlers/watches append to typed slices and traverse from the end to match C++ head insertion; trail rollback removes the matching suffix entry. Go allocation and slice ownership replace C++ region-node allocation, shared-tail identity and region reset."
       ],
       "deviations": [
-        "No generic Go adapter is retained. The only production instantiations are SMT almost_cg_table's enode bucket chain and SMT relevancy's handler/watch chains; both owning consumers are unported. Test-only integer append and length do not justify a production port."
+      "No generic list adapter is introduced. Live production list operations are represented by concrete slices at the two SMT consumers; length and non-destructive append remain reference-only because they have no production source caller."
       ]
     },
     {
