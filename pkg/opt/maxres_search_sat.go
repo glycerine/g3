@@ -1,0 +1,19 @@
+package opt
+
+// Source: src/opt/maxres.cpp mus_solver/primal_dual_solver l_true branches.
+
+import "github.com/glycerine/g3/pkg/ast"
+
+func (e *maxResEngine) processSearchSAT(result *ArithmeticResult, full bool) (bool, error) {
+	if !full {
+		return false, nil
+	}
+	if e.strategy == maxResPrimalDual && len(e.correction) != 0 {
+		if err := e.processCorrection(append([]ast.ASTHandle(nil), e.correction...)); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
+	result.Values[e.index].SoftCost.Set(&e.lower)
+	return true, nil
+}

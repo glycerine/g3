@@ -30,6 +30,7 @@ type maxResEngine struct {
 
 func newMaxResEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int, config maxSMTConfig) (result *maxResEngine, resultErr error) {
 	e := &maxResEngine{solver: s, objective: objective, index: index, config: config, strategy: maxResStrategyFromConfig(config), weights: make(map[ast.ASTHandle]*big.Rat), proxies: make(map[ast.ASTHandle]ast.ASTHandle)}
+	e.lower.Set(&objective.softOffset)
 	e.owner.manager = s.manager
 	defer func() {
 		if resultErr != nil {
