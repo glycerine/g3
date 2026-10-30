@@ -104,6 +104,21 @@ type BitBlastPlugin struct {
 	closed     bool
 }
 
+func bitBlastAssertedProof(manager *ast.ASTManager, formula ast.ASTHandle) (proof ast.ASTHandle, resultErr error) {
+	mode, err := manager.ProofMode()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	changed := mode == ast.ASTProofDisabled
+	if changed {
+		if err = manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, manager.ToggleProofMode(mode)) }()
+	}
+	return manager.MkProofAsserted(formula)
+}
+
 func NewBitBlastPlugin(manager *ast.ASTManager, rules *base.RuleManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, priority uint32) (_ *BitBlastPlugin, resultErr error) {
 	params := bitblaster.DefaultRewriterParams()
 	params.BlastFull, params.BlastQuant = true, true
@@ -160,7 +175,6 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 	if err != nil {
 		return nil, err
 	}
-	changed := false
 	for i := 0; i < count; i++ {
 		canceled, cancelErr := p.manager.Canceled()
 		if cancelErr != nil {
@@ -175,7 +189,9 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 		}
 		current, dropped, simplified, transformErr := p.simplifier.transformRule(rule)
 		if transformErr == nil && dropped {
-			changed = true
+			// The source blast helper falls back to the original rule when its
+			// preliminary simplifier reports an infeasible rule.
+			current, dropped, simplified = rule, false, false
 		}
 		if transformErr == nil && !dropped {
 			if current == nil {
@@ -221,12 +237,22 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 						replacement, transformErr = p.rules.NewRuleFromFormula(final, name)
 					}
 					if transformErr == nil {
+						_, hasProof, proofErr := rule.Proof()
+						transformErr = proofErr
+						if transformErr == nil && hasProof {
+							var proof ast.ASTHandle
+							proof, transformErr = bitBlastAssertedProof(p.manager, final)
+							if transformErr == nil {
+								transformErr = replacement.SetProof(proof)
+							}
+						}
+					}
+					if transformErr == nil {
 						transformErr = result.Add(replacement)
 					}
 					if replacement != nil {
 						transformErr = errors.Join(transformErr, replacement.Close())
 					}
-					changed = true
 				} else if transformErr == nil {
 					transformErr = result.Add(rule)
 				}
@@ -242,9 +268,6 @@ func (p *BitBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resul
 		if transformErr != nil {
 			return nil, transformErr
 		}
-	}
-	if !changed {
-		return nil, nil
 	}
 	keep = true
 	return result, nil

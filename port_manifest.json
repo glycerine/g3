@@ -93252,7 +93252,7 @@
       "path": "src/muz/transforms/dl_mk_bit_blast.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/bit_blast.go",
         "pkg/muz/fp/spacer_bit_blast_results.go",
@@ -93262,6 +93262,8 @@
       "tests": [
         "TestBitBlastExpandsBitVectorPredicateSignatures",
         "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
+        "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
+        "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
         "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
         "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
@@ -93284,37 +93286,53 @@
           "text": "SASSERT(body);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "full/quantified bit blasting, mkbv predicate expansion, output forwarding, reverse predicate-model reconstruction, and per-rule cancellation",
-          "status": "partial",
+          "name": "Full and quantified bit blasting, mkbv predicate expansion, output retention, asserted proof replacement, model reconstruction, no-op rebuilding, and cancellation result",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/bit_blast.go",
+          "go_targets": [
+            "pkg/muz/transforms/bit_blast.go",
+            "pkg/muz/fp/spacer_bit_blast_results.go",
+            "pkg/muz/fp/spacer_engine.go"
+          ],
           "tests": [
             "TestBitBlastExpandsBitVectorPredicateSignatures",
-        "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
+            "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
+            "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
+            "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
             "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
+            "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
             "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
           ]
         }
       ],
       "ownership": [
-        "Bit-blasted and expanded formulas remain pinned until replacement Rules own their reconstructed Horn expressions.",
-        "Reverse model substitution pins every bit2bool projection through FunctionInterpretation registration."
+        "The plugin borrows AST, rule, parameter, and global services; it owns the simplifier, blaster, and traversal for its lifetime. Transform returns a newly owned RuleSet, and PDR result conversion owns the reconstructed model functions."
       ],
       "deviations": [
-        "Rule semantics, predicate mappings, query forwarding, and model reconstruction are ported. Native asserted-proof replacement remains pending fixedpoint proof conversion."
+        "Reverse predicate-model reconstruction is owned by the Go fixedpoint result path rather than installed as a context model-converter object."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_bit_blast.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/transforms/bit_blast.go"],
-      "tests": ["TestBitBlastExpandsBitVectorPredicateSignatures",
-        "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/transforms/bit_blast.go"
+      ],
+      "tests": [
+        "TestBitBlastExpandsBitVectorPredicateSignatures",
+        "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
+        "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
+        "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
+        "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
+        "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
+        "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -93325,11 +93343,35 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Full and quantified bit blasting, mkbv predicate expansion, output retention, asserted proof replacement, model reconstruction, no-op rebuilding, and cancellation result",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/bit_blast.go",
+          "go_targets": [
+            "pkg/muz/transforms/bit_blast.go",
+            "pkg/muz/fp/spacer_bit_blast_results.go",
+            "pkg/muz/fp/spacer_engine.go"
+          ],
+          "tests": [
+            "TestBitBlastExpandsBitVectorPredicateSignatures",
+            "TestBitBlastStopsBeforeRulesWhenManagerIsCanceled",
+            "TestBitBlastFallsBackToOriginalWhenPreSimplifierDropsRule",
+            "TestBitBlastRebuildsRulesWithoutBitVectorTerms",
+            "TestSpacerBitBlastReconstructsBitVectorPredicateModel",
+            "TestSMTLibRunnerScripts/fp_spacer_bit_blast.smt2",
+            "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2"
+          ]
+        }
+      ],
+      "ownership": [
+        "The plugin borrows AST, rule, parameter, and global services; it owns the simplifier, blaster, and traversal for its lifetime. Transform returns a newly owned RuleSet, and PDR result conversion owns the reconstructed model functions."
+      ],
+      "deviations": [
+        "Reverse predicate-model reconstruction is owned by the Go fixedpoint result path rather than installed as a context model-converter object."
+      ]
     },
     {
       "path": "src/muz/transforms/dl_mk_coalesce.cpp",
