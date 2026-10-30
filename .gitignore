@@ -80,3 +80,4 @@ wasm.build
 a.out.wasm
 a.out.js
 build
+/temp/
