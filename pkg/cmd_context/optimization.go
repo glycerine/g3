@@ -35,8 +35,24 @@ func (c *Context) clearOptimizationBoxModels() error {
 	err := releaseOptimizationBoxModels(c.optimizationBoxModels)
 	if err == nil {
 		c.optimizationBoxModels = nil
+		c.optimizationBoxValues = nil
 	}
 	return err
+}
+
+func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValue {
+	result := make([]opt.ObjectiveValue, len(source))
+	for i := range source {
+		result[i] = source[i]
+		result[i].Arithmetic.Finite = source[i].Arithmetic.Finite.Clone()
+		result[i].ArithmeticModel.Finite = source[i].ArithmeticModel.Finite.Clone()
+		result[i].SoftCost.Set(&source[i].SoftCost)
+		result[i].SoftSatisfied.Set(&source[i].SoftSatisfied)
+		result[i].SoftLower.Set(&source[i].SoftLower)
+		result[i].SoftUpper.Set(&source[i].SoftUpper)
+		result[i].SoftAssignment = append([]bool(nil), source[i].SoftAssignment...)
+	}
+	return result
 }
 
 func (c *Context) AddObjective(expression ast.ASTHandle, maximize bool) error {
@@ -337,6 +353,22 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 		c.optimizationBoxNext = 0
 	}
 	c.optimizationBoxActive = true
+	if !fresh {
+		if c.optimizationBoxNext >= len(c.optimizationBoxModels) {
+			c.optimizationBoxActive = false
+			return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
+		}
+		selected := c.optimizationBoxNext
+		c.optimizationBoxNext++
+		optimized = &opt.ArithmeticResult{Status: lbool.True, Values: cloneOptimizationBoxValues(c.optimizationBoxValues), Optimal: true}
+		if selected < len(c.optimizationBoxModels) && c.optimizationBoxModels[selected] != nil {
+			if err := c.optimizationBoxModels[selected].IncRef(); err != nil {
+				return nil, err
+			}
+			optimized.Model = c.optimizationBoxModels[selected]
+		}
+		return optimized, nil
+	}
 	if c.optimizationBoxNext >= len(c.objectives) {
 		c.optimizationBoxActive = false
 		return &opt.ArithmeticResult{Status: lbool.False, Values: make([]opt.ObjectiveValue, len(c.objectives)), Optimal: true}, nil
@@ -391,6 +423,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 	if fresh {
 		c.optimizationBoxModels = boxModels
 		boxModels = nil
+		c.optimizationBoxValues = cloneOptimizationBoxValues(combined.Values)
 	}
 	return combined, nil
 }

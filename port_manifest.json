@@ -98844,10 +98844,11 @@
           "tests": ["TestSMT2BitVectorOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
-          "name": "box priority independent objective optimization, objective-wide bounds, per-objective model enumeration and terminal unsat/reset lifecycle (opt_context.cpp:255-322,434-467)",
+          "name": "box priority independent objective optimization, objective-wide bounds, cached per-objective model/value enumeration and terminal unsat/reset lifecycle (opt_context.cpp:255-322,434-467)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "tests": ["TestSMT2BoxOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_parameters_pareto_test.go"],
+          "tests": ["TestActiveBoxEnumerationSurvivesPriorityUpdate", "TestSMT2BoxOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "arithmetic, unsigned bit-vector and normalized weighted-soft Pareto comparison construction, persistent frontier enumeration, objective publication and terminal unsat/reset lifecycle (opt_context.cpp:470-565)",

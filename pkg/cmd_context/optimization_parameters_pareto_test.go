@@ -110,6 +110,9 @@ func TestActiveBoxEnumerationSurvivesPriorityUpdate(t *testing.T) {
 	if status != lbool.True || !c.optimizationBoxActive {
 		t.Fatal("first box result", status, c.optimizationBoxActive)
 	}
+	if len(c.optimizationBoxModels) != 2 || len(c.optimizationBoxValues) != 2 {
+		t.Fatal("box models and objective values were not cached together", len(c.optimizationBoxModels), len(c.optimizationBoxValues))
+	}
 
 	pareto, err := m.Symbols.Intern("pareto")
 	contextMust(t, err)
@@ -120,6 +123,13 @@ func TestActiveBoxEnumerationSurvivesPriorityUpdate(t *testing.T) {
 	if status != lbool.True || !c.optimizationBoxActive || c.optimizationBoxNext != 2 {
 		t.Fatal("box continuation after priority update", status, c.optimizationBoxActive, c.optimizationBoxNext)
 	}
+	secondModel, err := c.OptimizationModel()
+	contextMust(t, err)
+	if secondModel != c.optimizationBoxModels[1] {
+		_ = secondModel.DecRef()
+		t.Fatal("box continuation recomputed instead of publishing the saved objective model")
+	}
+	contextMust(t, secondModel.DecRef())
 	status, err = c.CheckSat(nil)
 	contextMust(t, err)
 	if status != lbool.False || c.optimizationBoxActive {

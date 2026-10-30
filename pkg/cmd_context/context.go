@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
+	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
@@ -94,6 +95,7 @@ type Context struct {
 	optimizationBoxNext              int
 	optimizationBoxActive            bool
 	optimizationBoxModels            []*model.ModelCore
+	optimizationBoxValues            []opt.ObjectiveValue
 	optimizationParetoActive         bool
 	optimizationParetoBackend        *smtcore.SMTSolver
 	scopes                           []scope
