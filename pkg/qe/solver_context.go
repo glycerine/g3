@@ -24,12 +24,15 @@ type SolverPlugin interface {
 // SolverContext is the common source context for QE solver plugins. The AST
 // manager and variable handles are borrowed. Registered plugins are owned.
 type SolverContext struct {
-	self      *SolverContext
-	manager   *ast.ASTManager
-	variables []ast.ASTHandle
-	plugins   []SolverPlugin
-	closing   uint32
-	closed    bool
+	self            *SolverContext
+	manager         *ast.ASTManager
+	variables       []ast.ASTHandle
+	contains        []*ast.ContainsApp
+	currentFormula  ast.ASTRef
+	plugins         []SolverPlugin
+	closing         uint32
+	containsClosing uint32
+	closed          bool
 }
 
 func NewSolverContext(manager *ast.ASTManager, variables []ast.ASTHandle) (*SolverContext, error) {
@@ -214,6 +217,9 @@ func (c *SolverContext) Close() error {
 			c.plugins[c.closing] = nil
 		}
 		c.closing++
+	}
+	if err := c.closeMutationState(); err != nil {
+		return err
 	}
 	c.variables = nil
 	c.closed = true
