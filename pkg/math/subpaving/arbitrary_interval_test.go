@@ -81,6 +81,7 @@ func TestSubpavingMPFMutableIntervalRetainedCore(t *testing.T) {
 	must(m.SetInt32(&lo, -1))
 	must(m.SetInt32(&hi, 2))
 	must(v.SetFinite(&lo, &hi, false, true))
+	must(v.SetFrom(v))
 	must(core.MkNaN(11, 53, &nan, nil))
 	for _, bounds := range [][2]*numeral.ArbitraryFloat{{&nan, &nan}, {&nan, &hi}, {&lo, &nan}} {
 		if err := v.SetFinite(bounds[0], bounds[1], false, false); !errors.Is(err, interval.ErrExtendedDomain) {
