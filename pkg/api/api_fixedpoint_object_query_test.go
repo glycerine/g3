@@ -10,7 +10,6 @@ import (
 func TestAPIFixedpointRulesScopesAndQueries(t *testing.T) {
 	f := newAPIFixedpointFixture(t)
 	truth := f.pin(f.m.MkTrue())
-	astTestMust(t, f.fp.Push())
 	astTestMust(t, f.fp.AddRule(f.uAtom, "scoped"))
 	astTestMust(t, f.fp.Assert(truth))
 	rules, err := f.fp.Rules()
@@ -25,7 +24,6 @@ func TestAPIFixedpointRulesScopesAndQueries(t *testing.T) {
 		t.Fatal("scoped assertions", len(assertions))
 	}
 	releaseAPIRefs(t, f.m, assertions)
-	astTestMust(t, f.fp.Pop())
 
 	astTestMust(t, f.fp.AddFact(f.p, nil))
 	astTestMust(t, f.fp.AddRuleWithBound(f.step, "step", 4))

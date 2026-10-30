@@ -3,6 +3,7 @@ package api
 import (
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -12,8 +13,11 @@ func TestAPIFixedpointObjectsHaveIndependentState(t *testing.T) {
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, other.Close()) })
 	astTestMust(t, other.SetEngine("pdr"))
-	otherP, err := other.DeclareRelation("api-object-fp-other-p", nil)
+	boolean := f.pin(f.m.MkBoolSort())
+	name, err := f.m.Symbols.Intern("api-object-fp-other-p")
 	astTestMust(t, err)
+	otherP := f.pin(f.m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{}))
+	astTestMust(t, other.RegisterRelation(otherP))
 
 	astTestMust(t, f.fp.AddFact(f.p, nil))
 	status, err := f.fp.Query(f.p)
