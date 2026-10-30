@@ -98858,6 +98858,13 @@
           "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestOptimizationObjectiveMutationClosesParetoSolverImmediately", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
+          "name": "context::pop resets active Pareto state and the box cursor while cached box models persist until the next box run (opt_context.cpp:160-168,1390-1397)",
+          "status": "partial",
+          "go_target": "pkg/cmd_context/context.go",
+          "go_targets": ["pkg/cmd_context/context.go", "pkg/cmd_context/optimization_state_test.go"],
+          "tests": ["TestPopResetsActiveParetoOptimization", "TestPopResetsActiveBoxOptimization"]
+        },
+        {
           "name": "context::updt_params updates the active solver while existing Pareto and box continuation state takes precedence over new priority selection (opt_context.cpp:255-259,434-467,1423-1433)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_parameters.go",

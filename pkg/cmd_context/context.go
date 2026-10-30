@@ -809,11 +809,13 @@ func (c *Context) Pop(count uint32) error {
 	if uint64(count) > uint64(len(c.scopes)) {
 		return fmt.Errorf("invalid pop command, argument is greater than the current stack depth")
 	}
-	c.checked = false
 	if count == 0 {
-		return nil
+		return c.invalidateOptimizationState()
 	}
 	if err := c.solver.Pop(count); err != nil {
+		return err
+	}
+	if err := c.invalidateOptimizationState(); err != nil {
 		return err
 	}
 	level := len(c.scopes) - int(count)
