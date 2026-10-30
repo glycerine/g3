@@ -200,8 +200,8 @@ func (s *Solver) simplifyProblem() error {
 	if e := s.asymm.run(false); e != nil {
 		return e
 	}
-	if s.propagation.extensionPresent {
-		return ErrSATMissingSourceExtBinding
+	if e := s.propagation.simplifyExtension(); e != nil {
+		return e
 	}
 	s.traceSimplifyCompleted()
 	if e := s.conflict.reinitAssumptions(); e != nil {
