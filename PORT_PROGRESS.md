@@ -50737,3 +50737,6 @@ Relational compiler cycle ordering regression (2026-10-30 UTC): added independen
 
 
 Finite compiler dependency graph property coverage (2026-10-30 UTC): exhaustively checked all 65,536 directed dependency graphs on four predicates. The test verifies every vertex appears once, cycle-break vertices form the output suffix, and every edge among remaining predicates points forward in the dependency-first order; the focused graph tests pass.
+
+
+Relational table domain-bound regression repair (2026-10-30 UTC): corrected stale tests that required equal finite-domain bounds for matched columns, contrary to the retained table join/intersection semantics. The tests now assert successful sparse joins and hash-table intersections across unequal bounds while preserving invalid-column and malformed-fact checks; the complete focused `muz/rel` package passes (70.5% package statement coverage).

@@ -12,10 +12,11 @@ func TestHashTableIntersectionPreservesOrderAndValidatesColumns(t *testing.T) {
 		t.Fatal(err)
 	}
 	intersectionWantFacts(t, target, Fact{4}, Fact{3}, Fact{2})
-	wrong := intersectionTestTable(t, []uint64{4}, Fact{0})
-	if err := target.FilterByIntersection(wrong, []int{0}, []int{0}); !errors.Is(err, ErrTable) {
-		t.Fatal("domain mismatch", err)
+	differentBound := intersectionTestTable(t, []uint64{4}, Fact{3})
+	if err := target.FilterByIntersection(differentBound, []int{0}, []int{0}); err != nil {
+		t.Fatal("different finite domain bounds", err)
 	}
+	intersectionWantFacts(t, target, Fact{3})
 	if err := target.FilterByIntersection(source, []int{1}, []int{0}); !errors.Is(err, ErrTable) {
 		t.Fatal("column range", err)
 	}
