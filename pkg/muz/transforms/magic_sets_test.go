@@ -108,3 +108,70 @@ func TestMagicSetsDisabledAndGoalMultiplicityGuards(t *testing.T) {
 	}
 	coneMust(t, enabled.Close())
 }
+
+func TestMagicSetsPreservesNegatedAndInterpretedTails(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	x, err := f.manager.MkVar(0, boolean)
+	coneMust(t, err)
+	declare := func(name string) (ast.ASTHandle, ast.ASTHandle) {
+		symbol, e := f.manager.Symbols.Intern("magic-tail-" + name)
+		coneMust(t, e)
+		declaration, e := f.manager.MkFuncDecl(symbol, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, e)
+		coneMust(t, f.rules.RegisterPredicate(declaration))
+		application, e := f.manager.MkApp(declaration, []ast.ASTHandle{x})
+		coneMust(t, e)
+		return declaration, application
+	}
+	_, extensional := declare("E")
+	_, intentional := declare("P")
+	goalDecl, goal := declare("G")
+	equality, err := f.manager.MkEq(x, x)
+	coneMust(t, err)
+	addTransformRule(t, f, goal, []ast.ASTHandle{extensional, intentional, equality}, []bool{false, true, false}, "magic-negated-interpreted")
+	coneMust(t, f.set.SetOutputPredicate(goalDecl))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("magic tail fixture is unstratified")
+	}
+	plugin := transforms.NewMagicSetsPlugin(f.manager, f.rules, goalDecl, true, 0)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	if result == nil {
+		t.Fatal("enabled magic sets returned no transformation")
+	}
+	defer func() { coneMust(t, result.Close()) }()
+	fresh := plugin.FreshPredicates()
+	if len(fresh) < 2 {
+		t.Fatalf("adorned predicates missing: %d", len(fresh))
+	}
+	goalRules, err := result.PredicateRules(fresh[0])
+	coneMust(t, err)
+	defer func() {
+		for _, rule := range goalRules {
+			coneMust(t, rule.Close())
+		}
+	}()
+	foundNegated, foundInterpreted := false, false
+	for _, rule := range goalRules {
+		count, getErr := rule.TailSize()
+		coneMust(t, getErr)
+		for i := 0; i < count; i++ {
+			tail, negative, tailErr := rule.Tail(i)
+			coneMust(t, tailErr)
+			if negative {
+				foundNegated = true
+			}
+			equal, equalErr := f.manager.AreEqual(tail, equality)
+			coneMust(t, equalErr)
+			foundInterpreted = foundInterpreted || equal
+		}
+	}
+	if !foundNegated || !foundInterpreted {
+		t.Fatalf("adorned rules lost tail semantics: negated=%v interpreted=%v", foundNegated, foundInterpreted)
+	}
+}
