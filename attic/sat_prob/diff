@@ -1,0 +1,579 @@
+diff --git a/pkg/sat/sat_main_config.go b/pkg/sat/sat_main_config.go
+index 5c400e5dd..2fbe48f8d 100644
+--- a/pkg/sat/sat_main_config.go
++++ b/pkg/sat/sat_main_config.go
+@@ -71,26 +71,27 @@ const (
+ 	satConfigCoreMinimizeMask
+ 	satConfigCoreMinimizePartialMask
+ 	satConfigDimacsDisplayMask
+-	satConfigAllFieldsMask = (satConfigDimacsDisplayMask << 1) - 1
++	satConfigProbSearchMask
++	satConfigAllFieldsMask = (satConfigProbSearchMask << 1) - 1
+ )
+ 
+ type satMainConfigState struct {
+-	MaxMemory                                                                   uint64
+-	Phase                                                                       satPhaseSelection
+-	PhaseCachingOn, PhaseCachingOff                                             uint32
+-	Restart                                                                     satRestartStrategy
+-	RestartInitial                                                              uint32
+-	RestartFactor                                                               float64
+-	RestartMax                                                                  uint32
+-	RandomFreq                                                                  float64
+-	RandomSeed, BurstSearch, MaxConflicts, NumParallel                          uint32
+-	SimplifyMult1                                                               uint32
+-	SimplifyMult2                                                               float64
+-	SimplifyMax                                                                 uint32
+-	GCStrategy                                                                  satGCStrategy
+-	GCInitial, GCIncrement, GCSmallLBD, GCK                                     uint32
+-	MinimizeLemmas, DynSubRes, CoreMinimize, CoreMinimizePartial, DimacsDisplay bool
+-	Initialized                                                                 uint32
++	MaxMemory                                                                               uint64
++	Phase                                                                                   satPhaseSelection
++	PhaseCachingOn, PhaseCachingOff                                                         uint32
++	Restart                                                                                 satRestartStrategy
++	RestartInitial                                                                          uint32
++	RestartFactor                                                                           float64
++	RestartMax                                                                              uint32
++	RandomFreq                                                                              float64
++	RandomSeed, BurstSearch, MaxConflicts, NumParallel                                      uint32
++	SimplifyMult1                                                                           uint32
++	SimplifyMult2                                                                           float64
++	SimplifyMax                                                                             uint32
++	GCStrategy                                                                              satGCStrategy
++	GCInitial, GCIncrement, GCSmallLBD, GCK                                                 uint32
++	MinimizeLemmas, DynSubRes, CoreMinimize, CoreMinimizePartial, DimacsDisplay, ProbSearch bool
++	Initialized                                                                             uint32
+ }
+ 
+ // One charged cold owner. The runtime's actual GlobalParams/ParamsContext and
+diff --git a/pkg/sat/sat_main_config_update.go b/pkg/sat/sat_main_config_update.go
+index 5dc710cf0..3e9c6753c 100644
+--- a/pkg/sat/sat_main_config_update.go
++++ b/pkg/sat/sat_main_config_update.go
+@@ -208,5 +208,8 @@ func (m *satMainConfig) Update(p *uparams.ParamsRef) (err error) {
+ 	if e = m.boolean(p, &g, "dyn_sub_res", true, &m.state.DynSubRes, satConfigDynSubResMask); e != nil {
+ 		return e
+ 	}
+-	return m.boolean(p, &g, "dimacs.display", false, &m.state.DimacsDisplay, satConfigDimacsDisplayMask)
++	if e = m.boolean(p, &g, "dimacs.display", false, &m.state.DimacsDisplay, satConfigDimacsDisplayMask); e != nil {
++		return e
++	}
++	return m.boolean(p, &g, "prob_search", false, &m.state.ProbSearch, satConfigProbSearchMask)
+ }
+diff --git a/pkg/sat/sat_prob.go b/pkg/sat/sat_prob.go
+new file mode 100644
+index 000000000..fcb614206
+--- /dev/null
++++ b/pkg/sat/sat_prob.go
+@@ -0,0 +1,91 @@
++package sat
++
++// Source: src/sat/sat_prob.h; sat_prob.cpp:24-47,191-245.
++
++import (
++	"math"
++
++	"github.com/glycerine/g3/pkg/util/control"
++	"github.com/glycerine/g3/pkg/util/lbool"
++	z3rand "github.com/glycerine/g3/pkg/util/random"
++)
++
++type satProbClauseInfo struct{ truths, sum uint32 }
++
++type satProb struct {
++	limit                    *control.Reslimit
++	random                   *z3rand.Generator
++	clauses                  [][]Literal
++	info                     []satProbClauseInfo
++	values, best             []bool
++	use                      [][]uint32
++	breaks                   []uint32
++	unsat                    []uint32
++	unsatPos                 []int
++	probBreak, probabilities []float64
++	model                    Model
++	bestUnsat                uint32
++	flips, nextRestart       uint64
++	restarts                 uint32
++	restartOffset            uint64
++	randomInit               uint32
++}
++
++func newSATProb(limit *control.Reslimit, seed uint32) *satProb {
++	return &satProb{limit: limit, random: z3rand.New(seed), restartOffset: 1000000, randomInit: 4}
++}
++
++func (p *satProb) check() lbool.LBool {
++	p.initialize()
++	for p.bestUnsat != 0 && p.limit.Inc() {
++		if p.flips >= p.nextRestart {
++			p.restart()
++		} else {
++			p.flipOne()
++		}
++	}
++	if p.bestUnsat == 0 {
++		return lbool.True
++	}
++	return lbool.Undef
++}
++
++func (p *satProb) initialize() {
++	for i := range p.values {
++		p.values[i] = p.random.Next()%2 == 0
++	}
++	p.initializeClauses()
++	p.autoConfigure()
++	p.saveBest()
++	p.restarts, p.flips = 1, 0
++	p.nextRestart = p.restartOffset
++}
++
++func (p *satProb) autoConfigure() {
++	maxLen, maxOcc := 0, 0
++	for _, c := range p.clauses {
++		if len(c) > maxLen {
++			maxLen = len(c)
++		}
++	}
++	for _, u := range p.use {
++		if len(u) > maxOcc {
++			maxOcc = len(u)
++		}
++	}
++	cb := 5.4
++	switch maxLen {
++	case 0, 1, 2, 3:
++		cb = 2.5
++	case 4:
++		cb = 2.85
++	case 5:
++		cb = 3.7
++	case 6:
++		cb = 5.1
++	}
++	p.probBreak = make([]float64, maxOcc+1)
++	for i := range p.probBreak {
++		p.probBreak[i] = math.Pow(cb, -float64(i))
++	}
++}
+diff --git a/pkg/sat/sat_prob_clause.go b/pkg/sat/sat_prob_clause.go
+new file mode 100644
+index 000000000..14b42e17f
+--- /dev/null
++++ b/pkg/sat/sat_prob_clause.go
+@@ -0,0 +1,82 @@
++package sat
++
++// Source: src/sat/sat_prob.cpp:92-151,167-189.
++
++func (p *satProb) reserveVariables(n uint32) {
++	for uint32(len(p.values)) < n {
++		p.values = append(p.values, false)
++		p.best = append(p.best, false)
++		p.breaks = append(p.breaks, 0)
++	}
++}
++
++func (p *satProb) addClause(input []Literal) {
++	c := append([]Literal(nil), input...)
++	idx := uint32(len(p.clauses))
++	p.clauses = append(p.clauses, c)
++	p.info = append(p.info, satProbClauseInfo{})
++	for _, l := range c {
++		p.reserveVariables(uint32(l.variable()) + 1)
++		for len(p.use) <= int(l.index()) {
++			p.use = append(p.use, nil)
++		}
++		p.use[l.index()] = append(p.use[l.index()], idx)
++	}
++}
++
++func (p *satProb) literalTrue(l Literal) bool { return p.values[l.variable()] != l.sign() }
++func (p *satProb) initializeClauses() {
++	for i := range p.breaks {
++		p.breaks[i] = 0
++	}
++	p.unsat = nil
++	p.unsatPos = make([]int, len(p.clauses))
++	for i := range p.unsatPos {
++		p.unsatPos[i] = -1
++	}
++	for i, c := range p.clauses {
++		ci := satProbClauseInfo{}
++		for _, l := range c {
++			if p.literalTrue(l) {
++				ci.truths++
++				ci.sum += l.index()
++			}
++		}
++		p.info[i] = ci
++		if ci.truths == 0 {
++			p.insertUnsat(uint32(i))
++		} else if ci.truths == 1 {
++			p.breaks[Literal(ci.sum).variable()]++
++		}
++	}
++}
++func (p *satProb) insertUnsat(i uint32) {
++	if p.unsatPos[i] >= 0 {
++		return
++	}
++	p.unsatPos[i] = len(p.unsat)
++	p.unsat = append(p.unsat, i)
++}
++func (p *satProb) removeUnsat(i uint32) {
++	pos := p.unsatPos[i]
++	if pos < 0 {
++		return
++	}
++	last := p.unsat[len(p.unsat)-1]
++	p.unsat[pos] = last
++	p.unsatPos[last] = pos
++	p.unsat = p.unsat[:len(p.unsat)-1]
++	p.unsatPos[i] = -1
++}
++func (p *satProb) saveBest() {
++	p.bestUnsat = uint32(len(p.unsat))
++	copy(p.best, p.values)
++	p.model = make(Model, len(p.values))
++	for i, v := range p.values {
++		if v {
++			p.model[i] = 1
++		} else {
++			p.model[i] = -1
++		}
++	}
++}
+diff --git a/pkg/sat/sat_prob_flip.go b/pkg/sat/sat_prob_flip.go
+new file mode 100644
+index 000000000..b70767952
+--- /dev/null
++++ b/pkg/sat/sat_prob_flip.go
+@@ -0,0 +1,69 @@
++package sat
++
++// Source: src/sat/sat_prob.cpp:49-91.
++
++func (p *satProb) pickVar() BoolVar {
++	ci := p.unsat[p.random.Next()%uint32(len(p.unsat))]
++	c := p.clauses[ci]
++	if cap(p.probabilities) < len(c) {
++		p.probabilities = make([]float64, len(c))
++	} else {
++		p.probabilities = p.probabilities[:len(c)]
++	}
++	sum := 0.0
++	for i, l := range c {
++		q := p.probBreak[p.breaks[l.variable()]]
++		p.probabilities[i] = q
++		sum += q
++	}
++	lim := sum * float64(p.random.Next()) / float64(0x7fff)
++	i := len(c)
++	for {
++		i--
++		lim -= p.probabilities[i]
++		if lim < 0 || i == 0 {
++			break
++		}
++	}
++	return c[i].variable()
++}
++func (p *satProb) flipOne() {
++	p.flip(p.pickVar())
++	if uint32(len(p.unsat)) < p.bestUnsat {
++		p.saveBest()
++	}
++}
++func (p *satProb) flip(v BoolVar) {
++	p.flips++
++	lit := MakeLiteral(v, !p.values[v])
++	nlit := lit.Negated()
++	if int(lit.index()) < len(p.use) {
++		for _, idx := range p.use[lit.index()] {
++			ci := &p.info[idx]
++			ci.truths--
++			ci.sum -= lit.index()
++			switch ci.truths {
++			case 0:
++				p.insertUnsat(idx)
++				p.breaks[v]--
++			case 1:
++				p.breaks[Literal(ci.sum).variable()]++
++			}
++		}
++	}
++	if int(nlit.index()) < len(p.use) {
++		for _, idx := range p.use[nlit.index()] {
++			ci := &p.info[idx]
++			switch ci.truths {
++			case 0:
++				p.removeUnsat(idx)
++				p.breaks[v]++
++			case 1:
++				p.breaks[Literal(ci.sum).variable()]--
++			}
++			ci.truths++
++			ci.sum += nlit.index()
++		}
++	}
++	p.values[v] = !p.values[v]
++}
+diff --git a/pkg/sat/sat_prob_restart.go b/pkg/sat/sat_prob_restart.go
+new file mode 100644
+index 000000000..d35a044f1
+--- /dev/null
++++ b/pkg/sat/sat_prob_restart.go
+@@ -0,0 +1,18 @@
++package sat
++
++// Source: src/sat/sat_prob.cpp:247-264; src/util/luby.h.
++
++import "github.com/glycerine/g3/pkg/util/luby"
++
++func (p *satProb) restart() {
++	copy(p.values, p.best)
++	for v := range p.values {
++		if p.random.Next()%100 < p.randomInit {
++			p.values[v] = !p.values[v]
++		}
++	}
++	p.initializeClauses()
++	n, _ := luby.Value(p.restarts)
++	p.restarts++
++	p.nextRestart += p.restartOffset * uint64(n)
++}
+diff --git a/pkg/sat/sat_prob_test.go b/pkg/sat/sat_prob_test.go
+new file mode 100644
+index 000000000..9273fca5a
+--- /dev/null
++++ b/pkg/sat/sat_prob_test.go
+@@ -0,0 +1,47 @@
++package sat
++
++import (
++	"testing"
++
++	"github.com/glycerine/g3/pkg/util/control"
++	"github.com/glycerine/g3/pkg/util/lbool"
++)
++
++func TestSATProbFiniteClauseStateFlipAndModel(t *testing.T) {
++	p := newSATProb(&control.Reslimit{Limit: 10000}, 0)
++	p.reserveVariables(3)
++	clauses := [][]Literal{
++		{MakeLiteral(0, false), MakeLiteral(1, false)},
++		{MakeLiteral(0, true), MakeLiteral(1, false)},
++		{MakeLiteral(0, false), MakeLiteral(1, true)},
++	}
++	for _, c := range clauses {
++		p.addClause(c)
++	}
++	if got := p.check(); got != lbool.True {
++		t.Fatal("prob search", got, p.bestUnsat)
++	}
++	for _, c := range clauses {
++		sat := false
++		for _, l := range c {
++			sat = sat || p.model[l.variable()] == lbool.FromBool(!l.sign())
++		}
++		if !sat {
++			t.Fatal("model misses clause", c, p.model)
++		}
++	}
++	if p.bestUnsat != 0 || len(p.model) != 3 {
++		t.Fatal(p.bestUnsat, p.model)
++	}
++}
++
++func TestSATProbRestartAndResourceBoundOnUnsat(t *testing.T) {
++	limit := &control.Reslimit{Limit: 30}
++	p := newSATProb(limit, 7)
++	p.restartOffset = 1
++	p.addClause([]Literal{MakeLiteral(0, false)})
++	p.addClause([]Literal{MakeLiteral(0, true)})
++	if got := p.check(); got != lbool.Undef || limit.Count() != 31 || p.restarts < 2 {
++		t.Fatal("bounded contradictory prob search", got, limit.Count(), p.restarts)
++	}
++}
+diff --git a/pkg/sat/sat_solver_prob_search.go b/pkg/sat/sat_solver_prob_search.go
+new file mode 100644
+index 000000000..a15d36b4d
+--- /dev/null
++++ b/pkg/sat/sat_solver_prob_search.go
+@@ -0,0 +1,80 @@
++package sat
++
++// Source: src/sat/sat_solver.cpp:1237-1240,1415-1455;
++// src/sat/sat_prob.cpp:94-129.
++
++import "github.com/glycerine/g3/pkg/util/lbool"
++
++func (s *Solver) doProbSearch(count uint32) (lbool.LBool, error) {
++	if s.propagation.extensionPresent || count != 0 {
++		return lbool.Undef, nil
++	}
++	nScopes, err := s.conflict.userScopeLiterals.Size()
++	if err != nil || nScopes != 0 {
++		return lbool.Undef, err
++	}
++	// The source prob object owns a default-seeded random generator. Unlike the
++	// periodic local-search path, do_prob_search does not reseed it from the
++	// solver configuration.
++	p := newSATProb(s.Limit, 0)
++	numVars, err := s.Variables.numVarsChecked()
++	if err != nil {
++		return lbool.Undef, err
++	}
++	p.reserveVariables(numVars)
++	n, err := s.sourceInitTrailSize()
++	if err != nil {
++		return lbool.Undef, err
++	}
++	for i := uint32(0); i < n; i++ {
++		l, e := s.Variables.trail.Read(s.Variables.trailRef, i)
++		if e != nil {
++			return lbool.Undef, e
++		}
++		p.addClause([]Literal{Literal(l)})
++	}
++	pairs, err := s.collectBinClauses(nil, false)
++	if err != nil {
++		return lbool.Undef, err
++	}
++	for _, q := range pairs {
++		p.addClause([]Literal{q.Literal1(), q.Literal2()})
++	}
++	it, err := s.beginOriginalClauses()
++	if err != nil {
++		return lbool.Undef, err
++	}
++	for {
++		r, yes, e := it.Next()
++		if e != nil {
++			return lbool.Undef, e
++		}
++		if !yes {
++			break
++		}
++		lits, e := s.Clauses.AppendLiterals(r, nil)
++		if e != nil {
++			return lbool.Undef, e
++		}
++		p.addClause(lits)
++	}
++	result := p.check()
++	if result != lbool.True {
++		return result, nil
++	}
++	if err = s.model.Shrink(0); err != nil {
++		return lbool.Undef, err
++	}
++	if err = satSolverResizeModel(&s.model, uint32(len(p.model))); err != nil {
++		return lbool.Undef, err
++	}
++	span := satSolverModelSpan{column: &s.model}
++	for i, v := range p.model {
++		if err = span.write(BoolVar(i), v); err != nil {
++			return lbool.Undef, err
++		}
++	}
++	s.Variables.modelIsCurrent = true
++	s.Variables.modelKnown = true
++	return lbool.True, nil
++}
+diff --git a/pkg/sat/sat_solver_prob_search_test.go b/pkg/sat/sat_solver_prob_search_test.go
+new file mode 100644
+index 000000000..bb85fb41e
+--- /dev/null
++++ b/pkg/sat/sat_solver_prob_search_test.go
+@@ -0,0 +1,67 @@
++package sat
++
++import (
++	"testing"
++
++	"github.com/glycerine/g3/pkg/util/lbool"
++)
++
++func TestSATSolverProbSearchDispatchExtractionAndModel(t *testing.T) {
++	s, pc, p := satSolverCheckFixture(t)
++	key := "prob_search"
++	satOK(t, pc.SetBoolName(&p, &key, true))
++	satOK(t, s.UpdateParams(&p))
++	state, err := s.config.State()
++	satOK(t, err)
++	if !state.ProbSearch || state.Initialized&satConfigProbSearchMask == 0 {
++		t.Fatal("prob config", state)
++	}
++	for i := 0; i < 4; i++ {
++		_, err := s.MkVar(false, true)
++		satOK(t, err)
++	}
++	clauses := [][]Literal{
++		{MakeLiteral(0, false)},
++		{MakeLiteral(0, true), MakeLiteral(1, false)},
++		{MakeLiteral(1, true), MakeLiteral(2, false), MakeLiteral(0, false)},
++	}
++	for _, c := range clauses {
++		satOK(t, s.MkClause(c))
++	}
++	got, err := s.Check(nil)
++	satOK(t, err)
++	if got != lbool.True {
++		t.Fatal("prob result", got)
++	}
++	model, err := s.AppendModel(nil)
++	satOK(t, err)
++	if len(model) != 4 {
++		t.Fatal("prob model dropped unconstrained variable", model)
++	}
++	for _, c := range clauses {
++		yes := false
++		for _, l := range c {
++			yes = yes || model[l.variable()] == lbool.FromBool(!l.sign())
++		}
++		if !yes {
++			t.Fatal("prob model", model, c)
++		}
++	}
++	if current, err := s.sourceModelIsCurrent(); err != nil || !current {
++		t.Fatal(current, err)
++	}
++}
++
++func TestSATSolverProbSearchRejectsAssumptionsBeforeMutation(t *testing.T) {
++	s, pc, p := satSolverCheckFixture(t)
++	key := "prob_search"
++	satOK(t, pc.SetBoolName(&p, &key, true))
++	satOK(t, s.UpdateParams(&p))
++	v, err := s.MkVar(true, true)
++	satOK(t, err)
++	got, err := s.Check([]Literal{MakeLiteral(v, false)})
++	satOK(t, err)
++	if got != lbool.Undef {
++		t.Fatal(got)
++	}
++}
+diff --git a/pkg/sat/sat_solver_search.go b/pkg/sat/sat_solver_search.go
+index b30f8aede..59157f2ff 100644
+--- a/pkg/sat/sat_solver_search.go
++++ b/pkg/sat/sat_solver_search.go
+@@ -336,6 +336,15 @@ func (s *Solver) checkSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool
+ 		}
+ 		return lbool.Undef, nil
+ 	}
++	if cfg.ProbSearch {
++		if _, e = s.cleaner.run(true); e != nil {
++			return lbool.Undef, e
++		}
++		if s.propagation.inconsistent {
++			return lbool.False, nil
++		}
++		return s.doProbSearch(count)
++	}
+ 	if cfg.NumParallel > 1 && !s.conflict.parallelPresent {
+ 		return lbool.Undef, ErrSATMissingParallelBinding
+ 	}
