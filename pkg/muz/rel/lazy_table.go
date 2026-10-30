@@ -2,8 +2,8 @@ package rel
 
 // Source: src/muz/rel/dl_lazy_table.h/.cpp lazy_table_ref hierarchy and
 // force/eval implementation. This is the concrete retained HashTable
-// specialization; interpreted AST filtering remains with its unported table
-// condition evaluator.
+// specialization; interpreted AST filtering is provided by the finite table
+// relation evaluator.
 
 import (
 	"errors"
@@ -263,35 +263,37 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		result, err = source.Clone()
-		if err == nil {
-			e.stats.IdenticalFilters++
-			err = result.FilterIdentical(node.columns1)
-		}
+		// The C++ force path releases the source node's cached table and
+		// transfers that table into this mutating filter node.
+		node.left.evaluated = nil
+		node.evaluated = source
+		e.stats.IdenticalFilters++
+		err = source.FilterIdentical(node.columns1)
+		result = source
 	case LazyTableFilterEqual:
 		source, sourceErr := e.evaluate(node.left)
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		result, err = source.Clone()
-		if err == nil {
-			e.stats.EqualFilters++
-			err = result.FilterEqual(node.value, node.column)
-		}
+		node.left.evaluated = nil
+		node.evaluated = source
+		e.stats.EqualFilters++
+		err = source.FilterEqual(node.value, node.column)
+		result = source
 	case LazyTableFilterByNegation:
 		target, targetErr := e.evaluate(node.left)
 		if targetErr != nil {
 			return nil, targetErr
 		}
+		node.left.evaluated = nil
+		node.evaluated = target
 		source, sourceErr := e.evaluate(node.right)
 		if sourceErr != nil {
 			return nil, sourceErr
 		}
-		result, err = target.Clone()
-		if err == nil {
-			e.stats.NegationFilters++
-			err = result.FilterByNegation(source, node.columns1, node.columns2)
-		}
+		e.stats.NegationFilters++
+		err = target.FilterByNegation(source, node.columns1, node.columns2)
+		result = target
 	case LazyTableFilterInterpreted:
 		source, sourceErr := e.evaluate(node.left)
 		if sourceErr != nil {

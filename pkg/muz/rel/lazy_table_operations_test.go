@@ -130,6 +130,50 @@ func TestLazyTableRenameNegationAndEagerUnion(t *testing.T) {
 	requireLazyFact(t, delta, Fact{1, 0}, true)
 }
 
+func TestLazyTableMutatingFiltersTransferCachedTables(t *testing.T) {
+	for _, operation := range []string{"equal", "identical", "negation"} {
+		t.Run(operation, func(t *testing.T) {
+			engine := NewLazyTableEngine()
+			t.Cleanup(func() {
+				if err := engine.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			targetBase := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 2), Fact{0, 0}, Fact{0, 1}, Fact{1, 1})
+			target, err := targetBase.Project(nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			closeLazyTables(t, targetBase, target)
+			before, err := target.Eval()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			switch operation {
+			case "equal":
+				err = target.FilterEqual(1, 1)
+			case "identical":
+				err = target.FilterIdentical([]int{0, 1})
+			case "negation":
+				negative := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{1})
+				closeLazyTables(t, negative)
+				err = target.FilterByNegation(negative, []int{1}, []int{0})
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			after, err := target.Eval()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if after != before {
+				t.Fatal("mutating filter did not take ownership of the cached source table")
+			}
+		})
+	}
+}
+
 func TestLazyTableBulkRemoveForcesLikeSource(t *testing.T) {
 	engine := NewLazyTableEngine()
 	t.Cleanup(func() {
