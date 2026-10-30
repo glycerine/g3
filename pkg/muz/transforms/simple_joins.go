@@ -34,6 +34,13 @@ type sharedJoinDefinition struct {
 	outputs     []uint32
 }
 
+type simpleJoinPlan struct {
+	outputs    map[normalizedPairKey][]uint32
+	costs      map[normalizedPairKey]float32
+	consumers  map[normalizedPairKey]uint32
+	stratified map[normalizedPairKey]bool
+}
+
 func NewSimpleJoinsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32, relations ...*rel.RelationManager) *SimpleJoinsPlugin {
 	if priority == 0 {
 		priority = 1000
@@ -85,7 +92,7 @@ func (p *SimpleJoinsPlugin) variables(root ast.ASTHandle, result map[uint32]ast.
 	return nil
 }
 
-func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHandle, prefix usymbol.Symbol, parent *base.Rule, shared map[sharedJoinKey]sharedJoinDefinition) (ast.ASTHandle, *base.Rule, error) {
+func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHandle, prefix usymbol.Symbol, parent *base.Rule, shared map[sharedJoinKey]sharedJoinDefinition, globalOutputs map[normalizedPairKey][]uint32) (ast.ASTHandle, *base.Rule, error) {
 	var err error
 	live := make(map[uint32]ast.ASTHandle)
 	for _, expression := range outside {
@@ -98,6 +105,9 @@ func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHand
 		if _, found := live[variable]; found {
 			outputs = append(outputs, pair.actualToCanonical[variable])
 		}
+	}
+	if union, found := globalOutputs[pair.key]; found {
+		outputs = append(outputs[:0], union...)
 	}
 	sort.Slice(outputs, func(i, j int) bool { return outputs[i] < outputs[j] })
 	key := sharedJoinKey{pair: pair.key, outputs: fmt.Sprint(outputs)}
@@ -168,6 +178,131 @@ func (p *SimpleJoinsPlugin) auxiliary(pair normalizedPair, outside []ast.ASTHand
 	return head, definition, nil
 }
 
+// collectPairPlan performs the source planner's pre-registration pass: every
+// rule contributes non-local variables, the first estimated pair cost, and
+// stratification/consumer accounting before pair selection starts.
+func (p *SimpleJoinsPlugin) collectPairPlan(source *base.RuleSet) (_ *simpleJoinPlan, resultErr error) {
+	count, err := source.Len()
+	if err != nil {
+		return nil, err
+	}
+	sets := make(map[normalizedPairKey]map[uint32]struct{})
+	plan := &simpleJoinPlan{
+		outputs: make(map[normalizedPairKey][]uint32), costs: make(map[normalizedPairKey]float32),
+		consumers: make(map[normalizedPairKey]uint32), stratified: make(map[normalizedPairKey]bool),
+	}
+	for ruleIndex := 0; ruleIndex < count; ruleIndex++ {
+		rule, x := source.Rule(ruleIndex)
+		if x != nil {
+			return nil, x
+		}
+		funcErr := func() error {
+			positive, x := rule.PositiveTailSize()
+			if x != nil {
+				return x
+			}
+			head, x := rule.Head()
+			if x != nil {
+				return x
+			}
+			tailCount, x := rule.TailSize()
+			if x != nil {
+				return x
+			}
+			tails := make([]ast.ASTHandle, tailCount)
+			for i := range tails {
+				tails[i], _, x = rule.Tail(i)
+				if x != nil {
+					return x
+				}
+			}
+			for left := 0; left < positive; left++ {
+				for right := left + 1; right < positive; right++ {
+					pair, y := p.normalizePair(tails[left], tails[right])
+					if y != nil {
+						return y
+					}
+					outside := []ast.ASTHandle{head}
+					for i, tail := range tails {
+						if i != left && i != right {
+							outside = append(outside, tail)
+						}
+					}
+					live := make(map[uint32]ast.ASTHandle)
+					for _, expression := range outside {
+						if y = p.variables(expression, live); y != nil {
+							return y
+						}
+					}
+					if _, seen := plan.costs[pair.key]; !seen {
+						cost, costErr := p.estimatedPairCost(tails[:positive], outside, left, right)
+						if costErr != nil {
+							return costErr
+						}
+						plan.costs[pair.key] = cost
+						plan.stratified[pair.key] = true
+					}
+					if positive > 2 {
+						plan.consumers[pair.key]++
+					}
+					leftDecl, y := p.manager.GetDecl(tails[left])
+					if y != nil {
+						return y
+					}
+					rightDecl, y := p.manager.GetDecl(tails[right])
+					if y != nil {
+						return y
+					}
+					headDecl, y := p.manager.GetDecl(head)
+					if y != nil {
+						return y
+					}
+					leftStratum, leftErr := source.PredicateStratum(leftDecl)
+					rightStratum, rightErr := source.PredicateStratum(rightDecl)
+					headStratum, headErr := source.PredicateStratum(headDecl)
+					if leftErr != nil || rightErr != nil || headErr != nil {
+						plan.stratified[pair.key] = false
+					} else {
+						sourceStratum := leftStratum
+						if rightStratum > sourceStratum {
+							sourceStratum = rightStratum
+						}
+						if headStratum <= sourceStratum {
+							plan.stratified[pair.key] = false
+						}
+					}
+					output := sets[pair.key]
+					if output == nil {
+						output = make(map[uint32]struct{})
+						sets[pair.key] = output
+					}
+					for variable, canonical := range pair.actualToCanonical {
+						if _, needed := live[variable]; needed {
+							output[canonical] = struct{}{}
+						}
+					}
+				}
+			}
+			return nil
+		}()
+		funcErr = errors.Join(funcErr, rule.Close())
+		if funcErr != nil {
+			return nil, funcErr
+		}
+	}
+	result := make(map[normalizedPairKey][]uint32, len(sets))
+	for key, set := range sets {
+		outputs := make([]uint32, 0, len(set))
+		for output := range set {
+			outputs = append(outputs, output)
+		}
+		sort.Slice(outputs, func(i, j int) bool { return outputs[i] < outputs[j] })
+		result[key] = outputs
+	}
+	plan.outputs = result
+	return plan, nil
+}
+
 func (p *SimpleJoinsPlugin) attachAssertedProof(rule *base.Rule) (resultErr error) {
 	enabled, err := p.manager.ProofsEnabled()
 	if err != nil || !enabled {
@@ -209,6 +344,10 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 		}
 	}()
 	if err = result.InheritPredicates(source); err != nil {
+		return nil, err
+	}
+	plan, err := p.collectPairPlan(source)
+	if err != nil {
 		return nil, err
 	}
 	var introduced []*base.Rule
@@ -273,7 +412,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 					outside = append(outside, tail)
 				}
 			}
-			leftIndex, rightIndex, y := p.bestPair(source, head, tails[:positive], outside)
+			leftIndex, rightIndex, y := p.bestPair(tails[:positive], outside, plan)
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}
@@ -286,7 +425,7 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 					outside = append(outside, tail)
 				}
 			}
-			auxiliary, definition, y := p.auxiliary(pair, outside, prefix, rule, shared)
+			auxiliary, definition, y := p.auxiliary(pair, outside, prefix, rule, shared, plan.outputs)
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}

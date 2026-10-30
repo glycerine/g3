@@ -96,7 +96,9 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, x)
 		coneMust(t, rules.RegisterPredicate(declaration))
 		application, x := manager.MkApp(declaration, args)
-		coneMust(t, x)
+		if x != nil {
+			t.Fatalf("make predicate %s: %v", name, x)
+		}
 		return application
 	}
 	a := makePredicate("A", sorts[:2], handles[0:2])
@@ -141,17 +143,55 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
 	var secondHandles [5]ast.ASTHandle
+	secondPins := make([]ast.ASTRef, len(secondHandles))
 	for i := range secondHandles {
 		secondHandles[i], err = manager.MkVar(uint32(i+10), sorts[i])
 		coneMust(t, err)
+		secondPins[i], err = manager.NewRef(secondHandles[i])
+		coneMust(t, err)
 	}
+	t.Cleanup(func() {
+		for i := len(secondPins) - 1; i >= 0; i-- {
+			coneMust(t, manager.DelRef(&secondPins[i]))
+		}
+	})
 	a2 := makePredicate("A", sorts[:2], secondHandles[0:2])
 	b2 := makePredicate("B", []ast.ASTHandle{sorts[0], sorts[2]}, []ast.ASTHandle{secondHandles[0], secondHandles[2]})
 	c2 := makePredicate("C", sorts[3:], secondHandles[3:])
+	for _, pair := range [][2]ast.ASTHandle{{a, a2}, {b, b2}, {c, c2}} {
+		firstDecl, x := manager.GetDecl(pair[0])
+		coneMust(t, x)
+		secondDecl, x := manager.GetDecl(pair[1])
+		coneMust(t, x)
+		if firstDecl != secondDecl {
+			t.Fatalf("same source predicate applications use distinct declarations")
+		}
+	}
 	head2 := makePredicate("Goal", sorts, secondHandles[:])
+	secondApps := []ast.ASTHandle{a2, b2, c2, head2}
+	secondAppPins := make([]ast.ASTRef, len(secondApps))
+	for i, application := range secondApps {
+		secondAppPins[i], err = manager.NewRef(application)
+		coneMust(t, err)
+	}
+	t.Cleanup(func() {
+		for i := len(secondAppPins) - 1; i >= 0; i-- {
+			coneMust(t, manager.DelRef(&secondAppPins[i]))
+		}
+	})
 	rule2, err := rules.NewRule(head2, []ast.ASTHandle{a2, b2, c2}, nil, "renamed-estimated-pair")
 	coneMust(t, err)
 	coneMust(t, set.Add(rule2))
+	for i, variable := range secondHandles {
+		if kind, x := manager.GetKind(variable); x != nil || kind != ast.ASTVar {
+			t.Fatalf("second variable %d lost before alternate head: kind=%v err=%v", i, kind, x)
+		}
+	}
+	head3 := makePredicate("Goal2", []ast.ASTHandle{sorts[0], sorts[2], sorts[3], sorts[4]}, []ast.ASTHandle{secondHandles[0], secondHandles[2], secondHandles[3], secondHandles[4]})
+	rule3, err := rules.NewRule(head3, []ast.ASTHandle{a2, b2, c2}, nil, "different-live-outputs")
+	coneMust(t, err)
+	coneMust(t, set.Add(rule3))
+	coneMust(t, rule3.Close())
 	coneMust(t, rule2.Close())
 	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0, relations)
 	transformed, err := plugin.Transform(set)
@@ -159,24 +199,35 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	if transformed == nil {
 		t.Fatal("three-tail rule was not transformed")
 	}
-	if transformedCount, x := transformed.Len(); x != nil || transformedCount != 3 {
-		t.Fatalf("renamed pair consumers yielded %d rules, want two parents and one shared helper: %v", transformedCount, x)
+	if transformedCount, x := transformed.Len(); x != nil || transformedCount != 4 {
+		t.Fatalf("renamed pair consumers yielded %d rules, want three parents and one shared pair helper: %v", transformedCount, x)
 	}
-	if fresh := plugin.FreshPredicates(); len(fresh) != 1 {
-		t.Fatalf("renamed equivalent pairs created %d helper predicates, want one", len(fresh))
+	fresh := plugin.FreshPredicates()
+	if len(fresh) != 1 {
+		t.Fatalf("renamed equivalent pairs created %d helper predicates, want one selected pair group", len(fresh))
 	} else {
-		for index := 0; index < 2; index++ {
+		var sharedDecl ast.ASTHandle
+		for index := 0; index < 3; index++ {
 			parent, x := transformed.Rule(index)
 			coneMust(t, x)
-			found := false
+			var found ast.ASTHandle
 			for tailIndex := 0; tailIndex < 2; tailIndex++ {
 				declaration, y := parent.TailDeclaration(tailIndex)
 				coneMust(t, y)
-				found = found || declaration == fresh[0]
+				for _, candidate := range fresh {
+					if declaration == candidate {
+						found = candidate
+					}
+				}
 			}
 			coneMust(t, parent.Close())
-			if !found {
+			if found.IsNull() {
 				t.Fatalf("rewritten parent %d does not call the shared helper", index)
+			}
+			if index == 0 {
+				sharedDecl = found
+			} else if sharedDecl != found {
+				t.Fatal("consumers of the selected pair did not share one helper")
 			}
 		}
 	}
@@ -195,8 +246,28 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	if mainName != "estimated-pair" {
 		t.Fatalf("first transformed rule name %q, want rewritten source rule", mainName)
 	}
-	definition, err := transformed.Rule(2)
-	coneMust(t, err)
+	var definition *base.Rule
+	for index := 3; index < 4; index++ {
+		candidate, x := transformed.Rule(index)
+		coneMust(t, x)
+		pairNames := make([]string, 2)
+		for i := range pairNames {
+			declaration, y := candidate.TailDeclaration(i)
+			coneMust(t, y)
+			name, y := manager.GetASTName(declaration)
+			coneMust(t, y)
+			pairNames[i], y = manager.Symbols.String(name)
+			coneMust(t, y)
+		}
+		if (strings.Contains(pairNames[0], "simple-cost-B") && strings.Contains(pairNames[1], "simple-cost-C")) || (strings.Contains(pairNames[0], "simple-cost-C") && strings.Contains(pairNames[1], "simple-cost-B")) {
+			definition = candidate
+		} else {
+			coneMust(t, candidate.Close())
+		}
+	}
+	if definition == nil {
+		t.Fatal("no helper definition for the selected B/C pair")
+	}
 	if _, found, proofErr := definition.Proof(); proofErr != nil || !found {
 		t.Fatalf("introduced helper rule has no asserted proof: found=%v err=%v", found, proofErr)
 	}
@@ -223,13 +294,15 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, plainResult.Close())
 		coneMust(t, plain.Close())
 	})
-	if plainCount, x := plainResult.Len(); x != nil || plainCount != 3 {
-		t.Fatalf("unsaturated renamed pair consumers yielded %d rules, want two parents and one shared helper: %v", plainCount, x)
+	if plainCount, x := plainResult.Len(); x != nil || plainCount != 4 {
+		t.Fatalf("unsaturated renamed pair consumers yielded %d rules, want three parents and one shared helper: %v", plainCount, x)
 	}
 	if fresh := plain.FreshPredicates(); len(fresh) != 1 {
 		t.Fatalf("unsaturated renamed equivalent pairs created %d helpers, want one", len(fresh))
+	} else if arity, x := manager.GetArity(fresh[0]); x != nil || arity != 3 {
+		t.Fatalf("shared helper arity = %d, want union of three output variables: %v", arity, x)
 	}
-	plainHelper, err := plainResult.Rule(2)
+	plainHelper, err := plainResult.Rule(3)
 	coneMust(t, err)
 	plainTails := make([]string, 2)
 	for i := range plainTails {

@@ -6,7 +6,6 @@ import (
 	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 func (p *SimpleJoinsPlugin) variableSorts(expressions []ast.ASTHandle) (map[uint32]ast.ASTHandle, error) {
@@ -104,7 +103,7 @@ func (p *SimpleJoinsPlugin) tailCost(tail ast.ASTHandle) (float32, map[uint32]as
 	return result, variables, nil
 }
 
-func (p *SimpleJoinsPlugin) estimatedPairCost(set *base.RuleSet, head ast.ASTHandle, tails []ast.ASTHandle, outside []ast.ASTHandle, leftIndex, rightIndex int) (float32, error) {
+func (p *SimpleJoinsPlugin) estimatedPairCost(tails []ast.ASTHandle, outside []ast.ASTHandle, leftIndex, rightIndex int) (float32, error) {
 	left, leftVars, err := p.tailCost(tails[leftIndex])
 	if err != nil {
 		return 0, err
@@ -114,7 +113,6 @@ func (p *SimpleJoinsPlugin) estimatedPairCost(set *base.RuleSet, head ast.ASTHan
 		return 0, err
 	}
 	other := make([]ast.ASTHandle, 0, len(outside)+len(tails)-2)
-	other = append(other, head)
 	other = append(other, outside...)
 	for index, tail := range tails {
 		if index != leftIndex && index != rightIndex {
@@ -145,52 +143,52 @@ func (p *SimpleJoinsPlugin) estimatedPairCost(set *base.RuleSet, head ast.ASTHan
 		return 0, nil
 	}
 	cost := left * right / intersectionSize
-	leftDecl, err := p.manager.GetDecl(tails[leftIndex])
-	if err != nil {
-		return 0, err
-	}
-	rightDecl, err := p.manager.GetDecl(tails[rightIndex])
-	if err != nil {
-		return 0, err
-	}
-	leftStratum, leftErr := set.PredicateStratum(leftDecl)
-	rightStratum, rightErr := set.PredicateStratum(rightDecl)
-	headDecl, headErr := p.manager.GetDecl(head)
-	headStratum, headStratumErr := set.PredicateStratum(headDecl)
-	if leftErr == nil && rightErr == nil && headErr == nil && headStratumErr == nil {
-		sourceStratum := leftStratum
-		if rightStratum > sourceStratum {
-			sourceStratum = rightStratum
-		}
-		if headStratum > sourceStratum && cost > 0 {
-			cost *= 1.0 / 16.0
-		}
-	}
 	return cost, nil
 }
 
-func (p *SimpleJoinsPlugin) bestPair(set *base.RuleSet, head ast.ASTHandle, tails, outside []ast.ASTHandle) (int, int, error) {
+func (p *SimpleJoinsPlugin) bestPair(tails, outside []ast.ASTHandle, plan *simpleJoinPlan) (int, int, error) {
 	if len(tails) < 2 {
 		return -1, -1, nil
 	}
 	bestLeft, bestRight := 0, 1
-	bestCost, err := p.estimatedPairCost(set, head, tails, outside, bestLeft, bestRight)
+	bestCost, err := p.estimatedPairCost(tails, outside, bestLeft, bestRight)
 	if err != nil {
 		return -1, -1, err
 	}
+	bestCost = p.amortizedPairCost(tails[bestLeft], tails[bestRight], bestCost, plan)
 	for left := 0; left < len(tails); left++ {
 		for right := left + 1; right < len(tails); right++ {
 			if left == bestLeft && right == bestRight {
 				continue
 			}
-			cost, x := p.estimatedPairCost(set, head, tails, outside, left, right)
+			cost, x := p.estimatedPairCost(tails, outside, left, right)
 			if x != nil {
 				return -1, -1, x
 			}
+			cost = p.amortizedPairCost(tails[left], tails[right], cost, plan)
 			if cost < bestCost {
 				bestLeft, bestRight, bestCost = left, right, cost
 			}
 		}
 	}
 	return bestLeft, bestRight, nil
+}
+
+func (p *SimpleJoinsPlugin) amortizedPairCost(left, right ast.ASTHandle, fallback float32, plan *simpleJoinPlan) float32 {
+	if plan == nil {
+		return fallback
+	}
+	pair, err := p.normalizePair(left, right)
+	if err != nil {
+		return fallback
+	}
+	consumers := plan.consumers[pair.key]
+	if consumers == 0 {
+		return fallback
+	}
+	cost := plan.costs[pair.key] / float32(consumers)
+	if plan.stratified[pair.key] && cost > 0 {
+		cost /= 16
+	}
+	return cost
 }
