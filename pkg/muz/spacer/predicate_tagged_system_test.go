@@ -1,6 +1,6 @@
 package spacer
 
-// Source: src/muz/spacer/spacer_context.cpp pred_transformer::init_rules.
+// Source: src/muz/spacer/spacer_context.cpp pred_transformer::init_rules and initialize.
 
 import (
 	"strconv"
@@ -10,13 +10,14 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-func TestSpacerTaggedSystemKeepsSourceImplicationsAndTagOrder(t *testing.T) {
+func TestSpacerTaggedSystemRewritesImplicationsAndPreservesTagOrder(t *testing.T) {
 	for _, tc := range []struct {
 		count     int
 		recursive bool
-	}{{1, false}, {2, false}, {1, true}, {2, true}} {
+		trivial   bool
+	}{{1, false, false}, {2, false, false}, {1, true, false}, {2, true, false}, {1, false, true}, {2, false, true}, {2, true, true}} {
 		count := tc.count
-		t.Run(strconv.Itoa(count)+map[bool]string{false: "/initial", true: "/recursive"}[tc.recursive], func(t *testing.T) {
+		t.Run(strconv.Itoa(count)+map[bool]string{false: "/initial", true: "/recursive"}[tc.recursive]+map[bool]string{false: "", true: "/true-body"}[tc.trivial], func(t *testing.T) {
 			f := newContextAnswerFixture(t, false)
 			m := f.context.manager
 			must := func(err error) {
@@ -43,6 +44,10 @@ func TestSpacerTaggedSystemKeepsSourceImplicationsAndTagOrder(t *testing.T) {
 			for i := 0; i < count; i++ {
 				condition, err := m.MkFreshConst("tagged-system-condition", boolean)
 				must(err)
+				if tc.trivial {
+					condition, err = m.MkTrue()
+					must(err)
+				}
 				tail := []ast.ASTHandle{condition}
 				if tc.recursive && i == count-1 {
 					tail = []ast.ASTHandle{head, condition}
@@ -62,9 +67,15 @@ func TestSpacerTaggedSystemKeepsSourceImplicationsAndTagOrder(t *testing.T) {
 				tag, err := pt.RuleTag(rule)
 				must(err)
 				tags = append(tags, tag)
-				implication, err := m.MkImplies(tag, conditions[i])
-				must(err)
-				guarded = append(guarded, implication)
+				// initialize rewrites (=> tag body) to (or (not tag) body),
+				// dropping a true body before storing or asserting the system.
+				if !m.IsTrue(conditions[i]) {
+					negative, err := m.MkNot(tag)
+					must(err)
+					clause, err := m.MkOrArray([]ast.ASTHandle{negative, conditions[i]})
+					must(err)
+					guarded = append(guarded, clause)
+				}
 			}
 			var selection []ast.ASTHandle
 			if count == 1 {
@@ -80,7 +91,7 @@ func TestSpacerTaggedSystemKeepsSourceImplicationsAndTagOrder(t *testing.T) {
 			actual, err := pt.Transition()
 			must(err)
 			if actual != expected {
-				t.Fatal("tagged transition changed source implication shape or tag/extension order", actual, expected)
+				t.Fatal("tagged transition differs from source final rewrite or tag/extension order", actual, expected)
 			}
 			initial, err := pt.InitialState()
 			must(err)

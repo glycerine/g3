@@ -196,13 +196,14 @@ func (p *PredicateTransformer) AddReachFact(fact *ReachFact) (_ bool, resultErr 
 	return true, nil
 }
 
-// InitReachFacts publishes every normalized initial rule transition once.
+// InitReachFacts publishes each live initial rule transition once. Source
+// iterates m_rule2tag, which excludes transitions normalized to false.
 func (p *PredicateTransformer) InitReachFacts() (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
 	for _, rule := range p.rules {
-		if !rule.initial {
+		if !rule.initial || rule.tag.IsNull() {
 			continue
 		}
 		fact, err := NewReachFact(p.manager, rule.rule, rule.transition, rule.auxiliaries, true)

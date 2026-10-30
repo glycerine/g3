@@ -469,7 +469,7 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 	}
 	guarded = append(guarded, selected)
 	// manager::mk_and applies only bool_rewriter::mk_and to these children.
-	// A full theory rewrite would rewrite the guarded implications as well.
+	// The later initialize stage theory-rewrites the completed formulas.
 	boolean := b.transformer.owner.boolean
 	var conjunctions [2]ast.ASTHandle
 	for index, args := range [2][]ast.ASTHandle{guarded, initialConditions} {
@@ -535,6 +535,16 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 		builder.rules = append(builder.rules, normalized)
 	}
 	initial, transition, err := builder.buildSystem()
+	if err != nil {
+		return err
+	}
+	// init_rules builds guarded implications using Boolean conjunction only;
+	// pred_transformer::initialize then theory-rewrites both completed formulas.
+	transition, err = builder.rewrite(transition)
+	if err != nil {
+		return err
+	}
+	initial, err = builder.rewrite(initial)
 	if err != nil {
 		return err
 	}
