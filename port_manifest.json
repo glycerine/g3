@@ -191721,362 +191721,872 @@
       "path": "src/test/old_interval.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/smtcore/old_interval.go",
+        "pkg/smtcore/old_interval_extended.go",
+        "pkg/smtcore/old_interval_source_test.go",
+        "pkg/smtcore/old_interval_test.go",
         "pkg/util/numeral/mpbqi_test.go",
         "pkg/util/numeral/scoped_binary_interval_test.go"
       ],
       "tests": [
-        "TestBinaryIntervalQueriesAndScalarRoutes",
         "TestBinaryIntervalArithmeticAliasesAndPowers",
-        "TestBinaryIntervalSourceSharedTemplate",
-        "TestBinaryIntervalSourceDefects",
-        "TestBinaryIntervalIndependentArithmetic",
         "TestBinaryIntervalFailurePrefixes",
         "TestBinaryIntervalFormattingAndWarmStorage",
-        "TestBinaryIntervalPredicateShortCircuits",
+        "TestBinaryIntervalIndependentArithmetic",
         "TestBinaryIntervalOwnerAndScope",
-        "TestBinaryIntervalRetainedProductsAndDeepCopies"
+        "TestBinaryIntervalPredicateShortCircuits",
+        "TestBinaryIntervalQueriesAndScalarRoutes",
+        "TestBinaryIntervalRetainedProductsAndDeepCopies",
+        "TestBinaryIntervalSourceDefects",
+        "TestBinaryIntervalSourceSharedTemplate",
+        "TestSMTOldIntervalAddSubtractContainsAndDependencies",
+        "TestSMTOldIntervalCloneOwnsRationalEndpoints",
+        "TestSMTOldIntervalInverseAndPower",
+        "TestSMTOldIntervalMultiplicationClosedOracle",
+        "TestSMTOldIntervalMultiplicationSignTable",
+        "TestSMTOldIntervalMultiplyOpenZeroAndDivide",
+        "TestSMTOldIntervalRegisteredExtendedNumeralAssertions",
+        "TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic"
       ],
       "assertions": [
         {
           "line": 26,
-          "text": "ENSURE(ext_numeral(10) + ext_numeral(3) == ext_numeral(13));"
+          "text": "ENSURE(ext_numeral(10) + ext_numeral(3) == ext_numeral(13));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 27,
-          "text": "ENSURE(inf + zero == inf);"
+          "text": "ENSURE(inf + zero == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 28,
-          "text": "ENSURE(minus_inf + zero == minus_inf);"
+          "text": "ENSURE(minus_inf + zero == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 29,
-          "text": "ENSURE(minus_inf + ext_numeral(3) == minus_inf);"
+          "text": "ENSURE(minus_inf + ext_numeral(3) == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 30,
-          "text": "ENSURE(inf + inf == inf);"
+          "text": "ENSURE(inf + inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 31,
-          "text": "ENSURE(minus_inf + minus_inf == minus_inf);"
+          "text": "ENSURE(minus_inf + minus_inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 32,
-          "text": "ENSURE(minus_inf + ext_numeral(10) == minus_inf);"
+          "text": "ENSURE(minus_inf + ext_numeral(10) == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 33,
-          "text": "ENSURE(minus_inf + ext_numeral(-10) == minus_inf);"
+          "text": "ENSURE(minus_inf + ext_numeral(-10) == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 34,
-          "text": "ENSURE(inf + ext_numeral(10) == inf);"
+          "text": "ENSURE(inf + ext_numeral(10) == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 35,
-          "text": "ENSURE(inf + ext_numeral(-10) == inf);"
+          "text": "ENSURE(inf + ext_numeral(-10) == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 37,
-          "text": "ENSURE(ext_numeral(10) - ext_numeral(3) == ext_numeral(7));"
+          "text": "ENSURE(ext_numeral(10) - ext_numeral(3) == ext_numeral(7));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 38,
-          "text": "ENSURE(inf - zero == inf);"
+          "text": "ENSURE(inf - zero == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 39,
-          "text": "ENSURE(minus_inf - zero == minus_inf);"
+          "text": "ENSURE(minus_inf - zero == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 40,
-          "text": "ENSURE(minus_inf - ext_numeral(3) == minus_inf);"
+          "text": "ENSURE(minus_inf - ext_numeral(3) == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 41,
-          "text": "ENSURE(inf - minus_inf == inf);"
+          "text": "ENSURE(inf - minus_inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 42,
-          "text": "ENSURE(minus_inf - inf == minus_inf);"
+          "text": "ENSURE(minus_inf - inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 43,
-          "text": "ENSURE(zero - minus_inf == inf);"
+          "text": "ENSURE(zero - minus_inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 44,
-          "text": "ENSURE(zero - inf == minus_inf);"
+          "text": "ENSURE(zero - inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 45,
-          "text": "ENSURE(ext_numeral(-10) - minus_inf == inf);"
+          "text": "ENSURE(ext_numeral(-10) - minus_inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 46,
-          "text": "ENSURE(ext_numeral(10) - minus_inf == inf);"
+          "text": "ENSURE(ext_numeral(10) - minus_inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 47,
-          "text": "ENSURE(ext_numeral(-10) - inf == minus_inf);"
+          "text": "ENSURE(ext_numeral(-10) - inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 48,
-          "text": "ENSURE(ext_numeral(10) - inf == minus_inf);"
+          "text": "ENSURE(ext_numeral(10) - inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 50,
-          "text": "ENSURE(ext_numeral(10) * inf == inf);"
+          "text": "ENSURE(ext_numeral(10) * inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 51,
-          "text": "ENSURE(ext_numeral(-10) * inf == minus_inf);"
+          "text": "ENSURE(ext_numeral(-10) * inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 52,
-          "text": "ENSURE(zero * inf == zero);"
+          "text": "ENSURE(zero * inf == zero);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 53,
-          "text": "ENSURE(zero * minus_inf == zero);"
+          "text": "ENSURE(zero * minus_inf == zero);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 54,
-          "text": "ENSURE(zero * ext_numeral(10) == zero);"
+          "text": "ENSURE(zero * ext_numeral(10) == zero);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 55,
-          "text": "ENSURE(ext_numeral(10) * ext_numeral(-20) == ext_numeral(-200));"
+          "text": "ENSURE(ext_numeral(10) * ext_numeral(-20) == ext_numeral(-200));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 56,
-          "text": "ENSURE(ext_numeral(3) * ext_numeral(2) == ext_numeral(6));"
+          "text": "ENSURE(ext_numeral(3) * ext_numeral(2) == ext_numeral(6));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 57,
-          "text": "ENSURE(inf * inf == inf);"
+          "text": "ENSURE(inf * inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 58,
-          "text": "ENSURE(inf * minus_inf == minus_inf);"
+          "text": "ENSURE(inf * minus_inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 59,
-          "text": "ENSURE(minus_inf * minus_inf == inf);"
+          "text": "ENSURE(minus_inf * minus_inf == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 60,
-          "text": "ENSURE(minus_inf * inf == minus_inf);"
+          "text": "ENSURE(minus_inf * inf == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 61,
-          "text": "ENSURE(minus_inf * ext_numeral(10) == minus_inf);"
+          "text": "ENSURE(minus_inf * ext_numeral(10) == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 62,
-          "text": "ENSURE(minus_inf * ext_numeral(-10) == inf);"
+          "text": "ENSURE(minus_inf * ext_numeral(-10) == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 64,
-          "text": "ENSURE(minus_inf < inf);"
+          "text": "ENSURE(minus_inf < inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 65,
-          "text": "ENSURE(!(inf < minus_inf));"
+          "text": "ENSURE(!(inf < minus_inf));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 66,
-          "text": "ENSURE(minus_inf < ext_numeral(10));"
+          "text": "ENSURE(minus_inf < ext_numeral(10));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 67,
-          "text": "ENSURE(ext_numeral(-3) < inf);"
+          "text": "ENSURE(ext_numeral(-3) < inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 68,
-          "text": "ENSURE(ext_numeral(-10) < ext_numeral(4));"
+          "text": "ENSURE(ext_numeral(-10) < ext_numeral(4));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 69,
-          "text": "ENSURE(ext_numeral(2) < ext_numeral(10));"
+          "text": "ENSURE(ext_numeral(2) < ext_numeral(10));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 70,
-          "text": "ENSURE(!(inf < ext_numeral(30)));"
+          "text": "ENSURE(!(inf < ext_numeral(30)));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 71,
-          "text": "ENSURE(!(ext_numeral(10) < minus_inf));"
+          "text": "ENSURE(!(ext_numeral(10) < minus_inf));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 72,
-          "text": "ENSURE(!(inf < inf));"
+          "text": "ENSURE(!(inf < inf));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 73,
-          "text": "ENSURE(!(minus_inf < minus_inf));"
+          "text": "ENSURE(!(minus_inf < minus_inf));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 74,
-          "text": "ENSURE(!(zero < zero));"
+          "text": "ENSURE(!(zero < zero));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 75,
-          "text": "ENSURE(!(ext_numeral(10) < ext_numeral(10)));"
+          "text": "ENSURE(!(ext_numeral(10) < ext_numeral(10)));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 76,
-          "text": "ENSURE(inf > minus_inf);"
+          "text": "ENSURE(inf > minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 77,
-          "text": "ENSURE(inf > zero);"
+          "text": "ENSURE(inf > zero);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 78,
-          "text": "ENSURE(inf > ext_numeral(10));"
+          "text": "ENSURE(inf > ext_numeral(10));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 79,
-          "text": "ENSURE(ext_numeral(10) > minus_inf);"
+          "text": "ENSURE(ext_numeral(10) > minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 80,
-          "text": "ENSURE(zero > minus_inf);"
+          "text": "ENSURE(zero > minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 81,
-          "text": "ENSURE(!(zero > inf));"
+          "text": "ENSURE(!(zero > inf));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 82,
-          "text": "ENSURE(!(minus_inf > inf));"
+          "text": "ENSURE(!(minus_inf > inf));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 83,
-          "text": "ENSURE(inf >= minus_inf);"
+          "text": "ENSURE(inf >= minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 84,
-          "text": "ENSURE(inf >= inf);"
+          "text": "ENSURE(inf >= inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 85,
-          "text": "ENSURE(minus_inf >= minus_inf);"
+          "text": "ENSURE(minus_inf >= minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 86,
-          "text": "ENSURE(inf >= zero);"
+          "text": "ENSURE(inf >= zero);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 87,
-          "text": "ENSURE(zero >= minus_inf);"
+          "text": "ENSURE(zero >= minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 88,
-          "text": "ENSURE(inf <= inf);"
+          "text": "ENSURE(inf <= inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 89,
-          "text": "ENSURE(minus_inf <= minus_inf);"
+          "text": "ENSURE(minus_inf <= minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 90,
-          "text": "ENSURE(zero <= inf);"
+          "text": "ENSURE(zero <= inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 91,
-          "text": "ENSURE(minus_inf <= zero);"
+          "text": "ENSURE(minus_inf <= zero);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 95,
-          "text": "ENSURE(val == ext_numeral(-10));"
+          "text": "ENSURE(val == ext_numeral(-10));",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 98,
-          "text": "ENSURE(val == minus_inf);"
+          "text": "ENSURE(val == minus_inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 100,
-          "text": "ENSURE(val == inf);"
+          "text": "ENSURE(val == inf);",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 102,
-          "text": "ENSURE(minus_inf.sign());"
+          "text": "ENSURE(minus_inf.sign());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 103,
-          "text": "ENSURE(!zero.sign());"
+          "text": "ENSURE(!zero.sign());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 104,
-          "text": "ENSURE(!inf.sign());"
+          "text": "ENSURE(!inf.sign());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 105,
-          "text": "ENSURE(ext_numeral(-10).sign());"
+          "text": "ENSURE(ext_numeral(-10).sign());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 106,
-          "text": "ENSURE(!ext_numeral(10).sign());"
+          "text": "ENSURE(!ext_numeral(10).sign());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 108,
-          "text": "ENSURE(inf.is_infinite());"
+          "text": "ENSURE(inf.is_infinite());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 109,
-          "text": "ENSURE(minus_inf.is_infinite());"
+          "text": "ENSURE(minus_inf.is_infinite());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 110,
-          "text": "ENSURE(!zero.is_infinite());"
+          "text": "ENSURE(!zero.is_infinite());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 111,
-          "text": "ENSURE(!ext_numeral(10).is_infinite());"
+          "text": "ENSURE(!ext_numeral(10).is_infinite());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 112,
-          "text": "ENSURE(!inf.is_zero());"
+          "text": "ENSURE(!inf.is_zero());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 113,
-          "text": "ENSURE(!minus_inf.is_zero());"
+          "text": "ENSURE(!minus_inf.is_zero());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 114,
-          "text": "ENSURE(zero.is_zero());"
+          "text": "ENSURE(zero.is_zero());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 115,
-          "text": "ENSURE(!ext_numeral(10).is_zero());"
+          "text": "ENSURE(!ext_numeral(10).is_zero());",
+          "go_targets": [
+            "pkg/smtcore/old_interval_source_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
         },
         {
           "line": 185,
-          "text": "ENSURE(nm.eq(z.lower(), mpz(-1)));"
+          "text": "ENSURE(nm.eq(z.lower(), mpz(-1)));",
+          "go_targets": [
+            "pkg/util/numeral/mpbqi_test.go"
+          ],
+          "tests": [
+            "TestBinaryIntervalSourceSharedTemplate"
+          ]
         },
         {
           "line": 186,
-          "text": "ENSURE(nm.eq(z.upper(), mpz(5)));"
+          "text": "ENSURE(nm.eq(z.upper(), mpz(5)));",
+          "go_targets": [
+            "pkg/util/numeral/mpbqi_test.go"
+          ],
+          "tests": [
+            "TestBinaryIntervalSourceSharedTemplate"
+          ]
         },
         {
           "line": 189,
-          "text": "ENSURE(nm.eq(z.lower(), mpz(-4)));"
+          "text": "ENSURE(nm.eq(z.lower(), mpz(-4)));",
+          "go_targets": [
+            "pkg/util/numeral/mpbqi_test.go"
+          ],
+          "tests": [
+            "TestBinaryIntervalSourceSharedTemplate"
+          ]
         },
         {
           "line": 190,
-          "text": "ENSURE(nm.eq(z.upper(), mpz(6)));"
+          "text": "ENSURE(nm.eq(z.upper(), mpz(6)));",
+          "go_targets": [
+            "pkg/util/numeral/mpbqi_test.go"
+          ],
+          "tests": [
+            "TestBinaryIntervalSourceSharedTemplate"
+          ]
         }
       ],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
-          "name": "tst2 four shared-template ENSURE assertions adapted from Int/open to MPBQ/open with k=0",
+          "name": "Registered tst2 integer endpoint specialization adapted to the concrete exact BinaryInterval manager (src/test/old_interval.cpp:174-190)",
           "status": "ported",
           "go_target": "pkg/util/numeral/mpbqi_test.go",
           "tests": [
@@ -192084,16 +192594,47 @@
           ]
         },
         {
-          "name": "Original Int/open specialization, ext_numeral and old SMT interval tests and complete registered old_interval execution",
-          "status": "unported",
-          "tests": []
+          "name": "All registered ext_numeral arithmetic, ordering, mutation, sign, infinity, and zero assertions (src/test/old_interval.cpp:20-115)",
+          "status": "ported",
+          "go_target": "pkg/smtcore/old_interval_source_test.go",
+          "tests": [
+            "TestSMTOldIntervalRegisteredExtendedNumeralAssertions"
+          ]
+        },
+        {
+          "name": "interval_tester bug reproduction and registered construction, power, multiplication, inversion, and division diagnostic scenarios (src/test/old_interval.cpp:116-167)",
+          "status": "ported",
+          "go_target": "pkg/smtcore/old_interval_source_test.go",
+          "tests": [
+            "TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic",
+            "TestSMTOldIntervalInverseAndPower",
+            "TestSMTOldIntervalMultiplicationSignTable",
+            "TestSMTOldIntervalMultiplyOpenZeroAndDivide"
+          ]
+        },
+        {
+          "name": "Top-level tst_old_interval driver order and old SMT interval semantic coverage; stream/trace text is diagnostic (src/test/old_interval.cpp:174-204)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/old_interval_test.go",
+            "pkg/smtcore/old_interval_source_test.go",
+            "pkg/util/numeral/mpbqi_test.go"
+          ],
+          "tests": [
+            "TestSMTOldIntervalRegisteredSourceDiagnosticArithmetic",
+            "TestBinaryIntervalSourceSharedTemplate",
+            "TestSMTOldIntervalMultiplicationClosedOracle"
+          ]
         }
       ],
       "ownership": [
-        "Adapted tst2 owns x/y/z lexical intervals and destroys z/y/x in source brace order. Independent owning numeral graph checks supplement four adapted source assertions; this does not implement other source interval domains."
+        "C++ tst2 owns scoped x/y/z intervals and destroys z/y/x before its numeral managers. The Go shared-template regression closes scoped interval owners in reverse declaration order and tests exact integer endpoints.",
+        "The ext_numeral test mutates independent value copies; old-interval fixtures clone before power/multiply/divide operations. The arithmetic dependency manager owns explanation nodes, while interval endpoints own copied big.Rat values.",
+        "The source driver destroys the solver-independent interval tester before the manager and reports through streams. Go tests keep manager/dependency owners alive through all operations and treat formatted output and TRACE as diagnostics."
       ],
       "deviations": [
-        "Four shared-template assertions are adapted from unsynch_mpz_manager,false through MPBQ integer endpoints; they are not original MPBQI assertions. Added endpoint byte expectations do not claim complete source printed lines. Original Int/SMT/ext_numeral domains and full old_interval registration remain open."
+        "The original unsynch_mpz_manager,false fixture is represented through the concrete BinaryInterval manager with exact integer endpoints; this is a test adaptation, not an Int-valued universal interval adapter. C++ stderr/stdout formatting and enable_trace(\"interval_bug\") output are diagnostic differences.",
+        "All active source ENSURE assertions are mapped. interval_tester has no semantic assertions, so its reached arithmetic scenarios receive independent exact endpoint/open-bound expectations; native-erased assertion and undefined domains are not extended."
       ]
     },
     {
