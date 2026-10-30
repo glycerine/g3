@@ -89,6 +89,36 @@ func TestSubpavingFastClauseStableWatchUnitAndConflict(t *testing.T) {
 	}
 }
 
+func TestSubpavingFastInequalityConstructionAfterChildCreation(t *testing.T) {
+	m, c, value, root := fastMonomialFixture(t, []bool{false})
+	child, err := c.NewChild(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := child.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := m.SetInt32(value, 7); err != nil {
+		t.Fatal(err)
+	}
+	atom, err := c.NewInequality(0, value, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if atom.variable != 0 || atom.refs != 0 || len(c.inequalities) != 1 || c.root.children != 1 || child.parent != root {
+		t.Fatal("source mk_ineq must allocate independently of the existing child", atom, c.root.children)
+	}
+	if err := c.AddUnitClause(atom, false); err != nil {
+		t.Fatal("source add_unit_clause after child creation", err)
+	}
+	clause, err := c.AddClause([]*FastInequality{atom, atom}, true, true)
+	if err != nil || clause == nil || atom.refs != 3 || len(c.watchOrder[0]) != 1 {
+		t.Fatal("source add_clause after child creation", clause, atom.refs, err)
+	}
+}
+
 func TestSubpavingFastClauseOpennessAndUnitResume(t *testing.T) {
 	for _, tc := range []struct {
 		lowerAtom, atomOpen, boundLower, boundOpen bool

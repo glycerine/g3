@@ -192,18 +192,25 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 	if got, err := qm.Z.String(&n); err != nil || got != "1" {
 		t.Fatal("zero power product numerator", got, err)
 	}
-	zeroProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x, y})
+	zeroProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, err := converter.InternalizeTerm(zeroProduct, &n, &d); err != nil || got == math.MaxUint32 {
-		t.Fatal("n-ary zero product", got, err)
+	if got, err := converter.InternalizeTerm(zeroProduct, &n, &d); err != nil || got != first {
+		t.Fatal("binary zero scalar product", got, err)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "0" {
-		t.Fatal("n-ary zero product numerator", got, err)
+		t.Fatal("binary zero scalar product numerator", got, err)
 	}
 	if got, err := qm.Z.String(&d); err != nil || got != "1" {
-		t.Fatal("n-ary zero product denominator", got, err)
+		t.Fatal("binary zero scalar product denominator", got, err)
+	}
+	naryZeroProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x, y})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := converter.InternalizeTerm(naryZeroProduct, &n, &d); !errors.Is(err, ErrExprConverterNonSimplified) {
+		t.Fatal("source rejects a numeric scalar in an n-ary product", err)
 	}
 	ineq, err := m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{sum, two})
 	if err != nil {
@@ -248,7 +255,7 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 	if err := shell.DisplayConstraints(&out, true); err != nil {
 		t.Fatal("MPFX constraints", err)
 	}
-	if got, want := out.String(), "x2 = 1 + x0 + x1\nx3 = x0^2\nx5 = x1*x4\nx6 = x0*x1\nx2 <= 2\nx2 <= 2\nx2 <= 2 or 2 < x2\n"; got != want {
+	if got, want := out.String(), "x2 = 1 + x0 + x1\nx3 = x0^2\nx5 = x1*x4\nx2 <= 2\nx2 <= 2\nx2 <= 2 or 2 < x2\n"; got != want {
 		t.Fatal("source-order MPFX constraints", out.String())
 	}
 	out.Reset()

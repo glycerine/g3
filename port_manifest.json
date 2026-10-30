@@ -75698,7 +75698,8 @@
           "tests": [
             "TestSubpavingFastClauseStableWatchUnitAndConflict",
             "TestSubpavingFastClauseOpennessAndUnitResume",
-            "TestSubpavingFastClauseSharedAtomSourceCleanup"
+            "TestSubpavingFastClauseSharedAtomSourceCleanup",
+            "TestSubpavingFastInequalityConstructionAfterChildCreation"
           ]
         },
         {
@@ -75815,7 +75816,8 @@
             "TestSubpavingFixedContextInitialDefinitionSweep"
           ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
+            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
+            "TestSubpavingFixedInequalityConstructionAfterChildCreation"
 ]
         },
         {
@@ -75929,7 +75931,8 @@
             "TestSubpavingFixedContextInitialDefinitionSweep"
           ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
+            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
+            "TestSubpavingFixedInequalityConstructionAfterChildCreation"
 ]
         },
         {
@@ -76397,7 +76400,8 @@
             "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
           ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
+            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
+            "TestSubpavingFixedInequalityConstructionAfterChildCreation"
 ]
         },
         {
@@ -76683,7 +76687,8 @@
           "tests": [
             "TestSubpavingFastClauseStableWatchUnitAndConflict",
             "TestSubpavingFastClauseOpennessAndUnitResume",
-            "TestSubpavingFastClauseSharedAtomSourceCleanup"
+            "TestSubpavingFastClauseSharedAtomSourceCleanup",
+            "TestSubpavingFastInequalityConstructionAfterChildCreation"
           ]
         },
         {
@@ -77962,7 +77967,8 @@
             "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
           ,
             "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
+            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
+            "TestSubpavingFixedInequalityConstructionAfterChildCreation"
 ]
         },
         {
@@ -78039,7 +78045,8 @@
           "tests": [
             "TestSubpavingFastClauseStableWatchUnitAndConflict",
             "TestSubpavingFastClauseOpennessAndUnitResume",
-            "TestSubpavingFastClauseSharedAtomSourceCleanup"
+            "TestSubpavingFastClauseSharedAtomSourceCleanup",
+            "TestSubpavingFastInequalityConstructionAfterChildCreation"
           ]
         },
         {

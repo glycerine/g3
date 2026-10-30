@@ -49,6 +49,36 @@ func fixedClauseAtom(t *testing.T, m *numeral.FixedPointManager, c *FixedContext
 	return a
 }
 
+func TestSubpavingFixedInequalityConstructionAfterChildCreation(t *testing.T) {
+	m, c, value, root := fixedClauseFixture(t, []bool{false})
+	child, err := c.NewChild(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := child.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := m.SetInt64(value, 7); err != nil {
+		t.Fatal(err)
+	}
+	atom, err := c.NewInequality(0, value, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if atom.variable != 0 || atom.refs != 0 || len(c.inequalities) != 1 || c.root.children != 1 || child.parent != root {
+		t.Fatal("source mk_ineq must allocate independently of the existing child", atom, c.root.children)
+	}
+	if err := c.AddUnitClause(atom, false); err != nil {
+		t.Fatal("source add_unit_clause after child creation", err)
+	}
+	clause, err := c.AddClause([]*FixedInequality{atom, atom}, true, true)
+	if err != nil || clause == nil || atom.refs != 3 || len(c.watchOrder[0]) != 1 {
+		t.Fatal("source add_clause after child creation", clause, atom.refs, err)
+	}
+}
+
 func fixedClauseBound(t *testing.T, m *numeral.FixedPointManager, c *FixedContext, n *FixedNode, v *numeral.FixedPoint, x uint32, value int64, lower bool) {
 	t.Helper()
 	if err := m.SetInt64(v, value); err != nil {
@@ -152,14 +182,18 @@ func TestSubpavingFixedClauseUnitsNoResumeAndCleanup(t *testing.T) {
 	if _, err := c.DefinePolynomial(a0.value, []FixedPolynomialTerm{{Variable: 0, Coefficient: a0.value}}); !errors.Is(err, arena.ErrInvalidSlot) {
 		t.Fatal("polynomial definition after root initialization started", err)
 	}
-	if _, err := c.NewInequality(0, a0.value, true, false); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatal("inequality creation after root initialization started", err)
+	if _, err := c.NewInequality(0, a0.value, true, false); err != nil {
+		t.Fatal("source mk_ineq permits allocation after root initialization", err)
 	}
-	if err := c.AddUnitClause(a1, false); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatal("unit addition after root initialization started", err)
+	if err := c.AddUnitClause(a1, false); err != nil {
+		t.Fatal("source add_unit_clause permits publication after root initialization", err)
 	}
-	if _, err := c.AddClause([]*FixedInequality{a0, a1}, true, true); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatal("clause addition after root initialization started", err)
+	lateClause, err := c.AddClause([]*FixedInequality{a0, a1}, true, true)
+	if err != nil || lateClause == nil || len(c.clauses) != 1 || len(c.unitClauses) != 3 {
+		t.Fatal("source add_clause permits publication after root initialization", lateClause, err)
+	}
+	if err := c.releaseClause(lateClause); err != nil {
+		t.Fatal(err)
 	}
 	if err := c.releaseUnit(0); err != nil {
 		t.Fatal(err)

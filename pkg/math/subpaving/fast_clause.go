@@ -49,7 +49,7 @@ func (c *FastContext) NewInequality(variable uint32, value *numeral.FastFloat, l
 	if err = c.open(); err != nil {
 		return nil, err
 	}
-	if variable >= uint32(len(c.isInt)) || c.root.children != 0 {
+	if variable >= uint32(len(c.isInt)) {
 		return nil, arena.ErrInvalidSlot
 	}
 	owner, err := numeral.NewScopedFastFloat(c.numbers)
@@ -140,7 +140,7 @@ func (c *FastContext) AddClause(atoms []*FastInequality, lemma, watched bool) (*
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	if len(atoms) == 0 || !lemma && !watched || c.root.children != 0 {
+	if len(atoms) == 0 || !lemma && !watched {
 		return nil, arena.ErrInvalidSlot
 	}
 	for _, atom := range atoms {
