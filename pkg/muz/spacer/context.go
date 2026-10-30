@@ -24,6 +24,7 @@ type Context struct {
 	transformers     map[ast.ASTHandle]*PredicateTransformer
 	order            []ast.ASTHandle
 	query            *PredicateTransformer
+	queryRef         ast.ASTRef
 	queryDecl        ast.ASTHandle
 	queue            ProofObligationQueue
 	lastResult       lbool.LBool
@@ -292,11 +293,28 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 
 // InitializePredicates constructs transformers for every registered live
 // predicate, including output predicates without defining rules.
-func (c *Context) InitializePredicates(set *base.RuleSet, declarations []ast.ASTHandle) (resultErr error) {
+func (c *Context) InitializePredicates(set *base.RuleSet, declarations []ast.ASTHandle) error {
+	return c.initializePredicates(set, declarations, false)
+}
+
+// UpdateRules follows context::update_rules. The caller must reset instead
+// when new rules invalidate existing properties, as dl_interface::check_reset
+// does before calling the source method.
+func (c *Context) UpdateRules(set *base.RuleSet) error {
+	return c.UpdateRulesPredicates(set, nil)
+}
+
+// UpdateRulesPredicates also keeps registered predicates without rules, as
+// InitializePredicates does for the fixedpoint engine's predicate registry.
+func (c *Context) UpdateRulesPredicates(set *base.RuleSet, declarations []ast.ASTHandle) error {
+	return c.initializePredicates(set, declarations, true)
+}
+
+func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.ASTHandle, updating bool) (resultErr error) {
 	if err := c.open(); err != nil {
 		return err
 	}
-	if c.initialized || set == nil {
+	if (!updating && c.initialized) || set == nil {
 		return ast.ErrASTDomain
 	}
 	count, err := set.Len()
@@ -399,6 +417,31 @@ func (c *Context) InitializePredicates(set *base.RuleSet, declarations []ast.AST
 			return err
 		}
 	}
+	if updating {
+		// Source inherits only predicates present in both rule sets, after
+		// initializing the new reach facts and before destroying old search state.
+		for _, declaration := range order {
+			if previous := c.transformers[declaration]; previous != nil {
+				if err = created[declaration].frames.inheritFrom(c.owner, previous.frames); err != nil {
+					return err
+				}
+			}
+		}
+		c.queue = ProofObligationQueue{}
+		c.query = nil
+		c.lastResult = lbool.Undef
+		c.inductive = 0
+		c.solved = false
+		for index := len(c.order) - 1; index >= 0; index-- {
+			declaration := c.order[index]
+			if previous := c.transformers[declaration]; previous != nil {
+				if err = previous.Close(); err != nil {
+					return err
+				}
+				c.transformers[declaration] = nil
+			}
+		}
+	}
 	c.transformers = created
 	c.order = order
 	c.initialized = true
@@ -416,6 +459,15 @@ func (c *Context) SetQuery(declaration ast.ASTHandle) error {
 	transformer := c.transformers[declaration]
 	if transformer == nil {
 		return ast.ErrASTDomain
+	}
+	if c.queryRef == (ast.ASTRef{}) {
+		ref, err := c.manager.NewRef(declaration)
+		if err != nil {
+			return err
+		}
+		c.queryRef = ref
+	} else if err := c.manager.SetRef(c.queryRef, declaration); err != nil {
+		return err
 	}
 	c.queryDecl = declaration
 	c.query = transformer
@@ -556,8 +608,16 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if err := c.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if !c.initialized || c.query == nil || c.solved {
+	if !c.initialized || c.queryDecl.IsNull() || c.solved {
 		return lbool.Undef, ast.ErrASTDomain
+	}
+	// update_rules clears the old transformer pointer but preserves the
+	// selected declaration. Source solve_core resolves it in the new map.
+	c.query = c.transformers[c.queryDecl]
+	if c.query == nil {
+		c.solved = true
+		c.lastResult = lbool.False
+		return c.lastResult, nil
 	}
 	queryRules, err := c.query.Rules()
 	if err != nil {
@@ -775,6 +835,9 @@ func (c *Context) Close() (result error) {
 				c.transformers[declaration] = nil
 			}
 		}
+	}
+	if result == nil && c.queryRef != (ast.ASTRef{}) {
+		result = c.manager.DelRef(&c.queryRef)
 	}
 	if result == nil {
 		result = c.owner.Close()

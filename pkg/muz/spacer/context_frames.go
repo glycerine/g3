@@ -405,6 +405,43 @@ func (f *Frames) PropagateToNextLevel(level uint32) (bool, error) {
 	return all, nil
 }
 
+// inheritFrom translates frames::inherit_frames: normalize a new lemma for
+// each old body/level, copy its binding vector, and assert it into this frame.
+func (f *Frames) inheritFrom(owner *Manager, other *Frames) error {
+	if err := f.open(); err != nil {
+		return err
+	}
+	if other == nil || other.open() != nil || owner == nil || owner.manager != f.manager || other.manager != f.manager {
+		return ErrManagerOwner
+	}
+	for _, previous := range other.lemmas {
+		body, err := previous.Body()
+		if err != nil {
+			return err
+		}
+		level, err := previous.Level()
+		if err != nil {
+			return err
+		}
+		lemma, err := NewLemma(owner, body, level)
+		if err != nil {
+			return err
+		}
+		bindings, err := previous.bindingHandles()
+		if err == nil {
+			err = lemma.AddBindings(bindings)
+		}
+		if err == nil {
+			_, err = f.AddLemma(lemma)
+		}
+		if err != nil {
+			return errors.Join(err, lemma.Close())
+		}
+	}
+	f.sorted = false
+	return nil
+}
+
 func (f *Frames) Close() (result error) {
 	if f == nil {
 		return ErrManagerOwner
