@@ -81,6 +81,13 @@ func (p *legacyArithmeticProjection) collectLegacyLiterals(formula ast.ASTHandle
 }
 
 func (p *legacyArithmeticProjection) projectFormula(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (_ *legacyFormulaProjection, resultErr error) {
+	return p.projectFormulaMapped(md, variables, formula, nil)
+}
+
+// projectFormulaMapped retains the expr_map-producing overload used by
+// spacer::qe_project. The source resets the map for every projected
+// arithmetic variable, so only the final variable's substitutions survive.
+func (p *legacyArithmeticProjection) projectFormulaMapped(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, mapping *ast.ASTExprMap) (_ *legacyFormulaProjection, resultErr error) {
 	if p == nil || p.syntax == nil || md == nil || md.Manager() != p.syntax.manager {
 		return nil, ast.ErrASTHandle
 	}
@@ -124,6 +131,11 @@ func (p *legacyArithmeticProjection) projectFormula(md *model.ModelCore, variabl
 			}
 			result.variables = append(result.variables, variableRef)
 			continue
+		}
+		if mapping != nil {
+			if err = mapping.Reset(); err != nil {
+				return nil, err
+			}
 		}
 		currentHandle, err := p.syntax.manager.RefGet(current)
 		if err != nil {
@@ -176,6 +188,9 @@ func (p *legacyArithmeticProjection) projectFormula(md *model.ModelCore, variabl
 			if e == nil {
 				e = replace.Insert(replacement.literal, destination)
 			}
+			if e == nil && mapping != nil {
+				e = mapping.Insert(replacement.literal, destination, ast.ASTHandle{})
+			}
 			if e != nil {
 				err = e
 				break
@@ -185,6 +200,9 @@ func (p *legacyArithmeticProjection) projectFormula(md *model.ModelCore, variabl
 			destination, e := p.syntax.manager.RefGet(projection.substitution)
 			if e == nil {
 				e = replace.Insert(variable, destination)
+			}
+			if e == nil && mapping != nil {
+				e = mapping.Insert(variable, destination, ast.ASTHandle{})
 			}
 			err = e
 		}
