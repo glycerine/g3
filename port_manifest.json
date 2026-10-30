@@ -76652,6 +76652,7 @@
           "go_target": "pkg/math/subpaving/fast_polynomial.go",
           "tests": [
             "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients",
+            "TestSubpavingFastPolynomialDuplicateVariablesKeepSourceSlots",
             "TestSubpavingFastContextQueuedPolynomialWatchers"
           ]
         },
@@ -77997,7 +77998,8 @@
           "status": "partial",
           "go_target": "pkg/math/subpaving/fast_polynomial.go",
           "tests": [
-            "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients"
+            "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients",
+            "TestSubpavingFastPolynomialDuplicateVariablesKeepSourceSlots"
           ]
         },
         {
