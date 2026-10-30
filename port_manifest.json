@@ -87311,7 +87311,7 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "execution_context register ownership, annotations, reset/close, time limits, big-relation reporting, process watermark termination for relation-backed contexts, and statistics collection (dl_instruction.cpp:41-141)",
+          "name": "execution_context register ownership, annotations, reset/close, time limits, big-relation reporting, runtime/process watermark termination for relation-backed contexts, and statistics collection (dl_instruction.cpp:41-141)",
           "status": "partial",
           "go_target": "pkg/muz/rel/instruction.go",
           "tests": ["TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRelationBindingChecksProcessWatermark", "TestExecutionContextRejectsZeroTimeout"]
@@ -87357,7 +87357,7 @@
         "ExecutionContext owns register tables and move transfers the exact pointer while clone creates an independent table. Load clones the stored relation; store transfers its register table into RelationManager and empties the register. Relation I/O instructions retain their predicate declarations. InstructionBlock owns and closes instructions in source order; each instruction owns its AccountedObject. WhileInstruction owns and closes its nested body."
       ],
       "deviations": [
-        "ExecutionContext retains finite HashTable registers and a borrowed finite RelationManager; register replacement, reset, and close retire owned tables, while load/store transfers ownership explicitly. Timer and big-relation reporting are implemented; relation-backed contexts bind the process high-watermark owner from the AST numeral runtime. Context-only construction still relies on caller cancellation, and operation-function caches plus non-table relation implementations remain open."
+        "ExecutionContext retains finite HashTable registers and a borrowed finite RelationManager; register replacement, reset, and close retire owned tables, while load/store transfers ownership explicitly. Timer and big-relation reporting are implemented; relation-backed contexts check the AST numeral runtime's live memory/process watermark. Context-only construction still relies on caller cancellation, and operation-function caches plus non-table relation implementations remain open."
       ]
     },
     {

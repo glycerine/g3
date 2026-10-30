@@ -40,7 +40,7 @@ type ExecutionContext struct {
 	annotations map[uint32]string
 	relations   *RelationManager
 	terminate   func() bool
-	process     *memory.ProcessAccounting
+	memory      *memory.Runtime
 	timeLimit   time.Duration
 	started     time.Time
 	stats       ExecutionStats
@@ -57,11 +57,11 @@ func NewExecutionContextWithRelations(relations *RelationManager, terminate func
 	if err := relations.open(); err != nil {
 		return nil, err
 	}
-	var process *memory.ProcessAccounting
+	var runtime *memory.Runtime
 	if numerals := relations.manager.NumeralService(); numerals != nil && numerals.RuntimeOwner() != nil {
-		process = numerals.RuntimeOwner().ProcessOwner()
+		runtime = numerals.RuntimeOwner()
 	}
-	return &ExecutionContext{annotations: make(map[uint32]string), relations: relations, terminate: terminate, process: process}, nil
+	return &ExecutionContext{annotations: make(map[uint32]string), relations: relations, terminate: terminate, memory: runtime}, nil
 }
 
 func (c *ExecutionContext) open() error {
@@ -148,7 +148,14 @@ func (c *ExecutionContext) SetRegisterAnnotation(index uint32, value string) err
 }
 
 func (c *ExecutionContext) ShouldTerminate() bool {
-	return c == nil || c.closed || c.terminate != nil && c.terminate() || c.process != nil && c.process.AboveWatermark() || c.timeLimit != 0 && time.Since(c.started) > c.timeLimit
+	if c == nil || c.closed || c.terminate != nil && c.terminate() || c.timeLimit != 0 && time.Since(c.started) > c.timeLimit {
+		return true
+	}
+	if c.memory != nil {
+		above, err := c.memory.AboveWatermark()
+		return err != nil || above
+	}
+	return false
 }
 
 // SetTimeLimit starts a fresh source-style per-execution timeout. A zero limit
@@ -274,7 +281,7 @@ func (c *ExecutionContext) Close() error {
 	c.registers = nil
 	clear(c.annotations)
 	c.annotations = nil
-	c.process = nil
+	c.memory = nil
 	c.closed = true
 	return err
 }
