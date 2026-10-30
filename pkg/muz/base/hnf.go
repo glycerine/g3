@@ -290,6 +290,13 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 	work := []hornWork{{formula: formula}}
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	for len(work) != 0 {
+		canceled, cancelErr := n.manager.Canceled()
+		if cancelErr != nil {
+			return result, cancelErr
+		}
+		if canceled {
+			break
+		}
 		last := len(work) - 1
 		item := work[last]
 		work = work[:last]

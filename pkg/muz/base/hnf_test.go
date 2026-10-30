@@ -178,6 +178,24 @@ func TestHornNormalizerSplitsSingletonDisjunction(t *testing.T) {
 	}
 }
 
+func TestHornNormalizerStopsWorklistWhenManagerIsCanceled(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q")
+	formula, err := f.manager.MkImplies(f.app["P"], f.app["Q"])
+	ruleMust(t, err)
+	reference, err := f.manager.NewRef(formula)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, f.manager.DelRef(&reference)) })
+	normalizer, err := base.NewHornNormalizer(f.manager, "cancel")
+	ruleMust(t, err)
+	f.manager.Limit.Cancel()
+	result, err := normalizer.Normalize(formula)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, result.Close()) })
+	if len(result.Formulas) != 0 {
+		t.Fatalf("canceled HNF worklist published %d formulas, want none", len(result.Formulas))
+	}
+}
+
 func TestHornNormalizerIntroducesAndMemoizesFreshPredicate(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q", "R", "S")
 	set, err := base.NewRuleSet(f.rules)

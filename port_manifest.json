@@ -82398,8 +82398,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_nested_fixture_test.go", "pkg/muz/base/hnf_nested_consequent_test.go", "pkg/muz/base/hnf_nested_antecedent_test.go", "pkg/muz/base/hnf_nested_negation_test.go", "pkg/muz/base/hnf_nested_disjunction_test.go", "pkg/muz/base/hnf_nested_boolean_eq_test.go", "pkg/muz/base/hnf_nested_ite_test.go"],
-      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizer"],
+      "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/base/hnf_nested_fixture_test.go", "pkg/muz/base/hnf_nested_consequent_test.go", "pkg/muz/base/hnf_nested_antecedent_test.go", "pkg/muz/base/hnf_nested_negation_test.go", "pkg/muz/base/hnf_nested_disjunction_test.go", "pkg/muz/base/hnf_nested_boolean_eq_test.go", "pkg/muz/base/hnf_nested_ite_test.go"],
+      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestHornNormalizer"],
       "assertions": [
         {
           "line": 231,
@@ -82429,7 +82429,7 @@
           "name": "No-proof HNF worklist, implication/conjunction extraction, singleton disjunction splitting, fresh predicate construction, disjunctive definition memoization, universal-prefix reconstruction, and reset-local result collection (hnf.cpp:71-138,223-292,347-421,481-511)",
           "status": "partial",
           "go_target": "pkg/muz/base/hnf.go",
-          "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate"]
+          "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled"]
         }
       ],
       "ownership": [
@@ -82444,8 +82444,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/hnf.go"],
-      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate"],
+      "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
+      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled"],
       "conditionals": [
         {
           "line": 25,
@@ -82463,7 +82463,7 @@
           "name": "hnf no-proof construction, invocation, fresh-predicate result access, and reset-local lifecycle surface (hnf.h:29-50)",
           "status": "partial",
           "go_target": "pkg/muz/base/hnf.go",
-          "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate"]
+          "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled"]
         }
       ],
       "ownership": [
