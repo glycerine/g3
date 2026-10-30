@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/backtrack"
 )
 
 // CompileGuard translates the retained UDoc guard language into a DOC union.
@@ -23,8 +24,12 @@ func (r *UDocRelation) CompileGuard(manager *ast.ASTManager, expression ast.ASTH
 	if err == nil {
 		err = compiled.elems.PushOwned(initial)
 	}
+	classes := backtrack.NewDefaultUnionFind()
+	for i := uint32(0); i < r.NumBits(); i++ {
+		classes.MkVar()
+	}
 	if err == nil {
-		err = compiled.applyGuard(manager, expression)
+		err = compiled.applyGuard(manager, expression, classes, make([]bool, r.NumBits()))
 	}
 	if err != nil {
 		_ = compiled.Close()
@@ -46,7 +51,7 @@ func (r *UDocRelation) FilterGuard(manager *ast.ASTManager, expression ast.ASTHa
 	return r.elems.Intersect(compiled.elems)
 }
 
-func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle) error {
+func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
 	if r.elems.Empty() {
 		return nil
 	}
@@ -114,7 +119,7 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle) e
 			if e != nil {
 				return e
 			}
-			if e = r.applyGuard(m, arg); e != nil {
+			if e = r.applyGuard(m, arg, classes, discarded); e != nil {
 				return e
 			}
 		}
@@ -128,7 +133,7 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle) e
 		if e != nil {
 			return e
 		}
-		if e = temporary.applyGuard(m, arg); e == nil {
+		if e = temporary.applyGuard(m, arg, classes, make([]bool, len(discarded))); e == nil {
 			e = r.elems.Subtract(temporary.elems)
 		}
 		return errors.Join(e, temporary.Close())
@@ -149,7 +154,7 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle) e
 				e = makeErr
 				break
 			}
-			e = temporary.applyGuard(m, negated)
+			e = temporary.applyGuard(m, negated, classes, discarded)
 		}
 		if e == nil {
 			e = r.elems.Subtract(temporary.elems)
@@ -164,7 +169,7 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle) e
 		if e != nil {
 			return e
 		}
-		return r.applyGroundBitVectorEquality(m, left, right)
+		return r.applyBitVectorEquality(m, left, right, classes, discarded)
 	default:
 		return ErrDOC
 	}
@@ -186,17 +191,45 @@ func (r *UDocRelation) guardUniverse() (*UDocRelation, error) {
 	return temporary, nil
 }
 
-func (r *UDocRelation) applyGroundBitVectorEquality(m *ast.ASTManager, left, right ast.ASTHandle) error {
+func (r *UDocRelation) applyBitVectorEquality(m *ast.ASTManager, left, right ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
 	leftVar, leftLow, leftHigh, leftOK, err := udocGuardRange(m, left)
 	if err != nil {
 		return err
 	}
+	rightVar, rightLow, rightHigh, rightOK, err := udocGuardRange(m, right)
+	if err != nil {
+		return err
+	}
+	if leftOK && rightOK {
+		length := leftHigh - leftLow + 1
+		if rightHigh < rightLow || rightHigh-rightLow+1 != length || leftVar >= uint32(len(r.widths)) || rightVar >= uint32(len(r.widths)) {
+			return ErrDOC
+		}
+		leftIndex := r.offsets[leftVar] + leftLow
+		rightIndex := r.offsets[rightVar] + rightLow
+		if leftIndex+length > r.NumBits() || rightIndex+length > r.NumBits() {
+			return ErrDOC
+		}
+		for i := uint32(0); i < length; i++ {
+			classes.Merge(leftIndex+i, rightIndex+i)
+		}
+		for i := 0; i < len(r.elems.values); {
+			valid, e := r.manager.MergeRange(r.elems.values[i], leftIndex, length, classes, discarded)
+			if e != nil {
+				return e
+			}
+			if !valid {
+				if e = r.elems.erase(i); e != nil {
+					return e
+				}
+				continue
+			}
+			i++
+		}
+		return nil
+	}
 	ground := right
 	if !leftOK {
-		rightVar, rightLow, rightHigh, rightOK, e := udocGuardRange(m, right)
-		if e != nil {
-			return e
-		}
 		if rightOK {
 			leftVar, leftLow, leftHigh, leftOK = rightVar, rightLow, rightHigh, true
 			ground = left

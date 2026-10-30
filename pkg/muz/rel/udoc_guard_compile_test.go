@@ -164,3 +164,97 @@ func TestUDocCompileAndFilterGuardBitVectorAndBoolean(t *testing.T) {
 		}
 	}
 }
+
+func TestUDocCompileVariableRangeEqualities(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 4)
+	relation, err := NewUDocRelation(docManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	m := docASTManager(t)
+	if _, err = m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	bv, err := m.BitVectorSort(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := m.MkVar(0, bv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := m.MkVar(1, bv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equal, err := m.MkEq(x, y)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			if _, e := relation.AddFact([]uint64{left, right}); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	if err = relation.FilterGuard(m, equal); err != nil {
+		t.Fatal(err)
+	}
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			requireFact(t, relation, []uint64{left, right}, left == right)
+		}
+	}
+}
+
+func TestUDocCompileEqualityBetweenExtracts(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 2)
+	relation, err := NewUDocRelation(docManager, []uint32{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	m := docASTManager(t)
+	if _, err = m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	bv, err := m.BitVectorSort(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := m.MkVar(0, bv)
+	if err != nil {
+		t.Fatal(err)
+	}
+	high, err := m.MkBitVectorExtract(1, 1, x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	low, err := m.MkBitVectorExtract(0, 0, x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equal, err := m.MkEq(high, low)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for value := uint64(0); value < 4; value++ {
+		if _, e := relation.AddFact([]uint64{value}); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if err = relation.FilterGuard(m, equal); err != nil {
+		t.Fatal(err)
+	}
+	for value := uint64(0); value < 4; value++ {
+		requireFact(t, relation, []uint64{value}, value == 0 || value == 3)
+	}
+}
