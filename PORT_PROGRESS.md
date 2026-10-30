@@ -50655,3 +50655,5 @@ UDoc source guard matrix coverage (2026-10-30 UTC): added a deterministic tuple 
 UDoc guard/project expression matrix (2026-10-30 UTC): extended the same source-derived matrix through `FilterGuardAndProject` for both column-removal sets used by the C++ test. The oracle enumerates every output value pair and compares it with the existential projection of matching source tuples; focused matrix tests pass.
 
 UDoc identical-column filter (2026-10-30 UTC): ported the source union-find merge mutator for selected bit-vector columns. Tests verify exact retention, out-of-range columns, mismatched widths, and that validation failures leave the relation unchanged; the focused test passes.
+
+UDoc cyclic join/project regression (2026-10-30 UTC): added the C++ fixture's swapped two-column join mapping followed by removal of the left input columns. The Go test checks the exact remaining tuple and rejects nonmatching right facts; focused UDoc tests pass.

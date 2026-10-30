@@ -182,6 +182,45 @@ func TestUDocJoinUsesWholeColumnEquality(t *testing.T) {
 	}
 }
 
+func TestUDocCyclicJoinThenProject(t *testing.T) {
+	leftManager, _ := newTestDocManager(t, 4)
+	rightManager, _ := newTestDocManager(t, 4)
+	productManager, _ := newTestDocManager(t, 8)
+	projectedManager, _ := newTestDocManager(t, 4)
+	left, err := NewUDocRelation(leftManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := NewUDocRelation(rightManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, left, right)
+	if _, err = left.AddFact([]uint64{3, 1}); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]uint64{{0, 3}, {1, 3}, {1, 2}} {
+		if _, err = right.AddFact(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	joined, err := left.Join(right, []uint32{0, 1}, []uint32{1, 0}, productManager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, joined)
+	projected, err := joined.Project([]uint32{0, 1}, projectedManager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, projected)
+	requireFact(t, projected, []uint64{1, 3}, true)
+	requireFact(t, projected, []uint64{0, 3}, false)
+	if projected.NumRecords() != 1 {
+		t.Fatalf("cyclic join projection records: %d", projected.NumRecords())
+	}
+}
+
 func TestUDocFilterEqualRetainsMatchingRows(t *testing.T) {
 	manager, _ := newTestDocManager(t, 4)
 	relation, err := NewUDocRelation(manager, []uint32{2, 2})
