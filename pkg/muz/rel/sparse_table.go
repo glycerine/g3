@@ -70,6 +70,20 @@ func (t *SparseTable) Len() (int, error) {
 	}
 	return len(t.data.entries), nil
 }
+
+// SizeEstimateRows reports the exact stored row count, matching sparse_table.
+func (t *SparseTable) SizeEstimateRows() (uint32, error) {
+	rows, err := t.Len()
+	return uint32(rows), err
+}
+
+func (t *SparseTable) KnowsExactSize() (bool, error) {
+	if err := t.open(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (t *SparseTable) Facts() ([]Fact, error) {
 	if e := t.open(); e != nil {
 		return nil, e

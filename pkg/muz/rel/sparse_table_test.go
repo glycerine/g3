@@ -40,3 +40,21 @@ func TestSparseTablePackedFunctionalStorage(t *testing.T) {
 		t.Fatal(facts)
 	}
 }
+
+func TestSparseTableExactRowEstimate(t *testing.T) {
+	signature, err := NewSignature([]uint64{3})
+	must(t, err)
+	table, err := NewSparseTable(signature, 0)
+	must(t, err)
+	if rows, err := table.SizeEstimateRows(); err != nil || rows != 0 {
+		t.Fatalf("empty row estimate = %d, %v", rows, err)
+	}
+	if known, err := table.KnowsExactSize(); err != nil || !known {
+		t.Fatalf("empty exact-size knowledge = %v, %v", known, err)
+	}
+	_, err = table.Add(Fact{2})
+	must(t, err)
+	if rows, err := table.SizeEstimateRows(); err != nil || rows != 1 {
+		t.Fatalf("populated row estimate = %d, %v", rows, err)
+	}
+}
