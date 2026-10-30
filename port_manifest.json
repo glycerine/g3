@@ -5927,11 +5927,20 @@
       "status": "partial",
       "go_targets": [
         "pkg/api/api_polynomial_conversion.go",
-        "pkg/api/api_polynomial_subresultants.go"
+        "pkg/api/api_polynomial_subresultants.go",
+        "pkg/api/api_context_timeout.go",
+        "pkg/api/api_polynomial_interrupt.go"
       ],
       "tests": [
         "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
-        "TestAPIPolynomialSubresultantsRationalCoefficients"
+        "TestAPIPolynomialSubresultantsRationalCoefficients",
+        "TestSMTContextOperationTimeoutTracksContextOption",
+        "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope",
+        "TestAPIPolynomialInterruptScopeTimesOutWithSourceCaller",
+        "TestAPIPolynomialZeroTimeoutIsDisabled",
+        "TestAPIPolynomialInterruptScopeRejectsClosedContext",
+        "TestAPIPolynomialInterruptScopeCloseStopsTimer",
+        "TestAPIPolynomialSubresultantsReleasesInterruptScope"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -5966,12 +5975,12 @@
       "path": "src/api/api_qe.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_qe_services.go", "pkg/api/api_qe_refs.go", "pkg/api/api_qe_lite.go", "pkg/api/api_qe_model_project.go", "pkg/api/api_model_extrapolate.go"],
+      "tests": ["TestAPIQELiteEliminatesUnusedApplication", "TestAPIQELiteRejectsNonApplicationVariable", "TestAPIQEModelProjectEliminatesModelEquality", "TestAPIQEModelProjectValidatesBoundsAndOwners", "TestAPIModelExtrapolateReturnsSatisfiedLiteral", "TestAPIModelExtrapolateResultOutlivesModelReference"],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "Z3_qe_lite, Z3_qe_model_project and Z3_model_extrapolate concrete entrypoints", "status": "ported", "go_target": "pkg/api/api_qe_services.go", "go_targets": ["pkg/api/api_qe_refs.go", "pkg/api/api_qe_lite.go", "pkg/api/api_qe_model_project.go", "pkg/api/api_model_extrapolate.go"], "tests": ["TestAPIQELiteEliminatesUnusedApplication", "TestAPIQEModelProjectEliminatesModelEquality", "TestAPIModelExtrapolateReturnsSatisfiedLiteral"]}],
       "ownership": [],
       "deviations": []
     },
@@ -165777,9 +165786,9 @@
       "path": "src/tactic/arith/fm_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/arith/fm_model_converter.go", "pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_ast.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go"],
+      "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"],
       "conditionals": [
         {
           "line": 1008,
@@ -165962,7 +165971,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "fm model converter eliminated-variable storage, bound isolation, conditional clauses, reverse reconstruction and translation (fm_tactic.cpp:40-242)", "status": "ported", "go_target": "pkg/tactic/arith/fm_model_converter.go", "go_targets": ["pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_ast.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go"], "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"]}],
       "ownership": [],
       "deviations": []
     },
@@ -165970,9 +165979,9 @@
       "path": "src/tactic/arith/fm_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/arith/fm_model_converter.go", "pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go"],
+      "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"],
       "conditionals": [
         {
           "line": 24,
@@ -165985,7 +165994,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "fm model-converter public construction and model-converter lifecycle", "status": "partial", "go_target": "pkg/tactic/arith/fm_model_converter.go", "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterReconstructsVariablesInReverse"]}],
       "ownership": [],
       "deviations": []
     },
