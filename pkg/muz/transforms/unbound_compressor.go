@@ -246,61 +246,79 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 		return nil, nil
 	}
 	p.mapping = make(map[compressionKey]ast.ASTHandle)
-	count, err := source.Len()
-	for index := 0; err == nil && index < count; index++ {
-		rule, getErr := source.Rule(index)
-		if getErr != nil {
-			return nil, getErr
-		}
-		key, found, getErr := p.headTask(source, rule)
-		getErr = errors.Join(getErr, rule.Close())
-		if getErr != nil {
-			return nil, getErr
-		}
-		if found {
-			_, err = p.declare(key)
-		}
-	}
-	if err != nil || len(p.mapping) == 0 {
-		return nil, err
-	}
-	result, err := base.NewRuleSet(p.rules)
-	if err != nil {
-		return nil, err
-	}
-	keep := false
+	current := source
+	var owned *base.RuleSet
 	defer func() {
-		if !keep {
-			resultErr = errors.Join(resultErr, result.Close())
+		if owned != nil {
+			resultErr = errors.Join(resultErr, owned.Close())
 		}
 	}()
-	for index := 0; index < count; index++ {
-		rule, getErr := source.Rule(index)
-		if getErr != nil {
-			return nil, getErr
-		}
-		replacement, _, getErr := p.rewriteRule(rule)
-		if getErr == nil {
-			getErr = result.Add(replacement)
-		}
-		if replacement != nil {
-			getErr = errors.Join(getErr, replacement.Close())
-		}
-		getErr = errors.Join(getErr, rule.Close())
-		if getErr != nil {
-			return nil, getErr
-		}
-	}
-	if err = result.InheritPredicates(source); err != nil {
-		return nil, err
-	}
-	for key, declaration := range p.mapping {
-		if err = result.InheritPredicate(source, key.predicate, declaration); err != nil {
+	for {
+		before := len(p.mapping)
+		count, err := current.Len()
+		if err != nil {
 			return nil, err
 		}
+		for index := 0; index < count; index++ {
+			rule, getErr := current.Rule(index)
+			if getErr != nil {
+				return nil, getErr
+			}
+			key, found, getErr := p.headTask(source, rule)
+			getErr = errors.Join(getErr, rule.Close())
+			if getErr != nil {
+				return nil, getErr
+			}
+			if found {
+				if _, getErr = p.declare(key); getErr != nil {
+					return nil, getErr
+				}
+			}
+		}
+		if len(p.mapping) == before {
+			if owned == nil {
+				return nil, nil
+			}
+			result := owned
+			owned = nil
+			return result, nil
+		}
+		result, err := base.NewRuleSet(p.rules)
+		if err != nil {
+			return nil, err
+		}
+		for index := 0; index < count; index++ {
+			rule, getErr := current.Rule(index)
+			if getErr != nil {
+				return nil, errors.Join(getErr, result.Close())
+			}
+			replacement, _, getErr := p.rewriteRule(rule)
+			if getErr == nil {
+				getErr = result.Add(replacement)
+			}
+			if replacement != nil {
+				getErr = errors.Join(getErr, replacement.Close())
+			}
+			getErr = errors.Join(getErr, rule.Close())
+			if getErr != nil {
+				return nil, errors.Join(getErr, result.Close())
+			}
+		}
+		if err = result.InheritPredicates(current); err != nil {
+			return nil, errors.Join(err, result.Close())
+		}
+		for key, declaration := range p.mapping {
+			if err = result.InheritPredicate(source, key.predicate, declaration); err != nil {
+				return nil, errors.Join(err, result.Close())
+			}
+		}
+		if owned != nil {
+			if err = owned.Close(); err != nil {
+				return nil, errors.Join(err, result.Close())
+			}
+		}
+		owned, current = result, result
 	}
-	keep = true
-	return result, nil
 }
 
 func (p *UnboundCompressorPlugin) Close() error {

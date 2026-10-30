@@ -84,3 +84,48 @@ func TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads(t *testing.T) {
 		coneMust(t, plugin.Close())
 	}
 }
+
+func TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	x, err := f.manager.MkVar(0, boolean)
+	coneMust(t, err)
+	y, err := f.manager.MkVar(1, boolean)
+	coneMust(t, err)
+	z, err := f.manager.MkVar(2, boolean)
+	coneMust(t, err)
+	q := declareTransformPredicate(t, f, "compress-repeat-Q", []ast.ASTHandle{boolean}, []ast.ASTHandle{z})
+	p := declareTransformPredicate(t, f, "compress-repeat-P", []ast.ASTHandle{boolean, boolean, boolean}, []ast.ASTHandle{x, y, z})
+	goal := declareTransformPredicate(t, f, "compress-repeat-Goal", []ast.ASTHandle{boolean}, []ast.ASTHandle{x})
+	addTransformRule(t, f, p.application, []ast.ASTHandle{q.application}, nil, "repeat-definition")
+	addTransformRule(t, f, goal.application, []ast.ASTHandle{p.application}, nil, "repeat-consumer")
+	coneMust(t, f.set.SetOutputPredicate(goal.declaration))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("repeat-compression fixture rejected")
+	}
+	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	if result == nil {
+		t.Fatal("unbound head arguments were not compressed")
+	}
+	defer func() { coneMust(t, result.Close()) }()
+	compressed := plugin.CompressedPredicates()[p.declaration]
+	if compressed.IsNull() {
+		t.Fatal("missing first compressed predicate")
+	}
+	if got, getErr := f.manager.GetArity(compressed); getErr != nil || got != 2 {
+		t.Fatalf("first projected arity %d, want 2: %v", got, getErr)
+	}
+	second := plugin.CompressedPredicates()[compressed]
+	if second.IsNull() {
+		t.Fatal("newly exposed unbound argument was not compressed")
+	}
+	if got, getErr := f.manager.GetArity(second); getErr != nil || got != 1 {
+		t.Fatalf("second projected arity %d, want 1: %v", got, getErr)
+	}
+}
