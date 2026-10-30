@@ -82702,6 +82702,8 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "hnf::imp::eliminate_quantifier_body no-proof transformation names compound predicate bodies under universal antecedents and queues one defining implication per occurrence after disjunction elimination (hnf.cpp:295-296,419-442)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_quantifier_body_test.go"], "tests": ["TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"]},
+        {"name": "hnf::imp::is_predicate recognizes Boolean uninterpreted declarations using null_family_id and excludes basic/theory connectives from predicate-containing disjunction handling (hnf.cpp:209-216)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_quantifier_body_test.go"], "tests": ["TestHornNormalizerDoesNotTreatTheoryConnectivesAsPredicates", "TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"]},
         {
           "name": "No-proof HNF worklist, implication/conjunction extraction, singleton disjunction splitting, fresh predicate construction, disjunctive definition memoization, universal-prefix reconstruction, and reset-local result collection (hnf.cpp:71-138,223-292,347-421,481-511)",
           "status": "partial",

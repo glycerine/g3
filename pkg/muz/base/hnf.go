@@ -1,7 +1,7 @@
 package base
 
-// Source: src/muz/base/hnf.cpp and hnf.h. This file ports the retained
-// no-proof Horn-normal-form worklist, disjunctive definition introduction,
+// Source: src/muz/base/hnf.cpp and hnf.h. This file ports the no-proof
+// Horn-normal-form worklist, disjunctive and quantified-body definitions,
 // fresh predicate construction, and universal-prefix reconstruction.
 
 import (
@@ -102,7 +102,7 @@ func (n *HornNormalizer) predicate(expression ast.ASTHandle) (bool, error) {
 		return false, err
 	}
 	boolean, err := n.manager.MkBoolSort()
-	return family == 0 && rangeSort == boolean, err
+	return family == ast.NullFamilyID && rangeSort == boolean, err
 }
 
 func (n *HornNormalizer) containsPredicate(root ast.ASTHandle) (bool, error) {
@@ -467,6 +467,63 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 				}
 			}
 			body[i] = fresh
+		}
+		// Source eliminate_quantifier_body names compound predicate bodies
+		// under universal antecedents after disjunction elimination. Each
+		// occurrence gets its own definition; only disjunctions are memoized.
+		for i, expression := range body {
+			kind, err := n.manager.GetKind(expression)
+			if err != nil {
+				return result, err
+			}
+			if kind != ast.ASTQuantifier {
+				continue
+			}
+			forall, err := n.manager.IsForall(expression)
+			if err != nil {
+				return result, err
+			}
+			if !forall {
+				continue
+			}
+			contains, err := n.containsPredicate(expression)
+			if err != nil {
+				return result, err
+			}
+			if !contains {
+				continue
+			}
+			inner, err := n.manager.GetQuantifierBody(expression)
+			if err != nil {
+				return result, err
+			}
+			predicate, err := n.predicate(inner)
+			if err != nil {
+				return result, err
+			}
+			if predicate {
+				continue
+			}
+			fresh, err := n.freshHead(inner, result, &locals)
+			if err != nil {
+				return result, err
+			}
+			definition, err := n.implication([]ast.ASTHandle{inner}, fresh, &locals)
+			if err != nil {
+				return result, err
+			}
+			definition, err = n.bind(prefix, definition, &locals)
+			if err != nil {
+				return result, err
+			}
+			work = append(work, hornWork{formula: definition})
+			body[i], err = n.manager.UpdateQuantifierBody(expression, fresh)
+			if err != nil {
+				return result, err
+			}
+			if err = n.pin(&locals, body[i]); err != nil {
+				return result, err
+			}
 		}
 		normalized, err := n.implication(body, head, &locals)
 		if err != nil {
