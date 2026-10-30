@@ -29,8 +29,10 @@ func TestUDocRelationFormulaEmptyAndPopulated(t *testing.T) {
 		t.Fatal(err)
 	}
 	closeUDoc(t, populated)
-	if inserted, x := populated.AddFact([]uint64{2}); x != nil || !inserted {
-		t.Fatal("add row", inserted, x)
+	for _, value := range []uint64{1, 2} {
+		if inserted, x := populated.AddFact([]uint64{value}); x != nil || !inserted {
+			t.Fatal("add row", value, inserted, x)
+		}
 	}
 	formula, err := populated.ToFormula(astManager)
 	if err != nil {
@@ -41,8 +43,9 @@ func TestUDocRelationFormulaEmptyAndPopulated(t *testing.T) {
 	if err != nil || astManager.IsFalse(handle) || astManager.IsTrue(handle) {
 		t.Fatal("populated relation must map to a nonconstant formula", handle, err)
 	}
-	kind, err := astManager.GetKind(handle)
-	if err != nil || kind != ast.ASTApp {
-		t.Fatal("populated relation formula kind", kind, err)
+	kind, err := astManager.GetDeclKind(handle)
+	count, countErr := astManager.GetNumArgs(handle)
+	if err != nil || countErr != nil || kind != ast.ASTOpOr || count != 2 {
+		t.Fatal("populated relation disjunction", kind, count, err, countErr)
 	}
 }
