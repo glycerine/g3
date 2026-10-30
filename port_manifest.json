@@ -74989,7 +74989,7 @@
         },
         {
           "name": "Concrete HWF factory construction from source-order ParamsRef without preliminary default mutation (src/math/subpaving/subpaving.cpp:271-273)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_context_params.go",
           "tests": [
             "TestSubpavingTacticOptionSelectionAndDescriptions"
