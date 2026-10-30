@@ -42,12 +42,23 @@ func (r *UDocRelation) ExtractGuard(manager *ast.ASTManager, condition ast.ASTHa
 			remainders = append(remainders, term)
 		}
 	}
-	guard, err = manager.MkAndArgs(guards)
+	guard, err = udocMakeAnd(manager, guards)
 	if err != nil {
 		return
 	}
-	rest, err = manager.MkAndArgs(remainders)
+	rest, err = udocMakeAnd(manager, remainders)
 	return
+}
+
+func udocMakeAnd(manager *ast.ASTManager, terms []ast.ASTHandle) (ast.ASTHandle, error) {
+	switch len(terms) {
+	case 0:
+		return manager.MkTrue()
+	case 1:
+		return terms[0], nil
+	default:
+		return manager.MkAndArgs(terms)
+	}
 }
 
 func udocFlattenAnd(m *ast.ASTManager, expression ast.ASTHandle, output *[]ast.ASTHandle) error {

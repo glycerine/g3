@@ -62,7 +62,28 @@ func (r *UDocRelation) FilterGuardAndProject(manager *ast.ASTManager, expression
 			discarded[bit] = true
 		}
 	}
-	compiled, err := r.compileGuard(manager, expression, discarded)
+	remainder, equalities, err := r.extractRangeEqualities(manager, expression)
+	if err != nil {
+		return nil, err
+	}
+	guard, reduced, err := r.ExtractGuard(manager, remainder)
+	if err != nil {
+		return nil, err
+	}
+	if !manager.IsTrue(reduced) {
+		compilable, e := udocGuardCompilable(manager, reduced)
+		if e != nil {
+			return nil, e
+		}
+		if !compilable {
+			return nil, ErrDOC
+		}
+		guard, err = udocMakeAnd(manager, []ast.ASTHandle{guard, reduced})
+		if err != nil {
+			return nil, err
+		}
+	}
+	compiled, err := r.compileGuard(manager, guard, discarded)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +96,192 @@ func (r *UDocRelation) FilterGuardAndProject(manager *ast.ASTManager, expression
 	if err = filtered.elems.Intersect(compiled.elems); err != nil {
 		return nil, err
 	}
+	for i := 0; i < len(filtered.elems.values); {
+		valid := true
+		for _, root := range equalities.roots {
+			var e error
+			valid, e = r.manager.MergeRange(filtered.elems.values[i], root, 1, equalities.classes, discarded)
+			if e != nil {
+				return nil, e
+			}
+			if !valid {
+				break
+			}
+		}
+		if !valid {
+			if err = filtered.elems.erase(i); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		i++
+	}
 	return filtered.Project(removed, destination)
+}
+
+func udocGuardCompilable(m *ast.ASTManager, expression ast.ASTHandle) (bool, error) {
+	if recognized, err := udocIsGuard(m, expression); err != nil || recognized {
+		return recognized, err
+	}
+	kind, err := m.GetKind(expression)
+	if err != nil {
+		return false, err
+	}
+	if kind != ast.ASTApp {
+		return false, nil
+	}
+	family, err := m.GetFamilyID(expression)
+	if err != nil {
+		return false, err
+	}
+	declKind, err := m.GetDeclKind(expression)
+	if err != nil {
+		return false, err
+	}
+	if family != m.BasicFamilyID() {
+		return false, nil
+	}
+	if declKind == ast.ASTOpAnd || declKind == ast.ASTOpOr || declKind == ast.ASTOpNot {
+		n, e := m.GetNumArgs(expression)
+		if e != nil {
+			return false, e
+		}
+		for i := uint32(0); i < n; i++ {
+			arg, e := m.GetArg(expression, i)
+			if e != nil {
+				return false, e
+			}
+			yes, e := udocGuardCompilable(m, arg)
+			if e != nil || !yes {
+				return yes, e
+			}
+		}
+		return true, nil
+	}
+	if declKind == ast.ASTOpIff {
+		return true, nil
+	}
+	if declKind != ast.ASTOpEq {
+		return false, nil
+	}
+	left, err := m.GetArg(expression, 0)
+	if err != nil {
+		return false, err
+	}
+	right, err := m.GetArg(expression, 1)
+	if err != nil {
+		return false, err
+	}
+	leftSort, err := m.GetSort(left)
+	if err != nil {
+		return false, err
+	}
+	boolean, err := m.MkBoolSort()
+	if err != nil {
+		return false, err
+	}
+	if leftSort == boolean {
+		return true, nil
+	}
+	_, _, _, leftRange, err := udocGuardRange(m, left)
+	if err != nil {
+		return false, err
+	}
+	_, _, _, rightRange, err := udocGuardRange(m, right)
+	if err != nil {
+		return false, err
+	}
+	if leftRange && rightRange {
+		return true, nil
+	}
+	if leftRange {
+		_, _, matched, e := m.BitVectorNumeralBigInt(right)
+		return matched, e
+	}
+	if rightRange {
+		_, _, matched, e := m.BitVectorNumeralBigInt(left)
+		return matched, e
+	}
+	_, leftConcat, err := m.BitVectorConcatArguments(left)
+	if err != nil {
+		return false, err
+	}
+	_, rightConcat, err := m.BitVectorConcatArguments(right)
+	return leftConcat || rightConcat, err
+}
+
+type udocRangeEqualities struct {
+	classes *backtrack.UnionFind
+	roots   []uint32
+}
+
+func (r *UDocRelation) extractRangeEqualities(m *ast.ASTManager, condition ast.ASTHandle) (ast.ASTHandle, udocRangeEqualities, error) {
+	classes := backtrack.NewDefaultUnionFind()
+	for i := uint32(0); i < r.NumBits(); i++ {
+		classes.MkVar()
+	}
+	equalities := udocRangeEqualities{classes: classes}
+	var terms []ast.ASTHandle
+	if err := udocFlattenAnd(m, condition, &terms); err != nil {
+		return ast.ASTHandle{}, equalities, err
+	}
+	remaining := make([]ast.ASTHandle, 0, len(terms))
+	for _, term := range terms {
+		kind, err := m.GetKind(term)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		if kind != ast.ASTApp {
+			remaining = append(remaining, term)
+			continue
+		}
+		family, err := m.GetFamilyID(term)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		declKind, err := m.GetDeclKind(term)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		if family != m.BasicFamilyID() || declKind != ast.ASTOpEq {
+			remaining = append(remaining, term)
+			continue
+		}
+		left, err := m.GetArg(term, 0)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		right, err := m.GetArg(term, 1)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		leftVar, leftLow, leftHigh, leftOK, err := udocGuardRange(m, left)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		rightVar, rightLow, rightHigh, rightOK, err := udocGuardRange(m, right)
+		if err != nil {
+			return ast.ASTHandle{}, equalities, err
+		}
+		if !leftOK || !rightOK {
+			remaining = append(remaining, term)
+			continue
+		}
+		if leftHigh < leftLow || rightHigh < rightLow || leftHigh-leftLow != rightHigh-rightLow || leftVar >= uint32(len(r.widths)) || rightVar >= uint32(len(r.widths)) {
+			return ast.ASTHandle{}, equalities, ErrDOC
+		}
+		leftIndex, rightIndex := r.offsets[leftVar]+leftLow, r.offsets[rightVar]+rightLow
+		length := leftHigh - leftLow + 1
+		if leftIndex+length > r.NumBits() || rightIndex+length > r.NumBits() {
+			return ast.ASTHandle{}, equalities, ErrDOC
+		}
+		for bit := uint32(0); bit < length; bit++ {
+			classes.Merge(leftIndex+bit, rightIndex+bit)
+			equalities.roots = append(equalities.roots, leftIndex+bit)
+		}
+	}
+	rest, err := udocMakeAnd(m, remaining)
+	return rest, equalities, err
 }
 
 // FilterGuard intersects the relation with the DOC union compiled from a guard.

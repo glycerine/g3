@@ -99,7 +99,7 @@ func TestUDocGuardRecognition(t *testing.T) {
 	if n, e := m.GetNumArgs(guardPart); e != nil || n != 2 {
 		t.Fatalf("guard terms: %d %v", n, e)
 	}
-	if n, e := m.GetNumArgs(restPart); e != nil || n != 1 {
-		t.Fatalf("residual terms: %d %v", n, e)
+	if restPart != residual {
+		t.Fatalf("residual expression changed: %v want %v", restPart, residual)
 	}
 }

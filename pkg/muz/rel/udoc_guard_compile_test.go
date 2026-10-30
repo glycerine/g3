@@ -217,11 +217,9 @@ func TestUDocCompileVariableRangeEqualities(t *testing.T) {
 	if err = relation.Reset(); err != nil {
 		t.Fatal(err)
 	}
-	for left := uint64(0); left < 4; left++ {
-		for right := uint64(0); right < 4; right++ {
-			if _, e := relation.AddFact([]uint64{left, right}); e != nil {
-				t.Fatal(e)
-			}
+	for _, fact := range [][]uint64{{0, 1}, {1, 1}, {2, 2}, {3, 0}} {
+		if _, e := relation.AddFact(fact); e != nil {
+			t.Fatal(e)
 		}
 	}
 	destination, _ := newTestDocManager(t, 2)
@@ -231,7 +229,35 @@ func TestUDocCompileVariableRangeEqualities(t *testing.T) {
 	}
 	closeUDoc(t, projected)
 	for value := uint64(0); value < 4; value++ {
-		requireFact(t, projected, []uint64{value}, true)
+		requireFact(t, projected, []uint64{value}, value == 1 || value == 2)
+	}
+	if err = relation.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]uint64{{2, 2}, {2, 1}, {3, 3}} {
+		if _, e := relation.AddFact(fact); e != nil {
+			t.Fatal(e)
+		}
+	}
+	two, err := m.BitVectorNumeralUint64(2, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalTwo, err := m.MkEq(x, two)
+	if err != nil {
+		t.Fatal(err)
+	}
+	condition, err := m.MkAnd(equal, equalTwo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected, err = relation.FilterGuardAndProject(m, condition, []uint32{1}, destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, projected)
+	for value := uint64(0); value < 4; value++ {
+		requireFact(t, projected, []uint64{value}, value == 2)
 	}
 }
 
@@ -334,6 +360,25 @@ func TestUDocCompileConcatenatedBitVectorEqualities(t *testing.T) {
 		for right := uint64(0); right < 4; right++ {
 			requireFact(t, constantRows, []uint64{left, right}, left == 2 && right == 2)
 		}
+	}
+	if err = constantRows.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			if _, e := constantRows.AddFact([]uint64{left, right}); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	destination, _ := newTestDocManager(t, 2)
+	projected, err := constantRows.FilterGuardAndProject(m, equalConstant, []uint32{1}, destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, projected)
+	for value := uint64(0); value < 4; value++ {
+		requireFact(t, projected, []uint64{value}, value == 2)
 	}
 
 	bv4, err := m.BitVectorSort(4)
