@@ -137,6 +137,26 @@ func TestSieveFiltersPreserveSourceApproximation(t *testing.T) {
 	requireSieveFact(t, relation, Fact{1, 0, 1}, true)
 }
 
+func TestSieveIgnoredFiltersDoNotValidateIrrelevantValuesOrDomains(t *testing.T) {
+	relation, err := NewSieveRelation(sieveSignature(t, 2, 3), []bool{false, true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeSieve(t, relation)
+	if _, err = relation.AddFact(Fact{1, 2}); err != nil {
+		t.Fatal(err)
+	}
+	if err = relation.FilterEqual(2, 0); err != nil {
+		t.Fatal("ignored-column equality should be identity", err)
+	}
+	if err = relation.FilterIdentical([]int{0, 1}); err != nil {
+		t.Fatal("one retained column across different domains should be identity", err)
+	}
+	if relation.NumInnerRows() != 1 {
+		t.Fatal("ignored filters changed the inner relation", relation.NumInnerRows())
+	}
+}
+
 func TestSieveNegationFilterMappings(t *testing.T) {
 	signature := sieveSignature(t, 2, 2)
 	target, _ := NewSieveRelation(signature, []bool{true, false})

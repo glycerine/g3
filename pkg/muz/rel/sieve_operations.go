@@ -170,8 +170,8 @@ func (r *SieveRelation) FilterEqual(value Element, column int) error {
 	if err := r.open(); err != nil {
 		return err
 	}
-	if column < 0 || column >= r.signature.Len() || uint64(value) >= r.signature.domains[column] {
-		return fmt.Errorf("%w: filter value or column out of range", ErrSieve)
+	if column < 0 || column >= r.signature.Len() {
+		return fmt.Errorf("%w: filter column out of range", ErrSieve)
 	}
 	if !r.IsInnerColumn(column) {
 		return nil
@@ -184,15 +184,9 @@ func (r *SieveRelation) FilterIdentical(columns []int) error {
 		return err
 	}
 	innerColumns := make([]int, 0, len(columns))
-	var domain uint64
-	for i, column := range columns {
+	for _, column := range columns {
 		if column < 0 || column >= r.signature.Len() {
 			return fmt.Errorf("%w: identical-filter column out of range", ErrSieve)
-		}
-		if i == 0 {
-			domain = r.signature.domains[column]
-		} else if r.signature.domains[column] != domain {
-			return fmt.Errorf("%w: identical-filter domains differ", ErrSieve)
 		}
 		if r.IsInnerColumn(column) {
 			innerColumns = append(innerColumns, r.sigToInner[column])
