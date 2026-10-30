@@ -98,6 +98,31 @@ func TestSpacerPredicateCreatesAndAttachesProjectedDerivation(t *testing.T) {
 	if level, err := child.Level(); err != nil || level != 1 {
 		t.Fatal("Spacer create_children child level", level, err)
 	}
+	// A weak model can select an implicant without satisfying the original
+	// post. C++ creates the child but drops its derivation in that case.
+	weakPost := spacerBool(t, manager, "spacer-create-children-weak-post")
+	weakDeclaration, err := manager.GetDecl(weakPost)
+	spacerMust(t, err)
+	spacerMust(t, md.Core().RegisterConstant(weakDeclaration, falsity))
+	unknownPost := spacerBool(t, manager, "spacer-create-children-unknown-post")
+	for _, post := range []ast.ASTHandle{weakPost, unknownPost} {
+		for _, weakAbstraction := range []bool{true, false} {
+			spacerMust(t, transformer.SetWeakAbstraction(weakAbstraction))
+			weakObligation, err := transformer.NewProofObligation(nil, 2, 2, post, nil)
+			spacerMust(t, err)
+			weakChild, err := transformer.CreateDerivationChild(weakObligation, recursive, md.Core(), []bool{false}, false)
+			spacerMust(t, err)
+			if weakChild == nil {
+				t.Fatal("missing child from weak model")
+			}
+			_, found, err := weakChild.Derivation()
+			spacerMust(t, err)
+			if found == weakAbstraction {
+				t.Fatal("derivation attachment disagrees with source weak-model policy", weakAbstraction, found)
+			}
+		}
+	}
+	spacerMust(t, transformer.SetWeakAbstraction(true))
 	spacerMust(t, transformer.SetDerivationPolicy(false, false))
 	withoutDerivationParent, err := transformer.NewProofObligation(nil, 2, 2, truth, nil)
 	spacerMust(t, err)

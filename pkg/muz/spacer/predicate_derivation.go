@@ -124,11 +124,40 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 	if err = child.SetDerivation(derivation); err != nil {
 		return nil, err
 	}
+	committed = true // child now owns the derivation, including on later errors.
 	if !p.useDerivations {
 		if err = child.SetDerivation(nil); err != nil {
 			return nil, err
 		}
 	}
-	committed = true
+	// Source create_children drops the optimization when a weak model does
+	// not satisfy the original T && phi, even if its selected implicant does.
+	if p.weakAbstraction {
+		evaluator, err := model.NewModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+		if err = evaluator.SetModelCompletion(false); err != nil {
+			return nil, err
+		}
+		for _, expression := range []ast.ASTHandle{transition, post} {
+			value, err := evaluator.EvaluateValue(expression)
+			if err != nil {
+				return nil, err
+			}
+			handle, err := p.manager.RefGet(value)
+			isTrue := err == nil && p.manager.IsTrue(handle)
+			if err = errors.Join(err, p.manager.DelRef(&value)); err != nil {
+				return nil, err
+			}
+			if !isTrue {
+				if err = child.SetDerivation(nil); err != nil {
+					return nil, err
+				}
+				break
+			}
+		}
+	}
 	return child, nil
 }
