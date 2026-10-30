@@ -75022,7 +75022,7 @@
         },
         {
           "name": "Concrete context_mpff_wrapper integer coefficient round trip, directed rational inequality and typed clause/definition forwarding (src/math/subpaving/subpaving.cpp:198-250)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_shell_coefficients.go",
           "tests": [
             "TestFastShellExactCoefficientsAndDirectedInequalities"

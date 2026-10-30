@@ -94,6 +94,9 @@ func TestFastShellExactCoefficientsAndDirectedInequalities(t *testing.T) {
 	if err != nil || y != 1 {
 		t.Fatal("y", y, err)
 	}
+	if c.isInt[x] || !c.isInt[y] {
+		t.Fatal("wrapper must preserve each variable's integer flag")
+	}
 	sum, err := w.MkSum(&three, []*numeral.Int{&big, &one}, []uint32{y, x})
 	if err != nil || sum != 2 || c.isInt[sum] {
 		t.Fatal("owned sum", sum, err)
@@ -104,9 +107,12 @@ func TestFastShellExactCoefficientsAndDirectedInequalities(t *testing.T) {
 	if err := qm.SetFractionSigned(&q, 1, 3); err != nil {
 		t.Fatal(err)
 	}
-	lower, err := w.MkInequality(x, &q, true, false)
+	lower, err := w.MkInequality(x, &q, true, true)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !lower.lower || !lower.open {
+		t.Fatal("lower open inequality flags")
 	}
 	plus, err := m.RoundingToPlusInf()
 	if err != nil || plus {
@@ -115,6 +121,9 @@ func TestFastShellExactCoefficientsAndDirectedInequalities(t *testing.T) {
 	upper, err := w.MkInequality(x, &q, false, false)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if upper.lower || upper.open {
+		t.Fatal("upper closed inequality flags")
 	}
 	plus, err = m.RoundingToPlusInf()
 	if err != nil || !plus {
