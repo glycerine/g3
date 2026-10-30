@@ -130,11 +130,12 @@ func TestConeOfInfluencePrunesOutsideAndUnfoundedRules(t *testing.T) {
 }
 
 func TestConePluginCapturesOrderedModelDefinitions(t *testing.T) {
-	f := newConeFixture(t, "P", "R", "X", "S", "U")
+	f := newConeFixture(t, "P", "R", "X", "S", "U", "V")
 	f.add(t, f.applications["P"], "fact-P")
 	f.edge(t, "P", "R")
 	f.edge(t, "X", "S")
 	f.add(t, f.applications["U"], "fact-U")
+	f.add(t, f.applications["V"], "fact-V")
 	coneMust(t, f.set.SetOutputPredicate(f.declarations["R"]))
 	coneMust(t, f.set.SetOutputPredicate(f.declarations["S"]))
 	valid, err := f.set.Finalize()
@@ -154,6 +155,9 @@ func TestConePluginCapturesOrderedModelDefinitions(t *testing.T) {
 	t.Cleanup(func() { coneMust(t, transforms.CloseConeModelSteps(steps)) })
 	if len(steps) != 2 {
 		t.Fatal("cone converter pass count", len(steps))
+	}
+	if len(steps[0]) != 2 || steps[0][0].Declaration != f.declarations["U"] || steps[0][1].Declaration != f.declarations["V"] {
+		t.Fatal("top-down converter definitions lost source rule order", steps[0])
 	}
 	foundTop, foundBottom := false, false
 	for _, definition := range steps[0] {

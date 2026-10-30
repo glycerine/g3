@@ -93494,7 +93494,7 @@
         "Each converter step owns its formula references until transfer into a Horn backend; replacement, failure, and close release them in reverse order."
       ],
       "deviations": [
-        "The fixedpoint-context fact-table bailout remains pending. Initial cone conversion is replayed by both Horn backends; the two later interleaved cone stages await the general ordered conversion ledger."
+        "The fixedpoint-context fact-table bailout remains pending. Go emits converter definitions in stable source rule traversal order; the C++ func_decl_set uses pointer-hash iteration, whose exact cross-language order is not portable. Initial cone conversion is replayed by both Horn backends; the two later interleaved cone stages await the general ordered conversion ledger."
       ]
     },
     {

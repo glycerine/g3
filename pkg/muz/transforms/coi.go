@@ -131,6 +131,7 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 	}
 	kept := 0
 	pruned := make(map[ast.ASTHandle][]ast.ASTHandle)
+	var prunedOrder []ast.ASTHandle
 	var manager *ast.ASTManager
 	for i := 0; i < count; i++ {
 		rule, e := source.Rule(i)
@@ -151,6 +152,9 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 					manager, e = rule.ASTManager()
 				}
 				if e == nil {
+					if _, found := pruned[head]; !found {
+						prunedOrder = append(prunedOrder, head)
+					}
 					pruned[head] = append(pruned[head], application)
 				}
 			}
@@ -169,7 +173,8 @@ func topDownCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step
 		return nil, nil, err
 	}
 	if captureModel {
-		for declaration, heads := range pruned {
+		for _, declaration := range prunedOrder {
+			heads := pruned[declaration]
 			formula, makeErr := coneHeadDefinition(manager, heads)
 			if makeErr != nil {
 				return nil, nil, errors.Join(makeErr, closeConeModelSteps([]ConeModelStep{step}))
@@ -264,7 +269,14 @@ func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, ste
 	}
 	kept := 0
 	declarations := make(map[ast.ASTHandle]bool)
+	var declarationOrder []ast.ASTHandle
 	var astManager *ast.ASTManager
+	remember := func(declaration ast.ASTHandle) {
+		if !declarations[declaration] {
+			declarations[declaration] = true
+			declarationOrder = append(declarationOrder, declaration)
+		}
+	}
 	for i := 0; i < count; i++ {
 		rule, e := source.Rule(i)
 		if e != nil {
@@ -277,7 +289,7 @@ func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, ste
 				var declaration ast.ASTHandle
 				declaration, e = rule.HeadDeclaration()
 				if e == nil {
-					declarations[declaration] = true
+					remember(declaration)
 				}
 			}
 			if e == nil {
@@ -287,7 +299,7 @@ func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, ste
 					var declaration ast.ASTHandle
 					declaration, e = rule.TailDeclaration(j)
 					if e == nil {
-						declarations[declaration] = true
+						remember(declaration)
 					}
 				}
 			}
@@ -323,7 +335,7 @@ func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, ste
 		if makeErr != nil {
 			return nil, nil, makeErr
 		}
-		for declaration := range declarations {
+		for _, declaration := range declarationOrder {
 			if reachable.IsReachable(declaration) {
 				continue
 			}
