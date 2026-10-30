@@ -232,12 +232,24 @@ func (c *Context) addBitVectorObjective(optimizer *opt.ArithmeticSolver, objecti
 }
 
 func (c *Context) optimizationPriority() (priority string, resultErr error) {
+	key := "priority"
+	local, err := c.config.Params.ContainsName(&c.params, &key)
+	if err != nil {
+		return "", err
+	}
+	if local {
+		value, err := c.config.Params.GetSymbolName(&c.params, &key, usymbol.Symbol{})
+		if err != nil {
+			return "", err
+		}
+		priority, _, err := c.config.Params.SymbolsField.BareString(value)
+		return priority, err
+	}
 	module, err := c.config.Globals.SourceGetModuleName("opt")
 	if err != nil {
 		return "", err
 	}
 	defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&module)) }()
-	key := "priority"
 	value, err := c.config.Params.GetSymbolName(&module, &key, usymbol.Symbol{})
 	if err != nil {
 		return "", err
