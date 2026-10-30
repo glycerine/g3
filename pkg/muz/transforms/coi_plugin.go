@@ -5,19 +5,27 @@ package transforms
 
 import (
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 type ConePlugin struct {
-	priority uint32
-	steps    []ConeModelStep
-	closed   bool
+	priority  uint32
+	steps     []ConeModelStep
+	relations *rel.RelationManager
+	closed    bool
 }
 
 func NewConePlugin(priority uint32) *ConePlugin {
+	return NewConePluginWithRelations(nil, priority)
+}
+
+// NewConePluginWithRelations borrows relations for the source fact-table
+// bailout in the bottom-up pass.
+func NewConePluginWithRelations(relations *rel.RelationManager, priority uint32) *ConePlugin {
 	if priority == 0 {
 		priority = 45000
 	}
-	return &ConePlugin{priority: priority}
+	return &ConePlugin{priority: priority, relations: relations}
 }
 
 func (p *ConePlugin) Priority() uint32 { return p.priority }
@@ -28,7 +36,7 @@ func (p *ConePlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
 	if p == nil || p.closed {
 		return nil, base.ErrRuleTransformerOwner
 	}
-	result, steps, err := coneOfInfluence(source, true)
+	result, steps, err := coneOfInfluence(source, true, p.relations)
 	if err != nil {
 		return nil, err
 	}

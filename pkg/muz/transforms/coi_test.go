@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -196,6 +197,31 @@ func TestConeOfInfluenceReturnsNilWhenUnchanged(t *testing.T) {
 	if filtered != nil {
 		coneMust(t, filtered.Close())
 		t.Fatal("unchanged cone returned a replacement")
+	}
+}
+
+func TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts(t *testing.T) {
+	f := newConeFixture(t, "P", "E")
+	addTransformRule(t, f, f.applications["P"], []ast.ASTHandle{f.applications["E"]}, []bool{true}, "negative-fact-table")
+	coneMust(t, f.set.SetOutputPredicate(f.declarations["P"]))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("fact-table fixture is unstratified")
+	}
+	relations, err := rel.NewRelationManager(f.manager)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, relations.Close()) })
+	table, err := relations.GetRelation(f.declarations["E"])
+	coneMust(t, err)
+	if inserted, addErr := table.Add(rel.Fact{}); addErr != nil || !inserted {
+		t.Fatalf("materialize E fact: inserted=%v err=%v", inserted, addErr)
+	}
+	result, err := transforms.ConeOfInfluenceWithRelations(f.set, relations)
+	coneMust(t, err)
+	if result != nil {
+		coneMust(t, result.Close())
+		t.Fatal("cone filter ignored the source fact-table bailout")
 	}
 }
 

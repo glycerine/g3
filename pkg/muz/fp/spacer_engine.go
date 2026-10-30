@@ -44,7 +44,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 		return nil, err
 	}
 	transformer := base.NewRuleTransformer()
-	initialCone := transforms.NewConePlugin(0)
+	initialCone := transforms.NewConePluginWithRelations(e.relations, 0)
 	if err = transformer.Register(initialCone); err != nil {
 		return nil, errors.Join(err, initialCone.Close(), transformer.Close())
 	}
@@ -239,7 +239,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 			return nil, errors.Join(err, arrayRewrite.Close(), transformer.Close())
 		}
 	}
-	laterCone := transforms.NewConePlugin(34990)
+	laterCone := transforms.NewConePluginWithRelations(e.relations, 34990)
 	if err = transformer.Register(laterCone); err != nil {
 		return nil, errors.Join(err, laterCone.Close(), transformer.Close())
 	}
@@ -258,7 +258,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	if err = transformer.Register(newInliner(34970)); err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
-	finalCone := transforms.NewConePlugin(34960)
+	finalCone := transforms.NewConePluginWithRelations(e.relations, 34960)
 	if err = transformer.Register(finalCone); err != nil {
 		return nil, errors.Join(err, finalCone.Close(), transformer.Close())
 	}

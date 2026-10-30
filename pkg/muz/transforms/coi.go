@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/dataflow"
+	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 // ConeModelDefinition is one owning extension-model entry emitted by a cone
@@ -244,7 +245,7 @@ func filteredRule(manager *base.RuleManager, rule *base.Rule, reachable *dataflo
 	return replacement, true, err
 }
 
-func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, step ConeModelStep, resultErr error) {
+func bottomUpCone(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, step ConeModelStep, resultErr error) {
 	reachable, err := dataflow.BottomUp(source)
 	if err != nil {
 		return nil, nil, err
@@ -281,6 +282,29 @@ func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, ste
 		rule, e := source.Rule(i)
 		if e != nil {
 			return nil, nil, e
+		}
+		if relations != nil {
+			var tails int
+			tails, e = rule.UninterpretedTailSize()
+			for j := 0; e == nil && j < tails; j++ {
+				var declaration ast.ASTHandle
+				declaration, e = rule.TailDeclaration(j)
+				if e != nil {
+					break
+				}
+				table, found, relationErr := relations.TryGetRelation(declaration)
+				e = relationErr
+				if e == nil && found {
+					var rows int
+					rows, e = table.Len()
+					if e == nil && rows != 0 {
+						return nil, nil, nil
+					}
+				}
+			}
+			if e != nil {
+				return nil, nil, errors.Join(e, rule.Close())
+			}
 		}
 		replacement, retain, e := filteredRule(manager, rule, reachable)
 		if captureModel && e == nil {
@@ -354,11 +378,18 @@ func bottomUpCone(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, ste
 // result means neither pass changed the source. A non-nil result is owned by
 // the caller and is already finalized.
 func ConeOfInfluence(source *base.RuleSet) (*base.RuleSet, error) {
-	result, _, err := coneOfInfluence(source, false)
+	result, _, err := coneOfInfluence(source, false, nil)
 	return result, err
 }
 
-func coneOfInfluence(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, steps []ConeModelStep, resultErr error) {
+// ConeOfInfluenceWithRelations preserves the source context bailout when a
+// bottom-up candidate references a predicate with materialized facts.
+func ConeOfInfluenceWithRelations(source *base.RuleSet, relations *rel.RelationManager) (*base.RuleSet, error) {
+	result, _, err := coneOfInfluence(source, false, relations)
+	return result, err
+}
+
+func coneOfInfluence(source *base.RuleSet, captureModel bool, relations *rel.RelationManager) (_ *base.RuleSet, steps []ConeModelStep, resultErr error) {
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, closeConeModelSteps(steps))
@@ -376,7 +407,7 @@ func coneOfInfluence(source *base.RuleSet, captureModel bool) (_ *base.RuleSet, 
 	if top != nil {
 		basis = top
 	}
-	bottom, bottomStep, err := bottomUpCone(basis, captureModel)
+	bottom, bottomStep, err := bottomUpCone(basis, captureModel, relations)
 	if err != nil {
 		if top != nil {
 			err = errors.Join(err, top.Close())

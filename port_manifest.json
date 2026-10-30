@@ -93515,9 +93515,21 @@
       "path": "src/muz/transforms/dl_mk_coi_filter.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/transforms/coi.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/spacer_slice_results.go"],
-      "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestConePluginCapturesOrderedModelDefinitions", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/transforms/coi.go",
+        "pkg/muz/dataflow/reachability.go",
+        "pkg/muz/fp/horn_preprocess.go",
+        "pkg/muz/fp/spacer_slice_results.go"
+      ],
+      "tests": [
+        "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
+        "TestConeOfInfluenceReturnsNilWhenUnchanged",
+        "TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts",
+        "TestConePluginCapturesOrderedModelDefinitions",
+        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+        "TestPDREngineExpandsSlicedModelsAndCovers"
+      ],
       "assertions": [
         {
           "line": 73,
@@ -93529,33 +93541,58 @@
       "methods": [
         {
           "name": "operator(), top_down and bottom_up rule pruning: output-cone filtering, positive foundedness filtering, unreachable negative-tail simplification, predicate inheritance, source count-based no-change behavior, and finalized replacement construction (dl_mk_coi_filter.cpp:24-155)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/coi.go",
-          "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"]
+          "tests": [
+            "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
+            "TestConeOfInfluenceReturnsNilWhenUnchanged",
+            "TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts",
+            "TestConePluginCapturesOrderedModelDefinitions",
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestPDREngineExpandsSlicedModelsAndCovers"
+          ]
         },
         {
           "name": "top-down extension definitions, bottom-up unreachable=false definitions, reverse replay, and model-first inductive-certificate reconstruction",
           "status": "ported",
           "go_target": "pkg/muz/transforms/coi.go",
-          "go_targets": ["pkg/muz/transforms/coi_plugin.go", "pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/spacer_slice_results.go", "pkg/muz/fp/propositional_engine.go"],
-          "tests": ["TestConePluginCapturesOrderedModelDefinitions", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestPDREngineExpandsSlicedModelsAndCovers"]
+          "go_targets": [
+            "pkg/muz/transforms/coi_plugin.go",
+            "pkg/muz/fp/horn_preprocess.go",
+            "pkg/muz/fp/spacer_slice_results.go",
+            "pkg/muz/fp/propositional_engine.go"
+          ],
+          "tests": [
+            "TestConePluginCapturesOrderedModelDefinitions",
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestPDREngineExpandsSlicedModelsAndCovers"
+          ]
         }
       ],
       "ownership": [
-        "Each changed pass returns one finalized owning RuleSet, closes every temporary Rule wrapper and discarded intermediate set, and retains source rules through RuleSet.Add.",
-        "Each converter step owns its formula references until transfer into a Horn backend; replacement, failure, and close release them in reverse order."
+        "Each cone pass returns one finalized RuleSet or nil on source no-change/fact-table bailout. Converter formula references transfer to ordered Horn model-conversion steps and are released after replay or failure."
       ],
       "deviations": [
-        "The fixedpoint-context fact-table bailout remains pending. Go emits converter definitions in stable source rule traversal order; the C++ func_decl_set uses pointer-hash iteration, whose exact cross-language order is not portable. Initial cone conversion is replayed by both Horn backends; the two later interleaved cone stages await the general ordered conversion ledger."
+        "Go retains deterministic rule-traversal converter ordering; C++ func_decl_set iteration uses pointer hashing, which has no stable cross-language order."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_coi_filter.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/transforms/coi.go", "pkg/muz/transforms/coi_plugin.go"],
-      "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleTransformerAppliesConePlugin", "TestConePluginCapturesOrderedModelDefinitions"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/transforms/coi.go",
+        "pkg/muz/transforms/coi_plugin.go"
+      ],
+      "tests": [
+        "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
+        "TestConeOfInfluenceReturnsNilWhenUnchanged",
+        "TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts",
+        "TestConePluginCapturesOrderedModelDefinitions",
+        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+        "TestPDREngineExpandsSlicedModelsAndCovers"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -93573,15 +93610,20 @@
           "name": "mk_coi_filter callable transformation surface and its top-down/bottom-up pass composition (dl_mk_coi_filter.h:27-47)",
           "status": "ported",
           "go_target": "pkg/muz/transforms/coi.go",
-          "tests": ["TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleTransformerAppliesConePlugin", "TestConePluginCapturesOrderedModelDefinitions"]
+          "tests": [
+            "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
+            "TestConeOfInfluenceReturnsNilWhenUnchanged",
+            "TestConeOfInfluenceBailsOutWhenNegativeTailHasMaterializedFacts",
+            "TestConePluginCapturesOrderedModelDefinitions",
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestPDREngineExpandsSlicedModelsAndCovers"
+          ]
         }
       ],
       "ownership": [
-        "ConeOfInfluence returns nil for source no-change or transfers one finalized RuleSet owner to its caller; ConePlugin separately transfers or closes its ordered owning converter steps."
+        "RuleTransformer owns the plugin; its relation manager is borrowed, and ordered model-conversion steps transfer to the fixedpoint result owner."
       ],
-      "deviations": [
-        "The prioritized plugin and converter-transfer surfaces are live; the fixedpoint-context fact-table bailout remains outside this package."
-      ]
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_different.h",
