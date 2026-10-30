@@ -13,6 +13,8 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		return err
 	}
 	switch kind {
+	case InputDatalog:
+		return RunDatalogFrontend(r.context, r.result.InputName, r.output)
 	case InputSMT2:
 		frontend, err := NewSMTLIBFrontend(SMTLIBFrontendConfig{
 			Context: r.context, Input: r.input, Output: r.output,

@@ -1,6 +1,10 @@
 package shell
 
-import "time"
+import (
+	"time"
+
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
 
 func (f *DatalogFrontend) Saturate() error {
 	if f == nil || !f.loaded || f.saturated {
@@ -10,16 +14,20 @@ func (f *DatalogFrontend) Saturate() error {
 	if err != nil {
 		return err
 	}
+	if _, err = f.context.QueryFixedpointRelations(predicates); err != nil {
+		return err
+	}
+	f.snapshots, err = f.context.FixedpointRelationSnapshots(predicates)
+	if err != nil {
+		return err
+	}
 	f.results = make([]DatalogPredicateResult, 0, len(predicates))
 	manager, err := f.context.Manager()
 	if err != nil {
 		return err
 	}
-	for _, declaration := range predicates {
-		status, queryErr := f.context.QueryFixedpoint(declaration)
-		if queryErr != nil {
-			return queryErr
-		}
+	for i, declaration := range predicates {
+		status := lbool.FromBool(len(f.snapshots[i].Facts) != 0)
 		name, queryErr := manager.GetASTName(declaration)
 		if queryErr != nil {
 			return queryErr

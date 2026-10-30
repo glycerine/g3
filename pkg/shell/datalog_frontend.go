@@ -28,6 +28,22 @@ type DatalogFrontend struct {
 	loaded, saturated                   bool
 	started, parseFinished, runFinished time.Time
 	results                             []DatalogPredicateResult
+	snapshots                           []cmd_context.FixedpointRelationSnapshot
+}
+
+func (f *DatalogFrontend) RelationSnapshots() ([]cmd_context.FixedpointRelationSnapshot, error) {
+	if f == nil || !f.saturated {
+		return nil, ErrDatalogFrontend
+	}
+	result := make([]cmd_context.FixedpointRelationSnapshot, len(f.snapshots))
+	for i, snapshot := range f.snapshots {
+		result[i].Declaration = snapshot.Declaration
+		result[i].Facts = make([][]uint64, len(snapshot.Facts))
+		for j := range snapshot.Facts {
+			result[i].Facts[j] = append([]uint64(nil), snapshot.Facts[j]...)
+		}
+	}
+	return result, nil
 }
 
 func NewDatalogFrontend(context *cmd_context.Context, output io.Writer) (*DatalogFrontend, error) {
