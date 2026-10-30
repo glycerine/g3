@@ -82155,8 +82155,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"],
-      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"],
+      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go", "pkg/cmd_context/wpa_discover.go"],
+      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"],
       "conditionals": [
         {
           "line": 23,
@@ -82291,7 +82291,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "checked decimal read/string conversion, concrete relation-row and mapping-line consumers, and uint64 formatting", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "go_targets": ["pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"], "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}],
+      "methods": [{"name": "checked decimal read/string conversion, concrete relation-row and mapping-line consumers, and uint64 formatting", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "go_targets": ["pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"], "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}, {"name": "recursive WPA source-file discovery with hidden-directory exclusion and exact extension suffix matching (dl_util.cpp:554-600)", "status": "ported", "go_target": "pkg/cmd_context/wpa_discover.go", "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"]}],
       "ownership": [],
       "deviations": []
     },
@@ -82300,8 +82300,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"],
-      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"],
+      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go", "pkg/cmd_context/wpa_discover.go"],
+      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"],
       "conditionals": [
         {
           "line": 19,
@@ -82324,7 +82324,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "retained uint64 scanner, conversion and formatting declarations with concrete Datalog row/map consumers", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}],
+      "methods": [{"name": "retained uint64 scanner, conversion and formatting declarations with concrete Datalog row/map consumers", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}, {"name": "get_file_names declaration used by retained WPA directory parser (dl_util.h:581-587)", "status": "ported", "go_target": "pkg/cmd_context/wpa_discover.go", "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"]}],
       "ownership": [],
       "deviations": []
     },
@@ -83128,8 +83128,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/datalog_token.go", "pkg/cmd_context/datalog_lexer.go", "pkg/cmd_context/datalog_parser.go", "pkg/cmd_context/datalog_parser_errors.go", "pkg/cmd_context/datalog_parser_domains.go", "pkg/cmd_context/datalog_parser_declarations.go", "pkg/cmd_context/datalog_parser_rules.go", "pkg/cmd_context/datalog_parser_terms.go", "pkg/cmd_context/datalog_parser_include.go", "pkg/cmd_context/datalog_parser_constants.go", "pkg/cmd_context/datalog_lexer_test.go", "pkg/cmd_context/datalog_parser_test.go", "pkg/cmd_context/datalog_parser_include_test.go"],
-      "tests": ["TestDatalogLexer", "TestDatalogParser"],
+      "go_targets": ["pkg/cmd_context/datalog_token.go", "pkg/cmd_context/datalog_lexer.go", "pkg/cmd_context/datalog_parser.go", "pkg/cmd_context/datalog_parser_errors.go", "pkg/cmd_context/datalog_parser_domains.go", "pkg/cmd_context/datalog_parser_declarations.go", "pkg/cmd_context/datalog_parser_rules.go", "pkg/cmd_context/datalog_parser_terms.go", "pkg/cmd_context/datalog_parser_include.go", "pkg/cmd_context/datalog_parser_constants.go", "pkg/cmd_context/datalog_lexer_test.go", "pkg/cmd_context/datalog_parser_test.go", "pkg/cmd_context/datalog_parser_include_test.go", "pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go"],
+      "tests": ["TestDatalogLexer", "TestDatalogParser", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate"],
       "conditionals": [
         {
           "line": 67,
@@ -83248,7 +83248,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "wpa_parser_impl directory discovery, map/rule/relation file parsing and finite fact loading (datalog_parser.cpp:1218-1264)", "status": "ported", "go_target": "pkg/cmd_context/wpa_parser.go", "go_targets": ["pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go"], "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate"]}],
       "ownership": [],
       "deviations": []
     },
@@ -83257,8 +83257,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/datalog_parser.go", "pkg/muz/fp/datalog_lexer.go", "pkg/muz/fp/datalog_parser_state.go", "pkg/muz/fp/datalog_parser_domains.go", "pkg/muz/fp/datalog_parser_decls.go", "pkg/muz/fp/datalog_parser_terms.go", "pkg/muz/fp/datalog_parser_rules.go", "pkg/muz/fp/datalog_parser_include.go"],
-      "tests": ["TestDatalogParserFiniteAndIntegerDomains", "TestDatalogParserDeclarationArgumentNamesAndOutput", "TestDatalogParserFactsPositiveAndNegativeRules", "TestDatalogParserRelativeIncludeAndDomainMap"],
+      "go_targets": ["pkg/muz/fp/datalog_parser.go", "pkg/muz/fp/datalog_lexer.go", "pkg/muz/fp/datalog_parser_state.go", "pkg/muz/fp/datalog_parser_domains.go", "pkg/muz/fp/datalog_parser_decls.go", "pkg/muz/fp/datalog_parser_terms.go", "pkg/muz/fp/datalog_parser_rules.go", "pkg/muz/fp/datalog_parser_include.go", "pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go"],
+      "tests": ["TestDatalogParserFiniteAndIntegerDomains", "TestDatalogParserDeclarationArgumentNamesAndOutput", "TestDatalogParserFactsPositiveAndNegativeRules", "TestDatalogParserRelativeIncludeAndDomainMap", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate"],
       "conditionals": [
         {
           "line": 19,
@@ -83271,7 +83271,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "legacy Datalog parser construction plus string/file parsing for finite and integer domains, declarations, terms, rules, guards and includes; WPA directory parsing remains open", "status": "partial", "go_target": "pkg/muz/fp/datalog_parser.go", "tests": ["TestDatalogParserFiniteAndIntegerDomains", "TestDatalogParserFactsPositiveAndNegativeRules", "TestDatalogParserRelativeIncludeAndDomainMap"]}],
+      "methods": [{"name": "legacy Datalog parser construction plus string/file parsing for finite and integer domains, declarations, terms, rules, guards and includes", "status": "ported", "go_target": "pkg/muz/fp/datalog_parser.go", "tests": ["TestDatalogParserFiniteAndIntegerDomains", "TestDatalogParserFactsPositiveAndNegativeRules", "TestDatalogParserRelativeIncludeAndDomainMap"]}, {"name": "WPA directory parser factory and file discovery surface", "status": "ported", "go_target": "pkg/cmd_context/wpa_parser.go", "go_targets": ["pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go"], "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate"]}],
       "ownership": ["Parser calls borrow the Datalog context and its AST manager; temporary lexer/parser maps own native Go storage, while published declarations and rules are transferred to the context."],
       "deviations": []
     },

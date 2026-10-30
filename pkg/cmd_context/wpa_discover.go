@@ -13,7 +13,10 @@ func (p *wpaParser) files(extension string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if !entry.IsDir() && strings.EqualFold(filepath.Ext(path), "."+extension) {
+		if entry.IsDir() && path != p.directory && strings.HasPrefix(entry.Name(), ".") {
+			return filepath.SkipDir
+		}
+		if !entry.IsDir() && filepath.Ext(path) == "."+extension {
 			result = append(result, path)
 		}
 		return nil
