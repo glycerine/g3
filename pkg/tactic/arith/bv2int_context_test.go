@@ -256,6 +256,37 @@ func TestBV2IntContextConstructorRefusalAndCopiedOwner(t *testing.T) {
 	}
 }
 
+func TestBV2IntCollectPower2RefusalFrontierRetriesWithoutPartialMapping(t *testing.T) {
+	for fail := int64(0); fail < 16; fail++ {
+		t.Run(fmt.Sprint(fail), func(t *testing.T) {
+			r, m := bv2IntContextFixture(t)
+			x := fixDLConst(t, m, true, "power-refusal")
+			goal := fixDLGoal(t, m, false, false, false, bv2IntDisjunction(t, m, x, []string{"1", "2", "4"}))
+			m.Budget().FailAfter(fail)
+			err := r.CollectPower2(goal)
+			m.Budget().FailAfter(-1)
+			if err == nil {
+				if _, found, e := r.IsPower2(x); e != nil || !found {
+					t.Fatal("successful collection omitted its map entry", found, e)
+				}
+			} else {
+				if _, found, e := r.IsPower2(x); e != nil || found {
+					t.Fatal("failed collection published a partial mapping", found, e)
+				}
+				if e := r.CollectPower2(goal); e != nil {
+					t.Fatal("collection did not recover after allocation refusal", e)
+				}
+				if _, found, e := r.IsPower2(x); e != nil || !found {
+					t.Fatal("retry omitted the complete mapping", found, e)
+				}
+			}
+			if e := r.Close(); e != nil {
+				t.Fatal("close after collection frontier", e)
+			}
+		})
+	}
+}
+
 type bv2IntTraceWriter struct {
 	bytes.Buffer
 	check func()

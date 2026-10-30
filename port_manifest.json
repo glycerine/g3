@@ -164928,16 +164928,19 @@
       "path": "src/tactic/arith/bv2int_rewriter.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/bv2int_context.go",
         "pkg/tactic/arith/bv2int_context_trace.go",
+        "pkg/tactic/arith/bv2int_context_borrow.go",
         "pkg/tactic/arith/bv2int_rewriter.go",
         "pkg/tactic/arith/bv2int_rules.go",
         "pkg/tactic/arith/bv2int_rewriter_diagnostics.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2int_context_test.go",
+        "pkg/tactic/arith/bv2int_context_borrow_test.go",
+        "pkg/tactic/arith/bv2int_context_borrow_failure_test.go",
         "pkg/tactic/arith/bv2int_rewriter_test.go"
       ],
       "conditionals": [
@@ -165036,8 +165039,8 @@
           "text": "SASSERT(k.is_neg());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "bv2int_rewriter_ctx constructor, update_params, side conditions, power2 lookup and collect_power2",
@@ -165049,12 +165052,13 @@
             "TestBV2IntContextParametersSideOwnershipAndReset",
             "TestBV2IntContextAllowsExpressionKeysAndIgnoresSizeLimitDuringCollection",
             "TestBV2IntContextConstructorRefusalAndCopiedOwner",
-            "TestBV2IntContextTracePublicationOrderAndErasure"
+            "TestBV2IntContextTracePublicationOrderAndErasure",
+            "TestBV2IntCollectPower2RefusalFrontierRetriesWithoutPartialMapping"
           ]
         },
         {
           "name": "bv2int_rewriter arithmetic rules, predicates, size alignment and concrete no-proof traversal configuration",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/bv2int_rewriter.go",
           "tests": [
             "TestBV2IntArithmeticIndependentIntegerOracle",
@@ -165069,33 +165073,40 @@
             "TestBV2IntSignedOverflowConstraintsAndRefusalFrontier",
             "TestBV2IntModTraceResultPublishedBeforeBody",
             "TestBV2IntSymbolicRewritesPrebuiltCPPOracle",
-            "TestBV2IntSourceAssertionGateAndClosedDiagnostic", "TestBV2IntCallCleanupSkipsAlreadyConsumedReferences", "TestBV2IntUnsupportedArithmeticSurfaceFallsBack"
+            "TestBV2IntSourceAssertionGateAndClosedDiagnostic",
+            "TestBV2IntCallCleanupSkipsAlreadyConsumedReferences",
+            "TestBV2IntUnsupportedArithmeticSurfaceFallsBack",
+            "TestBV2IntPartialRewriterRetainsContextBorrow",
+            "TestBV2IntContextWaitsForAllBorrowingRewriters"
           ]
         }
       ],
       "ownership": [
-        "Side conditions and every generated exponent own AST references; power2 keys and map values are borrowed. Repeated collection replaces a map value without retiring older trail entries. Explicit reset releases side conditions then trail then clears the map; destruction releases trail then map then side conditions. Consumed decrements are remembered for cleanup retries. ParamsContext and process printing services are borrowed; max_bv_size is read once and no ParamsRef is retained.",
-        "The concrete reduction call currently pins generated AST intermediates through output handoff and retains numeral owners until call cleanup; failed cleanup is retained for Close. This is executable ownership protection, not yet an audit of each source lexical expr_ref/rational local lifetime, replacement order or physical vector reservation. The rewriter borrows its shared context and instantiates the existing traversal with proof generation false."
+        "BV2IntContext owns the side-condition and exponent AST references. power2 keys borrow goal expressions and values borrow references held by the trail. Reset releases side conditions then trail then clears the map; destruction releases trail then map then side conditions, matching source member/reset order. Consumed decrements remain recorded for retry. ParamsContext and trace writer are borrowed; max_bv_size is read once.",
+        "BV2IntRewriter borrows its context and manager, owns the configured traversal, and retains a borrower until traversal cleanup completes. Each reduction call owns its temporary rational values and pins generated AST intermediates until result handoff; pending cleanup resumes numeral and AST-reference release, skipping references already consumed by a previous attempt. Constructor-prefix and close-order tests cover partial traversal construction and multiple borrowers."
       ],
       "deviations": [
-        "Native containers and sorting remain Go implementations. Exact Go big.Rat arithmetic also computes numeral widths and powers; project numeral-local/source lexical owner and physical allocation/refusal audits remain open. Arithmetic reduction and traversal are implemented but source units remain partial with methods_audited and ownership_audited false. Retained bounded_int2bv and nla2bv consumers are now integrated; their whole source ownership/diagnostic audits remain partial. Source division/rem/coercion refusals, left folds and partial failed-fold output are preserved.",
-        "Source quirks are explicitly characterized, not credited as semantic equivalence: difference/mod uses s1 in the inner remainder; raw signed unary minus does not widen its minimum-value input (the bottom-up traversal first rewrites children and avoids that tested primitive overflow); unsigned remainder-by-zero follows BV behavior. Existing C++ constant signed no-overflow simplification compares unsigned numeral products; the prebuilt executable confirms false/false on 3-bit -3 times 2. Successful C++ equivalence checks cover 96 closed and 21 symbolic formulas only, excluding these characterized quirks. An attempted direct nla2bv tactic oracle rejects BV inputs outside its supported fragment and is not credited."
+        "Go slices and math/big replace vector capacity and rational scratch storage. Source AST reference acquisition, publication, member cleanup order, and allocation-refusal behavior at manager-owned boundaries are preserved; native Go container capacity is not exposed as source behavior. The signed-remainder and alternate signed-value recognition branches are disabled under #if 0; IDIV and REM helpers are live source stubs that return BR_FAILED.",
+        "Source quirks are explicitly characterized: difference/mod uses s1 in the inner remainder; raw signed unary minus does not widen its minimum-value input (bottom-up traversal rewrites children first); unsigned remainder-by-zero follows BV behavior. Constant signed no-overflow simplification compares unsigned numeral products, confirmed against the prebuilt C++ executable. Closed and symbolic C++ oracle comparisons cover the recorded supported cases; unsupported direct nla2bv inputs are not counted as oracle evidence."
       ]
     },
     {
       "path": "src/tactic/arith/bv2int_rewriter.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/bv2int_context.go",
         "pkg/tactic/arith/bv2int_context_trace.go",
+        "pkg/tactic/arith/bv2int_context_borrow.go",
         "pkg/tactic/arith/bv2int_rewriter.go",
         "pkg/tactic/arith/bv2int_rules.go",
         "pkg/tactic/arith/bv2int_rewriter_diagnostics.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2int_context_test.go",
+        "pkg/tactic/arith/bv2int_context_borrow_test.go",
+        "pkg/tactic/arith/bv2int_context_borrow_failure_test.go",
         "pkg/tactic/arith/bv2int_rewriter_test.go"
       ],
       "conditionals": [
@@ -165108,8 +165119,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "bv2int_rewriter_ctx constructor, update_params, side conditions, power2 lookup and collect_power2",
@@ -165121,12 +165132,13 @@
             "TestBV2IntContextParametersSideOwnershipAndReset",
             "TestBV2IntContextAllowsExpressionKeysAndIgnoresSizeLimitDuringCollection",
             "TestBV2IntContextConstructorRefusalAndCopiedOwner",
-            "TestBV2IntContextTracePublicationOrderAndErasure"
+            "TestBV2IntContextTracePublicationOrderAndErasure",
+            "TestBV2IntCollectPower2RefusalFrontierRetriesWithoutPartialMapping"
           ]
         },
         {
           "name": "bv2int_rewriter arithmetic rules, predicates, size alignment and concrete no-proof traversal configuration",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/bv2int_rewriter.go",
           "tests": [
             "TestBV2IntArithmeticIndependentIntegerOracle",
@@ -165141,17 +165153,21 @@
             "TestBV2IntSignedOverflowConstraintsAndRefusalFrontier",
             "TestBV2IntModTraceResultPublishedBeforeBody",
             "TestBV2IntSymbolicRewritesPrebuiltCPPOracle",
-            "TestBV2IntSourceAssertionGateAndClosedDiagnostic", "TestBV2IntCallCleanupSkipsAlreadyConsumedReferences", "TestBV2IntUnsupportedArithmeticSurfaceFallsBack"
+            "TestBV2IntSourceAssertionGateAndClosedDiagnostic",
+            "TestBV2IntCallCleanupSkipsAlreadyConsumedReferences",
+            "TestBV2IntUnsupportedArithmeticSurfaceFallsBack",
+            "TestBV2IntPartialRewriterRetainsContextBorrow",
+            "TestBV2IntContextWaitsForAllBorrowingRewriters"
           ]
         }
       ],
       "ownership": [
-        "Side conditions and every generated exponent own AST references; power2 keys and map values are borrowed. Repeated collection replaces a map value without retiring older trail entries. Explicit reset releases side conditions then trail then clears the map; destruction releases trail then map then side conditions. Consumed decrements are remembered for cleanup retries. ParamsContext and process printing services are borrowed; max_bv_size is read once and no ParamsRef is retained.",
-        "The concrete reduction call currently pins generated AST intermediates through output handoff and retains numeral owners until call cleanup; failed cleanup is retained for Close. This is executable ownership protection, not yet an audit of each source lexical expr_ref/rational local lifetime, replacement order or physical vector reservation. The rewriter borrows its shared context and instantiates the existing traversal with proof generation false."
+        "BV2IntContext owns the side-condition and exponent AST references. power2 keys borrow goal expressions and values borrow references held by the trail. Reset releases side conditions then trail then clears the map; destruction releases trail then map then side conditions, matching source member/reset order. Consumed decrements remain recorded for retry. ParamsContext and trace writer are borrowed; max_bv_size is read once.",
+        "BV2IntRewriter borrows its context and manager, owns the configured traversal, and retains a borrower until traversal cleanup completes. Each reduction call owns its temporary rational values and pins generated AST intermediates until result handoff; pending cleanup resumes numeral and AST-reference release, skipping references already consumed by a previous attempt. Constructor-prefix and close-order tests cover partial traversal construction and multiple borrowers."
       ],
       "deviations": [
-        "Native containers and sorting remain Go implementations. Exact Go big.Rat arithmetic also computes numeral widths and powers; project numeral-local/source lexical owner and physical allocation/refusal audits remain open. Arithmetic reduction and traversal are implemented but source units remain partial with methods_audited and ownership_audited false. Retained bounded_int2bv and nla2bv consumers are now integrated; their whole source ownership/diagnostic audits remain partial. Source division/rem/coercion refusals, left folds and partial failed-fold output are preserved.",
-        "Source quirks are explicitly characterized, not credited as semantic equivalence: difference/mod uses s1 in the inner remainder; raw signed unary minus does not widen its minimum-value input (the bottom-up traversal first rewrites children and avoids that tested primitive overflow); unsigned remainder-by-zero follows BV behavior. Existing C++ constant signed no-overflow simplification compares unsigned numeral products; the prebuilt executable confirms false/false on 3-bit -3 times 2. Successful C++ equivalence checks cover 96 closed and 21 symbolic formulas only, excluding these characterized quirks. An attempted direct nla2bv tactic oracle rejects BV inputs outside its supported fragment and is not credited."
+        "Go slices and math/big replace vector capacity and rational scratch storage. Source AST reference acquisition, publication, member cleanup order, and allocation-refusal behavior at manager-owned boundaries are preserved; native Go container capacity is not exposed as source behavior. The signed-remainder and alternate signed-value recognition branches are disabled under #if 0; IDIV and REM helpers are live source stubs that return BR_FAILED.",
+        "Source quirks are explicitly characterized: difference/mod uses s1 in the inner remainder; raw signed unary minus does not widen its minimum-value input (bottom-up traversal rewrites children first); unsigned remainder-by-zero follows BV behavior. Constant signed no-overflow simplification compares unsigned numeral products, confirmed against the prebuilt C++ executable. Closed and symbolic C++ oracle comparisons cover the recorded supported cases; unsupported direct nla2bv inputs are not counted as oracle evidence."
       ]
     },
     {
