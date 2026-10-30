@@ -47,3 +47,50 @@ func TestSpacerCubeAndBindingsUseSourceASTIDOrder(t *testing.T) {
 	spacerMust(t, owner.Close())
 	spacerMust(t, command.Close())
 }
+
+func TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder(t *testing.T) {
+	command, m, owner := lemmaOwnerFixture(t)
+	defer func() { spacerMust(t, command.Close()) }()
+	defer func() { spacerMust(t, owner.Close()) }()
+	p := spacerBool(t, m, "frame-source-id-p")
+	notP, err := m.MkNot(p)
+	spacerMust(t, err)
+	q := spacerBool(t, m, "frame-source-id-q")
+	r := spacerBool(t, m, "frame-source-id-r")
+	s := spacerBool(t, m, "frame-source-id-s")
+	fixture := &frameTransformerFixture{levels: map[ast.ASTHandle]uint32{notP: 3, q: 3}}
+	frames, err := spacer.NewFrames(m, fixture)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, frames.Close()) }()
+	for _, item := range []struct {
+		body  ast.ASTHandle
+		level uint32
+	}{
+		{q, 1}, {s, 2}, {notP, 1}, {r, 0},
+	} {
+		lemma, err := spacer.NewLemma(owner, item.body, item.level)
+		spacerMust(t, err)
+		_, err = frames.AddLemma(lemma)
+		spacerMust(t, err)
+	}
+	all, err := frames.PropagateToNextLevel(1)
+	spacerMust(t, err)
+	if !all {
+		t.Fatal("expected both level-one lemmas to propagate")
+	}
+	if len(fixture.checked) != 2 || fixture.checked[0] != notP || fixture.checked[1] != q {
+		t.Fatal("invariant queries must use level then source AST ID order", fixture.checked)
+	}
+	promoted, err := frames.FrameLemmas(3)
+	spacerMust(t, err)
+	if len(promoted) != 2 || promoted[0] != notP || promoted[1] != q {
+		t.Fatal("promoted frame lost source AST ID order", promoted)
+	}
+	for level, expected := range map[uint32]ast.ASTHandle{0: r, 2: s} {
+		lemmas, err := frames.FrameLemmas(level)
+		spacerMust(t, err)
+		if len(lemmas) != 1 || lemmas[0] != expected {
+			t.Fatal("propagation changed another level", level, lemmas)
+		}
+	}
+}

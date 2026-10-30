@@ -5,6 +5,7 @@ package spacer
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -140,44 +141,39 @@ func (f *Frames) LemmaAdditions() (uint64, error) {
 	return f.additions, nil
 }
 
-func (f *Frames) less(left, right *Lemma) (bool, error) {
-	l, err := left.Level()
-	if err != nil {
-		return false, err
-	}
-	r, err := right.Level()
-	if err != nil {
-		return false, err
-	}
-	if l != r {
-		return l < r, nil
-	}
-	a, err := left.Body()
-	if err != nil {
-		return false, err
-	}
-	b, err := right.Body()
-	if err != nil {
-		return false, err
-	}
-	return f.manager.ASTLess(a, b)
-}
-
 func (f *Frames) sort() error {
 	if f.sorted {
 		return nil
 	}
-	for i := 1; i < len(f.lemmas); i++ {
-		for j := i; j > 0; j-- {
-			less, err := f.less(f.lemmas[j], f.lemmas[j-1])
-			if err != nil {
-				return err
-			}
-			if !less {
-				break
-			}
-			f.lemmas[j-1], f.lemmas[j] = f.lemmas[j], f.lemmas[j-1]
+	// lemma_lt_proc orders first by frame level and then ast_lt_proc's
+	// source AST ID, not the separate structural ast_lt comparison.
+	type entry struct {
+		lemma *Lemma
+		level uint32
+		id    uint32
+	}
+	entries := make([]entry, len(f.lemmas))
+	for i, lemma := range f.lemmas {
+		level, err := lemma.Level()
+		if err != nil {
+			return err
 		}
+		body, err := lemma.Body()
+		if err != nil {
+			return err
+		}
+		id, err := f.manager.GetASTID(body)
+		if err != nil {
+			return err
+		}
+		entries[i] = entry{lemma: lemma, level: level, id: id}
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].level < entries[j].level ||
+			(entries[i].level == entries[j].level && entries[i].id < entries[j].id)
+	})
+	for i, item := range entries {
+		f.lemmas[i] = item.lemma
 	}
 	f.sorted = true
 	return nil

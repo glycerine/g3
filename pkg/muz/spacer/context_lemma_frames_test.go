@@ -16,6 +16,7 @@ import (
 )
 
 type frameTransformerFixture struct {
+	checked []ast.ASTHandle
 	ensured []uint32
 	added   []*spacer.Lemma
 	levels  map[ast.ASTHandle]uint32
@@ -32,6 +33,7 @@ func (f *frameTransformerFixture) AddLemmaCore(lemma *spacer.Lemma) error {
 }
 
 func (f *frameTransformerFixture) IsInvariant(_ uint32, formula ast.ASTHandle) (bool, uint32, error) {
+	f.checked = append(f.checked, formula)
 	level, found := f.levels[formula]
 	return found, level, nil
 }
