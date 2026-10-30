@@ -90166,7 +90166,7 @@
         {"name": "parameter-controlled semantic slice, coalesce, and iterative unfold preprocessing with direct query predicate remapping", "status": "ported", "go_target": "pkg/muz/fp/spacer_engine.go", "tests": ["TestSMTLibRunnerCPPReference/fixedpoint_spacer_slice_columns.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_spacer_coalesce_unfold.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_spacer_unfold_rules.smt2"]},
         {"name": "reverse-ledger model, cover, and reachable reconstruction across slicing, cone filtering, subsumption, and inlining; sliced answer and ground-answer variable expansion", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedReachableColumns", "TestSpacerEngineReconstructsInlinedReachablePredicate", "TestSpacerEngineExpandsSlicedModelPredicates"]},
         {"name": "sliced model interpretation expansion to original predicate declarations and columns", "status": "ported", "go_target": "pkg/muz/fp/spacer_slice_results.go", "tests": ["TestSpacerEngineExpandsSlicedModelPredicates"]},
-        {"name": "remaining proof or diagnostic certificate display", "status": "unported", "go_target": null, "tests": []}
+        {"name": "remaining proof or diagnostic certificate display", "status": "ported", "go_target": "pkg/muz/spacer/context_diagnostics.go", "tests": ["TestContextCertificateAndProofPresentationSurface"]}
       ],
       "ownership": ["PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."],
       "deviations": ["Go selects direct predicate declarations through the typed engine API and reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported."]
@@ -90192,7 +90192,7 @@
       "ownership_audited": true,
       "methods": [
         {"name": "retained query/from-level query, answer, ground answer, trace rules/names, model, level, cover/invariant, reachable summary and statistics interface", "status": "ported", "go_target": "pkg/muz/fp/propositional_engine.go", "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]},
-        {"name": "remaining proof and certificate display surface", "status": "unported", "go_target": null, "tests": []}
+        {"name": "remaining proof and certificate display surface", "status": "ported", "go_target": "pkg/muz/spacer/context_diagnostics.go", "tests": ["TestContextCertificateAndProofPresentationSurface"]}
       ],
       "ownership": ["The Go engine owns one concrete Spacer Context and exposes explicit owner-returning answer/model methods."],
       "deviations": ["The virtual C++ engine boundary becomes direct typed dispatch in PropositionalEngine."]
@@ -94719,7 +94719,7 @@
       "path": "src/muz/transforms/dl_mk_unfold.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_unfold.go",
         "pkg/muz/fp/spacer_engine.go"
@@ -94736,8 +94736,8 @@
           "text": "SASSERT(tail_idx <= r.get_uninterpreted_tail_size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "one-round recursive expansion of each original uninterpreted tail with normalized rule unification and predicate inheritance",
@@ -94760,19 +94760,19 @@
       "ownership": [
         "Each source definition and recursive resolved rule is held by an owning Go Rule reference through expansion and closed after insertion or failure."
       ],
-      "deviations": [
-      ]
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_unfold.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_unfold.go"
       ],
       "tests": [
-        "TestRuleUnfoldExpandsOriginalTailOnce"
+        "TestRuleUnfoldExpandsOriginalTailOnce",
+        "TestRuleUnfoldCarriesHyperResolutionProof"
       ],
       "conditionals": [
         {
@@ -94784,8 +94784,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "RuleUnfoldPlugin construction, transformation contract, priority, cancellation metadata, and owned lifecycle",
