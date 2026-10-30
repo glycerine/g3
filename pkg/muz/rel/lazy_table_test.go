@@ -163,6 +163,46 @@ func TestLazyTableJoinAllowsDifferentMatchedDomains(t *testing.T) {
 	instructionWantFacts(t, facts, Fact{1, 1})
 }
 
+func TestLazyTableUnionForcesAndUpdatesDeferredOperands(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(engine.Close)
+	left := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{0})
+	right := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{1})
+	target, err := left.Join(right, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceLeft := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{1})
+	sourceRight := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{2})
+	source, err := sourceLeft.Join(sourceRight, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deltaLeft := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{2})
+	deltaRight := newLazyTableWithFacts(t, engine, lazySignature(t, 3))
+	delta, err := deltaLeft.Join(deltaRight, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeLazyTables(t, left, right, target, sourceLeft, sourceRight, source, deltaLeft, deltaRight, delta)
+	if err = target.UnionFrom(source, delta); err != nil {
+		t.Fatal(err)
+	}
+	facts, err := target.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, facts, Fact{0, 1}, Fact{1, 2})
+	deltaFacts, err := delta.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, deltaFacts, Fact{1, 2})
+	if !source.Forced() || !target.Forced() || !delta.Forced() {
+		t.Fatal("union left deferred operands unevaluated")
+	}
+}
+
 func TestLazyTableValidationAndEngineOwnership(t *testing.T) {
 	firstEngine := NewLazyTableEngine()
 	secondEngine := NewLazyTableEngine()

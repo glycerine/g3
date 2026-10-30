@@ -126,24 +126,23 @@ func (t *LazyTable) UnionFrom(source, delta *LazyTable) error {
 	if source == nil || source.open() != nil || !t.sameEngine(source) || !t.root.signature.equal(source.root.signature) {
 		return fmt.Errorf("%w: union signatures or engines differ", ErrLazyTable)
 	}
-	var deltaTable *HashTable
-	if delta != nil {
-		if delta.open() != nil || !t.sameEngine(delta) || !t.root.signature.equal(delta.root.signature) {
-			return fmt.Errorf("%w: delta signature or engine differs", ErrLazyTable)
-		}
-		var err error
-		deltaTable, err = delta.Eval()
-		if err != nil {
-			return err
-		}
+	sourceTable, err := source.Eval()
+	if err != nil {
+		return err
 	}
 	target, err := t.Eval()
 	if err != nil {
 		return err
 	}
-	sourceTable, err := source.Eval()
-	if err != nil {
-		return err
+	var deltaTable *HashTable
+	if delta != nil {
+		if delta.open() != nil || !t.sameEngine(delta) || !t.root.signature.equal(delta.root.signature) {
+			return fmt.Errorf("%w: delta signature or engine differs", ErrLazyTable)
+		}
+		deltaTable, err = delta.Eval()
+		if err != nil {
+			return err
+		}
 	}
 	return target.Union(sourceTable, deltaTable)
 }
