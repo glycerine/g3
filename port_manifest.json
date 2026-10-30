@@ -81959,10 +81959,16 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "rule_set retained rule ownership, grouped head index, add/delete/copy/replace/reset lifecycle, predicate inheritance and output mappings, dependency population, reopen/finalize, strongly connected component stratification, stratified-negation rejection, and founded splitting (dl_rule_set.cpp:70-485,570-758); display/profile and standalone dependency restrict/remove/sort operations remain open",
+          "name": "rule_set retained rule ownership, grouped head index, add/delete/copy/replace/reset lifecycle, predicate inheritance and output mappings, dependency population, reopen/finalize, strongly connected component stratification, stratified-negation rejection, and founded splitting (dl_rule_set.cpp:70-485,570-758); profile and standalone dependency restrict/remove/sort operations remain open",
           "status": "partial",
           "go_target": "pkg/muz/base/rule_set.go",
           "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"]
+        },
+        {
+          "name": "rule_set::display_deps source dependency and stratum formatting (dl_rule_set.cpp:537-566)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_set_dependency_display.go",
+          "tests": ["TestRuleSetStrataAndDependencyDisplay"]
         }
       ],
       "ownership": [],
