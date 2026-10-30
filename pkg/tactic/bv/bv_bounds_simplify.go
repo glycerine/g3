@@ -6,7 +6,39 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (s *BVBoundsSimplifier) MaySimplify(ast.ASTHandle) (bool, error) { return true, nil }
+func (s *BVBoundsSimplifier) MaySimplify(h ast.ASTHandle) (bool, error) {
+	if s == nil || s.manager == nil || h.IsNull() {
+		return false, ast.ErrASTDomain
+	}
+	if _, _, numeral, err := bvBoundsNumeral(s.manager, h); err != nil || numeral {
+		return false, err
+	}
+	for {
+		not, argument, err := s.manager.IsNot(h)
+		if err != nil {
+			return false, err
+		}
+		if !not {
+			break
+		}
+		h = argument
+	}
+	for variable := range s.bounds {
+		contains, err := s.containsExpression(h, variable)
+		if err != nil || contains {
+			return contains, err
+		}
+	}
+	variable, bound, found, err := s.recognize(h)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		_, contextual := s.bounds[variable]
+		return bound.full() || contextual, nil
+	}
+	return s.containsBound(h)
+}
 func (s *BVBoundsSimplifier) Simplify(h ast.ASTHandle, out ast.ASTRef) (bool, error) {
 	if b, ok := s.bounds[h]; ok {
 		if value, single := b.singleton(); single {
