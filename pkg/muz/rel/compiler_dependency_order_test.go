@@ -58,3 +58,25 @@ func TestSourceDependencyOrderBreaksAndAppendsCycleVertex(t *testing.T) {
 		}
 	}
 }
+
+func TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles(t *testing.T) {
+	a, b, c, d := finiteOrderKey(1), finiteOrderKey(2), finiteOrderKey(3), finiteOrderKey(4)
+	order, removed := sourceDependencyOrder([]finitePredicateOrderKey{a, b, c, d}, map[finitePredicateOrderKey][]finitePredicateOrderKey{
+		a: {a},
+		b: {c},
+		c: {b},
+		d: {a, b},
+	})
+	if len(removed) != 2 || removed[0] != a || removed[1] != c {
+		t.Fatalf("removed=%v, want self-cycle a and DFS back-edge c", removed)
+	}
+	want := []finitePredicateOrderKey{b, d, a, c}
+	if len(order) != len(want) {
+		t.Fatalf("order=%v, want %v", order, want)
+	}
+	for i := range want {
+		if order[i] != want[i] {
+			t.Fatalf("order=%v, want %v", order, want)
+		}
+	}
+}

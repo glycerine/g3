@@ -81960,7 +81960,7 @@
       "methods": [
         {"name": "rule_set::display default and profiled output header, output predicate, grouped rule emission, threshold filtering, and attached proof rendering (dl_rule_set.cpp:512-533)", "status": "ported", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay", "TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails", "TestRuleSetWriteDisplayProfileAndThreshold"]},
         {
-          "name": "rule_set retained rule ownership, grouped head index, add/delete/copy/replace/reset lifecycle, predicate inheritance and output mappings, dependency population, reopen/finalize, strongly connected component stratification, stratified-negation rejection, and founded splitting (dl_rule_set.cpp:70-485,570-758); profile and standalone dependency restrict/remove/sort operations remain open",
+          "name": "rule_set retained rule ownership, grouped head index, add/delete/copy/replace/reset lifecycle, predicate inheritance and output mappings, dependency population, reopen/finalize, strongly connected component stratification, stratified-negation rejection, and founded splitting (dl_rule_set.cpp:70-485,570-758); retained relational compiler dependency ordering is implemented concretely in pkg/muz/rel, while standalone rule_dependencies mutation APIs have no retained Go consumer",
           "status": "partial",
           "go_target": "pkg/muz/base/rule_set.go",
           "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay"]
@@ -82009,9 +82009,9 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "rule_set source diagnostic display API with default profile settings", "status": "partial", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay"]},
+        {"name": "rule_set source diagnostic display API with default and optional profile settings and output threshold", "status": "ported", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay", "TestRuleSetWriteDisplayProfileAndThreshold"]},
         {
-          "name": "Concrete rule_dependencies and rule_set storage/query/finalization/copy/output-mapping surface with explicit retained Rule wrappers; remaining display/profile interfaces stay open",
+          "name": "Concrete rule_dependencies and rule_set storage/query/finalization/copy/output-mapping surface with explicit retained Rule wrappers; standalone dependency mutation API remains unexposed because retained Go consumers use the concrete relational compiler ordering path",
           "status": "partial",
           "go_target": "pkg/muz/base/rule_set.go",
           "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"]
@@ -86775,7 +86775,7 @@
           "name": "Dependency-first acyclic compilation and source cycle-breaker ordering before recursive fallback-loop compilation for positive zero-, one-, and two-tail rules with explicit pre-execution refusal for unsupported rules (dl_compiler.cpp:1002-1018,1196-1245)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestSourceDependencyOrderAcyclicChain", "TestSourceDependencyOrderRestrictsExternalDependencies", "TestSourceDependencyOrderBreaksAndAppendsCycleVertex", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP"]
+          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestSourceDependencyOrderAcyclicChain", "TestSourceDependencyOrderRestrictsExternalDependencies", "TestSourceDependencyOrderBreaksAndAppendsCycleVertex", "TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP"]
         }
       ],
       "ownership": [
