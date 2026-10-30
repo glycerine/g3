@@ -250350,13 +250350,16 @@
       "path": "src/util/permutation.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/nlsat/clause_order.go",
+        "pkg/nlsat/clause_store_test.go",
         "pkg/math/polynomial/polynomial_lex_sort.go",
         "pkg/math/polynomial/polynomial_lex_raw_pointer.go",
         "pkg/math/polynomial/polynomial_lex_raw_source_test.go"
       ],
       "tests": [
+        "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
         "TestPolynomialLexNativeMappingCyclesPreserveTermPairs",
         "TestPolynomialLexCapturedPayloadViewsKeepStableColumnAndExactObject",
         "TestPolynomialLexRawCycleSignedSkippedLoopLeavesPayloadProviderUnread",
@@ -250417,19 +250420,20 @@
           ]
         },
         {
-          "name": "NLSAT sort_clauses_by_degree apply_permutation over borrowed clause* array and unsigned clause-index mapping",
-          "status": "unported",
-          "tests": []
+          "name": "NLSAT sort_clauses_by_degree concrete clause-pointer ordering by degree and original index, equivalent to the retained apply_permutation instantiation",
+          "status": "ported",
+          "go_target": "pkg/nlsat/clause_order.go",
+          "tests": ["TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex"]
         }
       ],
       "ownership": [
-        "Polynomial lex sorting uses native degree buckets and permutation slices while borrowing the polynomial's concrete coefficient and monomial payloads for representation swaps. This retained specialization is ported; the separate NLSAT specialization remains open.",
-        "The retained NLSAT caller in nlsat_solver.cpp:2204-2230 owns clause pointers and its unsigned degree/permutation vectors. The header template borrows those arrays, mutates the mapping during cycles, restores it only after a completed traversal and allocates no storage. Its Go consumer and ownership binding remain unported with NLSAT."
+        "Polynomial lex sorting uses native degree buckets and permutation slices while borrowing the polynomial's concrete coefficient and monomial payloads for representation swaps. This retained specialization is ported alongside the concrete NLSAT clause-pointer ordering path.",
+        "The retained NLSAT caller in nlsat_solver.cpp:2204-2230 owns clause pointers and its unsigned degree/permutation vectors. Go computes the same degree/original-index order into a new typed clause slice, so it does not need to reproduce the generic template's borrowed-array cycle mutation."
       ],
       "deviations": [
         "Recursive polynomial lex sorting now uses [][]uint32 degree buckets and []uint32 permutation storage. Removed Runtime vector headers, child-binding directory, manual class movement/capacity publication, pending growth and bucket destructor failures. The project recursive highest-variable/descending-degree algorithm, in-place signed cycle markers, representation swaps and actual coefficient/monomial borrowed payload guards remain. Source/owning member destruction clears native slices; cleanup of a stopped invocation releases its own scratch without undoing published polynomial order. Cold/warm sorting under disabled Runtime reservations covers nested recursion and an independent 405-term three-variable grid. Obsolete vector allocation/capacity/spare-mapping topology tests are retired or replaced by native mapping/pair tests. Evaluator stale/early invocation checks now reach the existing wrapped-degree bounds guard to retain LexSort; actual numeral Copy failure campaigns and ownership assertions remain. No whole-unit completion credit is added.",
-        "The permutation class bodies in permutation.cpp have no production caller and are dead/deleted. The header remains partial because the live NLSAT clause-pointer specialization has no Go consumer yet; port it alongside clause sorting without a generic Go template adapter.",
-        "The test-only uint32 slice adapter was removed because no retained Go production caller uses it. The polynomial coefficient/monomial implementation remains concrete; the NLSAT clause-pointer specialization remains unported until its consumer is ported."
+        "The permutation class bodies in permutation.cpp and test-only generic instantiations have no retained product consumer. The two retained apply_permutation instantiations are represented by concrete polynomial coefficient/monomial and NLSAT clause-pointer Go implementations; no universal Go template adapter is added.",
+        "The test-only uint32 slice adapter was removed because no retained Go production caller uses it. Both live concrete instantiations use native typed slices and standard-library ordering where needed."
       ]
     },
     {

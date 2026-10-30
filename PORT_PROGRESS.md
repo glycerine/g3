@@ -50742,3 +50742,6 @@ Finite compiler dependency graph property coverage (2026-10-30 UTC): exhaustivel
 
 
 Relational table domain-bound regression repair (2026-10-30 UTC): corrected stale tests that required equal finite-domain bounds for matched columns, contrary to the retained table join/intersection semantics. The tests now assert successful sparse joins and hash-table intersections across unequal bounds while preserving invalid-column and malformed-fact checks; the complete focused `muz/rel` package passes (70.5% package statement coverage).
+
+
+Permutation header concrete instantiations (2026-10-30 UTC): closed `src/util/permutation.h` by mapping its retained polynomial payload cycle and NLSAT clause-pointer ordering to their concrete Go implementations. The NLSAT degree/original-index watch-order regression and focused polynomial lex tests pass; generic template and test-only instantiations remain excluded.
