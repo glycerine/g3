@@ -357,3 +357,74 @@ func TestSpacerImplicantPreservesNonArithmeticDisequality(t *testing.T) {
 		})
 	}
 }
+
+func TestSpacerImplicantSourceFlatteningAndSharedVisits(t *testing.T) {
+	m, globals := newSpacerTestServices(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	owner, err := NewManager(m, nil, 1, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	must(err)
+	defer func() { must(owner.Close()) }()
+	boolean, err := m.MkBoolSort()
+	must(err)
+	truth, err := m.MkTrue()
+	must(err)
+	falsity, err := m.MkFalse()
+	must(err)
+	md, err := model.NewModel(m)
+	must(err)
+	defer func() { must(md.Close()) }()
+	var pins []ast.ASTRef
+	defer func() { must(releaseNormalizeRefs(m, pins)) }()
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		must(err)
+		r, err := m.NewRef(h)
+		must(err)
+		pins = append(pins, r)
+		return h
+	}
+	var constants []ast.ASTHandle
+	for _, text := range []string{"shared-picker-p", "shared-picker-q", "shared-picker-r"} {
+		symbol, err := m.Symbols.Intern(text)
+		must(err)
+		h := own(m.MkConst(symbol, boolean))
+		constants = append(constants, h)
+		decl, err := m.GetDecl(h)
+		must(err)
+		must(md.Core().RegisterConstant(decl, truth))
+	}
+	p, q, r := constants[0], constants[1], constants[2]
+	conjunction := own(m.MkAndArray([]ast.ASTHandle{p, q, r}))
+	branch := own(m.MkOrArgs([]ast.ASTHandle{p, q}))
+	for _, tc := range []struct {
+		name            string
+		input, expected []ast.ASTHandle
+	}{
+		{"duplicate-root", []ast.ASTHandle{p, p}, []ast.ASTHandle{p}},
+		{"shared-branch", []ast.ASTHandle{branch, p}, []ast.ASTHandle{p}},
+		{"source-flatten-order", []ast.ASTHandle{conjunction}, []ast.ASTHandle{r, p, q}},
+		{"false-conjunct", []ast.ASTHandle{p, falsity}, nil},
+		{"shared-flattened-child", []ast.ASTHandle{conjunction, q}, []ast.ASTHandle{r, q, p}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			literals, err := computeImplicantLiterals(m, md.Core(), owner.contexts[0].config.ModelEvaluator, tc.input)
+			must(err)
+			defer func() { must(releaseNormalizeRefs(m, literals)) }()
+			if len(literals) != len(tc.expected) {
+				t.Fatalf("picked %d literals, source expects %d", len(literals), len(tc.expected))
+			}
+			for i, ref := range literals {
+				h, err := m.RefGet(ref)
+				must(err)
+				if h != tc.expected[i] {
+					t.Fatalf("literal %d differs from source traversal order", i)
+				}
+			}
+		})
+	}
+}

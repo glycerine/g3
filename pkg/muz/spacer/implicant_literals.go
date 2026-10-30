@@ -416,41 +416,17 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		}
 		return nil
 	}
-	flattened := make([]ast.ASTHandle, 0, len(formulas))
-	var flatten func(ast.ASTHandle) error
-	flatten = func(h ast.ASTHandle) error {
-		kind, e := manager.GetDeclKind(h)
-		if e != nil {
-			return e
-		}
-		family, e := manager.GetFamilyID(h)
-		if e != nil {
-			return e
-		}
-		if family == manager.BasicFamilyID() && kind == ast.ASTOpAnd {
-			n, e := manager.GetNumArgs(h)
-			if e != nil {
-				return e
-			}
-			for j := uint32(0); j < n; j++ {
-				child, e := manager.GetArg(h, j)
-				if e != nil {
-					return e
-				}
-				if e = flatten(child); e != nil {
-					return e
-				}
-			}
-			return nil
-		}
-		flattened = append(flattened, h)
-		return nil
+	// Source flatten_and mutates its owning input vector, including swapping
+	// appended children into the current slot and collapsing false conjuncts.
+	flattened, err := manager.FlattenAnd(append([]ast.ASTHandle(nil), formulas...))
+	if err != nil {
+		return nil, err
 	}
-	for _, formula := range formulas {
-		if err = flatten(formula); err != nil {
-			return nil, err
-		}
+	flattenedRefs, err := refsFromHandles(manager, flattened)
+	if err != nil {
+		return nil, err
 	}
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, flattenedRefs)) }()
 	allTrue := true
 	if len(flattened) != 0 {
 		conjunction, e := manager.MkAndArray(flattened)
@@ -462,6 +438,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 			return nil, err
 		}
 	}
+	visited := make(map[ast.ASTHandle]bool)
 	for _, formula := range flattened {
 		yes := allTrue
 		if !yes {
@@ -471,7 +448,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 			}
 		}
 		if yes {
-			if err = pick(formula, make(map[ast.ASTHandle]bool)); err != nil {
+			if err = pick(formula, visited); err != nil {
 				return nil, err
 			}
 		}
