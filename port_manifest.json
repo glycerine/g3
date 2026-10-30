@@ -98608,9 +98608,9 @@
       "path": "src/opt/maxres.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/opt/maxres_register.go", "pkg/opt/maxres_engine.go"],
+      "tests": ["TestMaxResStrategySelectsOnlyExplicitPrimalDualEngine", "TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration", "TestMaxResSearchPublishesEngineResult"],
       "conditionals": [
         {
           "line": 20,
@@ -98621,9 +98621,9 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"mk_maxres and mk_primal_dual_maxres factory declarations (maxres.h:26-27)","status":"ported","go_target":"pkg/opt/maxres_register.go","tests":["TestMaxResStrategySelectsOnlyExplicitPrimalDualEngine","TestMaxResSearchFindsRationalWeightedOptimumWithoutRegistration","TestMaxResSearchPublishesEngineResult"]}],
       "ownership": [],
       "deviations": []
     },
