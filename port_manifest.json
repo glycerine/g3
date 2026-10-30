@@ -81690,7 +81690,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "assertions": [
         {
           "line": 64,
@@ -81782,7 +81782,7 @@
           "name": "mk_rule proof-aware HNF ingestion for a disjunctive antecedent, deriving each normalized Horn proof by definition axiom, modus ponens, and conjunction elimination (dl_rule.cpp:173-183; hnf.cpp:253-284)",
           "status": "partial",
           "go_target": "pkg/muz/base/hnf_proof.go",
-          "tests": ["TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"]
+          "tests": ["TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"]
         },
         {
           "name": "mk_rule_core HNF integration: normalize a general retained formula, register fresh predicates, and add every resulting Horn rule (dl_rule.cpp:173-183)",
@@ -82419,7 +82419,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/hnf_test.go", "pkg/muz/base/hnf_nested_fixture_test.go", "pkg/muz/base/hnf_nested_consequent_test.go", "pkg/muz/base/hnf_nested_antecedent_test.go", "pkg/muz/base/hnf_nested_negation_test.go", "pkg/muz/base/hnf_nested_disjunction_test.go", "pkg/muz/base/hnf_nested_boolean_eq_test.go", "pkg/muz/base/hnf_nested_ite_test.go"],
-      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestHornNormalizer", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"],
+      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestHornNormalizer", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"],
       "assertions": [
         {
           "line": 231,
@@ -82455,14 +82455,14 @@
           "name": "Proof construction for the direct disjunctive antecedent split using definition axiom, modus ponens, and conjunction elimination (hnf.cpp:253-284)",
           "status": "partial",
           "go_target": "pkg/muz/base/hnf_proof.go",
-          "tests": ["TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"]
+          "tests": ["TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"]
         }
       ],
       "ownership": [
         "HornNormalization owns independent references to every output formula and introduced declaration; worklist intermediates are locally pinned and released after normalization, while RuleSet retains rules created by RuleManager.AddFormula."
       ],
       "deviations": [
-        "Proof-producing normalization currently covers only the direct disjunctive antecedent split; definition-introduction proofs, general quantifier hoisting, and quantified antecedent definition elimination remain unported, so this entry remains partial."
+        "Proof-producing normalization currently covers only the direct disjunctive antecedent split (including a universal prefix); definition-introduction proofs, general quantifier hoisting outside that split, and quantified antecedent definition elimination remain unported, so this entry remains partial."
       ]
     },
     {
@@ -82471,7 +82471,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_test.go", "pkg/muz/base/hnf_proof_test.go"],
-      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"],
+      "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules"],
       "conditionals": [
         {
           "line": 25,

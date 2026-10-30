@@ -128,15 +128,6 @@ func (m *RuleManager) AddFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 			return fmt.Errorf("muz/base: HNF proof clause %d has the wrong fact", i)
 		}
 	}
-	for _, reference := range normalized.FreshPredicates {
-		declaration, e := m.manager.RefGet(reference)
-		if e != nil {
-			return e
-		}
-		if e = m.RegisterPredicate(declaration); e != nil {
-			return e
-		}
-	}
 	for i, clause := range clauses {
 		clauseProof, e := m.manager.MkProofAndElim(conjunctionProof, uint32(i))
 		if e != nil {

@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/muz/base"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestRuleManagerAddsProofsForDisjunctiveHornSplit(t *testing.T) {
@@ -83,5 +84,68 @@ func TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules(t *testing.T) {
 	}
 	if mode, e := f.manager.ProofMode(); e != nil || mode != ast.ASTProofDisabled {
 		t.Fatal("proof mode was not restored after rejection", mode, e)
+	}
+}
+
+func TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit(t *testing.T) {
+	f := newRuleSetFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	arithmetic, err := f.manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := f.manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	for _, name := range []string{"P", "Q", "R"} {
+		symbol, e := f.manager.Symbols.Intern("quantified-split-" + name)
+		ruleMust(t, e)
+		f.decl[name], e = f.manager.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		ruleMust(t, e)
+		ruleMust(t, f.rules.RegisterPredicate(f.decl[name]))
+	}
+	x, err := f.manager.MkVar(0, integer)
+	ruleMust(t, err)
+	applications := make(map[string]ast.ASTHandle)
+	for _, name := range []string{"P", "Q", "R"} {
+		applications[name], err = f.manager.MkApp(f.decl[name], []ast.ASTHandle{x})
+		ruleMust(t, err)
+	}
+	disjunction, err := f.manager.MkOr(applications["Q"], applications["R"])
+	ruleMust(t, err)
+	body, err := f.manager.MkImplies(disjunction, applications["P"])
+	ruleMust(t, err)
+	name, err := f.manager.Symbols.Intern("x")
+	ruleMust(t, err)
+	formula, err := f.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []usymbol.Symbol{name}, Body: body})
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := f.manager.MkProofAsserted(formula)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled))
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	if err = f.rules.AddFormulaWithProof(set, formula, proof, "quantified-split-proof"); err != nil {
+		t.Fatal(err)
+	}
+	if count, e := set.Len(); e != nil || count != 2 {
+		t.Fatal("normalized quantified rule count", count, e)
+	}
+	checker, err := proofs.NewChecker(f.manager)
+	ruleMust(t, err)
+	for i := 0; i < 2; i++ {
+		rule, e := set.Rule(i)
+		ruleMust(t, e)
+		translated, found, e := rule.Proof()
+		ruleMust(t, e)
+		if !found {
+			t.Fatal("quantified normalized Horn rule lost its proof", i)
+		}
+		valid, side, e := checker.Check(translated)
+		ruleMust(t, e)
+		if !valid {
+			t.Fatal("quantified normalized Horn proof failed proof checking", i)
+		}
+		ruleMust(t, checker.ReleaseSideConditions(side))
+		ruleMust(t, rule.Close())
 	}
 }
