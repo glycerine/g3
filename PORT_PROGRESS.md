@@ -50783,3 +50783,6 @@ DDNF compact-domain rule compilation (2026-10-30 UTC): ported the source compile
 
 
 API model implementation completion (2026-10-30 UTC): audited `src/api/api_model.cpp` against the Go model wrapper and verified model creation/lifecycle, interpretation queries and updates, enumeration, evaluation with completion, sort universes, translation, as-array helpers, function entries, aliases, and string display. The focused API model suite passes, including evaluation completion and foreign/closed-owner cases; the manifest now records this source unit as ported.
+
+
+Interpolation-problem reader (2026-10-30 UTC): ported `Z3_read_interpolation_problem` as `InterpolationContext.ReadInterpolationProblem`, including first-line THEORY metadata, sequence inputs, nested-implication tree decoding, root sentinel, and malformed child/marker validation. Tests cover theory extraction, tree parent reconstruction, empty input, clamping, and invalid metadata/trees; the focused interpolation API suite passes. Profile collection and the private interpolation-options surface remain open.

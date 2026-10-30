@@ -5614,8 +5614,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go"],
-      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextSMT2Replay", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults"],
+      "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go", "pkg/api/api_interp_read.go", "pkg/api/api_interp_read_test.go"],
+      "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextSMT2Replay", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults", "TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationReadEmptySequenceAndTheoryCountClamp"],
       "conditionals": [
         {
           "line": 368,
@@ -5683,7 +5683,13 @@
           "tests": ["TestInterpolationContextSMT2Replay", "TestSMT2InterpolationReplayScriptMatchesCPP"]
         },
         {
-          "name": "remaining interpolation profile/options and interpolation-problem reader operations",
+          "name": "interpolation-problem sequence and tree reader with theory-prefix metadata (api_interp.cpp:531-627)",
+          "status": "ported",
+          "go_target": "pkg/api/api_interp_read.go",
+          "tests": ["TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationReadEmptySequenceAndTheoryCountClamp"]
+        },
+        {
+          "name": "interpolation profile and private options surface",
           "status": "unported",
           "go_target": null,
           "tests": []
