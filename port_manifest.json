@@ -75137,7 +75137,7 @@
       "methods": [
         {
           "name": "Concrete hardware wrapper mk_var, mk_monomial, add_clause and search entries reached by subpaving tactic",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_shell_coefficients.go",
           "tests": [
             "TestHardwareShellRetainedClauseAndSearchRoute"
