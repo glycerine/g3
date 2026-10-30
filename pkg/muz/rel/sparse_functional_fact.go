@@ -1,32 +1,7 @@
 package rel
 
 func (table *SparseTable) ContainsExact(fact Fact) (bool, error) {
-	if err := table.open(); err != nil {
-		return false, err
-	}
-	if _, err := table.layout.pack(table.signature, fact); err != nil {
-		return false, err
-	}
-	facts, err := table.Facts()
-	if err != nil {
-		return false, err
-	}
-	for _, stored := range facts {
-		if len(stored) != len(fact) {
-			continue
-		}
-		equal := true
-		for column := range stored {
-			if stored[column] != fact[column] {
-				equal = false
-				break
-			}
-		}
-		if equal {
-			return true, nil
-		}
-	}
-	return false, nil
+	return table.Contains(fact)
 }
 
 func (table *SparseTable) FetchFact(fact Fact) (bool, error) {
