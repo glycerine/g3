@@ -92923,7 +92923,7 @@
       "path": "src/muz/transforms/dl_mk_array_blast.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_blast.go",
         "pkg/muz/transforms/array_blast_test.go",
@@ -92937,21 +92937,21 @@
         "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
         "TestArrayBlastAckermannizesEverySelectIndex",
-            "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestArrayBlastTransfersRuleRewriteProof",
         "TestSMTLibRunnerScripts/fp_spacer_array_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_array_blast.smt2"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "store-definition elimination, select rewriting, source refusal guards, and pairwise Ackermann consistency reduction",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/array_blast.go",
           "tests": [
             "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
             "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+            "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
             "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
             "TestArrayBlastAckermannizesEverySelectIndex",
             "TestArrayBlastTransfersRuleRewriteProof",
@@ -92960,17 +92960,17 @@
         }
       ],
       "ownership": [
-        "Temporary rewritten and Ackermann expressions remain pinned until the replacement Rule owns every published tail."
+        "The plugin borrows AST manager, rule manager, parameter context, and global parameters; it owns its theory rewriter and interpreted-tail simplifier until Close. Transform returns a newly owned RuleSet, whose rules retain their expressions and proofs."
       ],
       "deviations": [
-        "The transform now checks AST-manager cancellation before each source rule, matching the C++ loop; broader source-unit and ownership audit remains open."
+        "Ackermann implication emission follows Go select discovery order; source obj_map iteration depends on C++ object hashing and has no cross-language stable order."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_array_blast.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_blast.go",
         "pkg/muz/transforms/array_blast_coverage_test.go"
@@ -92979,7 +92979,9 @@
         "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
         "TestArrayBlastNoStoreAndCyclicStoreRefusals",
         "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
-        "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution"
+        "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
+        "TestArrayBlastAckermannizesEverySelectIndex",
+        "TestArrayBlastTransfersRuleRewriteProof"
       ],
       "conditionals": [
         {
@@ -92991,17 +92993,25 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "concrete prioritized array-blast transform plugin lifecycle",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/array_blast.go"
+          "go_target": "pkg/muz/transforms/array_blast.go",
+          "tests": [
+            "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
+            "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+            "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
+            "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
+            "TestArrayBlastAckermannizesEverySelectIndex",
+            "TestArrayBlastTransfersRuleRewriteProof"
+          ]
         }
       ],
       "ownership": [
-        "RuleTransformer owns the plugin, its theory rewriter, and its interpreted-tail simplifier until Close."
+        "RuleTransformer owns the plugin; the plugin owns its rewriter and simplifier until Close and borrows manager and rule services."
       ],
       "deviations": []
     },
