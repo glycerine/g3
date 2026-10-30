@@ -103,6 +103,9 @@ func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err er
 			return err
 		}
 	}
+	if err = c.verboseSatPreserving(); err != nil {
+		return err
+	}
 	c.traceGoalDisplay(g, "nla2bv_verbose", 110, "")
 	c.traceGoalCount(g, 111, false)
 	if err = g.IncDepth(); err != nil {

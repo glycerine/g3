@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/text"
 )
 
 func TestNLA2BVSourceTraceSitesDisplayAndCount(t *testing.T) {
@@ -142,6 +143,72 @@ func TestNLA2BVSourceSideConditionTrace(t *testing.T) {
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("NLA2BV side-condition trace lacks %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestNLA2BVVerboseSatPreservationMatchesSource(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	stream, err := text.NewNumericTextStream(text.NumericTextStreamConfig{Budget: r.manager.Budget()})
+	equationMust(t, err)
+	oldLevel, err := diagnostic.ProcessVerbosityLevel()
+	equationMust(t, err)
+	oldStream, err := diagnostic.BorrowProcessVerboseStream()
+	equationMust(t, err)
+	equationMust(t, diagnostic.SetProcessVerboseStream(stream))
+	t.Cleanup(func() {
+		equationMust(t, diagnostic.SetProcessVerboseStream(oldStream))
+		equationMust(t, diagnostic.SetProcessVerbosityLevel(oldLevel))
+		equationMust(t, stream.Close())
+	})
+	applyInteger := func() {
+		t.Helper()
+		m := r.manager
+		x := fixDLConst(t, m, true, "verbose-preserving-x")
+		zero, one := fixDLNumber(t, m, true, "0"), fixDLNumber(t, m, true, "1")
+		square := fixDLApp(t, m, 9, x, x)
+		formula := mustNLA2BVEq(t, m, square, one)
+		g := fixDLGoal(t, m, false, false, false,
+			fixDLApp(t, m, 3, x, zero), fixDLApp(t, m, 2, x, one), formula)
+		var result tactic.TacticResult
+		if err := r.Apply(g, &result); err != nil {
+			t.Fatal(err)
+		}
+		equationMust(t, result.Close())
+		equationMust(t, g.Close())
+	}
+	applyReal := func() {
+		t.Helper()
+		m := r.manager
+		x := fixDLConst(t, m, false, "verbose-under-x")
+		square := fixDLApp(t, m, 9, x, x)
+		formula := mustNLA2BVEq(t, m, square, fixDLNumber(t, m, false, "2"))
+		g := fixDLGoal(t, m, false, false, false, formula)
+		var result tactic.TacticResult
+		if err := r.Apply(g, &result); err != nil {
+			t.Fatal(err)
+		}
+		equationMust(t, result.Close())
+		equationMust(t, g.Close())
+	}
+	equationMust(t, diagnostic.SetProcessVerbosityLevel(9))
+	applyInteger()
+	got, err := stream.String()
+	equationMust(t, err)
+	if strings.Contains(got, "(nla->bv :sat-preserving") {
+		t.Fatalf("verbosity below level 10 emitted the source tactic line: %s", got)
+	}
+	equationMust(t, diagnostic.SetProcessVerbosityLevel(10))
+	applyInteger()
+	applyReal()
+	got, err = stream.String()
+	equationMust(t, err)
+	for _, want := range []string{
+		"(nla->bv :sat-preserving true)\n",
+		"(nla->bv :sat-preserving false)\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("verbose NLA2BV output lacks %q:\n%s", want, got)
 		}
 	}
 }

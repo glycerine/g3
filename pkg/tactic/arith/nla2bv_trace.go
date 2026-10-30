@@ -123,6 +123,25 @@ func (c *nla2BVInvocation) traceExpressionLines(method string, line int, prefix 
 		})
 }
 
+func (c *nla2BVInvocation) verboseSatPreserving() error {
+	enabled, err := diagnostic.ProcessVerboseEnabled(10)
+	if err != nil || !enabled {
+		return err
+	}
+	stream, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	value := "false"
+	if c.satPreserving {
+		value = "true"
+	}
+	if err = stream.AppendCString("(nla->bv :sat-preserving " + value + ")\n"); err != nil {
+		return err
+	}
+	return stream.Flush()
+}
+
 func (c *nla2BVInvocation) writeTraceExpr(out io.Writer, expression ast.ASTHandle) (err error) {
 	manager := c.t.manager
 	format, err := manager.SMT2PPExprTree(expression, nil)

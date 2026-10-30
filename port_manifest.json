@@ -167918,7 +167918,8 @@
             "TestNLA2BVSourcePower2SubstitutionTrace",
             "TestNLA2BVCollectsVariablesBeforeRejectingQuantifier",
             "TestNLA2BVSourceNoBoundsAndUnsupportedTraces",
-            "TestNLA2BVSourceSideConditionTrace"
+            "TestNLA2BVSourceSideConditionTrace",
+            "TestNLA2BVVerboseSatPreservationMatchesSource"
           ]
         },
         {
