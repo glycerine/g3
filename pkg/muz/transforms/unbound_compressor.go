@@ -165,7 +165,7 @@ func (p *UnboundCompressorPlugin) compressedApplication(application ast.ASTHandl
 	return p.manager.MkApp(declaration, arguments)
 }
 
-func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.Rule) ([]*base.Rule, bool, error) {
+func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.Rule, inProgress map[compressionKey]bool) ([]*base.Rule, bool, error) {
 	head, err := rule.Head()
 	if err != nil {
 		return nil, false, err
@@ -179,7 +179,7 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 	if err != nil {
 		return nil, false, err
 	}
-	if found && !p.mapping[key].IsNull() && key.predicate == headDeclaration {
+	if found && inProgress[key] && !p.mapping[key].IsNull() && key.predicate == headDeclaration {
 		head, err = p.compressedApplication(head, key)
 		if err != nil {
 			return nil, false, err
@@ -209,7 +209,7 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 			return nil, false, getErr
 		}
 		var keys []compressionKey
-		for key := range p.mapping {
+		for key := range inProgress {
 			if key.predicate == declaration {
 				keys = append(keys, key)
 			}
@@ -314,6 +314,7 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 	}()
 	for {
 		before := len(p.mapping)
+		inProgress := make(map[compressionKey]bool)
 		count, err := current.Len()
 		if err != nil {
 			return nil, err
@@ -329,8 +330,11 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 				return nil, getErr
 			}
 			if found {
-				if _, getErr = p.declare(key); getErr != nil {
-					return nil, getErr
+				if p.mapping[key].IsNull() {
+					if _, getErr = p.declare(key); getErr != nil {
+						return nil, getErr
+					}
+					inProgress[key] = true
 				}
 			}
 		}
@@ -351,7 +355,7 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 			if getErr != nil {
 				return nil, errors.Join(getErr, result.Close())
 			}
-			replacements, _, getErr := p.rewriteRule(source, rule)
+			replacements, _, getErr := p.rewriteRule(source, rule, inProgress)
 			for _, replacement := range replacements {
 				if getErr == nil {
 					getErr = result.Add(replacement)

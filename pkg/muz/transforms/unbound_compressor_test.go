@@ -137,6 +137,25 @@ func TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments(t *testing.T)
 	if got, getErr := f.manager.GetArity(second); getErr != nil || got != 1 {
 		t.Fatalf("second projected arity %d, want 1: %v", got, getErr)
 	}
+	goalRules, err := result.PredicateRules(goal.declaration)
+	coneMust(t, err)
+	defer func() {
+		for _, rule := range goalRules {
+			coneMust(t, rule.Close())
+		}
+	}()
+	if len(goalRules) != 3 {
+		t.Fatalf("iterative consumer alternatives %d, want original and two projections", len(goalRules))
+	}
+	seen := make(map[ast.ASTHandle]bool)
+	for _, rule := range goalRules {
+		declaration, getErr := rule.TailDeclaration(0)
+		coneMust(t, getErr)
+		seen[declaration] = true
+	}
+	if !seen[p.declaration] || !seen[compressed] || !seen[second] {
+		t.Fatal("iterative decompression alternatives lost a source or projected predicate", seen)
+	}
 }
 
 func TestUnboundCompressorUsesRuleSpecificHeadArguments(t *testing.T) {
