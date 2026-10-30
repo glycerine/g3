@@ -167,6 +167,70 @@ func ruleVariableCount(manager *ast.ASTManager, rule *base.Rule) (uint32, error)
 	return used.MaxFoundVarIndexPlusOne(), nil
 }
 
+// ruleProofSubstitution mirrors rule_unifier::get_rule_subst: enumerate the
+// rule's normalized variables in index order, then apply the selected bank.
+func (p *RuleInlinerPlugin) ruleProofSubstitution(rule *base.Rule, offset uint32, variables uint32, subst *substitution.Substitution) ([]ast.ASTHandle, []ast.ASTRef, error) {
+	used, err := ast.NewASTUsedVars(p.manager)
+	if err != nil {
+		return nil, nil, err
+	}
+	head, err := rule.Head()
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = used.Process(head); err != nil {
+		return nil, nil, err
+	}
+	tails, err := rule.TailSize()
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := 0; i < tails; i++ {
+		tail, _, getErr := rule.Tail(i)
+		if getErr != nil {
+			return nil, nil, getErr
+		}
+		if err = used.Process(tail); err != nil {
+			return nil, nil, err
+		}
+	}
+	deltas := []uint32{0, variables}
+	result := make([]ast.ASTHandle, 0, used.MaxFoundVarIndexPlusOne())
+	var refs []ast.ASTRef
+	for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
+		sort := used.Contains(i)
+		if sort.IsNull() {
+			_ = releaseTransformRefs(p.manager, refs)
+			return nil, nil, ast.ErrASTDomain
+		}
+		variable, mkErr := p.manager.MkVar(i, sort)
+		if mkErr != nil {
+			_ = releaseTransformRefs(p.manager, refs)
+			return nil, nil, mkErr
+		}
+		ref, mkErr := p.manager.NewRef(ast.ASTHandle{})
+		if mkErr != nil {
+			_ = releaseTransformRefs(p.manager, refs)
+			return nil, nil, mkErr
+		}
+		refs = append(refs, ref)
+		if mkErr = subst.Apply(2, deltas, substitution.NewExprOffset(variable, offset), ref); mkErr != nil {
+			refs = append(refs, ref)
+			_ = releaseTransformRefs(p.manager, refs)
+			return nil, nil, mkErr
+		}
+		value, mkErr := p.manager.RefGet(ref)
+		if mkErr != nil {
+			refs = append(refs, ref)
+			_ = releaseTransformRefs(p.manager, refs)
+			return nil, nil, mkErr
+		}
+		result = append(result, value)
+		refs = append(refs, ref)
+	}
+	return result, refs, nil
+}
+
 func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *base.Rule) (_ *base.Rule, resultErr error) {
 	tail, negated, err := target.Tail(tailIndex)
 	if err != nil || negated {
@@ -277,6 +341,41 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 	resolved, err := p.rules.NewRule(newHead, tails, negatives, targetName+";"+sourceName)
 	if err != nil {
 		return nil, fmt.Errorf("muz/transforms: construct resolved rule: %w", err)
+	}
+	if targetProof, hasProof, proofErr := target.Proof(); proofErr != nil {
+		return nil, errors.Join(proofErr, resolved.Close())
+	} else if hasProof {
+		sourceProof, sourceHasProof, getErr := source.Proof()
+		if getErr != nil || !sourceHasProof {
+			return nil, errors.Join(fmt.Errorf("muz/transforms: target rule proof requires source rule proof"), getErr, resolved.Close())
+		}
+		firstSubst, firstRefs, subErr := p.ruleProofSubstitution(target, 0, variables, subst)
+		if subErr != nil {
+			return nil, errors.Join(subErr, resolved.Close())
+		}
+		secondSubst, secondRefs, subErr := p.ruleProofSubstitution(source, 1, variables, subst)
+		if subErr != nil {
+			return nil, errors.Join(subErr, releaseTransformRefs(p.manager, firstRefs), resolved.Close())
+		}
+		defer func() {
+			resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, secondRefs), releaseTransformRefs(p.manager, firstRefs))
+		}()
+		formula, subErr := resolved.ToFormula()
+		if subErr != nil {
+			return nil, errors.Join(subErr, resolved.Close())
+		}
+		defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formula)) }()
+		conclusion, subErr := p.manager.RefGet(formula)
+		if subErr != nil {
+			return nil, errors.Join(subErr, resolved.Close())
+		}
+		proof, subErr := p.manager.MkProofHyperResolve([]ast.ASTHandle{targetProof, sourceProof}, conclusion, []ast.ASTProofPosition{{First: uint32(tailIndex + 1), Second: 0}}, [][]ast.ASTHandle{firstSubst, secondSubst})
+		if subErr == nil {
+			subErr = resolved.SetProof(proof)
+		}
+		if subErr != nil {
+			return nil, errors.Join(subErr, resolved.Close())
+		}
 	}
 	if p.params == nil || p.globals == nil {
 		return resolved, nil

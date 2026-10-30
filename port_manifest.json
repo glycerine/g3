@@ -94720,6 +94720,7 @@
       ],
       "tests": [
         "TestRuleUnfoldExpandsOriginalTailOnce",
+        "TestRuleUnfoldCarriesHyperResolutionProof",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_unfold_rules.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_unfold_rules.smt2"
       ],
@@ -94743,14 +94744,17 @@
         },
         {
           "name": "hyper-resolution proof trace attachment for unfolded rules",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/rule_inliner.go",
+          "tests": [
+            "TestRuleUnfoldCarriesHyperResolutionProof"
+          ]
         }
       ],
       "ownership": [
         "Each source definition and recursive resolved rule is held by an owning Go Rule reference through expansion and closed after insertion or failure."
       ],
       "deviations": [
-        "The retained transformation preserves rule semantics and interpreted-tail normalization but does not yet attach native hyper-resolution proof traces."
       ]
     },
     {
