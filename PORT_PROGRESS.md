@@ -50748,3 +50748,6 @@ Permutation header concrete instantiations (2026-10-30 UTC): closed `src/util/pe
 
 
 Datalog utility retained-consumer closure (2026-10-30 UTC): audited `dl_util.cpp/.h` call sites and marked both units ported for the retained consumers, including rule-tail construction/resolution, output formatting, variable intersections and set operations, concrete relational column helpers, WPA path discovery, and uint64 parsing. Focused base, transform, context, and relational tests pass; utilities whose only callers are unported or test-only units remain excluded under the retained-consumer boundary.
+
+
+Rule-set retained-consumer closure (2026-10-30 UTC): completed the `dl_rule_set.cpp/.h` ledger audit for RuleSet ownership/lifecycle, profile and proof display, strata/dependency output, and concrete finite-compiler restriction/cycle-breaking/topological ordering. Focused `muz/base` and `muz/rel` RuleSet/dependency tests pass; unused standalone dependency mutation wrappers and debug printers remain excluded.

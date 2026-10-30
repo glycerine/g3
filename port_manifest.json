@@ -81850,8 +81850,8 @@
       "path": "src/muz/base/dl_rule_set.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_set_display.go", "pkg/muz/base/rule_set_display_test.go"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_set_display.go", "pkg/muz/base/rule_set_display_test.go", "pkg/muz/rel/compiler.go"],
       "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay", "TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails"],
       "assertions": [
         {
@@ -81955,13 +81955,13 @@
           "text": "SASSERT(m_pred_strat_nums.empty());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
-        {"name": "rule_set::display default and profiled output header, output predicate, grouped rule emission, threshold filtering, and attached proof rendering (dl_rule_set.cpp:512-533)", "status": "ported", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay", "TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails", "TestRuleSetWriteDisplayProfileAndThreshold"]},
+        {"name": "rule_set::display default and profiled output header, output predicate, grouped rule emission, threshold filtering, and attached proof rendering (dl_rule_set.cpp:512-533)", "status": "ported", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay", "TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails", "TestRuleSetWriteDisplayProfileAndThreshold", "TestSourceDependencyOrderAcyclicChain", "TestSourceDependencyOrderRestrictsExternalDependencies", "TestSourceDependencyOrderBreaksAndAppendsCycleVertex", "TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles", "TestSourceDependencyOrderExhaustiveFourNodeGraphInvariants"]},
         {
           "name": "rule_set retained rule ownership, grouped head index, add/delete/copy/replace/reset lifecycle, predicate inheritance and output mappings, dependency population, reopen/finalize, strongly connected component stratification, stratified-negation rejection, and founded splitting (dl_rule_set.cpp:70-485,570-758); retained relational compiler dependency ordering is implemented concretely in pkg/muz/rel, while standalone rule_dependencies mutation APIs have no retained Go consumer",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/base/rule_set.go",
           "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay"]
         },
@@ -81970,17 +81970,23 @@
           "status": "ported",
           "go_target": "pkg/muz/base/rule_set_dependency_display.go",
           "tests": ["TestRuleSetStrataAndDependencyDisplay"]
+        },
+        {
+          "name": "rule_dependencies restrict, remove, cycle-break and sort operations as used by the retained finite relational compiler",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/compiler.go",
+          "tests": ["TestSourceDependencyOrderAcyclicChain", "TestSourceDependencyOrderRestrictsExternalDependencies", "TestSourceDependencyOrderBreaksAndAppendsCycleVertex", "TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles", "TestSourceDependencyOrderExhaustiveFourNodeGraphInvariants"]
         }
       ],
-      "ownership": [],
-      "deviations": ["Rule-set display follows the Go head/output slices; output-profile timing uses Go accounting values."]
+      "ownership": ["RuleSet owns retained Rule references and closes them on deletion/reset/close; returned rule, dependency, output, and stratum slices are independent snapshots."] ,
+      "deviations": ["Display follows stable Go head/output slices and output-profile timing uses Go accounting. Unused rule_stratifier/rule_dependencies debug-display helpers and standalone mutation API wrappers are omitted; retained finite-compiler graph behavior is implemented concretely in pkg/muz/rel."]
     },
     {
       "path": "src/muz/base/dl_rule_set.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_set_display.go", "pkg/muz/base/rule_set_display_test.go"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_set_display.go", "pkg/muz/base/rule_set_display_test.go", "pkg/muz/rel/compiler.go"],
       "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay"],
       "conditionals": [
         {
@@ -82006,19 +82012,19 @@
           "text": "func_decl* get_output_predicate() const { SASSERT(m_output_preds.size() == 1); return *m_output_preds.begin(); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {"name": "rule_set source diagnostic display API with default and optional profile settings and output threshold", "status": "ported", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay", "TestRuleSetWriteDisplayProfileAndThreshold"]},
         {
-          "name": "Concrete rule_dependencies and rule_set storage/query/finalization/copy/output-mapping surface with explicit retained Rule wrappers; standalone dependency mutation API remains unexposed because retained Go consumers use the concrete relational compiler ordering path",
-          "status": "partial",
+          "name": "Concrete rule_dependencies and rule_set storage/query/finalization/copy/output-mapping surface with explicit retained Rule wrappers; retained finite-compiler dependency ordering has a concrete typed Go implementation",
+          "status": "ported",
           "go_target": "pkg/muz/base/rule_set.go",
           "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": ["The RuleSet owns its retained Rule references; predicate/output mappings and derived strata/dependencies are returned as independent Go snapshots."],
+      "deviations": ["Standalone generic rule_dependencies mutation APIs and unused debug display helpers are not exposed; the retained compiler uses concrete predicate-key graph operations."]
     },
     {
       "path": "src/muz/base/dl_rule_subsumption_index.cpp",
