@@ -36,6 +36,30 @@ func TestRuleSetWriteSourceDisplay(t *testing.T) {
 	}
 }
 
+func TestRuleSetWriteSourceSMT2(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q")
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	for _, rule := range []*base.Rule{
+		f.rule("P", nil, nil),
+		f.rule("P", []string{"Q"}, []bool{false}),
+	} {
+		ruleMust(t, set.Add(rule))
+		ruleMust(t, rule.Close())
+	}
+	var out bytes.Buffer
+	ruleMust(t, set.WriteSMT2(&out))
+	want := "(set-logic HORN)\n" +
+		"(declare-fun ruleset-P () Bool)\n" +
+		"(declare-fun ruleset-Q () Bool)\n" +
+		"(assert (! ruleset-P :named P))\n" +
+		"(assert (! (=> ruleset-Q ruleset-P) :named P!))\n"
+	if got := out.String(); got != want {
+		t.Fatalf("SMT2 rule-set dump = %q, want %q", got, want)
+	}
+}
+
 func TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q")
 	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))

@@ -81404,7 +81404,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/datalog_snapshots.go", "pkg/muz/fp/datalog_profile.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/base/datalog_context_background.go", "pkg/muz/base/datalog_context_background_snapshot.go", "pkg/muz/base/datalog_context_background_formula.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_datalog_snapshots.go", "pkg/cmd_context/fixedpoint_datalog_profile.go", "pkg/parsers/smt2/commands.go"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/datalog_snapshots.go", "pkg/muz/fp/datalog_profile.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/base/datalog_context_background.go", "pkg/muz/base/datalog_context_background_snapshot.go", "pkg/muz/base/datalog_context_background_formula.go", "pkg/muz/base/rule_set_smt2.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_datalog_snapshots.go", "pkg/cmd_context/fixedpoint_datalog_profile.go", "pkg/parsers/smt2/commands.go"],
       "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal", "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestPDREngineMatchesCPPIntegerHornQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
       "assertions": [
         {
@@ -81483,6 +81483,12 @@
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
+        },
+        {
+          "name": "default fixedpoint SMT-LIB HORN rule-set dump with declarations, named rules and collision-safe fresh labels (dl_context.cpp:1120-1207)",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_set_smt2.go",
+          "tests": ["TestRuleSetWriteSourceSMT2"]
         },
         {
           "name": "finite-table predicate representation selection before the first query (dl_context.cpp:433-441)",
