@@ -211,16 +211,16 @@ func TestRationalExprConverterExactLeafGoalAndCleanup(t *testing.T) {
 	}()
 	zeroPowerVar, err := converter.InternalizeTerm(zeroPower, &n, &d)
 	if err != nil || zeroPowerVar == math.MaxUint32 || zeroPowerVar == variable {
-		t.Fatal("zero power must remain an atomic variable", zeroPowerVar, err)
+		t.Fatal("zero power monomial definition", zeroPowerVar, err)
 	}
-	if again, err := converter.InternalizeTerm(zeroPower, &n, &d); err != nil || again != zeroPowerVar {
-		t.Fatal("zero power atom mapping", again, err)
+	if again, err := converter.InternalizeTerm(zeroPower, &n, &d); err != nil || again == zeroPowerVar {
+		t.Fatal("source caches the power only above the AST reference threshold", again, err)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "1" {
 		t.Fatal("zero power numerator", got, err)
 	}
-	if base, degree, err := converter.asPower(zeroPower); err != nil || base != zeroPower || degree != 1 {
-		t.Fatal("zero power must have degree one in a product", base, degree, err)
+	if base, degree, err := converter.asPower(zeroPower); err != nil || base != x || degree != 0 {
+		t.Fatal("source as_power zero exponent", base, degree, err)
 	}
 	zeroProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zero, x, sum})
 	if err != nil {
@@ -300,7 +300,7 @@ func TestRationalExprConverterExactLeafGoalAndCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out bytes.Buffer
-	if err := view.Display(&out); err != nil || out.String() != "(-oo, 3/2]" {
+	if err := view.Display(&out); err != nil || out.String() != "[0, 1]" {
 		t.Fatal("exact searched bound", out.String(), err)
 	}
 	if err := view.Close(); err != nil {
@@ -314,9 +314,9 @@ func TestRationalExprConverterExactLeafGoalAndCleanup(t *testing.T) {
 		t.Fatal(err)
 	}
 	out.Reset()
-	// The source definition propagator omits the stored constant, so the
-	// tighter x <= 3/2 bound derives a propagated sum upper endpoint of 3.
-	if err := view.Display(&out); err != nil || out.String() != "(-oo, 3]" {
+	// The source definition propagator omits the stored constant. The degree
+	// zero monomials also propagate x >= 0, so search derives sum in [0, 2].
+	if err := view.Display(&out); err != nil || out.String() != "[0, 2]" {
 		t.Fatal("compound goal bound", out.String(), err)
 	}
 	if err := view.Close(); err != nil {

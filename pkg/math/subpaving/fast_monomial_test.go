@@ -133,8 +133,13 @@ func TestSubpavingFastMonomialDegreeMergeUsesUnsignedArithmetic(t *testing.T) {
 	if len(c.monomials[x].powers) != 1 || c.monomials[x].powers[0].Degree != 1 {
 		t.Fatal("source unsigned degree merge", c.monomials[x].powers)
 	}
-	if _, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: max}, {Variable: 0, Degree: 1}}); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatal("zero degree after source wrap should hit the monomial invariant", err)
+	wrapped, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: max}, {Variable: 0, Degree: 1}})
+	if err != nil || c.monomials[wrapped].powers[0].Degree != 0 {
+		t.Fatal("source unsigned degree merge preserves zero wrap", wrapped, err)
+	}
+	zero, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: 0}})
+	if err != nil || c.monomials[zero].powers[0].Degree != 0 {
+		t.Fatal("source mk_monomial accepts a zero degree", zero, err)
 	}
 }
 

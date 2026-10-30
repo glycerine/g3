@@ -33,7 +33,7 @@ func (c *FastContext) DefineMonomial(powers []FastPower) (uint32, error) {
 	}
 	merged := append([]FastPower(nil), powers...)
 	for _, power := range merged {
-		if power.Variable >= uint32(len(c.isInt)) || power.Degree == 0 {
+		if power.Variable >= uint32(len(c.isInt)) {
 			return 0, arena.ErrInvalidSlot
 		}
 	}
@@ -51,9 +51,6 @@ func (c *FastContext) DefineMonomial(powers []FastPower) (uint32, error) {
 	merged = merged[:write+1]
 	integer := false
 	for _, power := range merged {
-		if power.Degree == 0 {
-			return 0, arena.ErrInvalidSlot
-		}
 		integer = integer || c.isInt[power.Variable]
 	}
 	x := uint32(len(c.isInt))

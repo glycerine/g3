@@ -314,10 +314,10 @@ func TestHardwareExprConverterTerms(t *testing.T) {
 	}
 	zeroPowerVar, err := converter.InternalizeTerm(zeroPower, &n, &d)
 	if err != nil || zeroPowerVar == math.MaxUint32 || zeroPowerVar == first {
-		t.Fatalf("zero power must remain an atomic variable: %d, %v", zeroPowerVar, err)
+		t.Fatalf("zero power monomial definition: %d, %v", zeroPowerVar, err)
 	}
-	if yes, err := converter.IsVar(zeroPower); err != nil || !yes {
-		t.Fatalf("zero power atom mapping: %v, %v", yes, err)
+	if yes, err := converter.IsVar(zeroPower); err != nil || yes {
+		t.Fatalf("zero power should map through a monomial definition: %v, %v", yes, err)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "1" {
 		t.Fatalf("zero power numerator: %s, %v", got, err)
@@ -327,7 +327,7 @@ func TestHardwareExprConverterTerms(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got, err := converter.InternalizeTerm(zeroPowerProduct, &n, &d); err != nil || got == math.MaxUint32 || got == zeroPowerVar {
-		t.Fatalf("zero power must have degree one in a product: %d, %v", got, err)
+		t.Fatalf("zero power degree in a product: %d, %v", got, err)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "1" {
 		t.Fatalf("zero power product numerator: %s, %v", got, err)

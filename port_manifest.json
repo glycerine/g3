@@ -79229,7 +79229,7 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Concrete config_mpq process_add/process_mul/positive integral process_power with exact integer coefficients and concrete polynomial/monomial definitions; degree-zero remains open",
+          "name": "Concrete config_mpq process_add/process_mul/integral process_power with exact integer coefficients and concrete polynomial/monomial definitions, including zero exponents and unsigned degree wrap",
           "status": "partial",
           "go_target": "pkg/math/subpaving/tactic/rational_expr_arith.go",
           "tests": [
@@ -79237,7 +79237,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpq numeral and variable leaves, to_real, ref-counted term cache, cancellation checkpoint and source arithmetic refusal categories; degree-zero branches remain open",
+          "name": "Concrete config_mpq numeral and variable leaves, to_real, ref-counted term cache, cancellation checkpoint and source arithmetic refusal categories, including zero-exponent monomials",
           "status": "partial",
           "go_target": "pkg/math/subpaving/tactic/rational_expr_converter.go",
           "tests": [

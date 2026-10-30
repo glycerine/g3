@@ -29,6 +29,13 @@ func TestHardwareMonomialDefinitionForwardAndZero(t *testing.T) {
 		})
 		return c, m, x
 	}
+	t.Run("zero-degree source definition", func(t *testing.T) {
+		c, _, x := newContext(t)
+		out, err := c.DefineMonomial([]HardwarePower{{Variable: x, Degree: 0}})
+		if err != nil || c.monomials[out].powers[0].Degree != 0 {
+			t.Fatal("source mk_monomial accepts a zero degree", out, err)
+		}
+	})
 	t.Run("merged-power-and-queue", func(t *testing.T) {
 		c, m, x := newContext(t)
 		out, err := c.DefineMonomial([]HardwarePower{{x, 1}, {x, 1}})

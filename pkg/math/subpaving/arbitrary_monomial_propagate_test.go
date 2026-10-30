@@ -36,6 +36,13 @@ func TestArbitraryMonomialForwardInverseAndArithmetic(t *testing.T) {
 		}
 		return new(big.Rat).SetFloat64(v)
 	}
+	t.Run("zero-degree source definition", func(t *testing.T) {
+		f := newArbitraryClauseFixture(t)
+		out, err := f.context.DefineMonomial([]ArbitraryPower{{Variable: f.x, Degree: 0}})
+		if err != nil || f.context.monomials[out].powers[0].Degree != 0 {
+			t.Fatal("source mk_monomial accepts a zero degree", out, err)
+		}
+	})
 	t.Run("merged even power and queue", func(t *testing.T) {
 		f := newArbitraryClauseFixture(t)
 		c := f.context

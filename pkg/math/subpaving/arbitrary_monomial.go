@@ -33,7 +33,7 @@ func (c *ArbitraryContext) DefineMonomial(powers []ArbitraryPower) (uint32, erro
 		return 0, arena.ErrInvalidSlot
 	}
 	for _, power := range powers {
-		if power.Variable >= uint32(len(c.variables)) || power.Degree == 0 {
+		if power.Variable >= uint32(len(c.variables)) {
 			return 0, arena.ErrInvalidSlot
 		}
 	}
@@ -44,9 +44,6 @@ func (c *ArbitraryContext) DefineMonomial(powers []ArbitraryPower) (uint32, erro
 	write := 0
 	for read := 1; read < len(c.powersScratch); read++ {
 		if c.powersScratch[write].Variable == c.powersScratch[read].Variable {
-			if math.MaxUint32-c.powersScratch[write].Degree < c.powersScratch[read].Degree {
-				return 0, arena.ErrInvalidSlot
-			}
 			c.powersScratch[write].Degree += c.powersScratch[read].Degree
 		} else {
 			write++

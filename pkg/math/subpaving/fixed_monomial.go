@@ -32,7 +32,7 @@ func (c *FixedContext) DefineMonomial(powers []FixedPower) (uint32, error) {
 	}
 	merged := append([]FixedPower(nil), powers...)
 	for _, power := range merged {
-		if power.Variable >= uint32(len(c.isInt)) || power.Degree == 0 {
+		if power.Variable >= uint32(len(c.isInt)) {
 			return 0, arena.ErrInvalidSlot
 		}
 	}
@@ -40,9 +40,6 @@ func (c *FixedContext) DefineMonomial(powers []FixedPower) (uint32, error) {
 	write := 0
 	for read := 1; read < len(merged); read++ {
 		if merged[write].Variable == merged[read].Variable {
-			if math.MaxUint32-merged[write].Degree < merged[read].Degree {
-				return 0, arena.ErrInvalidSlot
-			}
 			merged[write].Degree += merged[read].Degree
 		} else {
 			write++

@@ -31,7 +31,7 @@ func (c *RationalContext) DefineMonomial(powers []RationalPower) (uint32, error)
 		return 0, arena.ErrInvalidSlot
 	}
 	for _, p := range powers {
-		if p.Variable >= uint32(len(c.variables)) || p.Degree == 0 {
+		if p.Variable >= uint32(len(c.variables)) {
 			return 0, arena.ErrInvalidSlot
 		}
 	}
@@ -40,9 +40,6 @@ func (c *RationalContext) DefineMonomial(powers []RationalPower) (uint32, error)
 	n := 0
 	for _, p := range merged {
 		if n > 0 && merged[n-1].Variable == p.Variable {
-			if p.Degree > math.MaxUint32-merged[n-1].Degree {
-				return 0, arena.ErrInvalidSlot
-			}
 			merged[n-1].Degree += p.Degree
 		} else {
 			merged[n] = p

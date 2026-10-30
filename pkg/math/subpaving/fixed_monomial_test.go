@@ -79,6 +79,33 @@ func TestSubpavingFixedMonomialMergedPowerForwardAndZero(t *testing.T) {
 	must(m.Close())
 }
 
+func TestSubpavingFixedMonomialAcceptsSourceZeroDegreeAndWrap(t *testing.T) {
+	m, err := numeral.NewFixedPointManager(2, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := NewFixedContext(m, &control.Reslimit{Limit: 10000}, []bool{false}, 0, 2, 8192)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+		if err := m.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	zero, err := c.DefineMonomial([]FixedPower{{Variable: 0, Degree: 0}})
+	if err != nil || c.monomials[zero].powers[0].Degree != 0 {
+		t.Fatal("source mk_monomial accepts a zero degree", zero, err)
+	}
+	wrapped, err := c.DefineMonomial([]FixedPower{{Variable: 0, Degree: ^uint32(0)}, {Variable: 0, Degree: 1}})
+	if err != nil || c.monomials[wrapped].powers[0].Degree != 0 {
+		t.Fatal("source unsigned degree merge preserves zero wrap", wrapped, err)
+	}
+}
+
 func TestSubpavingFixedMonomialOddUnboundedDownward(t *testing.T) {
 	must := func(err error) {
 		t.Helper()

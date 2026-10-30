@@ -118,11 +118,13 @@ func TestRationalMonomialIntegerClassification(t *testing.T) {
 	if err != nil || !c.variables[z] {
 		t.Fatal("source any-integer factor rule", err)
 	}
-	if _, err := c.DefineMonomial([]RationalPower{{Variable: x, Degree: 0}}); err == nil {
-		t.Fatal("zero degree accepted")
+	zero, err := c.DefineMonomial([]RationalPower{{Variable: x, Degree: 0}})
+	if err != nil || c.monomials[zero].powers[0].Degree != 0 {
+		t.Fatal("source mk_monomial accepts a zero degree", zero, err)
 	}
-	if _, err := c.DefineMonomial([]RationalPower{{Variable: x, Degree: math.MaxUint32}, {Variable: x, Degree: 1}}); err == nil {
-		t.Fatal("degree overflow accepted")
+	wrapped, err := c.DefineMonomial([]RationalPower{{Variable: x, Degree: math.MaxUint32}, {Variable: x, Degree: 1}})
+	if err != nil || c.monomials[wrapped].powers[0].Degree != 0 {
+		t.Fatal("source unsigned degree merge preserves zero wrap", wrapped, err)
 	}
 }
 

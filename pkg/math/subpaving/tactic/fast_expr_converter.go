@@ -305,7 +305,7 @@ func (c *FastExprConverter) asPower(h ast.ASTHandle) (ast.ASTHandle, uint32, err
 		return h, 1, err
 	}
 	k, yes, err := c.unsignedExponent(exponent)
-	if err != nil || !yes || k == 0 {
+	if err != nil || !yes {
 		return h, 1, err
 	}
 	base, err := c.ast.GetArg(h, 0)
@@ -438,7 +438,7 @@ func (c *FastExprConverter) processPower(t ast.ASTHandle, n, d *numeral.Int, int
 	if err != nil {
 		return 0, err
 	}
-	if !yes || k == 0 {
+	if !yes {
 		return c.mkVarFor(t, integer, n, d)
 	}
 	base, err := c.ast.GetArg(t, 0)

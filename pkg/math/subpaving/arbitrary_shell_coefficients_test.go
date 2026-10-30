@@ -178,8 +178,9 @@ func TestArbitraryShellCoefficientSourceConversionAndCleanup(t *testing.T) {
 	if err != nil || secondMonomial != 5 || context.variables[secondMonomial] || len(context.monomials[monomial].powers) != 2 {
 		t.Fatalf("scratch reuse and noninteger monomial: %d, %v", secondMonomial, err)
 	}
-	if _, err := w.MkMonomial([]ArbitraryPower{{Variable: x, Degree: math.MaxUint32}, {Variable: x, Degree: 1}}); !errors.Is(err, arena.ErrInvalidSlot) {
-		t.Fatalf("degree overflow: %v", err)
+	wrappedMonomial, err := w.MkMonomial([]ArbitraryPower{{Variable: x, Degree: math.MaxUint32}, {Variable: x, Degree: 1}})
+	if err != nil || context.monomials[wrappedMonomial].powers[0].Degree != 0 {
+		t.Fatalf("source unsigned degree wrap: %d, %v", wrappedMonomial, err)
 	}
 	if _, err := w.MkMonomial([]ArbitraryPower{{Variable: uint32(len(context.variables)), Degree: 1}}); !errors.Is(err, arena.ErrInvalidSlot) {
 		t.Fatalf("unknown monomial factor: %v", err)

@@ -177,17 +177,17 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 	}
 	zeroPowerVar, err := converter.InternalizeTerm(zeroPower, &n, &d)
 	if err != nil || zeroPowerVar == math.MaxUint32 || zeroPowerVar == first {
-		t.Fatal("zero power must remain an atomic variable", zeroPowerVar, err)
+		t.Fatal("zero power monomial definition", zeroPowerVar, err)
 	}
-	if yes, err := converter.IsVar(zeroPower); err != nil || !yes {
-		t.Fatal("zero power atom mapping", yes, err)
+	if yes, err := converter.IsVar(zeroPower); err != nil || yes {
+		t.Fatal("zero power should map through a monomial definition", yes, err)
 	}
 	zeroPowerProduct, err := m.MkFamilyApp(family, 9, nil, []ast.ASTHandle{zeroPower, y})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got, err := converter.InternalizeTerm(zeroPowerProduct, &n, &d); err != nil || got == math.MaxUint32 || got == zeroPowerVar {
-		t.Fatal("zero power must have degree one in a product", got, err)
+		t.Fatal("zero power degree in a product", got, err)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "1" {
 		t.Fatal("zero power product numerator", got, err)
@@ -255,7 +255,7 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 	if err := shell.DisplayConstraints(&out, true); err != nil {
 		t.Fatal("MPFX constraints", err)
 	}
-	if got, want := out.String(), "x2 = 1 + x0 + x1\nx3 = x0^2\nx5 = x1*x4\nx2 <= 2\nx2 <= 2\nx2 <= 2 or 2 < x2\n"; got != want {
+	if got, want := out.String(), "x2 = 1 + x0 + x1\nx3 = x0^2\nx4 = x0\nx5 = x0*x1\nx2 <= 2\nx2 <= 2\nx2 <= 2 or 2 < x2\n"; got != want {
 		t.Fatal("source-order MPFX constraints", out.String())
 	}
 	out.Reset()
