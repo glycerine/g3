@@ -169,6 +169,33 @@ func TestRuleManagerBuildsHornRuleAndCarriesFormulaProof(t *testing.T) {
 	}
 }
 
+func TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode(t *testing.T) {
+	f := newRuleSetFixture(t, "P")
+	rule, err := f.rules.NewRuleFromFormula(f.app["P"], "proof-no-op")
+	ruleMust(t, err)
+	formula, err := rule.ToFormula()
+	ruleMust(t, err)
+	ruleMust(t, rule.Close())
+	defer func() { ruleMust(t, f.manager.DelRef(&formula)) }()
+	formulaHandle, err := f.manager.RefGet(formula)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	defer func() { ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled)) }()
+	proof, err := f.manager.MkProofAsserted(formulaHandle)
+	ruleMust(t, err)
+	result, err := f.rules.NewRuleFromFormulaWithProof(formulaHandle, proof, "proof-no-op")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, result.Close()) }()
+	if mode, e := f.manager.ProofMode(); e != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("already-enabled proof mode changed", mode, e)
+	}
+	got, found, err := result.Proof()
+	ruleMust(t, err)
+	if !found || got != proof {
+		t.Fatal("unchanged formula did not retain its original proof", found, got, proof)
+	}
+}
+
 func TestRuleManagerFormulaNegationAndNonHornRefusal(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q")
 	notP, err := f.manager.MkNot(f.app["P"])
