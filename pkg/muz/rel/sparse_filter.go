@@ -20,29 +20,46 @@ func (t *SparseTable) SelectEqualAndProject(value Element, column int) (*SparseT
 	return out, nil
 }
 func (t *SparseTable) FilterNegation(negative *SparseTable, tCols, nCols []int) error {
-	if e := validateColumns(t.signature, negative.signature, tCols, nCols); e != nil {
-		return e
+	if err := t.open(); err != nil {
+		return err
 	}
-	facts, _ := t.Facts()
-	neg, _ := negative.Facts()
-	for _, f := range facts {
-		matched := false
-		for _, n := range neg {
-			same := true
-			for i := range tCols {
-				if f[tCols[i]] != n[nCols[i]] {
-					same = false
+	if err := negative.open(); err != nil {
+		return err
+	}
+	if err := validateColumns(t.signature, negative.signature, tCols, nCols); err != nil {
+		return err
+	}
+	if sparseJoinInvolvesFunctional(t, negative, tCols, nCols) {
+		// The sparse plugin refuses indexes on functional columns, so the
+		// relation manager falls back to its generic row filter, which removes
+		// the collected rows in table iteration order.
+		facts, err := t.Facts()
+		if err != nil {
+			return err
+		}
+		negated, err := negative.Facts()
+		if err != nil {
+			return err
+		}
+		remove := make([]Fact, 0)
+		for _, fact := range facts {
+			for _, excluded := range negated {
+				match := true
+				for i := range tCols {
+					if fact[tCols[i]] != excluded[nCols[i]] {
+						match = false
+						break
+					}
+				}
+				if match {
+					remove = append(remove, fact)
 					break
 				}
 			}
-			if same {
-				matched = true
-				break
-			}
 		}
-		if matched {
-			t.Remove(f)
-		}
+		_, err = t.RemoveFacts(remove)
+		return err
 	}
-	return nil
+	_, err := t.FilterNegationFunctional(negative, tCols, nCols)
+	return err
 }
