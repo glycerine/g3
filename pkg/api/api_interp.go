@@ -47,6 +47,7 @@ type interpolationState struct {
 	cooperation *cooperate.Cooperation
 	manager     *ast.ASTManager
 	terms       *interp.Manager
+	profiler    *interp.Profiler
 	factory     solver.Factory
 	evaluator   model.ModelEvaluatorConfig
 	retained    []ast.ASTRef
@@ -112,6 +113,7 @@ func NewInterpolationContext() (result *InterpolationContext, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
+	c.profiler = interp.NewProfiler()
 	c.evaluator = model.ModelEvaluatorConfig{Context: c.parameters, Globals: c.globals, Memory: c.numerals.RuntimeOwner(), Cooperation: c.cooperation}
 	c.factory, err = smtcore.NewSMTSolverFactory(smtcore.SMTSolverConfig{Params: c.parameters, Globals: c.globals, ModelEvaluator: c.evaluator})
 	if err != nil {
@@ -218,7 +220,7 @@ func (c *InterpolationContext) ComputeInterpolation(pattern ast.ASTHandle) (resu
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, s.Close()) }()
-	config := &interp.RunConfig{SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
+	config := &interp.RunConfig{Profiler: c.profiler, SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
 		return model.NewModelEvaluator(md, c.evaluator)
 	}}
 	result.Status, _, refs, mdl, err = interp.SolveTree(c.terms, s, pattern, true, config)
@@ -269,7 +271,7 @@ func (c *InterpolationContext) InterpolantsFromProof(proof, pattern ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
-	config := &interp.RunConfig{SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
+	config := &interp.RunConfig{Profiler: c.profiler, SolverFactory: c.factory, EvaluatorFactory: func(md *model.ModelCore) (solver.ConsequenceEvaluator, error) {
 		return model.NewModelEvaluator(md, c.evaluator)
 	}}
 	refs, err := interp.TreeInterpolants(c.terms, proof, constraints, pattern, config)
@@ -294,6 +296,19 @@ func (c *InterpolationContext) InterpolantsFromProof(proof, pattern ast.ASTHandl
 		}
 	}
 	return result, nil
+}
+
+// InterpolationProfile returns the source interpolation timer report for the
+// solve and proof phases run by this context.
+func (c *InterpolationContext) InterpolationProfile() (string, error) {
+	if err := c.open(); err != nil {
+		return "", err
+	}
+	var output bytes.Buffer
+	if err := c.profiler.Print(&output); err != nil {
+		return "", err
+	}
+	return output.String(), nil
 }
 
 // WriteInterpolationSMT2 exports a marked interpolation problem as replayable

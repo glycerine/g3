@@ -50786,3 +50786,6 @@ API model implementation completion (2026-10-30 UTC): audited `src/api/api_model
 
 
 Interpolation-problem reader (2026-10-30 UTC): ported `Z3_read_interpolation_problem` as `InterpolationContext.ReadInterpolationProblem`, including first-line THEORY metadata, sequence inputs, nested-implication tree decoding, root sentinel, and malformed child/marker validation. Tests cover theory extraction, tree parent reconstruction, empty input, clamping, and invalid metadata/trees; the focused interpolation API suite passes. Profile collection and the private interpolation-options surface remain open.
+
+
+Interpolation profiling API (2026-10-30 UTC): connected the retained profiler to context solve, proof preparation, proof translation, and proof interpolation phases, and exposed the per-context report as `InterpolationProfile`. The focused `interp` and API interpolation suites pass, and tests verify all four source phase labels. The unexposed private options type remains open for consumer audit.

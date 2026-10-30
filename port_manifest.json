@@ -5614,7 +5614,7 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go", "pkg/api/api_interp_read.go", "pkg/api/api_interp_read_test.go"],
+      "go_targets": ["pkg/api/api_interp.go", "pkg/api/api_interp_test.go", "pkg/api/api_interp_read.go", "pkg/api/api_interp_read_test.go", "pkg/interp/orchestration.go"],
       "tests": ["TestInterpolationContextBinary", "TestInterpolationContextTree", "TestInterpolationContextCompleteResultAndProofInput", "TestInterpolationContextSMT2Replay", "TestInterpolationContextErrorsAndIsolation", "TestInterpolationContextTeardownFailureReleasesResults", "TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationReadEmptySequenceAndTheoryCountClamp"],
       "conditionals": [
         {
@@ -5689,7 +5689,14 @@
           "tests": ["TestInterpolationReadSequenceTheoryPrefix", "TestInterpolationReadTreeParentsAndLocalConstraints", "TestInterpolationReadRejectsInvalidTreeAndTheoryHeader", "TestInterpolationReadEmptySequenceAndTheoryCountClamp"]
         },
         {
-          "name": "interpolation profile and private options surface",
+          "name": "interpolation profiling report and solve-phase timers (api_interp.cpp:332-335; iz3interp.cpp:215-278,526-528)",
+          "status": "ported",
+          "go_target": "pkg/api/api_interp.go",
+          "go_targets": ["pkg/interp/orchestration.go"],
+          "tests": ["TestInterpolationContextBinary"]
+        },
+        {
+          "name": "private interpolation options surface",
           "status": "unported",
           "go_target": null,
           "tests": []

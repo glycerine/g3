@@ -171,6 +171,15 @@ func TestInterpolationContextBinary(t *testing.T) {
 				}
 				f.verify(pattern, results)
 			}
+			profile, err := f.c.InterpolationProfile()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, phase := range []string{"solving", "Interpolation prep", "Proof translation", "Proof interpolation"} {
+				if !strings.Contains(profile, phase) {
+					t.Fatalf("interpolation profile lacks %q phase:\n%s", phase, profile)
+				}
+			}
 		})
 	}
 }

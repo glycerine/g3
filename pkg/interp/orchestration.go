@@ -18,6 +18,7 @@ import (
 // dual model; EvaluatorFactory accompanies model-producing factories.
 type RunConfig struct {
 	Options          *Options
+	Profiler         *Profiler
 	SolverFactory    solver.Factory
 	EvaluatorFactory solver.ConsequenceEvaluatorFactory
 }
@@ -56,6 +57,11 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 	if len(parts) == 0 || len(parents) != 0 && len(parents) != len(parts) {
 		return nil, ast.ErrASTDomain
 	}
+	prepProfile, err := startProfile(config, "Interpolation prep")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, prepProfile.Close()) }()
 	reducer, err := NewFrameReducer(manager)
 	if err != nil {
 		return nil, err
@@ -75,6 +81,14 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 	if err = configureInterpolationBase(base, config); err != nil {
 		return nil, err
 	}
+	if err = prepProfile.Stop(); err != nil {
+		return nil, err
+	}
+	translationProfile, err := startProfile(config, "Proof translation")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, translationProfile.Close()) }()
 	translation, err := NewFullTranslation(base)
 	if err != nil {
 		return nil, err
@@ -89,10 +103,18 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 	if err != nil {
 		return nil, interpolationTranslationError(err)
 	}
+	if err = translationProfile.Stop(); err != nil {
+		return nil, err
+	}
 	weak, err := base.WeakMode()
 	if err != nil {
 		return nil, err
 	}
+	interpolationProfile, err := startProfile(config, "Proof interpolation")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, interpolationProfile.Close()) }()
 	reducedRefs := make([]ast.ASTRef, 0, len(reduced)-1)
 	defer func() {
 		for i := len(reducedRefs) - 1; i >= 0; i-- {
@@ -126,7 +148,13 @@ func ProofInterpolants(manager *Manager, proof ast.ASTHandle, parts [][]ast.ASTH
 		reducedHandles = append(reducedHandles, handle)
 	}
 	result, err = reducer.FixInterpolants(reducedHandles)
-	return result, err
+	if err != nil {
+		return nil, err
+	}
+	if err = interpolationProfile.Stop(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // ProofInterpolantsFlat is the one-formula-per-frame source overload.
@@ -213,7 +241,12 @@ func SolveTree(manager *Manager, target solver.Solver, tree ast.ASTHandle, acqui
 	if err != nil {
 		return lbool.Undef, nil, nil, nil, err
 	}
+	solveProfile, profileErr := startProfile(config, "solving")
+	if profileErr != nil {
+		return lbool.Undef, constraints, nil, nil, profileErr
+	}
 	status, err = target.CheckSat(nil)
+	err = errors.Join(err, solveProfile.Close())
 	if err != nil {
 		return status, constraints, nil, nil, err
 	}
@@ -230,3 +263,29 @@ func SolveTree(manager *Manager, target solver.Solver, tree ast.ASTHandle, acqui
 	}
 	return status, constraints, nil, mdl, err
 }
+
+type profileScope struct {
+	profiler *Profiler
+	name     string
+	active   bool
+}
+
+func startProfile(config *RunConfig, name string) (*profileScope, error) {
+	if config == nil || config.Profiler == nil {
+		return &profileScope{}, nil
+	}
+	if err := config.Profiler.TimerStart(name); err != nil {
+		return nil, err
+	}
+	return &profileScope{profiler: config.Profiler, name: name, active: true}, nil
+}
+
+func (s *profileScope) Stop() error {
+	if s == nil || !s.active {
+		return nil
+	}
+	s.active = false
+	return s.profiler.TimerStop(s.name)
+}
+
+func (s *profileScope) Close() error { return s.Stop() }
