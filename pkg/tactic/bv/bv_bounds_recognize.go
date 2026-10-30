@@ -30,6 +30,11 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 		if e != nil {
 			return variable, bound, false, e
 		}
+		// bv_bounds_tactic.cpp::is_number rejects every numeral wider than
+		// uint64, even though the shared modular interval type supports them.
+		if ln && w > 64 || rn && rw > 64 {
+			return variable, bound, false, nil
+		}
 		if ln && rn {
 			return variable, bound, false, nil
 		}
@@ -83,12 +88,18 @@ func (s *BVBoundsSimplifier) recognize(h ast.ASTHandle) (variable ast.ASTHandle,
 	if e != nil {
 		return variable, bound, false, e
 	}
+	if yes && w > 64 {
+		yes = false
+	}
 	if !yes {
 		v, w, yes, e = bvBoundsNumeral(m, rhs)
 		lhs, rhs = rhs, lhs
 	}
 	if e != nil || !yes {
 		return variable, bound, false, e
+	}
+	if w > 64 {
+		return variable, bound, false, nil
 	}
 	if v.Sign() == 0 {
 		var low, high uint32

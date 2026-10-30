@@ -170850,11 +170850,14 @@
       "go_targets": [
         "pkg/tactic/bv/bv_bounds_tactic.go",
         "pkg/tactic/bv/bv_bounds_simplify.go",
-        "pkg/tactic/bv/bv_bounds_translate.go"
+        "pkg/tactic/bv/bv_bounds_recognize.go",
+        "pkg/tactic/bv/bv_bounds_translate.go",
+        "pkg/tactic/bv/bv_bounds_width_limit_test.go"
       ],
       "tests": [
         "TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds",
-        "TestBVBoundsSourcePropagateEqualityAndTranslation"
+        "TestBVBoundsSourcePropagateEqualityAndTranslation",
+        "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64"
       ],
       "conditionals": [
         {
