@@ -75038,7 +75038,7 @@
         },
         {
           "name": "Concrete MPFF factory and owning shell selected from source-order ParamsRef (src/math/subpaving/subpaving.cpp:260,275-276)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fast_engine.go",
           "tests": [
             "TestFastEngineSelectedOwnerAndPartialCleanup"
