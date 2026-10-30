@@ -51,7 +51,11 @@ func requireLazyFact(t *testing.T, table *LazyTable, fact Fact, want bool) {
 
 func TestLazyTableSourceDeferredJoinAndMemoization(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	left := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 3), Fact{0, 1}, Fact{1, 2})
 	right := newLazyTableWithFacts(t, engine, lazySignature(t, 3, 2), Fact{1, 1}, Fact{2, 0})
 	joined, err := left.Join(right, []int{1}, []int{0})
@@ -76,7 +80,11 @@ func TestLazyTableSourceDeferredJoinAndMemoization(t *testing.T) {
 
 func TestLazyTableCloneResetComplementAndLifecycle(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	table := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{0}, Fact{2})
 	clone, err := table.Clone()
 	if err != nil {
@@ -107,7 +115,11 @@ func TestLazyTableCloneResetComplementAndLifecycle(t *testing.T) {
 
 func TestLazyTableMutationForcesOnlyOnObservation(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 2), Fact{0, 0}, Fact{0, 1}, Fact{1, 1})
 	engine.ResetStatistics()
 	if err := table.FilterIdentical([]int{0, 1}); err != nil {
@@ -133,7 +145,11 @@ func TestLazyTableMutationForcesOnlyOnObservation(t *testing.T) {
 
 func TestLazyTableIdenticalFilterAllowsDifferentDomains(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 3), Fact{0, 0}, Fact{1, 1}, Fact{1, 2})
 	closeLazyTables(t, table)
 	if err := table.FilterIdentical([]int{0, 1}); err != nil {
@@ -148,7 +164,11 @@ func TestLazyTableIdenticalFilterAllowsDifferentDomains(t *testing.T) {
 
 func TestLazyTableJoinAllowsDifferentMatchedDomains(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	left := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{0}, Fact{1})
 	right := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{1}, Fact{2})
 	joined, err := left.Join(right, []int{0}, []int{0})
@@ -165,7 +185,11 @@ func TestLazyTableJoinAllowsDifferentMatchedDomains(t *testing.T) {
 
 func TestLazyTableUnionForcesAndUpdatesDeferredOperands(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	left := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{0})
 	right := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{1})
 	target, err := left.Join(right, nil, nil)
@@ -206,8 +230,16 @@ func TestLazyTableUnionForcesAndUpdatesDeferredOperands(t *testing.T) {
 func TestLazyTableValidationAndEngineOwnership(t *testing.T) {
 	firstEngine := NewLazyTableEngine()
 	secondEngine := NewLazyTableEngine()
-	t.Cleanup(firstEngine.Close)
-	t.Cleanup(secondEngine.Close)
+	t.Cleanup(func() {
+		if err := firstEngine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := secondEngine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	first := newLazyTableWithFacts(t, firstEngine, lazySignature(t, 2), Fact{0})
 	second := newLazyTableWithFacts(t, secondEngine, lazySignature(t, 2), Fact{0})
 	closeLazyTables(t, first, second)

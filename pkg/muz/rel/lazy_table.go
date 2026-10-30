@@ -22,25 +22,30 @@ const (
 	LazyTableFilterIdentical
 	LazyTableFilterEqual
 	LazyTableFilterByNegation
+	LazyTableFilterInterpreted
 )
 
 type LazyTableStatistics struct {
-	Forces             uint32
-	Joins              uint32
-	JoinProjects       uint32
-	Projects           uint32
-	Renames            uint32
-	EqualFilters       uint32
-	IdenticalFilters   uint32
-	NegationFilters    uint32
-	SelectEqualProject uint32
+	Forces              uint32
+	Joins               uint32
+	JoinProjects        uint32
+	Projects            uint32
+	Renames             uint32
+	EqualFilters        uint32
+	IdenticalFilters    uint32
+	NegationFilters     uint32
+	SelectEqualProject  uint32
+	InterpretedFilters  uint32
+	InterpretedProjects uint32
 }
 
 // LazyTableEngine is the concrete counterpart of lazy_table_plugin. Tables
 // from one engine may share deferred nodes and a deterministic statistics log.
 type LazyTableEngine struct {
-	stats  LazyTableStatistics
-	closed bool
+	stats      LazyTableStatistics
+	closed     bool
+	handles    []*LazyTable
+	conditions []*lazyConditionOwner
 }
 
 func NewLazyTableEngine() *LazyTableEngine { return &LazyTableEngine{} }
@@ -65,23 +70,46 @@ func (e *LazyTableEngine) ResetStatistics() {
 	}
 }
 
-func (e *LazyTableEngine) Close() {
+func (e *LazyTableEngine) Close() error {
 	if e == nil {
-		return
+		return nil
+	}
+	var result error
+	handles := append([]*LazyTable(nil), e.handles...)
+	for index := len(handles) - 1; index >= 0; index-- {
+		table := handles[index]
+		err := table.Close()
+		result = errors.Join(result, err)
+		if !table.closed {
+			return result
+		}
+	}
+	conditions := append([]*lazyConditionOwner(nil), e.conditions...)
+	for index := len(conditions) - 1; index >= 0; index-- {
+		owner := conditions[index]
+		complete, err := owner.release()
+		result = errors.Join(result, err)
+		if !complete {
+			return result
+		}
 	}
 	e.closed = true
+	return result
 }
 
 type lazyTableNode struct {
-	kind      LazyTableKind
-	signature Signature
-	evaluated *HashTable
-	left      *lazyTableNode
-	right     *lazyTableNode
-	columns1  []int
-	columns2  []int
-	value     Element
-	column    int
+	kind        LazyTableKind
+	references  uint32
+	closed      bool
+	signature   Signature
+	evaluated   *HashTable
+	left        *lazyTableNode
+	right       *lazyTableNode
+	columns1    []int
+	columns2    []int
+	value       Element
+	column      int
+	interpreted *lazyInterpretedFilter
 }
 
 type LazyTable struct {
@@ -95,7 +123,7 @@ func (e *LazyTableEngine) New(signature Signature) (*LazyTable, error) {
 		return nil, err
 	}
 	table := NewHashTable(signature)
-	return &LazyTable{engine: e, root: &lazyTableNode{kind: LazyTableBase, signature: Signature{domains: signature.Domains()}, evaluated: table}}, nil
+	return e.adoptNode(&lazyTableNode{kind: LazyTableBase, signature: Signature{domains: signature.Domains()}, evaluated: table}), nil
 }
 
 // AdoptLazyTable transfers ownership of table to a forced base node.
@@ -110,7 +138,14 @@ func (e *LazyTableEngine) Adopt(table *HashTable) (*LazyTable, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &LazyTable{engine: e, root: &lazyTableNode{kind: LazyTableBase, signature: signature, evaluated: table}}, nil
+	return e.adoptNode(&lazyTableNode{kind: LazyTableBase, signature: signature, evaluated: table}), nil
+}
+
+func (e *LazyTableEngine) adoptNode(root *lazyTableNode) *LazyTable {
+	newLazyTableNode(root)
+	table := &LazyTable{engine: e, root: root}
+	e.handles = append(e.handles, table)
+	return table
 }
 
 func (t *LazyTable) open() error {
@@ -124,10 +159,18 @@ func (t *LazyTable) Close() error {
 	if t == nil || t.closed {
 		return nil
 	}
+	consumed, err := releaseLazyTableNode(t.root)
+	if !consumed {
+		return err
+	}
+	e := t.engine
 	t.closed = true
 	t.root = nil
+	if e != nil {
+		e.handles = removeLazyTableHandle(e.handles, t)
+	}
 	t.engine = nil
-	return nil
+	return err
 }
 
 func (t *LazyTable) Kind() LazyTableKind {
@@ -192,6 +235,14 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 			}
 			e.stats.SelectEqualProject++
 			result, err = source.SelectEqualAndProject(filter.value, filter.column)
+		} else if node.left != nil && node.left.kind == LazyTableFilterInterpreted && node.left.evaluated == nil {
+			filter := node.left
+			source, sourceErr := e.evaluate(filter)
+			if sourceErr != nil {
+				return nil, sourceErr
+			}
+			result, err = source.Project(node.columns1)
+			e.stats.InterpretedProjects++
 		} else {
 			source, sourceErr := e.evaluate(node.left)
 			if sourceErr != nil {
@@ -240,6 +291,25 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		if err == nil {
 			e.stats.NegationFilters++
 			err = result.FilterByNegation(source, node.columns1, node.columns2)
+		}
+	case LazyTableFilterInterpreted:
+		source, sourceErr := e.evaluate(node.left)
+		if sourceErr != nil {
+			return nil, sourceErr
+		}
+		// Source force moves its evaluated table out of m_src before applying
+		// the mutator; sibling references to that lazy node no longer own it.
+		node.left.evaluated = nil
+		node.evaluated = source
+		conditions, conditionErr := node.interpreted.handles()
+		if conditionErr != nil {
+			return nil, conditionErr
+		}
+		relation := &TableRelation{manager: node.interpreted.manager, sorts: node.interpreted.relationSorts, table: source}
+		err = relation.FilterInterpreted(node.interpreted.rewriter, conditions, node.interpreted.columns, node.interpreted.sorts)
+		if err == nil {
+			e.stats.InterpretedFilters++
+			result = source
 		}
 	default:
 		return nil, fmt.Errorf("%w: unsupported deferred node kind", ErrLazyTable)
@@ -307,8 +377,14 @@ func (t *LazyTable) Reset() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	t.root = &lazyTableNode{kind: LazyTableBase, signature: Signature{domains: t.root.signature.Domains()}, evaluated: NewHashTable(t.root.signature)}
-	return nil
+	root := &lazyTableNode{kind: LazyTableBase, references: 1, signature: Signature{domains: t.root.signature.Domains()}, evaluated: NewHashTable(t.root.signature)}
+	consumed, err := releaseLazyTableNode(t.root)
+	if !consumed {
+		_, cleanupErr := releaseLazyTableNode(root)
+		return errors.Join(err, cleanupErr)
+	}
+	t.root = root
+	return err
 }
 
 func (t *LazyTable) Clone() (*LazyTable, error) {

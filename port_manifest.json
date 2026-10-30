@@ -87599,8 +87599,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/table_join_project.go"],
-      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
+      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_ownership.go", "pkg/muz/rel/table_join_project.go"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
         {
           "line": 87,
@@ -87661,7 +87661,26 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "lazy_table::remove_facts overloads force the deferred table and forward the bulk removal span (dl_lazy_table.cpp:298-302)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/lazy_table_operations.go",
+          "tests": ["TestLazyTableBulkRemoveForcesLikeSource"]
+        },
+        {
+          "name": "lazy_table_filter_interpreted owns its condition and forces the source table through the concrete interpreted filter (dl_lazy_table.cpp:184-201,422-434)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/lazy_table_interpreted.go",
+          "tests": ["TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes"]
+        },
+        {
+          "name": "lazy project fuses an interpreted filter with projection while preserving the condition owner (dl_lazy_table.cpp:335-362)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/lazy_table.go",
+          "tests": ["TestLazyTableInterpretedFilterProjectFusion"]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -87670,8 +87689,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go"],
-      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
+      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_ownership.go"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "conditionals": [
         {
           "line": 21,

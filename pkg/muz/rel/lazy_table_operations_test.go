@@ -4,7 +4,11 @@ import "testing"
 
 func TestLazyTableJoinProjectFusionAgainstFiniteOracle(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	left := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 3), Fact{0, 1}, Fact{1, 2})
 	right := newLazyTableWithFacts(t, engine, lazySignature(t, 3, 2), Fact{1, 1}, Fact{2, 0}, Fact{0, 1})
 	joined, err := left.Join(right, []int{1}, []int{0})
@@ -30,7 +34,11 @@ func TestLazyTableJoinProjectFusionAgainstFiniteOracle(t *testing.T) {
 
 func TestLazyTableJoinProjectFusionProducesOneEmptyTuple(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	left := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{1})
 	right := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{1})
 	joined, err := left.Join(right, []int{0}, []int{0})
@@ -54,7 +62,11 @@ func TestLazyTableJoinProjectFusionProducesOneEmptyTuple(t *testing.T) {
 
 func TestLazyTableSelectEqualProjectFusion(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 3), Fact{0, 1}, Fact{1, 1}, Fact{1, 2})
 	engine.ResetStatistics()
 	if err := table.FilterEqual(1, 1); err != nil {
@@ -78,7 +90,11 @@ func TestLazyTableSelectEqualProjectFusion(t *testing.T) {
 
 func TestLazyTableRenameNegationAndEagerUnion(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	target := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 2), Fact{0, 0}, Fact{0, 1}, Fact{1, 1})
 	negated := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{1})
 	closeLazyTables(t, target, negated)
@@ -114,9 +130,41 @@ func TestLazyTableRenameNegationAndEagerUnion(t *testing.T) {
 	requireLazyFact(t, delta, Fact{1, 0}, true)
 }
 
+func TestLazyTableBulkRemoveForcesLikeSource(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	table := newLazyTableWithFacts(t, engine, lazySignature(t, 3), Fact{0}, Fact{1}, Fact{2})
+	filtered, err := table.Project(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeLazyTables(t, table, filtered)
+	if filtered.Forced() {
+		t.Fatal("projection forced before bulk remove")
+	}
+	if err = filtered.RemoveFacts([]Fact{{0}, {2}}); err != nil {
+		t.Fatal(err)
+	}
+	if !filtered.Forced() {
+		t.Fatal("bulk remove did not force the lazy table")
+	}
+	facts, err := filtered.Facts()
+	if err != nil || len(facts) != 1 || facts[0][0] != 1 {
+		t.Fatalf("rows after bulk remove = %v, %v", facts, err)
+	}
+}
+
 func TestLazyTableGeneralProjectionAndRenameStatistics(t *testing.T) {
 	engine := NewLazyTableEngine()
-	t.Cleanup(engine.Close)
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 3, 2), Fact{1, 2, 0})
 	projected, err := table.Project([]int{1})
 	if err != nil {

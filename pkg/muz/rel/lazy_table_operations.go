@@ -24,7 +24,7 @@ func (t *LazyTable) Join(other *LazyTable, leftColumns, rightColumns []int) (*La
 		return nil, err
 	}
 	node := &lazyTableNode{kind: LazyTableJoin, signature: signature, left: t.root, right: other.root, columns1: append([]int(nil), leftColumns...), columns2: append([]int(nil), rightColumns...)}
-	return &LazyTable{engine: t.engine, root: node}, nil
+	return t.engine.adoptNode(node), nil
 }
 
 func (t *LazyTable) Project(removed []int) (*LazyTable, error) {
@@ -36,7 +36,7 @@ func (t *LazyTable) Project(removed []int) (*LazyTable, error) {
 		return nil, err
 	}
 	node := &lazyTableNode{kind: LazyTableProject, signature: signature, left: t.root, columns1: append([]int(nil), removed...)}
-	return &LazyTable{engine: t.engine, root: node}, nil
+	return t.engine.adoptNode(node), nil
 }
 
 func lazyRenameSignature(signature Signature, cycle []int) (Signature, error) {
@@ -73,7 +73,7 @@ func (t *LazyTable) RenameCycle(cycle []int) (*LazyTable, error) {
 		return nil, err
 	}
 	node := &lazyTableNode{kind: LazyTableRename, signature: signature, left: t.root, columns1: append([]int(nil), cycle...)}
-	return &LazyTable{engine: t.engine, root: node}, nil
+	return t.engine.adoptNode(node), nil
 }
 
 // FilterEqual updates the lazy handle without forcing it.
@@ -84,8 +84,7 @@ func (t *LazyTable) FilterEqual(value Element, column int) error {
 	if column < 0 || column >= t.root.signature.Len() {
 		return fmt.Errorf("%w: filter column out of range", ErrLazyTable)
 	}
-	t.root = &lazyTableNode{kind: LazyTableFilterEqual, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, value: value, column: column}
-	return nil
+	return t.replaceRoot(&lazyTableNode{kind: LazyTableFilterEqual, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, value: value, column: column})
 }
 
 // FilterIdentical updates the lazy handle without forcing it.
@@ -98,8 +97,7 @@ func (t *LazyTable) FilterIdentical(columns []int) error {
 			return fmt.Errorf("%w: identical-filter column out of range", ErrLazyTable)
 		}
 	}
-	t.root = &lazyTableNode{kind: LazyTableFilterIdentical, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, columns1: append([]int(nil), columns...)}
-	return nil
+	return t.replaceRoot(&lazyTableNode{kind: LazyTableFilterIdentical, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, columns1: append([]int(nil), columns...)})
 }
 
 // FilterByNegation updates the lazy target without forcing either operand.
@@ -113,8 +111,7 @@ func (t *LazyTable) FilterByNegation(source *LazyTable, targetColumns, sourceCol
 	if err := validateColumns(t.root.signature, source.root.signature, targetColumns, sourceColumns); err != nil {
 		return err
 	}
-	t.root = &lazyTableNode{kind: LazyTableFilterByNegation, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, right: source.root, columns1: append([]int(nil), targetColumns...), columns2: append([]int(nil), sourceColumns...)}
-	return nil
+	return t.replaceRoot(&lazyTableNode{kind: LazyTableFilterByNegation, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, right: source.root, columns1: append([]int(nil), targetColumns...), columns2: append([]int(nil), sourceColumns...)})
 }
 
 // UnionFrom is eager in the source lazy plugin: all three operands are forced
@@ -145,4 +142,14 @@ func (t *LazyTable) UnionFrom(source, delta *LazyTable) error {
 		}
 	}
 	return target.Union(sourceTable, deltaTable)
+}
+
+// RemoveFacts forces the lazy table and forwards bulk removal to its concrete
+// table, matching lazy_table::remove_facts.
+func (t *LazyTable) RemoveFacts(facts []Fact) error {
+	table, err := t.Eval()
+	if err != nil {
+		return err
+	}
+	return table.RemoveFacts(facts)
 }
