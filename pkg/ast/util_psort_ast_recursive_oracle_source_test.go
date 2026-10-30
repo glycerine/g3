@@ -325,3 +325,269 @@ func TestPsortASTNetworkRegisteredOddDriverCampaign(t *testing.T) {
 		}
 	}
 }
+
+func TestPsortASTNetworkRegisteredAtMostOneCampaign(t *testing.T) {
+	// src/test/sorting_network.cpp runs both full modes for n=1..16. In full
+	// mode it proves equivalence to the pairwise formula; for n<9 it then
+	// checks every assignment. In one-way mode it checks every violating
+	// assignment by asserting the encoded bound and expecting UNSAT.
+	for n := uint32(1); n <= 16; n++ {
+		for _, full := range []bool{true, false} {
+			t.Run(fmt.Sprintf("n=%d/full=%v", n, full), func(t *testing.T) {
+				m := astTestManager(t)
+				c, err := NewPsortASTContext(m)
+				astTestMust(t, err)
+				r, err := umemory.NewRuntime(umemory.RuntimeConfig{Budget: m.BudgetField})
+				astTestMust(t, err)
+				network, err := NewPsortASTNetwork(c, r, m.BudgetField, nil)
+				astTestMust(t, err)
+				input, err := NewASTLiteralVector(m.BudgetField)
+				astTestMust(t, err)
+				sort, err := m.MkBoolSort()
+				astTestMust(t, err)
+				inputs := make([]ASTHandle, 0, n)
+				for i := uint32(0); i < n; i++ {
+					h, err := m.MkFreshConst("a", sort)
+					astTestMust(t, err)
+					astTestPin(t, m, h)
+					inputs = append(inputs, h)
+					astTestMust(t, input.Push(h))
+				}
+				span, err := input.Span()
+				astTestMust(t, err)
+				result, err := network.Le(full, 1, n, span)
+				astTestMust(t, err)
+				astTestPin(t, m, result)
+				oracle := psortOracleCNF{ids: map[ASTHandle]int{}}
+				resultID := oracle.gate(t, m, result)
+				for _, clause := range c.clauses {
+					id := oracle.gate(t, m, clause)
+					oracle.clauses = append(oracle.clauses, []int{id})
+				}
+				for _, h := range inputs {
+					oracle.gate(t, m, h)
+				}
+
+				if full {
+					// This is the source's solver proof that result1 and
+					// naive_at_most1 agree for every assignment.
+					var pairClauses []ASTHandle
+					for i := 0; i < len(inputs); i++ {
+						for j := i + 1; j < len(inputs); j++ {
+							both, err := m.MkAnd(inputs[i], inputs[j])
+							astTestMust(t, err)
+							astTestPin(t, m, both)
+							notBoth, err := m.MkNot(both)
+							astTestMust(t, err)
+							astTestPin(t, m, notBoth)
+							pairClauses = append(pairClauses, notBoth)
+						}
+					}
+					naive, err := m.MkAndArgs(pairClauses)
+					astTestMust(t, err)
+					astTestPin(t, m, naive)
+					naiveID := oracle.gate(t, m, naive)
+					// (result OR naive) AND (!result OR !naive) is true
+					// exactly when the two Boolean results differ.
+					oracle.clauses = append(oracle.clauses, []int{resultID, naiveID}, []int{-resultID, -naiveID})
+					if psortOracleSAT(oracle.clauses, make([]int8, oracle.count+1)) {
+						t.Fatal("full at-most-one encoding differs from pairwise source formula")
+					}
+				} else if n < 9 {
+					// The registered source loop skips satisfying assignments and
+					// verifies only that every population above one is rejected.
+					for bits := uint32(0); bits < 1<<n; bits++ {
+						population := 0
+						values := make([]int8, oracle.count+1)
+						for i, h := range inputs {
+							id := oracle.ids[h]
+							values[id] = -1
+							if bits&(1<<i) != 0 {
+								values[id] = 1
+								population++
+							}
+						}
+						if population <= 1 {
+							continue
+						}
+						values[resultID] = 1
+						if psortOracleSAT(oracle.clauses, values) {
+							t.Fatalf("source one-way bound accepted mask %#x with population %d", bits, population)
+						}
+					}
+				}
+				astTestMust(t, network.Close())
+				astTestMust(t, input.Close())
+				astTestMust(t, r.Close())
+				astTestMust(t, c.Close())
+			})
+		}
+	}
+}
+
+func TestPsortASTNetworkRegisteredEvenEQOneCampaign(t *testing.T) {
+	// The C++ driver separately checks test_sorting_eq(n, 1) for every n=2..19.
+	// Odd sizes are also covered by the full semantic campaign above; exercise
+	// the missing even-size solver assertions here in their source order.
+	for n := uint32(2); n < 20; n += 2 {
+		t.Run(fmt.Sprintf("n=%d", n), func(t *testing.T) {
+			m := astTestManager(t)
+			c, err := NewPsortASTContext(m)
+			astTestMust(t, err)
+			r, err := umemory.NewRuntime(umemory.RuntimeConfig{Budget: m.BudgetField})
+			astTestMust(t, err)
+			network, err := NewPsortASTNetwork(c, r, m.BudgetField, nil)
+			astTestMust(t, err)
+			input, err := NewASTLiteralVector(m.BudgetField)
+			astTestMust(t, err)
+			sort, err := m.MkBoolSort()
+			astTestMust(t, err)
+			inputs := make([]ASTHandle, 0, n)
+			for i := uint32(0); i < n; i++ {
+				h, err := m.MkFreshConst("a", sort)
+				astTestMust(t, err)
+				astTestPin(t, m, h)
+				inputs = append(inputs, h)
+				astTestMust(t, input.Push(h))
+			}
+			span, err := input.Span()
+			astTestMust(t, err)
+			result, err := network.Eq(true, 1, n, span)
+			astTestMust(t, err)
+			astTestPin(t, m, result)
+			oracle := psortOracleCNF{ids: map[ASTHandle]int{}}
+			resultID := oracle.gate(t, m, result)
+			for _, clause := range c.clauses {
+				id := oracle.gate(t, m, clause)
+				oracle.clauses = append(oracle.clauses, []int{id})
+			}
+			for _, h := range inputs {
+				oracle.gate(t, m, h)
+			}
+			base := make([]int8, oracle.count+1)
+			base[resultID] = 1
+			if !psortOracleSAT(oracle.clauses, append([]int8(nil), base...)) {
+				t.Fatal("source equality bound is not satisfiable")
+			}
+			first := append([]int8(nil), base...)
+			first[oracle.ids[inputs[0]]] = 1
+			if !psortOracleSAT(oracle.clauses, first) {
+				t.Fatal("source one-true prefix should remain satisfiable")
+			}
+			disallowed := append([]int8(nil), first...)
+			disallowed[oracle.ids[inputs[1]]] = 1
+			if psortOracleSAT(oracle.clauses, disallowed) {
+				t.Fatal("source two-true prefix should be rejected")
+			}
+			astTestMust(t, network.Close())
+			astTestMust(t, input.Close())
+			astTestMust(t, r.Close())
+			astTestMust(t, c.Close())
+		})
+	}
+}
+
+func TestASTBooleanSortingNetworkRegisteredSourceDisplay(t *testing.T) {
+	// test_sorting3 invokes the expr* extension over seven fresh Boolean
+	// constants and prints the resulting comparator network. Check that same
+	// operation's outputs for every assignment; stream formatting is diagnostic.
+	const n = 7
+	m := astTestManager(t)
+	network, err := NewASTBooleanSortingNetwork(m)
+	astTestMust(t, err)
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	var inputs []ASTHandle
+	for i := uint32(0); i < n; i++ {
+		h, err := m.MkFreshConst("a", sort)
+		astTestMust(t, err)
+		astTestPin(t, m, h)
+		inputs = append(inputs, h)
+	}
+	output, err := network.Sort(inputs)
+	astTestMust(t, err)
+	if len(output) != 8 {
+		t.Fatalf("source power-of-two output size=%d want=8", len(output))
+	}
+	for bits := uint32(0); bits < 1<<n; bits++ {
+		env := make(map[ASTHandle]bool, n)
+		for i, h := range inputs {
+			env[h] = bits&(1<<i) != 0
+		}
+		previous := false
+		for i := uint32(0); i < uint32(len(output)); i++ {
+			h, err := m.RefGet(output[i])
+			astTestMust(t, err)
+			value := psortOracleEval(t, m, h, env)
+			if previous && !value {
+				t.Fatalf("Boolean sorting output descends at input mask %#x, output index %d", bits, i)
+			}
+			previous = value
+		}
+	}
+	for i := len(output) - 1; i >= 0; i-- {
+		astTestMust(t, m.DelRef(&output[i]))
+	}
+}
+
+func TestPsortASTNetworkRegisteredDuplicateAtMostOneInput(t *testing.T) {
+	// test_at_most1 overwrites input[4] with input[3] before constructing the
+	// full at-most-one network. Preserve that repeated-handle source case.
+	m := astTestManager(t)
+	c, err := NewPsortASTContext(m)
+	astTestMust(t, err)
+	r, err := umemory.NewRuntime(umemory.RuntimeConfig{Budget: m.BudgetField})
+	astTestMust(t, err)
+	network, err := NewPsortASTNetwork(c, r, m.BudgetField, nil)
+	astTestMust(t, err)
+	input, err := NewASTLiteralVector(m.BudgetField)
+	astTestMust(t, err)
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	var inputs []ASTHandle
+	for i := uint32(0); i < 4; i++ {
+		h, err := m.MkFreshConst("a", sort)
+		astTestMust(t, err)
+		astTestPin(t, m, h)
+		inputs = append(inputs, h)
+		astTestMust(t, input.Push(h))
+	}
+	astTestMust(t, input.Push(inputs[3]))
+	span, err := input.Span()
+	astTestMust(t, err)
+	result, err := network.Le(true, 1, 5, span)
+	astTestMust(t, err)
+	astTestPin(t, m, result)
+	oracle := psortOracleCNF{ids: map[ASTHandle]int{}}
+	resultID := oracle.gate(t, m, result)
+	for _, clause := range c.clauses {
+		id := oracle.gate(t, m, clause)
+		oracle.clauses = append(oracle.clauses, []int{id})
+	}
+	for _, h := range inputs {
+		oracle.gate(t, m, h)
+	}
+	for bits := uint32(0); bits < 1<<4; bits++ {
+		values := make([]int8, oracle.count+1)
+		pop := 0
+		for i, h := range inputs {
+			id := oracle.ids[h]
+			values[id] = -1
+			if bits&(1<<i) != 0 {
+				values[id] = 1
+				pop++
+			}
+		}
+		if bits&(1<<3) != 0 {
+			pop++ // input[4] aliases input[3] in the registered C++ case.
+		}
+		values[resultID] = 1
+		if got := psortOracleSAT(oracle.clauses, values); got != (pop <= 1) {
+			t.Fatalf("duplicate source input mask=%#x population=%d result-true satisfiable=%v", bits, pop, got)
+		}
+	}
+	astTestMust(t, network.Close())
+	astTestMust(t, input.Close())
+	astTestMust(t, r.Close())
+	astTestMust(t, c.Close())
+}

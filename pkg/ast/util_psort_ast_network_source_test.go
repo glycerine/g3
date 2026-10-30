@@ -50,6 +50,13 @@ func psortOracleEval(t *testing.T, m *ASTManager, h ASTHandle, env map[ASTHandle
 				}
 			}
 			return false
+		case ASTOpImplies:
+			return !child(0) || child(1)
+		case ASTOpIte:
+			if child(0) {
+				return child(1)
+			}
+			return child(2)
 		}
 	}
 	t.Fatal("unassigned actual fresh variable", h)

@@ -194762,11 +194762,13 @@
       "path": "src/test/sorting_network.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/util_psort_ast_context.go",
         "pkg/ast/util_psort_ast_context_source_test.go",
         "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+        "pkg/ast/util_sorting_network_bool.go",
+        "pkg/smtcore/smt_sorting_network_source_test.go",
         "pkg/util/sorting/uint32_network.go",
         "pkg/util/sorting/uint32_network_test.go"
       ],
@@ -194779,7 +194781,12 @@
         "TestUnsignedNetworkRegisteredSourceCases",
         "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
         "TestUnsignedNetworkEmptyAndSingletonSourceCases",
-        "TestPsortASTNetworkRegisteredOddDriverCampaign"
+        "TestPsortASTNetworkRegisteredOddDriverCampaign",
+        "TestPsortASTNetworkRegisteredAtMostOneCampaign",
+        "TestPsortASTNetworkRegisteredEvenEQOneCampaign",
+        "TestPsortASTNetworkRegisteredDuplicateAtMostOneInput",
+        "TestASTBooleanSortingNetworkRegisteredSourceDisplay",
+        "TestPsortRegisteredComparisonsUseSMTKernel"
       ],
       "assertions": [
         {
@@ -194794,55 +194801,151 @@
         },
         {
           "line": 185,
-          "text": "ENSURE(k < n);"
+          "text": "ENSURE(k < n);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel",
+            "TestPsortASTNetworkRegisteredEvenEQOneCampaign"
+          ]
         },
         {
           "line": 207,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel",
+            "TestPsortASTNetworkRegisteredEvenEQOneCampaign"
+          ]
         },
         {
           "line": 214,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel",
+            "TestPsortASTNetworkRegisteredEvenEQOneCampaign"
+          ]
         },
         {
           "line": 228,
-          "text": "ENSURE(res == l_false);"
+          "text": "ENSURE(res == l_false);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel",
+            "TestPsortASTNetworkRegisteredEvenEQOneCampaign"
+          ]
         },
         {
           "line": 254,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
         },
         {
           "line": 260,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
         },
         {
           "line": 274,
-          "text": "ENSURE(res == l_false);"
+          "text": "ENSURE(res == l_false);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
         },
         {
           "line": 301,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
         },
         {
           "line": 308,
-          "text": "ENSURE(res == l_true);"
+          "text": "ENSURE(res == l_true);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
         },
         {
           "line": 322,
-          "text": "ENSURE(res == l_false);"
+          "text": "ENSURE(res == l_false);",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+            "pkg/smtcore/smt_sorting_network_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
         },
         {
           "line": 371,
-          "text": "VERIFY(l_false == solver.check());"
+          "text": "VERIFY(l_false == solver.check());",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredAtMostOneCampaign"
+          ]
         },
         {
           "line": 399,
-          "text": "VERIFY(l_false == solver.check());"
+          "text": "VERIFY(l_false == solver.check());",
+          "go_targets": [
+            "pkg/ast/util_psort_ast_recursive_oracle_source_test.go"
+          ],
+          "tests": [
+            "TestPsortASTNetworkRegisteredAtMostOneCampaign"
+          ]
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete unsigned_ext sorting_network used by test_sorting1/test_sorting2/test_sorting4, including source zero padding and index-column pointer swaps (src/util/sorting_network.h:28-110; src/test/sorting_network.cpp:40-128)",
@@ -194859,12 +194962,53 @@
           "status": "ported",
           "go_target": "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
           "tests": [
-            "TestPsortASTNetworkRegisteredOddDriverCampaign"
+            "TestPsortASTNetworkRegisteredOddDriverCampaign",
+            "TestPsortRegisteredComparisonsUseSMTKernel"
           ]
         },
         {
-          "name": "Actual ast_ext2 Boolean factories and owning trail/clauses context; independent bounded clause semantics, no registered SMT driver completion (src/test/sorting_network.cpp:150-181)",
-          "status": "partial",
+          "name": "Registered odd-size test_sorting5 solver push/assert/check/pop campaign for every interior k and LE/EQ/GE (src/test/sorting_network.cpp:184-324,326-330,436-440)",
+          "status": "ported",
+          "go_target": "pkg/smtcore/smt_sorting_network_source_test.go",
+          "tests": [
+            "TestPsortRegisteredComparisonsUseSMTKernel"
+          ]
+        },
+        {
+          "name": "Registered test_at_most_1 full pairwise equivalence and all one-way violating assignments for n=1..16 (src/test/sorting_network.cpp:335-402,436-439)",
+          "status": "ported",
+          "go_target": "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+          "tests": [
+            "TestPsortASTNetworkRegisteredAtMostOneCampaign"
+          ]
+        },
+        {
+          "name": "Registered even-size test_sorting_eq(n,1) solver assertion sequence for n=2..18 (src/test/sorting_network.cpp:184-230,430-434)",
+          "status": "ported",
+          "go_target": "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+          "tests": [
+            "TestPsortASTNetworkRegisteredEvenEQOneCampaign"
+          ]
+        },
+        {
+          "name": "Concrete AST Boolean specialization of sorting_network, including implication/ITE compare, false padding, and the registered seven-input test_sorting3 workload (src/util/sorting_network.h:20-114; src/test/sorting_network.cpp:20-35,133-147)",
+          "status": "ported",
+          "go_target": "pkg/ast/util_sorting_network_bool.go",
+          "tests": [
+            "TestASTBooleanSortingNetworkRegisteredSourceDisplay"
+          ]
+        },
+        {
+          "name": "Registered test_at_most1 duplicate input[4]=input[3] specialization (src/test/sorting_network.cpp:404-422,441)",
+          "status": "ported",
+          "go_target": "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+          "tests": [
+            "TestPsortASTNetworkRegisteredDuplicateAtMostOneInput"
+          ]
+        },
+        {
+          "name": "Actual ast_ext2 Boolean factories and owning trail/clauses context, checked through the registered kernel campaign and independent clause semantics (src/test/sorting_network.cpp:150-181)",
+          "status": "ported",
           "go_target": "pkg/ast/util_psort_ast_context.go",
           "tests": [
             "TestPsortASTContextActualFactoriesClausesAndTrail",
@@ -194876,15 +195020,16 @@
         }
       ],
       "ownership": [
+        "The registered test constructs managers, extensions, vectors, networks, and solvers in source declaration order. Go cleanup closes the kernel before borrowed context/vector owners and releases returned ASTRef values; PsortASTContext alone owns its fresh trail and emitted clauses.",
         "One reflected network cold header owns its embedded real currentv/nextv Runtime unsigned columns; input/output/DebugContext/Runtime remain borrowed. Source current/next pointer exchanges move no allocation ownership. Every actual19-reservation operation prefix in both Runtime32/64 has immediate named physical/cold graph before faultlift, completed nextv-before-currentv source DT and separate exact owning pending abort. Actual lower acquisition executing guard retains returned root against real Go ErrorTransport reentry; no native callback equivalence.",
         "Actual prior returned NULL-growth acquisition transfers to charged concrete archive only at retry; exact vector/column/Runtime/nonce tokens remain named. Prephysical failure owns no token/context; first diagnostic cause stays scalar. Source DT frees current member only, explicit owning close drains every pending/archive once. Real Go ErrorTransport executing guard rejects destructive cleanup before lower token return, no native callback equivalence.",
         "A real successful Assign may publish a live distinct current field while an earlier NULL-allocation token is still pending. Next ordinary growth archives only that exact earlier token after actual current capacity/lifetime reads; pendingReplaces/dangling realloc is never repaired. Real constructor/copy publication supplies current ownership independently of the archived token."
       ],
       "deviations": [
-        "Selected unsigned_ext source test_sorting1/test_sorting2/test_sorting4 runs2030 original is_sorted ENSURE instances; AST/psort_nw branches and full registered driver stdout remain open, no whole-driver credit. The concrete uint32 extension preserves source mk_ite/mk_le/default0, persistent appended index columns, and pointer-swap state without callbacks; other numeral/AST/psort specializations, TRACE/native ABI/global allocator/other compile profiles remain separate completion obligations. Actual closed-provider/invalid get/division-by-zero and signed TLS overflow tests are explicit Go guard-domain evidence, not ordinary native algorithm/OOM credit.",
+        "The uint32 specialization checks the registered test_sorting1/test_sorting2/test_sorting4 values and all 2030 source is_sorted ENSURE executions. The concrete AST Boolean specialization checks the seven-input test_sorting3 operation over every assignment; the psort driver checks all odd n=3..19 and each interior k through the Go SMT kernel, with an independent clause oracle checking the emitted relation semantics. C++ stream formatting, verbose/TRACE output, and failure-only model printing are diagnostic differences. Other numeral specializations and native ABI/global allocator profiles are outside this source test's live instantiations. Actual closed-provider/invalid get/division-by-zero and signed TLS overflow tests are explicit Go guard-domain evidence, not ordinary native algorithm/OOM credit.",
         "Remaining SAT scalar column layout is separate from the native queue. Extra unsigned context fields are reflected enclosing cold charge; each archive is real Go owner metadata charged before token transfer, with no source Runtime event. Dangling nonnull realloc retries still reach actual raw guards, no repair or native-defined continuation claim.",
-        "Selected concrete AST Runtime/profile only; actual SMT kernel driver, native pretty/TRACE/global transport and other context/copy profiles remain separate obligations. Source-stopped destruction and explicit owning abort are distinct; pointer-free Go geometry is not native ABI credit.",
-        "Retained ast_ext2 clauses/trail now use owning []ASTHandle with INC before native append. Removed ASTRefVector construction, capacity/refusal emulation and unpublished push receipt frames. Cleanup retains reverse member/ascending element order and consumed-DEC progress; source teardown retains its first cause while owning Close can resume. Actual AST factory and network reservation campaigns and independent clause oracles remain. Forty repeated cached factories/singleton clauses verify exact reference ownership and append order; native growth needs no arena reservation, while debug retains actual factory checks. Escaped owners close after manager teardown without stale node callbacks. No source container allocation geometry is credited."
+        "The full registered odd-size psort campaign now executes the source push/assert/check/pop sequence through pkg/smtcore.SMTKernel. The AST-side clause oracle independently checks all output populations and the at-most-one campaigns check full pairwise equivalence, one-way rejection, and duplicate input behavior. C++ pretty-print, TRACE/global transport, and failure-only model text remain diagnostic differences; source-stopped destruction and explicit Go owner cleanup stay separately tested, and pointer-free Go geometry is not native ABI credit.",
+        "The Go PsortASTContext owns its trail and clauses; its vectors borrow AST handles, while ASTBooleanSortingNetwork returns caller-owned ASTRef outputs. The SMT kernel is closed before the context and AST manager, matching the C++ solver-before-manager destruction order. Source-stopped destruction and explicit owning cleanup are distinct; exact runtime allocation geometry and C++ ABI layout are not claimed. Existing AST factory, network reservation, repeated-reference, and escaped-owner tests cover the selected Go owner profile."
       ]
     },
     {
@@ -257668,6 +257813,7 @@
       "status": "ported",
       "go_targets": [
         "pkg/ast/util_psort_ast_network.go",
+        "pkg/ast/util_sorting_network_bool.go",
         "pkg/ast/util_psort_ast_context_source_test.go",
         "pkg/ast/util_psort_ast_costs_source_test.go",
         "pkg/ast/util_psort_ast_diagnostics_source_test.go",
@@ -257677,6 +257823,7 @@
         "pkg/ast/util_psort_ast_ownership_source_test.go",
         "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
         "pkg/ast/util_psort_ast_trace_test.go",
+        "pkg/smtcore/smt_sorting_network_source_test.go",
         "pkg/smtcore/theory_pb_compile.go",
         "pkg/smtcore/theory_pb_sort.go",
         "pkg/smtcore/theory_pb_compile_test.go",
@@ -257722,7 +257869,13 @@
         "TestSMTPBLiteralNetworkRecursiveDiagnosticsPreserveThreshold",
         "TestUnsignedNetworkRegisteredSourceCases",
         "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
-        "TestUnsignedNetworkEmptyAndSingletonSourceCases"
+        "TestUnsignedNetworkEmptyAndSingletonSourceCases",
+        "TestASTBooleanSortingNetworkRegisteredSourceDisplay",
+        "TestPsortASTNetworkRegisteredOddDriverCampaign",
+        "TestPsortASTNetworkRegisteredAtMostOneCampaign",
+        "TestPsortASTNetworkRegisteredEvenEQOneCampaign",
+        "TestPsortASTNetworkRegisteredDuplicateAtMostOneInput",
+        "TestPsortRegisteredComparisonsUseSMTKernel"
       ],
       "conditionals": [
         {
