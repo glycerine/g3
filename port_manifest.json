@@ -74819,7 +74819,7 @@
       "path": "src/math/subpaving/subpaving.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/hardware_context_params.go",
         "pkg/math/subpaving/hardware_shell_coefficients.go",
@@ -74852,7 +74852,8 @@
         "pkg/math/subpaving/tactic/fast_engine.go",
         "pkg/math/subpaving/tactic/fast_engine_test.go",
         "pkg/math/subpaving/fast_shell_coefficients_test.go",
-        "pkg/math/subpaving/fast_display_bounds_test.go"
+        "pkg/math/subpaving/fast_display_bounds_test.go",
+        "pkg/math/subpaving/source_exception_test.go"
       ],
       "tests": [
         "TestSubpavingHardwareContextReadsParamsRefInSourceOrder",
@@ -74871,10 +74872,11 @@
         "TestFastShellExactCoefficientsAndDirectedInequalities",
         "TestFastContextNamedParamsSinglePassAndStoppedPrefix",
         "TestFastEngineSelectedOwnerAndPartialCleanup",
-        "TestFastDisplayBoundsLeavesConflictAndWriterPrefixes"
+        "TestFastDisplayBoundsLeavesConflictAndWriterPrefixes",
+        "TestFastShellReplacesOnlyNumeralManagerExceptions"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete context_mpq_wrapper persistent scalar and coefficient vector, integer mk_sum conversion, exact rational mk_ineq forwarding and owning factory order (src/math/subpaving/subpaving.cpp:59-83,263-265)",
@@ -75030,10 +75032,11 @@
         },
         {
           "name": "MPFF wrapper converts inexact integer coefficients and caught numeral-manager exceptions into subpaving::exception (subpaving.cpp:207-255)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_shell_coefficients.go",
           "tests": [
-            "TestFastShellExactCoefficientsAndDirectedInequalities"
+            "TestFastShellExactCoefficientsAndDirectedInequalities",
+            "TestFastShellReplacesOnlyNumeralManagerExceptions"
           ]
         },
         {
@@ -75088,15 +75091,14 @@
         }
       ],
       "ownership": [
-        "The selected MPQ wrapper borrows its rational manager and owns persistent coefficient and constant numerals. The real rational tactic routes sums through this wrapper; engine Close retires its coefficient vector and scalar before the owning context."
+        "context_wrapper<CTX> owns its concrete context by value; the context borrows the resource limit and numeral manager and uses the optional allocator according to its source ownership flag. Go keeps the concrete context as an explicit owner and uses typed shell wrappers that either borrow it or own it when created through a parameterized engine constructor.",
+        "The MPQ, MPF, HWF, MPFF, and MPFX wrappers own their persistent scalar/vector conversion scratch. MPF also owns rational comparison scratch; MPFF and MPFX own integer round-trip scratch. Their rational and numeral managers remain borrowed. Context polynomial definitions and inequalities own copies, while clause insertion retains inequality references according to the concrete context rules.",
+        "The factories allocate one concrete wrapper/context pair and pass the caller's ParamsRef through its constructor once. Go constructors preserve partial initialized owners on refused parameter updates so callers can explicitly Close them; engine owners close wrapper scratch before the context and do not close borrowed managers."
       ],
       "deviations": [
-        "The MPF wrapper prepares exact integer coefficients in source order using a native typed slice, registers context_mpf variables and copies directed rational inequality bounds into context ownership. Construction derives the exact borrowed core from f2n<mpf_manager>::m() and copied Go owner values cannot release the same numerals twice. The enclosing context_mpf search graph and complete tactic lifetime remain open.",
-        "The concrete MPFF wrapper now converts integer coefficients in source order with an exact mpz round trip, chooses directed rational bound rounding, and forwards typed variables, sums, monomials and clauses. Context parameter construction, search/display, and tactic lifetime remain open.",
-        "The selected MPFF shell now owns the context created from source-order named parameters and retires wrapper members before context. Search/leaf-bound display forwarding and full tactic lifetime remain open.",
-        "The MPFF shell now forwards constraint display and a borrowed variable printer. Search remains open.",
-        "The MPFF shell now forwards consistent leaf-bound display; search and the full tactic lifetime remain open.",
-        "The MPFF shell now forwards context search; source process-global memory checkpoint and full tactic result ownership remain open."
+        "C++ erases concrete inequality pointers through reinterpret_cast in the base wrapper. Go keeps separate typed implementations for MPQ, MPF, HWF, MPFF, and MPFX, preserving the concrete context's copy and reference-count behavior without an any-valued callback layer.",
+        "The HWF C++ wrapper catches f2n<mpf_manager>::exception even though its context uses f2n<hwf_manager>. Go preserves that source catch boundary: hardware numeral exceptions pass through, while MPF exceptions are translated to subpaving::exception.",
+        "The HWF integer conversion's static_cast<double> followed by static_cast<int64_t> can invoke undefined C++ behavior when the rounded value lies outside int64. Go uses an exact rational comparison after binary64 conversion; no defined C++ result exists for that overflow case."
       ]
     },
     {
