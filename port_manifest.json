@@ -82951,8 +82951,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth"],
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"],
       "assertions": [
         {
           "line": 87,
@@ -82981,7 +82981,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"]}],
       "ownership": [],
       "deviations": []
     },
