@@ -867,18 +867,7 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "get-consequences":
-		assumptions, err := p.expressions()
-		if err != nil {
-			return false, err
-		}
-		variables, err := p.expressions()
-		if err != nil {
-			return false, err
-		}
-		if err = p.requireEnd(); err != nil {
-			return false, err
-		}
-		if err = p.context.WriteConsequences(p.out, assumptions, variables); err != nil {
+		if err = p.getConsequencesCommand(!p.ignoreChecks); err != nil {
 			return false, err
 		}
 		success = false
