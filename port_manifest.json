@@ -92932,8 +92932,10 @@
       "tests": [
         "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
         "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+        "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution",
         "TestArrayBlastAckermannizesEverySelectIndex",
+            "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestArrayBlastTransfersRuleRewriteProof",
         "TestSMTLibRunnerScripts/fp_spacer_array_blast.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_array_blast.smt2"
@@ -92959,7 +92961,7 @@
         "Temporary rewritten and Ackermann expressions remain pinned until the replacement Rule owns every published tail."
       ],
       "deviations": [
-        "Rule semantics and the retained fixedpoint.xform.array_blast Spacer stage are ported. Rule-owned proof rewrite transfer is implemented; broader source-unit and ownership audit remains open."
+        "The transform now checks AST-manager cancellation before each source rule, matching the C++ loop; broader source-unit and ownership audit remains open."
       ]
     },
     {
@@ -92974,6 +92976,7 @@
       "tests": [
         "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
         "TestArrayBlastNoStoreAndCyclicStoreRefusals",
+        "TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled",
         "TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution"
       ],
       "conditionals": [

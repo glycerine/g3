@@ -716,6 +716,13 @@ func (p *ArrayBlastPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, res
 	}
 	modified := false
 	for i := 0; i < count; i++ {
+		canceled, cancelErr := p.manager.Canceled()
+		if cancelErr != nil {
+			return nil, cancelErr
+		}
+		if canceled {
+			break
+		}
 		rule, getErr := source.Rule(i)
 		if getErr != nil {
 			return nil, getErr

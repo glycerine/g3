@@ -91,6 +91,44 @@ func TestArrayBlastNoStoreAndCyclicStoreRefusals(t *testing.T) {
 	}
 }
 
+func TestArrayBlastStopsBeforeRulesWhenManagerIsCanceled(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	arraySort, err := f.manager.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	coneMust(t, err)
+	goalDecl := declareArrayBlastPredicate(t, f, "array-blast-cancel", nil)
+	goal, err := f.manager.MkApp(goalDecl, nil)
+	coneMust(t, err)
+	array, err := f.manager.MkVar(0, arraySort)
+	coneMust(t, err)
+	baseArray, err := f.manager.MkVar(1, arraySort)
+	coneMust(t, err)
+	index, err := f.manager.MkVar(2, boolean)
+	coneMust(t, err)
+	value, err := f.manager.MkVar(3, boolean)
+	coneMust(t, err)
+	family, err := f.manager.ArrayFamilyID()
+	coneMust(t, err)
+	stored, err := f.manager.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{baseArray, index, value})
+	coneMust(t, err)
+	definition, err := f.manager.MkEq(array, stored)
+	coneMust(t, err)
+	selected, err := f.manager.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{baseArray, index})
+	coneMust(t, err)
+	observation, err := f.manager.MkEq(selected, value)
+	coneMust(t, err)
+	addTransformRule(t, f, goal, []ast.ASTHandle{definition, observation}, nil, "array-blast-cancel")
+	plugin := newArrayBlastCoveragePlugin(t, f)
+	f.manager.Limit.Cancel()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	if result != nil {
+		coneMust(t, result.Close())
+		t.Fatal("canceled transform returned a partially built rule set")
+	}
+}
+
 func TestArrayBlastRefusesNonVariableHeadAfterStoreSubstitution(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()
