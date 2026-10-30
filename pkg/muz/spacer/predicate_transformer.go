@@ -379,7 +379,7 @@ func (p *PredicateTransformer) AddLemmaCore(lemma *Lemma) error {
 	if err != nil {
 		return err
 	}
-	ground, err := p.manager.IsGround(body)
+	ground, err := lemma.IsGround()
 	if err != nil {
 		return err
 	}

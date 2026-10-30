@@ -628,7 +628,7 @@ func (p *PredicateTransformer) addLemmaFromChild(child *PredicateTransformer, le
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, formulas)) }()
-	ground, err := p.manager.IsGround(body)
+	ground, err := lemma.IsGround()
 	if err != nil {
 		return err
 	}

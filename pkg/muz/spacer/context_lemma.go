@@ -168,6 +168,17 @@ func (l *Lemma) Body() (ast.ASTHandle, error) {
 	return l.manager.RefGet(l.body)
 }
 
+// IsGround follows lemma::is_ground: the lemma body is not a top-level
+// quantifier. This differs from the AST's recursive ground-expression flag.
+func (l *Lemma) IsGround() (bool, error) {
+	body, err := l.Body()
+	if err != nil {
+		return false, err
+	}
+	kind, err := l.manager.GetKind(body)
+	return kind != ast.ASTQuantifier, err
+}
+
 func (l *Lemma) Level() (uint32, error) {
 	if err := l.open(); err != nil {
 		return 0, err
