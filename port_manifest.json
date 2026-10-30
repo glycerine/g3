@@ -87187,7 +87187,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_saturation.go", "pkg/muz/rel/instruction_table.go"],
-      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody"],
+      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRejectsZeroTimeout"],
       "assertions": [
         {
           "name": "Concrete interpreted finite-relation filtering through tuple decoding, de-Bruijn variable binding, and the retained theory rewriter (dl_instruction.cpp:526-635)",
@@ -87218,10 +87218,10 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "execution_context register ownership, annotations, reset, termination and statistics collection (dl_instruction.cpp:41-141)",
+          "name": "execution_context register ownership, annotations, reset/close, time limits, big-relation reporting, termination and statistics collection (dl_instruction.cpp:41-141)",
           "status": "partial",
           "go_target": "pkg/muz/rel/instruction.go",
-          "tests": ["TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform"]
+          "tests": ["TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRejectsZeroTimeout"]
         },
         {
           "name": "instruction accounting/statistics plus concrete dealloc and clone/move operations (dl_instruction.cpp:151-163,217-278)",
@@ -87264,7 +87264,7 @@
         "ExecutionContext owns register tables and move transfers the exact pointer while clone creates an independent table. Load clones the stored relation; store transfers its register table into RelationManager and empties the register. Relation I/O instructions retain their predicate declarations. InstructionBlock owns and closes instructions in source order; each instruction owns its AccountedObject. WhileInstruction owns and closes its nested body."
       ],
       "deviations": [
-        "The execution context currently retains finite HashTable registers, a borrowed finite RelationManager, a borrowed theory rewriter for interpreted filters, and caller-supplied termination only. Timers, operation-function caches, and non-table relation implementations stay open."
+        "ExecutionContext retains finite HashTable registers and a borrowed finite RelationManager; register replacement, reset, and close retire owned tables, while load/store transfers ownership explicitly. Timer and big-relation reporting are implemented. Process-wide high-watermark termination still depends on the caller termination binding, and operation-function caches plus non-table relation implementations remain open."
       ]
     },
     {
@@ -87273,7 +87273,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_table.go"],
-      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody"],
+      "tests": ["TestFiniteRelationConstructionInstructions", "TestInstructionBlockCloneMoveDeallocateOwnership", "TestInstructionBlockChecksTerminationBeforePerform", "TestFiniteTableJoinProjectionRenameInstructions", "TestFiniteTableUnionDeltaFiltersAndSelectionInstructions", "TestRelationInstructionsLoadCloneAndStoreOwnership", "TestUnarySingletonInstructionRejectsOutOfDomainValue", "TestWhileInstructionExecutesUntilControlsEmpty", "TestWhileInstructionPropagatesBodyTerminationAndOwnsBody", "TestExecutionContextTimeoutReportingAndRegisterOwnership", "TestExecutionContextRejectsZeroTimeout"],
       "conditionals": [
         {
           "line": 19,

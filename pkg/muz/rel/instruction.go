@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sort"
+	"time"
 
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -37,6 +39,8 @@ type ExecutionContext struct {
 	annotations map[uint32]string
 	relations   *RelationManager
 	terminate   func() bool
+	timeLimit   time.Duration
+	started     time.Time
 	stats       ExecutionStats
 	closed      bool
 }
@@ -95,6 +99,11 @@ func (c *ExecutionContext) SetRegister(index uint32, value *HashTable) error {
 	if uint64(index) >= uint64(len(c.registers)) {
 		c.registers = append(c.registers, make([]*HashTable, int(uint64(index)-uint64(len(c.registers))+1))...)
 	}
+	if previous := c.registers[index]; previous != nil && previous != value {
+		if err := previous.Close(); err != nil {
+			return err
+		}
+	}
 	c.registers[index] = value
 	return nil
 }
@@ -104,7 +113,7 @@ func (c *ExecutionContext) MakeEmpty(index uint32) error {
 		return err
 	}
 	if uint64(index) < uint64(len(c.registers)) {
-		c.registers[index] = nil
+		return c.SetRegister(index, nil)
 	}
 	return nil
 }
@@ -133,7 +142,78 @@ func (c *ExecutionContext) SetRegisterAnnotation(index uint32, value string) err
 }
 
 func (c *ExecutionContext) ShouldTerminate() bool {
-	return c == nil || c.closed || c.terminate != nil && c.terminate()
+	return c == nil || c.closed || c.terminate != nil && c.terminate() || c.timeLimit != 0 && time.Since(c.started) > c.timeLimit
+}
+
+// SetTimeLimit starts a fresh source-style per-execution timeout. A zero limit
+// is invalid, matching execution_context::set_timelimit's assertion.
+func (c *ExecutionContext) SetTimeLimit(milliseconds uint32) error {
+	if err := c.open(); err != nil || milliseconds == 0 {
+		return errors.Join(ErrInstruction, err)
+	}
+	c.timeLimit = time.Duration(milliseconds) * time.Millisecond
+	c.started = time.Now()
+	return nil
+}
+
+// ResetTimeLimit disables a timeout without changing the external cancellation
+// callback.
+func (c *ExecutionContext) ResetTimeLimit() error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	c.timeLimit = 0
+	c.started = time.Time{}
+	return nil
+}
+
+// ReportBigRelations writes the source profile table, ordered by estimated
+// bytes descending. Register annotations are indexed by the sorted row number,
+// matching the retained C++ implementation.
+func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) error {
+	if err := c.open(); err != nil || out == nil {
+		return errors.Join(ErrInstruction, err)
+	}
+	type estimate struct {
+		register uint32
+		bytes    uint32
+	}
+	sizes := make([]estimate, len(c.registers))
+	var total uint64
+	for i, table := range c.registers {
+		var bytes uint32
+		if table != nil {
+			value, err := table.SizeEstimateBytes()
+			if err != nil {
+				return err
+			}
+			bytes = value
+		}
+		total += uint64(bytes)
+		sizes[i] = estimate{register: uint32(i), bytes: bytes}
+	}
+	sort.Slice(sizes, func(i, j int) bool { return sizes[i].bytes > sizes[j].bytes })
+	if _, err := fmt.Fprintf(out, "bytes %d\nbytes\trows\tannotation\n", total); err != nil {
+		return err
+	}
+	for i, size := range sizes {
+		if size.bytes < threshold {
+			continue
+		}
+		var rows uint32
+		if table := c.registers[size.register]; table != nil {
+			value, err := table.SizeEstimateRows()
+			if err != nil {
+				return err
+			}
+			rows = value
+		}
+		annotation := c.annotations[uint32(i)]
+		if _, err := fmt.Fprintf(out, "%d\t%d\t%s\n", size.bytes, rows, annotation); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *ExecutionContext) Statistics() (ExecutionStats, error) {
@@ -167,10 +247,13 @@ func (c *ExecutionContext) Reset() error {
 	if err := c.open(); err != nil {
 		return err
 	}
-	clear(c.registers)
+	if err := c.closeRegisters(); err != nil {
+		return err
+	}
 	c.registers = c.registers[:0]
 	clear(c.annotations)
 	c.stats = ExecutionStats{}
+	_ = c.ResetTimeLimit()
 	return nil
 }
 
@@ -181,12 +264,23 @@ func (c *ExecutionContext) Close() error {
 	if c.closed {
 		return nil
 	}
-	clear(c.registers)
+	err := c.closeRegisters()
 	c.registers = nil
 	clear(c.annotations)
 	c.annotations = nil
 	c.closed = true
-	return nil
+	return err
+}
+
+func (c *ExecutionContext) closeRegisters() error {
+	var result error
+	for i, table := range c.registers {
+		if table != nil {
+			result = errors.Join(result, table.Close())
+			c.registers[i] = nil
+		}
+	}
+	return result
 }
 
 // Instruction is the concrete relational bytecode contract consumed by a

@@ -5,7 +5,9 @@ package rel
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/glycerine/g3/pkg/util/statistics"
 )
@@ -112,5 +114,81 @@ func TestInstructionBlockChecksTerminationBeforePerform(t *testing.T) {
 	}
 	if value, _ := context.Register(2); value != nil {
 		t.Fatal("instruction ran after termination")
+	}
+}
+
+func TestExecutionContextTimeoutReportingAndRegisterOwnership(t *testing.T) {
+	context := NewExecutionContext(nil)
+	first := instructionTable(t, 1)
+	if err := context.SetRegister(0, first); err != nil {
+		t.Fatal("set first register", err)
+	}
+	if err := context.SetRegister(0, instructionTable(t, 2)); err != nil {
+		t.Fatal("replace register", err)
+	}
+	if _, err := first.Len(); err == nil {
+		t.Fatal("replaced register table remained open")
+	}
+	if err := context.SetRegisterAnnotation(0, "current"); err != nil {
+		t.Fatal("annotation", err)
+	}
+	if err := context.SetTimeLimit(1); err != nil {
+		t.Fatal("set timeout", err)
+	}
+	if context.ShouldTerminate() {
+		t.Fatal("fresh timeout already expired")
+	}
+	time.Sleep(3 * time.Millisecond)
+	if !context.ShouldTerminate() {
+		t.Fatal("expired timeout was ignored")
+	}
+	if err := context.ResetTimeLimit(); err != nil || context.ShouldTerminate() {
+		t.Fatal("reset timeout", err)
+	}
+
+	var report bytes.Buffer
+	if err := context.ReportBigRelations(^uint32(0), &report); err != nil {
+		t.Fatal("report relation sizes", err)
+	}
+	maximum := ^uint32(0)
+	want := fmt.Sprintf("bytes %d\nbytes\trows\tannotation\n%d\t%d\tcurrent\n", maximum, maximum, maximum)
+	if report.String() != want {
+		t.Fatalf("profile output\n got: %q\nwant: %q", report.String(), want)
+	}
+
+	owned, _ := context.Register(0)
+	if err := context.SetTimeLimit(1); err != nil {
+		t.Fatal("set timeout before reset", err)
+	}
+	if err := context.Reset(); err != nil {
+		t.Fatal("reset context", err)
+	}
+	if context.ShouldTerminate() {
+		t.Fatal("reset did not clear the timeout")
+	}
+	if _, err := owned.Len(); err == nil {
+		t.Fatal("reset did not close register table")
+	}
+	if err := context.Close(); err != nil {
+		t.Fatal("close context", err)
+	}
+	closed := NewExecutionContext(nil)
+	last := instructionTable(t, 3)
+	if err := closed.SetRegister(0, last); err != nil {
+		t.Fatal("set register before close", err)
+	}
+	if err := closed.Close(); err != nil {
+		t.Fatal("close owned context", err)
+	}
+	if _, err := last.Len(); err == nil {
+		t.Fatal("close did not retire register table")
+	}
+}
+
+func TestExecutionContextRejectsZeroTimeout(t *testing.T) {
+	context := NewExecutionContext(nil)
+	t.Cleanup(func() { _ = context.Close() })
+	if err := context.SetTimeLimit(0); err == nil {
+		t.Fatal("zero timeout accepted")
 	}
 }

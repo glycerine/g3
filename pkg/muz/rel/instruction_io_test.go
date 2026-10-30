@@ -114,4 +114,26 @@ func TestRelationInstructionsLoadCloneAndStoreOwnership(t *testing.T) {
 	if err = load.DisplayHead(&display); err != nil || display.String() != "load instruction-relation into 0" {
 		t.Fatal("load display", display.String(), err)
 	}
+
+	wrongSignature, err := rel.NewSignature([]uint64{8})
+	if err != nil {
+		t.Fatal("wrong signature", err)
+	}
+	wrongTable := rel.NewHashTable(wrongSignature)
+	if _, err = wrongTable.Add(rel.Fact{1}); err != nil {
+		t.Fatal("wrong table fact", err)
+	}
+	if err = context.SetRegister(0, wrongTable); err != nil {
+		t.Fatal("set invalid store table", err)
+	}
+	if complete, err = store.Perform(context); err == nil || complete {
+		t.Fatal("store accepted a table with the wrong signature", complete, err)
+	}
+	retained, err := context.Register(0)
+	if err != nil || retained != wrongTable {
+		t.Fatal("failed store did not restore register ownership", retained, err)
+	}
+	if count, err := retained.Len(); err != nil || count != 1 {
+		t.Fatal("failed store retired its input", count, err)
+	}
 }

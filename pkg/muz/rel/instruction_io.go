@@ -103,6 +103,13 @@ func (i *relationIOInstruction) Perform(context *ExecutionContext) (bool, error)
 	if err != nil {
 		return false, err
 	}
+	transferred := table != nil
+	if transferred {
+		table, err = context.ReleaseRegister(i.register)
+		if err != nil {
+			return false, err
+		}
+	}
 	if table == nil {
 		_, signature, x := relations.PredicateSignature(i.predicate)
 		if x != nil {
@@ -111,9 +118,14 @@ func (i *relationIOInstruction) Perform(context *ExecutionContext) (bool, error)
 		table = NewHashTable(signature)
 	}
 	if err = relations.StoreRelation(i.predicate, table); err != nil {
+		if transferred {
+			_ = context.SetRegister(i.register, table)
+		} else {
+			_ = table.Close()
+		}
 		return false, err
 	}
-	return true, context.MakeEmpty(i.register)
+	return true, nil
 }
 
 func (i *relationIOInstruction) predicateName() (string, error) {
