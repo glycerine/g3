@@ -54,13 +54,8 @@ func TestOptimizationObjectiveMutationClosesParetoSolverImmediately(t *testing.T
 	if err = c.AddSoftConstraint(x, big.NewRat(1, 1), "invalid"); err == nil {
 		t.Fatal("integer soft constraint was accepted")
 	}
-	if c.optimizationParetoBackend != nil || c.optimizationParetoActive {
-		t.Fatal("rejected soft constraint left the old Pareto solver active", c.optimizationParetoBackend, c.optimizationParetoActive)
-	}
-	status, err = c.CheckSat(nil)
-	contextMust(t, err)
-	if status != lbool.True || c.optimizationParetoBackend == nil {
-		t.Fatal("Pareto enumeration did not restart after rejected soft constraint", status, c.optimizationParetoBackend)
+	if c.optimizationParetoBackend == nil || !c.optimizationParetoActive {
+		t.Fatal("prevalidated soft-constraint rejection cleared Pareto state", c.optimizationParetoBackend, c.optimizationParetoActive)
 	}
 	lower, err := m.MkArithmeticGE(x, zero)
 	contextMust(t, err)

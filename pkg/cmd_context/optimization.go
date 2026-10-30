@@ -103,9 +103,6 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	if err != nil {
 		return err
 	}
-	if err = c.invalidateOptimizationState(); err != nil {
-		return err
-	}
 	sort, err := m.GetSort(expression)
 	if err != nil {
 		return err
@@ -116,6 +113,9 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 	}
 	if sort != boolean {
 		return fmt.Errorf("invalid type for expression: expected Boolean type")
+	}
+	if err = c.invalidateOptimizationState(); err != nil {
+		return err
 	}
 	if err = c.logicChecker.CheckExpression(expression); err != nil {
 		return err
