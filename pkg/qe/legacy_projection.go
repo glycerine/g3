@@ -165,23 +165,7 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 		}
 		variableRefs = append(variableRefs, variableRef)
 	}
-	lite, err := NewLite(p.manager, nil, false, p.config)
-	if err != nil {
-		return nil, err
-	}
-	if err = lite.EliminateConstants(&variableRefs, current); err != nil {
-		return nil, errors.Join(err, lite.Close())
-	}
-	pending := make([]ast.ASTHandle, len(variableRefs))
-	for index := range variableRefs {
-		pending[index], err = p.manager.RefGet(variableRefs[index])
-		if err != nil {
-			return nil, errors.Join(err, lite.Close())
-		}
-	}
-	if err = lite.Close(); err != nil {
-		return nil, err
-	}
+	pending := append([]ast.ASTHandle(nil), variables...)
 	ownedVariables := make([]ast.ASTRef, 0)
 	defer func() {
 		for index := len(ownedVariables) - 1; index >= 0; index-- {
@@ -193,7 +177,21 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
-	for len(pending) != 0 {
+	for {
+		prepared, err := p.prepareProjectionRound(pending, current)
+		if err != nil {
+			return nil, err
+		}
+		ownedVariables = append(ownedVariables, prepared...)
+		pending = pending[:0]
+		for _, ref := range prepared {
+			handle, err := p.manager.RefGet(ref)
+			if err != nil {
+				return nil, err
+			}
+			pending = append(pending, handle)
+		}
+
 		booleans := make([]ast.ASTHandle, 0)
 		arrays := make([]ast.ASTHandle, 0)
 		for _, variable := range pending {
@@ -229,6 +227,9 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 			current = next
+			if err = p.rewriteProjectionCurrent(current); err != nil {
+				return nil, err
+			}
 		}
 		if len(arrays) == 0 {
 			break
@@ -266,6 +267,12 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 		err = errors.Join(err, projected.Close())
 		if err != nil {
 			return nil, err
+		}
+		if err = p.rewriteProjectionCurrent(current); err != nil {
+			return nil, err
+		}
+		if len(pending) == 0 {
+			break
 		}
 	}
 	if len(arithmetic) != 0 {

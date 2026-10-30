@@ -1,0 +1,53 @@
+package qe
+
+// Source: src/muz/spacer/spacer_util.cpp:507-581, qe_project's
+// repeated qe_lite and theory-rewriter stages for array auxiliaries.
+import (
+	"errors"
+	"github.com/glycerine/g3/pkg/ast"
+)
+
+func (p *LegacyProjection) rewriteProjectionCurrent(current ast.ASTRef) (resultErr error) {
+	root, err := p.manager.RefGet(current)
+	if err != nil {
+		return err
+	}
+	rewritten, err := p.arithmetic.rewriteLegacy(root)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&rewritten)) }()
+	root, err = p.manager.RefGet(rewritten)
+	if err != nil {
+		return err
+	}
+	return p.manager.SetRef(current, root)
+}
+
+func (p *LegacyProjection) prepareProjectionRound(variables []ast.ASTHandle, current ast.ASTRef) (refs []ast.ASTRef, resultErr error) {
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, truncateLiteVector(p.manager, &refs, 0))
+		}
+	}()
+	for _, variable := range variables {
+		ref, err := p.manager.NewRef(variable)
+		if err != nil {
+			return refs, err
+		}
+		refs = append(refs, ref)
+	}
+	lite, err := NewLite(p.manager, nil, false, p.config)
+	if err != nil {
+		return refs, err
+	}
+	err = lite.EliminateConstants(&refs, current)
+	err = errors.Join(err, lite.Close())
+	if err != nil {
+		return refs, err
+	}
+	if err = p.rewriteProjectionCurrent(current); err != nil {
+		return refs, err
+	}
+	return refs, nil
+}

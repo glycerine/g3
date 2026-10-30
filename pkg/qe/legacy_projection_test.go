@@ -91,3 +91,44 @@ func TestLegacyProjectionRunsLiteBeforeTheoryDispatch(t *testing.T) {
 		t.Fatal("qe_lite preprocessing result", got, want)
 	}
 }
+
+// Source: spacer_util.cpp qe_project repeats qe_lite on array auxiliaries.
+func TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := NewLegacyProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.boolean))
+	a := f.constant("round-array", sort)
+	b := f.constant("round-bool", f.boolean)
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	falsity := f.own(m.MkFalse())
+	arrays, err := m.ArrayFamilyID()
+	fmMust(t, err)
+	selectTerm := f.own(m.MkFamilyApp(arrays, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, zero}))
+	formula := f.own(m.MkEq(selectTerm, b))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	base := f.own(m.MkConstArray(sort, falsity))
+	for variable, value := range map[ast.ASTHandle]ast.ASTHandle{a: base, b: falsity} {
+		decl, err := m.GetDecl(variable)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	result, err := p.Project(md.Core(), []ast.ASTHandle{a}, formula, false, true)
+	fmMust(t, err)
+	defer func() { fmMust(t, result.Close()) }()
+	root, err := result.Formula()
+	fmMust(t, err)
+	truth := m.IsTrue(root)
+	if !truth {
+		t.Fatal("array auxiliary must be eliminated by equality before model substitution", root)
+	}
+	remaining, err := result.Variables()
+	fmMust(t, err)
+	if len(remaining) != 0 {
+		t.Fatal("array auxiliary remained", remaining)
+	}
+}
