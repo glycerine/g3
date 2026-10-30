@@ -18,10 +18,15 @@ func TestDatalogParserFiniteAndIntegerDomains(t *testing.T) {
 	fpMust(t, err)
 	finite, err := manager.GetDomain(predicates[0], 0)
 	fpMust(t, err)
-	size, err := f.context.SortSizeEstimate(finite)
+	size, found, err := manager.DatalogFiniteSortSize(finite)
 	fpMust(t, err)
-	if size != 3 {
-		t.Fatal("finite size", size)
+	if !found || size != 3 {
+		t.Fatal("finite declared size", size, found)
+	}
+	estimate, err := f.context.SortSizeEstimate(finite)
+	fpMust(t, err)
+	if estimate != 0 {
+		t.Fatal("finite assigned-constant estimate", estimate)
 	}
 }
 

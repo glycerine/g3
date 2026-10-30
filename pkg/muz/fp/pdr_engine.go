@@ -268,7 +268,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		derived := hornDerivedPredicate(declaration, preprocessed.quantifiedPredicates, preprocessed.scaledPredicates, preprocessed.magicPredicates, preprocessed.bitBlastedPredicates, preprocessed.instantiatedPredicates, preprocessed.slicedPredicates)
 		auxiliary = append(auxiliary, derived)
 	}
-	reuse, err := e.canReusePDRRules(prepared)
+	reuse, err := e.canReusePDRRules(prepared, declaration)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
