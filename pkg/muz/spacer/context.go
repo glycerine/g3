@@ -553,7 +553,11 @@ func (c *Context) propagate(minimum, maximum uint32) (bool, error) {
 					return false, err
 				}
 			}
-			return level <= maximum, nil
+			if level <= maximum {
+				c.inductive = level
+				return true, nil
+			}
+			break
 		}
 		if level == InfinityLevel {
 			break
@@ -651,7 +655,6 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 				return lbool.Undef, err
 			}
 			if inductive {
-				c.inductive = level
 				if err = c.simplifyFormulas(); err != nil {
 					return lbool.Undef, err
 				}
