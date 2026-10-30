@@ -47,6 +47,9 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	if err = clone.AddRule(rule, ""); err != nil {
 		return lbool.Undef, err
 	}
+	if err = clone.applyQueryMagicSets(declaration); err != nil {
+		return lbool.Undef, err
+	}
 	if clone.backend == "ddnf" {
 		result, err = clone.queryDDNF()
 	} else {

@@ -636,8 +636,12 @@ func (e *PropositionalEngine) validateFragment() error {
 }
 
 func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
+	filter := transforms.NewFilterRulesPlugin(e.manager, e.rules, 0)
 	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
 	transformer := base.NewRuleTransformer()
+	if err := transformer.Register(filter); err != nil {
+		return errors.Join(err, filter.Close(), plugin.Close(), transformer.Close())
+	}
 	if err := transformer.Register(plugin); err != nil {
 		return errors.Join(err, transformer.Close())
 	}
@@ -646,7 +650,7 @@ func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
 	if err != nil || !modified {
 		return err
 	}
-	for _, declaration := range plugin.FreshPredicates() {
+	for _, declaration := range append(filter.FreshPredicates(), plugin.FreshPredicates()...) {
 		state, x := e.predicateState(declaration)
 		if x != nil {
 			return x

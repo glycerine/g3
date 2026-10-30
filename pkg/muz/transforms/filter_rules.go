@@ -37,6 +37,15 @@ func (p *FilterRulesPlugin) Priority() uint32            { return p.priority }
 func (p *FilterRulesPlugin) CanDestratifyNegation() bool { return false }
 func (p *FilterRulesPlugin) Cancel()                     {}
 
+// FreshPredicates returns borrowed filter declarations in creation order.
+func (p *FilterRulesPlugin) FreshPredicates() []ast.ASTHandle {
+	result := make([]ast.ASTHandle, len(p.cache))
+	for i := range p.cache {
+		result[i] = p.cache[i].declaration
+	}
+	return result
+}
+
 func (p *FilterRulesPlugin) resetCache() (result error) {
 	for index := len(p.cache) - 1; index >= 0; index-- {
 		result = errors.Join(result, p.manager.DelRef(&p.cache[index].pin))

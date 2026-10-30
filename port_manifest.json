@@ -89642,9 +89642,9 @@
       "path": "src/muz/rel/rel_context.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/query_clone.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_magic_sets_test.go"],
+      "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate"],
       "conditionals": [
         {
           "line": 260,
@@ -89695,7 +89695,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "Scoped expression query magic-set pass with configured parameter lookup and filter-before-simple-join prerequisite; remaining relational query orchestration is unported", "status": "partial", "go_target": "pkg/muz/fp/query_magic_sets.go", "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate"]}],
       "ownership": [],
       "deviations": []
     },
