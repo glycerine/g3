@@ -44,3 +44,26 @@ func TestSparseLayoutWideAndFunctionalAlignment(t *testing.T) {
 		})
 	}
 }
+
+func TestSparseLayoutFullWidthColumnMask(t *testing.T) {
+	signature, err := NewSignature([]uint64{^uint64(0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer table.Close()
+	if table.layout.EntryBytes() != 8 {
+		t.Fatalf("64-bit column entry size: got %d, want 8", table.layout.EntryBytes())
+	}
+	fact := Fact{Element(^uint64(0) - 1)}
+	if added, err := table.Add(fact); err != nil || !added {
+		t.Fatalf("insert maximum representable value: added=%v err=%v", added, err)
+	}
+	got, err := table.Facts()
+	if err != nil || len(got) != 1 || got[0][0] != fact[0] {
+		t.Fatalf("64-bit round trip: facts=%v err=%v", got, err)
+	}
+}
