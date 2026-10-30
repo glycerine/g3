@@ -33,3 +33,20 @@ func TestAPIRCFRationalZeroDivisionAndInverseFail(t *testing.T) {
 		t.Fatal("inverse of zero succeeded")
 	}
 }
+
+func TestAPIRCFRationalZeroPowerAndInputOwnership(t *testing.T) {
+	f := newRCFFixture(t)
+	base := f.rational("-98765432101234567890/7")
+	result := f.keep(f.context.RCFPower(base, 0))
+	if got := f.text(result); got != "1" {
+		t.Fatalf("zero power = %q, want 1", got)
+	}
+	if err := base.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f.values = f.values[1:]
+	if got := f.text(result); got != "1" {
+		t.Fatalf("result changed after closing its input: %q", got)
+	}
+	f.close()
+}
