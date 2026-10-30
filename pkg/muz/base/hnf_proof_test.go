@@ -96,6 +96,28 @@ func TestRuleManagerAddsProofForAlreadyHornFormula(t *testing.T) {
 	ruleMust(t, checker.ReleaseSideConditions(side))
 }
 
+func TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q")
+	formula, err := f.manager.MkImplies(f.app["Q"], f.app["P"])
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := f.manager.MkProofAsserted(f.app["Q"])
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled))
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	if err = f.rules.AddFormulaWithProof(set, formula, proof, "mismatched-proof"); err == nil {
+		t.Fatal("mismatched proof fact was accepted")
+	}
+	if count, e := set.Len(); e != nil || count != 0 {
+		t.Fatal("mismatched proof published rules", count, e)
+	}
+	if mode, e := f.manager.ProofMode(); e != nil || mode != ast.ASTProofDisabled {
+		t.Fatal("mismatched proof changed proof mode", mode, e)
+	}
+}
+
 func TestRuleManagerAddsProofsForHNFDefinitionIntroduction(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q", "R", "S", "H")
 	firstDisjunction, err := f.manager.MkOr(f.app["P"], f.app["Q"])
