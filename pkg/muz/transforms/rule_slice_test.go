@@ -201,6 +201,103 @@ func TestRuleSliceRetainsNegatedPredicateColumns(t *testing.T) {
 	}
 }
 
+func TestRuleSlicePropagatesInterpretedEqualityMasks(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := f.manager.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string) ast.ASTHandle {
+		symbol, makeErr := f.manager.Symbols.Intern("slice-equality-" + name)
+		coneMust(t, makeErr)
+		declaration, makeErr := f.manager.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, makeErr)
+		coneMust(t, f.rules.RegisterPredicate(declaration))
+		return declaration
+	}
+	p, q := declare("P"), declare("Q")
+	goalName, err := f.manager.Symbols.Intern("slice-equality-Goal")
+	coneMust(t, err)
+	goal, err := f.manager.MkFuncDecl(goalName, nil, boolean, ast.ASTFuncDeclInfo{})
+	coneMust(t, err)
+	coneMust(t, f.rules.RegisterPredicate(goal))
+	x, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	y, err := f.manager.MkVar(1, integer)
+	coneMust(t, err)
+	pX, err := f.manager.MkApp(p, []ast.ASTHandle{x})
+	coneMust(t, err)
+	qY, err := f.manager.MkApp(q, []ast.ASTHandle{y})
+	coneMust(t, err)
+	equality, err := f.manager.MkEq(x, y)
+	coneMust(t, err)
+	rule, err := f.rules.NewRule(pX, []ast.ASTHandle{qY, equality}, nil, "interpreted-equality")
+	coneMust(t, err)
+	coneMust(t, f.set.Add(rule))
+	coneMust(t, rule.Close())
+	z, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	pZ, err := f.manager.MkApp(p, []ast.ASTHandle{z})
+	coneMust(t, err)
+	goalApp, err := f.manager.MkApp(goal, nil)
+	coneMust(t, err)
+	goalRule, err := f.rules.NewRule(goalApp, []ast.ASTHandle{pZ}, nil, "goal")
+	coneMust(t, err)
+	coneMust(t, f.set.Add(goalRule))
+	coneMust(t, goalRule.Close())
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("interpreted-equality slice fixture rejected")
+	}
+
+	plugin := transforms.NewRuleSlicePlugin(f.manager, f.rules, 0)
+	transformer := base.NewRuleTransformer()
+	t.Cleanup(func() { coneMust(t, transformer.Close()) })
+	coneMust(t, transformer.Register(plugin))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !modified {
+		t.Fatal("interpreted equality should permit removal of the solved output column")
+	}
+	for _, original := range []ast.ASTHandle{p, q} {
+		derived, found := plugin.DerivedPredicate(original)
+		if !found {
+			t.Fatal("interpreted equality did not propagate the sliced predicate", original)
+		}
+		if arity, getErr := f.manager.GetArity(derived); getErr != nil || arity != 0 {
+			t.Fatal("interpreted equality derived arity", original, arity, getErr)
+		}
+	}
+	goalRules, err := f.set.PredicateRules(pluginDerived(t, plugin, p))
+	coneMust(t, err)
+	defer func() {
+		for _, result := range goalRules {
+			coneMust(t, result.Close())
+		}
+	}()
+	if len(goalRules) != 1 {
+		t.Fatalf("interpreted equality produced %d sliced rules, want 1", len(goalRules))
+	}
+	tailSize, err := goalRules[0].TailSize()
+	coneMust(t, err)
+	if tailSize != 2 {
+		t.Fatalf("rewritten rule lost interpreted equality: tail size %d", tailSize)
+	}
+}
+
+func pluginDerived(t *testing.T, plugin *transforms.RuleSlicePlugin, original ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	derived, found := plugin.DerivedPredicate(original)
+	if !found {
+		t.Fatal("missing derived predicate", original)
+	}
+	return derived
+}
+
 func TestRuleSliceRetainsConstantConstrainedColumn(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()

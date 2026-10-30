@@ -94801,6 +94801,7 @@
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
         "TestRuleSliceRetainsConstantConstrainedColumn",
         "TestRuleSliceRetainsNegatedPredicateColumns",
+        "TestRuleSlicePropagatesInterpretedEqualityMasks",
         "TestSpacerEngineExpandsSlicedReachableColumns",
         "TestSpacerEngineExpandsSlicedModelPredicates",
         "TestPDREngineExpandsSlicedModelsAndCovers",
