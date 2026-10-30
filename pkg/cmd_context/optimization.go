@@ -145,6 +145,8 @@ func (c *Context) AddSoftConstraint(expression ast.ASTHandle, weight *big.Rat, i
 // before validating/publishing the changed objective set.
 func (c *Context) invalidateOptimizationState() error {
 	c.checked = false
+	c.optimizationBoxActive = false
+	c.optimizationBoxNext = 0
 	if err := c.closeParetoBackend(); err != nil {
 		return err
 	}
@@ -404,19 +406,25 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	var optimized *opt.ArithmeticResult
-	if priority != "pareto" {
+	paretoContinuation := c.optimizationParetoActive && c.optimizationParetoBackend != nil
+	boxContinuation := c.optimizationBoxActive
+	if !paretoContinuation && priority != "pareto" {
 		if err = c.closeParetoBackend(); err != nil {
 			return lbool.Undef, err
 		}
 	}
-	if priority == "box" {
-		optimized, err = c.checkOptimizeBox(assumptions, continuation)
+	if paretoContinuation {
+		optimized, err = c.checkOptimizePareto(assumptions, true)
+	} else if boxContinuation {
+		optimized, err = c.checkOptimizeBox(assumptions, true)
 	} else if priority == "pareto" {
 		if err = c.clearOptimizationBoxModels(); err != nil {
 			return lbool.Undef, err
 		}
 		c.optimizationBoxActive = false
 		optimized, err = c.checkOptimizePareto(assumptions, continuation)
+	} else if priority == "box" {
+		optimized, err = c.checkOptimizeBox(assumptions, continuation)
 	} else {
 		if err = c.clearOptimizationBoxModels(); err != nil {
 			return lbool.Undef, err
