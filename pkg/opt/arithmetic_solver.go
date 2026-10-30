@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ObjectiveValue is one result in source lexicographic order. SoftCost is set
@@ -27,16 +28,22 @@ type ObjectiveValue struct {
 	ArithmeticOpenBounds bool
 	SoftCost             big.Rat
 	SoftSatisfied        big.Rat
+	SoftLower            big.Rat
+	SoftUpper            big.Rat
+	SoftAssignment       []bool
 	Soft                 bool
 }
 
 // ArithmeticResult owns the best model retained by one optimization check.
 // Values are expressed in the caller's original maximize/minimize orientation.
 type ArithmeticResult struct {
-	Status  lbool.LBool
-	Values  []ObjectiveValue
-	Model   *model.ModelCore
-	Optimal bool
+	Status        lbool.LBool
+	Values        []ObjectiveValue
+	Model         *model.ModelCore
+	Optimal       bool
+	MaxSMT        []MaxSMTStatistics
+	Labels        []usymbol.Symbol
+	ModelFiltered bool
 }
 
 func (r *ArithmeticResult) Close() error {
@@ -176,7 +183,7 @@ func (s *ArithmeticSolver) replaceModel(result *ArithmeticResult) error {
 		}
 	}
 	result.Model = md
-	return nil
+	return s.captureResultLabels(result)
 }
 
 func (s *ArithmeticSolver) orient(index int, value smtcore.SMTArithmeticObjectiveValue) smtcore.SMTArithmeticObjectiveValue {
@@ -239,43 +246,6 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		}
 	}
 	return status, status == lbool.False, nil
-}
-
-func (s *ArithmeticSolver) evaluateSoft(objective *arithmeticObjective, md *model.ModelCore) (cost, satisfied big.Rat, resultErr error) {
-	evaluator, err := model.NewModelEvaluator(md, s.config.ModelEvaluator)
-	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
-		return cost, satisfied, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	if err = evaluator.SetModelCompletion(true); err != nil {
-		return cost, satisfied, err
-	}
-	cost.Set(&objective.softOffset)
-	for i := range objective.softTerms {
-		term, e := s.manager.RefGet(objective.softTerms[i])
-		if e != nil {
-			return cost, satisfied, e
-		}
-		value, e := evaluator.EvaluateValue(term)
-		if e != nil {
-			return cost, satisfied, e
-		}
-		resolved, e := s.manager.RefGet(value)
-		truth := e == nil && s.manager.IsTrue(resolved)
-		e = errors.Join(e, s.manager.DelRef(&value))
-		if e != nil {
-			return cost, satisfied, e
-		}
-		if truth {
-			satisfied.Add(&satisfied, objective.softWeights[i])
-		} else {
-			cost.Add(&cost, objective.softWeights[i])
-		}
-	}
-	return cost, satisfied, nil
 }
 
 func (s *ArithmeticSolver) softBound(objective *arithmeticObjective, bound *big.Rat, strict bool) (result ast.ASTHandle, resultErr error) {
@@ -351,12 +321,13 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		if err = s.replaceModel(result); err != nil {
 			return lbool.Undef, false, err
 		}
-		cost, satisfied, e := s.evaluateSoft(objective, result.Model)
+		cost, satisfied, assignment, e := s.evaluateSoftDetailed(objective, result.Model)
 		if e != nil {
 			return lbool.Undef, false, e
 		}
-		result.Values[index] = ObjectiveValue{SoftCost: cost, SoftSatisfied: satisfied, Soft: true}
+		setSoftObjectiveValue(result, index, cost, satisfied, assignment)
 		if len(objective.softTerms) == 0 {
+			finalizeSoftBounds(result, index)
 			return lbool.False, true, nil
 		}
 		blocker, e := s.softBound(objective, &satisfied, true)
@@ -383,6 +354,7 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		case lbool.True:
 			continue
 		case lbool.False:
+			finalizeSoftBounds(result, index)
 			return status, true, nil
 		default:
 			return status, false, nil
@@ -467,6 +439,9 @@ func (s *ArithmeticSolver) commitArithmeticObjective(index int, value ObjectiveV
 
 func (s *ArithmeticSolver) commitSoftObjective(index int, value ObjectiveValue) error {
 	objective := &s.objectives[index]
+	if err := s.validateSoftCommit(index, value); err != nil {
+		return err
+	}
 	if len(objective.softTerms) == 0 {
 		return nil
 	}
@@ -495,11 +470,11 @@ func (s *ArithmeticSolver) commitObjective(index int, value ObjectiveValue) erro
 func (s *ArithmeticSolver) retainRemainingModelValues(start int, result *ArithmeticResult) error {
 	for i := start; i < len(s.objectives); i++ {
 		if s.objectives[i].soft {
-			cost, satisfied, err := s.evaluateSoft(&s.objectives[i], result.Model)
+			cost, satisfied, assignment, err := s.evaluateSoftDetailed(&s.objectives[i], result.Model)
 			if err != nil {
 				return err
 			}
-			result.Values[i] = ObjectiveValue{SoftCost: cost, SoftSatisfied: satisfied, Soft: true}
+			setSoftObjectiveValue(result, i, cost, satisfied, assignment)
 			continue
 		}
 		if err := s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
@@ -519,6 +494,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 	}
 	result = &ArithmeticResult{Status: lbool.Undef, Values: make([]ObjectiveValue, len(s.objectives))}
 	defer func() {
+		if resultErr == nil && result != nil && result.Model != nil {
+			resultErr = s.filterResultModel(result)
+		}
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, result.Close())
 			result = nil
@@ -541,6 +519,9 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 		if !optimal {
 			result.Status = status
 			return result, nil
+		}
+		if s.objectives[i].soft {
+			finalizeSoftBounds(result, i)
 		}
 		if !s.objectives[i].soft {
 			if err = s.captureArithmeticModel(i, &result.Values[i], result.Model); err != nil {
