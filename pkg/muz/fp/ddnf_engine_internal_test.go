@@ -97,3 +97,91 @@ func TestDDNFRegistryPersistsAcrossQueryClones(t *testing.T) {
 		t.Fatal("replacing the DDNF engine retained its width registry")
 	}
 }
+
+func TestDDNFQueryExpressionTransfersCompiledASTTrail(t *testing.T) {
+	engine, manager := newFragmentTestEngine(t, "ddnf")
+	var output bytes.Buffer
+	if err := engine.SetDDNFOutput(&output); err != nil {
+		t.Fatal(err)
+	}
+	bitVector, err := manager.BitVectorSort(4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variable, err := manager.MkVar(0, bitVector)
+	if err != nil {
+		t.Fatal(err)
+	}
+	numerals := manager.NumeralService()
+	value, err := numerals.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = numerals.SetUint64(&value, 3); err != nil {
+		t.Fatal(err)
+	}
+	constant, err := manager.BitVectorNumeral(&value, 4)
+	if closeErr := numerals.Del(&value); closeErr != nil {
+		t.Fatal(closeErr)
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	query, err := manager.MkEq(variable, constant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	queryRef, err := manager.NewRef(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := manager.DelRef(&queryRef); err != nil {
+			t.Error(err)
+		}
+	})
+	before := manager.Stats().LiveReferences
+	status, err := engine.QueryExpression(query)
+	if err != nil || status != lbool.Undef {
+		t.Fatalf("DDNF expression query = %v, %v", status, err)
+	}
+	trail := len(engine.ddnf.trail)
+	if trail == 0 {
+		t.Fatal("query clone discarded the source-lifetime compiled AST trail")
+	}
+	for index, reference := range engine.ddnf.trail {
+		if _, err = manager.RefGet(reference); err != nil {
+			t.Fatalf("transferred DDNF trail reference %d is invalid: %v", index, err)
+		}
+	}
+	after := manager.Stats().LiveReferences
+	if uint64(after) < uint64(before)+uint64(trail) {
+		t.Fatalf("DDNF trail lifetime not reflected in AST refs: before=%d after=%d trail=%d", before, after, trail)
+	}
+	if err = engine.SelectEngine("datalog"); err != nil {
+		t.Fatal(err)
+	}
+	replaced := manager.Stats().LiveReferences
+	if len(engine.ddnf.trail) != 0 || uint64(replaced) > uint64(after)-uint64(trail) {
+		t.Fatalf("DDNF backend replacement retained source trail: after=%d replaced=%d trail=%d", after, replaced, trail)
+	}
+	if err = engine.SelectEngine("ddnf"); err != nil {
+		t.Fatal(err)
+	}
+	status, err = engine.QueryExpression(query)
+	if err != nil || status != lbool.Undef {
+		t.Fatalf("DDNF expression query after backend replacement = %v, %v", status, err)
+	}
+	trail = len(engine.ddnf.trail)
+	if trail == 0 {
+		t.Fatal("reselected DDNF did not build a new source-lifetime trail")
+	}
+	after = manager.Stats().LiveReferences
+	if err = engine.Close(); err != nil {
+		t.Fatal(err)
+	}
+	closed := manager.Stats().LiveReferences
+	if uint64(closed) > uint64(after)-uint64(trail) {
+		t.Fatalf("DDNF engine close retained its trail refs: before close=%d after close=%d trail=%d", after, closed, trail)
+	}
+}

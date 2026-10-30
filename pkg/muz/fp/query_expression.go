@@ -27,6 +27,9 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 			clone.ddnf.registry = nil
 			clone.ddnf.registryBorrowed = false
 		}
+		if e.backend == "ddnf" {
+			clone.ddnf.transferTrail(&e.ddnf)
+		}
 		resultErr = errors.Join(resultErr, clone.Close())
 	}()
 	declaration, head, err := clone.makeQueryHead(query)

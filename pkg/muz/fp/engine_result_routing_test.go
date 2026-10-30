@@ -15,6 +15,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func newRoutingEngine(t *testing.T) (*fp.PropositionalEngine, *ast.ASTManager) {
@@ -61,6 +62,19 @@ func TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown(t *testing.T) {
 	fpMust(t, err)
 	if last != lbool.Undef {
 		t.Fatal("DDNF result snapshot", last)
+	}
+	// Source ddnf::imp::collect_statistics and reset_statistics are empty.
+	// Preserve caller-owned contributions across both no-op operations.
+	stats := statistics.New()
+	stats.UpdateUint("seed", 7)
+	fpMust(t, engine.CollectStatistics(stats))
+	if stats.Size() != 1 || stats.Key(0) != "seed" || !stats.IsUint(0) || stats.UintValue(0) != 7 {
+		t.Fatal("DDNF collection changed source-empty statistics", stats.Size())
+	}
+	fpMust(t, engine.ResetStatistics())
+	fpMust(t, engine.CollectStatistics(stats))
+	if stats.Size() != 1 || stats.Key(0) != "seed" || !stats.IsUint(0) || stats.UintValue(0) != 7 {
+		t.Fatal("DDNF reset changed source-empty statistics", stats.Size())
 	}
 	answer, answerErr := engine.Answer(predicate)
 	if answer != (ast.ASTRef{}) {

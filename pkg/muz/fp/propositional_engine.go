@@ -41,6 +41,7 @@ type ddnfEngineState struct {
 	output           io.Writer
 	registry         *ddnf.Registry
 	registryBorrowed bool
+	trail            []ast.ASTRef
 }
 
 func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predicateState, error) {
@@ -1964,6 +1965,7 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
 		e.ddnf.registry.Close()
 	}
+	result = errors.Join(result, e.ddnf.closeTrail(e.manager))
 	e.ddnf = ddnfEngineState{}
 	if e.set != nil {
 		result = errors.Join(result, e.set.Close())

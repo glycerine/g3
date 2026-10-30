@@ -71,7 +71,12 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, compiler.Close()) }()
+	defer func() {
+		// Source m_cache is reset per query, but m_trail owns every cached
+		// expression until the DDNF engine itself is destroyed.
+		e.ddnf.retainTrail(compiler.DetachReferences())
+		resultErr = errors.Join(resultErr, compiler.Close())
+	}()
 	compiled, err := compiler.CompileRuleSet(e.set)
 	if err != nil {
 		return lbool.Undef, fmt.Errorf("ddnf compile: %w", err)

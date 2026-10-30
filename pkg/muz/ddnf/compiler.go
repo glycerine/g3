@@ -50,6 +50,19 @@ func (c *Compiler) Close() (result error) {
 	return result
 }
 
+// DetachReferences transfers the compiler's cached-expression trail to the
+// owning DDNF engine. The C++ m_cache is query-local, while m_trail survives
+// until engine destruction; callers that need that lifetime detach before
+// closing the compiler.
+func (c *Compiler) DetachReferences() []ast.ASTRef {
+	if c == nil || c.closed {
+		return nil
+	}
+	references := c.refs
+	c.refs = nil
+	return references
+}
+
 // CompileRuleSet rewrites predicates and interpreted tails into finite
 // DDNF-domain rules, preserving the source output-predicate selection.
 func (c *Compiler) CompileRuleSet(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
