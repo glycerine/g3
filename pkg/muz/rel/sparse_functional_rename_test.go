@@ -7,7 +7,7 @@ import (
 
 func TestSparseFunctionalRenamePreservesBoundaryAndRejectsCrossing(t *testing.T) {
 	table := newSparseFunctionalFixture(t, []uint64{4, 8, 16, 32}, 2, Fact{1, 2, 3, 4})
-	renamed, err := table.RenameFunctional([]int{0, 1})
+	renamed, err := table.Rename([]int{0, 1})
 	if err != nil {
 		t.Fatal(err)
 	}

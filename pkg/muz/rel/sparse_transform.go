@@ -31,6 +31,12 @@ func (t *SparseTable) Project(removed []int) (*SparseTable, error) {
 	return out, nil
 }
 func (t *SparseTable) Rename(cycle []int) (*SparseTable, error) {
+	if e := t.open(); e != nil {
+		return nil, e
+	}
+	if t.functional != 0 {
+		return t.RenameFunctional(cycle)
+	}
 	domains := t.signature.Domains()
 	for _, i := range cycle {
 		if i < 0 || i >= len(domains) {
@@ -52,7 +58,10 @@ func (t *SparseTable) Rename(cycle []int) (*SparseTable, error) {
 	if e != nil {
 		return nil, e
 	}
-	facts, _ := t.Facts()
+	facts, e := t.Facts()
+	if e != nil {
+		return nil, e
+	}
 	for _, f := range facts {
 		g := append(Fact(nil), f...)
 		if len(cycle) > 1 {
@@ -62,7 +71,9 @@ func (t *SparseTable) Rename(cycle []int) (*SparseTable, error) {
 			}
 			g[cycle[len(cycle)-1]] = tmp
 		}
-		out.Add(g)
+		if _, e = out.Add(g); e != nil {
+			return nil, e
+		}
 	}
 	return out, nil
 }

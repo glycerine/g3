@@ -2,6 +2,17 @@ package rel
 
 import "testing"
 
+func TestSparseRenameRejectsClosedTable(t *testing.T) {
+	signature, err := NewSignature([]uint64{2, 2})
+	must(t, err)
+	table, err := NewSparseTable(signature, 0)
+	must(t, err)
+	must(t, table.Close())
+	if _, err = table.Rename([]int{0, 1}); err != ErrTable {
+		t.Fatalf("rename on closed table error = %v, want %v", err, ErrTable)
+	}
+}
+
 func TestSparseJoinProjectRenameFilterUnion(t *testing.T) {
 	s, _ := NewSignature([]uint64{4, 4})
 	a, _ := NewSparseTable(s, 0)
