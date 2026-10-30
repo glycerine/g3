@@ -39,10 +39,9 @@ func (c *Compiler) Close() (result error) {
 	if c == nil || c.closed {
 		return nil
 	}
-	for index := len(c.refs) - 1; index >= 0; index-- {
-		result = errors.Join(result, c.manager.DelRef(&c.refs[index]))
+	if err := c.releaseRefsTo(0); err != nil {
+		return err
 	}
-	c.refs = nil
 	c.cache = nil
 	c.preprocessor = nil
 	c.rules = nil
@@ -363,25 +362,29 @@ func (c *Compiler) compileEquality(expression ast.ASTHandle) (ast.ASTHandle, err
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	mark := len(c.refs)
+	releaseTemps := func(cause error) error {
+		return errors.Join(cause, c.releaseRefsTo(mark))
+	}
 	values := make([]ast.ASTHandle, len(nodes))
 	for index, node := range nodes {
 		numeral, e := c.bitVectorNumeral(uint64(node.ID()), compactWidth)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, releaseTemps(e)
 		}
 		values[index], e = c.manager.MkEq(variable, numeral)
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, releaseTemps(e)
 		}
 		ref, e := c.manager.NewRef(values[index])
 		if e != nil {
-			return ast.ASTHandle{}, e
+			return ast.ASTHandle{}, releaseTemps(e)
 		}
 		c.refs = append(c.refs, ref)
 	}
 	compiled, err := c.manager.MkOrArray(values)
-	if err != nil {
-		return ast.ASTHandle{}, err
+	if cleanupErr := c.releaseRefsTo(mark); err != nil || cleanupErr != nil {
+		return ast.ASTHandle{}, errors.Join(err, cleanupErr)
 	}
 	return c.hold(expression, compiled)
 }
@@ -468,4 +471,20 @@ func (c *Compiler) hold(key, expression ast.ASTHandle) (ast.ASTHandle, error) {
 	c.refs = append(c.refs, reference)
 	c.cache[key] = expression
 	return expression, nil
+}
+
+// releaseRefsTo ends a source-local expr_ref_vector. A stopped release stays
+// in the compiler owner so Close can retry it.
+func (c *Compiler) releaseRefsTo(mark int) error {
+	if c == nil || c.closed || c.manager == nil || mark < 0 || mark > len(c.refs) {
+		return ErrCore
+	}
+	for len(c.refs) > mark {
+		index := len(c.refs) - 1
+		if err := c.manager.DelRef(&c.refs[index]); err != nil {
+			return err
+		}
+		c.refs = c.refs[:index]
+	}
+	return nil
 }

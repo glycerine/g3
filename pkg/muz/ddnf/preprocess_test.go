@@ -1,6 +1,7 @@
 package ddnf_test
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -471,6 +472,44 @@ func TestDDNFPreprocessorRejectsUnsupportedAtom(t *testing.T) {
 	}
 	if size := f.registry.Widths(); len(size) != 0 {
 		t.Fatal("unsupported atom allocated a width core", size)
+	}
+}
+
+func TestDDNFPreprocessorPrintsFirstRejectedRule(t *testing.T) {
+	f := newPreprocessFixture(t)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = preprocessor.Close() })
+	bound := ddnfBVNumeral(t, f.manager, 3, 4)
+	unsupported, err := f.manager.MkBitVectorULE(f.x, bound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rejected := f.rule(t, unsupported)
+	rules, err := base.NewRuleSet(f.rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := rules.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err = rules.Add(rejected); err != nil {
+		t.Fatal(err)
+	}
+	var actual, expected bytes.Buffer
+	ok, err := preprocessor.PreprocessRulesWithDiagnostic(rules, f.rules, &actual)
+	if err != nil || ok {
+		t.Fatal("unsupported BV comparison accepted", ok, err)
+	}
+	if err = f.rules.WriteRuleDisplay(&expected, rejected); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(actual.Bytes(), expected.Bytes()) {
+		t.Fatalf("rejected-rule diagnostic\n got %q\nwant %q", actual.String(), expected.String())
 	}
 }
 

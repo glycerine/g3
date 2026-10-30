@@ -5,6 +5,7 @@ package ddnf
 
 import (
 	"errors"
+	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -54,6 +55,20 @@ func (p *Preprocessor) Close() error {
 // PreprocessRules clears query-local traversal and equality state, then checks
 // every rule in insertion order as source pre_process_rules does.
 func (p *Preprocessor) PreprocessRules(rules *base.RuleSet) (bool, error) {
+	return p.preprocessRules(rules, nil, nil)
+}
+
+// PreprocessRulesWithDiagnostic matches the source rejection path by printing
+// the first unsupported rule before returning false. The writer and rule
+// manager are borrowed; both must be supplied together or omitted together.
+func (p *Preprocessor) PreprocessRulesWithDiagnostic(rules *base.RuleSet, ruleManager *base.RuleManager, out io.Writer) (bool, error) {
+	if (ruleManager == nil) != (out == nil) {
+		return false, ErrCore
+	}
+	return p.preprocessRules(rules, ruleManager, out)
+}
+
+func (p *Preprocessor) preprocessRules(rules *base.RuleSet, ruleManager *base.RuleManager, diagnostic io.Writer) (bool, error) {
 	if p == nil || p.closed || p.manager == nil || p.registry == nil || rules == nil {
 		return false, ErrCore
 	}
@@ -70,9 +85,13 @@ func (p *Preprocessor) PreprocessRules(rules *base.RuleSet) (bool, error) {
 			return false, getErr
 		}
 		ok, processErr := p.ProcessRule(rule)
+		var diagnosticErr error
+		if !ok && processErr == nil && diagnostic != nil {
+			diagnosticErr = ruleManager.WriteRuleDisplay(diagnostic, rule)
+		}
 		closeErr := rule.Close()
-		if processErr != nil || !ok || closeErr != nil {
-			return ok, errors.Join(processErr, closeErr)
+		if processErr != nil || !ok || diagnosticErr != nil || closeErr != nil {
+			return ok, errors.Join(processErr, diagnosticErr, closeErr)
 		}
 	}
 	return true, nil

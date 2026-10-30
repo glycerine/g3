@@ -82957,8 +82957,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go", "pkg/muz/fp/ddnf_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/register_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/ddnf_engine_internal_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRegistryPersistsAcrossQueryClones"],
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go", "pkg/muz/fp/ddnf_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/register_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/ddnf_engine_internal_test.go", "pkg/muz/fp/engine_result_routing_test.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFPreprocessorPrintsFirstRejectedRule", "TestDDNFRejectedRuleIsPrintedBeforeUnknown", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRegistryPersistsAcrossQueryClones", "TestDDNFCoreInsertionAllocationRefusalCanRetry"],
       "assertions": [
         {
           "line": 87,
@@ -82987,17 +82987,29 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"]}, {"name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)", "status": "ported", "go_target": "pkg/muz/ddnf/compiler.go", "tests": ["TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"]}, {"name": "DDNF query-local preprocessing, rule compilation, SMT-LIB HORN dump, and source unknown result while execution remains disabled (ddnf.cpp:507-526,664-676,885-896)", "status": "ported", "go_target": "pkg/muz/fp/ddnf_engine.go", "tests": ["TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRegistryPersistsAcrossQueryClones"]}],
+      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFPreprocessorPrintsFirstRejectedRule"]}, {"name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)", "status": "ported", "go_target": "pkg/muz/ddnf/compiler.go", "tests": ["TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"]}, {"name": "DDNF query-local preprocessing, rule compilation, SMT-LIB HORN dump, and source unknown result while execution remains disabled (ddnf.cpp:507-526,664-676,885-896)", "status": "ported", "go_target": "pkg/muz/fp/ddnf_engine.go", "tests": ["TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRejectedRuleIsPrintedBeforeUnknown", "TestDDNFRegistryPersistsAcrossQueryClones"]}],
       "ownership": [],
-      "deviations": ["compile_eq resolves DDNF vectors by the source variable width used by process_eq, correcting the source numeral-width lookup mismatch for extracted constraints.", "The DDNF width registry persists with the selected engine. The first equality lookup internalizes its core; a later insertion into that width is refused by the retained Go ErrCore guard at the source SASSERT boundary rather than silently rebuilding or reusing stale descendants."]
+      "deviations": ["compile_eq resolves DDNF vectors by the source variable width used by process_eq, correcting the source numeral-width lookup mismatch for extracted constraints.", "The DDNF width registry persists with the selected engine. The first equality lookup internalizes its core; a later insertion into that width is refused by the retained Go ErrCore guard at the source SASSERT boundary rather than silently rebuilding or reusing stale descendants.", "DDNF returns unknown because execute_rules is disabled and get_answer is source-UNREACHABLE; PropositionalEngine.Answer now refuses DDNF instead of falling through to the unexecuted Datalog table, with the DDNF answer/model/certificate regression in TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown."]
     },
     {
       "path": "src/muz/ddnf/ddnf.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/ddnf/core.go",
+        "pkg/muz/ddnf/core_test.go",
+        "pkg/muz/ddnf/registry.go",
+        "pkg/muz/ddnf/registry_test.go"
+      ],
+      "tests": [
+        "TestDDNFCoreSourceIntersectionDAGAndAccumulate",
+        "TestDDNFCoreIndependentFiniteDescendantOracle",
+        "TestDDNFCoreValidationAndClose",
+        "TestDDNFCoreInsertionAllocationRefusalCanRetry",
+        "TestDDNFRegistrySourceWidthsLookupAndFreeze",
+        "TestDDNFRegistryConstructionFailureDoesNotPublishWidth"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -83008,11 +83020,27 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Public ddnf_core construction, destruction, TBV manager access, insertion, size/containment, well-formedness, accumulation reset/collection, display, and statistics display surface (ddnf.h:42-67)",
+          "status": "ported",
+          "go_target": "pkg/muz/ddnf/core.go",
+          "tests": [
+            "TestDDNFCoreSourceIntersectionDAGAndAccumulate",
+            "TestDDNFCoreIndependentFiniteDescendantOracle",
+            "TestDDNFCoreValidationAndClose",
+            "TestDDNFCoreInsertionAllocationRefusalCanRetry"
+          ]
+        }
+      ],
+      "ownership": [
+        "Core owns its width-specific TBV manager and all materialized nodes until Close; child edges and descendant indexes are non-owning references into that manager-owned node set. Caller-provided TBVs are borrowed."
+      ],
+      "deviations": [
+        "C++ ABI pointers become explicit Core and TBV manager owners. DisplayStatistics returns the exact source text as a Go string; C++ writes to std::cout despite accepting an ostream parameter."
+      ]
     },
     {
       "path": "src/muz/duality/CMakeLists.txt",

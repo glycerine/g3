@@ -1703,6 +1703,12 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		}
 		return e.expandSpacerFormula(declaration, answer)
 	}
+	// DDNF's source query path dumps the compiled rules and returns unknown;
+	// its get_answer implementation is UNREACHABLE. Do not fall through to
+	// the Datalog relation table, which was never populated by DDNF execution.
+	if e.backend == "ddnf" {
+		return answer, ErrPropositionalEngine
+	}
 	state := e.predicates[declaration]
 	if state == nil || !e.queried {
 		return answer, ErrPropositionalEngine
@@ -1796,6 +1802,9 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 			return false, err
 		}
 		return false, e.spacer.DisplayCertificate(out)
+	}
+	if e.backend == "ddnf" {
+		return false, ErrPropositionalEngine
 	}
 	if e.backend != "pdr" {
 		return false, nil

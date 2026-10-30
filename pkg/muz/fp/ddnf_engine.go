@@ -56,7 +56,11 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessor.Close()) }()
-	ok, err := preprocessor.PreprocessRules(e.set)
+	output := e.ddnf.output
+	if output == nil {
+		output = os.Stdout
+	}
+	ok, err := preprocessor.PreprocessRulesWithDiagnostic(e.set, e.rules, output)
 	if err != nil || !ok {
 		if err != nil {
 			return lbool.Undef, fmt.Errorf("ddnf preprocess: %w", err)
@@ -73,10 +77,6 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 		return lbool.Undef, fmt.Errorf("ddnf compile: %w", err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, compiled.Close()) }()
-	output := e.ddnf.output
-	if output == nil {
-		output = os.Stdout
-	}
 	if err = compiled.WriteSMT2(output); err != nil {
 		return lbool.Undef, fmt.Errorf("ddnf dump: %w", err)
 	}

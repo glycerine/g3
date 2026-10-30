@@ -96,6 +96,7 @@ type smtLinearArithmeticScope struct {
 	pendingBounds, pendingBoundHead      int
 	expressionBounds                     int
 	finalCheckIndex                      uint32
+	nextSimplex                          uint32
 	assumeEqualities, assumeEqualityHead int
 	derivedBounds                        int
 	nonlinearStrategy                    uint32
@@ -1607,6 +1608,7 @@ func (t *SMTLinearArithmeticTheory) PushScope() error {
 		return err
 	}
 	t.scopes = append(t.scopes, smtLinearArithmeticScope{equalityBounds: len(t.equalityBounds), atoms: len(t.atoms), assertions: len(t.assertions), head: t.assertionHead, unsupported: t.unsupported, castTerms: len(t.castTermTrail), castPredicates: len(t.castPredicateTrail), divisionTerms: len(t.divisionTermTrail), nonlinearTerms: len(t.nonlinearColumns), nonlinearRounds: t.nonlinearRounds, nonlinearGBExhausted: t.nonlinearGBExhausted, derivedBounds: len(t.derivedBounds), nonlinearStrategy: t.nonlinearStrategy})
+	t.scopes[len(t.scopes)-1].nextSimplex = t.nextSimplex
 	t.scopes[len(t.scopes)-1].assumeEqualities = len(t.assumeEqualityCandidates)
 	t.scopes[len(t.scopes)-1].assumeEqualityHead = t.assumeEqualityHead
 	t.scopes[len(t.scopes)-1].finalCheckIndex = t.finalCheckIndex
@@ -1678,6 +1680,10 @@ func (t *SMTLinearArithmeticTheory) PopScopes(count uint32) error {
 		delete(t.integerColumns, column)
 	}
 	t.simplexVariables = t.simplexVariables[:t.NumVariables()]
+	// Source pop_scope_eh/del_vars reclaims the scoped variable suffix.
+	// Reuse its column IDs too; otherwise every replay allocates dead columns
+	// from all earlier checks, even with a fixed number of live variables.
+	t.nextSimplex = scope.nextSimplex
 	for variable := range t.definitions {
 		if int(variable) >= t.NumVariables() {
 			delete(t.definitions, variable)

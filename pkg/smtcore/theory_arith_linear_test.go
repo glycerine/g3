@@ -88,3 +88,29 @@ func TestSMTLinearArithmeticEqualDefinitionRows(t *testing.T) {
 		t.Fatal("queued equal definition rows were not merged")
 	}
 }
+
+func TestSMTLinearArithmeticScopedColumnsAreReclaimed(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	_, _, state := smtInternalizerFixture(t, m, nil)
+	theory, err := NewSMTLinearArithmeticTheory(family)
+	astTestMust(t, err)
+	astTestMust(t, state.RegisterTheory(theory))
+	one, err := m.ArithmeticRealNumeralText("1")
+	astTestMust(t, err)
+	astTestMust(t, m.IncRef(one))
+	defer func() { astTestMust(t, m.DecRef(one)) }()
+	baseline := theory.nextSimplex
+	for i := 0; i < 8; i++ {
+		astTestMust(t, state.PushScope())
+		astTestMust(t, state.Internalize(one, false))
+		if theory.nextSimplex <= baseline {
+			t.Fatal("scoped term did not allocate a column")
+		}
+		astTestMust(t, state.PopScopes(1))
+		if theory.nextSimplex != baseline {
+			t.Fatalf("pop leaked column IDs: got %d want %d", theory.nextSimplex, baseline)
+		}
+	}
+}

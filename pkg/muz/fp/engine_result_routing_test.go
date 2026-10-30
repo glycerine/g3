@@ -62,6 +62,60 @@ func TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown(t *testing.T) {
 	if last != lbool.Undef {
 		t.Fatal("DDNF result snapshot", last)
 	}
+	answer, answerErr := engine.Answer(predicate)
+	if answer != (ast.ASTRef{}) {
+		fpMust(t, manager.DelRef(&answer))
+	}
+	if !errors.Is(answerErr, fp.ErrPropositionalEngine) {
+		t.Fatal("disabled DDNF executor exposed a fabricated answer", answerErr)
+	}
+	if model, modelErr := engine.Model(predicate); !errors.Is(modelErr, fp.ErrPropositionalEngine) {
+		if model != nil {
+			fpMust(t, model.Close())
+		}
+		t.Fatal("disabled DDNF executor exposed a fabricated model", modelErr)
+	}
+	var certificate bytes.Buffer
+	if found, certErr := engine.WriteCertificate(&certificate, predicate, func(io.Writer, ast.ASTHandle) error { return nil }); found || !errors.Is(certErr, fp.ErrPropositionalEngine) || certificate.Len() != 0 {
+		t.Fatal("unreachable DDNF certificate path was hidden", found, certErr, certificate.String())
+	}
+}
+
+func TestDDNFRejectedRuleIsPrintedBeforeUnknown(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	var output bytes.Buffer
+	fpMust(t, engine.SetDDNFOutput(&output))
+	fpMust(t, engine.SelectEngine("ddnf"))
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	bitVector, err := manager.BitVectorSort(4)
+	fpMust(t, err)
+	name, err := manager.Symbols.Intern("ddnf-rejected-rule")
+	fpMust(t, err)
+	predicate, err := manager.MkFuncDecl(name, []ast.ASTHandle{bitVector}, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(predicate))
+	variable, err := manager.MkVar(0, bitVector)
+	fpMust(t, err)
+	numerals := manager.NumeralService()
+	value, err := numerals.NewValue()
+	fpMust(t, err)
+	fpMust(t, numerals.SetUint64(&value, 3))
+	constant, err := manager.BitVectorNumeral(&value, 4)
+	fpMust(t, err)
+	fpMust(t, numerals.Del(&value))
+	comparison, err := manager.MkBitVectorULE(variable, constant)
+	fpMust(t, err)
+	head, err := manager.MkApp(predicate, []ast.ASTHandle{variable})
+	fpMust(t, err)
+	rule, err := manager.MkImplies(comparison, head)
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(rule, "rejected-bound"))
+	status, err := engine.QueryPredicate(predicate)
+	fpMust(t, err)
+	if status != lbool.Undef || !bytes.Contains(output.Bytes(), []byte("rejected-bound:")) || bytes.Contains(output.Bytes(), []byte("(set-logic HORN)")) {
+		t.Fatalf("source rejected-rule output/status: %v, %v, %s", status, err, output.String())
+	}
 }
 
 func routingPredicate(t *testing.T, engine *fp.PropositionalEngine, manager *ast.ASTManager, suffix string) (ast.ASTHandle, ast.ASTHandle) {

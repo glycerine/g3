@@ -191,3 +191,68 @@ func TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Non-arithmetic disequalities must survive picking: dropping them weakens
+// Spacer's predecessor obligation to true and repeats the same reachable child.
+func TestSpacerImplicantPreservesNonArithmeticDisequality(t *testing.T) {
+	for _, arrays := range []bool{false, true} {
+		t.Run(map[bool]string{false: "uninterpreted", true: "array"}[arrays], func(t *testing.T) {
+			m, globals := newSpacerTestServices(t)
+			must := func(err error) {
+				t.Helper()
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			owner, err := NewManager(m, nil, 1, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+			must(err)
+			defer func() { must(owner.Close()) }()
+			boolean, err := m.MkBoolSort()
+			must(err)
+			name, err := m.Symbols.Intern("disequality-sort")
+			must(err)
+			sort, err := m.MkSort(name, ast.ASTSortInfo{})
+			must(err)
+			if arrays {
+				sort, err = m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+				must(err)
+			}
+			var terms []ast.ASTHandle
+			for _, text := range []string{"left", "right"} {
+				n, e := m.Symbols.Intern(text)
+				must(e)
+				term, e := m.MkConst(n, sort)
+				must(e)
+				terms = append(terms, term)
+			}
+			eq, err := m.MkEq(terms[0], terms[1])
+			must(err)
+			neq, err := m.MkNot(eq)
+			must(err)
+			backend, err := smtcore.NewSMTSolver(m, nil, "ALL", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals, ModelEvaluator: owner.contexts[0].config.ModelEvaluator})
+			must(err)
+			defer func() { must(backend.Close()) }()
+			must(backend.SetProduceModels(true))
+			must(backend.Assert(neq))
+			status, err := backend.CheckSat(nil)
+			must(err)
+			if status != lbool.True {
+				t.Fatal(status)
+			}
+			md, err := backend.AcquireModel()
+			must(err)
+			defer func() { must(md.DecRef()) }()
+			literals, err := computeImplicantLiterals(m, md, owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{neq})
+			must(err)
+			defer func() { must(releaseNormalizeRefs(m, literals)) }()
+			if len(literals) != 1 {
+				t.Fatalf("disequality dropped: got %d literals", len(literals))
+			}
+			actual, err := m.RefGet(literals[0])
+			must(err)
+			if actual != neq {
+				t.Fatal("disequality changed", actual, neq)
+			}
+		})
+	}
+}

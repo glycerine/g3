@@ -97,8 +97,13 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 					return x
 				}
 				arithmetic, x := manager.ArithmeticFamilyID()
-				if x != nil || family != arithmetic {
+				if x != nil {
 					return x
+				}
+				// Source add_literal only splits Int/Real disequalities.
+				// Every other disequality must still reach the output below.
+				if family != arithmetic {
+					break
 				}
 				left, x := manager.MkArithmeticLT(a, b)
 				if x != nil {

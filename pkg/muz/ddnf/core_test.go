@@ -2,7 +2,7 @@ package ddnf
 
 import (
 	"errors"
-	"strings"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -74,6 +74,15 @@ func TestDDNFCoreSourceIntersectionDAGAndAccumulate(t *testing.T) {
 	if pNode.ID() != 1 || qNode.ID() != 2 || rNode.ID() != 4 || core.Size() != 5 {
 		t.Fatal("source node/intersection insertion order", pNode.ID(), qNode.ID(), rNode.ID(), core.Size())
 	}
+	for _, vector := range []*rel.TBV{p, q, r} {
+		if found, containsErr := core.Contains(vector); containsErr != nil || !found {
+			t.Fatal("inserted node lookup", found, containsErr)
+		}
+	}
+	missing := testPattern(t, core, "111")
+	if found, containsErr := core.Contains(missing); containsErr != nil || found {
+		t.Fatal("uninserted vector lookup", found, containsErr)
+	}
 	intersection, err := pNode.Child(0)
 	if err != nil || intersection.ID() != 3 || !qNode.ContainsChild(intersection) || !intersection.ContainsChild(rNode) {
 		t.Fatal("source intersection DAG", intersection, err)
@@ -108,8 +117,85 @@ func TestDDNFCoreSourceIntersectionDAGAndAccumulate(t *testing.T) {
 	if display != want {
 		t.Fatalf("display\n got %q\nwant %q", display, want)
 	}
-	if statistics := core.DisplayStatistics(); !strings.Contains(statistics, "Number of insertions:  10\n") || !strings.Contains(statistics, "Number of nodes:       5\n") {
+	if statistics, want := core.DisplayStatistics(), "Number of insertions:  10\nNumber of comparisons: 10\nNumber of nodes:       5\n"; statistics != want {
 		t.Fatal("statistics display", statistics)
+	}
+}
+
+func TestDDNFCoreInsertionAllocationRefusalCanRetry(t *testing.T) {
+	for failure := int64(0); failure < 24; failure++ {
+		t.Run(fmt.Sprint(failure), func(t *testing.T) {
+			budget := arena.NewBudget(1 << 20)
+			config := arena.VectorConfig{PageSize: 1, Descriptors: arena.Config{PageSize: 1, Budget: budget}}
+			core, err := NewCore(3, config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := core.Manager().AllocateX()
+			if err != nil {
+				t.Fatal(err)
+			}
+			q, err := core.Manager().AllocateX()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i, vector := range []*rel.TBV{p, q} {
+				for bit, value := range []rel.TBit{rel.TBit0, rel.TBitX, rel.TBitX} {
+					if i == 1 && bit == 0 {
+						value = rel.TBitX
+					}
+					if i == 1 && bit == 1 {
+						value = rel.TBit0
+					}
+					if err = core.Manager().Set(vector, uint32(2-bit), value); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+			if _, err = core.Insert(p); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = core.Insert(q); err != nil {
+				t.Fatal(err)
+			}
+			r, err := core.Manager().AllocateX()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for bit, value := range []rel.TBit{rel.TBit0, rel.TBit0, rel.TBit1} {
+				if err = core.Manager().Set(r, uint32(2-bit), value); err != nil {
+					t.Fatal(err)
+				}
+			}
+			budget.FailAfter(failure)
+			_, insertErr := core.Insert(r)
+			budget.FailAfter(-1)
+			if failure == 0 && !errors.Is(insertErr, arena.ErrInjectedFailure) {
+				t.Fatalf("insertion did not reach an injected allocation refusal: %v", insertErr)
+			}
+			if failure == 23 && insertErr != nil {
+				t.Fatalf("high refusal threshold did not reach success: %v", insertErr)
+			}
+			if insertErr != nil && !errors.Is(insertErr, arena.ErrInjectedFailure) {
+				t.Fatalf("unexpected insertion error: %v", insertErr)
+			}
+			if insertErr != nil {
+				if _, err = core.Insert(r); err != nil {
+					t.Fatalf("retry failed after %v: %v", insertErr, err)
+				}
+			}
+			wellFormed, err := core.WellFormed()
+			if err != nil || !wellFormed {
+				t.Fatal("retry left an invalid intersection graph", wellFormed, err)
+			}
+			if _, err = core.descendants(r); err != nil {
+				t.Fatal("target missing after insertion", err)
+			}
+			core.Close()
+			if used := budget.Used(); used != 0 {
+				t.Fatal("insertion retry retained budget", used)
+			}
+		})
 	}
 }
 
