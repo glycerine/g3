@@ -234,6 +234,21 @@ func TestBV2IntDirectRefusalFallbackAndPartialFold(t *testing.T) {
 	equationMust(t, err)
 	f.wantInt(t, prefix, 5)
 }
+
+func TestBV2IntCallCleanupSkipsAlreadyConsumedReferences(t *testing.T) {
+	f := bv2IntRewriteFixture(t, ^uint32(0))
+	root := fixDLConst(t, f.m, true, "cleanup-consumed")
+	ref, err := f.m.NewRef(root)
+	equationMust(t, err)
+	call := &bv2IntCall{r: f.r, refs: []ast.ASTRef{{}, ref}}
+	if err := call.close(); err != nil {
+		t.Fatalf("initial cleanup failed: %v", err)
+	}
+	if err := call.close(); err != nil {
+		t.Fatalf("retry after a consumed reference returned an error: %v", err)
+	}
+}
+
 func TestBV2IntClosedRewritesPrebuiltCPPOracle(t *testing.T) {
 	reference := os.Getenv("G3_CPP_REFERENCE")
 	if reference == "" {

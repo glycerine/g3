@@ -165069,7 +165069,7 @@
             "TestBV2IntSignedOverflowConstraintsAndRefusalFrontier",
             "TestBV2IntModTraceResultPublishedBeforeBody",
             "TestBV2IntSymbolicRewritesPrebuiltCPPOracle",
-            "TestBV2IntSourceAssertionGateAndClosedDiagnostic"
+            "TestBV2IntSourceAssertionGateAndClosedDiagnostic", "TestBV2IntCallCleanupSkipsAlreadyConsumedReferences"
           ]
         }
       ],
@@ -165141,7 +165141,7 @@
             "TestBV2IntSignedOverflowConstraintsAndRefusalFrontier",
             "TestBV2IntModTraceResultPublishedBeforeBody",
             "TestBV2IntSymbolicRewritesPrebuiltCPPOracle",
-            "TestBV2IntSourceAssertionGateAndClosedDiagnostic"
+            "TestBV2IntSourceAssertionGateAndClosedDiagnostic", "TestBV2IntCallCleanupSkipsAlreadyConsumedReferences"
           ]
         }
       ],

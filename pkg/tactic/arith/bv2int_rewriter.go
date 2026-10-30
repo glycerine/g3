@@ -152,6 +152,9 @@ func (c *bv2IntCall) close() error {
 		}
 	}
 	for i := len(c.refs) - 1; i >= 0; i-- {
+		if c.refs[i] == (ast.ASTRef{}) {
+			continue
+		}
 		if err := c.r.manager.DelRef(&c.refs[i]); err != nil {
 			return err
 		}
