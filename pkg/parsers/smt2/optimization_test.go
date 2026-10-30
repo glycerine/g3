@@ -50,6 +50,37 @@ func TestSMT2BoundedIntegerOptimizationEndToEnd(t *testing.T) {
 	}
 }
 
+func TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches(t *testing.T) {
+	for _, tc := range []struct {
+		command string
+		want    string
+	}{{"maximize", "1000"}, {"minimize", "0"}} {
+		t.Run(tc.command, func(t *testing.T) {
+			context, err := cmd_context.NewStandaloneContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := context.Close(); err != nil {
+					t.Error(err)
+				}
+			})
+			script := `(set-logic QF_LIA)
+(declare-const choose-low Bool)(declare-const x Int)
+(assert (or (and choose-low (= x 0)) (and (not choose-low) (= x 1000))))
+	` + "(" + tc.command + ` x)(check-sat)(get-objectives)(get-value (x))`
+			var output bytes.Buffer
+			if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+				t.Fatal(err, output.String())
+			}
+			want := "sat (objectives (x " + tc.want + ") ) ((x " + tc.want + "))"
+			if got := strings.Join(strings.Fields(output.String()), " "); got != want {
+				t.Fatal("geometric integer optimization", got, "want", want)
+			}
+		})
+	}
+}
+
 func TestSMT2OptimizationObjectivesFollowScopes(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

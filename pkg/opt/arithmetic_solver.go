@@ -75,6 +75,7 @@ type ArithmeticSolver struct {
 type arithmeticObjective struct {
 	term         ast.ASTRef
 	maximize     bool
+	integer      bool
 	backendIndex uint32
 	soft         bool
 	softTerms    []ast.ASTRef
@@ -143,6 +144,14 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 			return err
 		}
 	}
+	sort, err := s.manager.GetSort(term)
+	if err != nil {
+		return err
+	}
+	kind, err := s.manager.GetDeclKind(sort)
+	if err != nil {
+		return err
+	}
 	ref, err := s.manager.NewRef(term)
 	if err != nil {
 		return err
@@ -151,7 +160,7 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 	if err != nil {
 		return errors.Join(err, s.manager.DelRef(&ref))
 	}
-	s.objectives = append(s.objectives, arithmeticObjective{term: ref, maximize: maximize, backendIndex: backendIndex})
+	s.objectives = append(s.objectives, arithmeticObjective{term: ref, maximize: maximize, integer: kind == 1, backendIndex: backendIndex})
 	return nil
 }
 
@@ -208,12 +217,63 @@ func (s *ArithmeticSolver) orient(index int, value smtcore.SMTArithmeticObjectiv
 	return value
 }
 
+func (s *ArithmeticSolver) assertObjectiveModelLowerBound(index int, value simplex.Infinitesimal) (resultErr error) {
+	if index < 0 || index >= len(s.objectives) || value.Infinity.Sign() != 0 || value.Epsilon.Sign() != 0 {
+		return ast.ErrASTDomain
+	}
+	var refs []ast.ASTRef
+	hold := func(term ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		ref, err := s.manager.NewRef(term)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		refs = append(refs, ref)
+		return term, nil
+	}
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, s.manager.DelRef(&refs[i]))
+		}
+	}()
+	term, err := s.manager.RefGet(s.objectives[index].term)
+	if err != nil {
+		return err
+	}
+	if !s.objectives[index].maximize {
+		term, err = hold(s.manager.MkArithmeticNeg(term))
+		if err != nil {
+			return err
+		}
+	}
+	numeral, err := hold(s.manager.ArithmeticNumeralRat(&value.Main, s.objectives[index].integer))
+	if err != nil {
+		return err
+	}
+	bound, err := hold(s.manager.MkArithmeticGE(term, numeral))
+	if err != nil {
+		return err
+	}
+	return s.backend.Assert(bound)
+}
+
 func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResult) (status lbool.LBool, optimal bool, resultErr error) {
 	if err := s.backend.Push(); err != nil {
 		return lbool.Undef, false, err
 	}
 	active := true
+	var jumpScopes uint32
+	var recoveryModel *model.ModelCore
+	var recoveryLabels []usymbol.Symbol
 	defer func() {
+		if recoveryModel != nil {
+			resultErr = errors.Join(resultErr, recoveryModel.DecRef())
+		}
+		if jumpScopes != 0 {
+			resultErr = errors.Join(resultErr, s.backend.Pop(jumpScopes))
+		}
 		if active {
 			resultErr = errors.Join(resultErr, s.backend.Pop(1))
 		}
@@ -225,7 +285,26 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 	if err = s.replaceModel(result); err != nil {
 		return lbool.Undef, false, err
 	}
-	for status == lbool.True {
+	delta := big.NewInt(1)
+	var steps, stepIncs uint32
+	unboundedRecovery := false
+	for {
+		if status != lbool.True {
+			if status == lbool.False && delta.Cmp(big.NewInt(1)) > 0 {
+				if err = s.backend.Pop(1); err != nil {
+					return lbool.Undef, false, err
+				}
+				jumpScopes--
+				delta.SetInt64(1)
+				steps, stepIncs = 0, 0
+				status, err = s.backend.CheckSat(nil)
+				if err != nil {
+					return lbool.Undef, false, err
+				}
+				continue
+			}
+			break
+		}
 		value, blocker, shared, err := s.backend.MaximizeObjective(s.objectives[index].backendIndex)
 		if err != nil {
 			return lbool.Undef, false, err
@@ -243,13 +322,99 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		}
 		result.Values[index].Arithmetic = s.orient(index, value)
 		if value.Unbounded {
-			return lbool.True, true, s.manager.DelRef(&blockerRef)
+			if unboundedRecovery {
+				var restoreErr error
+				if recoveryModel != nil {
+					if result.Model != nil {
+						restoreErr = result.Model.DecRef()
+					}
+					result.Model = recoveryModel
+					recoveryModel = nil
+					result.Labels = recoveryLabels
+				}
+				return lbool.True, true, errors.Join(restoreErr, s.manager.DelRef(&blockerRef))
+			}
+			// Recheck from the published model's finite value once. The SMT
+			// theory can report a locally unbounded tableau before a Boolean
+			// branch fixes the objective; the source optimizer keeps searching.
+			if err = s.captureArithmeticModel(index, &result.Values[index], result.Model); err != nil {
+				return lbool.Undef, false, errors.Join(err, s.manager.DelRef(&blockerRef))
+			}
+			if recoveryModel == nil && result.Model != nil {
+				if err = result.Model.IncRef(); err != nil {
+					return lbool.Undef, false, errors.Join(err, s.manager.DelRef(&blockerRef))
+				}
+				recoveryModel = result.Model
+				recoveryLabels = append([]usymbol.Symbol(nil), result.Labels...)
+			}
+			modelValue := result.Values[index].ArithmeticModel
+			if !s.objectives[index].maximize {
+				modelValue.Finite = modelValue.Finite.Clone()
+				modelValue.Finite.Neg()
+			}
+			modelValue.Finite.Main.Add(&modelValue.Finite.Main, big.NewRat(1, 1))
+			boundErr := s.assertObjectiveModelLowerBound(index, modelValue.Finite)
+			boundErr = errors.Join(boundErr, s.manager.DelRef(&blockerRef))
+			if boundErr != nil {
+				return lbool.Undef, false, boundErr
+			}
+			status, err = s.backend.CheckSat(nil)
+			if err != nil {
+				return lbool.Undef, false, err
+			}
+			if status == lbool.False {
+				result.Values[index].Arithmetic = result.Values[index].ArithmeticModel
+				break
+			}
+			if status != lbool.True {
+				return status, false, nil
+			}
+			if err = s.replaceModel(result); err != nil {
+				return lbool.Undef, false, err
+			}
+			unboundedRecovery = true
+			continue
 		}
-		blocker, err = s.manager.RefGet(blockerRef)
+		unboundedRecovery = false
+		if s.objectives[index].integer {
+			if steps > stepIncs {
+				delta.Lsh(delta, 1)
+				stepIncs++
+				steps = 0
+			} else {
+				steps++
+			}
+		}
+		boundValue := value.Finite.Clone()
+		boundValue.Main.Add(&boundValue.Main, new(big.Rat).SetInt(delta))
+		var bound ast.ASTHandle
+		if value.Finite.Infinity.Sign() == 0 {
+			bound, err = s.backend.MakeObjectiveLowerBound(s.objectives[index].backendIndex, s.filter, boundValue)
+		} else {
+			bound, err = s.manager.RefGet(blockerRef)
+		}
 		if err == nil {
-			err = s.backend.Assert(blocker)
+			if delta.Cmp(big.NewInt(1)) > 0 {
+				err = s.backend.Push()
+				if err == nil {
+					jumpScopes++
+				}
+			}
+		}
+		var boundRef ast.ASTRef
+		if err == nil {
+			boundRef, err = s.manager.NewRef(bound)
+		}
+		if err == nil {
+			bound, err = s.manager.RefGet(boundRef)
+		}
+		if err == nil {
+			err = s.backend.Assert(bound)
 		}
 		err = errors.Join(err, s.manager.DelRef(&blockerRef))
+		if boundRef != (ast.ASTRef{}) {
+			err = errors.Join(err, s.manager.DelRef(&boundRef))
+		}
 		if err != nil {
 			return lbool.Undef, false, err
 		}
@@ -257,6 +422,12 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 		if err != nil {
 			return lbool.Undef, false, err
 		}
+	}
+	if jumpScopes != 0 {
+		if err = s.backend.Pop(jumpScopes); err != nil {
+			return lbool.Undef, false, err
+		}
+		jumpScopes = 0
 	}
 	return status, status == lbool.False, nil
 }

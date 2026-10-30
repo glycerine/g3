@@ -99282,10 +99282,10 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "bounded, strict and unbounded arithmetic objectives plus attained, unattained and open-bound lexicographic result handling; basic, geometric, Farkas and Symba strategy loops remain incomplete (optsmt.cpp:66-347,463-591)",
+          "name": "geometric lex uses one-unit real bounds, exponentially wider integer jumps and rollback after infeasible jumps; basic box, Farkas, Symba and full multi-branch unbounded handling remain incomplete (optsmt.cpp:173-241,463-591)",
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
-          "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         }
       ],
       "ownership": [],
