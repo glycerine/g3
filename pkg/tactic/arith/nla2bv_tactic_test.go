@@ -87,6 +87,24 @@ func TestNLA2BVSourceTraversalVisitsSharedNodesOnceAcrossGoalRoots(t *testing.T)
 	if positions[x] >= positions[shared] || positions[shared] >= positions[first] || positions[shared] >= positions[second] {
 		t.Fatal("shared expression was not visited once in child-before-parent order", positions)
 	}
+
+	inv, err := r.newInvocation()
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, inv.close()) })
+	filter, err := tactic.NewFilterModel(m)
+	equationMust(t, err)
+	equationMust(t, inv.filterOwner.Prepare(m))
+	if err = inv.filterOwner.SetModelConverter(filter); err != nil {
+		equationMust(t, filter.Close())
+		t.Fatal(err)
+	}
+	inv.filter = filter
+	equationMust(t, inv.bounds.CollectGoal(g))
+	supported, err := inv.collectVars(g)
+	equationMust(t, err)
+	if !supported || len(inv.vars) != 1 || len(inv.defs) != 1 {
+		t.Fatalf("shared variable model handoff: supported=%v vars=%d defs=%d", supported, len(inv.vars), len(inv.defs))
+	}
 }
 
 func TestNLA2BVLog2SourceBoundaries(t *testing.T) {
