@@ -655,34 +655,8 @@ func (p *commandParser) command() (bool, error) {
 		}
 		success = false
 	case "check-sat", "check-sat-assuming":
-		var assumptions []ast.ASTHandle
-		if name == "check-sat-assuming" {
-			assumptions, err = p.expressions()
-			if err != nil {
-				return false, err
-			}
-		}
-		if p.token != RightParenToken {
-			return false, fmt.Errorf("unexpected check-sat argument")
-		}
-		if !p.ignoreChecks {
-			status, err := p.context.CheckSat(assumptions)
-			if err != nil {
-				return false, err
-			}
-			text := "unknown"
-			if status == lbool.True {
-				text = "sat"
-			}
-			if status == lbool.False {
-				text = "unsat"
-			}
-			if _, err = fmt.Fprintln(p.out, text); err != nil {
-				return false, err
-			}
-			if err = p.context.ValidateInfoStatus(status); err != nil {
-				return false, err
-			}
+		if err := p.checkSatCommand(name == "check-sat-assuming", !p.ignoreChecks); err != nil {
+			return false, err
 		}
 		success = false
 	case "query":
