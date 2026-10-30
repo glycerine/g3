@@ -174,3 +174,92 @@ func TestSubpavingFixedClauseUnitsNoResumeAndCleanup(t *testing.T) {
 		t.Fatal("closed context accepted unit", err)
 	}
 }
+
+func TestSubpavingFixedInequalityThreeValuedOpenEndpoints(t *testing.T) {
+	tests := []struct {
+		name                string
+		atomLower, atomOpen bool
+		atomValue           int64
+		boundLower          bool
+		boundOpen           bool
+		boundValue          int64
+		secondBound         bool
+		secondLower         bool
+		secondOpen          bool
+		secondValue         int64
+		want                fixedTruth
+	}{
+		{name: "unknown without bounds", atomLower: true, atomValue: 5, want: fixedUnknown},
+		{name: "lower false below upper", atomLower: true, atomValue: 5, boundLower: false, boundValue: 4, want: fixedFalse},
+		{name: "lower false at open upper", atomLower: true, atomValue: 5, boundLower: false, boundOpen: true, boundValue: 5, want: fixedFalse},
+		{name: "lower false at open atom", atomLower: true, atomOpen: true, atomValue: 5, boundLower: false, boundValue: 5, want: fixedFalse},
+		{name: "lower true above atom", atomLower: true, atomValue: 5, boundLower: true, boundValue: 6, want: fixedTrue},
+		{name: "lower true at closed atom", atomLower: true, atomValue: 5, boundLower: true, boundValue: 5, want: fixedTrue},
+		{name: "lower true at open lower bound", atomLower: true, atomOpen: true, atomValue: 5, boundLower: true, boundOpen: true, boundValue: 5, want: fixedTrue},
+		{name: "lower unknown at open atom equality", atomLower: true, atomOpen: true, atomValue: 5, boundLower: true, boundValue: 5, want: fixedUnknown},
+		{name: "lower unknown between bounds", atomLower: true, atomValue: 5, boundLower: true, boundValue: 4, secondBound: true, secondValue: 6, want: fixedUnknown},
+		{name: "upper unknown without bounds", atomLower: false, atomValue: 5, want: fixedUnknown},
+		{name: "upper false above lower", atomLower: false, atomValue: 5, boundLower: true, boundValue: 6, want: fixedFalse},
+		{name: "upper false at open lower", atomLower: false, atomValue: 5, boundLower: true, boundOpen: true, boundValue: 5, want: fixedFalse},
+		{name: "upper false at open atom", atomLower: false, atomOpen: true, atomValue: 5, boundLower: true, boundValue: 5, want: fixedFalse},
+		{name: "upper true below upper", atomLower: false, atomValue: 5, boundLower: false, boundValue: 4, want: fixedTrue},
+		{name: "upper true at closed atom", atomLower: false, atomValue: 5, boundLower: false, boundValue: 5, want: fixedTrue},
+		{name: "upper true at open upper", atomLower: false, atomOpen: true, atomValue: 5, boundLower: false, boundOpen: true, boundValue: 5, want: fixedTrue},
+		{name: "upper unknown at open atom equality", atomLower: false, atomOpen: true, atomValue: 5, boundLower: false, boundValue: 5, want: fixedUnknown},
+		{name: "upper unknown between bounds", atomLower: false, atomValue: 5, boundLower: true, boundValue: 4, secondBound: true, secondLower: false, secondValue: 6, want: fixedUnknown},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m, c, v, root := fixedClauseFixture(t, []bool{false})
+			bound := func(value int64, lower, open bool) {
+				t.Helper()
+				if err := m.SetInt64(v, value); err != nil {
+					t.Fatal(err)
+				}
+				if err := c.PropagateBound(root, 0, v, lower, open); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.boundLower || tc.boundOpen || tc.boundValue != 0 {
+				bound(tc.boundValue, tc.boundLower, tc.boundOpen)
+			}
+			if tc.secondBound {
+				bound(tc.secondValue, tc.secondLower, tc.secondOpen)
+			}
+			atom := fixedClauseAtom(t, m, c, v, 0, tc.atomValue, tc.atomLower, tc.atomOpen)
+			got, err := c.inequalityValue(atom, root)
+			if err != nil || got != tc.want {
+				t.Fatalf("value = %v, want %v (err %v)", got, tc.want, err)
+			}
+		})
+	}
+}
+
+func TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses(t *testing.T) {
+	m, c, v, root := fixedClauseFixture(t, []bool{false, false})
+	x := fixedClauseAtom(t, m, c, v, 0, 0, true, false)
+	y := fixedClauseAtom(t, m, c, v, 1, 0, true, false)
+	clause, err := c.AddClause([]*FixedInequality{x, y}, false, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixedClauseBound(t, m, c, root, v, 0, -1, false)
+	if err := c.PropagateQueued(root); err != nil {
+		t.Fatal(err)
+	}
+	if root.lower[1] == nil || root.lower[1].reason != (fixedBoundReason{kind: fixedReasonClause, clause: clause}) || clause.deleted {
+		t.Fatal("bound lost its live clause reason")
+	}
+	if x.refs != 1 || y.refs != 1 || len(c.watchOrder[0]) != 1 || len(c.watchOrder[1]) != 1 {
+		t.Fatal("clause did not own its atoms and unique watches")
+	}
+	if err := c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !root.closed || !clause.deleted || !clause.watchesRemoved || x.refs != 0 || y.refs != 0 || len(c.watchOrder[0]) != 0 || len(c.watchOrder[1]) != 0 {
+		t.Fatal("context teardown did not close nodes before releasing clause ownership")
+	}
+	if _, err := m.IsZero(x.value); !errors.Is(err, numeral.ErrFixedPointClosed) {
+		t.Fatal("clause atom value remained live after context close", err)
+	}
+}
