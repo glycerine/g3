@@ -77,7 +77,21 @@ func (m *RuleManager) WriteRuleDisplay(out io.Writer, rule *Rule) error {
 			return err
 		}
 	}
-	_, err = io.WriteString(out, ".\n")
+	if _, err = io.WriteString(out, ".\n"); err != nil {
+		return err
+	}
+	proof, hasProof, err := rule.Proof()
+	if err != nil || !hasProof {
+		return err
+	}
+	printer, err := ast.NewSimpleASTPrinterContext(m.manager, out, out)
+	if err != nil {
+		return err
+	}
+	if err = printer.DisplayExpr(out, proof, 0); err != nil {
+		return err
+	}
+	_, err = io.WriteString(out, "\n")
 	return err
 }
 
