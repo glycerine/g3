@@ -5306,8 +5306,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_params.go", "pkg/api/api_fixedpoint_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_replay.go"],
-      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters"],
+      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_params.go", "pkg/api/api_fixedpoint_test.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/cmd_context/fixedpoint_relation_registration.go"],
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState", "TestAPIFixedpointRulesScopesAndQueries", "TestAPIFixedpointOwningAnswerAndStatistics"],
       "assertions": [
         {
           "line": 57,
@@ -5328,7 +5328,13 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters"]
         },
         {
-          "name": "remaining standalone fixedpoint owner and external-relation callbacks",
+          "name": "owning fixedpoint object lifecycle, independent command state, relation registration, declarations, mutation, queries and copied result snapshots",
+          "status": "partial",
+          "go_target": "pkg/api/api_fixedpoint_object.go",
+          "tests": ["TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState", "TestAPIFixedpointRulesScopesAndQueries", "TestAPIFixedpointOwningAnswerAndStatistics"]
+        },
+        {
+          "name": "remaining object-local parameter descriptors/setters and external-relation callbacks",
           "status": "unported",
           "go_target": null,
           "tests": []
@@ -5342,8 +5348,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fixedpoint.go"],
-      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointSpacerInductiveExports"],
+      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go"],
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointSpacerInductiveExports", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState"],
       "conditionals": [
         {
           "line": 19,
@@ -5364,14 +5370,20 @@
           "tests": ["TestSMTContextFixedpointPDRLifecycle"]
         },
         {
-          "name": "remaining fixedpoint_context and external-relation callback declaration surface",
+          "name": "owning fixedpoint object declaration, lifecycle, mutation, query and result surface",
+          "status": "partial",
+          "go_target": "pkg/api/api_fixedpoint_object.go",
+          "tests": ["TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState"]
+        },
+        {
+          "name": "remaining object-local fixedpoint parameter and external-relation callback declaration surface",
           "status": "unported",
           "go_target": null,
           "tests": []
         }
       ],
-      "ownership": ["The public Go SMTContext is the owning fixedpoint integration root; no separate fixedpoint reference wrapper is introduced."],
-      "deviations": ["Go methods and explicit Close/ASTRef ownership replace the native opaque handle declaration surface."]
+      "ownership": ["SMTContext owns shared services; each APIFixedpoint owns an independent child command/fixedpoint state and closes it explicitly. Returned AST and model snapshots transfer independent references to callers."],
+      "deviations": ["Go methods and explicit Close/ASTRef ownership replace native opaque reference counting. Object-local parameter mutation is intentionally deferred instead of mutating shared global parameters."]
     },
     {
       "path": "src/api/api_datalog_spacer.inc",
