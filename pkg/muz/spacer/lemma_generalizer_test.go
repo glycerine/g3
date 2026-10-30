@@ -159,11 +159,15 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	otherAccessorName, err := manager.Symbols.Intern("expand-unbox-other")
+	if err != nil {
+		t.Fatal(err)
+	}
 	sorts, err := manager.MkDatatypes([]ast.DatatypeDefinition{{
 		Name: datatypeName,
 		Constructors: []ast.DatatypeConstructorDefinition{{
 			Name: constructorName, Recognizer: recognizerName,
-			Accessors: []ast.DatatypeAccessorDefinition{{Name: accessorName, Range: integer}},
+			Accessors: []ast.DatatypeAccessorDefinition{{Name: accessorName, Range: integer}, {Name: otherAccessorName, Range: integer}},
 		}},
 	}})
 	if err != nil {
@@ -173,7 +177,7 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	boxValue, err := manager.MkApp(constructors[0], []ast.ASTHandle{zero})
+	boxValue, err := manager.MkApp(constructors[0], []ast.ASTHandle{zero, zero})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,14 +197,32 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(datatypeExpanded) != 2 {
+	if len(datatypeExpanded) != 5 {
 		t.Fatal("expanded datatype equality size", len(datatypeExpanded))
 	}
 	if kind, kindErr := manager.GetDeclKind(datatypeExpanded[0]); kindErr != nil || kind != ast.ASTDatatypeRecognizer {
 		t.Fatal("datatype recognizer literal", kind, kindErr)
 	}
-	if kind, kindErr := manager.GetDeclKind(datatypeExpanded[1]); kindErr != nil || kind != ast.ASTOpEq {
-		t.Fatal("datatype accessor equality", kind, kindErr)
+	for index, expected := range []int32{2, 3, 2, 3} {
+		if kind, kindErr := manager.GetDeclKind(datatypeExpanded[index+1]); kindErr != nil || kind != expected {
+			t.Fatal("datatype integer field bound", index, kind, kindErr)
+		}
+	}
+	accessors, err := manager.DatatypeConstructorAccessors(constructors[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, accessor := range accessors {
+		for _, bound := range datatypeExpanded[1+2*index : 3+2*index] {
+			term, err := manager.GetArg(bound, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decl, err := manager.GetDecl(term)
+			if err != nil || decl != accessor {
+				t.Fatal("datatype field bound order", index, decl, accessor, err)
+			}
+		}
 	}
 	bvValue, err := manager.BitVectorNumeralUnsigned(5, 3)
 	if err != nil {

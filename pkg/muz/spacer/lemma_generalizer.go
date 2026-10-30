@@ -76,7 +76,45 @@ func containsGeneralizedLiteral(values []ast.ASTHandle, value ast.ASTHandle) boo
 	return false
 }
 
+// expandInductiveLiteral follows expand_literals' growing conjunction vector.
+// Constructor field equalities appended during expansion are visited too.
 func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) ([]ast.ASTHandle, error) {
+	conjs := []ast.ASTHandle{literal}
+	for i := 0; i < len(conjs); i++ {
+		expanded, err := p.expandInductiveLiteralOnce(conjs[i])
+		if err != nil {
+			return nil, err
+		}
+		if len(expanded) == 1 && expanded[0] == conjs[i] {
+			continue
+		}
+		conjs[i] = expanded[0]
+		family, err := p.manager.GetFamilyID(expanded[0])
+		if err != nil {
+			return nil, err
+		}
+		arithmetic, err := p.manager.ArithmeticFamilyID()
+		if err != nil {
+			return nil, err
+		}
+		if family == arithmetic && len(expanded) == 2 {
+			// Source inserts the second arithmetic bound next to the first,
+			// moving the displaced next conjunct to the end of the vector.
+			if i+1 == len(conjs) {
+				conjs = append(conjs, expanded[1])
+			} else {
+				conjs = append(conjs, conjs[i+1])
+				conjs[i+1] = expanded[1]
+			}
+			i++
+		} else {
+			conjs = append(conjs, expanded[1:]...)
+		}
+	}
+	return conjs, nil
+}
+
+func (p *PredicateTransformer) expandInductiveLiteralOnce(literal ast.ASTHandle) ([]ast.ASTHandle, error) {
 	family, err := p.manager.GetFamilyID(literal)
 	if err != nil || family != p.manager.BasicFamilyID() {
 		return []ast.ASTHandle{literal}, err

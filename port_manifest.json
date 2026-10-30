@@ -92937,6 +92937,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open", "status": "partial", "go_targets": ["pkg/muz/spacer/lemma_generalizer.go", "pkg/muz/spacer/lemma_generalizer_test.go"], "tests": ["TestExpandInductiveDatatypeAndBitVectorEqualities"]},
         {
           "name": "simplify_bounds_new and simplify_bounds: proof-disabled goal, propagate-values followed by propagate-inequalities, and single-goal result transfer",
           "status": "ported",
@@ -92999,6 +93000,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open", "status": "partial", "go_targets": ["pkg/muz/spacer/lemma_generalizer.go", "pkg/muz/spacer/lemma_generalizer_test.go"], "tests": ["TestExpandInductiveDatatypeAndBitVectorEqualities"]},
         {
           "name": "simplify_bounds retained lemma-vector simplification interface",
           "status": "ported",
