@@ -5886,13 +5886,13 @@
       "path": "src/api/api_parsers.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_parser_context.go", "pkg/api/api_parser_parse.go", "pkg/api/api_parser_eval.go", "pkg/api/api_parser_file.go", "pkg/cmd_context/parser_context.go"],
+      "tests": ["TestAPIParserSuppliedDeclarationsPreserveASTIdentity", "TestAPIParserReturnsAssertionConjunctionWithoutMutatingSession", "TestAPIParserEvaluateUsesPersistentCommandSession", "TestAPIParserFileUsesSameOneShotPath"],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "temporary same-manager parser contexts, supplied bindings, SMT2 parse/evaluate/file entry points", "status": "partial", "go_target": "pkg/api/api_parser_context.go", "tests": ["TestAPIParserSuppliedDeclarationsPreserveASTIdentity", "TestAPIParserReturnsAssertionConjunctionWithoutMutatingSession"]}],
+      "ownership": ["Temporary parser contexts borrow the API manager; returned conjunctions own target-manager references and parser teardown leaves them valid."],
       "deviations": []
     },
     {
@@ -108083,22 +108083,22 @@
       "path": "src/sat/sat_par.cpp",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/sat/sat_parallel_units.go", "pkg/sat/sat_parallel_exchange.go", "pkg/sat/sat_solver_parallel_bind.go", "pkg/sat/sat_solver_parallel_exchange.go"],
+      "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestParallelUnitExchangeLimitTracksFinalSharedSize", "TestSATSolverParallelExchangePublishesAndImportsRootUnits", "TestSATSolverParallelExchangeImportsConflictingUnit"],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "shared unit exchange and solver root-level import/export", "status": "partial", "go_target": "pkg/sat/sat_parallel_exchange.go", "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestSATSolverParallelExchangePublishesAndImportsRootUnits"]}],
+      "ownership": ["Solvers borrow the synchronized exchange owner; snapshots copy unit slices and binding teardown does not close the exchange."],
       "deviations": []
     },
     {
       "path": "src/sat/sat_par.h",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/sat/sat_parallel_units.go", "pkg/sat/sat_parallel_exchange.go", "pkg/sat/sat_parallel_snapshot.go"],
+      "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestParallelUnitExchangeOwnershipAndClose", "TestParallelUnitExchangeLimitTracksFinalSharedSize"],
       "conditionals": [
         {
           "line": 19,
@@ -108111,8 +108111,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "typed synchronized unit-exchange owner and snapshots", "status": "partial", "go_target": "pkg/sat/sat_parallel_units.go", "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestParallelUnitExchangeOwnershipAndClose"]}],
+      "ownership": ["The exchange owns its unit storage and mutex state; bound solvers borrow it synchronously."],
       "deviations": []
     },
     {
@@ -113897,9 +113897,9 @@
       "path": "src/sat/tactic/atom2bool_var.h",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/sat/tactic/sat_atom2bool.go", "pkg/sat/tactic/sat_goal_incremental.go", "pkg/sat/tactic/sat_goal_recovery.go", "pkg/sat/sat_solver/preprocess.go"],
+      "tests": ["TestAtom2BoolVarSourceMappingScopeAndInterpretedState", "TestSATGoalBorrowedAtomMap", "TestIncrementalEncoderPersistentBitBindingsAndUserScopesCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -113912,8 +113912,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "concrete expression-to-Boolean-variable mapping, inverse recovery, scopes and interpreted-atom state", "status": "partial", "go_target": "pkg/sat/tactic/sat_atom2bool.go", "tests": ["TestAtom2BoolVarSourceMappingScopeAndInterpretedState", "TestSATGoalBorrowedAtomMap"]}],
+      "ownership": ["Atom2BoolVar owns its Expr2Var map and one AST reference per distinct atom; translators and incremental encoders borrow or own the wrapper explicitly."],
       "deviations": []
     },
     {
@@ -114230,9 +114230,9 @@
       "path": "src/sat/tactic/goal2sat.h",
       "component": "sat",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/sat/tactic/sat_goal_to_sat.go", "pkg/sat/tactic/sat_goal_incremental.go", "pkg/sat/tactic/sat_goal_recovery.go", "pkg/sat/tactic/sat_model_converter.go", "pkg/sat/tactic/sat_tactic.go"],
+      "tests": ["TestSATGoalBorrowedAtomMap", "TestSATGoalTranslator", "TestSATModelConverter", "TestSATConfigCurrentModuleSnapshotAndLocalPrecedenceThroughTactic"],
       "conditionals": [
         {
           "line": 29,
@@ -114245,8 +114245,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "goal translator state, shared atom mapping, inverse recovery and SAT model-converter boundary", "status": "partial", "go_target": "pkg/sat/tactic/sat_goal_to_sat.go", "tests": ["TestSATGoalBorrowedAtomMap", "TestSATModelConverter"]}],
+      "ownership": ["GoalTranslator borrows shared Atom2BoolVar state for incremental consumers and owns private atom references otherwise; SAT tactic destruction closes the owning map after its translator."],
       "deviations": []
     },
     {
