@@ -5863,8 +5863,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_solver.go"],
-      "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints"],
+      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_optimize_assertion_refs.go", "pkg/api/api_optimize_objective_expressions.go", "pkg/cmd_context/optimization_assertion_queries.go"],
+      "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestAPIOptimizeAssertionRefsOwnership", "TestAPIOptimizeObjectiveExpressionsArithmetic", "TestAPIOptimizeObjectiveExpressionsSoft", "TestAPIOptimizeObjectiveExpressionsBitVector"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
@@ -88407,7 +88407,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_join_project.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go"],
+      "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_join_project.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go", "pkg/muz/rel/sparse_key_index_types.go", "pkg/muz/rel/sparse_key_index_build.go", "pkg/muz/rel/sparse_key_index_query.go", "pkg/muz/rel/sparse_indexed_join_types.go", "pkg/muz/rel/sparse_indexed_join_execute.go", "pkg/muz/rel/sparse_indexed_join_probe.go", "pkg/muz/rel/sparse_indexed_join_product.go"],
       "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalProjectBoundaryRules", "TestSparseFunctionalJoinUsesSourceColumnOrder", "TestSparseFunctionalJoinProjectComposesBoundaries", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalSelectProjectTracksBoundary", "TestSparseFunctionalNegationUsesOnlyNonFunctionalIndexes", "TestSparseFunctionalComplementUsesSuppliedSuffix", "TestSparseFunctionalConsumersRejectMismatchedMetadata"],
       "conditionals": [
         {
@@ -97616,9 +97616,9 @@
       "path": "src/opt/maxres.cpp",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/opt/maxres_engine.go", "pkg/opt/maxres_assumption.go", "pkg/opt/maxres_boolean_eval.go", "pkg/opt/maxres_boundaries.go", "pkg/opt/maxres_literal.go", "pkg/opt/maxres_mutex_order.go", "pkg/opt/maxres_mutex_preprocess.go", "pkg/opt/maxres_mutex_term.go", "pkg/opt/maxres_mutex_transform.go", "pkg/opt/maxres_mutex_weights.go", "pkg/opt/maxres_proxy.go", "pkg/opt/maxres_proxy_filter.go", "pkg/opt/maxres_stats.go", "pkg/opt/maxres_weight_order.go"],
+      "tests": ["TestMaxResBase", "TestMaxResBoundaries", "TestMaxResMutexOrder", "TestMaxResMutexTransform"],
       "assertions": [
         {
           "line": 205,
@@ -97651,7 +97651,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name":"base state, assumptions, proxy filtering, exact-rational mutex decomposition, weighted boundaries and statistics","status":"partial","go_target":"pkg/opt/maxres_engine.go","go_targets":["pkg/opt/maxres_assumption.go","pkg/opt/maxres_boundaries.go","pkg/opt/maxres_mutex_preprocess.go","pkg/opt/maxres_proxy.go","pkg/opt/maxres_stats.go"],"tests":["TestMaxResBase","TestMaxResBoundaries","TestMaxResMutexOrder","TestMaxResMutexTransform"]}],
       "ownership": [],
       "deviations": []
     },
@@ -165802,7 +165802,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/arith/fm_model_converter.go", "pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_ast.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go"],
+      "go_targets": ["pkg/tactic/arith/fm_model_converter.go", "pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_ast.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go", "pkg/tactic/arith/fm_expression_table.go", "pkg/tactic/arith/fm_constraint_reconstruct.go", "pkg/tactic/arith/fm_reconstruction_batch.go", "pkg/tactic/arith/fm_model_save.go", "pkg/tactic/arith/fm_input_parser.go", "pkg/tactic/arith/fm_input_atoms.go", "pkg/tactic/arith/fm_input_polynomial.go", "pkg/tactic/arith/fm_input_recognize.go", "pkg/tactic/arith/fm_input_constraint.go"],
       "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"],
       "conditionals": [
         {
