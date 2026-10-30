@@ -37,8 +37,8 @@ func (p *searchRestartPolicy) observe(lemmas uint64) (bool, error) {
 	return true, nil
 }
 
-func confirmConcreteReachability(obligation *ProofObligation) (_ bool, resultErr error) {
-	if obligation == nil || obligation.valid() != nil {
+func (q *ProofObligationQueue) confirmConcreteReachability(obligation *ProofObligation) (_ bool, resultErr error) {
+	if q == nil || obligation == nil || obligation.valid() != nil {
 		return false, ErrManagerOwner
 	}
 	saved := obligation.level
@@ -98,7 +98,21 @@ func confirmConcreteReachability(obligation *ProofObligation) (_ bool, resultErr
 	if err = next.SetDerivation(derivation); err != nil {
 		return false, fmt.Errorf("spacer: confirm reachability set derivation: %w", errors.Join(err, derivation.Close()))
 	}
-	return confirmConcreteReachability(next)
+	// Source is_reachable publishes the next child before recursing. If the
+	// recursive confirmation fails, ordinary queue search must still see it.
+	top, err := q.Top()
+	if err != nil {
+		return false, err
+	}
+	if top == obligation {
+		if _, err = q.Pop(); err != nil {
+			return false, err
+		}
+	}
+	if err = q.Push(next); err != nil {
+		return false, err
+	}
+	return q.confirmConcreteReachability(next)
 }
 
 // CheckReachability runs one source-default obligation-queue search at the
@@ -196,7 +210,7 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			candidate := node
 			for candidate.parent != nil {
 				parent := candidate.parent
-				reachable, err := confirmConcreteReachability(parent)
+				reachable, err := q.confirmConcreteReachability(parent)
 				if err != nil {
 					return false, err
 				}
