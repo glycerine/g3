@@ -167934,20 +167934,17 @@
       "path": "src/tactic/arith/nla2bv_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/nla2bv_tactic.go",
-        "pkg/tactic/arith/nla2bv_rules.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go"
       ],
       "tests": [
-        "pkg/tactic/arith/nla2bv_tactic_test.go",
-        "pkg/tactic/arith/nla2bv_cpp_test.go",
-        "pkg/cmd/g3/main_test.go",
-        "pkg/cmd/g3/test_vectors/nla2bv_bounded_scopes.smt2",
-        "pkg/cmd/g3/test_vectors/nla2bv_under_unknown.smt2",
-        "pkg/cmd/g3/test_vectors/nla2bv_real_models.smt2",
-        "pkg/cmd/g3/test_vectors/nla2bv_root_parameters.smt2"
+        "TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata",
+        "TestBuiltinTacticRegistryDrivesFactoryValidation",
+        "TestBuiltinTacticDescriptionsCoverRegistry"
       ],
       "conditionals": [
         {
@@ -167959,42 +167956,23 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "per-application imp construction, variable classification, integer bounds and signed offsets, real coefficient substitution, power-two substitution, BV2int/BV2real reduction, side conditions and precision downgrade",
-          "status": "partial",
-          "go_target": "pkg/tactic/arith/nla2bv_rules.go",
+          "name": "mk_nla2bv_tactic factory declaration and ADD_TACTIC name/description registration (lines 27-30)",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/tactic_commands.go",
           "tests": [
-            "TestNLA2BVExactGoalsPrebuiltCPP",
-            "TestNLA2BVSMTLIBSolvingAndModelsPrebuiltCPP",
-            "TestNLA2BVParametersFreshInvocationsCleanupAndTranslation",
-            "TestNLA2BVLog2SourceBoundaries",
-            "TestNLA2BVIntegerLexicalRefsEndAtDefinitionHandoff"
-          ]
-        },
-        {
-          "name": "factory registration, parameter snapshots/descriptions, proof/core guards, translation, fresh per-call implementation ownership, extension/filter model reconstruction and scoped implementation clearing",
-          "status": "partial",
-          "go_target": "pkg/tactic/arith/nla2bv_tactic.go",
-          "tests": [
-            "TestNLA2BVProofAndCoreGuardsPreserveResult",
-            "TestNLA2BVReferenceCountClosesAtLastRelease",
-            "TestNLA2BVParameterDescriptionsMatchSourceOrderAndMetadata",
-            "TestNLA2BVConstructorAndApplicationAllocationPrefixes",
-            "TestSMTLibRunnerScripts",
-            "TestSMTLibRunnerCPPReference"
+            "TestBuiltinTacticRegistryDrivesFactoryValidation",
+            "TestBuiltinTacticDescriptionsCoverRegistry"
           ]
         }
       ],
       "ownership": [
-        "Outer tactic owns its parameter snapshot and pending invocation cleanup. Each call owns the BV2real utility, BV2int context, bounds, substitution, declaration/definition/trail vectors, reducer/replacer temporaries and converter references. A stopped local cleanup is retained and blocks subsequent application until Cleanup/Close. Result owns the concatenated filter/extension converter independently of invocation destruction. Explicit source guards run before resetting the prior result."
+        "The header declares the tactic factory; the Go constructor returns the caller-owned tactic, and the command context owns no additional tactic state."
       ],
-      "deviations": [
-        "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; power-two map iteration remains unspecified. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
-        "Sixteen prebuilt-C++ whole-goal/refusal cases cover bounded/unbounded integers, signed offsets, nonlinear products, reals/ITE/comparisons, constant width growth, unsupported functions/division/quantifiers, post-power-two classification refusal and inability to eliminate a real denominator. Five end-to-end solving/model cases and four retained CLI vectors cover sat/unsat/unknown, models and scopes/parameters. These checks do not prove completion of the general nonlinear strategy dispatcher, nlsat tactic or broader smtcore/solver/API/higher engines."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/arith/normalize_bounds_tactic.cpp",
