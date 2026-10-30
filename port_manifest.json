@@ -5867,7 +5867,7 @@
       "path": "src/api/api_numeral.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_numeral_string.go", "pkg/api/api_numeral_string_test.go", "pkg/api/api_numerals.go", "pkg/api/api_numerals_test.go", "pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_fpa_api_numeral_text_test.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
       "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestSMTContextNumeralConstructionAndQueries", "TestSMTContextBitVectorNumeralBits", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
       "assertions": [
@@ -5876,19 +5876,19 @@
           "text": "SASSERT(u);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Selected Z3_get_numeral_string arithmetic, BitVec and finite-domain datalog rational probes followed by FPA rounding-mode/MPF fallback with caller-local scoped_mpf and temporary formatted text (api_numeral.cpp:158-175,187-228); external C string integration remains open",
-          "status": "partial",
+          "name": "Z3_get_numeral_string arithmetic, BitVec and finite-domain probes followed by FPA rounding-mode/MPF fallback with caller-local temporary formatting (api_numeral.cpp:158-175,187-228)",
+          "status": "platform_replacement",
           "go_target": "pkg/api/api_numeral_string.go",
           "go_targets": ["pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
           "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestASTFPANumeralStringAPIScopedMPFAndBranches"]
         }
       ],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The C API returns a context-managed external string; the Go API returns an owned immutable string and keeps all numeral conversions and refusal behavior."]
     },
     {
       "path": "src/api/api_opt.cpp",

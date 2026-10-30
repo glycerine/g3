@@ -50792,3 +50792,6 @@ Interpolation profiling API (2026-10-30 UTC): connected the retained profiler to
 
 
 Interpolation API source-unit audit (2026-10-30 UTC): closed `src/api/api_interp.cpp` after verifying its live context, proof-input, solve, check, write/read, and profile operations. The private option helpers are absent from the public interpolation header; weak-mode behavior is represented by `interp.Options`, the public interpolation API ignores its legacy options pointer, and the direct `Z3_interpolate` entry point is disabled under `#if 0`. Focused interpolation API tests pass.
+
+
+API numeral string source-unit audit (2026-10-30 UTC): verified arithmetic, bit-vector, finite-domain, floating-point value, and rounding-mode numeral conversion against `Z3_get_numeral_string`. Focused API numeral tests pass across all supported kinds and unsupported symbolic inputs; the context-managed C string is represented as an owned Go string, so `src/api/api_numeral.cpp` is now recorded as ported.
