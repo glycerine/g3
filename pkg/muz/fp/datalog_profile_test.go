@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/fp"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func TestDatalogProfileCountsRulesRelationsTuplesAndCompiler(t *testing.T) {
@@ -35,5 +36,14 @@ func TestDatalogProfileCountsRulesRelationsTuplesAndCompiler(t *testing.T) {
 	fpMust(t, err)
 	if profile.RuleCount != 1 || profile.RelationCount != 2 || profile.TupleCount != 1 || !profile.Compiled || profile.Relations[0].TupleCount != 1 || profile.Relations[1].TupleCount != 0 {
 		t.Fatalf("profile %#v", profile)
+	}
+	stats := statistics.New()
+	fpMust(t, engine.CollectStatistics(stats))
+	seen := make(map[string]bool)
+	for index := 0; index < stats.Size(); index++ {
+		seen[string(stats.Key(index))] = true
+	}
+	if !seen["saturation time"] || !seen["dl.total"] {
+		t.Fatalf("Datalog statistics omit source saturation or instruction totals: %v", seen)
 	}
 }

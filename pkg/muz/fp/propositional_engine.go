@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/bits"
 	"sort"
+	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
@@ -122,6 +123,8 @@ type PropositionalEngine struct {
 	forceProofTrace    bool
 	queryParams        uparams.ParamsRef
 	queryParamsReady   bool
+	datalogStats       statistics.Statistics
+	datalogElapsed     float64
 	closed             bool
 	ddnf               ddnfEngineState
 }
@@ -1436,6 +1439,13 @@ func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr erro
 	if err = execution.ProcessAllCosts(); err != nil {
 		return true, err
 	}
+	e.datalogStats.Reset()
+	if err = execution.CollectStatistics(&e.datalogStats); err != nil {
+		return true, err
+	}
+	if err = context.CollectStatistics(&e.datalogStats); err != nil {
+		return true, err
+	}
 	for declaration, state := range e.predicates {
 		table, found, x := e.relations.TryGetRelation(declaration)
 		if x != nil {
@@ -1473,6 +1483,10 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 	}
 	if e.backend == "spacer" && e.spacer != nil {
 		return e.spacer.CollectStatistics(destination)
+	}
+	if e.backend == "datalog" {
+		destination.UpdateDouble("saturation time", e.datalogElapsed)
+		destination.Copy(e.datalogStats)
 	}
 	return nil
 }
@@ -1626,6 +1640,8 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			return lbool.Undef, ErrPropositionalHorn
 		}
 	}
+	e.datalogStats.Reset()
+	started := time.Now()
 	if err = e.relations.ResetSaturatedMarks(); err != nil {
 		return lbool.Undef, err
 	}
@@ -1637,11 +1653,13 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	}
 	e.compiled, err = e.tryCompiledSaturation()
 	if err != nil {
+		e.datalogElapsed += time.Since(started).Seconds()
 		return lbool.Undef, err
 	}
 	if !e.compiled {
 		err = e.saturate()
 	}
+	e.datalogElapsed += time.Since(started).Seconds()
 	if err != nil {
 		return lbool.Undef, err
 	}
