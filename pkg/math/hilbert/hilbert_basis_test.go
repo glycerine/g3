@@ -98,6 +98,52 @@ func TestBasisSourceExamples(t *testing.T) {
 	}
 }
 
+func TestBasisSourceA553RegisteredWorkload(t *testing.T) {
+	basis := New(nil)
+	for i := 0; i < 15; i++ {
+		row := make([]big.Rat, 75)
+		for j := 0; j < 5; j++ {
+			for k := 0; k < 15; k++ {
+				if k == i {
+					row[j*15+k].SetInt64(1)
+				}
+			}
+		}
+		if err := basis.AddGE(row, rational(0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 1; i <= 15; i++ {
+		row := make([]big.Rat, 75)
+		for k := 1; k <= 5; k++ {
+			for l := 1; l <= 5; l++ {
+				for j := 1; j <= 3; j++ {
+					if j*k <= i && (i-j)%3 == 0 {
+						index := ((k-1)*5+(l-1))*3 + (j - 1)
+						row[index].SetInt64(1)
+					}
+				}
+			}
+		}
+		if err := basis.AddGE(row, rational(0)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(basis.inequalities) != 30 {
+		t.Fatalf("registered workload has %d inequalities, want 30", len(basis.inequalities))
+	}
+	for i, inequality := range basis.inequalities {
+		if len(inequality.values) != 76 {
+			t.Fatalf("inequality %d has %d coordinates, want 76", i, len(inequality.values))
+		}
+	}
+	result, err := basis.Saturate()
+	if err != nil || result != lbool.True {
+		t.Fatalf("registered A_5_5_3 saturation = %v, %v", result, err)
+	}
+	validateBasis(t, basis)
+}
+
 func TestBasisIntegerCoordinatesAndCancellation(t *testing.T) {
 	basis := New(func() bool { return false })
 	basis.SetIsInt(0)

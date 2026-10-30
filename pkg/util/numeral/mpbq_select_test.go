@@ -594,3 +594,112 @@ func TestBinarySelectionRootsAndApprox(t *testing.T) {
 		}
 	}
 }
+
+// TestMPBQSelectSmallRegisteredAlgebraicSourceCases ports the concrete
+// mpbq_manager::select_small cases registered by src/test/algebraic.cpp.
+// Keep these inputs here, next to the concrete binary-rational implementation
+// used by the algebraic root manager.
+func TestMPBQSelectSmallRegisteredAlgebraicSourceCases(t *testing.T) {
+	m, _ := binaryManager(t)
+	cases := []struct {
+		lowerNum int64
+		lowerK   uint32
+		upperNum int64
+		upperK   uint32
+	}{
+		{1, 3, 3, 2},
+		{10_000_000_000_000, 40, 11_000, 10},
+		{10_000_000_000_000, 40, 10_001, 10},
+		{1, 0, 1, 0},
+		{1, 0, 2, 0},
+		{-1, 0, -1, 0},
+		{-2, 0, -1, 0},
+		{0, 0, 1_100, 10},
+		{7, 3, 1_001, 10},
+		{1_000, 10, 1_001, 10},
+	}
+	for i, tc := range cases {
+		l, u, out := NewBinaryRational(), NewBinaryRational(), NewBinaryRational()
+		serviceMust(t, m.SetInt64Power(&l, tc.lowerNum, tc.lowerK))
+		serviceMust(t, m.SetInt64Power(&u, tc.upperNum, tc.upperK))
+		ok, e := m.SelectSmall(&l, &u, &out)
+		serviceMust(t, e)
+		if !ok {
+			t.Fatalf("source case %d unexpectedly rejected", i)
+		}
+		lv, uv, got := binaryRat(t, m, &l), binaryRat(t, m, &u), binaryRat(t, m, &out)
+		if got.Cmp(lv) < 0 || got.Cmp(uv) > 0 {
+			t.Fatalf("source case %d selected %s outside [%s,%s]", i, got, lv, uv)
+		}
+		serviceMust(t, m.Del(&l))
+		serviceMust(t, m.Del(&u))
+		serviceMust(t, m.Del(&out))
+	}
+
+	// The final two C++ fixtures build (11^64)/2^192 and the adjacent
+	// numerator values +1 and +256 before dividing by 2^192.
+	for _, delta := range []int32{1, 256} {
+		l, u, out := NewBinaryRational(), NewBinaryRational(), NewBinaryRational()
+		serviceMust(t, m.SetInt32Power(&l, 11, 0))
+		serviceMust(t, m.PowerInPlace(&l, 64))
+		serviceMust(t, m.Copy(&u, &l))
+		d := NewInt(delta)
+		serviceMust(t, m.AddInteger(&u, &d, &u))
+		serviceMust(t, m.Div2k(&l, 192))
+		serviceMust(t, m.Div2k(&u, 192))
+		ok, e := m.SelectSmall(&l, &u, &out)
+		serviceMust(t, e)
+		if !ok {
+			t.Fatalf("source large-boundary case delta=%d unexpectedly rejected", delta)
+		}
+		lv, uv, got := binaryRat(t, m, &l), binaryRat(t, m, &u), binaryRat(t, m, &out)
+		if got.Cmp(lv) < 0 || got.Cmp(uv) > 0 {
+			t.Fatalf("source large-boundary case delta=%d selected %s outside [%s,%s]", delta, got, lv, uv)
+		}
+		serviceMust(t, m.Z.Del(&d))
+		serviceMust(t, m.Del(&l))
+		serviceMust(t, m.Del(&u))
+		serviceMust(t, m.Del(&out))
+	}
+}
+
+// TestMPBQRefineRegisteredAlgebraicSourceSequence covers both 20-step loops
+// from src/test/algebraic.cpp::tst_refine_mpbq with its exact 5/7 input.
+func TestMPBQRefineRegisteredAlgebraicSourceSequence(t *testing.T) {
+	m, _ := binaryManager(t)
+	qm := m.Diagnostics.Manager
+	q := NewRational()
+	serviceMust(t, qm.SetFraction(&q, 5, 7))
+	qValue := new(big.Rat).SetFrac(big.NewInt(5), big.NewInt(7))
+	for _, upper := range []bool{true, false} {
+		l, u := NewBinaryRational(), NewBinaryRational()
+		exact, e := m.FromRational(qm, &q, &l)
+		serviceMust(t, e)
+		if exact {
+			t.Fatal("5/7 unexpectedly has a binary representation")
+		}
+		serviceMust(t, m.Copy(&u, &l))
+		serviceMust(t, m.Mul2(&u))
+		previousWidth := new(big.Rat).Sub(binaryRat(t, m, &u), binaryRat(t, m, &l))
+		for i := 0; i < 20; i++ {
+			if upper {
+				e = m.RefineUpper(qm, &q, &l, &u)
+			} else {
+				e = m.RefineLower(qm, &q, &l, &u)
+			}
+			serviceMust(t, e)
+			lv, uv := binaryRat(t, m, &l), binaryRat(t, m, &u)
+			if lv.Cmp(qValue) >= 0 || uv.Cmp(qValue) <= 0 {
+				t.Fatalf("step %d upper=%t lost strict enclosure: %s < %s < %s", i, upper, lv, qValue, uv)
+			}
+			width := new(big.Rat).Sub(uv, lv)
+			if width.Cmp(previousWidth) >= 0 {
+				t.Fatalf("step %d upper=%t did not narrow: %s >= %s", i, upper, width, previousWidth)
+			}
+			previousWidth = width
+		}
+		serviceMust(t, m.Del(&l))
+		serviceMust(t, m.Del(&u))
+	}
+	serviceMust(t, qm.Del(&q))
+}

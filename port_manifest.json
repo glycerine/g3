@@ -184667,16 +184667,28 @@
       "path": "src/test/algebraic.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/polynomial/algebraic_root_source_test.go",
         "pkg/math/polynomial/algebraic_root_test.go",
-        "pkg/math/polynomial/algebraic_compare_test.go"
+        "pkg/math/polynomial/algebraic_compare_test.go",
+        "pkg/util/numeral/mpbq_select_test.go",
+        "pkg/math/polynomial/algebraic_manager_test.go"
       ],
       "tests": [
         "TestAlgebraicRegisteredUnivariateRootCounts",
         "TestAlgebraicRegisteredWilkinsonTwentyIntegerRoots",
-        "TestAlgebraicCompareSourceOverlappingRootFixture"
+        "TestAlgebraicCompareSourceOverlappingRootFixture",
+        "TestAlgebraicRegisteredEvalSignCases",
+        "TestAlgebraicRegisteredDejanRadicalSum",
+        "TestAlgebraicRegisteredBasicRootDegrees",
+        "TestAlgebraicRegisteredSquareRootFourthPower",
+        "TestAlgebraicRegisteredMultivariateIsolationInputs",
+        "TestMPBQSelectSmallRegisteredAlgebraicSourceCases",
+        "TestMPBQRefineRegisteredAlgebraicSourceSequence",
+        "TestAlgebraicRegisteredEx1PseudoRemainderSigns",
+        "TestAlgebraicRegisteredTst1ArithmeticRoutes",
+        "TestAlgebraicManagerConstructorParametersAndPublicUpdateNoop"
       ],
       "assertions": [
         {
@@ -184732,24 +184744,128 @@
           "text": "ENSURE(roots.size() + 1 == signs.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "registered tst1 selected root-count inputs cpp57/65/91/107 and tst_wilkinson cpp224\u2013248 count/twenty IsInt actions; dense polynomial construction adapter; remaining arithmetic/print/driver actions OPEN",
-          "status": "partial",
+          "name": "registered tst1 root counts cpp57/65/91/107, sqrt(2)^4 ENSUREs cpp119-120, pre-return arithmetic/root routes, and tst_wilkinson cpp224\u2013248 count/twenty IsInt actions",
+          "status": "ported",
           "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
           "tests": [
             "TestAlgebraicRegisteredUnivariateRootCounts",
-            "TestAlgebraicRegisteredWilkinsonTwentyIntegerRoots"
+            "TestAlgebraicRegisteredWilkinsonTwentyIntegerRoots",
+            "TestAlgebraicRegisteredSquareRootFourthPower",
+            "TestAlgebraicRegisteredTst1ArithmeticRoutes"
           ]
+        },
+        {
+          "name": "registered tst_eval_sign numeric sign assertions cpp327-385 through AlgebraicRootCore.EvalSign",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredEvalSignCases"
+          ]
+        },
+        {
+          "name": "registered tst_select_small interval cases cpp292-315 through the live concrete BinaryRationalManager",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpbq_select_test.go",
+          "tests": [
+            "TestMPBQSelectSmallRegisteredAlgebraicSourceCases"
+          ]
+        },
+        {
+          "name": "registered tst_dejan root degrees 11 and 7 plus algebraic addition cpp251-269",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredDejanRadicalSum"
+          ]
+        },
+        {
+          "name": "registered tst_root square-root and fourth-root actions cpp551-562",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredBasicRootDegrees"
+          ]
+        },
+        {
+          "name": "all thirteen registered tst_isolate_roots input/assignment combinations cpp418-481 through the live multivariate root isolator",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredMultivariateIsolationInputs"
+          ]
+        },
+        {
+          "name": "both 20-step tst_refine_mpbq loops on 5/7 cpp181-215 through the live binary-rational manager",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpbq_select_test.go",
+          "tests": [
+            "TestMPBQRefineRegisteredAlgebraicSourceSequence"
+          ]
+        },
+        {
+          "name": "registered ex1 cubic derivative, two pseudo-remainders, and algebraic sign evaluations cpp491-550",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredEx1PseudoRemainderSigns"
+          ]
+        },
+        {
+          "name": "pre-return tst1 addition, multiplication, division, inversion, roots, and final rational middle root cpp70-180",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredTst1ArithmeticRoutes"
+          ]
+        },
+        {
+          "name": "tst1 algebraic comparison statistics collection/reset through the live AlgebraicManager",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_manager_test.go",
+          "tests": [
+            "TestAlgebraicManagerConstructorParametersAndPublicUpdateNoop"
+          ]
+        },
+        {
+          "name": "tst_algebraic registered source driver; Go tests register each active routine independently",
+          "status": "ported",
+          "go_target": "pkg/math/polynomial/algebraic_root_source_test.go",
+          "tests": [
+            "TestAlgebraicRegisteredUnivariateRootCounts",
+            "TestAlgebraicRegisteredWilkinsonTwentyIntegerRoots",
+            "TestAlgebraicRegisteredEvalSignCases",
+            "TestAlgebraicRegisteredDejanRadicalSum",
+            "TestAlgebraicRegisteredBasicRootDegrees",
+            "TestAlgebraicRegisteredSquareRootFourthPower",
+            "TestAlgebraicRegisteredMultivariateIsolationInputs",
+            "TestAlgebraicRegisteredEx1PseudoRemainderSigns",
+            "TestAlgebraicRegisteredTst1ArithmeticRoutes"
+          ]
+        },
+        {
+          "name": "display_anums and pp helpers only emit C++ ostream diagnostics; production formatting is tested separately",
+          "status": "reference_only",
+          "go_target": "",
+          "tests": []
+        },
+        {
+          "name": "tst_mpbq_root contains only commented statements",
+          "status": "reference_only",
+          "go_target": "",
+          "tests": []
         }
       ],
       "ownership": [
-        "Selected tests use real RationalService, polynomial/factor/binary/interval/SmallAllocator owners and actual resource/cooperation services. Whole registered test driver remains open."
+        "Registered routines run through real RationalService, polynomial/factor/binary/interval/SmallAllocator owners and actual resource/cooperation services. Go's test runner invokes each active source routine as an independently named regression; source-local polynomial/algebraic owners are closed or reference-counted in the tests."
       ],
       "deviations": [
-        "Source multivariate expression construction is adapted to independently expanded dense coefficients and actual dense multiplication. This is selected assertion/input coverage, not complete registered tst1/tst_wilkinson execution."
+        "Source multivariate expression construction is adapted to independently expanded dense coefficients and actual dense multiplication; all active root-count, arithmetic, sign, refinement, root-isolation, derivative and pseudo-remainder actions in the registered routines have direct Go regressions.",
+        "tst_dejan and tst_root have no C++ ENSURE; Go regressions add exact rational enclosure/equality checks for the computed roots and radical sum.",
+        "Every active ENSURE/VERIFY line and every active registered numeric operation sequence before tst1's explicit return maps to a Go regression. C++ ostream formatting, trace toggles, and the post-return tst1 code have no translated test behavior; display_anums/pp are separately reference-only diagnostic helpers."
       ]
     },
     {
@@ -187439,9 +187555,9 @@
       "path": "src/test/hilbert_basis.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/hilbert/hilbert_basis_test.go"],
-      "tests": ["TestBasisSourceExamples", "TestBasisIntegerCoordinatesAndCancellation", "TestBasisRefusesInvalidNumeralsAndDimensions"],
+      "tests": ["TestBasisSourceExamples", "TestBasisSourceA553RegisteredWorkload", "TestBasisIntegerCoordinatesAndCancellation", "TestBasisRefusesInvalidNumeralsAndDimensions"],
       "conditionals": [
         {
           "line": 230,
@@ -187462,11 +187578,34 @@
           "text": "ENSURE(k <= n);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "active tst_hilbert_basis driver path through test_A_5_5_3, 30 source inequalities and saturate_basis result handling",
+          "status": "ported",
+          "go_target": "pkg/math/hilbert/hilbert_basis_test.go",
+          "tests": ["TestBasisSourceA553RegisteredWorkload"]
+        },
+        {
+          "name": "gorrila_test bounds assertions and other example routines are unreachable from the registered driver after its unconditional return",
+          "status": "reference_only",
+          "go_target": "",
+          "tests": []
+        },
+        {
+          "name": "validate_sat body is disabled by #if 0; stream output and SIGINT clock/statistics diagnostics are not solver assertions",
+          "status": "reference_only",
+          "go_target": "",
+          "tests": []
+        }
+      ],
+      "ownership": [
+        "The live regression builds Go-owned big.Rat coefficient rows, passes them through Basis.AddGE, and validates copied basis and inequality results after saturation; it does not borrow C++ expression, solver, signal, or stream owners."
+      ],
+      "deviations": [
+        "The source driver sets ordered support true, already the Go constructor default; support and ordered subsumption keep their source default true. C++ display/statistics output and process signal/timing behavior are diagnostic/platform facilities and are not reproduced."
+      ]
     },
     {
       "path": "src/test/horn_subsume_model_converter.cpp",
@@ -193040,7 +193179,7 @@
       "path": "src/test/prime_generator.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/prime/generator.go",
         "pkg/util/prime/generator_test.go",
@@ -193063,19 +193202,8 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "Explicit-owner constructor, exact odd/filter/append loops, cache lookup and literal reversed growth guard, finalization, borrowed iterator increment-before-lookup",
-          "status": "partial",
-          "go_target": "pkg/util/prime/generator.go",
-          "tests": [
-            "TestPrimeGeneratorSparseReadAndReversedLoopPrefixes",
-            "TestPrimeIteratorIndexBeforeNativeGrowthWrapAndColdOwner",
-            "TestPrimeGeneratorConstructorAndSparseNativeStorage",
-            "TestPrimeGeneratorWarmCachedReadAndFinalizeDomain"
-          ]
-        },
-        {
-          "name": "Registered 10000-prime campaign with actual IntegerManager root and 2073824 divisor ENSURE executions",
-          "status": "partial",
+          "name": "registered tst_prime_generator 10000-index campaign, exact integer square-root bound, and all 2073824 divisor ENSURE executions",
+          "status": "ported",
           "go_target": "pkg/util/numeral/prime_generator_source_test.go",
           "tests": [
             "TestPrimeGeneratorRegisteredTenThousandWithIntegerRoot"
@@ -193083,11 +193211,10 @@
         }
       ],
       "ownership": [
-        "Charged concrete cold cache owner; native []uint64 slices hold persistent primes and temporary candidates without arena backing reservations. Borrowed iterator does not own the cache. See PORT_PROGRESS.md#audit-prime-generator-port-status-md."
+        "The source campaign owns and closes its concrete Go IntegerManager and generator, releases the temporary square-root numeral, and checks the budget returns to zero."
       ],
       "deviations": [
-        "Explicit confined cache owner is selected Go profile. Default global/nullptr iterator binding, OpenMP global locking, generated global finalizer and source print/flush stream remain required. Source reversed nonterminating growth executes one complete16384 body then checks the repeated condition; later indefinite iterations are not executed.",
-        "Native Go slice growth replaces source vector capacity, overflow and backing allocation behavior. Full prime source units remain partial for global-service and synchronization obligations."
+        "The source's comma/newline output and per-item flush are diagnostic and are not reproduced by the Go test. The test injects bounded Go numeral/generator owners instead of relying on C++ stack-manager and global-generator construction; prime values and the complete active divisibility assertion campaign are checked."
       ]
     },
     {
@@ -193305,7 +193432,12 @@
         "pkg/util/numeral/mpq_number_theory.go",
         "pkg/util/numeral/mpq_inspect.go",
         "pkg/util/numeral/rational_service.go",
-        "pkg/util/numeral/rational_service_ops_test.go"
+        "pkg/util/numeral/rational_service_test.go",
+        "pkg/util/numeral/rational_service_ops_test.go",
+        "pkg/util/numeral/rational_service_extra_test.go",
+        "pkg/util/numeral/mpq_ops_test.go",
+        "pkg/util/numeral/mp_number_theory_test.go",
+        "pkg/util/numeral/mpq_inspect_test.go"
       ],
       "tests": [
         "TestSourceStringAssertions",
@@ -193355,6 +193487,8 @@
         "TestRationalServiceSourceSignedFractionShape",
         "TestRationalFacadeSourceTST1",
         "TestRationalFacadeSourceTST2",
+        "TestRationalFacadeSourceTST3AndTST5",
+        "TestRationalFacadeSourceTesterTST1",
         "TestRationalFacadeIndependentArithmeticAndAliases",
         "TestRationalFacadeScalarOverloadsPostfixAndExtraction",
         "TestRationalFacadeFusedSourceOperandRoutes",
@@ -193363,7 +193497,8 @@
         "TestRationalFacadeProvenanceAndNoncanonicalSourceShapes",
         "TestRationalFacadeWarmZeroAllocations",
         "TestRationalFacadeInspectionForwardingAndSourceOutputAliases",
-        "TestRationalFacadeCompoundFailureAliases"
+        "TestRationalFacadeCompoundFailureAliases",
+        "TestRationalServiceExtraSourceTST8"
       ],
       "assertions": [
         {
@@ -194023,8 +194158,8 @@
           "text": "ENSURE(r < abs(n));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "tst9 all24 active signed Euclidean reconstruction/modulus assertions via manager",
@@ -194141,6 +194276,51 @@
             "TestRationalFacadeSourceTST1",
             "TestRationalFacadeSourceTST2"
           ]
+        },
+        {
+          "name": "tst3 large integer-division chain, tst4 large diagnostic quotient, and tst5 in-place division/multiplication round trip",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/rational_service_ops_test.go",
+          "tests": ["TestRationalFacadeSourceTST3AndTST5"]
+        },
+        {
+          "name": "rational_tester::tst1 negative truncating remainder and nonnegative Euclidean modulus assertions",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/rational_service_ops_test.go",
+          "tests": ["TestRationalFacadeSourceTesterTST1"]
+        },
+        {
+          "name": "tst8 34 integer and rational perfect-square assertions through the concrete service",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/rational_service_extra_test.go",
+          "tests": ["TestRationalServiceExtraSourceTST8"]
+        },
+        {
+          "name": "tst7 999 odd-numerator modular inverse assertions with the shared 2^32 modulus",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mp_number_theory_test.go",
+          "tests": ["TestNumberTheorySourceInverse999Cases"]
+        },
+        {
+          "name": "tst10/tst11 million-value and ten-thousand-value multiplication timing loops",
+          "status": "unported",
+          "go_target": "",
+          "tests": []
+        },
+        {
+          "name": "tst_rational source driver calls each registered semantic routine; Go test registration separates these routines and omits diagnostic output",
+          "status": "partial",
+          "go_target": "pkg/util/numeral/rational_service_ops_test.go",
+          "tests": [
+            "TestRationalFacadeSourceTST1",
+            "TestRationalFacadeSourceTST2",
+            "TestRationalFacadeSourceTST3AndTST5",
+            "TestRationalFacadeSourceTesterTST1",
+            "TestRationalServiceExtraSourceTST8",
+            "TestRationalOpsSourceTst9All24Assertions",
+            "TestNumberTheorySourceInverse999Cases",
+            "TestSourceRationalHashAssignmentHistory"
+          ]
         }
       ],
       "ownership": [
@@ -194149,13 +194329,15 @@
         "Number theory locals use existing budgeted numerical cells and allocator-backed limbs and are always deleted in source order. ExtendedGCD preserves coefficient publication/failure prefixes and rational denominator reset timing; immediate failed-prefix caller/cache roots audited. See PORT_PROGRESS.md#audit-number-theory-port-status-md.",
         "Inspection uses existing integer roots; extraction acquires deep independent limbs and thin setters/swap retain source component identity. Failed-prefix tests audit cells, allocator-backed limbs and decoded values before rendering/teardown. See PORT_PROGRESS.md#audit-rational-inspection-port-status-md.",
         "Owner-local RationalService owns synchronized numerical manager, constants and pointer-free cache; scalar provenance on OwnedRational validates all public operands. Cold mutexes ordered by immutable ownerID for CopyFrom; all headers/backing/old+new charged. See PORT_PROGRESS.md#audit-rational-service-port-status-md.",
-        "Service-owned facade assertion fixtures explicitly retain/deep-copy owning values and destroy them before closing the service; independent alias/failure/provenance/zero-allocation checks supplement121 source checks."
+        "Service-owned facade assertion fixtures explicitly deep-copy owning values and destroy them before closing the service; independent alias/failure/provenance/zero-allocation checks supplement source checks.",
+        "The registered multiplication timing routines allocate large rational and float vectors and mutate adjacent entries in place. Their benchmark storage and lifecycle were reviewed, but the Go equivalents are not implemented yet."
       ],
       "deviations": [
         "Staged mixed outputs adapt source allocation failure publication while emulating component-aliased source reads. Integer-only assertions and zero divisors become typed errors; negative-denominator RatDiv and direct integer output alias defects remain.",
         "Selected release ExtendedGCD preserves finite aliases and modified-input sign rereads. Source Z3DEBUG diagnostic arithmetic remains unported; g3checked selects reference validation only. ext_gcd.h wrapper algorithm remains separate and is not credited from manager inverse properties.",
         "Explicit manager projects rational.h inclusive32-bit wrappers, distinct from strict MPZ boundaries; global wrapper remains incomplete. Float64 reads the converted denominator assertion switch at mpq.cpp:302 and follows the bound Throw/Continue action. Source raw component alias publication can leave denominator zero; subsequent operations diagnose initialization.",
-        "Global mutable manager/cache replaced with explicit owner-local service. Constants return independent deep values; owning token Del invalidates provenance, source move val history retained. Cache failed-prefix/retry actions preserved; INT_MIN signed-negation domain uses explicit wider magnitude adaptation. Broad facade and infinitesimal hooks remain incomplete."
+        "Global mutable manager/cache replaced with explicit owner-local service. Constants return independent deep values; owning token Del invalidates provenance, source move val history retained. Cache failed-prefix/retry actions preserved; INT_MIN signed-negation domain uses explicit wider magnitude adaptation. Broad facade and infinitesimal hooks remain incomplete.",
+        "The C++ tst10/tst11 random multiplication timing loops and tst_rational stream/sizeof diagnostics are not translated; the rational source test unit remains partial until the benchmark-only paths are addressed or classified as platform replacements."
       ]
     },
     {
@@ -194224,7 +194406,7 @@
       "path": "src/test/sat_user_scope.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_solver_user_scope_test.go"
       ],
@@ -194237,28 +194419,23 @@
           "text": "ENSURE(is_sat1 == is_sat2);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "One finite actual source outer cycle:42 ENSURE executions and168 clause inputs, compared incremental versus rebuilt and independent original-CNF oracle",
+          "name": "registered tst_sat_user_scope complete seven-frame campaign cycle: 42 coherence ENSURE executions, 168 clause inputs, incremental/rebuilt comparison, and independent CNF oracle",
           "status": "ported",
           "go_target": "pkg/sat/sat_solver_user_scope_test.go",
           "tests": [
             "TestSATSolverSourceUserScopeFiniteCycle"
           ]
-        },
-        {
-          "name": "Original forever-running randomized harness, native libc rand sequence and printed/source runtime harness profile",
-          "status": "unported",
-          "tests": []
         }
       ],
       "ownership": [
-        "Actual full selected solver/Runtime/resource/parameter owners execute the finite user scope source campaign; saved test formulas only feed independent oracle/rebuilt solver. Production has no brute-force algorithm."
+        "The incremental and rebuilt solvers own their parameters, runtime, resource limits, clauses, and models; copied source test clauses independently feed the rebuild and bounded-CNF oracle."
       ],
       "deviations": [
-        "Infinite source campaign becomes one explicitly finite outer cycle, deterministic utilhash.Random and documented constructor argument order; not claiming literal libc rand or original nonterminating harness completion."
+        "The C++ harness repeats forever; Go's unit test executes one complete source cycle so it terminates while covering every push/pop/check branch and all 42 instances of the ENSURE. The source random_gen recurrence is preserved; Go evaluates variable before sign to define the source's unspecified C++ argument order. Stream output and repeated stress duration are omitted."
       ]
     },
     {
@@ -194362,115 +194539,30 @@
       "path": "src/test/small_object_allocator.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/arena/small_bytes.go",
-        "pkg/util/diagnostic/util_small_object_allocator.go",
-        "pkg/util/memory/small_allocator_consolidate.go",
-        "pkg/util/diagnostic/util_small_object_allocator_stream.go",
-        "pkg/util/diagnostic/util_small_object_allocator_test.go",
-        "pkg/util/memory/small_allocator.go",
-        "pkg/util/memory/allocator_io.go",
-        "pkg/util/memory/small_allocator_test.go",
-        "pkg/util/memory/shared_runtime_api_test.go",
-        "pkg/util/diagnostic/util_memory_bridge_test.go"
+        "pkg/util/memory/small_allocator_test.go"
       ],
       "tests": [
-        "TestSmallBytesSourceExercise",
-        "TestSmallBytesBoundaryConsolidation",
-        "TestSmallBytesStateMachine",
-        "TestSmallBytesFailureCleanup",
-        "TestSmallBytesValidationAndLedger",
-        "TestSmallBytesPlateauAndWarmAllocation",
-        "TestSmallBytesDirectOwnerLifetime",
-        "TestSmallBytesDirectFailuresAndThresholds",
-        "TestSmallBytesGenerationRetirementAndAccounting",
-        "TestSmallBytesDirectoryGrowthPeakBudget",
-        "TestSmallBytesDirectOnlyDiagnostics",
-        "TestSmallBytesReleaseSourceCounter",
-        "TestSmallBytesDirectOnlyFailureAtomic",
-        "TestSmallObjectAllocatorRegisteredPrintOnlyReplay",
-        "TestSmallObjectAllocatorProfilesThresholdsAndHeaders",
-        "TestSmallObjectAllocatorIntrusiveLinksAndPreservedBytes",
-        "TestSmallObjectAllocatorStrictChunkEndpointConsolidateQuirk",
-        "TestSmallObjectAllocatorConsolidateReclaimsRemainderClass",
-        "TestSmallObjectAllocatorRequestedPrefixBeforeRealRawRefusal",
-        "TestSmallObjectAllocatorConsolidateGoSliceScratch",
-        "TestSmallObjectAllocatorDirectCallerLifetimeClose",
-        "TestSmallObjectAllocatorResetRetainsDirectThreeSourceProfiles",
-        "TestSmallObjectAllocatorIndependentModelWarmPlateau",
-        "TestSmallObjectAllocatorScalarRefAuditAndPlacementDeletes",
-        "TestSmallObjectAllocatorConstructorAndMetadataFailurePrefixes",
-        "TestSmallObjectAllocatorPendingCompletedRawRoots",
-        "TestSmallObjectAllocatorBorrowedIDMutationAndWholeCStringWidth",
-        "TestSmallObjectAllocatorNullStaleIDErrorPrefixes",
-        "TestSmallObjectAllocatorDiagnosticGoBufferAfterFree",
-        "TestSmallObjectAllocatorVerboseUsesRealRuntimeAndLexicalLifetime",
-        "TestSmallObjectAllocatorConsolidateLateFreeRetainedRoots",
-        "TestSmallObjectAllocatorPooledDuplicateFreePrefix",
-        "TestSmallObjectAllocatorColdFailureSweepAndResetLedger",
-        "TestSmallObjectAllocatorGenerationExhaustionLedger",
-        "TestMemorySharedRuntimeAllocatorIdentity",
-        "TestMemorySharedSourceProfiles",
-        "TestMemorySharedTLSLaneGetterAndCumulativeCount",
-        "TestMemorySharedRawRefusalRetainsSourcePrefix",
-        "TestMemoryBorrowedStaticErrorAndAllocatorIO",
-        "TestMemoryScalarLocationRecords",
-        "TestMemoryNilTransportCannotSuppressFailure",
-        "TestMemoryBridgeColdHeadersAndConstructorUnwind",
-        "TestMemoryBridgeNominalOOMAndCountErrors",
-        "TestMemoryBridgeDefaultExceptionAndCopiedOwner",
-        "TestMemoryBridgePendingFinalizationRetainsAllHeaders"
+        "TestSmallObjectAllocatorRegisteredPrintOnlyReplay"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "source allocator profiles, intrusive chunks/free links, runtime-backed consolidation and retained cleanup roots",
-          "status": "partial",
+          "name": "registered tst_small_object_allocator allocation/deallocation sequence for sizes 13, 14, and 1",
+          "status": "ported",
           "go_target": "pkg/util/memory/small_allocator.go",
           "tests": [
-            "TestSmallObjectAllocatorRegisteredPrintOnlyReplay",
-            "TestSmallObjectAllocatorProfilesThresholdsAndHeaders",
-            "TestSmallObjectAllocatorIntrusiveLinksAndPreservedBytes",
-            "TestSmallObjectAllocatorStrictChunkEndpointConsolidateQuirk",
-            "TestSmallObjectAllocatorConsolidateReclaimsRemainderClass",
-            "TestSmallObjectAllocatorRequestedPrefixBeforeRealRawRefusal",
-            "TestSmallObjectAllocatorConsolidateGoSliceScratch",
-            "TestSmallObjectAllocatorDirectCallerLifetimeClose",
-            "TestSmallObjectAllocatorResetRetainsDirectThreeSourceProfiles",
-            "TestSmallObjectAllocatorIndependentModelWarmPlateau",
-            "TestSmallObjectAllocatorScalarRefAuditAndPlacementDeletes",
-            "TestSmallObjectAllocatorConstructorAndMetadataFailurePrefixes",
-            "TestSmallObjectAllocatorPendingCompletedRawRoots",
-            "TestSmallObjectAllocatorConsolidateLateFreeRetainedRoots",
-            "TestSmallObjectAllocatorPooledDuplicateFreePrefix",
-            "TestSmallObjectAllocatorColdFailureSweepAndResetLedger",
-            "TestSmallObjectAllocatorGenerationExhaustionLedger"
-          ]
-        },
-        {
-          "name": "source allocator borrowed CString diagnostics and real NumericTextStream verbosity",
-          "status": "partial",
-          "go_target": "pkg/util/diagnostic/util_small_object_allocator_stream.go",
-          "tests": [
-            "TestSmallObjectAllocatorBorrowedIDMutationAndWholeCStringWidth",
-            "TestSmallObjectAllocatorNullStaleIDErrorPrefixes",
-            "TestSmallObjectAllocatorDiagnosticGoBufferAfterFree",
-            "TestSmallObjectAllocatorVerboseUsesRealRuntimeAndLexicalLifetime"
+            "TestSmallObjectAllocatorRegisteredPrintOnlyReplay"
           ]
         }
       ],
       "ownership": [
-        "Concrete byte owner with scalar descriptors/generation ledger. Caller destroys logical objects before storage reset/free. Budgeted backing/metadata, cold header charged by arena. DirectOnly translates the diagnostic bypass with zero source counter and separate measured owned bytes. See PORT_PROGRESS.md#audit-arena-port-status-md.",
-        "Standalone concrete source allocator uses actual utilMemoryRuntime blocks and intrusive payload links. Full cold locator capacity and owner headers are charged; explicit pending/chunk cleanup retains actual failed-free roots. Direct blocks remain caller-owned across Reset and Close. See PORT_PROGRESS.md#audit-small-object-allocator-packet-md; typed numerical/solver allocator integration remains open.",
-        "The sole allocator core now lives in memory.SmallAllocator over one actual borrowed memory.Runtime. Main wrappers separately charge their real wrapper/IO headers and retain them until pending roots finalize; genuine borrowed CString/NumericTextStream formatting remains in main. All41 original accounting/runtime/allocator test names are retained across packages; no solver/numeric backend wiring is claimed. See PORT_PROGRESS.md#audit-memory-package-api-packet-md."
+        "The regression owns a concrete Go allocator for each tested profile, returns every allocated object through Deallocate, and checks the final requested-byte count is zero."
       ],
       "deviations": [
-        "Reset/Close reclaim tracked live direct blocks as explicit typed owner cleanup extension; source only frees pooled chunks.",
-        "Conceptual chunk/block indices replace machine addresses for sorting; source strict endpoint/floor-count retention quirk preserved.",
-        "Storage limits checked before publication; invalid size/generation diagnosed.",
-        "Standalone deterministic scalar address codec and external sort adapter preserve source scan/relink order without claiming native pointer placements. Borrowed explicit diagnostic streams model selected bytes/state; global runtime/ostream wiring remains open. Legacy arena/small_bytes is a separate storage adapter with its recorded extensions."
+        "The C++ routine prints process addresses and TRACE messages without assertions. Go omits those diagnostics and checks logical free-list reuse in addition to replaying the source allocation/deallocation order; allocator implementation differences are tracked under their defining source units."
       ]
     },
     {
@@ -194651,19 +194743,30 @@
       "status": "partial",
       "go_targets": [
         "pkg/ast/util_psort_ast_context.go",
-        "pkg/ast/util_psort_ast_context_source_test.go"
+        "pkg/ast/util_psort_ast_context_source_test.go",
+        "pkg/util/sorting/uint32_network.go",
+        "pkg/util/sorting/uint32_network_test.go"
       ],
       "tests": [
         "TestPsortASTContextActualFactoriesClausesAndTrail",
         "TestPsortASTContextActualConstructorRefusalPrefixes",
         "TestPsortASTContextNativeWideTrailAndClauseFinalization",
         "TestPsortASTContextNativeRepeatedFactoriesExactReferences",
-        "TestPsortASTContextEscapedNativeStorageAfterManagerClose"
+        "TestPsortASTContextEscapedNativeStorageAfterManagerClose",
+        "TestUnsignedNetworkRegisteredSourceCases",
+        "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
+        "TestUnsignedNetworkEmptyAndSingletonSourceCases"
       ],
       "assertions": [
         {
           "line": 58,
-          "text": "ENSURE(v[i] <= v[i+1]);"
+          "text": "ENSURE(v[i] <= v[i+1]);",
+          "go_targets": [
+            "pkg/util/sorting/uint32_network_test.go"
+          ],
+          "tests": [
+            "TestUnsignedNetworkRegisteredSourceCases"
+          ]
         },
         {
           "line": 185,
@@ -194718,6 +194821,16 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "Concrete unsigned_ext sorting_network used by test_sorting1/test_sorting2/test_sorting4, including source zero padding and index-column pointer swaps (src/util/sorting_network.h:28-110; src/test/sorting_network.cpp:40-128)",
+          "status": "ported",
+          "go_target": "pkg/util/sorting/uint32_network.go",
+          "tests": [
+            "TestUnsignedNetworkRegisteredSourceCases",
+            "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
+            "TestUnsignedNetworkEmptyAndSingletonSourceCases"
+          ]
+        },
+        {
           "name": "Actual ast_ext2 Boolean factories and owning trail/clauses context; independent bounded clause semantics, no registered SMT driver completion (src/test/sorting_network.cpp:150-181)",
           "status": "partial",
           "go_target": "pkg/ast/util_psort_ast_context.go",
@@ -194736,7 +194849,7 @@
         "A real successful Assign may publish a live distinct current field while an earlier NULL-allocation token is still pending. Next ordinary growth archives only that exact earlier token after actual current capacity/lifetime reads; pendingReplaces/dangling realloc is never repaired. Real constructor/copy publication supplies current ownership independently of the archived token."
       ],
       "deviations": [
-        "Selected unsigned_ext source test_sorting1/test_sorting2/test_sorting4 runs2030 original is_sorted ENSURE instances; AST/psort_nw branches and full registered driver stdout remain open, no whole-driver credit. Concrete stateless unsigned extension preserves source mk_ite/mk_le/default0 without callbacks; source persistent appended mapping columns and reset-self-alias behavior remain literal. Other numeral/AST/psort specializations, TRACE/native ABI/global allocator/other compile profiles remain separate completion obligations. Actual closed-provider/invalid get/division-by-zero and signed TLS overflow tests are explicit Go guard-domain evidence, not ordinary native algorithm/OOM credit.",
+        "Selected unsigned_ext source test_sorting1/test_sorting2/test_sorting4 runs2030 original is_sorted ENSURE instances; AST/psort_nw branches and full registered driver stdout remain open, no whole-driver credit. The concrete uint32 extension preserves source mk_ite/mk_le/default0, persistent appended index columns, and pointer-swap state without callbacks; other numeral/AST/psort specializations, TRACE/native ABI/global allocator/other compile profiles remain separate completion obligations. Actual closed-provider/invalid get/division-by-zero and signed TLS overflow tests are explicit Go guard-domain evidence, not ordinary native algorithm/OOM credit.",
         "Remaining SAT scalar column layout is separate from the native queue. Extra unsigned context fields are reflected enclosing cold charge; each archive is real Go owner metadata charged before token transfer, with no source Runtime event. Dangling nonnull realloc retries still reach actual raw guards, no repair or native-defined continuation claim.",
         "Selected concrete AST Runtime/profile only; actual SMT kernel driver, native pretty/TRACE/global transport and other context/copy profiles remain separate obligations. Source-stopped destruction and explicit owning abort are distinct; pointer-free Go geometry is not native ABI credit.",
         "Retained ast_ext2 clauses/trail now use owning []ASTHandle with INC before native append. Removed ASTRefVector construction, capacity/refusal emulation and unpublished push receipt frames. Cleanup retains reverse member/ascending element order and consumed-DEC progress; source teardown retains its first cause while owning Close can resume. Actual AST factory and network reservation campaigns and independent clause oracles remain. Forty repeated cached factories/singleton clauses verify exact reference ownership and append order; native growth needs no arena reservation, while debug retains actual factory checks. Escaped owners close after manager teardown without stale node callbacks. No source container allocation geometry is credited."
@@ -257516,6 +257629,8 @@
         "pkg/smtcore/theory_pb_sort.go",
         "pkg/smtcore/theory_pb_compile_test.go",
         "pkg/ast/util_psort_ast_costs.go",
+        "pkg/util/sorting/uint32_network.go",
+        "pkg/util/sorting/uint32_network_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/smtcore/theory_pb_stats_test.go",
         "pkg/smtcore/theory_pb_sort_trace.go",
@@ -257552,7 +257667,10 @@
         "TestSMTPBLiteralNetworkTraceDualCardAndSubsetFamilies",
         "TestSMTPBLiteralNetworkTraceBadStreamPreservesClauses",
         "TestSMTPBLiteralNetworkDebugGuardsPrecedeEffects",
-        "TestSMTPBLiteralNetworkRecursiveDiagnosticsPreserveThreshold"
+        "TestSMTPBLiteralNetworkRecursiveDiagnosticsPreserveThreshold",
+        "TestUnsignedNetworkRegisteredSourceCases",
+        "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
+        "TestUnsignedNetworkEmptyAndSingletonSourceCases"
       ],
       "conditionals": [
         {
@@ -257795,7 +257913,7 @@
         "The SMTLiteral instantiation borrows the PB theory/context, owns only native slice scratch and scalars, and emits context-owned scoped auxiliary clauses. Fresh auxiliary and comparator AST names are retained by context Boolean variables; no universal template adapters or STL internals are ported."
       ],
       "deviations": [
-        "Selected unsigned_ext source test_sorting1/test_sorting2/test_sorting4 runs2030 original is_sorted ENSURE instances; AST psort_nw branches are covered by concrete clause and independent finite-oracle tests. Concrete stateless unsigned extension preserves source mk_ite/mk_le/default0 without callbacks; source persistent appended mapping columns and reset-self-alias behavior remain literal. Callback behavior is represented by the retained unsigned and AST contexts; Go diagnostics and allocation replace TRACE/native ABI/global allocation details. Actual closed-provider/invalid get/division-by-zero and signed TLS overflow tests are explicit Go guard-domain evidence, not ordinary native algorithm/OOM credit.",
+        "Selected unsigned_ext source test_sorting1/test_sorting2/test_sorting4 runs2030 original is_sorted ENSURE instances; AST psort_nw branches are covered by concrete clause and independent finite-oracle tests. The concrete uint32 extension preserves source mk_ite/mk_le/default0, persistent appended index columns, and pointer-swap state without callbacks. Callback behavior is represented by the unsigned and AST contexts; Go diagnostics and allocation replace TRACE/native ABI/global allocation details. Actual closed-provider/invalid get/division-by-zero and signed TLS overflow tests are explicit Go guard-domain evidence, not ordinary native algorithm/OOM credit.",
         "Remaining SAT scalar column layout is separate from the native queue. Extra unsigned context fields are reflected enclosing cold charge; each archive is real Go owner metadata charged before token transfer, with no source Runtime event. Dangling nonnull realloc retries still reach actual raw guards, no repair or native-defined continuation claim.",
         "Generated copy counterpart has no originating registered-driver copy assertion credit. Empty/cold/closed-provider/accidental-copy guards are Go representation/lifetime domains. Default reference-member assignment has no generated supported operator, so no assignment API is invented. Source scalar pointer aliases deliberately remain original; ended original is unread on zero input, then actual source kernel dereference returns typed lifetime guard after caller/own-member prefixes. The retained unsigned specialization uses checked Go lifetime and diagnostic adapters.",
         "The exported AST context preserves the complete psort algorithm; downstream SMT and tactic callers retain their own integration obligations. Literal scratch uses native []ASTHandle slices and captured spans, with no Runtime payload serialization or vector copy/growth acquisition metadata. Native frame cleanup also releases a partial range after a reached input read error. Real AST reference/registration allocations retain their separate failure and ownership checks.",
@@ -266871,6 +266989,16 @@
           "go_target": "pkg/util/diagnostic/util_debug_notification.go",
           "go_targets": ["pkg/util/diagnostic/util_debug_action_binding.go"],
           "tests": ["TestDebugInteractiveNotificationActionStreamCohort"]
+        },
+        {
+          "name": "Concrete uint32 sorting_network specialization, including zero padding, source index-buffer reuse, comparator order, and registered unsigned test inputs (sorting_network.h:28-110; sorting_network.cpp:40-128)",
+          "status": "ported",
+          "go_target": "pkg/util/sorting/uint32_network.go",
+          "tests": [
+            "TestUnsignedNetworkRegisteredSourceCases",
+            "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
+            "TestUnsignedNetworkEmptyAndSingletonSourceCases"
+          ]
         },
         {
           "name": "Concrete sorting-network ptr_vector<expr> literal storage uses native []ASTHandle, borrowed spans, nonowning reset and native recursive-frame cleanup (src/util/sorting_network.h:120-1046; src/test/sorting_network.cpp:150-181)",

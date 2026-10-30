@@ -331,6 +331,46 @@ func TestRationalFacadeSourceTST2(t *testing.T) {
 	}
 }
 
+func TestRationalFacadeSourceTST3AndTST5(t *testing.T) {
+	t.Run("large-diagnostic-division", func(t *testing.T) {
+		h := facadeNew(t)
+		n1 := h.r("4294967293")
+		n2 := h.idiv(n1, h.integer(2))
+		h.assert(func() bool { return h.eq(n2, h.integer(2147483646)) })
+	})
+	t.Run("integer-division-chain", func(t *testing.T) {
+		h := facadeNew(t)
+		two := h.integer(2)
+		n1 := h.power(two, 32)
+		n2 := h.idiv(n1, two)
+		n3 := h.idiv(two, n2)
+		n4 := h.sub(n1, h.integer(3))
+		n5 := h.idiv(n4, two)
+		h.assert(func() bool { return h.eq(n5, h.integer(2147483646)) })
+		_ = n3 // The source computes this diagnostic-only value without asserting it.
+	})
+	t.Run("large-denominator-in-place-round-trip", func(t *testing.T) {
+		h := facadeNew(t)
+		n1 := h.integer(-1)
+		n2 := h.r("4294967295")
+		serviceMust(t, h.s.DivAssign(n1, n2))
+		serviceMust(t, h.s.MulAssign(n1, n2))
+		h.assert(func() bool { return h.is_minus_one(n1) })
+	})
+}
+
+func TestRationalFacadeSourceTesterTST1(t *testing.T) {
+	h := facadeNew(t)
+	n1, n2 := h.integer(-1), h.integer(8)
+	h.assert(func() bool { return h.is_minus_one(h.rem(n1, n2)) })
+	mod, err := h.s.Mod(n1, n2)
+	modValue := h.keep(mod, err)
+	h.assert(func() bool { return h.eq(modValue, h.integer(7)) })
+	if h.count != 2 {
+		t.Fatalf("source assertion count %d", h.count)
+	}
+}
+
 // Exact arithmetic is an independent bounded oracle; it is never used by the
 // production facade. Source-shape fixtures are kept separate below.
 func TestRationalFacadeIndependentArithmeticAndAliases(t *testing.T) {
