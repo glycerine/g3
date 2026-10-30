@@ -31,3 +31,44 @@ func TestSparseJoinProjectRenameFilterUnion(t *testing.T) {
 		t.Fatal(n)
 	}
 }
+
+func TestSparseJoinUsesSourceSmallerOuterTraversal(t *testing.T) {
+	signature, err := NewSignature([]uint64{3, 32})
+	must(t, err)
+	left, err := NewSparseTable(signature, 0)
+	must(t, err)
+	right, err := NewSparseTable(signature, 0)
+	must(t, err)
+	for _, fact := range []Fact{{0, 10}, {1, 11}, {2, 12}} {
+		if _, err = left.Add(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, fact := range []Fact{{2, 22}, {0, 20}} {
+		if _, err = right.Add(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	joined, err := left.Join(right, []int{0}, []int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	facts, err := joined.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Fact{{2, 12, 2, 22}, {0, 10, 0, 20}}
+	if len(facts) != len(want) {
+		t.Fatalf("join rows = %v, want %v", facts, want)
+	}
+	for i := range want {
+		if len(facts[i]) != len(want[i]) {
+			t.Fatalf("join row %d = %v, want %v", i, facts[i], want[i])
+		}
+		for column := range want[i] {
+			if facts[i][column] != want[i][column] {
+				t.Fatalf("join row %d = %v, want %v", i, facts[i], want[i])
+			}
+		}
+	}
+}

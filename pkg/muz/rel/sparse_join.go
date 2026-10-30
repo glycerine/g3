@@ -21,17 +21,32 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 	}
 	af, _ := a.Facts()
 	bf, _ := b.Facts()
-	for _, x := range af {
-		for _, y := range bf {
+	// Match sparse_table_plugin::join_project_fn: for joins, scan the smaller
+	// table outside and index the larger one; for a product, keep the larger
+	// table outside. Preserve the original left/right result column order when
+	// the scan roles are swapped.
+	swapped := (len(af) > len(bf)) == (len(left) != 0)
+	if swapped {
+		af, bf = bf, af
+		left, right = right, left
+	}
+	for _, outer := range af {
+		for _, inner := range bf {
 			match := true
 			for i := range left {
-				if x[left[i]] != y[right[i]] {
+				if outer[left[i]] != inner[right[i]] {
 					match = false
 					break
 				}
 			}
 			if match {
-				_, e = out.Add(append(append(Fact(nil), x...), y...))
+				var row Fact
+				if swapped {
+					row = append(append(Fact(nil), inner...), outer...)
+				} else {
+					row = append(append(Fact(nil), outer...), inner...)
+				}
+				_, e = out.Add(row)
 				if e != nil {
 					return nil, e
 				}
