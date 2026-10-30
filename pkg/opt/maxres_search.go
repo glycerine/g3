@@ -58,8 +58,12 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 				return lbool.False, true, nil
 			}
 		case lbool.False:
-			if err = e.processSearchUNSAT(result); err != nil {
-				return lbool.Undef, false, err
+			done, e2 := e.processSearchUNSAT(result)
+			if e2 != nil {
+				return lbool.Undef, false, e2
+			}
+			if done {
+				return lbool.False, true, nil
 			}
 		case lbool.Undef:
 			return status, false, nil
