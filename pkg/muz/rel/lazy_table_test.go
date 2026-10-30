@@ -131,6 +131,21 @@ func TestLazyTableMutationForcesOnlyOnObservation(t *testing.T) {
 	}
 }
 
+func TestLazyTableIdenticalFilterAllowsDifferentDomains(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(engine.Close)
+	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 3), Fact{0, 0}, Fact{1, 1}, Fact{1, 2})
+	closeLazyTables(t, table)
+	if err := table.FilterIdentical([]int{0, 1}); err != nil {
+		t.Fatal("identical filter rejected columns with different domains", err)
+	}
+	facts, err := table.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, facts, Fact{0, 0}, Fact{1, 1})
+}
+
 func TestLazyTableValidationAndEngineOwnership(t *testing.T) {
 	firstEngine := NewLazyTableEngine()
 	secondEngine := NewLazyTableEngine()

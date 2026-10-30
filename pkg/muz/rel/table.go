@@ -316,12 +316,9 @@ func (t *HashTable) FilterIdentical(columns []int) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	for i, column := range columns {
+	for _, column := range columns {
 		if column < 0 || column >= t.signature.Len() {
 			return fmt.Errorf("%w: identical-filter column out of range", ErrTable)
-		}
-		if i != 0 && t.signature.domains[column] != t.signature.domains[columns[0]] {
-			return fmt.Errorf("%w: identical-filter column domains differ", ErrTable)
 		}
 	}
 	if len(columns) < 2 {

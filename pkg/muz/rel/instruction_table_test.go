@@ -164,4 +164,14 @@ func TestHashTableFiniteFiltersValidateAndMutate(t *testing.T) {
 	if err != nil || len(facts) != 0 {
 		t.Fatal("out-of-domain equality filter did not remove every row", facts, err)
 	}
+
+	unequalDomains := instructionRows(t, []uint64{2, 3}, Fact{0, 0}, Fact{1, 1}, Fact{1, 2})
+	if err = unequalDomains.FilterIdentical([]int{0, 1}); err != nil {
+		t.Fatal("identical filter rejected columns with different domains", err)
+	}
+	facts, err = unequalDomains.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	instructionWantFacts(t, facts, Fact{0, 0}, Fact{1, 1})
 }

@@ -93,12 +93,9 @@ func (t *LazyTable) FilterIdentical(columns []int) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	for i, column := range columns {
+	for _, column := range columns {
 		if column < 0 || column >= t.root.signature.Len() {
 			return fmt.Errorf("%w: identical-filter column out of range", ErrLazyTable)
-		}
-		if i != 0 && t.root.signature.domains[column] != t.root.signature.domains[columns[0]] {
-			return fmt.Errorf("%w: identical-filter domains differ", ErrLazyTable)
 		}
 	}
 	t.root = &lazyTableNode{kind: LazyTableFilterIdentical, signature: Signature{domains: t.root.signature.Domains()}, left: t.root, columns1: append([]int(nil), columns...)}
