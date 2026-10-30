@@ -158,3 +158,53 @@ func TestLegacyArrayReducerDoesNotUseStoreMarksFromSelectIndex(t *testing.T) {
 		t.Fatal("stores in the index must not enable reduction of an unmarked array", root)
 	}
 }
+
+func TestLegacyArrayReducerProcessesRightSiblingBeforeLeft(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArrayProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+	a := f.constant("stack-order-a", sort)
+	one := f.own(m.ArithmeticIntegerNumeralText("1"))
+	seven := f.own(m.ArithmeticIntegerNumeralText("7"))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	var forms, guards []ast.ASTHandle
+	for _, prefix := range []string{"stack-order-left", "stack-order-right"} {
+		i := f.constant(prefix+"-i", f.integer)
+		j := f.constant(prefix+"-j", f.integer)
+		for _, v := range []ast.ASTHandle{i, j} {
+			decl, err := m.GetDecl(v)
+			fmMust(t, err)
+			fmMust(t, md.Core().RegisterConstant(decl, one))
+		}
+		stored := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, i, seven}))
+		selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{stored, j}))
+		forms = append(forms, f.own(m.MkEq(selected, seven)))
+		guards = append(guards, f.own(m.MkEq(i, j)))
+	}
+	want := f.own(m.MkAndArray([]ast.ASTHandle{guards[1], guards[0]}))
+	expected, err := p.rewrite(want)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&expected)) }()
+	expectedRoot, err := m.RefGet(expected)
+	fmMust(t, err)
+	for _, shared := range []bool{false, true} {
+		inputs := append([]ast.ASTHandle(nil), forms...)
+		if shared {
+			inputs = append(inputs, forms[1])
+		}
+		formula := f.own(m.MkAndArray(inputs))
+		result, err := p.reduceSelects(md.Core(), []ast.ASTHandle{a}, formula, false)
+		fmMust(t, err)
+		root, err := m.RefGet(result.formula)
+		fmMust(t, err)
+		if root != expectedRoot {
+			t.Fatal("source stack must emit the right sibling's guard first", shared, root, expectedRoot)
+		}
+		fmMust(t, result.Close())
+	}
+}

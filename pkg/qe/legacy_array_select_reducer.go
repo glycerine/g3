@@ -123,35 +123,7 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		}
 		return err
 	}
-	var reduce func(ast.ASTHandle) (reducedNode, error)
-	reduce = func(current ast.ASTHandle) (reducedNode, error) {
-		if cached, ok := cache[current]; ok {
-			return cached, nil
-		}
-		kind, err := p.syntax.manager.GetKind(current)
-		if err != nil || kind != ast.ASTApp {
-			return reducedNode{handle: current}, err
-		}
-		count, err := p.syntax.manager.GetNumArgs(current)
-		if err != nil {
-			return reducedNode{}, err
-		}
-		children := make([]ast.ASTHandle, count)
-		argumentsHaveStores := false
-		changed := false
-		for index := range children {
-			original, err := p.syntax.manager.GetArg(current, uint32(index))
-			if err != nil {
-				return reducedNode{}, err
-			}
-			child, err := reduce(original)
-			if err != nil {
-				return reducedNode{}, err
-			}
-			children[index] = child.handle
-			changed = changed || child.handle != original
-			argumentsHaveStores = argumentsHaveStores || reduceAll || markedStores[child.handle]
-		}
+	reduceApp := func(current ast.ASTHandle, children []ast.ASTHandle, argumentsHaveStores, changed bool) (reducedNode, error) {
 		rebuilt := current
 		if changed {
 			decl, err := p.syntax.manager.GetDecl(current)
@@ -211,15 +183,18 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 				}
 				array = storeArgs[0]
 			}
-			rebuilt, err = p.syntax.manager.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, index})
-			if err != nil {
-				return reducedNode{}, err
+			// reduce_core returns the existing select when its base is not a store.
+			if array != selectArgs[0] {
+				rebuilt, err = p.syntax.manager.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, index})
+				if err != nil {
+					return reducedNode{}, err
+				}
+				owned, err := p.syntax.manager.NewRef(rebuilt)
+				if err != nil {
+					return reducedNode{}, err
+				}
+				pinned = append(pinned, owned)
 			}
-			owned, err := p.syntax.manager.NewRef(rebuilt)
-			if err != nil {
-				return reducedNode{}, err
-			}
-			pinned = append(pinned, owned)
 		}
 		_, storeTerm, err := p.syntax.operation(rebuilt, p.syntax.family, ast.ASTArrayOpStore)
 		if err != nil {
@@ -234,9 +209,53 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		cache[current] = node
 		return node, nil
 	}
-	reduced, err := reduce(formula)
+	reduced := reducedNode{handle: formula}
+	rootKind, err := p.syntax.manager.GetKind(formula)
 	if err != nil {
 		return nil, err
+	}
+	var todo []ast.ASTHandle
+	if rootKind == ast.ASTApp {
+		todo = append(todo, formula)
+	}
+	for len(todo) != 0 {
+		current := todo[len(todo)-1]
+		size := len(todo)
+		count, err := p.syntax.manager.GetNumArgs(current)
+		if err != nil {
+			return nil, err
+		}
+		children := make([]ast.ASTHandle, 0, count)
+		argumentsHaveStores, changed := false, false
+		// Source schedules every uncached application argument in forward
+		// order; the LIFO work stack therefore processes the last one first.
+		for index := uint32(0); index < count; index++ {
+			original, err := p.syntax.manager.GetArg(current, index)
+			if err != nil {
+				return nil, err
+			}
+			kind, err := p.syntax.manager.GetKind(original)
+			if err != nil {
+				return nil, err
+			}
+			if kind != ast.ASTApp {
+				children = append(children, original)
+			} else if child, found := cache[original]; found {
+				children = append(children, child.handle)
+				changed = changed || child.handle != original
+				argumentsHaveStores = argumentsHaveStores || reduceAll || markedStores[child.handle]
+			} else {
+				todo = append(todo, original)
+			}
+		}
+		if len(todo) > size {
+			continue
+		}
+		todo = todo[:len(todo)-1]
+		reduced, err = reduceApp(current, children, argumentsHaveStores, changed)
+		if err != nil {
+			return nil, err
+		}
 	}
 	conjuncts := make([]ast.ASTHandle, 0, len(conditions)+1)
 	for _, condition := range conditions {
