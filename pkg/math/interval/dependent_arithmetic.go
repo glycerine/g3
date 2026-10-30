@@ -88,19 +88,16 @@ func (v *DependentRationalInterval) MulScalar(k *numeral.Rational, a *DependentR
 	if err := v.checkPeer(a); err != nil {
 		return err
 	}
-	lower, upper := a.LowerDep, a.UpperDep
+	deps, err := a.Value.MulScalarDeps(k)
+	if err != nil {
+		return err
+	}
+	snapshot := *a
 	if err := v.Value.MulScalar(k, a.Value); err != nil {
 		return err
 	}
 	if withDeps {
-		positive, err := v.manager.Numbers.IsPos(k)
-		if err != nil {
-			return err
-		}
-		if !positive {
-			lower, upper = upper, lower
-		}
-		v.LowerDep, v.UpperDep = lower, upper
+		v.manager.publishBinaryDeps(&snapshot, &snapshot, v, deps)
 	}
 	return nil
 }
