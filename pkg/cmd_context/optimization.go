@@ -579,7 +579,7 @@ func (c *Context) optimizationUnknownReason() (string, error) {
 	if canceled {
 		return c.manager.ResourceLimit().CancelMessage(), nil
 	}
-	return "optimization returned unknown", nil
+	return "unknown", nil
 }
 
 func (c *Context) optimizationResultUnknownReason(result *opt.ArithmeticResult) (string, error) {
@@ -593,7 +593,7 @@ func (c *Context) optimizationResultUnknownReason(result *opt.ArithmeticResult) 
 	if result != nil && result.ReasonUnknown != "" {
 		return result.ReasonUnknown, nil
 	}
-	return "optimization returned unknown", nil
+	return "unknown", nil
 }
 
 func (c *Context) WriteObjectives(out io.Writer) error {

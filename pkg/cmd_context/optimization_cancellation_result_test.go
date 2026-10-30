@@ -50,6 +50,17 @@ func TestOptimizationUnknownReasonUsesBackendFailure(t *testing.T) {
 	}
 }
 
+func TestOptimizationUnknownReasonUsesSMTContextDefault(t *testing.T) {
+	c := contextFixture(t)
+	_, err := c.Manager()
+	contextMust(t, err)
+	reason, err := c.optimizationResultUnknownReason(&opt.ArithmeticResult{})
+	contextMust(t, err)
+	if reason != "unknown" {
+		t.Fatal("optimization default unknown reason", reason)
+	}
+}
+
 func TestOptimizationCancellationOverridesBackendFailure(t *testing.T) {
 	c := contextFixture(t)
 	_, err := c.Manager()
