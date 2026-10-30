@@ -62,3 +62,72 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 		t.Fatalf("split predicate name %q does not retain the source parent and split suffix", text)
 	}
 }
+
+func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, context.Close()) })
+	manager, err := context.Manager()
+	coneMust(t, err)
+	rules, err := base.NewRuleManager(manager)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, rules.Close()) })
+	set, err := base.NewRuleSet(rules)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, set.Close()) })
+	sorts := make([]ast.ASTHandle, 5)
+	for i, width := range []uint32{1, 2, 3, 4, 5} {
+		sorts[i], err = manager.BitVectorSort(width)
+		coneMust(t, err)
+	}
+	var handles [5]ast.ASTHandle
+	for i := range handles {
+		handles[i], err = manager.MkVar(uint32(i), sorts[i])
+		coneMust(t, err)
+	}
+	makePredicate := func(name string, domain []ast.ASTHandle, args []ast.ASTHandle) ast.ASTHandle {
+		symbol, x := manager.Symbols.Intern("simple-cost-" + name)
+		coneMust(t, x)
+		boolean, x := manager.MkBoolSort()
+		coneMust(t, x)
+		declaration, x := manager.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, x)
+		coneMust(t, rules.RegisterPredicate(declaration))
+		application, x := manager.MkApp(declaration, args)
+		coneMust(t, x)
+		return application
+	}
+	a := makePredicate("A", sorts[:2], handles[0:2])
+	b := makePredicate("B", []ast.ASTHandle{sorts[0], sorts[2]}, []ast.ASTHandle{handles[0], handles[2]})
+	c := makePredicate("C", sorts[3:], handles[3:])
+	head := makePredicate("Goal", sorts, handles[:])
+	rule, err := rules.NewRule(head, []ast.ASTHandle{a, b, c}, nil, "estimated-pair")
+	coneMust(t, err)
+	coneMust(t, set.Add(rule))
+	coneMust(t, rule.Close())
+	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
+	transformed, err := plugin.Transform(set)
+	coneMust(t, err)
+	if transformed == nil {
+		t.Fatal("three-tail rule was not transformed")
+	}
+	t.Cleanup(func() {
+		coneMust(t, transformed.Close())
+		coneMust(t, plugin.Close())
+	})
+	definition, err := transformed.Rule(0)
+	coneMust(t, err)
+	tails := make([]string, 2)
+	for i := range tails {
+		declaration, x := definition.TailDeclaration(i)
+		coneMust(t, x)
+		name, x := manager.GetASTName(declaration)
+		coneMust(t, x)
+		tails[i], x = manager.Symbols.String(name)
+		coneMust(t, x)
+	}
+	coneMust(t, definition.Close())
+	if !strings.Contains(tails[0], "simple-cost-A") || !strings.Contains(tails[1], "simple-cost-B") {
+		t.Fatalf("selected helper pair %v, want A and B", tails)
+	}
+}

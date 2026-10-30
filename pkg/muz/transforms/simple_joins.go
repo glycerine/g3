@@ -200,8 +200,23 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 			}
 		}
 		for positive > 2 {
-			outside := append([]ast.ASTHandle{head}, tails[2:]...)
-			auxiliary, definition, y := p.auxiliary(tails[:2], outside, prefix)
+			outside := []ast.ASTHandle{head}
+			for i, tail := range tails {
+				if i >= positive {
+					outside = append(outside, tail)
+				}
+			}
+			leftIndex, rightIndex, y := p.bestPair(source, head, tails[:positive], outside)
+			if y != nil {
+				return nil, errors.Join(y, rule.Close())
+			}
+			pair := []ast.ASTHandle{tails[leftIndex], tails[rightIndex]}
+			for i, tail := range tails[:positive] {
+				if i != leftIndex && i != rightIndex {
+					outside = append(outside, tail)
+				}
+			}
+			auxiliary, definition, y := p.auxiliary(pair, outside, prefix)
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}
@@ -210,8 +225,15 @@ func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, re
 			if y != nil {
 				return nil, errors.Join(y, rule.Close())
 			}
-			tails = append([]ast.ASTHandle{auxiliary}, tails[2:]...)
-			negated = append([]bool{false}, negated[2:]...)
+			tails[leftIndex] = auxiliary
+			negated[leftIndex] = false
+			lastPositive := positive - 1
+			if rightIndex != lastPositive {
+				tails[rightIndex] = tails[lastPositive]
+				negated[rightIndex] = negated[lastPositive]
+			}
+			tails = tails[:len(tails)-1]
+			negated = negated[:len(negated)-1]
 			positive--
 		}
 		replacement, x := p.rules.NewRule(head, tails, negated, name)
