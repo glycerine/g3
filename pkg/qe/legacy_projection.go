@@ -231,9 +231,6 @@ func (p *LegacyProjection) Project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 		}
-		if len(arrays) == 0 {
-			break
-		}
 		handle, err := p.manager.RefGet(current)
 		if err != nil {
 			return nil, err

@@ -132,3 +132,76 @@ func TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically(t *testing.
 		t.Fatal("array auxiliary remained", remaining)
 	}
 }
+
+// Source: spacer_util.cpp calls array_project even with no array variables;
+// spacer_qe_project.cpp array_select_reducer honors reduce_all_selects.
+func TestLegacyProjectionReducesAllSelectsWithoutArrayVariables(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := NewLegacyProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+	a := f.constant("reduce-all-driver-a", sort)
+	i := f.constant("reduce-all-driver-i", f.integer)
+	j := f.constant("reduce-all-driver-j", f.integer)
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	one := f.own(m.ArithmeticIntegerNumeralText("1"))
+	seven := f.own(m.ArithmeticIntegerNumeralText("7"))
+	arrays, err := m.ArrayFamilyID()
+	fmMust(t, err)
+	stored := f.own(m.MkFamilyApp(arrays, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, i, seven}))
+	selected := f.own(m.MkFamilyApp(arrays, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{stored, j}))
+	formula := f.own(m.MkEq(selected, seven))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	base := f.own(m.MkConstArray(sort, zero))
+	for variable, value := range map[ast.ASTHandle]ast.ASTHandle{a: base, i: one, j: one} {
+		decl, err := m.GetDecl(variable)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	for _, reduceAll := range []bool{false, true} {
+		result, err := p.Project(md.Core(), nil, formula, reduceAll, true)
+		fmMust(t, err)
+		root, err := result.Formula()
+		fmMust(t, err)
+		occurs, err := m.OccursExpr(stored, root)
+		fmMust(t, err)
+		if occurs == reduceAll {
+			t.Fatal("reduce-all dispatch with no projected variables", reduceAll, occurs, root)
+		}
+		if reduceAll {
+			// Equal model indices select the stored value, but the projected
+			// formula must keep the equality guard instead of returning true.
+			for _, equalIndices := range []bool{true, false} {
+				value := zero
+				if equalIndices {
+					value = one
+				}
+				decl, err := m.GetDecl(j)
+				fmMust(t, err)
+				fmMust(t, md.Core().RegisterConstant(decl, value))
+				evaluator, err := model.NewModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: f.r.config.Context, Globals: f.r.config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: f.r.config.Cooperation, Trace: f.r.config.Trace})
+				fmMust(t, err)
+				evaluated, err := evaluator.EvaluateValue(root)
+				fmMust(t, err)
+				handle, err := m.RefGet(evaluated)
+				fmMust(t, err)
+				if (equalIndices && !m.IsTrue(handle)) || (!equalIndices && !m.IsFalse(handle)) {
+					t.Fatal("model-selected store reduction lost its index guard", equalIndices, handle)
+				}
+				fmMust(t, m.DelRef(&evaluated))
+				fmMust(t, evaluator.Close())
+			}
+		}
+
+		remaining, err := result.Variables()
+		fmMust(t, err)
+		if len(remaining) != 0 {
+			t.Fatal("unexpected projected variables", remaining)
+		}
+		fmMust(t, result.Close())
+	}
+}
