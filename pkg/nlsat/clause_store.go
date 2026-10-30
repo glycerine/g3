@@ -117,12 +117,6 @@ func (s *clauseStore) mkInputClause(lits []sat.Literal, a Assumption) (err error
 	}
 	s.running = true
 	defer func() { s.running = false; s.failed = err != nil }()
-	if err := atomAssert("nlsat_solver.cpp", 714, "num_lits > 0", len(lits) > 0); err != nil {
-		return err
-	}
-	if len(lits) == 0 {
-		return arena.ErrBounds
-	}
 	var as *AssumptionSet
 	if !a.IsNull() {
 		as, err = s.assumptions.mkLeafWithReceipt(a, &s.inputLeaf)
@@ -137,10 +131,11 @@ func (s *clauseStore) mkInputClause(lits []sat.Literal, a Assumption) (err error
 	return nil
 }
 func (s *clauseStore) createClause(lits []sat.Literal, learned bool, as *AssumptionSet) (*Clause, error) {
+	lits = normalizeClauseLiterals(lits)
 	if err := atomAssert("nlsat_solver.cpp", 695, "num_lits > 0", len(lits) > 0); err != nil {
 		return nil, err
 	}
-	if len(lits) == 0 || uint64(len(lits)) > uint64(^uint32(0)) {
+	if uint64(len(lits)) > uint64(^uint32(0)) {
 		return nil, arena.ErrBounds
 	}
 	// A failed allocation has consumed cid, exactly as the source does.
