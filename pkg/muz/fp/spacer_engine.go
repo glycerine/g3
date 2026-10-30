@@ -93,6 +93,10 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
+	generateProofTrace, err := parameters.Bool("generate_proof_trace", false)
+	if err != nil {
+		return nil, errors.Join(err, transformer.Close())
+	}
 	sliceRules, err := parameters.Bool("xform.slice", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
@@ -418,7 +422,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	}
 	if unfoldRounds > 0 && coalesceRules {
 		coalescer := base.NewRuleTransformer()
-		plugin := transforms.NewRuleCoalescePlugin(e.manager, e.rules, 50)
+		plugin := transforms.NewRuleCoalescePluginWithProofTrace(e.manager, e.rules, 50, generateProofTrace)
 		if err = coalescer.Register(plugin); err != nil {
 			return nil, errors.Join(err, plugin.Close(), coalescer.Close())
 		}

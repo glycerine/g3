@@ -81,3 +81,108 @@ func TestRuleCoalesceMergesSharedBodyConstraints(t *testing.T) {
 		t.Fatal("coalesced body shape", uninterpreted, total, operation)
 	}
 }
+
+func TestRuleCoalesceAttachesSourceHyperResolutionProof(t *testing.T) {
+	f := newConeFixture(t)
+	if err := f.manager.ToggleProofMode(ast.ASTProofEnabled); err != nil {
+		t.Fatal(err)
+	}
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	one, err := f.manager.ArithmeticNumeralRat(big.NewRat(1, 1), true)
+	coneMust(t, err)
+	integer, err := f.manager.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string) ast.ASTHandle {
+		symbol, makeErr := f.manager.Symbols.Intern("coalesce-proof-" + name)
+		coneMust(t, makeErr)
+		declaration, makeErr := f.manager.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, makeErr)
+		coneMust(t, f.rules.RegisterPredicate(declaration))
+		return declaration
+	}
+	p, q := declare("P"), declare("Q")
+	variable, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	pVariable, err := f.manager.MkApp(p, []ast.ASTHandle{variable})
+	coneMust(t, err)
+	qVariable, err := f.manager.MkApp(q, []ast.ASTHandle{variable})
+	coneMust(t, err)
+	var sourceProof ast.ASTHandle
+	for index, value := range []ast.ASTHandle{zero, one} {
+		condition, makeErr := f.manager.MkEq(variable, value)
+		coneMust(t, makeErr)
+		rule, makeErr := f.rules.NewRule(pVariable, []ast.ASTHandle{qVariable, condition}, nil, "coalesce-proof-branch")
+		coneMust(t, makeErr)
+		formula, makeErr := rule.ToFormula()
+		coneMust(t, makeErr)
+		fact, makeErr := f.manager.RefGet(formula)
+		coneMust(t, makeErr)
+		proof, makeErr := f.manager.MkProofAsserted(fact)
+		coneMust(t, makeErr)
+		coneMust(t, rule.SetProof(proof))
+		if index == 1 {
+			sourceProof = proof
+		}
+		coneMust(t, f.manager.DelRef(&formula))
+		coneMust(t, f.set.Add(rule))
+		coneMust(t, rule.Close())
+	}
+	coneMust(t, f.set.SetOutputPredicate(p))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("proof-carrying coalesce fixture rejected")
+	}
+	if err = f.manager.ToggleProofMode(ast.ASTProofDisabled); err != nil {
+		t.Fatal(err)
+	}
+	plugin := transforms.NewRuleCoalescePluginWithProofTrace(f.manager, f.rules, 0, true)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	defer func() { coneMust(t, result.Close()) }()
+	if count, countErr := result.Len(); countErr != nil || count != 1 {
+		t.Fatalf("coalesced rule count %d, %v", count, countErr)
+	}
+	merged, err := result.Rule(0)
+	coneMust(t, err)
+	defer func() { coneMust(t, merged.Close()) }()
+	proof, found, err := merged.Proof()
+	coneMust(t, err)
+	if !found {
+		t.Fatal("coalesced rule did not retain its source hyper-resolution proof")
+	}
+	isProof, err := f.manager.IsProof(proof)
+	coneMust(t, err)
+	if !isProof {
+		t.Fatal("coalesced proof is not a proof AST")
+	}
+	kind, err := f.manager.GetDeclKind(proof)
+	coneMust(t, err)
+	if kind != ast.ASTPrHyperResolve {
+		t.Fatalf("coalesced proof kind %d, want hyper-resolution", kind)
+	}
+	if count, getErr := f.manager.GetNumArgs(proof); getErr != nil || count != 2 {
+		t.Fatalf("hyper-resolution proof arguments %d, %v", count, getErr)
+	}
+	premise, err := f.manager.GetArg(proof, 0)
+	coneMust(t, err)
+	if premise != sourceProof {
+		t.Fatal("coalesced proof did not use the source rule selected by native merge_rules")
+	}
+	formula, err := merged.ToFormula()
+	coneMust(t, err)
+	formulaHandle, err := f.manager.RefGet(formula)
+	coneMust(t, err)
+	proofFact, err := f.manager.GetProofFact(proof)
+	coneMust(t, err)
+	equal, err := f.manager.AreEqual(proofFact, formulaHandle)
+	coneMust(t, err)
+	if !equal {
+		t.Fatal("coalesced hyper-resolution proof proves the wrong rule formula")
+	}
+	coneMust(t, f.manager.DelRef(&formula))
+}

@@ -12,17 +12,28 @@ import (
 )
 
 type RuleCoalescePlugin struct {
-	manager  *ast.ASTManager
-	rules    *base.RuleManager
-	priority uint32
-	closed   bool
+	manager            *ast.ASTManager
+	rules              *base.RuleManager
+	priority           uint32
+	generateProofTrace bool
+	closed             bool
 }
 
 func NewRuleCoalescePlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *RuleCoalescePlugin {
+	generateProofTrace := false
+	if manager != nil {
+		generateProofTrace, _ = manager.ProofsEnabled()
+	}
+	return NewRuleCoalescePluginWithProofTrace(manager, rules, priority, generateProofTrace)
+}
+
+// NewRuleCoalescePluginWithProofTrace carries the source datalog-context
+// generate_proof_trace setting into the transform.
+func NewRuleCoalescePluginWithProofTrace(manager *ast.ASTManager, rules *base.RuleManager, priority uint32, generateProofTrace bool) *RuleCoalescePlugin {
 	if priority == 0 {
 		priority = 50
 	}
-	return &RuleCoalescePlugin{manager: manager, rules: rules, priority: priority}
+	return &RuleCoalescePlugin{manager: manager, rules: rules, priority: priority, generateProofTrace: generateProofTrace}
 }
 
 func (p *RuleCoalescePlugin) Priority() uint32            { return p.priority }
@@ -312,6 +323,31 @@ func (p *RuleCoalescePlugin) merge(target, source *base.Rule) (_ *base.Rule, res
 	merged, err := p.rules.NewRule(head, tails, negated, name)
 	if err != nil {
 		return nil, fmt.Errorf("muz/transforms: construct coalesced rule: %w", err)
+	}
+	if p.generateProofTrace {
+		proof, found, proofErr := source.Proof()
+		if proofErr != nil {
+			return nil, errors.Join(proofErr, merged.Close())
+		}
+		if !found {
+			return nil, errors.Join(fmt.Errorf("muz/transforms: coalesced source rule has no proof"), merged.Close())
+		}
+		formula, formulaErr := merged.ToFormula()
+		if formulaErr != nil {
+			return nil, errors.Join(formulaErr, merged.Close())
+		}
+		conclusion, formulaErr := p.manager.RefGet(formula)
+		if formulaErr != nil {
+			return nil, errors.Join(formulaErr, p.manager.DelRef(&formula), merged.Close())
+		}
+		hyperResolve, proofErr := p.manager.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{nil})
+		proofErr = errors.Join(proofErr, p.manager.DelRef(&formula))
+		if proofErr != nil {
+			return nil, errors.Join(proofErr, merged.Close())
+		}
+		if proofErr = merged.SetProof(hyperResolve); proofErr != nil {
+			return nil, errors.Join(proofErr, merged.Close())
+		}
 	}
 	return merged, nil
 }

@@ -93046,13 +93046,15 @@
       "path": "src/muz/transforms/dl_mk_coalesce.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_coalesce.go",
+        "pkg/muz/transforms/rule_coalesce_test.go",
         "pkg/muz/fp/spacer_engine.go"
       ],
       "tests": [
         "TestRuleCoalesceMergesSharedBodyConstraints",
+        "TestRuleCoalesceAttachesSourceHyperResolutionProof",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_coalesce_unfold.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_coalesce_unfold.smt2"
       ],
@@ -93116,8 +93118,8 @@
           "text": "SASSERT(r1.get_decl() == r2.get_decl());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "same-body grouping, predicate-argument generalization, reverse variable substitution, branch-constraint disjunction, and merged rule construction",
@@ -93130,26 +93132,29 @@
         },
         {
           "name": "hyper-resolution proof trace attachment for merged rules",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/rule_coalesce.go",
+          "tests": [
+            "TestRuleCoalesceAttachesSourceHyperResolutionProof"
+          ]
         }
       ],
       "ownership": [
         "Grouped source rules, intermediate merged rules, substitution results, and the replacement RuleSet use explicit owning Go references with failure cleanup."
       ],
-      "deviations": [
-        "The retained semantic transformation omits native hyper-resolution proof attachment until fixedpoint proof conversion is ported."
-      ]
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_coalesce.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_coalesce.go"
       ],
       "tests": [
-        "TestRuleCoalesceMergesSharedBodyConstraints"
+        "TestRuleCoalesceMergesSharedBodyConstraints",
+        "TestRuleCoalesceAttachesSourceHyperResolutionProof"
       ],
       "conditionals": [
         {
@@ -93161,8 +93166,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "RuleCoalescePlugin construction, transformation contract, priority, cancellation metadata, and owned lifecycle",
