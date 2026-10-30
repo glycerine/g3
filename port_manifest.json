@@ -75754,18 +75754,29 @@
       ],
       "tests": [
         "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-        "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant"
+        "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant",
+        "TestSubpavingFixedContextBoundFlowAndNormalization",
+        "TestSubpavingFixedContextIntegerBoundNormalization",
+        "TestSubpavingFixedContextPropagateCandidateAndRootPrecision",
+        "TestSubpavingFixedContextRelevanceArithmeticFailure",
+        "TestSubpavingFixedClauseWatchPropagationAndConflict",
+        "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+        "TestSubpavingFixedContextInitialDefinitionSweep"
       ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
         {
           "name": "selected context_mpfx bound normalization, monomial and polynomial propagation through concrete fixed-point numerals",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_context_bounds.go",
           "tests": [
             "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-            "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant"
+            "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant",
+            "TestSubpavingFixedContextBoundFlowAndNormalization",
+            "TestSubpavingFixedContextIntegerBoundNormalization",
+            "TestSubpavingFixedContextPropagateCandidateAndRootPrecision",
+            "TestSubpavingFixedContextRelevanceArithmeticFailure"
           ]
         },
         {
@@ -75779,7 +75790,7 @@
         },
         {
           "name": "concrete config_mpfx inequality values, watched clauses, unit assertions, root initialization and clause justifications",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause.go",
           "go_targets": [
             "pkg/math/subpaving/fixed_context_init.go",
@@ -75787,7 +75798,8 @@
           ],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+            "TestSubpavingFixedContextInitialDefinitionSweep"
           ]
         }
       ],
@@ -75795,7 +75807,7 @@
         "Concrete fixed-point bounds own copied numeral values; node arrays borrow them until node teardown. Full context, clause, search and explanation ownership remains unaudited."
       ],
       "deviations": [
-        "The fixed-point context is a partial concrete instantiation of subpaving_t; clause/unit propagation is now present, while search, explanation and the full solver lifecycle remain open."
+        "The selected concrete MPFX bound, inequality, clause/unit and root-initialization paths are ported; full generic-context method and ownership audits remain incomplete."
       ]
     },
     {
@@ -75811,7 +75823,14 @@
       ],
       "tests": [
         "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-        "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant"
+        "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant",
+        "TestSubpavingFixedContextBoundFlowAndNormalization",
+        "TestSubpavingFixedContextIntegerBoundNormalization",
+        "TestSubpavingFixedContextPropagateCandidateAndRootPrecision",
+        "TestSubpavingFixedContextRelevanceArithmeticFailure",
+        "TestSubpavingFixedClauseWatchPropagationAndConflict",
+        "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+        "TestSubpavingFixedContextInitialDefinitionSweep"
       ],
       "conditionals": [
         {
@@ -75828,11 +75847,15 @@
       "methods": [
         {
           "name": "selected config_mpfx manager binding and directed fixed-point rounding through concrete context bounds",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_context_bounds.go",
           "tests": [
             "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-            "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant"
+            "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant",
+            "TestSubpavingFixedContextBoundFlowAndNormalization",
+            "TestSubpavingFixedContextIntegerBoundNormalization",
+            "TestSubpavingFixedContextPropagateCandidateAndRootPrecision",
+            "TestSubpavingFixedContextRelevanceArithmeticFailure"
           ]
         },
         {
@@ -75846,7 +75869,7 @@
         },
         {
           "name": "concrete config_mpfx inequality values, watched clauses, unit assertions, root initialization and clause justifications",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fixed_clause.go",
           "go_targets": [
             "pkg/math/subpaving/fixed_context_init.go",
@@ -75854,7 +75877,8 @@
           ],
           "tests": [
             "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup"
+            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
+            "TestSubpavingFixedContextInitialDefinitionSweep"
           ]
         }
       ],
@@ -75862,7 +75886,7 @@
         "Concrete fixed-point bounds own copied numeral values; node arrays borrow them until node teardown. Full context, clause, search and explanation ownership remains unaudited."
       ],
       "deviations": [
-        "The fixed-point context is a partial concrete instantiation of subpaving_t; clause/unit propagation is now present, while search, explanation and the full solver lifecycle remain open."
+        "The selected concrete MPFX bound, inequality, clause/unit and root-initialization paths are ported; full generic-context method and ownership audits remain incomplete."
       ]
     },
     {
