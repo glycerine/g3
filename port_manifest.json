@@ -86523,11 +86523,14 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go", "pkg/muz/rel/table.go"],
-      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableZeroArityComplementAndIndependentCopies", "TestCheckTableRejectsInvalidOperationsWithoutMutation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
+      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go", "pkg/muz/rel/check_table_interpreted.go", "pkg/muz/rel/check_table_interpreted_test.go", "pkg/muz/rel/table.go"],
+      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableZeroArityComplementAndIndependentCopies", "TestCheckTableRejectsInvalidOperationsWithoutMutation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix", "TestCheckTableInterpretedFilterAndProject"],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {"name": "check_table_plugin::filter_interpreted_fn evaluates the checker then primary tables and validates the paired result (dl_check_table.cpp:264-285)", "status": "ported", "go_target": "pkg/muz/rel/check_table_interpreted.go", "tests": ["TestCheckTableInterpretedFilterAndProject"]},
+        {"name": "check_table_plugin::filter_interpreted_and_project_fn transforms checker then primary tables into a paired result (dl_check_table.cpp:288-313)", "status": "ported", "go_target": "pkg/muz/rel/check_table_interpreted.go", "tests": ["TestCheckTableInterpretedFilterAndProject"]}
+      ],
       "ownership": ["CheckTable owns both adopted HashTables and closes them with the wrapper; previously borrowed primary and checker handles become unusable after owner close."],
       "deviations": []
     },
@@ -86536,8 +86539,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go", "pkg/muz/rel/table.go"],
-      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableZeroArityComplementAndIndependentCopies", "TestCheckTableRejectsInvalidOperationsWithoutMutation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix"],
+      "go_targets": ["pkg/muz/rel/check_table.go", "pkg/muz/rel/check_table_operations.go", "pkg/muz/rel/check_table_test.go", "pkg/muz/rel/check_table_operations_test.go", "pkg/muz/rel/check_table_interpreted.go", "pkg/muz/rel/check_table_interpreted_test.go", "pkg/muz/rel/table.go"],
+      "tests": ["TestCheckTableSourceDirectOperationsAndValidationCount", "TestCheckTableCloneResetComplementAndLifecycle", "TestCheckTableAdoptionAndRuntimeMismatchDiagnostics", "TestCheckTableSignatureAndOwnershipValidation", "TestCheckTableZeroArityComplementAndIndependentCopies", "TestCheckTableRejectsInvalidOperationsWithoutMutation", "TestCheckTableJoinProjectRenameAndSelection", "TestCheckTableUnionDeltaAndMutatingFilters", "TestCheckTableNegationFilterAndMismatchPrefix", "TestCheckTableInterpretedFilterAndProject"],
       "conditionals": [
         {
           "line": 21,
@@ -86556,7 +86559,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {"name": "check_table_plugin declares interpreted filter and filter/project factories over paired table implementations (dl_check_table.h:68-72)", "status": "ported", "go_target": "pkg/muz/rel/check_table_interpreted.go", "tests": ["TestCheckTableInterpretedFilterAndProject"]}
+      ],
       "ownership": ["CheckTable owns both adopted HashTables and closes them with the wrapper; previously borrowed primary and checker handles become unusable after owner close."],
       "deviations": []
     },
