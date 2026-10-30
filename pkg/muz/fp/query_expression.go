@@ -21,7 +21,14 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, clone.Close()) }()
+	defer func() {
+		if e.backend == "ddnf" && e.ddnf.registry == nil && clone.ddnf.registry != nil {
+			e.ddnf.registry = clone.ddnf.registry
+			clone.ddnf.registry = nil
+			clone.ddnf.registryBorrowed = false
+		}
+		resultErr = errors.Join(resultErr, clone.Close())
+	}()
 	declaration, head, err := clone.makeQueryHead(query)
 	if err != nil {
 		return lbool.Undef, err

@@ -24,7 +24,11 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		return nil, err
 	}
 	clone.backend = e.backend
-	clone.ddnfOutput = e.ddnfOutput
+	clone.ddnf.output = e.ddnf.output
+	if e.ddnf.registry != nil {
+		clone.ddnf.registry = e.ddnf.registry
+		clone.ddnf.registryBorrowed = true
+	}
 	clone.forceProofTrace = e.forceProofTrace
 	if err = e.copyQueryPredicates(clone); err != nil {
 		return nil, errors.Join(err, clone.Close())

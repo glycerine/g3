@@ -20,7 +20,7 @@ func (e *PropositionalEngine) SetDDNFOutput(out io.Writer) error {
 	if err := e.open(); err != nil {
 		return err
 	}
-	e.ddnfOutput = out
+	e.ddnf.output = out
 	return nil
 }
 
@@ -48,9 +48,10 @@ func (e *PropositionalEngine) queryDDNFPredicate(declaration ast.ASTHandle) (lbo
 }
 
 func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) {
-	registry := ddnf.NewRegistry(arena.VectorConfig{Descriptors: arena.Config{Budget: e.manager.Budget()}})
-	defer registry.Close()
-	preprocessor, err := ddnf.NewPreprocessor(e.manager, registry)
+	if e.ddnf.registry == nil {
+		e.ddnf.registry = ddnf.NewRegistry(arena.VectorConfig{Descriptors: arena.Config{Budget: e.manager.Budget()}})
+	}
+	preprocessor, err := ddnf.NewPreprocessor(e.manager, e.ddnf.registry)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -72,7 +73,7 @@ func (e *PropositionalEngine) queryDDNF() (result lbool.LBool, resultErr error) 
 		return lbool.Undef, fmt.Errorf("ddnf compile: %w", err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, compiled.Close()) }()
-	output := e.ddnfOutput
+	output := e.ddnf.output
 	if output == nil {
 		output = os.Stdout
 	}

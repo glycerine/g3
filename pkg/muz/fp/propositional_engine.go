@@ -15,6 +15,7 @@ import (
 	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/ddnf"
 	muzpdr "github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	muzspacer "github.com/glycerine/g3/pkg/muz/spacer"
@@ -34,6 +35,12 @@ var (
 type predicateState struct {
 	sorts []ast.ASTHandle
 	table *rel.HashTable
+}
+
+type ddnfEngineState struct {
+	output           io.Writer
+	registry         *ddnf.Registry
+	registryBorrowed bool
 }
 
 func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predicateState, error) {
@@ -112,10 +119,10 @@ type PropositionalEngine struct {
 	spacerConversions  []hornModelConversion
 	lastStatus         string
 	forceProofTrace    bool
-	ddnfOutput         io.Writer
 	queryParams        uparams.ParamsRef
 	queryParamsReady   bool
 	closed             bool
+	ddnf               ddnfEngineState
 }
 
 // NewPropositionalEngineWithServices adds the retained AST theory rewriter
@@ -1945,6 +1952,10 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.unboundCooperation.Close())
 		e.unboundCooperation = nil
 	}
+	if e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
+		e.ddnf.registry.Close()
+	}
+	e.ddnf = ddnfEngineState{}
 	if e.set != nil {
 		result = errors.Join(result, e.set.Close())
 		e.set = nil

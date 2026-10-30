@@ -7,6 +7,10 @@ import "fmt"
 func (e *PropositionalEngine) selectBackend(kind EngineKind) {
 	if e.backend != kind.String() {
 		e.queryReady = false
+		if e.backend == EngineDDNF.String() && e.ddnf.registry != nil && !e.ddnf.registryBorrowed {
+			e.ddnf.registry.Close()
+			e.ddnf.registry = nil
+		}
 	}
 	e.backend = kind.String()
 }
