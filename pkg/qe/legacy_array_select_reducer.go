@@ -70,12 +70,15 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 		markedVariables[variable] = true
 	}
 	type reducedNode struct {
-		handle    ast.ASTHandle
-		hasStores bool
+		handle ast.ASTHandle
 	}
 	cache := make(map[ast.ASTHandle]reducedNode)
+	markedStores := make(map[ast.ASTHandle]bool)
+	pinned := make([]ast.ASTRef, 0)
 	conditions := make([]ast.ASTRef, 0)
 	defer func() {
+		// Source reset releases pinned rebuilds before index conditions.
+		resultErr = errors.Join(resultErr, truncateLiteVector(p.syntax.manager, &pinned, 0))
 		for index := len(conditions) - 1; index >= 0; index-- {
 			resultErr = errors.Join(resultErr, p.syntax.manager.DelRef(&conditions[index]))
 		}
@@ -147,7 +150,7 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 			}
 			children[index] = child.handle
 			changed = changed || child.handle != original
-			argumentsHaveStores = argumentsHaveStores || child.hasStores
+			argumentsHaveStores = argumentsHaveStores || reduceAll || markedStores[child.handle]
 		}
 		rebuilt := current
 		if changed {
@@ -159,12 +162,18 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 			if err != nil {
 				return reducedNode{}, err
 			}
+			owned, err := p.syntax.manager.NewRef(rebuilt)
+			if err != nil {
+				return reducedNode{}, err
+			}
+			pinned = append(pinned, owned)
 		}
 		selectArgs, selectTerm, err := p.syntax.operation(rebuilt, p.syntax.family, ast.ASTArrayOpSelect)
 		if err != nil {
 			return reducedNode{}, err
 		}
-		if selectTerm && len(selectArgs) == 2 && (reduceAll || argumentsHaveStores) {
+		reducingSelect := selectTerm && len(selectArgs) == 2 && (reduceAll || markedStores[selectArgs[0]])
+		if reducingSelect {
 			array, index := selectArgs[0], selectArgs[1]
 			for {
 				storeArgs, storeTerm, err := p.syntax.operation(array, p.syntax.family, ast.ASTArrayOpStore)
@@ -206,12 +215,22 @@ func (p *legacyArrayProjection) reduceSelects(md *model.ModelCore, variables []a
 			if err != nil {
 				return reducedNode{}, err
 			}
+			owned, err := p.syntax.manager.NewRef(rebuilt)
+			if err != nil {
+				return reducedNode{}, err
+			}
+			pinned = append(pinned, owned)
 		}
 		_, storeTerm, err := p.syntax.operation(rebuilt, p.syntax.family, ast.ASTArrayOpStore)
 		if err != nil {
 			return reducedNode{}, err
 		}
-		node := reducedNode{handle: rebuilt, hasStores: reduceAll || argumentsHaveStores || (storeTerm && len(children) != 0 && markedVariables[children[0]])}
+		// Source marks non-select results only. A reduced select inherits any
+		// mark already attached to its replacement expression.
+		if !reduceAll && !reducingSelect && (argumentsHaveStores || (storeTerm && len(children) != 0 && markedVariables[children[0]])) {
+			markedStores[rebuilt] = true
+		}
+		node := reducedNode{handle: rebuilt}
 		cache[current] = node
 		return node, nil
 	}

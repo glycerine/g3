@@ -73,3 +73,88 @@ func TestLegacyArrayProjectionReducesModelSelectedStore(t *testing.T) {
 		}
 	}
 }
+
+// Source: array_select_reducer::has_stores reads marks on replacement nodes.
+func TestLegacyArrayReducerKeepsStoreMarksOnSelectedArrayValue(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArrayProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	innerSort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+	outerSort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), innerSort))
+	a := f.constant("nested-reducer-a", outerSort)
+	b := f.constant("nested-reducer-b", innerSort)
+	i := f.constant("nested-reducer-i", f.integer)
+	k := f.constant("nested-reducer-k", f.integer)
+	j := f.constant("nested-reducer-j", f.integer)
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	one := f.own(m.ArithmeticIntegerNumeralText("1"))
+	seven := f.own(m.ArithmeticIntegerNumeralText("7"))
+	innerStore := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{b, k, seven}))
+	outerStore := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, i, innerStore}))
+	innerSelect := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{outerStore, i}))
+	selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{innerSelect, j}))
+	formula := f.own(m.MkEq(selected, seven))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	base := f.own(m.MkConstArray(innerSort, zero))
+	outerBase := f.own(m.MkConstArray(outerSort, base))
+	for variable, value := range map[ast.ASTHandle]ast.ASTHandle{a: outerBase, b: base, i: zero, k: one, j: one} {
+		decl, err := m.GetDecl(variable)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	result, err := p.reduceSelects(md.Core(), []ast.ASTHandle{a, b}, formula, false)
+	fmMust(t, err)
+	defer func() { fmMust(t, result.Close()) }()
+	root, err := m.RefGet(result.formula)
+	fmMust(t, err)
+	occurs, err := m.OccursExpr(innerStore, root)
+	fmMust(t, err)
+	if occurs {
+		t.Fatal("selected array value lost its existing store mark", root)
+	}
+	for _, v := range []ast.ASTHandle{a, b} {
+		occurs, err := m.OccursExpr(v, root)
+		fmMust(t, err)
+		if occurs {
+			t.Fatal("nested array remained", v, root)
+		}
+	}
+}
+
+func TestLegacyArrayReducerDoesNotUseStoreMarksFromSelectIndex(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArrayProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+	a := f.constant("index-mark-a", sort)
+	b := f.constant("index-mark-b", sort)
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	seven := f.own(m.ArithmeticIntegerNumeralText("7"))
+	markedStore := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{b, zero, seven}))
+	name, err := m.Symbols.Intern("index-mark-function")
+	fmMust(t, err)
+	decl := f.own(m.MkFuncDecl(name, []ast.ASTHandle{sort}, f.integer, ast.ASTFuncDeclInfo{}))
+	index := f.own(m.MkApp(decl, []ast.ASTHandle{markedStore}))
+	unmarkedStore := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, zero, seven}))
+	selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{unmarkedStore, index}))
+	formula := f.own(m.MkEq(selected, seven))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	result, err := p.reduceSelects(md.Core(), []ast.ASTHandle{b}, formula, false)
+	fmMust(t, err)
+	defer func() { fmMust(t, result.Close()) }()
+	root, err := m.RefGet(result.formula)
+	fmMust(t, err)
+	occurs, err := m.OccursExpr(unmarkedStore, root)
+	fmMust(t, err)
+	if !occurs {
+		t.Fatal("stores in the index must not enable reduction of an unmarked array", root)
+	}
+}

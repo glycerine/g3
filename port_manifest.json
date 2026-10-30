@@ -92176,6 +92176,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "array_select_reducer expression-local store marks survive selected-array replacement; only the array operand enables select reduction, and m_pinned owns rebuilt nodes until reset (spacer_qe_project.cpp:1830-1950)", "status": "ported", "go_targets": ["pkg/qe/legacy_array_select_reducer.go", "pkg/qe/legacy_array_select_reducer_test.go"], "tests": ["TestLegacyArrayReducerKeepsStoreMarksOnSelectedArrayValue", "TestLegacyArrayReducerDoesNotUseStoreMarksFromSelectIndex"]},
         {"name": "arith_project_util syntactic variable occurrence, linear term decomposition, inequality polarity, equality/disequality and divisibility classification", "status": "ported", "go_target": "pkg/qe/legacy_arithmetic_linear.go", "tests": ["TestLegacyArithmeticProjectionClassifiesLinearLiterals", "TestLegacyArithmeticProjectionClassifiesEqualities"]},
         {"name": "legacy arithmetic model evaluation and find_max bound selection, including false-bound filtering and strict tie breaking", "status": "ported", "go_target": "pkg/qe/legacy_arithmetic_bounds.go", "tests": ["TestLegacyArithmeticProjectionSelectsModelBounds"]},
         {"name": "legacy opposite-side, same-side and equality-at-bound comparison construction with theory rewriting", "status": "ported", "go_target": "pkg/qe/legacy_arithmetic_compare.go", "tests": ["TestLegacyArithmeticProjectionBuildsBoundComparisons"]},
