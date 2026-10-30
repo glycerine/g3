@@ -16,6 +16,11 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 	if err := p.open(); err != nil {
 		return result, err
 	}
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, p.manager.DelRef(&result))
+		}
+	}()
 	facts := make([]ast.ASTHandle, len(p.reachFacts))
 	for index, fact := range p.reachFacts {
 		auxiliaries, err := fact.Auxiliaries()
@@ -30,9 +35,12 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 			return result, err
 		}
 	}
-	formula, err := p.manager.MkOrArray(facts)
-	if err != nil {
-		return result, err
+	if len(facts) == 0 {
+		falsehood, err := p.manager.MkFalse()
+		if err != nil {
+			return result, err
+		}
+		return p.manager.NewRef(falsehood)
 	}
 	substitution, err := p.manager.NewExprSubstitution()
 	if err != nil {
@@ -64,7 +72,8 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 			return result, x
 		}
 	}
-	replacer, err := rewriter.NewDefaultExprReplacer(p.manager)
+	config := p.owner.contexts[0].config
+	replacer, err := rewriter.NewSimplifyingExprReplacer(p.manager, config.Params, config.Globals, nil)
 	if err != nil {
 		return result, err
 	}
@@ -72,12 +81,27 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 	if err = replacer.SetSubstitution(&substitution); err != nil {
 		return result, err
 	}
-	result, err = p.manager.NewRef(ast.ASTHandle{})
+	// Source rewrites each fact before mk_or. Rewriting the combined
+	// disjunction would simplify across facts and change its output shape.
+	var rewritten []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, rewritten)) }()
+	for index, fact := range facts {
+		ref, err := p.manager.NewRef(fact)
+		if err != nil {
+			return result, err
+		}
+		rewritten = append(rewritten, ref)
+		if err = replacer.Rewrite(fact, ref); err != nil {
+			return result, err
+		}
+		facts[index], err = p.manager.RefGet(ref)
+		if err != nil {
+			return result, err
+		}
+	}
+	formula, err := p.manager.MkOrArray(facts)
 	if err != nil {
 		return result, err
 	}
-	if err = replacer.Rewrite(formula, result); err != nil {
-		return ast.ASTRef{}, errors.Join(err, p.manager.DelRef(&result))
-	}
-	return result, nil
+	return p.manager.NewRef(formula)
 }
