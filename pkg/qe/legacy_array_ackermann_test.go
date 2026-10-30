@@ -53,6 +53,12 @@ func TestLegacyArrayProjectionAckermannizesEqualModelIndices(t *testing.T) {
 	}
 	handle, err := m.RefGet(result.formula)
 	fmMust(t, err)
+	guard, err := m.GetArg(handle, 0)
+	fmMust(t, err)
+	expectedGuard := f.own(m.MkEq(i, j))
+	if guard != expectedGuard {
+		t.Fatal("source collects right select first and uses j as representative", guard, expectedGuard)
+	}
 	contains, err := ast.NewContainsApp(m, a)
 	fmMust(t, err)
 	defer func() { fmMust(t, contains.Close()) }()
@@ -60,5 +66,73 @@ func TestLegacyArrayProjectionAckermannizesEqualModelIndices(t *testing.T) {
 	fmMust(t, err)
 	if hasArray {
 		t.Fatal("ackermannized formula retains projected array")
+	}
+}
+
+func TestLegacyArrayAckermannSharedSelectsAndSortedIndexClasses(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArrayProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+	a := f.constant("ack-stack-a", sort)
+	i := f.constant("ack-stack-i", f.integer)
+	j := f.constant("ack-stack-j", f.integer)
+	k := f.constant("ack-stack-k", f.integer)
+	nums := make([]ast.ASTHandle, 3)
+	data := make([]ast.ASTHandle, 3)
+	for n, text := range []string{"0", "1", "2"} {
+		nums[n] = f.own(m.ArithmeticIntegerNumeralText(text))
+	}
+	for n, text := range []string{"10", "20", "30"} {
+		data[n] = f.own(m.ArithmeticIntegerNumeralText(text))
+	}
+	array := f.own(m.MkConstArray(sort, nums[0]))
+	for n := range nums {
+		array = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{array, nums[n], data[n]}))
+	}
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	for variable, value := range map[ast.ASTHandle]ast.ASTHandle{a: array, i: nums[2], j: nums[0], k: nums[1]} {
+		decl, err := m.GetDecl(variable)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	var forms []ast.ASTHandle
+	for n, index := range []ast.ASTHandle{i, j, k} {
+		selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, index}))
+		forms = append(forms, f.own(m.MkEq(selected, []ast.ASTHandle{data[2], data[0], data[1]}[n])))
+	}
+	formula := f.own(m.MkAndArray([]ast.ASTHandle{forms[0], forms[1], forms[2], forms[1]}))
+	result, err := p.projectSelects(md.Core(), []ast.ASTHandle{a}, formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, result.Close()) }()
+	if len(result.variables) != 3 {
+		t.Fatal("shared select must reuse its value constant", len(result.variables))
+	}
+	// Source collects j, k, i; sorting the index representatives must not
+	// change the already-created value-constant order or their interpretations.
+	for n, ref := range result.variables {
+		constant, err := m.RefGet(ref)
+		fmMust(t, err)
+		decl, err := m.GetDecl(constant)
+		fmMust(t, err)
+		value, err := md.Core().ConstantInterpretation(decl)
+		fmMust(t, err)
+		if value != data[n] {
+			t.Fatal("fresh constant order or interpretation changed", n, value, data[n])
+		}
+	}
+	root, err := m.RefGet(result.formula)
+	fmMust(t, err)
+	guards := []ast.ASTHandle{f.own(m.MkArithmeticLT(j, k)), f.own(m.MkArithmeticLT(k, i))}
+	for n, want := range guards {
+		actual, err := m.GetArg(root, uint32(n))
+		fmMust(t, err)
+		if actual != want {
+			t.Fatal("sorted index-class strict chain", n, actual, want)
+		}
 	}
 }

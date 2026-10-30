@@ -63,49 +63,63 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 		selected[variable] = nil
 	}
 	done := make(map[ast.ASTHandle]bool)
-	var collect func(ast.ASTHandle) error
-	collect = func(current ast.ASTHandle) error {
+	var todo []ast.ASTHandle
+	rootKind, err := p.syntax.manager.GetKind(formula)
+	if err != nil {
+		return nil, err
+	}
+	if rootKind == ast.ASTApp {
+		todo = append(todo, formula)
+	}
+	for len(todo) != 0 {
+		current := todo[len(todo)-1]
 		if done[current] {
-			return nil
-		}
-		done[current] = true
-		kind, err := p.syntax.manager.GetKind(current)
-		if err != nil || kind != ast.ASTApp {
-			return err
+			todo = todo[:len(todo)-1]
+			continue
 		}
 		count, err := p.syntax.manager.GetNumArgs(current)
 		if err != nil {
-			return err
+			return nil, err
 		}
+		allDone := true
+		// Source pushes pending arguments in increasing index order. The
+		// last pending application is collected first by the LIFO stack.
 		for index := uint32(0); index < count; index++ {
 			child, err := p.syntax.manager.GetArg(current, index)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if err = collect(child); err != nil {
-				return err
+			kind, err := p.syntax.manager.GetKind(child)
+			if err != nil {
+				return nil, err
+			}
+			if !done[child] && kind == ast.ASTApp {
+				todo = append(todo, child)
+				allDone = false
 			}
 		}
+		if !allDone {
+			continue
+		}
+		todo = todo[:len(todo)-1]
 		args, selectTerm, err := p.syntax.operation(current, p.syntax.family, ast.ASTArrayOpSelect)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if selectTerm && len(args) == 2 {
 			if _, ok := selected[args[0]]; ok {
 				selected[args[0]] = append(selected[args[0]], current)
 			}
 		}
-		return nil
-	}
-	if err = collect(formula); err != nil {
-		return nil, err
+		done[current] = true
 	}
 	replace, err := rewriter.NewExprSafeReplace(p.syntax.manager)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, replace.Close()) }()
-	conditions := make([]ast.ASTHandle, 0)
+	conditions := make([]ast.ASTRef, 0)
+	defer func() { resultErr = errors.Join(resultErr, truncateLiteVector(p.syntax.manager, &conditions, 0)) }()
 	values := make([]ast.ASTRef, 0)
 	defer func() {
 		for index := len(values) - 1; index >= 0; index-- {
@@ -170,7 +184,11 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 				if err != nil {
 					return nil, err
 				}
-				conditions = append(conditions, equality)
+				owned, err := p.syntax.manager.NewRef(equality)
+				if err != nil {
+					return nil, err
+				}
+				conditions = append(conditions, owned)
 				continue
 			}
 			constant, err := p.syntax.manager.MkFreshConst("sel", rangeSort)
@@ -221,10 +239,22 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 			if err != nil {
 				return nil, err
 			}
-			conditions = append(conditions, less)
+			owned, err := p.syntax.manager.NewRef(less)
+			if err != nil {
+				return nil, err
+			}
+			conditions = append(conditions, owned)
 		}
 	}
-	conjuncts := append(conditions, formula)
+	conjuncts := make([]ast.ASTHandle, 0, len(conditions)+1)
+	for _, condition := range conditions {
+		handle, err := p.syntax.manager.RefGet(condition)
+		if err != nil {
+			return nil, err
+		}
+		conjuncts = append(conjuncts, handle)
+	}
+	conjuncts = append(conjuncts, formula)
 	combined, err := p.syntax.manager.MkAndArray(conjuncts)
 	if err != nil {
 		return nil, err
