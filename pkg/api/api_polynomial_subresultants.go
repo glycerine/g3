@@ -51,7 +51,13 @@ func (c *SMTContext) PolynomialSubresultants(left, right, variable ast.ASTHandle
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, chain.Close()) }()
-	if err = inputs.manager.PSCChain(inputs.leftValue, inputs.rightValue, x, chain); err != nil {
+	interrupt, err := newAPIPolynomialInterruptScope(c)
+	if err != nil {
+		return nil, err
+	}
+	err = inputs.manager.PSCChain(inputs.leftValue, inputs.rightValue, x, chain)
+	err = errors.Join(err, interrupt.Close())
+	if err != nil {
 		return nil, err
 	}
 	size, err := chain.Size()
