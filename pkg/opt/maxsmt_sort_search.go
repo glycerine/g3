@@ -3,7 +3,7 @@ package opt
 // Source: src/opt/sortmax.cpp operator() monotone-output search.
 
 import (
-	"errors"
+	"math/big"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -19,10 +19,16 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 		return lbool.Undef, false, err
 	}
 	e.stats.Inputs = uint32(len(e.inputs))
-	first, err := e.updateResult(result)
+	if err = e.updateResult(result); err != nil {
+		return lbool.Undef, false, err
+	}
+	first, err := e.countSatisfiedInputs(result.Model)
 	if err != nil {
 		return lbool.Undef, false, err
 	}
+	lower := new(big.Rat).Add(&e.objective.softOffset, new(big.Rat).SetInt64(int64(e.offset)))
+	upper := new(big.Rat).Add(lower, new(big.Rat).SetInt64(int64(len(e.inputs)-first)))
+	e.setBounds(result, lower, upper)
 	for i := 0; i < first; i++ {
 		if err = e.solver.backend.Assert(e.outputs[i]); err != nil {
 			return lbool.Undef, false, err
@@ -37,25 +43,38 @@ func (e *sortMaxEngine) optimize(result *ArithmeticResult) (status lbool.LBool, 
 		if err != nil {
 			return lbool.Undef, false, err
 		}
-		if status != lbool.True {
-			return status, status == lbool.False, nil
+		if status == lbool.Undef {
+			return status, false, nil
+		}
+		if status == lbool.False {
+			lower.Set(upper)
+			e.setBounds(result, lower, upper)
+			return lbool.True, true, nil
 		}
 		if err = e.solver.replaceModel(result); err != nil {
 			return lbool.Undef, false, err
 		}
-		next, err := e.updateResult(result)
-		if err != nil {
+		if err = e.updateResult(result); err != nil {
 			return lbool.Undef, false, err
 		}
-		if next <= first {
-			return lbool.Undef, false, errors.New("opt: sortmax model did not satisfy asserted output")
-		}
 		e.stats.Improvements++
-		for first++; first < next; first++ {
+		first++
+		for first < len(e.outputs) {
+			isTrue, evalErr := e.outputIsTrue(result.Model, e.outputs[first])
+			if evalErr != nil {
+				return lbool.Undef, false, evalErr
+			}
+			if !isTrue {
+				break
+			}
 			if err = e.solver.backend.Assert(e.outputs[first]); err != nil {
 				return lbool.Undef, false, err
 			}
+			first++
 		}
+		upper = new(big.Rat).Add(lower, new(big.Rat).SetInt64(int64(len(e.outputs)-first)))
+		e.setBounds(result, lower, upper)
 	}
-	return lbool.False, true, nil
+	e.setBounds(result, lower, lower)
+	return lbool.True, true, nil
 }

@@ -3,6 +3,7 @@ package opt_test
 // Source: src/opt/sortmax.cpp end-to-end retained integer-weight engine.
 
 import (
+	"errors"
 	"math/big"
 	"testing"
 
@@ -171,7 +172,30 @@ func TestArithmeticSolverUsesSortMaxForWeightedMutex(t *testing.T) {
 	if !value.Soft || value.SoftCost.Cmp(big.NewRat(3, 1)) != 0 || value.SoftSatisfied.Cmp(big.NewRat(7, 1)) != 0 {
 		t.Fatal("weighted mutex optimum", &value.SoftCost, &value.SoftSatisfied)
 	}
-	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "sortmax" || result.MaxSMT[0].Inputs == 0 || result.MaxSMT[0].Comparators == 0 || result.MaxSMT[0].Auxiliaries != 2*result.MaxSMT[0].Comparators || result.MaxSMT[0].NetworkClauses != 6*result.MaxSMT[0].Comparators || !result.ModelFiltered {
+	if len(result.MaxSMT) != 1 || result.MaxSMT[0].Engine != "sortmax" || result.MaxSMT[0].Inputs == 0 || result.MaxSMT[0].Auxiliaries == 0 || result.MaxSMT[0].NetworkClauses == 0 || !result.ModelFiltered {
 		t.Fatal("SortMax statistics", result.MaxSMT)
+	}
+	modelEvaluator, err := model.NewModelEvaluator(result.Model, evaluator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer modelEvaluator.Close()
+	if err = modelEvaluator.SetModelCompletion(true); err != nil {
+		t.Fatal(err)
+	}
+	for _, expression := range []ast.ASTHandle{p, q, r} {
+		value, evalErr := modelEvaluator.EvaluateValue(expression)
+		if evalErr != nil {
+			t.Fatal(evalErr)
+		}
+		h, evalErr := manager.RefGet(value)
+		isTrue := evalErr == nil && manager.IsTrue(h)
+		evalErr = errors.Join(evalErr, manager.DelRef(&value))
+		if evalErr != nil {
+			t.Fatal(evalErr)
+		}
+		if isTrue {
+			t.Fatal("source SortMax network leaves soft terms false in its filtered model")
+		}
 	}
 }

@@ -99421,14 +99421,22 @@
       "path": "src/opt/sortmax.cpp",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": ["pkg/opt/maxsmt_sort_engine.go", "pkg/opt/maxsmt_sort_search.go", "pkg/opt/maxsmt_sort_model.go", "pkg/opt/maxsmt_sort_stats.go", "pkg/opt/maxsmt_sort_mutex_preprocess.go", "pkg/opt/sortmax_encoder.go", "pkg/opt/sortmax_encoded_network.go", "pkg/opt/sortmax_network_cost.go", "pkg/opt/sortmax_encoded_comparator.go", "pkg/opt/sortmax_fresh.go", "pkg/opt/sortmax_clause.go", "pkg/opt/sortmax_literal.go"],
+      "tests": ["TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires", "TestArithmeticSolverUsesSortMaxForWeightedMutex", "TestSortMaxPacketOptimizesWeightedMutex"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "MaxSMT preprocessing, unsigned weight expansion, sorting-network search thresholds, initial and updated model/assignment publication and bounds (sortmax.cpp:46-108)", "status": "ported", "go_target": "pkg/opt/maxsmt_sort_search.go", "tests": ["TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires", "TestArithmeticSolverUsesSortMaxForWeightedMutex", "TestSortMaxPacketOptimizesWeightedMutex"]},
+        {"name": "source psort_nw sorting, recursive merge, LE-mode direct subset networks, comparators and interleave (sortmax.cpp:35-36,70; sorting_network.h:567-593,630-810,980-1015)", "status": "ported", "go_target": "pkg/opt/sortmax_encoded_network.go", "tests": ["TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires", "TestArithmeticSolverUsesSortMaxForWeightedMutex"]},
+        {"name": "mk_max/mk_min Boolean AST construction, fresh declarations, model-filter registration, clause assertion and model ownership (sortmax.cpp:131-149)", "status": "ported", "go_target": "pkg/opt/sortmax_encoded_comparator.go", "tests": ["TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires"]}
+      ],
+      "ownership": [
+        {"name": "fresh output declarations and comparator ASTs stay owned by maxSMTASTOwner through backend checks; the model filter removes source fresh declarations before result publication", "status": "ported", "go_targets": ["pkg/opt/maxsmt_sort_engine.go", "pkg/opt/maxsmt_owner.go", "pkg/opt/sortmax_fresh.go", "pkg/opt/maxsmt_sort_search.go"]}
+      ],
+      "deviations": [
+        {"name": "sortmax.cpp calls psort_nw::sorting without initializing m_t; the installed 4.7.1 reference follows the zero-valued LE path, which Go selects explicitly and tests against the source's objective/model output", "status": "documented", "go_targets": ["pkg/opt/sortmax_encoded_network.go", "pkg/opt/maxsmt_sort_search.go"]}
+      ]
     },
     {
       "path": "src/opt/wmax.cpp",
