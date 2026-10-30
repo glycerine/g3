@@ -52,29 +52,16 @@ func (s *BVBoundsSimplifier) Simplify(h ast.ASTHandle, out ast.ASTRef) (bool, er
 	if done, e := s.zeroPatch(h, out); e != nil || done {
 		return done, e
 	}
-	key, want, ok, e := s.recognize(h)
+	core, sign, e := s.stripBoundNots(h)
+	if e != nil {
+		return false, e
+	}
+	key, want, ok, e := s.recognize(core)
 	if e != nil || !ok {
 		return false, e
 	}
-	have, exists := s.bounds[key]
-	if !exists {
-		return false, nil
-	}
-	var value ast.ASTHandle
-	if have.implies(want) {
-		value, e = s.manager.MkTrue()
-	} else if have.intersect(want).empty() {
-		value, e = s.manager.MkFalse()
-	} else if s.propagateEq {
-		if singleton, yes := have.intersect(want).singleton(); yes {
-			n, x := bvBoundsMakeNumeral(s.manager, singleton, want.width)
-			if x != nil {
-				return false, x
-			}
-			value, e = s.manager.MkEq(key, n)
-		}
-	}
-	if e != nil || value.IsNull() {
+	value, done, e := s.simplifyRecognizedBound(key, want, sign)
+	if e != nil || !done {
 		return false, e
 	}
 	return true, s.manager.SetRef(out, value)

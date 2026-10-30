@@ -3,8 +3,9 @@ package bv
 // Source: src/ast/rewriter/bv_bounds_base.h zero_patch.
 
 import (
-	"github.com/glycerine/g3/pkg/ast"
 	"math/big"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 func (s *BVBoundsSimplifier) zeroPatch(h ast.ASTHandle, out ast.ASTRef) (bool, error) {
@@ -26,7 +27,11 @@ func (s *BVBoundsSimplifier) zeroPatch(h ast.ASTHandle, out ast.ASTRef) (bool, e
 		}
 		args[i] = arg
 		b, ok := s.bounds[arg]
-		if !ok || len(b.ranges) != 1 || b.ranges[0].lo.Cmp(b.ranges[0].hi) > 0 {
+		if !ok {
+			continue
+		}
+		upper, ok := b.nonWrappedUpper()
+		if !ok {
 			continue
 		}
 		var low, high uint32
@@ -40,7 +45,7 @@ func (s *BVBoundsSimplifier) zeroPatch(h ast.ASTHandle, out ast.ASTRef) (bool, e
 		if x != nil {
 			continue
 		}
-		bits := uint32(b.ranges[0].hi.BitLen())
+		bits := uint32(upper.BitLen())
 		if bits == 0 || bits >= width {
 			continue
 		}
