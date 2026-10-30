@@ -51686,8 +51686,8 @@
       ],
       "ownership": [],
       "deviations": [
-        "The source nth_root_pos fallback declares a scoped numeral named one but never sets it to one before comparing A, so a subunit input can produce reversed [1,A]. The concrete Go path initializes one and returns the source-commented conservative [0,1] enclosure.",
-        "The MPF root path avoids comparing uninitialized destination values; its zero input follows the checked-copy refusal. The source fallback declares one without setting it, so the Go route initializes one for the stated [0,1] enclosure."
+        "The source nth_root_pos fallback declares a scoped numeral named one but never assigns it before comparing A. `_scoped_numeral` leaves the manager numeral default-constructed: MPFF and MPFX defaults represent zero, while HWF contains a default-constructed double with indeterminate value; the source-commented [0,1] and [1,A] cases therefore do not describe one portable source result. Go initializes one to obtain the stated conservative enclosure, so this remains a documented semantic deviation and the root rows stay partial.",
+        "The MPF root path avoids comparing uninitialized destination values; its zero input follows the checked-copy refusal. Its scoped numeral default also remains unset at the fallback, so Go initialization to one is a documented deviation pending a source-faithful handling of the concrete manager state."
       ]
     },
     {
