@@ -61,10 +61,16 @@ func (table *SparseTable) EnsureFact(fact Fact) error {
 		_, err := table.Add(fact)
 		return err
 	}
-	if _, err := table.layout.pack(table.signature, fact); err != nil {
+	packed, err := table.layout.pack(table.signature, fact)
+	if err != nil {
 		return err
 	}
-	table.Remove(fact)
-	_, err := table.Add(fact)
-	return err
+	if index, found := table.data.find(packed); found {
+		// Functional updates preserve the source row's physical position and
+		// leave indexes over the unchanged non-functional key valid.
+		copy(table.data.entries[index], packed)
+		return nil
+	}
+	table.data.insert(packed)
+	return nil
 }

@@ -25,3 +25,24 @@ func TestSparseFunctionalFetchSuggestEnsureSourceSemantics(t *testing.T) {
 		t.Fatal("old functional value survived")
 	}
 }
+
+func TestSparseFunctionalEnsurePreservesPhysicalRowOrder(t *testing.T) {
+	table := newSparseFunctionalFixture(t, []uint64{8, 16}, 1,
+		Fact{1, 2}, Fact{2, 3}, Fact{3, 4})
+	if err := table.EnsureFact(Fact{1, 9}); err != nil {
+		t.Fatal(err)
+	}
+	facts, err := table.Facts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []Fact{{1, 9}, {2, 3}, {3, 4}}
+	if len(facts) != len(want) {
+		t.Fatalf("fact count=%d, want %d: %v", len(facts), len(want), facts)
+	}
+	for i := range want {
+		if len(facts[i]) != len(want[i]) || facts[i][0] != want[i][0] || facts[i][1] != want[i][1] {
+			t.Fatalf("physical facts=%v, want %v", facts, want)
+		}
+	}
+}

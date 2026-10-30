@@ -88621,7 +88621,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_join_project.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go", "pkg/muz/rel/sparse_key_index_types.go", "pkg/muz/rel/sparse_key_index_build.go", "pkg/muz/rel/sparse_key_index_query.go", "pkg/muz/rel/sparse_indexed_join_types.go", "pkg/muz/rel/sparse_indexed_join_execute.go", "pkg/muz/rel/sparse_indexed_join_probe.go", "pkg/muz/rel/sparse_indexed_join_product.go", "pkg/muz/rel/sparse_indexed_select_types.go", "pkg/muz/rel/sparse_indexed_select_execute.go", "pkg/muz/rel/sparse_indexed_negation_types.go", "pkg/muz/rel/sparse_indexed_negation_execute.go", "pkg/muz/rel/sparse_layout_test.go"],
-      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalProjectBoundaryRules", "TestSparseFunctionalJoinUsesSourceColumnOrder", "TestSparseFunctionalJoinProjectComposesBoundaries", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalSelectProjectTracksBoundary", "TestSparseFunctionalNegationUsesOnlyNonFunctionalIndexes", "TestSparseFunctionalComplementUsesSuppliedSuffix", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask"],
+      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalProjectBoundaryRules", "TestSparseFunctionalJoinUsesSourceColumnOrder", "TestSparseFunctionalJoinProjectComposesBoundaries", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalSelectProjectTracksBoundary", "TestSparseFunctionalNegationUsesOnlyNonFunctionalIndexes", "TestSparseFunctionalComplementUsesSuppliedSuffix", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask"],
       "conditionals": [
         {
           "line": 466,
@@ -88776,7 +88776,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "concrete sparse functional metadata, exact facts, projection, join, union/delta, selection, negation and zero/one-key complement", "status": "partial", "go_target": "pkg/muz/rel/sparse_functional_metadata.go", "go_targets": ["pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go"], "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalComplementUsesSuppliedSuffix"]}],
+      "methods": [{"name": "concrete sparse functional metadata, exact facts, projection, join, union/delta, selection, negation and zero/one-key complement", "status": "partial", "go_target": "pkg/muz/rel/sparse_functional_metadata.go", "go_targets": ["pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go"], "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalComplementUsesSuppliedSuffix"]}],
       "ownership": [],
       "deviations": []
     },
@@ -88786,7 +88786,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_layout_test.go"],
-      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask"],
+      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask"],
       "conditionals": [
         {
           "line": 20,
@@ -88841,7 +88841,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "sparse table functional-column metadata, exact-row lookup and key constraints", "status": "partial", "go_target": "pkg/muz/rel/sparse_functional_metadata.go", "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalConsumersRejectMismatchedMetadata"]}],
+      "methods": [{"name": "sparse table functional-column metadata, exact-row lookup and key constraints", "status": "partial", "go_target": "pkg/muz/rel/sparse_functional_metadata.go", "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalConsumersRejectMismatchedMetadata"]}],
       "ownership": [],
       "deviations": []
     },
