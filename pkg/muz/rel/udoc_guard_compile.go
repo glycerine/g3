@@ -209,10 +209,73 @@ func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, c
 		if e != nil {
 			return e
 		}
+		leftSort, e := m.GetSort(left)
+		if e != nil {
+			return e
+		}
+		boolean, e := m.MkBoolSort()
+		if e != nil {
+			return e
+		}
+		if leftSort == boolean {
+			return r.applyBooleanIff(m, left, right, classes, discarded)
+		}
 		return r.applyBitVectorEquality(m, left, right, classes, discarded)
+	case ast.ASTOpIff:
+		left, e := m.GetArg(expression, 0)
+		if e != nil {
+			return e
+		}
+		right, e := m.GetArg(expression, 1)
+		if e != nil {
+			return e
+		}
+		return r.applyBooleanIff(m, left, right, classes, discarded)
 	default:
 		return ErrDOC
 	}
+}
+
+func (r *UDocRelation) applyBooleanIff(m *ast.ASTManager, left, right ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
+	leftSort, err := m.GetSort(left)
+	if err != nil {
+		return err
+	}
+	rightSort, err := m.GetSort(right)
+	if err != nil {
+		return err
+	}
+	boolean, err := m.MkBoolSort()
+	if err != nil {
+		return err
+	}
+	if leftSort != boolean || rightSort != boolean {
+		return ErrDOC
+	}
+	leftFalse, err := m.MkNot(left)
+	if err != nil {
+		return err
+	}
+	rightFalse, err := m.MkNot(right)
+	if err != nil {
+		return err
+	}
+	for _, mismatch := range [][2]ast.ASTHandle{{left, rightFalse}, {leftFalse, right}} {
+		difference, e := r.guardUniverse()
+		if e != nil {
+			return e
+		}
+		if e = difference.applyGuard(m, mismatch[0], classes, discarded); e == nil {
+			e = difference.applyGuard(m, mismatch[1], classes, discarded)
+		}
+		if e == nil {
+			e = r.elems.Subtract(difference.elems)
+		}
+		if e = errors.Join(e, difference.Close()); e != nil {
+			return e
+		}
+	}
+	return nil
 }
 
 func (r *UDocRelation) guardUniverse() (*UDocRelation, error) {
@@ -232,6 +295,16 @@ func (r *UDocRelation) guardUniverse() (*UDocRelation, error) {
 }
 
 func (r *UDocRelation) applyBitVectorEquality(m *ast.ASTManager, left, right ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
+	if parts, found, err := m.BitVectorConcatArguments(left); err != nil {
+		return err
+	} else if found {
+		return r.applyConcatEquality(m, parts, right, classes, discarded)
+	}
+	if parts, found, err := m.BitVectorConcatArguments(right); err != nil {
+		return err
+	} else if found {
+		return r.applyConcatEquality(m, parts, left, classes, discarded)
+	}
 	leftVar, leftLow, leftHigh, leftOK, err := udocGuardRange(m, left)
 	if err != nil {
 		return err
@@ -297,6 +370,187 @@ func (r *UDocRelation) applyBitVectorEquality(m *ast.ASTManager, left, right ast
 	}
 	err = r.elems.IntersectDoc(cube)
 	return errors.Join(err, r.manager.Deallocate(cube))
+}
+
+func (r *UDocRelation) applyConcatEquality(m *ast.ASTManager, parts []ast.ASTHandle, other ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
+	otherParts, otherIsConcat, err := udocFlattenConcat(m, other)
+	if err != nil {
+		return err
+	}
+	if otherIsConcat {
+		return r.applyConcatPartsEquality(m, parts, otherParts, classes, discarded)
+	}
+	otherValue, otherWidth, isNumeral, err := m.BitVectorNumeralBigInt(other)
+	if err != nil {
+		return err
+	}
+	if !isNumeral {
+		sort, e := m.GetSort(other)
+		if e != nil {
+			return e
+		}
+		otherWidth, e = m.BitVectorSize(sort)
+		if e != nil {
+			return e
+		}
+	}
+	var total uint32
+	widths := make([]uint32, len(parts))
+	for i, part := range parts {
+		sort, e := m.GetSort(part)
+		if e != nil {
+			return e
+		}
+		widths[i], e = m.BitVectorSize(sort)
+		if e != nil || widths[i] > ^uint32(0)-total {
+			return ErrDOC
+		}
+		total += widths[i]
+	}
+	if total != otherWidth {
+		return ErrDOC
+	}
+	remaining := total
+	for i, part := range parts {
+		width := widths[i]
+		remaining -= width
+		var slice ast.ASTHandle
+		if isNumeral {
+			sliceValue := new(big.Int).Rsh(new(big.Int).Set(otherValue), uint(remaining))
+			mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(width)), big.NewInt(1))
+			sliceValue.And(sliceValue, mask)
+			slice, err = m.BitVectorNumeralRat(new(big.Rat).SetInt(sliceValue), width)
+		} else {
+			slice, err = m.MkBitVectorExtract(remaining+width-1, remaining, other)
+		}
+		if err != nil {
+			return err
+		}
+		if err = r.applyBitVectorEquality(m, part, slice, classes, discarded); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func udocFlattenConcat(m *ast.ASTManager, expression ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+	parts, matched, err := m.BitVectorConcatArguments(expression)
+	if err != nil || !matched {
+		return []ast.ASTHandle{expression}, false, err
+	}
+	result := make([]ast.ASTHandle, 0, len(parts))
+	for _, part := range parts {
+		children, nested, e := udocFlattenConcat(m, part)
+		if e != nil {
+			return nil, true, e
+		}
+		if nested {
+			result = append(result, children...)
+		} else {
+			result = append(result, part)
+		}
+	}
+	return result, true, nil
+}
+
+func (r *UDocRelation) applyConcatPartsEquality(m *ast.ASTManager, left, right []ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
+	leftWidths := make([]uint32, len(left))
+	rightWidths := make([]uint32, len(right))
+	var leftTotal, rightTotal uint32
+	for i, part := range left {
+		sort, err := m.GetSort(part)
+		if err != nil {
+			return err
+		}
+		leftWidths[i], err = m.BitVectorSize(sort)
+		if err != nil || leftWidths[i] > ^uint32(0)-leftTotal {
+			return ErrDOC
+		}
+		leftTotal += leftWidths[i]
+	}
+	for i, part := range right {
+		sort, err := m.GetSort(part)
+		if err != nil {
+			return err
+		}
+		rightWidths[i], err = m.BitVectorSize(sort)
+		if err != nil || rightWidths[i] > ^uint32(0)-rightTotal {
+			return ErrDOC
+		}
+		rightTotal += rightWidths[i]
+	}
+	if leftTotal != rightTotal {
+		return ErrDOC
+	}
+	i, j := 0, 0
+	leftRemain, rightRemain := leftWidths[0], rightWidths[0]
+	for i < len(left) && j < len(right) {
+		length := leftRemain
+		if rightRemain < length {
+			length = rightRemain
+		}
+		leftSlice, err := udocSliceBitVector(m, left[i], leftRemain-1, leftRemain-length)
+		if err != nil {
+			return err
+		}
+		rightSlice, err := udocSliceBitVector(m, right[j], rightRemain-1, rightRemain-length)
+		if err != nil {
+			return err
+		}
+		if err = r.applyBitVectorEquality(m, leftSlice, rightSlice, classes, discarded); err != nil {
+			return err
+		}
+		leftRemain -= length
+		rightRemain -= length
+		if leftRemain == 0 {
+			i++
+			if i < len(left) {
+				leftRemain = leftWidths[i]
+			}
+		}
+		if rightRemain == 0 {
+			j++
+			if j < len(right) {
+				rightRemain = rightWidths[j]
+			}
+		}
+	}
+	return nil
+}
+
+func udocSliceBitVector(m *ast.ASTManager, expression ast.ASTHandle, high, low uint32) (ast.ASTHandle, error) {
+	sort, err := m.GetSort(expression)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	width, err := m.BitVectorSize(sort)
+	if err != nil || low > high || high >= width {
+		return ast.ASTHandle{}, ErrDOC
+	}
+	if low == 0 && high+1 == width {
+		return expression, nil
+	}
+	if value, numeralWidth, matched, e := m.BitVectorNumeralBigInt(expression); e != nil {
+		return ast.ASTHandle{}, e
+	} else if matched {
+		if numeralWidth != width {
+			return ast.ASTHandle{}, ErrDOC
+		}
+		value.Rsh(value, uint(low))
+		mask := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(high-low+1)), big.NewInt(1))
+		value.And(value, mask)
+		return m.BitVectorNumeralRat(new(big.Rat).SetInt(value), high-low+1)
+	}
+	var extractLow, extractHigh uint32
+	var base ast.ASTHandle
+	if found, e := m.BitVectorExtractValue(expression, &extractLow, &extractHigh, &base); e != nil {
+		return ast.ASTHandle{}, e
+	} else if found {
+		low += extractLow
+		high += extractLow
+		expression = base
+	}
+	return m.MkBitVectorExtract(high, low, expression)
 }
 
 func udocGuardRange(m *ast.ASTManager, expression ast.ASTHandle) (variable, low, high uint32, matched bool, err error) {

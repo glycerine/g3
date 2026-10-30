@@ -1,6 +1,10 @@
 package rel
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func addGuardTestFacts(t *testing.T, relation *UDocRelation) {
 	t.Helper()
@@ -275,5 +279,218 @@ func TestUDocCompileEqualityBetweenExtracts(t *testing.T) {
 	}
 	for value := uint64(0); value < 4; value++ {
 		requireFact(t, relation, []uint64{value}, value == 0 || value == 3)
+	}
+}
+
+func TestUDocCompileConcatenatedBitVectorEqualities(t *testing.T) {
+	m := docASTManager(t)
+	if _, err := m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	bv2, err := m.BitVectorSort(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x, err := m.MkVar(0, bv2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	y, err := m.MkVar(1, bv2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	concat, err := m.MkBitVectorConcat([]ast.ASTHandle{x, y})
+	if err != nil {
+		t.Fatal(err)
+	}
+	constant, err := m.BitVectorNumeralUint64(10, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalConstant, err := m.MkEq(concat, constant)
+	if err != nil {
+		t.Fatal(err)
+	}
+	constantManager, _ := newTestDocManager(t, 4)
+	constantRows, err := NewUDocRelation(constantManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, constantRows)
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			if _, e := constantRows.AddFact([]uint64{left, right}); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	if err = constantRows.FilterGuard(m, equalConstant); err != nil {
+		t.Fatal(err)
+	}
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			requireFact(t, constantRows, []uint64{left, right}, left == 2 && right == 2)
+		}
+	}
+
+	bv4, err := m.BitVectorSort(4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, err := m.MkVar(2, bv4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equalVariable, err := m.MkEq(concat, z)
+	if err != nil {
+		t.Fatal(err)
+	}
+	variableManager, _ := newTestDocManager(t, 8)
+	variableRows, err := NewUDocRelation(variableManager, []uint32{2, 2, 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, variableRows)
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			for value := uint64(0); value < 16; value++ {
+				if _, e := variableRows.AddFact([]uint64{left, right, value}); e != nil {
+					t.Fatal(e)
+				}
+			}
+		}
+	}
+	if err = variableRows.FilterGuard(m, equalVariable); err != nil {
+		t.Fatal(err)
+	}
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			for value := uint64(0); value < 16; value++ {
+				requireFact(t, variableRows, []uint64{left, right, value}, value == (left<<2)|right)
+			}
+		}
+	}
+}
+
+func TestUDocCompileConcatsWithDifferentSegmentBoundaries(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 8)
+	relation, err := NewUDocRelation(docManager, []uint32{1, 3, 2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	m := docASTManager(t)
+	if _, err = m.RegisterArithmeticPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = m.RegisterBitVectorPlugin(); err != nil {
+		t.Fatal(err)
+	}
+	s1, err := m.BitVectorSort(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s2, err := m.BitVectorSort(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s3, err := m.BitVectorSort(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, err := m.MkVar(0, s1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := m.MkVar(1, s3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := m.MkVar(2, s2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := m.MkVar(3, s2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := m.MkBitVectorConcat([]ast.ASTHandle{a, b})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := m.MkBitVectorConcat([]ast.ASTHandle{c, d})
+	if err != nil {
+		t.Fatal(err)
+	}
+	condition, err := m.MkEq(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for av := uint64(0); av < 2; av++ {
+		for bv := uint64(0); bv < 8; bv++ {
+			for cv := uint64(0); cv < 4; cv++ {
+				for dv := uint64(0); dv < 4; dv++ {
+					if _, e := relation.AddFact([]uint64{av, bv, cv, dv}); e != nil {
+						t.Fatal(e)
+					}
+				}
+			}
+		}
+	}
+	if err = relation.FilterGuard(m, condition); err != nil {
+		t.Fatal(err)
+	}
+	for av := uint64(0); av < 2; av++ {
+		for bv := uint64(0); bv < 8; bv++ {
+			for cv := uint64(0); cv < 4; cv++ {
+				for dv := uint64(0); dv < 4; dv++ {
+					requireFact(t, relation, []uint64{av, bv, cv, dv}, (av<<3)|bv == (cv<<2)|dv)
+				}
+			}
+		}
+	}
+}
+
+func TestUDocCompileBooleanIffAndEquality(t *testing.T) {
+	docManager, _ := newTestDocManager(t, 2)
+	relation, err := NewUDocRelation(docManager, []uint32{1, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	m := docASTManager(t)
+	boolSort, err := m.MkBoolSort()
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := m.MkVar(0, boolSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := m.MkVar(1, boolSort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	equivalent, err := m.MkIff(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for a := uint64(0); a < 2; a++ {
+		for b := uint64(0); b < 2; b++ {
+			if _, e := relation.AddFact([]uint64{a, b}); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	if err = relation.FilterGuard(m, equivalent); err != nil {
+		t.Fatal(err)
+	}
+	for a := uint64(0); a < 2; a++ {
+		for b := uint64(0); b < 2; b++ {
+			requireFact(t, relation, []uint64{a, b}, a == b)
+		}
 	}
 }
