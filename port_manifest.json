@@ -93915,9 +93915,17 @@
       "path": "src/muz/transforms/dl_mk_magic_sets.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/transforms/magic_sets.go", "pkg/muz/transforms/magic_sets_test.go"],
-      "tests": ["TestMagicSetsAdornsIntentionalChainAndSeedsGoal", "TestMagicSetsDisabledAndGoalMultiplicityGuards"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/transforms/magic_sets.go",
+        "pkg/muz/transforms/magic_sets_test.go"
+      ],
+      "tests": [
+        "TestMagicSetsAdornsIntentionalChainAndSeedsGoal",
+        "TestMagicSetsDisabledAndGoalMultiplicityGuards",
+        "TestMagicSetsPreservesNegatedAndInterpretedTails",
+        "TestMagicSetsTransfersExistingIntentionalRelation"
+      ],
       "assertions": [
         {
           "line": 46,
@@ -93988,19 +93996,43 @@
           "text": "SASSERT(mag_goal_head->is_ground());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Magic-sets adornment, cost-ordered tail selection, magic rule generation, nonempty-relation transfer, and query goal seeding",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/magic_sets.go",
+          "tests": [
+            "TestMagicSetsAdornsIntentionalChainAndSeedsGoal",
+            "TestMagicSetsDisabledAndGoalMultiplicityGuards",
+            "TestMagicSetsPreservesNegatedAndInterpretedTails",
+            "TestMagicSetsTransfersExistingIntentionalRelation"
+          ]
+        }
+      ],
+      "ownership": [
+        "The plugin borrows AST manager, rule manager, and optional RelationManager; it retains only transform-local handles and returns a newly owned RuleSet. RuleTransformer owns and closes the plugin."
+      ],
+      "deviations": [
+        "The production query orchestration caller remains an open porting item in src/muz/rel/rel_context.cpp; this unit exposes the relation-aware constructor needed by that caller."
+      ]
     },
     {
       "path": "src/muz/transforms/dl_mk_magic_sets.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/transforms/magic_sets.go", "pkg/muz/transforms/magic_sets_test.go"],
-      "tests": ["TestMagicSetsAdornsIntentionalChainAndSeedsGoal", "TestMagicSetsDisabledAndGoalMultiplicityGuards"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/transforms/magic_sets.go",
+        "pkg/muz/transforms/magic_sets_test.go"
+      ],
+      "tests": [
+        "TestMagicSetsAdornsIntentionalChainAndSeedsGoal",
+        "TestMagicSetsDisabledAndGoalMultiplicityGuards",
+        "TestMagicSetsPreservesNegatedAndInterpretedTails",
+        "TestMagicSetsTransfersExistingIntentionalRelation"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -94011,11 +94043,27 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Magic-sets adornment, cost-ordered tail selection, magic rule generation, nonempty-relation transfer, and query goal seeding",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/magic_sets.go",
+          "tests": [
+            "TestMagicSetsAdornsIntentionalChainAndSeedsGoal",
+            "TestMagicSetsDisabledAndGoalMultiplicityGuards",
+            "TestMagicSetsPreservesNegatedAndInterpretedTails",
+            "TestMagicSetsTransfersExistingIntentionalRelation"
+          ]
+        }
+      ],
+      "ownership": [
+        "The plugin borrows AST manager, rule manager, and optional RelationManager; it retains only transform-local handles and returns a newly owned RuleSet. RuleTransformer owns and closes the plugin."
+      ],
+      "deviations": [
+        "The production query orchestration caller remains an open porting item in src/muz/rel/rel_context.cpp; this unit exposes the relation-aware constructor needed by that caller."
+      ]
     },
     {
       "path": "src/muz/transforms/dl_mk_magic_symbolic.cpp",

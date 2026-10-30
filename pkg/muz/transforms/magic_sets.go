@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
 type magicAdornment []bool
@@ -25,6 +26,7 @@ type MagicSetsPlugin struct {
 	manager     *ast.ASTManager
 	rules       *base.RuleManager
 	goal        ast.ASTHandle
+	relations   *rel.RelationManager
 	priority    uint32
 	enabled     bool
 	adorned     map[magicDescription]ast.ASTHandle
@@ -37,10 +39,16 @@ type MagicSetsPlugin struct {
 }
 
 func NewMagicSetsPlugin(manager *ast.ASTManager, rules *base.RuleManager, goal ast.ASTHandle, enabled bool, priority uint32) *MagicSetsPlugin {
+	return NewMagicSetsPluginWithRelations(manager, rules, goal, enabled, priority, nil)
+}
+
+// NewMagicSetsPluginWithRelations also transfers already materialized facts
+// into adorned predicates, matching the source query transform.
+func NewMagicSetsPluginWithRelations(manager *ast.ASTManager, rules *base.RuleManager, goal ast.ASTHandle, enabled bool, priority uint32, relations *rel.RelationManager) *MagicSetsPlugin {
 	if priority == 0 {
 		priority = 10000
 	}
-	return &MagicSetsPlugin{manager: manager, rules: rules, goal: goal, enabled: enabled, priority: priority}
+	return &MagicSetsPlugin{manager: manager, rules: rules, goal: goal, enabled: enabled, priority: priority, relations: relations}
 }
 func (p *MagicSetsPlugin) Priority() uint32            { return p.priority }
 func (p *MagicSetsPlugin) CanDestratifyNegation() bool { return true }
@@ -395,6 +403,49 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 	}
 	return p.addRule(result, newHead, tails, neg, name, rule)
 }
+
+func (p *MagicSetsPlugin) addTransferRule(task magicTask, result *base.RuleSet) error {
+	if p.relations == nil {
+		return nil
+	}
+	table, found, err := p.relations.TryGetRelation(task.description.predicate)
+	if err != nil || !found {
+		return err
+	}
+	rows, err := table.Len()
+	if err != nil || rows == 0 {
+		return err
+	}
+	arity, err := p.manager.GetArity(task.description.predicate)
+	if err != nil {
+		return err
+	}
+	arguments := make([]ast.ASTHandle, arity)
+	for i := uint32(0); i < arity; i++ {
+		sort, getErr := p.manager.GetDomain(task.description.predicate, i)
+		if getErr != nil {
+			return getErr
+		}
+		arguments[i], err = p.manager.MkVar(i, sort)
+		if err != nil {
+			return err
+		}
+	}
+	original, err := p.manager.MkApp(task.description.predicate, arguments)
+	if err != nil {
+		return err
+	}
+	adorned, err := p.manager.MkApp(p.adorned[task.description], arguments)
+	if err != nil {
+		return err
+	}
+	magic, err := p.magicLiteral(adorned)
+	if err != nil {
+		return err
+	}
+	return p.addRule(result, adorned, []ast.ASTHandle{original, magic}, nil, "", nil)
+}
+
 func (p *MagicSetsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
 	if p == nil || p.closed || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
@@ -488,6 +539,9 @@ func (p *MagicSetsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 			if e != nil {
 				return nil, e
 			}
+		}
+		if e = p.addTransferRule(task, result); e != nil {
+			return nil, e
 		}
 	}
 	adornedGoal, err := p.adornLiteral(goalHead, empty)
