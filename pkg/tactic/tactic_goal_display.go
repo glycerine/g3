@@ -239,6 +239,12 @@ func (g *Goal) DisplayLowLevel(out io.Writer) (result error) {
 }
 
 func (g *Goal) DisplayDIMACS(out io.Writer) error {
+	return g.DisplayDIMACSWithNames(out, false)
+}
+
+// DisplayDIMACSWithNames is src/ast/display_dimacs.cpp's retained goal
+// printer. Unlike the API wrapper, this low-level method assumes CNF.
+func (g *Goal) DisplayDIMACSWithNames(out io.Writer, includeNames bool) error {
 	if err := g.open(); err != nil {
 		return err
 	}
@@ -246,6 +252,7 @@ func (g *Goal) DisplayDIMACS(out io.Writer) error {
 		return arena.ErrInvalidSlot
 	}
 	variables := make(map[ast.ASTHandle]uint32)
+	atoms := make([]ast.ASTHandle, 1)
 	next := uint32(0)
 	clauseLiterals := func(form ast.ASTHandle) ([]ast.ASTHandle, error) {
 		isOr, err := g.isOp(form, ast.ASTOpOr)
@@ -268,12 +275,74 @@ func (g *Goal) DisplayDIMACS(out io.Writer) error {
 		}
 		return result, nil
 	}
+	numericID := func(literal ast.ASTHandle) (uint32, bool, error) {
+		isFalse, err := g.isOp(literal, ast.ASTOpFalse)
+		if err != nil || isFalse {
+			return 0, isFalse, err
+		}
+		atom, negated, err := g.notArgument(literal)
+		if err != nil {
+			return 0, false, err
+		}
+		if !negated {
+			atom = literal
+		}
+		kind, err := g.manager.GetKind(atom)
+		if err != nil || kind != ast.ASTApp {
+			return 0, false, err
+		}
+		family, err := g.manager.GetFamilyID(atom)
+		if err != nil || family != ast.NullFamilyID {
+			return 0, false, err
+		}
+		arity, err := g.manager.GetNumArgs(atom)
+		if err != nil || arity != 0 {
+			return 0, false, err
+		}
+		declaration, err := g.manager.GetDecl(atom)
+		if err != nil {
+			return 0, false, err
+		}
+		name, err := g.manager.GetASTName(declaration)
+		if err != nil || !name.IsNumerical() {
+			return 0, false, err
+		}
+		id, err := name.Number()
+		return id, id > 0, err
+	}
+	fromNumericDIMACS := true
 	for _, form := range g.forms {
 		literals, err := clauseLiterals(form)
 		if err != nil {
 			return err
 		}
 		for _, literal := range literals {
+			_, numeric, err := numericID(literal)
+			if err != nil {
+				return err
+			}
+			if !numeric {
+				fromNumericDIMACS = false
+				break
+			}
+		}
+		if !fromNumericDIMACS {
+			break
+		}
+	}
+	for _, form := range g.forms {
+		literals, err := clauseLiterals(form)
+		if err != nil {
+			return err
+		}
+		for _, literal := range literals {
+			isFalse, err := g.isOp(literal, ast.ASTOpFalse)
+			if err != nil {
+				return err
+			}
+			if isFalse {
+				continue
+			}
 			atom, negated, err := g.notArgument(literal)
 			if err != nil {
 				return err
@@ -283,7 +352,16 @@ func (g *Goal) DisplayDIMACS(out io.Writer) error {
 			}
 			if variables[atom] == 0 {
 				next++
-				variables[atom] = next
+				if fromNumericDIMACS {
+					id, _, idErr := numericID(literal)
+					if idErr != nil {
+						return idErr
+					}
+					variables[atom] = id
+				} else {
+					variables[atom] = next
+					atoms = append(atoms, atom)
+				}
 			}
 		}
 	}
@@ -296,6 +374,23 @@ func (g *Goal) DisplayDIMACS(out io.Writer) error {
 			return err
 		}
 		for _, literal := range literals {
+			isFalse, err := g.isOp(literal, ast.ASTOpFalse)
+			if err != nil {
+				return err
+			}
+			if isFalse {
+				continue
+			}
+			isTrue, err := g.isOp(literal, ast.ASTOpTrue)
+			if err != nil {
+				return err
+			}
+			if isTrue {
+				if err = goalDisplayWrite(out, "1 -1 "); err != nil {
+					return err
+				}
+				continue
+			}
 			atom, negated, err := g.notArgument(literal)
 			if err != nil {
 				return err
@@ -315,6 +410,25 @@ func (g *Goal) DisplayDIMACS(out io.Writer) error {
 		}
 		if err = goalDisplayWrite(out, "0\n"); err != nil {
 			return err
+		}
+	}
+	if includeNames && !fromNumericDIMACS {
+		for id := uint32(1); id <= next; id++ {
+			declaration, err := g.manager.GetDecl(atoms[id])
+			if err != nil {
+				return err
+			}
+			name, err := g.manager.GetASTName(declaration)
+			if err != nil {
+				return err
+			}
+			text, err := g.manager.Symbols.String(name)
+			if err != nil {
+				return err
+			}
+			if err = goalDisplayWrite(out, "c "+strconv.FormatUint(uint64(id), 10)+" "+text+"\n"); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
