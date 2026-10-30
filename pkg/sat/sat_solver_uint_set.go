@@ -21,6 +21,14 @@ type satSolverUintSetStats struct {
 	OwnerBytes, MembershipSize, MembershipCapacity, ValuesSize, ValuesCapacity uint64
 }
 
+// satSolverUintSetIterator is the concrete bool_var_set::iterator used by the
+// simplifier. Begin captures the source vector's begin/end pair; the set must
+// not be mutated until traversal completes.
+type satSolverUintSetIterator struct {
+	values []uint32
+	next   int
+}
+
 func newSATSolverUintSet(b *arena.Budget) (*satSolverUintSet, error) {
 	n := uint64(reflect.TypeOf(satSolverUintSet{}).Size())
 	if e := b.Reserve(n); e != nil {
@@ -69,6 +77,20 @@ func (s *satSolverUintSet) Stats() satSolverUintSetStats {
 }
 func (s *satSolverUintSet) Contains(v uint32) bool {
 	return s != nil && s.self == s && !s.closed && uint64(v) < uint64(len(s.inSet)) && s.inSet[v] != 0
+}
+func (s *satSolverUintSet) Begin() (satSolverUintSetIterator, error) {
+	if err := s.open(); err != nil {
+		return satSolverUintSetIterator{}, err
+	}
+	return satSolverUintSetIterator{values: s.values}, nil
+}
+func (i *satSolverUintSetIterator) Next() (uint32, bool) {
+	if i.next >= len(i.values) {
+		return 0, false
+	}
+	value := i.values[i.next]
+	i.next++
+	return value, true
 }
 func (s *satSolverUintSet) Insert(v uint32) error {
 	if e := s.open(); e != nil {

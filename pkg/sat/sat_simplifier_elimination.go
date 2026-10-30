@@ -106,10 +106,15 @@ func (s *satSimplifier) orderVariables() error {
 	defer s.closeEliminationCosts()
 	p := s.lifecycle.propagation
 	x := &s.elimination
-	if e := p.variables.elimTodo.open(); e != nil {
+	it, e := p.variables.elimTodo.Begin()
+	if e != nil {
 		return e
 	}
-	for _, v := range p.variables.elimTodo.values {
+	for {
+		v, yes := it.Next()
+		if !yes {
+			break
+		}
 		external, e := p.variables.IsExternal(BoolVar(v))
 		if e != nil {
 			return e
