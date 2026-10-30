@@ -398,60 +398,8 @@ func (a *Automaton) IsSequence() (uint32, bool) {
 	return length, len(a.out[state]) == 0 || len(a.out[state]) == 1 && a.IsLoopState(state)
 }
 
-// Compress removes epsilon transitions, collapses their closures, and turns
-// states that cannot reach a final state into sinks. This is the language
-// preserving purpose of the source's local epsilon-splicing cases.
 func (a *Automaton) Compress() {
-	compressed := New(a.initial, nil, nil)
-	compressed.ensure(a.NumStates() - 1)
-	for state := uint32(0); state < a.NumStates(); state++ {
-		closure := a.EpsilonClosure(state)
-		for _, reached := range closure {
-			if a.IsFinal(reached) {
-				compressed.AddFinal(state)
-			}
-			for _, move := range a.out[reached] {
-				if move.Epsilon {
-					continue
-				}
-				for _, target := range a.EpsilonClosure(move.Destination) {
-					compressed.addUnique(ConditionMove(state, target, move.Condition))
-				}
-			}
-		}
-	}
-
-	live := make([]bool, compressed.NumStates())
-	stack := append([]uint32(nil), compressed.final...)
-	for _, state := range stack {
-		live[state] = true
-	}
-	for len(stack) != 0 {
-		state := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		for _, move := range compressed.in[state] {
-			if !live[move.Source] {
-				live[move.Source] = true
-				stack = append(stack, move.Source)
-			}
-		}
-	}
-	for state := range compressed.out {
-		if !live[state] {
-			compressed.out[state] = nil
-		}
-	}
-	compressed.rebuildIncoming()
-	for len(compressed.out) > 1 {
-		last := uint32(len(compressed.out) - 1)
-		if last == compressed.initial || len(compressed.in[last]) != 0 {
-			break
-		}
-		compressed.RemoveFinal(last)
-		compressed.out = compressed.out[:last]
-		compressed.in = compressed.in[:last]
-	}
-	*a = *compressed
+	a.compressSource()
 }
 
 func (a *Automaton) rebuildIncoming() {
