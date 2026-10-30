@@ -187,3 +187,105 @@ func TestSpacerDerivationOwnsPremisesAndAttachesToObligation(t *testing.T) {
 	spacerMust(t, owner.Close())
 	spacerMust(t, command.Close())
 }
+
+func TestSpacerDerivationSkipsProjectionWithoutVariables(t *testing.T) {
+	command, manager, owner := lemmaOwnerFixture(t)
+	defer func() { spacerMust(t, command.Close()) }()
+	defer func() { spacerMust(t, owner.Close()) }()
+	boolean, err := manager.MkBoolSort()
+	spacerMust(t, err)
+	name, err := manager.Symbols.Intern("derivation-no-vars-p")
+	spacerMust(t, err)
+	predicate, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	spacerMust(t, err)
+	transformer, err := spacer.NewRulePredicateTransformer(owner, predicate, spacer.PropSolverConfig{})
+	spacerMust(t, err)
+	defer func() { spacerMust(t, transformer.Close()) }()
+	rules, err := base.NewRuleManager(manager)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, rules.Close()) }()
+	spacerMust(t, rules.RegisterPredicate(predicate))
+	head, err := manager.MkApp(predicate, nil)
+	spacerMust(t, err)
+	rule, err := rules.NewRule(head, nil, nil, "no-vars")
+	spacerMust(t, err)
+	defer func() { spacerMust(t, rule.Close()) }()
+	truth, err := manager.MkTrue()
+	spacerMust(t, err)
+	root, err := transformer.NewProofObligation(nil, 2, 1, truth, nil)
+	spacerMust(t, err)
+	var pins []ast.ASTRef
+	defer func() {
+		for i := range pins {
+			spacerMust(t, manager.DelRef(&pins[i]))
+		}
+	}()
+	own := func(value ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		spacerMust(t, err)
+		ref, err := manager.NewRef(value)
+		spacerMust(t, err)
+		pins = append(pins, ref)
+		return value
+	}
+	constant := func(text string, sort ast.ASTHandle) ast.ASTHandle {
+		t.Helper()
+		name, err := manager.Symbols.Intern(text)
+		spacerMust(t, err)
+		decl, err := manager.MkFuncDecl(name, nil, sort, ast.ASTFuncDeclInfo{})
+		spacerMust(t, err)
+		return own(manager.MkApp(decl, nil))
+	}
+	zero := own(manager.ArithmeticIntegerNumeralText("0"))
+	one := own(manager.ArithmeticIntegerNumeralText("1"))
+	integer, err := manager.GetSort(zero)
+	spacerMust(t, err)
+	arraySort := own(manager.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), integer))
+	a := constant("derivation-no-vars-a", arraySort)
+	i := constant("derivation-no-vars-i", integer)
+	j := constant("derivation-no-vars-j", integer)
+	arrays, err := manager.ArrayFamilyID()
+	spacerMust(t, err)
+	stored := own(manager.MkFamilyApp(arrays, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, i, one}))
+	selected := own(manager.MkFamilyApp(arrays, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{stored, j}))
+	transition := own(manager.MkEq(selected, one))
+	md, err := model.NewModel(manager)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, md.Close()) }()
+	baseArray := own(manager.MkConstArray(arraySort, zero))
+	for _, binding := range [][2]ast.ASTHandle{{a, baseArray}, {i, zero}, {j, zero}} {
+		decl, err := manager.GetDecl(binding[0])
+		spacerMust(t, err)
+		spacerMust(t, md.Core().RegisterConstant(decl, binding[1]))
+	}
+	// Exercise both an active first premise and a leading must premise. Neither
+	// zero-arity predicate contributes variables to either projection stage.
+	for _, leadingMust := range []bool{false, true} {
+		derivation, err := spacer.NewDerivation(root, rule, transition, nil)
+		spacerMust(t, err)
+		if leadingMust {
+			spacerMust(t, derivation.AddPremise(transformer, 0, truth, true, nil))
+		}
+		spacerMust(t, derivation.AddPremise(transformer, 1, truth, false, nil))
+		child, err := derivation.CreateFirstChild(md.Core())
+		spacerMust(t, err)
+		if child == nil {
+			t.Fatal("missing child for zero-arity premise", leadingMust)
+		}
+		actual, err := derivation.Transition()
+		spacerMust(t, err)
+		containsStore, err := manager.OccursExpr(stored, actual)
+		spacerMust(t, err)
+		if !containsStore || (!leadingMust && actual != transition) {
+			t.Fatal("empty-variable projection specialized the symbolic transition", leadingMust)
+		}
+		post, err := child.Post()
+		spacerMust(t, err)
+		containsStore, err = manager.OccursExpr(stored, post)
+		spacerMust(t, err)
+		if !containsStore {
+			t.Fatal("empty-variable post projection removed the symbolic store", leadingMust)
+		}
+		spacerMust(t, derivation.Close())
+	}
+}

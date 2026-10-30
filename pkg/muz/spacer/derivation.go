@@ -246,6 +246,13 @@ func (d *Derivation) Transition() (ast.ASTHandle, error) {
 
 func (d *Derivation) project(force bool, md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (result ast.ASTRef, remaining []ast.ASTRef, resultErr error) {
 	manager := d.parent.transformer.manager
+	// Every derivation::create_next_child projection in C++ is guarded by
+	// !vars.empty(). In particular, reduce_all_selects must not specialize a
+	// symbolic transition to the model when there is nothing to eliminate.
+	if len(variables) == 0 {
+		result, resultErr = manager.NewRef(formula)
+		return result, nil, resultErr
+	}
 	defer func() {
 		if resultErr != nil {
 			if result != (ast.ASTRef{}) {
