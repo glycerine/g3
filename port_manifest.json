@@ -76343,7 +76343,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpq inequality threshold ownership, unit retention, axiom marking, stable multi-atom clauses, exact three-valued inequality truth, distinct-variable watches, justified conflict-first clause propagation, insertion-order watched queue dispatch, and resumable root unit/definition/queue initialization (src/math/subpaving/subpaving_t_def.h:575-587,773-875,1345-1419,1695-1752,1773-1808); source TRACE and remaining solver lifecycle remain open",
+          "name": "Concrete config_mpq inequality threshold ownership, unit retention, axiom marking, stable multi-atom clauses, exact three-valued inequality truth, distinct-variable watches, justified conflict-first clause propagation, insertion-order watched queue dispatch, and non-resuming source root initialization after cancellation (src/math/subpaving/subpaving_t_def.h:575-587,773-875,1345-1419,1695-1752,1773-1808); source TRACE and remaining solver lifecycle remain open",
           "status": "partial",
           "go_target": "pkg/math/subpaving/rational_context_units.go",
           "go_targets": [
@@ -76397,7 +76397,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpq round-robin variable selection, exact midpoint decisions, recent-bound queue and resumable breadth-first search (src/math/subpaving/subpaving_t_def.h:24-101,185-247,349-360,1665-1682,1806-1843); TRACE remains open",
+          "name": "Concrete config_mpq round-robin variable selection, exact midpoint decisions, recent-bound queue and source-faithful breadth-first cancellation (src/math/subpaving/subpaving_t_def.h:24-101,185-247,349-360,1665-1682,1806-1843); TRACE remains open",
           "status": "partial",
           "go_target": "pkg/math/subpaving/rational_search.go",
           "go_targets": [
@@ -77887,7 +77887,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpff polynomial watcher queue, initial definition sweep, recent child bounds and cancellation resume (src/math/subpaving/subpaving_t_def.h:1664-1802)",
+          "name": "Concrete config_mpff polynomial watcher queue, initial definition sweep, recent child bounds, and source queue-empty assertion after canceled search propagation (src/math/subpaving/subpaving_t_def.h:1664-1802)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/fast_context_propagate.go",
           "tests": [
@@ -78135,7 +78135,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpf root unit, definition, and queue initialization order with resumable checkpoints (src/math/subpaving/subpaving_t_def.h:1753-1808)",
+          "name": "Concrete config_mpf root unit, definition, and queue initialization order with non-resuming source checkpoints (src/math/subpaving/subpaving_t_def.h:1753-1808)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_context_init.go",
           "go_targets": [
@@ -78216,7 +78216,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpf root node, directed integer bound normalization, conflict detection and source-order resumable unit assertion (src/math/subpaving/subpaving_t_def.h:291-342,525-581,1337-1343,1773-1785)",
+          "name": "Concrete config_mpf root node, directed integer bound normalization, conflict detection and source-order unit assertion with non-resuming initialization (src/math/subpaving/subpaving_t_def.h:291-342,525-581,1337-1343,1773-1785)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/arbitrary_context_bounds.go",
           "tests": [
@@ -78422,7 +78422,7 @@
           "tests": ["TestRationalBoundTracePublicationAndConflictOrder", "TestRationalBoundTraceStreamAndPrinterFailurePrefix"]
         },
         {
-          "name": "Concrete config_mpq init constraint, unit assertion, post-unit and post-propagation TRACE sites with resumable one-time emission (subpaving_t_def.h:1780-1801)",
+          "name": "Concrete config_mpq init constraint, unit assertion, post-unit and post-propagation TRACE sites with Go writer retry; source checkpoint cancellation does not resume (subpaving_t_def.h:1780-1801)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/rational_init_trace.go",
           "tests": ["TestRationalRootInitializationTraceSourceOrderAndResume", "TestRationalRootInitializationTraceRefusalAndPrinterPrefix"]
@@ -78506,7 +78506,7 @@
           ]
         },
         {
-          "name": "Concrete config_hwf retained unit references and resumable root assertion (src/math/subpaving/subpaving_t_def.h:802-875,1773-1786)",
+          "name": "Concrete config_hwf retained unit references and non-resuming root initialization after cancellation (src/math/subpaving/subpaving_t_def.h:802-875,1773-1786)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/hardware_context_units.go",
           "tests": [

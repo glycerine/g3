@@ -41,7 +41,7 @@ func (c *FastContext) PopLeafBFS() (*FastNode, error) {
 }
 
 // Search initializes the root and processes the oldest leaf first. A canceled
-// propagation retains its selected child and pending queue for resumption.
+// propagation leaves its source queue prefix pending and drops the local leaf.
 // Children created here are owned by the context until Close.
 func (c *FastContext) Search() error {
 	if err := c.InitializeRoot(); err != nil {

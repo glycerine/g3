@@ -35,8 +35,9 @@ func (c *RationalContext) AddRecentBounds(n *RationalNode) error {
 	return nil
 }
 
-// Search resumes a selected child after cancellation without replaying its
-// recent-bound queue. Children remain owned by the context until Close.
+// Search processes breadth-first leaves using source recent-bound replay. A
+// canceled propagation leaves its queue prefix pending and drops the local
+// selected leaf; a later search reaches the source queue-empty invariant.
 func (c *RationalContext) Search() error {
 	if err := c.InitializeRoot(); err != nil {
 		return err

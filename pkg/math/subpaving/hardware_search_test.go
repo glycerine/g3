@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -74,6 +75,10 @@ func TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation(t *testing.T) 
 	if c.searchNode != nil || c.searchPhase != 0 || c.queueHead != 1 || len(c.queue) != 2 || c.leafHead != right ||
 		left.queuedLeaf || !right.queuedLeaf {
 		t.Fatalf("canceled selected child state: pending=%p phase=%d head=%d queue=%d leaf=%p leftLeaf=%t rightLeaf=%t", c.searchNode, c.searchPhase, c.queueHead, len(c.queue), c.leafHead, left.queuedLeaf, right.queuedLeaf)
+	}
+	limit.Steps, limit.Limit = 0, 100
+	if err := c.Search(); !errors.Is(err, arena.ErrInvalidSlot) || c.queueHead != 1 || len(c.queue) != 2 || c.leafHead != right {
+		t.Fatal("later search must encounter the source queue-empty invariant", err, c.queueHead, len(c.queue))
 	}
 	if err := c.Close(); err != nil {
 		t.Fatal(err)

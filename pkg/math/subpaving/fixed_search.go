@@ -27,7 +27,7 @@ func fixedNodeDepth(n *FixedNode) uint32 {
 }
 
 // Search initializes the root and processes the oldest leaf first. A stopped
-// propagation retains its selected child and queue for the next invocation.
+// propagation leaves its source queue prefix pending and drops the local leaf.
 // Children created by this loop remain context-owned until Close.
 func (c *FixedContext) Search() error {
 	if err := c.InitializeRoot(); err != nil {

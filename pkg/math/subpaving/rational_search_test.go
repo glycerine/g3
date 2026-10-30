@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/messages"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -51,6 +52,10 @@ func TestRationalSearchChildCancellationLeavesSourceQueue(t *testing.T) {
 	var source z3exception.DefaultException
 	if !errors.Is(err, ErrRationalContextCanceled) || !errors.As(err, &source) || source.Message() != messages.Canceled || c.searchNode != nil || c.searchPhase != 0 || c.leafHead != right || c.queueHead != 0 || len(c.queue) != 1 || c.queue[0] != left.trail || c.queue[0].timestamp != c.timestamp {
 		t.Fatal("canceled child propagation must retain only the source queue prefix", err)
+	}
+	c.limit.Limit, c.limit.Steps = 100, 0
+	if err := c.Search(); !errors.Is(err, arena.ErrInvalidSlot) || c.queueHead != 0 || len(c.queue) != 1 || c.leafHead != right {
+		t.Fatal("later search must encounter the source queue-empty invariant", err, c.queueHead, len(c.queue))
 	}
 }
 

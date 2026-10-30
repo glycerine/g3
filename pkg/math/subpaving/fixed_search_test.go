@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -33,6 +34,10 @@ func TestFixedSearchBreadthFirstCancellationAndOwnedChildren(t *testing.T) {
 	c.limit.Limit, c.limit.Steps = 2, 1
 	if err := c.Search(); !errors.Is(err, ErrFixedContextCanceled) || c.searchNode != nil || c.searchPhase != 0 || len(c.queue) != 1 || len(c.leafQueue) != 1 || c.leafQueue[0] != c.searchOwned[1] {
 		t.Fatal("selected child cancellation must retain the source queue prefix", err)
+	}
+	c.limit.Limit, c.limit.Steps = 100, 0
+	if err := c.Search(); !errors.Is(err, arena.ErrInvalidSlot) || len(c.queue) != 1 || len(c.leafQueue) != 1 || c.leafQueue[0] != c.searchOwned[1] {
+		t.Fatal("later search must encounter the source queue-empty invariant", err, len(c.queue), len(c.leafQueue))
 	}
 	if err := c.Close(); err != nil || root.children != 0 || len(c.searchOwned) != 0 {
 		t.Fatal("owned child cleanup", err)

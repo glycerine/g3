@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -78,5 +79,9 @@ func TestArbitrarySearchBreadthFirstLimitAndChildCancellation(t *testing.T) {
 	if err := c.Search(); !errors.Is(err, ErrArbitraryContextCanceled) || c.searchNode != nil || c.searchPhase != 0 || c.leafHead != right ||
 		c.queueHead != 1 || len(c.queue) != 2 || left.queuedLeaf || !right.queuedLeaf {
 		t.Fatal("canceled child must not retain the source-local selected node", err, c.searchPhase, c.queueHead, len(c.queue))
+	}
+	c.limit.Limit, c.limit.Steps = 100, 0
+	if err := c.Search(); !errors.Is(err, arena.ErrInvalidSlot) || c.queueHead != 1 || len(c.queue) != 2 || c.leafHead != right {
+		t.Fatal("later search must encounter the source queue-empty invariant", err, c.queueHead, len(c.queue))
 	}
 }

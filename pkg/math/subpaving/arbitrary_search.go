@@ -11,7 +11,7 @@ import (
 
 // Search initializes the root, then processes breadth-first leaves with the
 // default midpoint splitter and round-robin variable selector. A canceled
-// child queue retains its selected node and unprocessed suffix for resumption.
+// propagation leaves its source queue prefix pending and drops the local leaf.
 func (c *ArbitraryContext) Search() error {
 	if err := c.InitializeRoot(); err != nil {
 		return err
