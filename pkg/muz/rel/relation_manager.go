@@ -54,6 +54,16 @@ func (m *RelationManager) IsSaturated(predicate ast.ASTHandle) (bool, error) {
 	return m.saturated[predicate], nil
 }
 
+// ResetSaturatedMarks mirrors relation_manager::reset_saturated_marks before
+// a new relational query is compiled.
+func (m *RelationManager) ResetSaturatedMarks() error {
+	if err := m.open(); err != nil {
+		return err
+	}
+	clear(m.saturated)
+	return nil
+}
+
 // TryGetRelation returns the borrowed table stored for predicate.
 func (m *RelationManager) TryGetRelation(predicate ast.ASTHandle) (*HashTable, bool, error) {
 	if err := m.open(); err != nil {

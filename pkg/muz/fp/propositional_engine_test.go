@@ -926,11 +926,13 @@ func TestPropositionalEngineExecutesStratifiedNegation(t *testing.T) {
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
 	applications := make(map[string]ast.ASTHandle)
+	declarations := make(map[string]ast.ASTHandle)
 	for _, name := range []string{"P", "Q"} {
 		symbol, e := manager.Symbols.Intern("fp-refuse-" + name)
 		fpMust(t, e)
 		declaration, e := manager.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{})
 		fpMust(t, e)
+		declarations[name] = declaration
 		applications[name], e = manager.MkApp(declaration, nil)
 		fpMust(t, e)
 		fpMust(t, engine.RegisterPredicate(declaration))
@@ -952,6 +954,12 @@ func TestPropositionalEngineExecutesStratifiedNegation(t *testing.T) {
 	fpMust(t, err)
 	if status != lbool.True {
 		t.Fatal("repeated stratified negative query lost its result", status)
+	}
+	fpMust(t, engine.AddFact(declarations["P"], nil))
+	status, err = engine.Query(applications["Q"])
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal("negation-dependent result survived a new positive fact", status)
 	}
 	compiled, err := engine.LastQueryUsedCompiledCode()
 	fpMust(t, err)

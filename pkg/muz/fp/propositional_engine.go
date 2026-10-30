@@ -1358,9 +1358,6 @@ func (e *PropositionalEngine) resetNegationDependentTables() error {
 }
 
 func (e *PropositionalEngine) saturate() error {
-	if err := e.resetNegationDependentTables(); err != nil {
-		return err
-	}
 	count, err := e.set.Len()
 	if err != nil {
 		return err
@@ -1628,6 +1625,15 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		if e.predicates[declaration].table == nil {
 			return lbool.Undef, ErrPropositionalHorn
 		}
+	}
+	if err = e.relations.ResetSaturatedMarks(); err != nil {
+		return lbool.Undef, err
+	}
+	// rel_context::query resets negation-dependent tables before choosing and
+	// running the relational saturation implementation. Keep this outside the
+	// direct evaluator so compiled and interpreted execution see the same state.
+	if err = e.resetNegationDependentTables(); err != nil {
+		return lbool.Undef, err
 	}
 	e.compiled, err = e.tryCompiledSaturation()
 	if err != nil {

@@ -89643,8 +89643,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/query_clone.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_magic_sets_test.go"],
-      "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate"],
+      "go_targets": ["pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/query_clone.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_magic_sets_test.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/muz/rel/relation_manager.go"],
+      "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate", "TestPropositionalEngineExecutesStratifiedNegation"],
       "conditionals": [
         {
           "line": 260,
@@ -89695,7 +89695,10 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "Scoped expression query magic-set pass with configured parameter lookup and filter-before-simple-join prerequisite; remaining relational query orchestration is unported", "status": "partial", "go_target": "pkg/muz/fp/query_magic_sets.go", "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate"]}],
+      "methods": [
+        {"name": "Scoped expression query magic-set pass with configured parameter lookup and filter-before-simple-join prerequisite; remaining relational query orchestration is unported", "status": "partial", "go_target": "pkg/muz/fp/query_magic_sets.go", "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate"]},
+        {"name": "Reset saturation marks and negation-dependent tables before compiled or interpreted query execution", "status": "partial", "go_target": "pkg/muz/fp/propositional_engine.go", "go_targets": ["pkg/muz/rel/relation_manager.go"], "tests": ["TestPropositionalEngineExecutesStratifiedNegation"]}
+      ],
       "ownership": [],
       "deviations": []
     },
