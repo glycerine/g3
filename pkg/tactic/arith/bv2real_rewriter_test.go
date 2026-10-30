@@ -222,7 +222,7 @@ func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
 	boolean, err := m.MkBoolSort()
 	equationMust(t, err)
 	name := symbol.Numerical(0)
-	for _, place := range []string{"pattern", "no-pattern"} {
+	for _, place := range []string{"no-pattern", "pattern"} {
 		spec := ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{name}, Body: truth}
 		if place == "pattern" {
 			pattern, err := m.MkPattern([]ast.ASTHandle{combined})
@@ -247,8 +247,20 @@ func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
 				t.Fatal("rewriter pattern policy", eliminate, got, want)
 			}
 			t.Cleanup(func() { equationMust(t, rewrite.Close()) })
+			beforeDecls, err := u.AuxDecls()
+			equationMust(t, err)
 			out := bv2RealOut(t, m)
 			equationMust(t, rewrite.Rewrite(q, out))
+			afterDecls, err := u.AuxDecls()
+			equationMust(t, err)
+			if place == "no-pattern" {
+				if eliminate && len(afterDecls) != len(beforeDecls) {
+					t.Fatal("elimination config traversed no-pattern declarations", len(beforeDecls), len(afterDecls))
+				}
+				if !eliminate && len(afterDecls) <= len(beforeDecls) {
+					t.Fatal("normal config did not visit and construct the no-pattern expression", len(beforeDecls), len(afterDecls))
+				}
+			}
 			got, err := m.RefGet(out)
 			equationMust(t, err)
 			annotation := ast.ASTHandle{}
