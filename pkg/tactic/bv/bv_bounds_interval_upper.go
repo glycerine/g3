@@ -1,6 +1,6 @@
 package bv
 
-// Source: src/ast/rewriter/bv_bounds_base.h:188-193.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp:188-193.
 
 import "math/big"
 

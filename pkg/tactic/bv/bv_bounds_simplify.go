@@ -1,6 +1,6 @@
 package bv
 
-// Source: src/ast/rewriter/bv_bounds_base.h simplify_core/may_simplify.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp simplify_core/may_simplify.
 
 import (
 	"github.com/glycerine/g3/pkg/ast"

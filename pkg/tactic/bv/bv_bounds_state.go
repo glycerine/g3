@@ -1,6 +1,6 @@
 package bv
 
-// Source: src/ast/rewriter/bv_bounds_base.h assert_expr_core/pop_core.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp assert_expr_core/pop_core.
 
 import (
 	"errors"

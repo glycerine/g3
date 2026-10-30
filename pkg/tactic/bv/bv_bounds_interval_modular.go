@@ -1,7 +1,7 @@
 package bv
 
 // Source: src/math/interval/mod_interval.h:21-230 and
-// src/ast/rewriter/bv_bounds_base.h:61-153.
+// src/tactic/bv/bv_bounds_tactic.cpp:61-153.
 
 import (
 	"math/big"

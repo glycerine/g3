@@ -1,6 +1,6 @@
 package bv
 
-// Source: src/ast/rewriter/bv_bounds_base.h:212-264.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp:212-264.
 
 import "github.com/glycerine/g3/pkg/ast"
 

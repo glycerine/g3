@@ -170846,15 +170846,28 @@
       "path": "src/tactic/bv/bv_bounds_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/bv_bounds_tactic.go",
-        "pkg/tactic/bv/bv_bounds_simplify.go",
+        "pkg/tactic/bv/bv_bounds_interval.go",
+        "pkg/tactic/bv/bv_bounds_interval_modular.go",
         "pkg/tactic/bv/bv_bounds_recognize.go",
+        "pkg/tactic/bv/bv_bounds_numeral.go",
+        "pkg/tactic/bv/bv_bounds_params.go",
+        "pkg/tactic/bv/bv_bounds_state.go",
+        "pkg/tactic/bv/bv_bounds_simplify.go",
+        "pkg/tactic/bv/bv_bounds_simplify_context.go",
+        "pkg/tactic/bv/bv_bounds_simplify_sign.go",
+        "pkg/tactic/bv/bv_bounds_contains.go",
+        "pkg/tactic/bv/bv_bounds_contains_bound.go",
         "pkg/tactic/bv/bv_bounds_translate.go",
-        "pkg/tactic/bv/bv_bounds_width_limit_test.go",
-        "pkg/tactic/bv/bv_bounds_top_extract_test.go",
-        "pkg/tactic/core/dom_simplify_plugin.go"
+        "pkg/tactic/core/dom_simplify_plugin.go",
+        "pkg/tactic/bv/bv_bounds_tactic_test.go",
+        "pkg/tactic/bv/bv_bounds_interval_test.go",
+        "pkg/tactic/bv/bv_bounds_state_test.go",
+        "pkg/tactic/bv/bv_bounds_may_simple_test.go",
+        "pkg/tactic/bv/bv_bounds_contains_test.go",
+        "pkg/tactic/bv/bv_bounds_contains_bound_context_test.go"
       ],
       "tests": [
         "TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds",
@@ -170867,7 +170880,22 @@
         "TestBVBoundsDominatorPropagatesSingletonEquality",
         "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
         "TestBVBoundsDominatorScopesITEBranchBounds",
-        "TestBVBoundsSourceRecognizesUnsignedSignedAndEquality"
+        "TestBVBoundsSourceRecognizesUnsignedSignedAndEquality",
+        "TestBVBoundsSourceModularSetIntersectionComplement",
+        "TestBVBoundsModularTightComplementPolicy",
+        "TestBVBoundsModularIntersectionAndImplication",
+        "TestBVBoundsSourceAssertionIntersectionAndPop",
+        "TestBVBoundsSourceContradictionAndNegatedBound",
+        "TestBVBoundsMaySimplifyNumeralAndSingleBound",
+        "TestBVBoundsMaySimplifyContextAndNegation",
+        "TestBVBoundsContainsExpressionNestedTarget",
+        "TestBVBoundsContainsExpressionSharedDAG",
+        "TestBVBoundsContainsBoundFromContext",
+        "TestBVBoundsContainsBoundRepeatedVariable",
+        "TestBVBoundsSimplifyTightNegation",
+        "TestBVBoundsSimplifyNegatedIntersectionPropagatesEquality",
+        "TestBVBoundsSimplifyFullWithoutContext",
+        "TestBVBoundsSourceSingletonReplacesVariable"
       ],
       "conditionals": [
         {
@@ -170953,33 +170981,70 @@
           "text": "SASSERT(m_bound.contains(undo.e));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Dominator callback factory mk_dom_bv_bounds_tactic (src/tactic/bv/bv_bounds_tactic.cpp:822-823)",
+          "name": "64-bit modular interval construction, implication, intersection and negation (lines 28-154)",
           "status": "complete",
-          "go_target": "pkg/tactic/bv/bv_bounds_tactic.go",
-          "tests": [
-            "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
-            "TestBVBoundsDominatorPropagatesSingletonEquality",
-            "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
-            "TestBVBoundsDominatorScopesITEBranchBounds"
-          ]
+          "go_target": "pkg/tactic/bv/bv_bounds_interval.go",
+          "tests": ["TestBVBoundsSourceModularSetIntersectionComplement", "TestBVBoundsModularTightComplementPolicy", "TestBVBoundsModularIntersectionAndImplication"]
         },
         {
-          "name": "Bound recognition and output term selection in is_bound (src/tactic/bv/bv_bounds_tactic.cpp:195-239)",
+          "name": "Numeral recognition and unsigned/signed/equality bound parsing (lines 186-242)",
           "status": "complete",
           "go_target": "pkg/tactic/bv/bv_bounds_recognize.go",
-          "tests": [
-            "TestBVBoundsSourceRecognizesUnsignedSignedAndEquality",
-            "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64",
-            "TestBVBoundsSourceEqualityBoundTargetsExtractTerm"
-          ]
+          "tests": ["TestBVBoundsSourceRecognizesUnsignedSignedAndEquality", "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64", "TestBVBoundsSourceEqualityBoundTargetsExtractTerm"]
+        },
+        {
+          "name": "Parameter update and propagate-eq descriptor (lines 303-314, 612-623)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_params.go",
+          "tests": ["TestBVBoundsSourcePropagateEqualityAndTranslation"]
+        },
+        {
+          "name": "Contextual assertion, interval refinement and scope rollback (lines 325-354, 507-534)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_state.go",
+          "tests": ["TestBVBoundsSourceAssertionIntersectionAndPop", "TestBVBoundsSourceContradictionAndNegatedBound"]
+        },
+        {
+          "name": "Context simplification and optional singleton equality propagation (lines 356-405)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_simplify.go",
+          "tests": ["TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds", "TestBVBoundsSimplifyTightNegation", "TestBVBoundsSimplifyNegatedIntersectionPropagatesEquality", "TestBVBoundsSimplifyFullWithoutContext", "TestBVBoundsSourceSingletonReplacesVariable"]
+        },
+        {
+          "name": "Expression containment and repeated-bound discovery (lines 407-468)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_contains.go",
+          "tests": ["TestBVBoundsContainsExpressionNestedTarget", "TestBVBoundsContainsExpressionSharedDAG", "TestBVBoundsContainsBoundFromContext", "TestBVBoundsContainsBoundRepeatedVariable"]
+        },
+        {
+          "name": "May-simplify eligibility and single-bound fast path (lines 470-508)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_simplify.go",
+          "tests": ["TestBVBoundsMaySimplifyNumeralAndSingleBound", "TestBVBoundsMaySimplifyContextAndNegation"]
+        },
+        {
+          "name": "Dominator callback assertions, rewrites and branch-local scopes (lines 538-818)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
+          "tests": ["TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds", "TestBVBoundsDominatorPropagatesSingletonEquality", "TestBVBoundsDominatorDetectsContradictorySiblingBounds", "TestBVBoundsDominatorScopesITEBranchBounds"]
+        },
+        {
+          "name": "Translation, scope reporting and both tactic factories (lines 529-534, 806-810, 817-823)",
+          "status": "complete",
+          "go_target": "pkg/tactic/bv/bv_bounds_translate.go",
+          "tests": ["TestBVBoundsSourcePropagateEqualityAndTranslation", "TestBVBoundsDominatorPropagatesSingletonEquality"]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "Bound keys and scope trail own AST references until rollback or cleanup; translated simplifiers copy the effective propagate-eq setting and use the destination manager."
+      ],
+      "deviations": [
+        "The two C++ callback classes share one typed Go bounds state and AST reference owner. The disabled #if 0 expression-variable and bound-count caches are omitted because they have no execution path."
+      ]
     },
     {
       "path": "src/tactic/bv/bv_bounds_tactic.h",

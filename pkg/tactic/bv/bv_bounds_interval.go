@@ -1,6 +1,6 @@
 package bv
 
-// Source: src/ast/rewriter/bv_bounds_base.h interval operations.
+// Source: src/tactic/bv/bv_bounds_tactic.cpp interval operations.
 
 import (
 	"math/big"
