@@ -170,25 +170,88 @@ func TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(implicant) != 2 {
-		_ = releaseNormalizeRefs(manager, implicant)
-		t.Fatalf("boolean disequality implicant size %d, want two literals", len(implicant))
+	if len(implicant) != 1 {
+		t.Fatalf("Boolean constant disequality: got %d literals, want one", len(implicant))
 	}
-	seen := make(map[ast.ASTHandle]bool, len(implicant))
-	for _, ref := range implicant {
-		literal, getErr := manager.RefGet(ref)
-		if getErr != nil {
-			_ = releaseNormalizeRefs(manager, implicant)
-			t.Fatal(getErr)
-		}
-		seen[literal] = true
+	selected, err = manager.RefGet(implicant[0])
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !seen[notP] || !seen[q] {
-		_ = releaseNormalizeRefs(manager, implicant)
-		t.Fatal("boolean disequality did not expand to its true operand literals", seen)
+	if selected != notEquality {
+		t.Fatal("Boolean constant disequality was expanded", selected)
 	}
 	if err = releaseNormalizeRefs(manager, implicant); err != nil {
 		t.Fatal(err)
+	}
+	one, err := manager.ArithmeticRealNumeralText("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	two, err := manager.ArithmeticRealNumeralText("2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	distinct, err := manager.MkDistinct([]ast.ASTHandle{one, two})
+	if err != nil {
+		t.Fatal(err)
+	}
+	numeric, err := computeImplicantLiterals(manager, md, owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{distinct})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(numeric) != 1 {
+		t.Fatalf("binary arithmetic distinct yielded %d literals", len(numeric))
+	}
+	actual, err := manager.RefGet(numeric[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected, err := manager.MkArithmeticLT(one, two)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if actual != expected {
+		t.Fatal("binary arithmetic distinct did not split after normalization")
+	}
+	if err = releaseNormalizeRefs(manager, numeric); err != nil {
+		t.Fatal(err)
+	}
+
+	// A composite Boolean operand does take the recursive branch in C++.
+	composite, err := manager.MkAnd(p, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compositeEq, err := manager.MkEq(composite, q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compositeNot, err := manager.MkNot(compositeEq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	implicant, err = computeImplicantLiterals(manager, md, owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{compositeNot})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := releaseNormalizeRefs(manager, implicant); err != nil {
+			t.Error(err)
+		}
+	}()
+	if len(implicant) != 2 {
+		t.Fatalf("composite disequality: got %d literals, want two", len(implicant))
+	}
+	seen := make(map[ast.ASTHandle]bool)
+	for _, ref := range implicant {
+		h, e := manager.RefGet(ref)
+		if e != nil {
+			t.Fatal(e)
+		}
+		seen[h] = true
+	}
+	if !seen[notP] || !seen[q] {
+		t.Fatal("composite disequality operands", seen)
 	}
 }
 
@@ -218,7 +281,11 @@ func TestSpacerImplicantPreservesNonArithmeticDisequality(t *testing.T) {
 				must(err)
 			}
 			var terms []ast.ASTHandle
-			for _, text := range []string{"left", "right"} {
+			names := []string{"left", "right", "third"}
+			if arrays {
+				names = names[:2]
+			}
+			for _, text := range names {
 				n, e := m.Symbols.Intern(text)
 				must(e)
 				term, e := m.MkConst(n, sort)
@@ -233,7 +300,9 @@ func TestSpacerImplicantPreservesNonArithmeticDisequality(t *testing.T) {
 			must(err)
 			defer func() { must(backend.Close()) }()
 			must(backend.SetProduceModels(true))
-			must(backend.Assert(neq))
+			distinct, err := m.MkDistinct(terms)
+			must(err)
+			must(backend.Assert(distinct))
 			status, err := backend.CheckSat(nil)
 			must(err)
 			if status != lbool.True {
@@ -253,6 +322,38 @@ func TestSpacerImplicantPreservesNonArithmeticDisequality(t *testing.T) {
 			if actual != neq {
 				t.Fatal("disequality changed", actual, neq)
 			}
+			for count := 2; count <= len(terms); count++ {
+				input, e := m.MkDistinct(terms[:count])
+				must(e)
+				picked, e := computeImplicantLiterals(m, md, owner.contexts[0].config.ModelEvaluator, []ast.ASTHandle{input})
+				must(e)
+				if len(picked) != count*(count-1)/2 {
+					t.Fatalf("distinct(%d) yielded %d literals", count, len(picked))
+				}
+				expected := make(map[ast.ASTHandle]bool)
+				for i := 0; i < count; i++ {
+					for j := i + 1; j < count; j++ {
+						eq, e := m.MkEq(terms[i], terms[j])
+						must(e)
+						ne, e := m.MkNot(eq)
+						must(e)
+						expected[ne] = true
+					}
+				}
+				for _, ref := range picked {
+					h, e := m.RefGet(ref)
+					must(e)
+					if !expected[h] {
+						t.Fatal("distinct pair missing or not normalized", h)
+					}
+					delete(expected, h)
+				}
+				if len(expected) != 0 {
+					t.Fatal("distinct lost pairs", expected)
+				}
+				must(releaseNormalizeRefs(m, picked))
+			}
+
 		})
 	}
 }

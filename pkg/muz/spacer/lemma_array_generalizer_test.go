@@ -94,3 +94,61 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 		t.Fatal("array equality generalizer applied without array constants", applicable, unchanged)
 	}
 }
+
+func TestArrayEqualityGeneralizerKeepsCandidateSortUniform(t *testing.T) {
+	m, globals := newSpacerTestServices(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	owner, err := NewManager(m, nil, 1, smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	must(err)
+	defer func() { must(owner.Close()) }()
+	boolean, err := m.MkBoolSort()
+	must(err)
+	name, err := m.Symbols.Intern("mixed-array-predicate")
+	must(err)
+	decl, err := m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	pt, err := NewRulePredicateTransformer(owner, decl, PropSolverConfig{})
+	must(err)
+	defer func() { must(pt.Close()) }()
+	first, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	must(err)
+	second, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), first)
+	must(err)
+	var cube []ast.ASTHandle
+	for i, sort := range []ast.ASTHandle{first, second} {
+		var terms []ast.ASTHandle
+		for j := 0; j < 2; j++ {
+			name, err := m.Symbols.Intern(string(rune('a' + i*2 + j)))
+			must(err)
+			value, err := m.MkConst(name, sort)
+			must(err)
+			terms = append(terms, value)
+		}
+		eq, err := m.MkEq(terms[0], terms[1])
+		must(err)
+		ne, err := m.MkNot(eq)
+		must(err)
+		cube = append(cube, ne)
+	}
+	formula, err := m.MkAndArray(cube)
+	must(err)
+	declarations, err := pt.collectArrayConstants(formula)
+	must(err)
+	if len(declarations) != 2 {
+		t.Fatalf("collected %d mixed-sort constants, want first sort's pair", len(declarations))
+	}
+	for _, decl := range declarations {
+		value, err := m.MkApp(decl, nil)
+		must(err)
+		sort, err := m.GetSort(value)
+		must(err)
+		if sort != first {
+			t.Fatal("mixed array sort retained")
+		}
+	}
+}

@@ -383,10 +383,24 @@ func (c *Compiler) compileEquality(expression ast.ASTHandle) (ast.ASTHandle, err
 		c.refs = append(c.refs, ref)
 	}
 	compiled, err := c.manager.MkOrArray(values)
-	if cleanupErr := c.releaseRefsTo(mark); err != nil || cleanupErr != nil {
-		return ast.ASTHandle{}, errors.Join(err, cleanupErr)
+	if err != nil {
+		return ast.ASTHandle{}, releaseTemps(err)
 	}
-	return c.hold(expression, compiled)
+	// Source assigns expr_ref result before the local eqs vector dies.
+	// A singleton OR is its child, so releasing eqs first destroys result.
+	resultRef, err := c.manager.NewRef(compiled)
+	if err != nil {
+		return ast.ASTHandle{}, releaseTemps(err)
+	}
+	cleanupErr := c.releaseRefsTo(mark)
+	// Keep the result owned even if temporary cleanup stops, so Close can
+	// retry all releases without leaking this reference.
+	c.refs = append(c.refs, resultRef)
+	if cleanupErr != nil {
+		return ast.ASTHandle{}, cleanupErr
+	}
+	c.cache[expression] = compiled
+	return compiled, nil
 }
 
 func (c *Compiler) compileVariable(variable ast.ASTHandle) (ast.ASTHandle, error) {

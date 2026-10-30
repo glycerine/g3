@@ -18,6 +18,7 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 	}
 	seenNodes := make(map[ast.ASTHandle]bool)
 	seenDecls := make(map[ast.ASTHandle]bool)
+	var selectedSort ast.ASTHandle
 	result := make([]ast.ASTHandle, 0, 8)
 	todo := []ast.ASTHandle{root}
 	for len(todo) != 0 {
@@ -55,8 +56,13 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 			return nil, err
 		}
 		if sortFamily == arrayFamily && declFamily == ast.NullFamilyID && !seenDecls[decl] {
-			seenDecls[decl] = true
-			result = append(result, decl)
+			// Source collect_array_proc compares only arrays of the first
+			// encountered sort, so candidate equalities stay well-sorted.
+			if selectedSort.IsNull() || sort == selectedSort {
+				selectedSort = sort
+				seenDecls[decl] = true
+				result = append(result, decl)
+			}
 		}
 		count, err := p.manager.GetNumArgs(current)
 		if err != nil {

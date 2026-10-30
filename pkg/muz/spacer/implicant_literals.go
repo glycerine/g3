@@ -67,54 +67,94 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 				return evalErr
 			}
 		}
+		// Source canonicalizes a binary distinct literal before arithmetic
+		// splitting; larger distinct applications are expanded by the picker.
+		literalFamily, e := manager.GetFamilyID(literal)
+		if e != nil {
+			return e
+		}
+		literalKind, e := manager.GetDeclKind(literal)
+		if e != nil {
+			return e
+		}
+		if literalFamily == manager.BasicFamilyID() && literalKind == ast.ASTOpDistinct {
+			n, e := manager.GetNumArgs(literal)
+			if e != nil {
+				return e
+			}
+			if n == 2 {
+				a, e := manager.GetArg(literal, 0)
+				if e != nil {
+					return e
+				}
+				b, e := manager.GetArg(literal, 1)
+				if e != nil {
+					return e
+				}
+				eq, e := manager.MkEq(a, b)
+				if e != nil {
+					return e
+				}
+				literal, e = manager.MkNot(eq)
+				if e != nil {
+					return e
+				}
+			}
+		}
 		if isNot, inner, getErr := manager.IsNot(literal); getErr != nil {
 			return getErr
 		} else if isNot {
+			innerFamily, familyErr := manager.GetFamilyID(inner)
+			if familyErr != nil {
+				return familyErr
+			}
 			kind, kindErr := manager.GetDeclKind(inner)
 			if kindErr != nil {
 				return kindErr
 			}
-			switch kind {
-			case ast.ASTOpXor:
-				a, x := manager.GetArg(inner, 0)
-				b, y := manager.GetArg(inner, 1)
-				if x != nil || y != nil {
-					return errors.Join(x, y)
-				}
-				literal, evalErr = manager.MkEq(a, b)
-			case ast.ASTOpEq:
-				a, x := manager.GetArg(inner, 0)
-				b, y := manager.GetArg(inner, 1)
-				if x != nil || y != nil {
-					return errors.Join(x, y)
-				}
-				sort, x := manager.GetSort(a)
-				if x != nil {
-					return x
-				}
-				family, x := manager.GetFamilyID(sort)
-				if x != nil {
-					return x
-				}
-				arithmetic, x := manager.ArithmeticFamilyID()
-				if x != nil {
-					return x
-				}
-				// Source add_literal only splits Int/Real disequalities.
-				// Every other disequality must still reach the output below.
-				if family != arithmetic {
-					break
-				}
-				left, x := manager.MkArithmeticLT(a, b)
-				if x != nil {
-					return x
-				}
-				if yes, x := truth(left); x != nil {
-					return x
-				} else if yes {
-					literal = left
-				} else {
-					literal, evalErr = manager.MkArithmeticLT(b, a)
+			if innerFamily == manager.BasicFamilyID() {
+				switch kind {
+				case ast.ASTOpXor:
+					a, x := manager.GetArg(inner, 0)
+					b, y := manager.GetArg(inner, 1)
+					if x != nil || y != nil {
+						return errors.Join(x, y)
+					}
+					literal, evalErr = manager.MkEq(a, b)
+				case ast.ASTOpEq:
+					a, x := manager.GetArg(inner, 0)
+					b, y := manager.GetArg(inner, 1)
+					if x != nil || y != nil {
+						return errors.Join(x, y)
+					}
+					sort, x := manager.GetSort(a)
+					if x != nil {
+						return x
+					}
+					family, x := manager.GetFamilyID(sort)
+					if x != nil {
+						return x
+					}
+					arithmetic, x := manager.ArithmeticFamilyID()
+					if x != nil {
+						return x
+					}
+					// Source add_literal only splits Int/Real disequalities.
+					// Every other disequality must still reach the output below.
+					if family != arithmetic {
+						break
+					}
+					left, x := manager.MkArithmeticLT(a, b)
+					if x != nil {
+						return x
+					}
+					if yes, x := truth(left); x != nil {
+						return x
+					} else if yes {
+						literal = left
+					} else {
+						literal, evalErr = manager.MkArithmeticLT(b, a)
+					}
 				}
 			}
 			if evalErr != nil {
@@ -234,6 +274,12 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 					if evalErr = addLiteral(a); evalErr != nil {
 						return evalErr
 					}
+				} else {
+					expanded, e := manager.MkDistinctExpanded(args)
+					if e != nil {
+						return e
+					}
+					todo = append(todo, expanded)
 				}
 			case ast.ASTOpAnd:
 				if t {
@@ -288,7 +334,15 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 						if e != nil {
 							return e
 						}
-						if sort0 == boolSort && sort1 == boolSort {
+						leftConst, e := implicantUninterpretedConstant(manager, args[0])
+						if e != nil {
+							return e
+						}
+						rightConst, e := implicantUninterpretedConstant(manager, args[1])
+						if e != nil {
+							return e
+						}
+						if sort0 == boolSort && sort1 == boolSort && (!leftConst || !rightConst) {
 							todo = append(todo, args...)
 						} else if evalErr = addLiteral(a); evalErr != nil {
 							return evalErr
@@ -369,7 +423,11 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		if e != nil {
 			return e
 		}
-		if kind == ast.ASTOpAnd {
+		family, e := manager.GetFamilyID(h)
+		if e != nil {
+			return e
+		}
+		if family == manager.BasicFamilyID() && kind == ast.ASTOpAnd {
 			n, e := manager.GetNumArgs(h)
 			if e != nil {
 				return e
@@ -419,4 +477,13 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		}
 	}
 	return result, nil
+}
+
+func implicantUninterpretedConstant(m *ast.ASTManager, h ast.ASTHandle) (bool, error) {
+	family, err := m.GetFamilyID(h)
+	if err != nil || family != ast.NullFamilyID {
+		return false, err
+	}
+	count, err := m.GetNumArgs(h)
+	return count == 0, err
 }

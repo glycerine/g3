@@ -312,6 +312,20 @@ func TestDDNFCompilerMapsRefinedEqualityToNodeIDs(t *testing.T) {
 			t.Fatalf("node-ID alternative %d = %v, want %v: %v", index, actual, expected, e)
 		}
 	}
+	// A singleton is the equality itself, which must outlive the compiler's
+	// temporary alternatives vector and remain valid on cache lookup.
+	single, err := compiler.CompileExpression(fullEquality)
+	if err != nil {
+		t.Fatal("compile singleton equality", err)
+	}
+	if op, err := f.manager.GetDeclKind(single); err != nil || op != ast.ASTOpEq {
+		t.Fatal("singleton equality lifetime", op, err)
+	}
+	again, err := compiler.CompileExpression(fullEquality)
+	if err != nil || again != single {
+		t.Fatal("cached singleton equality", again, err)
+	}
+
 }
 
 func TestDDNFCompilerRewritesPredicateDomainsAndOutput(t *testing.T) {
@@ -361,6 +375,11 @@ func TestDDNFCompilerRewritesPredicateDomainsAndOutput(t *testing.T) {
 	if err != nil {
 		t.Fatal("compile DDNF rule set", err)
 	}
+	// The rule set now owns the compiled graph independently of its compiler.
+	if err = compiler.Close(); err != nil {
+		t.Fatal("close compiler", err)
+	}
+
 	t.Cleanup(func() {
 		if err := compiled.Close(); err != nil {
 			t.Error(err)
