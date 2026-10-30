@@ -269,6 +269,50 @@ func TestNLA2BVModelConverterSurvivesInvocationAndTacticClose(t *testing.T) {
 	}
 }
 
+func TestNLA2BVSourceSatPreservationControlsGoalPrecision(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		integer bool
+		bounded bool
+		want    tactic.GoalPrecision
+	}{
+		{name: "bounded-integer", integer: true, bounded: true, want: tactic.GoalPrecise},
+		{name: "equality-bounded-integer", integer: true, want: tactic.GoalPrecise},
+		{name: "unbounded-integer-square", integer: true, want: tactic.GoalUnder},
+		{name: "real", want: tactic.GoalUnder},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := nla2BVFixture(t, false)
+			m := r.manager
+			x := fixDLConst(t, m, tc.integer, "precision-"+tc.name)
+			constant := "3"
+			if !tc.integer {
+				constant = "1.0"
+			}
+			forms := make([]ast.ASTHandle, 0, 3)
+			if tc.bounded {
+				bound := fixDLNumber(t, m, true, "3")
+				forms = append(forms, fixDLApp(t, m, 3, x, bound), fixDLApp(t, m, 2, x, bound))
+			}
+			term := x
+			if tc.name == "unbounded-integer-square" {
+				term = fixDLApp(t, m, 9, x, x)
+				constant = "9"
+			}
+			forms = append(forms, mustNLA2BVEq(t, m, term, fixDLNumber(t, m, tc.integer, constant)))
+			g := fixDLGoal(t, m, false, true, false, forms...)
+			var result tactic.TacticResult
+			t.Cleanup(func() { equationMust(t, result.Close()) })
+			equationMust(t, r.Apply(g, &result))
+			precision, err := g.Precision()
+			equationMust(t, err)
+			if precision != tc.want {
+				t.Fatalf("goal precision = %v, want %v", precision, tc.want)
+			}
+		})
+	}
+}
+
 func mustNLA2BVEq(t *testing.T, m *ast.ASTManager, left, right ast.ASTHandle) ast.ASTHandle {
 	t.Helper()
 	eq, err := m.MkEq(left, right)

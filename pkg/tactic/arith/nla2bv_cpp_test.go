@@ -136,3 +136,52 @@ func TestNLA2BVExactGoalsPrebuiltCPP(t *testing.T) {
 		})
 	}
 }
+
+func TestNLA2BVPrecisionMatchesCPPReference(t *testing.T) {
+	reference := os.Getenv("G3_CPP_REFERENCE")
+	if reference == "" {
+		t.Skip("set G3_CPP_REFERENCE to prebuilt z3")
+	}
+	for _, tc := range []struct {
+		name, logic, declarations, assertions string
+		want                                  string
+	}{
+		{"bounded-integer", "NIA", `(declare-const x Int)`, `(assert (>= x 3))(assert (<= x 3))(assert (= (* x x) 9))`, "precise"},
+		{"equality-integer", "NIA", `(declare-const x Int)`, `(assert (= x 3))`, "precise"},
+		{"unbounded-integer", "NIA", `(declare-const x Int)`, `(assert (= (* x x) 9))`, "under"},
+		{"real", "NRA", `(declare-const x Real)`, `(assert (= x 1.0))`, "under"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			initial := `(set-logic ` + tc.logic + `)` + tc.declarations + tc.assertions
+			c := cardContext(t, initial)
+			m, err := c.Manager()
+			addBoundsMust(t, err)
+			g, err := tactic.NewGoal(m, false, true, false)
+			addBoundsMust(t, err)
+			t.Cleanup(func() { addBoundsMust(t, g.Close()) })
+			addBoundsMust(t, c.AssertGoal(g))
+			selected, err := c.NewBuiltinTactic("nla2bv")
+			addBoundsMust(t, err)
+			addBoundsMust(t, selected.IncRef())
+			t.Cleanup(func() { addBoundsMust(t, selected.DecRef()) })
+			var result tactic.TacticResult
+			t.Cleanup(func() { addBoundsMust(t, result.Close()) })
+			addBoundsMust(t, selected.Apply(g, &result))
+			precision, err := g.Precision()
+			addBoundsMust(t, err)
+			want := tactic.GoalPrecise
+			if tc.want == "under" {
+				want = tactic.GoalUnder
+			}
+			if precision != want {
+				t.Fatalf("Go goal precision = %v, want %s", precision, tc.want)
+			}
+			cmd := exec.Command(reference, "-in")
+			cmd.Stdin = strings.NewReader(initial + `(apply nla2bv)`)
+			native, err := cmd.CombinedOutput()
+			if err != nil || !strings.Contains(string(native), ":precision "+tc.want) {
+				t.Fatalf("C++ precision = %s, error = %v, want %s", native, err, tc.want)
+			}
+		})
+	}
+}
