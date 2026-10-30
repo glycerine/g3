@@ -10,10 +10,14 @@ import (
 
 // CompileGuard translates the retained UDoc guard language into a DOC union.
 func (r *UDocRelation) CompileGuard(manager *ast.ASTManager, expression ast.ASTHandle) (*UDocRelation, error) {
+	return r.compileGuard(manager, expression, make([]bool, r.NumBits()))
+}
+
+func (r *UDocRelation) compileGuard(manager *ast.ASTManager, expression ast.ASTHandle, discarded []bool) (*UDocRelation, error) {
 	if err := r.check(); err != nil {
 		return nil, err
 	}
-	if manager == nil || expression == (ast.ASTHandle{}) {
+	if manager == nil || expression == (ast.ASTHandle{}) || len(discarded) != int(r.NumBits()) {
 		return nil, ErrDOC
 	}
 	compiled, err := NewUDocRelation(r.manager, r.widths)
@@ -29,13 +33,49 @@ func (r *UDocRelation) CompileGuard(manager *ast.ASTManager, expression ast.ASTH
 		classes.MkVar()
 	}
 	if err == nil {
-		err = compiled.applyGuard(manager, expression, classes, make([]bool, r.NumBits()))
+		err = compiled.applyGuard(manager, expression, classes, discarded)
 	}
 	if err != nil {
 		_ = compiled.Close()
 		return nil, err
 	}
 	return compiled, nil
+}
+
+// FilterGuardAndProject applies the DOC guard before projecting the requested
+// columns, preserving the source's discarded-column equality merge behavior.
+func (r *UDocRelation) FilterGuardAndProject(manager *ast.ASTManager, expression ast.ASTHandle, removed []uint32, destination *DocManager) (result *UDocRelation, resultErr error) {
+	if err := r.check(); err != nil {
+		return nil, err
+	}
+	if destination == nil || destination.closed {
+		return nil, ErrDOC
+	}
+	discarded := make([]bool, r.NumBits())
+	seen := make([]bool, len(r.widths))
+	for _, column := range removed {
+		if column >= uint32(len(r.widths)) || seen[column] {
+			return nil, ErrDOC
+		}
+		seen[column] = true
+		for bit := r.offsets[column]; bit < r.offsets[column+1]; bit++ {
+			discarded[bit] = true
+		}
+	}
+	compiled, err := r.compileGuard(manager, expression, discarded)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, compiled.Close()) }()
+	filtered, err := r.Clone()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, filtered.Close()) }()
+	if err = filtered.elems.Intersect(compiled.elems); err != nil {
+		return nil, err
+	}
+	return filtered.Project(removed, destination)
 }
 
 // FilterGuard intersects the relation with the DOC union compiled from a guard.

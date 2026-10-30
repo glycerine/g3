@@ -210,6 +210,25 @@ func TestUDocCompileVariableRangeEqualities(t *testing.T) {
 			requireFact(t, relation, []uint64{left, right}, left == right)
 		}
 	}
+	if err = relation.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	for left := uint64(0); left < 4; left++ {
+		for right := uint64(0); right < 4; right++ {
+			if _, e := relation.AddFact([]uint64{left, right}); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
+	destination, _ := newTestDocManager(t, 2)
+	projected, err := relation.FilterGuardAndProject(m, equal, []uint32{1}, destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, projected)
+	for value := uint64(0); value < 4; value++ {
+		requireFact(t, projected, []uint64{value}, true)
+	}
 }
 
 func TestUDocCompileEqualityBetweenExtracts(t *testing.T) {
