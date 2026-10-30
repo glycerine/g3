@@ -1,0 +1,33 @@
+package qe
+
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"testing"
+)
+
+func TestArithmeticCompleteProjectFiniteWitness(t *testing.T) {
+	f := newArithmeticModelFixture(t, false, "5")
+	m := f.r.manager
+	z := f.number("0")
+	n := f.number("-1")
+	l0 := f.own(m.MkArithmeticLE(f.own(m.MkArithmeticMul(n, f.x)), z))
+	l1 := f.own(m.MkArithmeticLE(f.own(m.MkArithmeticAdd(f.own(m.MkArithmeticMul(n, f.x)), n)), z))
+	u := f.own(m.MkArithmeticLE(f.own(m.MkArithmeticAdd(f.x, f.number("-5"))), z))
+	form := f.own(m.MkAnd(f.own(m.MkAnd(l0, l1)), u))
+	r, e := m.NewRef(form)
+	fmMust(t, e)
+	defer m.DelRef(&r)
+	d, e := m.NewRef(ast.ASTHandle{})
+	fmMust(t, e)
+	defer m.DelRef(&d)
+	ok, e := f.plugin.ProjectModelFormulaNNFComplete(f.contains, f.model, r, &d, f.r.config)
+	fmMust(t, e)
+	if !ok {
+		t.Fatal("declined")
+	}
+	h, e := m.RefGet(d)
+	fmMust(t, e)
+	if h.IsNull() {
+		t.Fatal("missing witness")
+	}
+}
