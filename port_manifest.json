@@ -88942,7 +88942,8 @@
         "pkg/muz/rel/table_relation_capability.go",
         "pkg/muz/rel/table_intersection_test.go",
         "pkg/muz/rel/table_relation_intersection_test.go",
-        "pkg/muz/rel/table_relation_capability_test.go"
+        "pkg/muz/rel/table_relation_capability_test.go",
+        "pkg/muz/rel/table_relation_display_tuples.go"
       ],
       "tests": [
         "TestTableRelationSourceFactConversionCloneAndOwnership",
@@ -88957,7 +88958,8 @@
         "TestTableRelationInterpretedValidation",
         "TestTableRelationInterpretedMultipleConditions",
         "TestTableRelationInterpretedFailureIsAtomic",
-        "TestTableRelationFiniteSignatureCapability"
+        "TestTableRelationFiniteSignatureCapability",
+        "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
       ],
       "assertions": [
         {
@@ -89082,6 +89084,14 @@
             "TestTableRelationInterpretedFailureIsAtomic",
             "TestTableRelationFiniteSignatureCapability"
           ]
+        },
+        {
+          "name": "TableRelation display_tuples argument labels, constant names, ordered rows and numeric suffix (dl_table_relation.cpp:459-490)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_relation_display_tuples.go",
+          "tests": [
+            "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
+          ]
         }
       ],
       "ownership": [
@@ -89108,7 +89118,8 @@
         "pkg/muz/rel/table_relation_intersection_test.go",
         "pkg/muz/rel/table_relation_capability_test.go",
         "pkg/muz/rel/table_relation_formula.go",
-        "pkg/muz/rel/table_display.go"
+        "pkg/muz/rel/table_display.go",
+        "pkg/muz/rel/table_relation_display_tuples.go"
       ],
       "tests": [
         "TestTableRelationSourceFactConversionCloneAndOwnership",
@@ -89120,7 +89131,8 @@
         "TestTableRelationToFormulaEmptyAndBooleanRows",
         "TestTableRelationToFormulaZeroArityAndMixedSortRows",
         "TestHashTableAndRelationDisplaySourceFormat",
-        "TestHashTableDisplayEmptyAndWriterFailure"
+        "TestHashTableDisplayEmptyAndWriterFailure",
+        "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
       ],
       "conditionals": [
         {
@@ -89165,6 +89177,14 @@
             "TestTableRelationToFormulaZeroArityAndMixedSortRows",
             "TestHashTableAndRelationDisplaySourceFormat",
             "TestHashTableDisplayEmptyAndWriterFailure"
+          ]
+        },
+        {
+          "name": "TableRelation display_tuples declaration and context/stream contract (dl_table_relation.h:120-123)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table_relation_display_tuples.go",
+          "tests": [
+            "TestTableRelationDisplayTuplesUsesDatalogNamesAndConstants"
           ]
         }
       ],
