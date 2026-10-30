@@ -361,3 +361,47 @@ func TestUnboundCompressorTransfersProofToDecompressionAlternative(t *testing.T)
 		t.Fatal("compressor changed ambient proof mode", mode, modeErr)
 	}
 }
+
+func TestUnboundCompressorKeepsZeroArityCompressedFact(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	x, err := f.manager.MkVar(0, boolean)
+	coneMust(t, err)
+	p := declareTransformPredicate(t, f, "compress-ground-P", []ast.ASTHandle{boolean}, []ast.ASTHandle{x})
+	goal := declareTransformPredicate(t, f, "compress-ground-Goal", nil, nil)
+	addTransformRule(t, f, p.application, nil, nil, "unbound-fact")
+	addTransformRule(t, f, goal.application, []ast.ASTHandle{p.application}, nil, "ground-consumer")
+	coneMust(t, f.set.SetOutputPredicate(goal.declaration))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("zero-arity fact fixture rejected")
+	}
+	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	if result == nil {
+		t.Fatal("zero-arity compressed fact was not retained")
+	}
+	defer func() { coneMust(t, result.Close()) }()
+	compressed := plugin.CompressedPredicates()[p.declaration]
+	if compressed.IsNull() {
+		t.Fatal("missing compressed predicate")
+	}
+	if arity, getErr := f.manager.GetArity(compressed); getErr != nil || arity != 0 {
+		t.Fatalf("compressed fact arity %d, want 0: %v", arity, getErr)
+	}
+	facts, err := result.PredicateRules(compressed)
+	coneMust(t, err)
+	if len(facts) != 1 {
+		t.Fatalf("compressed fact rules %d, want 1", len(facts))
+	}
+	tailCount, err := facts[0].TailSize()
+	coneMust(t, err)
+	if tailCount != 0 {
+		t.Fatalf("compressed fact tails %d, want zero", tailCount)
+	}
+	coneMust(t, facts[0].Close())
+}

@@ -94972,7 +94972,7 @@
       "path": "src/muz/transforms/dl_mk_unbound_compressor.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/unbound_compressor.go",
         "pkg/muz/transforms/unbound_compressor_test.go"
@@ -94983,7 +94983,8 @@
         "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
         "TestUnboundCompressorUsesRuleSpecificHeadArguments",
         "TestUnboundCompressorAddsCompressedNegatedTail",
-        "TestUnboundCompressorTransfersProofToDecompressionAlternative"
+        "TestUnboundCompressorTransfersProofToDecompressionAlternative",
+        "TestUnboundCompressorKeepsZeroArityCompressedFact"
       ],
       "assertions": [
         {
@@ -95032,7 +95033,7 @@
       "methods": [
         {
           "name": "Iterative unbound-head projection and decompression rule generation",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/unbound_compressor.go",
           "tests": [
             "TestUnboundCompressorProjectsHeadAndTailArgument",
@@ -95040,22 +95041,23 @@
             "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
             "TestUnboundCompressorUsesRuleSpecificHeadArguments",
             "TestUnboundCompressorAddsCompressedNegatedTail",
-            "TestUnboundCompressorTransfersProofToDecompressionAlternative"
+            "TestUnboundCompressorTransfersProofToDecompressionAlternative",
+            "TestUnboundCompressorKeepsZeroArityCompressedFact"
           ]
         }
       ],
       "ownership": [
-        "The plugin borrows the AST and rule managers, owns only its transform mapping, and returns a newly owned RuleSet; temporary Rule wrappers are closed after transfer."
+        "The plugin borrows the AST and rule managers, owns its transform-local mapping, and returns a newly owned RuleSet; all temporary Rule wrappers are closed after transfer."
       ],
       "deviations": [
-        "The Go transform still lacks source relation-context fact insertion and needs further parity review for relation-sensitive decompression and rule accounting."
+        "Compressed zero-arity facts remain empty-tail rules for Go backend materialization rather than being inserted directly into a relation context. The source nonempty-relation deletion guard is unreachable inside its loop over active compressed arguments."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_unbound_compressor.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/unbound_compressor.go",
         "pkg/muz/transforms/unbound_compressor_test.go"
@@ -95066,7 +95068,8 @@
         "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
         "TestUnboundCompressorUsesRuleSpecificHeadArguments",
         "TestUnboundCompressorAddsCompressedNegatedTail",
-        "TestUnboundCompressorTransfersProofToDecompressionAlternative"
+        "TestUnboundCompressorTransfersProofToDecompressionAlternative",
+        "TestUnboundCompressorKeepsZeroArityCompressedFact"
       ],
       "conditionals": [
         {
@@ -95083,7 +95086,7 @@
       "methods": [
         {
           "name": "Iterative unbound-head projection and decompression rule generation",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/unbound_compressor.go",
           "tests": [
             "TestUnboundCompressorProjectsHeadAndTailArgument",
@@ -95091,15 +95094,16 @@
             "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
             "TestUnboundCompressorUsesRuleSpecificHeadArguments",
             "TestUnboundCompressorAddsCompressedNegatedTail",
-            "TestUnboundCompressorTransfersProofToDecompressionAlternative"
+            "TestUnboundCompressorTransfersProofToDecompressionAlternative",
+            "TestUnboundCompressorKeepsZeroArityCompressedFact"
           ]
         }
       ],
       "ownership": [
-        "The plugin borrows the AST and rule managers, owns only its transform mapping, and returns a newly owned RuleSet; temporary Rule wrappers are closed after transfer."
+        "The plugin borrows the AST and rule managers, owns its transform-local mapping, and returns a newly owned RuleSet; all temporary Rule wrappers are closed after transfer."
       ],
       "deviations": [
-        "The Go transform still lacks source relation-context fact insertion and needs further parity review for relation-sensitive decompression and rule accounting."
+        "Compressed zero-arity facts remain empty-tail rules for Go backend materialization rather than being inserted directly into a relation context. The source nonempty-relation deletion guard is unreachable inside its loop over active compressed arguments."
       ]
     },
     {
