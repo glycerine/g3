@@ -180,6 +180,20 @@ func (t *HashTable) Remove(fact Fact) (bool, error) {
 	return true, nil
 }
 
+// RemoveFacts applies the source table_base bulk-removal loop in input order.
+// Earlier removals remain applied if a later fact is invalid.
+func (t *HashTable) RemoveFacts(facts []Fact) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	for _, fact := range facts {
+		if _, err := t.Remove(fact); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (t *HashTable) Contains(fact Fact) (bool, error) {
 	if err := t.open(); err != nil {
 		return false, err

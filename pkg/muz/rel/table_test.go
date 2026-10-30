@@ -196,6 +196,32 @@ func TestHashTableComplementSourceZeroAndOneColumnRules(t *testing.T) {
 	_ = wide.Close()
 }
 
+func TestHashTableRemoveFactsUsesSourceSequentialLoop(t *testing.T) {
+	table := rel.NewHashTable(newSignature(t, []uint64{4}))
+	for _, value := range []uint64{0, 1, 2} {
+		if _, err := table.Add(rel.Fact{rel.Element(value)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := table.RemoveFacts([]rel.Fact{{1}, {1}, {3}}); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := table.Facts()
+	if err != nil || fmt.Sprint(rows) != "[[0] [2]]" {
+		t.Fatalf("sequential removal rows %v, error %v", rows, err)
+	}
+	if err = table.RemoveFacts([]rel.Fact{{0}, {4}}); !errors.Is(err, rel.ErrTable) {
+		t.Fatalf("invalid later fact error = %v", err)
+	}
+	found, containsErr := table.Contains(rel.Fact{0})
+	if containsErr != nil || found {
+		t.Fatalf("earlier removal was rolled back: found=%v error=%v", found, containsErr)
+	}
+	if err = table.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestHashTableJoinProjectSelectionAndRename(t *testing.T) {
 	left := rel.NewHashTable(newSignature(t, []uint64{4, 3}))
 	right := rel.NewHashTable(newSignature(t, []uint64{3, 2}))

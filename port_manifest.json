@@ -86004,7 +86004,8 @@
         "TestTableRelationToFormulaZeroArityAndMixedSortRows",
         "TestHashTableAndRelationDisplaySourceFormat",
         "TestHashTableDisplayEmptyAndWriterFailure",
-        "TestHashTableComplementSourceZeroAndOneColumnRules"
+        "TestHashTableComplementSourceZeroAndOneColumnRules",
+        "TestHashTableRemoveFactsUsesSourceSequentialLoop"
       ],
       "conditionals": [
         {
@@ -86077,6 +86078,14 @@
           ]
         },
         {
+          "name": "Concrete ordinary table bulk removal in source input order (dl_base.cpp:245-256)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table.go",
+          "tests": [
+            "TestHashTableRemoveFactsUsesSourceSequentialLoop"
+          ]
+        },
+        {
           "name": "Concrete table-to-formula conversion using ordered row disjunctions, de-Bruijn variable equalities, and source Boolean gate simplification",
           "status": "ported",
           "go_target": "pkg/muz/rel/table_relation_formula.go",
@@ -86121,7 +86130,8 @@
         "TestTableRelationToFormulaZeroArityAndMixedSortRows",
         "TestHashTableAndRelationDisplaySourceFormat",
         "TestHashTableDisplayEmptyAndWriterFailure",
-        "TestHashTableComplementSourceZeroAndOneColumnRules"
+        "TestHashTableComplementSourceZeroAndOneColumnRules",
+        "TestHashTableRemoveFactsUsesSourceSequentialLoop"
       ],
       "conditionals": [
         {
@@ -86290,7 +86300,8 @@
             "TestHashTableSetCloneAndValidation",
             "TestHashTableJoinProjectSelectionAndRename",
             "TestHashTableUnionDeltaAndNegation",
-            "TestHashTableComplementSourceZeroAndOneColumnRules"
+            "TestHashTableComplementSourceZeroAndOneColumnRules",
+            "TestHashTableRemoveFactsUsesSourceSequentialLoop"
           ]
         },
         {
