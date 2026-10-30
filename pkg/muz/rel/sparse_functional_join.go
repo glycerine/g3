@@ -19,6 +19,9 @@ func (left *SparseTable) JoinFunctional(right *SparseTable, leftColumns, rightCo
 	if err := validateColumns(left.signature, right.signature, leftColumns, rightColumns); err != nil {
 		return nil, err
 	}
+	if sparseJoinInvolvesFunctional(left, right, leftColumns, rightColumns) {
+		return nil, ErrTable
+	}
 	signature, functional, err := sparseJoinFunctionalSignature(left, right)
 	if err != nil {
 		return nil, err
