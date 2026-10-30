@@ -455,6 +455,11 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 			initialConditions = append(initialConditions, disabled)
 		}
 	}
+	if len(live) == 1 {
+		// Source's dummy-tag branch uses (or tag extension); only the
+		// multiple-rule branch places the extension before every tag.
+		selection[0], selection[1] = selection[1], selection[0]
+	}
 	selected, err := b.transformer.manager.MkOrArray(selection)
 	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
@@ -463,28 +468,25 @@ func (b *spacerRuleBuilder) buildSystem() (ast.ASTHandle, ast.ASTHandle, error) 
 		return ast.ASTHandle{}, ast.ASTHandle{}, err
 	}
 	guarded = append(guarded, selected)
-	transition, err := b.transformer.manager.MkAndArray(guarded)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
+	// manager::mk_and applies only bool_rewriter::mk_and to these children.
+	// A full theory rewrite would rewrite the guarded implications as well.
+	boolean := b.transformer.owner.boolean
+	var conjunctions [2]ast.ASTHandle
+	for index, args := range [2][]ast.ASTHandle{guarded, initialConditions} {
+		ref, err := b.transformer.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		b.references = append(b.references, ref)
+		if err = boolean.MkAnd(args, ref); err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
+		conjunctions[index], err = b.transformer.manager.RefGet(ref)
+		if err != nil {
+			return ast.ASTHandle{}, ast.ASTHandle{}, err
+		}
 	}
-	if err = b.pin(transition); err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	transition, err = b.rewrite(transition)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	initial, err := b.transformer.manager.MkAndArray(initialConditions)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	if err = b.pin(initial); err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
-	initial, err = b.rewrite(initial)
-	if err != nil {
-		return ast.ASTHandle{}, ast.ASTHandle{}, err
-	}
+	transition, initial := conjunctions[0], conjunctions[1]
 	b.transformer.allInitial = len(initialConditions) == 0
 	return initial, transition, nil
 }

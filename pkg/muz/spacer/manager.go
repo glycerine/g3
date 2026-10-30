@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
@@ -21,6 +22,7 @@ var ErrManagerOwner = errors.New("muz/spacer: invalid or closed manager")
 
 type Manager struct {
 	manager       *ast.ASTManager
+	boolean       *rewriter.BoolRewriter
 	mux           *SymMux
 	background    ast.ASTRef
 	contexts      [3]*SMTContextManager
@@ -85,6 +87,10 @@ func NewManager(manager *ast.ASTManager, params *uparams.ParamsRef, maximumConte
 			return nil, err
 		}
 		config.ModelEvaluator.Cooperation = result.cooperation
+	}
+	result.boolean, err = rewriter.NewBoolRewriter(manager, config.Params, config.Globals, nil)
+	if err != nil {
+		return nil, err
 	}
 	for index := range result.contexts {
 		result.contexts[index], err = NewSMTContextManager(manager, &result.solverParams, maximumContexts, config)
@@ -659,6 +665,13 @@ func (m *Manager) Close() (result error) {
 	for index := len(m.contexts) - 1; index >= 0; index-- {
 		if m.contexts[index] != nil {
 			result = errors.Join(result, m.contexts[index].Close())
+		}
+	}
+	if result == nil && m.boolean != nil {
+		if err := m.boolean.Close(); err != nil {
+			result = err
+		} else {
+			m.boolean = nil
 		}
 	}
 	if result == nil && m.ownsParams {
