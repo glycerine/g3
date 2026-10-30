@@ -16,7 +16,6 @@ type preprocessFixture struct {
 	manager  *ast.ASTManager
 	rules    *base.RuleManager
 	registry *Registry
-	budget   *arena.Budget
 	width    ast.ASTHandle
 	x        ast.ASTHandle
 	head     ast.ASTHandle
@@ -81,7 +80,7 @@ func newPreprocessFixture(t *testing.T) *preprocessFixture {
 			t.Errorf("DDNF registry retained %d bytes", used)
 		}
 	})
-	return &preprocessFixture{manager: manager, rules: rules, registry: registry, budget: budget, width: width, x: x, head: head}
+	return &preprocessFixture{manager: manager, rules: rules, registry: registry, width: width, x: x, head: head}
 }
 
 func (f *preprocessFixture) rule(t *testing.T, tails ...ast.ASTHandle) *base.Rule {
@@ -211,6 +210,200 @@ func TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint(t *testing.T) 
 	if widths := f.registry.Widths(); len(widths) != 0 {
 		t.Fatal("variable equality should not allocate a width core", widths)
 	}
+	compiler, err := NewCompiler(preprocessor, f.rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = compiler.Close() })
+	compiled, err := compiler.CompileExpression(equality)
+	if err != nil {
+		t.Fatal("compile variable equality", err)
+	}
+	if operation, err := f.manager.GetDeclKind(compiled); err != nil || operation != ast.ASTOpEq {
+		t.Fatal("compiled variable equality operator", operation, err)
+	}
+	compiledLeft, err := f.manager.GetArg(compiled, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiledRight, err := f.manager.GetArg(compiled, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, variable := range []ast.ASTHandle{compiledLeft, compiledRight} {
+		sort, e := f.manager.GetSort(variable)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if width, e := f.manager.BitVectorSize(sort); e != nil || width != 1 {
+			t.Fatal("unconstrained compiled variable domain", width, e)
+		}
+	}
+}
+
+func TestDDNFCompilerMapsRefinedEqualityToNodeIDs(t *testing.T) {
+	f := newPreprocessFixture(t)
+	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = preprocessor.Close() })
+	extract, err := f.manager.MkBitVectorExtract(2, 1, f.x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeroTwo := ddnfBVNumeral(t, f.manager, 0, 2)
+	rangeEquality, err := f.manager.MkEq(extract, zeroTwo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeroFour := ddnfBVNumeral(t, f.manager, 0, 4)
+	fullEquality, err := f.manager.MkEq(f.x, zeroFour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expression := range []ast.ASTHandle{rangeEquality, fullEquality} {
+		if ok, err := preprocessor.ProcessRule(f.rule(t, expression)); err != nil || !ok {
+			t.Fatal("constraint preprocessing", expression, ok, err)
+		}
+	}
+	compiler, err := NewCompiler(preprocessor, f.rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := compiler.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	compiled, err := compiler.CompileExpression(rangeEquality)
+	if err != nil {
+		t.Fatal("compile refined equality", err)
+	}
+	operation, err := f.manager.GetDeclKind(compiled)
+	if err != nil || operation != ast.ASTOpOr {
+		t.Fatal("refined equality should cover both DDNF node IDs", operation, err)
+	}
+	count, err := f.manager.GetNumArgs(compiled)
+	if err != nil || count != 2 {
+		t.Fatal("refined equality alternatives", count, err)
+	}
+	compactSort, err := f.manager.GetSort(f.mustCompiledVariable(t, compiler, f.x))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if width, err := f.manager.BitVectorSize(compactSort); err != nil || width != 2 {
+		t.Fatal("compiled variable should use source node-count width", width, err)
+	}
+	variable, err := compiler.CompileExpression(f.x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, nodeID := range []uint64{1, 2} {
+		numeral := ddnfBVNumeral(t, f.manager, nodeID, 2)
+		expected, e := f.manager.MkEq(variable, numeral)
+		if e != nil {
+			t.Fatal(e)
+		}
+		actual, e := f.manager.GetArg(compiled, uint32(index))
+		if e != nil || actual != expected {
+			t.Fatalf("node-ID alternative %d = %v, want %v: %v", index, actual, expected, e)
+		}
+	}
+}
+
+func TestDDNFCompilerRewritesPredicateDomainsAndOutput(t *testing.T) {
+	f := newPreprocessFixture(t)
+	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = preprocessor.Close() })
+	source, err := base.NewRuleSet(f.rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := source.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	declaration, err := f.manager.GetDecl(f.head)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = source.SetOutputPredicate(declaration); err != nil {
+		t.Fatal(err)
+	}
+	value := ddnfBVNumeral(t, f.manager, 1, 4)
+	equality, err := f.manager.MkEq(f.x, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = source.Add(f.rule(t, equality)); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := preprocessor.PreprocessRules(source); err != nil || !ok {
+		t.Fatal("preprocess source rule", ok, err)
+	}
+	compiler, err := NewCompiler(preprocessor, f.rules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := compiler.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	compiled, err := compiler.CompileRuleSet(source)
+	if err != nil {
+		t.Fatal("compile DDNF rule set", err)
+	}
+	t.Cleanup(func() {
+		if err := compiled.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if count, err := compiled.Len(); err != nil || count != 1 {
+		t.Fatal("compiled rule count", count, err)
+	}
+	compiledRule, err := compiled.Rule(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = compiledRule.Close() })
+	head, err := compiledRule.Head()
+	if err != nil {
+		t.Fatal(err)
+	}
+	argument, err := f.manager.GetArg(head, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	argumentSort, err := f.manager.GetSort(argument)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if width, err := f.manager.BitVectorSize(argumentSort); err != nil || width != 2 {
+		t.Fatal("compiled predicate should use compact finite-domain width", width, err)
+	}
+	compiledOutput, err := compiled.OutputPredicate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	headDeclaration, err := f.manager.GetDecl(head)
+	if err != nil || compiledOutput != headDeclaration {
+		t.Fatal("compiled output predicate", compiledOutput, headDeclaration, err)
+	}
+}
+
+func (f *preprocessFixture) mustCompiledVariable(t *testing.T, compiler *Compiler, variable ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	compiled, err := compiler.CompileExpression(variable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return compiled
 }
 
 func TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState(t *testing.T) {

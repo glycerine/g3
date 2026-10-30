@@ -19,9 +19,14 @@ type Preprocessor struct {
 	manager     *ast.ASTManager
 	registry    *Registry
 	visited     map[ast.ASTHandle]struct{}
-	constraints map[ast.ASTHandle]*rel.TBV
+	constraints map[ast.ASTHandle]equalityConstraint
 	failed      bool
 	closed      bool
+}
+
+type equalityConstraint struct {
+	vector   *rel.TBV
+	variable ast.ASTHandle
 }
 
 func NewPreprocessor(manager *ast.ASTManager, registry *Registry) (*Preprocessor, error) {
@@ -30,7 +35,7 @@ func NewPreprocessor(manager *ast.ASTManager, registry *Registry) (*Preprocessor
 	}
 	return &Preprocessor{
 		manager: manager, registry: registry,
-		visited: make(map[ast.ASTHandle]struct{}), constraints: make(map[ast.ASTHandle]*rel.TBV),
+		visited: make(map[ast.ASTHandle]struct{}), constraints: make(map[ast.ASTHandle]equalityConstraint),
 	}, nil
 }
 
@@ -53,7 +58,7 @@ func (p *Preprocessor) PreprocessRules(rules *base.RuleSet) (bool, error) {
 		return false, ErrCore
 	}
 	p.visited = make(map[ast.ASTHandle]struct{})
-	p.constraints = make(map[ast.ASTHandle]*rel.TBV)
+	p.constraints = make(map[ast.ASTHandle]equalityConstraint)
 	p.failed = false
 	count, err := rules.Len()
 	if err != nil {
@@ -104,8 +109,8 @@ func (p *Preprocessor) Constraint(expression ast.ASTHandle) (*rel.TBV, bool, err
 	if p == nil || p.closed {
 		return nil, false, ErrCore
 	}
-	vector, found := p.constraints[expression]
-	return vector, found, nil
+	constraint, found := p.constraints[expression]
+	return constraint.vector, found, nil
 }
 
 func (p *Preprocessor) processMany(roots []ast.ASTHandle) (bool, error) {
@@ -285,7 +290,7 @@ func (p *Preprocessor) processEquality(expression, variable, numeralExpression a
 		}
 		vector = node.Vector()
 	}
-	p.constraints[expression] = vector
+	p.constraints[expression] = equalityConstraint{vector: vector, variable: variable}
 	return true, nil
 }
 

@@ -82951,8 +82951,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"],
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"],
       "assertions": [
         {
           "line": 87,
@@ -82981,9 +82981,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"]}],
+      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"]}, {"name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)", "status": "ported", "go_target": "pkg/muz/ddnf/compiler.go", "tests": ["TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["compile_eq resolves DDNF vectors by the source variable width used by process_eq, correcting the source numeral-width lookup mismatch for extracted constraints."]
     },
     {
       "path": "src/muz/ddnf/ddnf.h",
