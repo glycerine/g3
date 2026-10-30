@@ -311,7 +311,9 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, rewriter.Close()) }()
-	for i := uninterpreted; i < len(tails); i++ {
+	// The C++ transform runs th_rewriter over every retained tail, including
+	// predicate applications whose arguments contain interpreted array terms.
+	for i := 0; i < len(tails); i++ {
 		ref, makeErr := p.manager.NewRef(ast.ASTHandle{})
 		if makeErr != nil {
 			return nil, makeErr

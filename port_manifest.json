@@ -93019,6 +93019,7 @@
         "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
         "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
         "TestArrayEqRewritePluginCloseAndClosedTransform",
+        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -93036,13 +93037,14 @@
             "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
             "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
             "TestArrayEqRewritePluginCloseAndClosedTransform",
+            "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
             "TestSMTLibRunnerCPPReference"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "The rule transformation method is implemented and covered; package-level ownership and method audits remain open, so the unit remains partial."
+        "The Go transform rewrites interpreted array terms in predicate-tail arguments as the C++ th_rewriter does; broader package ownership and method audits remain open."
       ]
     },
     {
@@ -93060,7 +93062,8 @@
         "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
         "TestArrayEqRewriteMergesPreviouslySeparateClasses",
         "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
-        "TestArrayEqRewritePluginCloseAndClosedTransform"
+        "TestArrayEqRewritePluginCloseAndClosedTransform",
+        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail"
       ],
       "conditionals": [
         {
@@ -93085,7 +93088,8 @@
             "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
             "TestArrayEqRewriteMergesPreviouslySeparateClasses",
             "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
-            "TestArrayEqRewritePluginCloseAndClosedTransform"
+            "TestArrayEqRewritePluginCloseAndClosedTransform",
+        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail"
           ]
         }
       ],
