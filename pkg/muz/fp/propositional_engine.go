@@ -1858,18 +1858,21 @@ func (e *PropositionalEngine) Query(query ast.ASTHandle) (lbool.LBool, error) {
 		return lbool.Undef, err
 	}
 	if kind != ast.ASTApp {
-		return lbool.Undef, ErrPropositionalHorn
+		return e.QueryExpression(query)
 	}
 	arguments, err := e.manager.GetNumArgs(query)
 	if err != nil {
 		return lbool.Undef, err
 	}
 	if arguments != 0 {
-		return lbool.Undef, ErrPropositionalHorn
+		return e.QueryExpression(query)
 	}
 	declaration, err := e.manager.GetDecl(query)
 	if err != nil {
 		return lbool.Undef, err
+	}
+	if e.predicates[declaration] == nil {
+		return e.QueryExpression(query)
 	}
 	return e.QueryPredicate(declaration)
 }
