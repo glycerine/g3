@@ -183,11 +183,7 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 				return nil, rightErr
 			}
 			e.stats.JoinProjects++
-			var joined *HashTable
-			joined, err = left.Join(right, join.columns1, join.columns2)
-			if err == nil {
-				result, err = joined.Project(node.columns1)
-			}
+			result, err = left.JoinProject(right, join.columns1, join.columns2, node.columns1)
 		} else if node.left != nil && node.left.kind == LazyTableFilterEqual && node.left.evaluated == nil && len(node.columns1) == 1 && node.columns1[0] == node.left.column {
 			filter := node.left
 			source, sourceErr := e.evaluate(filter.left)

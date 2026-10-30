@@ -70,6 +70,7 @@ func TestFiniteTableJoinProjectionRenameInstructions(t *testing.T) {
 	for _, instruction := range []Instruction{
 		NewJoinInstruction(0, 1, []int{1}, []int{0}, 2),
 		NewJoinProjectInstruction(0, 1, []int{1}, []int{0}, []int{1, 2}, 3),
+		NewJoinProjectInstruction(0, 1, []int{1}, []int{0}, []int{0, 1, 2, 3}, 6),
 		NewProjectionInstruction(2, []int{1, 2}, 4),
 		NewRenameInstruction(4, []int{0, 1}, 5),
 		NewFilterEqualInstruction(5, 0, 0),
@@ -84,10 +85,11 @@ func TestFiniteTableJoinProjectionRenameInstructions(t *testing.T) {
 	}
 	instructionWantFacts(t, instructionFacts(t, context, 2), Fact{1, 2, 2, 0}, Fact{2, 3, 3, 1})
 	instructionWantFacts(t, instructionFacts(t, context, 3), Fact{1, 0}, Fact{2, 1})
+	instructionWantFacts(t, instructionFacts(t, context, 6), Fact{})
 	instructionWantFacts(t, instructionFacts(t, context, 4), Fact{1, 0}, Fact{2, 1})
 	instructionWantFacts(t, instructionFacts(t, context, 5), Fact{0, 1})
 	stats, err := context.Statistics()
-	if err != nil || stats.Join != 1 || stats.JoinProject != 1 || stats.ProjectRename != 2 || stats.FilterEqual != 1 {
+	if err != nil || stats.Join != 1 || stats.JoinProject != 2 || stats.ProjectRename != 2 || stats.FilterEqual != 1 {
 		t.Fatal("table instruction statistics", stats, err)
 	}
 }

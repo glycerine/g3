@@ -155,9 +155,12 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if i.kind == "join_project" {
 			context.stats.JoinProject++
 		}
-		value, x := first.Join(second, i.left, i.right)
-		if x == nil && i.kind == "join_project" {
-			value, x = value.Project(i.removed)
+		var value *HashTable
+		var x error
+		if i.kind == "join_project" {
+			value, x = first.JoinProject(second, i.left, i.right, i.removed)
+		} else {
+			value, x = first.Join(second, i.left, i.right)
 		}
 		if x != nil {
 			return false, x

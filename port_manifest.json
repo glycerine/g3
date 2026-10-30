@@ -87599,8 +87599,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go"],
-      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
+      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/table_join_project.go"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
         {
           "line": 87,
@@ -88297,8 +88297,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/table.go"],
-      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
+      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/table.go", "pkg/muz/rel/table_join_project.go", "pkg/muz/rel/table_join_project_test.go"],
+      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
       "assertions": [
         {
           "line": 71,
@@ -88459,6 +88459,12 @@
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
           "tests": ["TestHashTableFiniteFiltersValidateAndMutate"]
+        },
+        {
+          "name": "Default finite-table join/project fallback owns a temporary joined table through projection (dl_relation_manager.cpp:1084-1140)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/table.go",
+          "tests": ["TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature"]
         }
       ],
       "ownership": [
@@ -88473,8 +88479,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/table.go"],
-      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
+      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/table.go", "pkg/muz/rel/table_join_project.go", "pkg/muz/rel/table_join_project_test.go"],
+      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
       "conditionals": [
         {
           "line": 19,
@@ -88546,7 +88552,7 @@
           "name": "Concrete retained finite-table relational operation surface used by compiled instructions (dl_relation_manager.h:215-567)",
           "status": "partial",
           "go_target": "pkg/muz/rel/table.go",
-          "tests": ["TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation", "TestHashTableFiniteFiltersValidateAndMutate"]
+          "tests": ["TestHashTableJoinProjectSelectionAndRename", "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature", "TestHashTableUnionDeltaAndNegation", "TestHashTableFiniteFiltersValidateAndMutate"]
         }
       ],
       "ownership": [
@@ -200313,12 +200319,16 @@
       "path": "src/util/event_handler.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/control/cancel_handler.go",
         "pkg/util/control/scoped_timer.go",
         "pkg/util/control/scoped_ctrl_c.go",
-        "pkg/shell/timeout.go"
+        "pkg/shell/timeout.go",
+        "pkg/solver/combined_solver.go",
+        "pkg/solver/check_sat_result.go",
+        "pkg/api/api_context_interrupt.go",
+        "pkg/api/api_context_interrupt_scope.go"
       ],
       "tests": [
         "TestCancelHandlerSourceLifetime",
@@ -200328,7 +200338,12 @@
         "TestScopedCtrlCReceivesProcessInterrupt",
         "TestShellTimeoutSourceCallbackOutputAndErrorOrder",
         "TestShellTimeoutCallbackRearmIsDeletedBeforeError",
-        "TestShellTimeoutFirstUnhandledErrorDoesNotBlockRearm"
+        "TestShellTimeoutFirstUnhandledErrorDoesNotBlockRearm",
+        "TestCombinedSolverRealTimeoutCancellationIsScoped",
+        "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime",
+        "TestSMTContextInterruptScopeDispatchAndRelease",
+        "TestSMTContextInterruptSetsActualResourceLimit",
+        "TestSMTContextInterruptAliasesShareScope"
       ],
       "conditionals": [
         {
@@ -200341,7 +200356,7 @@
         }
       ],
       "methods_audited": true,
-      "ownership_audited": false,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "reslimit cancellation specialization constructor/destructor",
@@ -200401,15 +200416,19 @@
         },
         {
           "name": "combined_solver auxiliary timeout handler and check_sat_result caller-ID reason mapping (src/solver/combined_solver.cpp:85-100; src/solver/check_sat_result.cpp:21-38)",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/solver/combined_solver.go; pkg/solver/check_sat_result.go",
+          "tests": ["TestCombinedSolverRealTimeoutCancellationIsScoped", "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"]
         },
         {
           "name": "API context interruptable borrowed handler registration and interrupt dispatch (src/api/api_context.cpp:121-145)",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/api/api_context_interrupt.go; pkg/api/api_context_interrupt_scope.go",
+          "tests": ["TestSMTContextInterruptScopeDispatchAndRelease", "TestSMTContextInterruptSetsActualResourceLimit", "TestSMTContextInterruptAliasesShareScope"]
         }
       ],
       "ownership": [
-        "Cold borrowed reslimit owner; explicit close once, serialized event invocation. Scoped timer and Ctrl-C dispatch borrow their handlers and pass source caller IDs. The concrete shell timeout handler is owned by its scoped timer and borrows the shell service; combined-solver and API interrupt owners remain with their unported concrete consumers. See PORT_PROGRESS.md#audit-rlimit-port-status-md."
+        "The reslimit cancellation handler owns no resource limit and must be explicitly closed while its borrowed Reslimit remains open. Scoped timer and Ctrl-C owners borrow handlers and dispatch fixed source caller IDs. Shell timeout owns its handler and timer while borrowing the shell service. Combined solver owns its auxiliary timeout handler for one check; API interrupt scope borrows its handler and is removed before dispatch state is released. Remaining generic specializations are excluded unless retained concrete consumers instantiate them."
       ],
       "deviations": [
         "Concrete resource specialization replaces C++ template/virtual dispatch; repeated explicit close harmless. Only cancel_eh<reslimit> is instantiated in production. The generic event-handler base is not a separate Go owner; its remaining behavior belongs to the timeout, solver and API consumers."

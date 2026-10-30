@@ -28,6 +28,30 @@ func TestLazyTableJoinProjectFusionAgainstFiniteOracle(t *testing.T) {
 	}
 }
 
+func TestLazyTableJoinProjectFusionProducesOneEmptyTuple(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(engine.Close)
+	left := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{1})
+	right := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{1})
+	joined, err := left.Join(right, []int{0}, []int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected, err := joined.Project([]int{0, 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeLazyTables(t, left, right, joined, projected)
+	facts, err := projected.Facts()
+	if err != nil || len(facts) != 1 || len(facts[0]) != 0 {
+		t.Fatalf("zero-column lazy join/project = %v, %v", facts, err)
+	}
+	stats := engine.Statistics()
+	if stats.JoinProjects != 1 || stats.Joins != 0 || stats.Projects != 0 {
+		t.Fatalf("zero-column join/project statistics = %+v", stats)
+	}
+}
+
 func TestLazyTableSelectEqualProjectFusion(t *testing.T) {
 	engine := NewLazyTableEngine()
 	t.Cleanup(engine.Close)
