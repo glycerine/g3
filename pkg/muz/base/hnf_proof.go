@@ -117,6 +117,10 @@ func (m *RuleManager) AddFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 func (m *RuleManager) hnfClauseProofs(formula, proof ast.ASTHandle, clauses []ast.ASTHandle, freshRefs []ast.ASTRef) ([]ast.ASTHandle, error) {
 	proofs := make([]ast.ASTHandle, len(clauses))
 	if len(freshRefs) == 0 {
+		if len(clauses) == 1 {
+			proofs[0] = proof
+			return proofs, nil
+		}
 		if !m.isDisjunctiveAntecedent(formula) {
 			return nil, fmt.Errorf("muz/base: proof transfer for this HNF transformation is not implemented")
 		}

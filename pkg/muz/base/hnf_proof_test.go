@@ -61,6 +61,41 @@ func TestRuleManagerAddsProofsForDisjunctiveHornSplit(t *testing.T) {
 	}
 }
 
+func TestRuleManagerAddsProofForAlreadyHornFormula(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q")
+	formula, err := f.manager.MkImplies(f.app["Q"], f.app["P"])
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := f.manager.MkProofAsserted(formula)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled))
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	if err = f.rules.AddFormulaWithProof(set, formula, proof, "already-horn-proof"); err != nil {
+		t.Fatal(err)
+	}
+	if count, e := set.Len(); e != nil || count != 1 {
+		t.Fatal("already-Horn rule count", count, e)
+	}
+	rule, err := set.Rule(0)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	translated, found, err := rule.Proof()
+	ruleMust(t, err)
+	if !found {
+		t.Fatal("already-Horn rule lost its proof")
+	}
+	checker, err := proofs.NewChecker(f.manager)
+	ruleMust(t, err)
+	valid, side, err := checker.Check(translated)
+	ruleMust(t, err)
+	if !valid {
+		t.Fatal("already-Horn proof failed proof checking")
+	}
+	ruleMust(t, checker.ReleaseSideConditions(side))
+}
+
 func TestRuleManagerAddsProofsForHNFDefinitionIntroduction(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q", "R", "S", "H")
 	firstDisjunction, err := f.manager.MkOr(f.app["P"], f.app["Q"])
