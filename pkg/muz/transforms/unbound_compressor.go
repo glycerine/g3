@@ -191,9 +191,11 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 		return nil, false, err
 	}
 	type alternative struct {
-		tails []ast.ASTHandle
-		neg   []bool
-		extra []ast.ASTHandle
+		tails          []ast.ASTHandle
+		neg            []bool
+		extra          []ast.ASTHandle
+		decompressed   bool
+		negativeChange bool
 	}
 	alternatives := []alternative{{}}
 	changedByTail := false
@@ -230,19 +232,20 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 				alternatives[i].tails = append(alternatives[i].tails, tail)
 				alternatives[i].neg = append(alternatives[i].neg, true)
 				alternatives[i].extra = append(alternatives[i].extra, compressed)
+				alternatives[i].negativeChange = true
 			}
 			continue
 		}
 		var branched []alternative
 		for _, existing := range alternatives {
-			original := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), tail), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...)}
+			original := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), tail), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...), decompressed: existing.decompressed, negativeChange: existing.negativeChange}
 			branched = append(branched, original)
 			for _, key := range keys {
 				compressed, x := p.compressedApplication(tail, key)
 				if x != nil {
 					return nil, false, x
 				}
-				variant := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), compressed), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...)}
+				variant := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), compressed), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...), decompressed: true, negativeChange: existing.negativeChange}
 				branched = append(branched, variant)
 			}
 		}
@@ -258,6 +261,17 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 	}
 	result := make([]*base.Rule, 0, len(alternatives))
 	for _, variant := range alternatives {
+		if !changed && !variant.decompressed && !variant.negativeChange {
+			retained, retainErr := rule.Retain()
+			if retainErr != nil {
+				for i := len(result) - 1; i >= 0; i-- {
+					retainErr = errors.Join(retainErr, result[i].Close())
+				}
+				return nil, false, retainErr
+			}
+			result = append(result, retained)
+			continue
+		}
 		variant.tails = append(variant.tails, variant.extra...)
 		for range variant.extra {
 			variant.neg = append(variant.neg, true)
@@ -265,6 +279,9 @@ func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.R
 		replacement, makeErr := p.rules.NewRule(head, variant.tails, variant.neg, name)
 		if makeErr == nil {
 			makeErr = replacement.SetAccountingParentRule(rule)
+		}
+		if makeErr == nil && variant.decompressed {
+			makeErr = p.rules.MkRuleRewriteProof(rule, replacement)
 		}
 		if makeErr != nil {
 			if replacement != nil {

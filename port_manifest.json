@@ -94981,7 +94981,9 @@
         "TestUnboundCompressorProjectsHeadAndTailArgument",
         "TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads",
         "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
-        "TestUnboundCompressorUsesRuleSpecificHeadArguments"
+        "TestUnboundCompressorUsesRuleSpecificHeadArguments",
+        "TestUnboundCompressorAddsCompressedNegatedTail",
+        "TestUnboundCompressorTransfersProofToDecompressionAlternative"
       ],
       "assertions": [
         {
@@ -95036,7 +95038,9 @@
             "TestUnboundCompressorProjectsHeadAndTailArgument",
             "TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads",
             "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
-            "TestUnboundCompressorUsesRuleSpecificHeadArguments"
+            "TestUnboundCompressorUsesRuleSpecificHeadArguments",
+            "TestUnboundCompressorAddsCompressedNegatedTail",
+            "TestUnboundCompressorTransfersProofToDecompressionAlternative"
           ]
         }
       ],
@@ -95060,7 +95064,9 @@
         "TestUnboundCompressorProjectsHeadAndTailArgument",
         "TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads",
         "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
-        "TestUnboundCompressorUsesRuleSpecificHeadArguments"
+        "TestUnboundCompressorUsesRuleSpecificHeadArguments",
+        "TestUnboundCompressorAddsCompressedNegatedTail",
+        "TestUnboundCompressorTransfersProofToDecompressionAlternative"
       ],
       "conditionals": [
         {
@@ -95083,7 +95089,9 @@
             "TestUnboundCompressorProjectsHeadAndTailArgument",
             "TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads",
             "TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments",
-            "TestUnboundCompressorUsesRuleSpecificHeadArguments"
+            "TestUnboundCompressorUsesRuleSpecificHeadArguments",
+            "TestUnboundCompressorAddsCompressedNegatedTail",
+            "TestUnboundCompressorTransfersProofToDecompressionAlternative"
           ]
         }
       ],
