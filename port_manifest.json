@@ -73593,9 +73593,31 @@
       "path": "src/math/realclosure/realclosure.h",
       "component": "math",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/math/realclosure/real_value_function_construct.go",
+        "pkg/math/realclosure/real_value_function_add.go",
+        "pkg/math/realclosure/real_value_function_neg.go",
+        "pkg/math/realclosure/real_value_function_scale.go",
+        "pkg/math/realclosure/manager_slot_owner.go",
+        "pkg/math/realclosure/manager_slot_copy.go",
+        "pkg/math/realclosure/manager_slot_set_integer.go",
+        "pkg/math/realclosure/manager_slot_reset.go",
+        "pkg/math/realclosure/manager_slot_swap.go",
+        "pkg/math/realclosure/manager_predicate_rational.go",
+        "pkg/math/realclosure/manager_predicate_algebraic.go",
+        "pkg/math/realclosure/manager_predicate_integer_dependency.go"
+      ],
+      "tests": [
+        "TestRealValueAlgebraicPlusRationalRetainsNumeratorAndInterval",
+        "TestRealValueAlgebraicNegationAndSubtraction",
+        "TestRealValueAlgebraicRationalScaleBothOrders",
+        "TestManagerNumeralSlotSetInteger",
+        "TestManagerNumeralSlotCopyOwnership",
+        "TestManagerNumeralSlotResetDeletesLastOwner",
+        "TestManagerNumeralSlotSwapTransfersWithoutRefcount",
+        "TestManagerNumeralPredicatesRetainedTypes"
+      ],
       "conditionals": [
         {
           "line": 22,
@@ -73608,8 +73630,27 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [
+        {
+          "name": "concrete rational/algebraic value arithmetic and manager numeral slot lifecycle and predicates",
+          "status": "partial",
+          "go_targets": [
+            "pkg/math/realclosure/real_value_function_add.go",
+            "pkg/math/realclosure/real_value_function_neg.go",
+            "pkg/math/realclosure/real_value_function_scale.go",
+            "pkg/math/realclosure/manager_slot_owner.go"
+          ],
+          "tests": [
+            "TestRealValueAlgebraicPlusRationalRetainsNumeratorAndInterval",
+            "TestRealValueAlgebraicRationalScaleBothOrders",
+            "TestManagerNumeralSlotCopyOwnership",
+            "TestManagerNumeralPredicatesRetainedTypes"
+          ]
+        }
+      ],
+      "ownership": [
+        "Concrete numeral slots retain replacements before releasing prior values, treat self-copy as a no-op, and make swap reference-count neutral; algebraic function results own their coefficient and interval state."
+      ],
       "deviations": []
     },
     {
