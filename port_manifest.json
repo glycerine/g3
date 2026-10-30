@@ -94900,13 +94900,14 @@
       "path": "src/muz/transforms/dl_mk_slice.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_slice.go"
       ],
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
-        "TestRuleSliceRetainsConstantConstrainedColumn"
+        "TestRuleSliceRetainsConstantConstrainedColumn",
+        "TestRuleSliceLeavesZeroArityOutputRulesUnchanged"
       ],
       "conditionals": [
         {
@@ -94918,8 +94919,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "RuleSlicePlugin construction, transformation contract, derived-predicate lookup, priority, cancellation metadata, and owned lifecycle",
