@@ -27,7 +27,7 @@ func (t *CheckTable) FilterInterpreted(manager *RelationManager, relationSorts [
 // FilterInterpretedAndProject returns an independently owned checked result,
 // applying the source checker's transform before the primary transform.
 func (t *CheckTable) FilterInterpretedAndProject(manager *RelationManager, relationSorts []ast.ASTHandle, rewriter *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle, removed []int) (_ *CheckTable, resultErr error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
 	checkerRelation := &TableRelation{manager: manager, sorts: append([]ast.ASTHandle(nil), relationSorts...), table: t.checker}

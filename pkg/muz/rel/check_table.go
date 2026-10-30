@@ -206,16 +206,11 @@ func (t *CheckTable) Remove(fact Fact) (bool, error) {
 }
 
 func (t *CheckTable) Reset() error {
-	if err := t.open(); err != nil {
+	facts, err := t.Facts()
+	if err != nil {
 		return err
 	}
-	if err := t.primary.Reset(); err != nil {
-		return err
-	}
-	if err := t.checker.Reset(); err != nil {
-		return err
-	}
-	return t.Validate()
+	return t.RemoveFacts(facts)
 }
 
 func (t *CheckTable) Facts() ([]Fact, error) {
@@ -226,7 +221,7 @@ func (t *CheckTable) Facts() ([]Fact, error) {
 }
 
 func (t *CheckTable) Clone() (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
 	primary, err := t.primary.Clone()
@@ -235,9 +230,9 @@ func (t *CheckTable) Clone() (*CheckTable, error) {
 	}
 	checker, err := t.checker.Clone()
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, primary.Close())
 	}
-	return AdoptCheckTable(primary, checker)
+	return adoptCheckedTables(primary, checker)
 }
 
 func complementCheckedHashTable(source *HashTable) (*HashTable, error) {
@@ -275,7 +270,7 @@ func complementCheckedHashTable(source *HashTable) (*HashTable, error) {
 }
 
 func (t *CheckTable) Complement() (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
 	primary, err := complementCheckedHashTable(t.primary)
@@ -284,7 +279,7 @@ func (t *CheckTable) Complement() (*CheckTable, error) {
 	}
 	checker, err := complementCheckedHashTable(t.checker)
 	if err != nil {
-		return nil, err
+		return nil, errors.Join(err, primary.Close())
 	}
-	return AdoptCheckTable(primary, checker)
+	return adoptCheckedTables(primary, checker)
 }

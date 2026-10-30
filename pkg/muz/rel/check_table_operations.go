@@ -20,10 +20,10 @@ func (t *CheckTable) compatible(other *CheckTable) bool {
 }
 
 func (t *CheckTable) Join(other *CheckTable, leftColumns, rightColumns []int) (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
-	if other == nil || other.Validate() != nil {
+	if other == nil || other.open() != nil {
 		return nil, ErrCheckTable
 	}
 	primary, err := t.primary.Join(other.primary, leftColumns, rightColumns)
@@ -38,10 +38,10 @@ func (t *CheckTable) Join(other *CheckTable, leftColumns, rightColumns []int) (*
 }
 
 func (t *CheckTable) JoinProject(other *CheckTable, leftColumns, rightColumns, removed []int) (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
-	if other == nil || other.Validate() != nil {
+	if other == nil || other.open() != nil {
 		return nil, ErrCheckTable
 	}
 	primary, err := t.primary.JoinProject(other.primary, leftColumns, rightColumns, removed)
@@ -56,7 +56,7 @@ func (t *CheckTable) JoinProject(other *CheckTable, leftColumns, rightColumns, r
 }
 
 func (t *CheckTable) Project(removed []int) (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
 	checker, err := t.checker.Project(removed)
@@ -71,7 +71,7 @@ func (t *CheckTable) Project(removed []int) (*CheckTable, error) {
 }
 
 func (t *CheckTable) SelectEqualAndProject(value Element, column int) (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
 	checker, err := t.checker.SelectEqualAndProject(value, column)
@@ -86,7 +86,7 @@ func (t *CheckTable) SelectEqualAndProject(value Element, column int) (*CheckTab
 }
 
 func (t *CheckTable) RenameCycle(cycle []int) (*CheckTable, error) {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return nil, err
 	}
 	checker, err := t.checker.RenameCycle(cycle)
@@ -101,15 +101,15 @@ func (t *CheckTable) RenameCycle(cycle []int) (*CheckTable, error) {
 }
 
 func (t *CheckTable) UnionFrom(source, delta *CheckTable) error {
-	if err := t.Validate(); err != nil {
+	if err := t.open(); err != nil {
 		return err
 	}
-	if source == nil || source.Validate() != nil || !t.compatible(source) {
+	if source == nil || source.open() != nil || !t.compatible(source) {
 		return fmt.Errorf("%w: union signatures differ", ErrCheckTable)
 	}
 	var primaryDelta, checkerDelta *HashTable
 	if delta != nil {
-		if delta.Validate() != nil || !t.compatible(delta) {
+		if delta.open() != nil || !t.compatible(delta) {
 			return fmt.Errorf("%w: delta signatures differ", ErrCheckTable)
 		}
 		primaryDelta, checkerDelta = delta.primary, delta.checker
@@ -170,7 +170,7 @@ func (t *CheckTable) FilterByNegation(source *CheckTable, targetColumns, sourceC
 	if err := t.open(); err != nil {
 		return err
 	}
-	if source == nil || source.Validate() != nil {
+	if source == nil || source.open() != nil {
 		return ErrCheckTable
 	}
 	if err := t.checker.FilterByNegation(source.checker, targetColumns, sourceColumns); err != nil {

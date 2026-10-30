@@ -88,6 +88,27 @@ func TestCheckTableBulkRemoveChecksEachFactInOrder(t *testing.T) {
 	}
 }
 
+func TestCheckTableTransformAndResetValidationBoundaries(t *testing.T) {
+	table := newCheckTableWithFacts(t, lazySignature(t, 2), Fact{0}, Fact{1})
+	closeCheckTables(t, table)
+	before := table.CheckCount()
+	projected, err := table.Project(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeCheckTables(t, projected)
+	if table.CheckCount() != before || projected.CheckCount() != 1 {
+		t.Fatalf("projection validation counts: input %d->%d, result %d", before, table.CheckCount(), projected.CheckCount())
+	}
+	before = table.CheckCount()
+	if err = table.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if table.CheckCount()-before != 3 {
+		t.Fatalf("reset validation count = %d, want begin check plus two removals", table.CheckCount()-before)
+	}
+}
+
 func TestCheckTableCloneResetComplementAndLifecycle(t *testing.T) {
 	table := newCheckTableWithFacts(t, lazySignature(t, 3), Fact{0}, Fact{2})
 	clone, err := table.Clone()
