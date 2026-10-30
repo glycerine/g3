@@ -50770,3 +50770,5 @@ Already-Horn proof ingestion through HNF (2026-10-30 UTC): closed the source fas
 HNF proof fact validation (2026-10-30 UTC): added a rejection regression for proof/formula mismatches, asserting the rule set stays empty and proof mode remains unchanged. The focused base test passes.
 
 HNF label proof propagation (2026-10-30 UTC): verified proof-aware ingestion removes a source label, composes the label rewrite with the disjunctive split, and retains checker-valid proofs on both output rules. Focused base test passes.
+
+No-definition HNF proof composition (2026-10-30 UTC): generalized the proof path for multi-clause normalization without fresh predicates to derive the full normalized conjunction from the input proof, then extract each clause proof. This covers source worklist splits without tying the proof count to one syntactic disjunction; focused disjunctive HNF proof tests pass.

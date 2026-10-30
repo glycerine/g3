@@ -82458,7 +82458,7 @@
           "tests": ["TestHornNormalizerMergesConsecutiveUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled"]
         },
         {
-          "name": "Proof construction for direct disjunctive antecedent splitting and generated HNF definitions using definition axiom/introduction, apply-definitions, modus ponens, and conjunction elimination (hnf.cpp:253-421)",
+          "name": "Proof construction for no-definition HNF normalization using a clause-conjunction definition axiom, plus generated HNF definitions using definition introduction and apply-definitions (hnf.cpp:253-421)",
           "status": "partial",
           "go_target": "pkg/muz/base/hnf_proof.go",
           "tests": ["TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction"]
@@ -82468,7 +82468,7 @@
         "HornNormalization owns independent references to every output formula and introduced declaration; worklist intermediates are locally pinned and released after normalization, while RuleSet retains rules created by RuleManager.AddFormula."
       ],
       "deviations": [
-        "Proof-producing normalization covers direct disjunctive antecedent splitting and HNF definition introduction for one resulting main rule. General quantifier hoisting outside these cases and quantified antecedent definition elimination remain unported, so this entry remains partial."
+        "Proof-producing normalization covers no-definition clause splitting and HNF definition introduction for one resulting main rule. General quantifier hoisting outside these cases and quantified antecedent definition elimination remain unported, so this entry remains partial."
       ]
     },
     {

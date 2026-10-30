@@ -121,19 +121,8 @@ func (m *RuleManager) hnfClauseProofs(formula, proof ast.ASTHandle, clauses []as
 			proofs[0] = proof
 			return proofs, nil
 		}
-		if !m.isDisjunctiveAntecedent(formula) {
-			return nil, fmt.Errorf("muz/base: proof transfer for this HNF transformation is not implemented")
-		}
-		disjunction, err := m.antecedentDisjunction(formula)
-		if err != nil {
-			return nil, err
-		}
-		count, err := m.manager.GetNumArgs(disjunction)
-		if err != nil {
-			return nil, err
-		}
-		if uint32(len(clauses)) != count {
-			return nil, fmt.Errorf("muz/base: HNF split produced %d clauses for %d disjuncts", len(clauses), count)
+		if len(clauses) < 2 {
+			return nil, fmt.Errorf("muz/base: HNF produced no clauses for a proof-bearing formula")
 		}
 		conjunction, err := m.manager.MkAndArgs(clauses)
 		if err != nil {
@@ -240,61 +229,4 @@ func (m *RuleManager) hnfFormulaHead(formula ast.ASTHandle) (ast.ASTHandle, erro
 		}
 	}
 	return formula, nil
-}
-
-func (m *RuleManager) isDisjunctiveAntecedent(formula ast.ASTHandle) bool {
-	for {
-		kind, err := m.manager.GetKind(formula)
-		if err != nil || kind != ast.ASTQuantifier {
-			break
-		}
-		forall, err := m.manager.IsForall(formula)
-		if err != nil || !forall {
-			return false
-		}
-		formula, err = m.manager.GetQuantifierBody(formula)
-		if err != nil {
-			return false
-		}
-	}
-	kind, err := m.manager.GetKind(formula)
-	if err != nil || kind != ast.ASTApp {
-		return false
-	}
-	operator, err := m.manager.GetDeclKind(formula)
-	if err != nil || operator != ast.ASTOpImplies {
-		return false
-	}
-	antecedent, err := m.manager.GetArg(formula, 0)
-	if err != nil {
-		return false
-	}
-	kind, err = m.manager.GetKind(antecedent)
-	if err != nil || kind != ast.ASTApp {
-		return false
-	}
-	operator, err = m.manager.GetDeclKind(antecedent)
-	if err != nil || operator != ast.ASTOpOr {
-		return false
-	}
-	head, err := m.manager.GetArg(formula, 1)
-	if err != nil {
-		return false
-	}
-	predicate, err := m.isPredicate(head)
-	return err == nil && predicate
-}
-
-func (m *RuleManager) antecedentDisjunction(formula ast.ASTHandle) (ast.ASTHandle, error) {
-	for {
-		kind, err := m.manager.GetKind(formula)
-		if err != nil || kind != ast.ASTQuantifier {
-			break
-		}
-		formula, err = m.manager.GetQuantifierBody(formula)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-	}
-	return m.manager.GetArg(formula, 0)
 }
