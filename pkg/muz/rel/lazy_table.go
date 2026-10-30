@@ -182,6 +182,29 @@ func (t *LazyTable) Kind() LazyTableKind {
 
 func (t *LazyTable) Forced() bool { return t.open() == nil && t.root.evaluated != nil }
 
+// SizeEstimateRows and SizeEstimateBytes preserve lazy_table's fixed source
+// estimates without forcing the deferred operation.
+func (t *LazyTable) SizeEstimateRows() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+func (t *LazyTable) SizeEstimateBytes() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return 1, nil
+}
+
+func (t *LazyTable) KnowsExactSize() (bool, error) {
+	if err := t.open(); err != nil {
+		return false, err
+	}
+	return false, nil
+}
+
 func (t *LazyTable) Signature() (Signature, error) {
 	if err := t.open(); err != nil {
 		return Signature{}, err

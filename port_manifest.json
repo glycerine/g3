@@ -87610,7 +87610,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_ownership.go", "pkg/muz/rel/table_join_project.go"],
-      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableGeneralProjectionAndRenameStatistics"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
         {
           "line": 87,
@@ -87694,19 +87694,19 @@
           "name": "lazy_table_filter_identical::force transfers the evaluated source table, releases the source cache, and applies the identical-column mutator (dl_lazy_table.cpp:396-407)",
           "status": "ported",
           "go_target": "pkg/muz/rel/lazy_table.go",
-          "tests": ["TestLazyTableMutatingFiltersTransferCachedTables"]
+          "tests": ["TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred"]
         },
         {
           "name": "lazy_table_filter_equal::force transfers the evaluated source table, releases the source cache, and applies the equality mutator (dl_lazy_table.cpp:409-420)",
           "status": "ported",
           "go_target": "pkg/muz/rel/lazy_table.go",
-          "tests": ["TestLazyTableMutatingFiltersTransferCachedTables"]
+          "tests": ["TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred"]
         },
         {
           "name": "lazy_table_filter_by_negation::force transfers the target table before evaluating the source and mutating the target (dl_lazy_table.cpp:433-466)",
           "status": "ported",
           "go_target": "pkg/muz/rel/lazy_table.go",
-          "tests": ["TestLazyTableMutatingFiltersTransferCachedTables"]
+          "tests": ["TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred"]
         }
       ],
       "ownership": [],
@@ -87718,7 +87718,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_ownership.go"],
-      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableGeneralProjectionAndRenameStatistics"],
+      "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "conditionals": [
         {
           "line": 21,
@@ -87737,7 +87737,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {"name": "lazy_table reports fixed row/byte estimates and declares that exact size is unknown (dl_lazy_table.h:148-150)", "status": "ported", "go_target": "pkg/muz/rel/lazy_table.go", "tests": ["TestLazyTableFixedSizeEstimatesRemainDeferred"]}
+      ],
       "ownership": [],
       "deviations": []
     },

@@ -78,6 +78,36 @@ func TestLazyTableSourceDeferredJoinAndMemoization(t *testing.T) {
 	}
 }
 
+func TestLazyTableFixedSizeEstimatesRemainDeferred(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2), Fact{0})
+	projected, err := table.Project(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeLazyTables(t, table, projected)
+	rows, err := projected.SizeEstimateRows()
+	if err != nil || rows != 1 {
+		t.Fatalf("row estimate = %d, %v", rows, err)
+	}
+	bytes, err := projected.SizeEstimateBytes()
+	if err != nil || bytes != 1 {
+		t.Fatalf("byte estimate = %d, %v", bytes, err)
+	}
+	exact, err := projected.KnowsExactSize()
+	if err != nil || exact {
+		t.Fatalf("exact-size knowledge = %v, %v", exact, err)
+	}
+	if projected.Forced() || engine.Statistics().Forces != 0 {
+		t.Fatal("fixed estimates forced deferred table", engine.Statistics())
+	}
+}
+
 func TestLazyTableCloneResetComplementAndLifecycle(t *testing.T) {
 	engine := NewLazyTableEngine()
 	t.Cleanup(func() {
