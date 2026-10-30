@@ -14,9 +14,6 @@ func (v *FixedInterval) Power(src *FixedInterval, n uint32) (err error) {
 	if err = v.pair(src); err != nil {
 		return err
 	}
-	if n == 0 {
-		return interval.ErrExtendedDomain
-	}
 	if n == 1 {
 		return v.SetFrom(src)
 	}

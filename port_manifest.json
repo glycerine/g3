@@ -51445,7 +51445,7 @@
         },
         {
           "name": "Concrete mpff interval powers: positive/negative even, mixed equal-max tie, odd monotonic, infinite bounds and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_interval_power.go",
           "tests": [
             "TestSubpavingFastIntervalPowerRetainedCases"
@@ -51506,7 +51506,7 @@
         },
         {
           "name": "Concrete config_mpf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinite bounds and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_power.go",
           "tests": [
             "TestSubpavingMPFIntervalPowerRetainedCases"
@@ -51556,7 +51556,7 @@
         },
         {
           "name": "Concrete config_hwf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinity and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_power.go",
           "tests": [
             "TestSubpavingHardwareIntervalPowerRetainedBranches"
@@ -75366,7 +75366,7 @@
         },
         {
           "name": "Concrete config_hwf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinity and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_power.go",
           "tests": [
             "TestSubpavingHardwareIntervalPowerRetainedBranches"
@@ -75531,7 +75531,7 @@
         },
         {
           "name": "Concrete config_mpf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinite bounds and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_power.go",
           "tests": [
             "TestSubpavingMPFIntervalPowerRetainedCases"
@@ -76653,7 +76653,7 @@
         },
         {
           "name": "Concrete config_mpf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinite bounds and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_power.go",
           "tests": [
             "TestSubpavingMPFIntervalPowerRetainedCases"
@@ -76685,7 +76685,7 @@
         },
         {
           "name": "Concrete config_hwf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinity and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_power.go",
           "tests": [
             "TestSubpavingHardwareIntervalPowerRetainedBranches"
@@ -77998,7 +77998,7 @@
         },
         {
           "name": "Concrete config_mpf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinite bounds and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_power.go",
           "tests": [
             "TestSubpavingMPFIntervalPowerRetainedCases"
@@ -78038,7 +78038,7 @@
         },
         {
           "name": "Concrete config_hwf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinity and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_power.go",
           "tests": [
             "TestSubpavingHardwareIntervalPowerRetainedBranches"

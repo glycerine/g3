@@ -2,11 +2,9 @@ package subpaving
 
 import (
 	"bytes"
-	"errors"
 	"math/big"
 	"testing"
 
-	"github.com/glycerine/g3/pkg/math/interval"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -98,7 +96,6 @@ func TestSubpavingFixedIntervalPowerRetainedCases(t *testing.T) {
 	if resultLower.Cmp(big.NewRat(1, 9)) > 0 || resultUpper.Cmp(big.NewRat(4, 9)) < 0 {
 		t.Fatalf("directed squared bounds [%s, %s] exclude [1/9, 4/9]", resultLower, resultUpper)
 	}
-	if err := b.Power(a, 0); !errors.Is(err, interval.ErrExtendedDomain) {
-		t.Fatalf("zero-degree error = %v", err)
-	}
+	must(b.Power(a, 0))
+	check("[1, 1]")
 }

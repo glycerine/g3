@@ -1,12 +1,10 @@
 package subpaving
 
 import (
-	"errors"
 	"math"
 	"math/big"
 	"testing"
 
-	"github.com/glycerine/g3/pkg/math/interval"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -140,9 +138,8 @@ func TestSubpavingHardwareIntervalPowerRetainedBranches(t *testing.T) {
 	must(a.ResetUpper())
 	must(out.Power(a, 3))
 	check(out, -8, 0, false, true, true, true)
-	if e := out.Power(a, 0); !errors.Is(e, interval.ErrExtendedDomain) {
-		t.Fatal("zero exponent", e)
-	}
+	must(out.Power(a, 0))
+	check(out, 0, 0, false, true, false, true)
 	// A half-ULP input exercises the directed positive-even power route.
 	must(m.SetFloat64(&values[0], math.Nextafter(1, math.Inf(1))))
 	must(m.SetFloat64(&values[1], math.Nextafter(1, math.Inf(1))))

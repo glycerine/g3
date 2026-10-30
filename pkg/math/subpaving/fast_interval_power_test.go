@@ -1,11 +1,9 @@
 package subpaving
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
-	"github.com/glycerine/g3/pkg/math/interval"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -141,7 +139,6 @@ func TestSubpavingFastIntervalPowerRetainedCases(t *testing.T) {
 	if lowerBeyond || upperShort {
 		t.Fatal("directed squared bounds exclude rational enclosure")
 	}
-	if err := out.Power(a, 0); !errors.Is(err, interval.ErrExtendedDomain) {
-		t.Fatal("zero-degree power", err)
-	}
+	must(out.Power(a, 0))
+	check(out, 1, 1, false, false, false, false)
 }
