@@ -948,6 +948,11 @@ func TestPropositionalEngineExecutesStratifiedNegation(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("stratified negative Horn rule was not derived", status)
 	}
+	status, err = engine.Query(applications["Q"])
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("repeated stratified negative query lost its result", status)
+	}
 	compiled, err := engine.LastQueryUsedCompiledCode()
 	fpMust(t, err)
 	if !compiled {

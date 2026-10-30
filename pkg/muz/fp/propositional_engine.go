@@ -1301,11 +1301,65 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 	return changed, nil
 }
 
-func (e *PropositionalEngine) saturate() error {
-	for _, state := range e.predicates {
-		if err := state.table.Reset(); err != nil {
-			return err
+// resetNegationDependentTables mirrors rel_context::reset_negated_tables:
+// only populated predicates that directly or transitively depend on negation
+// are cleared between saturations. Positive-only relation contents survive.
+func (e *PropositionalEngine) resetNegationDependentTables() error {
+	count, err := e.set.Len()
+	if err != nil {
+		return err
+	}
+	depends := make(map[ast.ASTHandle]bool)
+	for changed := true; changed; {
+		changed = false
+		for i := 0; i < count; i++ {
+			rule, e2 := e.set.Rule(i)
+			if e2 != nil {
+				return e2
+			}
+			head, e2 := rule.HeadDeclaration()
+			positive, pErr := rule.PositiveTailSize()
+			uninterpreted, uErr := rule.UninterpretedTailSize()
+			e2 = errors.Join(e2, pErr, uErr)
+			mark := e2 == nil && positive < uninterpreted && !depends[head]
+			for j := 0; e2 == nil && !mark && j < uninterpreted; j++ {
+				tail, x := rule.TailDeclaration(j)
+				e2 = x
+				if depends[tail] && !depends[head] {
+					mark = true
+				}
+			}
+			e2 = errors.Join(e2, rule.Close())
+			if e2 != nil {
+				return e2
+			}
+			if mark {
+				depends[head] = true
+				changed = true
+			}
 		}
+	}
+	for declaration := range depends {
+		state := e.predicates[declaration]
+		if state == nil {
+			continue
+		}
+		rows, x := state.table.Len()
+		if x != nil {
+			return x
+		}
+		if rows != 0 {
+			if x = state.table.Reset(); x != nil {
+				return x
+			}
+		}
+	}
+	return nil
+}
+
+func (e *PropositionalEngine) saturate() error {
+	if err := e.resetNegationDependentTables(); err != nil {
+		return err
 	}
 	count, err := e.set.Len()
 	if err != nil {
