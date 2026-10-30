@@ -92,6 +92,19 @@ func NewLemmaFromProofObligation(obligation *ProofObligation, cube []ast.ASTHand
 		return nil, err
 	}
 	if len(bindings) != 0 {
+		handle, err := manager.RefGet(body)
+		if err != nil {
+			return nil, err
+		}
+		hasSkolem, err := HasZKConst(manager, handle)
+		if err != nil {
+			return nil, err
+		}
+		if !hasSkolem {
+			bindings = nil
+		}
+	}
+	if len(bindings) != 0 {
 		skolem, err := obligation.Skolems()
 		if err != nil {
 			return nil, err

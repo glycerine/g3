@@ -65,6 +65,26 @@ func TestSpacerProofObligationBindingsDirtyStateAndQueue(t *testing.T) {
 	}
 	spacerMust(t, manager.DelRef(&instances[0]))
 	spacerMust(t, lemma.Close())
+	// When the unsat core no longer mentions an obligation skolem, the
+	// source emits a ground clause and does not copy the obligation bindings.
+	y := spacerBool(t, manager, "proof-obligation-independent-core")
+	for _, literal := range []ast.ASTHandle{truth, y} {
+		ground, err := spacer.NewLemmaFromProofObligation(root, []ast.ASTHandle{literal}, 2)
+		spacerMust(t, err)
+		body, err := ground.Body()
+		spacerMust(t, err)
+		expected, err := manager.PushNot(literal)
+		spacerMust(t, err)
+		if body != expected {
+			t.Fatal("skolem-free core must produce a ground lemma without vacuous binders", body, expected)
+		}
+		instances, err := ground.Instances()
+		spacerMust(t, err)
+		if len(instances) != 0 {
+			t.Fatal("skolem-free lemma copied obligation bindings", len(instances))
+		}
+		spacerMust(t, ground.Close())
+	}
 	spacerMust(t, root.NewPost(truth))
 	if dirty, err := root.Dirty(); err != nil || !dirty {
 		t.Fatal("dirty proof obligation", dirty, err)
