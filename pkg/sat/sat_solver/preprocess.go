@@ -36,7 +36,7 @@ type IncrementalEncoder struct {
 	services    model.ModelEvaluatorConfig
 	params      uparams.ParamsRef
 	paramsReady bool
-	atoms       *ast.Expr2Var
+	atoms       *sattactic.Atom2BoolVar
 	blaster     *bb.BitBlasterRewriter
 	pipeline    *incrementalPipeline
 	retired     []*incrementalPipeline
@@ -81,7 +81,7 @@ func NewIncrementalEncoder(m *ast.ASTManager, backend *sat.Solver, internalParam
 		err = c.Assign(&r.params, internalParams)
 	}
 	if err == nil {
-		r.atoms, err = ast.NewExpr2Var(m)
+		r.atoms, err = sattactic.NewAtom2BoolVar(m)
 	}
 	if err == nil {
 		err = r.initPreprocess()

@@ -75,6 +75,15 @@ func (a *Atom2BoolVar) ToBoolVar(n ast.ASTHandle) (sat.BoolVar, error) {
 	return sat.BoolVar(v), nil
 }
 
+// ToVar preserves the inherited expr2var observer for incremental SAT
+// consumers that still use the source UINT_MAX sentinel.
+func (a *Atom2BoolVar) ToVar(n ast.ASTHandle) (uint32, error) {
+	if err := a.open(); err != nil {
+		return ^uint32(0), err
+	}
+	return a.mapping.ToVar(n)
+}
+
 func (a *Atom2BoolVar) IsVar(n ast.ASTHandle) (bool, error) {
 	if err := a.open(); err != nil {
 		return false, err
