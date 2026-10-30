@@ -2,6 +2,7 @@ package rel
 
 import (
 	"errors"
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -178,5 +179,69 @@ func TestUDocJoinUsesWholeColumnEquality(t *testing.T) {
 
 	if _, err = left.Join(right, []uint32{0}, nil, joinManager); !errors.Is(err, ErrDOC) {
 		t.Fatal("join column arity", err)
+	}
+}
+
+func TestUDocFilterEqualRetainsMatchingRows(t *testing.T) {
+	manager, _ := newTestDocManager(t, 4)
+	relation, err := NewUDocRelation(manager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	for _, fact := range [][]uint64{{0, 1}, {1, 2}, {1, 3}} {
+		if inserted, x := relation.AddFact(fact); x != nil || !inserted {
+			t.Fatal("add row", fact, inserted, x)
+		}
+	}
+	if err = relation.FilterEqual(0, 1); err != nil {
+		t.Fatal(err)
+	}
+	if relation.NumRecords() != 2 {
+		t.Fatal("filtered row count", relation.NumRecords())
+	}
+	requireFact(t, relation, []uint64{0, 1}, false)
+	requireFact(t, relation, []uint64{1, 2}, true)
+	requireFact(t, relation, []uint64{1, 3}, true)
+	if err = relation.FilterEqual(2, 0); !errors.Is(err, arena.ErrBounds) {
+		t.Fatal("out-of-range column", err)
+	}
+	if err = relation.FilterEqual(0, 4); !errors.Is(err, ErrDOC) {
+		t.Fatal("out-of-domain value", err)
+	}
+	if relation.NumRecords() != 2 {
+		t.Fatal("invalid filters changed relation", relation.NumRecords())
+	}
+}
+
+func TestUDocFilterEqualBigPreservesWideValues(t *testing.T) {
+	manager, _ := newTestDocManager(t, 70)
+	relation, err := NewUDocRelation(manager, []uint32{70})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, relation)
+	wanted := new(big.Int).Lsh(big.NewInt(1), 69)
+	wanted.Add(wanted, big.NewInt(7))
+	other := new(big.Int).Sub(new(big.Int).Set(wanted), big.NewInt(1))
+	for _, value := range []*big.Int{other, wanted} {
+		if inserted, x := relation.AddBigFact([]*big.Int{value}); x != nil || !inserted {
+			t.Fatal("add wide row", value, inserted, x)
+		}
+	}
+	if err = relation.FilterEqualBig(0, wanted); err != nil {
+		t.Fatal(err)
+	}
+	if relation.NumRecords() != 1 {
+		t.Fatal("wide filtered row count", relation.NumRecords())
+	}
+	expected, err := manager.vectors.AllocateBigInt(wanted)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = manager.vectors.Deallocate(expected) }()
+	equal, err := manager.vectors.Equals(relation.elems.values[0].positive, expected)
+	if err != nil || !equal {
+		t.Fatal("wide filter selected wrong value", equal, err)
 	}
 }

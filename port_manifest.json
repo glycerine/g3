@@ -89644,8 +89644,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues"],
       "conditionals": [
         {
           "line": 958,
@@ -89784,7 +89784,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "Ordered document relation formula as a disjunction of DOC formulas (udoc_relation.cpp:106-123)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_formula.go", "tests": ["TestUDocRelationFormulaEmptyAndPopulated"]}],
+      "methods": [{"name": "Ordered document relation formula as a disjunction of DOC formulas (udoc_relation.cpp:106-123)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_formula.go", "tests": ["TestUDocRelationFormulaEmptyAndPopulated"]}, {"name": "Finite bit-vector column equality filter using a DOC cube (udoc_relation.cpp:536-558)", "status": "ported", "go_target": "pkg/muz/rel/udoc_relation_filter.go", "tests": ["TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues"]}],
       "ownership": [],
       "deviations": ["The surrounding UDoc relation source unit remains partial; guard extraction/compilation, interpreted filtering, and relation-plugin factory integration are still unaudited."]
     },
@@ -89793,8 +89793,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated"],
+      "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues"],
       "conditionals": [
         {
           "line": 22,
