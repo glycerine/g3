@@ -14,10 +14,22 @@ func TestSparseIndexedSelectRejectsUnsupportedIndexesAndDrift(t *testing.T) {
 	for _, tc := range []struct {
 		value  Element
 		column int
-	}{{4, 0}, {0, -1}, {0, 1}, {0, 2}} {
+	}{{0, -1}, {0, 1}, {0, 2}} {
 		if _, err := NewSparseIndexedSelectPlan(table, tc.value, tc.column); !errors.Is(err, ErrTable) {
 			t.Fatalf("case=%+v err=%v", tc, err)
 		}
+	}
+	outOfDomain, err := NewSparseIndexedSelectPlan(table, 4, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, stats, err := outOfDomain.Execute(table)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer result.Close()
+	if count, _ := result.Len(); count != 0 || stats.Matches != 0 {
+		t.Fatalf("out-of-domain select count=%d stats=%+v", count, stats)
 	}
 	plan, err := NewSparseIndexedSelectPlan(table, 1, 0)
 	if err != nil {

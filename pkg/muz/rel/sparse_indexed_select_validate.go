@@ -5,7 +5,7 @@ func NewSparseIndexedSelectPlan(table *SparseTable, value Element, column int) (
 		return nil, ErrTable
 	}
 	firstFunctional := table.signature.Len() - table.functional
-	if column < 0 || column >= firstFunctional || uint64(value) >= table.signature.domains[column] {
+	if column < 0 || column >= firstFunctional {
 		return nil, ErrTable
 	}
 	resultSignature, err := projectedSignature(table.signature, []int{column})

@@ -42,10 +42,5 @@ func (plan *SparseKeyLookupPlan) validateKey(key Fact) error {
 	if plan == nil || len(key) != len(plan.columns) {
 		return ErrTable
 	}
-	for i, value := range key {
-		if uint64(value) >= plan.signature.domains[plan.columns[i]] {
-			return ErrTable
-		}
-	}
 	return nil
 }

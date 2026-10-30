@@ -35,7 +35,7 @@ func TestSparseKeyIndexRejectsInvalidPlansKeysAndTables(t *testing.T) {
 			t.Fatalf("table %v: %v", other, err)
 		}
 	}
-	if _, err := snapshot.Lookup(Fact{4}); !errors.Is(err, ErrTable) {
-		t.Fatalf("out-of-domain key: %v", err)
+	if rows, err := snapshot.Lookup(Fact{4}); err != nil || len(rows) != 0 {
+		t.Fatalf("out-of-domain key rows=%v err=%v", rows, err)
 	}
 }
