@@ -61,11 +61,13 @@ func TestRuleManagerAddsProofsForDisjunctiveHornSplit(t *testing.T) {
 	}
 }
 
-func TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules(t *testing.T) {
-	f := newRuleSetFixture(t, "P", "Q", "R", "H")
-	disjunction, err := f.manager.MkOr(f.app["P"], f.app["Q"])
+func TestRuleManagerAddsProofsForHNFDefinitionIntroduction(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q", "R", "S", "H")
+	firstDisjunction, err := f.manager.MkOr(f.app["P"], f.app["Q"])
 	ruleMust(t, err)
-	body, err := f.manager.MkAnd(disjunction, f.app["R"])
+	secondDisjunction, err := f.manager.MkOr(f.app["R"], f.app["S"])
+	ruleMust(t, err)
+	body, err := f.manager.MkAnd(firstDisjunction, secondDisjunction)
 	ruleMust(t, err)
 	formula, err := f.manager.MkImplies(body, f.app["H"])
 	ruleMust(t, err)
@@ -76,14 +78,42 @@ func TestRuleManagerRejectsUnsupportedHNFProofBeforeAddingRules(t *testing.T) {
 	set, err := base.NewRuleSet(f.rules)
 	ruleMust(t, err)
 	t.Cleanup(func() { ruleMust(t, set.Close()) })
-	if err = f.rules.AddFormulaWithProof(set, formula, proof, "unsupported-proof"); err == nil {
-		t.Fatal("unsupported HNF definition proof was accepted")
+	if err = f.rules.AddFormulaWithProof(set, formula, proof, "definition-proof"); err != nil {
+		t.Fatal(err)
 	}
-	if count, e := set.Len(); e != nil || count != 0 {
-		t.Fatal("failed proof ingestion published partial rules", count, e)
+	if count, e := set.Len(); e != nil || count != 5 {
+		t.Fatal("normalized HNF rule count", count, e)
 	}
 	if mode, e := f.manager.ProofMode(); e != nil || mode != ast.ASTProofDisabled {
-		t.Fatal("proof mode was not restored after rejection", mode, e)
+		t.Fatal("proof mode was not restored", mode, e)
+	}
+	checker, err := proofs.NewChecker(f.manager)
+	ruleMust(t, err)
+	for i := 0; i < 5; i++ {
+		rule, e := set.Rule(i)
+		ruleMust(t, e)
+		fact, e := rule.ToFormula()
+		ruleMust(t, e)
+		defer func() { ruleMust(t, f.manager.DelRef(&fact)) }()
+		factHandle, e := f.manager.RefGet(fact)
+		ruleMust(t, e)
+		translated, found, e := rule.Proof()
+		ruleMust(t, e)
+		if !found {
+			t.Fatal("HNF definition rule lost its proof", i)
+		}
+		proved, e := f.manager.GetProofFact(translated)
+		ruleMust(t, e)
+		if proved != factHandle {
+			t.Fatal("HNF definition proof fact does not match rule", i, proved, factHandle)
+		}
+		valid, side, e := checker.Check(translated)
+		ruleMust(t, e)
+		if !valid {
+			t.Fatal("HNF definition proof failed proof checking", i)
+		}
+		ruleMust(t, checker.ReleaseSideConditions(side))
+		ruleMust(t, rule.Close())
 	}
 }
 
