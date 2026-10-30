@@ -5306,8 +5306,8 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_params.go", "pkg/api/api_fixedpoint_test.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/cmd_context/fixedpoint_relation_registration.go"],
-      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState", "TestAPIFixedpointRulesScopesAndQueries", "TestAPIFixedpointOwningAnswerAndStatistics"],
+      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_params.go", "pkg/api/api_fixedpoint_test.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go", "pkg/api/api_fixedpoint_object_display.go", "pkg/api/api_datalog_finite_domain_sort.go", "pkg/api/api_datalog_relation_sort_queries.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/cmd_context/fixedpoint_relation_registration.go", "pkg/cmd_context/fixedpoint_query_display.go"],
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointParameterDescriptors", "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped", "TestSMTContextFixedpointSMT2Replay", "TestSMTContextFixedpointSpacerInductiveExports", "TestSMTContextTypedFixedpointParameters", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState", "TestAPIFixedpointRulesScopesAndQueries", "TestAPIFixedpointOwningAnswerAndStatistics", "TestAPIFixedpointSMT2", "TestSMTContextFiniteDomainSort", "TestSMTContextRelationSort"],
       "assertions": [
         {
           "line": 57,
@@ -5348,7 +5348,7 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go"],
+      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/api/api_fixedpoint_object.go", "pkg/api/api_fixedpoint_object_declarations.go", "pkg/api/api_fixedpoint_object_mutation.go", "pkg/api/api_fixedpoint_object_query.go", "pkg/api/api_fixedpoint_object_results.go", "pkg/api/api_fixedpoint_object_snapshots.go", "pkg/api/api_fixedpoint_object_display.go", "pkg/api/api_datalog_finite_domain_sort.go", "pkg/api/api_datalog_relation_sort_queries.go"],
       "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestSMTContextFixedpointSpacerInductiveExports", "TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState"],
       "conditionals": [
         {
@@ -41127,7 +41127,9 @@
         "pkg/parsers/smt2/declare_map_test.go",
         "pkg/cmd/g3/test_vectors/declare_map.smt2",
         "pkg/cmd_context/proof_graph.go",
-        "pkg/parsers/smt2/proof_graph_test.go"
+        "pkg/parsers/smt2/proof_graph_test.go",
+        "pkg/cmd_context/echo_command.go",
+        "pkg/parsers/smt2/echo_command.go"
       ],
       "tests": [
         "TestCommandContextDoubleOptionsValidateTypesAndUpdateLiveSolver",
@@ -81311,7 +81313,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/datalog_snapshots.go", "pkg/muz/fp/datalog_profile.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_datalog_snapshots.go", "pkg/cmd_context/fixedpoint_datalog_profile.go", "pkg/parsers/smt2/commands.go"],
       "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal", "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPDREngineMatchesCPPIntegerHornQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
       "assertions": [
         {
@@ -82013,9 +82015,9 @@
       "path": "src/muz/base/dl_util.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"],
+      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"],
       "conditionals": [
         {
           "line": 23,
@@ -82150,7 +82152,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "checked decimal read/string conversion, concrete relation-row and mapping-line consumers, and uint64 formatting", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "go_targets": ["pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"], "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}],
       "ownership": [],
       "deviations": []
     },
@@ -82158,9 +82160,9 @@
       "path": "src/muz/base/dl_util.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"],
+      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"],
       "conditionals": [
         {
           "line": 19,
@@ -82183,7 +82185,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "retained uint64 scanner, conversion and formatting declarations with concrete Datalog row/map consumers", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}],
       "ownership": [],
       "deviations": []
     },
@@ -114712,8 +114714,8 @@
       "component": "shell",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_map_line.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go", "pkg/cmd_context/wpa_relation_line.go", "pkg/cmd_context/wpa_map_test.go", "pkg/cmd_context/wpa_relation_test.go", "pkg/cmd_context/wpa_directory_test.go", "pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_dispatch.go", "pkg/shell/datalog_frontend_test.go", "pkg/shell/datalog_frontend_directory_test.go", "pkg/shell/datalog_frontend_output_test.go", "pkg/cmd_context/fixedpoint.go"],
-      "tests": ["TestWPA", "TestDatalogFrontend"],
+      "go_targets": ["pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_map_line.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go", "pkg/cmd_context/wpa_relation_line.go", "pkg/cmd_context/wpa_map_test.go", "pkg/cmd_context/wpa_relation_test.go", "pkg/cmd_context/wpa_directory_test.go", "pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_dispatch.go", "pkg/shell/datalog_frontend_profile.go", "pkg/shell/datalog_frontend_profile_output.go", "pkg/shell/datalog_frontend_snapshots_test.go", "pkg/shell/datalog_frontend_profile_test.go", "pkg/shell/datalog_frontend_test.go", "pkg/shell/datalog_frontend_directory_test.go", "pkg/shell/datalog_frontend_output_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_datalog_run.go", "pkg/api/api_datalog_profile.go"],
+      "tests": ["TestWPA", "TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestAPIRunDatalogPathReturnsCopiedRelationTables", "TestAPIProfileDatalogPathReturnsNamedRelationSummary"],
       "conditionals": [
         {
           "line": 24,
@@ -114740,9 +114742,9 @@
       "path": "src/shell/datalog_frontend.h",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_profile.go", "pkg/shell/datalog_frontend_profile_output.go"],
+      "tests": ["TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendProfileLifecycleAndWriterErrors"],
       "conditionals": [
         {
           "line": 19,
@@ -114755,7 +114757,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "concrete Datalog frontend construction, load, single saturation, results, copied snapshots, timings and profile output", "status": "partial", "go_target": "pkg/shell/datalog_frontend.go", "tests": ["TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes"]}],
       "ownership": [],
       "deviations": []
     },
@@ -163194,6 +163196,9 @@
         "TestArithmeticFragmentProbeAcrossManagerDomains",
         "TestArithmeticFragmentProbesCPP",
         "TestArithmeticQFUFNRAMetadataGuardsCPP",
+        "TestArithmeticDegreeProbeAverageAndMaximum",
+        "TestArithmeticBitWidthProbeAverageAndMaximum",
+        "TestArithmeticStatisticProbeLifecycleAndComposition",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -167394,6 +167399,10 @@
         "pkg/tactic/arith/add_bounds_tactic.go",
         "pkg/tactic/arith/unbounded_probe.go",
         "pkg/tactic/arith/probe_arith.go",
+        "pkg/tactic/arith/probe_arith_statistics.go",
+        "pkg/tactic/arith/probe_arith_statistics_traversal.go",
+        "pkg/tactic/arith/probe_arith_statistics_degree.go",
+        "pkg/tactic/arith/probe_arith_statistics_bitwidth.go",
         "pkg/tactic/arith/add_bounds_tactic_test.go",
         "pkg/tactic/arith/add_bounds_cpp_test.go",
         "pkg/tactic/arith/probe_arith_cpp_test.go",
@@ -167415,6 +167424,9 @@
         "TestArithmeticFragmentProbeAcrossManagerDomains",
         "TestArithmeticFragmentProbesCPP",
         "TestArithmeticQFUFNRAMetadataGuardsCPP",
+        "TestArithmeticDegreeProbeAverageAndMaximum",
+        "TestArithmeticBitWidthProbeAverageAndMaximum",
+        "TestArithmeticStatisticProbeLifecycleAndComposition",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -167555,7 +167567,10 @@
         },
         {
           "name": "arith_degree_probe/arith_bw_probe and average/maximum degree/coefficient-bit-width factories",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/probe_arith_statistics.go",
+          "go_targets": ["pkg/tactic/arith/probe_arith_statistics_traversal.go", "pkg/tactic/arith/probe_arith_statistics_degree.go", "pkg/tactic/arith/probe_arith_statistics_bitwidth.go"],
+          "tests": ["TestArithmeticDegreeProbeAverageAndMaximum", "TestArithmeticBitWidthProbeAverageAndMaximum", "TestArithmeticStatisticProbeLifecycleAndComposition"]
         },
         {
           "name": "is_mip/is_mip_probe/mk_is_mip_probe",
@@ -167567,7 +167582,7 @@
         "ArithmeticFragmentProbe owns only its charged reference metadata and kind. It borrows compatible printer configuration and trace output; Eval itself retains no AST nodes or goal state and classifies the supplied manager domain independently. Traversal maps/frames borrow handles only within the call. The existing typed ProbeEvaluator composition increments/decrements the child owner. Diagnostic formats and temporary text streams release their concrete roots."
       ],
       "deviations": [
-        "The retained fourteen Boolean fragment/ILP probe classes share cold typed metadata and switch over concrete source algorithms; there are no any-valued adapters or generic template ports. Polynomial degree and coefficient-width statistics remain explicitly unported.",
+        "The retained fourteen Boolean fragment/ILP probe classes and four polynomial degree/coefficient-width statistic probes share cold typed metadata and concrete source algorithms; there are no any-valued adapters or generic template ports.",
         "Preserves syntactic quirks rather than mathematical generalization: QF linear probes require numeral-first binary products and reject subtraction/unary-minus forms; QF_AUFLIA accepts array-sorted UF terms but rejects array-family select/store operations; QF_UFNRA requires its actual nonlinear witness and retains the source permissive other-theory behavior.",
         "The MIP probe family is omitted because its only source consumer is disabled. Source process printer globals become borrowed compatible native configuration, with a current-domain/default printer when evaluated against a different manager domain."
       ]
@@ -167581,6 +167596,10 @@
         "pkg/tactic/arith/add_bounds_tactic.go",
         "pkg/tactic/arith/unbounded_probe.go",
         "pkg/tactic/arith/probe_arith.go",
+        "pkg/tactic/arith/probe_arith_statistics.go",
+        "pkg/tactic/arith/probe_arith_statistics_traversal.go",
+        "pkg/tactic/arith/probe_arith_statistics_degree.go",
+        "pkg/tactic/arith/probe_arith_statistics_bitwidth.go",
         "pkg/tactic/arith/add_bounds_tactic_test.go",
         "pkg/tactic/arith/add_bounds_cpp_test.go",
         "pkg/tactic/arith/probe_arith_cpp_test.go",
@@ -167602,6 +167621,9 @@
         "TestArithmeticFragmentProbeAcrossManagerDomains",
         "TestArithmeticFragmentProbesCPP",
         "TestArithmeticQFUFNRAMetadataGuardsCPP",
+        "TestArithmeticDegreeProbeAverageAndMaximum",
+        "TestArithmeticBitWidthProbeAverageAndMaximum",
+        "TestArithmeticStatisticProbeLifecycleAndComposition",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -167752,7 +167774,10 @@
         },
         {
           "name": "arith_degree_probe/arith_bw_probe and average/maximum degree/coefficient-bit-width factories",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/probe_arith_statistics.go",
+          "go_targets": ["pkg/tactic/arith/probe_arith_statistics_traversal.go", "pkg/tactic/arith/probe_arith_statistics_degree.go", "pkg/tactic/arith/probe_arith_statistics_bitwidth.go"],
+          "tests": ["TestArithmeticDegreeProbeAverageAndMaximum", "TestArithmeticBitWidthProbeAverageAndMaximum", "TestArithmeticStatisticProbeLifecycleAndComposition"]
         },
         {
           "name": "is_mip/is_mip_probe/mk_is_mip_probe",
@@ -167764,7 +167789,7 @@
         "ArithmeticFragmentProbe owns only its charged reference metadata and kind. It borrows compatible printer configuration and trace output; Eval itself retains no AST nodes or goal state and classifies the supplied manager domain independently. Traversal maps/frames borrow handles only within the call. The existing typed ProbeEvaluator composition increments/decrements the child owner. Diagnostic formats and temporary text streams release their concrete roots."
       ],
       "deviations": [
-        "The retained fourteen Boolean fragment/ILP probe classes share cold typed metadata and switch over concrete source algorithms; there are no any-valued adapters or generic template ports. Polynomial degree and coefficient-width statistics remain explicitly unported.",
+        "The retained fourteen Boolean fragment/ILP probe classes and four polynomial degree/coefficient-width statistic probes share cold typed metadata and concrete source algorithms; there are no any-valued adapters or generic template ports.",
         "Preserves syntactic quirks rather than mathematical generalization: QF linear probes require numeral-first binary products and reject subtraction/unary-minus forms; QF_AUFLIA accepts array-sorted UF terms but rejects array-family select/store operations; QF_UFNRA requires its actual nonlinear witness and retains the source permissive other-theory behavior.",
         "The MIP probe family is omitted because its only source consumer is disabled. Source process printer globals become borrowed compatible native configuration, with a current-domain/default printer when evaluated against a different manager domain."
       ]
