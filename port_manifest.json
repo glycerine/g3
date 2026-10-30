@@ -5894,23 +5894,23 @@
       "path": "src/api/api_opt.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_optimize_assertion_refs.go", "pkg/api/api_optimize_objective_expressions.go", "pkg/api/api_optimize_interrupt.go", "pkg/api/api_optimize_model.go", "pkg/cmd_context/optimization_assertion_queries.go", "pkg/cmd_context/optimization_failure.go", "pkg/cmd_context/optimization_model.go", "pkg/api/api_optimization_diagnostics.go", "pkg/api/api_optimization_diagnostics_test.go", "pkg/api/api_optimization_model_comparison.go", "pkg/api/api_optimization_model_comparison_test.go", "pkg/api/api_optimize_diagnostics.go", "pkg/api/api_optimize_model_comparison.go", "pkg/cmd_context/optimization_diagnostics.go", "pkg/cmd_context/optimization_diagnostics_test.go", "pkg/cmd_context/optimization_model_comparison.go", "pkg/cmd_context/optimization_model_comparison_test.go"],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_optimize.go", "pkg/api/api_optimize_assert.go", "pkg/api/api_optimize_check.go", "pkg/api/api_optimize_model.go", "pkg/api/api_optimize_parse.go", "pkg/api/api_optimize_parameters.go", "pkg/api/api_optimize_parameter_help.go", "pkg/api/api_optimize_parameter_descriptions.go", "pkg/api/api_optimize_lower.go", "pkg/api/api_optimize_upper.go", "pkg/api/api_optimize_bound.go", "pkg/api/api_optimize_display.go", "pkg/api/api_optimize_objectives.go", "pkg/api/api_optimize_assertion_refs.go", "pkg/api/api_optimize_objective_expressions.go", "pkg/api/api_optimize_diagnostics.go", "pkg/api/api_optimize_model_comparison.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_assertion_queries.go", "pkg/cmd_context/optimization_model.go", "pkg/cmd_context/optimization_diagnostics.go"],
       "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestAPIOptimizeAssertionRefsOwnResultsAfterPop", "TestAPIOptimizeObjectiveExpressionsNormalizeArithmeticDirection", "TestAPIOptimizeObjectiveExpressionsBuildSoftPenaltySum", "TestAPIOptimizeObjectiveExpressionsNegateBitVectorMaximum"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Retained optimize assertion, soft-constraint, maximize/minimize, check, model, push/pop, and objective-value operations (api_opt.cpp:63-153 and related result access); the idiomatic Go SMTContext shares the command-context optimizer instead of reproducing opaque C optimize handles",
-          "status": "partial",
-          "go_target": "pkg/api/api_solver.go",
-          "go_targets": ["pkg/cmd_context/optimization.go"],
-          "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestSMTContextEndToEndModelScopesAndAssumptions"]
+          "name": "Optimize lifecycle, assertion and soft constraints, objectives, check/model results, parameter help, lower/upper bounds, assertions/objectives enumeration, statistics, display and parser entry points (api_opt.cpp:45-375)",
+          "status": "ported",
+          "go_target": "pkg/api/api_optimize.go",
+          "go_targets": ["pkg/api/api_optimize_assert.go", "pkg/api/api_optimize_check.go", "pkg/api/api_optimize_model.go", "pkg/api/api_optimize_parse.go", "pkg/api/api_optimize_parameters.go", "pkg/api/api_optimize_parameter_help.go", "pkg/api/api_optimize_parameter_descriptions.go", "pkg/api/api_optimize_lower.go", "pkg/api/api_optimize_upper.go", "pkg/api/api_optimize_bound.go", "pkg/api/api_optimize_display.go", "pkg/api/api_optimize_objectives.go", "pkg/cmd_context/optimization.go"],
+          "tests": ["TestSMTContextOptimizationObjectivesAndSoftConstraints", "TestSMTContextEndToEndModelScopesAndAssumptions", "TestAPIOptimizeModelOwnsLatestOptimalModel", "TestAPIOptimizeParameterHelp", "TestAPIOptimizeParameterDescriptions", "TestAPIOptimizeBoundVectorsReturnInfinityRationalEpsilon", "TestAPIOptimizeArithmeticObjectiveValueAndIsolation", "TestAPIOptimizeParseStringAndFile", "TestAPIOptimizePushPopTrailsAssertionsAndObjectives", "TestAPIOptimizeSoftGroupAndObjectiveDisplay", "TestAPIOptimizeCloseAndParentLifetime"]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Go exposes optimization on the owning SMTContext and reuses its existing scopes, assertions, result, and model lifetime; it does not reproduce the opaque reference-counted C API optimize object."
+        "The Go APIOptimize owner uses the command-context optimizer and returns owned Go model/AST values; it does not reproduce the opaque reference-counted C handle."
       ]
     },
     {

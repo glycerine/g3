@@ -50795,3 +50795,6 @@ Interpolation API source-unit audit (2026-10-30 UTC): closed `src/api/api_interp
 
 
 API numeral string source-unit audit (2026-10-30 UTC): verified arithmetic, bit-vector, finite-domain, floating-point value, and rounding-mode numeral conversion against `Z3_get_numeral_string`. Focused API numeral tests pass across all supported kinds and unsupported symbolic inputs; the context-managed C string is represented as an owned Go string, so `src/api/api_numeral.cpp` is now recorded as ported.
+
+
+API optimization source-unit audit (2026-10-30 UTC): audited every live operation in `src/api/api_opt.cpp` against `APIOptimize` and the command-context optimizer, including objective bounds, parameter help, parser entry points, model access, and references. The focused APIOptimize suite passes; manifest status is now ported, with opaque C handle ownership recorded as an idiomatic Go owner/result adaptation.
