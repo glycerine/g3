@@ -253,6 +253,7 @@ func TestNLA2BVModelConverterSurvivesInvocationAndTacticClose(t *testing.T) {
 
 	md, err := model.NewModel(m)
 	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, md.Close()) })
 	var converted tactic.ModelRef
 	equationMust(t, converted.Set(&md.CoreField))
 	t.Cleanup(func() { equationMust(t, converted.Close()) })
