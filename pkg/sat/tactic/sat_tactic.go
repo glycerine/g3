@@ -40,6 +40,7 @@ type satTacticApplication struct {
 	manager                                      *ast.ASTManager
 	runtime                                      *sat.Runtime
 	solver                                       *sat.Solver
+	atoms                                        *Atom2BoolVar
 	translator                                   *GoalTranslator
 	labels                                       []ast.ASTRef
 	model                                        tactic.ModelRef
@@ -296,6 +297,12 @@ func (t *SATTactic) releaseApplication() error {
 		}
 		a.translator = nil
 	}
+	if a.atoms != nil {
+		if err := a.atoms.Close(); err != nil {
+			return err
+		}
+		a.atoms = nil
+	}
 	if a.solver != nil {
 		if err := a.solver.Close(); err != nil {
 			return err
@@ -490,7 +497,11 @@ func (t *SATTactic) applySAT(g *tactic.Goal, out *tactic.TacticResult, a *satTac
 	if err = g.ElimRedundancies(); err != nil {
 		return err
 	}
-	a.translator, err = NewGoalTranslator(m, s)
+	a.atoms, err = NewAtom2BoolVar(m)
+	if err != nil {
+		return err
+	}
+	a.translator, err = NewGoalTranslatorWithAtomMap(m, s, a.atoms, false)
 	if err != nil {
 		return err
 	}
@@ -503,7 +514,7 @@ func (t *SATTactic) applySAT(g *tactic.Goal, out *tactic.TacticResult, a *satTac
 	if err = tr.CompileGoal(g); err != nil {
 		return err
 	}
-	interpreted, err := tr.HasInterpretedAtoms()
+	interpreted, err := a.atoms.InterpretedAtoms()
 	if err != nil {
 		return err
 	}

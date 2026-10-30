@@ -79,6 +79,9 @@ func (tr *GoalTranslator) inverseAtoms(out *satGoalLiteralExpressions) error {
 	if e := tr.open(); e != nil {
 		return e
 	}
+	if tr.sharedAtoms != nil {
+		return tr.sharedAtoms.mkInverse(out)
+	}
 	entries, err := tr.atomEntries()
 	if err != nil {
 		return err

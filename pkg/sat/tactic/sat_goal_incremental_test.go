@@ -14,7 +14,7 @@ func TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership(t *testing.T) {
 	key := "elim_vars"
 	satOK(t, c.SetBoolName(&params, &key, false))
 	satOK(t, s.UpdateParams(&params))
-	mapping, err := ast.NewExpr2Var(m)
+	mapping, err := NewAtom2BoolVar(m)
 	satOK(t, err)
 	t.Cleanup(func() { satOK(t, mapping.Close()) })
 	p := goalTestAtom(t, m, "incremental-p")
@@ -30,9 +30,9 @@ func TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership(t *testing.T) {
 		satOK(t, tr.Close())
 	}
 	compile(goalTestApp(t, m, ast.ASTOpOr, p, q))
-	pv, err := mapping.ToVar(p)
+	pv, err := mapping.ToBoolVar(p)
 	satOK(t, err)
-	if pv == ^uint32(0) {
+	if pv == sat.NullBoolVar {
 		t.Fatal("missing persistent atom")
 	}
 	refs, err := m.GetRefCount(p)
@@ -41,7 +41,7 @@ func TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership(t *testing.T) {
 	if refs != baseRefs+2 {
 		t.Fatal("translator destruction lost or duplicated the mapping root", refs, baseRefs)
 	}
-	external, err := s.SourceIsExternal(sat.BoolVar(pv))
+	external, err := s.SourceIsExternal(pv)
 	satOK(t, err)
 	if !external {
 		t.Fatal("incremental default-external atom was eliminable")
@@ -49,7 +49,7 @@ func TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership(t *testing.T) {
 	satOK(t, s.UserPush())
 	satOK(t, mapping.Push())
 	compile(goalTestApp(t, m, ast.ASTOpNot, p), r)
-	oldR, err := mapping.ToVar(r)
+	oldR, err := mapping.ToBoolVar(r)
 	satOK(t, err)
 	status, err := s.Check(nil)
 	satOK(t, err)
@@ -58,18 +58,18 @@ func TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership(t *testing.T) {
 	}
 	satOK(t, mapping.Pop(1))
 	satOK(t, s.UserPop(1))
-	got, err := mapping.ToVar(r)
+	got, err := mapping.ToBoolVar(r)
 	satOK(t, err)
-	if got != ^uint32(0) {
+	if got != sat.NullBoolVar {
 		t.Fatal("popped atom survived its source scope")
 	}
-	got, err = mapping.ToVar(p)
+	got, err = mapping.ToBoolVar(p)
 	satOK(t, err)
 	if got != pv {
 		t.Fatal("base atom identity changed across pop")
 	}
 	compile(p, goalTestApp(t, m, ast.ASTOpNot, q), goalTestApp(t, m, ast.ASTOpNot, r))
-	newR, err := mapping.ToVar(r)
+	newR, err := mapping.ToBoolVar(r)
 	satOK(t, err)
 	if newR == oldR {
 		t.Fatal("new compilation reused a popped atom identity")
@@ -84,7 +84,7 @@ func TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership(t *testing.T) {
 func TestSATGoalBorrowedAtomMapDependenciesAndPerCallInterpretedAtoms(t *testing.T) {
 	m := astTestManager(t)
 	s, _, _ := satSolverCheckFixture(t)
-	mapping, err := ast.NewExpr2Var(m)
+	mapping, err := NewAtom2BoolVar(m)
 	satOK(t, err)
 	t.Cleanup(func() { satOK(t, mapping.Close()) })
 	p := goalTestAtom(t, m, "borrowed-dependency")
@@ -129,7 +129,7 @@ func TestSATGoalBorrowedAtomMapDependenciesAndPerCallInterpretedAtoms(t *testing
 		}
 		satOK(t, current.Close())
 	}
-	interpreted, err := mapping.InterpretedVars()
+	interpreted, err := mapping.InterpretedAtoms()
 	satOK(t, err)
 	if !interpreted {
 		t.Fatal("persistent source map lost its interpreted flag")
@@ -142,7 +142,7 @@ func TestSATGoalBorrowedAtomMapBooleanModelIncludesEarlierAtoms(t *testing.T) {
 	key := "elim_vars"
 	satOK(t, c.SetBoolName(&params, &key, false))
 	satOK(t, s.UpdateParams(&params))
-	mapping, err := ast.NewExpr2Var(m)
+	mapping, err := NewAtom2BoolVar(m)
 	satOK(t, err)
 	t.Cleanup(func() { satOK(t, mapping.Close()) })
 	p := goalTestAtom(t, m, "earlier-p")

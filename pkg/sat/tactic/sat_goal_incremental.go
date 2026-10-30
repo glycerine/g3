@@ -11,7 +11,7 @@ import (
 // translation has fresh traversal caches and dependency/interpreted-atom lists;
 // the caller keeps mapping alive across translations and owns its push/pop.
 // A nonnil partial translator returned with an error must be closed.
-func NewGoalTranslatorWithAtomMap(m *ast.ASTManager, s *sat.Solver, mapping *ast.Expr2Var, defaultExternal bool) (*GoalTranslator, error) {
+func NewGoalTranslatorWithAtomMap(m *ast.ASTManager, s *sat.Solver, mapping *Atom2BoolVar, defaultExternal bool) (*GoalTranslator, error) {
 	if mapping == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -32,15 +32,15 @@ func NewGoalTranslatorWithAtomMap(m *ast.ASTManager, s *sat.Solver, mapping *ast
 }
 func (tr *GoalTranslator) atomVariable(h ast.ASTHandle) (uint32, bool, error) {
 	if tr.sharedAtoms != nil {
-		v, err := tr.sharedAtoms.ToVar(h)
-		return v, v != ^uint32(0), err // expr2var uses UINT_MAX, not SAT's literal sentinel.
+		v, err := tr.sharedAtoms.ToBoolVar(h)
+		return uint32(v), v != sat.NullBoolVar, err
 	}
 	v, found := tr.Atoms.Get2(h)
 	return v, found, nil
 }
 func (tr *GoalTranslator) insertAtom(h ast.ASTHandle, v uint32) error {
 	if tr.sharedAtoms != nil {
-		return tr.sharedAtoms.Insert(h, v)
+		return tr.sharedAtoms.Insert(h, sat.BoolVar(v))
 	}
 	if err := tr.manager.IncRef(h); err != nil {
 		return err

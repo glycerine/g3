@@ -45,7 +45,7 @@ type satGoalFrame struct {
 type GoalTranslator struct {
 	self        *GoalTranslator
 	manager     *ast.ASTManager
-	sharedAtoms *ast.Expr2Var // Borrowed source atom2bool_var for incremental callers.
+	sharedAtoms *Atom2BoolVar // Borrowed concrete source atom2bool_var.
 	solver      *sat.Solver
 	// Borrow the AST manager's original resource limit for translation checkpoints.
 	Limit                                     *control.Reslimit

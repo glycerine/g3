@@ -33,6 +33,7 @@ type SATModelConverter struct {
 	value           ast.ASTRef
 	valueLive       bool
 	closing, closed bool
+	debugActions    bool
 }
 
 var _ tactic.ModelConverter = (*SATModelConverter)(nil)
@@ -103,22 +104,23 @@ func (r *SATModelConverter) Insert(atom ast.ASTHandle, auxiliary bool) error {
 	}
 	r.atoms = append(r.atoms, atom)
 	if auxiliary {
-		if ast.ASTSourceDebug {
-			constant, err := r.uninterpretedConstant(atom)
-			if err != nil {
-				return err
-			}
-			sort, err := r.manager.GetSort(atom)
-			if err != nil {
-				return err
-			}
-			boolean, err := r.manager.MkBoolSort()
-			if err != nil {
-				return err
-			}
-			if !constant || sort != boolean {
-				return sat.ErrSATAssertion
-			}
+		constant, err := r.uninterpretedConstant(atom)
+		if err != nil {
+			return err
+		}
+		if err = satTacticModelConverterAssertion(constant, r.debugActions, 590, "is_uninterp_const(atom)"); err != nil {
+			return err
+		}
+		sort, err := r.manager.GetSort(atom)
+		if err != nil {
+			return err
+		}
+		boolean, err := r.manager.MkBoolSort()
+		if err != nil {
+			return err
+		}
+		if err = satTacticModelConverterAssertion(sort == boolean, r.debugActions, 591, "m().is_bool(atom)"); err != nil {
+			return err
 		}
 		d, err := r.manager.GetDecl(atom)
 		if err != nil {
@@ -218,8 +220,8 @@ func (r *SATModelConverter) ApplyModel(out *tactic.ModelRef, index uint32) (err 
 	if err = r.open(); err != nil {
 		return err
 	}
-	if ast.ASTSourceDebug && index != 0 {
-		return sat.ErrSATAssertion
+	if err = satTacticModelConverterAssertion(index == 0, r.debugActions, 597, "goal_idx == 0"); err != nil {
+		return err
 	}
 	md, err := out.Get()
 	if err != nil {

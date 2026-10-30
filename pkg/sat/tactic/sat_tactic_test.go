@@ -287,8 +287,8 @@ func TestSATTacticDescriptorsProofProfilesAndBorrowedGoals(t *testing.T) {
 	satOK(t, r.CollectParamDescrs(d))
 	n, err := d.Size()
 	satOK(t, err)
-	if n != 47 {
-		t.Fatal("two additional translator descriptors plus 45 solver descriptors", n)
+	if n != 48 {
+		t.Fatal("two additional translator descriptors plus 46 solver descriptors", n)
 	}
 	for _, key := range []string{"ite_extra", "learned", "max_memory", "resolution", "dimacs.display"} {
 		yes, err := d.ContainsName(key)
