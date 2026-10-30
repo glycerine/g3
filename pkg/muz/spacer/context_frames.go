@@ -179,6 +179,49 @@ func (f *Frames) sort() error {
 	return nil
 }
 
+// movePromotedLemma follows the source's adjacent forward swaps. The vector
+// may still be unsorted after newly appended lemmas; do not sort unrelated
+// entries or change its sorted flag during duplicate promotion.
+func (f *Frames) movePromotedLemma(index int) error {
+	for index+1 < len(f.lemmas) {
+		current, next := f.lemmas[index], f.lemmas[index+1]
+		currentLevel, err := current.Level()
+		if err != nil {
+			return err
+		}
+		nextLevel, err := next.Level()
+		if err != nil {
+			return err
+		}
+		less := nextLevel < currentLevel
+		if nextLevel == currentLevel {
+			currentBody, err := current.Body()
+			if err != nil {
+				return err
+			}
+			nextBody, err := next.Body()
+			if err != nil {
+				return err
+			}
+			currentID, err := f.manager.GetASTID(currentBody)
+			if err != nil {
+				return err
+			}
+			nextID, err := f.manager.GetASTID(nextBody)
+			if err != nil {
+				return err
+			}
+			less = nextID < currentID
+		}
+		if !less {
+			break
+		}
+		f.lemmas[index], f.lemmas[index+1] = next, current
+		index++
+	}
+	return nil
+}
+
 func (f *Frames) AddLemma(lemma *Lemma) (added bool, resultErr error) {
 	if err := f.open(); err != nil {
 		return false, err
@@ -190,7 +233,7 @@ func (f *Frames) AddLemma(lemma *Lemma) (added bool, resultErr error) {
 	if err != nil {
 		return false, err
 	}
-	for _, existing := range f.lemmas {
+	for index, existing := range f.lemmas {
 		other, bodyErr := existing.Body()
 		if bodyErr != nil {
 			return false, bodyErr
@@ -225,8 +268,7 @@ func (f *Frames) AddLemma(lemma *Lemma) (added bool, resultErr error) {
 		if err = f.transformer.AddLemmaCore(existing); err != nil {
 			return false, err
 		}
-		f.sorted = false
-		if err = f.sort(); err != nil {
+		if err = f.movePromotedLemma(index); err != nil {
 			return false, err
 		}
 		f.additions++
@@ -324,12 +366,14 @@ func (f *Frames) PropagateToNextLevel(level uint32) (bool, error) {
 		return false, err
 	}
 	all := true
-	for _, lemma := range f.lemmas {
+	for index := 0; index < len(f.lemmas); {
+		lemma := f.lemmas[index]
 		lemmaLevel, err := lemma.Level()
 		if err != nil {
 			return false, err
 		}
 		if lemmaLevel < level {
+			index++
 			continue
 		}
 		if lemmaLevel > level {
@@ -345,6 +389,7 @@ func (f *Frames) PropagateToNextLevel(level uint32) (bool, error) {
 		}
 		if !invariant {
 			all = false
+			index++
 			continue
 		}
 		if err = lemma.setLevel(solverLevel); err != nil {
@@ -353,10 +398,7 @@ func (f *Frames) PropagateToNextLevel(level uint32) (bool, error) {
 		if err = f.transformer.AddLemmaCore(lemma); err != nil {
 			return false, err
 		}
-		f.sorted = false
-	}
-	if !f.sorted {
-		if err := f.sort(); err != nil {
+		if err = f.movePromotedLemma(index); err != nil {
 			return false, err
 		}
 	}

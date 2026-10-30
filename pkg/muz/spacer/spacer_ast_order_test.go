@@ -62,6 +62,7 @@ func TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder(t *testing.T) {
 	frames, err := spacer.NewFrames(m, fixture)
 	spacerMust(t, err)
 	defer func() { spacerMust(t, frames.Close()) }()
+	fixture.frames = frames
 	for _, item := range []struct {
 		body  ast.ASTHandle
 		level uint32
@@ -80,6 +81,17 @@ func TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder(t *testing.T) {
 	}
 	if len(fixture.checked) != 2 || fixture.checked[0] != notP || fixture.checked[1] != q {
 		t.Fatal("invariant queries must use level then source AST ID order", fixture.checked)
+	}
+	// Before checking q, the source has already moved the promoted notP
+	// past every lower-level lemma, rather than sorting after all queries.
+	expectedOrder := []ast.ASTHandle{r, q, s, notP}
+	if len(fixture.queryOrder) != 2 || len(fixture.queryOrder[1]) != len(expectedOrder) {
+		t.Fatal("missing intermediate frame order", fixture.queryOrder)
+	}
+	for i, expected := range expectedOrder {
+		if fixture.queryOrder[1][i] != expected {
+			t.Fatal("promotion did not percolate before the next invariant query", fixture.queryOrder[1])
+		}
 	}
 	promoted, err := frames.FrameLemmas(3)
 	spacerMust(t, err)

@@ -16,10 +16,12 @@ import (
 )
 
 type frameTransformerFixture struct {
-	checked []ast.ASTHandle
-	ensured []uint32
-	added   []*spacer.Lemma
-	levels  map[ast.ASTHandle]uint32
+	frames     *spacer.Frames
+	queryOrder [][]ast.ASTHandle
+	checked    []ast.ASTHandle
+	ensured    []uint32
+	added      []*spacer.Lemma
+	levels     map[ast.ASTHandle]uint32
 }
 
 func (f *frameTransformerFixture) EnsureLevel(level uint32) error {
@@ -33,6 +35,13 @@ func (f *frameTransformerFixture) AddLemmaCore(lemma *spacer.Lemma) error {
 }
 
 func (f *frameTransformerFixture) IsInvariant(_ uint32, formula ast.ASTHandle) (bool, uint32, error) {
+	if f.frames != nil {
+		order, err := f.frames.FrameGEQLemmas(0)
+		if err != nil {
+			return false, 0, err
+		}
+		f.queryOrder = append(f.queryOrder, order)
+	}
 	f.checked = append(f.checked, formula)
 	level, found := f.levels[formula]
 	return found, level, nil
@@ -307,4 +316,49 @@ func TestSpacerRulePredicateTransformerBuildsSourceStateSignature(t *testing.T) 
 	spacerMust(t, transformer.Close())
 	spacerMust(t, owner.Close())
 	spacerMust(t, command.Close())
+}
+
+func TestSpacerDuplicateLemmaPromotionPreservesSourceUnsortedOrder(t *testing.T) {
+	command, m, owner := lemmaOwnerFixture(t)
+	defer func() { spacerMust(t, command.Close()) }()
+	defer func() { spacerMust(t, owner.Close()) }()
+	fixture := &frameTransformerFixture{levels: make(map[ast.ASTHandle]uint32)}
+	frames, err := spacer.NewFrames(m, fixture)
+	spacerMust(t, err)
+	defer func() { spacerMust(t, frames.Close()) }()
+	a := spacerBool(t, m, "promotion-order-a")
+	b := spacerBool(t, m, "promotion-order-b")
+	c := spacerBool(t, m, "promotion-order-c")
+	d := spacerBool(t, m, "promotion-order-d")
+	for _, item := range []struct {
+		body  ast.ASTHandle
+		level uint32
+	}{
+		{a, 1}, {b, 2}, {c, 1}, {d, 0},
+	} {
+		lemma, err := spacer.NewLemma(owner, item.body, item.level)
+		spacerMust(t, err)
+		_, err = frames.AddLemma(lemma)
+		spacerMust(t, err)
+	}
+	for _, level := range []uint32{3, 2} {
+		duplicate, err := spacer.NewLemma(owner, a, level)
+		spacerMust(t, err)
+		added, err := frames.AddLemma(duplicate)
+		spacerMust(t, err)
+		if added != (level == 3) {
+			t.Fatal("duplicate promotion result", level, added)
+		}
+		order, err := frames.FrameGEQLemmas(0)
+		spacerMust(t, err)
+		expected := []ast.ASTHandle{b, c, d, a}
+		if len(order) != len(expected) {
+			t.Fatal("promotion changed lemma count", order)
+		}
+		for i, body := range expected {
+			if order[i] != body {
+				t.Fatal("duplicate promotion sorted unrelated lemmas", order)
+			}
+		}
+	}
 }
