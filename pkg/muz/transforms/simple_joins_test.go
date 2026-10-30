@@ -27,8 +27,8 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 	t.Cleanup(func() { coneMust(t, set.Close()) })
 	boolean, err := manager.MkBoolSort()
 	coneMust(t, err)
-	applications := make([]ast.ASTHandle, 4)
-	for index, name := range []string{"A", "B", "C", "Goal"} {
+	applications := make([]ast.ASTHandle, 5)
+	for index, name := range []string{"A", "B", "C", "D", "Goal"} {
 		declarationName, x := manager.Symbols.Intern("simple-name-" + name)
 		coneMust(t, x)
 		declaration, x := manager.MkFuncDecl(declarationName, nil, boolean, ast.ASTFuncDeclInfo{})
@@ -37,7 +37,9 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 		applications[index], x = manager.MkApp(declaration, nil)
 		coneMust(t, x)
 	}
-	rule, err := rules.NewRule(applications[3], applications[:3], nil, "three-tail")
+	withNegated := append(append([]ast.ASTHandle(nil), applications[:4]...), applications[0])
+	negated := []bool{false, false, false, false, true}
+	rule, err := rules.NewRule(applications[4], withNegated, negated, "four-tail")
 	coneMust(t, err)
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
@@ -47,20 +49,36 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 	if transformed == nil {
 		t.Fatal("three-tail rule was not transformed")
 	}
+	main, err := transformed.Rule(0)
+	coneMust(t, err)
+	if tails, x := main.TailSize(); x != nil || tails != 3 {
+		t.Fatalf("rewritten rule tail count %d, want two positives and one negated tail: %v", tails, x)
+	}
+	if positives, x := main.PositiveTailSize(); x != nil || positives != 2 {
+		t.Fatalf("rewritten positive tail count %d, want 2: %v", positives, x)
+	}
+	lastTail, lastNegated, err := main.Tail(2)
+	coneMust(t, err)
+	if !lastNegated || lastTail != applications[0] {
+		t.Fatalf("nonpositive tail after global joins = %v negated=%v, want original negated A", lastTail, lastNegated)
+	}
+	coneMust(t, main.Close())
 	t.Cleanup(func() {
 		coneMust(t, transformed.Close())
 		coneMust(t, plugin.Close())
 	})
 	fresh := plugin.FreshPredicates()
-	if len(fresh) != 1 {
-		t.Fatalf("fresh split predicates = %d, want 1", len(fresh))
+	if len(fresh) != 2 {
+		t.Fatalf("fresh split predicates = %d, want two staged binary joins", len(fresh))
 	}
-	name, err := manager.GetASTName(fresh[0])
-	coneMust(t, err)
-	text, err := manager.Symbols.String(name)
-	coneMust(t, err)
-	if !strings.HasPrefix(text, "simple-name-Goal!split!") {
-		t.Fatalf("split predicate name %q does not retain the source parent and split suffix", text)
+	for _, declaration := range fresh {
+		name, x := manager.GetASTName(declaration)
+		coneMust(t, x)
+		text, x := manager.Symbols.String(name)
+		coneMust(t, x)
+		if !strings.HasPrefix(text, "simple-name-Goal!split!") {
+			t.Fatalf("split predicate name %q does not retain the source parent and split suffix", text)
+		}
 	}
 }
 
@@ -206,6 +224,13 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	if len(fresh) != 1 {
 		t.Fatalf("renamed equivalent pairs created %d helper predicates, want one selected pair group", len(fresh))
 	} else {
+		freshName, x := manager.GetASTName(fresh[0])
+		coneMust(t, x)
+		freshText, x := manager.Symbols.String(freshName)
+		coneMust(t, x)
+		if !strings.HasPrefix(freshText, "simple-cost-Goal2_and_2!split!") {
+			t.Fatalf("shared helper name %q does not use the final consumer and pair registration count", freshText)
+		}
 		var sharedDecl ast.ASTHandle
 		for index := 0; index < 3; index++ {
 			parent, x := transformed.Rule(index)
