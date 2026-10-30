@@ -194766,6 +194766,7 @@
       "go_targets": [
         "pkg/ast/util_psort_ast_context.go",
         "pkg/ast/util_psort_ast_context_source_test.go",
+        "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
         "pkg/util/sorting/uint32_network.go",
         "pkg/util/sorting/uint32_network_test.go"
       ],
@@ -194777,7 +194778,8 @@
         "TestPsortASTContextEscapedNativeStorageAfterManagerClose",
         "TestUnsignedNetworkRegisteredSourceCases",
         "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
-        "TestUnsignedNetworkEmptyAndSingletonSourceCases"
+        "TestUnsignedNetworkEmptyAndSingletonSourceCases",
+        "TestPsortASTNetworkRegisteredOddDriverCampaign"
       ],
       "assertions": [
         {
@@ -194850,6 +194852,14 @@
             "TestUnsignedNetworkRegisteredSourceCases",
             "TestUnsignedNetworkSourceStatePersistsAcrossCalls",
             "TestUnsignedNetworkEmptyAndSingletonSourceCases"
+          ]
+        },
+        {
+          "name": "Registered test_sorting5 campaign for every odd n=3..19 and interior k, checking source LE/EQ/GE clause semantics (src/test/sorting_network.cpp:184-324,326-330,436-440)",
+          "status": "ported",
+          "go_target": "pkg/ast/util_psort_ast_recursive_oracle_source_test.go",
+          "tests": [
+            "TestPsortASTNetworkRegisteredOddDriverCampaign"
           ]
         },
         {

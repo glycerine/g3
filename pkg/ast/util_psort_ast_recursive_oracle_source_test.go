@@ -3,6 +3,7 @@ package ast
 // Source: src/util/sorting_network.h:190-260,597-1046.
 
 import (
+	"fmt"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 	"testing"
 )
@@ -229,6 +230,97 @@ func TestPsortASTNetworkRecursiveFamiliesIndependentClauseOracle(t *testing.T) {
 				astTestMust(t, in.Close())
 				astTestMust(t, r.Close())
 				astTestMust(t, c.Close())
+			}
+		}
+	}
+}
+
+func TestPsortASTNetworkRegisteredOddDriverCampaign(t *testing.T) {
+	// src/test/sorting_network.cpp runs test_sorting5 for every odd n from 3
+	// through 19 and every interior k, in LE/EQ/GE order. Check the emitted
+	// clauses with the independent SAT oracle under every input population.
+	for n := uint32(3); n < 20; n += 2 {
+		for k := uint32(1); k < n; k++ {
+			for _, mode := range []struct {
+				name string
+				kind int
+				full bool
+			}{{"le", 1, false}, {"eq", 2, true}, {"ge", 0, false}} {
+				t.Run(fmt.Sprintf("n=%d/k=%d/%s", n, k, mode.name), func(t *testing.T) {
+					m := astTestManager(t)
+					c, err := NewPsortASTContext(m)
+					astTestMust(t, err)
+					r, err := umemory.NewRuntime(umemory.RuntimeConfig{Budget: m.BudgetField})
+					astTestMust(t, err)
+					network, err := NewPsortASTNetwork(c, r, m.BudgetField, nil)
+					astTestMust(t, err)
+					input, err := NewASTLiteralVector(m.BudgetField)
+					astTestMust(t, err)
+					sort, err := m.MkBoolSort()
+					astTestMust(t, err)
+					inputs := make([]ASTHandle, 0, n)
+					for i := uint32(0); i < n; i++ {
+						h, err := m.MkFreshConst("a", sort)
+						astTestMust(t, err)
+						astTestPin(t, m, h)
+						inputs = append(inputs, h)
+						astTestMust(t, input.Push(h))
+					}
+					span, err := input.Span()
+					astTestMust(t, err)
+					var result ASTHandle
+					switch mode.kind {
+					case 0:
+						result, err = network.Ge(mode.full, k, n, span)
+					case 1:
+						result, err = network.Le(mode.full, k, n, span)
+					case 2:
+						result, err = network.Eq(mode.full, k, n, span)
+					}
+					if err != nil {
+						t.Fatal("registered source bound", err)
+					}
+					oracle := psortOracleCNF{ids: map[ASTHandle]int{}}
+					resultID := oracle.gate(t, m, result)
+					for _, clause := range c.clauses {
+						id := oracle.gate(t, m, clause)
+						oracle.clauses = append(oracle.clauses, []int{id})
+					}
+					for _, h := range inputs {
+						oracle.gate(t, m, h)
+					}
+					for population := uint32(0); population <= n; population++ {
+						values := make([]int8, oracle.count+1)
+						for index, h := range inputs {
+							values[oracle.ids[h]] = -1
+							if uint32(index) < population {
+								values[oracle.ids[h]] = 1
+							}
+						}
+						want := population <= k
+						if mode.kind == 0 {
+							want = population >= k
+						} else if mode.kind == 2 {
+							want = population == k
+						}
+						yes := append([]int8(nil), values...)
+						yes[resultID] = 1
+						if got := psortOracleSAT(oracle.clauses, yes); got != want {
+							t.Fatalf("source positive bound: population=%d got=%v want=%v", population, got, want)
+						}
+						if mode.full {
+							no := append([]int8(nil), values...)
+							no[resultID] = -1
+							if got := psortOracleSAT(oracle.clauses, no); got == want {
+								t.Fatalf("source full equivalence: population=%d false-result satisfiable=%v want=%v", population, got, !want)
+							}
+						}
+					}
+					astTestMust(t, network.Close())
+					astTestMust(t, input.Close())
+					astTestMust(t, r.Close())
+					astTestMust(t, c.Close())
+				})
 			}
 		}
 	}
