@@ -34,7 +34,7 @@ func newSATClauseWatch(l Literal, o satClauseOffset) (satWatched, error) {
 }
 func newSATExternalWatch(i uint32) (satWatched, error) {
 	w := satWatched{val1: i, val2: 3}
-	if satStorageSourceDebug && i != 3 {
+	if satStorageSourceDebug && w.Kind() != 3 {
 		return w, ErrSATAssertion
 	}
 	return w, nil
@@ -96,7 +96,7 @@ func (w *satWatched) SetClause(l Literal, o satClauseOffset) {
 	w.val2 = 2 + (uint32(l) << 2)
 	w.locator = o
 }
-func (w satWatched) ExternalIndex() (uint32, error) { return w.val2, w.check(3) }
+func (w satWatched) ExternalIndex() (uint32, error) { return w.val1, w.check(3) }
 func (w satWatched) Equal(v satWatched) bool {
 	if w.val1 != v.val1 || w.val2 != v.val2 {
 		return false

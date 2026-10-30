@@ -15,9 +15,8 @@ func (f *satExtensionBindingFixture) record(name string) error {
 	f.events = append(f.events, name)
 	return f.err
 }
-func (f *satExtensionBindingFixture) Propagate(_ Literal, _ SATExternalConstraintIndex, keep *bool) error {
-	*keep = f.propagateKeep
-	return f.record("propagate")
+func (f *satExtensionBindingFixture) Propagate(_ Literal, _ SATExternalConstraintIndex, _ bool) (bool, error) {
+	return f.propagateKeep, f.record("propagate")
 }
 func (f *satExtensionBindingFixture) GetAntecedents(_ Literal, _ SATExternalJustificationIndex, out *[]Literal) error {
 	*out = append(*out, f.antecedents...)

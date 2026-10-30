@@ -285,13 +285,13 @@ func (s *Solver) boundedSearch() (lbool.LBool, error) {
 			return lbool.Undef, e
 		}
 		if !yes {
-			if s.propagation.extensionPresent {
-				return lbool.Undef, ErrSATMissingSourceExtBinding
+			if !s.propagation.extensionPresent {
+				if e = s.mkModel(); e != nil {
+					return lbool.Undef, e
+				}
+				return lbool.True, nil
 			}
-			if e = s.mkModel(); e != nil {
-				return lbool.Undef, e
-			}
-			return lbool.True, nil
+			return s.finalExtensionCheck()
 		}
 	}
 }

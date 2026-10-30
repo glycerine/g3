@@ -120,7 +120,14 @@ func (s *satSolverConflictAnalysis) fillExtAntecedents(consequent Literal, j sat
 	if e := s.extAntecedents.Shrink(0); e != nil {
 		return e
 	}
-	// No actual source extension subclass has been bound. The source call is
-	// genuinely missing; retain its completed reset prefix, never fake success.
-	return ErrSATMissingSourceExtBinding
+	antecedents, e := s.extensionAntecedents(consequent, j)
+	if e != nil {
+		return e
+	}
+	for _, literal := range antecedents {
+		if e = s.extAntecedents.Push(uint32(literal)); e != nil {
+			return e
+		}
+	}
+	return nil
 }

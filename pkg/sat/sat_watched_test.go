@@ -69,16 +69,12 @@ func TestSATWatchedSourceTagsWidthDefectAndErase(t *testing.T) {
 	satOK(t, e)
 	for _, idx := range []uint32{0, 3, math.MaxUint32} {
 		ext, e := newSATExternalWatch(idx)
-		if satStorageSourceDebug && idx != 3 {
-			if !errors.Is(e, ErrSATAssertion) {
-				t.Fatal(e)
-			}
-		} else if e != nil {
+		if e != nil {
 			t.Fatal(e)
 		}
 		got, e := ext.ExternalIndex()
-		if got != 3 || e != nil {
-			t.Fatal("source accessor defect", got, e)
+		if got != idx || e != nil {
+			t.Fatal("source external index", got, e)
 		}
 	}
 	wide, e := newSATTernaryWatch(0, Literal(math.MaxUint32))
@@ -147,7 +143,7 @@ func TestSATPackedSourceGetterSetterDomains(t *testing.T) {
 			if !errors.Is(e, ErrSATAssertion) {
 				t.Fatal(kind, e)
 			}
-		} else if ext != x.val2 || e != nil {
+		} else if ext != x.val1 || e != nil {
 			t.Fatal(kind, ext, e)
 		}
 		if !x.Equal(x) || x.NotEqual(x) {

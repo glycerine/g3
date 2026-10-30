@@ -344,7 +344,15 @@ func (s *satSolverPropagationState) propagateCore(update bool) (bool, error) {
 				if satStorageSourceDebug && !s.extensionPresent {
 					return false, ErrSATAssertion
 				}
-				return false, ErrSATMissingSourceExtBinding
+				if keep, e = s.propagateExtension(l, w, keep); e != nil {
+					return false, e
+				}
+				if s.inconsistent {
+					if e = s.propagationConflictCleanup(&iter, pos, &out, list); e != nil {
+						return false, e
+					}
+					return false, nil
+				}
 			default:
 				return false, ErrSATAssertion
 			}

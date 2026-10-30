@@ -18,7 +18,7 @@ type SATExternalJustificationIndex uint32
 // SATExtension is the concrete typed counterpart of sat::extension. A solver
 // borrows the implementation and never closes it.
 type SATExtension interface {
-	Propagate(Literal, SATExternalConstraintIndex, *bool) error
+	Propagate(Literal, SATExternalConstraintIndex, bool) (bool, error)
 	GetAntecedents(Literal, SATExternalJustificationIndex, *[]Literal) error
 	Asserted(Literal) error
 	Check() (SATExtensionCheckResult, error)
