@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 )
 
@@ -102,6 +103,31 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	b := makePredicate("B", []ast.ASTHandle{sorts[0], sorts[2]}, []ast.ASTHandle{handles[0], handles[2]})
 	c := makePredicate("C", sorts[3:], handles[3:])
 	head := makePredicate("Goal", sorts, handles[:])
+	relations, err := rel.NewRelationManager(manager)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, relations.Close()) })
+	for _, fixture := range []struct {
+		application ast.ASTHandle
+		rows        int
+		row         rel.Fact
+	}{
+		{a, 8, rel.Fact{0, 0}},
+		{b, 1, rel.Fact{0, 0}},
+		{c, 1, rel.Fact{0, 0}},
+	} {
+		declaration, x := manager.GetDecl(fixture.application)
+		coneMust(t, x)
+		table, x := relations.GetRelation(declaration)
+		coneMust(t, x)
+		for i := 0; i < fixture.rows; i++ {
+			row := append(rel.Fact(nil), fixture.row...)
+			row[0] = rel.Element(i % 2)
+			row[1] = rel.Element(i / 2)
+			_, x = table.Add(row)
+			coneMust(t, x)
+		}
+		coneMust(t, relations.MarkSaturated(declaration))
+	}
 	rule, err := rules.NewRule(head, []ast.ASTHandle{a, b, c}, nil, "estimated-pair")
 	coneMust(t, err)
 	formula, err := rule.ToFormula()
@@ -114,7 +140,7 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 	coneMust(t, manager.DelRef(&formula))
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
-	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
+	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0, relations)
 	transformed, err := plugin.Transform(set)
 	coneMust(t, err)
 	if transformed == nil {
@@ -150,7 +176,32 @@ func TestSimpleJoinsSelectsLowestEstimatedPair(t *testing.T) {
 		coneMust(t, x)
 	}
 	coneMust(t, definition.Close())
-	if !strings.Contains(tails[0], "simple-cost-A") || !strings.Contains(tails[1], "simple-cost-B") {
-		t.Fatalf("selected helper pair %v, want A and B", tails)
+	if !strings.Contains(tails[0], "simple-cost-B") || !strings.Contains(tails[1], "simple-cost-C") {
+		t.Fatalf("selected helper pair %v, want saturated low-cardinality B and C", tails)
+	}
+	plain := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
+	plainResult, err := plain.Transform(set)
+	coneMust(t, err)
+	if plainResult == nil {
+		t.Fatal("unsaturated three-tail rule was not transformed")
+	}
+	t.Cleanup(func() {
+		coneMust(t, plainResult.Close())
+		coneMust(t, plain.Close())
+	})
+	plainHelper, err := plainResult.Rule(1)
+	coneMust(t, err)
+	plainTails := make([]string, 2)
+	for i := range plainTails {
+		declaration, x := plainHelper.TailDeclaration(i)
+		coneMust(t, x)
+		name, x := manager.GetASTName(declaration)
+		coneMust(t, x)
+		plainTails[i], x = manager.Symbols.String(name)
+		coneMust(t, x)
+	}
+	coneMust(t, plainHelper.Close())
+	if !strings.Contains(plainTails[0], "simple-cost-A") || !strings.Contains(plainTails[1], "simple-cost-B") {
+		t.Fatalf("unsaturated estimate selected %v, want A and B", plainTails)
 	}
 }

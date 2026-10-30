@@ -40,6 +40,49 @@ func (p *SimpleJoinsPlugin) tailCost(tail ast.ASTHandle) (float32, map[uint32]as
 	if err != nil {
 		return 0, nil, err
 	}
+	declaration, err := p.manager.GetDecl(tail)
+	if err != nil {
+		return 0, nil, err
+	}
+	if p.relations != nil {
+		saturated, x := p.relations.IsSaturated(declaration)
+		if x != nil {
+			return 0, nil, x
+		}
+		if saturated {
+			table, found, x := p.relations.TryGetRelation(declaration)
+			if x != nil {
+				return 0, nil, x
+			}
+			if found {
+				rows, x := table.SizeEstimateRows()
+				if x != nil {
+					return 0, nil, x
+				}
+				if rows != 0 {
+					result := float32(rows)
+					for index := uint32(0); index < count; index++ {
+						argument, y := p.manager.GetArg(tail, index)
+						if y != nil {
+							return 0, nil, y
+						}
+						kind, y := p.manager.GetKind(argument)
+						if y != nil {
+							return 0, nil, y
+						}
+						if kind != ast.ASTVar {
+							sort, y := p.manager.GetDomain(declaration, index)
+							if y != nil {
+								return 0, nil, y
+							}
+							result /= p.domainCost(sort)
+						}
+					}
+					return result, variables, nil
+				}
+			}
+		}
+	}
 	result := float32(1)
 	for index := uint32(0); index < count; index++ {
 		argument, x := p.manager.GetArg(tail, index)
@@ -51,11 +94,11 @@ func (p *SimpleJoinsPlugin) tailCost(tail ast.ASTHandle) (float32, map[uint32]as
 			return 0, nil, x
 		}
 		if kind == ast.ASTVar {
-			variable, y := p.manager.GetVarIndex(argument)
-			if y != nil {
-				return 0, nil, y
+			sort, x := p.manager.GetDomain(declaration, index)
+			if x != nil {
+				return 0, nil, x
 			}
-			result *= p.domainCost(variables[variable])
+			result *= p.domainCost(sort)
 		}
 	}
 	return result, variables, nil

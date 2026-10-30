@@ -5,7 +5,6 @@ package rel
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 	"time"
 
@@ -161,8 +160,7 @@ func TestExecutionContextTimeoutReportingAndRegisterOwnership(t *testing.T) {
 	if err := context.ReportBigRelations(^uint32(0), &report); err != nil {
 		t.Fatal("report relation sizes", err)
 	}
-	maximum := ^uint32(0)
-	want := fmt.Sprintf("bytes %d\nbytes\trows\tannotation\n%d\t%d\tcurrent\n", maximum, maximum, maximum)
+	want := "bytes 8\nbytes\trows\tannotation\n"
 	if report.String() != want {
 		t.Fatalf("profile output\n got: %q\nwant: %q", report.String(), want)
 	}
@@ -170,7 +168,7 @@ func TestExecutionContextTimeoutReportingAndRegisterOwnership(t *testing.T) {
 	if err := context.ReportBigRelations(0, &report); err != nil {
 		t.Fatal("report empty registers", err)
 	}
-	want = fmt.Sprintf("bytes %d\nbytes\trows\tannotation\n%d\t%d\tcurrent\n0\t0\tempty\n", maximum, maximum, maximum)
+	want = "bytes 8\nbytes\trows\tannotation\n8\t1\tcurrent\n0\t0\tempty\n"
 	if report.String() != want {
 		t.Fatalf("unfiltered profile output\n got: %q\nwant: %q", report.String(), want)
 	}

@@ -212,22 +212,21 @@ func (t *HashTable) Len() (int, error) {
 	return t.rows.Len(), nil
 }
 
-// SizeEstimateRows mirrors table_base's default estimate for the retained
-// hashtable_table backend. That backend does not override the source estimate
-// and therefore reports UINT_MAX rather than its exact storage count.
+// SizeEstimateRows mirrors hashtable_table::get_size_estimate_rows.
 func (t *HashTable) SizeEstimateRows() (uint32, error) {
 	if err := t.open(); err != nil {
 		return 0, err
 	}
-	return ^uint32(0), nil
+	return uint32(t.rows.Len()), nil
 }
 
-// SizeEstimateBytes mirrors table_base's default estimate for hashtable_table.
+// SizeEstimateBytes mirrors hashtable_table::get_size_estimate_bytes. The
+// source's unsigned arithmetic wraps at 32 bits.
 func (t *HashTable) SizeEstimateBytes() (uint32, error) {
 	if err := t.open(); err != nil {
 		return 0, err
 	}
-	return ^uint32(0), nil
+	return uint32(t.rows.Len()) * uint32(len(t.signature.domains)) * 8, nil
 }
 
 func (t *HashTable) Facts() ([]Fact, error) {

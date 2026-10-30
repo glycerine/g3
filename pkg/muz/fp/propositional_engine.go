@@ -623,7 +623,7 @@ func (e *PropositionalEngine) validateFragment() error {
 }
 
 func (e *PropositionalEngine) normalizeSimpleJoins() (resultErr error) {
-	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0)
+	plugin := transforms.NewSimpleJoinsPlugin(e.manager, e.rules, 0, e.relations)
 	transformer := base.NewRuleTransformer()
 	if err := transformer.Register(plugin); err != nil {
 		return errors.Join(err, transformer.Close())

@@ -9,23 +9,29 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/rel"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 type SimpleJoinsPlugin struct {
-	manager  *ast.ASTManager
-	rules    *base.RuleManager
-	priority uint32
-	fresh    []ast.ASTHandle
-	pins     []ast.ASTRef
-	closed   bool
+	manager   *ast.ASTManager
+	rules     *base.RuleManager
+	relations *rel.RelationManager
+	priority  uint32
+	fresh     []ast.ASTHandle
+	pins      []ast.ASTRef
+	closed    bool
 }
 
-func NewSimpleJoinsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *SimpleJoinsPlugin {
+func NewSimpleJoinsPlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32, relations ...*rel.RelationManager) *SimpleJoinsPlugin {
 	if priority == 0 {
 		priority = 1000
 	}
-	return &SimpleJoinsPlugin{manager: manager, rules: rules, priority: priority}
+	plugin := &SimpleJoinsPlugin{manager: manager, rules: rules, priority: priority}
+	if len(relations) > 0 {
+		plugin.relations = relations[0]
+	}
+	return plugin
 }
 
 func (p *SimpleJoinsPlugin) Priority() uint32            { return p.priority }

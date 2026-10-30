@@ -43,10 +43,10 @@ func requireCheckedFact(t *testing.T, table *CheckTable, fact Fact, want bool) {
 func TestCheckTableSourceDirectOperationsAndValidationCount(t *testing.T) {
 	table := newCheckTableWithFacts(t, lazySignature(t, 2, 3), Fact{0, 1}, Fact{1, 2})
 	closeCheckTables(t, table)
-	if rows, err := table.SizeEstimateRows(); err != nil || rows != ^uint32(0) {
+	if rows, err := table.SizeEstimateRows(); err != nil || rows != 2 {
 		t.Fatalf("row estimate: %d, %v", rows, err)
 	}
-	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != ^uint32(0) {
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != 32 {
 		t.Fatalf("byte estimate: %d, %v", bytes, err)
 	}
 	before := table.CheckCount()
