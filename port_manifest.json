@@ -83101,9 +83101,9 @@
       "path": "src/muz/fp/datalog_parser.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/fp/datalog_parser.go", "pkg/muz/fp/datalog_lexer.go", "pkg/muz/fp/datalog_parser_state.go", "pkg/muz/fp/datalog_parser_domains.go", "pkg/muz/fp/datalog_parser_decls.go", "pkg/muz/fp/datalog_parser_terms.go", "pkg/muz/fp/datalog_parser_rules.go", "pkg/muz/fp/datalog_parser_include.go"],
+      "tests": ["TestDatalogParserFiniteAndIntegerDomains", "TestDatalogParserDeclarationArgumentNamesAndOutput", "TestDatalogParserFactsPositiveAndNegativeRules", "TestDatalogParserRelativeIncludeAndDomainMap"],
       "conditionals": [
         {
           "line": 19,
@@ -83116,8 +83116,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "legacy Datalog parser construction plus string/file parsing for finite and integer domains, declarations, terms, rules, guards and includes; WPA directory parsing remains open", "status": "partial", "go_target": "pkg/muz/fp/datalog_parser.go", "tests": ["TestDatalogParserFiniteAndIntegerDomains", "TestDatalogParserFactsPositiveAndNegativeRules", "TestDatalogParserRelativeIncludeAndDomainMap"]}],
+      "ownership": ["Parser calls borrow the Datalog context and its AST manager; temporary lexer/parser maps own native Go storage, while published declarations and rules are transferred to the context."],
       "deviations": []
     },
     {
