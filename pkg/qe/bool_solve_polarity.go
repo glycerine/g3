@@ -15,6 +15,9 @@ func (p *BoolPlugin) solvePolarized(variable *ast.ContainsApp, formula ast.ASTHa
 	if err != nil {
 		return nil, false, err
 	}
+	if err := p.traceBoolPolarity(target, formula); err != nil {
+		return nil, false, err
+	}
 	if positive && negative {
 		return nil, false, nil
 	}

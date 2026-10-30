@@ -72,8 +72,12 @@ func writeExpression(m *ast.ASTManager, config Config, out io.Writer, expression
 		return err
 	}
 	defer func() { err = errors.Join(err, fm.DelRef(&ref)) }()
-	empty := config.Context.EmptyValue()
-	if err = m.PrintFormat(stream, f, config.Context, &empty, config.Globals); err != nil {
+	var empty *uparams.ParamsRef
+	if config.Context != nil {
+		value := config.Context.EmptyValue()
+		empty = &value
+	}
+	if err = m.PrintFormat(stream, f, config.Context, empty, config.Globals); err != nil {
 		return err
 	}
 	text, err := stream.String()

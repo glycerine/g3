@@ -1,9 +1,8 @@
 package qe
 
-// Source: src/qe/qe_bool_plugin.cpp. This file retains the dependency-ready
-// host-contract portion: family dispatch, Boolean branch enumeration and
-// assignment, safe substitution, and the interpreted-term classification.
-// Model projection and solve callbacks remain gated on their host context.
+// Source: src/qe/qe_bool_plugin.cpp. Boolean branching, assignment,
+// substitution, model projection, weight and source context solving use the
+// shared safe replacer and the solver context's variable/elimination callbacks.
 
 import (
 	"errors"

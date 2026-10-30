@@ -43,6 +43,9 @@ func (p *BoolPlugin) Project(variable *ast.ContainsApp, source *model.Model, for
 	if err != nil {
 		return err
 	}
+	if err := p.traceBoolProjection(config, target, evaluated); err != nil {
+		return err
+	}
 	replacement, err := p.manager.MkBoolVal(p.manager.IsTrue(evaluated))
 	if err != nil {
 		return err

@@ -103516,9 +103516,35 @@
       "path": "src/qe/qe_bool_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/qe/qe_bool_plugin.go", "pkg/qe/bool_project.go", "pkg/qe/bool_weight.go", "pkg/qe/bool_solve.go", "pkg/qe/bool_solve_units.go", "pkg/qe/bool_solve_polarity.go", "pkg/qe/bool_elimination.go", "pkg/qe/bool_plugin_project_test.go", "pkg/qe/bool_plugin_solve_test.go", "pkg/qe/qe_core_contract_test.go"],
-      "tests": ["TestBoolPluginBranchAndSubstitutionContracts", "TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse", "TestBoolPluginSolveUnitsInSourceOrder", "TestBoolPluginPolarizedSolveWeightAndRejection", "TestBoolPluginPolarizedAbsentVariableProducesFalseRealizer", "TestQENNFAtomIndexFeedsBooleanPolarizedSolver"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/qe/qe_bool_plugin.go",
+        "pkg/qe/bool_project.go",
+        "pkg/qe/bool_weight.go",
+        "pkg/qe/bool_solve.go",
+        "pkg/qe/bool_solve_units.go",
+        "pkg/qe/bool_solve_polarity.go",
+        "pkg/qe/bool_elimination.go",
+        "pkg/qe/bool_plugin_project_test.go",
+        "pkg/qe/bool_plugin_solve_test.go",
+        "pkg/qe/qe_core_contract_test.go",
+        "pkg/qe/bool_solve_context.go",
+        "pkg/qe/bool_solve_context_test.go",
+        "pkg/qe/bool_trace.go",
+        "pkg/qe/bool_trace_test.go"
+      ],
+      "tests": [
+        "TestBoolPluginBranchAndSubstitutionContracts",
+        "TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse",
+        "TestBoolPluginSolveUnitsInSourceOrder",
+        "TestBoolPluginPolarizedSolveWeightAndRejection",
+        "TestBoolPluginPolarizedAbsentVariableProducesFalseRealizer",
+        "TestQENNFAtomIndexFeedsBooleanPolarizedSolver",
+        "TestBoolPluginContextSolveChoosesUnitsBeforeVariableOrder",
+        "TestBoolPluginContextSolveScansBooleanVariablesAndPublishesOnce",
+        "TestBoolPluginProjectionSourceDontCareTrace",
+        "TestBoolPluginContextPolaritySourceTrace"
+      ],
       "assertions": [
         {
           "line": 43,
@@ -103529,11 +103555,41 @@
           "text": "SASSERT(vl.is_one() || vl.is_zero());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "Boolean QE plugin branching, assignment, substitution, model projection, atom weight and source-order unit/polarity solving; source SASSERT-only branch validation follows release behavior", "status": "partial", "go_target": "pkg/qe/qe_bool_plugin.go", "go_targets": ["pkg/qe/bool_project.go", "pkg/qe/bool_weight.go", "pkg/qe/bool_solve.go", "pkg/qe/bool_solve_units.go", "pkg/qe/bool_solve_polarity.go", "pkg/qe/bool_elimination.go"], "tests": ["TestBoolPluginBranchAndSubstitutionContracts", "TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse", "TestBoolPluginSolveUnitsInSourceOrder", "TestBoolPluginPolarizedSolveWeightAndRejection", "TestBoolPluginPolarizedAbsentVariableProducesFalseRealizer", "TestQENNFAtomIndexFeedsBooleanPolarizedSolver"]}],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Boolean QE branch enumeration, release branch-value semantics, assignment/substitution, model projection with false fallback, atom weight, complete unit/polarity context selection and source diagnostics",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_bool_plugin.go",
+          "go_targets": [
+            "pkg/qe/bool_project.go",
+            "pkg/qe/bool_weight.go",
+            "pkg/qe/bool_solve.go",
+            "pkg/qe/bool_solve_units.go",
+            "pkg/qe/bool_solve_polarity.go",
+            "pkg/qe/bool_elimination.go",
+            "pkg/qe/bool_solve_context.go",
+            "pkg/qe/bool_trace.go"
+          ],
+          "tests": [
+            "TestBoolPluginBranchAndSubstitutionContracts",
+            "TestBoolPluginProjectUsesModelAndDefaultsDontCareFalse",
+            "TestBoolPluginSolveUnitsInSourceOrder",
+            "TestBoolPluginPolarizedSolveWeightAndRejection",
+            "TestBoolPluginPolarizedAbsentVariableProducesFalseRealizer",
+            "TestQENNFAtomIndexFeedsBooleanPolarizedSolver"
+          ]
+        }
+      ],
+      "ownership": [
+        "BoolPlugin owns its safe replacer and borrows the solver context/manager. SolveContext selects units in ConjunctionEnum order, then Boolean context variables in source order, and publishes one elimination through SolverContext.EliminateVariable, including swap-pop and cached ContainsApp destruction.",
+        "BoolElimination owns formula/definition temporaries until the context takes its own formula root. Project owns its evaluated AST reference; the shared expression printer owns its temporary format tree and output stream."
+      ],
+      "deviations": [
+        "The Go Solve method is a candidate-specific convenience helper. SolveContext supplies the full C++ solve callback over all context variables; explicit BoolAtomIndex arguments replace borrowing the C++ atom-set accessors.",
+        "Go callbacks expose owner/domain errors for invalid handles and closed owners. Source SASSERT-only branch-value checks preserve release behavior using is_one for the cofactor."
+      ]
     },
     {
       "path": "src/qe/qe_bv_plugin.cpp",

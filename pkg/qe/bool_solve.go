@@ -27,8 +27,9 @@ func errorsJoinBoolElimination(cause error, result *BoolElimination) error {
 	return cause
 }
 
-// Solve preserves the source priority: conjunction units before polarized
-// atom solving.
+// Solve is the candidate-specific helper: it tries a unit for variable
+// before polarity. SolveContext implements the complete source solve callback
+// that selects among all context variables and publishes the elimination.
 func (p *BoolPlugin) Solve(variable *ast.ContainsApp, formula ast.ASTHandle, conjs *ConjunctionEnum, atoms *BoolAtomIndex) (*BoolElimination, bool, error) {
 	if err := p.checkInputs(variable, formula); err != nil {
 		return nil, false, err
