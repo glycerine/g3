@@ -136,6 +136,35 @@ func TestSpacerDerivationOwnsPremisesAndAttachesToObligation(t *testing.T) {
 		t.Fatal("Spacer derivation detachment")
 	}
 	spacerMust(t, root.SetDerivation(detached))
+	spacerMust(t, root.SetUseFarkas(false))
+	spacerMust(t, root.BumpWeakness())
+	reused, err := transformer.NewProofObligation(nil, 3, 2, truth, nil)
+	spacerMust(t, err)
+	if reused != root {
+		t.Fatal("expected reuse of the obligation with the same normalized post")
+	}
+	if _, found, err := reused.Derivation(); err != nil || found {
+		t.Fatal("pob::inherit must clear the previous derivation", found, err)
+	}
+	if _, err := detached.Transition(); err == nil {
+		t.Fatal("reusing the obligation must destroy its old derivation")
+	}
+	if _, err := premises[0].Summary(); err == nil {
+		t.Fatal("old derivation premise survived obligation reuse")
+	}
+	if level, err := reused.Level(); err != nil || level != 3 {
+		t.Fatal("inherited level", level, err)
+	}
+	if depth, err := reused.Depth(); err != nil || depth != 2 {
+		t.Fatal("inherited depth", depth, err)
+	}
+	if farkas, err := reused.UseFarkas(); err != nil || !farkas {
+		t.Fatal("inherited Farkas policy", farkas, err)
+	}
+	if weakness, err := reused.Weakness(); err != nil || weakness != 0 {
+		t.Fatal("inherited weakness", weakness, err)
+	}
+
 	spacerMust(t, root.Reset())
 	if _, found, err = root.Derivation(); err != nil || found {
 		t.Fatal("Spacer reset retained derivation", found, err)

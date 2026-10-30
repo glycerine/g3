@@ -380,6 +380,13 @@ func (p *ProofObligation) inherit(other *ProofObligation) error {
 	p.open = other.open
 	p.useFarkas = other.useFarkas
 	p.weakness = other.weakness
+	// Source assigns nullptr to the scoped_ptr after inheriting the fields.
+	if p.derivation != nil {
+		if err = p.derivation.Close(); err != nil {
+			return err
+		}
+		p.derivation = nil
+	}
 	return nil
 }
 
