@@ -43,11 +43,18 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 	coneMust(t, err)
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
+	rule2, err := rules.NewRule(applications[4], withNegated, negated, "four-tail-second")
+	coneMust(t, err)
+	coneMust(t, set.Add(rule2))
+	coneMust(t, rule2.Close())
 	plugin := transforms.NewSimpleJoinsPlugin(manager, rules, 0)
 	transformed, err := plugin.Transform(set)
 	coneMust(t, err)
 	if transformed == nil {
-		t.Fatal("three-tail rule was not transformed")
+		t.Fatal("four-tail rules were not transformed")
+	}
+	if count, x := transformed.Len(); x != nil || count != 4 {
+		t.Fatalf("two four-tail rules yielded %d outputs, want two parents and two shared helpers: %v", count, x)
 	}
 	main, err := transformed.Rule(0)
 	coneMust(t, err)
@@ -76,8 +83,8 @@ func TestSimpleJoinsUsesSourceSplitPredicateNames(t *testing.T) {
 		coneMust(t, x)
 		text, x := manager.Symbols.String(name)
 		coneMust(t, x)
-		if !strings.HasPrefix(text, "simple-name-Goal!split!") {
-			t.Fatalf("split predicate name %q does not retain the source parent and split suffix", text)
+		if !strings.HasPrefix(text, "simple-name-Goal_and_1!split!") {
+			t.Fatalf("shared split predicate name %q does not retain source multi-parent naming", text)
 		}
 	}
 }
