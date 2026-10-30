@@ -294,7 +294,10 @@ func (r *UDocRelation) FilterGuard(manager *ast.ASTManager, expression ast.ASTHa
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, compiled.Close()) }()
-	return r.elems.Intersect(compiled.elems)
+	if err = r.elems.Intersect(compiled.elems); err != nil {
+		return err
+	}
+	return r.elems.Simplify()
 }
 
 func (r *UDocRelation) applyGuard(m *ast.ASTManager, expression ast.ASTHandle, classes *backtrack.UnionFind, discarded []bool) error {
