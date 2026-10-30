@@ -19,6 +19,8 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 	muzspacer "github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/muz/transforms"
+	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -62,6 +64,8 @@ type PropositionalEngine struct {
 	binder             *base.VariableBinder
 	relations          *rel.RelationManager
 	guard              *astrewriter.TheoryRewriter
+	unboundCooperation *cooperate.Cooperation
+	unboundLite        *qe.Lite
 	background         ast.ASTRef
 	params             *uparams.ParamsContext
 	globals            *uparams.GlobalParamsService
@@ -358,7 +362,7 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	}
 	boundFormula, getErr := e.manager.RefGet(bound)
 	if getErr == nil {
-		getErr = e.rules.AddFormula(e.set, boundFormula, name)
+		getErr = e.addFormula(e.set, boundFormula, name)
 	}
 	added := getErr == nil
 	getErr = errors.Join(getErr, e.manager.DelRef(&bound))
@@ -433,7 +437,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	}
 	boundFormula, err := e.manager.RefGet(bound)
 	if err == nil {
-		err = e.rules.AddFormula(candidateSet, boundFormula, name)
+		err = e.addFormula(candidateSet, boundFormula, name)
 	}
 	err = errors.Join(err, e.manager.DelRef(&bound))
 	if err != nil {
@@ -1927,6 +1931,14 @@ func (e *PropositionalEngine) Close() (result error) {
 	if e.guard != nil {
 		result = errors.Join(result, e.guard.Close())
 		e.guard = nil
+	}
+	if e.unboundLite != nil {
+		result = errors.Join(result, e.unboundLite.Close())
+		e.unboundLite = nil
+	}
+	if e.unboundCooperation != nil {
+		result = errors.Join(result, e.unboundCooperation.Close())
+		e.unboundCooperation = nil
 	}
 	if e.set != nil {
 		result = errors.Join(result, e.set.Close())

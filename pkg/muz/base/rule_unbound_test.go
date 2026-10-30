@@ -4,11 +4,13 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/util/cooperate"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder(t *testing.T) {
@@ -160,5 +162,107 @@ func TestRuleManagerFixesResidualUnboundPredicateExistentially(t *testing.T) {
 	}
 	if forall, err := f.manager.IsForall(left); err != nil || forall {
 		t.Fatal("fixed quantifier is not existential", forall, err)
+	}
+}
+
+func TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix(t *testing.T) {
+	f := newUnboundFixture(t)
+	arithmetic, err := f.manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := f.manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	x, err := f.manager.MkVar(1, integer)
+	ruleMust(t, err)
+	y, err := f.manager.MkVar(0, integer)
+	ruleMust(t, err)
+	head := f.predicate(t, "ingest-head", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	bound := f.predicate(t, "ingest-bound", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	three, err := f.manager.ArithmeticIntegerNumeralText("3")
+	ruleMust(t, err)
+	equality, err := f.manager.MkEq(y, three)
+	ruleMust(t, err)
+	body, err := f.manager.MkAnd(bound, equality)
+	ruleMust(t, err)
+	implication, err := f.manager.MkImplies(body, head)
+	ruleMust(t, err)
+	xName, err := f.manager.Symbols.Intern("x")
+	ruleMust(t, err)
+	yName, err := f.manager.Symbols.Intern("y")
+	ruleMust(t, err)
+	formula, err := f.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer}, Names: []usymbol.Symbol{xName, yName}, Body: implication})
+	ruleMust(t, err)
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := f.manager.MkProofAsserted(formula)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled))
+	if err = f.rules.AddFormulaWithProofAndUnboundFix(set, formula, proof, "reduce-ingest", f.lite, false); err != nil {
+		t.Fatal(err)
+	}
+	rule, err := set.Rule(0)
+	ruleMust(t, err)
+	if size, e := rule.TailSize(); e != nil || size != 1 {
+		t.Fatal("QE-lite ingestion did not remove the unbound numeral equality", size, e)
+	}
+	translated, found, err := rule.Proof()
+	ruleMust(t, err)
+	if !found {
+		t.Fatal("QE-lite reduction lost the rule proof")
+	}
+	checker, err := proofs.NewChecker(f.manager)
+	ruleMust(t, err)
+	valid, side, err := checker.Check(translated)
+	ruleMust(t, err)
+	if !valid {
+		t.Fatal("reduced rule proof failed proof checking")
+	}
+	ruleMust(t, checker.ReleaseSideConditions(side))
+	ruleMust(t, rule.Close())
+
+	boolean, err := f.manager.MkBoolSort()
+	ruleMust(t, err)
+	bx, err := f.manager.MkVar(1, boolean)
+	ruleMust(t, err)
+	by, err := f.manager.MkVar(0, boolean)
+	ruleMust(t, err)
+	boolHead := f.predicate(t, "existential-ingest-head", []ast.ASTHandle{boolean}, []ast.ASTHandle{bx})
+	opaqueName, err := f.manager.Symbols.Intern("existential-ingest-opaque")
+	ruleMust(t, err)
+	opaqueDecl, err := f.manager.MkFuncDecl(opaqueName, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	opaque, err := f.manager.MkApp(opaqueDecl, []ast.ASTHandle{by})
+	ruleMust(t, err)
+	boolImplication, err := f.manager.MkImplies(opaque, boolHead)
+	ruleMust(t, err)
+	boolXName, err := f.manager.Symbols.Intern("bx")
+	ruleMust(t, err)
+	boolYName, err := f.manager.Symbols.Intern("by")
+	ruleMust(t, err)
+	boolFormula, err := f.manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean, boolean}, Names: []usymbol.Symbol{boolXName, boolYName}, Body: boolImplication})
+	ruleMust(t, err)
+	if err = f.rules.AddFormulaWithUnboundFix(set, boolFormula, "fix-ingest", f.lite, true); err != nil {
+		t.Fatal(err)
+	}
+	fixed, err := set.Rule(1)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, fixed.Close()) }()
+	tail, negative, err := fixed.Tail(0)
+	ruleMust(t, err)
+	if negative {
+		t.Fatal("fixed ingestion tail became negative")
+	}
+	operator, err := f.manager.GetDeclKind(tail)
+	if err != nil || operator != ast.ASTOpIff {
+		t.Fatal("expected equivalence-wrapped existential tail", operator, err)
+	}
+	quantified, err := f.manager.GetArg(tail, 0)
+	ruleMust(t, err)
+	if kind, e := f.manager.GetKind(quantified); e != nil || kind != ast.ASTQuantifier {
+		t.Fatal("residual unbound variable was not quantified", kind, e)
+	}
+	if forall, e := f.manager.IsForall(quantified); e != nil || forall {
+		t.Fatal("residual tail quantifier is not existential", forall, e)
 	}
 }

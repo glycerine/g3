@@ -9,12 +9,26 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/qe"
 )
 
 // AddFormulaWithProof ingests a source formula and proof through the retained
 // direct disjunctive split and HNF definition-introduction paths. Other HNF
 // proof transformations return an error instead of attaching an unrelated proof.
 func (m *RuleManager) AddFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name string) (resultErr error) {
+	return m.addFormulaWithProof(set, formula, proof, name, nil, false)
+}
+
+// AddFormulaWithProofAndUnboundFix applies the source post-ingestion rule
+// rewrite after transferring the formula proof to each normalized rule.
+func (m *RuleManager) AddFormulaWithProofAndUnboundFix(set *RuleSet, formula, proof ast.ASTHandle, name string, lite *qe.Lite, enabled bool) error {
+	if lite == nil {
+		return fmt.Errorf("muz/base: nil unbound-variable eliminator")
+	}
+	return m.addFormulaWithProof(set, formula, proof, name, lite, enabled)
+}
+
+func (m *RuleManager) addFormulaWithProof(set *RuleSet, formula, proof ast.ASTHandle, name string, lite *qe.Lite, fixUnbound bool) (resultErr error) {
 	if proof.IsNull() {
 		return m.AddFormula(set, formula, name)
 	}
@@ -103,6 +117,19 @@ func (m *RuleManager) AddFormulaWithProof(set *RuleSet, formula, proof ast.ASTHa
 		rule, e := m.NewRuleFromFormulaWithProof(clause, clauseProof, name)
 		if e != nil {
 			return e
+		}
+		if lite != nil {
+			fixed, _, fixErr := m.FixUnboundVariables(rule, lite, fixUnbound)
+			if fixErr != nil {
+				return errors.Join(fixErr, rule.Close())
+			}
+			if fixErr = m.MkRuleRewriteProof(rule, fixed); fixErr != nil {
+				return errors.Join(fixErr, fixed.Close(), rule.Close())
+			}
+			if fixErr = rule.Close(); fixErr != nil {
+				return errors.Join(fixErr, fixed.Close())
+			}
+			rule = fixed
 		}
 		if e = set.Add(rule); e != nil {
 			return errors.Join(e, rule.Close())

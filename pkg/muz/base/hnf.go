@@ -6,9 +6,11 @@ package base
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/qe"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -487,6 +489,20 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 // AddFormula normalizes a formula, registers introduced predicates, converts
 // every Horn conjunct to a Rule, and retains it in set.
 func (m *RuleManager) AddFormula(set *RuleSet, formula ast.ASTHandle, name string) (resultErr error) {
+	return m.addFormula(set, formula, name, nil, false)
+}
+
+// AddFormulaWithUnboundFix applies the source rule_manager QE-lite reduction
+// to each normalized rule and optionally existentially binds residual tail
+// variables that do not occur in predicate positions.
+func (m *RuleManager) AddFormulaWithUnboundFix(set *RuleSet, formula ast.ASTHandle, name string, lite *qe.Lite, enabled bool) error {
+	if lite == nil {
+		return fmt.Errorf("muz/base: nil unbound-variable eliminator")
+	}
+	return m.addFormula(set, formula, name, lite, enabled)
+}
+
+func (m *RuleManager) addFormula(set *RuleSet, formula ast.ASTHandle, name string, lite *qe.Lite, fixUnbound bool) (resultErr error) {
 	if err := m.open(); err != nil {
 		return err
 	}
@@ -543,6 +559,16 @@ func (m *RuleManager) AddFormula(set *RuleSet, formula ast.ASTHandle, name strin
 		rule, e := m.NewRuleFromFormula(horn, name)
 		if e != nil {
 			return e
+		}
+		if lite != nil {
+			fixed, _, fixErr := m.FixUnboundVariables(rule, lite, fixUnbound)
+			if fixErr != nil {
+				return errors.Join(fixErr, rule.Close())
+			}
+			if closeErr := rule.Close(); closeErr != nil {
+				return errors.Join(closeErr, fixed.Close())
+			}
+			rule = fixed
 		}
 		if e = set.Add(rule); e != nil {
 			return errors.Join(e, rule.Close())
