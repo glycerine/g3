@@ -185389,7 +185389,7 @@
       "path": "src/test/buffer.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -185434,22 +185434,24 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "tst1 complete ptr_scoped_buffer<point> assertion sequence and destructor",
-          "status": "partial",
+      "name": "test-only ptr_scoped_buffer<std::pair<int,int>> instantiation and assertions",
+      "status": "reference_only",
           "go_target": "",
           "tests": []
         }
       ],
       "ownership": [
-        "The registered point pointers are concrete Go allocations adopted by PtrScopedBuffer. The test destruction callback records exact pop, replacement and final destructor ownership actions."
+      "The only concrete ptr_scoped_buffer<std::pair<int,int>> consumer is this C++ test. The generic header is reference-only and no Go consumer uses this specialization."
       ],
-      "deviations": []
+    "deviations": [
+      "No Go buffer implementation is added for this test-only specialization: that would test Go slice behavior rather than a retained source consumer. The nine C++ ENSURE expressions remain inventoried as reference behavior."
+    ]
     },
     {
       "path": "src/test/chashtable.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -185631,51 +185633,51 @@
       "methods": [
         {
           "name": "active tst1 six ENSURE assertions",
-          "status": "partial",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         },
         {
           "name": "active tst2 nineteen ENSURE assertions",
-          "status": "partial",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         },
         {
           "name": "active tst3 nine ENSURE assertions",
-          "status": "partial",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         },
         {
           "name": "active tst4 exact registered 1000/10000/50000 iterations and finite independent set oracle",
-          "status": "partial",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         },
         {
           "name": "active tst5 operation sequence, zero ENSURE assertions",
-          "status": "partial",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         },
         {
           "name": "active tst6 contains ENSURE and additional unconditional coverage of debug find assertion",
-          "status": "partial",
+          "status": "reference_only",
           "go_target": "",
           "tests": []
         },
         {
           "name": "source DEBUG_CODE conditional routing and automatic table CASSERT diagnostics",
-          "status": "unported",
+          "status": "reference_only",
           "tests": []
         }
       ],
       "ownership": [
-        "Local table/map lifetimes use explicit Close; fixed scalar bool-array oracle is independent of production hashing, with source registered loop bounds retained. Test-only values do not become production hot roots. See PORT_PROGRESS.md#audit-chain-table-port-status-md."
+      "The int_table, dint_table and cmap<int,int> instantiations are consumed only by this C++ test; corresponding Go table code was removed because production has no consumer for these concrete types. Live table specializations are tracked under src/util/chashtable.h."
       ],
       "deviations": [
-        "A fixed source RNG seed replaces platform libc rand; source branch/assertion structure and three exact loop counts preserved. DEBUG_CODE find assertion is unconditional added coverage, not a claim of original conditional routing."
+      "This source unit is reference-only under the no-unused-template rule. Its custom collision chains, bucket counts, iterator order, RNG transcript and DEBUG_CODE/CASSERT paths are not recreated with a Go adapter."
       ]
     },
     {
@@ -190842,6 +190844,7 @@
         "pkg/util/numeral/mpq_power.go",
         "pkg/util/numeral/mpq_parse.go",
         "pkg/util/numeral/mp_display.go",
+        "pkg/util/numeral/mpq_test.go",
         "pkg/util/numeral/mpz_facade_extra_test.go",
         "pkg/util/numeral/mp_power_publication_test.go",
         "pkg/util/numeral/mp_div_publication_test.go",
@@ -190948,7 +190951,13 @@
       "assertions": [
         {
           "line": 30,
-          "text": "ENSURE(m.eq(b, m.mk_q(1, 2)));"
+          "text": "ENSURE(m.eq(b, m.mk_q(1, 2)));",
+          "go_targets": [
+            "pkg/util/numeral/mpq_test.go"
+          ],
+          "tests": [
+            "TestRationalSourceDivAndInverseAliases"
+          ]
         },
         {
           "line": 44,
@@ -191018,6 +191027,14 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "registered tst0 division into the divisor destination, checking (2/3)/(4/3) = 1/2",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpq_test.go",
+          "tests": [
+            "TestRationalSourceDivAndInverseAliases"
+          ]
+        },
         {
           "name": "tst2 active 1/3 and 1/4 decimal output lines at precision ten",
           "status": "ported",
