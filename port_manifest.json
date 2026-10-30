@@ -19482,7 +19482,7 @@
         },
         {
           "name": "dt2bv check_fd concrete quick_for_each_expr instantiation with actual fast-mark owner, shared-only marks, child-before-parent app/var callbacks and quantifier annotations",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/bv/dt2bv_tactic.go",
           "tests": [
             "TestDT2BVGoalsCPP",
@@ -19493,8 +19493,8 @@
           ]
         },
         {
-          "name": "bv2real_util contains concrete postorder app/var/quantifier consumer including patterns/no-patterns and shared-only visited state",
-          "status": "partial",
+          "name": "bv2real_util contains concrete postorder app/var/quantifier consumer including patterns/no-patterns, shared-only visited state and found early exit",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/bv2real_util.go",
           "tests": [
             "TestBV2RealUtilContainsQuantifierMetadataAndBorrowedViews"
@@ -19502,7 +19502,7 @@
         },
         {
           "name": "retained NLA2BV variable classification for_each_expr_at with shared MarkAll visited state across formulas and postorder app/var/quantifier/annotation traversal",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/nla2bv_rules.go",
           "tests": [
             "TestNLA2BVExactGoalsPrebuiltCPP"
@@ -19519,8 +19519,8 @@
         "Real public AST Close may acknowledge younger lexical marks then stop on an older NUM formatting destructor. Original archived tuples/body/source/first-own causes remain charged and attached after ACK; retries skip the acknowledged leaf without reading later foreign marks. Exact history metadata is refunded only by actual final owning manager storage/header teardown. Current unlisted diagnostics remain in the charged header, and a later call archives source-ended acknowledged diagnostics before overwriting lexical storage. Independent fresh-context ordinal campaigns preserve every original source mark-trail reservation; private child ACK is not represented as enclosing owner end.",
         "Native MPN formatting scratch removes the former numerical scratch-constructor refusal and younger-local destructor-stop scenario. The associated huge-numeral Runtime fault fixtures are retired; existing expression visitor mark/history ownership tests remain, and low-level printing now verifies independent big-integer output plus clean frame/source/own teardown with native scratch. This does not claim the removed later-numeral-stop scenario is still exercised.",
         "The retained goal NumExprs caller uses GetNumExprsWithVisited with a concrete native map[ASTHandle]bool and native traversal frames while reusing visitExprCore/visitExprProc. Root/shared-node deduplication, postorder argument/body/pattern/no-pattern traversal and associative weight remain. Legacy explicit mark overloads and their stopped source ownership remain separate; no universal callback adapter or generic container is added.",
-        "New retained dt2bv check_fd instantiation is implemented with concrete Go frames and actual ASTFastMark1. Existing counter/skolem checks do not establish all new classification-callback/exception frontiers, so whole-template-unit completion/audit claims remain partial pending that concrete audit; existing bounded method evidence is retained.",
-        "The retained bv2real contains visitor uses concrete native Go frames and shared-only map visitation, with early registered-encoding exit after children. Tests cover quantifier bodies and annotation-only occurrences. Exact source fast-mark ownership/refusal audit for this added consumer remains open."
+        "The retained dt2bv check_fd traversal uses one concrete ASTFastMark1 across goal formulas, shared-only marks and child-before-parent callbacks; quantifier callbacks are intentionally empty in both source and Go. Focused classification, allocation-prefix, model and proof tests cover this instantiation.",
+        "The retained bv2real contains visitor uses invocation-local frames and shared-only visitation, traverses quantifier bodies/patterns/no-patterns, and stops at the first registered encoding after child visitation. Focused tests cover body and annotation-only matches plus borrowed views."
       ]
     },
     {

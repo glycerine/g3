@@ -50751,3 +50751,6 @@ Datalog utility retained-consumer closure (2026-10-30 UTC): audited `dl_util.cpp
 
 
 Rule-set retained-consumer closure (2026-10-30 UTC): completed the `dl_rule_set.cpp/.h` ledger audit for RuleSet ownership/lifecycle, profile and proof display, strata/dependency output, and concrete finite-compiler restriction/cycle-breaking/topological ordering. Focused `muz/base` and `muz/rel` RuleSet/dependency tests pass; unused standalone dependency mutation wrappers and debug printers remain excluded.
+
+
+Expression visitor retained-instantiation audit (2026-10-30 UTC): reconciled dt2bv classification, bv2real encoding search, and NLA2BV goal traversal as concrete retained `for_each_expr` instantiations. Focused `tactic/bv` and `tactic/arith` test groups pass; the header remains partial because other template consumers still require independent audits.
