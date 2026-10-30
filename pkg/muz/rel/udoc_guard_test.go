@@ -80,4 +80,26 @@ func TestUDocGuardRecognition(t *testing.T) {
 	if _, err = relation.IsGuard(m, ast.ASTHandle{}); err == nil {
 		t.Fatal("zero handle accepted")
 	}
+	other, err := m.MkVar(3, boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	residual, err := m.MkEq(b, other)
+	if err != nil {
+		t.Fatal(err)
+	}
+	nested, err := m.MkAnd(compound, residual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guardPart, restPart, err := relation.ExtractGuard(m, nested)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, e := m.GetNumArgs(guardPart); e != nil || n != 2 {
+		t.Fatalf("guard terms: %d %v", n, e)
+	}
+	if n, e := m.GetNumArgs(restPart); e != nil || n != 1 {
+		t.Fatalf("residual terms: %d %v", n, e)
+	}
 }

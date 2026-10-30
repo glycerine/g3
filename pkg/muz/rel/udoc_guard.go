@@ -14,6 +14,79 @@ func (r *UDocRelation) IsGuard(manager *ast.ASTManager, expression ast.ASTHandle
 	return udocIsGuard(manager, expression)
 }
 
+// ExtractGuard splits a conjunction into the source's directly compilable
+// guards and the residual expressions handled by the theory rewriter.
+func (r *UDocRelation) ExtractGuard(manager *ast.ASTManager, condition ast.ASTHandle) (guard, rest ast.ASTHandle, err error) {
+	if err = r.check(); err != nil {
+		return
+	}
+	if manager == nil || condition == (ast.ASTHandle{}) {
+		err = ErrDOC
+		return
+	}
+	var terms []ast.ASTHandle
+	if err = udocFlattenAnd(manager, condition, &terms); err != nil {
+		return
+	}
+	guards := make([]ast.ASTHandle, 0, len(terms))
+	remainders := make([]ast.ASTHandle, 0, len(terms))
+	for _, term := range terms {
+		var isGuard bool
+		isGuard, err = udocIsGuard(manager, term)
+		if err != nil {
+			return
+		}
+		if isGuard {
+			guards = append(guards, term)
+		} else {
+			remainders = append(remainders, term)
+		}
+	}
+	guard, err = manager.MkAndArgs(guards)
+	if err != nil {
+		return
+	}
+	rest, err = manager.MkAndArgs(remainders)
+	return
+}
+
+func udocFlattenAnd(m *ast.ASTManager, expression ast.ASTHandle, output *[]ast.ASTHandle) error {
+	kind, err := m.GetKind(expression)
+	if err != nil {
+		return err
+	}
+	if kind != ast.ASTApp {
+		*output = append(*output, expression)
+		return nil
+	}
+	family, err := m.GetFamilyID(expression)
+	if err != nil {
+		return err
+	}
+	declKind, err := m.GetDeclKind(expression)
+	if err != nil {
+		return err
+	}
+	if family != m.BasicFamilyID() || declKind != ast.ASTOpAnd {
+		*output = append(*output, expression)
+		return nil
+	}
+	n, err := m.GetNumArgs(expression)
+	if err != nil {
+		return err
+	}
+	for i := uint32(0); i < n; i++ {
+		arg, e := m.GetArg(expression, i)
+		if e != nil {
+			return e
+		}
+		if e = udocFlattenAnd(m, arg, output); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
 func udocIsGuard(m *ast.ASTManager, h ast.ASTHandle) (bool, error) {
 	if m.IsTrue(h) || m.IsFalse(h) {
 		return true, nil
