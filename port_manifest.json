@@ -81851,8 +81851,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule_set.go"],
-      "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"],
+      "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_set_display.go", "pkg/muz/base/rule_set_display_test.go"],
+      "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay"],
       "assertions": [
         {
           "line": 82,
@@ -81958,11 +81958,12 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "rule_set::display default output header, output predicate, and grouped rule emission (dl_rule_set.cpp:512-533)", "status": "partial", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay"]},
         {
           "name": "rule_set retained rule ownership, grouped head index, add/delete/copy/replace/reset lifecycle, predicate inheritance and output mappings, dependency population, reopen/finalize, strongly connected component stratification, stratified-negation rejection, and founded splitting (dl_rule_set.cpp:70-485,570-758); profile and standalone dependency restrict/remove/sort operations remain open",
           "status": "partial",
           "go_target": "pkg/muz/base/rule_set.go",
-          "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"]
+          "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay"]
         },
         {
           "name": "rule_set::display_deps source dependency and stratum formatting (dl_rule_set.cpp:537-566)",
@@ -81972,15 +81973,15 @@
         }
       ],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Rule-set display follows the Go head/output slices and default no-profile setting; non-default profile annotations and attached proof rendering remain open because the retained simple AST printer has no proof display path."]
     },
     {
       "path": "src/muz/base/dl_rule_set.h",
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule_set.go"],
-      "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged"],
+      "go_targets": ["pkg/muz/base/rule_set.go", "pkg/muz/base/rule_set_display.go", "pkg/muz/base/rule_set_display_test.go"],
+      "tests": ["TestRuleSetFinalizesDependenciesAndStratifiedNegation", "TestRuleSetRejectsNegativeDependencyCycle", "TestRuleSetPredicateMappingsCopiesAndFoundedPartition", "TestConeOfInfluencePrunesOutsideAndUnfoundedRules", "TestConeOfInfluenceReturnsNilWhenUnchanged", "TestRuleSetWriteSourceDisplay"],
       "conditionals": [
         {
           "line": 19,
@@ -82008,6 +82009,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "rule_set source diagnostic display API with default profile settings", "status": "partial", "go_target": "pkg/muz/base/rule_set_display.go", "tests": ["TestRuleSetWriteSourceDisplay"]},
         {
           "name": "Concrete rule_dependencies and rule_set storage/query/finalization/copy/output-mapping surface with explicit retained Rule wrappers; remaining display/profile interfaces stay open",
           "status": "partial",
