@@ -5,6 +5,7 @@ package opt
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -311,16 +312,42 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 	if err := s.backend.Push(); err != nil {
 		return lbool.Undef, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, s.backend.Pop(1)) }()
+	var activeEngine maxSMTEngine
+	defer func() {
+		if popErr := s.backend.Pop(1); popErr != nil {
+			resultErr = errors.Join(resultErr, fmt.Errorf("pop MaxSMT scope: %w", popErr))
+		}
+		if activeEngine != nil {
+			if closeErr := activeEngine.close(); closeErr != nil {
+				resultErr = errors.Join(resultErr, fmt.Errorf("close MaxSMT engine: %w", closeErr))
+			}
+		}
+	}()
 	status, err := s.backend.CheckSat(nil)
 	if err != nil || status != lbool.True {
 		return status, false, err
 	}
+	if err = s.replaceModel(result); err != nil {
+		return lbool.Undef, false, err
+	}
 	objective := &s.objectives[index]
-	for {
-		if err = s.replaceModel(result); err != nil {
-			return lbool.Undef, false, err
+	engine, err := newMaxSMTEngine(s, objective, index)
+	if err != nil {
+		return lbool.Undef, false, fmt.Errorf("construct MaxSMT engine: %w", err)
+	}
+	if engine != nil {
+		activeEngine = engine
+		status, optimal, err = engine.optimize(result)
+		result.MaxSMT = append(result.MaxSMT, engine.statistics())
+		if optimal {
+			finalizeSoftBounds(result, index)
 		}
+		if err != nil {
+			err = fmt.Errorf("run MaxSMT engine: %w", err)
+		}
+		return status, optimal, err
+	}
+	for {
 		cost, satisfied, assignment, e := s.evaluateSoftDetailed(objective, result.Model)
 		if e != nil {
 			return lbool.Undef, false, e
@@ -352,6 +379,9 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		}
 		switch status {
 		case lbool.True:
+			if err = s.replaceModel(result); err != nil {
+				return lbool.Undef, false, err
+			}
 			continue
 		case lbool.False:
 			finalizeSoftBounds(result, index)
