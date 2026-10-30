@@ -21,8 +21,8 @@ func TestDomSimplifyForwardConjunctionContext(t *testing.T) {
 	domMust(t, e)
 	second, e := g.Form(1)
 	domMust(t, e)
-	if first != f.a || second != f.b {
-		t.Fatal(first, second, f.a, f.b)
+	if first != f.a || second != tail {
+		t.Fatal(first, second, f.a, tail)
 	}
 }
 func TestDomSimplifyDisjunctionContext(t *testing.T) {
@@ -37,9 +37,7 @@ func TestDomSimplifyDisjunctionContext(t *testing.T) {
 	f.run(t, g)
 	got, e := g.Form(0)
 	domMust(t, e)
-	want, e := f.m.MkOr(f.a, f.b)
-	domMust(t, e)
-	if got != want {
-		t.Fatal(got, want)
+	if got != formula {
+		t.Fatal(got, formula)
 	}
 }

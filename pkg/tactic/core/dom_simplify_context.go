@@ -55,9 +55,17 @@ func (t *DomSimplifyTactic) assertContext(c *domContext, h ast.ASTHandle, sign b
 		c.insert(arg, f)
 		return nil
 	}
-	if yes, e := domOp(m, h, ast.ASTOpEq); e != nil {
+	isEquality, e := domOp(m, h, ast.ASTOpEq)
+	if e != nil {
 		return e
-	} else if yes {
+	}
+	if !isEquality {
+		isEquality, e = domOp(m, h, ast.ASTOpIff)
+		if e != nil {
+			return e
+		}
+	}
+	if isEquality {
 		lhs, e := m.GetArg(h, 0)
 		if e != nil {
 			return e

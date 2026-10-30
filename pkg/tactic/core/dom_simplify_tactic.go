@@ -121,16 +121,19 @@ func (t *DomSimplifyTactic) Close() error {
 	if t.closed {
 		return nil
 	}
-	var err error
-	err = errors.Join(err, t.clearDomPins())
+	if err := t.clearDomPins(); err != nil {
+		return err
+	}
 	if t.domSimp != nil {
-		err = errors.Join(err, t.domSimp.Close())
+		if err := t.domSimp.Close(); err != nil {
+			return err
+		}
 		t.domSimp = nil
 	}
 	t.manager.Budget().Release(t.ownerBytes)
 	t.ownerBytes = 0
 	t.closed = true
-	return err
+	return nil
 }
 func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
@@ -147,6 +150,7 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 		return err
 	}
 	defer func() { err = errors.Join(err, report.Close()) }()
+	defer func() { err = errors.Join(err, t.clearDomPins()); t.domCache = nil }()
 	if t.domSimp != nil {
 		return t.applyDomSimplifier(g, out)
 	}
@@ -161,6 +165,10 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 		}
 		changed = false
 		for _, forward := range []bool{true, false} {
+			if e := t.clearDomPins(); e != nil {
+				return e
+			}
+			t.domCache = nil
 			t.forward = forward
 			n, e := g.Size()
 			if e != nil {
@@ -173,13 +181,28 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 					return e
 				}
 			}
-			root, e := t.manager.MkAndArgs(forms)
+			root, e := domMkAndArgs(t.manager, forms)
 			if e != nil {
 				return e
 			}
-			if _, e = t.dominators.compile(root); e != nil {
+			if e = t.pinDom(root); e != nil {
 				return e
 			}
+			compiled, e := t.dominators.compile(root)
+			if e != nil {
+				return e
+			}
+			if !compiled {
+				if e = t.clearDomPins(); e != nil {
+					return e
+				}
+				t.domCache = nil
+				if e = g.IncDepth(); e != nil {
+					return e
+				}
+				return out.AddGoal(g)
+			}
+			t.domCache = make(map[ast.ASTHandle]ast.ASTHandle)
 			t.traceDominatorTree()
 			ctx := &domContext{}
 			order := make([]uint32, n)
@@ -191,7 +214,17 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 				}
 			}
 			for _, i := range order {
-				old := forms[i]
+				inconsistent, e := g.Inconsistent()
+				if e != nil {
+					return e
+				}
+				if inconsistent {
+					break
+				}
+				old, e := g.Form(i)
+				if e != nil {
+					return e
+				}
 				next, e := t.simplify(old, ctx, 0)
 				if e != nil {
 					return e
@@ -200,11 +233,24 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 				if next != old {
 					t.traceRewrite(old, next)
 				}
+				dep, e := g.Dependency(i)
+				if e != nil {
+					return e
+				}
+				proofs, e := g.ProofsEnabled()
+				if e != nil {
+					return e
+				}
+				if (forward && i+1 < n || !forward && i > 0) && !t.manager.IsTrue(next) && !t.manager.IsFalse(next) && dep.IsNull() && !proofs {
+					if e = t.assertContext(ctx, next, false); e != nil {
+						return e
+					}
+				}
 				pr, e := g.Proof(i)
 				if e != nil {
 					return e
 				}
-				if !pr.IsNull() && next != old {
+				if proofs {
 					rw, e := t.manager.MkProofRewrite(old, next)
 					if e != nil {
 						return e
@@ -214,17 +260,14 @@ func (t *DomSimplifyTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err
 						return e
 					}
 				}
-				dep, e := g.Dependency(i)
-				if e != nil {
-					return e
-				}
 				if e = g.Update(i, next, pr, dep); e != nil {
 					return e
 				}
-				if e = t.assertContext(ctx, next, false); e != nil {
-					return e
-				}
 			}
+			if e = t.clearDomPins(); e != nil {
+				return e
+			}
+			t.domCache = nil
 		}
 	}
 	if err = g.IncDepth(); err != nil {

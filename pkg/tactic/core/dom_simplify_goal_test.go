@@ -12,8 +12,8 @@ func TestDomSimplifyUsesEarlierAndLaterGoalFormulas(t *testing.T) {
 	f.run(t, g)
 	second, e := g.Form(1)
 	domMust(t, e)
-	if second != f.b {
-		t.Fatal(second, f.b)
+	if second != disj {
+		t.Fatal(second, disj)
 	}
 	depth, e := g.Depth()
 	domMust(t, e)
@@ -29,12 +29,12 @@ func TestDomSimplifyEqualitySubstitution(t *testing.T) {
 	domMust(t, e)
 	g := f.goal(t, false, eq, use)
 	f.run(t, g)
-	truth, e := f.m.MkTrue()
+	want, e := f.m.MkEq(f.a, f.a)
 	domMust(t, e)
 	got, e := g.Form(1)
 	domMust(t, e)
-	if got != truth {
-		t.Fatal(got, truth)
+	if got != want {
+		t.Fatal(got, want)
 	}
 }
 

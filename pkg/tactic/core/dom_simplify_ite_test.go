@@ -16,9 +16,13 @@ func TestDomSimplifyITEBranchContexts(t *testing.T) {
 	f.run(t, g)
 	got, e := g.Form(0)
 	domMust(t, e)
-	want, e := f.m.MkIte(f.a, f.b, f.b)
+	truth, e := f.m.MkTrue()
 	domMust(t, e)
-	if got != f.b && got != want {
+	then, e := f.m.MkAnd(truth, f.b)
+	domMust(t, e)
+	want, e := f.m.MkIte(f.a, then, no)
+	domMust(t, e)
+	if got != want {
 		t.Fatal(got, want)
 	}
 }

@@ -173487,14 +173487,35 @@
       "path": "src/tactic/core/dom_simplify_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/dom_simplify_tactic.go",
         "pkg/tactic/core/dom_simplify_dominators.go",
+        "pkg/tactic/core/dom_simplify_context.go",
         "pkg/tactic/core/dom_simplify_rewrite.go",
-        "pkg/tactic/core/dom_simplify_plugin.go"
+        "pkg/tactic/core/dom_simplify_plugin.go",
+        "pkg/tactic/core/dom_simplify_trace.go",
+        "pkg/tactic/core/dom_simplify_dominators_test.go",
+        "pkg/tactic/core/dom_simplify_source_fidelity_test.go",
+        "pkg/tactic/core/dom_simplify_boolean_test.go",
+        "pkg/tactic/core/dom_simplify_goal_test.go",
+        "pkg/tactic/core/dom_simplify_ite_test.go",
+        "pkg/tactic/core/dom_simplify_lifecycle_test.go",
+        "pkg/tactic/core/dom_simplify_trace_test.go"
       ],
       "tests": [
+        "TestExpressionDominatorsDiamondAndTree",
+        "TestExpressionDominatorsPostOrderEndsAtRoot",
+        "TestDomSimplifyForwardConjunctionContext",
+        "TestDomSimplifyDisjunctionContext",
+        "TestDomSimplifyUsesEarlierAndLaterGoalFormulas",
+        "TestDomSimplifyEqualitySubstitution",
+        "TestDomSimplifyComposesRewriteProof",
+        "TestDomSimplifyITEBranchContexts",
+        "TestDomSimplifyITEEqualBranches",
+        "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff",
+        "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithProofs",
+        "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithDependencies",
         "TestDomSimplifySourceTraceTreeAndRewrite",
         "TestDomSimplifyCleanupAndTranslation",
         "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
@@ -173544,33 +173565,140 @@
           "text": "SASSERT(is_ground(lhs) && is_ground(rhs));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Custom dominator simplifier callback traversal used by mk_dom_bv_bounds_tactic",
+          "name": "Post-order graph construction and parent edges; immediate dominators, tree extraction and non-convergence return (lines 25-103)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_dominators.go",
+          "tests": [
+            "TestExpressionDominatorsDiamondAndTree",
+            "TestExpressionDominatorsPostOrderEndsAtRoot"
+          ]
+        },
+        {
+          "name": "Compile, reset and dominator tree display (lines 105-161)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_dominators.go",
+          "tests": [
+            "TestExpressionDominatorsDiamondAndTree",
+            "TestDomSimplifySourceTraceTreeAndRewrite",
+            "TestDomSimplifyCleanupAndTranslation"
+          ]
+        },
+        {
+          "name": "Goal application, two directional passes, proof/dependency gates, proof composition and failed dominator compilation (lines 175-206, 316-379)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
+          "tests": [
+            "TestDomSimplifyForwardConjunctionContext",
+            "TestDomSimplifyUsesEarlierAndLaterGoalFormulas",
+            "TestDomSimplifyComposesRewriteProof",
+            "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithProofs",
+            "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithDependencies"
+          ]
+        },
+        {
+          "name": "Recursive dominator traversal, cache application and depth cutoff (lines 255-315)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_rewrite.go",
+          "tests": [
+            "TestDomSimplifyForwardConjunctionContext",
+            "TestDomSimplifyDisjunctionContext",
+            "TestDomSimplifyEqualitySubstitution"
+          ]
+        },
+        {
+          "name": "And/or context order, branch-exclusive children and scope rollback (lines 318-379)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_rewrite.go",
+          "tests": [
+            "TestDomSimplifyForwardConjunctionContext",
+            "TestDomSimplifyDisjunctionContext"
+          ]
+        },
+        {
+          "name": "ITE condition handling and then/else branch scopes (lines 208-250)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_rewrite.go",
+          "tests": [
+            "TestDomSimplifyITEBranchContexts",
+            "TestDomSimplifyITEEqualBranches"
+          ]
+        },
+        {
+          "name": "Dominator ancestry queries and pair-cache behavior (lines 381-414)",
           "status": "complete",
           "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
           "tests": [
-            "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
-            "TestBVBoundsDominatorPropagatesSingletonEquality",
-        "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
-        "TestBVBoundsDominatorScopesITEBranchBounds"
+            "TestBVBoundsDominatorScopesITEBranchBounds"
+          ]
+        },
+        {
+          "name": "Tactic cleanup, translation, empty parameter hooks and default callback factory (lines 165-206, 552-555)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
+          "tests": [
+            "TestDomSimplifyCleanupAndTranslation",
+            "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff"
+          ]
+        },
+        {
+          "name": "Context substitution scopes, equality/iff ordering, negation and direct rewrite callback (lines 447-550)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_context.go",
+          "tests": [
+            "TestDomSimplifyEqualitySubstitution",
+            "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff",
+            "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithProofs",
+            "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithDependencies"
           ]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "The tactic borrows its AST manager and owns the dominator traversal, rewritten cache pins, and callback. Goal formulas remain goal-owned; rewritten terms and compile roots are pinned until each pass finishes. Failed reference releases remain attached for retry during cleanup.",
+        "The default substitution callback uses scoped Go maps over AST handles; equality and iff substitutions follow source ordering, while proof facts and goal dependencies guard cross-form propagation."
+      ],
+      "deviations": [
+        "The source obj_map edge extraction order depends on pointer/hash iteration; Go uses deterministic post-order when building dominator children. Traversal predicates and directional callback order follow the source algorithm."
+      ]
     },
     {
       "path": "src/tactic/core/dom_simplify_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/tactic/core/dom_simplify_tactic.go"
+        "pkg/tactic/core/dom_simplify_tactic.go",
+        "pkg/tactic/core/dom_simplify_dominators.go",
+        "pkg/tactic/core/dom_simplify_context.go",
+        "pkg/tactic/core/dom_simplify_rewrite.go",
+        "pkg/tactic/core/dom_simplify_plugin.go",
+        "pkg/tactic/core/dom_simplify_trace.go",
+        "pkg/tactic/core/dom_simplify_dominators_test.go",
+        "pkg/tactic/core/dom_simplify_source_fidelity_test.go",
+        "pkg/tactic/core/dom_simplify_boolean_test.go",
+        "pkg/tactic/core/dom_simplify_goal_test.go",
+        "pkg/tactic/core/dom_simplify_ite_test.go",
+        "pkg/tactic/core/dom_simplify_lifecycle_test.go",
+        "pkg/tactic/core/dom_simplify_trace_test.go"
       ],
       "tests": [
+        "TestExpressionDominatorsDiamondAndTree",
+        "TestExpressionDominatorsPostOrderEndsAtRoot",
+        "TestDomSimplifyForwardConjunctionContext",
+        "TestDomSimplifyDisjunctionContext",
+        "TestDomSimplifyUsesEarlierAndLaterGoalFormulas",
+        "TestDomSimplifyEqualitySubstitution",
+        "TestDomSimplifyComposesRewriteProof",
+        "TestDomSimplifyITEBranchContexts",
+        "TestDomSimplifyITEEqualBranches",
+        "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff",
+        "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithProofs",
+        "TestDomSimplifyDoesNotPropagateGoalEqualitiesWithDependencies",
+        "TestDomSimplifySourceTraceTreeAndRewrite",
+        "TestDomSimplifyCleanupAndTranslation",
         "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
         "TestBVBoundsDominatorPropagatesSingletonEquality",
         "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
@@ -173596,11 +173724,52 @@
           "text": "SASSERT(m_subst.empty());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Immediate dominator tree owner and compile/reset/display declarations (lines 25-66)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_dominators.go",
+          "tests": [
+            "TestExpressionDominatorsDiamondAndTree",
+            "TestDomSimplifySourceTraceTreeAndRewrite"
+          ]
+        },
+        {
+          "name": "Dominator simplifier callback contract and implicit assertion scopes (lines 68-90)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
+          "tests": [
+            "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff",
+            "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds"
+          ]
+        },
+        {
+          "name": "Tactic state, construction, parameter no-ops, translation, application and cleanup surface (lines 92-146)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_tactic.go",
+          "tests": [
+            "TestDomSimplifyCleanupAndTranslation",
+            "TestDomSimplifyComposesRewriteProof"
+          ]
+        },
+        {
+          "name": "Default scoped expression substitution equality/iff implementation and translation (lines 149-180)",
+          "status": "complete",
+          "go_target": "pkg/tactic/core/dom_simplify_context.go",
+          "tests": [
+            "TestDomSimplifyEqualitySubstitution",
+            "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff"
+          ]
+        }
+      ],
+      "ownership": [
+        "Tactic owns compiled dominator state and reference-pinned result cache; manager services and goals are borrowed. The default callback owns only per-pass Go map scopes whose formula terms remain covered by goal/cache references."
+      ],
+      "deviations": [
+        "Pointer-based C++ container iteration does not define cross-run child ordering; Go keeps the same algorithm with deterministic post-order extraction."
+      ]
     },
     {
       "path": "src/tactic/core/elim_term_ite_tactic.cpp",

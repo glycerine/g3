@@ -186,10 +186,14 @@ func domMkOrArgs(m *ast.ASTManager, args []ast.ASTHandle) (ast.ASTHandle, error)
 
 func (t *DomSimplifyTactic) clearDomPins() error {
 	var err error
+	kept := make([]ast.ASTRef, 0, len(t.domPins))
 	for i := len(t.domPins) - 1; i >= 0; i-- {
 		err = errors.Join(err, t.manager.DelRef(&t.domPins[i]))
+		if t.domPins[i] != (ast.ASTRef{}) {
+			kept = append(kept, t.domPins[i])
+		}
 	}
-	t.domPins = nil
+	t.domPins = kept
 	return err
 }
 
