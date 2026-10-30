@@ -184890,12 +184890,14 @@
       "path": "src/test/ast.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/ast/ast_core_test.go"
+        "pkg/ast/ast_core_test.go",
+        "pkg/tactic/tactic_goal_native_slices_test.go"
       ],
       "tests": [
-        "TestASTSourceInterningAssertions"
+        "TestASTSourceInterningAssertions",
+        "TestASTSourceExprArraySnapshotAssertions"
       ],
       "assertions": [
         {
@@ -184935,29 +184937,36 @@
           "text": "ENSURE(m.get(arr3, 0) == a2);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained tst1 Boolean interning and distinct AND/OR assertions",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/ast/ast_core_test.go",
           "tests": [
             "TestASTSourceInterningAssertions"
           ]
         },
         {
+          "name": "retained tst5 expression-array push/pop/copy-set snapshot assertions through the live Goal owner",
+          "status": "ported",
+          "go_target": "pkg/tactic/tactic_goal_native_slices_test.go",
+          "tests": [
+            "TestASTSourceExprArraySnapshotAssertions"
+          ]
+        },
+        {
           "name": "conditional TRACE sizeof(ast/expr/app/foo) output",
-          "status": "unported",
+          "status": "platform_replacement",
           "tests": []
         }
       ],
       "ownership": [
-        "Retained tests use real normal/format managers and owning AST refs for Boolean interning. The unused persistent-array specialization and its tst5 array ENSURE actions are no longer claimed. Native goal tests verify actual retained snapshot ownership."
+        "The retained tst1 assertions use real normal/format managers and owning AST refs. Active tst5 expr_array operations map to Goal’s concrete owning []ASTHandle snapshots: CopyTo corresponds to persistent copy, shrink to pop_back, and Update to set(source,index,value,out); the AST, tactic-goal and snapshot tests cover independent identities and lifetimes. No generic persistent-array adapter is introduced."
       ],
       "deviations": [
-        "Test assertions use Go testing instead of ENSURE. C++ physical sizeof TRACE output is not implemented or claimed; production manager printer/debug streams remain open.",
-        "Removed unused Go ASTExprArray/ASTDependencyArray persistent-array bridges, encoded layouts, reroot scratch, embedded manager members and bridge-only tests after the last retained goal consumer migrated to native owning slices. The real dependency DAG owner remains eagerly bound and preserves its constructor bit position. Substitution cleanup invokes the actual dependency decrement consumption transport directly. Source generic parray and standalone stress tests are not claimed as ported; retained Boolean interning assertions and native goal snapshot/reference tests remain. Earlier array-specific ownership descriptions are superseded by this removal; no whole-unit or dead-source credit is added."
+        "Go testing replaces ENSURE. C++ sizeof TRACE output is replaced by native Go diagnostics because Go object sizes do not represent the C++ ABI; no size equivalence is claimed."
       ]
     },
     {

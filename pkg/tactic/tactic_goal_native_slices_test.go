@@ -105,6 +105,26 @@ func TestTacticGoalNativeSlicesGrowCopyUpdateAndRelease(t *testing.T) {
 	}
 }
 
+// Source: src/test/ast.cpp:115-131 (tst5). The source expr_array operations
+// are represented by the retained Goal's concrete owning formula slice.
+func TestASTSourceExprArraySnapshotAssertions(t *testing.T) {
+	m := astTestManager(t)
+	a1 := goalTestAtom(t, m, "ast-array-a1")
+	a2 := goalTestAtom(t, m, "ast-array-a2")
+	arr1 := goalTestNew(t, m, false, false)
+	arr2 := goalTestNew(t, m, false, false)
+	arr3 := goalTestNew(t, m, false, false)
+	astTestMust(t, arr1.Assert(a1))
+	astTestMust(t, arr1.Assert(a2))
+	astTestMust(t, arr1.CopyTo(arr2))
+	astTestMust(t, arr2.shrink(1))
+	astTestMust(t, arr2.CopyTo(arr3))
+	astTestMust(t, arr3.Update(0, a2, ast.ASTHandle{}, ast.ASTDependency{}))
+	goalTestForms(t, arr1, a1, a2)
+	goalTestForms(t, arr2, a1)
+	goalTestForms(t, arr3, a2)
+}
+
 func TestTacticGoalNativeSlicesKeepActualPublicationPrefix(t *testing.T) {
 	m := astTestManager(t)
 	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
