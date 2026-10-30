@@ -346,7 +346,7 @@ func (s *Solver) checkSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool
 		return s.doProbSearch(count)
 	}
 	if cfg.NumParallel > 1 && !s.conflict.parallelPresent {
-		return lbool.Undef, ErrSATMissingParallelBinding
+		return s.checkParallelSpan(count, span, cfg.NumParallel)
 	}
 	r, e := s.checkCoreSpan(count, span)
 	var abort satSolverAbort
