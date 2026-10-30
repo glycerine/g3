@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func normalizeMust(t *testing.T, err error) {
@@ -102,4 +103,71 @@ func TestNormalizeFormulaIntegerThresholds(t *testing.T) {
 	if got != want {
 		t.Fatal("integer threshold normalization", got, want)
 	}
+}
+
+// Source: spacer_util.cpp adhoc_rewriter_cfg runs through rewriter_tpl.
+func TestNormalizeAdhocRewritesChildrenBeforeParentThreshold(t *testing.T) {
+	m, _ := newSpacerTestServices(t)
+	zero := normalizeNumeral(t, m, "0")
+	minusOne := normalizeNumeral(t, m, "-1")
+	integer, err := m.GetSort(zero)
+	normalizeMust(t, err)
+	var terms []ast.ASTHandle
+	for _, text := range []string{"adhoc-nested-x", "adhoc-nested-y", "adhoc-nested-z"} {
+		name, err := m.Symbols.Intern(text)
+		normalizeMust(t, err)
+		term, err := m.MkConst(name, integer)
+		normalizeMust(t, err)
+		terms = append(terms, term)
+	}
+	inner, err := m.MkArithmeticLE(terms[0], minusOne)
+	normalizeMust(t, err)
+	choice, err := m.MkIte(inner, terms[1], terms[2])
+	normalizeMust(t, err)
+	outer, err := m.MkArithmeticLE(choice, minusOne)
+	normalizeMust(t, err)
+	root, err := m.NewRef(outer)
+	normalizeMust(t, err)
+	defer func() { normalizeMust(t, m.DelRef(&root)) }()
+	ge, err := m.MkArithmeticGE(terms[0], zero)
+	normalizeMust(t, err)
+	expectedInner, err := m.MkNot(ge)
+	normalizeMust(t, err)
+	expectedChoice, err := m.MkIte(expectedInner, terms[1], terms[2])
+	normalizeMust(t, err)
+	expectedGE, err := m.MkArithmeticGE(expectedChoice, zero)
+	normalizeMust(t, err)
+	expected, err := m.MkNot(expectedGE)
+	normalizeMust(t, err)
+	expectedRef, err := m.NewRef(expected)
+	normalizeMust(t, err)
+	defer func() { normalizeMust(t, m.DelRef(&expectedRef)) }()
+	name, err := m.Symbols.Intern("adhoc-quantifier-metadata")
+	normalizeMust(t, err)
+	spec := ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{name}, Weight: 7, QID: name, SkolemID: name, Body: outer, NoPatterns: []ast.ASTHandle{outer}}
+	quantified, err := m.MkQuantifier(spec)
+	normalizeMust(t, err)
+	quantifiedRef, err := m.NewRef(quantified)
+	normalizeMust(t, err)
+	defer func() { normalizeMust(t, m.DelRef(&quantifiedRef)) }()
+	spec.Body = expected
+	spec.NoPatterns = []ast.ASTHandle{expected}
+	expectedQuantified, err := m.MkQuantifier(spec)
+	normalizeMust(t, err)
+	expectedQuantifiedRef, err := m.NewRef(expectedQuantified)
+	normalizeMust(t, err)
+	defer func() { normalizeMust(t, m.DelRef(&expectedQuantifiedRef)) }()
+	normalizeMust(t, normalizeAdhoc(m, root))
+	actual, err := m.RefGet(root)
+	normalizeMust(t, err)
+	if actual != expected {
+		t.Fatal("parent threshold replacement kept the old child", actual, expected)
+	}
+	normalizeMust(t, normalizeAdhoc(m, quantifiedRef))
+	actualQuantified, err := m.RefGet(quantifiedRef)
+	normalizeMust(t, err)
+	if actualQuantified != expectedQuantified {
+		t.Fatal("quantifier body/annotation rewrite or metadata changed", actualQuantified, expectedQuantified)
+	}
+
 }

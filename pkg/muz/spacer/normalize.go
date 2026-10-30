@@ -115,6 +115,8 @@ func normalizeAdhocReplacement(manager *ast.ASTManager, family ast.FamilyID, val
 	return result, err == nil, err
 }
 
+// normalizeAdhoc is the concrete bottom-up adhoc_rewriter_cfg traversal.
+// Rebuild parents from rewritten children before applying the local rule.
 func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) {
 	handle, err := manager.RefGet(root)
 	if err != nil {
@@ -124,83 +126,120 @@ func normalizeAdhoc(manager *ast.ASTManager, root ast.ASTRef) (resultErr error) 
 	if err != nil {
 		return err
 	}
-	replacer, err := astrewriter.NewExprSafeReplace(manager)
-	if err != nil {
-		return err
+	type frame struct {
+		node     ast.ASTHandle
+		children []ast.ASTHandle
+		patterns int
+		ready    bool
 	}
-	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
-	seen := make(map[ast.ASTHandle]bool)
-	stack := []ast.ASTHandle{handle}
-	changed := false
-	for len(stack) != 0 {
-		last := len(stack) - 1
-		current := stack[last]
-		stack = stack[:last]
-		if seen[current] {
+	todo := []frame{{node: handle}}
+	cache := make(map[ast.ASTHandle]ast.ASTHandle)
+	owned := make([]ast.ASTRef, 0)
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, owned)) }()
+	for len(todo) != 0 {
+		current := todo[len(todo)-1]
+		todo = todo[:len(todo)-1]
+		if _, done := cache[current.node]; done {
 			continue
 		}
-		seen[current] = true
-		replacement, replace, replaceErr := normalizeAdhocReplacement(manager, family, current)
-		if replaceErr != nil {
-			return replaceErr
+		kind, err := manager.GetKind(current.node)
+		if err != nil {
+			return err
+		}
+		if !current.ready {
+			switch kind {
+			case ast.ASTApp:
+				count, err := manager.GetNumArgs(current.node)
+				if err != nil {
+					return err
+				}
+				for i := uint32(0); i < count; i++ {
+					child, err := manager.GetArg(current.node, i)
+					if err != nil {
+						return err
+					}
+					current.children = append(current.children, child)
+				}
+			case ast.ASTQuantifier:
+				body, err := manager.GetQuantifierBody(current.node)
+				if err != nil {
+					return err
+				}
+				current.children = append(current.children, body)
+				count, err := manager.GetNumPatterns(current.node)
+				if err != nil {
+					return err
+				}
+				current.patterns = int(count)
+				for i := uint32(0); i < count; i++ {
+					child, err := manager.GetPattern(current.node, i)
+					if err != nil {
+						return err
+					}
+					current.children = append(current.children, child)
+				}
+				count, err = manager.GetNumNoPatterns(current.node)
+				if err != nil {
+					return err
+				}
+				for i := uint32(0); i < count; i++ {
+					child, err := manager.GetNoPattern(current.node, i)
+					if err != nil {
+						return err
+					}
+					current.children = append(current.children, child)
+				}
+			}
+			current.ready = true
+			todo = append(todo, current)
+			for i := len(current.children); i > 0; i-- {
+				todo = append(todo, frame{node: current.children[i-1]})
+			}
+			continue
+		}
+		changed := false
+		children := make([]ast.ASTHandle, len(current.children))
+		for i, child := range current.children {
+			children[i] = cache[child]
+			changed = changed || children[i] != child
+		}
+		rebuilt := current.node
+		if changed {
+			switch kind {
+			case ast.ASTApp:
+				decl, err := manager.GetDecl(current.node)
+				if err != nil {
+					return err
+				}
+				rebuilt, err = manager.MkApp(decl, children)
+				if err != nil {
+					return err
+				}
+			case ast.ASTQuantifier:
+				rebuilt, err = manager.UpdateQuantifierAnnotations(current.node, children[1:1+current.patterns], children[1+current.patterns:], children[0])
+				if err != nil {
+					return err
+				}
+			}
+		}
+		ref, err := manager.NewRef(rebuilt)
+		if err != nil {
+			return err
+		}
+		owned = append(owned, ref)
+		replacement, replace, err := normalizeAdhocReplacement(manager, family, rebuilt)
+		if err != nil {
+			return err
 		}
 		if replace {
-			if err = replacer.Insert(current, replacement); err != nil {
+			if err = manager.SetRef(ref, replacement); err != nil {
 				return err
 			}
-			changed = true
+			rebuilt = replacement
 		}
-		kind, kindErr := manager.GetKind(current)
-		if kindErr != nil {
-			return kindErr
-		}
-		switch kind {
-		case ast.ASTApp:
-			count, countErr := manager.GetNumArgs(current)
-			if countErr != nil {
-				return countErr
-			}
-			for i := uint32(0); i < count; i++ {
-				child, childErr := manager.GetArg(current, i)
-				if childErr != nil {
-					return childErr
-				}
-				stack = append(stack, child)
-			}
-		case ast.ASTQuantifier:
-			body, bodyErr := manager.GetQuantifierBody(current)
-			if bodyErr != nil {
-				return bodyErr
-			}
-			stack = append(stack, body)
-			patterns, patternErr := manager.GetNumPatterns(current)
-			if patternErr != nil {
-				return patternErr
-			}
-			for i := uint32(0); i < patterns; i++ {
-				pattern, getErr := manager.GetPattern(current, i)
-				if getErr != nil {
-					return getErr
-				}
-				stack = append(stack, pattern)
-			}
-			noPatterns, noPatternErr := manager.GetNumNoPatterns(current)
-			if noPatternErr != nil {
-				return noPatternErr
-			}
-			for i := uint32(0); i < noPatterns; i++ {
-				pattern, getErr := manager.GetNoPattern(current, i)
-				if getErr != nil {
-					return getErr
-				}
-				stack = append(stack, pattern)
-			}
-		}
+		cache[current.node] = rebuilt
 	}
-	if changed {
-		return replacer.Apply(handle, root)
-	}
-	return nil
+	return manager.SetRef(root, cache[handle])
 }
 
 // normalizeFormula returns an owning reference. It follows the retained
