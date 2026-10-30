@@ -50657,3 +50657,4 @@ UDoc guard/project expression matrix (2026-10-30 UTC): extended the same source-
 UDoc identical-column filter (2026-10-30 UTC): ported the source union-find merge mutator for selected bit-vector columns. Tests verify exact retention, out-of-range columns, mismatched widths, and that validation failures leave the relation unchanged; the focused test passes.
 
 UDoc cyclic join/project regression (2026-10-30 UTC): added the C++ fixture's swapped two-column join mapping followed by removal of the left input columns. The Go test checks the exact remaining tuple and rejects nonmatching right facts; focused UDoc tests pass.
+UDoc anti-join regression coverage (2026-10-30): Added deterministic Go cases for repeated target-column mappings in the general join/project subtraction path and for subtracting a populated zero-arity negative relation. Both focused `TestUDocFilterByNegation` tests pass; the full suite was not run.

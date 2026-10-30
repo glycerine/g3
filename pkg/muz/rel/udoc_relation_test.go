@@ -380,3 +380,49 @@ func TestUDocFilterByNegationFastAndJoinProjectPaths(t *testing.T) {
 	requireFact(t, wideTarget, []uint64{0, 1}, false)
 	requireFact(t, wideTarget, []uint64{1, 1}, false)
 }
+
+func TestUDocFilterByNegationRepeatedColumnsAndZeroArity(t *testing.T) {
+	targetManager, _ := newTestDocManager(t, 2)
+	negativeManager, _ := newTestDocManager(t, 4)
+	productManager, _ := newTestDocManager(t, 6)
+	target, err := NewUDocRelation(targetManager, []uint32{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	negative, err := NewUDocRelation(negativeManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, target, negative)
+	for _, fact := range [][]uint64{{0}, {1}, {2}, {3}} {
+		if _, err = target.AddFact(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = negative.AddFact([]uint64{1, 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err = target.FilterByNegation(negative, []uint32{0, 0}, []uint32{0, 1}, productManager); err != nil {
+		t.Fatal("repeated target-column anti-join", err)
+	}
+	for _, value := range []uint64{0, 2, 3} {
+		requireFact(t, target, []uint64{value}, true)
+	}
+	requireFact(t, target, []uint64{1}, false)
+
+	zeroManager, _ := newTestDocManager(t, 0)
+	zeroArity, err := NewUDocRelation(zeroManager, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = zeroArity.AddFact(nil); err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, zeroArity)
+	if err = target.FilterByNegation(zeroArity, nil, nil, nil); err != nil {
+		t.Fatal("zero-arity negative relation", err)
+	}
+	if !target.FastEmpty() {
+		t.Fatal("matching zero-arity negative row must remove every target row")
+	}
+}

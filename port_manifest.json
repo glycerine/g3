@@ -89648,7 +89648,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity"],
       "conditionals": [
         {
           "line": 958,
@@ -89797,7 +89797,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/udoc_relation.go", "pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_relation_filter.go", "pkg/muz/rel/udoc_guard.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile.go", "pkg/muz/rel/udoc_guard_compile_test.go"],
-      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocCyclicJoinThenProject", "TestUDocRelationFormulaEmptyAndPopulated", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocGuardRecognition", "TestUDocCompileAndFilterGuardBitVectorAndBoolean", "TestUDocCompileVariableRangeEqualities", "TestUDocCompileEqualityBetweenExtracts", "TestUDocCompileConcatenatedBitVectorEqualities", "TestUDocCompileConcatsWithDifferentSegmentBoundaries", "TestUDocCompileBooleanIffAndEquality", "TestUDocGuardSourceExpressionMatrix", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity"],
       "conditionals": [
         {
           "line": 22,
@@ -194818,9 +194818,9 @@
       "path": "src/test/udoc_relation.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/udoc_relation_test.go", "pkg/muz/rel/udoc_relation_formula_test.go", "pkg/muz/rel/udoc_guard_test.go", "pkg/muz/rel/udoc_guard_compile_test.go"],
+      "tests": ["TestUDocFactsCloneComplementAndMetadata", "TestUDocProjectRenameAndExpandedColumns", "TestUDocUnionDeltaAndShapeChecks", "TestUDocJoinUsesWholeColumnEquality", "TestUDocCyclicJoinThenProject", "TestUDocFilterEqualRetainsMatchingRows", "TestUDocFilterEqualBigPreservesWideValues", "TestUDocFilterIdenticalColumns", "TestUDocFilterByNegationFastAndJoinProjectPaths", "TestUDocFilterByNegationRepeatedColumnsAndZeroArity", "TestUDocGuardSourceExpressionMatrix"],
       "assertions": [
         {
           "line": 88,
@@ -194859,7 +194859,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Go tests cover deterministic counterparts for relation operations, guard expressions, and anti-join paths. Randomized C++ stress loops and plugin-factory dispatch are not ported because no retained Go source consumer reaches those plugin callbacks."]
     },
     {
       "path": "src/test/uint_set.cpp",
