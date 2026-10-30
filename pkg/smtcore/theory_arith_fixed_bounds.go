@@ -263,31 +263,68 @@ func (t *SMTLinearArithmeticTheory) propagateArithmeticBoundAtoms() error {
 	if t.boundPropagation == 0 || t.conflictCount >= t.propagationThreshold {
 		return nil
 	}
-	// Source row propagation computes implications without installing derived
-	// numeric bounds into the candidate tableau. Use a separate logical replay:
-	// only a published Boolean consequence may affect the next live rebuild.
-	solver, status, err := t.buildSimplex()
-	if err != nil {
-		return err
+	// Native propagation reads the live tableau. Pure linear replay contains
+	// only asserted logical bounds; nonlinear replay still needs its isolated
+	// candidate to keep provisional numeric bounds out of Boolean reasons.
+	solver := t.solver
+	if t.incrementalSolver == nil || t.incrementalSolver != solver {
+		var status lbool.LBool
+		var err error
+		solver, status, err = t.buildSimplex()
+		if err != nil {
+			return err
+		}
+		if status == lbool.False {
+			return t.derivedBoundConflict(solver)
+		}
+		if status == lbool.Undef {
+			return nil
+		}
 	}
-	if status == lbool.False {
-		return t.derivedBoundConflict(solver)
+	// Source m_to_check revisits only rows touched by new bounds. Matrix
+	// pivots or a rebuilt tableau invalidate the reverse index and require a
+	// full scan. An unchanged matrix keeps the same column-to-row mapping.
+	var affected map[uint32]bool
+	if t.propagationSolver == solver && t.propagationPivots == solver.Stats.NumPivots && t.propagationHead <= len(t.assertions) {
+		affected = make(map[uint32]bool)
+		touch := func(column uint32) {
+			affected[column] = true
+			for _, row := range t.propagationRows[column] {
+				for _, entry := range row {
+					affected[entry.Variable] = true
+				}
+			}
+		}
+		for _, assertion := range t.assertions[t.propagationHead:] {
+			atom := &t.atoms[assertion.atom]
+			if !atom.supported {
+				continue
+			}
+			touch(t.propagationBases[assertion.atom])
+			if len(atom.form.terms) == 1 {
+				for column := range atom.form.terms {
+					touch(column)
+				}
+			}
+		}
+	} else {
+		rows, err := t.indexArithmeticPropagationRows(solver)
+		if err != nil {
+			return err
+		}
+		t.propagationRows = rows
+		t.propagationBases = t.arithmeticAtomBases()
 	}
-	if status == lbool.Undef {
-		return nil
-	}
-	bases := t.arithmeticAtomBases()
-	rowsByColumn, err := t.indexArithmeticPropagationRows(solver)
-	if err != nil {
-		return err
-	}
+	t.propagationSolver, t.propagationPivots = solver, solver.Stats.NumPivots
+	t.propagationHead = len(t.assertions)
+	bases, rowsByColumn := t.propagationBases, t.propagationRows
 	proofs, err := t.state.manager.ProofsEnabled()
 	if err != nil {
 		return err
 	}
 	for index := range t.atoms {
 		atom := &t.atoms[index]
-		if !atom.supported || atom.decided {
+		if !atom.supported || atom.decided || affected != nil && !affected[bases[index]] {
 			continue
 		}
 		positive := NewSMTLiteral(atom.variable, false)

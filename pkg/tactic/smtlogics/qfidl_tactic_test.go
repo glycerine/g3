@@ -148,9 +148,6 @@ func TestQFIDLTacticTranslatedProofAndCoreRoutes(t *testing.T) {
 func TestQFIDLTacticFiveThousandConstantBoundaryCPP(t *testing.T) {
 	for _, count := range []int{4999, 5000, 5001} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
-			if count >= 5000 && !testing.Short() {
-				t.Skip("smtlogics: test too slow, run with -short for full suite.")
-			}
 			c := qfidlContext(t, "(set-logic QF_LIA)(set-option :produce-models false)")
 			m, err := c.Manager()
 			qfaufliaMust(t, err)

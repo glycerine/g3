@@ -160,42 +160,50 @@ type SMTLinearArithmeticTheory struct {
 	nonlinearGBPerturbate                bool
 	nonlinearGBExhausted                 bool
 	*SMTTheoryBase
-	solver              *simplex.Solver
-	simplexVariables    []uint32
-	nextSimplex         uint32
-	replayedNextSimplex uint32
-	replayedDefinitions int
-	definitions         map[SMTTheoryVar]smtLinearForm
-	atoms               []smtLinearArithmeticAtom
-	atomByBool          map[int32]int
-	assertions          []smtIntegerDiffAssertion
-	assertionHead       int
-	scopes              []smtLinearArithmeticScope
-	unsupported         bool
-	integer             bool
-	mixed               bool
-	infinite            bool
-	integerColumns      map[uint32]bool
-	castTerms           map[ast.ASTHandle]bool
-	castTermTrail       []ast.ASTHandle
-	castPredicates      map[int32]bool
-	castPredicateTrail  []int32
-	divisionTerms       map[ast.ASTHandle]bool
-	divisionTermTrail   []ast.ASTHandle
-	nonlinearColumns    []uint32
-	nonlinearFactors    map[uint32][]uint32
-	nonlinearEnabled    bool
-	nonlinearGB         bool
-	nonlinearGBLimit    uint32
-	nonlinearBranching  bool
-	nonlinearRounds     uint32
-	nonlinearRoundLimit uint32
-	nonlinearRandom     z3rand.Generator
-	replayStatsEpoch    uint64
-	replayStatsCounted  uint64
-	delta               big.Rat
-	equalityAdapter     *smtArithmeticEqualityAdapter
-	statistics          smtLinearArithmeticStatistics
+	solver                                  *simplex.Solver
+	incrementalSolver                       *simplex.Solver
+	incrementalAtoms, incrementalAssertions int
+	incrementalBases                        []uint32
+	propagationSolver                       *simplex.Solver
+	propagationPivots                       uint32
+	propagationHead                         int
+	propagationRows                         map[uint32][][]simplex.RowEntry
+	propagationBases                        []uint32
+	simplexVariables                        []uint32
+	nextSimplex                             uint32
+	replayedNextSimplex                     uint32
+	replayedDefinitions                     int
+	definitions                             map[SMTTheoryVar]smtLinearForm
+	atoms                                   []smtLinearArithmeticAtom
+	atomByBool                              map[int32]int
+	assertions                              []smtIntegerDiffAssertion
+	assertionHead                           int
+	scopes                                  []smtLinearArithmeticScope
+	unsupported                             bool
+	integer                                 bool
+	mixed                                   bool
+	infinite                                bool
+	integerColumns                          map[uint32]bool
+	castTerms                               map[ast.ASTHandle]bool
+	castTermTrail                           []ast.ASTHandle
+	castPredicates                          map[int32]bool
+	castPredicateTrail                      []int32
+	divisionTerms                           map[ast.ASTHandle]bool
+	divisionTermTrail                       []ast.ASTHandle
+	nonlinearColumns                        []uint32
+	nonlinearFactors                        map[uint32][]uint32
+	nonlinearEnabled                        bool
+	nonlinearGB                             bool
+	nonlinearGBLimit                        uint32
+	nonlinearBranching                      bool
+	nonlinearRounds                         uint32
+	nonlinearRoundLimit                     uint32
+	nonlinearRandom                         z3rand.Generator
+	replayStatsEpoch                        uint64
+	replayStatsCounted                      uint64
+	delta                                   big.Rat
+	equalityAdapter                         *smtArithmeticEqualityAdapter
+	statistics                              smtLinearArithmeticStatistics
 }
 
 func NewSMTLinearArithmeticTheory(family ast.FamilyID) (*SMTLinearArithmeticTheory, error) {
@@ -274,6 +282,7 @@ func (t *SMTLinearArithmeticTheory) ConfigureArithmetic(config SMTArithState) er
 	if t == nil || t.equalityAdapter == nil {
 		return ast.ErrASTHandle
 	}
+	t.propagationSolver = nil
 	t.equalityAdapter.lazy = config.LazyAdapter
 	t.equalityBoundsEnabled = config.EqBounds
 	t.propagateEqualities = config.PropagateEqs
@@ -1082,6 +1091,7 @@ func (t *SMTLinearArithmeticTheory) propagateImpliedEqualities() (bool, error) {
 	if !t.canPropagateArithmeticEqualities() {
 		return false, nil
 	}
+	opposites := t.oppositeArithmeticAssertions()
 	for firstIndex, firstAssertion := range t.assertions {
 		firstAtom := &t.atoms[firstAssertion.atom]
 		firstForm, firstOK := smtLinearNormalizedLE(firstAtom, firstAssertion)
@@ -1099,7 +1109,11 @@ func (t *SMTLinearArithmeticTheory) propagateImpliedEqualities() (bool, error) {
 		if firstForm.infinity.Sign() != 0 || firstForm.constant.Sign() != 0 || firstForm.infinitesimal.Sign() != 0 || len(firstForm.terms) != 2 {
 			continue
 		}
-		for _, secondAssertion := range t.assertions[firstIndex+1:] {
+		for _, secondIndex := range opposites[firstIndex] {
+			if secondIndex <= firstIndex {
+				continue
+			}
+			secondAssertion := t.assertions[secondIndex]
 			secondAtom := &t.atoms[secondAssertion.atom]
 			secondForm, secondOK := smtLinearNormalizedLE(secondAtom, secondAssertion)
 			if !secondOK {
@@ -1145,7 +1159,11 @@ func (t *SMTLinearArithmeticTheory) propagateImpliedEqualities() (bool, error) {
 		if !firstOK || len(firstForm.terms) != 1 {
 			continue
 		}
-		for _, secondAssertion := range t.assertions[firstIndex+1:] {
+		for _, secondIndex := range opposites[firstIndex] {
+			if secondIndex <= firstIndex {
+				continue
+			}
+			secondAssertion := t.assertions[secondIndex]
 			secondAtom := &t.atoms[secondAssertion.atom]
 			secondForm, secondOK := smtLinearNormalizedLE(secondAtom, secondAssertion)
 			if !secondOK || !smtLinearFormsOpposite(&firstForm, &secondForm) {
@@ -1188,7 +1206,11 @@ func (t *SMTLinearArithmeticTheory) propagateImpliedEqualities() (bool, error) {
 		if !firstOK {
 			continue
 		}
-		for _, secondAssertion := range t.assertions[firstIndex+1:] {
+		for _, secondIndex := range opposites[firstIndex] {
+			if secondIndex <= firstIndex {
+				continue
+			}
+			secondAssertion := t.assertions[secondIndex]
 			secondAtom := &t.atoms[secondAssertion.atom]
 			secondForm, secondOK := smtLinearNormalizedLE(secondAtom, secondAssertion)
 			if !secondOK || !smtLinearFormsOpposite(&firstForm, &secondForm) {
@@ -1318,6 +1340,35 @@ func (t *SMTLinearArithmeticTheory) propagateImpliedEqualities() (bool, error) {
 }
 
 func (t *SMTLinearArithmeticTheory) rebuild() (bool, error) {
+	plain := len(t.nonlinearColumns) == 0 && len(t.expressionBounds) == 0 && len(t.derivedBounds) == 0
+	if plain && t.incrementalSolver != nil && t.incrementalSolver == t.solver &&
+		t.replayedNextSimplex == t.nextSimplex && t.replayedDefinitions == len(t.definitions) &&
+		t.incrementalAtoms == len(t.atoms) && t.incrementalAssertions <= len(t.assertions) {
+		for _, assertion := range t.assertions[t.incrementalAssertions:] {
+			ok, err := t.applyReplayAssertion(t.solver, t.incrementalBases, assertion)
+			if err != nil || !ok {
+				t.incrementalSolver = nil
+				if err == nil && t.state != nil {
+					err = t.derivedBoundConflict(t.solver)
+				}
+				return false, err
+			}
+		}
+		before := t.solver.Stats.NumPivots
+		status, err := t.solver.MakeFeasible()
+		t.statistics.pivots += uint64(t.solver.Stats.NumPivots - before)
+		t.replayStatsCounted = t.replayStatsEpoch
+		if err == nil && status == lbool.True {
+			t.incrementalAssertions = len(t.assertions)
+		} else {
+			t.incrementalSolver = nil
+			if err == nil && status == lbool.False && t.state != nil {
+				err = t.derivedBoundConflict(t.solver)
+			}
+		}
+		return status == lbool.True, err
+	}
+	t.incrementalSolver = nil
 	// Replaying logical rows must not discard the current assignment. In
 	// particular, popping constraints leaves a feasible child assignment valid
 	// in the parent. Values are seeds, never additional bounds or premises.
@@ -1333,6 +1384,11 @@ func (t *SMTLinearArithmeticTheory) rebuild() (bool, error) {
 	if err == nil && status == lbool.True {
 		t.solver = solver
 		t.replayedNextSimplex, t.replayedDefinitions = t.nextSimplex, len(t.definitions)
+		if plain {
+			t.incrementalSolver = solver
+			t.incrementalAtoms, t.incrementalAssertions = len(t.atoms), len(t.assertions)
+			t.incrementalBases = t.arithmeticAtomBases()
+		}
 	}
 	if err == nil && status == lbool.False && t.state != nil {
 		err = t.derivedBoundConflict(solver)
@@ -1426,36 +1482,15 @@ func (t *SMTLinearArithmeticTheory) buildSimplexReplay(values map[uint32]*big.Ra
 		}
 	}
 	for _, assertion := range t.assertions {
-		atom := &t.atoms[assertion.atom]
-		if !atom.supported {
-			continue
-		}
-		lower, bound := smtLinearAtomBound(atom, assertion.truth, t.integralAtom(atom))
-		base := atomBases[assertion.atom]
-		dependency := simplex.BoundDependency{Literal: smtLinearAssertionLiteral(atom, assertion).Index(), Coefficient: *big.NewRat(1, 1)}
-		solver.AddArithmeticBoundAtom(base, lower, bound, []simplex.BoundDependency{dependency})
-		_, err := smtTightenExplainedSimplexBound(solver, base, lower, bound, []simplex.BoundDependency{dependency})
+		ok, err := t.applyReplayAssertion(solver, atomBases, assertion)
 		if err != nil {
-			t.recordArithmeticBoundConflict(solver, base, lower, &smtArithmeticBoundExplanation{dependencies: []simplex.BoundDependency{dependency}})
+			return solver, lbool.Undef, err
+		}
+		if !ok {
 			return solver, lbool.False, nil
 		}
-		// Source single-variable atoms constrain the variable directly. Keep
-		// these bounds as well as the comparison row for nonlinear intervals.
-		if len(atom.form.terms) == 1 {
-			for variable, coefficient := range atom.form.terms {
-				direct := bound.Clone()
-				direct.Quo(coefficient)
-				directLower := lower == (coefficient.Sign() > 0)
-				directDependency := simplex.BoundDependency{Literal: dependency.Literal, Coefficient: *new(big.Rat).Inv(coefficient)}
-				solver.AddArithmeticBoundAtom(variable, directLower, direct, []simplex.BoundDependency{directDependency})
-				_, err = smtTightenExplainedSimplexBound(solver, variable, directLower, direct, []simplex.BoundDependency{directDependency})
-				if err != nil {
-					t.recordArithmeticBoundConflict(solver, variable, directLower, &smtArithmeticBoundExplanation{dependencies: []simplex.BoundDependency{directDependency}})
-					return solver, lbool.False, nil
-				}
-			}
-		}
 	}
+
 	for _, bound := range t.expressionBounds {
 		base, found := coefficientBases[bound.key]
 		if !found {
@@ -1624,6 +1659,7 @@ func (t *SMTLinearArithmeticTheory) PopScopes(count uint32) error {
 	if count == 0 || int(count) > len(t.scopes) {
 		return ast.ErrASTDomain
 	}
+	t.incrementalSolver = nil
 	level := len(t.scopes) - int(count)
 	scope := t.scopes[level]
 	clear(t.ownEqualities[scope.ownEqualities:])
@@ -1735,13 +1771,18 @@ type smtFixedPolynomialValue struct {
 
 func (t *SMTLinearArithmeticTheory) fixedLinearAssignments() map[uint32]smtFixedPolynomialValue {
 	fixed := make(map[uint32]smtFixedPolynomialValue)
+	opposites := t.oppositeArithmeticAssertions()
 	for firstIndex, firstAssertion := range t.assertions {
 		firstAtom := &t.atoms[firstAssertion.atom]
 		firstForm, firstOK := smtLinearNormalizedLE(firstAtom, firstAssertion)
 		if !firstOK || firstForm.infinity.Sign() != 0 || firstForm.infinitesimal.Sign() != 0 || len(firstForm.terms) != 1 {
 			continue
 		}
-		for _, secondAssertion := range t.assertions[firstIndex+1:] {
+		for _, secondIndex := range opposites[firstIndex] {
+			if secondIndex <= firstIndex {
+				continue
+			}
+			secondAssertion := t.assertions[secondIndex]
 			secondAtom := &t.atoms[secondAssertion.atom]
 			secondForm, secondOK := smtLinearNormalizedLE(secondAtom, secondAssertion)
 			if !secondOK || !smtLinearFormsOpposite(&firstForm, &secondForm) {
