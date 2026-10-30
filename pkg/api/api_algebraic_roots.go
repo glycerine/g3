@@ -46,7 +46,15 @@ func (c *SMTContext) AlgebraicRoots(expression ast.ASTHandle, assignments []ast.
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, roots.Close()) }()
-	if err = algebraic.IsolateMultivariateRoots(p.manager, p.value, &values, roots); err != nil {
+	err = func() (operationErr error) {
+		interrupt, operationErr := newAPIOperationInterruptScope(c)
+		if operationErr != nil {
+			return operationErr
+		}
+		defer func() { operationErr = errors.Join(operationErr, interrupt.Close()) }()
+		return algebraic.IsolateMultivariateRoots(p.manager, p.value, &values, roots)
+	}()
+	if err != nil {
 		return nil, err
 	}
 	result = make([]ast.ASTHandle, roots.Len())

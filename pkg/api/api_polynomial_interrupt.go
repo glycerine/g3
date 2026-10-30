@@ -9,14 +9,14 @@ import (
 	"github.com/glycerine/g3/pkg/util/control"
 )
 
-type apiPolynomialInterruptScope struct {
+type apiOperationInterruptScope struct {
 	handler *smtContextCancelHandler
 	scope   *smtContextInterruptScope
 	timer   *control.ScopedTimer
 	closed  bool
 }
 
-func newAPIPolynomialInterruptScope(context *SMTContext) (*apiPolynomialInterruptScope, error) {
+func newAPIOperationInterruptScope(context *SMTContext) (*apiOperationInterruptScope, error) {
 	manager, err := context.Manager()
 	if err != nil {
 		return nil, err
@@ -35,10 +35,10 @@ func newAPIPolynomialInterruptScope(context *SMTContext) (*apiPolynomialInterrup
 	if err != nil {
 		return nil, errors.Join(err, scope.Close())
 	}
-	return &apiPolynomialInterruptScope{handler: handler, scope: scope, timer: timer}, nil
+	return &apiOperationInterruptScope{handler: handler, scope: scope, timer: timer}, nil
 }
 
-func (s *apiPolynomialInterruptScope) Close() (result error) {
+func (s *apiOperationInterruptScope) Close() (result error) {
 	if s == nil || s.closed {
 		return nil
 	}
@@ -49,4 +49,10 @@ func (s *apiPolynomialInterruptScope) Close() (result error) {
 		s.handler, s.scope, s.timer = nil, nil, nil
 	}
 	return result
+}
+
+type apiPolynomialInterruptScope = apiOperationInterruptScope
+
+func newAPIPolynomialInterruptScope(context *SMTContext) (*apiPolynomialInterruptScope, error) {
+	return newAPIOperationInterruptScope(context)
 }

@@ -41,7 +41,15 @@ func (c *SMTContext) AlgebraicEval(expression ast.ASTHandle, assignments []ast.A
 	if err != nil {
 		return 0, err
 	}
-	result, err = algebraic.EvalSign(p.manager, p.value, &values)
+	err = func() (operationErr error) {
+		interrupt, operationErr := newAPIOperationInterruptScope(c)
+		if operationErr != nil {
+			return operationErr
+		}
+		defer func() { operationErr = errors.Join(operationErr, interrupt.Close()) }()
+		result, operationErr = algebraic.EvalSign(p.manager, p.value, &values)
+		return operationErr
+	}()
 	if result > 0 {
 		result = 1
 	} else if result < 0 {
