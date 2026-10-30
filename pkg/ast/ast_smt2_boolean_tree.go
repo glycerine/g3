@@ -94,7 +94,9 @@ func (m *ASTManager) smt2PPExprTreeWithInfoProfile(root ASTHandle, names []usymb
 }
 
 func (m *ASTManager) smt2PPExprTreeWithInfoAt(root ASTHandle, names []usymbol.Symbol, requireBool bool, info *smt2PPInfo, enclosingAliases int, allowAliases bool, config SMT2PPExprConfig) (ASTHandle, error) {
-	profile := SMT2PPExprProfile{Decimal: config.Decimal, DecimalPrecision: config.DecimalPrecision, BVLiterals: true, MaxDepth: 5, MinAliasSize: 10, FlatAssoc: true}
+	profile := defaultSMT2PPExprProfile()
+	profile.Decimal = config.Decimal
+	profile.DecimalPrecision = config.DecimalPrecision
 	if config.Profile != nil {
 		profile = *config.Profile
 	}
