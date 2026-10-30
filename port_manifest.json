@@ -98751,7 +98751,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/opt/bound_expressions.go", "pkg/opt/bound_expressions_test.go", "pkg/opt/bound_expression.go", "pkg/opt/bound_expression_test.go", "pkg/opt/arithmetic_value_expression.go", "pkg/opt/objective_decomposition_types.go", "pkg/opt/objective_decomposition.go", "pkg/opt/objective_decomposition_restore.go", "pkg/opt/objective_purifier.go", "pkg/opt/objective_pipeline.go", "pkg/opt/objective_pipeline_check.go", "pkg/opt/objective_purified_pipeline.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go", "pkg/parsers/smt2/optimization_test.go", "pkg/cmd_context/optimization_diagnostics.go", "pkg/cmd_context/optimization_diagnostics_test.go", "pkg/cmd_context/optimization_model_comparison.go", "pkg/cmd_context/optimization_model_comparison_test.go"],
-      "tests": ["TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease", "TestOptBoundExpressionSourceBranchesAndOwnedResult", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"],
+      "tests": ["TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease", "TestOptBoundExpressionSourceBranchesAndOwnedResult", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
           "line": 271,
@@ -98853,7 +98853,7 @@
           "name": "arithmetic, unsigned bit-vector and normalized weighted-soft Pareto comparison construction, persistent frontier enumeration, objective publication and terminal unsat/reset lifecycle (opt_context.cpp:470-565)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         }
       ],
       "ownership": [],
@@ -98976,7 +98976,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
+      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
       "assertions": [
         {
           "line": 54,
@@ -98990,7 +98990,7 @@
           "name": "GIA arithmetic, unsigned bit-vector and normalized weighted-soft Pareto improvement loop, retained best model and persistent not-dominated blockers across checks (opt_pareto.cpp:31-86)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         }
       ],
       "ownership": ["The initial Go model is snapshotted before PushCore clears the published solver result; subsequent models are acquired after each satisfiable dominance check. Temporary dominance AST references are released in reverse order."],
@@ -99002,7 +99002,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"],
+      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"],
       "conditionals": [
         {
           "line": 20,
@@ -99020,7 +99020,7 @@
           "name": "concrete arithmetic, unsigned bit-vector and normalized weighted-soft Pareto state and callback lifecycle used by the retained optimizer path (opt_pareto.h:31-109)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"]
+          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"]
         }
       ],
       "ownership": ["Go context owns the persistent Pareto backend and closes it on reset, terminal status, or failure. The initial model is acquired before PushCore clears the published solver result."],

@@ -17,8 +17,9 @@ import (
 )
 
 type paretoModelValue struct {
-	measure  big.Rat
-	softCost big.Rat
+	measure    big.Rat
+	softCost   big.Rat
+	comparable bool
 }
 
 func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModelValue, resultErr error) {
@@ -33,13 +34,15 @@ func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModel
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	if err = evaluator.SetModelCompletion(true); err != nil {
+	// C++ model::eval defaults model_completion to false in opt_context::mk_cmp.
+	if err = evaluator.SetModelCompletion(false); err != nil {
 		return nil, err
 	}
 	values = make([]paretoModelValue, len(c.objectives))
 	for i := range c.objectives {
 		objective := &c.objectives[i]
 		if objective.soft {
+			values[i].comparable = true
 			for j := range objective.softTerms {
 				term := &objective.softTerms[j]
 				ref, e := evaluator.EvaluateValue(term.expression)
@@ -79,12 +82,13 @@ func (c *Context) evaluateParetoModel(md *model.ModelCore) (values []paretoModel
 			} else {
 				text, _, matched, e = c.manager.ArithmeticNumeralText(h)
 			}
-			if e == nil && !matched {
-				e = ast.ErrASTDomain
-			}
 			if e == nil {
-				if _, matched = values[i].measure.SetString(text); !matched {
+				if !matched {
+					values[i].comparable = false
+				} else if _, parsed := values[i].measure.SetString(text); !parsed {
 					e = ast.ErrASTDomain
+				} else {
+					values[i].comparable = true
 				}
 			}
 		}
@@ -225,6 +229,19 @@ func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, values []paret
 		}
 		if err != nil {
 			return err
+		}
+		if !objective.soft && !values[i].comparable {
+			weak[i], err = hold(c.manager.MkTrue())
+			if err == nil {
+				notBetter[i], err = hold(c.manager.MkTrue())
+			}
+			if err == nil {
+				strict[i], err = hold(c.manager.MkFalse())
+			}
+			if err != nil {
+				return err
+			}
+			continue
 		}
 		if objective.soft {
 			strict[i], err = hold(c.manager.MkNot(notBetter[i]))
@@ -466,6 +483,10 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 				maximum := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), uint(c.objectives[i].bitWidth)), big.NewInt(1))
 				result.Values[i].SoftCost.Sub(new(big.Rat).SetInt(maximum), &values[i].measure)
 			}
+			continue
+		}
+		if !values[i].comparable {
+			result.Values[i].ArithmeticOpenBounds = true
 			continue
 		}
 		finite := simplex.RationalInfinitesimal(&values[i].measure)
