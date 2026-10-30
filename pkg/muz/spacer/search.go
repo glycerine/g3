@@ -144,6 +144,7 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 		}
 	}
 	restart := newSearchRestartPolicy(useRestarts, restartInitial, initialLemmas)
+	needsCheckpoint := true
 	for {
 		node, err := q.Top()
 		if err != nil {
@@ -151,6 +152,12 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 		}
 		if node == nil {
 			return false, nil
+		}
+		if needsCheckpoint {
+			if err := spacerCheckpoint(node.transformer.manager); err != nil {
+				return false, err
+			}
+			needsCheckpoint = false
 		}
 		closed, err := node.IsClosed()
 		if err != nil {
@@ -207,8 +214,15 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 			if q.IsRoot(node) {
 				return true, nil
 			}
+			// Source starts the next queue iteration before walking last_reachable.
+			if err := spacerCheckpoint(node.transformer.manager); err != nil {
+				return false, err
+			}
 			candidate := node
 			for candidate.parent != nil {
+				if err := spacerCheckpoint(node.transformer.manager); err != nil {
+					return false, err
+				}
 				parent := candidate.parent
 				reachable, err := q.confirmConcreteReachability(parent)
 				if err != nil {
@@ -226,9 +240,13 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 				}
 				candidate = parent
 				if q.IsRoot(candidate) {
+					if err := spacerCheckpoint(node.transformer.manager); err != nil {
+						return false, err
+					}
 					return true, nil
 				}
 			}
+			continue // finish this source iteration after the ancestor walk
 		case lbool.False:
 			level, levelErr := node.Level()
 			if levelErr != nil {
@@ -287,5 +305,6 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 				return false, err
 			}
 		}
+		needsCheckpoint = true
 	}
 }

@@ -42,6 +42,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 		return ExpansionResult{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, check.Close(p.manager)) }()
+	if err = spacerCheckpoint(p.manager); err != nil {
+		return ExpansionResult{}, err
+	}
 	result := ExpansionResult{Status: check.Status, Concrete: check.IsConcrete}
 	switch check.Status {
 	case lbool.True:
@@ -61,10 +64,16 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 				if makeErr != nil {
 					return ExpansionResult{}, makeErr
 				}
+				if err := spacerCheckpoint(p.manager); err != nil {
+					return ExpansionResult{}, errors.Join(err, fact.Close())
+				}
 				_, addErr := p.AddReachFact(fact)
 				closeErr := fact.Close()
 				if addErr != nil || closeErr != nil {
 					return ExpansionResult{}, errors.Join(addErr, closeErr)
+				}
+				if err := spacerCheckpoint(p.manager); err != nil {
+					return ExpansionResult{}, err
 				}
 			}
 			derivation, found, detachErr := obligation.Derivation()
@@ -87,6 +96,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 				child, childErr := derivation.CreateNextChild()
 				if childErr != nil {
 					return ExpansionResult{}, errors.Join(childErr, derivation.Close())
+				}
+				if err := spacerCheckpoint(p.manager); err != nil {
+					return ExpansionResult{}, errors.Join(err, derivation.Close())
 				}
 				if child != nil {
 					if childErr = child.SetDerivation(derivation); childErr != nil {
@@ -129,6 +141,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 			return ExpansionResult{}, errors.Join(err, lemma.Close())
 		}
 		if generalize && p.useEqClassGeneralizer {
+			if err := spacerCheckpoint(p.manager); err != nil {
+				return ExpansionResult{}, errors.Join(err, lemma.Close())
+			}
 			generalized, generalizeErr := p.generalizeEqualityClasses(obligation, lemma)
 			if generalizeErr != nil {
 				return ExpansionResult{}, errors.Join(generalizeErr, lemma.Close())
@@ -141,6 +156,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 			}
 		}
 		if generalize && p.useInductiveGeneralizer {
+			if err := spacerCheckpoint(p.manager); err != nil {
+				return ExpansionResult{}, errors.Join(err, lemma.Close())
+			}
 			generalized, generalizeErr := p.generalizeInductiveLemma(obligation, lemma)
 			if generalizeErr != nil {
 				return ExpansionResult{}, errors.Join(generalizeErr, lemma.Close())
@@ -153,6 +171,9 @@ func (p *PredicateTransformer) ExpandObligation(obligation *ProofObligation) (_ 
 			}
 		}
 		if generalize && p.useArrayEqGeneralizer {
+			if err := spacerCheckpoint(p.manager); err != nil {
+				return ExpansionResult{}, errors.Join(err, lemma.Close())
+			}
 			generalized, generalizeErr := p.generalizeArrayEqualityLemma(obligation, lemma)
 			if generalizeErr != nil {
 				return ExpansionResult{}, errors.Join(generalizeErr, lemma.Close())

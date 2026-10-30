@@ -539,8 +539,14 @@ func (c *Context) propagate(minimum, maximum uint32) (bool, error) {
 		}
 	}
 	for level := minimum; ; level++ {
+		if err := spacerCheckpoint(c.manager); err != nil {
+			return false, err
+		}
 		all := true
 		for _, declaration := range c.order {
+			if err := spacerCheckpoint(c.manager); err != nil {
+				return false, err
+			}
 			propagated, err := c.transformers[declaration].PropagateToNextLevel(level)
 			if err != nil {
 				return false, err
@@ -549,6 +555,9 @@ func (c *Context) propagate(minimum, maximum uint32) (bool, error) {
 		}
 		if all {
 			for _, declaration := range c.order {
+				if err := spacerCheckpoint(c.manager); err != nil {
+					return false, err
+				}
 				if err := c.transformers[declaration].PropagateToInfinity(level); err != nil {
 					return false, err
 				}
@@ -641,6 +650,9 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	c.solved = true
 	level := fromLevel
 	for attempt := uint32(0); attempt < maxLevels; attempt++ {
+		if err := spacerCheckpoint(c.manager); err != nil {
+			return lbool.Undef, err
+		}
 		reachable, err := c.queue.checkReachability(c.resetQueue, c.flexibleTrace, c.flexibleDepth, c.useRestarts, c.restartInitial, c.lemmaAdditions)
 		if err != nil {
 			return lbool.Undef, err
