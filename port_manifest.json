@@ -98826,10 +98826,11 @@
           "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes"]
         },
         {
-          "name": "objective display conversion for exact finite, infinitesimal, unbounded and lower/upper interval arithmetic results (opt_context.cpp:1264-1283,1299-1340,1352-1381)",
+          "name": "objective display conversion and lower/upper interval bounds for exact finite, infinitesimal, unbounded and strict lexicographic results (opt_context.cpp:1264-1283,1299-1340,1352-1381)",
           "status": "partial",
           "go_target": "pkg/cmd_context/optimization.go",
-          "tests": ["TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "go_targets": ["pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_bounds.go", "pkg/cmd_context/optimization_bounds_source_test.go"],
+          "tests": ["TestOptimizationBoundsPreserveStrictLexicographicEndpoints", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
         },
         {
           "name": "scoped_state grouped soft terms, negative-weight normalization, MaxSMT objective order, scoped rollback, model publication and exact rational assignment display (opt_context.cpp:49-107,156-180,227-230,800-925,1264-1283)",
