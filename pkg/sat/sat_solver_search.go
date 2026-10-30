@@ -336,15 +336,6 @@ func (s *Solver) checkSpan(count uint32, span satSolverLiteralSpan) (lbool.LBool
 		}
 		return lbool.Undef, nil
 	}
-	if cfg.ProbSearch {
-		if _, e = s.cleaner.run(true); e != nil {
-			return lbool.Undef, e
-		}
-		if s.propagation.inconsistent {
-			return lbool.False, nil
-		}
-		return s.doProbSearch(count)
-	}
 	if cfg.NumParallel > 1 && !s.conflict.parallelPresent {
 		return s.checkParallelSpan(count, span, cfg.NumParallel)
 	}

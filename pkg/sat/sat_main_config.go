@@ -71,8 +71,7 @@ const (
 	satConfigCoreMinimizeMask
 	satConfigCoreMinimizePartialMask
 	satConfigDimacsDisplayMask
-	satConfigProbSearchMask
-	satConfigAllFieldsMask = (satConfigProbSearchMask << 1) - 1
+	satConfigAllFieldsMask = (satConfigDimacsDisplayMask << 1) - 1
 )
 
 type satMainConfigState struct {
@@ -90,7 +89,7 @@ type satMainConfigState struct {
 	SimplifyMax                                                                             uint32
 	GCStrategy                                                                              satGCStrategy
 	GCInitial, GCIncrement, GCSmallLBD, GCK                                                 uint32
-	MinimizeLemmas, DynSubRes, CoreMinimize, CoreMinimizePartial, DimacsDisplay, ProbSearch bool
+	MinimizeLemmas, DynSubRes, CoreMinimize, CoreMinimizePartial, DimacsDisplay bool
 	Initialized                                                                             uint32
 }
 

@@ -208,8 +208,5 @@ func (m *satMainConfig) Update(p *uparams.ParamsRef) (err error) {
 	if e = m.boolean(p, &g, "dyn_sub_res", true, &m.state.DynSubRes, satConfigDynSubResMask); e != nil {
 		return e
 	}
-	if e = m.boolean(p, &g, "dimacs.display", false, &m.state.DimacsDisplay, satConfigDimacsDisplayMask); e != nil {
-		return e
-	}
-	return m.boolean(p, &g, "prob_search", false, &m.state.ProbSearch, satConfigProbSearchMask)
+	return m.boolean(p, &g, "dimacs.display", false, &m.state.DimacsDisplay, satConfigDimacsDisplayMask)
 }
