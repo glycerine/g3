@@ -15,6 +15,24 @@ func newArrayEqRewriteCoveragePlugin(t *testing.T, f *coneFixture) *transforms.A
 	return plugin
 }
 
+func TestArrayEqRewritePluginCloseAndClosedTransform(t *testing.T) {
+	f := newConeFixture(t)
+	plugin, err := transforms.NewArrayEqRewritePlugin(f.manager, f.rules, f.globals.Context, f.globals, 12345)
+	coneMust(t, err)
+	if plugin.Priority() != 12345 || plugin.CanDestratifyNegation() {
+		t.Fatal("array equality rewrite plugin capability contract differs from the source")
+	}
+	plugin.Cancel()
+	coneMust(t, plugin.Close())
+	coneMust(t, plugin.Close())
+	if result, transformErr := plugin.Transform(f.set); transformErr == nil || result != nil {
+		if result != nil {
+			coneMust(t, result.Close())
+		}
+		t.Fatalf("closed plugin transform returned %v, %v", result, transformErr)
+	}
+}
+
 func TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()

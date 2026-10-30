@@ -36,6 +36,9 @@ func NewArrayEqRewritePlugin(manager *ast.ASTManager, rules *base.RuleManager, c
 	}
 	rewriter, err := astrewriter.NewTheoryRewriter(manager, context, globals, &local)
 	if err != nil {
+		if rewriter != nil {
+			err = errors.Join(err, rewriter.Close())
+		}
 		return nil, err
 	}
 	return &ArrayEqRewritePlugin{manager: manager, rules: rules, rewriter: rewriter, priority: priority}, nil

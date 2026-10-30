@@ -92751,6 +92751,7 @@
         "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
         "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
         "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
+        "TestArrayEqRewritePluginCloseAndClosedTransform",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -92767,13 +92768,14 @@
             "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
             "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
             "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
+            "TestArrayEqRewritePluginCloseAndClosedTransform",
             "TestSMTLibRunnerCPPReference"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "The rule transformation method is implemented and covered; native proof attachment and full ownership/method audits remain open, so the unit remains partial."
+        "The rule transformation method is implemented and covered; package-level ownership and method audits remain open, so the unit remains partial."
       ]
     },
     {
@@ -92790,7 +92792,8 @@
         "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
         "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
         "TestArrayEqRewriteMergesPreviouslySeparateClasses",
-        "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce"
+        "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
+        "TestArrayEqRewritePluginCloseAndClosedTransform"
       ],
       "conditionals": [
         {
@@ -92814,13 +92817,14 @@
             "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
             "TestArrayEqRewriteRestoresIndependentClassesAndUsesSourceRoots",
             "TestArrayEqRewriteMergesPreviouslySeparateClasses",
-            "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce"
+            "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
+            "TestArrayEqRewritePluginCloseAndClosedTransform"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Go exposes the concrete typed transform plugin directly; native proof production remains outside this batch."
+        "Go exposes the concrete typed transform plugin directly; constructor and rewrite-owner lifecycle remain under audit."
       ]
     },
     {
