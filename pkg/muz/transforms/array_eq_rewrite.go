@@ -16,7 +16,8 @@ import (
 type ArrayEqRewritePlugin struct {
 	manager  *ast.ASTManager
 	rules    *base.RuleManager
-	rewriter *astrewriter.TheoryRewriter
+	context  *uparams.ParamsContext
+	globals  *uparams.GlobalParamsService
 	priority uint32
 	closed   bool
 }
@@ -25,23 +26,7 @@ func NewArrayEqRewritePlugin(manager *ast.ASTManager, rules *base.RuleManager, c
 	if manager == nil || rules == nil || context == nil || globals == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
-	local, err := context.NewValue()
-	if err != nil {
-		return nil, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, context.Del(&local)) }()
-	name := "expand_select_store"
-	if err = context.SetBoolName(&local, &name, true); err != nil {
-		return nil, err
-	}
-	rewriter, err := astrewriter.NewTheoryRewriter(manager, context, globals, &local)
-	if err != nil {
-		if rewriter != nil {
-			err = errors.Join(err, rewriter.Close())
-		}
-		return nil, err
-	}
-	return &ArrayEqRewritePlugin{manager: manager, rules: rules, rewriter: rewriter, priority: priority}, nil
+	return &ArrayEqRewritePlugin{manager: manager, rules: rules, context: context, globals: globals, priority: priority}, nil
 }
 
 func (p *ArrayEqRewritePlugin) Priority() uint32            { return p.priority }
@@ -309,13 +294,30 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 			tails, negated = append(tails, equality), append(negated, false)
 		}
 	}
+	local, err := p.context.NewValue()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.context.Del(&local)) }()
+	optionName := "expand_select_store"
+	if err = p.context.SetBoolName(&local, &optionName, true); err != nil {
+		return nil, err
+	}
+	rewriter, err := astrewriter.NewTheoryRewriter(p.manager, p.context, p.globals, &local)
+	if err != nil {
+		if rewriter != nil {
+			err = errors.Join(err, rewriter.Close())
+		}
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, rewriter.Close()) }()
 	for i := uninterpreted; i < len(tails); i++ {
 		ref, makeErr := p.manager.NewRef(ast.ASTHandle{})
 		if makeErr != nil {
 			return nil, makeErr
 		}
 		owned = append(owned, ref)
-		if makeErr = p.rewriter.Rewrite(tails[i], ref); makeErr != nil {
+		if makeErr = rewriter.Rewrite(tails[i], ref); makeErr != nil {
 			return nil, makeErr
 		}
 		tails[i], makeErr = p.manager.RefGet(ref)
@@ -335,7 +337,7 @@ func (p *ArrayEqRewritePlugin) transformRule(rule *base.Rule) (_ *base.Rule, res
 }
 
 func (p *ArrayEqRewritePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil || p.rewriter == nil {
+	if p == nil || p.closed || p.manager == nil || p.rules == nil || p.context == nil || p.globals == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result, err := base.NewRuleSet(p.rules)
@@ -384,7 +386,5 @@ func (p *ArrayEqRewritePlugin) Close() error {
 		return nil
 	}
 	p.closed = true
-	err := p.rewriter.Close()
-	p.rewriter = nil
-	return err
+	return nil
 }
