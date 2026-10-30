@@ -33,6 +33,31 @@ func TestArrayEqRewritePluginCloseAndClosedTransform(t *testing.T) {
 	}
 }
 
+func TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities(t *testing.T) {
+	f := newConeFixture(t, "P")
+	f.add(t, f.applications["P"], "plain-fact")
+	coneMust(t, f.set.SetOutputPredicate(f.declarations["P"]))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("array equality rewrite fixture is unstratified")
+	}
+	result, err := newArrayEqRewriteCoveragePlugin(t, f).Transform(f.set)
+	coneMust(t, err)
+	if result == nil {
+		t.Fatal("source transform must rebuild the rule set even without array equalities")
+	}
+	defer func() { coneMust(t, result.Close()) }()
+	if count, getErr := result.Len(); getErr != nil || count != 1 {
+		t.Fatalf("rebuilt rule count %d, want 1: %v", count, getErr)
+	}
+	output, err := result.OutputPredicate()
+	coneMust(t, err)
+	if output != f.declarations["P"] {
+		t.Fatal("rebuilt rule set lost its output predicate", output)
+	}
+}
+
 func TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail(t *testing.T) {
 	f := newConeFixture(t)
 	boolean, err := f.manager.MkBoolSort()

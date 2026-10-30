@@ -93009,7 +93009,7 @@
       "path": "src/muz/transforms/dl_mk_array_eq_rewrite.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_eq_rewrite.go",
         "pkg/muz/transforms/array_eq_rewrite_test.go",
@@ -93025,15 +93025,16 @@
         "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
         "TestArrayEqRewritePluginCloseAndClosedTransform",
         "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
+            "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "option-gated array equivalence-class collection, non-variable representative preference, application replacement, restored equalities, and expand_select_store rewriting (dl_mk_array_eq_rewrite.cpp:29-119)",
-          "status": "complete",
+          "name": "Array-equivalence collection, source representative selection, all-tail application replacement, restored equalities, and configured select-over-store rewriting (dl_mk_array_eq_rewrite.cpp:29-119)",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/array_eq_rewrite.go",
           "tests": [
             "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
@@ -93042,21 +93043,20 @@
             "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
             "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
             "TestArrayEqRewritePluginCloseAndClosedTransform",
-            "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
+        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
+        "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities",
             "TestSMTLibRunnerCPPReference"
           ]
         }
       ],
-      "ownership": [],
-      "deviations": [
-        "The Go transform rewrites interpreted array terms in predicate-tail arguments as the C++ th_rewriter does; broader package ownership and method audits remain open."
-      ]
+      "ownership": ["The transform borrows its manager and rule manager, returns ownership of a newly constructed RuleSet, and owns no persistent AST references; RuleTransformer owns and closes the plugin."],
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_array_eq_rewrite.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_eq_rewrite.go",
         "pkg/muz/transforms/array_eq_rewrite_coverage_test.go"
@@ -93068,7 +93068,8 @@
         "TestArrayEqRewriteMergesPreviouslySeparateClasses",
         "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
         "TestArrayEqRewritePluginCloseAndClosedTransform",
-        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail"
+        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
+        "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities"
       ],
       "conditionals": [
         {
@@ -93080,12 +93081,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_array_eq_rewrite concrete rule-transform plugin surface",
-          "status": "complete",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/array_eq_rewrite.go",
           "tests": [
             "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
@@ -93094,14 +93095,13 @@
             "TestArrayEqRewriteMergesPreviouslySeparateClasses",
             "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
             "TestArrayEqRewritePluginCloseAndClosedTransform",
-        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail"
+            "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
+            "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities"
           ]
         }
       ],
-      "ownership": [],
-      "deviations": [
-        "Go exposes the concrete typed transform plugin directly; constructor and rewrite-owner lifecycle remain under audit."
-      ]
+      "ownership": ["The Go plugin borrows its AST and rule services; RuleTransformer owns the plugin and calls Close, while Transform returns a new RuleSet owner."],
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_array_instantiation.cpp",
