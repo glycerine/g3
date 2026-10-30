@@ -1,6 +1,7 @@
 package transforms_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -50,13 +51,21 @@ func TestUnboundCompressorProjectsHeadAndTailArgument(t *testing.T) {
 	coneMust(t, definitions[0].Close())
 	goals, err := result.PredicateRules(goal.declaration)
 	coneMust(t, err)
-	if len(goals) != 1 {
-		t.Fatalf("goal rules %d, want 1", len(goals))
+	if len(goals) != 2 {
+		t.Fatalf("goal rules %d, want source rule and decompression alternative", len(goals))
 	}
-	if declaration, err := goals[0].TailDeclaration(0); err != nil || declaration != compressed {
-		t.Fatal("goal tail was not decompressed", declaration, err)
+	foundCompressed := false
+	for _, goalRule := range goals {
+		declaration, getErr := goalRule.TailDeclaration(0)
+		if getErr != nil {
+			coneMust(t, getErr)
+		}
+		foundCompressed = foundCompressed || declaration == compressed
+		coneMust(t, goalRule.Close())
 	}
-	coneMust(t, goals[0].Close())
+	if !foundCompressed {
+		t.Fatal("goal decompression alternative was not generated")
+	}
 }
 
 func TestUnboundCompressorSkipsOutputsDisabledAndBoundHeads(t *testing.T) {
@@ -127,5 +136,78 @@ func TestUnboundCompressorRepeatsForNewlyProjectedUnboundArguments(t *testing.T)
 	}
 	if got, getErr := f.manager.GetArity(second); getErr != nil || got != 1 {
 		t.Fatalf("second projected arity %d, want 1: %v", got, getErr)
+	}
+}
+
+func TestUnboundCompressorUsesRuleSpecificHeadArguments(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	x, err := f.manager.MkVar(0, boolean)
+	coneMust(t, err)
+	y, err := f.manager.MkVar(1, boolean)
+	coneMust(t, err)
+	z, err := f.manager.MkVar(2, boolean)
+	coneMust(t, err)
+	p := declareTransformPredicate(t, f, "compress-specific-P", []ast.ASTHandle{boolean, boolean, boolean}, []ast.ASTHandle{x, y, z})
+	q := declareTransformPredicate(t, f, "compress-specific-Q", []ast.ASTHandle{boolean, boolean}, []ast.ASTHandle{y, z})
+	r := declareTransformPredicate(t, f, "compress-specific-R", []ast.ASTHandle{boolean, boolean}, []ast.ASTHandle{x, z})
+	goal := declareTransformPredicate(t, f, "compress-specific-Goal", []ast.ASTHandle{boolean}, []ast.ASTHandle{z})
+	addTransformRule(t, f, p.application, []ast.ASTHandle{q.application}, nil, "first-unbound-position")
+	addTransformRule(t, f, p.application, []ast.ASTHandle{r.application}, nil, "second-unbound-position")
+	addTransformRule(t, f, goal.application, []ast.ASTHandle{p.application}, nil, "specific-consumer")
+	coneMust(t, f.set.SetOutputPredicate(goal.declaration))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("rule-specific compression fixture rejected")
+	}
+	plugin := transforms.NewUnboundCompressorPlugin(f.manager, f.rules, true, 0)
+	defer func() { coneMust(t, plugin.Close()) }()
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	if result == nil {
+		t.Fatal("unbound arguments were not compressed")
+	}
+	defer func() { coneMust(t, result.Close()) }()
+	definitions := make(map[ast.ASTHandle]bool)
+	count, err := result.Len()
+	coneMust(t, err)
+	for index := 0; index < count; index++ {
+		rule, getErr := result.Rule(index)
+		coneMust(t, getErr)
+		head, getErr := rule.HeadDeclaration()
+		if getErr == nil && head != goal.declaration && head != p.declaration {
+			arity, arityErr := f.manager.GetArity(head)
+			if arityErr == nil && arity == 2 {
+				definitions[head] = true
+			}
+		}
+		getErr = errors.Join(getErr, rule.Close())
+		coneMust(t, getErr)
+	}
+	if len(definitions) != 2 {
+		t.Fatalf("rule-specific compressed definitions %d, want two", len(definitions))
+	}
+	goalRules, err := result.PredicateRules(goal.declaration)
+	coneMust(t, err)
+	defer func() {
+		for _, rule := range goalRules {
+			coneMust(t, rule.Close())
+		}
+	}()
+	if len(goalRules) != 3 {
+		t.Fatalf("goal rule alternatives %d, want original plus both decompressions", len(goalRules))
+	}
+	compressedTails := make(map[ast.ASTHandle]bool)
+	for _, rule := range goalRules {
+		declaration, getErr := rule.TailDeclaration(0)
+		coneMust(t, getErr)
+		if declaration != p.declaration {
+			compressedTails[declaration] = true
+		}
+	}
+	if len(compressedTails) != 2 {
+		t.Fatalf("distinct decompressed tail predicates %d, want two", len(compressedTails))
 	}
 }

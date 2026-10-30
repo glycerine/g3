@@ -5,6 +5,7 @@ package transforms
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -164,7 +165,7 @@ func (p *UnboundCompressorPlugin) compressedApplication(application ast.ASTHandl
 	return p.manager.MkApp(declaration, arguments)
 }
 
-func (p *UnboundCompressorPlugin) rewriteRule(rule *base.Rule) (*base.Rule, bool, error) {
+func (p *UnboundCompressorPlugin) rewriteRule(source *base.RuleSet, rule *base.Rule) ([]*base.Rule, bool, error) {
 	head, err := rule.Head()
 	if err != nil {
 		return nil, false, err
@@ -174,22 +175,28 @@ func (p *UnboundCompressorPlugin) rewriteRule(rule *base.Rule) (*base.Rule, bool
 		return nil, false, err
 	}
 	changed := false
-	for key := range p.mapping {
-		if key.predicate == headDeclaration {
-			head, err = p.compressedApplication(head, key)
-			if err != nil {
-				return nil, false, err
-			}
-			changed = true
-			break
+	key, found, err := p.headTask(source, rule)
+	if err != nil {
+		return nil, false, err
+	}
+	if found && !p.mapping[key].IsNull() && key.predicate == headDeclaration {
+		head, err = p.compressedApplication(head, key)
+		if err != nil {
+			return nil, false, err
 		}
+		changed = true
 	}
 	total, err := rule.TailSize()
 	if err != nil {
 		return nil, false, err
 	}
-	tails := make([]ast.ASTHandle, 0, total+1)
-	negated := make([]bool, 0, total+1)
+	type alternative struct {
+		tails []ast.ASTHandle
+		neg   []bool
+		extra []ast.ASTHandle
+	}
+	alternatives := []alternative{{}}
+	changedByTail := false
 	for index := 0; index < total; index++ {
 		tail, negative, getErr := rule.Tail(index)
 		if getErr != nil {
@@ -199,43 +206,78 @@ func (p *UnboundCompressorPlugin) rewriteRule(rule *base.Rule) (*base.Rule, bool
 		if getErr != nil {
 			return nil, false, getErr
 		}
-		rewritten := false
+		var keys []compressionKey
 		for key := range p.mapping {
-			if key.predicate != declaration {
-				continue
+			if key.predicate == declaration {
+				keys = append(keys, key)
 			}
-			compressed, x := p.compressedApplication(tail, key)
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i].argument < keys[j].argument })
+		if len(keys) == 0 {
+			for i := range alternatives {
+				alternatives[i].tails = append(alternatives[i].tails, tail)
+				alternatives[i].neg = append(alternatives[i].neg, negative)
+			}
+			continue
+		}
+		changedByTail = true
+		if negative {
+			compressed, x := p.compressedApplication(tail, keys[0])
 			if x != nil {
 				return nil, false, x
 			}
-			if negative {
-				tails, negated = append(tails, tail, compressed), append(negated, true, true)
-			} else {
-				tails, negated = append(tails, compressed), append(negated, false)
+			for i := range alternatives {
+				alternatives[i].tails = append(alternatives[i].tails, tail)
+				alternatives[i].neg = append(alternatives[i].neg, true)
+				alternatives[i].extra = append(alternatives[i].extra, compressed)
 			}
-			changed, rewritten = true, true
-			break
+			continue
 		}
-		if !rewritten {
-			tails, negated = append(tails, tail), append(negated, negative)
+		var branched []alternative
+		for _, existing := range alternatives {
+			original := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), tail), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...)}
+			branched = append(branched, original)
+			for _, key := range keys {
+				compressed, x := p.compressedApplication(tail, key)
+				if x != nil {
+					return nil, false, x
+				}
+				variant := alternative{tails: append(append([]ast.ASTHandle(nil), existing.tails...), compressed), neg: append(append([]bool(nil), existing.neg...), false), extra: append([]ast.ASTHandle(nil), existing.extra...)}
+				branched = append(branched, variant)
+			}
 		}
+		alternatives = branched
 	}
-	if !changed {
+	if !changed && !changedByTail {
 		retained, retainErr := rule.Retain()
-		return retained, false, retainErr
+		return []*base.Rule{retained}, false, retainErr
 	}
 	name, err := rule.Name()
 	if err != nil {
 		return nil, false, err
 	}
-	replacement, err := p.rules.NewRule(head, tails, negated, name)
-	if err != nil {
-		return nil, false, err
+	result := make([]*base.Rule, 0, len(alternatives))
+	for _, variant := range alternatives {
+		variant.tails = append(variant.tails, variant.extra...)
+		for range variant.extra {
+			variant.neg = append(variant.neg, true)
+		}
+		replacement, makeErr := p.rules.NewRule(head, variant.tails, variant.neg, name)
+		if makeErr == nil {
+			makeErr = replacement.SetAccountingParentRule(rule)
+		}
+		if makeErr != nil {
+			if replacement != nil {
+				makeErr = errors.Join(makeErr, replacement.Close())
+			}
+			for i := len(result) - 1; i >= 0; i-- {
+				makeErr = errors.Join(makeErr, result[i].Close())
+			}
+			return nil, false, makeErr
+		}
+		result = append(result, replacement)
 	}
-	if err = replacement.SetAccountingParentRule(rule); err != nil {
-		return nil, false, errors.Join(err, replacement.Close())
-	}
-	return replacement, true, nil
+	return result, true, nil
 }
 
 func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
@@ -292,11 +334,11 @@ func (p *UnboundCompressorPlugin) Transform(source *base.RuleSet) (_ *base.RuleS
 			if getErr != nil {
 				return nil, errors.Join(getErr, result.Close())
 			}
-			replacement, _, getErr := p.rewriteRule(rule)
-			if getErr == nil {
-				getErr = result.Add(replacement)
-			}
-			if replacement != nil {
+			replacements, _, getErr := p.rewriteRule(source, rule)
+			for _, replacement := range replacements {
+				if getErr == nil {
+					getErr = result.Add(replacement)
+				}
 				getErr = errors.Join(getErr, replacement.Close())
 			}
 			getErr = errors.Join(getErr, rule.Close())
