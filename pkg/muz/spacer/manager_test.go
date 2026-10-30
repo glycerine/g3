@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestSpacerManagerBuildsStateAndPropSolverServices(t *testing.T) {
@@ -139,4 +140,70 @@ func TestSpacerManagerBuildsStateAndPropSolverServices(t *testing.T) {
 	spacerMust(t, prop.Close())
 	spacerMust(t, owner.Close())
 	spacerMust(t, command.Close())
+}
+
+func TestSpacerSkolemScanIncludesQuantifierAnnotationsAndSourceOrder(t *testing.T) {
+	command, m, owner := lemmaOwnerFixture(t)
+	defer func() { spacerMust(t, command.Close()) }()
+	defer func() { spacerMust(t, owner.Close()) }()
+	var pins []ast.ASTRef
+	defer func() {
+		for i := range pins {
+			spacerMust(t, m.DelRef(&pins[i]))
+		}
+	}()
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		t.Helper()
+		spacerMust(t, err)
+		ref, err := m.NewRef(h)
+		spacerMust(t, err)
+		pins = append(pins, ref)
+		return h
+	}
+	boolean := own(m.MkBoolSort())
+	k0 := own(spacer.MkZKConst(m, 0, boolean))
+	k1 := own(spacer.MkZKConst(m, 1, boolean))
+	k2 := own(spacer.MkZKConst(m, 2, boolean))
+	variable := own(m.MkVar(0, boolean))
+	name, err := m.Symbols.Intern("skolem-annotation-body")
+	spacerMust(t, err)
+	property := own(m.MkFuncDecl(name, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{}))
+	body := own(m.MkApp(property, []ast.ASTHandle{variable}))
+	name, err = m.Symbols.Intern("skolem-annotation-term")
+	spacerMust(t, err)
+	declaration := own(m.MkFuncDecl(name, []ast.ASTHandle{boolean, boolean}, boolean, ast.ASTFuncDeclInfo{}))
+	annotation := own(m.MkApp(declaration, []ast.ASTHandle{variable, k0}))
+	pattern := own(m.MkPattern([]ast.ASTHandle{annotation}))
+	for _, noPattern := range []bool{false, true} {
+		spec := ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: body}
+		if noPattern {
+			spec.NoPatterns = []ast.ASTHandle{annotation}
+		} else {
+			spec.Patterns = []ast.ASTHandle{pattern}
+		}
+		quantifier := own(m.MkQuantifier(spec))
+		found, err := spacer.HasZKConst(m, quantifier)
+		spacerMust(t, err)
+		if !found {
+			t.Error("skolem in quantifier annotation was missed", noPattern)
+		}
+		constants, err := spacer.FindZKConstants(m, quantifier)
+		spacerMust(t, err)
+		if len(constants) != 1 || constants[0] != k0 {
+			t.Error("quantifier annotation skolem collection", noPattern, constants)
+		}
+	}
+	inner := own(m.MkAnd(k0, k1))
+	root := own(m.MkAndArray([]ast.ASTHandle{k1, inner, k2}))
+	constants, err := spacer.FindZKConstants(m, root)
+	spacerMust(t, err)
+	expected := []ast.ASTHandle{k1, k0, k2}
+	if len(constants) != len(expected) {
+		t.Fatal("shared skolem was repeated", constants)
+	}
+	for i := range expected {
+		if constants[i] != expected[i] {
+			t.Fatal("skolem scan does not follow source child order", constants)
+		}
+	}
 }

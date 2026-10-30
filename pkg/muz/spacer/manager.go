@@ -450,6 +450,13 @@ func MkZKConst(manager *ast.ASTManager, index uint32, sort ast.ASTHandle) (ast.A
 }
 
 func FindZKConstants(manager *ast.ASTManager, expression ast.ASTHandle) ([]ast.ASTHandle, error) {
+	return scanZKConstants(manager, expression, false)
+}
+
+// Both source visitors use for_each_expr. Constants are leaves, so scanning
+// children in source order gives the same constant callbacks; presence checks
+// stop at the first match, like has_zk_const's found exception.
+func scanZKConstants(manager *ast.ASTManager, expression ast.ASTHandle, firstOnly bool) ([]ast.ASTHandle, error) {
 	if manager == nil {
 		return nil, ErrManagerOwner
 	}
@@ -492,19 +499,44 @@ func FindZKConstants(manager *ast.ASTManager, expression ast.ASTHandle) ([]ast.A
 			}
 			if family == ast.NullFamilyID && arity == 0 && strings.HasPrefix(text, "sk!") {
 				result = append(result, current)
+				if firstOnly {
+					return result, nil
+				}
 			}
 			count, err := manager.GetNumArgs(current)
 			if err != nil {
 				return nil, err
 			}
-			for index := uint32(0); index < count; index++ {
-				argument, err := manager.GetArg(current, index)
+			for index := int(count) - 1; index >= 0; index-- {
+				argument, err := manager.GetArg(current, uint32(index))
 				if err != nil {
 					return nil, err
 				}
 				stack = append(stack, argument)
 			}
 		case ast.ASTQuantifier:
+			noPatterns, err := manager.GetNumNoPatterns(current)
+			if err != nil {
+				return nil, err
+			}
+			for i := int(noPatterns) - 1; i >= 0; i-- {
+				annotation, err := manager.GetNoPattern(current, uint32(i))
+				if err != nil {
+					return nil, err
+				}
+				stack = append(stack, annotation)
+			}
+			patterns, err := manager.GetNumPatterns(current)
+			if err != nil {
+				return nil, err
+			}
+			for i := int(patterns) - 1; i >= 0; i-- {
+				annotation, err := manager.GetPattern(current, uint32(i))
+				if err != nil {
+					return nil, err
+				}
+				stack = append(stack, annotation)
+			}
 			body, err := manager.GetQuantifierBody(current)
 			if err != nil {
 				return nil, err
@@ -516,7 +548,7 @@ func FindZKConstants(manager *ast.ASTManager, expression ast.ASTHandle) ([]ast.A
 }
 
 func HasZKConst(manager *ast.ASTManager, expression ast.ASTHandle) (bool, error) {
-	values, err := FindZKConstants(manager, expression)
+	values, err := scanZKConstants(manager, expression, true)
 	return len(values) != 0, err
 }
 
