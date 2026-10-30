@@ -123,6 +123,21 @@ func TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue(t *testing.T) {
 	}
 }
 
+func TestSubpavingFastMonomialDegreeMergeUsesUnsignedArithmetic(t *testing.T) {
+	_, c, _, _ := fastMonomialFixture(t, []bool{false})
+	max := ^uint32(0)
+	x, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: max}, {Variable: 0, Degree: 2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(c.monomials[x].powers) != 1 || c.monomials[x].powers[0].Degree != 1 {
+		t.Fatal("source unsigned degree merge", c.monomials[x].powers)
+	}
+	if _, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: max}, {Variable: 0, Degree: 1}}); !errors.Is(err, arena.ErrInvalidSlot) {
+		t.Fatal("zero degree after source wrap should hit the monomial invariant", err)
+	}
+}
+
 func TestSubpavingFastQueuedMonomialCatchesMPFFOverflow(t *testing.T) {
 	m, c, v, root := fastMonomialFixture(t, []bool{false})
 	y, err := c.DefineMonomial([]FastPower{{Variable: 0, Degree: 2}})
@@ -251,10 +266,10 @@ func TestSubpavingFastMonomialReverseAndSourceScratch(t *testing.T) {
 		if err := c.PropagateMonomial(x, root); err != nil {
 			t.Fatal(err)
 		}
-		// Source leaves denominator d at its first factor when the later
-		// product is written to the separate r scratch interval.
-		fastMonomialCheckBound(t, m, root, v, 2, 15, true)
-		fastMonomialCheckBound(t, m, root, v, 2, 15, false)
+		// The source never clears its first flag, so d is overwritten by the
+		// last factor other than the target (x1=3): 30/3 = 10.
+		fastMonomialCheckBound(t, m, root, v, 2, 10, true)
+		fastMonomialCheckBound(t, m, root, v, 2, 10, false)
 	})
 }
 

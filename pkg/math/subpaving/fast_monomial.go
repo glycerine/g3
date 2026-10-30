@@ -41,9 +41,7 @@ func (c *FastContext) DefineMonomial(powers []FastPower) (uint32, error) {
 	write := 0
 	for read := 1; read < len(merged); read++ {
 		if merged[write].Variable == merged[read].Variable {
-			if math.MaxUint32-merged[write].Degree < merged[read].Degree {
-				return 0, arena.ErrInvalidSlot
-			}
+			// C++ stores degrees as unsigned and merges with unsigned addition.
 			merged[write].Degree += merged[read].Degree
 		} else {
 			write++
@@ -53,6 +51,9 @@ func (c *FastContext) DefineMonomial(powers []FastPower) (uint32, error) {
 	merged = merged[:write+1]
 	integer := false
 	for _, power := range merged {
+		if power.Degree == 0 {
+			return 0, arena.ErrInvalidSlot
+		}
 		integer = integer || c.isInt[power.Variable]
 	}
 	x := uint32(len(c.isInt))
@@ -237,7 +238,7 @@ func (c *FastContext) propagateMonomialDownward(m *FastMonomial, variable uint32
 			return e
 		}
 		defer func() { err = errors.Join(err, d.Close()) }()
-		first := true
+		first := true // The C++ source does not clear this flag in the loop.
 		for i, power := range m.powers {
 			if i == j {
 				continue
@@ -250,9 +251,7 @@ func (c *FastContext) propagateMonomialDownward(m *FastMonomial, variable uint32
 			}
 			if first {
 				err = d.SetFrom(r)
-				first = false
 			} else {
-				// Source writes the product to r but leaves d unchanged.
 				err = r.Mul(d, r)
 			}
 			if err != nil {

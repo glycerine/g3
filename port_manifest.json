@@ -75673,7 +75673,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpff nth-root interval inverse image and monomial definition/propagation integration",
+          "name": "Concrete config_mpff interval root inverse image and monomial propagation integration; source root numerical defaults remain partial",
           "status": "partial",
           "go_target": "pkg/math/subpaving/fast_monomial.go",
           "go_targets": [
@@ -75684,7 +75684,8 @@
             "TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue",
             "TestSubpavingFastMonomialReverseAndSourceScratch",
             "TestSubpavingFastMonomialIntervalDisplaySmoke",
-            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow"
+            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow",
+            "TestSubpavingFastMonomialDegreeMergeUsesUnsignedArithmetic"
           ]
         },
         {
@@ -76655,8 +76656,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpff monomial sorting/merge, upward/downward/zero bound propagation, root inversion and watcher integration (src/math/subpaving/subpaving_t_def.h:363-390,657-721,1500-1663)",
-          "status": "partial",
+          "name": "Concrete config_mpff monomial sorting/unsigned merge, upward/downward/zero bound propagation and watcher integration (src/math/subpaving/subpaving_t_def.h:363-390,657-721,1500-1663)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_monomial.go",
           "go_targets": [
             "pkg/math/subpaving/fast_interval_root.go",
@@ -76667,7 +76668,8 @@
             "TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue",
             "TestSubpavingFastMonomialReverseAndSourceScratch",
             "TestSubpavingFastMonomialIntervalDisplaySmoke",
-            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow"
+            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow",
+            "TestSubpavingFastMonomialDegreeMergeUsesUnsignedArithmetic"
           ]
         },
         {
@@ -78009,8 +78011,8 @@
           ]
         },
         {
-          "name": "Concrete config_mpff monomial sorting/merge, upward/downward/zero bound propagation, root inversion and watcher integration (src/math/subpaving/subpaving_t_def.h:363-390,657-721,1500-1663)",
-          "status": "partial",
+          "name": "Concrete config_mpff monomial sorting/unsigned merge, upward/downward/zero bound propagation and watcher integration (src/math/subpaving/subpaving_t_def.h:363-390,657-721,1500-1663)",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/fast_monomial.go",
           "go_targets": [
             "pkg/math/subpaving/fast_interval_root.go",
@@ -78021,7 +78023,8 @@
             "TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue",
             "TestSubpavingFastMonomialReverseAndSourceScratch",
             "TestSubpavingFastMonomialIntervalDisplaySmoke",
-            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow"
+            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow",
+            "TestSubpavingFastMonomialDegreeMergeUsesUnsignedArithmetic"
           ]
         },
         {
