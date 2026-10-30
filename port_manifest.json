@@ -5808,18 +5808,18 @@
       "path": "src/api/api_model.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_model_object.go", "pkg/api/api_model_object_test.go"],
-      "tests": ["TestSMTContextEvaluateReturnsOwningValue", "TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries"],
-      "methods_audited": false,
+      "status": "ported",
+      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_model_object.go", "pkg/api/api_model_object_test.go", "pkg/api/api_model_evaluate.go", "pkg/api/api_model_evaluate_test.go", "pkg/api/api_model_evaluate_completion_test.go", "pkg/api/api_model_evaluate_invalid_test.go"],
+      "tests": ["TestSMTContextEvaluateReturnsOwningValue", "TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries", "TestAPIModelEvaluateRegisteredConstant", "TestAPIModelEvaluateCompletionRegistersMissingConstant", "TestAPIModelEvaluateRejectsForeignAndClosedOwners"],
+      "methods_audited": true,
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Z3_model_eval retained expression evaluation with optional model completion (api_model.cpp:160-174); model enumeration and interpretation mutation remain open",
-          "status": "partial",
-          "go_target": "pkg/api/api_solver.go",
-          "go_targets": ["pkg/cmd_context/results.go"],
-          "tests": ["TestSMTContextEvaluateReturnsOwningValue"]
+          "name": "Model creation, reference lifecycle, interpretation queries and updates, enumeration, evaluation, universe, translation, as-array helpers, function entries, compatibility aliases and string display (api_model.cpp:33-511)",
+          "status": "ported",
+          "go_target": "pkg/api/api_model_object.go",
+          "go_targets": ["pkg/api/api_model_object.go", "pkg/api/api_model_evaluate.go"],
+          "tests": ["TestSMTContextEvaluateReturnsOwningValue", "TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries", "TestAPIModelEvaluateRegisteredConstant", "TestAPIModelEvaluateCompletionRegistersMissingConstant", "TestAPIModelEvaluateRejectsForeignAndClosedOwners"]
         }
       ],
       "ownership": [],
