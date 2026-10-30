@@ -152,7 +152,9 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 			}
 			localErr = getErr
 		}
-		transition, transitionErr := transformer.RuleTransition(rule)
+		// Source checks the full tagged transition system together with the
+		// selected tag, preserving all guards in the local consistency check.
+		transition, transitionErr := transformer.Transition()
 		if localErr == nil && transitionErr == nil {
 			localErr = local.Assert(transition)
 		} else {

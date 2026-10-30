@@ -212,18 +212,21 @@ func (b *spacerRuleBuilder) initializeAtom(atom ast.ASTHandle, variables *[]ast.
 }
 
 func (b *spacerRuleBuilder) groundVariables(expression ast.ASTHandle, variables *[]ast.ASTHandle, auxiliaries *[]ast.ASTHandle) error {
-	used, err := ast.NewASTUsedVars(b.transformer.manager)
+	used, err := rewriter.NewExprFreeVars(b.transformer.manager)
 	if err != nil {
 		return err
 	}
 	if err = used.Collect(expression); err != nil {
 		return err
 	}
-	for uint32(len(*variables)) < used.MaxFoundVarIndexPlusOne() {
+	for uint32(len(*variables)) < used.Size() {
 		*variables = append(*variables, ast.ASTHandle{})
 	}
-	for index := uint32(0); index < used.MaxFoundVarIndexPlusOne(); index++ {
-		sort := used.Contains(index)
+	for index := uint32(0); index < used.Size(); index++ {
+		sort, err := used.Get(index)
+		if err != nil {
+			return err
+		}
 		if sort.IsNull() || !(*variables)[index].IsNull() {
 			continue
 		}

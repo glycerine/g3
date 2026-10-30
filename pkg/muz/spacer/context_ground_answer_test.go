@@ -13,12 +13,13 @@ import (
 
 func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T) {
 	for _, tc := range []struct {
-		name                   string
-		withArgument, branches bool
+		name                                  string
+		withArgument, branches, multipleRules bool
 	}{
-		{"nullary-leaf", false, false},
-		{"unconstrained-leaf-argument", true, false},
-		{"opposite-sibling-values", true, true},
+		{"nullary-leaf", false, false, false},
+		{"unconstrained-leaf-argument", true, false, false},
+		{"opposite-sibling-values", true, true, false},
+		{"multiple-leaf-rule-tags", true, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			m, globals := newSpacerTestServices(t)
@@ -91,6 +92,11 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 					name string
 				}{right, []ast.ASTHandle{leafFalse}, "right"})
 				expectedBranch = []ast.ASTHandle{root, left, right, leafTrue, leafFalse}
+			}
+			if tc.multipleRules {
+				alternative := items[2]
+				alternative.name = "leaf-alternative"
+				items = append(items, alternative)
 			}
 			for _, item := range items {
 				rule, err := rules.NewRule(item.head, item.tail, nil, item.name)
