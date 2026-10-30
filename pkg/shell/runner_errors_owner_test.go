@@ -15,7 +15,7 @@ func TestRunnerRejectsAmbiguousMissingAndUnsupportedInputs(t *testing.T) {
 	}{
 		{nil, "input file was not specified"},
 		{[]string{"-in", "x.smt2"}, "using standard input"},
-		{[]string{"-wcnf", "-in"}, "WCNF is not ported"},
+		{[]string{"-log", "-in"}, "Z3 log is not ported"},
 	} {
 		runner, _ := runShellFixture(t, tc.args, "")
 		if err := runner.Run(); err == nil || !strings.Contains(err.Error(), tc.want) {
@@ -52,5 +52,19 @@ func TestRunnerBorrowsContextAndRunsOnlyOnce(t *testing.T) {
 	}
 	if _, err = context.Compliant(); err != nil {
 		t.Fatal("borrowed context closed", err)
+	}
+}
+
+func TestRunnerDispatchesWCNF(t *testing.T) {
+	runner, output := runShellFixture(t, []string{"-wcnf", "-in"}, "p wcnf 1 1 5\n5 1 0\n")
+	if err := runner.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "sat\n" {
+		t.Fatal(output.String())
+	}
+	result, err := runner.Result()
+	if err != nil || result.Kind != shell.InputWCNF {
+		t.Fatal(result, err)
 	}
 }

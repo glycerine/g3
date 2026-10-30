@@ -35,6 +35,12 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
 		return frontend.Run()
+	case InputWCNF:
+		frontend, err := NewWCNFFrontend(r.context, r.output, WCNFFrontendOptions{DisplayStatistics: r.command.DisplayStatistics})
+		if err != nil {
+			return err
+		}
+		return frontend.Run(r.input)
 	case InputMPS:
 		frontend, err := NewLPFrontend(LPFrontendConfig{
 			Globals: globals, Input: r.input, Output: r.output, Name: r.result.InputName,
