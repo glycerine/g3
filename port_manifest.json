@@ -167860,7 +167860,9 @@
       "go_targets": [
         "pkg/tactic/arith/nla2bv_tactic.go",
         "pkg/tactic/arith/nla2bv_rules.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/tactic/arith/nla2bv_goal_visit.go",
+        "pkg/tactic/arith/nla2bv_tactic_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -167905,7 +167907,8 @@
             "TestNLA2BVSMTLIBSolvingAndModelsPrebuiltCPP",
             "TestNLA2BVParametersFreshInvocationsCleanupAndTranslation",
             "TestNLA2BVLog2SourceBoundaries",
-            "TestNLA2BVIntegerLexicalRefsEndAtDefinitionHandoff"
+            "TestNLA2BVIntegerLexicalRefsEndAtDefinitionHandoff",
+            "TestNLA2BVSourceTraversalVisitsSharedNodesOnceAcrossGoalRoots"
           ]
         },
         {

@@ -60,6 +60,35 @@ func nla2BVGoalWidth(t *testing.T, r *NLA2BVTactic, number string) uint32 {
 	return 0
 }
 
+func TestNLA2BVSourceTraversalVisitsSharedNodesOnceAcrossGoalRoots(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	m := r.manager
+	x := fixDLConst(t, m, true, "shared-traversal-x")
+	shared := fixDLApp(t, m, 9, x, x)
+	first, err := m.MkEq(shared, fixDLNumber(t, m, true, "0"))
+	equationMust(t, err)
+	second, err := m.MkEq(shared, fixDLNumber(t, m, true, "1"))
+	equationMust(t, err)
+	fixDLPin(t, m, first)
+	fixDLPin(t, m, second)
+	g := fixDLGoal(t, m, false, false, false, first, second)
+
+	terms, err := (&nla2BVInvocation{t: r}).postorder(g)
+	equationMust(t, err)
+	counts := make(map[ast.ASTHandle]int, len(terms))
+	positions := make(map[ast.ASTHandle]int, len(terms))
+	for i, term := range terms {
+		counts[term]++
+		positions[term] = i
+	}
+	if counts[x] != 1 || counts[shared] != 1 {
+		t.Fatalf("MarkAll traversal visits: x=%d, shared=%d", counts[x], counts[shared])
+	}
+	if positions[x] >= positions[shared] || positions[shared] >= positions[first] || positions[shared] >= positions[second] {
+		t.Fatal("shared expression was not visited once in child-before-parent order", positions)
+	}
+}
+
 func TestNLA2BVLog2SourceBoundaries(t *testing.T) {
 	for denominator := int64(1); denominator <= 17; denominator++ {
 		for numerator := int64(1); numerator <= 1024; numerator++ {
