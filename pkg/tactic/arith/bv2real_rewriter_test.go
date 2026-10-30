@@ -11,6 +11,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func bv2RealRewriteFixture(t *testing.T) (*BV2RealRewriter, *BV2RealUtil, *bv2IntFixture) {
@@ -205,6 +206,80 @@ func TestBV2RealRewriterEqualityAndConditional(t *testing.T) {
 		result, err := f.m.RefGet(out)
 		equationMust(t, err)
 		bv2RealWantCoefficients(t, u, f, result, a, b, 2, 3)
+	}
+}
+
+// Source: src/tactic/arith/bv2real_rewriter.h normal and elimination configs;
+// src/ast/rewriter/rewriter_def.h:491-514.
+func TestBV2RealRewriterPatternTraversalMatchesSourceModes(t *testing.T) {
+	u, f := bv2RealFixture(t, 64)
+	m := f.m
+	encoded := bv2RealEncoding(t, u, 1, 1, 2, 2)
+	combined := fixDLApp(t, m, 6, encoded, encoded)
+	truth, err := m.MkTrue()
+	equationMust(t, err)
+	fixDLPin(t, m, truth)
+	boolean, err := m.MkBoolSort()
+	equationMust(t, err)
+	name := symbol.Numerical(0)
+	for _, place := range []string{"pattern", "no-pattern"} {
+		spec := ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{name}, Body: truth}
+		if place == "pattern" {
+			pattern, err := m.MkPattern([]ast.ASTHandle{combined})
+			equationMust(t, err)
+			fixDLPin(t, m, pattern)
+			spec.Patterns = []ast.ASTHandle{pattern}
+		} else {
+			spec.NoPatterns = []ast.ASTHandle{combined}
+		}
+		q, err := m.MkQuantifier(spec)
+		equationMust(t, err)
+		fixDLPin(t, m, q)
+		for _, eliminate := range []bool{false, true} {
+			var rewrite *BV2RealRewriter
+			if eliminate {
+				rewrite, err = NewBV2RealElimRewriter(u)
+			} else {
+				rewrite, err = NewBV2RealRewriter(u)
+			}
+			equationMust(t, err)
+			if got, want := rewrite.cfg.RewritePatterns(), !eliminate; got != want {
+				t.Fatal("rewriter pattern policy", eliminate, got, want)
+			}
+			t.Cleanup(func() { equationMust(t, rewrite.Close()) })
+			out := bv2RealOut(t, m)
+			equationMust(t, rewrite.Rewrite(q, out))
+			got, err := m.RefGet(out)
+			equationMust(t, err)
+			annotation := ast.ASTHandle{}
+			if place == "pattern" {
+				annotation, err = m.GetPattern(got, 0)
+			} else {
+				annotation, err = m.GetNoPattern(got, 0)
+			}
+			equationMust(t, err)
+			annotationExpr := annotation
+			if place == "pattern" {
+				annotationExpr, err = m.GetArg(annotation, 0)
+				equationMust(t, err)
+			}
+			actualDecl, err := m.GetDecl(annotationExpr)
+			equationMust(t, err)
+			if eliminate || place == "no-pattern" {
+				wantDecl, err := m.GetDecl(combined)
+				equationMust(t, err)
+				if actualDecl != wantDecl {
+					t.Fatalf("%s elimination preserved decl %v, want %v", place, actualDecl, wantDecl)
+				}
+			} else {
+				isEncoding, err := u.IsEncodingDecl(actualDecl)
+				equationMust(t, err)
+				if !isEncoding {
+					t.Fatalf("%s normal rewrite did not process the encoded annotation: actual=%v", place, actualDecl)
+				}
+			}
+			equationMust(t, rewrite.Close())
+		}
 	}
 }
 
