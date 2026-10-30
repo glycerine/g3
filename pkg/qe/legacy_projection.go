@@ -167,6 +167,22 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&current)) }()
+	// qe_project flattens its input once before the repeated qe_lite stages.
+	// flatten_and's swap/reprocessing order also applies to an already flat
+	// conjunction, and must precede any theory rewriting or variable selection.
+	flat, err := p.manager.FlattenAnd([]ast.ASTHandle{formula})
+	if err != nil {
+		return nil, err
+	}
+	if len(flat) != 0 {
+		flattened, err := p.manager.MkAndArray(flat)
+		if err != nil {
+			return nil, err
+		}
+		if err = p.manager.SetRef(current, flattened); err != nil {
+			return nil, err
+		}
+	}
 	variableRefs := make([]ast.ASTRef, 0, len(variables))
 	defer func() { resultErr = errors.Join(resultErr, truncateLiteVector(p.manager, &variableRefs, 0)) }()
 	for _, variable := range variables {

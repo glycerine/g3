@@ -205,3 +205,44 @@ func TestLegacyProjectionReducesAllSelectsWithoutArrayVariables(t *testing.T) {
 		fmMust(t, result.Close())
 	}
 }
+
+func TestLegacyProjectionFlattensInputInSourceOrder(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := NewLegacyProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	truth := f.own(m.MkTrue())
+	a := f.constant("projection-flat-a", f.boolean)
+	b := f.constant("projection-flat-b", f.boolean)
+	c := f.constant("projection-flat-c", f.boolean)
+	for _, h := range []ast.ASTHandle{a, b, c} {
+		decl, err := m.GetDecl(h)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, truth))
+	}
+	flat := f.own(m.MkAndArray([]ast.ASTHandle{a, b, c}))
+	inner := f.own(m.MkAnd(b, c))
+	nested := f.own(m.MkAnd(a, inner))
+	expected := f.own(m.MkAndArray([]ast.ASTHandle{c, a, b}))
+	for _, native := range []bool{false, true} {
+		for _, formula := range []ast.ASTHandle{flat, nested} {
+			var result *LegacyProjectionResult
+			if native {
+				result, err = p.ProjectNativeArithmetic(md.Core(), nil, formula, false, true)
+			} else {
+				result, err = p.Project(md.Core(), nil, formula, false, true)
+			}
+			fmMust(t, err)
+			actual, err := result.Formula()
+			fmMust(t, err)
+			if actual != expected {
+				t.Fatal("initial flatten_and must preserve source swap/reprocessing order", native, formula, actual, expected)
+			}
+			fmMust(t, result.Close())
+		}
+	}
+}
