@@ -112,6 +112,7 @@ type PropositionalEngine struct {
 	spacerConversions  []hornModelConversion
 	lastStatus         string
 	forceProofTrace    bool
+	ddnfOutput         io.Writer
 	queryParams        uparams.ParamsRef
 	queryParamsReady   bool
 	closed             bool
@@ -1507,6 +1508,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	if e.backend == "spacer" {
 		e.compiled = false
 		return e.querySpacer(declaration)
+	}
+	if e.backend == "ddnf" {
+		e.compiled = false
+		return e.queryDDNFPredicate(declaration)
 	}
 	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
 }

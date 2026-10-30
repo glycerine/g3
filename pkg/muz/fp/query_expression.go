@@ -13,6 +13,10 @@ import (
 // QueryExpression evaluates an arbitrary Boolean Horn query without adding
 // its synthetic query predicate or rule to the caller's persistent program.
 func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool.LBool, resultErr error) {
+	if err := e.open(); err != nil {
+		return lbool.Undef, err
+	}
+	e.queried = true
 	clone, err := e.newQueryClone()
 	if err != nil {
 		return lbool.Undef, err
@@ -33,7 +37,11 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	if err = clone.AddRule(rule, ""); err != nil {
 		return lbool.Undef, err
 	}
-	result, err = clone.QueryPredicate(declaration)
+	if clone.backend == "ddnf" {
+		result, err = clone.queryDDNF()
+	} else {
+		result, err = clone.QueryPredicate(declaration)
+	}
 	e.recordQueryStatus(result, err)
 	return result, err
 }

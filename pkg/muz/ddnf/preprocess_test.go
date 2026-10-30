@@ -1,4 +1,4 @@
-package ddnf
+package ddnf_test
 
 import (
 	"testing"
@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
+	muzddnf "github.com/glycerine/g3/pkg/muz/ddnf"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -15,7 +16,7 @@ import (
 type preprocessFixture struct {
 	manager  *ast.ASTManager
 	rules    *base.RuleManager
-	registry *Registry
+	registry *muzddnf.Registry
 	width    ast.ASTHandle
 	x        ast.ASTHandle
 	head     ast.ASTHandle
@@ -73,7 +74,7 @@ func newPreprocessFixture(t *testing.T) *preprocessFixture {
 		t.Fatal(err)
 	}
 	budget := arena.NewBudget(1 << 20)
-	registry := NewRegistry(arena.VectorConfig{PageSize: 8, Descriptors: arena.Config{PageSize: 8, Budget: budget}})
+	registry := muzddnf.NewRegistry(arena.VectorConfig{PageSize: 8, Descriptors: arena.Config{PageSize: 8, Budget: budget}})
 	t.Cleanup(func() {
 		registry.Close()
 		if used := budget.Used(); used != 0 {
@@ -121,7 +122,7 @@ func ddnfBVNumeral(t *testing.T, manager *ast.ASTManager, value uint64, width ui
 
 func TestDDNFPreprocessorRecordsFullAndExtractEqualities(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -188,7 +189,7 @@ func TestDDNFPreprocessorRecordsFullAndExtractEqualities(t *testing.T) {
 
 func TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +211,7 @@ func TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint(t *testing.T) 
 	if widths := f.registry.Widths(); len(widths) != 0 {
 		t.Fatal("variable equality should not allocate a width core", widths)
 	}
-	compiler, err := NewCompiler(preprocessor, f.rules)
+	compiler, err := muzddnf.NewCompiler(preprocessor, f.rules)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -243,7 +244,7 @@ func TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint(t *testing.T) 
 
 func TestDDNFCompilerMapsRefinedEqualityToNodeIDs(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +268,7 @@ func TestDDNFCompilerMapsRefinedEqualityToNodeIDs(t *testing.T) {
 			t.Fatal("constraint preprocessing", expression, ok, err)
 		}
 	}
-	compiler, err := NewCompiler(preprocessor, f.rules)
+	compiler, err := muzddnf.NewCompiler(preprocessor, f.rules)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -314,7 +315,7 @@ func TestDDNFCompilerMapsRefinedEqualityToNodeIDs(t *testing.T) {
 
 func TestDDNFCompilerRewritesPredicateDomainsAndOutput(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +347,7 @@ func TestDDNFCompilerRewritesPredicateDomainsAndOutput(t *testing.T) {
 	if ok, err := preprocessor.PreprocessRules(source); err != nil || !ok {
 		t.Fatal("preprocess source rule", ok, err)
 	}
-	compiler, err := NewCompiler(preprocessor, f.rules)
+	compiler, err := muzddnf.NewCompiler(preprocessor, f.rules)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,7 +398,7 @@ func TestDDNFCompilerRewritesPredicateDomainsAndOutput(t *testing.T) {
 	}
 }
 
-func (f *preprocessFixture) mustCompiledVariable(t *testing.T, compiler *Compiler, variable ast.ASTHandle) ast.ASTHandle {
+func (f *preprocessFixture) mustCompiledVariable(t *testing.T, compiler *muzddnf.Compiler, variable ast.ASTHandle) ast.ASTHandle {
 	t.Helper()
 	compiled, err := compiler.CompileExpression(variable)
 	if err != nil {
@@ -408,7 +409,7 @@ func (f *preprocessFixture) mustCompiledVariable(t *testing.T, compiler *Compile
 
 func TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +444,7 @@ func TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState(t *testing.T) {
 
 func TestDDNFPreprocessorRejectsUnsupportedAtom(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -475,7 +476,7 @@ func TestDDNFPreprocessorRejectsUnsupportedAtom(t *testing.T) {
 
 func TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective(t *testing.T) {
 	f := newPreprocessFixture(t)
-	preprocessor, err := NewPreprocessor(f.manager, f.registry)
+	preprocessor, err := muzddnf.NewPreprocessor(f.manager, f.registry)
 	if err != nil {
 		t.Fatal(err)
 	}

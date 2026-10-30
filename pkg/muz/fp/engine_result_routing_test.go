@@ -34,6 +34,36 @@ func newRoutingEngine(t *testing.T) (*fp.PropositionalEngine, *ast.ASTManager) {
 	return engine, manager
 }
 
+func TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	var dump bytes.Buffer
+	fpMust(t, engine.SetDDNFOutput(&dump))
+	fpMust(t, engine.SelectEngine("ddnf"))
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	name, err := manager.Symbols.Intern("ddnf-routing-predicate")
+	fpMust(t, err)
+	predicate, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(predicate))
+	fact, err := manager.MkApp(predicate, nil)
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(fact, "ddnf-fact"))
+	status, err := engine.QueryPredicate(predicate)
+	fpMust(t, err)
+	if status != lbool.Undef {
+		t.Fatal("disabled DDNF executor returned a decided result", status)
+	}
+	if !bytes.Contains(dump.Bytes(), []byte("(set-logic HORN)")) || !bytes.Contains(dump.Bytes(), []byte("ddnf-fact")) || !bytes.Contains(dump.Bytes(), []byte("ddnf-routing-predicate")) || bytes.Count(dump.Bytes(), []byte("(assert ")) != 2 {
+		t.Fatalf("compiled DDNF SMT2 dump is incomplete: %s", dump.String())
+	}
+	last, err := engine.LastResult()
+	fpMust(t, err)
+	if last != lbool.Undef {
+		t.Fatal("DDNF result snapshot", last)
+	}
+}
+
 func routingPredicate(t *testing.T, engine *fp.PropositionalEngine, manager *ast.ASTManager, suffix string) (ast.ASTHandle, ast.ASTHandle) {
 	t.Helper()
 	boolean, err := manager.MkBoolSort()
@@ -57,6 +87,7 @@ func TestRetainedEngineKindSelectionAndDiagnostics(t *testing.T) {
 		{"datalog", fp.EngineDatalog},
 		{"pdr", fp.EnginePDR},
 		{"spacer", fp.EngineSpacer},
+		{"ddnf", fp.EngineDDNF},
 	} {
 		fpMust(t, engine.SelectEngine(test.name))
 		kind, err := engine.SelectedEngine()
@@ -65,7 +96,7 @@ func TestRetainedEngineKindSelectionAndDiagnostics(t *testing.T) {
 			t.Fatal("selected engine", kind, kind.String(), kind.Retained())
 		}
 	}
-	for _, name := range []string{"qpdr", "bmc", "qbmc", "tab", "clp", "duality", "ddnf"} {
+	for _, name := range []string{"qpdr", "bmc", "qbmc", "tab", "clp", "duality"} {
 		if err := engine.SelectEngine(name); err == nil || errors.Is(err, fp.ErrPropositionalEngine) {
 			t.Fatal("known unported engine diagnostic", name, err)
 		}

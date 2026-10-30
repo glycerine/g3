@@ -47,6 +47,9 @@ func (e *PropositionalEngine) SelectEngine(name string) error {
 		}
 		e.selectBackend(kind)
 		return nil
+	case EngineDDNF:
+		e.selectBackend(kind)
+		return nil
 	}
 	return fmt.Errorf("muz/fp: fixedpoint engine %s is not ported", name)
 }

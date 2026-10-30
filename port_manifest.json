@@ -82957,8 +82957,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"],
+      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go", "pkg/muz/fp/ddnf_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_kind.go"],
+      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"],
       "assertions": [
         {
           "line": 87,
@@ -82987,7 +82987,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"]}, {"name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)", "status": "ported", "go_target": "pkg/muz/ddnf/compiler.go", "tests": ["TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"]}],
+      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective"]}, {"name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)", "status": "ported", "go_target": "pkg/muz/ddnf/compiler.go", "tests": ["TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"]}, {"name": "DDNF query-local preprocessing, rule compilation, SMT-LIB HORN dump, and source unknown result while execution remains disabled (ddnf.cpp:507-526,664-676,885-896)", "status": "ported", "go_target": "pkg/muz/fp/ddnf_engine.go", "tests": ["TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"]}],
       "ownership": [],
       "deviations": ["compile_eq resolves DDNF vectors by the source variable width used by process_eq, correcting the source numeral-width lookup mismatch for extracted constraints."]
     },
@@ -83415,23 +83415,23 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/register_engine.go", "pkg/cmd_context/fixedpoint.go"],
-      "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/register_engine.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/ddnf_engine.go", "pkg/cmd_context/fixedpoint.go"],
+      "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestRetainedEngineKindSelectionAndDiagnostics", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Concrete DATALOG_ENGINE and PDR/SPACER_ENGINE selection, including finite-domain Datalog versus infinite-domain PDR auto-configuration and explicit refusal of remaining unavailable engines (dl_register_engine.cpp:26-58)",
+          "name": "Concrete DATALOG_ENGINE, PDR/SPACER_ENGINE, and DDNF query dispatch, including finite-domain Datalog versus infinite-domain PDR auto-configuration and explicit refusal of other unavailable engines (dl_register_engine.cpp:26-58)",
           "status": "partial",
           "go_target": "pkg/muz/fp/register_engine.go",
-          "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"]
+          "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestRetainedEngineKindSelectionAndDiagnostics", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"]
         }
       ],
       "ownership": [
         "The selected Datalog engine remains owned by cmd_context.Context; selection itself borrows the engine and creates no additional owner."
       ],
       "deviations": [
-        "PDR and its Spacer alias dispatch to the Go PDR context. QPDR, BMC/QBMC, tabulation, CLP, duality, and DDNF remain unported and are rejected explicitly instead of falling through to Datalog."
+        "PDR and its Spacer alias dispatch to the Go PDR context. DDNF runs its retained preprocess/compile/dump path and returns unknown while source execution is disabled. QPDR, BMC/QBMC, tabulation, CLP, and duality remain unavailable and are rejected explicitly instead of falling through to Datalog."
       ]
     },
     {
