@@ -693,5 +693,31 @@ func TestUDocGuardSourceExpressionMatrix(t *testing.T) {
 		if e = filtered.Close(); e != nil {
 			t.Fatal(e)
 		}
+		for _, removed := range [][]uint32{{0, 2}, {0, 1}} {
+			kept := make([]uint32, 0, 2)
+			for column := uint32(0); column < 4; column++ {
+				if column != removed[0] && column != removed[1] {
+					kept = append(kept, column)
+				}
+			}
+			projectManager, _ := newTestDocManager(t, 6)
+			projected, e := source.FilterGuardAndProject(m, condition.expr, removed, projectManager)
+			if e != nil {
+				t.Fatalf("project condition %d remove %v: %v", i, removed, e)
+			}
+			closeUDoc(t, projected)
+			for first := uint64(0); first < 8; first++ {
+				for second := uint64(0); second < 8; second++ {
+					want := false
+					for _, row := range rows {
+						if row[kept[0]] == first && row[kept[1]] == second && condition.keep(row) {
+							want = true
+							break
+						}
+					}
+					requireFact(t, projected, []uint64{first, second}, want)
+				}
+			}
+		}
 	}
 }
