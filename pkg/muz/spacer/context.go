@@ -291,7 +291,15 @@ func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 // InitializePredicates constructs transformers for every registered live
 // predicate, including output predicates without defining rules.
 func (c *Context) InitializePredicates(set *base.RuleSet, declarations []ast.ASTHandle) error {
-	return c.initializePredicates(set, declarations, false)
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	// Covers may create transformers before the first rule installation.
+	// Source update_rules inherits those properties into initialized frames.
+	return c.initializePredicates(set, declarations, len(c.transformers) != 0)
 }
 
 // UpdateRules follows context::update_rules. The caller must reset instead
@@ -474,7 +482,7 @@ func (c *Context) NumLevels(declaration ast.ASTHandle) (uint32, error) {
 	}
 	transformer := c.transformers[declaration]
 	if transformer == nil {
-		return 0, ast.ErrASTDomain
+		return 0, nil
 	}
 	return transformer.NumLevels()
 }
@@ -503,7 +511,13 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 	}
 	transformer := c.transformers[declaration]
 	if transformer == nil {
-		return ast.ErrASTDomain
+		var err error
+		transformer, err = NewRulePredicateTransformer(c.owner, declaration, c.config)
+		if err != nil {
+			return err
+		}
+		c.transformers[declaration] = transformer
+		c.order = append(c.order, declaration)
 	}
 	return transformer.AddCover(level, property)
 }

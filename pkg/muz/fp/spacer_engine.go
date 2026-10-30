@@ -9,9 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/rel"
-	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/muz/transforms"
-	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -539,7 +537,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	covered, err := e.spacerRulesCovered()
+	resetRules, err := e.shouldResetSpacerRules()
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -581,22 +579,15 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
-	maximumContexts, err := parameters.UInt("pdr.max_num_contexts", 500)
-	if err != nil {
-		return lbool.Undef, err
-	}
 	maximumLevels, err := parameters.UInt("spacer.max_level", ^uint32(0))
 	if err != nil {
 		return lbool.Undef, err
 	}
-	context := e.spacer
-	if context == nil {
-		context, err = spacer.NewContext(e.manager, parameters.local, maximumContexts, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
-		if err != nil {
-			return lbool.Undef, err
-		}
-		e.spacer = context
-	} else if !covered {
+	context, err := e.spacerContext()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if resetRules {
 		if err = context.Reset(); err != nil {
 			return lbool.Undef, errors.Join(err, e.closeSpacerForReplacement())
 		}

@@ -327,13 +327,18 @@ func (e *PropositionalEngine) pdrContext() (*pdr.Context, error) {
 	return e.pdr, nil
 }
 
-// NumLevels returns the finite PDR frame count for a relation after a query.
+// NumLevels returns the finite frame count for a PDR or Spacer relation.
 func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, error) {
 	if err := e.open(); err != nil {
 		return 0, err
 	}
-	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
-		return e.spacer.NumLevels(e.spacerPredicate(declaration))
+	if e.backend == "spacer" {
+		context, err := e.spacerContext()
+		if err != nil {
+			return 0, err
+		}
+
+		return context.NumLevels(e.spacerPredicate(declaration))
 	}
 	context, err := e.pdrContext()
 	if err != nil {
@@ -342,19 +347,23 @@ func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, erro
 	return context.NumLevels(e.pdrPredicate(declaration))
 }
 
-// CoverDelta returns an owning reference to a PDR or Spacer cover frame after
-// a query.
+// CoverDelta returns an owning reference to a PDR or Spacer cover frame.
 func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := e.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
-		derived := e.spacerPredicate(declaration)
-		_, found, err := e.spacer.Transformer(derived)
+	if e.backend == "spacer" {
+		context, err := e.spacerContext()
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
-		cover, err := e.spacer.CoverDelta(level, derived)
+
+		derived := e.spacerPredicate(declaration)
+		_, found, err := context.Transformer(derived)
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		cover, err := context.CoverDelta(level, derived)
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
@@ -382,7 +391,12 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	if err := e.open(); err != nil {
 		return err
 	}
-	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
+	if e.backend == "spacer" {
+		context, err := e.spacerContext()
+		if err != nil {
+			return err
+		}
+
 		if err := e.rejectSlicedProperty(declaration); err != nil {
 			return err
 		}
@@ -393,7 +407,7 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 		if eliminated {
 			return fmt.Errorf("muz/fp: covers and invariants are incompatible with eliminated predicates")
 		}
-		return e.spacer.AddCover(level, e.spacerPredicate(declaration), property)
+		return context.AddCover(level, e.spacerPredicate(declaration), property)
 	}
 	context, err := e.pdrContext()
 	if err != nil {
