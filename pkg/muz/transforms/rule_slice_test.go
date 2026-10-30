@@ -66,6 +66,15 @@ func TestRuleSliceRemovesUnconstrainedPredicateColumns(t *testing.T) {
 	if !found {
 		t.Fatal("slice plugin did not publish predicate mapping")
 	}
+	predicateSnapshot, sliceSnapshot := plugin.PredicateSlices()
+	if predicateSnapshot[p] != derived || len(sliceSnapshot[p]) != 2 || !sliceSnapshot[p][0] || !sliceSnapshot[p][1] {
+		t.Fatal("slice plugin snapshot does not describe the removed predicate columns", predicateSnapshot, sliceSnapshot)
+	}
+	sliceSnapshot[p][0] = false
+	_, freshSliceSnapshot := plugin.PredicateSlices()
+	if !freshSliceSnapshot[p][0] {
+		t.Fatal("slice plugin exposed its mutable internal column mask")
+	}
 	if arity, arityErr := f.manager.GetArity(derived); arityErr != nil || arity != 0 {
 		t.Fatal("sliced predicate arity", arity, arityErr)
 	}
@@ -97,6 +106,47 @@ func TestRuleSliceRemovesUnconstrainedPredicateColumns(t *testing.T) {
 		}
 		getErr = errors.Join(getErr, rule.Close())
 		coneMust(t, getErr)
+	}
+}
+
+func TestRuleSliceLeavesZeroArityOutputRulesUnchanged(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	symbol, err := f.manager.Symbols.Intern("slice-zero-arity-output")
+	coneMust(t, err)
+	goal, err := f.manager.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{})
+	coneMust(t, err)
+	coneMust(t, f.rules.RegisterPredicate(goal))
+	application, err := f.manager.MkApp(goal, nil)
+	coneMust(t, err)
+	rule, err := f.rules.NewRule(application, nil, nil, "zero-arity-output")
+	coneMust(t, err)
+	coneMust(t, f.set.Add(rule))
+	coneMust(t, rule.Close())
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("zero-arity slice fixture rejected")
+	}
+
+	plugin := transforms.NewRuleSlicePlugin(f.manager, f.rules, 0)
+	transformer := base.NewRuleTransformer()
+	t.Cleanup(func() { coneMust(t, transformer.Close()) })
+	coneMust(t, transformer.Register(plugin))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if modified {
+		t.Fatal("zero-arity-only output rules should not produce a sliced replacement")
+	}
+	if _, found := plugin.DerivedPredicate(goal); found {
+		t.Fatal("zero-arity output acquired a derived predicate")
+	}
+	count, err := f.set.Len()
+	coneMust(t, err)
+	if count != 1 {
+		t.Fatal("zero-arity source rules changed", count)
 	}
 }
 
