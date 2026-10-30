@@ -120,15 +120,34 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 	return result, nil
 }
 
-func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (_ []ast.ASTHandle, applicable bool, resultErr error) {
+func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (result []ast.ASTRef, applicable bool, resultErr error) {
 	conjunction, err := p.manager.MkAndArray(core)
 	if err != nil {
 		return nil, false, err
 	}
 	declarations, err := p.collectArrayConstants(conjunction)
 	if err != nil || len(declarations) <= 1 || len(declarations) >= 8 {
-		return append([]ast.ASTHandle(nil), core...), false, err
+		if err != nil {
+			return nil, false, err
+		}
+		refs, err := refsFromHandles(p.manager, core)
+		return refs, false, err
 	}
+	// Source core, eqs and lits are owning expr_ref_vectors. Keep candidates
+	// alive across speculative solver pops and transfer owning output refs.
+	coreRefs, err := refsFromHandles(p.manager, core)
+	if err != nil {
+		return nil, false, err
+	}
+	var candidateRefs, outputRefs []ast.ASTRef
+	defer func() {
+		resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, candidateRefs))
+		resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, coreRefs))
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, outputRefs))
+			result = nil
+		}
+	}()
 	equalities := make([]ast.ASTHandle, 0, len(declarations)*(len(declarations)-1)/2)
 	for left := 0; left < len(declarations); left++ {
 		leftValue, err := p.manager.MkApp(declarations[left], nil)
@@ -144,6 +163,11 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 			if err != nil {
 				return nil, false, err
 			}
+			ref, err := p.manager.NewRef(equality)
+			if err != nil {
+				return nil, false, err
+			}
+			candidateRefs = append(candidateRefs, ref)
 			equalities = append(equalities, equality)
 		}
 	}
@@ -152,7 +176,7 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 		return nil, false, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, checker.Close()) }()
-	result := make([]ast.ASTHandle, 0, len(core))
+	result = make([]ast.ASTRef, 0, len(core))
 	for _, literal := range core {
 		if err = checker.Push(); err != nil {
 			return nil, false, err
@@ -184,20 +208,26 @@ func (p *PredicateTransformer) strengthenArrayEqualities(core []ast.ASTHandle) (
 				break
 			}
 		}
+		ref, err := p.manager.NewRef(strengthened)
+		if err != nil {
+			return nil, false, errors.Join(err, checker.Pop(1))
+		}
+		result = append(result, ref)
+		outputRefs = result
 		if err = checker.Pop(1); err != nil {
 			return nil, false, err
 		}
-		result = append(result, strengthened)
 	}
 	return result, true, nil
 }
 
-func (p *PredicateTransformer) generalizeArrayEqualityLemma(obligation *ProofObligation, lemma *Lemma) (*Lemma, error) {
+func (p *PredicateTransformer) generalizeArrayEqualityLemma(obligation *ProofObligation, lemma *Lemma) (_ *Lemma, resultErr error) {
 	cube, err := lemma.Cube()
 	if err != nil {
 		return lemma, err
 	}
 	strengthened, applicable, err := p.strengthenArrayEqualities(cube)
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, strengthened)) }()
 	if err != nil {
 		return lemma, err
 	}
@@ -208,7 +238,14 @@ func (p *PredicateTransformer) generalizeArrayEqualityLemma(obligation *ProofObl
 	if err != nil {
 		return lemma, err
 	}
-	core, usesLevel, inductive, err := p.checkInductiveCube(strengthened, level)
+	handles := make([]ast.ASTHandle, len(strengthened))
+	for i, ref := range strengthened {
+		handles[i], err = p.manager.RefGet(ref)
+		if err != nil {
+			return lemma, err
+		}
+	}
+	core, usesLevel, inductive, err := p.checkInductiveCube(handles, level)
 	if err != nil || !inductive {
 		return lemma, err
 	}

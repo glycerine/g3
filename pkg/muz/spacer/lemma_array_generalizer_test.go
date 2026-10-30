@@ -77,10 +77,19 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := releaseNormalizeRefs(manager, strengthened); err != nil {
+			t.Error(err)
+		}
+	}()
 	if !applicable {
 		t.Fatal("array equality strengthening was not applicable")
 	}
-	if len(strengthened) != 1 || strengthened[0] != disequality {
+	if len(strengthened) != 1 {
+		t.Fatal("array equality strengthening size", len(strengthened))
+	}
+	strengthenedHandle, err := manager.RefGet(strengthened[0])
+	if err != nil || strengthenedHandle != disequality {
 		t.Fatal("array equality strengthening", strengthened, disequality)
 	}
 	truth, err := manager.MkTrue()
@@ -91,7 +100,16 @@ func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if applicable || len(unchanged) != 1 || unchanged[0] != truth {
+	defer func() {
+		if err := releaseNormalizeRefs(manager, unchanged); err != nil {
+			t.Error(err)
+		}
+	}()
+	if len(unchanged) != 1 {
+		t.Fatal("unchanged cube size", len(unchanged))
+	}
+	unchangedHandle, err := manager.RefGet(unchanged[0])
+	if applicable || err != nil || unchangedHandle != truth {
 		t.Fatal("array equality generalizer applied without array constants", applicable, unchanged)
 	}
 }

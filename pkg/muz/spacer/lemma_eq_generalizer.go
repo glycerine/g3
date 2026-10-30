@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (p *PredicateTransformer) expandEqualityClasses(cube []ast.ASTHandle) (_ []ast.ASTHandle, dirty bool, resultErr error) {
+func (p *PredicateTransformer) expandEqualityClasses(cube []ast.ASTHandle) (result []ast.ASTRef, dirty bool, resultErr error) {
 	equivalence, err := ast.NewExprEquivClass(p.manager)
 	if err != nil {
 		return nil, false, err
@@ -22,24 +22,29 @@ func (p *PredicateTransformer) expandEqualityClasses(cube []ast.ASTHandle) (_ []
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, equalities)) }()
-	result := append([]ast.ASTHandle(nil), remainder...)
-	for i := range equalities {
-		handle, err := p.manager.RefGet(equalities[i])
-		if err != nil {
-			return nil, false, err
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, result))
+			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, equalities))
+			result = nil
 		}
-		result = append(result, handle)
+	}()
+	result, err = refsFromHandles(p.manager, remainder)
+	if err != nil {
+		return nil, false, err
 	}
+	result = append(result, equalities...)
+	equalities = nil
 	return result, dirty, nil
 }
 
-func (p *PredicateTransformer) generalizeEqualityClasses(obligation *ProofObligation, lemma *Lemma) (*Lemma, error) {
+func (p *PredicateTransformer) generalizeEqualityClasses(obligation *ProofObligation, lemma *Lemma) (_ *Lemma, resultErr error) {
 	cube, err := lemma.Cube()
 	if err != nil {
 		return lemma, err
 	}
 	expanded, dirty, err := p.expandEqualityClasses(cube)
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, expanded)) }()
 	if err != nil || !dirty {
 		return lemma, err
 	}
@@ -47,5 +52,12 @@ func (p *PredicateTransformer) generalizeEqualityClasses(obligation *ProofObliga
 	if err != nil {
 		return lemma, err
 	}
-	return NewLemmaFromProofObligation(obligation, expanded, level)
+	handles := make([]ast.ASTHandle, len(expanded))
+	for i, ref := range expanded {
+		handles[i], err = p.manager.RefGet(ref)
+		if err != nil {
+			return lemma, err
+		}
+	}
+	return NewLemmaFromProofObligation(obligation, handles, level)
 }

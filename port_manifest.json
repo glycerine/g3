@@ -91073,6 +91073,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "lemma_eq_generalizer and lemma_array_eq_generalizer preserve owning core, candidate and output expression vectors across temporary equivalence-class destruction, solver push/pop and replacement lemma construction (spacer_generalizers.cpp:187-190,220-252,269-271,282-291)", "status": "ported", "go_targets": ["pkg/muz/spacer/lemma_eq_generalizer.go", "pkg/muz/spacer/lemma_array_generalizer.go", "pkg/muz/spacer/lemma_eq_lifetime_test.go", "pkg/muz/spacer/lemma_generalizer_test.go", "pkg/muz/spacer/lemma_array_generalizer_test.go"], "tests": ["TestSpacerEqualityGeneralizerOwnsExpandedTransitiveEqualities", "TestSpacerArrayGeneralizerOwnsCandidateAcrossSolverPop", "TestExpandInductiveArithmeticEquality", "TestArrayEqualityGeneralizerStrengthensContradictoryLiteral"]},
         {"name": "collect_array_proc concrete postorder application traversal including quantifier body, patterns and no-patterns, selecting the first array sort (spacer_generalizers.cpp:158-181)", "status": "ported", "go_targets": ["pkg/muz/spacer/lemma_array_generalizer.go", "pkg/muz/spacer/lemma_array_generalizer_test.go"], "tests": ["TestArrayGeneralizerCollectsPostorderAndQuantifierChildren"]},
         {
           "name": "lemma_bool_inductive_generalizer with complete expand_literals handling",

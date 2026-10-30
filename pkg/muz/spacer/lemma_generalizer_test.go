@@ -101,6 +101,21 @@ func TestExpandInductiveArithmeticEquality(t *testing.T) {
 	if !dirty || len(classes) != 3 {
 		t.Fatal("full equivalence-class expansion", dirty, len(classes))
 	}
+	defer func() {
+		if err := releaseNormalizeRefs(manager, classes); err != nil {
+			t.Error(err)
+		}
+	}()
+	for _, ref := range classes {
+		h, err := manager.RefGet(ref)
+		if err != nil {
+			t.Fatal(err)
+		}
+		kind, err := manager.GetDeclKind(h)
+		if err != nil || kind != ast.ASTOpEq {
+			t.Fatal("expanded equality lifetime", kind, err)
+		}
+	}
 }
 
 func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
