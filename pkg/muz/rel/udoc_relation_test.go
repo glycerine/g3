@@ -182,6 +182,40 @@ func TestUDocJoinUsesWholeColumnEquality(t *testing.T) {
 	}
 }
 
+func TestUDocJoinWithoutKeysIsCartesianProduct(t *testing.T) {
+	leftManager, _ := newTestDocManager(t, 1)
+	rightManager, _ := newTestDocManager(t, 1)
+	productManager, _ := newTestDocManager(t, 2)
+	left, err := NewUDocRelation(leftManager, []uint32{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := NewUDocRelation(rightManager, []uint32{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, left, right)
+	for _, value := range []uint64{0, 1} {
+		if _, err = left.AddFact([]uint64{value}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = right.AddFact([]uint64{value}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	joined, err := left.Join(right, nil, nil, productManager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, joined)
+	if joined.NumRecords() != 4 {
+		t.Fatalf("Cartesian product records: got %d, want 4", joined.NumRecords())
+	}
+	for _, fact := range [][]uint64{{0, 0}, {0, 1}, {1, 0}, {1, 1}} {
+		requireFact(t, joined, fact, true)
+	}
+}
+
 func TestUDocCyclicJoinThenProject(t *testing.T) {
 	leftManager, _ := newTestDocManager(t, 4)
 	rightManager, _ := newTestDocManager(t, 4)
