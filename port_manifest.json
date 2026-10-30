@@ -75641,7 +75641,7 @@
         "TestSubpavingFastClauseStableWatchUnitAndConflict",
         "TestSubpavingFastClauseOpennessAndUnitResume",
         "TestSubpavingFastClauseSharedAtomSourceCleanup",
-        "TestSubpavingFastContextRootInitializationOrderAndResume",
+        "TestSubpavingFastContextRootInitializationOrderAndNoResume",
         "TestSubpavingFastContextRootInitializationUnitConflict"
       ],
       "conditionals": [
@@ -75718,7 +75718,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and resumable cancellation; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
+          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and non-resuming cancellation state; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/fast_context_init.go",
           "go_targets": [
@@ -75727,7 +75727,7 @@
           ],
           "tests": [
             "TestSubpavingFastClauseSharedAtomSourceCleanup",
-            "TestSubpavingFastContextRootInitializationOrderAndResume",
+            "TestSubpavingFastContextRootInitializationOrderAndNoResume",
             "TestSubpavingFastContextRootInitializationUnitConflict"
           ]
         }
@@ -76124,7 +76124,7 @@
         "TestSubpavingFastClauseStableWatchUnitAndConflict",
         "TestSubpavingFastClauseOpennessAndUnitResume",
         "TestSubpavingFastClauseSharedAtomSourceCleanup",
-        "TestSubpavingFastContextRootInitializationOrderAndResume",
+        "TestSubpavingFastContextRootInitializationOrderAndNoResume",
         "TestSubpavingFastContextRootInitializationUnitConflict",
         "TestFastContextTacticVariableGrowthBeforeRoot",
         "TestSubpavingMPFMutableIntervalRetainedCore",
@@ -76598,7 +76598,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and resumable cancellation; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
+          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and non-resuming cancellation state; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/fast_context_init.go",
           "go_targets": [
@@ -76607,7 +76607,7 @@
           ],
           "tests": [
             "TestSubpavingFastClauseSharedAtomSourceCleanup",
-            "TestSubpavingFastContextRootInitializationOrderAndResume",
+            "TestSubpavingFastContextRootInitializationOrderAndNoResume",
             "TestSubpavingFastContextRootInitializationUnitConflict"
           ]
         },
@@ -77427,7 +77427,7 @@
         "TestSubpavingFastClauseStableWatchUnitAndConflict",
         "TestSubpavingFastClauseOpennessAndUnitResume",
         "TestSubpavingFastClauseSharedAtomSourceCleanup",
-        "TestSubpavingFastContextRootInitializationOrderAndResume",
+        "TestSubpavingFastContextRootInitializationOrderAndNoResume",
         "TestSubpavingFastContextRootInitializationUnitConflict",
         "TestFastContextTacticVariableGrowthBeforeRoot",
         "TestSubpavingMPFMutableIntervalRetainedCore",
@@ -77943,7 +77943,7 @@
           ]
         },
         {
-          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and resumable cancellation; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
+          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and non-resuming cancellation state; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/fast_context_init.go",
           "go_targets": [
@@ -77952,7 +77952,7 @@
           ],
           "tests": [
             "TestSubpavingFastClauseSharedAtomSourceCleanup",
-            "TestSubpavingFastContextRootInitializationOrderAndResume",
+            "TestSubpavingFastContextRootInitializationOrderAndNoResume",
             "TestSubpavingFastContextRootInitializationUnitConflict"
           ]
         },

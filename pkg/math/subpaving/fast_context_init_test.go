@@ -3,9 +3,11 @@ package subpaving
 import (
 	"errors"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
 )
 
-func TestSubpavingFastContextRootInitializationOrderAndResume(t *testing.T) {
+func TestSubpavingFastContextRootInitializationOrderAndNoResume(t *testing.T) {
 	m, c, v, root := fastMonomialFixture(t, []bool{false, false})
 	must := func(e error) {
 		t.Helper()
@@ -39,21 +41,18 @@ func TestSubpavingFastContextRootInitializationOrderAndResume(t *testing.T) {
 	}
 	c.limit.Limit, c.limit.Steps = 1000, 0
 	must(c.InitializeRoot())
-	if c.unitHead != 2 || c.initStage != 3 || c.initDefHead != uint32(len(c.isInt)) || len(c.queue) != 0 || c.queueHead != 0 {
-		t.Fatal("root initialization did not finish", c.unitHead, c.initStage, c.initDefHead, len(c.queue))
+	if c.unitHead != 1 || c.initStage != 0 || c.initDefHead != 0 || len(c.queue) != 1 || c.queueHead != 0 {
+		t.Fatal("source root must retain the interrupted prefix without resuming", c.unitHead, c.initStage, c.initDefHead, len(c.queue), c.queueHead)
 	}
 	fastMonomialCheckBound(t, m, root, v, 0, 2, true)
-	fastMonomialCheckBound(t, m, root, v, 0, 3, false)
-	fastMonomialCheckBound(t, m, root, v, x, 4, true)
-	fastMonomialCheckBound(t, m, root, v, x, 9, false)
-	fastMonomialCheckBound(t, m, root, v, 1, 5, true)
-	if root.inconsistent || clause.visited == 0 {
-		t.Fatal("root queue clause propagation", root.inconsistent, clause.visited)
+	if root.upper[0] != nil || root.lower[1] != nil || root.lower[x] != nil {
+		t.Fatal("interrupted root initialization ran a later stage")
 	}
-	trail, timestamp, visits := root.trail, c.timestamp, c.numVisited
-	must(c.InitializeRoot())
-	if root.trail != trail || c.timestamp != timestamp || c.numVisited != visits {
-		t.Fatal("root initialization repeated work")
+	if _, err := c.DefineMonomial([]FastPower{{Variable: 1, Degree: 2}}); !errors.Is(err, arena.ErrInvalidSlot) {
+		t.Fatal("source root allocation must freeze variable definitions", err)
+	}
+	if err := c.Search(); !errors.Is(err, arena.ErrInvalidSlot) {
+		t.Fatal("search after interrupted source init must expose the nonempty queue invariant", err)
 	}
 }
 

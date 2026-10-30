@@ -39,7 +39,7 @@ func (c *FastContext) DefinePolynomial(constant *numeral.FastFloat, terms []Fast
 	if err = c.open(); err != nil {
 		return 0, err
 	}
-	if len(terms) == 0 || len(c.isInt) >= math.MaxUint32 || c.root.children != 0 {
+	if len(terms) == 0 || len(c.isInt) >= math.MaxUint32 || (c.rootInitStarted || c.root.children != 0) {
 		return 0, arena.ErrInvalidSlot
 	}
 	m := c.numbers

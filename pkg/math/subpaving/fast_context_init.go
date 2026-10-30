@@ -3,13 +3,19 @@ package subpaving
 // Source: src/math/subpaving/subpaving_t_def.h:1753-1808,
 // concrete config_mpff root initialization order.
 
-// InitializeRoot asserts units, propagates definitions in variable order and
-// drains the resulting queue. Each completed stage is retained so a resource
-// cancellation can resume without asserting units or definitions twice.
+// InitializeRoot follows context_t::init in source order. The root is already
+// allocated in Go, so rootInitStarted records the source m_root transition;
+// cancellation leaves the prefix in place and later calls do not resume init.
 func (c *FastContext) InitializeRoot() error {
 	if err := c.open(); err != nil {
 		return err
 	}
+	// C++ sets m_root before asserting units. If a checkpoint throws, a later
+	// operator() sees a non-nil root and skips init() instead of resuming it.
+	if c.rootInitStarted {
+		return nil
+	}
+	c.rootInitStarted = true
 	n := c.root
 	if err := n.open(); err != nil {
 		return err
