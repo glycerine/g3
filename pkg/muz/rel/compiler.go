@@ -340,6 +340,152 @@ func (c *finiteCompiler) orderRules(rules []finiteCompiledRule) ([]finiteCompile
 	return ordered, nil
 }
 
+type finitePredicateOrderKey struct {
+	origin           uint64
+	slot, generation uint32
+}
+
+func finitePredicateKey(predicate ast.ASTHandle) finitePredicateOrderKey {
+	return finitePredicateOrderKey{origin: predicate.Origin(), slot: predicate.Slot(), generation: predicate.Generation()}
+}
+
+// sourceDependencyOrder mirrors dl_compiler's cycle_breaker followed by
+// rule_dependencies::sort_deps: remove a DFS back-edge source, topologically
+// order the remaining dependency graph, then append removed predicates.
+func sourceDependencyOrder(heads []finitePredicateOrderKey, dependencies map[finitePredicateOrderKey][]finitePredicateOrderKey) ([]finitePredicateOrderKey, []finitePredicateOrderKey) {
+	allowed := make(map[finitePredicateOrderKey]bool, len(heads))
+	for _, head := range heads {
+		allowed[head] = true
+	}
+	restricted := make(map[finitePredicateOrderKey][]finitePredicateOrderKey, len(heads))
+	for _, head := range heads {
+		for _, dependency := range dependencies[head] {
+			if allowed[dependency] {
+				restricted[head] = append(restricted[head], dependency)
+			}
+		}
+	}
+	dependencies = restricted
+	visited := make(map[finitePredicateOrderKey]bool, len(heads))
+	onStack := make(map[finitePredicateOrderKey]bool, len(heads))
+	removed := make(map[finitePredicateOrderKey]bool)
+	var visit func(finitePredicateOrderKey)
+	visit = func(head finitePredicateOrderKey) {
+		if visited[head] || removed[head] {
+			return
+		}
+		visited[head] = true
+		onStack[head] = true
+		for _, dependency := range dependencies[head] {
+			if onStack[dependency] {
+				removed[head] = true
+				break
+			}
+			visit(dependency)
+		}
+		delete(onStack, head)
+	}
+	for _, head := range heads {
+		visit(head)
+	}
+
+	indegree := make(map[finitePredicateOrderKey]int, len(heads))
+	activeCount := 0
+	for _, head := range heads {
+		if removed[head] {
+			continue
+		}
+		activeCount++
+		for _, dependency := range dependencies[head] {
+			if !removed[dependency] {
+				indegree[head]++
+			}
+		}
+	}
+	ordered := make([]finitePredicateOrderKey, 0, len(heads))
+	for _, head := range heads {
+		if !removed[head] && indegree[head] == 0 {
+			ordered = append(ordered, head)
+		}
+	}
+	for current := 0; current < len(ordered); current++ {
+		dependency := ordered[current]
+		for _, head := range heads {
+			if removed[head] || indegree[head] == 0 {
+				continue
+			}
+			for _, candidate := range dependencies[head] {
+				if candidate == dependency {
+					indegree[head]--
+					if indegree[head] == 0 {
+						ordered = append(ordered, head)
+					}
+					break
+				}
+			}
+		}
+	}
+	if len(ordered) != activeCount {
+		return nil, nil
+	}
+	removedOrder := make([]finitePredicateOrderKey, 0, len(heads)-activeCount)
+	for _, head := range heads {
+		if removed[head] {
+			removedOrder = append(removedOrder, head)
+			ordered = append(ordered, head)
+		}
+	}
+	return ordered, removedOrder
+}
+
+func (c *finiteCompiler) orderRecursiveRules(rules []finiteCompiledRule) ([]finiteCompiledRule, error) {
+	byHead := make(map[finitePredicateOrderKey][]finiteCompiledRule)
+	heads := make([]finitePredicateOrderKey, 0)
+	dependencies := make(map[finitePredicateOrderKey][]finitePredicateOrderKey)
+	seenHeads := make(map[finitePredicateOrderKey]bool)
+	for _, rule := range rules {
+		head, err := c.manager.GetDecl(rule.head)
+		if err != nil {
+			return nil, err
+		}
+		headKey := finitePredicateKey(head)
+		if !seenHeads[headKey] {
+			seenHeads[headKey] = true
+			heads = append(heads, headKey)
+		}
+		byHead[headKey] = append(byHead[headKey], rule)
+		if rule.kind != finiteSingleTailRule && rule.kind != finiteTwoTailRule {
+			continue
+		}
+		for _, application := range []ast.ASTHandle{rule.tail, rule.tail2} {
+			if application.IsNull() {
+				continue
+			}
+			dependency, x := c.manager.GetDecl(application)
+			if x != nil {
+				return nil, x
+			}
+			dependencyKey := finitePredicateKey(dependency)
+			duplicate := false
+			for _, existing := range dependencies[headKey] {
+				duplicate = duplicate || existing == dependencyKey
+			}
+			if !duplicate {
+				dependencies[headKey] = append(dependencies[headKey], dependencyKey)
+			}
+		}
+	}
+	order, _ := sourceDependencyOrder(heads, dependencies)
+	if len(order) != len(heads) {
+		return nil, ErrCompilerUnsupported
+	}
+	orderedRules := make([]finiteCompiledRule, 0, len(rules))
+	for _, key := range order {
+		orderedRules = append(orderedRules, byHead[key]...)
+	}
+	return orderedRules, nil
+}
+
 func (c *finiteCompiler) constantRegister(rule *base.Rule, sort ast.ASTHandle, domain uint64, value Element) (uint32, error) {
 	key := constantRegisterKey{sort: sort, value: value}
 	if register, found := c.constants[key]; found {
@@ -1057,6 +1203,11 @@ func (c *finiteCompiler) compileRule(rule finiteCompiledRule, delta uint32, tail
 // run substitutes one changed tail relation and reads accumulated relations
 // for its other tails, recording newly inserted tuples in the next deltas.
 func (c *finiteCompiler) compileRecursive(rules []finiteCompiledRule) (resultErr error) {
+	orderedRules, err := c.orderRecursiveRules(rules)
+	if err != nil {
+		return err
+	}
+	rules = orderedRules
 	fullSources := [2]uint32{VoidRegister, VoidRegister}
 	headOrder := make([]ast.ASTHandle, 0)
 	seen := make(map[ast.ASTHandle]bool)
