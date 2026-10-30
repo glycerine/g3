@@ -23,6 +23,7 @@ func (c *nla2BVInvocation) appendOwned(dst *[]ast.ASTHandle, h ast.ASTHandle) er
 }
 func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err error) {
 	m := c.t.manager
+	c.traceGoalCount(g, 86, true)
 	c.filter, err = tactic.NewFilterModel(m)
 	if err != nil {
 		return err
@@ -62,12 +63,14 @@ func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err er
 	if err = c.substitute(g); err != nil {
 		return err
 	}
+	c.traceGoalDisplay(g, "nla2bv", 97, "substitute vars\n")
 	if err = c.reduceInteger(g); err != nil {
 		return err
 	}
 	if err = c.reduceReal(g); err != nil {
 		return err
 	}
+	c.traceGoalDisplay(g, "nla2bv", 100, "after reduce\n")
 	c.extension, err = tactic.NewExtensionModel(m, c.t.services)
 	if err != nil {
 		return err
@@ -100,6 +103,8 @@ func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err er
 			return err
 		}
 	}
+	c.traceGoalDisplay(g, "nla2bv_verbose", 110, "")
+	c.traceGoalCount(g, 111, false)
 	if err = g.IncDepth(); err != nil {
 		return err
 	}
@@ -526,81 +531,4 @@ func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
 		}
 	}
 	return supported && len(variables) != 0, nil
-}
-
-// This concrete goal visitor marks all nodes across all roots and visits
-// arguments, quantifier bodies and annotations before their parent.
-func (c *nla2BVInvocation) postorder(g *tactic.Goal) ([]ast.ASTHandle, error) {
-	type frame struct {
-		h    ast.ASTHandle
-		next uint32
-	}
-	m := c.t.manager
-	seen := map[ast.ASTHandle]bool{}
-	var result []ast.ASTHandle
-	n, err := g.Size()
-	if err != nil {
-		return nil, err
-	}
-	for i := uint32(0); i < n; i++ {
-		root, err := g.Form(i)
-		if err != nil {
-			return nil, err
-		}
-		if seen[root] {
-			continue
-		}
-		seen[root] = true
-		stack := []frame{{h: root}}
-		for len(stack) > 0 {
-			last := len(stack) - 1
-			f := &stack[last]
-			kind, err := m.GetKind(f.h)
-			if err != nil {
-				return nil, err
-			}
-			var count, patterns uint32
-			switch kind {
-			case ast.ASTApp:
-				count, err = m.GetNumArgs(f.h)
-			case ast.ASTQuantifier:
-				patterns, err = m.GetNumPatterns(f.h)
-				if err == nil {
-					count, err = m.GetNumNoPatterns(f.h)
-				}
-				count += patterns + 1
-			case ast.ASTVar:
-			default:
-				return nil, ast.ErrASTDomain
-			}
-			if err != nil {
-				return nil, err
-			}
-			if f.next < count {
-				index := f.next
-				f.next++
-				var child ast.ASTHandle
-				if kind == ast.ASTApp {
-					child, err = m.GetArg(f.h, index)
-				} else if index == 0 {
-					child, err = m.GetQuantifierBody(f.h)
-				} else if index <= patterns {
-					child, err = m.GetPattern(f.h, index-1)
-				} else {
-					child, err = m.GetNoPattern(f.h, index-1-patterns)
-				}
-				if err != nil {
-					return nil, err
-				}
-				if !seen[child] {
-					seen[child] = true
-					stack = append(stack, frame{h: child})
-				}
-				continue
-			}
-			result = append(result, f.h)
-			stack = stack[:last]
-		}
-	}
-	return result, nil
 }

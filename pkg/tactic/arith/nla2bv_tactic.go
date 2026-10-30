@@ -28,6 +28,7 @@ type NLA2BVTactic struct {
 	paramsReady     bool
 	active          *nla2BVInvocation
 	pending         []*nla2BVInvocation
+	trace           *diagnostic.TraceTags
 	header          uint64
 	refs            uint32
 	closed, closing bool
@@ -142,7 +143,11 @@ func (t *NLA2BVTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return NewNLA2BVTactic(m, t.context, t.globals, &t.params, t.services)
+	result, err := NewNLA2BVTactic(m, t.context, t.globals, &t.params, t.services)
+	if result != nil {
+		result.trace = t.trace
+	}
+	return result, err
 }
 func (t *NLA2BVTactic) CollectStatistics() map[string]float64  { return nil }
 func (t *NLA2BVTactic) ResetStatistics() error                 { return t.open() }
