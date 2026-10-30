@@ -114848,6 +114848,7 @@
       ],
       "tests": [
         "TestSATGoalTranslatorSourceUnsupportedSMT2Diagnostic",
+        "TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic",
         "TestSATGoalDependencyFormulaSourceTrace",
         "TestSATGoalTranslatorResultStackSourceTrace",
         "TestSATGoalInverseLiteralOwnership",
@@ -114974,11 +114975,12 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "Retained unsupported Boolean operator source SMT2 diagnostic with process-bound parameters; standalone manager fallback retains AST identity (cpp192-197)",
-          "status": "partial",
+          "name": "Retained unsupported Boolean operator source SMT2 diagnostic with process-bound parameters and standalone source-default formatting (cpp192-197)",
+          "status": "ported",
           "go_target": "pkg/sat/tactic/sat_goal_to_sat.go",
           "tests": [
             "TestSATGoalTranslatorSourceUnsupportedSMT2Diagnostic",
+            "TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic",
             "TestSATGoalTranslatorRejectsUnnormalizedSourceOperators"
           ]
         },

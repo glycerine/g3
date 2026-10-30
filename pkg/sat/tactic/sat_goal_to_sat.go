@@ -5,7 +5,6 @@ package tactic
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -385,15 +384,10 @@ func (tr *GoalTranslator) visit(h ast.ASTHandle, root, sign bool) (bool, error) 
 			return true, e
 		}
 		formula, e := tr.traceGoalFormula(h)
-		if e == nil {
-			return true, satGoalUnsupportedOperator{formula: formula}
-		}
-		if !errors.Is(e, uparams.ErrGlobalParamsOwner) {
+		if e != nil {
 			return true, e
 		}
-		// Standalone managers may have no process parameter owner yet. Preserve
-		// the originating node for that explicit unbound state.
-		return true, fmt.Errorf("%w (AST %d, operation %d)", ErrSATGoalUnsupported, h.Slot(), op)
+		return true, satGoalUnsupportedOperator{formula: formula}
 	default:
 		return true, tr.convertAtom(h, root, sign)
 	}

@@ -221,9 +221,6 @@ func (tr *GoalTranslator) traceGoalFormula(h ast.ASTHandle) (body string, result
 	if tr.printer != nil {
 		global = tr.printer
 	}
-	if global == nil || global.Context == nil {
-		return "", uparams.ErrGlobalParamsOwner
-	}
 	format, err := tr.manager.SMT2PPExprTree(h, nil)
 	if err != nil {
 		return "", err
@@ -233,6 +230,15 @@ func (tr *GoalTranslator) traceGoalFormula(h ast.ASTHandle) (body string, result
 		return "", err
 	}
 	defer func() { result = errors.Join(result, out.Close()) }()
+	if global == nil {
+		if err = tr.manager.PrintFormat(out, format, nil, nil, nil); err != nil {
+			return "", err
+		}
+		return out.String()
+	}
+	if global.Context == nil {
+		return "", uparams.ErrGlobalParamsOwner
+	}
 	empty := global.Context.EmptyValue()
 	if err = tr.manager.PrintFormat(out, format, global.Context, &empty, global); err != nil {
 		return "", err

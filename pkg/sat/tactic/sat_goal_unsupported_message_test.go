@@ -33,3 +33,32 @@ func TestSATGoalTranslatorSourceUnsupportedSMT2Diagnostic(t *testing.T) {
 		t.Fatalf("unsupported source operator diagnostic: got %q, want %q", err, want)
 	}
 }
+
+func TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic(t *testing.T) {
+	for _, test := range []struct {
+		name, want string
+		op         int32
+	}{
+		{"xor", "operator (xor p q) not supported, apply simplifier before invoking translator", ast.ASTOpXor},
+		{"implies", "operator (=> p q) not supported, apply simplifier before invoking translator", ast.ASTOpImplies},
+		{"distinct", "operator (distinct p q) not supported, apply simplifier before invoking translator", ast.ASTOpDistinct},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			m := astTestManager(t)
+			p := goalTestAtom(t, m, "p")
+			q := goalTestAtom(t, m, "q")
+			formula := goalTestApp(t, m, test.op, p, q)
+			solver, _, _ := satSolverCheckFixture(t)
+			translator, err := NewGoalTranslator(m, solver)
+			satOK(t, err)
+			t.Cleanup(func() { satOK(t, translator.Close()) })
+			err = translator.Compile([]ast.ASTHandle{formula})
+			if !errors.Is(err, ErrSATGoalUnsupported) {
+				t.Fatalf("unsupported source operator class: %v", err)
+			}
+			if err.Error() != test.want {
+				t.Fatalf("standalone unsupported diagnostic: got %q, want %q", err, test.want)
+			}
+		})
+	}
+}
