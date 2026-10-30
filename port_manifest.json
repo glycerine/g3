@@ -94220,7 +94220,7 @@
       "path": "src/muz/transforms/dl_mk_quantifier_abstraction.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/quantifier_abstraction.go",
         "pkg/muz/transforms/quantifier_abstraction_test.go",
@@ -94231,8 +94231,8 @@
       ],
       "tests": [
         "TestQuantifierAbstractionExpandsInternalArrayPredicate",
+        "TestQuantifierAbstractionRefusesNegationAndRulesWithoutArrays",
         "TestSpacerQuantifierAbstractionReconstructsArrayPredicateModel",
-        "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
       "assertions": [
@@ -94257,37 +94257,38 @@
           "text": "SASSERT(new_p->get_arity() > old_p->get_arity());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "option-gated internal array-predicate declaration expansion, indexed/value head construction, shifted quantified tail construction, output retention and transform chaining (dl_mk_quantifier_abstraction.cpp:139-366)",
-          "status": "partial",
+          "name": "Array-predicate declaration expansion, indexed/value heads, shifted quantified tails, predicate/output mapping, negation refusal, and model reconstruction",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/quantifier_abstraction.go",
+          "go_targets": [
+            "pkg/muz/transforms/quantifier_abstraction.go",
+            "pkg/muz/fp/spacer_quantifier_results.go",
+            "pkg/muz/fp/spacer_engine.go"
+          ],
           "tests": [
             "TestQuantifierAbstractionExpandsInternalArrayPredicate",
+            "TestQuantifierAbstractionRefusesNegationAndRulesWithoutArrays",
+            "TestSpacerQuantifierAbstractionReconstructsArrayPredicateModel",
             "TestSMTLibRunnerCPPReference"
-          ]
-        },
-        {
-          "name": "qa_model_converter array-predicate interpretation reconstruction (dl_mk_quantifier_abstraction.cpp:33-101)",
-          "status": "ported",
-          "go_target": "pkg/muz/fp/spacer_quantifier_results.go",
-          "tests": [
-            "TestSpacerQuantifierAbstractionReconstructsArrayPredicateModel"
           ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "The plugin borrows AST and rule managers and owns no persistent AST references; RuleTransformer owns the plugin. Spacer result conversion owns reconstructed array-predicate interpretations."
+      ],
       "deviations": [
-        "Rule semantics, declaration mapping, the retained fixedpoint.xform.quantify_arrays Spacer pipeline stage, and qa_model_converter interpretation reconstruction are ported. Native proof conversion remains unported, so the unit remains partial."
+        "The source explicitly does not preserve proofs for this transform. Model reconstruction is owned by the Go fixedpoint result path rather than installed as a context converter object."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_quantifier_abstraction.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/quantifier_abstraction.go",
         "pkg/muz/fp/spacer_quantifier_results.go",
@@ -94295,6 +94296,7 @@
       ],
       "tests": [
         "TestQuantifierAbstractionExpandsInternalArrayPredicate",
+        "TestQuantifierAbstractionRefusesNegationAndRulesWithoutArrays",
         "TestSpacerQuantifierAbstractionReconstructsArrayPredicateModel"
       ],
       "conditionals": [
@@ -94307,29 +94309,37 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "mk_quantifier_abstraction concrete rule-transform plugin and original-to-expanded predicate mapping",
-          "status": "partial",
+          "name": "Array-predicate declaration expansion, indexed/value heads, shifted quantified tails, predicate/output mapping, negation refusal, and model reconstruction",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/quantifier_abstraction.go",
+          "go_targets": [
+            "pkg/muz/transforms/quantifier_abstraction.go",
+            "pkg/muz/fp/spacer_quantifier_results.go",
+            "pkg/muz/fp/spacer_engine.go"
+          ],
           "tests": [
             "TestQuantifierAbstractionExpandsInternalArrayPredicate",
+            "TestQuantifierAbstractionRefusesNegationAndRulesWithoutArrays",
             "TestSpacerQuantifierAbstractionReconstructsArrayPredicateModel"
           ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "The plugin borrows AST and rule managers and owns no persistent AST references; RuleTransformer owns the plugin. Spacer result conversion owns reconstructed array-predicate interpretations."
+      ],
       "deviations": [
-        "The Go plugin exposes fresh predicate mappings directly to the fixedpoint engine and reconstructs original array-predicate model interpretations. Native proof conversion remains outside this batch."
+        "The source explicitly does not preserve proofs for this transform. Model reconstruction is owned by the Go fixedpoint result path rather than installed as a context converter object."
       ]
     },
     {
       "path": "src/muz/transforms/dl_mk_quantifier_instantiation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/quantifier_instantiation.go",
         "pkg/muz/transforms/quantifier_instantiation_test.go",
@@ -94338,7 +94348,7 @@
       ],
       "tests": [
         "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph",
-        "TestSMTLibRunnerScripts",
+        "TestQuantifierInstantiationRefusesNegatedRulesAndNoQuantifiers",
         "TestSMTLibRunnerCPPReference"
       ],
       "assertions": [
@@ -94351,34 +94361,36 @@
           "text": "SASSERT(m_binding[i]);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "option-gated forall extraction, pattern inference, rule-variable constant protection, equality e-graph collection, multi-pattern E-matching, binding instantiation and quantifier removal (dl_mk_quantifier_instantiation.cpp:35-292)",
-          "status": "partial",
+          "name": "Forall extraction, pattern inference, rule-variable constant protection, equality e-graph collection, multi-pattern matching, quantifier removal, and weakening-proof attachment",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/quantifier_instantiation.go",
           "tests": [
             "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph",
+            "TestQuantifierInstantiationRefusesNegatedRulesAndNoQuantifiers",
             "TestSMTLibRunnerCPPReference"
           ]
         }
       ],
-      "ownership": [],
-      "deviations": [
-        "Rule semantics and the retained fixedpoint.xform.instantiate_quantifiers Spacer pipeline stage are ported. Native proof weakening/attachment remains pending fixedpoint proof conversion, so the unit remains partial."
-      ]
+      "ownership": [
+        "The plugin borrows AST and rule managers; per-rule e-graphs, substitutions, and formula references are closed before returning. RuleTransformer owns the plugin and transformed RuleSet owns replacement rules."
+      ],
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_quantifier_instantiation.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/quantifier_instantiation.go"
       ],
       "tests": [
-        "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph"
+        "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph",
+        "TestQuantifierInstantiationRefusesNegatedRulesAndNoQuantifiers"
       ],
       "conditionals": [
         {
@@ -94390,22 +94402,23 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "mk_quantifier_instantiation concrete rule-transform plugin and retained matching state",
-          "status": "partial",
+          "name": "Forall extraction, pattern inference, rule-variable constant protection, equality e-graph collection, multi-pattern matching, quantifier removal, and weakening-proof attachment",
+          "status": "ported",
           "go_target": "pkg/muz/transforms/quantifier_instantiation.go",
           "tests": [
-            "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph"
+            "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph",
+            "TestQuantifierInstantiationRefusesNegatedRulesAndNoQuantifiers"
           ]
         }
       ],
-      "ownership": [],
-      "deviations": [
-        "Go uses concrete maps, slices, BasicUnionFind, and ExprSafeReplace owners for the live instantiation rather than reproducing C++ container templates. Proof conversion remains outside this batch."
-      ]
+      "ownership": [
+        "The plugin borrows AST and rule managers; per-rule e-graphs, substitutions, and formula references are closed before returning. RuleTransformer owns the plugin and transformed RuleSet owns replacement rules."
+      ],
+      "deviations": []
     },
     {
       "path": "src/muz/transforms/dl_mk_rule_inliner.cpp",

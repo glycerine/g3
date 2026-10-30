@@ -530,7 +530,42 @@ func (p *QuantifierInstantiationPlugin) transformRule(rule *base.Rule) (_ *base.
 		return nil, false, err
 	}
 	replacement, err := p.rules.NewRule(head, conjuncts, nil, name)
-	return replacement, true, err
+	if err != nil {
+		return nil, false, err
+	}
+	sourceProof, hasProof, err := rule.Proof()
+	if err == nil && hasProof {
+		oldFact, proofErr := p.manager.GetProofFact(sourceProof)
+		var formula ast.ASTRef
+		if proofErr == nil {
+			formula, proofErr = replacement.ToFormula()
+		}
+		var newFact ast.ASTHandle
+		if proofErr == nil {
+			newFact, proofErr = p.manager.RefGet(formula)
+		}
+		var weakening, asserted ast.ASTHandle
+		if proofErr == nil {
+			weakening, proofErr = p.manager.MkImplies(oldFact, newFact)
+		}
+		if proofErr == nil {
+			asserted, proofErr = p.manager.MkProofDefAxiom(weakening)
+		}
+		if proofErr == nil {
+			asserted, proofErr = p.manager.MkProofModusPonens(sourceProof, asserted)
+		}
+		if formula != (ast.ASTRef{}) {
+			proofErr = errors.Join(proofErr, p.manager.DelRef(&formula))
+		}
+		if proofErr == nil {
+			proofErr = replacement.SetProof(asserted)
+		}
+		err = proofErr
+	}
+	if err != nil {
+		return nil, false, errors.Join(err, replacement.Close())
+	}
+	return replacement, true, nil
 }
 
 func (p *QuantifierInstantiationPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {

@@ -66,6 +66,15 @@ func TestQuantifierInstantiationMatchesPatternAgainstHornEGraph(t *testing.T) {
 	coneMust(t, err)
 	rule, err := rules.NewRule(head, []ast.ASTHandle{groundEquality, quantifiedTail}, nil, "instantiate")
 	coneMust(t, err)
+	coneMust(t, manager.ToggleProofMode(ast.ASTProofEnabled))
+	ruleFormula, err := rule.ToFormula()
+	coneMust(t, err)
+	ruleFact, err := manager.RefGet(ruleFormula)
+	coneMust(t, err)
+	sourceProof, err := manager.MkProofAsserted(ruleFact)
+	coneMust(t, err)
+	coneMust(t, rule.SetProof(sourceProof))
+	coneMust(t, manager.DelRef(&ruleFormula))
 	coneMust(t, set.Add(rule))
 	coneMust(t, rule.Close())
 	valid, err := set.Finalize()
@@ -85,6 +94,22 @@ func TestQuantifierInstantiationMatchesPatternAgainstHornEGraph(t *testing.T) {
 	rewritten, err := set.Rule(0)
 	coneMust(t, err)
 	defer func() { coneMust(t, rewritten.Close()) }()
+	proof, hasProof, err := rewritten.Proof()
+	if err != nil || !hasProof {
+		t.Fatalf("instantiated rule lost the source weakening proof: found=%v err=%v", hasProof, err)
+	}
+	provedFact, err := manager.GetProofFact(proof)
+	coneMust(t, err)
+	rewrittenFormula, err := rewritten.ToFormula()
+	coneMust(t, err)
+	rewrittenFact, err := manager.RefGet(rewrittenFormula)
+	coneMust(t, err)
+	equal, err := manager.AreEqual(provedFact, rewrittenFact)
+	coneMust(t, err)
+	coneMust(t, manager.DelRef(&rewrittenFormula))
+	if !equal {
+		t.Fatal("instantiation weakening proof does not establish rewritten rule")
+	}
 	size, err := rewritten.TailSize()
 	coneMust(t, err)
 	if size != 2 {
@@ -102,4 +127,31 @@ func TestQuantifierInstantiationMatchesPatternAgainstHornEGraph(t *testing.T) {
 			t.Fatal("unexpected quantifier instance", tail, groundEquality)
 		}
 	}
+}
+
+func TestQuantifierInstantiationRefusesNegatedRulesAndNoQuantifiers(t *testing.T) {
+	t.Run("negation", func(t *testing.T) {
+		f := newConeFixture(t, "P", "Q")
+		addTransformRule(t, f, f.applications["P"], []ast.ASTHandle{f.applications["Q"]}, []bool{true}, "negative")
+		plugin := transforms.NewQuantifierInstantiationPlugin(f.manager, f.rules, 37000)
+		defer func() { coneMust(t, plugin.Close()) }()
+		result, err := plugin.Transform(f.set)
+		coneMust(t, err)
+		if result != nil {
+			coneMust(t, result.Close())
+			t.Fatal("quantifier instantiation changed a rule set with negation")
+		}
+	})
+	t.Run("no-quantifiers", func(t *testing.T) {
+		f := newConeFixture(t, "P")
+		f.add(t, f.applications["P"], "plain-fact")
+		plugin := transforms.NewQuantifierInstantiationPlugin(f.manager, f.rules, 37000)
+		defer func() { coneMust(t, plugin.Close()) }()
+		result, err := plugin.Transform(f.set)
+		coneMust(t, err)
+		if result != nil {
+			coneMust(t, result.Close())
+			t.Fatal("quantifier-free set produced an instantiation replacement")
+		}
+	})
 }

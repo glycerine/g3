@@ -113,3 +113,30 @@ func TestQuantifierAbstractionExpandsInternalArrayPredicate(t *testing.T) {
 		t.Fatal("missing transformed head or quantified tail", foundFreshHead, foundQuantifiedTail)
 	}
 }
+
+func TestQuantifierAbstractionRefusesNegationAndRulesWithoutArrays(t *testing.T) {
+	t.Run("negation", func(t *testing.T) {
+		f := newConeFixture(t, "P", "Q")
+		addTransformRule(t, f, f.applications["P"], []ast.ASTHandle{f.applications["Q"]}, []bool{true}, "negative")
+		plugin := transforms.NewQuantifierAbstractionPlugin(f.manager, f.rules, 38000)
+		defer func() { coneMust(t, plugin.Close()) }()
+		result, err := plugin.Transform(f.set)
+		coneMust(t, err)
+		if result != nil {
+			coneMust(t, result.Close())
+			t.Fatal("array abstraction transformed a rule set with negation")
+		}
+	})
+	t.Run("no-array-predicates", func(t *testing.T) {
+		f := newConeFixture(t, "P")
+		f.add(t, f.applications["P"], "plain-fact")
+		plugin := transforms.NewQuantifierAbstractionPlugin(f.manager, f.rules, 38000)
+		defer func() { coneMust(t, plugin.Close()) }()
+		result, err := plugin.Transform(f.set)
+		coneMust(t, err)
+		if result != nil {
+			coneMust(t, result.Close())
+			t.Fatal("array-free rule set produced an abstraction replacement")
+		}
+	})
+}
