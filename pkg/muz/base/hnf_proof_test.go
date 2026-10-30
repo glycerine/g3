@@ -61,6 +61,49 @@ func TestRuleManagerAddsProofsForDisjunctiveHornSplit(t *testing.T) {
 	}
 }
 
+func TestRuleManagerRemovesLabelsAndPreservesHNFProofs(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q", "R")
+	disjunction, err := f.manager.MkOr(f.app["Q"], f.app["R"])
+	ruleMust(t, err)
+	body, err := f.manager.MkImplies(disjunction, f.app["P"])
+	ruleMust(t, err)
+	label, err := f.manager.Symbols.Intern("proof-label")
+	ruleMust(t, err)
+	formula, err := f.manager.MkLabel(true, []usymbol.Symbol{label}, body)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	proof, err := f.manager.MkProofAsserted(formula)
+	ruleMust(t, err)
+	ruleMust(t, f.manager.ToggleProofMode(ast.ASTProofDisabled))
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	if err = f.rules.AddFormulaWithProof(set, formula, proof, "labelled-split"); err != nil {
+		t.Fatal(err)
+	}
+	if count, e := set.Len(); e != nil || count != 2 {
+		t.Fatal("labelled split rule count", count, e)
+	}
+	checker, err := proofs.NewChecker(f.manager)
+	ruleMust(t, err)
+	for i := 0; i < 2; i++ {
+		rule, e := set.Rule(i)
+		ruleMust(t, e)
+		translated, found, e := rule.Proof()
+		ruleMust(t, e)
+		if !found {
+			t.Fatal("labelled Horn rule lost its proof", i)
+		}
+		valid, side, e := checker.Check(translated)
+		ruleMust(t, e)
+		if !valid {
+			t.Fatal("labelled Horn proof failed proof checking", i)
+		}
+		ruleMust(t, checker.ReleaseSideConditions(side))
+		ruleMust(t, rule.Close())
+	}
+}
+
 func TestRuleManagerAddsProofForAlreadyHornFormula(t *testing.T) {
 	f := newRuleSetFixture(t, "P", "Q")
 	formula, err := f.manager.MkImplies(f.app["Q"], f.app["P"])

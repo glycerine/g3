@@ -50768,3 +50768,5 @@ HNF fresh-definition proof transfer (2026-10-30 UTC): generalized proof-carrying
 Already-Horn proof ingestion through HNF (2026-10-30 UTC): closed the source fast path in `AddFormulaWithProof` by preserving the input proof for a single normalized Horn clause, then letting rule-formula normalization transfer it if the resulting formula changes. The regression verifies the retained proof with the AST checker; focused base tests pass.
 
 HNF proof fact validation (2026-10-30 UTC): added a rejection regression for proof/formula mismatches, asserting the rule set stays empty and proof mode remains unchanged. The focused base test passes.
+
+HNF label proof propagation (2026-10-30 UTC): verified proof-aware ingestion removes a source label, composes the label rewrite with the disjunctive split, and retains checker-valid proofs on both output rules. Focused base test passes.
