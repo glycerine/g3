@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestArrayEqualityGeneralizerStrengthensContradictoryLiteral(t *testing.T) {
@@ -150,5 +151,66 @@ func TestArrayEqualityGeneralizerKeepsCandidateSortUniform(t *testing.T) {
 		if sort != first {
 			t.Fatal("mixed array sort retained")
 		}
+	}
+}
+
+// Source: spacer_generalizers.cpp collect_array_proc and for_each_expr.h.
+func TestArrayGeneralizerCollectsPostorderAndQuantifierChildren(t *testing.T) {
+	m, _ := newSpacerTestServices(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	boolean, err := m.MkBoolSort()
+	must(err)
+	integer, err := m.GetSort(normalizeNumeral(t, m, "0"))
+	must(err)
+	inner, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	must(err)
+	outer, err := m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{integer}), boolean)
+	must(err)
+	name, err := m.Symbols.Intern("array-collector-child")
+	must(err)
+	child, err := m.MkConst(name, inner)
+	must(err)
+	name, err = m.Symbols.Intern("array-collector-parent")
+	must(err)
+	parentDecl, err := m.MkFuncDecl(name, []ast.ASTHandle{inner}, outer, ast.ASTFuncDeclInfo{})
+	must(err)
+	parent, err := m.MkApp(parentDecl, []ast.ASTHandle{child})
+	must(err)
+	pt := &PredicateTransformer{manager: m}
+	declarations, err := pt.collectArrayConstants(parent)
+	must(err)
+	childDecl, err := m.GetDecl(child)
+	must(err)
+	if len(declarations) != 1 || declarations[0] != childDecl {
+		t.Fatal("first sort must come from child before parent", declarations, childDecl)
+	}
+	name, err = m.Symbols.Intern("array-collector-second")
+	must(err)
+	second, err := m.MkConst(name, inner)
+	must(err)
+	body, err := m.MkEq(child, second)
+	must(err)
+	truth, err := m.MkTrue()
+	must(err)
+	quantified, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{name}, Body: truth, NoPatterns: []ast.ASTHandle{body}})
+	must(err)
+	declarations, err = pt.collectArrayConstants(quantified)
+	must(err)
+	secondDecl, err := m.GetDecl(second)
+	must(err)
+	if len(declarations) != 2 || declarations[0] != childDecl || declarations[1] != secondDecl {
+		t.Fatal("quantifier annotation traversal", declarations)
+	}
+	quantified, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{name}, Body: body})
+	must(err)
+	declarations, err = pt.collectArrayConstants(quantified)
+	must(err)
+	if len(declarations) != 2 {
+		t.Fatal("quantifier body traversal", declarations)
 	}
 }

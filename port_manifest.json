@@ -91026,6 +91026,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "collect_array_proc concrete postorder application traversal including quantifier body, patterns and no-patterns, selecting the first array sort (spacer_generalizers.cpp:158-181)", "status": "ported", "go_targets": ["pkg/muz/spacer/lemma_array_generalizer.go", "pkg/muz/spacer/lemma_array_generalizer_test.go"], "tests": ["TestArrayGeneralizerCollectsPostorderAndQuantifierChildren"]},
         {
           "name": "lemma_bool_inductive_generalizer with complete expand_literals handling",
           "status": "ported",

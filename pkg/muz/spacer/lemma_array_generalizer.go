@@ -20,23 +20,74 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 	seenDecls := make(map[ast.ASTHandle]bool)
 	var selectedSort ast.ASTHandle
 	result := make([]ast.ASTHandle, 0, 8)
-	todo := []ast.ASTHandle{root}
+	type frame struct {
+		node  ast.ASTHandle
+		ready bool
+	}
+	todo := []frame{{node: root}}
 	for len(todo) != 0 {
 		last := len(todo) - 1
-		current := todo[last]
+		currentFrame := todo[last]
+		current := currentFrame.node
 		todo = todo[:last]
-		if seenNodes[current] {
-			continue
-		}
-		seenNodes[current] = true
-		kind, err := p.manager.GetKind(current)
-		if err != nil {
-			return nil, err
-		}
-		if kind == ast.ASTQuantifier || kind == ast.ASTVar {
-			continue
-		}
-		if kind != ast.ASTApp {
+		if !currentFrame.ready {
+			if seenNodes[current] {
+				continue
+			}
+			seenNodes[current] = true
+			kind, err := p.manager.GetKind(current)
+			if err != nil {
+				return nil, err
+			}
+			if kind == ast.ASTQuantifier {
+				var children []ast.ASTHandle
+				body, err := p.manager.GetQuantifierBody(current)
+				if err != nil {
+					return nil, err
+				}
+				children = append(children, body)
+				patterns, err := p.manager.GetNumPatterns(current)
+				if err != nil {
+					return nil, err
+				}
+				for j := uint32(0); j < patterns; j++ {
+					child, err := p.manager.GetPattern(current, j)
+					if err != nil {
+						return nil, err
+					}
+					children = append(children, child)
+				}
+				noPatterns, err := p.manager.GetNumNoPatterns(current)
+				if err != nil {
+					return nil, err
+				}
+				for j := uint32(0); j < noPatterns; j++ {
+					child, err := p.manager.GetNoPattern(current, j)
+					if err != nil {
+						return nil, err
+					}
+					children = append(children, child)
+				}
+				for j := len(children); j > 0; j-- {
+					todo = append(todo, frame{node: children[j-1]})
+				}
+				continue
+			}
+			if kind != ast.ASTApp {
+				continue
+			}
+			todo = append(todo, frame{node: current, ready: true})
+			count, err := p.manager.GetNumArgs(current)
+			if err != nil {
+				return nil, err
+			}
+			for j := count; j > 0; j-- {
+				child, err := p.manager.GetArg(current, j-1)
+				if err != nil {
+					return nil, err
+				}
+				todo = append(todo, frame{node: child})
+			}
 			continue
 		}
 		sort, err := p.manager.GetSort(current)
@@ -64,17 +115,7 @@ func (p *PredicateTransformer) collectArrayConstants(root ast.ASTHandle) ([]ast.
 				result = append(result, decl)
 			}
 		}
-		count, err := p.manager.GetNumArgs(current)
-		if err != nil {
-			return nil, err
-		}
-		for index := count; index > 0; index-- {
-			argument, err := p.manager.GetArg(current, index-1)
-			if err != nil {
-				return nil, err
-			}
-			todo = append(todo, argument)
-		}
+
 	}
 	return result, nil
 }
