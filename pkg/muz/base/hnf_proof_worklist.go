@@ -141,6 +141,9 @@ func (s *hornProofNormalizer) disjunction(expression ast.ASTHandle) (parts []ast
 	if err != nil || !contains {
 		return nil, false, err
 	}
+	if err := n.traceHornBody(expression); err != nil {
+		return nil, false, err
+	}
 	op, app, err := n.operator(expression)
 	if err != nil || !app {
 		return nil, false, err
@@ -536,13 +539,18 @@ func (n *HornNormalizer) NormalizeWithProof(formula, proof ast.ASTHandle) (resul
 			return nil, err
 		}
 		s.result.Proofs = append(s.result.Proofs, proofRef)
-		return s.result, nil
+		return s.result, n.traceHornResult(formula, s.result, true)
 	}
 	if err = n.Reset(); err != nil {
 		return nil, err
 	}
 	hoister := n.hoister
 	s.work = []hornProofWork{{formula, proof}}
+	defer func() {
+		for _, item := range s.work {
+			resultErr = errors.Join(resultErr, n.pin(&n.todoRefs, item.formula), n.pin(&n.todoRefs, item.proof))
+		}
+	}()
 	for len(s.work) != 0 {
 		canceled, err := m.Canceled()
 		if err != nil {
@@ -558,5 +566,5 @@ func (n *HornNormalizer) NormalizeWithProof(formula, proof ast.ASTHandle) (resul
 			return nil, err
 		}
 	}
-	return s.result, nil
+	return s.result, n.traceHornResult(formula, s.result, false)
 }

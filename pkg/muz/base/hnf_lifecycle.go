@@ -40,8 +40,9 @@ func (n *HornNormalizer) Reset() error {
 	if err := n.open(); err != nil {
 		return err
 	}
-	err := errors.Join(closeASTRefs(n.manager, n.workRefs), closeASTRefs(n.manager, n.freshPredicates))
+	err := errors.Join(closeASTRefs(n.manager, n.workRefs), closeASTRefs(n.manager, n.freshPredicates), closeASTRefs(n.manager, n.todoRefs))
 	n.workRefs = nil
+	n.todoRefs = nil
 	n.freshPredicates = nil
 	return err
 }

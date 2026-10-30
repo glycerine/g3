@@ -57,7 +57,6 @@ type hornPrefix struct {
 
 type hornWork struct {
 	formula ast.ASTHandle
-	prefix  hornPrefix
 }
 
 // HornNormalizer converts formulas into a conjunction of Horn formulas. It
@@ -68,6 +67,7 @@ type HornNormalizer struct {
 	prefix          usymbol.Symbol
 	hoister         *rewriter.QuantifierHoister
 	workRefs        []ast.ASTRef
+	todoRefs        []ast.ASTRef
 	bodyRefs        []ast.ASTRef
 	freshPredicates []ast.ASTRef
 	closed          bool
@@ -423,6 +423,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 			return result, err
 		}
 		result.Formulas = append(result.Formulas, ref)
+		if err := n.traceHornResult(formula, result, true); err != nil {
+			return result, err
+		}
 		failed = false
 		return result, nil
 	}
@@ -436,6 +439,13 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 	}
 	hoister := n.hoister
 	work := []hornWork{{formula: formula}}
+	// Transfer pending work before lexical roots close, matching m_todo's
+	// lifetime across a canceled invocation and the already-Horn shortcut.
+	defer func() {
+		for _, item := range work {
+			resultErr = errors.Join(resultErr, n.pin(&n.todoRefs, item.formula))
+		}
+	}()
 	memo := make(map[ast.ASTHandle]ast.ASTHandle)
 	for len(work) != 0 {
 		canceled, cancelErr := n.manager.Canceled()
@@ -454,9 +464,6 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 		core, prefix, err := n.pullForall(hoister, item.formula, &locals)
 		if err != nil {
 			return result, err
-		}
-		if len(item.prefix.sorts) != 0 {
-			prefix = item.prefix
 		}
 		head := core
 		var body []ast.ASTHandle
@@ -512,7 +519,7 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 					if x != nil {
 						return result, x
 					}
-					work = append(work, hornWork{formula: definition, prefix: prefix})
+					work = append(work, hornWork{formula: definition})
 				}
 				continue
 			}
@@ -524,6 +531,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 			}
 			if !contains {
 				continue
+			}
+			if e := n.traceHornBody(expression); e != nil {
+				return result, e
 			}
 			operator, application, e := n.operator(expression)
 			if e != nil {
@@ -622,7 +632,7 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 					if x != nil {
 						return result, x
 					}
-					work = append(work, hornWork{formula: definition, prefix: prefix})
+					work = append(work, hornWork{formula: definition})
 				}
 			}
 			body[i] = fresh
@@ -703,6 +713,9 @@ func (n *HornNormalizer) Normalize(formula ast.ASTHandle) (result *HornNormaliza
 			return result, err
 		}
 		result.Formulas = append(result.Formulas, reference)
+	}
+	if err := n.traceHornResult(formula, result, false); err != nil {
+		return result, err
 	}
 	failed = false
 	return result, nil

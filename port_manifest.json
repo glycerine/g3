@@ -82678,9 +82678,45 @@
       "path": "src/muz/base/hnf.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/hnf_test.go", "pkg/muz/base/hnf_nested_fixture_test.go", "pkg/muz/base/hnf_nested_consequent_test.go", "pkg/muz/base/hnf_nested_antecedent_test.go", "pkg/muz/base/hnf_nested_negation_test.go", "pkg/muz/base/hnf_nested_disjunction_test.go", "pkg/muz/base/hnf_nested_boolean_eq_test.go", "pkg/muz/base/hnf_nested_ite_test.go"],
-      "tests": ["TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestHornNormalizer", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/base/hnf.go",
+        "pkg/muz/base/hnf_proof.go",
+        "pkg/muz/base/hnf_proof_test.go",
+        "pkg/muz/base/hnf_test.go",
+        "pkg/muz/base/hnf_nested_fixture_test.go",
+        "pkg/muz/base/hnf_nested_consequent_test.go",
+        "pkg/muz/base/hnf_nested_antecedent_test.go",
+        "pkg/muz/base/hnf_nested_negation_test.go",
+        "pkg/muz/base/hnf_nested_disjunction_test.go",
+        "pkg/muz/base/hnf_nested_boolean_eq_test.go",
+        "pkg/muz/base/hnf_nested_ite_test.go",
+        "pkg/muz/base/hnf_proof_worklist.go",
+        "pkg/muz/base/hnf_lifecycle.go",
+        "pkg/muz/base/hnf_lifecycle_test.go",
+        "pkg/muz/base/hnf_trace.go",
+        "pkg/muz/base/hnf_trace_test.go",
+        "pkg/muz/base/hnf_annotations_test.go",
+        "pkg/muz/base/hnf_hoist_rewrite_test.go",
+        "pkg/muz/base/hnf_parameter_snapshot_test.go",
+        "pkg/muz/base/hnf_quantifier_body_test.go"
+      ],
+      "tests": [
+        "TestHornNormalizerPreservesAlreadyHornUniversalPrefix",
+        "TestHornNormalizerKeepsVariableAntecedent",
+        "TestHornNormalizerSplitsSingletonDisjunction",
+        "TestHornNormalizerIntroducesAndMemoizesFreshPredicate",
+        "TestHornNormalizerStopsWorklistWhenManagerIsCanceled",
+        "TestHornNormalizer",
+        "TestRuleManagerAddsProofForAlreadyHornFormula",
+        "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing",
+        "TestRuleManagerRemovesLabelsAndPreservesHNFProofs",
+        "TestRuleManagerAddsProofsForDisjunctiveHornSplit",
+        "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit",
+        "TestRuleManagerAddsProofsForHNFDefinitionIntroduction",
+        "TestHornNormalizerSourceTrace",
+        "TestHornNormalizerOwnsCanceledWorkUntilReset"
+      ],
       "assertions": [
         {
           "line": 231,
@@ -82703,34 +82739,159 @@
           "text": "SASSERT(m_sorts.size() == m_names.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
-        {"name": "imp set_name/reset/get_fresh_predicates and owned hoister/memo/fresh/body lifetimes; already-Horn shortcut leaves cache/body unchanged, reset preserves body until next mk_horn (hnf.cpp:80-96,174-203,233-239,365-390)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_lifecycle.go", "pkg/muz/base/hnf_proof_worklist.go", "pkg/muz/base/hnf_lifecycle_test.go"], "tests": ["TestHornNormalizerOwnsFreshPredicatesAfterResultCloses", "TestHornNormalizerResetNameAndOwningSnapshots", "TestHornNormalizerResetPreservesCurrentBodyAfterBoundedWorklist"]},
-        {"name": "hnf::imp::mk_horn uses quantifier_hoister default rewrite_ok=true; parameter-free default Boolean gate reducer removes duplicate quantified conjuncts and absorbs true disjuncts before naming or splitting (hnf.cpp:240; quant_hoist.h:62-65; quant_hoist.cpp:197-235)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof_worklist.go", "pkg/ast/rewriter/quant_hoist.go", "pkg/muz/base/hnf_hoist_rewrite_test.go", "pkg/muz/base/hnf_quantifier_body_test.go"], "tests": ["TestHornNormalizerHoistingRewritesBooleanGates", "TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"]},
-        {"name": "contains_predicate visits quantifier bodies and annotations; mk_fresh_head uses body-only expr_free_vars; eliminate_disjunctions keeps immediate negated-conjunction children rather than flattening nested conjunctions (hnf.cpp:218-228,341-347,396-409)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_annotations_test.go", "pkg/muz/base/hnf_proof_test.go"], "tests": ["TestHornNormalizerUsesSourceAnnotationTraversalAndFreeVariableScope", "TestHornNormalizerKeepsImmediateNegatedConjunctionChildren"]},
-        {"name": "hnf::imp::mk_horn proof worklist carries per-formula premises through quantifier pulling/lifting, disjunctive splits, memoized definition introductions, both congruence stages and quantified-body NNFNeg proofs; reflexive transitivity and unchanged modus-ponens pruning (hnf.cpp:230-498)", "status": "ported", "go_targets": ["pkg/muz/base/hnf_proof_worklist.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof_test.go"], "tests": ["TestRuleManagerCarriesHNFProofsThroughSplitAndDefinitionWorklist", "TestHornProofNormalizerCarriesQuantifiedBodyDefinition", "TestHornProofNormalizerMemoizesDefinitionProofAcrossOccurrences", "TestHornNormalizerDefinitionNegationMatchesSource", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit"]},
-        {"name": "hnf::imp::is_horn initial fast path returns original formula/proof before worklist cancellation, preserves existing universal prefixes and recognizes only basic-family Boolean operators (hnf.cpp:112-146)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_proof_worklist.go", "pkg/muz/base/hnf_test.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/hnf_nested_negation_test.go"], "tests": ["TestHornProofNormalizerPreservesAlreadyHornBeforeCancellation", "TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled", "TestHornNormalizerTracksNegationPolarityWhilePulling"]},
-        {"name": "hnf::imp::eliminate_quantifier_body no-proof transformation names compound predicate bodies under universal antecedents and queues one defining implication per occurrence after disjunction elimination (hnf.cpp:295-296,419-442)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_quantifier_body_test.go"], "tests": ["TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"]},
-        {"name": "hnf::imp::is_predicate recognizes Boolean uninterpreted declarations using null_family_id and excludes basic/theory connectives from predicate-containing disjunction handling (hnf.cpp:209-216)", "status": "ported", "go_targets": ["pkg/muz/base/hnf.go", "pkg/muz/base/hnf_quantifier_body_test.go"], "tests": ["TestHornNormalizerDoesNotTreatTheoryConnectivesAsPredicates", "TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"]},
         {
-          "name": "No-proof HNF worklist, implication/conjunction extraction, singleton disjunction splitting, fresh predicate construction, disjunctive definition memoization, universal-prefix reconstruction, and reset-local result collection (hnf.cpp:71-138,223-292,347-421,481-511)",
-          "status": "partial",
-          "go_target": "pkg/muz/base/hnf.go",
-          "tests": ["TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestHornNormalizerStopsWorklistWhenManagerIsCanceled"]
+          "name": "Source diagnostic records at imp::operator(), eliminate_disjunctions and outer hnf::operator(); canceled pending formula/proof ownership survives invocation and already-Horn shortcut until reset (hnf.cpp:145-172,191-199,337,521-531)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf_trace.go",
+            "pkg/muz/base/hnf_trace_test.go",
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_proof_worklist.go",
+            "pkg/muz/base/hnf_lifecycle.go",
+            "pkg/muz/base/hnf_lifecycle_test.go"
+          ],
+          "tests": [
+            "TestHornNormalizerSourceTrace",
+            "TestHornNormalizerOwnsCanceledWorkUntilReset"
+          ]
         },
         {
-          "name": "Proof construction for no-definition HNF normalization using a clause-conjunction definition axiom, plus generated HNF definitions using definition introduction and apply-definitions (hnf.cpp:253-421)",
-          "status": "partial",
-          "go_target": "pkg/muz/base/hnf_proof.go",
-          "tests": ["TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction"]
+          "name": "imp set_name/reset/get_fresh_predicates and owned hoister/memo/fresh/body lifetimes; already-Horn shortcut leaves cache/body unchanged, reset preserves body until next mk_horn (hnf.cpp:80-96,174-203,233-239,365-390)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_lifecycle.go",
+            "pkg/muz/base/hnf_proof_worklist.go",
+            "pkg/muz/base/hnf_lifecycle_test.go"
+          ],
+          "tests": [
+            "TestHornNormalizerOwnsFreshPredicatesAfterResultCloses",
+            "TestHornNormalizerResetNameAndOwningSnapshots",
+            "TestHornNormalizerResetPreservesCurrentBodyAfterBoundedWorklist"
+          ]
+        },
+        {
+          "name": "hnf::imp::mk_horn uses quantifier_hoister default rewrite_ok=true; parameter-free default Boolean gate reducer removes duplicate quantified conjuncts and absorbs true disjuncts before naming or splitting (hnf.cpp:240; quant_hoist.h:62-65; quant_hoist.cpp:197-235)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_proof_worklist.go",
+            "pkg/ast/rewriter/quant_hoist.go",
+            "pkg/muz/base/hnf_hoist_rewrite_test.go",
+            "pkg/muz/base/hnf_quantifier_body_test.go"
+          ],
+          "tests": [
+            "TestHornNormalizerHoistingRewritesBooleanGates",
+            "TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"
+          ]
+        },
+        {
+          "name": "contains_predicate visits quantifier bodies and annotations; mk_fresh_head uses body-only expr_free_vars; eliminate_disjunctions keeps immediate negated-conjunction children rather than flattening nested conjunctions (hnf.cpp:218-228,341-347,396-409)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_annotations_test.go",
+            "pkg/muz/base/hnf_proof_test.go"
+          ],
+          "tests": [
+            "TestHornNormalizerUsesSourceAnnotationTraversalAndFreeVariableScope",
+            "TestHornNormalizerKeepsImmediateNegatedConjunctionChildren"
+          ]
+        },
+        {
+          "name": "hnf::imp::mk_horn proof worklist carries per-formula premises through quantifier pulling/lifting, disjunctive splits, memoized definition introductions, both congruence stages and quantified-body NNFNeg proofs; reflexive transitivity and unchanged modus-ponens pruning (hnf.cpp:230-498)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf_proof_worklist.go",
+            "pkg/muz/base/hnf_proof.go",
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_proof_test.go"
+          ],
+          "tests": [
+            "TestRuleManagerCarriesHNFProofsThroughSplitAndDefinitionWorklist",
+            "TestHornProofNormalizerCarriesQuantifiedBodyDefinition",
+            "TestHornProofNormalizerMemoizesDefinitionProofAcrossOccurrences",
+            "TestHornNormalizerDefinitionNegationMatchesSource",
+            "TestRuleManagerAddsProofsForHNFDefinitionIntroduction",
+            "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit"
+          ]
+        },
+        {
+          "name": "hnf::imp::is_horn initial fast path returns original formula/proof before worklist cancellation, preserves existing universal prefixes and recognizes only basic-family Boolean operators (hnf.cpp:112-146)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_proof_worklist.go",
+            "pkg/muz/base/hnf_test.go",
+            "pkg/muz/base/hnf_proof_test.go",
+            "pkg/muz/base/hnf_nested_negation_test.go"
+          ],
+          "tests": [
+            "TestHornProofNormalizerPreservesAlreadyHornBeforeCancellation",
+            "TestHornNormalizerPreservesAlreadyHornUniversalPrefix",
+            "TestHornNormalizerStopsWorklistWhenManagerIsCanceled",
+            "TestHornNormalizerTracksNegationPolarityWhilePulling"
+          ]
+        },
+        {
+          "name": "hnf::imp::eliminate_quantifier_body no-proof transformation names compound predicate bodies under universal antecedents and queues one defining implication per occurrence after disjunction elimination (hnf.cpp:295-296,419-442)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_quantifier_body_test.go"
+          ],
+          "tests": [
+            "TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"
+          ]
+        },
+        {
+          "name": "hnf::imp::is_predicate recognizes Boolean uninterpreted declarations using null_family_id and excludes basic/theory connectives from predicate-containing disjunction handling (hnf.cpp:209-216)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/base/hnf.go",
+            "pkg/muz/base/hnf_quantifier_body_test.go"
+          ],
+          "tests": [
+            "TestHornNormalizerDoesNotTreatTheoryConnectivesAsPredicates",
+            "TestHornNormalizerIntroducesPredicateForQuantifiedAntecedentBody"
+          ]
+        },
+        {
+          "name": "No-proof HNF worklist, implication/conjunction extraction, singleton disjunction splitting, fresh predicate construction, disjunctive definition memoization and universal-prefix reconstruction",
+          "status": "ported",
+          "go_target": "pkg/muz/base/hnf.go",
+          "tests": [
+            "TestHornNormalizerPreservesAlreadyHornUniversalPrefix",
+            "TestHornNormalizerKeepsVariableAntecedent",
+            "TestHornNormalizerSplitsSingletonDisjunction",
+            "TestHornNormalizerIntroducesAndMemoizesFreshPredicate",
+            "TestHornNormalizerStopsWorklistWhenManagerIsCanceled"
+          ]
+        },
+        {
+          "name": "Source proof-carrying HNF worklist and composition; supersedes the earlier post-hoc clause proof adapter",
+          "status": "ported",
+          "go_target": "pkg/muz/base/hnf_proof_worklist.go",
+          "tests": [
+            "TestRuleManagerAddsProofForAlreadyHornFormula",
+            "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing",
+            "TestRuleManagerRemovesLabelsAndPreservesHNFProofs",
+            "TestRuleManagerAddsProofsForDisjunctiveHornSplit",
+            "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit",
+            "TestRuleManagerAddsProofsForHNFDefinitionIntroduction"
+          ]
         }
       ],
       "ownership": [
-        "HornNormalization owns independent references to every output formula and introduced declaration; worklist intermediates are locally pinned and released after normalization, while RuleSet retains rules created by RuleManager.AddFormula."
+        "HornNormalizer owns its persistent hoister, memo roots, fresh declarations, current body and pending canceled formulas/proofs. Reset clears memo/fresh/pending roots, preserving the current body until the next processing step; the already-Horn shortcut leaves all source caches unchanged.",
+        "HornNormalization owns independent formula/proof/declaration references. Lexical work temporaries close on return; pending work is transferred to the normalizer before those roots close. RuleManager owns and reuses its normalizer and registers its cached fresh declarations."
       ],
       "deviations": [
-        "Proof-producing normalization covers no-definition clause splitting and HNF definition introduction for one resulting main rule. General quantifier hoisting outside these cases and quantified antecedent definition elimination remain unported, so this entry remains partial."
+        "Go returns an owning HornNormalization instead of appending to caller vectors. NormalizeWithProof temporarily enables AST proof construction when required by the Go API, restoring the prior mode.",
+        "Source proof-checker rejections for conjunction-level congruence parents, quantified-body NNFNeg facts and prefix-free hoister Boolean reductions are preserved rather than replaced with different proof graphs."
       ]
     },
     {

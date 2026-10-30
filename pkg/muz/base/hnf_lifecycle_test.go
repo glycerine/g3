@@ -5,6 +5,7 @@ package base_test
 
 import (
 	"errors"
+	"fmt"
 	"github.com/glycerine/g3/pkg/util/symbol"
 	"strings"
 	"testing"
@@ -233,5 +234,97 @@ func TestHornNormalizerResetPreservesCurrentBodyAfterBoundedWorklist(t *testing.
 				t.Fatal("next processing step did not release the previous body root")
 			}
 		})
+	}
+}
+
+// C++ m_todo/m_proofs survive cancellation and the already-Horn fast path.
+// Reset releases them even when no output clause was produced.
+func TestHornNormalizerOwnsCanceledWorkUntilReset(t *testing.T) {
+	for _, withProof := range []bool{false, true} {
+		for _, split := range []bool{false, true} {
+			t.Run(fmt.Sprintf("proof=%v/split=%v", withProof, split), func(t *testing.T) {
+				f := newRuleSetFixture(t, "P", "Q", "H")
+				m := f.manager
+				for _, app := range f.app {
+					ref, err := m.NewRef(app)
+					ruleMust(t, err)
+					t.Cleanup(func() { ruleMust(t, m.DelRef(&ref)) })
+				}
+				disjunction, err := m.MkOr(f.app["P"], f.app["Q"])
+				ruleMust(t, err)
+				formula, err := m.MkImplies(disjunction, f.app["H"])
+				ruleMust(t, err)
+				input, err := m.NewRef(formula)
+				ruleMust(t, err)
+
+				pending := []ast.ASTHandle{formula}
+				var pins []ast.ASTRef
+				if split {
+					pending = nil
+					for _, name := range []string{"P", "Q"} {
+						clause, err := m.MkImplies(f.app[name], f.app["H"])
+						ruleMust(t, err)
+						ref, err := m.NewRef(clause)
+						ruleMust(t, err)
+						pins = append(pins, ref)
+						pending = append(pending, clause)
+					}
+				}
+				var proof ast.ASTHandle
+				if withProof {
+					ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+					proof, err = m.MkProofAsserted(formula)
+					ruleMust(t, err)
+					ruleMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
+					if !split {
+						pending = append(pending, proof)
+					}
+				}
+				n, err := base.NewHornNormalizer(m, "pending")
+				ruleMust(t, err)
+				t.Cleanup(func() { ruleMust(t, n.Close()) })
+				var result *base.HornNormalization
+				func() {
+					if split {
+						ruleMust(t, m.Limit.Push(1))
+						defer m.Limit.Pop()
+					} else {
+						m.Limit.Cancel()
+						defer m.Limit.ResetCancel()
+					}
+					if withProof {
+						result, err = n.NormalizeWithProof(formula, proof)
+					} else {
+						result, err = n.Normalize(formula)
+					}
+					ruleMust(t, err)
+				}()
+				if len(result.Formulas) != 0 {
+					t.Fatal("canceled work unexpectedly produced output")
+				}
+				ruleMust(t, result.Close())
+				for i := range pins {
+					ruleMust(t, m.DelRef(&pins[i]))
+				}
+				ruleMust(t, m.DelRef(&input))
+				// Already-Horn input leaves the canceled queue intact.
+				horn, err := m.MkImplies(f.app["H"], f.app["P"])
+				ruleMust(t, err)
+				fast, err := n.Normalize(horn)
+				ruleMust(t, err)
+				for _, h := range pending {
+					if _, err := m.GetKind(h); err != nil {
+						t.Fatal("cancellation lost source queued expression/proof", err)
+					}
+				}
+				ruleMust(t, fast.Close())
+				ruleMust(t, n.Reset())
+				for _, h := range pending {
+					if _, err := m.GetKind(h); err == nil {
+						t.Fatal("reset left queued expression/proof alive")
+					}
+				}
+			})
+		}
 	}
 }
