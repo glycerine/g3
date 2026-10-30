@@ -80,3 +80,43 @@ func TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles(t *testing
 		}
 	}
 }
+
+func TestSourceDependencyOrderExhaustiveFourNodeGraphInvariants(t *testing.T) {
+	nodes := []finitePredicateOrderKey{finiteOrderKey(1), finiteOrderKey(2), finiteOrderKey(3), finiteOrderKey(4)}
+	for mask := 0; mask < 1<<(len(nodes)*len(nodes)); mask++ {
+		dependencies := make(map[finitePredicateOrderKey][]finitePredicateOrderKey, len(nodes))
+		for head := range nodes {
+			for dependency := range nodes {
+				bit := head*len(nodes) + dependency
+				if mask&(1<<bit) != 0 {
+					dependencies[nodes[head]] = append(dependencies[nodes[head]], nodes[dependency])
+				}
+			}
+		}
+		order, removed := sourceDependencyOrder(nodes, dependencies)
+		if len(order) != len(nodes) {
+			t.Fatalf("mask=%016b: order has %d nodes, want %d", mask, len(order), len(nodes))
+		}
+		position := make(map[finitePredicateOrderKey]int, len(nodes))
+		for i, node := range order {
+			if _, duplicate := position[node]; duplicate {
+				t.Fatalf("mask=%016b: duplicate node %v in order %v", mask, node, order)
+			}
+			position[node] = i
+		}
+		removedSet := make(map[finitePredicateOrderKey]bool, len(removed))
+		for i, node := range removed {
+			removedSet[node] = true
+			if order[len(order)-len(removed)+i] != node {
+				t.Fatalf("mask=%016b: removed nodes are not the order suffix: order=%v removed=%v", mask, order, removed)
+			}
+		}
+		for head, deps := range dependencies {
+			for _, dependency := range deps {
+				if !removedSet[head] && !removedSet[dependency] && position[dependency] >= position[head] {
+					t.Fatalf("mask=%016b: active dependency %v does not precede %v in %v (removed %v)", mask, dependency, head, order, removed)
+				}
+			}
+		}
+	}
+}

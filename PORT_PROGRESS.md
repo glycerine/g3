@@ -50734,3 +50734,6 @@ WPA directory discovery fidelity (2026-10-30 UTC): aligned the Go file walker wi
 
 
 Relational compiler cycle ordering regression (2026-10-30 UTC): added independent self-cycle and multi-predicate-cycle coverage for the concrete finite compiler dependency ordering path, including downstream ordering and the DFS back-edge vertices appended to global deltas. The focused dependency-order tests pass; standalone generic rule_dependencies mutation methods remain excluded because no retained Go consumer calls that API.
+
+
+Finite compiler dependency graph property coverage (2026-10-30 UTC): exhaustively checked all 65,536 directed dependency graphs on four predicates. The test verifies every vertex appears once, cycle-break vertices form the output suffix, and every edge among remaining predicates points forward in the dependency-first order; the focused graph tests pass.
