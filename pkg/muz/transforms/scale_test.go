@@ -27,16 +27,20 @@ func TestScaleAddsHomogeneousPredicateArgumentAndGuards(t *testing.T) {
 	t.Cleanup(func() { coneMust(t, set.Close()) })
 	boolean, err := manager.MkBoolSort()
 	coneMust(t, err)
+	zero, err := manager.ArithmeticRealNumeralText("0")
+	coneMust(t, err)
+	one, err := manager.ArithmeticRealNumeralText("1")
+	coneMust(t, err)
 	two, err := manager.ArithmeticRealNumeralText("2")
 	coneMust(t, err)
 	realSort, err := manager.GetSort(two)
 	coneMust(t, err)
 	pName, err := manager.Symbols.Intern("scale-p")
 	coneMust(t, err)
-	p, err := manager.MkFuncDecl(pName, []ast.ASTHandle{realSort}, boolean, ast.ASTFuncDeclInfo{})
+	p, err := manager.MkFuncDecl(pName, []ast.ASTHandle{realSort, realSort, realSort}, boolean, ast.ASTFuncDeclInfo{})
 	coneMust(t, err)
 	coneMust(t, rules.RegisterPredicate(p))
-	pOfTwo, err := manager.MkApp(p, []ast.ASTHandle{two})
+	pOfTwo, err := manager.MkApp(p, []ast.ASTHandle{zero, one, two})
 	coneMust(t, err)
 	rule, err := rules.NewRule(pOfTwo, nil, nil, "scale-fact")
 	coneMust(t, err)
@@ -61,10 +65,10 @@ func TestScaleAddsHomogeneousPredicateArgumentAndGuards(t *testing.T) {
 	if fresh.IsNull() {
 		t.Fatal("missing scaled predicate")
 	}
-	if arity, getErr := manager.GetArity(fresh); getErr != nil || arity != 2 {
+	if arity, getErr := manager.GetArity(fresh); getErr != nil || arity != 4 {
 		t.Fatal("scaled predicate arity", arity, getErr)
 	}
-	if sort, getErr := manager.GetDomain(fresh, 1); getErr != nil || sort != realSort {
+	if sort, getErr := manager.GetDomain(fresh, 3); getErr != nil || sort != realSort {
 		t.Fatal("scale domain", sort, getErr)
 	}
 	transformed, err := set.Rule(0)
@@ -72,6 +76,17 @@ func TestScaleAddsHomogeneousPredicateArgumentAndGuards(t *testing.T) {
 	t.Cleanup(func() { coneMust(t, transformed.Close()) })
 	if tails, getErr := transformed.TailSize(); getErr != nil || tails != 2 {
 		t.Fatal("scale equality and positivity guard", tails, getErr)
+	}
+	head, err := transformed.Head()
+	coneMust(t, err)
+	zeroArg, err := manager.GetArg(head, 0)
+	coneMust(t, err)
+	oneArg, err := manager.GetArg(head, 1)
+	coneMust(t, err)
+	sigmaArg, err := manager.GetArg(head, 3)
+	coneMust(t, err)
+	if zeroArg != zero || oneArg != sigmaArg {
+		t.Fatal("scale 0/1 argument branches", zeroArg, zero, oneArg, sigmaArg)
 	}
 	if original, getErr := set.OriginalPredicate(fresh); getErr != nil || original != p {
 		t.Fatal("scaled predicate mapping", original, getErr)

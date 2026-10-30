@@ -65,19 +65,17 @@ func (t *PBPreprocessTactic) simplify(g *tactic.Goal, converter *tactic.Extensio
 		if x != nil {
 			return false, errors.Join(fmt.Errorf("pb replace: %w", x), t.manager.DecRef(decl))
 		}
-		if !changed {
-			if x = t.manager.DecRef(decl); x != nil {
-				return false, x
-			}
-			continue
-		}
+		// The source records every one-sided variable even when an earlier
+		// substitution already reduced its shared constraint to true.  The
+		// model converter must therefore not depend on whether replace made a
+		// second observable goal mutation.
 		if x = converter.Insert(decl, value); x != nil {
 			return false, errors.Join(fmt.Errorf("pb model: %w", x), t.manager.DecRef(decl))
 		}
 		if x = t.manager.DecRef(decl); x != nil {
 			return false, x
 		}
-		progress = true
+		progress = progress || changed
 	}
 	if progress {
 		variables, constraints, e = t.classify(g)

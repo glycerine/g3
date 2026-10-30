@@ -83,3 +83,58 @@ func TestMagicSymbolicBuildsAnswerAndPrefixQueryRules(t *testing.T) {
 		}
 	}
 }
+
+func TestMagicSymbolicReusesTypedDerivedPredicates(t *testing.T) {
+	f := newConeFixture(t)
+	integer, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	x, err := f.manager.MkVar(0, integer)
+	coneMust(t, err)
+	p := declareTransformPredicate(t, f, "magic-typed-p", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	q := declareTransformPredicate(t, f, "magic-typed-q", []ast.ASTHandle{integer}, []ast.ASTHandle{x})
+	addTransformRule(t, f, q.application, []ast.ASTHandle{p.application}, nil, "first")
+	addTransformRule(t, f, q.application, []ast.ASTHandle{p.application}, nil, "second")
+	coneMust(t, f.set.SetOutputPredicate(q.declaration))
+
+	plugin := transforms.NewMagicSymbolicPlugin(f.manager, f.rules, 36020)
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, plugin.Close()) })
+	if result == nil {
+		t.Fatal("typed magic transformation returned nil")
+	}
+	t.Cleanup(func() { coneMust(t, result.Close()) })
+	answer := plugin.AnswerPredicates()[q.declaration]
+	if answer.IsNull() {
+		t.Fatal("missing typed answer predicate")
+	}
+	if domain, getErr := f.manager.GetDomain(answer, 0); getErr != nil || domain != integer {
+		t.Fatal("typed answer domain", domain, getErr)
+	}
+	if count, getErr := result.Len(); getErr != nil || count != 6 {
+		t.Fatal("two source rules should each produce answer, seed, and prefix rules", count, getErr)
+	}
+	declarations := make(map[string]map[ast.ASTHandle]struct{})
+	for i := 0; i < 6; i++ {
+		rule, getErr := result.Rule(i)
+		coneMust(t, getErr)
+		head, getErr := rule.Head()
+		coneMust(t, getErr)
+		decl, getErr := f.manager.GetDecl(head)
+		coneMust(t, getErr)
+		name, getErr := f.manager.GetASTName(decl)
+		coneMust(t, getErr)
+		text, getErr := f.manager.Symbols.String(name)
+		coneMust(t, getErr)
+		if declarations[text] == nil {
+			declarations[text] = make(map[ast.ASTHandle]struct{})
+		}
+		declarations[text][decl] = struct{}{}
+		coneMust(t, rule.Close())
+	}
+	for _, name := range []string{"magic-typed-q!ans", "magic-typed-q!query", "magic-typed-p!query"} {
+		if len(declarations[name]) != 1 {
+			t.Fatal("derived predicate declaration was not cached", name, declarations[name])
+		}
+	}
+}

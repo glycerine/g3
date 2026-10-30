@@ -64,3 +64,12 @@ func SetParamValue(c *Config, id, value string) error {
 	}
 	return globalParamCaughtWarning(c.params.Set(&id, &value))
 }
+
+// UpdateParamValue updates this context's construction parameters from their
+// textual API representation, matching Z3_update_param_value.
+func (c *SMTContext) UpdateParamValue(id, value string) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	return c.command.UpdateParamValue(id, value)
+}

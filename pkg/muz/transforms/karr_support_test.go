@@ -68,6 +68,21 @@ func TestLoopCounterAddsRecursiveSuccessorAndRevertsPredicates(t *testing.T) {
 	if arity, getErr := manager.GetArity(derived); getErr != nil || arity != 1 {
 		t.Fatal("counter predicate arity", arity, getErr)
 	}
+	if mapped := plugin.FreshPredicates()[declaration]; mapped != derived {
+		t.Fatal("loop-counter source-to-derived map", mapped, derived)
+	}
+	baseRule, err := transformed.Rule(0)
+	coneMust(t, err)
+	baseHead, err := baseRule.Head()
+	coneMust(t, err)
+	baseCounter, err := manager.GetArg(baseHead, 0)
+	coneMust(t, err)
+	text, integer, numeral, err := manager.ArithmeticNumeralText(baseCounter)
+	coneMust(t, err)
+	coneMust(t, baseRule.Close())
+	if !numeral || !integer || text != "0" {
+		t.Fatal("base loop counter", text, integer, numeral)
+	}
 	step, err := transformed.Rule(1)
 	coneMust(t, err)
 	if tails, getErr := step.TailSize(); getErr != nil || tails != 2 {
@@ -131,5 +146,49 @@ func TestBackwardsBuildsOutputPredecessorAndSyntheticQuery(t *testing.T) {
 	coneMust(t, err)
 	if len(outputs) != 1 || outputs[0] == qDecl {
 		t.Fatal("missing synthetic backwards query", outputs)
+	}
+}
+
+func TestBackwardsKeepsOnlyInterpretedTailOnOutputPredecessor(t *testing.T) {
+	manager, rules, set, qDecl, q := karrSupportFixture(t)
+	boolean, err := manager.MkBoolSort()
+	coneMust(t, err)
+	aName, err := manager.Symbols.Intern("backwards-interpreted-a")
+	coneMust(t, err)
+	aDecl, err := manager.MkFuncDecl(aName, nil, boolean, ast.ASTFuncDeclInfo{})
+	coneMust(t, err)
+	coneMust(t, rules.RegisterPredicate(aDecl))
+	a, err := manager.MkApp(aDecl, nil)
+	coneMust(t, err)
+	constraint, err := manager.MkEq(a, a)
+	coneMust(t, err)
+	forward, err := rules.NewRule(q, []ast.ASTHandle{a, constraint}, []bool{false, false}, "interpreted-tail")
+	coneMust(t, err)
+	coneMust(t, set.Add(forward))
+	coneMust(t, forward.Close())
+	coneMust(t, set.SetOutputPredicate(qDecl))
+
+	plugin := transforms.NewBackwardsPlugin(manager, rules, 33000)
+	result, err := plugin.Transform(set)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, result.Close()); coneMust(t, plugin.Close()) })
+	if count, getErr := result.Len(); getErr != nil || count != 1 {
+		t.Fatalf("backwards interpreted rule count = %d, %v", count, getErr)
+	}
+	reversed, err := result.Rule(0)
+	coneMust(t, err)
+	defer func() { coneMust(t, reversed.Close()) }()
+	head, err := reversed.HeadDeclaration()
+	coneMust(t, err)
+	if head != aDecl {
+		t.Fatalf("backwards predecessor head = %v, want %v", head, aDecl)
+	}
+	if tails, getErr := reversed.TailSize(); getErr != nil || tails != 1 {
+		t.Fatalf("backwards interpreted tail size = %d, %v", tails, getErr)
+	}
+	tail, negated, err := reversed.Tail(0)
+	coneMust(t, err)
+	if tail != constraint || negated {
+		t.Fatalf("backwards interpreted tail = %v negated=%v, want %v", tail, negated, constraint)
 	}
 }

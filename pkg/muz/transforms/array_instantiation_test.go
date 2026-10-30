@@ -4,6 +4,7 @@ package transforms_test
 // expansion, select linkage, and output-predicate remapping.
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -131,5 +132,58 @@ func TestArrayInstantiationExpandsPredicateCellsAndIndices(t *testing.T) {
 	// predicate instances. Preserve that actual source behavior.
 	if cellPredicates != 3 || !foundSelectEquality {
 		t.Fatal("cell predicate/select definitions", cellPredicates, foundSelectEquality)
+	}
+}
+
+func TestArrayInstantiationKeepsArrayAndCreatesFallbackIndex(t *testing.T) {
+	f := newConeFixture(t)
+	boolean, err := f.manager.MkBoolSort()
+	coneMust(t, err)
+	arraySort, err := f.manager.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), boolean)
+	coneMust(t, err)
+	arrayVariable, err := f.manager.MkVar(0, arraySort)
+	coneMust(t, err)
+	predicate := declareTransformPredicate(t, f, "array-instantiation-fallback", []ast.ASTHandle{arraySort}, []ast.ASTHandle{arrayVariable})
+	addTransformRule(t, f, predicate.application, []ast.ASTHandle{predicate.application}, nil, "fallback")
+	coneMust(t, f.set.SetOutputPredicate(predicate.declaration))
+
+	plugin := transforms.NewArrayInstantiationPlugin(f.manager, f.rules, 1, false, 34999)
+	result, err := plugin.Transform(f.set)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, plugin.Close()) })
+	if result == nil {
+		t.Fatal("non-enforced array instantiation returned no transformed rules")
+	}
+	t.Cleanup(func() { coneMust(t, result.Close()) })
+	fresh := plugin.FreshPredicates()[predicate.declaration]
+	if fresh.IsNull() {
+		t.Fatal("missing transformed predicate")
+	}
+	if arity, getErr := f.manager.GetArity(fresh); getErr != nil || arity != 3 {
+		t.Fatal("fallback predicate arity", arity, getErr)
+	}
+	if retained, getErr := f.manager.GetDomain(fresh, 1); getErr != nil || retained != arraySort {
+		t.Fatal("non-enforced transform did not retain the array argument", retained, getErr)
+	}
+	rule, err := result.Rule(0)
+	coneMust(t, err)
+	t.Cleanup(func() { coneMust(t, rule.Close()) })
+	if tails, getErr := rule.TailSize(); getErr != nil || tails != 2 {
+		t.Fatal("fallback transform should emit a predicate and select definition", tails, getErr)
+	}
+}
+
+func TestArrayInstantiationRejectsNegatedPredicateTail(t *testing.T) {
+	f := newConeFixture(t, "P", "Q")
+	addTransformRule(t, f, f.applications["P"], []ast.ASTHandle{f.applications["Q"]}, []bool{true}, "negative")
+	plugin := transforms.NewArrayInstantiationPlugin(f.manager, f.rules, 1, true, 34999)
+	result, err := plugin.Transform(f.set)
+	t.Cleanup(func() { coneMust(t, plugin.Close()) })
+	if result != nil {
+		coneMust(t, result.Close())
+		t.Fatal("array instantiation accepted a negated predicate tail")
+	}
+	if err == nil || !strings.Contains(err.Error(), "does not accept negated predicate tails") {
+		t.Fatal("negated-tail error", err)
 	}
 }

@@ -52,3 +52,27 @@ func TestAPIConfigSetCaughtWarningsAndOwnerLifetime(t *testing.T) {
 		t.Fatalf("closed config accepted: %v", err)
 	}
 }
+
+func TestAPIContextUpdateParamValueSourcePath(t *testing.T) {
+	c, err := NewSMTContext()
+	satOK(t, err)
+	if err = c.UpdateParamValue("proof", "true"); err != nil {
+		t.Fatal(err)
+	}
+	m, err := c.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if enabled, e := m.ProofsEnabled(); e != nil || !enabled {
+		t.Fatalf("proof setting = %v, %v", enabled, e)
+	}
+	if err = c.UpdateParamValue("proof", "not-a-boolean"); err == nil {
+		t.Fatal("malformed context parameter accepted")
+	}
+	if err = c.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = c.UpdateParamValue("model", "true"); err != ErrSMTContextOwner {
+		t.Fatalf("closed context update error = %v", err)
+	}
+}

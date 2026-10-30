@@ -429,6 +429,16 @@ func (c *Context) SetStringOption(name, value string) error {
 	return c.globalParametersUpdated()
 }
 
+// UpdateParamValue is the context_params::set path used by the external API.
+// Unlike SMT-LIB set-option, it updates only this context's construction
+// parameters and leaves the process-global parameter service unchanged.
+func (c *Context) UpdateParamValue(name, value string) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	return c.parameters.Set(&name, &value)
+}
+
 // Source cmd_context::global_params_updated. Generic option values retain
 // their catalog types in gparams. Only the disabled context auto_config flag
 // is copied into the solver's local update, as in the native command context.

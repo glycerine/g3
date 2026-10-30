@@ -4791,14 +4791,22 @@
       "path": "src/api/api_algebraic.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_algebraic_arithmetic.go",
+        "pkg/api/api_algebraic_value.go",
+        "pkg/api/api_algebraic_sign.go",
+        "pkg/api/api_algebraic_power.go",
+        "pkg/api/api_algebraic_relations.go",
         "pkg/api/api_algebraic_eval.go",
         "pkg/api/api_algebraic_roots.go"
       ],
       "tests": [
         "TestAPIAlgebraicRationalAndMixedArithmetic",
+        "TestAPIAlgebraicValueAndSign",
+        "TestAPIAlgebraicRootAndPower",
+        "TestAPIAlgebraicRelationsMixedValues",
+        "TestAPIAlgebraicRejectsInvalidOperands",
         "TestAPIAlgebraicEvalAtIrrationalValue",
         "TestAPIAlgebraicRootsIrrationalAssignment"
       ],
@@ -4816,23 +4824,27 @@
           "text": "SASSERT(is_irrational(c, a));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "algebraic value/sign predicates and arithmetic/root/power operations", "status": "ported", "go_target": "pkg/api/api_algebraic_arithmetic.go", "go_targets": ["pkg/api/api_algebraic_value.go", "pkg/api/api_algebraic_sign.go", "pkg/api/api_algebraic_power.go"], "tests": ["TestAPIAlgebraicRationalAndMixedArithmetic", "TestAPIAlgebraicValueAndSign", "TestAPIAlgebraicRootAndPower", "TestAPIAlgebraicRejectsInvalidOperands"]},
+        {"name": "six algebraic comparisons", "status": "ported", "go_target": "pkg/api/api_algebraic_relations.go", "tests": ["TestAPIAlgebraicRelationsMixedValues", "TestAPIAlgebraicRejectsInvalidOperands"]},
+        {"name": "algebraic polynomial roots and sign evaluation under assignments", "status": "ported", "go_target": "pkg/api/api_algebraic_roots.go", "go_targets": ["pkg/api/api_algebraic_eval.go"], "tests": ["TestAPIAlgebraicRootsIrrationalAssignment", "TestAPIAlgebraicEvalAtIrrationalValue", "TestAPIAlgebraicPolynomialConsumersRejectInvalidDomains"]}
+      ],
+      "ownership": ["Algebraic operations borrow checked AST handles, own temporary real-closure values and interrupt scopes through cleanup, and return manager-owned AST handles or copied scalar results."],
       "deviations": []
     },
     {
       "path": "src/api/api_arith.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_arithmetic.go", "pkg/api/api_arithmetic_rationals.go", "pkg/api/api_arithmetic_test.go", "pkg/api/api_arithmetic_rationals_test.go"],
-      "tests": ["TestSMTContextArithmeticSortsAndFactories", "TestSMTContextArithmeticValidation", "TestSMTContextArithmeticRationalParts"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_arithmetic.go", "pkg/api/api_arithmetic_rationals.go", "pkg/api/api_algebraic_value.go", "pkg/api/api_algebraic_bounds.go", "pkg/api/api_arithmetic_test.go", "pkg/api/api_arithmetic_rationals_test.go"],
+      "tests": ["TestSMTContextArithmeticSortsAndFactories", "TestSMTContextArithmeticValidation", "TestSMTContextArithmeticRationalParts", "TestAPIAlgebraicValueAndSign", "TestAPIAlgebraicNumberBoundsEncloseRoot", "TestAPIAlgebraicNumberBoundsRefineWithPrecision", "TestAPIAlgebraicNumberBoundsRejectNonIrrationalValues"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "integer/real sort, rational numeral, division, subtraction, and unary-minus entry points", "status": "ported", "go_target": "pkg/api/api_arithmetic.go", "tests": ["TestSMTContextArithmeticSortsAndFactories", "TestSMTContextArithmeticValidation"]}, {"name": "algebraic classification/lower/upper and rational numerator/denominator entry points", "status": "ported", "go_target": "pkg/api/api_algebraic_bounds.go", "go_targets": ["pkg/api/api_algebraic_value.go", "pkg/api/api_arithmetic_rationals.go"], "tests": ["TestSMTContextArithmeticRationalParts", "TestAPIAlgebraicValueAndSign", "TestAPIAlgebraicNumberBoundsEncloseRoot", "TestAPIAlgebraicNumberBoundsRefineWithPrecision", "TestAPIAlgebraicNumberBoundsRejectNonIrrationalValues"]}],
+      "ownership": ["Typed arithmetic API entry points borrow checked AST operands and return manager-owned handles; algebraic bound conversion owns temporary real-closure values through cleanup."],
       "deviations": []
     },
     {
@@ -4934,7 +4946,7 @@
       "path": "src/api/api_ast_map.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_ast_map_object.go",
         "pkg/api/api_ast_map_memory_trace.go",
@@ -4955,8 +4967,8 @@
           "text": "SASSERT(to_ast_map_ref(m).empty());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Z3_ast_map_ref allocation debug memory wrapper at api_ast_map.cpp:37",
@@ -4967,8 +4979,8 @@
           ]
         },
         {
-          "name": "context-owned AST map construction, contains, find, insert, erase, reset, size and borrowed key snapshot",
-          "status": "partial",
+          "name": "context-owned AST map construction, contains, find, insert, erase, reset, size, owned key vector and source-style display",
+          "status": "ported",
           "go_target": "pkg/api/api_ast_map_object.go",
           "tests": [
             "TestAPIASTMapConcreteReferenceCleanup",
@@ -4993,23 +5005,21 @@
         },
         {
           "name": "API AST-map stopped key/value deletion cleanup after an actual non-ID child failure",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_ast_map_object.go",
-          "tests": []
+          "tests": ["TestAPIASTMapConcreteReferenceCleanup", "TestPublicASTMapLifecycleAndOwnership"]
         }
       ],
       "ownership": [
         "The context owns the map object; the map increments one AST reference per key and value, increments replacement values before decrementing old values, and releases key then value on erase, reset and object destruction."
       ],
-      "deviations": [
-        "External Z3_ast_map C API binding, AST-vector wrapper for keys, and source pretty printing remain open. Keys currently returns a borrowed Go slice snapshot."
-      ]
+      "deviations": []
     },
     {
       "path": "src/api/api_ast_map.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_ast_map_object.go",
         "pkg/api/api_ast_map_object_test.go"
@@ -5029,12 +5039,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Z3_ast_map_ref owner and typed AST map storage",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_ast_map_object.go",
           "tests": [
             "TestAPIASTMapConcreteReferenceCleanup"
@@ -5044,9 +5054,7 @@
       "ownership": [
         "The derived context object releases map-owned AST key/value references before its base object releases its budget receipt."
       ],
-      "deviations": [
-        "The source C API wrapper and AST-vector returned by keys are not yet ported."
-      ]
+      "deviations": []
     },
     {
       "path": "src/api/api_ast_vector.cpp",
@@ -5088,13 +5096,13 @@
       "path": "src/api/api_bv.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_bitvectors.go", "pkg/api/api_bitvectors_test.go", "pkg/api/api_bitvector_overflow.go", "pkg/api/api_bitvector_overflow_test.go"],
-      "tests": ["TestSMTContextBitVectorCoreAPI", "TestSMTContextBitVectorOverflowPredicates", "TestSMTContextBitVectorExtrema"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "tests": ["TestSMTContextBitVectorCoreAPI", "TestSMTContextBitVectorIntegerConversions", "TestSMTContextBitVectorOverflowPredicates", "TestSMTContextBitVectorExtrema"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "bit-vector sort, unary/binary operators, extract, extension/repeat/rotation, integer conversion, extrema, subtraction/negation, and sort-size entry points", "status": "ported", "go_target": "pkg/api/api_bitvectors.go", "tests": ["TestSMTContextBitVectorCoreAPI", "TestSMTContextBitVectorIntegerConversions", "TestSMTContextBitVectorExtrema"]}, {"name": "signed/unsigned addition, subtraction, multiplication, negation, and division overflow/underflow predicates", "status": "ported", "go_target": "pkg/api/api_bitvector_overflow.go", "tests": ["TestSMTContextBitVectorOverflowPredicates"]}],
+      "ownership": ["Bit-vector API constructors borrow checked operand handles and return manager-owned AST handles; composite signed conversion and overflow helpers retain intermediate AST references only for the construction scope."],
       "deviations": []
     },
     {
@@ -5114,15 +5122,15 @@
       "path": "src/api/api_config_params.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_global_params.go", "pkg/api/api_config_params.go", "pkg/engine/default_process.go"],
-      "tests": ["TestAPIGlobalParamsGeneratedProcessSetGetResetAndWarnings", "TestAPIGlobalParamFirstCallInitializesGeneratedProcess", "TestAPIConfigSetCaughtWarningsAndOwnerLifetime"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "status": "ported",
+      "go_targets": ["pkg/api/api_global_params.go", "pkg/api/api_config_params.go", "pkg/api/api_config_params_test.go", "pkg/cmd_context/context.go", "pkg/engine/default_process.go"],
+      "tests": ["TestAPIGlobalParamsGeneratedProcessSetGetResetAndWarnings", "TestAPIGlobalParamFirstCallInitializesGeneratedProcess", "TestAPIConfigSetCaughtWarningsAndOwnerLifetime", "TestAPIContextUpdateParamValueSourcePath"],
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Z3_global_param_set/get/reset_all through first-call generated process service, typed z3_exception warning catch and environment update; API logging and native pointer ABI remain open",
-          "status": "partial",
+          "name": "Z3_global_param_set/get/reset_all through first-call generated process service, typed z3_exception warning catch and environment update",
+          "status": "ported",
           "go_target": "pkg/api/api_global_params.go",
           "go_targets": ["pkg/engine/default_process.go"],
           "tests": ["TestAPIGlobalParamsGeneratedProcessSetGetResetAndWarnings", "TestAPIGlobalParamFirstCallInitializesGeneratedProcess"]
@@ -5132,9 +5140,16 @@
           "status": "ported",
           "go_target": "pkg/api/api_config_params.go",
           "tests": ["TestAPIConfigSetCaughtWarningsAndOwnerLifetime", "TestAPIConfigSourceMemoryWrapperOrder"]
+        },
+        {
+          "name": "Z3_update_param_value context-local textual construction parameter update (api_config_params.cpp:96-102)",
+          "status": "ported",
+          "go_target": "pkg/api/api_config_params.go",
+          "go_targets": ["pkg/cmd_context/context.go"],
+          "tests": ["TestAPIContextUpdateParamValueSourcePath"]
         }
       ],
-      "ownership": [],
+      "ownership": ["Global parameter calls borrow the generated process service; Config owns ContextParams until Close, while SMTContext owns its context-local parameter store"],
       "deviations": ["The Go API now constructs concrete generated owners on first call and borrows an externally initialized process when supplied. Its explicit FinalizeDefaultProcess releases Go-owned process resources; C++ uses static finalization. Config owns concrete smtcore.ContextParams and closes a failed constructor before returning. Only typed z3_exception errors enter the warning catches; owner/allocation failures remain Go errors. Returned Go strings own their bytes instead of borrowing g_Z3_global_param_get_buffer. API logging and native C ABI remain open."]
     },
     {
@@ -5510,11 +5525,15 @@
       "path": "src/api/api_goal.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_goal_object.go", "pkg/api/api_goal_memory_trace.go", "pkg/api/api_goal_memory_trace_debug_test.go", "pkg/api/api_goal.go", "pkg/api/api_goal_mutation.go", "pkg/api/api_goal_queries.go", "pkg/api/api_goal_translation.go", "pkg/api/api_goal_display.go", "pkg/api/api_goal_lifecycle_test.go", "pkg/api/api_goal_mutation_test.go", "pkg/api/api_goal_queries_test.go", "pkg/api/api_goal_translation_test.go", "pkg/api/api_goal_display_test.go", "pkg/api/api_goal_dimacs.go", "pkg/api/api_goal_dimacs_invalid_test.go", "pkg/api/api_goal_dimacs_lifecycle_test.go", "pkg/api/api_goal_dimacs_test.go"],
       "tests": [
         "TestAPIGoalSourceMemoryWrapperReleaseSites",
-        "TestAPIGoal"
+        "TestAPIGoalLifecycleAndConfiguration",
+        "TestAPIGoalAssertResetAndSortChecks",
+        "TestAPIGoalQueriesAndFormulaOwnership",
+        "TestAPIGoalTranslationOwnsTargetFormulas",
+        "TestAPIGoalStringOmitsNativeTrailingNewline"
       ],
       "assertions": [
         {
@@ -5522,8 +5541,8 @@
           "text": "SASSERT(result.size() > 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Z3_goal_ref allocation debug memory wrapper at api_goal.cpp:35",
@@ -5532,18 +5551,26 @@
           "tests": [
             "TestAPIGoalSourceMemoryWrapperReleaseSites"
           ]
+        },
+        {
+          "name": "Z3_mk_goal, reference lifecycle, precision, assertion/reset, state and formula queries, cross-context translation, and display",
+          "status": "ported",
+          "go_target": "pkg/api/api_goal.go",
+          "tests": ["TestAPIGoalLifecycleAndConfiguration", "TestAPIGoalAssertResetAndSortChecks", "TestAPIGoalQueriesAndFormulaOwnership", "TestAPIGoalTranslationOwnsTargetFormulas", "TestAPIGoalStringOmitsNativeTrailingNewline"]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "APIGoal owns its tactic Goal and manager association until Close. Formula queries return rooted ASTRef values, and Translate constructs an independently owned goal in the target context."
+      ],
       "deviations": [
-        "The concrete context-owned goal wrapper emits the retained debug allocation record. The Z3_mk_goal C API, inner goal allocation, translation and other goal operations remain unported."
+        "Go exposes the retained goal operations as typed methods instead of C handles and explicit inc_ref/dec_ref calls; Close performs the corresponding release."
       ]
     },
     {
       "path": "src/api/api_goal.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_goal_object.go",
         "pkg/api/api_goal_memory_trace.go",
@@ -5565,8 +5592,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained API goal wrapper allocation and context deallocation debug records at api_goal.cpp:35 and api_context.cpp:54,116",
@@ -5577,7 +5604,9 @@
           ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "apiGoalObject and APIGoal provide the concrete context-owned wrapper and deterministic release path for the underlying tactic Goal."
+      ],
       "deviations": []
     },
     {
@@ -5666,14 +5695,17 @@
       "path": "src/api/api_log.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/z3_log_writer.go",
         "pkg/api/z3_log_commands.go"
       ],
       "tests": [
         "TestZ3LogScalarAndCommandRecords",
-        "TestZ3LogWriterRoundTripsThroughReplayer"
+        "TestZ3LogWriterRoundTripsThroughReplayer",
+        "TestZ3LogWriterLatchesWriteFailures",
+        "TestZ3LogWriterRejectsNilAndShortWrites",
+        "TestZ3LogCStringStopsAtFirstNUL"
       ],
       "conditionals": [
         {
@@ -5725,11 +5757,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "open, append, flush, and close log lifecycle", "status": "platform_replacement", "go_target": "pkg/api/z3_log_writer.go", "tests": ["TestZ3LogScalarAndCommandRecords", "TestZ3LogWriterRoundTripsThroughReplayer", "TestZ3LogWriterLatchesWriteFailures", "TestZ3LogWriterRejectsNilAndShortWrites", "TestZ3LogCStringStopsAtFirstNUL"]}],
+      "ownership": ["Z3LogWriter owns an optional closer and borrows or owns its io.Writer as selected by construction; Close flushes and releases owned output exactly once."],
+      "deviations": ["Go uses an explicit Z3LogWriter owner rather than mutable process-global FILE state. Callers choose file creation and synchronization through standard io.Writer values; record bytes and flush/error ordering are preserved."]
     },
     {
       "path": "src/api/api_log_macros.cpp",
@@ -5798,7 +5830,7 @@
       "path": "src/api/api_model.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_model_object.go", "pkg/api/api_model_object_test.go"],
       "tests": ["TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries"],
       "conditionals": [
@@ -5811,10 +5843,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "opaque model, function-interpretation and function-entry wrapper types and conversions (api_model.h:25-55)", "status": "ported", "go_target": "pkg/api/api_model_object.go", "tests": ["TestAPICurrentModelRetainedAcrossLaterChecks", "TestAPIModelLifecycleEnumerationMutationAndFunctionWrappers", "TestAPIModelUniverseOwnsValuesAndTranslation", "TestAPIModelAsArrayQueries"]}],
+      "ownership": ["APIModel, APIFunctionInterpretation and APIFunctionEntry each retain ModelCore independently so borrowed interpretation and entry data outlive the primary wrapper until Close"],
       "deviations": []
     },
     {
@@ -5884,12 +5916,12 @@
       "path": "src/api/api_parsers.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_parser_context.go", "pkg/api/api_parser_parse.go", "pkg/api/api_parser_eval.go", "pkg/api/api_parser_file.go", "pkg/cmd_context/parser_context.go"],
-      "tests": ["TestAPIParserSuppliedDeclarationsPreserveASTIdentity", "TestAPIParserReturnsAssertionConjunctionWithoutMutatingSession", "TestAPIParserEvaluateUsesPersistentCommandSession", "TestAPIParserFileUsesSameOneShotPath"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "temporary same-manager parser contexts, supplied bindings, SMT2 parse/evaluate/file entry points", "status": "partial", "go_target": "pkg/api/api_parser_context.go", "tests": ["TestAPIParserSuppliedDeclarationsPreserveASTIdentity", "TestAPIParserReturnsAssertionConjunctionWithoutMutatingSession"]}],
+      "tests": ["TestAPIParserSuppliedDeclarationsPreserveASTIdentity", "TestAPIParserSuppliedSortIsUsedByNewDeclaration", "TestAPIParserReturnsAssertionConjunctionWithoutMutatingSession", "TestAPIParserEmptyInputReturnsTrue", "TestAPIParserResetContinuesOnBorrowedManager", "TestAPIParserFailureIsolatedAndForeignBindingsRejected", "TestAPIParserEvaluateUsesPersistentCommandSession", "TestAPIParserFileUsesSameOneShotPath"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "parser error capture, temporary same-manager parser contexts, supplied bindings, SMT2 string/file parse and persistent-session evaluation entry points (api_parsers.cpp:33-150)", "status": "ported", "go_target": "pkg/api/api_parser_context.go", "go_targets": ["pkg/api/api_parser_parse.go", "pkg/api/api_parser_eval.go", "pkg/api/api_parser_file.go", "pkg/cmd_context/parser_context.go"], "tests": ["TestAPIParserSuppliedDeclarationsPreserveASTIdentity", "TestAPIParserSuppliedSortIsUsedByNewDeclaration", "TestAPIParserReturnsAssertionConjunctionWithoutMutatingSession", "TestAPIParserEmptyInputReturnsTrue", "TestAPIParserResetContinuesOnBorrowedManager", "TestAPIParserFailureIsolatedAndForeignBindingsRejected", "TestAPIParserEvaluateUsesPersistentCommandSession", "TestAPIParserFileUsesSameOneShotPath"]}],
       "ownership": ["Temporary parser contexts borrow the API manager; returned conjunctions own target-manager references and parser teardown leaves them valid."],
       "deviations": []
     },
@@ -5897,20 +5929,20 @@
       "path": "src/api/api_pb.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_pseudo_boolean.go", "pkg/api/api_pseudo_boolean_test.go"],
-      "tests": ["TestSMTContextPseudoBooleanAPI"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "tests": ["TestSMTContextPseudoBooleanAPI", "TestSMTContextPseudoBooleanValidationAndSignedCoefficients"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "Z3_mk_atmost, Z3_mk_atleast, Z3_mk_pble, Z3_mk_pbge, and Z3_mk_pbeq typed API entry points", "status": "ported", "go_target": "pkg/api/api_pseudo_boolean.go", "tests": ["TestSMTContextPseudoBooleanAPI", "TestSMTContextPseudoBooleanValidationAndSignedCoefficients"]}],
+      "ownership": ["Pseudo-Boolean constructors borrow input AST handles, own temporary integer RationalService coefficients through cleanup, and return manager-owned AST handles."],
       "deviations": []
     },
     {
       "path": "src/api/api_polynomial.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_polynomial_conversion.go",
         "pkg/api/api_polynomial_subresultants.go",
@@ -5920,6 +5952,10 @@
       "tests": [
         "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
         "TestAPIPolynomialSubresultantsRationalCoefficients",
+        "TestAPIPolynomialSubresultantsSwapPreservesSourceChain",
+        "TestAPIPolynomialSubresultantsNonMappedVariableIsEmpty",
+        "TestAPIPolynomialSubresultantsBoundsAndClose",
+        "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput",
         "TestSMTContextOperationTimeoutTracksContextOption",
         "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope",
         "TestAPIPolynomialInterruptScopeTimesOutWithSourceCaller",
@@ -5928,10 +5964,10 @@
         "TestAPIPolynomialInterruptScopeCloseStopsTimer",
         "TestAPIPolynomialSubresultantsReleasesInterruptScope"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "Z3_polynomial_subresultants arithmetic-expression conversion, polynomial chain computation, AST-vector publication, validation, and interrupt scope", "status": "ported", "go_target": "pkg/api/api_polynomial_subresultants.go", "go_targets": ["pkg/api/api_polynomial_conversion.go", "pkg/api/api_polynomial_interrupt.go"], "tests": ["TestAPIPolynomialSubresultantsBasicAndEqualInputs", "TestAPIPolynomialSubresultantsRationalCoefficients", "TestAPIPolynomialSubresultantsSwapPreservesSourceChain", "TestAPIPolynomialSubresultantsNonMappedVariableIsEmpty", "TestAPIPolynomialSubresultantsBoundsAndClose", "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput", "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope", "TestAPIPolynomialSubresultantsReleasesInterruptScope"]}],
+      "ownership": ["APIPolynomialSubresultants owns rooted AST result references and releases them on Close; conversion temporaries and timeout/interrupt scopes are released on every return path."],
       "deviations": []
     },
     {
@@ -5961,22 +5997,22 @@
       "path": "src/api/api_qe.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_qe_services.go", "pkg/api/api_qe_refs.go", "pkg/api/api_qe_lite.go", "pkg/api/api_qe_model_project.go", "pkg/api/api_model_extrapolate.go"],
-      "tests": ["TestAPIQELiteEliminatesUnusedApplication", "TestAPIQELiteRejectsNonApplicationVariable", "TestAPIQEModelProjectEliminatesModelEquality", "TestAPIQEModelProjectValidatesBoundsAndOwners", "TestAPIModelExtrapolateReturnsSatisfiedLiteral", "TestAPIModelExtrapolateResultOutlivesModelReference"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "Z3_qe_lite, Z3_qe_model_project and Z3_model_extrapolate concrete entrypoints", "status": "ported", "go_target": "pkg/api/api_qe_services.go", "go_targets": ["pkg/api/api_qe_refs.go", "pkg/api/api_qe_lite.go", "pkg/api/api_qe_model_project.go", "pkg/api/api_model_extrapolate.go"], "tests": ["TestAPIQELiteEliminatesUnusedApplication", "TestAPIQEModelProjectEliminatesModelEquality", "TestAPIModelExtrapolateReturnsSatisfiedLiteral"]}],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_qe_services.go", "pkg/api/api_qe_refs.go", "pkg/api/api_qe_lite.go", "pkg/api/api_qe_model_project.go", "pkg/api/api_qe_model_project_skolem.go", "pkg/api/api_model_extrapolate.go"],
+      "tests": ["TestAPIQELiteEliminatesUnusedApplication", "TestAPIQELiteRejectsNonApplicationVariable", "TestAPIQEModelProjectEliminatesModelEquality", "TestAPIQEModelProjectValidatesBoundsAndOwners", "TestAPIQEModelProjectSkolemSubstitutesBooleanWithoutPublishingMap", "TestAPIQEModelProjectSkolemResultOutlivesModelReference", "TestAPIQEModelProjectSkolemValidatesMapAndBounds", "TestAPIModelExtrapolateReturnsSatisfiedLiteral", "TestAPIModelExtrapolateResultOutlivesModelReference"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "Z3_qe_lite, Z3_qe_model_project and Z3_model_extrapolate concrete entrypoints", "status": "ported", "go_target": "pkg/api/api_qe_services.go", "go_targets": ["pkg/api/api_qe_refs.go", "pkg/api/api_qe_lite.go", "pkg/api/api_qe_model_project.go", "pkg/api/api_model_extrapolate.go"], "tests": ["TestAPIQELiteEliminatesUnusedApplication", "TestAPIQEModelProjectEliminatesModelEquality", "TestAPIModelExtrapolateReturnsSatisfiedLiteral"]}, {"name": "application validation helper and Z3_qe_model_project_skolem projection/map publication", "status": "ported", "go_target": "pkg/api/api_qe_model_project_skolem.go", "tests": ["TestAPIQEModelProjectSkolemSubstitutesBooleanWithoutPublishingMap", "TestAPIQEModelProjectSkolemResultOutlivesModelReference", "TestAPIQEModelProjectSkolemValidatesMapAndBounds"]}],
+      "ownership": ["QE entry points borrow the checked context model, root their returned ASTRef, and own temporary bound references through cleanup. Skolem projection copies retained key/value references into the destination ASTMap."],
       "deviations": []
     },
     {
       "path": "src/api/api_quant.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_quantifiers.go", "pkg/api/api_quantifiers_test.go", "pkg/api/api_quantifier_constants.go", "pkg/api/api_quantifier_constants_test.go"],
-      "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors", "TestSMTContextConstantQuantifier"],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_quantifiers.go", "pkg/api/api_quantifiers_test.go", "pkg/api/api_quantifier_constants.go", "pkg/api/api_quantifier_constants_test.go", "pkg/api/api_quantifier_bound.go", "pkg/api/api_quantifier_bound_test.go"],
+      "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors", "TestSMTContextExistentialNoPatternAndQueryBounds", "TestSMTContextConstantQuantifierAbstraction", "TestSMTContextConstantQuantifierValidation", "TestSMTContextBoundVariableSourceIndexAndSort"],
       "assertions": [
         {
           "line": 196,
@@ -5995,10 +6031,26 @@
           "text": "SASSERT(result.get()->get_kind() == AST_APP);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "quantifier, extended quantifier, forall/exists, constant-bound abstraction, pattern, and de Bruijn bound constructors",
+          "status": "ported",
+          "go_target": "pkg/api/api_quantifiers.go",
+          "go_targets": ["pkg/api/api_quantifier_constants.go", "pkg/api/api_quantifier_bound.go"],
+          "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors", "TestSMTContextExistentialNoPatternAndQueryBounds", "TestSMTContextConstantQuantifierAbstraction", "TestSMTContextConstantQuantifierValidation", "TestSMTContextBoundVariableSourceIndexAndSort"]
+        },
+        {
+          "name": "quantifier kind/weight/pattern/no-pattern/binder/body queries and pattern term/display queries",
+          "status": "ported",
+          "go_target": "pkg/api/api_quantifiers.go",
+          "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextExistentialNoPatternAndQueryBounds"]
+        }
+      ],
+      "ownership": [
+        "Typed API constructors return manager-borrowed AST handles. Constant quantifier construction temporarily roots abstracted bodies and patterns through the concrete AST manager; query methods do not acquire ownership."
+      ],
       "deviations": []
     },
     {
@@ -6018,13 +6070,13 @@
       "path": "src/api/api_seq.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/api_sequences.go", "pkg/api/api_sequences_test.go"],
-      "tests": ["TestSMTContextSequenceAndRegexAPI", "TestSMTContextSequenceAPIErrors"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "tests": ["TestSMTContextSequenceAndRegexAPI", "TestSMTContextSequenceAPIErrors", "TestSMTContextSequenceAndRegexConstructorCoverage"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "sequence and regular-expression sorts, literals, recognizers, constructors and conversions (api_seq.cpp:24-171)", "status": "ported", "go_target": "pkg/api/api_sequences.go", "tests": ["TestSMTContextSequenceAndRegexAPI", "TestSMTContextSequenceAPIErrors", "TestSMTContextSequenceAndRegexConstructorCoverage"]}],
+      "ownership": ["SMTContext owns the command context and AST manager; returned handles use the manager's normal reference lifecycle and Go strings replace external-string buffering"],
       "deviations": []
     },
     {
@@ -6230,14 +6282,19 @@
       "path": "src/api/api_util.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/api/api_context_results.go"
+        "pkg/api/api_context_results.go",
+        "pkg/api/api_params_object.go",
+        "pkg/api/api_sequences.go"
       ],
       "tests": [
         "TestAPIContextObjectReferenceAssignmentAndRecycledIDs",
         "TestAPIContextObjectCloseUsesNativeFreeIDStorage",
-        "TestAPIContextNativeResultGrowthAndReferenceRelease"
+        "TestAPIContextNativeResultGrowthAndReferenceRelease",
+        "TestAPIParameterSetSourceKindsDisplayAndValidation",
+        "TestAPIParameterDescriptionsCopiedCatalogLifetime",
+        "TestSMTContextSequenceAndRegexConstructorCoverage"
       ],
       "conditionals": [
         {
@@ -6249,9 +6306,9 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "API object reference owner, typed handle conversions, parameter wrappers and unary/binary/ternary/n-ary construction helpers (api_util.h:30-173)", "status": "ported", "go_target": "pkg/api/api_context_results.go", "go_targets": ["pkg/api/api_params_object.go", "pkg/api/api_sequences.go"], "tests": ["TestAPIContextObjectReferenceAssignmentAndRecycledIDs", "TestAPIContextObjectCloseUsesNativeFreeIDStorage", "TestAPIContextNativeResultGrowthAndReferenceRelease", "TestAPIParameterSetSourceKindsDisplayAndValidation", "TestAPIParameterDescriptionsCopiedCatalogLifetime", "TestSMTContextSequenceAndRegexConstructorCoverage"]}],
       "ownership": [
         "API context result and automatic AST trails now own concrete native []ASTHandle backing. Each append acquires one AST reference; explicit single-result replacement retains the incoming alias across reset. Cleanup retires each consumed DEC before returning a destructor error and preserves only unread roots for retry. Close releases both backing slices. Only the real context cold header is reserved; no ASTRefVector wrapper, encoded vector record/payload or backing-growth reservation remains in these callers. A 4097-entry duplicate-root fixture checks actual reference counts, both result modes, reset/close and native growth under FailAfter0. See PORT_PROGRESS.md#native-api-context-result-roots."
       ],
@@ -10281,20 +10338,30 @@
       "path": "src/api/z3_logger.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/z3_log_writer.go",
-        "pkg/api/z3_log_file.go"
+        "pkg/api/z3_log_file.go",
+        "pkg/api/z3_log_process.go",
+        "pkg/api/z3_log_escape.go",
+        "pkg/api/z3_log_scalars.go",
+        "pkg/api/z3_log_symbols.go",
+        "pkg/api/z3_log_arrays.go",
+        "pkg/api/z3_log_commands.go"
       ],
       "tests": [
         "TestOpenZ3LogWritesHeaderAndOwnsFile",
-        "TestZ3LogWriterLatchesWriteFailures"
+        "TestProcessZ3LogOpenReplacesAndAppendWithoutOpenIsNoop",
+        "TestZ3LogWriterLatchesWriteFailures",
+        "TestZ3LogScalarAndCommandRecords",
+        "TestZ3LogSymbolAndArrayRecords",
+        "TestZ3LogEscapeMatchesLowLevelDecimalEncoding"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "escaped string writer and R/P/I/U/D/S/Sy/Ap/Au/Asy/C/message record helpers", "status": "ported", "go_target": "pkg/api/z3_log_writer.go", "go_targets": ["pkg/api/z3_log_escape.go", "pkg/api/z3_log_scalars.go", "pkg/api/z3_log_symbols.go", "pkg/api/z3_log_arrays.go", "pkg/api/z3_log_commands.go"], "tests": ["TestZ3LogScalarAndCommandRecords", "TestZ3LogSymbolAndArrayRecords", "TestZ3LogEscapeMatchesLowLevelDecimalEncoding", "TestZ3LogCStringStopsAtFirstNUL"]}, {"name": "process log open/replace/append/close lifecycle", "status": "ported", "go_target": "pkg/api/z3_log_process.go", "tests": ["TestOpenZ3LogWritesHeaderAndOwnsFile", "TestProcessZ3LogOpenReplacesAndAppendWithoutOpenIsNoop"]}],
+      "ownership": ["The process log owns at most one Z3LogWriter and its file; replacement closes the previous owner. Record helpers borrow the active writer and latch output failures."],
+      "deviations": ["A mutex guards the explicit Go process-log owner; record encoding and flush order match the source noinline helpers without reproducing C++ ostream overloads."]
     },
     {
       "path": "src/api/z3_macros.h",
@@ -10503,7 +10570,7 @@
       "path": "src/api/z3_replayer.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/z3_replayer.go",
         "pkg/api/z3_replayer_commands.go",
@@ -10511,7 +10578,11 @@
       ],
       "tests": [
         "TestZ3ReplayerCommandCanMutateOutArguments",
-        "TestZ3ReplayerTypedScalarArgumentsAndEscapes"
+        "TestZ3ReplayerTypedScalarArgumentsAndEscapes",
+        "TestZ3ReplayerTypedArraysPreserveSourceOrder",
+        "TestZ3ReplayerCommandAndTypeErrorsArePositioned",
+        "TestZ3ReplayerRecoverableCommandExceptionContinues",
+        "TestZ3ReplayerReportsEscapesAndUnknownCommands"
       ],
       "conditionals": [
         {
@@ -10523,24 +10594,25 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "log record lexer/parser, scalar/symbol/array argument decoding, command dispatch, result/out publication, and recoverable error loop", "status": "ported", "go_target": "pkg/api/z3_replayer_parse.go", "go_targets": ["pkg/api/z3_replayer.go", "pkg/api/z3_replayer_commands.go", "pkg/api/z3_replayer_objects.go"], "tests": ["TestZ3ReplayerCommandCanMutateOutArguments", "TestZ3ReplayerTypedScalarArgumentsAndEscapes", "TestZ3ReplayerTypedArraysPreserveSourceOrder", "TestZ3ReplayerCommandAndTypeErrorsArePositioned", "TestZ3ReplayerRecoverableCommandExceptionContinues", "TestZ3ReplayerReportsEscapesAndUnknownCommands"]}],
+      "ownership": ["Z3Replayer owns parsed argument buffers, pointer/result heaps, registered command closures, and injected diagnostic output for its lifetime; reset preserves the source result-heap contract."],
+      "deviations": ["Go uses typed slices and strings in place of C++ vectors/streams; parsing order, escape decoding, mutation publication, and positioned errors are preserved."]
     },
     {
       "path": "src/api/z3_replayer.h",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/z3_replayer.go",
         "pkg/api/z3_replayer_objects.go"
       ],
       "tests": [
         "TestZ3ReplayerLifecycleAndRegistrationGuards",
-        "TestZ3ReplayerResultHeapSurvivesReset"
+        "TestZ3ReplayerResultHeapSurvivesReset",
+        "TestZ3ReplayerRejectsUnknownPointer"
       ],
       "conditionals": [
         {
@@ -10552,11 +10624,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "replayer construction, command registration, parse/replay, argument access, object/result heap and lifecycle surface", "status": "ported", "go_target": "pkg/api/z3_replayer.go", "go_targets": ["pkg/api/z3_replayer_objects.go"], "tests": ["TestZ3ReplayerLifecycleAndRegistrationGuards", "TestZ3ReplayerResultHeapSurvivesReset", "TestZ3ReplayerRejectsUnknownPointer"]}],
+      "ownership": ["The concrete replayer owns command registrations and object/result maps; Close releases them and guarded methods reject closed or foreign state."],
+      "deviations": ["Explicit errors and Close replace C++ exceptions/destruction while preserving replay-visible state transitions."]
     },
     {
       "path": "src/api/z3_spacer.h",
@@ -71729,7 +71801,7 @@
       "path": "src/math/realclosure/mpz_matrix.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/realclosure/sign_matrix.go", "pkg/math/realclosure/sign_matrix_test.go", "pkg/math/realclosure/sign_matrix_solve.go", "pkg/math/realclosure/sign_matrix_solve_test.go", "pkg/math/realclosure/sign_matrix_display.go", "pkg/math/realclosure/sign_matrix_display_test.go"],
       "tests": ["TestSignDeterminationSourceMatrices", "TestSignMatrixTensorAndCopyOwnCells", "TestSignMatrixSourceIntegerSolutions", "TestSignMatrixFilterColumnsOwnsValues", "TestSignMatrixIntegerSolverSignedTwoByTwoGrid", "TestSignMatrixIndependentRowsPreserveOriginalPriority", "TestSignMatrixSourceDisplayAndWriterPrefixes"],
       "assertions": [
@@ -71802,8 +71874,8 @@
           "text": "SASSERT(!seen[p[i]]);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Sign-determination dense mpz matrix mk/set/tensor_product with native Go big.Int cells and destination aliasing (mpz_matrix.cpp:38-90)",
@@ -71830,14 +71902,14 @@
           "tests": []
         }
       ],
-      "ownership": [],
-      "deviations": ["Native []big.Int replaces the C++ mpz array and allocator. Sign-determination matrix constructor is ported separately; full real-closure owner integration and remaining matrix profiles remain open."]
+      "ownership": ["Each signMatrix owns independent big.Int cells. Copy, filtering, solving, tensor products, and independent-row selection allocate or copy values without retaining aliases to source cells."],
+      "deviations": ["Native []big.Int replaces the C++ mpz array and allocator. The test-only permute_rows caller is reference-only; retained sign-determination construction, integer solving, filtering, row selection, and display/write profiles are concrete."]
     },
     {
       "path": "src/math/realclosure/mpz_matrix.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/realclosure/sign_matrix.go", "pkg/math/realclosure/sign_matrix_test.go", "pkg/math/realclosure/sign_matrix_solve.go", "pkg/math/realclosure/sign_matrix_solve_test.go", "pkg/math/realclosure/sign_matrix_display.go", "pkg/math/realclosure/sign_matrix_display_test.go"],
       "tests": ["TestSignDeterminationSourceMatrices", "TestSignMatrixTensorAndCopyOwnCells", "TestSignMatrixSourceIntegerSolutions", "TestSignMatrixFilterColumnsOwnsValues", "TestSignMatrixIntegerSolverSignedTwoByTwoGrid", "TestSignMatrixIndependentRowsPreserveOriginalPriority", "TestSignMatrixSourceDisplayAndWriterPrefixes"],
       "conditionals": [
@@ -71872,8 +71944,8 @@
           "text": "int get_int(unsigned i, unsigned j) const { SASSERT(nm().is_int(A(i, j))); return nm().get_int(A(i, j)); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Sign-determination dense mpz matrix mk/set/tensor_product with native Go big.Int cells and destination aliasing (mpz_matrix.cpp:38-90)",
@@ -71900,8 +71972,8 @@
           "tests": []
         }
       ],
-      "ownership": [],
-      "deviations": ["Native []big.Int replaces the C++ mpz array and allocator. Sign-determination matrix constructor is ported separately; full real-closure owner integration and remaining matrix profiles remain open."]
+      "ownership": ["The concrete signMatrix owns its dimensions and big.Int cell slice; all retained operations preserve value ownership across destination aliasing and copies."],
+      "deviations": ["Native []big.Int replaces the C++ mpz array and allocator. The unused universal manager wrapper and test-only row permutation are not reproduced; retained real-closure consumers use the concrete signMatrix."]
     },
     {
       "path": "src/math/realclosure/rcf_params.hpp",
@@ -75703,7 +75775,7 @@
       "path": "src/math/subpaving/subpaving_mpq.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/rational_context_root.go",
         "pkg/math/subpaving/rational_node.go",
@@ -75718,17 +75790,17 @@
         "TestRationalContextRootUnitCheckpointConflictAndOwnership",
         "TestRationalContextQueuedBoundCheckpointResume"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "concrete rational subpaving context instantiation (subpaving_mpq.cpp:20-23)", "status": "ported", "go_target": "pkg/math/subpaving/rational_context_root.go", "go_targets": ["pkg/math/subpaving/rational_node.go", "pkg/math/subpaving/rational_selector.go", "pkg/math/subpaving/rational_context_units.go", "pkg/math/subpaving/rational_context_propagate.go"], "tests": ["TestRationalContextRootIntegerBoundsAndChildViews", "TestRationalContextSourceBoundConflicts", "TestRationalContextRootUnitCheckpointConflictAndOwnership", "TestRationalContextQueuedBoundCheckpointResume"]}],
+      "ownership": ["RationalContext owns its rational policy values and nodes; Close releases retained numerals and source failures preserve the concrete-instantiation exception boundary"],
       "deviations": []
     },
     {
       "path": "src/math/subpaving/subpaving_mpq.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/rational_interval.go",
         "pkg/math/subpaving/rational_interval_arith.go",
@@ -75767,10 +75839,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "rational numeral configuration and concrete context/interval specialization (subpaving_mpq.h:24-39)", "status": "ported", "go_target": "pkg/math/subpaving/rational_interval.go", "go_targets": ["pkg/math/subpaving/rational_interval_arith.go", "pkg/math/subpaving/rational_interval_scalar.go", "pkg/math/subpaving/rational_interval_mul.go", "pkg/math/subpaving/rational_interval_div.go", "pkg/math/subpaving/rational_interval_power.go", "pkg/math/subpaving/rational_interval_inv.go", "pkg/math/subpaving/rational_context_root.go"], "tests": ["TestSubpavingRationalMutableIntervalCore", "TestSubpavingRationalIntervalNegAddSubAndAlias", "TestSubpavingRationalIntervalScalarSourceBranches", "TestSubpavingRationalIntervalMulNineSignClassesAndTies", "TestSubpavingRationalIntervalDivSixSignAndOpenZeroBranches", "TestSubpavingRationalIntervalPowerSourceCases", "TestSubpavingRationalIntervalInverseSourceBranches"]}],
+      "ownership": ["RationalInterval owns mutable endpoint numerals and RationalContext owns its manager-backed values; Close methods replace C++ RAII"],
       "deviations": []
     },
     {
@@ -78813,10 +78885,8 @@
       "path": "src/math/subpaving/subpaving_types.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
-      "go_targets": [
-        "pkg/math/subpaving/source_exception.go"
-      ],
+      "status": "ported",
+      "go_targets": ["pkg/math/subpaving/source_exception.go", "pkg/math/subpaving/rational_monomial.go", "pkg/math/subpaving/fast_monomial.go", "pkg/math/subpaving/arbitrary_monomial.go", "pkg/math/subpaving/fixed_monomial.go", "pkg/math/subpaving/hardware_monomial.go", "pkg/math/subpaving/rational_display.go", "pkg/math/subpaving/fast_display.go", "pkg/math/subpaving/arbitrary_display.go", "pkg/math/subpaving/fixed_display.go", "pkg/math/subpaving/hardware_display.go"],
       "tests": [
         "TestFastShellExactCoefficientsAndDirectedInequalities",
         "TestFastSearchRetainsRefusedSplitChildrenForOwnerClose"
@@ -78831,20 +78901,24 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "selected MPFF wrapper and context throws of the shared message-free subpaving::exception (subpaving_types.h:30-31)",
+          "name": "concrete variable/null sentinel, power records/sorting, default variable display and shared message-free exception (subpaving_types.h:24-48)",
           "status": "ported",
-          "go_target": "pkg/math/subpaving/source_exception.go",
+          "go_target": "pkg/math/subpaving/rational_monomial.go",
+          "go_targets": ["pkg/math/subpaving/fast_monomial.go", "pkg/math/subpaving/arbitrary_monomial.go", "pkg/math/subpaving/fixed_monomial.go", "pkg/math/subpaving/hardware_monomial.go", "pkg/math/subpaving/rational_display.go", "pkg/math/subpaving/fast_display.go", "pkg/math/subpaving/arbitrary_display.go", "pkg/math/subpaving/fixed_display.go", "pkg/math/subpaving/hardware_display.go", "pkg/math/subpaving/source_exception.go"],
           "tests": [
+            "TestRationalMonomialRegistrationAndForwardBounds",
             "TestFastShellExactCoefficientsAndDirectedInequalities",
-            "TestFastSearchRetainsRefusedSplitChildrenForOwnerClose"
+            "TestFastSearchTraceNullVariableAndBorrowedRefusal",
+            "TestArbitrarySearchTraceNullVariableAndNodeLimit",
+            "TestHardwareSearchTraceNullVariableAndBorrowedRefusal"
           ]
         }
       ],
-      "ownership": [],
+      "ownership": ["Power records and variables are values; concrete contexts own their variable-display callbacks and translate the empty C++ exception to sourceFailure"],
       "deviations": []
     },
     {
@@ -81970,31 +82044,37 @@
       "path": "src/muz/base/dl_rule_transformer.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/base/rule_transformer.go", "pkg/muz/transforms/coi_plugin.go"],
       "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin", "TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Owned plugin reset/cancel/register lifecycle, descending priority ordering, no-op and changed-stage composition, destratification rejection, finalized intermediate ownership, and final rule replacement (dl_rule_transformer.cpp:29-128)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",
           "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
+        },
+        {
+          "name": "plugin::remove_duplicate_tails polarity-separated swap-with-last duplicate removal",
+          "status": "ported",
+          "go_target": "pkg/muz/base/rule_transformer.go",
+          "tests": ["TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"]
         }
       ],
       "ownership": [
         "RuleTransformer owns registered plugins, an Apply invocation owns its copied current RuleSet and every non-nil plugin result, and discarded destratifying results are closed before continuing."
       ],
       "deviations": [
-        "plugin::remove_duplicate_tails remains pending its first retained Go transform consumer; context cancellation stopping between plugins remains with the future dl_context port."
+        "The source loop's dl_context cancellation poll is outside the transformer abstraction; current retained single-goroutine consumers use explicit plugin Cancel propagation. Timing/TRACE output is omitted."
       ]
     },
     {
       "path": "src/muz/base/dl_rule_transformer.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/base/rule_transformer.go", "pkg/muz/transforms/coi_plugin.go"],
       "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin", "TestRemoveDuplicateRuleTailsUsesSourceSwapWithLastOrder"],
       "conditionals": [
@@ -82007,12 +82087,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "rule_transformer and plugin runtime surface: owned registration/reset, cancellation, priority, destratification metadata, transformation invocation, and close (dl_rule_transformer.h:31-107)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",
           "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
         }
@@ -82021,7 +82101,7 @@
         "Register transfers a RuleTransformPlugin owner to RuleTransformer; Reset and Close release every plugin exactly once, while Apply borrows its input RuleSet and returns it finalized after replacement."
       ],
       "deviations": [
-        "The static duplicate-tail helper remains unported until a retained concrete transform requires it."
+        "Go exposes the static duplicate-tail helper as RemoveDuplicateRuleTails and uses explicit Close instead of a virtual destructor."
       ]
     },
     {
@@ -82670,11 +82750,11 @@
       "path": "src/muz/dataflow/dataflow.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/dataflow/reachability.go"],
       "tests": ["TestReachabilityRunsFromIngestedHornProgram"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "reachability_info::null_fact zero-value definition (dataflow.cpp:21-23)",
@@ -82683,7 +82763,9 @@
           "tests": ["TestReachabilityRunsFromIngestedHornProgram"]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "The source null reachability fact is immutable scalar state. Go represents it as the zero value returned for a missing map entry; it owns no rule, declaration, AST, or container storage."
+      ],
       "deviations": [
         "A missing Go map entry is the immutable false/null reachability fact, so no process-global object is required."
       ]
@@ -82692,7 +82774,7 @@
       "path": "src/muz/dataflow/dataflow.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/dataflow/reachability.go", "pkg/muz/base/rule.go"],
       "tests": ["TestReachabilityRunsFromIngestedHornProgram"],
       "conditionals": [
@@ -82705,8 +82787,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete reachability dataflow_engine instantiation: bottom-up and top-down initialization, alternating worklists, rule dependency indexes, propagation, and fact lookup (dataflow.h:49-180)",
@@ -85742,16 +85824,13 @@
       "path": "src/muz/rel/aig_exporter.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/rel/aag_exporter.go",
         "pkg/muz/rel/aag_exporter_rules.go",
         "pkg/muz/rel/aag_exporter_write.go"
       ],
-      "tests": [
-        "TestAAGExporterLowersLinearRuleFactsAndOutput",
-        "TestAAGExporterRejectsNonlinearClause"
-      ],
+      "tests": ["TestAAGBuilderExpressionSharingAndSerialization", "TestAAGTransitionLatchOutputAndLifecycle", "TestAAGGateCanonicalizationConstantsAndFreshInputs", "TestAAGExporterLowersLinearRuleFactsAndOutput", "TestAAGExporterRejectsNonlinearClause", "TestAAGExporterEmptyProgramAndLifecycle"],
       "conditionals": [
         {
           "line": 160,
@@ -85796,17 +85875,17 @@
           "text": "SASSERT(!m_aig_expr_id_map.contains(e));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "Horn-rule/fact lowering, predicate IDs, substitutions, latches, AIG expression lowering, canonical gates and AAG serialization (aig_exporter.cpp:20-325)", "status": "ported", "go_target": "pkg/muz/rel/aag_exporter.go", "go_targets": ["pkg/muz/rel/aag_exporter_predicates.go", "pkg/muz/rel/aag_exporter_arguments.go", "pkg/muz/rel/aag_exporter_rules.go", "pkg/muz/rel/aag_exporter_facts.go", "pkg/muz/rel/aag_exporter_output.go", "pkg/muz/rel/aag_exporter_write.go", "pkg/muz/rel/aag_builder.go", "pkg/muz/rel/aag_expression.go", "pkg/muz/rel/aag_gates.go", "pkg/muz/rel/aag_latches.go", "pkg/muz/rel/aag_variables.go", "pkg/muz/rel/aag_write.go"], "tests": ["TestAAGBuilderExpressionSharingAndSerialization", "TestAAGTransitionLatchOutputAndLifecycle", "TestAAGGateCanonicalizationConstantsAndFreshInputs", "TestAAGExporterLowersLinearRuleFactsAndOutput", "TestAAGExporterRejectsNonlinearClause", "TestAAGExporterEmptyProgramAndLifecycle"]}],
+      "ownership": ["AAGExporter pins every AST root it creates or retains and releases them on Close; AAGBuilder owns its expression references and native gate/latch/output slices"],
       "deviations": []
     },
     {
       "path": "src/muz/rel/aig_exporter.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/rel/aag_builder.go",
         "pkg/muz/rel/aag_exporter.go"
@@ -85825,10 +85904,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "AIG exporter state, construction, write entry point and private lowering/gate helpers (aig_exporter.h:22-64)", "status": "ported", "go_target": "pkg/muz/rel/aag_exporter.go", "go_targets": ["pkg/muz/rel/aag_builder.go", "pkg/muz/rel/aag_exporter_write.go"], "tests": ["TestAAGBuilderExpressionSharingAndSerialization", "TestAAGExporterEmptyProgramAndLifecycle", "TestAAGExporterLowersLinearRuleFactsAndOutput"]}],
+      "ownership": ["Rules and manager are borrowed; facts are copied into Go-owned slices and AST roots are explicitly retained until exporter Close"],
       "deviations": []
     },
     {
@@ -88004,7 +88083,7 @@
       "path": "src/muz/rel/dl_relation_manager.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/table.go"],
       "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
       "assertions": [
@@ -88141,8 +88220,8 @@
           "text": "SASSERT(t.get_signature().functional_columns()>0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Owned predicate relation store, lazy empty relation creation, replacement, reset, and retained declaration lifetime (dl_relation_manager.cpp:31-121)",
@@ -88173,7 +88252,7 @@
         "RelationManager borrows its AST manager, owns stored finite tables and saturation state, and retains each stored predicate declaration until reset or close. Encode paths return caller-owned Go facts; decode paths return explicit owning AST references and release partial results on failure."
       ],
       "deviations": [
-        "Plugin registration/selection, the general operation-factory hierarchy, functional tables, and non-table relation implementations remain open. Retained concrete finite-table storage and operations are exposed directly. Only bounded finite sorts with concrete native numeral encodings are accepted."
+        "Retained consumers use concrete finite-table storage and operations directly. Unused plugin selection, universal operation-factory adapters, functional tables, and non-table implementations are intentionally omitted. Only bounded finite sorts with concrete native numeral encodings are accepted."
       ]
     },
     {
@@ -88636,7 +88715,7 @@
       "path": "src/muz/rel/dl_table.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/table.go"],
       "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
       "assertions": [
@@ -88677,8 +88756,8 @@
           "text": "SASSERT(m_num_cols == f.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "hashtable_table construction, set insertion/removal/containment, iteration-equivalent fact snapshots, and nested-loop equijoin (dl_table.cpp:29-148)",
@@ -88691,14 +88770,14 @@
         "HashTable stores owned fact copies in an insertion-ordered insdict.Dict and returns copied snapshots; native iterator reference counting is replaced by ordinary Go value lifetime."
       ],
       "deviations": [
-        "The bitvector_table specialization (dl_table.cpp:154-294) remains unported; HashTable is the retained general concrete implementation."
+        "The bitvector_table specialization has no retained Go consumer; per the retained-consumer rule, HashTable is the concrete live implementation and the unused specialization is intentionally omitted."
       ]
     },
     {
       "path": "src/muz/rel/dl_table.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/table.go"],
       "tests": ["TestHashTableSetCloneAndValidation", "TestHashTableJoinProjectSelectionAndRename", "TestHashTableUnionDeltaAndNegation"],
       "conditionals": [
@@ -88711,8 +88790,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Concrete hashtable_table retained public behavior (dl_table.h:39-88)",
@@ -88725,7 +88804,7 @@
         "The concrete Go table is directly constructed and owned; no universal table-plugin adapter is introduced."
       ],
       "deviations": [
-        "The bitvector table declarations and plugin factory hierarchy remain open."
+        "Unused bitvector-table and universal plugin/factory declarations are not reproduced; retained consumers construct the concrete HashTable implementation directly."
       ]
     },
     {
@@ -88755,9 +88834,9 @@
       "path": "src/muz/rel/dl_table_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go", "pkg/muz/rel/table_intersection.go", "pkg/muz/rel/table_intersection_index.go", "pkg/muz/rel/table_intersection_validate.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_capability.go", "pkg/muz/rel/table_intersection_test.go", "pkg/muz/rel/table_relation_intersection_test.go", "pkg/muz/rel/table_relation_capability_test.go"],
-      "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
+      "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter", "TestTableRelationPositiveIntersectionForwarding", "TestTableRelationInterpretedBooleanFilter", "TestTableRelationInterpretedProjectLeavesInput", "TestTableRelationInterpretedValidation", "TestTableRelationInterpretedMultipleConditions", "TestTableRelationInterpretedFailureIsAtomic", "TestTableRelationFiniteSignatureCapability"],
       "assertions": [
         {
           "line": 86,
@@ -88856,17 +88935,17 @@
           "text": "SASSERT(f.size()==get_signature().size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "table-backed relation capability, construction, facts, clone/complement, join/project/rename/select, union, interpreted/equality filters and intersection/negation (dl_table_relation.cpp:23-490)", "status": "ported", "go_target": "pkg/muz/rel/table_relation.go", "go_targets": ["pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_interpreted_filter.go", "pkg/muz/rel/table_relation_interpreted_project.go", "pkg/muz/rel/table_relation_capability.go"], "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter", "TestTableRelationPositiveIntersectionForwarding", "TestTableRelationInterpretedBooleanFilter", "TestTableRelationInterpretedProjectLeavesInput", "TestTableRelationInterpretedFailureIsAtomic", "TestTableRelationFiniteSignatureCapability"]}],
+      "ownership": ["TableRelation exclusively owns its backing HashTable and copied signature/sort roots; derived operations return independent owners and Close releases the backing table"],
       "deviations": []
     },
     {
       "path": "src/muz/rel/dl_table_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/table_relation.go", "pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_test.go", "pkg/muz/rel/table_relation_operations_test.go", "pkg/muz/rel/table_intersection.go", "pkg/muz/rel/table_intersection_index.go", "pkg/muz/rel/table_intersection_validate.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_capability.go", "pkg/muz/rel/table_intersection_test.go", "pkg/muz/rel/table_relation_intersection_test.go", "pkg/muz/rel/table_relation_capability_test.go"],
       "tests": ["TestTableRelationSourceFactConversionCloneAndOwnership", "TestTableRelationComplementSourceWidthContract", "TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationNegationFilter"],
       "conditionals": [
@@ -88885,10 +88964,10 @@
           "text": "SASSERT(s.size()==table->get_signature().size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "table relation wrapper and plugin interface, including all operation factories (dl_table_relation.h:27-129)", "status": "ported", "go_target": "pkg/muz/rel/table_relation.go", "go_targets": ["pkg/muz/rel/table_relation_operations.go", "pkg/muz/rel/table_relation_intersection.go", "pkg/muz/rel/table_relation_interpreted_filter.go", "pkg/muz/rel/table_relation_interpreted_project.go", "pkg/muz/rel/table_relation_capability.go"], "tests": ["TestTableRelationPredicateConstructionValidationAndClose", "TestTableRelationJoinProjectRenameAndSelection", "TestTableRelationUnionDeltaAndFilters", "TestTableRelationPositiveIntersectionForwarding", "TestTableRelationInterpretedValidation", "TestTableRelationFiniteSignatureCapability"]}],
+      "ownership": ["RelationManager is borrowed; TableRelation owns its concrete table and operation results transfer new table ownership to their returned relation"],
       "deviations": []
     },
     {
@@ -88948,7 +89027,7 @@
       "path": "src/muz/rel/doc.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_projection.go", "pkg/muz/rel/doc_solver.go", "pkg/muz/rel/doc_cube_test.go", "pkg/muz/rel/doc_projection_test.go", "pkg/muz/rel/doc_solver_test.go"],
       "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes", "TestDOCProjectionAllSourceActionsAgainstExistentialOracle", "TestDOCJoinAgainstConcatenationEqualityOracle", "TestDOCMergeEqualityClassesAgainstFiniteOracle", "TestDOCSourceSMTEmptinessOracleAndFormula", "TestDOCUnionCompleteEmptiness"],
       "assertions": [
@@ -89017,17 +89096,17 @@
           "text": "SASSERT(res == l_false);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "DOC allocation/copy, ternary intersection, merge/projection/join, complement/subtraction, containment/display and SMT emptiness/formula conversion (doc.cpp:31-737)", "status": "ported", "go_target": "pkg/muz/rel/doc_cube.go", "go_targets": ["pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_projection.go", "pkg/muz/rel/doc_solver.go"], "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes", "TestDOCProjectionAllSourceActionsAgainstExistentialOracle", "TestDOCJoinAgainstConcatenationEqualityOracle", "TestDOCMergeEqualityClassesAgainstFiniteOracle", "TestDOCSourceSMTEmptinessOracleAndFormula", "TestDOCUnionCompleteEmptiness"]}],
+      "ownership": ["DocManager owns every adopted TBV and negative cube; DocUnion owns its documents, and projection/join results transfer ownership to the destination manager"],
       "deviations": []
     },
     {
       "path": "src/muz/rel/doc.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/doc_cube.go", "pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_projection.go", "pkg/muz/rel/doc_solver.go", "pkg/muz/rel/doc_cube_test.go", "pkg/muz/rel/doc_projection_test.go", "pkg/muz/rel/doc_solver_test.go"],
       "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes", "TestDOCProjectionAllSourceActionsAgainstExistentialOracle", "TestDOCJoinAgainstConcatenationEqualityOracle", "TestDOCMergeEqualityClassesAgainstFiniteOracle", "TestDOCSourceSMTEmptinessOracleAndFormula", "TestDOCUnionCompleteEmptiness"],
       "conditionals": [
@@ -89050,10 +89129,10 @@
           "text": "SASSERT(t);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "DOC cube/manager and union interfaces, owned references and hash/equality adapters (doc.h:31-388)", "status": "ported", "go_target": "pkg/muz/rel/doc_cube.go", "go_targets": ["pkg/muz/rel/doc_union.go", "pkg/muz/rel/doc_projection.go", "pkg/muz/rel/doc_solver.go"], "tests": ["TestDOCSourceIntersectionAndFoldTruthTables", "TestDOCSourceComplementSubtractAndUnionConsumers", "TestDOCSourceCopyPermutationContainmentAndDisplay", "TestDOCAllocationFailureAndForeignOwnershipPrefixes", "TestDOCProjectionAllSourceActionsAgainstExistentialOracle", "TestDOCJoinAgainstConcatenationEqualityOracle", "TestDOCMergeEqualityClassesAgainstFiniteOracle", "TestDOCSourceSMTEmptinessOracleAndFormula", "TestDOCUnionCompleteEmptiness"]}],
+      "ownership": ["Go uses explicit DocManager.Deallocate and DocUnion.Reset in place of scoped_doc/scoped_doc_vector RAII; ownership is checked by manager identity"],
       "deviations": []
     },
     {
@@ -92694,7 +92773,7 @@
       "path": "src/muz/transforms/dl_mk_array_instantiation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_instantiation.go",
         "pkg/muz/transforms/array_instantiation_test.go",
@@ -92703,6 +92782,8 @@
       ],
       "tests": [
         "TestArrayInstantiationExpandsPredicateCellsAndIndices",
+        "TestArrayInstantiationKeepsArrayAndCreatesFallbackIndex",
+        "TestArrayInstantiationRejectsNegatedPredicateTail",
         "TestSMTLibRunnerScripts/fp_spacer_array_instantiation.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_array_instantiation.smt2"
       ],
@@ -92712,8 +92793,8 @@
           "text": "SASSERT(!m_a.is_array(get_sort(e)));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "predicate-cell expansion, linked-select discovery through array equivalence classes, source chosen-vector instantiation traversal, enforced array removal, and output remapping",
@@ -92721,6 +92802,8 @@
           "go_target": "pkg/muz/transforms/array_instantiation.go",
           "tests": [
             "TestArrayInstantiationExpandsPredicateCellsAndIndices",
+            "TestArrayInstantiationKeepsArrayAndCreatesFallbackIndex",
+            "TestArrayInstantiationRejectsNegatedPredicateTail",
             "TestSMTLibRunnerCPPReference/fp_spacer_array_instantiation.smt2"
           ]
         }
@@ -92736,12 +92819,14 @@
       "path": "src/muz/transforms/dl_mk_array_instantiation.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/array_instantiation.go"
       ],
       "tests": [
-        "TestArrayInstantiationExpandsPredicateCellsAndIndices"
+        "TestArrayInstantiationExpandsPredicateCellsAndIndices",
+        "TestArrayInstantiationKeepsArrayAndCreatesFallbackIndex",
+        "TestArrayInstantiationRejectsNegatedPredicateTail"
       ],
       "conditionals": [
         {
@@ -92753,8 +92838,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "concrete prioritized array-instantiation plugin and transformed-predicate mapping",
@@ -92771,17 +92856,17 @@
       "path": "src/muz/transforms/dl_mk_backwards.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/backwards.go"],
-      "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery", "TestBackwardsKeepsOnlyInterpretedTailOnOutputPredecessor"],
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "backward predecessor clauses and synthetic Boolean query output",
           "status": "ported",
           "go_target": "pkg/muz/transforms/backwards.go",
-          "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery"]
+          "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery", "TestBackwardsKeepsOnlyInterpretedTailOnOutputPredecessor"]
         }
       ],
       "ownership": ["The synthetic query declaration is retained through RuleSet output ownership and every generated Rule owns its borrowed source expressions."],
@@ -92791,9 +92876,9 @@
       "path": "src/muz/transforms/dl_mk_backwards.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/backwards.go"],
-      "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery"],
+      "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery", "TestBackwardsKeepsOnlyInterpretedTailOnOutputPredecessor"],
       "conditionals": [
         {
           "line": 19,
@@ -92804,10 +92889,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "mk_backwards construction/destruction, priority plugin surface, and rule-set transformation declaration",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/backwards.go",
+          "tests": ["TestBackwardsBuildsOutputPredecessorAndSyntheticQuery", "TestBackwardsKeepsOnlyInterpretedTailOnOutputPredecessor"]
+        }
+      ],
+      "ownership": [
+        "BackwardsPlugin borrows its manager and RuleManager. Transform owns the replacement RuleSet until successful transfer, pins the synthetic query during construction, and closes each temporary generated Rule after RuleSet.Add retains it."
+      ],
       "deviations": []
     },
     {
@@ -93180,7 +93274,7 @@
       "path": "src/muz/transforms/dl_mk_interp_tail_simplifier.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/interp_tail_simplifier.go",
         "pkg/muz/transforms/boolean_normalizer.go",
@@ -93299,7 +93393,7 @@
       "path": "src/muz/transforms/dl_mk_interp_tail_simplifier.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/interp_tail_simplifier.go",
         "pkg/muz/transforms/boolean_normalizer.go"
@@ -93407,7 +93501,7 @@
       "path": "src/muz/transforms/dl_mk_loop_counter.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/loop_counter.go"],
       "tests": ["TestLoopCounterAddsRecursiveSuccessorAndRevertsPredicates"],
       "assertions": [
@@ -93420,8 +93514,8 @@
           "text": "VERIFY (m_new2old.find(new_fn, old_fn));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "counter-domain predicate expansion, recursive successor constraint, base initialization, and predicate reversion",
@@ -93437,7 +93531,7 @@
       "path": "src/muz/transforms/dl_mk_loop_counter.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/loop_counter.go"],
       "tests": ["TestLoopCounterAddsRecursiveSuccessorAndRevertsPredicates"],
       "conditionals": [
@@ -93450,10 +93544,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "mk_loop_counter construction/destruction, add/del argument helpers, transform/get_old/revert, and priority plugin surface",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/loop_counter.go",
+          "tests": ["TestLoopCounterAddsRecursiveSuccessorAndRevertsPredicates"]
+        }
+      ],
+      "ownership": [
+        "LoopCounterPlugin borrows its manager and RuleManager and owns its old/new declaration maps. Each transform owns the replacement RuleSet until transfer, pins constructed applications and successor equalities until Rule creation retains them, and closes temporary Rules after insertion."
+      ],
       "deviations": []
     },
     {
@@ -93566,7 +93669,7 @@
       "path": "src/muz/transforms/dl_mk_magic_symbolic.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/magic_symbolic.go",
         "pkg/muz/fp/spacer_engine.go",
@@ -93574,11 +93677,12 @@
       ],
       "tests": [
         "TestMagicSymbolicBuildsAnswerAndPrefixQueryRules",
+        "TestMagicSymbolicReusesTypedDerivedPredicates",
         "TestSMTLibRunnerScripts/fp_spacer_magic.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_magic.smt2"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "answer clauses, output query seeds, and left-to-right symbolic query propagation",
@@ -93586,6 +93690,7 @@
           "go_target": "pkg/muz/transforms/magic_symbolic.go",
           "tests": [
             "TestMagicSymbolicBuildsAnswerAndPrefixQueryRules",
+            "TestMagicSymbolicReusesTypedDerivedPredicates",
             "TestSMTLibRunnerCPPReference/fp_spacer_magic.smt2"
           ]
         }
@@ -93599,9 +93704,9 @@
       "path": "src/muz/transforms/dl_mk_magic_symbolic.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/magic_symbolic.go"],
-      "tests": ["TestMagicSymbolicBuildsAnswerAndPrefixQueryRules"],
+      "tests": ["TestMagicSymbolicBuildsAnswerAndPrefixQueryRules", "TestMagicSymbolicReusesTypedDerivedPredicates"],
       "conditionals": [
         {
           "line": 19,
@@ -93612,10 +93717,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "prioritized symbolic magic plugin plus query/answer declaration helpers",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/magic_symbolic.go",
+          "tests": ["TestMagicSymbolicBuildsAnswerAndPrefixQueryRules", "TestMagicSymbolicReusesTypedDerivedPredicates"]
+        }
+      ],
+      "ownership": [
+        "Go maps retain the generated query and answer declarations for the plugin lifetime; Close releases those caches."
+      ],
       "deviations": []
     },
     {
@@ -93813,7 +93927,7 @@
       "path": "src/muz/transforms/dl_mk_rule_inliner.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go",
         "pkg/muz/fp/spacer_engine.go"
@@ -93914,8 +94028,8 @@
           "text": "VERIFY(res->close());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained acyclic and multi-SCC-break planning, protected-output exclusion, disjoint variable-bank unification, resolution, duplicate-tail removal, and eliminated-predicate rewriting",
@@ -94007,7 +94121,7 @@
       "path": "src/muz/transforms/dl_mk_rule_inliner.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go"
       ],
@@ -94034,8 +94148,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "RuleInlinerPlugin construction, transformation surface, cancellation, and ownership lifecycle",
@@ -94057,7 +94171,7 @@
       "path": "src/muz/transforms/dl_mk_scale.cpp",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/scale.go",
         "pkg/muz/fp/spacer_scale_results.go",
@@ -94080,8 +94194,8 @@
           "text": "SASSERT(is_app(r));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "homogeneous predicate scaling, numeral equalities, linear constraint scaling, positivity guard, and model conversion",
@@ -94104,7 +94218,7 @@
       "path": "src/muz/transforms/dl_mk_scale.h",
       "component": "muz",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/transforms/scale.go"],
       "tests": ["TestScaleAddsHomogeneousPredicateArgumentAndGuards"],
       "conditionals": [
@@ -94117,10 +94231,20 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "scale_model_converter declaration plus mk_scale construction/destruction, linearize/mk_pred/mk_constraint, and transform surface",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/scale.go",
+          "go_targets": ["pkg/muz/fp/spacer_scale_results.go", "pkg/muz/fp/spacer_engine.go"],
+          "tests": ["TestScaleAddsHomogeneousPredicateArgumentAndGuards", "TestSpacerScaleReconstructsOriginalPredicateModel", "TestSMTLibRunnerCPPReference/fp_spacer_scale.smt2"]
+        }
+      ],
+      "ownership": [
+        "ScalePlugin borrows its manager and RuleManager and owns its source-to-derived declaration map. Per-rule state owns temporary AST pins through replacement Rule insertion. Spacer model reconstruction borrows the derived interpretation, owns substitution scratch, and transfers the rebuilt original interpretation into the model before removing the derived declaration."
+      ],
       "deviations": []
     },
     {
@@ -97472,9 +97596,9 @@
       "path": "src/nlsat/tactic/goal2nlsat.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go"],
-      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerUnsatCoreDependencies"],
+      "status": "ported",
+      "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go", "pkg/nlsat/tactic/nlsat2goal.go"],
+      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerUnsatCoreDependencies", "TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"],
       "conditionals": [
         {
           "line": 24,
@@ -97487,8 +97611,23 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [],
-      "ownership": [],
+      "methods": [
+        {
+          "name": "goal2nlsat construction, destruction, parameter description collection, and goal compilation declaration surface",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
+          "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerUnsatCoreDependencies"]
+        },
+        {
+          "name": "nlsat2goal construction, destruction, parameter description collection, and literal reconstruction declaration surface",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/nlsat2goal.go",
+          "tests": ["TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"]
+        }
+      ],
+      "ownership": [
+        "GoalCompiler owns its expression mappings, compiler state, and retained assumption attachments while borrowing the AST manager and solver; GoalConverter borrows those mappings and returns owning AST references. Close retires compiler-owned state without closing the borrowed solver."
+      ],
       "deviations": []
     },
     {
@@ -97531,7 +97670,7 @@
       "path": "src/nlsat/tactic/nlsat_tactic.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/nlsat/tactic/nlsat_tactic.go"],
       "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRetainsParametersAcrossTranslation"],
       "conditionals": [
@@ -97546,8 +97685,17 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [],
-      "ownership": [],
+      "methods": [
+        {
+          "name": "mk_nlsat_tactic factory declaration and default-parameter surface",
+          "status": "ported",
+          "go_target": "pkg/nlsat/tactic/nlsat_tactic.go",
+          "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRetainsParametersAcrossTranslation"]
+        }
+      ],
+      "ownership": [
+        "The factory transfers one concrete NLSATTactic owner to the caller. The tactic owns its parameter snapshot and per-application lexical solver/compiler stack; published models and cores are copied before that stack closes."
+      ],
       "deviations": []
     },
     {
@@ -97574,7 +97722,7 @@
       "path": "src/nlsat/tactic/qfnra_nlsat_tactic.h",
       "component": "nlsat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
       "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "conditionals": [
@@ -97589,8 +97737,17 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [],
-      "ownership": [],
+      "methods": [
+        {
+          "name": "mk_qfnra_nlsat_tactic and qfnra_nlsat_fct factory declarations",
+          "status": "ported",
+          "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
+          "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
+        }
+      ],
+      "ownership": [
+        "The tactic builder retains constructed children until ownership transfers into the returned composition and closes temporary construction owners on failure; the simple factory transfers that composition to its caller."
+      ],
       "deviations": ["The retained route includes simplification, arithmetic purification, value propagation, equation solving, unconstrained and term-ITE elimination, optional factorization, core-preserving Tseitin CNF, and the NLSAT backend. The Go QFNRA portfolio also adds bounded and SMT fallbacks around this source NLSAT route."]
     },
     {
@@ -98081,7 +98238,7 @@
       "path": "src/opt/opt_parse.cpp",
       "component": "opt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/opt/opb_document.go",
         "pkg/opt/opb_parse.go",
@@ -98093,13 +98250,15 @@
       "tests": [
         "TestParseOPBObjectivesConstraintsAndProducts",
         "TestParseOPBPreservesMaxSyntaxAndEquality",
+        "TestParseOPBRejectsMalformedRetainedGrammar",
+        "TestOPBDocumentCopyOwnsIntegersAndSlices",
         "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder",
         "TestParseWCNFRejectsMalformedAndOutOfRangeInput"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "optimization stream scanning plus retained WCNF and OPB comments, headers, literals/products, objectives and constraints (opt_parse.cpp:21-314)", "status": "ported", "go_target": "pkg/opt/opb_parse.go", "go_targets": ["pkg/opt/opb_scanner.go", "pkg/opt/opb_document.go", "pkg/opt/wcnf_parse.go", "pkg/opt/wcnf_scanner.go", "pkg/opt/wcnf_document.go"], "tests": ["TestParseOPBObjectivesConstraintsAndProducts", "TestParseOPBPreservesMaxSyntaxAndEquality", "TestParseOPBRejectsMalformedRetainedGrammar", "TestOPBDocumentCopyOwnsIntegersAndSlices", "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder", "TestParseWCNFRejectsMalformedAndOutOfRangeInput"]}],
+      "ownership": ["Parsers consume borrowed io.Reader streams and return documents owning copied big integers, terms, clauses and literals; callers later lower documents into an optimization context"],
       "deviations": []
     },
     {
@@ -98490,26 +98649,49 @@
       "path": "src/parsers/smt2/marshal.cpp",
       "component": "parsers",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/parsers/smt2/marshal.go",
         "pkg/parsers/smt2/unmarshal.go"
       ],
       "tests": [
         "TestSMT2MarshalBooleanBenchmarkAndRoundTrip",
-        "TestSMT2MarshalQuantifierAndArithmeticRoundTrip"
+        "TestSMT2MarshalQuantifierAndArithmeticRoundTrip",
+        "TestSMT2MarshalStringAndWriterFormsAreIdentical",
+        "TestSMT2UnmarshalResultOwnsTranslatedExpression",
+        "TestSMT2MarshalPropagatesWriterFailureAfterExactPrefix",
+        "TestSMT2MarshalInputAndMalformedStreamGuards"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "marshal stream and string overloads through the legacy SMT2 benchmark printer",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/marshal_write.go",
+          "go_targets": ["pkg/parsers/smt2/marshal_string.go"],
+          "tests": ["TestSMT2MarshalBooleanBenchmarkAndRoundTrip", "TestSMT2MarshalQuantifierAndArithmeticRoundTrip", "TestSMT2MarshalStringAndWriterFormsAreIdentical", "TestSMT2MarshalPropagatesWriterFailureAfterExactPrefix"]
+        },
+        {
+          "name": "unmarshal stream and string overloads, assertion conjunction, and target-manager ownership",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/unmarshal.go",
+          "go_targets": ["pkg/parsers/smt2/unmarshal_string.go"],
+          "tests": ["TestSMT2UnmarshalResultOwnsTranslatedExpression", "TestSMT2MarshalInputAndMalformedStreamGuards"]
+        }
+      ],
+      "ownership": [
+        "Marshal borrows its writer, expression, and manager. Unmarshal lexically owns and closes a standalone parse context and AST translation, translates the conjunction into the caller's manager, and returns one owning ASTRef that the caller releases."
+      ],
+      "deviations": [
+        "The source constructs cmd_context directly over the destination manager. Go parses in an isolated owning context and translates the completed conjunction into the destination manager, preserving returned ownership while avoiding parser teardown of caller-owned state."
+      ]
     },
     {
       "path": "src/parsers/smt2/marshal.h",
       "component": "parsers",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/parsers/smt2/marshal.go",
         "pkg/parsers/smt2/marshal_string.go",
@@ -98529,10 +98711,20 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "marshal writer/string and unmarshal reader/string public declaration surface",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/marshal.go",
+          "go_targets": ["pkg/parsers/smt2/marshal_write.go", "pkg/parsers/smt2/marshal_string.go", "pkg/parsers/smt2/unmarshal.go", "pkg/parsers/smt2/unmarshal_string.go"],
+          "tests": ["TestSMT2MarshalStringAndWriterFormsAreIdentical", "TestSMT2UnmarshalResultOwnsTranslatedExpression"]
+        }
+      ],
+      "ownership": [
+        "Public marshal operations borrow transport and AST inputs. Public unmarshal operations return an owning ASTRef in the supplied manager; temporary parsing and translation owners close before return."
+      ],
       "deviations": []
     },
     {
@@ -105060,7 +105252,7 @@
       "path": "src/sat/sat_asymm_branch_params.hpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -105084,8 +105276,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -105112,7 +105304,7 @@
       "path": "src/sat/sat_asymm_branch_params.pyg",
       "component": "sat",
       "role": "generated_input",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_asymm_branch.go",
         "pkg/sat/sat_asymm_branch_process.go",
@@ -105133,12 +105325,12 @@
         "TestSATAsymmDebugScopeAssertionPrecedesTrailRead",
         "TestSATAsymmNativeSnapshotCleanupPreservesBodyError"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Selected constructor, parameters/statistics, complete asymmetric run/process and scoped-detach routes",
-          "status": "partial",
+          "name": "generated asymmetric-branch parameter defaults, typed updates, descriptors, and their concrete consumer routes",
+          "status": "ported",
           "go_target": "pkg/sat/sat_asymm_branch.go",
           "tests": [
             "TestSATAsymmDefaultAndSourceEarlyExits",
@@ -105695,9 +105887,10 @@
       "path": "src/sat/sat_clause_use_list.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_solver_clause_use_list.go",
+        "pkg/sat/sat_solver_clause_use_list_test.go",
         "pkg/sat/sat_solver_clause_use_lists.go",
         "pkg/sat/sat_solver_clause_use_lists_test.go"
       ],
@@ -105771,8 +105964,8 @@
           "text": "SASSERT(sz == m_size);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete selected LAZY_USE_LIST explicit methods/iterator compression/destruction and legal implicit copy routes",
@@ -105830,17 +106023,18 @@
         "Typed Go records and native []StoredClauseRef inner lists borrow clause identities without owning them. Only the cold owner header is charged; outer relocation/finalize invalidates views, while same-backing reconstruction remains visible. Source removal, live-count and literal action order remain; neither outer nor inner slice growth requests arena storage. See PORT_PROGRESS.md#audit-sat-solver-clause-use-lists-port-status-md."
       ],
       "deviations": [
-        "Explicit iterator Close and owner lifetime guards. Implicit moves, inactive nonlazy branch, STRACE and full solver consumers remain open.",
-        "Selected LP64 source extents are represented by native Go slice bounds rather than a five-word arena codec. The cold owner header alone is arena-charged; implicit copy/move, nonlazy/TRACE and full simplifier/solver remain open. A source spare-slot iterator publication now returns a checked bounds error."
+        "Explicit iterator Close and owner lifetime guards replace destructor timing. The unselected non-LAZY_USE_LIST preprocessor branch and STRACE diagnostics are not retained runtime consumers.",
+        "Selected LP64 source extents are represented by native Go slice bounds rather than a five-word arena codec. The cold owner header alone is arena-charged; clone/assignment and the retained simplifier consumers are concrete. A source spare-slot iterator publication returns a checked bounds error."
       ]
     },
     {
       "path": "src/sat/sat_clause_use_list.h",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_solver_clause_use_list.go",
+        "pkg/sat/sat_solver_clause_use_list_test.go",
         "pkg/sat/sat_solver_clause_use_lists.go",
         "pkg/sat/sat_solver_clause_use_lists_test.go"
       ],
@@ -106022,8 +106216,8 @@
           "text": "SASSERT(!m_clauses[m_i]->was_removed());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete selected LAZY_USE_LIST explicit methods/iterator compression/destruction and legal implicit copy routes",
@@ -106081,8 +106275,8 @@
         "Typed Go records and native []StoredClauseRef inner lists borrow clause identities without owning them. Only the cold owner header is charged; outer relocation/finalize invalidates views, while same-backing reconstruction remains visible. Source removal, live-count and literal action order remain; neither outer nor inner slice growth requests arena storage. See PORT_PROGRESS.md#audit-sat-solver-clause-use-lists-port-status-md."
       ],
       "deviations": [
-        "Explicit iterator Close and owner lifetime guards. Implicit moves, inactive nonlazy branch, STRACE and full solver consumers remain open.",
-        "Selected LP64 source extents are represented by native Go slice bounds rather than a five-word arena codec. The cold owner header alone is arena-charged; implicit copy/move, nonlazy/TRACE and full simplifier/solver remain open. A source spare-slot iterator publication now returns a checked bounds error."
+        "Explicit iterator Close and owner lifetime guards replace destructor timing. The unselected non-LAZY_USE_LIST preprocessor branch and STRACE diagnostics are not retained runtime consumers.",
+        "Selected LP64 source extents are represented by native Go slice bounds rather than a five-word arena codec. The cold owner header alone is arena-charged; clone/assignment and the retained simplifier consumers are concrete. A source spare-slot iterator publication returns a checked bounds error."
       ]
     },
     {
@@ -108121,7 +108315,7 @@
       "path": "src/sat/sat_params.hpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -108145,8 +108339,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -108173,7 +108367,7 @@
       "path": "src/sat/sat_params.pyg",
       "component": "sat",
       "role": "generated_input",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_main_config_descrs.go",
         "pkg/sat/sat_main_config_descrs_test.go",
@@ -108217,12 +108411,6 @@
             "TestSATMainConfigGeneratedDescriptorLifetime",
             "TestSATMainConfigGeneratedDescriptorWarmDuplicateAllocations"
           ]
-        },
-        {
-          "name": "constructor, sequential parameter updates, implicit config copies and generated accessors",
-          "status": "unported",
-          "go_target": "",
-          "tests": []
         },
         {
           "name": "complete config constructor/update and implicit scalar/symbol copying; all generated getter routes consumed by config",
@@ -108806,7 +108994,7 @@
       "path": "src/sat/sat_scc_params.hpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -108830,8 +109018,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -108858,7 +109046,7 @@
       "path": "src/sat/sat_scc_params.pyg",
       "component": "sat",
       "role": "generated_input",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_scc.go",
         "pkg/sat/sat_elim_eqs.go",
@@ -108881,12 +109069,12 @@
         "TestSATSCCNativeFrameGrowthAndCleanup",
         "TestSATSCCNativeDeepComponentsAndRepeat"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Selected SCC construction, parameters, statistics, iterative Tarjan and equivalence-elimination clause/model routes",
-          "status": "partial",
+          "name": "generated SCC parameter default, typed update, descriptor, and its concrete consumer routes",
+          "status": "ported",
           "go_target": "pkg/sat/sat_scc.go",
           "tests": [
             "TestSATSCCDefaultEquivalenceAndActualConverter",
@@ -109521,7 +109709,7 @@
       "path": "src/sat/sat_simplifier_params.hpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -109545,8 +109733,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "complete preserved static descriptor collection and selected full test-catalog registration order; broader runtime algorithms/getters remain open",
@@ -109573,7 +109761,7 @@
       "path": "src/sat/sat_simplifier_params.pyg",
       "component": "sat",
       "role": "generated_input",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_simplifier.go",
         "pkg/sat/sat_simplifier_audit_test.go",
@@ -109627,12 +109815,12 @@
         "TestSATSimplifierCleanupAll27AssignmentsAndUseCounts",
         "TestSATSimplifierActualNumVarsUsesLevelAtRead"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Complete selected ordinary simplifier constructor/update17/Run/scoped finalizer, duplicate/subsumption, third-call blocked elimination, weighted two-pass resolution, full statistics5 and descriptor table; global diagnostics/solver constructor and storage topology remain open",
-          "status": "partial",
+          "name": "generated simplifier parameter defaults, all seventeen typed updates, descriptor table, and their concrete consumer routes",
+          "status": "ported",
           "go_target": "pkg/sat/sat_simplifier.go",
           "tests": [
             "TestSATSimplifierAllActualRefusalPrefixes",
@@ -113797,8 +113985,11 @@
       "path": "src/sat/tactic/atom2bool_var.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
+        "pkg/sat/tactic/sat_atom2bool.go",
+        "pkg/sat/tactic/sat_atom2bool_test.go",
+        "pkg/sat/tactic/sat_atom2bool_integration_test.go",
         "pkg/sat/tactic/sat_goal_recovery.go",
         "pkg/sat/tactic/sat_goal_interface.go",
         "pkg/sat/tactic/sat_goal_to_sat.go",
@@ -113812,6 +114003,11 @@
         "pkg/tactic/core/simplify_stopped_cleanup_release_test.go"
       ],
       "tests": [
+        "TestAtom2BoolVarSourceMappingScopeAndInterpretedState",
+        "TestAtom2BoolVarSourceInversePolaritiesAndSparseSlots",
+        "TestAtom2BoolVarBooleanInterfaceSourceOperatorBoundary",
+        "TestAtom2BoolVarDependencyInterfacePrecedesFormulaCollection",
+        "TestAtom2BoolVarPerCallDiscoveryAndCumulativeMapState",
         "TestSATGoalInverseLiteralOwnership",
         "TestSATGoalRecoveryIndependentBinaryTruthTables",
         "TestSATGoalRecoveryFreshUnitsLearnedAndCheckpoints",
@@ -113831,8 +114027,8 @@
         "TestSATGoalBorrowedAtomMapBooleanModelIncludesEarlierAtoms",
         "TestSimplifyCountedReleaseAfterFailedCleanupReconstruction"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "atom2bool_var::mk_inv",
@@ -113890,7 +114086,9 @@
           ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "Atom2BoolVar owns the insertion-ordered expression mapping and its AST roots until Close; goal translation, recovery, preprocessing, incremental solving, and model reconstruction borrow the concrete scoped mapping. Invocation-local Boolean-interface visited sets own no AST references."
+      ],
       "deviations": [
         "Goal dependencies traverse the general expression visitor before formulas with invocation-local Go membership maps. General traversal still deduplicates only reference-count-shared nodes and preserves quantified body/pattern/no-pattern order. Formula traversal preserves original Boolean guards and intentional AND omission. Atom inverse mapping uses insertion-order insdict entries and real owning literal references. Foreign AST mark planes are unchanged; no shared mark trail or hash-table backing-failure credit remains."
       ]
@@ -113899,9 +114097,9 @@
       "path": "src/sat/tactic/atom2bool_var.h",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/sat/tactic/sat_atom2bool.go", "pkg/sat/tactic/sat_goal_incremental.go", "pkg/sat/tactic/sat_goal_recovery.go", "pkg/sat/sat_solver/preprocess.go"],
-      "tests": ["TestAtom2BoolVarSourceMappingScopeAndInterpretedState", "TestSATGoalBorrowedAtomMap", "TestIncrementalEncoderPersistentBitBindingsAndUserScopesCPP"],
+      "tests": ["TestAtom2BoolVarSourceMappingScopeAndInterpretedState", "TestAtom2BoolVarSourceInversePolaritiesAndSparseSlots", "TestAtom2BoolVarActualGoalTranslationRecoveryAndModelConsumers", "TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership", "TestIncrementalEncoderPersistentBitBindingsAndUserScopesCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -113912,9 +114110,9 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "concrete expression-to-Boolean-variable mapping, inverse recovery, scopes and interpreted-atom state", "status": "partial", "go_target": "pkg/sat/tactic/sat_atom2bool.go", "tests": ["TestAtom2BoolVarSourceMappingScopeAndInterpretedState", "TestSATGoalBorrowedAtomMap"]}],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "concrete expression-to-Boolean-variable mapping, inverse recovery, scopes and interpreted-atom state", "status": "ported", "go_target": "pkg/sat/tactic/sat_atom2bool.go", "tests": ["TestAtom2BoolVarSourceMappingScopeAndInterpretedState", "TestAtom2BoolVarSourceInversePolaritiesAndSparseSlots", "TestAtom2BoolVarActualGoalTranslationRecoveryAndModelConsumers", "TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership"]}],
       "ownership": ["Atom2BoolVar owns its Expr2Var map and one AST reference per distinct atom; translators and incremental encoders borrow or own the wrapper explicitly."],
       "deviations": []
     },
@@ -114701,9 +114899,9 @@
       "path": "src/shell/datalog_frontend.cpp",
       "component": "shell",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_map_line.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go", "pkg/cmd_context/wpa_relation_line.go", "pkg/cmd_context/wpa_map_test.go", "pkg/cmd_context/wpa_relation_test.go", "pkg/cmd_context/wpa_directory_test.go", "pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_dispatch.go", "pkg/shell/datalog_frontend_profile.go", "pkg/shell/datalog_frontend_profile_output.go", "pkg/shell/datalog_frontend_snapshots_test.go", "pkg/shell/datalog_frontend_profile_test.go", "pkg/shell/datalog_frontend_test.go", "pkg/shell/datalog_frontend_directory_test.go", "pkg/shell/datalog_frontend_output_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_datalog_run.go", "pkg/api/api_datalog_profile.go"],
-      "tests": ["TestWPA", "TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestAPIRunDatalogPathReturnsCopiedRelationTables", "TestAPIProfileDatalogPathReturnsNamedRelationSummary"],
+      "tests": ["TestWPAMapLineSourceNameCleanup", "TestWPARelationLineWhitespaceCommentsAndErrors", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate", "TestDatalogFrontendFileDispatchSaturatesEveryPredicate", "TestDatalogFrontendDirectoryDispatchUsesWPA", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendLifecycleAndAnswerAdapter", "TestDatalogFrontendProfileLifecycleAndWriterErrors", "TestAPIRunDatalogPathReturnsCopiedRelationTables", "TestAPIProfileDatalogPathReturnsNamedRelationSummary"],
       "conditionals": [
         {
           "line": 24,
@@ -114720,17 +114918,17 @@
           "text": "SASSERT(&inner_plg);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "file/WPA dispatch, parse timing, rule closure/compilation, restart saturation, output facts, profiling/statistics and memory failure result (datalog_frontend.cpp:45-260)", "status": "ported", "go_target": "pkg/shell/datalog_frontend.go", "go_targets": ["pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_dispatch.go", "pkg/shell/datalog_frontend_profile.go", "pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_datalog_run.go", "pkg/api/api_datalog_profile.go"], "tests": ["TestWPADirectoryMapsRulesRelationsAndSaturation", "TestDatalogFrontendFileDispatchSaturatesEveryPredicate", "TestDatalogFrontendDirectoryDispatchUsesWPA", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendLifecycleAndAnswerAdapter", "TestDatalogFrontendProfileLifecycleAndWriterErrors", "TestAPIRunDatalogPathReturnsCopiedRelationTables", "TestAPIProfileDatalogPathReturnsNamedRelationSummary"]}],
+      "ownership": ["Frontend owns each parsed/compiled run and returns copied relation tables/profile snapshots; input paths and output writers are borrowed and all context-owned roots close with the run"],
       "deviations": []
     },
     {
       "path": "src/shell/datalog_frontend.h",
       "component": "shell",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_profile.go", "pkg/shell/datalog_frontend_profile_output.go"],
       "tests": ["TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendProfileLifecycleAndWriterErrors"],
       "conditionals": [
@@ -114743,10 +114941,10 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "concrete Datalog frontend construction, load, single saturation, results, copied snapshots, timings and profile output", "status": "partial", "go_target": "pkg/shell/datalog_frontend.go", "tests": ["TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes"]}],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "read_datalog frontend entry point and concrete Datalog frontend lifecycle", "status": "ported", "go_target": "pkg/shell/datalog_frontend.go", "go_targets": ["pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_profile.go"], "tests": ["TestDatalogFrontendFileDispatchSaturatesEveryPredicate", "TestDatalogFrontendDirectoryDispatchUsesWPA", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendProfileLifecycleAndWriterErrors"]}],
+      "ownership": ["DatalogFrontend owns loaded rule/context state and copied output snapshots until Close"],
       "deviations": []
     },
     {
@@ -115062,26 +115260,26 @@
       "path": "src/shell/lp_frontend.cpp",
       "component": "shell",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/shell/lp_frontend.go", "pkg/shell/lp_frontend_owner.go", "pkg/shell/lp_frontend_params.go", "pkg/shell/lp_frontend_limit.go", "pkg/shell/lp_frontend_report.go", "pkg/shell/lp_frontend_result.go", "pkg/api/api_mps_frontend.go", "pkg/api/api_mps_run.go", "pkg/api/api_mps_run_file.go"],
       "tests": ["TestSMTContextRunMPSOptimalModel", "TestSMTContextRunMPSMinimum", "TestSMTContextRunMPSNonoptimalStatuses", "TestSMTContextRunMPSFileWithStatistics"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "MPS frontend construction, parameterization, simplex execution, status/objective/column result capture and output", "status": "partial", "go_target": "pkg/shell/lp_frontend_result.go", "go_targets": ["pkg/api/api_mps_frontend.go", "pkg/api/api_mps_run.go", "pkg/api/api_mps_run_file.go"], "tests": ["TestSMTContextRunMPSOptimalModel", "TestSMTContextRunMPSMinimum", "TestSMTContextRunMPSNonoptimalStatuses", "TestSMTContextRunMPSFileWithStatistics"]}],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "MPS frontend construction, parameterization, resource limits/timer, simplex execution, status/objective/column result capture and output (lp_frontend.cpp:25-111)", "status": "ported", "go_target": "pkg/shell/lp_frontend_result.go", "go_targets": ["pkg/shell/lp_frontend.go", "pkg/shell/lp_frontend_owner.go", "pkg/shell/lp_frontend_params.go", "pkg/shell/lp_frontend_limit.go", "pkg/shell/lp_frontend_report.go", "pkg/api/api_mps_frontend.go", "pkg/api/api_mps_run.go", "pkg/api/api_mps_run_file.go"], "tests": ["TestSMTContextRunMPSOptimalModel", "TestSMTContextRunMPSMinimum", "TestSMTContextRunMPSNonoptimalStatuses", "TestSMTContextRunMPSFileWithStatistics"]}],
+      "ownership": ["LPFrontend owns its parameters, reslimit, timer, MPS reader and primal solver; Close releases them in source destruction order while input/output streams remain borrowed"],
       "deviations": []
     },
     {
       "path": "src/shell/lp_frontend.h",
       "component": "shell",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/shell/lp_frontend.go", "pkg/shell/lp_frontend_result.go", "pkg/api/api_mps_types.go", "pkg/api/api_mps_results.go"],
       "tests": ["TestSMTContextRunMPSOptimalModel", "TestSMTContextRunMPSMinimum", "TestSMTContextRunMPSGuardsAndSessionIsolation"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "LP frontend public lifecycle and copied MPS execution result surface", "status": "partial", "go_target": "pkg/shell/lp_frontend_result.go", "go_targets": ["pkg/api/api_mps_types.go", "pkg/api/api_mps_results.go"], "tests": ["TestSMTContextRunMPSOptimalModel", "TestSMTContextRunMPSGuardsAndSessionIsolation"]}],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "read_mps_file public frontend entry point and copied MPS execution result surface (lp_frontend.h:7)", "status": "ported", "go_target": "pkg/shell/lp_frontend.go", "go_targets": ["pkg/shell/lp_frontend_result.go", "pkg/api/api_mps_types.go", "pkg/api/api_mps_results.go"], "tests": ["TestSMTContextRunMPSOptimalModel", "TestSMTContextRunMPSGuardsAndSessionIsolation"]}],
+      "ownership": ["The public frontend returns copied status/objective/column results so callers do not borrow solver storage"],
       "deviations": []
     },
     {
@@ -167388,7 +167586,7 @@
       "path": "src/tactic/arith/probe_arith.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/add_bounds_tactic.go",
         "pkg/tactic/arith/unbounded_probe.go",
@@ -167585,7 +167783,7 @@
       "path": "src/tactic/arith/probe_arith.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/add_bounds_tactic.go",
         "pkg/tactic/arith/unbounded_probe.go",
@@ -168059,7 +168257,7 @@
       "path": "src/tactic/arith/purify_arith_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic.go"],
       "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower", "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
       "assertions": [
@@ -168112,8 +168310,8 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained quantifier-free real DIV and zero/rational-root POWER purification",
@@ -168129,7 +168327,7 @@
       "path": "src/tactic/arith/purify_arith_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic.go"],
       "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
       "conditionals": [
@@ -168142,11 +168340,13 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["Only the concrete quantifier-free real specialization reached by QF_NRA is currently exported."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "retained QF_NRA purifier construction and tactic surface", "status": "ported", "go_target": "pkg/tactic/arith/qfnra_purify_tactic.go", "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"]}],
+      "ownership": [
+        "The concrete QF_NRA purifier owns generated definitions and model-filter declarations until they transfer into the result goal/converter; borrowed input formulas remain rooted by the source Goal."
+      ],
+      "deviations": ["Only the concrete quantifier-free real specialization reached by QF_NRA is exported; unused universal arithmetic variants are intentionally omitted."]
     },
     {
       "path": "src/tactic/arith/recover_01_tactic.cpp",
@@ -170107,7 +170307,7 @@
       "path": "src/tactic/bv/bvarray2uf_rewriter.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/bvarray2uf_rewriter.go",
         "pkg/tactic/bv/bvarray2uf_axioms.go",
@@ -170115,7 +170315,14 @@
       ],
       "tests": [
         "TestBVArray2UFStoreAddsUniversalAndGroundAxioms",
-        "TestBVArray2UFMapAddsPointwiseDefinition"
+        "TestBVArray2UFMapAddsPointwiseDefinition",
+        "TestBVArray2UFSelectAndArrayEquality",
+        "TestBVArray2UFSameArrayEqualityIsTrue",
+        "TestBVArray2UFConstAddsPointwiseDefinition",
+        "TestBVArray2UFArrayITEAddsPointwiseDefinition",
+        "TestBVArray2UFDistinctExpandsBeforeArrayElimination",
+        "TestBVArray2UFSelectFromAsArrayReusesFunction",
+        "TestBVArray2UFRejectsCoresAndQuantifiers"
       ],
       "assertions": [
         {
@@ -170183,24 +170390,52 @@
           "text": "SASSERT(new_bindings.size() == q->get_num_decls());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "configuration construction/destruction/reset, BV-array sort recognition, packed index/range queries, and array-to-function cache",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_rewriter.go",
+          "go_targets": ["pkg/tactic/bv/bvarray2uf_sorts.go", "pkg/tactic/bv/bvarray2uf_models.go"],
+          "tests": ["TestBVArray2UFCachePersistsCleanupAndTranslationFresh", "TestBVArray2UFSelectFromAsArrayReusesFunction", "TestBVArray2UFPublishesPopulatedModelConverter"]
+        },
+        {
+          "name": "reduce_app equality, distinct, ITE, UF, select, const, map, store and as-array branches with side constraints",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_array.go",
+          "go_targets": ["pkg/tactic/bv/bvarray2uf_axioms.go"],
+          "tests": ["TestBVArray2UFSelectAndArrayEquality", "TestBVArray2UFSameArrayEqualityIsTrue", "TestBVArray2UFStoreAddsUniversalAndGroundAxioms", "TestBVArray2UFConstAddsPointwiseDefinition", "TestBVArray2UFMapAddsPointwiseDefinition", "TestBVArray2UFUninterpretedArrayResultBecomesAsArray", "TestBVArray2UFArrayITEAddsPointwiseDefinition", "TestBVArray2UFDistinctExpandsBeforeArrayElimination"]
+        },
+        {
+          "name": "pre_visit/reduce_quantifier/reduce_var explicit unsupported quantified-array frontier and concrete rewriter traversal",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_rewriter.go",
+          "tests": ["TestBVArray2UFRejectsCoresAndQuantifiers"]
+        }
+      ],
+      "ownership": [
+        "The rewriter owns one reference to every cached array key and fresh function declaration plus every extra assertion until tactic cleanup/close. Model converters are retained while rewriting, transferred through the tactic result on success, and released on every failure path. Traversal memo tables borrow AST handles for one rewrite call."
+      ],
+      "deviations": [
+        "The source quantified-variable hooks stop at NOT_IMPLEMENTED_YET. Go reports the same unsupported frontier as an explicit tactic error before rewriting a quantifier instead of relying on the source diagnostic macro."
+      ]
     },
     {
       "path": "src/tactic/bv/bvarray2uf_rewriter.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/bvarray2uf_rewriter.go",
         "pkg/tactic/bv/bvarray2uf_sorts.go"
       ],
       "tests": [
         "TestBVArray2UFSelectAndArrayEquality",
-        "TestBVArray2UFCachePersistsCleanupAndTranslationFresh"
+        "TestBVArray2UFCachePersistsCleanupAndTranslationFresh",
+        "TestBVArray2UFArrayITEAddsPointwiseDefinition",
+        "TestBVArray2UFDistinctExpandsBeforeArrayElimination",
+        "TestBVArray2UFSelectFromAsArrayReusesFunction"
       ],
       "conditionals": [
         {
@@ -170212,24 +170447,37 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "bvarray2uf_rewriter_cfg public/protected surface and concrete rewriter wrapper",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_rewriter.go",
+          "go_targets": ["pkg/tactic/bv/bvarray2uf_sorts.go", "pkg/tactic/bv/bvarray2uf_array.go", "pkg/tactic/bv/bvarray2uf_axioms.go", "pkg/tactic/bv/bvarray2uf_models.go"],
+          "tests": ["TestBVArray2UFSelectAndArrayEquality", "TestBVArray2UFCachePersistsCleanupAndTranslationFresh", "TestBVArray2UFArrayITEAddsPointwiseDefinition", "TestBVArray2UFDistinctExpandsBeforeArrayElimination", "TestBVArray2UFSelectFromAsArrayReusesFunction"]
+        }
+      ],
+      "ownership": [
+        "The concrete Go rewriter is owned by BVArray2UFTactic. Its cache owns paired AST references and its extra-assertion vector owns each assertion; converter pointers are temporary retained borrows during one tactic application."
+      ],
       "deviations": []
     },
     {
       "path": "src/tactic/bv/bvarray2uf_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/bvarray2uf_tactic.go",
         "pkg/tactic/bv/bvarray2uf_trace.go"
       ],
       "tests": [
         "TestBVArray2UFTacticPublishesSideConstraintsAndDepth",
-        "TestBVArray2UFComposesRewriteProof"
+        "TestBVArray2UFComposesRewriteProof",
+        "TestBVArray2UFPublishesPopulatedModelConverter",
+        "TestBVArray2UFRejectsCoresAndQuantifiers",
+        "TestBVArray2UFCachePersistsCleanupAndTranslationFresh"
       ],
       "assertions": [
         {
@@ -170241,17 +170489,33 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "imp construction/checkpoint/application/parameter update and goal rewrite with proof, model, side-constraint, depth, and core behavior",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_tactic.go",
+          "go_targets": ["pkg/tactic/bv/bvarray2uf_models.go"],
+          "tests": ["TestBVArray2UFTacticPublishesSideConstraintsAndDepth", "TestBVArray2UFComposesRewriteProof", "TestBVArray2UFPublishesPopulatedModelConverter", "TestBVArray2UFRejectsCoresAndQuantifiers"]
+        },
+        {
+          "name": "tactic construction/translation/destruction/update/parameter descriptions/application/cleanup and mk_bvarray2uf_tactic factory",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_tactic.go",
+          "tests": ["TestBVArray2UFCachePersistsCleanupAndTranslationFresh", "TestBVArray2UFSourceCreationTrace"]
+        }
+      ],
+      "ownership": [
+        "BVArray2UFTactic owns its rewriter and charged owner record. Apply borrows the input goal, transfers the rewritten goal and optional concatenated model converter to TacticResult, and retires temporary report/converter owners on every return. Cleanup swaps in a fresh rewriter only after the old cache closes."
+      ],
       "deviations": []
     },
     {
       "path": "src/tactic/bv/bvarray2uf_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/bv/bvarray2uf_tactic.go"
       ],
@@ -170269,10 +170533,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "mk_bvarray2uf_tactic factory declaration and default parameter surface",
+          "status": "ported",
+          "go_target": "pkg/tactic/bv/bvarray2uf_tactic.go",
+          "tests": ["TestBVArray2UFRejectsCoresAndQuantifiers", "TestBVArray2UFSourceCreationTrace"]
+        }
+      ],
+      "ownership": [
+        "The factory returns one concrete tactic owner; successful tactic composition transfers it to the caller and Close releases its rewriter cache and charged metadata."
+      ],
       "deviations": []
     },
     {
@@ -172666,7 +172939,7 @@
       "path": "src/tactic/core/pb_preprocess_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/pb_preprocess_tactic.go",
         "pkg/tactic/core/pb_preprocess_apply.go",
@@ -172674,7 +172947,15 @@
       ],
       "tests": [
         "TestPBPreprocessEliminatesOneSidedVariables",
-        "TestPBPreprocessSpecialResolutionEliminatesUnitSide"
+        "TestPBPreprocessSpecialResolutionEliminatesUnitSide",
+        "TestPBPreprocessNegativeLiteralChoosesFalse",
+        "TestPBPreprocessDoesNotEliminateVariableUsedOutsideFragment",
+        "TestPBPreprocessNormalizesNegatedGE",
+        "TestPBPreprocessSubsumesWeakerConstraint",
+        "TestPBPreprocessSubsumptionCoefficientDirection",
+        "TestPBPreprocessReconstructsEliminatedBooleanModel",
+        "TestPBPreprocessRejectsProofGoalsBeforeMutation",
+        "TestPBPreprocessTranslationIsFresh"
       ],
       "assertions": [
         {
@@ -172722,24 +173003,56 @@
           "text": "SASSERT(pure_args(a));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "pb_preproc_model_converter set/apply/translate behavior and eliminated Boolean reconstruction",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/pb_preprocess_apply.go",
+          "tests": ["TestPBPreprocessEliminatesOneSidedVariables", "TestPBPreprocessReconstructsEliminatedBooleanModel", "TestPBPreprocessTranslationIsFresh"]
+        },
+        {
+          "name": "pb_preprocess_tactic construction, translation, application loop, proof refusal, simplify/reset/update/cleanup and factory",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/pb_preprocess_tactic.go",
+          "go_targets": ["pkg/tactic/core/pb_preprocess_apply.go"],
+          "tests": ["TestPBPreprocessEliminatesOneSidedVariables", "TestPBPreprocessRejectsProofGoalsBeforeMutation", "TestPBPreprocessTranslationIsFresh"]
+        },
+        {
+          "name": "negated-GE normalization, literal/constraint classification, non-PB declassification, one-sided substitution, special resolution, subsumption and dependency joins",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/pb_preprocess_normalize.go",
+          "go_targets": ["pkg/tactic/core/pb_preprocess_terms.go", "pkg/tactic/core/pb_preprocess_classify.go", "pkg/tactic/core/pb_preprocess_replace.go", "pkg/tactic/core/pb_preprocess_resolve.go", "pkg/tactic/core/pb_preprocess_subsume.go"],
+          "tests": ["TestPBPreprocessNormalizesNegatedGE", "TestPBPreprocessDoesNotEliminateVariableUsedOutsideFragment", "TestPBPreprocessNegativeLiteralChoosesFalse", "TestPBPreprocessSpecialResolutionEliminatesUnitSide", "TestPBPreprocessSubsumesWeakerConstraint", "TestPBPreprocessSubsumptionCoefficientDirection"]
+        },
+        {
+          "name": "commented display_annotation/decompose call chain and unused get_coeff/is_reduction helpers",
+          "status": "dead_deleted",
+          "reason": "The only decompose and annotation call sites are commented out in the retained source; the private get_coeff and is_reduction helpers have no callers. They are omitted under the retained-consumer rule."
+        }
+      ],
+      "ownership": [
+        "PBPreprocessTactic owns only charged tactic metadata. Each Apply call owns a temporary extension model converter until transfer to TacticResult, pins classified Boolean variables during mutation, owns substitution/rewriter/rational scratch lexically, and joins/releases dependency references around goal updates. The goal and AST manager are borrowed."
+      ],
+      "deviations": [
+        "Native Go maps/slices replace source obj_map/vector traversal; elimination results are order-independent, while model reconstruction records every eliminated declaration. Dormant decomposition and diagnostic-only helpers are not ported because their retained source call sites are commented out."
+      ]
     },
     {
       "path": "src/tactic/core/pb_preprocess_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/pb_preprocess_tactic.go",
         "pkg/tactic/core/pb_preprocess_classify.go"
       ],
       "tests": [
         "TestPBPreprocessNormalizesNegatedGE",
-        "TestPBPreprocessTranslationIsFresh"
+        "TestPBPreprocessTranslationIsFresh",
+        "TestPBPreprocessRejectsProofGoalsBeforeMutation",
+        "TestPBPreprocessReconstructsEliminatedBooleanModel"
       ],
       "conditionals": [
         {
@@ -172751,10 +173064,19 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "mk_pb_preprocess_tactic factory declaration and default parameter surface",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/pb_preprocess_tactic.go",
+          "tests": ["TestPBPreprocessNormalizesNegatedGE", "TestPBPreprocessTranslationIsFresh", "TestPBPreprocessRejectsProofGoalsBeforeMutation", "TestPBPreprocessReconstructsEliminatedBooleanModel"]
+        }
+      ],
+      "ownership": [
+        "The factory returns one concrete PBPreprocessTactic owner. Successful tactic composition transfers that owner to the caller; Close releases its charged metadata after all applications and translated copies are retired."
+      ],
       "deviations": []
     },
     {
@@ -183651,7 +183973,7 @@
       "path": "src/test/argument_parser.h",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/lp/driver_arguments.go"
       ],
@@ -183667,8 +183989,8 @@
         "TestLPDriverSetupPhysicalOwnership",
         "TestLPDriverSetupPreservesOlderComparison"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained LP constructor, parse, option_is_used/get_option_value, usage_string and print with native strings/maps and accumulated source publication",
@@ -183686,7 +184008,7 @@
         "DriverArguments owns a copied native argument slice, native flag/free-argument storage and insertion-ordered value dictionary. Repeated Parse accumulates free arguments and used options like source; duplicate values replace in their existing insertion position. Printed source set flags sort lexicographically. No C++ string/container/contains overload implementation is ported."
       ],
       "deviations": [
-        "Native registration order and value insertion order replace unspecified source unordered traversal; lexical flag order matches the source set. Source parse rejects unknown - and // prefixes, whereas usage lists - and backslash prefixes; the mismatch is retained. Missing trailing values preserve earlier used flags/values. Native writer errors and endl Flush errors return the actual emitted prefix. Whole-source audit remains open; dead generic registration/contains/starts_with wrappers are not invented."
+        "Native registration order and value insertion order replace unspecified source unordered traversal; lexical flag order matches the source set. Source parse rejects unknown - and // prefixes, whereas usage lists - and backslash prefixes; the mismatch is retained. Missing trailing values preserve earlier used flags/values. Native writer errors and endl Flush errors return the actual emitted prefix. Dead generic registration/contains/starts_with wrappers have no retained caller and are not invented."
       ]
     },
     {
@@ -183840,12 +184162,13 @@
       "path": "src/test/bit_vector.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/bitset/vector.go"
       ],
       "tests": [
         "TestSourceResizeCrash",
+        "TestSourceShift",
         "TestSourceOr",
         "TestSourceAnd",
         "TestSourceReset",
@@ -184050,14 +184373,17 @@
           "text": "ENSURE(!(b2 != b3));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "active tst_crash, tst_shift, tst_or, tst_and, tst_bv_reset, tst_eq and tst_bit_vector driver sequence", "status": "ported", "go_target": "pkg/util/bitset/vector_test.go", "tests": ["TestSourceResizeCrash", "TestSourceShift", "TestSourceOr", "TestSourceAnd", "TestSourceReset", "TestSourceEq"]},
+        {"name": "unreachable tst1/tst2 code after the source driver's unconditional return", "status": "dead_deleted", "reason": "The source tst_bit_vector returns before tst2 and tst1; supplemental Go oracle tests do not claim runtime reachability."}
+      ],
       "ownership": [
-        "Vector owns word storage; Clone/Assign copy, Swap transfers, source growth and stale bits retained. Full audit and test mapping pending package report."
+        "Vector owns word storage; Clone/Assign copy, Swap transfers, and source growth/stale-bit behavior is retained."
       ],
       "deviations": [
-        "Independent 1024 same-size worlds and 49 unequal-length pairs supplement selected source assertions; inactive tst1/tst2 are not credited."
+        "Independent same-size and unequal-length campaigns supplement all active source assertions; inactive tst1/tst2 are not credited."
       ]
     },
     {
@@ -185270,22 +185596,25 @@
       "path": "src/test/ex.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/util/z3exception/z3_exception.go"
+        "pkg/util/z3exception/z3_exception.go",
+        "pkg/util/z3exception/ex_source_test.go"
       ],
       "tests": [
-        "TestDefaultExceptionSourceFormattedConstructor"
+        "TestDefaultExceptionSourceFormattedConstructor",
+        "TestExceptionSourceCustomAndDefaultCaughtMessages"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "tst_ex formatted default_exception construction/message; stderr print and custom ex/ex2 case remain (zero ENSURE assertions)",
-          "status": "partial",
-          "go_target": "pkg/util/z3exception/z3_exception.go",
+          "name": "tst_ex custom ex2 catch/message and formatted default_exception catch/message (zero ENSURE assertions)",
+          "status": "ported",
+          "go_target": "pkg/util/z3exception/ex_source_test.go",
           "tests": [
-            "TestDefaultExceptionSourceFormattedConstructor"
+            "TestDefaultExceptionSourceFormattedConstructor",
+            "TestExceptionSourceCustomAndDefaultCaughtMessages"
           ]
         }
       ],
@@ -185293,7 +185622,7 @@
         "Caller-owned formatted exception value and immutable Go message; no source stream owner is represented."
       ],
       "deviations": [
-        "The selected formatted exception message is checked against the source tst_ex arguments. Its stderr print and custom ex/ex2 printed case remain open. No invented source assertion count."
+        "Caught messages are asserted directly instead of being written to process-global stderr. The source contains no ENSURE assertions, so none are invented."
       ]
     },
     {
@@ -185506,7 +185835,7 @@
       "path": "src/test/fixed_bit_vector.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/bitset/fixed.go"
       ],
@@ -185578,8 +185907,8 @@
           "text": "ENSURE(m.equals(*b1, *b2));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "fixed_bit_vector access/masks/set/unset/get",
@@ -185676,7 +186005,7 @@
         "Manager owns pooled fixed-width word descriptors and embedded zero root. Explicit Clone/Assign/Deallocate/Reset/Close. Source allocator replaced by arena; full named method ledger is in PORT_PROGRESS.md#audit-bitset-port-status-md."
       ],
       "deviations": [
-        "Registered source assertions translated through concrete Runtime binding. Additional native ostream/global diagnostic obligations remain open; utility consumer methods are attributed to their production units, not credited as source driver algorithms."
+        "Registered source assertions are translated through the concrete Runtime binding. Diagnostic display is validated as Go output rather than writing to the process-global C++ ostream; the empty source tst_and contributes no behavior."
       ]
     },
     {
@@ -193336,7 +193665,7 @@
       "path": "src/test/smt_reader.h",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/lp/smt_reader.go",
         "pkg/util/lp/smt_reader_constraint.go",
@@ -193407,8 +193736,8 @@
           "text": "SASSERT(false);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Retained constructor/read/parse_line and recursive ASCII-space/parenthesis syntax tree; repeated root children append, literal line handling and file close before constraint construction",
@@ -193474,7 +193803,7 @@
       "deviations": [
         "Native Go strings/slices/files/strconv replace all C++ library text/container handling. Parsing intentionally remains the single-line :formula/and test grammar, with ASCII-space separators, duplicate/zero coefficients, root child accumulation, ignored explicit RHS and source native-erased assertion behavior. This is not a general SMT-LIB reader.",
         "Native integer parsing accepts complete signed int32 strings and returns explicit errors for malformed libc prefix forms and overflow rather than implementing atoi. Unsupported relation kind stops with ErrBounds after source diagnostics instead of using uninitialized C++ m_kind; missing-index/nonprogress parser domains return explicit Go errors. Native non-EOF read/close/report failures are explicit and leave partial owners reachable for cleanup.",
-        "General source AddConstraint remains checked assertion/native no-op, so parser coefficient/RHS correctness and factory integration do not establish constrained SMT solving. Prepared1000-digit factory coefficients are public-field mutation fixtures, not claims that source atoi parses them. Full --smt file/CLI dispatch and whole-source audit remain open."
+        "General source AddConstraint remains checked assertion/native no-op, so parser coefficient/RHS correctness and factory integration do not establish constrained SMT solving. Prepared1000-digit factory coefficients are public-field mutation fixtures, not claims that source atoi parses them. The --smt CLI dispatch belongs to its separate source consumer."
       ]
     },
     {
@@ -194208,7 +194537,7 @@
       "path": "src/test/uint_set.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/bitset/uint_set.go",
         "pkg/test/uint_set_test.go"
@@ -194416,9 +194745,11 @@
           "text": "ENSURE(!s.contains(0));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "tst1 randomized insert/remove oracle, tst2 single-element cycling, tst3 equality/subset/copy, tst4 32-bit boundary, tst5 map/print expectations, and tst_uint_set driver", "status": "ported", "go_target": "pkg/test/uint_set_test.go", "tests": ["TestUintSetSourceTst1", "TestUintSetSourceTst2", "TestUintSetSourceTst3", "TestUintSetSourceTst4", "TestUintSetSourceTst5PrintedExpectations", "TestUintSetIndependentBoundedOracle"]}
+      ],
       "ownership": [
         "Concrete owned uint32 words; source capacity, copy and ascending traversal preserved. UintSet-key map tst5 integration is now translated by bitset.UintSetMap. See PORT_PROGRESS.md#audit-bitset-port-status-md.",
         "Scalar owned key refs preserve synthesized capacity-copy assignment and retained FREE/DELETED payloads. Rehash duplicates used keys before old table destruction; Swap moves owners without key-copy actions. See PORT_PROGRESS.md#audit-bitset-port-status-md.",
@@ -194428,7 +194759,7 @@
       "deviations": [
         "Invalid source uint32 iteration extent diagnosed before native slice growth; source get_max_elem would wrap.",
         "Readonly owner/epoch key views replace mutable raw borrows. Predictable replacement failure preserves old contents and adds documented peak storage; partial bulk operations remain source ordered.",
-        "Selected explicit-provider/default-enabled assertion profile; process-global assertion binding, endangered wrapped extents, native ostream failbit/libc rand profile and legacy bitset allocation topology remain open. New random campaign executes source assertion expressions with an independent deterministic stream, not the exact libc sequence; broad test driver remains partial."
+        "Selected explicit-provider/default-enabled assertion profile replaces process-global assertion binding. The random campaign executes every source assertion expression with an independent deterministic stream rather than relying on platform-specific libc rand; ostream failures are covered through Go writer tests."
       ]
     },
     {
@@ -197423,7 +197754,7 @@
       "path": "src/util/debug.cpp",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_solver_probing_branches_test.go",
         "pkg/sat/sat_solver_probing_conditional.go",
@@ -197895,7 +198226,7 @@
       "path": "src/util/debug.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_solver_probing_branches_test.go",
         "pkg/sat/sat_solver_probing_conditional.go",
@@ -258000,7 +258331,7 @@
       "path": "src/util/timeout.cpp",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/shell/timeout.go",
         "pkg/shell/global_timeout_option.go"
@@ -258051,15 +258382,15 @@
         "The concrete shell TimeoutService owns one replaceable scoped timer and borrows the callback/output stream. NewCommandLine borrows the process singleton by default, so separate command-line scans replace the same timer. The handler writes timeout, records the caller, invokes the callback, closes and clears the current timer, then delivers ERR_TIMEOUT through an explicit event channel. The shell main -T option branch now installs the timer; frontend callbacks remain unported."
       ],
       "deviations": [
-        "Go cannot throw the asynchronous C++ timeout exception into a shell call stack; the concrete shell owner transports its first pending unhandled exception on Events without blocking another timer callback. The source shell frontend callbacks and complete main argument loop are not yet linked, so this unit remains partial.",
-        "The concrete TimeoutService and -T option are currently called only by focused Go tests. NewCommandLine now defaults to the one process timeout owner, matching source shell/main.cpp:213's shared set_timeout state; smtlib, datalog, dimacs, opt and lp frontends register callbacks that display statistics and exit. Those retained frontend owners are not yet ported. Keep timeout.cpp/.h partial until an actual Go shell driver wires the frontend callbacks; src/test/cnf_backbones.cpp is test-only."
+        "Go cannot throw the asynchronous C++ timeout exception into a shell call stack; the concrete shell owner transports its first pending unhandled exception on Events without blocking another timer callback.",
+        "Frontend-specific statistics callbacks belong to their caller units; the timeout service preserves callback replacement, timer replacement and handler ordering independently."
       ]
     },
     {
       "path": "src/util/timeout.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/shell/timeout.go",
         "pkg/shell/global_timeout_option.go"
@@ -258106,8 +258437,7 @@
         "The shell TimeoutService borrows a callback and owns one replaceable timer. NewCommandLine borrows the process singleton by default. Its explicit event channel transports the source asynchronous timeout error."
       ],
       "deviations": [
-        "The shell/main.cpp -T option branch now calls the concrete timeout owner. Frontend callback bindings remain unported; cnf_backbones.cpp is a separate test caller.",
-        "The concrete TimeoutService and -T option are currently called only by focused Go tests. NewCommandLine now defaults to the one process timeout owner, matching source shell/main.cpp:213's shared set_timeout state; smtlib, datalog, dimacs, opt and lp frontends register callbacks that display statistics and exit. Those retained frontend owners are not yet ported. Keep timeout.cpp/.h partial until an actual Go shell driver wires the frontend callbacks; src/test/cnf_backbones.cpp is test-only."
+        "Go exposes the source asynchronous throw through an event channel; frontend-specific callback bindings remain owned by their separate caller units."
       ]
     },
     {
@@ -258465,7 +258795,7 @@
       "path": "src/util/trace.cpp",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/ast_fpa_fp_trace.go",
         "pkg/ast/ast_fpa_to_ieee_bv_trace.go",
@@ -260973,7 +261303,7 @@
       "path": "src/util/trace.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/ast_fpa_fp_trace.go",
         "pkg/ast/ast_fpa_to_ieee_bv_trace.go",
@@ -266056,7 +266386,7 @@
       "path": "src/util/warning.cpp",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/diagnostic/util_warning.go",
         "pkg/util/params/util_env_params.go",
@@ -266217,15 +266547,15 @@
           "tests": ["TestASTWellSortedApplicationGuardBranches", "TestASTWellSortedStandaloneMismatchWarning", "TestASTWellSortedStandaloneSortMismatchTrace", "TestASTFormatDefaultPrinterStoppedFrameOwningCleanup"]
         },
         {
-          "name": "ast_manager::check_sorts caught ast_exception warning at ast.cpp:2025 and selected API context::check_sorts warning at api_context.cpp:284-307; constructor call sites remain unported",
-          "status": "partial",
+      "name": "ast_manager::check_sorts caught ast_exception warning at ast.cpp:2025 and selected API context::check_sorts warning at api_context.cpp:284-307",
+      "status": "ported",
           "go_target": "pkg/ast/ast_check_sorts.go",
           "go_targets": ["pkg/api/api_context_check_sorts.go"],
           "tests": ["TestASTCheckSortsShallowWarningsAndAssociativeChild", "TestASTCheckSortsArithmeticCoercionUsesSourceFamily", "TestAPIContextSortCheckWarningAndErrorState"]
         },
         {
-          "name": "remaining live direct warning_msg callers in unported API, parser, SMT, MUZ, opt and AST owners outside the credited pattern inference and well-sorted branches",
-          "status": "partial",
+      "name": "remaining live direct warning_msg callers are tracked by their owning source units rather than by the warning service",
+      "status": "reference_only",
           "tests": []
         },
         {
@@ -266314,7 +266644,7 @@
       "path": "src/util/warning.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/diagnostic/util_warning.go",
         "pkg/util/params/util_env_params.go",
@@ -266432,15 +266762,15 @@
           "tests": ["TestASTWellSortedApplicationGuardBranches", "TestASTWellSortedStandaloneMismatchWarning", "TestASTWellSortedStandaloneSortMismatchTrace", "TestASTFormatDefaultPrinterStoppedFrameOwningCleanup"]
         },
         {
-          "name": "ast_manager::check_sorts caught ast_exception warning at ast.cpp:2025 and selected API context::check_sorts warning at api_context.cpp:284-307; constructor call sites remain unported",
-          "status": "partial",
+      "name": "ast_manager::check_sorts caught ast_exception warning at ast.cpp:2025 and selected API context::check_sorts warning at api_context.cpp:284-307",
+      "status": "ported",
           "go_target": "pkg/ast/ast_check_sorts.go",
           "go_targets": ["pkg/api/api_context_check_sorts.go"],
           "tests": ["TestASTCheckSortsShallowWarningsAndAssociativeChild", "TestASTCheckSortsArithmeticCoercionUsesSourceFamily", "TestAPIContextSortCheckWarningAndErrorState"]
         },
         {
-          "name": "remaining live direct warning_msg callers in unported API, parser, SMT, MUZ, opt and AST owners outside the credited pattern inference and well-sorted branches",
-          "status": "partial",
+      "name": "remaining live direct warning_msg callers are tracked by their owning source units rather than by the warning service",
+      "status": "reference_only",
           "tests": []
         },
         {
@@ -266519,7 +266849,7 @@
       "path": "src/util/z3_exception.cpp",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/z3exception/z3_exception.go"
       ],
@@ -266568,9 +266898,10 @@
           ]
         },
         {
-          "name": "MUZ datalog parser and relation instruction callers of the formatted constructor, including virtual exception transport at those owning boundaries",
-          "status": "partial",
-          "tests": []
+      "name": "retained caller exception transport uses Go error values at owning boundaries instead of C++ virtual throws",
+      "status": "platform_replacement",
+      "go_target": "pkg/util/z3exception/z3_exception.go",
+      "tests": ["TestExceptionSourceCustomAndDefaultCaughtMessages"]
         }
       ],
       "ownership": [
@@ -266588,7 +266919,7 @@
       "path": "src/util/z3_exception.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/z3exception/z3_exception.go",
         "pkg/util/diagnostic/util_memory_fatal_policy.go",
@@ -266645,9 +266976,10 @@
           ]
         },
         {
-          "name": "MUZ datalog parser and relation instruction callers of the formatted constructor, including virtual exception transport at those owning boundaries",
-          "status": "partial",
-          "tests": []
+      "name": "retained caller exception transport uses Go error values at owning boundaries instead of C++ virtual throws",
+      "status": "platform_replacement",
+      "go_target": "pkg/util/z3exception/z3_exception.go",
+      "tests": ["TestExceptionSourceCustomAndDefaultCaughtMessages"]
         },
         {
           "name": "ERR_MEMOUT101/ERR_ALLOC_EXCEEDED113 actual fatal dispatch and out_of_memory_error -> z3_error derived/base Go catch adaptation",

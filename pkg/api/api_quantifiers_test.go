@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	"strings"
 	"testing"
@@ -48,6 +49,45 @@ func TestSMTContextQuantifierAndPatternAPI(t *testing.T) {
 	}
 	if got, err := f.c.Forall(nil, nil, triggerTerm); err != nil || got != triggerTerm {
 		t.Fatal("empty binder", got, err)
+	}
+}
+
+func TestSMTContextExistentialNoPatternAndQueryBounds(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	boolean := f.pin(f.m.MkBoolSort())
+	variable := f.pin(f.m.MkVar(0, boolean))
+	body := f.pin(f.m.MkNot(variable))
+	quantifier := f.pin(f.c.Quantifier(QuantifierSpec{
+		Sorts: []ast.ASTHandle{boolean}, Names: []string{"x"}, Body: body,
+		Weight: 11, QID: "exists-qid", SkolemID: "exists-skid", NoPatterns: []ast.ASTHandle{body},
+	}))
+	if yes, err := f.c.IsExists(quantifier); err != nil || !yes {
+		t.Fatal("exists", yes, err)
+	}
+	if count, err := f.c.QuantifierNoPatternCount(quantifier); err != nil || count != 1 {
+		t.Fatal("no-pattern count", count, err)
+	}
+	if term := f.pin(f.c.QuantifierNoPattern(quantifier, 0)); term != body {
+		t.Fatal("no-pattern term", term, body)
+	}
+	if _, err := f.c.QuantifierNoPattern(quantifier, 1); err == nil {
+		t.Fatal("out-of-range no-pattern accepted")
+	}
+	if _, err := f.c.QuantifierBoundName(quantifier, 1); err == nil {
+		t.Fatal("out-of-range bound name accepted")
+	}
+	pattern := f.pin(f.c.Pattern(body))
+	if yes, err := f.c.IsPattern(pattern); err != nil || !yes {
+		t.Fatal("pattern classification", yes, err)
+	}
+	if _, err := f.c.PatternTerm(pattern, 1); err == nil {
+		t.Fatal("out-of-range pattern term accepted")
+	}
+	if _, err := f.c.PatternTermCount(body); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("non-pattern term count", err)
+	}
+	if _, err := f.c.Quantifier(QuantifierSpec{Sorts: []ast.ASTHandle{boolean}, Names: []string{"x"}, Body: body, Patterns: []ast.ASTHandle{pattern}, NoPatterns: []ast.ASTHandle{body}}); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("mixed patterns and no-patterns", err)
 	}
 }
 
