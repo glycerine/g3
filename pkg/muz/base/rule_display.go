@@ -13,6 +13,12 @@ import (
 // WriteRuleDisplay writes the human-readable Datalog rule form used by source
 // diagnostic traces. The writer is borrowed.
 func (m *RuleManager) WriteRuleDisplay(out io.Writer, rule *Rule) error {
+	return m.WriteRuleDisplayWithProfile(out, rule, false)
+}
+
+// WriteRuleDisplayWithProfile writes a rule and its source accounting suffix
+// when outputProfile is enabled. Fact rules keep the source's early return.
+func (m *RuleManager) WriteRuleDisplayWithProfile(out io.Writer, rule *Rule, outputProfile bool) error {
 	if out == nil {
 		return io.ErrClosedPipe
 	}
@@ -77,7 +83,21 @@ func (m *RuleManager) WriteRuleDisplay(out io.Writer, rule *Rule) error {
 			return err
 		}
 	}
-	if _, err = io.WriteString(out, ".\n"); err != nil {
+	if _, err = io.WriteString(out, "."); err != nil {
+		return err
+	}
+	if outputProfile {
+		if _, err = io.WriteString(out, " {"); err != nil {
+			return err
+		}
+		if err = state.accounting.OutputProfile(out); err != nil {
+			return err
+		}
+		if _, err = io.WriteString(out, "}"); err != nil {
+			return err
+		}
+	}
+	if _, err = io.WriteString(out, "\n"); err != nil {
 		return err
 	}
 	proof, hasProof, err := rule.Proof()

@@ -70,3 +70,33 @@ func TestRuleSetWriteDisplayIncludesProofsOnRulesWithTails(t *testing.T) {
 		t.Fatalf("fact display = %q, want source early-return output %q", got, want)
 	}
 }
+
+func TestRuleSetWriteDisplayProfileAndThreshold(t *testing.T) {
+	f := newRuleSetFixture(t, "P", "Q")
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	t.Cleanup(func() { ruleMust(t, set.Close()) })
+	rule := f.rule("P", []string{"Q"}, []bool{false})
+	ruleMust(t, set.Add(rule))
+	ruleMust(t, rule.Close())
+	ruleMust(t, set.SetOutputPredicate(f.decl["P"]))
+
+	var profiled bytes.Buffer
+	ruleMust(t, set.WriteDisplayWithProfile(&profiled, true, 0))
+	if !strings.HasSuffix(profiled.String(), ". {instr: 0  time: 0ms}\n") {
+		t.Fatalf("profiled rule output = %q", profiled.String())
+	}
+	var filtered bytes.Buffer
+	ruleMust(t, set.WriteDisplayWithProfile(&filtered, false, 1))
+	wantFiltered := "; rule count: 1\n; predicate count: 1\n; output: ruleset-P\n"
+	if got := filtered.String(); got != wantFiltered {
+		t.Fatalf("threshold-filtered output = %q, want %q", got, wantFiltered)
+	}
+	var fact bytes.Buffer
+	rule = f.rule("Q", nil, nil)
+	ruleMust(t, f.rules.WriteRuleDisplayWithProfile(&fact, rule, true))
+	ruleMust(t, rule.Close())
+	if got, want := fact.String(), "Q:\nruleset-Q().\n"; got != want {
+		t.Fatalf("profiled fact output = %q, want source early-return output %q", got, want)
+	}
+}
