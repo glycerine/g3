@@ -52334,3 +52334,5 @@ Persistent-array source driver started: ran the original million seeded updates 
 Datalog utility source driver started: extracted the existing concrete permutation-cycle algorithm used by finite-product rename and checked both original source permutations plus multiple-cycle removal. The paired-sort source example remains open until its mixed finite-product filter consumer is ported.
 
 Unsigned 16-bit multiplication equivalence: the source widened-product proof now passes using the dedicated QF_BV solver. Signed 16-bit multiplication overflow and underflow proofs remain open.
+
+Seeded interval root endpoints: replayed all 1,000 square-root and 1,000 cube-root source intervals at precision 1/100, checking every finite endpoint against exact rational powers using the live scalar root routine. Full interval root output and the source-generated SMT-LIB implication files remain open.

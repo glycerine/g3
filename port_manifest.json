@@ -202753,8 +202753,8 @@
       "component": "test",
       "role": "test",
       "status": "partial",
-      "go_targets": ["pkg/math/interval/interval_cpp_driver_test.go"],
-      "tests": ["TestIntervalSourceSeededArithmetic"],
+      "go_targets": ["pkg/math/interval/interval_cpp_driver_test.go", "pkg/math/interval/interval_root_cpp_driver_test.go"],
+      "tests": ["TestIntervalSourceSeededArithmetic", "TestIntervalSourceSeededRootEndpoints"],
       "conditionals": [
         {
           "line": 95,
@@ -202803,7 +202803,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The source-seeded 1,000-case division, inverse, power, negation, subtraction, multiplication and addition passes check exact values at representative and boundary-adjacent points. Root interval passes and the source's generated SMT-LIB implication files remain open."]
+      "deviations": ["The source-seeded 1,000-case division, inverse, power, negation, subtraction, multiplication and addition passes check exact values at representative and boundary-adjacent points. The square-root and cube-root passes check each finite endpoint with the live scalar root implementation and exact rational powers; full interval root output and the source's generated SMT-LIB implication files remain open."]
     },
     {
       "path": "src/test/karr.cpp",
