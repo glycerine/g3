@@ -201671,9 +201671,9 @@
       "path": "src/test/get_implied_equalities.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_implied_equalities_cpp_test.go"],
+      "tests": ["TestImpliedEqualitiesSourceArithmeticAndArrays"],
       "assertions": [
         {
           "line": 50,
@@ -201764,11 +201764,11 @@
           "text": "ENSURE(class_ids[3] != class_ids[2]);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_get_implied_equalities1 and tst_get_implied_equalities2", "status": "ported", "go_target": "pkg/api/api_implied_equalities_cpp_test.go", "tests": ["TestImpliedEqualitiesSourceArithmeticAndArrays"]}],
+      "ownership": ["Each source case owns and closes its simple solver, and the API fixture owns the constructed AST references."],
+      "deviations": ["Class partitions are asserted directly rather than printed."]
     },
     {
       "path": "src/test/gparams_register_modules.cpp",
