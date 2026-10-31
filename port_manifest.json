@@ -90624,6 +90624,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/rel/finite_interval_product.go",
+        "pkg/muz/rel/finite_explanation_product.go",
+        "pkg/muz/rel/finite_explanation_product_test.go",
         "pkg/muz/rel/finite_interval_product_test.go",
         "pkg/muz/rel/sparse_functional_fact.go",
         "pkg/muz/rel/interval_relation.go",
@@ -90639,6 +90641,8 @@
         "pkg/muz/rel/finite_interval_product_conversion_test.go"
       ],
       "tests": [
+        "TestFiniteExplanationProductFactsAndOwnership",
+        "TestFiniteExplanationProductZeroFiniteColumns",
         "TestFiniteIntervalProductFactsAndClone",
         "TestFiniteIntervalProductColumnSelection",
         "TestFiniteIntervalProductGarbageCollectionAndReuse",
@@ -91176,6 +91180,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/rel/finite_interval_product.go",
+        "pkg/muz/rel/finite_explanation_product.go",
+        "pkg/muz/rel/finite_explanation_product_test.go",
         "pkg/muz/rel/finite_interval_product_test.go",
         "pkg/muz/rel/sparse_functional_fact.go",
         "pkg/muz/rel/interval_relation.go",
@@ -91191,6 +91197,8 @@
         "pkg/muz/rel/finite_interval_product_conversion_test.go"
       ],
       "tests": [
+        "TestFiniteExplanationProductFactsAndOwnership",
+        "TestFiniteExplanationProductZeroFiniteColumns",
         "TestFiniteIntervalProductFactsAndClone",
         "TestFiniteIntervalProductColumnSelection",
         "TestFiniteIntervalProductGarbageCollectionAndReuse",
@@ -91939,8 +91947,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/explanation_transform_rules.go", "pkg/muz/rel/explanation_transform_test.go", "pkg/muz/rel/explanation_relation_display.go", "pkg/muz/rel/explanation_relation_display_test.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
-      "tests": ["TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter", "TestExplanationRelationFormulaDisplayAndForeignUnion", "TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay", "TestExplanationTransformerRuleSetAndOutputBridge"],
+      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/finite_explanation_product.go", "pkg/muz/rel/finite_explanation_product_test.go", "pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/explanation_transform_rules.go", "pkg/muz/rel/explanation_transform_test.go", "pkg/muz/rel/explanation_relation_display.go", "pkg/muz/rel/explanation_relation_display_test.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
+      "tests": ["TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductZeroFiniteColumns", "TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter", "TestExplanationRelationFormulaDisplayAndForeignUnion", "TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay", "TestExplanationTransformerRuleSetAndOutputBridge"],
       "assertions": [
         {
           "line": 145,
