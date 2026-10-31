@@ -52284,3 +52284,5 @@ Sparse projection integration: route functional sparse tables through the existi
 Arithmetic simplifier source driver: translated its active pair of integer equation rows and checked the returned contradiction witness with the integer GCD test. The source's earlier two examples are disabled by #if 0.
 
 Polynomial normalization source driver started: recreated both source expressions and checked their simplified values over nine integer assignments each. The source's diagnostic decomposition into coefficients and factors remains open.
+
+Polynomial normalization driver completion: ported the active source decomposition of rewritten sums into a constant and coefficient/factor pairs. The two source examples check their exact factors and coefficients as well as concrete evaluations.

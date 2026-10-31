@@ -208277,7 +208277,7 @@
       "path": "src/test/polynorm.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/api/polynorm_cpp_driver_test.go"],
       "tests": ["TestPolynomialNormalizationSourceExamples"],
       "conditionals": [
@@ -208320,11 +208320,11 @@
           "text": "ENSURE(!r.is_zero());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The two source polynomial expressions are simplified and evaluated on a grid of integer inputs. The source diagnostic coefficient/factor decomposition remains open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_polynorm and nf", "status": "ported", "go_target": "pkg/api/polynorm_cpp_driver_test.go", "tests": ["TestPolynomialNormalizationSourceExamples"]}],
+      "ownership": ["The fixture owns the expression handles; substitution and simplification references are released by the test."],
+      "deviations": ["The two source formulas are built through the Go API instead of parsed from SMT-LIB. Printed factors and coefficients are checked structurally and each result is evaluated over nine assignments."]
     },
     {
       "path": "src/test/prime_generator.cpp",
