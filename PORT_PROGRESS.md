@@ -1,3 +1,5 @@
+BMC quantified rule binding (2026-10-31 UTC): added source free-variable compaction, universally quantified formulas and head patterns. A focused test checks sparse variable indices, sorts and the generated pattern.
+
 BMC level predicate rewriting (2026-10-31 UTC): registered predicate applications now become the previous level or false at level zero, with source quantifier no-pattern handling. Focused tests cover bound variables and quantified bodies.
 
 BMC nonlinear query construction (2026-10-31 UTC): added source level-predicate and rule naming plus compile_query with correctly typed named arguments. Tests cover zero-arity, mixed sorts and numerical predicate names; rule compilation and solver integration remain pending.
