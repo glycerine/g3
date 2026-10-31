@@ -52250,3 +52250,5 @@ DOC source driver completion: added the concrete subtraction example, 10,000 see
 Simplex source driver: connected the existing four source row cases to the manifest and added the missing empty, unconstrained and fixed-variable checks from tst_simplex. The source prints feasibility; the Go tests assert the expected statuses and value.
 
 Extended-numeral source driver started: ported the original rational addition, subtraction, multiplication, inverse and 142 comparison cases, including the source symmetric-operation checks, against the concrete interval implementation. Standalone negation and predicate/display driver cases remain open.
+
+Extended-numeral predicate driver: added the source zero, sign and display cases for finite values and both infinities. The standalone scalar negation helper is reached only by the C++ test driver and has no separate Go production consumer, so that source test unit stays partial under the live-consumer rule.

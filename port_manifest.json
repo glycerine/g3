@@ -201110,7 +201110,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/math/interval/ext_numeral_cpp_test.go"],
-      "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"],
+      "tests": ["TestExtendedNumeralSourceArithmeticAndRelations", "TestExtendedNumeralSourcePredicatesAndDisplay"],
       "assertions": [
         {
           "line": 29,
@@ -201235,9 +201235,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "tst1 arithmetic/inverse and tst2 comparisons", "status": "partial", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst1 standalone negation and tst3 predicates/display", "status": "unported"}],
+      "methods": [{"name": "tst1 arithmetic/inverse and tst2 comparisons", "status": "partial", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst3 predicates and display", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourcePredicatesAndDisplay"]}, {"name": "tst1 standalone scalar negation", "status": "unported"}],
       "ownership": ["The test owns and releases its three rational values and their manager, checking the allocation budget at teardown."],
-      "deviations": ["The concrete rational implementation is exercised without introducing a generic adapter; standalone source negation and predicate/display driver cases remain open."]
+      "deviations": ["The concrete rational implementation is exercised without introducing a generic adapter; standalone scalar negation is reached only by the test driver and has no separate Go production consumer."]
     },
     {
       "path": "src/test/f2n.cpp",

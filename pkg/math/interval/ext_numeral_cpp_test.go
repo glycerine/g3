@@ -2,6 +2,7 @@ package interval
 
 // Source: src/test/ext_numeral.cpp tst1 and tst2.
 import (
+	"bytes"
 	"fmt"
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/numeral"
@@ -333,6 +334,71 @@ func TestExtendedNumeralSourceArithmeticAndRelations(t *testing.T) {
 		must(err)
 		if kind != Finite || text != fmt.Sprint(tc.want) {
 			t.Fatal("inverse", tc, kind, text)
+		}
+	}
+}
+
+// Source: src/test/ext_numeral.cpp tst3.
+func TestExtendedNumeralSourcePredicatesAndDisplay(t *testing.T) {
+	budget := arena.NewBudget(1 << 20)
+	m, err := numeral.NewRationalManager(numeral.RationalConfig{Integers: numeral.IntegerConfig{Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := numeral.NewRational()
+	defer func() {
+		if e := m.Del(&value); e != nil {
+			t.Error(e)
+		}
+		if e := m.CloseChecked(); e != nil {
+			t.Error(e)
+		}
+		if budget.Used() != 0 {
+			t.Error("numeric ownership", budget.Used())
+		}
+	}()
+	e := RationalExtended{Numbers: m}
+	for _, tc := range []struct {
+		v              int32
+		k              ExtendedKind
+		zero, pos, neg bool
+	}{
+		{0, Finite, true, false, false}, {0, PlusInfinity, false, true, false}, {0, MinusInfinity, false, false, true},
+		{10, Finite, false, true, false}, {-5, Finite, false, false, true},
+	} {
+		if err = m.SetInt32(&value, tc.v); err != nil {
+			t.Fatal(err)
+		}
+		z, err := e.IsZero(&value, tc.k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		p, err := e.IsPos(&value, tc.k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n, err := e.IsNeg(&value, tc.k)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if z != tc.zero || p != tc.pos || n != tc.neg {
+			t.Fatal(tc, z, p, n)
+		}
+	}
+	if err = m.Reset(&value); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		v    int32
+		k    ExtendedKind
+		want string
+	}{{0, Finite, "0"}, {-10, Finite, "-10"}, {-10, PlusInfinity, "+oo"}, {-10, MinusInfinity, "-oo"}} {
+		if err = m.SetInt32(&value, tc.v); err != nil {
+			t.Fatal(err)
+		}
+		var out bytes.Buffer
+		if err = e.Display(&out, &value, tc.k); err != nil || out.String() != tc.want {
+			t.Fatal(tc, out.String(), err)
 		}
 	}
 }
