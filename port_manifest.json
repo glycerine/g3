@@ -208407,9 +208407,9 @@
       "path": "src/test/qe_arith.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/qe/qe_arith_cpp_driver_test.go"],
+      "tests": ["TestArithmeticProjectionSourceIntegerExamples"],
       "assertions": [
         {
           "line": 39,
@@ -208448,7 +208448,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The modulus, inequality and non-unit equality examples from test_project are checked; its other examples remain open. The entry point returns after test_project, making later driver calls unreachable."]
     },
     {
       "path": "src/test/quant_elim.cpp",

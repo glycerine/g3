@@ -52264,3 +52264,5 @@ Finite-domain theory source driver: recreated the 111-element sort and the sourc
 Pseudo-Boolean theory source driver started: translated all constant-literal cardinality cases for widths 4 through 10, checking both the exact population count and the impossible next bound with scoped solver assertions. The source's nested randomized fuzzer remains open.
 
 Set-union API regression driver: translated the source's pushed solver, integer-set union and model retrieval. The model is evaluated for membership of 42, 43 and 44, checking both included elements and a nonmember.
+
+Arithmetic projection source driver started: translated the original integer modulus/equality, two-variable inequalities and non-unit equality examples. Each checks that projection eliminates the requested variables and that every result holds in the source model; the other test_project examples remain open.
