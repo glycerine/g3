@@ -36,6 +36,7 @@ type commandParser struct {
 	ignoreUserPatterns bool
 	ignoreBadPatterns  bool
 	ignoreChecks       bool
+	queryCollector     *fixedpointQueryCollector
 	softWeight         big.Rat
 	softID             string
 }
@@ -44,17 +45,17 @@ type commandParser struct {
 // Unsupported commands fail explicitly. Command-local AST references are
 // released after execution; the context owns declarations and assertions.
 func ParseCommands(context *cmd_context.Context, input io.Reader, out io.Writer) (result error) {
-	return parseCommands(context, input, out, false)
+	return parseCommands(context, input, out, false, nil)
 }
 
 // ParseAssertions parses a solver-loading SMT-LIB stream. Check commands are
 // syntax-checked but not executed or printed; callers consume the context's
 // final assertion set only, matching api_solver.cpp solver_from_stream.
 func ParseAssertions(context *cmd_context.Context, input io.Reader) error {
-	return parseCommands(context, input, io.Discard, true)
+	return parseCommands(context, input, io.Discard, true, nil)
 }
 
-func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool) (result error) {
+func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector) (result error) {
 	if err := context.SetRegularOutput(out); err != nil {
 		return err
 	}
@@ -81,7 +82,7 @@ func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer,
 	if err != nil {
 		return err
 	}
-	p := &commandParser{context: context, scanner: scanner, out: out, ignoreChecks: ignoreChecks}
+	p := &commandParser{context: context, scanner: scanner, out: out, ignoreChecks: ignoreChecks, queryCollector: collector}
 	p.softWeight.SetInt64(1)
 	defer func() {
 		result = errors.Join(result, p.clearCommand())
@@ -582,6 +583,13 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		if p.queryCollector != nil {
+			if name == "fixedpoint-push" {
+				p.queryCollector.push(1)
+			} else if err = p.queryCollector.pop(1); err != nil {
+				return false, err
+			}
+		}
 	case "assert-soft":
 		expression, _, err := p.expression()
 		if err != nil {
@@ -698,6 +706,11 @@ func (p *commandParser) command() (bool, error) {
 		status, printAnswer, printStatistics, printCertificate, err := p.fixedpointQuery(declaration)
 		if err != nil {
 			return false, err
+		}
+		if p.queryCollector != nil {
+			if err = p.queryCollector.add(p, declaration); err != nil {
+				return false, err
+			}
 		}
 		if !p.ignoreChecks {
 			text := "unknown"
@@ -1100,6 +1113,9 @@ func (p *commandParser) command() (bool, error) {
 				return false, fmt.Errorf("invalid reset command, ')' expected")
 			}
 			return false, fmt.Errorf("invalid command, too many arguments")
+		}
+		if p.queryCollector != nil && (name == "reset" || !p.context.GlobalDeclarations) {
+			return false, fmt.Errorf("reset while collecting fixedpoint queries is not supported")
 		}
 		// Release parser-owned roots and its manager-bound shifter before
 		// cmd_context::reset destroys the old AST manager.
