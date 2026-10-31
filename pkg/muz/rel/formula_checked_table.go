@@ -391,3 +391,56 @@ func (r *FormulaCheckedTable) Close() (result error) {
 	r.closed, r.manager = true, nil
 	return result
 }
+
+// Complement checks the concrete complement against the negated source formula.
+func (r *FormulaCheckedTable) Complement() (_ *FormulaCheckedTable, resultErr error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	table, err := r.table.Complement()
+	if err != nil {
+		return nil, err
+	}
+	result, err := NewFormulaCheckedTable(table, r.config)
+	if err != nil {
+		return nil, errors.Join(err, table.Close())
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	source, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return nil, err
+	}
+	negated, err := r.manager.MkNot(source)
+	if err != nil {
+		return nil, err
+	}
+	ref, err := r.manager.NewRef(negated)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&ref)) }()
+	actual, err := r.manager.RefGet(result.formula)
+	if err != nil {
+		return nil, err
+	}
+	if err = r.verifyGrounded(negated, actual, false); err != nil {
+		return nil, fmt.Errorf("complement: %w", err)
+	}
+	return result, nil
+}
+
+// ToFormula returns an owned reference to the checked relation formula.
+func (r *FormulaCheckedTable) ToFormula() (ast.ASTRef, error) {
+	if err := r.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	formula, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return r.manager.NewRef(formula)
+}

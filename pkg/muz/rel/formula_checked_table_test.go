@@ -311,3 +311,27 @@ func TestFormulaCheckedTableFilterByNegation(t *testing.T) {
 		t.Fatal("removed target row", found, err)
 	}
 }
+
+func TestFormulaCheckedTableComplement(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	checked, err := NewFormulaCheckedTable(table, config)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, checked.Close()) }()
+	_, err = checked.AddFact([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	complement, err := checked.Complement()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, complement.Close()) }()
+	if found, err := complement.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || !found {
+		t.Fatal("complement member", found, err)
+	}
+	if found, err := complement.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || found {
+		t.Fatal("complement nonmember", found, err)
+	}
+	formula, err := complement.ToFormula()
+	astTestMust(t, err)
+	astTestMust(t, f.ast.DelRef(&formula))
+}
