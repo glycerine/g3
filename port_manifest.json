@@ -89279,7 +89279,8 @@
         "TestBoundRelationOrderPropagationAndCycles",
         "TestBoundRelationUnionInterval",
         "TestBoundRelationInterpretedVariableComparisons",
-        "TestBoundRelationInterpretedPositiveOffsetEquality"
+        "TestBoundRelationInterpretedPositiveOffsetEquality",
+        "TestBoundRelationInterpretedEqualityClasses"
       ],
       "assertions": [
         {
@@ -89358,13 +89359,21 @@
             "TestBoundRelationInterpretedVariableComparisons",
             "TestBoundRelationInterpretedPositiveOffsetEquality"
           ]
+        },
+        {
+          "name": "bound-vector column equivalence and variable equality filter",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_filter.go",
+          "tests": [
+            "TestBoundRelationInterpretedEqualityClasses"
+          ]
         }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending equality classes, vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Traversal tracks visited bound/strictness pairs to terminate weak cycles."
+        "Pending vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles."
       ]
     },
     {
@@ -89383,7 +89392,8 @@
         "TestBoundRelationOrderPropagationAndCycles",
         "TestBoundRelationUnionInterval",
         "TestBoundRelationInterpretedVariableComparisons",
-        "TestBoundRelationInterpretedPositiveOffsetEquality"
+        "TestBoundRelationInterpretedPositiveOffsetEquality",
+        "TestBoundRelationInterpretedEqualityClasses"
       ],
       "conditionals": [
         {
@@ -89430,13 +89440,21 @@
             "TestBoundRelationInterpretedVariableComparisons",
             "TestBoundRelationInterpretedPositiveOffsetEquality"
           ]
+        },
+        {
+          "name": "bound-vector column equivalence and variable equality filter",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_filter.go",
+          "tests": [
+            "TestBoundRelationInterpretedEqualityClasses"
+          ]
         }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending equality classes, vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Traversal tracks visited bound/strictness pairs to terminate weak cycles."
+        "Pending vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles."
       ]
     },
     {
@@ -92603,7 +92621,10 @@
         "pkg/muz/rel/interval_vector_operations.go",
         "pkg/muz/rel/interval_vector_operations_test.go",
         "pkg/muz/rel/interval_relation.go",
-        "pkg/muz/rel/interval_relation_test.go"
+        "pkg/muz/rel/interval_relation_test.go",
+        "pkg/muz/rel/bound_relation.go",
+        "pkg/muz/rel/bound_relation_filter.go",
+        "pkg/muz/rel/bound_relation_filter_test.go"
       ],
       "tests": [
         "TestIntervalVectorColumnEquivalences",
@@ -92612,7 +92633,8 @@
         "TestIntervalRelationFactAndJoin",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
-        "TestIntervalVectorRenameEquivalences"
+        "TestIntervalVectorRenameEquivalences",
+        "TestBoundRelationInterpretedEqualityClasses"
       ],
       "conditionals": [
         {
@@ -92681,13 +92703,21 @@
             "TestIntervalRelationRename",
             "TestIntervalRelationUnionDelta"
           ]
+        },
+        {
+          "name": "bound-vector column equivalence and variable equality filter",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_filter.go",
+          "tests": [
+            "TestBoundRelationInterpretedEqualityClasses"
+          ]
         }
       ],
       "ownership": [
         "The interval instantiation owns its column values and union-find arrays."
       ],
       "deviations": [
-        "Pending: remaining vector operations and live instantiations, other filter operations, plugin registration, diagnostics, and source ownership/allocation audit. Public projection and rename preserve emptiness; union delta requires a distinct destination."
+        "Pending remaining vector operations and live instantiations, filters, relation plugin registration, diagnostics and source ownership/allocation audit. Public interval projection and rename preserve emptiness; interval union delta requires a distinct destination. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles."
       ]
     },
     {

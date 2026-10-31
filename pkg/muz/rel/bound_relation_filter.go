@@ -15,11 +15,7 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 		return false, ast.ErrASTDomain
 	}
 	if m.IsFalse(condition) {
-		r.empty = true
-		for i := range r.columns {
-			clear(r.columns[i].lt)
-			clear(r.columns[i].le)
-		}
+		r.reset()
 		return true, nil
 	}
 	negated, arg, err := m.IsNot(condition)
@@ -44,6 +40,21 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 		}
 		if leftKind != ast.ASTVar {
 			return false, nil
+		}
+		rightKind, e := m.GetKind(right)
+		if e != nil {
+			return false, e
+		}
+		if rightKind == ast.ASTVar {
+			i, e := m.GetVarIndex(left)
+			if e != nil {
+				return false, e
+			}
+			j, e := m.GetVarIndex(right)
+			if e != nil {
+				return false, e
+			}
+			return true, r.Equate(i, j)
 		}
 		addFamily, addOp, a, b, add, e := intervalParts(m, right)
 		if e != nil || !add {

@@ -1,3 +1,5 @@
+Bound relation equality classes (2026-10-31 UTC): added the concrete vector intersection and union-by-size equivalence operation, connected variable-equality filters, and tested propagation and empty reset across merged columns. Remaining vector operations, filters and live relation registration are pending.
+
 Bound relation interpreted filters (2026-10-31 UTC): added source comparisons between column variables, negated forms, false-filter reset and positive-offset equality recognition. Equality classes, remaining filters and live relation registration remain pending.
 
 Bound relation source start (2026-10-31 UTC): added concrete strict and weak column-bound propagation and interval-union pruning, with tests for transitivity, strict and weak cycles, finite and infinite endpoints. Equality classes, vector operations, filters and live plugin registration remain pending.

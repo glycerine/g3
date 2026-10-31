@@ -85,3 +85,37 @@ func TestBoundRelationInterpretedPositiveOffsetEquality(t *testing.T) {
 		t.Fatal("zero offset is not a strict bound")
 	}
 }
+
+func TestBoundRelationInterpretedEqualityClasses(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := m.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, m, h); return h }
+	x, y, z := own(m.MkVar(0, integer)), own(m.MkVar(1, integer)), own(m.MkVar(2, integer))
+	r := NewBoundRelation(3, false)
+	astTestMust(t, r.AddLess(0, 2))
+	ok, err := r.FilterInterpreted(m, own(m.MkEq(x, y)))
+	astTestMust(t, err)
+	if !ok || r.Empty() {
+		t.Fatal("equality was not applied")
+	}
+	for _, col := range []uint32{0, 1} {
+		strict, _, err := r.Bounds(col)
+		astTestMust(t, err)
+		if !reflect.DeepEqual(strict, []uint32{2}) {
+			t.Fatal("equated column bound", col, strict)
+		}
+	}
+	ok, err = r.FilterInterpreted(m, own(m.MkArithmeticLE(z, x)))
+	astTestMust(t, err)
+	if !ok || !r.Empty() {
+		t.Fatal("strict cycle through equality must be empty")
+	}
+	ok, err = r.FilterInterpreted(m, own(m.MkFalse()))
+	astTestMust(t, err)
+	if !ok || !r.Empty() || r.find(0) != 0 || r.find(1) != 1 {
+		t.Fatal("false must reset equality classes")
+	}
+}
