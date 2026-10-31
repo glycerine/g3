@@ -1,3 +1,5 @@
+Generated tactic composition replay (2026-10-31 UTC): added sequential, fallback, bounded, repeated, parameterized and single-goroutine parallel-fallback composition. Normal and checked tests execute compositions after releasing their inputs; other generated commands remain unfinished.
+
 Generated tactic replay lifecycle (2026-10-31 UTC): added named and basic tactic construction plus reference management. Normal and checked tests verify explicit release and incomplete-log cleanup; composition and application commands remain unfinished.
 
 Generated function entry replay (2026-10-31 UTC): added entry creation, reference management, argument and value queries. Normal and checked tests verify entries survive model and interpretation release; other generated commands remain unfinished.

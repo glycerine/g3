@@ -6033,7 +6033,8 @@
         "TestGeneratedFunctionInterpretationReplayClosesIncompleteLog",
         "TestGeneratedFunctionEntryReplaySurvivesModelRelease",
         "TestGeneratedTacticReplayLifecycle",
-        "TestGeneratedTacticReplayClosesIncompleteLog"
+        "TestGeneratedTacticReplayClosesIncompleteLog",
+        "TestGeneratedTacticCompositionReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,

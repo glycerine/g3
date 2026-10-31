@@ -20,6 +20,8 @@ func registerZ3GeneratedTacticCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{363, "Z3_mk_tactic"}, {364, "Z3_tactic_inc_ref"}, {365, "Z3_tactic_dec_ref"},
+		{369, "Z3_tactic_and_then"}, {370, "Z3_tactic_or_else"}, {371, "Z3_tactic_par_or"},
+		{372, "Z3_tactic_par_and_then"}, {373, "Z3_tactic_try_for"}, {376, "Z3_tactic_repeat"}, {381, "Z3_tactic_using_params"},
 		{377, "Z3_tactic_skip"}, {378, "Z3_tactic_fail"}, {380, "Z3_tactic_fail_if_not_decided"},
 	}
 	for _, entry := range entries {
@@ -90,6 +92,73 @@ func replayTacticCommand(r *Z3Replayer, id uint32) error {
 		return t.object.decRef()
 	}
 	var value *APITactic
+	if id == 371 {
+		n, e := r.Uint(1)
+		if e != nil {
+			return e
+		}
+		ids, e := r.ObjectArray(2)
+		if e != nil {
+			return e
+		}
+		if uint64(n) > uint64(len(ids)) {
+			return ErrZ3ReplayReference
+		}
+		children := make([]*APITactic, n)
+		for i := range children {
+			t := r.tactics[ids[i]]
+			if t == nil || t.owner != owner || t.object.open() != nil {
+				return ErrZ3ReplayReference
+			}
+			children[i] = t.value
+		}
+		value, err = owner.context.ParallelOr(children...)
+		if err != nil {
+			return err
+		}
+		return replayStoreTactic(r, owner, value)
+	}
+	if id == 369 || id == 370 || id == 372 || id == 373 || id == 376 || id == 381 {
+		first, e := replayTacticAt(r, owner, 1)
+		if e != nil {
+			return e
+		}
+		switch id {
+		case 369, 370, 372:
+			second, e := replayTacticAt(r, owner, 2)
+			if e != nil {
+				return e
+			}
+			switch id {
+			case 369:
+				value, err = first.value.AndThen(second.value)
+			case 370:
+				value, err = first.value.OrElse(second.value)
+			case 372:
+				value, err = first.value.ParallelAndThen(second.value)
+			}
+		case 373, 376:
+			n, e := r.Uint(2)
+			if e != nil {
+				return e
+			}
+			if id == 373 {
+				value, err = first.value.TryFor(n)
+			} else {
+				value, err = first.value.Repeat(n)
+			}
+		case 381:
+			params, e := replayParametersAt(r, owner, 2)
+			if e != nil {
+				return e
+			}
+			value, err = first.value.UsingParameters(params.value)
+		}
+		if err != nil {
+			return err
+		}
+		return replayStoreTactic(r, owner, value)
+	}
 	switch id {
 	case 363:
 		var name string
