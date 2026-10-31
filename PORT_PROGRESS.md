@@ -52328,3 +52328,5 @@ Real-closure source driver started: translated both integer solve cases, all thr
 Memory source driver started: exercised the original 10, 20 and 30 MiB limits with actual allocations, checking the failure state and owner cleanup at each limit. The source's Windows-only API loop and process-global reset path remain open.
 
 CNF backbone tracking increment: exercised the existing live DIMACS clause-tracking implementation and queried all original and tracking variables under its assumptions. The test verifies the forced variables and excludes a free variable; the source command-line/statistics wrapper remains open.
+
+Persistent-array source driver started: ran the original million seeded updates over 100 Boolean expressions through the live Goal owning slice and verified both the mutated result and the unchanged snapshot. Go Boolean constants replace bound variables; the source-only integer template and heap-display paths remain outside the port.

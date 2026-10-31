@@ -207298,9 +207298,9 @@
       "path": "src/test/parray.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/parray_cpp_driver_test.go"],
+      "tests": ["TestPersistentArraySourceOwningSnapshot"],
       "conditionals": [
         {
           "line": 230,
@@ -207475,7 +207475,7 @@
         }
       ],
       "ownership": [],
-      "deviations": [
+      "deviations": ["The source million-update expression snapshot workload is exercised through the live Goal owning slice, using Boolean constants in place of bound variables and checking both snapshots. The standalone integer parray instantiations and source-specific heap display are excluded.", 
         "No Go persistent-array implementation remains. Retained goal consumers use native owning slices with independent copies; generic parray algorithms and their standalone stress workload are not ported or credited. The source subpaving specialization remains unported in its consumer. This source is not classified as dead."
       ]
     },
