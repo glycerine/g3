@@ -21,6 +21,12 @@ func NewFMInputParser(m *ast.ASTManager, store *FMConstraintStore, realOnly, all
 	if m == nil || store == nil || store.manager != m {
 		return nil, ast.ErrASTHandle
 	}
+	if err := store.open(); err != nil {
+		return nil, err
+	}
+	if store.index != nil {
+		return nil, ast.ErrASTDomain
+	}
 	family, err := m.ArithmeticFamilyID()
 	if err != nil {
 		return nil, err
@@ -30,6 +36,7 @@ func NewFMInputParser(m *ast.ASTManager, store *FMConstraintStore, realOnly, all
 	if err != nil {
 		return nil, err
 	}
+	store.index = variables.Index
 	return &FMInputParser{manager: m, store: store, Family: family, Variables: variables, Expressions: expressions, RealOnly: realOnly, AllowClauses: allowClauses, variableIDs: map[ast.ASTHandle]uint32{}, booleanIDs: map[ast.ASTHandle]uint32{}, forbidden: map[ast.ASTHandle]bool{}}, nil
 }
 

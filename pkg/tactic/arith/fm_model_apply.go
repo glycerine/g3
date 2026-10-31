@@ -9,12 +9,9 @@ import (
 	"math/big"
 )
 
-func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, goal uint32) (err error) {
+func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, _ uint32) (err error) {
 	if e := c.open(); e != nil {
 		return e
-	}
-	if goal != 0 {
-		return tactic.ErrModelConverterOwner
 	}
 	md, e := out.Get()
 	if e != nil {

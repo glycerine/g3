@@ -169749,7 +169749,7 @@
       "path": "src/tactic/arith/fm_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/fm_candidate_analyze.go",
         "pkg/tactic/arith/fm_candidate_analyze_test.go",
@@ -169847,7 +169847,9 @@
         "pkg/ast/ast_dependency_address_test.go",
         "pkg/tactic/arith/fm_model_mixed_test.go",
         "pkg/tactic/arith/fm_input_trace.go",
-        "pkg/tactic/arith/fm_input_trace_test.go"
+        "pkg/tactic/arith/fm_input_trace_test.go",
+        "pkg/tactic/arith/fm_projection_oracle_test.go",
+        "pkg/tactic/arith/fm_source_audit_test.go"
       ],
       "tests": [
         "TestAPIFMTacticRegistrationApplyAndModel",
@@ -169944,7 +169946,17 @@
         "TestFMInputTracePureBooleanClauseRecognitionModes",
         "TestFMInputTraceNegationAndDeferredRegistration",
         "TestFMInputTraceAllocationFrontiersAndStreamFailure",
-        "TestFMInputTracePlainLiteralStillVisitsInequalityRecognizer"
+        "TestFMInputTracePlainLiteralStillVisitsInequalityRecognizer",
+        "TestFMTacticSourceMemorySentinel",
+        "TestFMConstraintDeletionErasesTodoBeforeIDReuse",
+        "TestFMResolvePreservesUpperOnlyLiteralOccurrences",
+        "TestFMModelConverterIgnoresIndexedArgument",
+        "TestFMResolveIntegerUnitSourceAssertion",
+        "TestFMModelIntegerStrictSourceIntegralAssertion",
+        "TestFMModelOnlyFalseLiteralSourceAssertion",
+        "TestFMTacticSourceParameterDescriptionOrder",
+        "TestFMProjectionMatchesIndependentIntervalOracle",
+        "TestAPIFMTacticModelConversionAtEqualSizeBoundary"
       ],
       "conditionals": [
         {
@@ -170126,8 +170138,8 @@
           "text": "SASSERT(m_new_goal->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "fm model converter eliminated-variable storage, bound isolation, conditional clauses, reverse reconstruction and translation (fm_tactic.cpp:40-242)",
@@ -170185,14 +170197,6 @@
           "go_target": "pkg/tactic/arith/fm_model_display.go",
           "tests": [
             "TestFMModelConverterDisplaysSavedClausesAndWriterErrors"
-          ]
-        },
-        {
-          "name": "FM source diagnostic/assertion and remaining concrete component audit",
-          "status": "partial",
-          "go_target": "pkg/tactic/arith/fm_tactic.go",
-          "tests": [
-            "TestFMTacticIntegerPolicyAndReuseAfterCancel"
           ]
         },
         {
@@ -170305,17 +170309,222 @@
           "name": "register_constraint false-branch diagnostic after del_constraint(c) (fm_tactic.cpp:1094)",
           "status": "reference_only",
           "evidence": "The TRACE dereferences c after del_constraint(c) destroys and frees it. No defined operand is reproducible. Source input recognition requires a nonempty useful polynomial, and resolve handles a variable/literal-free contradiction before registration; the defined Go false guard remains available without the freed-storage diagnostic."
+        },
+        {
+          "name": "constraint::get_obj_size/destruction and constraint_set::contains/empty/insert/erase(object)/erase-last/reset, plus del_constraint/del_constraints/reset_constraints/mk_constraint and dependency/ID ownership (fm_tactic.cpp:285-371,515-575)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_constraint.go",
+          "tests": [
+            "TestFMConstraintStoreDependencyAndIDLifecycle",
+            "TestFMConstraintStoreRejectsMalformedShape",
+            "TestFMConstraintSetDensePositions",
+            "TestFMConstraintDeletionErasesTodoBeforeIDReuse",
+            "TestFMTacticAllocationFrontiers"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_constraint_set.go",
+            "pkg/tactic/arith/fm_input_parser.go",
+            "pkg/tactic/arith/fm_eliminate_state.go"
+          ]
+        },
+        {
+          "name": "imp::is_literal/is_var(expr,expr&)/is_linear_mon_core/is_linear_pol/is_linear_ineq/is_occ; forbidden_proc and init_forbidden_set/init; mk_var/mk_bvar/to_var/to_bvar/to_literal/add_constraint/init_use_list (fm_tactic.cpp:413-510,797-846,930-1083,1120-1133)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_input_parser.go",
+          "tests": [
+            "TestFMInputParserInternsToRealBaseOnce",
+            "TestFMInputParserRealOnlyForbidsIntegers",
+            "TestFMInputPolynomialExtractsOrderedMonomials",
+            "TestFMInputPolynomialRejectsDuplicateVariable",
+            "TestFMInputInequalityNormalizesGEAndNegation",
+            "TestFMInputInequalityRejectsNonNumeralRight",
+            "TestFMInputParseBuildsAndRegistersConstraint",
+            "TestFMInputParseOCCClause",
+            "TestFMInputParseRejectsTwoInequalitiesInClause",
+            "TestFMInputTracePlainLiteralStillVisitsInequalityRecognizer",
+            "TestFMTacticForbidsSharedTermsAndPublishesDeferredResolvent"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_input_atoms.go",
+            "pkg/tactic/arith/fm_input_polynomial.go",
+            "pkg/tactic/arith/fm_input_recognize.go",
+            "pkg/tactic/arith/fm_input_constraint.go",
+            "pkg/tactic/arith/fm_tactic_forbidden.go"
+          ]
+        },
+        {
+          "name": "imp::mk_int/normalize_coeffs/is_false(constraint)/register_constraint and sign/lit2bvar/is_int/is_forbidden/all_int (fm_tactic.cpp:579-616,852-874,1085-1119)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_constraint_normalize.go",
+          "tests": [
+            "TestFMConstraintMakeIntegerAndNormalize",
+            "TestFMBuildConstraintClearsIntegerStrictness",
+            "TestFMBuildConstraintRetainsRealStrictness",
+            "TestFMConstraintRegisterBranches",
+            "TestFMConstraintFalseStrictZero",
+            "TestFMVariableTableClassification",
+            "TestFMInputTraceNegationAndDeferredRegistration"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_constraint_build.go",
+            "pkg/tactic/arith/fm_constraint_register.go",
+            "pkg/tactic/arith/fm_variable_table.go",
+            "pkg/tactic/arith/fm_resolve_literals.go"
+          ]
+        },
+        {
+          "name": "imp::subsumes/backward_subsumption/subsume, ordered subsumption todo and source cost increments (fm_tactic.cpp:659-773)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_constraint_subsume.go",
+          "tests": [
+            "TestFMConstraintSubsumesPermutationAndLiterals",
+            "TestFMConstraintSubsumesStrictBoundary",
+            "TestFMConstraintIndexDirectionAndBackwardSubsumption",
+            "TestFMConstraintIndexForbiddenVariable",
+            "TestFMConstraintTraceSubsumptionAndTrivialElimination",
+            "TestFMTacticContradictionAndCost"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_constraint_index.go",
+            "pkg/tactic/arith/fm_constraint_set.go"
+          ]
+        },
+        {
+          "name": "imp::to_expr/copy_constraints/save_constraints/mark_constraints_dead(list)/mark_constraints_dead(variable)/copy_remaining(list)/copy_remaining (fm_tactic.cpp:876-927,1240-1276,1519-1544)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_constraint_reconstruct.go",
+          "tests": [
+            "TestFMConstraintExpressionConstantBranches",
+            "TestFMConstraintExpressionStrictUsesNotGE",
+            "TestFMConstraintExpressionMixedArithmeticCoercesInteger",
+            "TestFMConstraintExpressionRebuildsLiteralClause",
+            "TestFMExpressionTableOwnsMappings",
+            "TestFMExpressionTableCloseReleasesReferences",
+            "TestFMExpressionTableSavesLiveModelBounds",
+            "TestFMRemainingDeduplicatesAndMarksConstraints",
+            "TestFMTacticModelSurvivesCleanup",
+            "TestFMInputTraceSourceRecognitionCreationAndCopyOrder"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_constraint_reconstruct_terms.go",
+            "pkg/tactic/arith/fm_expression_table.go",
+            "pkg/tactic/arith/fm_expression_table_close.go",
+            "pkg/tactic/arith/fm_model_save.go",
+            "pkg/tactic/arith/fm_reconstruction_batch.go",
+            "pkg/tactic/arith/fm_eliminate_state.go",
+            "pkg/tactic/arith/fm_tactic_apply.go"
+          ]
+        },
+        {
+          "name": "imp::get_cost/x_cost_lt/sort_candidates/clean_constraints/analyze(constraint)/analyze(list)/can_eliminate (fm_tactic.cpp:1135-1238)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_candidate_cost.go",
+          "tests": [
+            "TestFMCandidatesSourceOrdering",
+            "TestFMCanEliminateIntegerUnitSide",
+            "TestFMCanEliminateRejectsMixedIntegerBounds",
+            "TestFMConstraintCleanupAndLiveCopy",
+            "TestFMTacticIntegerPolicyAndReuseAfterCancel",
+            "TestFMTacticOneSidedMixedIntegerModel"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_candidate_analyze.go",
+            "pkg/tactic/arith/fm_constraint_cleanup.go"
+          ]
+        },
+        {
+          "name": "imp::get_coeff/resolve polynomial combination, zero removal, integer strict residual, lower-only literal scratch signs, tautology and dependency join outcomes; try_eliminate cutoff/growth/rollback transitions (fm_tactic.cpp:1278-1516)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_resolve_polynomial.go",
+          "tests": [
+            "TestFMResolvePolynomialCombinesAndCancels",
+            "TestFMResolvePolynomialRoundsIntegerStrictResult",
+            "TestFMResolveLiteralUnionAndTautology",
+            "TestFMResolvePreservesUpperOnlyLiteralOccurrences",
+            "TestFMResolveTautologyAndInconsistency",
+            "TestFMResolveClauseTautologyPrecedesAllocation",
+            "TestFMEliminateOneSidedVariable",
+            "TestFMEliminatePairRegistersResolvent",
+            "TestFMEliminateCutoffPreservesBounds",
+            "TestFMEliminateReportsDerivedContradiction",
+            "TestFMEliminationUnsignedCutoffProduct",
+            "TestFMConstraintTraceGrowthAbortAndRefusedStream",
+            "TestFMProjectionMatchesIndependentIntervalOracle"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_resolve_literals.go",
+            "pkg/tactic/arith/fm_resolve.go",
+            "pkg/tactic/arith/fm_eliminate_config.go",
+            "pkg/tactic/arith/fm_eliminate.go",
+            "pkg/tactic/arith/fm_eliminate_state.go"
+          ]
+        },
+        {
+          "name": "fm_tactic parameter descriptions, source megabytes_to_bytes UINT_MAX/SIZE_MAX conversion, model-converter ignored indexed argument and inherited no-op unindexed/label operations (fm_tactic.cpp:183,787-795,1659-1667; util.h:391-398; model_converter.h:31-41)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_tactic.go",
+          "tests": [
+            "TestFMTacticSourceMemorySentinel",
+            "TestFMTacticSourceParameterDescriptionOrder",
+            "TestFMModelConverterIgnoresIndexedArgument"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_model_apply.go",
+            "pkg/tactic/arith/fm_model_converter.go"
+          ]
+        },
+        {
+          "name": "Public API equal-size conversion forwards the index to the source FM converter, which does not inspect it",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_apply.go",
+          "go_targets": [
+            "pkg/api/api_fm_tactic_test.go"
+          ],
+          "tests": [
+            "TestAPIFMTacticModelConversionAtEqualSizeBoundary"
+          ]
+        },
+        {
+          "name": "Source DEBUG assertion audit: goal sort/configuration, arithmetic constant/range identities, copied constraint arrays and parser recognition invariants, integer residual and exact-elimination unit coefficient; #if Z3DEBUG found_ineq local (fm_tactic.cpp source assertion inventory)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_bounds.go",
+          "tests": [
+            "TestFMModelOnlyFalseLiteralSourceAssertion",
+            "TestFMModelIntegerStrictSourceIntegralAssertion",
+            "TestFMResolveIntegerUnitSourceAssertion",
+            "TestFMInputParseRejectsTwoInequalitiesInClause",
+            "TestFMInputPolynomialRejectsDuplicateVariable",
+            "TestFMConstraintStoreRejectsMalformedShape",
+            "TestFMTacticRejectsProofProduction",
+            "TestFMTacticAllocationFrontiers",
+            "TestFMInputTraceAllocationFrontiersAndStreamFailure"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/fm_resolve_polynomial.go",
+            "pkg/tactic/arith/fm_tactic_apply.go",
+            "pkg/tactic/arith/fm_input_constraint.go",
+            "pkg/tactic/arith/fm_constraint.go"
+          ]
+        },
+        {
+          "name": "Unused fm_model_converter::is_false, constraint::hash, constraint_set::size/finalize/begin/end, imp::is_constraint/is_var(expr*)/is_linear_mon wrappers",
+          "status": "reference_only",
+          "evidence": "The nested implementation types are defined only in this translation unit. Their live callers use model_evaluator for literal completion, constraint IDs and erase-last for the worklist, is_var(expr,expr&) and is_linear_mon_core for recognition. No reached source call uses these extra helper bodies; no Go adapters or hash implementation were added."
         }
       ],
       "ownership": [
         "FMTactic owns its parameter snapshot and private run. The run owns constraints, parser expressions, a copied goal and a model-converter reference. Successful application transfers the copied goal and acquires a separate converter reference for the result; cleanup releases private state while output formulas, model reconstruction and joined core dependencies remain independently owned.",
         "A charged empty FM implementation is allocated during construction. Cleanup builds and configures its replacement before clearing the old private graph; allocation failure preserves the old implementation. Application resets the existing implementation instead of reallocating its header. Cross-manager translation selects destination parameter/global/numeral owners, copies the seven concrete FM policy values, and continues to borrow process cooperation; translated model converters select the same destination evaluator services. Partially initialized model evaluators are closed on error. Constructor, application, cleanup, translation and model-reconstruction allocation sweeps require zero charged owner storage after teardown.",
         "FM model diagnostics construct formatted expressions through explicitly borrowed parameter owners and own/close temporary format references and output streams. Failed trace writes preserve computation and model registration; operand allocation errors propagate. Each saved clause executes the source resource-limit increment before bound processing; cancellation preserves only models from earlier completed variables. Empty saved rows have no checkpoint.",
-        "The FM run embeds diagnostics borrowing the live expression table and explicit parameter/evaluator services. Constraint printing allocates no replacement constraints. Source dependency ostream operands use the actual stable arena payload address through checked typed allocator/AST bridges; null prints 0, and foreign/dead handles are rejected. Diagnostic errors propagate through backward subsumption and resolution without losing tracked constraint cleanup. The output goal is transferred before the final diagnostic, preserving the source result prefix on operand failure. Goal sort/configuration assertions run under source debug mode."
+        "The FM run embeds diagnostics borrowing the live expression table and explicit parameter/evaluator services. Constraint printing allocates no replacement constraints. Source dependency ostream operands use the actual stable arena payload address through checked typed allocator/AST bridges; null prints 0, and foreign/dead handles are rejected. Diagnostic errors propagate through backward subsumption and resolution without losing tracked constraint cleanup. The output goal is transferred before the final diagnostic, preserving the source result prefix on operand failure. Goal sort/configuration assertions run under source debug mode.",
+        "Final storage audit: each constraint borrows only its concrete variable/literal IDs, owns rational copies and one dependency reference, is removed from the bound subsumption worklist before ID recycling, and is tracked through partial construction/diagnostic failure for cleanup. The parser and eliminator bind the same index owner. Goal/result/model references survive private implementation replacement independently; construction, application, cleanup, translation, reconstruction and diagnostic failure sweeps release all charged storage. Non-null premise dependencies are included in parser failure sweeps.",
+        "Source assertion invariants maintained by construction: typed rational copies and LCM preserve integer coefficients/constants; one expression binding and integer/forbidden entry are appended per successful variable ID; Boolean slot zero is reserved; every source input constraint passes unique-variable/one-inequality recognition before allocation. Scratch sign/position maps begin empty per invocation, so source scratch-reset assertions hold without shared mutable vectors. Explicit source-debug checks cover integral strict integer residuals, interpreted numeral/uninterpreted-variable shapes, a found inequality, exact integer elimination coefficients, goal sort and copied goal depth/precision."
       ],
       "deviations": [
-        "Whole-unit closure remains pending for source diagnostic/assertion coverage and the remaining concrete component audit. Cross-owner raw tactic translation copies the seven concrete FM policy values; unrelated caller parameters are not observed by this source tactic and do not require a universal adapter. Target managers must supply compatible parameter services or share the original owners; model reconstruction requires the source arithmetic/BV declaration-plugin setup.",
-        "The false-registration TRACE at C++ line 1094 dereferences freed storage after del_constraint(c). It has no defined value and is not reproduced; all 27 defined FM TRACE sites are implemented. Plain non-clause literals still execute is_linear_ineq in both initialization passes, while pure Boolean OCC clauses skip that recognizer exactly as the source does."
+        "Cross-owner raw tactic translation copies the seven concrete FM policy values; unrelated caller parameters are not observed by this source tactic and do not require a universal adapter. Target managers supply compatible parameter services or share the original owners; model reconstruction requires the source arithmetic/BV declaration-plugin setup. Go explicit owners and concrete typed slices/maps replace C++ allocation/container layout; byte sizes and pointer addresses naturally follow Go storage.",
+        "The false-registration TRACE at C++ line 1094 dereferences freed storage after del_constraint(c). It has no defined value and is not reproduced; all 27 defined FM TRACE sites are implemented. Plain non-clause literals still execute is_linear_ineq in both initialization passes, while pure Boolean OCC clauses skip that recognizer exactly as the source does.",
+        "The source strict-integer residual SASSERT(c.is_int()) is preserved under Go source-debug mode, including the source edge where a one-sided mixed bound evaluated at a fractional real model can violate that assertion. Release mode keeps source subtract-one/rounding behavior. Model conversion ignores the indexed argument, while inherited unindexed/label operations remain no-ops. Raw upper-only repeated/complementary literals follow the source lower-only scratch sign table rather than extra canonicalization.",
+        "Out-of-contract malformed/foreign/closed Go owners return checked errors. Nonintegral normalization and all-zero GCD preconditions have existing checked Go guards; reached source inputs are integerized by mk_int and simplified by the factory. Native literal INT_MIN negation is undefined; the concrete Go helper uses a widened sign extraction, while live parser IDs stay in the positive signed-literal range."
       ]
     },
     {

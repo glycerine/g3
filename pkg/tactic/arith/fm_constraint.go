@@ -20,6 +20,7 @@ type FMConstraint struct {
 	bytes                uint64
 }
 type FMConstraintStore struct {
+	index       *FMConstraintIndex
 	diagnostics *fmConstraintDiagnostics
 	self        *FMConstraintStore
 	manager     *ast.ASTManager
@@ -96,6 +97,9 @@ func (s *FMConstraintStore) Delete(c *FMConstraint) error {
 	}
 	if e != nil {
 		return e
+	}
+	if s.index != nil {
+		s.index.Todo.Erase(c)
 	}
 	s.freeIDs = append(s.freeIDs, c.ID)
 	s.budget.Release(c.bytes)

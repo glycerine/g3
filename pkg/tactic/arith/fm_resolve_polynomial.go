@@ -24,6 +24,9 @@ func fmResolvePolynomial(variables *FMVariableTable, lower, upper *FMConstraint,
 	}
 	a := new(big.Rat).Neg(la)
 	b := new(big.Rat).Set(ub)
+	if ast.ASTSourceDebug && variables.IsInteger(x) && !fmIsOne(a) && !fmIsOne(b) {
+		return nil, nil, big.Rat{}, false, ast.ErrASTDomain
+	}
 	constant.Mul(&lower.Constant, b)
 	constant.Add(&constant, new(big.Rat).Mul(&upper.Constant, a))
 	strict = lower.Strict || upper.Strict

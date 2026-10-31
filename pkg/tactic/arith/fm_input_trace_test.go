@@ -139,6 +139,14 @@ func TestFMInputTraceAllocationFrontiersAndStreamFailure(t *testing.T) {
 			equationMust(t, fm.UpdateParams(&fm.params))
 			x := fixDLConst(t, m, false, "x")
 			goal := fixDLGoal(t, m, false, true, true, fixDLApp(t, m, 3, x, fixDLNumber(t, m, false, "0")), fixDLApp(t, m, 2, x, fixDLNumber(t, m, false, "4")))
+			for i, name := range []string{"lower-premise", "upper-premise"} {
+				label := fmBoolConst(t, m, name)
+				dep, err := m.DependencyLeaf(label)
+				equationMust(t, err)
+				form, err := goal.Form(uint32(i))
+				equationMust(t, err)
+				equationMust(t, goal.Update(uint32(i), form, ast.ASTHandle{}, dep))
+			}
 			result := fmResult(t)
 			m.Budget().FailAfter(stop)
 			err := fm.Apply(goal, result)

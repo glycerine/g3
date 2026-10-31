@@ -150,6 +150,15 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 					return fmNoBound, nil, e
 				}
 			}
+			if ast.ASTSourceDebug {
+				yes, e := c.uninterpConst(v)
+				if e != nil {
+					return fmNoBound, nil, e
+				}
+				if !yes {
+					return fmNoBound, nil, ast.ErrASTDomain
+				}
+			}
 			if yes, _ := c.isVariable(v, variable); yes {
 				coefficient.Set(coef)
 				if directionNeg {
@@ -163,6 +172,9 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 				return fmNoBound, nil, e
 			}
 			q, yes, e := fmRat(m, value)
+			if ast.ASTSourceDebug && e == nil && !yes {
+				return fmNoBound, nil, ast.ErrASTDomain
+			}
 			if e != nil || !yes {
 				return fmNoBound, nil, e
 			}
@@ -183,6 +195,9 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 			return fmNoBound, nil, e
 		}
 		if integer == 1 && strict {
+			if ast.ASTSourceDebug && !bound.IsInt() {
+				return fmNoBound, nil, ast.ErrASTDomain
+			}
 			bound.Sub(bound, big.NewRat(1, 1))
 		}
 		lower := coefficient.Sign() < 0
@@ -200,6 +215,9 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 			kind = fmUpperBound
 		}
 		result = bound
+	}
+	if ast.ASTSourceDebug && kind == fmNoBound {
+		return fmNoBound, nil, ast.ErrASTDomain
 	}
 	return kind, result, nil
 }

@@ -30,7 +30,8 @@ func fmMergeLiterals(lower, upper []int32) ([]int32, bool) {
 			}
 			continue
 		}
-		signs[p] = s
+		// Source marks only the lower literals; repeated upper-only literals
+		// are appended without adding them to that scratch sign table.
 		result = append(result, l)
 	}
 	return result, false

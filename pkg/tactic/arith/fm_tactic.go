@@ -161,6 +161,9 @@ func (t *fmTacticPolicy) readPolicy(c *uparams.ParamsContext, p *uparams.ParamsR
 		return err
 	}
 	t.maxMemory = uint64(n) << 20
+	if n == math.MaxUint32 || t.maxMemory > uint64(^uint(0)) {
+		t.maxMemory = uint64(^uint(0))
+	}
 	key = "fm_real_only"
 	realOnly, err := c.GetBoolName(p, &key, true)
 	if err != nil {

@@ -20,9 +20,13 @@ type FMEliminator struct {
 }
 
 func NewFMEliminator(store *FMConstraintStore, variables *FMVariableTable, config FMEliminationConfig) (*FMEliminator, error) {
-	if store == nil || variables == nil {
+	if store == nil || variables == nil || variables.Index == nil {
 		return nil, ast.ErrASTDomain
 	}
+	if store.index != nil && store.index != variables.Index {
+		return nil, ast.ErrASTDomain
+	}
+	store.index = variables.Index
 	return &FMEliminator{Store: store, Variables: variables, Config: config}, nil
 }
 
