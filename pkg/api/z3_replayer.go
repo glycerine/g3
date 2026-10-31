@@ -46,6 +46,7 @@ type Z3Replayer struct {
 	maps            map[uint64]*replayASTMap
 	fixedpoints     map[uint64]*replayFixedpoint
 	optimizers      map[uint64]*replayOptimize
+	rcfNumbers      map[uint64]*replayRCFNumber
 	nextObjectID    uint64
 	closed          bool
 }
@@ -109,5 +110,6 @@ func (r *Z3Replayer) Close() error {
 	r.maps = nil
 	r.fixedpoints = nil
 	r.optimizers = nil
+	r.rcfNumbers = nil
 	return nil
 }

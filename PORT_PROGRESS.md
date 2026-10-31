@@ -1,3 +1,5 @@
+Generated rational real-closed-field replay (2026-10-31 UTC): connected rational construction, deletion, comparison and display, preserving the source null representation of zero. Normal and checked tests cover incomplete-log cleanup; non-rational values and remaining operations are unfinished. Full native suite on committed snapshot b24ce6b1f passed 108 packages (three had no tests).
+
 Generated Spacer level-query replay (2026-10-31 UTC): connected nullary relation queries at a requested level, including local parameters and timeout handling. Normal and checked tests verify reachable answers and explicitly reject unsupported complex expressions.
 
 Generated fixedpoint answer replay (2026-10-31 UTC): connected answer and Spacer ground-answer retrieval for single-relation queries, including nullary relation expressions. Normal and checked tests verify result ownership and explicitly reject unsupported answer shapes.

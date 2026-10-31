@@ -5996,7 +5996,9 @@
         "pkg/api/z3_generated_parser_commands.go",
         "pkg/api/z3_generated_parser_commands_test.go",
         "pkg/api/api_fixedpoint_object_parameters.go",
-        "pkg/api/api_fixedpoint_object_parameters_test.go"
+        "pkg/api/api_fixedpoint_object_parameters_test.go",
+        "pkg/api/z3_generated_rcf_commands.go",
+        "pkg/api/z3_generated_rcf_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6115,7 +6117,8 @@
         "TestAPIFixedpointParametersValidateCatalog",
         "TestGeneratedFixedpointReplayParameterUpdate",
         "TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation",
-        "TestGeneratedFixedpointReplayRejectsComplexLevelQuery"
+        "TestGeneratedFixedpointReplayRejectsComplexLevelQuery",
+        "TestGeneratedRCFRationalReplayZeroAndLifecycle"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6170,7 +6173,8 @@
         "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished.",
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Fixedpoint answer replay currently supports single-relation queries, including nullary relation expressions; other expression and multi-relation answer shapes are explicitly unsupported.",
-        "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported."
+        "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported.",
+        "Real-closed-field replay currently supports rational construction, deletion, comparisons and display. Non-rational values and remaining operations are unfinished."
       ]
     },
     {
