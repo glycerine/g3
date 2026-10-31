@@ -13,12 +13,29 @@ type unfoldedClause struct {
 	manager          *ast.ASTManager
 	head, constraint ast.ASTRef
 	predicates       []ast.ASTRef
+	bindings         *substitution.Substitution
+	rename           []ast.ASTRef
+	maxVars          uint32
 }
 
 func (u *unfoldedClause) Close() error {
 	if u == nil || u.manager == nil {
 		return nil
 	}
+	if u.bindings != nil {
+		if err := u.bindings.Close(); err != nil {
+			return err
+		}
+		u.bindings = nil
+	}
+	for i := range u.rename {
+		if u.rename[i] != (ast.ASTRef{}) {
+			if err := u.manager.DelRef(&u.rename[i]); err != nil {
+				return err
+			}
+		}
+	}
+	u.rename = nil
 	for i := range u.predicates {
 		if u.predicates[i] != (ast.ASTRef{}) {
 			if err := u.manager.DelRef(&u.predicates[i]); err != nil {
@@ -41,6 +58,10 @@ func (u *unfoldedClause) Close() error {
 // unfoldClauseExpressions unifies two source variable banks and publishes the
 // substituted head, ordered predicates, and conjunction before QE.
 func unfoldClauseExpressions(target *Clause, selected uint32, source *Clause) (result *unfoldedClause, matched bool, err error) {
+	return unfoldClauseExpressionsWithBindings(target, selected, source, false)
+}
+
+func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source *Clause, saveBindings bool) (result *unfoldedClause, matched bool, err error) {
 	if target == nil || source == nil || target.closed || source.closed || target.manager != source.manager {
 		return nil, false, ast.ErrASTHandle
 	}
@@ -67,7 +88,12 @@ func unfoldClauseExpressions(target *Clause, selected uint32, source *Clause) (r
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { err = errors.Join(err, subst.Close()) }()
+	transferred := false
+	defer func() {
+		if !transferred {
+			err = errors.Join(err, subst.Close())
+		}
+	}()
 	count := target.numVars
 	if source.numVars > count {
 		count = source.numVars
@@ -157,6 +183,11 @@ func unfoldClauseExpressions(target *Clause, selected uint32, source *Clause) (r
 	result.constraint, err = m.NewRef(conjunction)
 	if err != nil {
 		return result, false, err
+	}
+	if saveBindings {
+		result.bindings = subst
+		result.maxVars = count
+		transferred = true
 	}
 	return result, true, nil
 }

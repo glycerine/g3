@@ -59,7 +59,7 @@ func TestUnfoldClauseExpressionsUnifiesBanksAndOrdersPredicates(t *testing.T) {
 	source, err := NewClause(m, rw, app(p, x), []ast.ASTHandle{app(q, x), app(s, x)}, bound(2, x, two))
 	must(err)
 	defer func() { must(source.Close()) }()
-	result, matched, err := unfoldClauseExpressions(target, 0, source)
+	result, matched, err := unfoldClauseExpressionsWithBindings(target, 0, source, true)
 	must(err)
 	if !matched || result == nil {
 		t.Fatal("unification failed")
@@ -113,6 +113,23 @@ func TestUnfoldClauseExpressionsUnifiesBanksAndOrdersPredicates(t *testing.T) {
 	must(err)
 	if len(finalPreds) != 3 {
 		t.Fatal("finalization lost predicates")
+	}
+	substitutions, err := result.proofSubstitutions(target, source)
+	must(err)
+	defer func() { must(substitutions.Close()) }()
+	finalHead, err := final.Head()
+	must(err)
+	finalVariable, err := m.GetArg(finalHead, 0)
+	must(err)
+	for _, bank := range substitutions.banks {
+		if len(bank) != 1 {
+			t.Fatal("wrong proof substitution size")
+		}
+		value, e := m.RefGet(bank[0])
+		must(e)
+		if value != finalVariable {
+			t.Fatal("proof substitution disagrees with unfolded clause")
+		}
 	}
 	truth, err := m.MkTrue()
 	must(err)

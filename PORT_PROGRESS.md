@@ -1,3 +1,5 @@
+Tabulation proof substitutions (2026-10-31 UTC): unfolding can preserve its two variable-bank substitution and compacted renaming, then extract owned per-rule substitutions for proof replay. Normal and checked tabulation tests verify both banks agree with the finalized clause; proof assembly and fixedpoint integration remain unfinished.
+
 Tabulation internal search (2026-10-31 UTC): connected rule selection, unfolding, tautology checks, subsumption and backtracking, with owned clause paths and source status polarity. Normal and checked tests cover a two-rule derivation, a failed query and recursive-cycle subsumption. Proof reconstruction, counterexample caching and public fixedpoint integration remain unfinished.
 
 Tabulation subsumption search (2026-10-31 UTC): connected grounded goals, semantic matching, scoped substitution backtracking and solver validation, returning the matching clause sequence. Normal and checked tabulation package tests cover a failed predicate match followed by a successful alternative and solver cleanup. The counterexample cache and fixedpoint search loop remain unfinished.

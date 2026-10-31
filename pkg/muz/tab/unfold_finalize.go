@@ -87,6 +87,16 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		return nil, false, err
 	}
 	renaming := make([]ast.ASTHandle, free.Size())
+	if u.bindings != nil {
+		for i := range u.rename {
+			if u.rename[i] != (ast.ASTRef{}) {
+				if err = m.DelRef(&u.rename[i]); err != nil {
+					return nil, false, err
+				}
+			}
+		}
+		u.rename = make([]ast.ASTRef, free.Size())
+	}
 	next := uint32(0)
 	changed := false
 	for i := range renaming {
@@ -106,7 +116,11 @@ func finalizeUnfoldedClause(u *unfoldedClause, rw *rewriter.TheoryRewriter, lite
 		if e != nil {
 			return nil, false, e
 		}
-		temps = append(temps, ref)
+		if u.bindings != nil {
+			u.rename[i] = ref
+		} else {
+			temps = append(temps, ref)
+		}
 		next++
 	}
 	if !changed {
