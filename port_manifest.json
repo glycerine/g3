@@ -105994,9 +105994,16 @@
       "path": "src/qe/qe_array_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/qe/qe_array_plugin.go",
+        "pkg/qe/qe_array_plugin_direct.go",
+        "pkg/qe/qe_array_plugin_test.go"
+      ],
+      "tests": [
+        "TestArrayPluginRecognizesSafeStoreAndSelectChains",
+        "TestArrayPluginEliminatesDirectEqualityInEitherOrientation"
+      ],
       "assertions": [
         {
           "line": 76,
@@ -106005,9 +106012,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "is_array_app_of/is_select/is_store_update: source-order nested array chain recognition and occurrence rejection",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_array_plugin.go",
+          "tests": [
+            "TestArrayPluginRecognizesSafeStoreAndSelectChains"
+          ]
+        },
+        {
+          "name": "solve_eq direct variable branch: both orientations, occurs check, safe substitution and context elimination",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_array_plugin_direct.go",
+          "tests": [
+            "TestArrayPluginEliminatesDirectEqualityInEitherOrientation"
+          ]
+        }
+      ],
+      "ownership": [
+        "The plugin borrows its context and expression roots; the context owns a registered plugin and acquires the rewritten formula before removing the variable."
+      ],
+      "deviations": [
+        "Pending: solve_store, solve_select, arithmetic zero-equation handling, top-level solve orchestration, diagnostics, allocation-failure audit and live QE solver registration."
+      ]
     },
     {
       "path": "src/qe/qe_arrays.cpp",
