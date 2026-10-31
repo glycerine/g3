@@ -174157,10 +174157,13 @@
       "go_targets": [
         "pkg/tactic/arith/recover_01_collect.go",
         "pkg/tactic/arith/unstarted_collectors_test.go",
-        "pkg/tactic/arith/eq2bv_collect.go"
+        "pkg/tactic/arith/eq2bv_collect.go",
+        "pkg/tactic/arith/recover_01_coeff.go",
+        "pkg/tactic/arith/recover_01_coeff_test.go"
       ],
       "tests": [
-        "TestRecover01ClauseShapeSizeAndFirstArity"
+        "TestRecover01ClauseShapeSizeAndFirstArity",
+        "TestRecover01CoefficientsTruthTables"
       ],
       "assertions": [
         {
@@ -174198,14 +174201,23 @@
           "tests": [
             "TestRecover01ClauseShapeSizeAndFirstArity"
           ]
+        },
+        {
+          "name": "find_zero_cls/find_coeff/process truth-table validation: complement indexing, duplicate consistency, complete assignments and additive rational coefficients",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/recover_01_coeff.go",
+          "tests": [
+            "TestRecover01CoefficientsTruthTables"
+          ]
         }
       ],
       "ownership": [
         "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
       ],
       "deviations": [
-        "Pending: zero-clause search, literal assignment indexing, complete coefficient recovery, substitutions, model/proof conversion, lifecycle and public tactic integration.",
-        "New source start only; not registered as an executable tactic and not claimed source-complete."
+        "Pending: substitutions, model/proof conversion, lifecycle and public tactic integration.",
+        "New source start only; not registered as an executable tactic and not claimed source-complete.",
+        "Truth-table analysis supports clause sizes through 31 and borrows clause handles; fresh variables, substitutions and model conversion remain unimplemented."
       ]
     },
     {
