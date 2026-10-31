@@ -5934,7 +5934,9 @@
         "pkg/api/api_global_params.go",
         "pkg/api/z3_generated_quantifier_commands.go",
         "pkg/api/z3_generated_quantifier_commands_test.go",
-        "pkg/cmd/g3/z3_log_frontend_test.go"
+        "pkg/cmd/g3/z3_log_frontend_test.go",
+        "pkg/api/z3_generated_quantifier_inspection.go",
+        "pkg/api/z3_generated_quantifier_inspection_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -5959,7 +5961,8 @@
         "TestZ3LogFrontendReplaysQuantifier",
         "TestGeneratedConstantQuantifierReplay",
         "TestGeneratedConstantQuantifierReplayRejectsEmptyBounds",
-        "TestZ3LogFrontendReplaysConstantQuantifier"
+        "TestZ3LogFrontendReplaysConstantQuantifier",
+        "TestGeneratedQuantifierInspectionReplayBorrowedASTs"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -5989,6 +5992,18 @@
           "tests": [
             "TestGeneratedConstantQuantifierReplay",
             "TestGeneratedConstantQuantifierReplayRejectsEmptyBounds",
+            "TestZ3LogFrontendReplaysConstantQuantifier"
+          ]
+        },
+        {
+          "name": "generated replay of pattern and quantifier inspection with borrowed AST results",
+          "status": "partial",
+          "go_target": "pkg/api/z3_generated_quantifier_inspection.go",
+          "go_targets": [
+            "pkg/cmd/g3/z3_log_frontend_test.go"
+          ],
+          "tests": [
+            "TestGeneratedQuantifierInspectionReplayBorrowedASTs",
             "TestZ3LogFrontendReplaysConstantQuantifier"
           ]
         }

@@ -66,6 +66,7 @@ func TestZ3LogFrontendReplaysConstantQuantifier(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
 		"R\nP 0x41\n# 37\nP 0x42\nC 51\n= 0x43\n" +
 		"R\nP 0x41\nU 1\nU 1\nP 0x43\np 1\nU 0\np 0\nP 0x43\nC 196\n= 0x44\n" +
+		"R\nP 0x41\nP 0x44\nC 277\nR\nP 0x41\nP 0x44\nC 278\nR\nP 0x41\nP 0x44\nC 279\nR\nP 0x41\nP 0x44\nC 281\n" +
 		"M \"constant-quantifier-replayed\"\n"
 	var out, diagnostics bytes.Buffer
 	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
