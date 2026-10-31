@@ -1,3 +1,5 @@
+Generated numeral inspection replay (2026-10-31 UTC): added numeral recognition, string and decimal queries, rational parts and integer output conversions. Normal and checked tests cover signed rational outputs and unchanged outputs on failed unsigned conversions; other generated commands remain unfinished.
+
 Generated relation and datatype update replay (2026-10-31 UTC): added relation arity/column queries and the source field-update path. Normal and checked tests cover returned columns and the source fork’s field-update error; other generated commands remain unfinished.
 
 Generated datatype inspection replay (2026-10-31 UTC): added tuple and datatype constructor, recognizer and field queries. Normal and checked tests verify borrowed identities and unchanged AST-trail ownership; other generated commands remain unfinished.

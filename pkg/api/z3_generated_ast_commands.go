@@ -60,7 +60,10 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 	if err := registerZ3GeneratedPseudoBooleanCommands(r); err != nil {
 		return err
 	}
-	return registerZ3GeneratedDatatypeInspection(r)
+	if err := registerZ3GeneratedDatatypeInspection(r); err != nil {
+		return err
+	}
+	return registerZ3GeneratedNumeralInspection(r)
 }
 func replayIncAST(r *Z3Replayer) error {
 	owner, err := replayContext(r, 0)
