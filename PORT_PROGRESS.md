@@ -52262,3 +52262,5 @@ PDR search-tree source driver started: translated 100 seeded level-four trees wi
 Finite-domain theory source driver: recreated the 111-element sort and the source's successive a<b, b<c and c<a constraints. The first two checks validate the generated model values and their ordering; the final cycle must be unsatisfiable.
 
 Pseudo-Boolean theory source driver started: translated all constant-literal cardinality cases for widths 4 through 10, checking both the exact population count and the impossible next bound with scoped solver assertions. The source's nested randomized fuzzer remains open.
+
+Set-union API regression driver: translated the source's pushed solver, integer-set union and model retrieval. The model is evaluated for membership of 42, 43 and 44, checking both included elements and a nonmember.

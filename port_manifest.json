@@ -199337,14 +199337,14 @@
       "path": "src/test/api_bug.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": ["pkg/api/api_bug_cpp_test.go"],
+      "tests": ["TestAPISourceSetUnionModel"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_api_bug", "status": "ported", "go_target": "pkg/api/api_bug_cpp_test.go", "tests": ["TestAPISourceSetUnionModel"]}],
+      "ownership": ["The fixture owns AST references and the test closes the solver and acquired model."],
+      "deviations": ["Version and model output are omitted; the model is checked by evaluating membership for 42, 43 and 44."]
     },
     {
       "path": "src/test/argument_parser.h",
