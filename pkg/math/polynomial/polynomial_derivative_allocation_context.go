@@ -33,54 +33,74 @@ func numericIntegerModularManager_derivativeAllocationContext(m *unumeral.Intege
 	return integerAllocationInvocationContext{derivative: r}
 }
 
+// Skip validators for absent owners: each validator takes the large context
+// by value, while every present owner still follows its usual validation path.
 func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.IntegerModularManager, out *unumeral.Int, context integerAllocationInvocationContext) error {
-	if q := context.oneHalfRootFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.knuthFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.rootUpperBoundFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.removeOneHalfRootFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.integerEvaluationFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.rationalEvaluationFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.binaryEvaluationFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
-		return e
-	}
-	if q := context.algebraicNegFrame(m.Integers()); q != nil && q.owner.config.Polynomials.modular == m {
-		child := &q.normalize
-		if context.algebraicNegEval {
-			child = &q.eval.normalize
+	if context.oneHalfRoot != nil {
+		if q := context.oneHalfRootFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
 		}
-		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, child)
-		var cause error
-		if context.algebraicNegEval {
-			if q.eval.sourceCause == nil {
-				q.eval.sourceCause = cause
+	}
+	if context.knuth != nil {
+		if q := context.knuthFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
+		}
+	}
+	if context.rootUpperBound != nil {
+		if q := context.rootUpperBoundFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
+		}
+	}
+	if context.removeOneHalfRoot != nil {
+		if q := context.removeOneHalfRootFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
+		}
+	}
+	if context.integerEvaluation != nil {
+		if q := context.integerEvaluationFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
+		}
+	}
+	if context.rationalEvaluation != nil {
+		if q := context.rationalEvaluationFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
+		}
+	}
+	if context.binaryEvaluation != nil {
+		if q := context.binaryEvaluationFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &q.normalize)
+			return e
+		}
+	}
+	if context.algebraicNeg != nil {
+		if q := context.algebraicNegFrame(m.Integers()); q != nil && q.owner.config.Polynomials.modular == m {
+			child := &q.normalize
+			if context.algebraicNegEval {
+				child = &q.eval.normalize
 			}
-		} else if q.sourceCause == nil {
-			q.sourceCause = cause
+			e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, child)
+			var cause error
+			if context.algebraicNegEval {
+				if q.eval.sourceCause == nil {
+					q.eval.sourceCause = cause
+				}
+			} else if q.sourceCause == nil {
+				q.sourceCause = cause
+			}
+			return e
 		}
-		return e
 	}
-	if q := context.upolyDisplayFrame(m.Integers()); q != nil && q.owner.modular == m {
-		e := m.PNormalizeWithReceipt(out, &q.normalize)
-		return e
+	if context.upolyDisplay != nil {
+		if q := context.upolyDisplayFrame(m.Integers()); q != nil && q.owner.modular == m {
+			e := m.PNormalizeWithReceipt(out, &q.normalize)
+			return e
+		}
 	}
 
 	if r := context.factorNumeralVector; r != nil && numericIntegerManager_factorNumeralVectorRoots(m.Integers(), context) != nil && r.frame.outputManager != nil && r.frame.outputManager.modular == m {
@@ -97,14 +117,14 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		}
 		return e
 	}
-	if r := context.factorMemberSet; numericIntegerManager_factorMemberSetRoots(m.Integers(), context) != nil && r.owner.manager.core.modular == m {
+	if r := context.factorMemberSet; r != nil && numericIntegerManager_factorMemberSetRoots(m.Integers(), context) != nil && r.owner.manager.core.modular == m {
 		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.factorConstant; numericIntegerManager_factorConstantContextRoots(m.Integers(), context) != nil && r.manager.manager.core.modular == m {
+	if r := context.factorConstant; r != nil && numericIntegerManager_factorConstantContextRoots(m.Integers(), context) != nil && r.manager.manager.core.modular == m {
 		child := &r.frame.normalize[r.frame.phase]
 		e := m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, child)
 		if r.frame.sourceCause == nil {
@@ -112,76 +132,96 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		}
 		return e
 	}
-	if b := context.factorFrontendConstantFrame(m.Integers()); b != nil && b.service.manager.modular == m {
-		return m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &b.normalize)
+	if context.factorFrontendConstant != nil {
+		if b := context.factorFrontendConstantFrame(m.Integers()); b != nil && b.service.manager.modular == m {
+			return m.WithAllocationContext((context).utility(m.Integers())).PNormalizeWithFactorHistoryTracked(out, &b.normalize)
+		}
 	}
-	if q := context.factorFrontendFrame(m.Integers()); q != nil && q.service.manager.modular == m {
-		e := m.PNormalizeWithReceipt(out, &q.normalize)
-		return e
+	if context.factorFrontend != nil {
+		if q := context.factorFrontendFrame(m.Integers()); q != nil && q.service.manager.modular == m {
+			e := m.PNormalizeWithReceipt(out, &q.normalize)
+			return e
+		}
 	}
-	if q := context.preparationFrame(m.Integers()); q != nil && q.service.manager.modular == m {
-		e := m.PNormalizeWithReceipt(out, &q.normalize)
-		return e
+	if context.preparation != nil {
+		if q := context.preparationFrame(m.Integers()); q != nil && q.service.manager.modular == m {
+			e := m.PNormalizeWithReceipt(out, &q.normalize)
+			return e
+		}
 	}
-	if q := context.primePreparationFrame(m.Integers()); q != nil && context.primePreparationManager.modular == m {
-		child := q.normalizeReceipt(m)
-		e := m.PNormalizeWithReceipt(out, child)
-		return e
+	if context.primePreparation != nil {
+		if q := context.primePreparationFrame(m.Integers()); q != nil && context.primePreparationManager.modular == m {
+			child := q.normalizeReceipt(m)
+			e := m.PNormalizeWithReceipt(out, child)
+			return e
+		}
 	}
-	if q := context.recombinationFrame(m.Integers()); q != nil && context.recombinationManager.modular == m {
-		child := q.normalizeReceipt(m)
-		e := m.PNormalizeWithReceipt(out, child)
-		return e
+	if context.recombination != nil {
+		if q := context.recombinationFrame(m.Integers()); q != nil && context.recombinationManager.modular == m {
+			child := q.normalizeReceipt(m)
+			e := m.PNormalizeWithReceipt(out, child)
+			return e
+		}
 	}
-	if q := context.trialFrame(m.Integers()); q != nil && context.trialManager.modular == m {
-		child := q.normalizeReceipt(m)
-		e := m.PNormalizeWithReceipt(out, child)
-		return e
+	if context.trial != nil {
+		if q := context.trialFrame(m.Integers()); q != nil && context.trialManager.modular == m {
+			child := q.normalizeReceipt(m)
+			e := m.PNormalizeWithReceipt(out, child)
+			return e
+		}
 	}
-	if q := context.henselCallerFrame(m.Integers()); q != nil && context.henselCallerManager.modular == m {
-		child := q.normalizeReceipt(m)
-		e := m.PNormalizeWithReceipt(out, child)
-		return e
+	if context.henselCaller != nil {
+		if q := context.henselCallerFrame(m.Integers()); q != nil && context.henselCallerManager.modular == m {
+			child := q.normalizeReceipt(m)
+			e := m.PNormalizeWithReceipt(out, child)
+			return e
+		}
 	}
 
-	if r := context.henselPairReceipt(m.Integers()); r != nil && context.henselManager.modular == m {
-		child := r.frame.normalizeReceipt(m)
-		e := m.PNormalizeWithReceipt(out, child)
-		if r.frame.sourceCause == nil {
-			r.frame.sourceCause = nil
+	if context.henselPair != nil {
+		if r := context.henselPairReceipt(m.Integers()); r != nil && context.henselManager.modular == m {
+			child := r.frame.normalizeReceipt(m)
+			e := m.PNormalizeWithReceipt(out, child)
+			if r.frame.sourceCause == nil {
+				r.frame.sourceCause = nil
+			}
+			return e
 		}
-		return e
 	}
 
-	if r := context.iccpConstant; numericIntegerManager_iccpConstantContextRoots(m.Integers(), context) != nil && r.manager.core.modular == m {
+	if r := context.iccpConstant; r != nil && numericIntegerManager_iccpConstantContextRoots(m.Integers(), context) != nil && r.manager.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.primeTrialReceipt(m.Integers()); r != nil && (r.frame.zp.modular == m || r.service.manager.modular == m) {
+	if context.primeTrial != nil {
+		if r := context.primeTrialReceipt(m.Integers()); r != nil && (r.frame.zp.modular == m || r.service.manager.modular == m) {
+			e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
+			if r.frame.sourceCause == nil {
+				r.frame.sourceCause = nil
+			}
+			return e
+		}
+	}
+	if r := context.pseudo; r != nil && numericIntegerManager_pseudoContextRoots(m.Integers(), context) != nil && r.manager.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.pseudo; numericIntegerManager_pseudoContextRoots(m.Integers(), context) != nil && r.manager.modular == m {
-		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
-		if r.frame.sourceCause == nil {
-			r.frame.sourceCause = nil
+	if context.mignotte != nil {
+		if r := context.mignotteReceipt(m.Integers()); r != nil && r.service.manager.modular == m {
+			e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
+			if r.frame.sourceCause == nil {
+				r.frame.sourceCause = nil
+			}
+			return e
 		}
-		return e
 	}
-	if r := context.mignotteReceipt(m.Integers()); r != nil && r.service.manager.modular == m {
-		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
-		if r.frame.sourceCause == nil {
-			r.frame.sourceCause = nil
-		}
-		return e
-	}
-	if r := context.divides; numericIntegerManager_dividesContextRoots(m.Integers(), context) != nil && r.core.modular == m {
+	if r := context.divides; r != nil && numericIntegerManager_dividesContextRoots(m.Integers(), context) != nil && r.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
@@ -195,14 +235,14 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		}
 		return e
 	}
-	if r := context.scalarExact; numericIntegerManager_scalarExactContextRoots(m.Integers(), context) != nil && r.core.modular == m {
+	if r := context.scalarExact; r != nil && numericIntegerManager_scalarExactContextRoots(m.Integers(), context) != nil && r.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.exactDiv; numericIntegerManager_exactDivContextRoots(m.Integers(), context) != nil && r.core.modular == m {
+	if r := context.exactDiv; r != nil && numericIntegerManager_exactDivContextRoots(m.Integers(), context) != nil && r.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
@@ -210,35 +250,41 @@ func numericIntegerModularManager_normalizeWithSourceContext(m *unumeral.Integer
 		return e
 	}
 
-	if r := context.somNormalizeReceipt(m.Integers()); r != nil && r.manager.modular == m {
+	if context.somNormalize != nil {
+		if r := context.somNormalizeReceipt(m.Integers()); r != nil && r.manager.modular == m {
+			e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
+			if r.frame.sourceCause == nil {
+				r.frame.sourceCause = nil
+			}
+			return e
+		}
+	}
+	if context.normalization != nil {
+		if r := context.normalizationReceipt(m.Integers()); r != nil && r.manager.core.modular == m {
+			e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
+			if r.frame.sourceCause == nil {
+				r.frame.sourceCause = nil
+			}
+			return e
+		}
+	}
+	if context.content != nil {
+		if r := context.contentReceipt(m.Integers()); r != nil && r.manager.modular == m {
+			e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
+			if r.frame.cleanupCause == nil {
+				r.frame.cleanupCause = nil
+			}
+			return e
+		}
+	}
+	if r := context.scalarDiv; r != nil && numericIntegerManager_scalarDivAllocationRoots(m.Integers(), r) != nil && r.manager.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
 		}
 		return e
 	}
-	if r := context.normalizationReceipt(m.Integers()); r != nil && r.manager.core.modular == m {
-		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
-		if r.frame.sourceCause == nil {
-			r.frame.sourceCause = nil
-		}
-		return e
-	}
-	if r := context.contentReceipt(m.Integers()); r != nil && r.manager.modular == m {
-		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
-		if r.frame.cleanupCause == nil {
-			r.frame.cleanupCause = nil
-		}
-		return e
-	}
-	if r := context.scalarDiv; numericIntegerManager_scalarDivAllocationRoots(m.Integers(), r) != nil && r.manager.modular == m {
-		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
-		if r.frame.sourceCause == nil {
-			r.frame.sourceCause = nil
-		}
-		return e
-	}
-	if r := context.derivative; numericIntegerManager_derivativeAllocationRoots(m.Integers(), r) != nil && r.manager.core.modular == m {
+	if r := context.derivative; r != nil && numericIntegerManager_derivativeAllocationRoots(m.Integers(), r) != nil && r.manager.core.modular == m {
 		e := m.PNormalizeWithReceipt(out, &r.frame.normalize)
 		if r.frame.sourceCause == nil {
 			r.frame.sourceCause = nil
