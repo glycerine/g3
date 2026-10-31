@@ -90298,13 +90298,15 @@
         "pkg/muz/rel/external_relation.go",
         "pkg/muz/rel/external_relation_test.go",
         "pkg/ast/ast_datalog_relation_simple.go",
-        "pkg/muz/rel/external_relation_transform.go"
+        "pkg/muz/rel/external_relation_transform.go",
+        "pkg/muz/rel/external_relation_filter.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
         "TestExternalRelationFallbackAndFormula",
         "TestExternalRelationProjectAndRename",
-        "TestExternalRelationJoinUnionAndWiden"
+        "TestExternalRelationJoinUnionAndWiden",
+        "TestExternalRelationFilters"
       ],
       "assertions": [
         {
@@ -90359,13 +90361,21 @@
           "tests": [
             "TestExternalRelationJoinUnionAndWiden"
           ]
+        },
+        {
+          "name": "external interpreted, equality, identical-column and negation filters",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation_filter.go",
+          "tests": [
+            "TestExternalRelationFilters"
+          ]
         }
       ],
       "ownership": [
         "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
       ],
       "deviations": [
-        "Filters, fixedpoint callback registration and callback trail lifetime remain pending.",
+        "Fixedpoint callback registration and callback trail lifetime remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
         "Full ownership and failure-frontier audits remain pending."
       ]
@@ -90379,13 +90389,15 @@
         "pkg/muz/rel/external_relation.go",
         "pkg/muz/rel/external_relation_test.go",
         "pkg/ast/ast_datalog_relation_simple.go",
-        "pkg/muz/rel/external_relation_transform.go"
+        "pkg/muz/rel/external_relation_transform.go",
+        "pkg/muz/rel/external_relation_filter.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
         "TestExternalRelationFallbackAndFormula",
         "TestExternalRelationProjectAndRename",
-        "TestExternalRelationJoinUnionAndWiden"
+        "TestExternalRelationJoinUnionAndWiden",
+        "TestExternalRelationFilters"
       ],
       "conditionals": [
         {
@@ -90424,13 +90436,21 @@
           "tests": [
             "TestExternalRelationJoinUnionAndWiden"
           ]
+        },
+        {
+          "name": "external interpreted, equality, identical-column and negation filters",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation_filter.go",
+          "tests": [
+            "TestExternalRelationFilters"
+          ]
         }
       ],
       "ownership": [
         "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
       ],
       "deviations": [
-        "Filters, fixedpoint callback registration and callback trail lifetime remain pending.",
+        "Fixedpoint callback registration and callback trail lifetime remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
         "Full ownership and failure-frontier audits remain pending."
       ]

@@ -1,3 +1,5 @@
+External relation filters (2026-10-31 UTC): added interpreted, equality, identical-column and negation assignment callbacks with source argument order. Tests verify operator kinds, callback outputs, invalid columns and the source empty-negation guard.
+
 External relation plugin and binary operations (2026-10-31 UTC): added shared concrete plugin identity, external join reduction, and union/widening assignment with optional delta output. Tests check callback argument order, fallback joins and rejection of different plugin instances.
 
 External relation transforms (2026-10-31 UTC): implemented project and rename through typed reduction callbacks and source Datalog operator construction, including source signature permutation and validation. Tests cover callback dispatch, fallback expressions and invalid column lists.

@@ -210,3 +210,54 @@ func TestExternalRelationJoinUnionAndWiden(t *testing.T) {
 		t.Fatal("unioned different callback plugins")
 	}
 }
+
+func TestExternalRelationFilters(t *testing.T) {
+	f := newTableRelationFixture(t)
+	var ops []int32
+	callbacks := ExternalRelationCallbacks{ReduceAssign: func(decl ast.ASTHandle, args, outputs []ast.ASTHandle) error {
+		op, err := f.ast.GetDeclKind(decl)
+		if err != nil {
+			return err
+		}
+		if op != ast.DatalogOpEmpty {
+			if len(outputs) != 1 || len(args) == 0 || outputs[0] != args[0] {
+				t.Fatal("filter assignment arguments", args, outputs)
+			}
+			ops = append(ops, op)
+		}
+		return nil
+	}}
+	plugin, err := NewExternalRelationPlugin(f.relations, callbacks)
+	astTestMust(t, err)
+	left, err := plugin.NewEmpty([]ast.ASTHandle{f.boolean, f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, left.Close()) }()
+	right, err := plugin.NewEmpty([]ast.ASTHandle{f.boolean, f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, right.Close()) }()
+	variable, err := f.ast.MkVar(0, f.boolean)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, variable)
+	condition, err := f.ast.MkNot(variable)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, condition)
+	astTestMust(t, left.FilterInterpreted(condition))
+	astTestMust(t, left.FilterEqual(1, f.truth))
+	astTestMust(t, left.FilterIdentical([]uint32{0, 1}))
+	astTestMust(t, left.FilterNegation(right, []uint32{1}, []uint32{0}))
+	want := []int32{ast.DatalogOpFilter, ast.DatalogOpFilter, ast.DatalogOpFilter, ast.DatalogOpNegationFilter}
+	if len(ops) != len(want) {
+		t.Fatal("filter callbacks", ops)
+	}
+	for i := range want {
+		if ops[i] != want[i] {
+			t.Fatal("filter callback order", ops)
+		}
+	}
+	if err = left.FilterEqual(2, f.truth); err == nil {
+		t.Fatal("invalid equality column accepted")
+	}
+	if err = left.FilterNegation(right, nil, nil); err == nil {
+		t.Fatal("source empty negation guard was bypassed")
+	}
+}
