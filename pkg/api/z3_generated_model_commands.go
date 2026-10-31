@@ -5,6 +5,8 @@ package api
 import (
 	"errors"
 	"reflect"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 type replayModel struct {
@@ -29,6 +31,7 @@ func RegisterZ3GeneratedModelCommands(r *Z3Replayer) error {
 		{302, "Z3_model_get_num_consts", replayModelNumConsts}, {303, "Z3_model_get_const_decl", replayModelConstDecl},
 		{304, "Z3_model_get_num_funcs", replayModelNumFuncs}, {305, "Z3_model_get_func_decl", replayModelFuncDecl},
 		{306, "Z3_model_get_num_sorts", replayModelNumSorts}, {307, "Z3_model_get_sort", replayModelSort},
+		{308, "Z3_model_get_sort_universe", replayModelUniverse},
 		{309, "Z3_model_translate", replayModelTranslate}, {310, "Z3_is_as_array", replayIsAsArray},
 		{311, "Z3_get_as_array_func_decl", replayAsArrayFunction}, {313, "Z3_add_const_interp", replayModelAddConst},
 		{333, "Z3_model_to_string", replayModelString}, {431, "Z3_solver_get_model", replaySolverGetModel},
@@ -320,4 +323,32 @@ func replayModelAddConst(r *Z3Replayer) error {
 		return err
 	}
 	return m.value.RegisterConstant(declaration.handle, value.handle)
+}
+
+func replayModelUniverse(r *Z3Replayer) (err error) {
+	m, err := replayGetModel(r)
+	if err != nil {
+		return err
+	}
+	sort, err := r.astObject(m.owner, 2)
+	if err != nil {
+		return err
+	}
+	universe, err := m.value.Universe(sort.handle)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, universe.Close()) }()
+	values := make([]ast.ASTHandle, universe.Size())
+	for i := range values {
+		values[i], err = universe.At(uint32(i))
+		if err != nil {
+			return err
+		}
+	}
+	vector, err := m.owner.context.NewASTVectorValues(values...)
+	if err != nil {
+		return err
+	}
+	return replayStoreVector(r, m.owner, vector)
 }

@@ -5,6 +5,8 @@ package api
 import (
 	"errors"
 	"reflect"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 type replaySolver struct {
@@ -50,6 +52,8 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		{414, "Z3_solver_get_param_descrs", replaySolverDescriptions}, {415, "Z3_solver_set_params", replaySolverSetParams}, {416, "Z3_solver_inc_ref", replaySolverIncRef}, {417, "Z3_solver_dec_ref", replaySolverDecRef},
 		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {420, "Z3_solver_reset", replaySolverReset}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
+		{424, "Z3_solver_get_assertions", func(r *Z3Replayer) error { return replaySolverVector(r, false) }},
+		{433, "Z3_solver_get_unsat_core", func(r *Z3Replayer) error { return replaySolverVector(r, true) }},
 		{426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},
 		{428, "Z3_solver_check_assumptions", replaySolverCheckAssumptions}, {434, "Z3_solver_get_reason_unknown", replaySolverReasonUnknown},
 		{436, "Z3_solver_to_string", replaySolverString},
@@ -262,4 +266,38 @@ func replaySolverString(r *Z3Replayer) error {
 	}
 	_, e = s.value.String()
 	return e
+}
+
+func replaySolverVector(r *Z3Replayer, core bool) (err error) {
+	s, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	var refs []ast.ASTRef
+	if core {
+		refs, err = s.value.UnsatCore()
+	} else {
+		refs, err = s.value.Assertions()
+	}
+	if err != nil {
+		return err
+	}
+	manager := s.owner.results.manager
+	defer func() {
+		for i := range refs {
+			err = errors.Join(err, manager.DelRef(&refs[i]))
+		}
+	}()
+	values := make([]ast.ASTHandle, len(refs))
+	for i := range refs {
+		values[i], err = manager.RefGet(refs[i])
+		if err != nil {
+			return err
+		}
+	}
+	vector, err := s.owner.context.NewASTVectorValues(values...)
+	if err != nil {
+		return err
+	}
+	return replayStoreVector(r, s.owner, vector)
 }

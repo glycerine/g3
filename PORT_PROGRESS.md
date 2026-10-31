@@ -1,3 +1,5 @@
+Generated vector-producing model and solver replay (2026-10-31 UTC): added model universes, solver assertions and unsat cores. Normal and checked tests verify vector contents survive model release and solver reset; other generated commands remain unfinished.
+
 Generated AST vector replay (2026-10-31 UTC): added vector lifetime, inspection, mutation, translation and display commands. Normal and checked API/CLI tests cover empty slots, target ownership after source closure and incomplete-log cleanup; other generated commands remain unfinished.
 
 Generated goal operation replay (2026-10-31 UTC): added assertions, inspection, reset, translation and display. Normal and checked API/CLI tests verify saved formulas and translated goals after source-context closure; other generated commands remain unfinished.

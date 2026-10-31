@@ -5959,7 +5959,9 @@
         "pkg/api/z3_generated_goal_commands.go",
         "pkg/api/z3_generated_goal_commands_test.go",
         "pkg/api/z3_generated_vector_commands.go",
-        "pkg/api/z3_generated_vector_commands_test.go"
+        "pkg/api/z3_generated_vector_commands_test.go",
+        "pkg/api/z3_generated_vector_consumers_test.go",
+        "pkg/api/z3_generated_solver_commands.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6015,7 +6017,9 @@
         "TestZ3LogFrontendReplaysGoal",
         "TestGeneratedASTVectorReplayOperationsAndTranslation",
         "TestGeneratedASTVectorReplayClosesIncompleteLog",
-        "TestZ3LogFrontendReplaysASTVector"
+        "TestZ3LogFrontendReplaysASTVector",
+        "TestGeneratedModelUniverseVectorReplay",
+        "TestGeneratedSolverAssertionAndCoreVectorsReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,
