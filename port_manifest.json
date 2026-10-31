@@ -102312,7 +102312,9 @@
         "TestOptimizationObjectiveSharedRepairDecrementsRealOrInteger",
         "TestOptimizationObjectiveUnsharedRefreshAndSavedOwnership",
         "TestOptimizationObjectiveSatisfiableRepairUsesKernelModelWithoutDump",
-        "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum"
+        "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum",
+        "TestOptimizationObjectiveSharedRepairAllocationFrontier",
+        "TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue"
       ],
       "assertions": [
         {
@@ -102465,7 +102467,7 @@
           ]
         },
         {
-          "name": "maximize_objective/set_model/decrement_value core: capture current model, save per-objective models/value/validity, refinalize shared assignments, scope a direct kernel bound recheck, decrement integer/real values on failed repair, and connect live arithmetic caller (opt_solver.cpp:226-286,342-363); diagnostics and remaining failure/changed-value audit remain open",
+          "name": "maximize_objective/set_model/decrement_value core: capture current model, save per-objective models/value/validity, refinalize shared assignments, scope a direct kernel bound recheck, decrement integer/real values on failed repair, and connect live arithmetic caller (opt_solver.cpp:226-286,342-363); diagnostics and final ownership audit remain open",
           "status": "partial",
           "go_targets": [
             "pkg/smtcore/smt_solver.go",
@@ -102480,7 +102482,21 @@
             "TestOptimizationObjectiveSharedRepairDecrementsRealOrInteger",
             "TestOptimizationObjectiveUnsharedRefreshAndSavedOwnership",
             "TestOptimizationObjectiveSatisfiableRepairUsesKernelModelWithoutDump",
-            "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum"
+            "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum",
+            "TestOptimizationObjectiveSharedRepairAllocationFrontier",
+            "TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue"
+          ]
+        },
+        {
+          "name": "maximize_objective shared-success branch compares the complete current value after refresh, rechecks rational/epsilon changes, and leaves unchanged shared values un-rechecked; actual shared-UF allocation refusals preserve caller models through success (opt_solver.cpp:238-244)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver_optimization_objective.go",
+            "pkg/smtcore/smt_solver_optimization_objective_test.go"
+          ],
+          "tests": [
+            "TestOptimizationObjectiveSharedRepairAllocationFrontier",
+            "TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue"
           ]
         }
       ],
