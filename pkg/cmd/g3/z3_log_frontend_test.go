@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -198,5 +199,27 @@ func TestZ3LogFrontendReplaysFloatingPoint(t *testing.T) {
 	}
 	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "floating-point-replayed\nmax. heap size:") {
 		t.Fatal(out.String(), diagnostics.String())
+	}
+}
+
+func TestZ3LogFrontendMissingFileDiagnostic(t *testing.T) {
+	if path := os.Getenv("G3_TEST_LOG_MISSING"); path != "" {
+		os.Args = []string{"g3", "-log", path}
+		main()
+		return
+	}
+	path := filepath.Join(t.TempDir(), "missing.log")
+	cmd := exec.Command(os.Args[0], "-test.run=^TestZ3LogFrontendMissingFileDiagnostic$")
+	cmd.Env = append(os.Environ(), "G3_TEST_LOG_MISSING="+path)
+	var out, diagnostics bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &out, &diagnostics
+	err := cmd.Run()
+	exit, ok := err.(*exec.ExitError)
+	if !ok || exit.ExitCode() != 108 {
+		t.Fatalf("exit = %v, want 108", err)
+	}
+	want := "Error: failed to open file \"" + path + "\".\n"
+	if diagnostics.String() != want || out.Len() != 0 {
+		t.Fatalf("stdout %q stderr %q, want stderr %q", out.String(), diagnostics.String(), want)
 	}
 }

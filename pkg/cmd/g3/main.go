@@ -73,6 +73,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 	if selected {
 		file, err := os.Open(filename)
 		if err != nil {
+			if kind == shell.InputZ3Log {
+				return &z3LogOpenError{filename: filename, cause: err}
+			}
 			return err
 		}
 		defer func() { result = errors.Join(result, file.Close()) }()
@@ -166,6 +169,11 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 
 func main() {
 	if err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
+		var openError *z3LogOpenError
+		if errors.As(err, &openError) {
+			fmt.Fprintln(os.Stderr, openError.Error())
+			os.Exit(108) // ERR_OPEN_FILE in src/util/error_codes.h.
+		}
 		fmt.Fprintf(os.Stdout, "(error \"%s\")\n", strings.ReplaceAll(err.Error(), "\"", "\"\""))
 		os.Exit(1)
 	}

@@ -126177,21 +126177,44 @@
       "component": "shell",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/z3_log_frontend.go", "pkg/cmd/g3/main.go", "pkg/cmd/g3/z3_log_frontend_test.go", "pkg/api/z3_log_frontend_test.go"],
-      "tests": ["TestZ3LogFrontendReplaysAndReports", "TestZ3LogFrontendCLIInputAndFile", "TestZ3LogFrontendReportsUnavailableCommands", "TestZ3LogFrontendReportsParseFailureAndWriterError"],
+      "go_targets": [
+        "pkg/api/z3_log_frontend.go",
+        "pkg/cmd/g3/main.go",
+        "pkg/cmd/g3/z3_log_frontend_test.go",
+        "pkg/api/z3_log_frontend_test.go",
+        "pkg/cmd/g3/z3_log_open_error.go"
+      ],
+      "tests": [
+        "TestZ3LogFrontendReplaysAndReports",
+        "TestZ3LogFrontendCLIInputAndFile",
+        "TestZ3LogFrontendReportsUnavailableCommands",
+        "TestZ3LogFrontendReportsParseFailureAndWriterError",
+        "TestZ3LogFrontendMissingFileDiagnostic"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The g3 command selects stdin or a file and dispatches to the concrete replay parser for implemented global-parameter, configuration, context lifecycle, symbol, basic AST, version, warning and trace commands, with process CPU and memory reporting. Remaining generated commands, source file-open diagnostics, and reusable shell Runner dispatch remain unfinished."]
+      "deviations": [
+        "The g3 command selects stdin or a file and dispatches to the concrete replay parser for implemented global-parameter, configuration, context lifecycle, symbol, basic AST, version, warning and trace commands, with process CPU and memory reporting. Remaining generated commands and reusable shell Runner dispatch remain unfinished."
+      ]
     },
     {
       "path": "src/shell/z3_log_frontend.h",
       "component": "shell",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/z3_log_frontend.go", "pkg/cmd/g3/main.go", "pkg/cmd/g3/z3_log_frontend_test.go"],
-      "tests": ["TestZ3LogFrontendCLIInputAndFile", "TestZ3LogFrontendReportsUnavailableCommands"],
+      "go_targets": [
+        "pkg/api/z3_log_frontend.go",
+        "pkg/cmd/g3/main.go",
+        "pkg/cmd/g3/z3_log_frontend_test.go",
+        "pkg/cmd/g3/z3_log_open_error.go"
+      ],
+      "tests": [
+        "TestZ3LogFrontendCLIInputAndFile",
+        "TestZ3LogFrontendReportsUnavailableCommands",
+        "TestZ3LogFrontendMissingFileDiagnostic"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -126206,7 +126229,9 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The g3 command handles stdin and file replay for the implemented global-parameter, configuration, context lifecycle, symbol, basic AST, version, warning and trace commands. The reusable shell Runner and remaining generated commands are unfinished."]
+      "deviations": [
+        "The g3 command handles stdin and file replay for the implemented global-parameter, configuration, context lifecycle, symbol, basic AST, version, warning and trace commands. The reusable shell Runner and remaining generated commands are unfinished."
+      ]
     },
     {
       "path": "src/smt/CMakeLists.txt",

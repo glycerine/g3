@@ -1,3 +1,5 @@
+Z3 log frontend file-open diagnostics (2026-10-31 UTC): missing log files now emit the native stderr message and exit with ERR_OPEN_FILE (108). Normal and checked subprocess tests verify the diagnostic, status and empty stdout; reusable shell Runner dispatch remains unfinished.
+
 Generated fixedpoint representation replay (2026-10-31 UTC): connected relation table selection and symbol-array validation. Normal and checked tests cover a valid representation and a short array; other generated commands remain unfinished.
 
 Generated interpolation context replay (2026-10-31 UTC): connected interpolation markers and proof-enabled context construction, including changes to supplied configuration. Normal and checked tests verify markers and configuration reuse; interpolation computation and other generated commands remain unfinished.
