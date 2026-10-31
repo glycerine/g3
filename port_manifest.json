@@ -106836,12 +106836,15 @@
         "pkg/qe/datalog_atoms.go",
         "pkg/qe/datalog_atoms_test.go",
         "pkg/qe/datalog_plugin.go",
-        "pkg/qe/datalog_plugin_test.go"
+        "pkg/qe/datalog_plugin_test.go",
+        "pkg/qe/datalog_branch.go",
+        "pkg/qe/datalog_branch_test.go"
       ],
       "tests": [
         "TestDatalogQEAtomCollectionAndBranches",
         "TestDatalogQEContainsIgnoresQuantifierAnnotations",
-        "TestDatalogPluginPrepareCacheAndContextOwnership"
+        "TestDatalogPluginPrepareCacheAndContextOwnership",
+        "TestDatalogPluginAssignAndSubstituteBranches"
       ],
       "assertions": [
         {
@@ -106896,13 +106899,22 @@
           "tests": [
             "TestDatalogPluginPrepareCacheAndContextOwnership"
           ]
+        },
+        {
+          "name": "assign_small_domain/assign_large_domain/subst_small_domain/subst_large_domain: construct owned branch constraints and apply source cofactor replacements, clear optional definition",
+          "status": "ported",
+          "go_target": "pkg/qe/datalog_branch.go",
+          "tests": [
+            "TestDatalogPluginAssignAndSubstituteBranches"
+          ]
         }
       ],
       "ownership": [
-        "Prepared cache owns variable, formula and atom/value references independently of the supplied atom set; the solver context owns a registered plugin."
+        "Prepared cache owns variable, formula and atom/value references independently of the supplied atom set; the solver context owns a registered plugin.",
+        "Branch constraints own formula references until transferred or plugin close; substitution uses and closes a scoped expression replacer."
       ],
       "deviations": [
-        "Pending: automatic context-atom discovery, solver assignment, substitution, diagnostics, allocation-failure audit and live QE solver registration. Datalog less-than reports an explicit unimplemented error as in source."
+        "Pending: automatic context-atom discovery, connection of emitted constraints to the live solver, diagnostics, allocation-failure audit and live QE solver registration. Datalog less-than reports an explicit unimplemented error as in source."
       ]
     },
     {

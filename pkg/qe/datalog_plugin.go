@@ -16,12 +16,13 @@ type datalogQECache struct {
 
 // DatalogPlugin owns cached atom and formula references and borrows its context.
 type DatalogPlugin struct {
-	self    *DatalogPlugin
-	context *SolverContext
-	manager *ast.ASTManager
-	family  ast.FamilyID
-	entries map[arithmeticPluginKey]*datalogQECache
-	closed  bool
+	self        *DatalogPlugin
+	context     *SolverContext
+	manager     *ast.ASTManager
+	family      ast.FamilyID
+	entries     map[arithmeticPluginKey]*datalogQECache
+	constraints []ArithmeticConstraint
+	closed      bool
 }
 
 func NewDatalogPlugin(context *SolverContext) (*DatalogPlugin, error) {
@@ -194,6 +195,13 @@ func (p *DatalogPlugin) Close() error {
 	}
 	if p.closed {
 		return nil
+	}
+	for len(p.constraints) > 0 {
+		i := len(p.constraints) - 1
+		if e := p.manager.DelRef(&p.constraints[i].Formula); e != nil {
+			return e
+		}
+		p.constraints = p.constraints[:i]
 	}
 	for key, entry := range p.entries {
 		if e := p.release(entry); e != nil {
