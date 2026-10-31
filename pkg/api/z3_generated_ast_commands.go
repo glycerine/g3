@@ -78,7 +78,10 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 	if err := registerZ3GeneratedTacticCommands(r); err != nil {
 		return err
 	}
-	return registerZ3GeneratedMapCommands(r)
+	if err := registerZ3GeneratedMapCommands(r); err != nil {
+		return err
+	}
+	return registerZ3GeneratedAlgebraicCommands(r)
 }
 func replayIncAST(r *Z3Replayer) error {
 	owner, err := replayContext(r, 0)

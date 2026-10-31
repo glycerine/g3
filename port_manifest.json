@@ -5976,7 +5976,9 @@
         "pkg/api/z3_generated_statistics_commands.go",
         "pkg/api/z3_generated_statistics_commands_test.go",
         "pkg/api/z3_generated_map_commands.go",
-        "pkg/api/z3_generated_map_commands_test.go"
+        "pkg/api/z3_generated_map_commands_test.go",
+        "pkg/api/z3_generated_algebraic_commands.go",
+        "pkg/api/z3_generated_algebraic_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6056,7 +6058,8 @@
         "TestGeneratedStatisticsReplaySurvivesSolverRelease",
         "TestGeneratedASTMapReplayKeySnapshot",
         "TestGeneratedASTMapReplayClosesIncompleteLog",
-        "TestZ3LogFrontendReplaysASTMap"
+        "TestZ3LogFrontendReplaysASTMap",
+        "TestGeneratedAlgebraicReplayArithmeticAndRelations"
       ],
       "methods_audited": false,
       "ownership_audited": false,
