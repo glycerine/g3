@@ -75313,35 +75313,17 @@
       "path": "src/math/subpaving/subpaving_hwf.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/math/subpaving/hardware_interval.go",
-        "pkg/math/subpaving/hardware_interval_test.go",
-        "pkg/math/subpaving/hardware_interval_constant_test.go",
-        "pkg/math/subpaving/hardware_interval_arith.go",
-        "pkg/math/subpaving/hardware_interval_scalar.go",
-        "pkg/math/subpaving/hardware_interval_power.go",
-        "pkg/math/subpaving/hardware_interval_mul.go",
-        "pkg/math/subpaving/hardware_interval_div.go",
-        "pkg/math/interval/hardware_root.go",
-        "pkg/math/subpaving/hardware_interval_root.go",
         "pkg/math/subpaving/hardware_context_root.go",
         "pkg/math/subpaving/hardware_context_params.go",
-        "pkg/math/subpaving/hardware_search.go",
-        "pkg/math/subpaving/hardware_search_test.go"
+        "pkg/math/subpaving/hardware_interval_scalar.go",
+        "pkg/math/subpaving/configuration_ownership_test.go"
       ],
       "tests": [
-        "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic",
-        "TestSubpavingHardwareIntervalScalarMulDivDirectedAndAlias",
-        "TestSubpavingHardwareIntervalPowerRetainedBranches",
-        "TestSubpavingHardwareIntervalMulNineSignClassesAndDirectedBounds",
-        "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds",
-        "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation",
-        "TestSubpavingHardwareIntervalXnEqYRetainedCases",
-        "TestHardwareIntervalConstantNodeViewAndMutationGuards",
-        "TestSubpavingHardwareContextBoundPolicyAndRootDispatch",
         "TestSubpavingHardwareContextReadsParamsRefInSourceOrder",
-        "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation"
+        "TestSubpavingHardwareIntervalScalarMulDivDirectedAndAlias",
+        "TestSubpavingConfigurationBorrowedManagers"
       ],
       "conditionals": [
         {
@@ -75353,93 +75335,33 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Concrete config_hwf mutable scalar interval reset, set, invariant, containment, ordering and display (src/math/interval/interval_def.h:597-709)",
+          "name": "config_hwf constructor and m(): borrow the concrete numeral manager; context declaration binds the same manager and source-ordered parameters",
           "status": "ported",
-          "go_target": "pkg/math/subpaving/hardware_interval.go",
+          "go_target": "pkg/math/subpaving/hardware_context_root.go",
           "tests": [
-            "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic",
-            "TestHardwareIntervalConstantNodeViewAndMutationGuards"
+            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder",
+            "TestSubpavingConfigurationBorrowedManagers"
           ]
         },
         {
-          "name": "Concrete config_hwf interval negation and directed add/subtract, infinity endpoints and destination alias (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/hardware_interval_arith.go",
-          "tests": [
-            "TestSubpavingHardwareIntervalRetainedCoreAndDirectedArithmetic"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf interval scalar multiply/divide: zero reset, sign reversal, directed reciprocal and destination alias (src/math/interval/interval_def.h:839-925)",
-          "status": "partial",
+          "name": "round_to_minus_inf, round_to_plus_inf and set_rounding: forward directed rounding to the borrowed concrete manager",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/hardware_interval_scalar.go",
           "tests": [
             "TestSubpavingHardwareIntervalScalarMulDivDirectedAndAlias"
           ]
-        },
-        {
-          "name": "Concrete config_hwf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinity and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "ported",
-          "go_target": "pkg/math/subpaving/hardware_interval_power.go",
-          "tests": [
-            "TestSubpavingHardwareIntervalPowerRetainedBranches"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf interval multiplication: nine sign classes, mixed extrema ties, infinity, zero and directed bounds (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/hardware_interval_mul.go",
-          "tests": [
-            "TestSubpavingHardwareIntervalMulNineSignClassesAndDirectedBounds"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf interval division: six sign branches, open-zero denominators, directed bounds and source alias restriction (src/math/interval/interval_def.h:1663-1849)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/hardware_interval_div.go",
-          "tests": [
-            "TestSubpavingHardwareIntervalDivSignBranchesAndDirectedBounds"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf Newton nth-root scalar enclosure (src/math/interval/interval_def.h:175-380)",
-          "status": "partial",
-          "go_target": "pkg/math/interval/hardware_root.go",
-          "tests": [
-            "TestHardwareRootRetainedNewtonCertifiedBoundsAndCancellation"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf interval nth-root and xn_eq_y inverse image (src/math/interval/interval_def.h:1390-1478)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/hardware_interval_root.go",
-          "tests": [
-            "TestSubpavingHardwareIntervalXnEqYRetainedCases"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf context bound-policy numerals, source-order parameter updates, depth/node/memory limits and root inverse-image dispatch (src/math/subpaving/subpaving_t_def.h:408-514,1641)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/hardware_context_root.go",
-          "tests": [
-            "TestSubpavingHardwareContextBoundPolicyAndRootDispatch"
-          ]
-        },
-        {
-          "name": "Concrete config_hwf context named params_ref update through epsilon, maximum bound, depth/node/memory limits and root precision (src/math/subpaving/subpaving_t_def.h:473-501)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/hardware_context_params.go",
-          "tests": [
-            "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"
-          ]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "The configuration stores a borrowed numeral manager reference and owns no numerals. Concrete contexts own their policy numerals and node state, borrow their numerical manager and resource limit, and release their own values before the caller destroys the manager. The configuration ownership regression closes one context and constructs and uses another with the same manager for all four configurations."
+      ],
+      "deviations": [
+        "The concrete Go context and interval types carry the manager directly; no separate C++ configuration adapter or template typedef is needed. Generic context algorithms remain tracked independently in subpaving_t.h and subpaving_t_def.h; completing this header does not promote those source units."
+      ]
     },
     {
       "path": "src/math/subpaving/subpaving_mpf.cpp",
@@ -75474,24 +75396,17 @@
       "path": "src/math/subpaving/subpaving_mpf.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/math/subpaving/arbitrary_interval.go",
-        "pkg/math/subpaving/arbitrary_interval_arith.go",
-        "pkg/math/subpaving/arbitrary_interval_mul.go",
-        "pkg/math/subpaving/arbitrary_interval_div.go",
+        "pkg/math/subpaving/arbitrary_context_root.go",
+        "pkg/math/subpaving/arbitrary_context_params.go",
         "pkg/math/subpaving/arbitrary_interval_scalar.go",
-        "pkg/math/subpaving/arbitrary_interval_power.go",
-        "pkg/math/subpaving/arbitrary_context_root.go"
+        "pkg/math/subpaving/configuration_ownership_test.go"
       ],
       "tests": [
-        "TestSubpavingMPFMutableIntervalRetainedCore",
-        "TestSubpavingMPFIntervalNegAddSubDirectedAndAlias",
-        "TestSubpavingMPFIntervalMulNineSignClassesAndDirectedBounds",
-        "TestSubpavingMPFIntervalDivSixSignBranchesAndOpenZero",
+        "TestArbitraryContextNamedParamsSourceOrderAndDescriptions",
         "TestSubpavingMPFIntervalScalarMulDiv",
-        "TestSubpavingMPFIntervalPowerRetainedCases",
-        "TestSubpavingMPFIntervalXnEqYRetainedCases"
+        "TestSubpavingConfigurationBorrowedManagers"
       ],
       "conditionals": [
         {
@@ -75503,70 +75418,33 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Concrete config_mpf mutable interval endpoint owner, source f2n arithmetic and extended endpoint kinds; context construction/search remain open",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/arbitrary_interval.go",
+          "name": "config_mpf constructor and m(): borrow the concrete numeral manager; context declaration binds the same manager and source-ordered parameters",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/arbitrary_context_root.go",
           "tests": [
-            "TestSubpavingMPFMutableIntervalRetainedCore"
+            "TestArbitraryContextNamedParamsSourceOrderAndDescriptions",
+            "TestSubpavingConfigurationBorrowedManagers"
           ]
         },
         {
-          "name": "Concrete config_mpf interval negation, directed addition/subtraction, infinity branches and alias-safe endpoint scratch (src/math/interval/interval_def.h:704-837)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/arbitrary_interval_arith.go",
-          "tests": [
-            "TestSubpavingMPFIntervalNegAddSubDirectedAndAlias"
-          ]
-        },
-        {
-          "name": "Concrete config_mpf interval multiplication: nine sign classes, mixed extrema, infinity bounds, directed products and destination alias (src/math/interval/interval_def.h:1017-1218)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/arbitrary_interval_mul.go",
-          "tests": [
-            "TestSubpavingMPFIntervalMulNineSignClassesAndDirectedBounds"
-          ]
-        },
-        {
-          "name": "Concrete config_mpf interval division: six sign branches, open-zero/infinite denominator bounds, directed results, zero numerator and denominator alias (src/math/interval/interval_def.h:1672-1849)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/arbitrary_interval_div.go",
-          "tests": [
-            "TestSubpavingMPFIntervalDivSixSignBranchesAndOpenZero"
-          ]
-        },
-        {
-          "name": "Concrete config_mpf interval scalar multiply/divide: zero reset, negative reversal, directed reciprocal and destination alias (src/math/interval/interval_def.h:839-925)",
-          "status": "partial",
+          "name": "round_to_minus_inf, round_to_plus_inf and set_rounding: forward directed rounding to the borrowed concrete manager",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/arbitrary_interval_scalar.go",
           "tests": [
             "TestSubpavingMPFIntervalScalarMulDiv"
           ]
-        },
-        {
-          "name": "Concrete config_mpf interval powers: positive/negative even, crossing-zero tie, odd monotonic, infinite bounds and in-place output (src/math/interval/interval_def.h:1271-1378)",
-          "status": "ported",
-          "go_target": "pkg/math/subpaving/arbitrary_interval_power.go",
-          "tests": [
-            "TestSubpavingMPFIntervalPowerRetainedCases"
-          ]
-        },
-        {
-          "name": "Concrete config_mpf bound-policy numerals and retained monomial inverse-root dispatch (src/math/subpaving/subpaving_t_def.h:408-514,1641; src/math/subpaving/subpaving_mpf.h:23-43)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/arbitrary_context_root.go",
-          "tests": [
-            "TestSubpavingMPFIntervalXnEqYRetainedCases"
-          ]
         }
       ],
       "ownership": [
-        "The mutable MPF interval owns and deletes two endpoint numerals and borrows the concrete f2n<mpf_manager> wrapper; the context and tactic remain separate owners."
+        "The configuration stores a borrowed numeral manager reference and owns no numerals. Concrete contexts own their policy numerals and node state, borrow their numerical manager and resource limit, and release their own values before the caller destroys the manager. The configuration ownership regression closes one context and constructs and uses another with the same manager for all four configurations."
       ],
-      "deviations": []
+      "deviations": [
+        "The concrete Go context and interval types carry the manager directly; no separate C++ configuration adapter or template typedef is needed. Generic context algorithms remain tracked independently in subpaving_t.h and subpaving_t_def.h; completing this header does not promote those source units."
+      ]
     },
     {
       "path": "src/math/subpaving/subpaving_mpff.cpp",
@@ -75601,65 +75479,17 @@
       "path": "src/math/subpaving/subpaving_mpff.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
-        "pkg/math/subpaving/fast_interval.go",
-        "pkg/math/subpaving/fast_interval_test.go",
-        "pkg/math/subpaving/fast_interval_arith.go",
-        "pkg/math/subpaving/fast_interval_arith_test.go",
-        "pkg/math/subpaving/fast_interval_mul.go",
-        "pkg/math/subpaving/fast_interval_mul_test.go",
-        "pkg/math/subpaving/fast_interval_div.go",
-        "pkg/math/subpaving/fast_interval_div_test.go",
-        "pkg/math/subpaving/fast_interval_scalar.go",
-        "pkg/math/subpaving/fast_interval_scalar_test.go",
-        "pkg/math/subpaving/fast_interval_power.go",
-        "pkg/math/subpaving/fast_interval_power_test.go",
-        "pkg/math/subpaving/fast_node.go",
-        "pkg/math/subpaving/fast_node_test.go",
-        "pkg/math/subpaving/fast_node_predicates.go",
-        "pkg/math/subpaving/fast_node_predicates_test.go",
         "pkg/math/subpaving/fast_context.go",
-        "pkg/math/subpaving/fast_context_bounds.go",
-        "pkg/math/subpaving/fast_context_bounds_test.go",
-        "pkg/math/subpaving/fast_polynomial.go",
-        "pkg/math/subpaving/fast_polynomial_test.go",
-        "pkg/math/subpaving/fast_context_propagate.go",
-        "pkg/math/subpaving/fast_context_propagate_test.go",
-        "pkg/math/subpaving/fast_interval_root.go",
-        "pkg/math/subpaving/fast_interval_root_test.go",
-        "pkg/math/subpaving/fast_monomial.go",
-        "pkg/math/subpaving/fast_monomial_test.go",
-        "pkg/math/subpaving/fast_clause.go",
-        "pkg/math/subpaving/fast_clause_test.go",
-        "pkg/math/subpaving/fast_context_init.go",
-        "pkg/math/subpaving/fast_context_init_test.go"
+        "pkg/math/subpaving/fast_context_params.go",
+        "pkg/math/subpaving/fast_interval_scalar.go",
+        "pkg/math/subpaving/configuration_ownership_test.go"
       ],
       "tests": [
-        "TestSubpavingFastMutableIntervalRetainedCore",
-        "TestSubpavingFastIntervalNegAddSubDirectedAndAlias",
-        "TestSubpavingFastIntervalMulSignClasses",
-        "TestSubpavingFastIntervalDivSignBranches",
+        "TestFastContextNamedParamsSinglePassAndStoppedPrefix",
         "TestSubpavingFastIntervalScalarMulDiv",
-        "TestSubpavingFastIntervalPowerRetainedCases",
-        "TestSubpavingFastNodeConstantIntervalViews",
-        "TestSubpavingFastNodeBoundPredicates",
-        "TestSubpavingFastContextBoundFlowAndRelevance",
-        "TestSubpavingFastContextIntegerNormalizationAndCandidate",
-        "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients",
-        "TestSubpavingFastContextQueuedPolynomialWatchers",
-        "TestSubpavingFastContextQueueCancelAndRecentChild",
-        "TestSubpavingFastContextInitialPolynomialSweep",
-        "TestSubpavingFastIntervalXnEqYRetainedCases",
-        "TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue",
-        "TestSubpavingFastMonomialReverseAndSourceScratch",
-        "TestSubpavingFastMonomialIntervalDisplaySmoke",
-        "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow",
-        "TestSubpavingFastClauseStableWatchUnitAndConflict",
-        "TestSubpavingFastClauseOpennessAndUnitResume",
-        "TestSubpavingFastClauseSharedAtomSourceCleanup",
-        "TestSubpavingFastContextRootInitializationOrderAndNoResume",
-        "TestSubpavingFastContextRootInitializationUnitConflict"
+        "TestSubpavingConfigurationBorrowedManagers"
       ],
       "conditionals": [
         {
@@ -75671,93 +75501,32 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Concrete config_mpff interval manager binding to fast-float numerals and mutable endpoints",
+          "name": "config_mpff constructor and m(): borrow the concrete numeral manager; context declaration binds the same manager and source-ordered parameters",
           "status": "ported",
-          "go_target": "pkg/math/subpaving/fast_interval.go",
-          "go_targets": [
-            "pkg/math/subpaving/fast_interval.go",
-            "pkg/math/subpaving/fast_interval_arith.go"
-          ],
+          "go_target": "pkg/math/subpaving/fast_context.go",
           "tests": [
-            "TestSubpavingFastMutableIntervalRetainedCore",
-            "TestSubpavingFastConstantIntervalSelfAssignment",
-            "TestSubpavingFastNodeConstantIntervalViews",
-            "TestSubpavingFastIntervalNegAddSubDirectedAndAlias"
+            "TestFastContextNamedParamsSinglePassAndStoppedPrefix",
+            "TestSubpavingConfigurationBorrowedManagers"
           ]
         },
         {
-          "name": "Concrete config_mpff interval root inverse image and monomial propagation integration; source root numerical defaults remain partial",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/fast_monomial.go",
-          "go_targets": [
-            "pkg/math/subpaving/fast_interval_root.go"
-          ],
-          "tests": [
-            "TestSubpavingFastIntervalXnEqYRetainedCases",
-            "TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue",
-            "TestSubpavingFastMonomialReverseAndSourceScratch",
-            "TestSubpavingFastMonomialIntervalDisplaySmoke",
-            "TestSubpavingFastQueuedMonomialCatchesMPFFOverflow",
-            "TestSubpavingFastMonomialDegreeMergeUsesUnsignedArithmetic"
-          ]
-        },
-        {
-          "name": "Concrete config_mpff inequality owned values, stable clauses, three-valued evaluation, unique variable watchers, unit assertions and conflict-first propagation (src/math/subpaving/subpaving_t_def.h:802-880,1349-1405,1709-1729,1774-1786)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/fast_clause.go",
-          "go_targets": [
-            "pkg/math/subpaving/fast_context_propagate.go"
-          ],
-          "tests": [
-            "TestSubpavingFastClauseStableWatchUnitAndConflict",
-            "TestSubpavingFastClauseOpennessAndUnitResume",
-            "TestSubpavingFastClauseSharedAtomSourceCleanup",
-            "TestSubpavingFastInequalityConstructionAfterChildCreation"
-          ]
-        },
-        {
-          "name": "Selected config_mpff bound justification kinds for unit axiom/assumption, clause, and polynomial/monomial variable definition",
+          "name": "round_to_minus_inf, round_to_plus_inf and set_rounding: forward directed rounding to the borrowed concrete manager",
           "status": "ported",
-          "go_target": "pkg/math/subpaving/fast_context_bounds.go",
-          "go_targets": [
-            "pkg/math/subpaving/fast_clause.go",
-            "pkg/math/subpaving/fast_node.go",
-            "pkg/math/subpaving/fast_monomial.go",
-            "pkg/math/subpaving/fast_polynomial.go"
-          ],
+          "go_target": "pkg/math/subpaving/fast_interval_scalar.go",
           "tests": [
-            "TestSubpavingFastClauseStableWatchUnitAndConflict",
-            "TestSubpavingFastClauseOpennessAndUnitResume",
-            "TestSubpavingFastMonomialMergedPowerForwardZeroAndQueue",
-            "TestSubpavingFastPolynomialForwardReverseAndOwnedCoefficients"
-          ]
-        },
-        {
-          "name": "Concrete config_mpff source-order root unit assertion, definition sweep, queue drain and non-resuming cancellation state; shared clause/inequality teardown (src/math/subpaving/subpaving_t_def.h:845-861,1092-1111,1753-1808)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/fast_context_init.go",
-          "go_targets": [
-            "pkg/math/subpaving/fast_context.go",
-            "pkg/math/subpaving/fast_clause.go"
-          ],
-          "tests": [
-            "TestSubpavingFastClauseSharedAtomSourceCleanup",
-            "TestSubpavingFastContextRootInitializationOrderAndNoResume",
-            "TestSubpavingFastContextRootInitializationUnitConflict"
+            "TestSubpavingFastIntervalScalarMulDiv"
           ]
         }
       ],
       "ownership": [
-        "The mutable fast-float interval owns both scoped endpoints and borrows its fast-float manager.",
-        "Fast inequalities own copied scoped fast-float values through their context. Clauses borrow atom pointers, count source-style references and register each watched variable once; context close retires the owning values after nodes. Learned-clause deletion and justification lifetime remain open.",
-        "Root close precedes source-order unit then problem-clause then lemma reference release; shared inequality values close at their last reference, and remaining unreferenced context-owned values close before context numerals. Idempotent release progress preserves cleanup retries."
+        "The configuration stores a borrowed numeral manager reference and owns no numerals. Concrete contexts own their policy numerals and node state, borrow their numerical manager and resource limit, and release their own values before the caller destroys the manager. The configuration ownership regression closes one context and constructs and uses another with the same manager for all four configurations."
       ],
       "deviations": [
-        "The config_mpff root unit/definition/queue initialization and shared clause teardown are concrete. Selected bound justification tags are ported; node search/splitting, complete explanation ownership and the full solver lifecycle remain open."
+        "The concrete Go context and interval types carry the manager directly; no separate C++ configuration adapter or template typedef is needed. Generic context algorithms remain tracked independently in subpaving_t.h and subpaving_t_def.h; completing this header does not promote those source units."
       ]
     },
     {
@@ -75869,32 +75638,18 @@
       "path": "src/math/subpaving/subpaving_mpfx.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/fixed_context.go",
-        "pkg/math/subpaving/fixed_context_bounds.go",
-        "pkg/math/subpaving/fixed_monomial.go",
-        "pkg/math/subpaving/fixed_polynomial.go"
+        "pkg/math/subpaving/fixed_context_params.go",
+        "pkg/math/subpaving/fixed_interval_scalar.go",
+        "pkg/math/subpaving/configuration_ownership_test.go"
       ],
       "tests": [
-        "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-        "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant",
-        "TestSubpavingFixedContextBoundFlowAndNormalization",
-        "TestSubpavingFixedContextIntegerBoundNormalization",
-        "TestSubpavingFixedContextPropagateCandidateAndRootPrecision",
-        "TestSubpavingFixedContextRelevanceArithmeticFailure",
-        "TestSubpavingFixedClauseWatchPropagationAndConflict",
-        "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
-        "TestSubpavingFixedContextInitialDefinitionSweep",
-        "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
-        "TestFixedSearchStopsAtSourceNodeLimit",
-        "TestFixedSearchRetainsRefusedSplitChildrenForClose",
-        "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
-        "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
-      ,
-        "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-        "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses"
-],
+        "TestFixedContextNamedParamsSourceOrderAndStoppedOwner",
+        "TestSubpavingFixedIntervalScalarMulDiv",
+        "TestSubpavingConfigurationBorrowedManagers"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -75905,79 +75660,32 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "selected config_mpfx manager binding and directed fixed-point rounding through concrete context bounds",
+          "name": "config_mpfx constructor and m(): borrow the concrete numeral manager; context declaration binds the same manager and source-ordered parameters",
           "status": "ported",
-          "go_target": "pkg/math/subpaving/fixed_context_bounds.go",
+          "go_target": "pkg/math/subpaving/fixed_context.go",
           "tests": [
-            "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-            "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant",
-            "TestSubpavingFixedContextBoundFlowAndNormalization",
-            "TestSubpavingFixedContextIntegerBoundNormalization",
-            "TestSubpavingFixedContextPropagateCandidateAndRootPrecision",
-            "TestSubpavingFixedContextRelevanceArithmeticFailure"
+            "TestFixedContextNamedParamsSourceOrderAndStoppedOwner",
+            "TestSubpavingConfigurationBorrowedManagers"
           ]
         },
         {
-          "name": "selected context_mpfx bound axiom and variable-definition justification tags",
+          "name": "round_to_minus_inf, round_to_plus_inf and set_rounding: forward directed rounding to the borrowed concrete manager",
           "status": "ported",
-          "go_target": "pkg/math/subpaving/fixed_node.go",
+          "go_target": "pkg/math/subpaving/fixed_interval_scalar.go",
           "tests": [
-            "TestSubpavingFixedMonomialMergedPowerForwardAndZero",
-            "TestSubpavingFixedPolynomialForwardReverseAndSourceConstant"
-          ]
-        },
-        {
-          "name": "Concrete config_mpfx live ordinary-clause ownership, three-valued evaluation, unique variable watches, unit assertions, and clause-bound reasons",
-          "status": "ported",
-          "go_target": "pkg/math/subpaving/fixed_clause.go",
-          "go_targets": [
-            "pkg/math/subpaving/fixed_context_init.go",
-            "pkg/math/subpaving/fixed_context_propagate.go"
-          ,
-            "pkg/math/subpaving/fixed_clause.go",
-            "pkg/math/subpaving/fixed_context.go",
-            "pkg/math/subpaving/fixed_node.go"
-],
-          "tests": [
-            "TestSubpavingFixedClauseWatchPropagationAndConflict",
-            "TestSubpavingFixedClauseUnitsNoResumeAndCleanup",
-            "TestSubpavingFixedContextInitialDefinitionSweep"
-          ,
-            "TestSubpavingFixedInequalityThreeValuedOpenEndpoints",
-            "TestSubpavingFixedClauseReasonLivesUntilNodeThenCloses",
-            "TestSubpavingFixedInequalityConstructionAfterChildCreation"
-]
-        },
-        {
-          "name": "breadth-first search, round-robin variable selection and midpoint splitting",
-          "status": "ported",
-          "go_target": "pkg/math/subpaving/fixed_search.go",
-          "go_targets": [
-            "pkg/math/subpaving/fixed_context_init.go",
-            "pkg/math/subpaving/fixed_search.go",
-            "pkg/math/subpaving/fixed_selector.go",
-            "pkg/math/subpaving/fixed_split.go",
-            "pkg/math/subpaving/fixed_context_propagate.go",
-            "pkg/math/subpaving/fixed_context_propagate.go"
-          ],
-          "tests": [
-            "TestFixedSearchBreadthFirstCancellationAndOwnedChildren",
-            "TestFixedSearchStopsAtSourceNodeLimit",
-            "TestFixedSearchRetainsRefusedSplitChildrenForClose",
-            "TestSubpavingFixedRoundRobinSourceDecisionAndDefinitionSkip",
-            "TestSubpavingFixedMidpointSourceCasesAndNoInterior"
+            "TestSubpavingFixedIntervalScalarMulDiv"
           ]
         }
       ],
       "ownership": [
-        "Concrete fixed-point bounds own copied numeral values; node arrays borrow them until node teardown. Full context, clause, search and explanation ownership remains unaudited."
+        "The configuration stores a borrowed numeral manager reference and owns no numerals. Concrete contexts own their policy numerals and node state, borrow their numerical manager and resource limit, and release their own values before the caller destroys the manager. The configuration ownership regression closes one context and constructs and uses another with the same manager for all four configurations."
       ],
       "deviations": [
-        "The selected concrete MPFX bound, inequality, clause/unit and root-initialization paths are ported; full generic-context method and ownership audits remain incomplete."
+        "The concrete Go context and interval types carry the manager directly; no separate C++ configuration adapter or template typedef is needed. Generic context algorithms remain tracked independently in subpaving_t.h and subpaving_t_def.h; completing this header does not promote those source units."
       ]
     },
     {
