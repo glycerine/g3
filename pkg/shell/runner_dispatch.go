@@ -41,6 +41,12 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 			return err
 		}
 		return frontend.Run(r.input)
+	case InputOPB:
+		frontend, err := NewOPBFrontend(r.context, r.output, OPBFrontendOptions{DisplayStatistics: r.command.DisplayStatistics})
+		if err != nil {
+			return err
+		}
+		return frontend.Run(r.input)
 	case InputMPS:
 		frontend, err := NewLPFrontend(LPFrontendConfig{
 			Globals: globals, Input: r.input, Output: r.output, Name: r.result.InputName,

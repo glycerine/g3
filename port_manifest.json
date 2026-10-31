@@ -102674,9 +102674,19 @@
       "path": "src/opt/opt_parse.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/opt/opb_parse.go",
+        "pkg/opt/wcnf_parse.go",
+        "pkg/opt/opb_parse_test.go",
+        "pkg/opt/wcnf_parse_test.go",
+        "pkg/cmd_context/opb_loader.go",
+        "pkg/cmd_context/wcnf_loader.go"
+      ],
+      "tests": [
+        "TestParseOPBObjectivesConstraintsAndProducts",
+        "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -102689,9 +102699,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "parse_opb",
+          "status": "partial",
+          "go_target": "pkg/opt/opb_parse.go",
+          "tests": [
+            "TestParseOPBObjectivesConstraintsAndProducts"
+          ]
+        },
+        {
+          "name": "parse_wcnf",
+          "status": "partial",
+          "go_target": "pkg/opt/wcnf_parse.go",
+          "tests": [
+            "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder"
+          ]
+        }
+      ],
+      "ownership": [
+        "Parsed document values own their literal slices and numeric coefficients before loading into the command context."
+      ],
+      "deviations": [
+        "The header declarations are represented by typed document parsers and command-context loaders; full signature and lifetime audit remains pending."
+      ]
     },
     {
       "path": "src/opt/opt_sls_solver.h",
@@ -120514,9 +120545,30 @@
       "path": "src/shell/opt_frontend.cpp",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/shell/opb_frontend.go",
+        "pkg/shell/opb_frontend_run.go",
+        "pkg/shell/opb_frontend_output.go",
+        "pkg/shell/opb_frontend_test.go",
+        "pkg/shell/wcnf_frontend.go",
+        "pkg/shell/wcnf_frontend_run.go",
+        "pkg/shell/wcnf_frontend_output.go",
+        "pkg/shell/wcnf_frontend_test.go",
+        "pkg/shell/runner_dispatch.go",
+        "pkg/shell/runner_opb_test.go",
+        "pkg/shell/runner_errors_owner_test.go",
+        "pkg/cmd/g3/main.go",
+        "pkg/cmd/g3/optimization_frontend_test.go"
+      ],
+      "tests": [
+        "TestOPBFrontendOptimizesAndWritesResult",
+        "TestWCNFFrontendOptimizesWeightedSoftClauses",
+        "TestRunnerDispatchesOPB",
+        "TestRunnerDispatchesWCNF",
+        "TestOptimizationFrontendArguments",
+        "TestOptimizationFrontendFileTypeDetection"
+      ],
       "assertions": [
         {
           "line": 105,
@@ -120525,17 +120577,52 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "optimization frontend WCNF and OPB dispatch",
+          "status": "partial",
+          "go_target": "pkg/shell/runner_dispatch.go",
+          "tests": [
+            "TestRunnerDispatchesOPB",
+            "TestRunnerDispatchesWCNF"
+          ]
+        }
+      ],
+      "ownership": [
+        "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
+      ],
+      "deviations": [
+        "Pending native optimization frontend output parity, signal/timeout and statistics behavior, and source/ownership audit. Objective output currently uses the Go SMT-LIB objectives format."
+      ]
     },
     {
       "path": "src/shell/opt_frontend.h",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/shell/opb_frontend.go",
+        "pkg/shell/opb_frontend_run.go",
+        "pkg/shell/opb_frontend_output.go",
+        "pkg/shell/opb_frontend_test.go",
+        "pkg/shell/wcnf_frontend.go",
+        "pkg/shell/wcnf_frontend_run.go",
+        "pkg/shell/wcnf_frontend_output.go",
+        "pkg/shell/wcnf_frontend_test.go",
+        "pkg/shell/runner_dispatch.go",
+        "pkg/shell/runner_opb_test.go",
+        "pkg/shell/runner_errors_owner_test.go",
+        "pkg/cmd/g3/main.go",
+        "pkg/cmd/g3/optimization_frontend_test.go"
+      ],
+      "tests": [
+        "TestOPBFrontendOptimizesAndWritesResult",
+        "TestWCNFFrontendOptimizesWeightedSoftClauses",
+        "TestRunnerDispatchesOPB",
+        "TestRunnerDispatchesWCNF",
+        "TestOptimizationFrontendArguments",
+        "TestOptimizationFrontendFileTypeDetection"
+      ],
       "conditionals": [
         {
           "line": 13,
@@ -120548,9 +120635,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "optimization frontend WCNF and OPB dispatch",
+          "status": "partial",
+          "go_target": "pkg/shell/runner_dispatch.go",
+          "tests": [
+            "TestRunnerDispatchesOPB",
+            "TestRunnerDispatchesWCNF"
+          ]
+        }
+      ],
+      "ownership": [
+        "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
+      ],
+      "deviations": [
+        "Pending native optimization frontend output parity, signal/timeout and statistics behavior, and source/ownership audit. Objective output currently uses the Go SMT-LIB objectives format."
+      ]
     },
     {
       "path": "src/shell/options.h",

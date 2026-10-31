@@ -40,7 +40,7 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 		return err
 	}
 	if command.Action == shell.CommandHelp {
-		_, err = fmt.Fprintln(output, "g3 Go SMT-LIB/DIMACS runner\nUsage: g3 [-smt2|-dimacs] <file> | g3 -in\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
+		_, err = fmt.Fprintln(output, "g3 Go SMT and optimization runner\nUsage: g3 [-smt2|-dimacs|-bpo|-wcnf] <file> | g3 [-smt2|-dimacs|-bpo|-wcnf] -in\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
 		return err
 	}
 	if command.Action == shell.CommandVersion {
@@ -61,7 +61,7 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 	if err != nil {
 		return err
 	}
-	if kind != shell.InputSMT2 && kind != shell.InputDIMACS {
+	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF {
 		return fmt.Errorf("selected input frontend is not ported yet")
 	}
 	if selected {
@@ -74,6 +74,20 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 	}
 	if err = context.RefreshGlobalParameters(); err != nil {
 		return err
+	}
+	if kind == shell.InputOPB {
+		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics})
+		if err != nil {
+			return err
+		}
+		return frontend.Run(input)
+	}
+	if kind == shell.InputWCNF {
+		frontend, err := shell.NewWCNFFrontend(context, output, shell.WCNFFrontendOptions{DisplayStatistics: command.DisplayStatistics})
+		if err != nil {
+			return err
+		}
+		return frontend.Run(input)
 	}
 	if kind == shell.InputDIMACS {
 		frontend, err := shell.NewDIMACSFrontend(shell.DIMACSFrontendConfig{Globals: globals, Input: input, Writer: output, DisplayStatistics: command.DisplayStatistics})

@@ -1,3 +1,5 @@
+Optimization frontend integration (2026-10-31 UTC): connected the existing OPB frontend to shell dispatch and enabled both OPB and WCNF in the g3 executable, including explicit flags and filename detection. Recorded three previously unstarted source units as partial; source-format objective output, signal and timeout parity remain pending.
+
 Interval vector rename and delta (2026-10-31 UTC): added concrete interval column rotation with equality classes and union delta behavior, with direct relation tests. Also recorded the already implemented and registered subpaving tactic header factory; the implementation and ownership audit remain partial.
 
 Injectivity tactic integration (2026-10-31 UTC): exposed the existing inverse-axiom recognizer and equality rewriter through the builtin registry and SMT-LIB application command. The C++ source and header have partial evidence; source and ownership audits remain pending.
