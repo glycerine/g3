@@ -90293,9 +90293,16 @@
       "path": "src/muz/rel/dl_external_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/external_relation.go",
+        "pkg/muz/rel/external_relation_test.go",
+        "pkg/ast/ast_datalog_relation_simple.go"
+      ],
+      "tests": [
+        "TestExternalRelationCallbacksAndClone",
+        "TestExternalRelationFallbackAndFormula"
+      ],
       "assertions": [
         {
           "line": 159,
@@ -90324,17 +90331,40 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "external callback relation initialization, store, emptiness, cloning and complement",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation.go",
+          "tests": [
+            "TestExternalRelationCallbacksAndClone",
+            "TestExternalRelationFallbackAndFormula"
+          ]
+        }
+      ],
+      "ownership": [
+        "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
+      ],
+      "deviations": [
+        "Join, projection, rename, union, filters, fixedpoint callback registration and callback trail lifetime remain pending.",
+        "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
+        "Full ownership and failure-frontier audits remain pending."
+      ]
     },
     {
       "path": "src/muz/rel/dl_external_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/external_relation.go",
+        "pkg/muz/rel/external_relation_test.go",
+        "pkg/ast/ast_datalog_relation_simple.go"
+      ],
+      "tests": [
+        "TestExternalRelationCallbacksAndClone",
+        "TestExternalRelationFallbackAndFormula"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -90347,9 +90377,25 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "external callback relation initialization, store, emptiness, cloning and complement",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation.go",
+          "tests": [
+            "TestExternalRelationCallbacksAndClone",
+            "TestExternalRelationFallbackAndFormula"
+          ]
+        }
+      ],
+      "ownership": [
+        "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
+      ],
+      "deviations": [
+        "Join, projection, rename, union, filters, fixedpoint callback registration and callback trail lifetime remain pending.",
+        "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
+        "Full ownership and failure-frontier audits remain pending."
+      ]
     },
     {
       "path": "src/muz/rel/dl_finite_product_relation.cpp",
