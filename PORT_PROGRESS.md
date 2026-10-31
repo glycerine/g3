@@ -1,3 +1,5 @@
+Inventory evidence repair, second batch (2026-10-31 UTC): added cross-package test-file links to ten Horn and PDR entries and replaced a directory target with a concrete Go file. The validator now reaches a stale PDR generalizer test name; remaining evidence still needs review.
+
 Inventory evidence repair (2026-10-31 UTC): fixed cross-package links and obsolete generic test names in ten source entries. The validator now advances to a separate Horn-tactic cross-package link; a complete evidence audit is still pending.
 
 Optimization command audit (2026-10-31 UTC): completed the live `opt_cmds.cpp` and header paths. Normal and checked tests cover CLI and supplied API optimizers; C++ Z3 comparisons verified normalized `assert-soft` options, formula validation order, and objective publication before an extra-argument error. The production inventory has 251 partial entries and no entries classified unstarted.
