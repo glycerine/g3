@@ -1,3 +1,5 @@
+Generated process-command replay (2026-10-31 UTC): added version output, warning toggle and trace enable/disable handlers, and registered them in the g3 log frontend. Focused normal and checked API/CLI tests cover output values and process state; the remaining generated commands remain unfinished.
+
 Configuration API logging (2026-10-31 UTC): config creation, parameter changes and deletion now emit generated records with stable log-local IDs and nested-call suppression. Automatic log/replay and failed-writer lifecycle tests pass in normal and checked builds, along with the full API package and focused CLI tests.
 
 Global API log failure correction (2026-10-31 UTC): global parameter calls now complete with their source return behavior when logging fails; the writer keeps the failure for inspection. Focused normal and checked tests pass.
