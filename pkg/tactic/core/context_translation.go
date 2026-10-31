@@ -19,6 +19,18 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 	case *DERTactic:
 		r, err := t.Translate(m)
 		return r, true, err
+	case *DistributeForallTactic:
+		r, err := t.Translate(m)
+		return r, true, err
+	case *OCCFTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		r, err := NewOCCFTactic(m, services)
+		if err != nil {
+			return nil, true, err
+		}
+		return r, true, nil
 	case *SymmetryReduceTactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
