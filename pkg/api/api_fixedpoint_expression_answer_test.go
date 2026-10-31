@@ -76,3 +76,50 @@ func TestAPIFixedpointExpressionAnswerUnreachableBackends(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace(t *testing.T) {
+	f := newAPIFixedpointFixture(t)
+	astTestMust(t, f.c.SetFixedpointEngine("spacer"))
+	astTestMust(t, f.c.SetBoolOption("fixedpoint.xform.inline_eager", false))
+	astTestMust(t, f.c.SetBoolOption("fixedpoint.xform.inline_linear", false))
+	astTestMust(t, f.fp.AddRule(f.pAtom, "p-fact"))
+	astTestMust(t, f.fp.AddRule(f.qAtom, "q-fact"))
+	query := f.pin(f.m.MkAndArgs([]ast.ASTHandle{f.pAtom, f.qAtom}))
+	status, err := f.fp.QueryExpression(query)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("query", status)
+	}
+	ground, err := f.fp.LastGroundSatAnswer()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.m.DelRef(&ground)) }()
+	value, err := f.m.RefGet(ground)
+	astTestMust(t, err)
+	sort, err := f.m.GetSort(value)
+	astTestMust(t, err)
+	boolean, err := f.m.MkBoolSort()
+	astTestMust(t, err)
+	if sort != boolean {
+		t.Fatal("ground sort", sort)
+	}
+	trace, names, err := f.fp.RulesAlongTrace()
+	astTestMust(t, err)
+	defer releaseAPIRefs(t, f.m, trace)
+	if len(trace) == 0 || len(trace) != len(names) {
+		t.Fatal("trace", len(trace), names)
+	}
+	for i := range trace {
+		h, e := f.m.RefGet(trace[i])
+		astTestMust(t, e)
+		if h.IsNull() {
+			t.Fatal("empty trace formula")
+		}
+	}
+	astTestMust(t, f.fp.AddFact(f.u, nil))
+	if _, err = f.fp.LastGroundSatAnswer(); err == nil {
+		t.Fatal("stale ground answer")
+	}
+	if _, _, err = f.fp.RulesAlongTrace(); err == nil {
+		t.Fatal("stale trace")
+	}
+}

@@ -466,6 +466,13 @@ func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.AS
 // RulesAlongTrace returns owning rule formulas and their names in preorder for
 // the latest successful Spacer query. The caller releases every ASTRef.
 func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []string, resultErr error) {
+	if e.queryClone != nil && e.backend == "spacer" {
+		clone, _, err := e.expressionQueryState()
+		if err != nil {
+			return nil, nil, err
+		}
+		return clone.RulesAlongTrace()
+	}
 	if e.backend == "bmc" {
 		return e.bmcRulesAlongTrace()
 	}

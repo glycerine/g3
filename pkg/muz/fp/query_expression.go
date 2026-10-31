@@ -113,18 +113,39 @@ func (e *PropositionalEngine) clearExpressionQuery() error {
 
 // ExpressionAnswer returns the backend answer to the most recent expression
 // query while its query snapshot is valid. The caller owns the returned ref.
-func (e *PropositionalEngine) ExpressionAnswer() (ast.ASTRef, error) {
+func (e *PropositionalEngine) expressionQueryState() (*PropositionalEngine, EngineKind, error) {
 	if err := e.open(); err != nil {
-		return ast.ASTRef{}, err
+		return nil, EngineDatalog, err
 	}
 	kind, err := parseEngineKind(e.backend)
 	if err != nil || !e.queryReady || e.queryRevision != e.revision || e.queryEngine != kind || e.queryClone == nil {
-		return ast.ASTRef{}, ErrPropositionalEngine
+		return nil, kind, ErrPropositionalEngine
+	}
+	return e.queryClone, kind, nil
+}
+
+func (e *PropositionalEngine) ExpressionAnswer() (ast.ASTRef, error) {
+	clone, kind, err := e.expressionQueryState()
+	if err != nil {
+		return ast.ASTRef{}, err
 	}
 	// BMC and tabulation transfer their proof/answer to the parent during query
 	// cleanup; their answer methods do not inspect the predicate argument.
 	if kind == EngineBMC || kind == EngineTab {
 		return e.Answer(e.queryClonePredicate)
 	}
-	return e.queryClone.Answer(e.queryClonePredicate)
+	return clone.Answer(e.queryClonePredicate)
+}
+
+// ExpressionGroundSatAnswer returns the Spacer ground answer for the latest
+// expression query. The caller owns the returned reference.
+func (e *PropositionalEngine) ExpressionGroundSatAnswer() (ast.ASTRef, error) {
+	clone, kind, err := e.expressionQueryState()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if kind != EngineSpacer {
+		return ast.ASTRef{}, ErrPropositionalEngine
+	}
+	return clone.GroundSatAnswer(e.queryClonePredicate)
 }

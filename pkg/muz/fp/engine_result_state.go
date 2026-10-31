@@ -58,6 +58,12 @@ func (e *PropositionalEngine) LastResult() (lbool.LBool, error) {
 	if err != nil {
 		return lbool.Undef, err
 	}
+	if e.queryClone != nil {
+		if _, _, err = e.expressionQueryState(); err != nil {
+			return lbool.Undef, err
+		}
+		return e.lastResult, nil
+	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return lbool.Undef, err
 	}

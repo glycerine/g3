@@ -13,3 +13,13 @@ func (c *Context) FixedpointExpressionAnswer() (ast.ASTRef, error) {
 	}
 	return engine.ExpressionAnswer()
 }
+
+// FixedpointExpressionGroundSatAnswer returns the latest expression query's
+// Spacer ground answer as an owning reference.
+func (c *Context) FixedpointExpressionGroundSatAnswer() (ast.ASTRef, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return engine.ExpressionGroundSatAnswer()
+}

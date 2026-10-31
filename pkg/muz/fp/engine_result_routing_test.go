@@ -343,3 +343,32 @@ func TestEngineSwitchDoesNotRepublishPriorBackendResult(t *testing.T) {
 		t.Fatal("old snapshot was restored after engine round trip", err)
 	}
 }
+
+func TestExpressionQueryLastResultAndSpacerTraceInvalidation(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	fpMust(t, engine.SelectEngine("spacer"))
+	declaration, application := routingPredicate(t, engine, manager, "expression-snapshot")
+	fpMust(t, engine.AddRule(application, "expression-fact"))
+	status, err := engine.QueryExpression(application)
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("query", status)
+	}
+	result, err := engine.LastResult()
+	fpMust(t, err)
+	if result != lbool.True {
+		t.Fatal("last result", result)
+	}
+	trace, _, err := engine.RulesAlongTrace()
+	fpMust(t, err)
+	for i := range trace {
+		fpMust(t, manager.DelRef(&trace[i]))
+	}
+	fpMust(t, engine.AddFact(declaration, nil))
+	if _, err = engine.LastResult(); !errors.Is(err, fp.ErrPropositionalEngine) {
+		t.Fatal("stale result", err)
+	}
+	if _, _, err = engine.RulesAlongTrace(); !errors.Is(err, fp.ErrPropositionalEngine) {
+		t.Fatal("stale trace", err)
+	}
+}

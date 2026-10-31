@@ -6135,7 +6135,8 @@
         "TestGeneratedFixedpointReplayLoadErrors",
         "TestZ3LogFrontendReplaysFixedpointProgramLoading",
         "TestGeneratedFloatingPointReplayInfinityExponentBitVector",
-        "TestGeneratedFixedpointReplayExpressionAnswer"
+        "TestGeneratedFixedpointReplayExpressionAnswer",
+        "TestGeneratedFixedpointReplaySpacerExpressionGroundAndTrace"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6191,7 +6192,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
-        "Fixedpoint answer replay supports single relations and expression queries; multiple-relation answers and ground answers for general expressions remain unsupported."
+        "Fixedpoint answer replay supports single relations and expression queries, including Spacer ground answers; multiple-relation answers remain unsupported."
       ]
     },
     {
@@ -6516,7 +6517,8 @@
         "pkg/muz/fp/rule_bind.go",
         "pkg/cmd_context/parser_manager_ownership.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
-        "pkg/cmd_context/fixedpoint_expression_answer.go"
+        "pkg/cmd_context/fixedpoint_expression_answer.go",
+        "pkg/muz/fp/engine_result_routing_test.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6539,7 +6541,9 @@
         "TestAPIFixedpointObjectLoadQueriesIsolatedAndTransfersRules",
         "TestAPIFixedpointObjectLoadQueriesSurviveParserReset",
         "TestAPIFixedpointExpressionAnswerBackends",
-        "TestAPIFixedpointExpressionAnswerUnreachableBackends"
+        "TestAPIFixedpointExpressionAnswerUnreachableBackends",
+        "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
+        "TestExpressionQueryLastResultAndSpacerTraceInvalidation"
       ],
       "assertions": [
         {
@@ -84693,7 +84697,8 @@
         "pkg/muz/fp/query_expression.go",
         "pkg/muz/fp/query_expression_answer_test.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
-        "pkg/cmd_context/fixedpoint_expression_answer.go"
+        "pkg/cmd_context/fixedpoint_expression_answer.go",
+        "pkg/muz/fp/engine_result_routing_test.go"
       ],
       "tests": [
         "TestDatalogModelMaterializesFiniteRelationTables",
@@ -84715,7 +84720,9 @@
         "TestFixedpointExpressionAnswerSurvivesQueryAndInvalidates",
         "TestFixedpointExpressionAnswerForEmptyRelation",
         "TestAPIFixedpointExpressionAnswerBackends",
-        "TestAPIFixedpointExpressionAnswerUnreachableBackends"
+        "TestAPIFixedpointExpressionAnswerUnreachableBackends",
+        "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
+        "TestExpressionQueryLastResultAndSpacerTraceInvalidation"
       ],
       "assertions": [
         {
@@ -97412,7 +97419,9 @@
         "pkg/muz/spacer/context.go",
         "pkg/cmd_context/fixedpoint.go",
         "pkg/api/api_fixedpoint.go",
-        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/api/api_fixedpoint_expression_answer_test.go",
+        "pkg/muz/fp/engine_result_routing_test.go"
       ],
       "tests": [
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
@@ -97420,7 +97429,9 @@
         "TestSpacerEngineReconstructsInlinedReachablePredicate",
         "TestSpacerEngineExpandsSlicedModelPredicates",
         "TestSMTContextFixedpointSpacerInductiveExports",
-        "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP"
+        "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+        "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
+        "TestExpressionQueryLastResultAndSpacerTraceInvalidation"
       ],
       "assertions": [
         {
@@ -97535,7 +97546,8 @@
         "PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."
       ],
       "deviations": [
-        "Go selects direct predicate declarations through the typed engine API and reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported."
+        "Go selects direct predicate declarations through the typed engine API and reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported.",
+        "Expression-query preprocessing can collapse named fact rules into an unnamed synthetic trace rule; original trace-name reconstruction remains incomplete."
       ]
     },
     {

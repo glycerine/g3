@@ -97,3 +97,18 @@ func (f *APIFixedpoint) LastAnswer() (ast.ASTRef, error) {
 	}
 	return ast.ASTRef{}, fmt.Errorf("fixedpoint: answer requires a completed query")
 }
+
+// LastGroundSatAnswer returns the latest Spacer ground answer as an owning
+// reference, whether the query was an expression or a relation.
+func (f *APIFixedpoint) LastGroundSatAnswer() (ast.ASTRef, error) {
+	if err := f.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if f.hasLastQuery {
+		return f.command.FixedpointGroundSatAnswer(f.lastQuery)
+	}
+	if f.hasLastExpression {
+		return f.command.FixedpointExpressionGroundSatAnswer()
+	}
+	return ast.ASTRef{}, fmt.Errorf("fixedpoint: ground answer requires a completed query")
+}

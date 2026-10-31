@@ -202,10 +202,7 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		if id == 519 {
 			ref, err = f.value.LastAnswer()
 		} else {
-			if !f.value.hasLastQuery {
-				return fmt.Errorf("fixedpoint replay: ground answer requires a single relation query")
-			}
-			ref, err = f.value.command.FixedpointGroundSatAnswer(f.value.lastQuery)
+			ref, err = f.value.LastGroundSatAnswer()
 		}
 		if err != nil {
 			return err
