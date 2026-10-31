@@ -1,3 +1,5 @@
+The previously unstarted src/test/expr_substitution.cpp regression now constructs the source bit-vector expressions and checks the normalized subtraction; its commented cyclic substitution remains unexecuted.
+
 The previously unstarted src/test/model_retrieval.cpp regression now exercises array model values across a second direct solver check. The generated as-array term triggers the native direct array theory incompleteness guard; the original model remains usable.
 
 The manifest now links src/test/var_subst.cpp to its existing Go regression for both source AST identity assertions; unused helper functions remain reference-only.

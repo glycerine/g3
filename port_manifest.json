@@ -200899,14 +200899,31 @@
       "path": "src/test/expr_substitution.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_expr_substitution_cpp_test.go"
+      ],
+      "tests": [
+        "TestAPIExprSubstitutionCPPRewrite"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "mk_bv_xor, mk_bv_and and tst_expr_substitution",
+          "status": "ported",
+          "go_target": "pkg/api/api_expr_substitution_cpp_test.go",
+          "tests": [
+            "TestAPIExprSubstitutionCPPRewrite"
+          ]
+        }
+      ],
+      "ownership": [
+        "The test pins all constructed ASTs and closes the expression substitution owner."
+      ],
+      "deviations": [
+        "Diagnostic printing is replaced with an assertion on the normalized subtraction; the divergent cyclic substitution is commented out in the source and is not executed."
+      ]
     },
     {
       "path": "src/test/ext_numeral.cpp",
