@@ -517,6 +517,30 @@ func (t *SMTTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	}
 	return NewSMTTactic(m, &t.params, config)
 }
+
+// TranslateWithConfig copies the tactic's parameters into explicit target
+// services before constructing an independent SMT tactic.
+func (t *SMTTactic) TranslateWithConfig(m *ast.ASTManager, config SMTSolverConfig) (result *SMTTactic, resultErr error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	if config.Params == nil {
+		return nil, uparams.ErrParamsOwner
+	}
+	p, err := t.config.Params.TranslateTo(&t.params, config.Params)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, config.Params.Del(&p))
+		if resultErr != nil && result != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
+		}
+	}()
+	return NewSMTTactic(m, &p, config)
+}
+
 func (t *SMTTactic) Close() error {
 	if t == nil || t.self != t {
 		return ast.ErrASTHandle

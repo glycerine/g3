@@ -440,3 +440,107 @@ func TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope(t *testing.T) 
 	astTestMust(t, err)
 	astTestMust(t, translated.Close())
 }
+
+func TestAPISMTTacticSolverCrossContextTranslation(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	tac, err := source.Tactic("smt")
+	astTestMust(t, err)
+	s, err := source.NewSolverFromTactic(tac)
+	astTestMust(t, err)
+	astTestMust(t, tac.Close())
+	astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
+	params, err := source.NewParameterSet()
+	astTestMust(t, err)
+	astTestMust(t, params.SetUInt("random_seed", 17))
+	astTestMust(t, s.SetParameters(params))
+	astTestMust(t, params.Close())
+	status, err := s.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("source", status)
+	}
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, s.Close())
+	astTestMust(t, source.Close())
+	status, err = translated.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("translated", status)
+	}
+	refs, err := translated.Assertions()
+	astTestMust(t, err)
+	if len(refs) != 1 {
+		t.Fatal("assertions", len(refs))
+	}
+	m, err := target.Manager()
+	astTestMust(t, err)
+	defer releaseAPIRefs(t, m, refs)
+	h, err := m.RefGet(refs[0])
+	astTestMust(t, err)
+	notH, err := m.MkNot(h)
+	astTestMust(t, err)
+	astTestMust(t, translated.Assert(notH))
+	status, err = translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("contradiction", status)
+	}
+}
+
+func TestAPIComposedTacticCrossContextTranslationIsUnsupported(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	skip, err := source.SkipTactic()
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := skip.AndThen(smt)
+	astTestMust(t, err)
+	s, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	astTestMust(t, combined.Close())
+	astTestMust(t, smt.Close())
+	astTestMust(t, skip.Close())
+	defer func() { astTestMust(t, s.Close()) }()
+	if _, err = s.Translate(target); err == nil {
+		t.Fatal("expected unsupported composed tactic")
+	}
+	status, err := s.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("source after rejection", status)
+	}
+}
+
+func TestAPISMTTacticSolverCrossContextTranslationRejectsActiveScope(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	tac, err := source.Tactic("smt")
+	astTestMust(t, err)
+	s, err := source.NewSolverFromTactic(tac)
+	astTestMust(t, err)
+	astTestMust(t, tac.Close())
+	defer func() { astTestMust(t, s.Close()) }()
+	astTestMust(t, s.Push())
+	if _, err = s.Translate(target); err == nil {
+		t.Fatal("translated active scope")
+	}
+	astTestMust(t, s.Pop(1))
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	astTestMust(t, translated.Close())
+}

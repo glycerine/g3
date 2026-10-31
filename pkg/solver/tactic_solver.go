@@ -542,6 +542,18 @@ func (s *TacticSolver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (Solve
 	return s.translateWithTactic(m, p, translated, config)
 }
 
+// TranslationTactic borrows the tactic used by this solver. The solver must
+// remain open while the returned tactic is used.
+func (s *TacticSolver) TranslationTactic() (tactic.Tactic, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	if s.tactic == nil {
+		return nil, ast.ErrASTHandle
+	}
+	return s.tactic, nil
+}
+
 // TranslationProfile exposes the concrete construction choices needed to
 // rebuild an internal strategic tactic in a target context.
 func (s *TacticSolver) TranslationProfile() (logic string, proofs, models, cores bool, err error) {

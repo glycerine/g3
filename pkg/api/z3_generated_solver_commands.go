@@ -7,6 +7,8 @@ import (
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/tactic"
 )
 
 type replaySolver struct {
@@ -194,15 +196,26 @@ func replaySolverTranslate(r *Z3Replayer) error {
 	}
 	kind, logic := source.kind, source.logic
 	var tacticValue *APITactic
-	if target == source.owner {
-		if source.tactic != nil {
+	if source.tactic != nil {
+		if target == source.owner {
 			tacticValue, err = source.tactic.Retain()
-			if err != nil {
-				if parameters != nil {
-					err = errors.Join(err, parameters.Close())
+		} else {
+			tactical, ok := translated.solver.(*solver.TacticSolver)
+			if !ok {
+				err = ErrZ3ReplayState
+			} else {
+				var raw tactic.Tactic
+				raw, err = tactical.TranslationTactic()
+				if err == nil {
+					tacticValue, err = newAPITactic(target.context.smtContextState, raw)
 				}
-				return errors.Join(err, translated.Close())
 			}
+		}
+		if err != nil {
+			if parameters != nil {
+				err = errors.Join(err, parameters.Close())
+			}
+			return errors.Join(err, translated.Close())
 		}
 	}
 	return replayStoreSolver(r, target, translated, kind, logic, tacticValue, parameters)
