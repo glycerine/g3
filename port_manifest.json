@@ -185666,6 +185666,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/nlsat_smt/nl_purify_interfaces.go",
+        "pkg/tactic/nlsat_smt/nl_purify_interfaces_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_analysis.go",
         "pkg/tactic/nlsat_smt/nl_purify_analysis_test.go",
         "pkg/tactic/nlsat_smt/shared_ast_fixtures_test.go",
@@ -185675,7 +185677,9 @@
         "TestNLPurifyPolaritiesUpgradeSharedSubexpressions",
         "TestNLPurifyRejectsQuantifiersAndFreeBoundVariables",
         "TestNLPurifyArithmeticPuritySeparatesInterfaces",
-        "TestNLPurifyMovesArithmeticGoalRoots"
+        "TestNLPurifyMovesArithmeticGoalRoots",
+        "TestNLPurifyInterfaceRewriteSeparatesAndSharesDefinitions",
+        "TestNLPurifyInterfaceGoalRewritePublishesDefinitions"
       ],
       "assertions": [
         {
@@ -185703,10 +185707,10 @@
         }
       ],
       "ownership": [
-        "Expression analysis borrows caller roots. Goal transfer acquires destination formula/proof/dependency owners before replacing the source slot."
+        "Expression analysis borrows caller roots. Goal transfer acquires destination formula/proof/dependency owners before replacing the source slot; interface rewriting owns cached expressions, introduced constants and definitions until closure."
       ],
       "deviations": [
-        "Pending: interface-variable and predicate rewriting, cooperating NLSAT/SMT search, equality assumptions/cores, merged models, parameter/statistics lifecycle, public factory and QF_UFNRA integration.",
+        "Pending: predicate rewriting, cooperating NLSAT/SMT search, equality assumptions/cores, merged models, parameter/statistics lifecycle, public factory and QF_UFNRA integration; interface rewriting has not had a complete proof, cancellation and failure-frontier audit.",
         "Purity classification runs before goal updates in this initial phase implementation; source allocation/error frontiers and diagnostic hooks have not been audited."
       ]
     },
