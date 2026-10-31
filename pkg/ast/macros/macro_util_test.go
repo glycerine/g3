@@ -46,6 +46,29 @@ func declaration(t *testing.T, m *ast.ASTManager, name string, domain []ast.ASTH
 	return d
 }
 
+func TestMacroCandidatesBooleanBoundVariableClause(t *testing.T) {
+	m := fixture(t)
+	u, err := macros.NewUtil(m)
+	must(t, err)
+	b, err := m.MkBoolSort()
+	must(t, err)
+	x, err := m.MkVar(0, b)
+	must(t, err)
+	guard, err := m.MkConst(mustSymbol(t, m, "boolean-clause-guard"), b)
+	must(t, err)
+	body, err := m.MkOr(guard, x)
+	must(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{b}, Names: []usymbol.Symbol{mustSymbol(t, m, "boolean-clause-x")}, Body: body})
+	must(t, err)
+	candidates, err := macros.NewCandidates(m)
+	must(t, err)
+	defer func() { must(t, candidates.Close()) }()
+	must(t, u.CollectQuantifierCandidates(q, candidates))
+	if candidates.Len() != 0 {
+		t.Fatalf("unexpected macro candidates: %d", candidates.Len())
+	}
+}
+
 func TestMacroUtilHeadsSimpleMacrosAndForbiddenDeclarations(t *testing.T) {
 	m := fixture(t)
 	u, err := macros.NewUtil(m)

@@ -353,6 +353,15 @@ func (u *Util) insertCandidate(head ast.ASTHandle, declarations uint32, definiti
 }
 
 func (u *Util) collectCandidateCore(atom ast.ASTHandle, declarations uint32, candidates *Candidates) error {
+	nodeKind, err := u.manager.GetKind(atom)
+	if err != nil {
+		return err
+	}
+	// A Boolean bound variable is a valid clause literal, but it cannot be
+	// an equality or arithmetic comparison from which to extract a macro.
+	if nodeKind != ast.ASTApp {
+		return nil
+	}
 	family, err := u.manager.GetFamilyID(atom)
 	if err != nil {
 		return err
