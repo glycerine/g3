@@ -121,5 +121,5 @@ func registerZ3GeneratedBitVectorParameters(r *Z3Replayer) error {
 			return err
 		}
 	}
-	return nil
+	return registerZ3GeneratedBitVectorOverflowCommands(r)
 }
