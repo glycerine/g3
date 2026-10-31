@@ -46636,9 +46636,9 @@
       "path": "src/cmd_context/extra_cmds/subpaving_cmds.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/subpaving_commands_test.go"],
+      "tests": ["TestSMT2ToSubpavingCommand"],
       "conditionals": [
         {
           "line": 53,
@@ -46653,20 +46653,20 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Broader display and exceptional-path audit remains open."]
     },
     {
       "path": "src/cmd_context/extra_cmds/subpaving_cmds.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/subpaving_commands_test.go"],
+      "tests": ["TestSMT2ToSubpavingCommand"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Broader display and exceptional-path audit remains open."]
     },
     {
       "path": "src/cmd_context/interpolant_cmds.cpp",

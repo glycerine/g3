@@ -1,3 +1,5 @@
+Subpaving debug command start (2026-10-31 UTC): ported and registered the non-external to-subpaving command using the rational expression converter. Focused tests cover power simplification, mappings, generated constraints and a rational constant; the C++ hash-map display is stabilized by variable number in Go. Broader display and exceptional-path audit remains open.
+
 Polynomial debug command start (2026-10-31 UTC): ported and registered the non-external to-poly and poly/factor commands, including sum-of-monomials rendering, source denominator formatting, factor multiplicities, factor parameters and non-arithmetic refusal. The poly/isolate-roots command remains unfinished.
 
 Z3 log frontend start (2026-10-31 UTC): ported the source stream replay and error, peak-memory and CPU-time reporting using the concrete Go replayer. Focused tests cover registered commands, log messages, parse failures and refused output. Generated API-command registration, filename selection and shell dispatch remain unfinished.

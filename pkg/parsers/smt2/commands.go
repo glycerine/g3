@@ -977,6 +977,18 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "to-subpaving":
+		expression, _, err := p.expression()
+		if err != nil {
+			return false, err
+		}
+		if err = p.requireEnd(); err != nil {
+			return false, err
+		}
+		if err = p.context.WriteSubpaving(p.out, expression); err != nil {
+			return false, err
+		}
+		success = false
 	case "to-poly":
 		expression, _, err := p.expression()
 		if err != nil {
