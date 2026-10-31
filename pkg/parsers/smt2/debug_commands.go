@@ -12,6 +12,61 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-bool-rewriter", "dbg-bool-flat-rewriter", "dbg-elim-and":
+		expression, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		globals, err := p.context.GlobalParameters()
+		if err != nil {
+			return err
+		}
+		params, err := globals.Context.NewValue()
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, globals.Context.Del(&params)) }()
+		flat := "flat"
+		if err = globals.Context.SetBoolName(&params, &flat, name != "dbg-bool-rewriter"); err != nil {
+			return err
+		}
+		if name == "dbg-elim-and" {
+			key := "elim_and"
+			if err = globals.Context.SetBoolName(&params, &key, true); err != nil {
+				return err
+			}
+		}
+		rw, err := rewriter.NewBoolRewriterStar(m, globals.Context, globals, &params)
+		if rw != nil {
+			defer func() { resultErr = errors.Join(resultErr, rw.Close()) }()
+		}
+		if err != nil {
+			return err
+		}
+		result, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, m.DelRef(&result)) }()
+		if err = rw.Rewrite(expression, result); err != nil {
+			return err
+		}
+		value, err := m.RefGet(result)
+		if err != nil {
+			return err
+		}
+		if err = p.context.WriteExpression(p.out, value); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(p.out)
+		return err
 	case "dbg-elim-unused-vars":
 		expression, _, err := p.expression()
 		if err != nil {

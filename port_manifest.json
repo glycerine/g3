@@ -46296,7 +46296,8 @@
         "pkg/cmd_context/context.go",
         "pkg/parsers/smt2/debug_commands.go",
         "pkg/parsers/smt2/commands.go",
-        "pkg/parsers/smt2/debug_commands_test.go"
+        "pkg/parsers/smt2/debug_commands_test.go",
+        "pkg/ast/rewriter/bool_rewriter_public.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46304,7 +46305,8 @@
         "TestDebugShiftAndSharedExpressions",
         "TestDebugSubstitutionBindingOrderAndReplacement",
         "TestDebugInstantiateQuantifiers",
-        "TestDebugEliminateUnusedVariables"
+        "TestDebugEliminateUnusedVariables",
+        "TestDebugBooleanRewriters"
       ],
       "assertions": [
         {
@@ -46369,6 +46371,14 @@
           "tests": [
             "TestDebugEliminateUnusedVariables"
           ]
+        },
+        {
+          "name": "recursive Boolean rewrites and conjunction elimination",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugBooleanRewriters"
+          ]
         }
       ],
       "ownership": [
@@ -46388,7 +46398,8 @@
         "pkg/cmd_context/context.go",
         "pkg/parsers/smt2/debug_commands.go",
         "pkg/parsers/smt2/commands.go",
-        "pkg/parsers/smt2/debug_commands_test.go"
+        "pkg/parsers/smt2/debug_commands_test.go",
+        "pkg/ast/rewriter/bool_rewriter_public.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46396,7 +46407,8 @@
         "TestDebugShiftAndSharedExpressions",
         "TestDebugSubstitutionBindingOrderAndReplacement",
         "TestDebugInstantiateQuantifiers",
-        "TestDebugEliminateUnusedVariables"
+        "TestDebugEliminateUnusedVariables",
+        "TestDebugBooleanRewriters"
       ],
       "conditionals": [
         {
@@ -46436,6 +46448,14 @@
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugEliminateUnusedVariables"
+          ]
+        },
+        {
+          "name": "recursive Boolean rewrites and conjunction elimination",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugBooleanRewriters"
           ]
         }
       ],

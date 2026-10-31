@@ -112,3 +112,18 @@ func TestDebugCommandsDoNotPrintSuccess(t *testing.T) {
 		t.Fatalf("debug protocol output %q, want %q", out, want)
 	}
 }
+
+func TestDebugBooleanRewriters(t *testing.T) {
+	script := `(declare-const p Bool)(declare-const q Bool)(declare-const r Bool)
+(dbg-bool-rewriter (and p (and q r) true))
+(dbg-bool-flat-rewriter (and p (and q r) true))
+(dbg-elim-and (and p (and q r) true))`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	want := "(and p q r)\n(and p q r)\n(not (or (not p) (not q) (not r)))\n"
+	if out != want {
+		t.Fatalf("debug Boolean rewriting %q, want %q", out, want)
+	}
+}

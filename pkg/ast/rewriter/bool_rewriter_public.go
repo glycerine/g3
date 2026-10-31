@@ -12,6 +12,16 @@ import (
 // core through a Configuration; it does not traverse child expressions itself.
 type BoolRewriter = boolRewriter
 
+// BoolRewriterStar recursively applies the configured Boolean reducer, as
+// required by the SMT-LIB debug rewriting commands.
+type BoolRewriterStar = boolRewriterStar
+
+// NewBoolRewriterStar returns a concrete traversal; a nonnil partial owner
+// returned with an error must be closed.
+func NewBoolRewriterStar(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService, p *uparams.ParamsRef) (*BoolRewriterStar, error) {
+	return newBoolRewriterStar(m, c, g, p)
+}
+
 // NewBoolRewriter borrows the AST and parameter services. A nonnil partial owner
 // returned with an error must be closed.
 func NewBoolRewriter(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService, p *uparams.ParamsRef) (*BoolRewriter, error) {

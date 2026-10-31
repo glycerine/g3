@@ -1,3 +1,5 @@
+Debug Boolean rewriting (2026-10-31 UTC): exposed the existing concrete recursive Boolean rewriter and connected the source debug rewrite, flat rewrite and conjunction-elimination commands. The SMT-LIB test matches native output for all three operations; other debug commands remain pending.
+
 Debug unused-variable elimination (2026-10-31 UTC): connected dbg-elim-unused-vars to the existing quantifier eliminator with the source global parameter snapshot. Native-comparison tests cover both quantifiers and the non-quantifier output path.
 
 Debug quantifier instantiation (2026-10-31 UTC): implemented dbg-instantiate and dbg-instantiate-nested using the existing binder-aware instantiator, with arity and sort validation. Tests match native Z3 on ordinary and nested quantified expressions and cover invalid input.
