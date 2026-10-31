@@ -105998,11 +105998,15 @@
       "go_targets": [
         "pkg/qe/qe_array_plugin.go",
         "pkg/qe/qe_array_plugin_direct.go",
-        "pkg/qe/qe_array_plugin_test.go"
+        "pkg/qe/qe_array_plugin_test.go",
+        "pkg/qe/qe_array_plugin_select.go",
+        "pkg/qe/qe_array_plugin_select_test.go"
       ],
       "tests": [
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
-        "TestArrayPluginEliminatesDirectEqualityInEitherOrientation"
+        "TestArrayPluginEliminatesDirectEqualityInEitherOrientation",
+        "TestArrayPluginSelectEqualityIntroducesFreshArray",
+        "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
       ],
       "assertions": [
         {
@@ -106028,13 +106032,23 @@
           "tests": [
             "TestArrayPluginEliminatesDirectEqualityInEitherOrientation"
           ]
+        },
+        {
+          "name": "solve_select: fresh array and store construction, safe substitution and context variable replacement",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_array_plugin_select.go",
+          "tests": [
+            "TestArrayPluginSelectEqualityIntroducesFreshArray",
+            "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
+          ]
         }
       ],
       "ownership": [
-        "The plugin borrows its context and expression roots; the context owns a registered plugin and acquires the rewritten formula before removing the variable."
+        "The plugin borrows its context and expression roots; the context owns a registered plugin and acquires the rewritten formula before removing the variable.",
+        "The context-owned array plugin independently pins fresh variables while the context variable list borrows them, including when the rewritten formula does not mention the fresh variable."
       ],
       "deviations": [
-        "Pending: solve_store, solve_select, arithmetic zero-equation handling, top-level solve orchestration, diagnostics, allocation-failure audit and live QE solver registration."
+        "Pending: solve_store, arithmetic zero-equation handling, top-level solve orchestration, diagnostics, allocation-failure audit and live QE solver registration."
       ]
     },
     {
