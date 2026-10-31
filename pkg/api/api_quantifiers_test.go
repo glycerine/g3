@@ -11,7 +11,8 @@ func TestSMTContextQuantifierAndPatternAPI(t *testing.T) {
 	f := newSMTAPIFixture(t, "ALL", nil)
 	boolean := f.pin(f.m.MkBoolSort())
 	variable := f.pin(f.m.MkVar(0, boolean))
-	triggerTerm := f.pin(f.m.MkNot(variable))
+	decl := f.pin(f.m.MkFuncDecl(astTestSymbol(t, f.m, "quantifier-pattern-f"), []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{}))
+	triggerTerm := f.pin(f.m.MkApp(decl, []ast.ASTHandle{variable}))
 	pattern := f.pin(f.c.Pattern(triggerTerm))
 	quantifier := f.pin(f.c.Quantifier(QuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []string{"x"}, Body: triggerTerm, Weight: 7, QID: "qid", SkolemID: "skid", Patterns: []ast.ASTHandle{pattern}}))
 	if yes, err := f.c.IsQuantifier(quantifier); err != nil || !yes {
@@ -44,7 +45,7 @@ func TestSMTContextQuantifierAndPatternAPI(t *testing.T) {
 	if term := f.pin(f.c.PatternTerm(pattern, 0)); term != triggerTerm {
 		t.Fatal("term", term, triggerTerm)
 	}
-	if text, err := f.c.PatternString(pattern); err != nil || !strings.Contains(text, "not") {
+	if text, err := f.c.PatternString(pattern); err != nil || !strings.Contains(text, "quantifier-pattern-f") {
 		t.Fatal("pattern string", text, err)
 	}
 	if got, err := f.c.Forall(nil, nil, triggerTerm); err != nil || got != triggerTerm {
@@ -104,6 +105,11 @@ func TestSMTContextQuantifierAPIErrors(t *testing.T) {
 	variable := f.pin(f.c.BoundVariable(0, boolean))
 	if _, err := f.c.Pattern(variable); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("bare bound variable accepted as a pattern term", err)
+	}
+	invalidTerm := f.pin(f.m.MkNot(variable))
+	invalidPattern := f.pin(f.c.Pattern(invalidTerm))
+	if _, err := f.c.Quantifier(QuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []string{"x"}, Body: variable, Patterns: []ast.ASTHandle{invalidPattern}}); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("invalid quantified pattern accepted", err)
 	}
 	text := f.pin(f.c.String("not-bool"))
 	if _, err := f.c.Forall(nil, nil, text); err != ast.ErrASTDomain {

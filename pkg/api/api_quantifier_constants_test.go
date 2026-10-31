@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"testing"
 )
 
@@ -9,7 +10,8 @@ func TestSMTContextConstantQuantifierAbstraction(t *testing.T) {
 	f := newSMTAPIFixture(t, "ALL", nil)
 	boolean := f.pin(f.m.MkBoolSort())
 	x := f.pin(f.m.MkConst(astTestSymbol(t, f.m, "constant-x"), boolean))
-	body := f.pin(f.m.MkEq(x, x))
+	decl := f.pin(f.m.MkFuncDecl(astTestSymbol(t, f.m, "constant-pattern-f"), []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{}))
+	body := f.pin(f.m.MkApp(decl, []ast.ASTHandle{x}))
 	pattern := f.pin(f.c.Pattern(body))
 	quantifier := f.pin(f.c.ConstantQuantifier(ConstantQuantifierSpec{Forall: true, Bound: []ast.ASTHandle{x}, Body: body, Weight: 3, Patterns: []ast.ASTHandle{pattern}}))
 	if yes, err := f.c.IsForall(quantifier); err != nil || !yes {
@@ -42,5 +44,16 @@ func TestSMTContextConstantQuantifierValidation(t *testing.T) {
 	}
 	if _, err := f.c.ForallConstants([]ast.ASTHandle{body}, body); err != ast.ErrASTDomain {
 		t.Fatal("non-uninterpreted bound", err)
+	}
+}
+
+func TestSMTContextConstantQuantifierPreservesNumericName(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	boolean := f.pin(f.m.MkBoolSort())
+	constant := f.pin(f.m.MkConst(usymbol.Numerical(37), boolean))
+	quantifier := f.pin(f.c.ForallConstants([]ast.ASTHandle{constant}, constant))
+	name, err := f.m.GetDeclarationName(quantifier, 0)
+	if err != nil || !name.IsNumerical() || name.Value != 37 {
+		t.Fatal("numeric binder name", name, err)
 	}
 }

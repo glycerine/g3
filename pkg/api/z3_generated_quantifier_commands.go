@@ -4,7 +4,6 @@ package api
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	parserutil "github.com/glycerine/g3/pkg/parsers/util"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -127,26 +126,8 @@ func replayQuantifier(r *Z3Replayer, id uint32) error {
 	if bodySort != boolean || len(patterns) != 0 && len(noPatterns) != 0 {
 		return ast.ErrASTDomain
 	}
-	if len(patterns) != 0 {
-		recursive, e := m.RecursiveFunctionQID()
-		if e != nil {
-			return e
-		}
-		if qid != recursive {
-			validator, e := parserutil.NewPatternValidator(m, nil)
-			if e != nil {
-				return e
-			}
-			for _, pattern := range patterns {
-				valid, e := validator.ValidateNew(uint32(len(sorts)), pattern, 0, 0)
-				if e != nil {
-					return e
-				}
-				if !valid {
-					return ast.ErrASTDomain
-				}
-			}
-		}
+	if err = validateQuantifierPatterns(m, qid, uint32(len(sorts)), patterns); err != nil {
+		return err
 	}
 	h := body.handle
 	if len(sorts) != 0 {

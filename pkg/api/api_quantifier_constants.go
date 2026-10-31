@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 // ConstantQuantifierSpec describes the source convenience constructor that
@@ -20,7 +21,26 @@ type ConstantQuantifierSpec struct {
 	Patterns, NoPatterns []ast.ASTHandle
 }
 
-func (c *SMTContext) ConstantQuantifier(spec ConstantQuantifierSpec) (result ast.ASTHandle, err error) {
+func (c *SMTContext) ConstantQuantifier(spec ConstantQuantifierSpec) (ast.ASTHandle, error) {
+	if len(spec.Bound) == 0 || (len(spec.Patterns) != 0 && len(spec.NoPatterns) != 0) {
+		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	m, err := c.quantifierManager()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	qid, err := internQuantifierSymbol(m, spec.QID)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	skid, err := internQuantifierSymbol(m, spec.SkolemID)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return c.constantQuantifierSymbols(spec, qid, skid)
+}
+
+func (c *SMTContext) constantQuantifierSymbols(spec ConstantQuantifierSpec, qid, skid usymbol.Symbol) (result ast.ASTHandle, err error) {
 	if len(spec.Bound) == 0 || (len(spec.Patterns) != 0 && len(spec.NoPatterns) != 0) {
 		return result, ast.ErrASTDomain
 	}
@@ -29,7 +49,7 @@ func (c *SMTContext) ConstantQuantifier(spec ConstantQuantifierSpec) (result ast
 		return result, err
 	}
 	sorts := make([]ast.ASTHandle, len(spec.Bound))
-	names := make([]string, len(spec.Bound))
+	names := make([]usymbol.Symbol, len(spec.Bound))
 	for i, bound := range spec.Bound {
 		kind, e := m.GetKind(bound)
 		if e != nil || kind != ast.ASTApp {
@@ -63,10 +83,7 @@ func (c *SMTContext) ConstantQuantifier(spec ConstantQuantifierSpec) (result ast
 		if e != nil {
 			return result, e
 		}
-		names[i], e = m.Symbols.String(name)
-		if e != nil {
-			return result, e
-		}
+		names[i] = name
 	}
 	abstractor, err := ast.NewExprAbstractor(m)
 	if err != nil {
@@ -122,7 +139,21 @@ func (c *SMTContext) ConstantQuantifier(spec ConstantQuantifierSpec) (result ast
 	if err != nil {
 		return result, err
 	}
-	return c.Quantifier(QuantifierSpec{Forall: spec.Forall, Sorts: sorts, Names: names, Body: body, Weight: spec.Weight, QID: spec.QID, SkolemID: spec.SkolemID, Patterns: patterns, NoPatterns: noPatterns})
+	bodySort, err := m.GetSort(body)
+	if err != nil {
+		return result, err
+	}
+	boolean, err := m.MkBoolSort()
+	if err != nil {
+		return result, err
+	}
+	if bodySort != boolean {
+		return result, ast.ErrASTDomain
+	}
+	if err = validateQuantifierPatterns(m, qid, uint32(len(sorts)), patterns); err != nil {
+		return result, err
+	}
+	return m.MkQuantifier(ast.ASTQuantifierSpec{Forall: spec.Forall, Sorts: sorts, Names: names, Body: body, Weight: spec.Weight, QID: qid, SkolemID: skid, Patterns: patterns, NoPatterns: noPatterns})
 }
 
 func (c *SMTContext) ForallConstants(bound []ast.ASTHandle, body ast.ASTHandle, patterns ...ast.ASTHandle) (ast.ASTHandle, error) {

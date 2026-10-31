@@ -7333,8 +7333,24 @@
       "component": "api",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/api/api_quantifiers.go", "pkg/api/api_quantifiers_test.go", "pkg/api/api_quantifier_constants.go", "pkg/api/api_quantifier_constants_test.go", "pkg/api/api_quantifier_bound.go", "pkg/api/api_quantifier_bound_test.go"],
-      "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors", "TestSMTContextExistentialNoPatternAndQueryBounds", "TestSMTContextConstantQuantifierAbstraction", "TestSMTContextConstantQuantifierValidation", "TestSMTContextBoundVariableSourceIndexAndSort"],
+      "go_targets": [
+        "pkg/api/api_quantifiers.go",
+        "pkg/api/api_quantifiers_test.go",
+        "pkg/api/api_quantifier_constants.go",
+        "pkg/api/api_quantifier_constants_test.go",
+        "pkg/api/api_quantifier_bound.go",
+        "pkg/api/api_quantifier_bound_test.go",
+        "pkg/api/api_quantifier_pattern_validation.go"
+      ],
+      "tests": [
+        "TestSMTContextQuantifierAndPatternAPI",
+        "TestSMTContextQuantifierAPIErrors",
+        "TestSMTContextExistentialNoPatternAndQueryBounds",
+        "TestSMTContextConstantQuantifierAbstraction",
+        "TestSMTContextConstantQuantifierValidation",
+        "TestSMTContextBoundVariableSourceIndexAndSort",
+        "TestSMTContextConstantQuantifierPreservesNumericName"
+      ],
       "assertions": [
         {
           "line": 196,
@@ -7360,14 +7376,28 @@
           "name": "quantifier, extended quantifier, forall/exists, constant-bound abstraction, pattern, and de Bruijn bound constructors",
           "status": "ported",
           "go_target": "pkg/api/api_quantifiers.go",
-          "go_targets": ["pkg/api/api_quantifier_constants.go", "pkg/api/api_quantifier_bound.go"],
-          "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextQuantifierAPIErrors", "TestSMTContextExistentialNoPatternAndQueryBounds", "TestSMTContextConstantQuantifierAbstraction", "TestSMTContextConstantQuantifierValidation", "TestSMTContextBoundVariableSourceIndexAndSort"]
+          "go_targets": [
+            "pkg/api/api_quantifier_constants.go",
+            "pkg/api/api_quantifier_bound.go"
+          ],
+          "tests": [
+            "TestSMTContextQuantifierAndPatternAPI",
+            "TestSMTContextQuantifierAPIErrors",
+            "TestSMTContextExistentialNoPatternAndQueryBounds",
+            "TestSMTContextConstantQuantifierAbstraction",
+            "TestSMTContextConstantQuantifierValidation",
+            "TestSMTContextBoundVariableSourceIndexAndSort",
+            "TestSMTContextConstantQuantifierPreservesNumericName"
+          ]
         },
         {
           "name": "quantifier kind/weight/pattern/no-pattern/binder/body queries and pattern term/display queries",
           "status": "ported",
           "go_target": "pkg/api/api_quantifiers.go",
-          "tests": ["TestSMTContextQuantifierAndPatternAPI", "TestSMTContextExistentialNoPatternAndQueryBounds"]
+          "tests": [
+            "TestSMTContextQuantifierAndPatternAPI",
+            "TestSMTContextExistentialNoPatternAndQueryBounds"
+          ]
         }
       ],
       "ownership": [

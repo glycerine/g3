@@ -60,9 +60,6 @@ func (c *SMTContext) Quantifier(spec QuantifierSpec) (ast.ASTHandle, error) {
 	if bodySort != boolSort {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
-	if len(spec.Sorts) == 0 {
-		return spec.Body, nil
-	}
 	names := make([]usymbol.Symbol, len(spec.Names))
 	for i, name := range spec.Names {
 		names[i], err = m.Symbols.Intern(name)
@@ -77,6 +74,12 @@ func (c *SMTContext) Quantifier(spec QuantifierSpec) (ast.ASTHandle, error) {
 	skid, err := internQuantifierSymbol(m, spec.SkolemID)
 	if err != nil {
 		return ast.ASTHandle{}, err
+	}
+	if err = validateQuantifierPatterns(m, qid, uint32(len(spec.Sorts)), spec.Patterns); err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if len(spec.Sorts) == 0 {
+		return spec.Body, nil
 	}
 	return m.MkQuantifier(ast.ASTQuantifierSpec{
 		Forall: spec.Forall, Sorts: spec.Sorts, Names: names, Body: spec.Body,
