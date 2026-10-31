@@ -1,3 +1,5 @@
+Product union and nonlinear arithmetic header coverage (2026-10-31 UTC): implemented aligned interval/bound union and widening, accumulating fresh component deltas into the supplied delta; cross-component unions are unavailable in both directions for this pair. Recorded existing nonlinear arithmetic utilities and branch conditions against their header and tested substitution slice independence. Sign-based branching, general product combinations and relation-manager registration remain pending.
+
 Interval/bound product source start (2026-10-31 UTC): added the concrete product relation for interval and bound components with facts, filters, source conjunction, join, project and rename. General product specifications, cross-component union/widening, relation-manager integration and failure audit remain pending.
 
 Bound relation union delta (2026-10-31 UTC): added the source delta update behavior for union and widening, including empty sources and unchanged results. Delta must be distinct from both operands; relation registration and ownership/failure audit remain pending.

@@ -91548,7 +91548,9 @@
       ],
       "tests": [
         "TestIntervalBoundProductFiltersAndTransforms",
-        "TestIntervalBoundProductFactsAndEmpty"
+        "TestIntervalBoundProductFactsAndEmpty",
+        "TestIntervalBoundProductUnionAndDelta",
+        "TestIntervalBoundProductWiden"
       ],
       "assertions": [
         {
@@ -91703,13 +91705,22 @@
             "TestIntervalBoundProductFiltersAndTransforms",
             "TestIntervalBoundProductFactsAndEmpty"
           ]
+        },
+        {
+          "name": "aligned interval/bound union and widening with accumulated delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_bound_product.go",
+          "tests": [
+            "TestIntervalBoundProductUnionAndDelta",
+            "TestIntervalBoundProductWiden"
+          ]
         }
       ],
       "ownership": [
         "The concrete product owns its interval and bound relations and transfers returned formula references to the caller."
       ],
       "deviations": [
-        "Pending general product specifications, aligned and unaligned union/widening with side intersections and delta, other component combinations, relation-manager registration and ownership/failure audit."
+        "Pending general product specifications, other component combinations, cross-component side intersections where both directions are available, unaligned union, relation-manager registration and ownership/failure audit."
       ]
     },
     {
@@ -91725,7 +91736,9 @@
       ],
       "tests": [
         "TestIntervalBoundProductFiltersAndTransforms",
-        "TestIntervalBoundProductFactsAndEmpty"
+        "TestIntervalBoundProductFactsAndEmpty",
+        "TestIntervalBoundProductUnionAndDelta",
+        "TestIntervalBoundProductWiden"
       ],
       "conditionals": [
         {
@@ -91748,13 +91761,22 @@
             "TestIntervalBoundProductFiltersAndTransforms",
             "TestIntervalBoundProductFactsAndEmpty"
           ]
+        },
+        {
+          "name": "aligned interval/bound union and widening with accumulated delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_bound_product.go",
+          "tests": [
+            "TestIntervalBoundProductUnionAndDelta",
+            "TestIntervalBoundProductWiden"
+          ]
         }
       ],
       "ownership": [
         "The concrete product owns its interval and bound relations and transfers returned formula references to the caller."
       ],
       "deviations": [
-        "Pending general product specifications, aligned and unaligned union/widening with side intersections and delta, other component combinations, relation-manager registration and ownership/failure audit."
+        "Pending general product specifications, other component combinations, cross-component side intersections where both directions are available, unaligned union, relation-manager registration and ownership/failure audit."
       ]
     },
     {
@@ -105972,9 +105994,20 @@
       "path": "src/qe/nlarith_util.h",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/qe/nlarith_util.go",
+        "pkg/qe/nlarith_branch_conditions.go",
+        "pkg/qe/nlarith_branch_builder.go",
+        "pkg/qe/nlarith_extract.go",
+        "pkg/qe/nlarith_analysis_test.go",
+        "pkg/qe/nlarith_create_branches_test.go"
+      ],
+      "tests": [
+        "TestNLBranchConditionsOwnResetAndReuse",
+        "TestNLArithmeticExtractNonlinearTraversalAndWeightCache",
+        "TestNLCreateQuadraticBranchesSubstitutionShapeAndOwnership"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -105987,9 +106020,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "nonlinear arithmetic utility and branch conditions",
+          "status": "partial",
+          "go_target": "pkg/qe/nlarith_util.go",
+          "tests": [
+            "TestNLBranchConditionsOwnResetAndReuse",
+            "TestNLArithmeticExtractNonlinearTraversalAndWeightCache"
+          ]
+        }
+      ],
+      "ownership": [
+        "Branch conditions own references to predicates and branch expressions, including copied substitutions."
+      ],
+      "deviations": [
+        "Sign literal selection and sign-based branching, complete declaration and lifetime audits remain pending."
+      ]
     },
     {
       "path": "src/qe/nlqsat.cpp",

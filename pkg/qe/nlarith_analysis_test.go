@@ -54,9 +54,16 @@ func TestNLBranchConditionsOwnResetAndReuse(t *testing.T) {
 	zero := f.realNumeral(t, "0")
 	one := f.realNumeral(t, "1")
 	pluginMust(t, b.AddPredicate(truth))
-	pluginMust(t, b.AddBranch(truth, truth, []ast.ASTHandle{truth}, zero, one, zero, one))
+	substitutions := []ast.ASTHandle{truth}
+	pluginMust(t, b.AddBranch(truth, truth, substitutions, zero, one, zero, one))
+	substitutions[0] = zero
 	if len(b.Predicates) != 1 || len(b.Branches) != 1 || len(b.Branches[0].Substitutions) != 1 {
 		t.Fatal("branch table shape")
+	}
+	stored, err := f.manager.RefGet(b.Branches[0].Substitutions[0])
+	pluginMust(t, err)
+	if stored != truth {
+		t.Fatal("branch substitution changed with caller's slice")
 	}
 	pluginMust(t, b.Reset())
 	if len(b.Predicates) != 0 || len(b.Branches) != 0 {
