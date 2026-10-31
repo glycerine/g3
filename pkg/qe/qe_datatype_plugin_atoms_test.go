@@ -122,7 +122,7 @@ func TestDatatypeSolverPluginDirectEqualityBranches(t *testing.T) {
 	}
 }
 
-func TestDatatypeSolverPluginAtomOccursCheckAndRefusal(t *testing.T) {
+func TestDatatypeSolverPluginAtomOccursCheckAndNestedEquality(t *testing.T) {
 	d := newDatatypeProjectionFixture(t)
 	m, f := d.f.r.manager, d.f
 	x, y := f.constant("qe-occurs-x", d.list), f.constant("qe-occurs-y", d.list)
@@ -151,13 +151,98 @@ func TestDatatypeSolverPluginAtomOccursCheckAndRefusal(t *testing.T) {
 		t.Fatal("cyclic equality was not recorded")
 	}
 	nested := f.own(m.MkEq(term, y))
-	unsupported, err := NewArithmeticAtomSet(m)
+	nestedAtoms, err := NewArithmeticAtomSet(m)
 	fmMust(t, err)
-	defer func() { fmMust(t, unsupported.Close()) }()
-	fmMust(t, unsupported.AddPositive(nested))
-	ok, err = p.PrepareAtoms(contains, nested, unsupported)
+	defer func() { fmMust(t, nestedAtoms.Close()) }()
+	fmMust(t, nestedAtoms.AddPositive(nested))
+	ok, err = p.PrepareAtoms(contains, nested, nestedAtoms)
 	fmMust(t, err)
-	if ok {
-		t.Fatal("unimplemented nested positive equality accepted")
+	if !ok {
+		t.Fatal("constructor equality rejected")
+	}
+	entry = p.equalities[arithmeticPluginKey{variable: x, formula: nested}]
+	if entry == nil || len(entry.positive) != 1 {
+		t.Fatal("constructor equality not recorded")
+	}
+	selected := entry.positive[0]
+	wantValue := d.app(d.listFields[1], y)
+	if selected.value != wantValue {
+		t.Fatal("wrong constructor accessor value")
+	}
+	truth := f.own(m.MkTrue())
+	wantGuard := f.own(m.MkAnd(d.app(d.consTest, y), truth))
+	if selected.condition != wantGuard {
+		t.Fatal("wrong constructor recognizer guard")
+	}
+	reversed := f.own(m.MkEq(y, term))
+	reversedAtoms, err := NewArithmeticAtomSet(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, reversedAtoms.Close()) }()
+	fmMust(t, reversedAtoms.AddPositive(reversed))
+	ok, err = p.PrepareAtoms(contains, reversed, reversedAtoms)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("reversed constructor equality rejected")
+	}
+	reversedEntry := p.equalities[arithmeticPluginKey{variable: x, formula: reversed}]
+	if reversedEntry == nil || len(reversedEntry.positive) != 1 || reversedEntry.positive[0].value != wantValue {
+		t.Fatal("reversed constructor equality changed solution")
+	}
+}
+
+func TestDatatypeSolverPluginNestedConstructorEqualitySubstitution(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	m, f := d.f.r.manager, d.f
+	x, y := f.constant("qe-nested-x", d.list), f.constant("qe-nested-y", d.list)
+	recognized := d.app(d.consTest, x)
+	term := d.app(d.consCtor, f.number("1"), x)
+	eq := f.own(m.MkEq(term, y))
+	formula := f.own(m.MkAnd(recognized, eq))
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	p, err := NewDatatypeSolverPlugin(ctx)
+	fmMust(t, err)
+	fmMust(t, ctx.AddPlugin(p))
+	defer func() { fmMust(t, ctx.Close()) }()
+	atoms, err := NewArithmeticAtomSet(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, atoms.Close()) }()
+	fmMust(t, atoms.AddPositive(recognized))
+	fmMust(t, atoms.AddPositive(eq))
+	ok, err := p.PrepareAtoms(contains, formula, atoms)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("nested constructor equality rejected")
+	}
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&branch)) }()
+	formulaRef, err := m.NewRef(formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formulaRef)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	ok, err = p.SubstituteRecursive(contains, &branch, formulaRef, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("nested equality substitution unsupported")
+	}
+	value, err := m.RefGet(definition)
+	fmMust(t, err)
+	if value != d.app(d.listFields[1], y) {
+		t.Fatal("wrong selected accessor")
+	}
+	truth := f.own(m.MkTrue())
+	guard := f.own(m.MkAnd(d.app(d.consTest, y), truth))
+	rewritten := f.own(m.MkAnd(truth, f.own(m.MkEq(d.app(d.consCtor, f.number("1"), value), y))))
+	want := f.own(m.MkAnd(guard, rewritten))
+	got, err := m.RefGet(formulaRef)
+	fmMust(t, err)
+	if got != want {
+		t.Fatal("nested equality guard or substitution differs")
 	}
 }

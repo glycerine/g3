@@ -52,7 +52,8 @@ func (p *DatatypeSolverPlugin) substituteEqualityBranch(target, original, constr
 		}
 	}
 	if int(branch) < len(entry.positive) {
-		value := entry.positive[branch].value
+		selected := entry.positive[branch]
+		value := selected.value
 		if definition != nil {
 			if err = p.manager.SetRef(*definition, value); err != nil {
 				return false, err
@@ -60,6 +61,19 @@ func (p *DatatypeSolverPlugin) substituteEqualityBranch(target, original, constr
 		}
 		if err = replace.ApplySubstitution(target, value, formula); err != nil {
 			return false, err
+		}
+		if selected.condition != (ast.ASTHandle{}) && !p.manager.IsTrue(selected.condition) {
+			current, e := p.manager.RefGet(formula)
+			if e != nil {
+				return false, e
+			}
+			conjunction, e := p.manager.MkAnd(selected.condition, current)
+			if e != nil {
+				return false, e
+			}
+			if e = p.manager.SetRef(formula, conjunction); e != nil {
+				return false, e
+			}
 		}
 		return true, nil
 	}

@@ -8,7 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-type datatypeEqualityAtom struct{ atom, value ast.ASTHandle }
+type datatypeEqualityAtom struct{ atom, value, condition ast.ASTHandle }
 type datatypeEqualityAtoms struct {
 	refs               []ast.ASTRef
 	positive, negative []datatypeEqualityAtom
@@ -64,9 +64,8 @@ func (p *DatatypeSolverPlugin) constructorOccurs(term, variable ast.ASTHandle) (
 	return false, nil
 }
 
-// PrepareAtoms records the direct equality and constructor-disequality cases
-// used when a recursive target already has a recognizer. Unsupported nested
-// positive constructor equalities are declined for the pending source path.
+// PrepareAtoms records equality and constructor-disequality cases used when a
+// recursive target already has a recognizer.
 func (p *DatatypeSolverPlugin) PrepareAtoms(variable *ast.ContainsApp, formula ast.ASTHandle, atoms *ArithmeticAtomSet) (supported bool, err error) {
 	if err = p.open(); err != nil {
 		return false, err
@@ -182,6 +181,7 @@ func (p *DatatypeSolverPlugin) PrepareAtoms(variable *ast.ContainsApp, formula a
 			}
 			if !leftContains && rightContains {
 				left, right = right, left
+				leftContains, rightContains = rightContains, leftContains
 			}
 			if left == target {
 				rightContains, e := variable.Check(right)
@@ -206,11 +206,28 @@ func (p *DatatypeSolverPlugin) PrepareAtoms(variable *ast.ContainsApp, formula a
 					return false, e
 				}
 				if pass == 0 {
-					entry.positive = append(entry.positive, datatypeEqualityAtom{atom, right})
+					entry.positive = append(entry.positive, datatypeEqualityAtom{atom: atom, value: right})
 				} else {
-					entry.negative = append(entry.negative, datatypeEqualityAtom{atom, right})
+					entry.negative = append(entry.negative, datatypeEqualityAtom{atom: atom, value: right})
 				}
 				continue
+			}
+			if pass == 0 && leftContains && !rightContains {
+				truth, e := p.manager.MkTrue()
+				if e != nil {
+					return false, e
+				}
+				value, condition, matched, e := p.solveConstructorEquality(variable, left, right, truth, entry)
+				if e != nil {
+					return false, e
+				}
+				if matched {
+					if e = hold(atom); e != nil {
+						return false, e
+					}
+					entry.positive = append(entry.positive, datatypeEqualityAtom{atom: atom, value: value, condition: condition})
+					continue
+				}
 			}
 			if pass == 1 {
 				rightContains, e := variable.Check(right)
@@ -225,7 +242,7 @@ func (p *DatatypeSolverPlugin) PrepareAtoms(variable *ast.ContainsApp, formula a
 					if e = hold(atom); e != nil {
 						return false, e
 					}
-					entry.negative = append(entry.negative, datatypeEqualityAtom{atom, right})
+					entry.negative = append(entry.negative, datatypeEqualityAtom{atom: atom, value: right})
 					continue
 				}
 			}
