@@ -1,3 +1,5 @@
+Generated configuration log records (2026-10-31 UTC): added source-format create, set and delete records and round-tripped them through the concrete configuration replayer. Normal and checked tests pass; automatic logging from config API calls remains unfinished.
+
 Generated configuration replay (2026-10-31 UTC): the replayer and g3 log frontend now create, configure and delete concrete Go configurations, and close configurations left open by an incomplete log. Normal API and focused normal/checked CLI tests cover lifecycle, stale references and stdin/file replay; context and other generated commands remain unfinished.
 
 Z3 log CLI integration (2026-10-31 UTC): g3 now selects stdin or .log files and replays the implemented global-parameter commands, with diagnostics and process accounting. Focused checked tests cover both input paths and unsupported commands; the reusable shell Runner, file-open diagnostics and other generated commands remain unfinished.

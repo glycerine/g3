@@ -6897,21 +6897,21 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
-      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_config_log.go", "pkg/api/z3_generated_config_commands_test.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedConfigLogReplaysConfiguration", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The first three generated global-parameter log and replay commands are connected, including nested-log suppression and null outputs. The remaining generated commands and general API logging integration remain unfinished."]
+      "deviations": ["Global-parameter records are integrated, and configuration records can be written and replayed explicitly. Automatic configuration logging and the remaining generated commands remain unfinished."]
     },
     {
       "path": "src/api/api_log_macros.h",
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
-      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_config_log.go", "pkg/api/z3_generated_config_commands_test.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedConfigLogReplaysConfiguration", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "conditionals": [
         {
           "line": 3,
@@ -6930,7 +6930,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The first three generated global-parameter log and replay commands are connected, including nested-log suppression and null outputs. The remaining generated commands and general API logging integration remain unfinished."]
+      "deviations": ["Global-parameter records are integrated, and configuration records can be written and replayed explicitly. Automatic configuration logging and the remaining generated commands remain unfinished."]
     },
     {
       "path": "src/api/api_model.cpp",
