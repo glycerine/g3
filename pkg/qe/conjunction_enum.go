@@ -71,6 +71,10 @@ func (c *ConjunctionEnum) At(index uint32) (ast.ASTHandle, error) {
 	return c.manager.RefGet(c.items[index])
 }
 
+// Basic equality and arithmetic <= use the same numeric operation code in
+// different declaration families. Keep equality distinct after recognition.
+const qeConjunctionEquality int32 = -1
+
 func (c *ConjunctionEnum) arithmeticRelation(expression ast.ASTHandle) (kind int32, left, right ast.ASTHandle, matched bool, err error) {
 	nodeKind, err := c.manager.GetKind(expression)
 	if err != nil || nodeKind != ast.ASTApp {
@@ -102,7 +106,7 @@ func (c *ConjunctionEnum) arithmeticRelation(expression ast.ASTHandle) (kind int
 			return 0, left, right, false, cause
 		}
 		right, err = c.manager.GetArg(expression, 1)
-		return kind, left, right, err == nil, err
+		return qeConjunctionEquality, left, right, err == nil, err
 	}
 	arithmetic, cause := c.manager.ArithmeticFamilyID()
 	if cause != nil {
@@ -156,7 +160,7 @@ func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
 		if cause != nil {
 			return nil, cause
 		}
-		if kind == ast.ASTOpEq {
+		if kind == qeConjunctionEquality {
 			ref, cause := c.manager.NewRef(difference)
 			if cause != nil {
 				return nil, cause
