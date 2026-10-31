@@ -1,9 +1,11 @@
 package rel
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
 func TestIntervalColumnsInterpretedFilters(t *testing.T) {
@@ -33,6 +35,48 @@ func TestIntervalColumnsInterpretedFilters(t *testing.T) {
 	astTestMust(t, falseRelation.filterInterpreted(m, own(m.MkFalse())))
 	if !falseRelation.empty {
 		t.Fatal("false condition must empty the relation")
+	}
+}
+
+func TestIntervalVectorColumnEquivalences(t *testing.T) {
+	r := newIntervalColumns(3, false)
+	point := func(n int64) smtcore.RelationInterval {
+		v := big.NewRat(n, 1)
+		return smtcore.NewRelationInterval(v, false, v, false)
+	}
+	astTestMust(t, r.intersect(0, smtcore.NewRelationInterval(big.NewRat(0, 1), false, big.NewRat(2, 1), false)))
+	astTestMust(t, r.intersect(1, smtcore.NewRelationInterval(big.NewRat(1, 1), false, big.NewRat(3, 1), false)))
+	astTestMust(t, r.equate(0, 1))
+	if r.find(0) != 1 {
+		t.Fatal("equal-size merge must select second root")
+	}
+	astTestMust(t, r.equate(1, 2))
+	if r.find(2) != 1 {
+		t.Fatal("merge must preserve the larger root")
+	}
+	astTestMust(t, r.intersect(2, point(2)))
+	for i := uint32(0); i < 3; i++ {
+		v := r.columns[r.find(i)]
+		if !v.Contains(big.NewRat(2, 1)) || v.Contains(big.NewRat(1, 1)) {
+			t.Fatalf("column %d did not share intersected range", i)
+		}
+	}
+	astTestMust(t, r.intersect(1, point(3)))
+	if !r.empty {
+		t.Fatal("conflicting equal column must empty relation")
+	}
+	for i := uint32(0); i < 3; i++ {
+		if r.find(i) != i {
+			t.Fatal("set_empty must reset equivalences")
+		}
+	}
+
+	r = newIntervalColumns(2, false)
+	astTestMust(t, r.intersect(0, point(1)))
+	astTestMust(t, r.intersect(1, point(2)))
+	astTestMust(t, r.equate(0, 1))
+	if !r.empty {
+		t.Fatal("equating disjoint columns must empty relation")
 	}
 }
 

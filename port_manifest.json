@@ -90188,7 +90188,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: full vector relation representation and column equivalence, join/project/rename/union, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The column implementation is not yet installed in a live relation plugin."
+        "Pending: full vector relation operations, join/project/rename/union, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The column implementation is not yet installed in a live relation plugin."
       ]
     },
     {
@@ -90253,7 +90253,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: full vector relation representation and column equivalence, join/project/rename/union, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The column implementation is not yet installed in a live relation plugin."
+        "Pending: full vector relation operations, join/project/rename/union, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The column implementation is not yet installed in a live relation plugin."
       ]
     },
     {
@@ -92189,9 +92189,14 @@
       "path": "src/muz/rel/dl_vector_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/interval_columns.go",
+        "pkg/muz/rel/interval_columns_test.go"
+      ],
+      "tests": [
+        "TestIntervalVectorColumnEquivalences"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -92234,9 +92239,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "interval instantiation: construction, lookup, set_empty, equate",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_columns.go",
+          "tests": [
+            "TestIntervalVectorColumnEquivalences"
+          ]
+        }
+      ],
+      "ownership": [
+        "The interval instantiation owns its column values and union-find arrays."
+      ],
+      "deviations": [
+        "Pending: other live instantiations and vector relation operations including copy, join, projection, rename and union; relation plugin integration and audits."
+      ]
     },
     {
       "path": "src/muz/rel/doc.cpp",

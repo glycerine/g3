@@ -1,6 +1,7 @@
 package rel
 
-// Source: src/muz/rel/dl_interval_relation.cpp:417-502.
+// Source: src/muz/rel/dl_interval_relation.cpp:417-502 and the concrete
+// interval instantiation of src/muz/rel/dl_vector_relation.h.
 
 import (
 	"math"
@@ -10,28 +11,77 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
-// intervalColumns is the independent-column portion of the interval relation.
-// Column equality and the relation plugin operations are ported separately.
+// intervalColumns is the column and equality portion of the interval relation.
 type intervalColumns struct {
 	columns []smtcore.RelationInterval
+	parent  []uint32
+	size    []uint32
 	empty   bool
 }
 
 func newIntervalColumns(arity int, empty bool) *intervalColumns {
-	r := &intervalColumns{columns: make([]smtcore.RelationInterval, arity), empty: empty}
+	r := &intervalColumns{columns: make([]smtcore.RelationInterval, arity), parent: make([]uint32, arity), size: make([]uint32, arity), empty: empty}
 	for i := range r.columns {
 		r.columns[i] = smtcore.NewRelationInterval(nil, true, nil, true)
+		r.parent[i] = uint32(i)
+		r.size[i] = 1
 	}
 	return r
+}
+
+func (r *intervalColumns) find(index uint32) uint32 {
+	for r.parent[index] != index {
+		index = r.parent[index]
+	}
+	return index
+}
+
+func (r *intervalColumns) setEmpty() {
+	r.empty = true
+	for i := range r.columns {
+		r.parent[i] = uint32(i)
+		r.size[i] = 1
+		r.columns[i] = smtcore.NewRelationInterval(nil, true, nil, true)
+	}
+}
+
+func (r *intervalColumns) equate(i, j uint32) error {
+	if uint64(i) >= uint64(len(r.columns)) || uint64(j) >= uint64(len(r.columns)) {
+		return ast.ErrASTDomain
+	}
+	if r.empty {
+		return nil
+	}
+	i, j = r.find(i), r.find(j)
+	if i == j {
+		return nil
+	}
+	value, empty := r.columns[i].Meet(r.columns[j])
+	if empty || value.EmptyBounds() {
+		r.empty = true
+		return nil
+	}
+	// union_find attaches the smaller root to the larger root, choosing the
+	// second root on equal sizes.
+	if r.size[i] > r.size[j] {
+		i, j = j, i
+	}
+	r.parent[i] = j
+	r.size[j] += r.size[i]
+	r.columns[j] = value
+	return nil
 }
 
 func (r *intervalColumns) intersect(index uint32, bound smtcore.RelationInterval) error {
 	if uint64(index) >= uint64(len(r.columns)) {
 		return ast.ErrASTDomain
 	}
+	index = r.find(index)
 	var empty bool
 	r.columns[index], empty = r.columns[index].Meet(bound)
-	r.empty = r.empty || empty || r.columns[index].EmptyBounds()
+	if empty || r.columns[index].EmptyBounds() {
+		r.setEmpty()
+	}
 	return nil
 }
 
@@ -55,7 +105,7 @@ func (r *intervalColumns) filterInterpreted(m *ast.ASTManager, condition ast.AST
 	}
 	if !ok {
 		if m.IsFalse(condition) {
-			r.empty = true
+			r.setEmpty()
 		}
 		return nil
 	}
@@ -71,7 +121,7 @@ func (r *intervalColumns) filterInterpreted(m *ast.ASTManager, condition ast.AST
 		if y == math.MaxUint32 {
 			return r.intersect(x, smtcore.NewRelationInterval(minusK, false, minusK, false))
 		}
-		xBound, yBound := shiftedInterval(r.columns[x], k), shiftedInterval(r.columns[y], minusK)
+		xBound, yBound := shiftedInterval(r.columns[r.find(x)], k), shiftedInterval(r.columns[r.find(y)], minusK)
 		if err := r.intersect(x, yBound); err != nil {
 			return err
 		}
@@ -84,8 +134,8 @@ func (r *intervalColumns) filterInterpreted(m *ast.ASTManager, condition ast.AST
 	if y == math.MaxUint32 {
 		return r.intersect(x, smtcore.NewRelationInterval(new(big.Rat).Neg(k), open, nil, true))
 	}
-	_, _, xHigh, _ := r.columns[x].Bounds()
-	yLow, _, _, _ := r.columns[y].Bounds()
+	_, _, xHigh, _ := r.columns[r.find(x)].Bounds()
+	yLow, _, _, _ := r.columns[r.find(y)].Bounds()
 	if xHigh != nil {
 		if err := r.intersect(y, smtcore.NewRelationInterval(nil, true, new(big.Rat).Add(k, xHigh), open)); err != nil {
 			return err

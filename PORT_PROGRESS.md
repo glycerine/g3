@@ -1,3 +1,5 @@
+Vector relation source start (2026-10-31 UTC): began the concrete interval instantiation with column equivalences, union-by-size root selection, intersections and empty-state reset. Join, project, union, remaining live instantiations and relation plugin integration are pending.
+
 Interval relation ranges (2026-10-31 UTC): added source union, widening and intersection over the existing exact arithmetic intervals, and connected recognized linear comparisons to independent column bounds. Tests cover endpoint openness, infinity, disjoint ranges, interpreted filtering and binary propagation; column equivalence and plugin integration remain pending.
 
 Interval relation source start (2026-10-31 UTC): began dl_interval_relation.cpp/.h with the concrete arithmetic filter recognizer for linear variable/constant expressions and non-strict, strict-real and equality comparisons. It uses exact Go rational values, the source unsigned missing-variable sentinel, and the source's specific integer strict-bound offsets and minus-one multiplication handling. This phase is internal and is not yet installed in a relation plugin.
