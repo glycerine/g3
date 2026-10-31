@@ -54,6 +54,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
 		{424, "Z3_solver_get_assertions", func(r *Z3Replayer) error { return replaySolverVector(r, false) }},
 		{433, "Z3_solver_get_unsat_core", func(r *Z3Replayer) error { return replaySolverVector(r, true) }},
+		{429, "Z3_get_implied_equalities", replaySolverImpliedEqualities},
 		{430, "Z3_solver_get_consequences", replaySolverConsequences},
 		{426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},
 		{428, "Z3_solver_check_assumptions", replaySolverCheckAssumptions}, {434, "Z3_solver_get_reason_unknown", replaySolverReasonUnknown},
@@ -347,5 +348,29 @@ func replaySolverConsequences(r *Z3Replayer) (err error) {
 			return e
 		}
 	}
+	return nil
+}
+
+func replaySolverImpliedEqualities(r *Z3Replayer) error {
+	s, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	terms, err := replayASTArray(r, s.owner, 2, 3)
+	if err != nil {
+		return err
+	}
+	output, err := r.UintArray(4)
+	if err != nil {
+		return err
+	}
+	if len(output) < len(terms) {
+		return ErrZ3ReplayReference
+	}
+	_, classes, err := s.value.ImpliedEqualities(terms)
+	if err != nil {
+		return err
+	}
+	copy(output, classes)
 	return nil
 }

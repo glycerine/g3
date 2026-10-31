@@ -6020,7 +6020,8 @@
         "TestZ3LogFrontendReplaysASTVector",
         "TestGeneratedModelUniverseVectorReplay",
         "TestGeneratedSolverAssertionAndCoreVectorsReplay",
-        "TestGeneratedSolverConsequencesReplayAppendsOutput"
+        "TestGeneratedSolverConsequencesReplayAppendsOutput",
+        "TestGeneratedImpliedEqualitiesReplayWritesClasses"
       ],
       "methods_audited": false,
       "ownership_audited": false,

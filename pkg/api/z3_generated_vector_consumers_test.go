@@ -204,3 +204,60 @@ func TestGeneratedSolverConsequencesReplayAppendsOutput(t *testing.T) {
 		t.Fatal("consequences were not checked")
 	}
 }
+
+func TestGeneratedImpliedEqualitiesReplayWritesClasses(t *testing.T) {
+	query := "R\nP 0x41\nP 0x46\nU 3\nP 0x43\nP 0x44\nP 0x45\np 3\nU 99\nU 99\nU 99\nu 3\n"
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
+		"R\nP 0x41\n$ |a|\nP 0x42\nC 51\n= 0x43\nR\nP 0x41\n$ |b|\nP 0x42\nC 51\n= 0x44\nR\nP 0x41\n$ |c|\nP 0x42\nC 51\n= 0x45\n" +
+		"R\nP 0x41\nC 408\n= 0x46\nR\nP 0x41\nP 0x46\nC 416\nR\nP 0x41\nP 0x43\nP 0x44\nC 56\n= 0x47\n" +
+		"R\nP 0x41\nP 0x46\nP 0x47\nC 422\n" + query + "C 429\n" + query + "C 900\nR\nP 0x41\nP 0x46\nC 417\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	for _, reg := range []func(*Z3Replayer) error{RegisterZ3GeneratedContextCommands, RegisterZ3GeneratedASTCommands, RegisterZ3GeneratedSolverCommands} {
+		if err = reg(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-implied-classes", func(r *Z3Replayer) error {
+		s, e := replayGetSolver(r)
+		if e != nil {
+			return e
+		}
+		before, e := s.value.ScopeLevel()
+		if e != nil {
+			return e
+		}
+		if e = replaySolverImpliedEqualities(r); e != nil {
+			return e
+		}
+		classes, e := r.UintArray(4)
+		if e != nil {
+			return e
+		}
+		after, e := s.value.ScopeLevel()
+		if e != nil {
+			return e
+		}
+		if classes[0] != classes[1] || classes[0] == classes[2] || before != after {
+			t.Fatal("implied equality classes or scope", classes, before, after)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("implied equality output not checked")
+	}
+}
