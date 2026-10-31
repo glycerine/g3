@@ -5979,7 +5979,8 @@
         "TestGeneratedModelTranslationAndArrayQueries",
         "TestGeneratedASTInspectionReplayBorrowedResults",
         "TestGeneratedSortInspectionReplayBorrowedResults",
-        "TestGeneratedDeclarationInspectionReplayBorrowedResults"
+        "TestGeneratedDeclarationInspectionReplayBorrowedResults",
+        "TestGeneratedDeclarationParameterInspection"
       ],
       "methods_audited": false,
       "ownership_audited": false,

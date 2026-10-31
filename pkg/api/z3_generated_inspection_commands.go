@@ -15,6 +15,11 @@ func registerZ3GeneratedInspectionCommands(r *Z3Replayer) error {
 		{227, "Z3_func_decl_to_ast"}, {228, "Z3_is_eq_func_decl"}, {229, "Z3_get_func_decl_id"},
 		{230, "Z3_get_decl_name"}, {231, "Z3_get_decl_kind"}, {232, "Z3_get_domain_size"},
 		{233, "Z3_get_arity"}, {234, "Z3_get_domain"}, {235, "Z3_get_range"},
+		{236, "Z3_get_decl_num_parameters"}, {237, "Z3_get_decl_parameter_kind"},
+		{238, "Z3_get_decl_int_parameter"}, {239, "Z3_get_decl_double_parameter"},
+		{240, "Z3_get_decl_symbol_parameter"}, {241, "Z3_get_decl_sort_parameter"},
+		{242, "Z3_get_decl_ast_parameter"}, {243, "Z3_get_decl_func_decl_parameter"},
+		{244, "Z3_get_decl_rational_parameter"},
 		{245, "Z3_app_to_ast"}, {246, "Z3_get_app_decl"}, {247, "Z3_get_app_num_args"},
 		{248, "Z3_get_app_arg"}, {249, "Z3_is_eq_ast"}, {250, "Z3_get_ast_id"},
 		{252, "Z3_get_sort"}, {253, "Z3_is_well_sorted"}, {254, "Z3_get_bool_value"},
@@ -85,6 +90,32 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		}
 	case 235:
 		result, err = owner.context.DeclarationRange(value.handle)
+	case 236:
+		_, err = owner.context.DeclarationParameterCount(value.handle)
+	case 237, 238, 239, 240, 241, 242, 243, 244:
+		var index uint32
+		index, err = r.Uint(2)
+		if err != nil {
+			return err
+		}
+		switch id {
+		case 237:
+			_, err = owner.context.DeclarationParameterKind(value.handle, index)
+		case 238:
+			_, err = owner.context.DeclarationIntegerParameter(value.handle, index)
+		case 239:
+			_, err = owner.context.DeclarationDoubleParameter(value.handle, index)
+		case 240:
+			_, err = owner.context.DeclarationParameterSymbol(value.handle, index)
+		case 241:
+			result, err = owner.context.DeclarationSortParameter(value.handle, index)
+		case 242:
+			result, err = owner.context.DeclarationASTParameter(value.handle, index)
+		case 243:
+			result, err = owner.context.DeclarationFunctionParameter(value.handle, index)
+		case 244:
+			_, err = owner.context.DeclarationRationalParameter(value.handle, index)
+		}
 	case 245:
 		result, err = owner.context.ApplicationToAST(value.handle)
 	case 246:
@@ -124,7 +155,7 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		return err
 	}
 	switch id {
-	case 205, 210, 211, 227, 234, 235, 245, 246, 248, 252, 259, 260:
+	case 205, 210, 211, 227, 234, 235, 241, 242, 243, 245, 246, 248, 252, 259, 260:
 		return r.storeBorrowedAST(owner, result)
 	}
 	return nil

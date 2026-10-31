@@ -2,8 +2,11 @@ package api
 
 import (
 	"io"
+	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestGeneratedASTInspectionReplayBorrowedResults(t *testing.T) {
@@ -212,5 +215,121 @@ func TestGeneratedDeclarationInspectionReplayBorrowedResults(t *testing.T) {
 	}
 	if !checked {
 		t.Fatal("declaration inspection was not checked")
+	}
+}
+
+func TestGeneratedDeclarationParameterInspection(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\nC 54\n= 0x43\n" +
+		"R\nP 0x41\n$ |nested|\nU 0\np 0\nP 0x42\nC 49\n= 0x44\n" +
+		"R\nP 0x41\nP 0x42\nP 0x43\nP 0x44\nC 900\n= 0x45\n" +
+		"R\nP 0x41\nP 0x45\nC 236\n" +
+		"R\nP 0x41\nP 0x45\nU 0\nC 237\nR\nP 0x41\nP 0x45\nU 0\nC 238\n" +
+		"R\nP 0x41\nP 0x45\nU 1\nC 239\nR\nP 0x41\nP 0x45\nU 2\nC 244\nR\nP 0x41\nP 0x45\nU 3\nC 240\n" +
+		"R\nP 0x41\nP 0x45\nU 4\nC 241\n= 0x46\nR\nP 0x41\nP 0x45\nU 5\nC 242\n= 0x47\n" +
+		"R\nP 0x41\nP 0x45\nU 6\nC 243\n= 0x48\nR\nP 0x41\nP 0x42\nP 0x46\nP 0x43\nP 0x47\nP 0x44\nP 0x48\nC 901\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(900, "create-parameterized-declaration", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		sort, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		expression, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		nested, e := r.astObject(owner, 3)
+		if e != nil {
+			return e
+		}
+		m := owner.results.manager
+		var ps []ast.ASTParameter
+		defer func() {
+			for i := range ps {
+				if e := m.DelParameter(&ps[i]); e != nil {
+					t.Error(e)
+				}
+			}
+		}()
+		add := func(p ast.ASTParameter, e error) {
+			if e != nil {
+				t.Fatal(e)
+			}
+			ps = append(ps, p)
+		}
+		add(m.NewParameterInt(-19))
+		add(m.NewParameterDouble(1.25))
+		add(m.NewParameterRat(big.NewRat(-7, 3)))
+		add(m.NewParameterString("s"))
+		add(m.NewParameterAST(sort.handle))
+		add(m.NewParameterAST(expression.handle))
+		add(m.NewParameterAST(nested.handle))
+		info, e := m.NewFuncDeclInfo(ast.NullFamilyID, 707, ps, ast.ASTFuncFlags{}, false)
+		if e != nil {
+			return e
+		}
+		defer func() {
+			if e := m.DelFuncDeclInfo(&info); e != nil {
+				t.Error(e)
+			}
+		}()
+		name, e := m.Symbols.Intern("parameterized")
+		if e != nil {
+			return e
+		}
+		decl, e := m.MkFuncDeclWithInfo(name, nil, sort.handle, info)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, decl)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(901, "check-parameter-results", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		for pos := uint32(1); pos <= 6; pos += 2 {
+			a, e := r.astObject(owner, pos)
+			if e != nil {
+				return e
+			}
+			b, e := r.astObject(owner, pos+1)
+			if e != nil {
+				return e
+			}
+			if a.handle != b.handle {
+				t.Fatal("wrong parameter result", pos, a.handle, b.handle)
+			}
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("parameter inspection was not checked")
 	}
 }
