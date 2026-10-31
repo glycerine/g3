@@ -24,6 +24,13 @@ func (r *Z3Replayer) storeAST(owner *replayContextOwner, handle ast.ASTHandle) e
 	if err := owner.results.saveASTTrail(handle); err != nil {
 		return err
 	}
+	return r.storeBorrowedAST(owner, handle)
+}
+
+func (r *Z3Replayer) storeBorrowedAST(owner *replayContextOwner, handle ast.ASTHandle) error {
+	if owner == nil || owner.results == nil {
+		return ErrZ3ReplayReference
+	}
 	key := replayASTKey{owner: owner, handle: handle}
 	if id := r.astIDs[key]; id != 0 {
 		return r.StoreResult(id)
@@ -102,6 +109,10 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		delete(r.solvers, id)
 	}
 	owner.solverIDs = nil
+	for _, id := range owner.modelIDs {
+		delete(r.models, id)
+	}
+	owner.modelIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err
