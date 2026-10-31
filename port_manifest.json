@@ -125138,7 +125138,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/shell/datalog_frontend.go", "pkg/shell/datalog_frontend_load.go", "pkg/shell/datalog_frontend_run.go", "pkg/shell/datalog_frontend_output.go", "pkg/shell/datalog_frontend_stats.go", "pkg/shell/datalog_frontend_profile.go", "pkg/shell/datalog_frontend_profile_output.go"],
-      "tests": ["TestDatalogFrontend", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendProfileLifecycleAndWriterErrors"],
+      "tests": ["TestDatalogFrontendFileDispatchSaturatesEveryPredicate", "TestDatalogFrontendSaturatesOnceAndCopiesAllRelationTables", "TestDatalogFrontendProfileRendersRelationSizes", "TestDatalogFrontendProfileLifecycleAndWriterErrors"],
       "conditionals": [
         {
           "line": 19,
@@ -126009,9 +126009,9 @@
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
         "TestSMTLibRunnerProofScript",
-        "TestSMTLIBFrontend",
-        "TestRunSMTLIBStream",
-        "TestOpenSMTLIBFrontend"
+        "TestSMTLIBFrontendExecutesScopedCommandStream",
+        "TestRunSMTLIBStreamOwnsStandaloneSession",
+        "TestOpenSMTLIBFrontendRunsAndOwnsFile"
       ],
       "methods_audited": false,
       "ownership_audited": false,

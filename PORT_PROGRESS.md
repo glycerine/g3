@@ -1,3 +1,5 @@
+Frontend inventory evidence (2026-10-31 UTC): replaced Datalog and SMT-LIB test prefixes with current runnable declarations. Focused frontend tests pass; the validator now reaches an SMT equality entry.
+
 SAT goal inventory evidence (2026-10-31 UTC): replaced three test prefixes with runnable borrowed-map, translation and model-converter test declarations. The focused SAT tactic tests pass; inventory validation continues.
 
 Inventory evidence repair, ninth batch (2026-10-31 UTC): linked ten SMT entries to existing cross-package tests and replaced nonlinear QE test prefixes with runnable declarations. The focused QE tests pass; inventory validation continues.
