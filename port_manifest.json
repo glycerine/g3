@@ -93503,7 +93503,7 @@
       "path": "src/muz/rel/dl_table_plugin.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
+      "status": "dead_deleted",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -93516,11 +93516,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["No retained source or build script includes this header. Live table and relation infrastructure is defined separately in dl_base.h; this unused duplicate template is not instantiated."]
     },
     {
       "path": "src/muz/rel/dl_table_relation.cpp",

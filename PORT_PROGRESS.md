@@ -1,3 +1,5 @@
+Unstarted source reachability audit (2026-10-31 UTC): dl_table_plugin.h has no consumers or build references; the live table and relation infrastructure is defined in dl_base.h. Classified the duplicate header as dead rather than porting its unused template.
+
 Formula-checking relation operations (2026-10-31 UTC): added checked join, join-project, interpreted-filter-project, negation filter and complement, with SMT equivalence checks and focused relation tests. Fixed a solver regression in Boolean bound-variable macro candidate collection; direct CLI reproduction now returns unsat. The wrapper remains concrete to tables; generic plugin integration and fixedpoint registration are pending.
 
 Formula-checking projection (2026-10-31 UTC): added source existential projection and grounding followed by SMT equivalence checks. Tests cover multiple removed columns, zero-column output and a deliberately false projected formula that the solver rejects.
