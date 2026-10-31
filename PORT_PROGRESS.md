@@ -1,3 +1,5 @@
+Inventory build-target repair (2026-10-31 UTC): replaced four package-directory targets in nonlinear and portfolio build entries with existing representative Go files. Inventory validation continues.
+
 Inventory evidence repair, seventh batch (2026-10-31 UTC): linked ten rule-transform and nonlinear solver entries to the files declaring their existing tests. The validator now reaches a nonlinear build-file target that names a directory; the evidence audit remains open.
 
 Inventory evidence repair, sixth batch (2026-10-31 UTC): linked ten rule-transform entries to the files declaring their existing cross-package tests. Inventory validation is still in progress.

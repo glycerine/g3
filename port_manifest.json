@@ -102788,8 +102788,12 @@
       "component": "nlsat",
       "role": "build_specification",
       "status": "platform_replacement",
-      "go_targets": ["pkg/nlsat"],
-      "tests": ["go test ./pkg/nlsat"],
+      "go_targets": [
+        "pkg/nlsat/solver_projection.go"
+      ],
+      "tests": [
+        "go test ./pkg/nlsat"
+      ],
       "registrations": [
         {
           "line": 1,
@@ -105441,8 +105445,13 @@
       "component": "nlsat",
       "role": "build_specification",
       "status": "platform_replacement",
-      "go_targets": ["pkg/nlsat/tactic", "pkg/tactic/smtlogics"],
-      "tests": ["go test ./pkg/nlsat/tactic ./pkg/tactic/smtlogics"],
+      "go_targets": [
+        "pkg/nlsat/tactic/nlsat_tactic.go",
+        "pkg/tactic/smtlogics/qfnra_tactic.go"
+      ],
+      "tests": [
+        "go test ./pkg/nlsat/tactic ./pkg/tactic/smtlogics"
+      ],
       "registrations": [
         {
           "line": 1,
@@ -189283,8 +189292,12 @@
       "component": "tactic",
       "role": "build_specification",
       "status": "platform_replacement",
-      "go_targets": ["pkg/tactic/portfolio"],
-      "tests": ["go test ./pkg/tactic/portfolio"],
+      "go_targets": [
+        "pkg/tactic/portfolio/smt_strategic_solver.go"
+      ],
+      "tests": [
+        "go test ./pkg/tactic/portfolio"
+      ],
       "registrations": [
         {
           "line": 1,
@@ -189295,7 +189308,9 @@
       "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": ["Go module/import discovery replaces z3_add_component, dependency declarations and tactic-header registration while preserving pkg/tactic/portfolio as a distinct package."]
+      "deviations": [
+        "Go module/import discovery replaces z3_add_component, dependency declarations and tactic-header registration while preserving pkg/tactic/portfolio as a distinct package."
+      ]
     },
     {
       "path": "src/tactic/portfolio/bounded_int2bv_solver.cpp",
