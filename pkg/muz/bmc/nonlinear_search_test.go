@@ -84,6 +84,16 @@ func TestBMCNonlinearSearchFindsFirstReachableLevel(t *testing.T) {
 	if md == nil {
 		t.Fatal("winning model missing")
 	}
+	config, err := context.ModelEvaluatorConfig()
+	must(err)
+	trace, err := compiler.NonlinearTrace(set, goal, level, md, config)
+	must(err)
+	if len(trace) != 4 {
+		t.Fatal("branching rule trace", len(trace))
+	}
+	for i := len(trace) - 1; i >= 0; i-- {
+		must(trace[i].Close())
+	}
 	must(md.DecRef())
 	m.Limit.IncCancel()
 	_, _, err = compiler.SearchNonlinear(set, goal, smt)
