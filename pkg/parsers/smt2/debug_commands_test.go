@@ -185,3 +185,16 @@ func TestDebugSetNextID(t *testing.T) {
 		t.Fatal("accepted a negative ID")
 	}
 }
+
+func TestDebugTranslateExpression(t *testing.T) {
+	script := `(declare-const x Int)(dbg-translator (+ x 2))
+(declare-datatypes ((Tree 0)) (((leaf (value Int)) (branch (left Tree) (right Tree)))))
+(dbg-translator (branch (leaf 1) (leaf 2)))`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "(+ x 2)\n--->\n(+ x 2)\n(branch (leaf 1) (leaf 2))\n--->\n(branch (leaf 1) (leaf 2))\n"; out != want {
+		t.Fatalf("debug translation %q, want %q", out, want)
+	}
+}

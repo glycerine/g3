@@ -12,6 +12,15 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-translator":
+		expression, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		return p.context.WriteDebugTranslation(p.out, expression)
 	case "dbg-set-next-id":
 		id, err := p.unsigned()
 		if err != nil {

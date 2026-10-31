@@ -1,3 +1,5 @@
+Debug AST translation (2026-10-31 UTC): connected dbg-translator to fresh-manager AST translation and printing, with explicit translation and manager cleanup. Checked tests match native output for arithmetic and recursive datatype expressions; source debug command and failure audits remain pending.
+
 Debug AST ID selection (2026-10-31 UTC): implemented ast_manager::set_next_expr_id and dbg-set-next-id, skipping IDs already in the canonical AST table as well as generator free-list entries. Focused AST and SMT-LIB tests pass in native and checked builds.
 
 Debug parameter and theory commands (2026-10-31 UTC): implemented the parameter copy-on-write diagnostic and installed the existing simplify command under dbg-th-rewriter. Their combined output matches native Z3 in a checked-build test.

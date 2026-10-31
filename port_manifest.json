@@ -46300,7 +46300,8 @@
         "pkg/ast/rewriter/bool_rewriter_public.go",
         "pkg/cmd_context/results.go",
         "pkg/ast/ast_expr_id_debug.go",
-        "pkg/ast/ast_expr_id_debug_test.go"
+        "pkg/ast/ast_expr_id_debug_test.go",
+        "pkg/cmd_context/debug_translation.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46315,7 +46316,8 @@
         "TestDebugOrderingAndSomeValue",
         "TestDebugParameterCopyAndTheoryRewrite",
         "TestDebugSetNextID",
-        "TestSetNextExprIDAvoidsExistingASTIDs"
+        "TestSetNextExprIDAvoidsExistingASTIDs",
+        "TestDebugTranslateExpression"
       ],
       "assertions": [
         {
@@ -46429,6 +46431,14 @@
           "tests": [
             "TestDebugSetNextID"
           ]
+        },
+        {
+          "name": "debug AST translation across managers",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugTranslateExpression"
+          ]
         }
       ],
       "ownership": [
@@ -46452,7 +46462,8 @@
         "pkg/ast/rewriter/bool_rewriter_public.go",
         "pkg/cmd_context/results.go",
         "pkg/ast/ast_expr_id_debug.go",
-        "pkg/ast/ast_expr_id_debug_test.go"
+        "pkg/ast/ast_expr_id_debug_test.go",
+        "pkg/cmd_context/debug_translation.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46467,7 +46478,8 @@
         "TestDebugOrderingAndSomeValue",
         "TestDebugParameterCopyAndTheoryRewrite",
         "TestDebugSetNextID",
-        "TestSetNextExprIDAvoidsExistingASTIDs"
+        "TestSetNextExprIDAvoidsExistingASTIDs",
+        "TestDebugTranslateExpression"
       ],
       "conditionals": [
         {
@@ -46556,6 +46568,14 @@
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugSetNextID"
+          ]
+        },
+        {
+          "name": "debug AST translation across managers",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugTranslateExpression"
           ]
         }
       ],

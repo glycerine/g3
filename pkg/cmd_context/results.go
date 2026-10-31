@@ -91,13 +91,17 @@ func (c *Context) WriteSort(out io.Writer, sort ast.ASTHandle, indent uint32) er
 }
 
 func (c *Context) writeASTFormat(out io.Writer, format ast.ASTHandle) (result error) {
-	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: c.manager.Budget()})
+	return c.writeASTFormatWithManager(out, c.manager, format)
+}
+
+func (c *Context) writeASTFormatWithManager(out io.Writer, manager *ast.ASTManager, format ast.ASTHandle) (result error) {
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: manager.Budget()})
 	if err != nil {
 		return err
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
 	empty := c.config.Params.EmptyValue()
-	if err = c.manager.PrintFormat(stream, format, c.config.Params, &empty, c.config.Globals); err != nil {
+	if err = manager.PrintFormat(stream, format, c.config.Params, &empty, c.config.Globals); err != nil {
 		return err
 	}
 	text, err := stream.String()
