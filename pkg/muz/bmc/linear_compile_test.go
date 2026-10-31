@@ -25,6 +25,8 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 	defer func() { must(context.Close()) }()
 	m, err := context.Manager()
 	must(err)
+	services, err := context.ModelEvaluatorConfig()
+	must(err)
 	family, err := m.RegisterArithmeticPlugin()
 	must(err)
 	integer, err := m.MkFamilySort(family, 1, nil)
@@ -147,16 +149,13 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 			if md == nil {
 				t.Fatal("missing linear model")
 			}
-			proofRef, err := compiler.LinearProof(set, b, level, md)
+			proofRef, err := compiler.LinearProof(set, b, level, md, services)
 			must(err)
 			proof, err := m.RefGet(proofRef)
 			must(err)
 			fact, err := m.GetProofFact(proof)
 			must(err)
-			positiveOne, err := m.MkArithmeticGT(one, zero)
-			must(err)
-			wantFact, err := m.MkImplies(positiveOne, app(b, one))
-			must(err)
+			wantFact := app(b, one)
 			if fact != wantFact {
 				t.Fatal("linear BMC proof conclusion", fact, wantFact)
 			}
@@ -209,7 +208,7 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 	}
 	md, err := backend.AcquireModel()
 	must(err)
-	proofRef, err := compiler.LinearProof(set, a, level, md)
+	proofRef, err := compiler.LinearProof(set, a, level, md, services)
 	must(err)
 	proof, err := m.RefGet(proofRef)
 	must(err)

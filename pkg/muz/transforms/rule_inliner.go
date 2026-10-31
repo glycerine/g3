@@ -288,6 +288,26 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 			return nil, errors.Join(subErr, resolved.Close())
 		}
 	}
+	return p.normalizeResolvedRule(resolved)
+}
+
+// NormalizeResolvedRule applies the source rule-unifier postprocessing and
+// returns a caller-owned rule, or nil when the rule is inconsistent. It
+// borrows its input and uses the plugin's configured parameter services.
+func (p *RuleInlinerPlugin) NormalizeResolvedRule(rule *base.Rule) (*base.Rule, error) {
+	if p == nil || p.closed || rule == nil {
+		return nil, ast.ErrASTHandle
+	}
+	owned, err := rule.Retain()
+	if err != nil {
+		return nil, err
+	}
+	return p.normalizeResolvedRule(owned)
+}
+
+// normalizeResolvedRule consumes resolved and returns an owning replacement.
+func (p *RuleInlinerPlugin) normalizeResolvedRule(resolved *base.Rule) (_ *base.Rule, resultErr error) {
+	var err error
 	if p.params == nil || p.globals == nil {
 		return resolved, nil
 	}

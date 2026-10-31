@@ -1,8 +1,7 @@
 package bmc
 
 // Source: src/muz/bmc/dl_bmc_engine.cpp, linear::get_model proof assembly.
-// Interpreted-tail simplification and default-transformation proof conversion
-// are separate stages.
+// Default-transformation proof conversion is a separate stage.
 
 import (
 	"errors"
@@ -16,10 +15,9 @@ import (
 )
 
 // LinearProof constructs the unconverted hyper-resolution proof for a winning
-// linear model, before interpreted-tail simplification and transformation
-// proof conversion. The caller owns the returned proof reference. The rule
-// set must be the same one used to produce the model.
-func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level uint32, md *model.ModelCore) (result ast.ASTRef, resultErr error) {
+// linear model, before transformation proof conversion. The caller owns the
+// returned proof reference. The rule set must be the one used for the model.
+func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil || md == nil || md.Manager() != c.manager {
 		return result, ast.ErrASTHandle
 	}
@@ -33,6 +31,11 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
+	if services.Context == nil || services.Globals == nil {
+		return result, ast.ErrASTHandle
+	}
+	normalizer := transforms.NewRuleInlinerPluginWithServices(m, rm, nil, true, true, services.Context, services.Globals, 0)
+	defer func() { resultErr = errors.Join(resultErr, normalizer.Close()) }()
 	var previous *base.Rule
 	defer func() {
 		if previous != nil {
@@ -56,7 +59,7 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 		if err != nil {
 			return result, err
 		}
-		nextRule, nextProof, err := c.linearProofStep(rm, rule, index, level, md, previous, result)
+		nextRule, nextProof, err := c.linearProofStep(rm, rule, index, level, md, previous, result, normalizer)
 		tails, tailErr := rule.UninterpretedTailSize()
 		var nextPredicate ast.ASTHandle
 		if tailErr == nil && tails > 0 {
@@ -95,7 +98,7 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 	}
 }
 
-func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index, level uint32, md *model.ModelCore, previous *base.Rule, previousProof ast.ASTRef) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
+func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index, level uint32, md *model.ModelCore, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
 	m := c.manager
 	var refs []ast.ASTRef
 	defer func() {
@@ -222,6 +225,20 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 		next, err = unifier.ResolveRaw(rm, previous, 0, instantiated)
 		if err != nil {
 			return nil, proofRef, err
+		}
+		normalized, e := normalizer.NormalizeResolvedRule(next)
+		if e != nil {
+			return next, proofRef, e
+		}
+		if e = next.Close(); e != nil {
+			if normalized != nil {
+				e = errors.Join(e, normalized.Close())
+			}
+			return nil, proofRef, e
+		}
+		next = normalized
+		if next == nil {
+			return nil, proofRef, ast.ErrASTDomain
 		}
 		prior, e := m.RefGet(previousProof)
 		if e != nil {
