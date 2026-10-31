@@ -266,9 +266,7 @@ func (p *commandParser) command() (bool, error) {
 		if err = p.debugCommand(name); err != nil {
 			return false, err
 		}
-		if name == "dbg-pp-var" || name == "dbg-size" || name == "dbg-num-shared" || name == "dbg-instantiate" || name == "dbg-instantiate-nested" || name == "dbg-elim-unused-vars" {
-			success = false
-		}
+		success = false
 	case "set-logic":
 		logic, err := p.symbol()
 		if err != nil {

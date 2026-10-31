@@ -98,3 +98,17 @@ func TestDebugEliminateUnusedVariables(t *testing.T) {
 		t.Fatalf("debug elimination %q, want %q", out, want)
 	}
 }
+
+func TestDebugCommandsDoNotPrintSuccess(t *testing.T) {
+	script := `(set-option :print-success true)
+(dbg-set saved true)
+(dbg-shift-vars saved 1)
+(dbg-pp-var saved)`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "success\ntrue\n"; out != want {
+		t.Fatalf("debug protocol output %q, want %q", out, want)
+	}
+}
