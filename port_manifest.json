@@ -89202,9 +89202,15 @@
       "path": "src/muz/rel/check_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/formula_checked_table.go",
+        "pkg/muz/rel/formula_checked_table_test.go",
+        "pkg/muz/rel/table_relation.go"
+      ],
+      "tests": [
+        "TestFormulaCheckedTableFactsAndReset"
+      ],
       "assertions": [
         {
           "line": 365,
@@ -89221,17 +89227,36 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "SMT formula verification for concrete table facts, emptiness and reset",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table.go",
+          "tests": [
+            "TestFormulaCheckedTableFactsAndReset"
+          ]
+        }
+      ],
+      "ownership": [
+        "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
+      ],
+      "deviations": [
+        "Join, projection, union, rename, filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+      ]
     },
     {
       "path": "src/muz/rel/check_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/formula_checked_table.go",
+        "pkg/muz/rel/formula_checked_table_test.go",
+        "pkg/muz/rel/table_relation.go"
+      ],
+      "tests": [
+        "TestFormulaCheckedTableFactsAndReset"
+      ],
       "conditionals": [
         {
           "line": 22,
@@ -89244,9 +89269,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "SMT formula verification for concrete table facts, emptiness and reset",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table.go",
+          "tests": [
+            "TestFormulaCheckedTableFactsAndReset"
+          ]
+        }
+      ],
+      "ownership": [
+        "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
+      ],
+      "deviations": [
+        "Join, projection, union, rename, filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+      ]
     },
     {
       "path": "src/muz/rel/dl_base.cpp",

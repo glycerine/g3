@@ -1,3 +1,5 @@
+Formula-checking relation start (2026-10-31 UTC): began check_relation.cpp/.h with a concrete table wrapper that grounds source formulas and uses a fresh SMT solver to verify fact insertion and emptiness, plus reset. Tests exercise successful and duplicate insertions and a deliberately inconsistent empty table; other checked operations and registration remain pending.
+
 External callback trail ownership (2026-10-31 UTC): added the source fixedpoint callback trail to the shared external plugin, keeping callback declarations, arguments and reduction results alive until plugin closure. Tests verify argument lifetime, rejection of plugin closure while relations are live, and release afterward; fixedpoint registration remains pending.
 
 External relation filters (2026-10-31 UTC): added interpreted, equality, identical-column and negation assignment callbacks with source argument order. Tests verify operator kinds, callback outputs, invalid columns and the source empty-negation guard.

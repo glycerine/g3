@@ -1,0 +1,302 @@
+package rel
+
+// Source: src/muz/rel/check_relation.cpp/.h, concrete table-backed checking
+// relation, fact insertion, emptiness, reset, grounding and equivalence.
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
+)
+
+var ErrRelationVerification = errors.New("muz/rel: operation was not verified")
+
+// FormulaCheckedTable owns a concrete table relation and keeps the source
+// check relation's expected formula. Solver services are borrowed.
+type FormulaCheckedTable struct {
+	table   *TableRelation
+	manager *ast.ASTManager
+	config  smtcore.SMTSolverConfig
+	formula ast.ASTRef
+	closed  bool
+}
+
+// NewFormulaCheckedTable transfers source ownership on success.
+func NewFormulaCheckedTable(source *TableRelation, config smtcore.SMTSolverConfig) (*FormulaCheckedTable, error) {
+	if source == nil || source.open() != nil || config.Params == nil {
+		return nil, ErrTableRelation
+	}
+	m := source.manager.manager
+	if err := config.Params.CheckServices(m.Symbols, m.NumeralService()); err != nil {
+		return nil, err
+	}
+	formula, err := source.ToFormula()
+	if err != nil {
+		return nil, err
+	}
+	return &FormulaCheckedTable{table: source, manager: m, config: config, formula: formula}, nil
+}
+
+func (r *FormulaCheckedTable) open() error {
+	if r == nil || r.closed || r.table == nil || r.table.open() != nil || r.manager == nil || r.formula == (ast.ASTRef{}) {
+		return ErrTableRelation
+	}
+	return nil
+}
+
+// ground replaces each column variable with the source numeric-symbol constant.
+func (r *FormulaCheckedTable) ground(formula ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	var refs []ast.ASTRef
+	owned := false
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, r.manager.DelRef(&refs[i]))
+		}
+		if resultErr != nil && owned {
+			resultErr = errors.Join(resultErr, r.manager.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
+	vars := make([]ast.ASTHandle, len(r.table.sorts))
+	for i, sort := range r.table.sorts {
+		value, err := r.manager.MkConst(symbol.Numerical(uint32(i)), sort)
+		if err != nil {
+			return result, err
+		}
+		ref, err := r.manager.NewRef(value)
+		if err != nil {
+			return result, err
+		}
+		refs = append(refs, ref)
+		vars[i] = value
+	}
+	subst, err := rewriter.NewVarSubstitution(r.manager, false)
+	if subst != nil {
+		defer func() { resultErr = errors.Join(resultErr, subst.Close()) }()
+	}
+	if err != nil {
+		return result, err
+	}
+	result, err = r.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	owned = true
+	resultErr = subst.Substitute(formula, vars, result)
+	return result, resultErr
+}
+
+func (r *FormulaCheckedTable) checkEquivalent(left, right ast.ASTHandle) (resultErr error) {
+	m := r.manager
+	eq, err := m.MkEq(left, right)
+	if err != nil {
+		return err
+	}
+	eqRef, err := m.NewRef(eq)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&eqRef)) }()
+	negated, err := m.MkNot(eq)
+	if err != nil {
+		return err
+	}
+	negatedRef, err := m.NewRef(negated)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&negatedRef)) }()
+	solver, err := smtcore.NewSMTSolver(m, nil, "", r.config)
+	if solver != nil {
+		defer func() { resultErr = errors.Join(resultErr, solver.Close()) }()
+	}
+	if err != nil {
+		return err
+	}
+	if err = solver.Assert(negated); err != nil {
+		return err
+	}
+	status, err := solver.CheckSat(nil)
+	if err != nil {
+		return err
+	}
+	if status == lbool.True {
+		return ErrRelationVerification
+	}
+	// The source accepts unknown, while reporting a satisfiable counterexample.
+	return nil
+}
+
+func (r *FormulaCheckedTable) factFormula(values []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	m := r.manager
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
+		}
+	}()
+	conjuncts := make([]ast.ASTHandle, 0, len(values))
+	for i, value := range values {
+		variable, err := m.MkVar(uint32(i), r.table.sorts[i])
+		if err != nil {
+			return result, err
+		}
+		varRef, err := m.NewRef(variable)
+		if err != nil {
+			return result, err
+		}
+		refs = append(refs, varRef)
+		eq, err := m.MkEq(variable, value)
+		if err != nil {
+			return result, err
+		}
+		eqRef, err := m.NewRef(eq)
+		if err != nil {
+			return result, err
+		}
+		refs = append(refs, eqRef)
+		conjuncts = append(conjuncts, eq)
+	}
+	expression, err := m.MkAndArray(conjuncts)
+	if err != nil {
+		return result, err
+	}
+	result, err = m.NewRef(expression)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+// AddFact updates the table and verifies its new formula against the old
+// formula disjoined with the concrete fact.
+func (r *FormulaCheckedTable) AddFact(values []ast.ASTHandle) (added bool, resultErr error) {
+	if err := r.open(); err != nil {
+		return false, err
+	}
+	added, err := r.table.AddFact(values)
+	if err != nil {
+		return false, err
+	}
+	actual, err := r.table.ToFormula()
+	if err != nil {
+		return added, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&actual)) }()
+	fact, err := r.factFormula(values)
+	if err != nil {
+		return added, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&fact)) }()
+	old, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return added, err
+	}
+	factHandle, err := r.manager.RefGet(fact)
+	if err != nil {
+		return added, err
+	}
+	expected, err := r.manager.MkOrArgs([]ast.ASTHandle{old, factHandle})
+	if err != nil {
+		return added, err
+	}
+	if err = r.manager.SetRef(r.formula, expected); err != nil {
+		return added, err
+	}
+	groundExpected, err := r.ground(expected)
+	if err != nil {
+		return added, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&groundExpected)) }()
+	actualHandle, err := r.manager.RefGet(actual)
+	if err != nil {
+		return added, err
+	}
+	groundActual, err := r.ground(actualHandle)
+	if err != nil {
+		return added, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&groundActual)) }()
+	a, err := r.manager.RefGet(groundExpected)
+	if err != nil {
+		return added, err
+	}
+	b, err := r.manager.RefGet(groundActual)
+	if err != nil {
+		return added, err
+	}
+	if err = r.checkEquivalent(a, b); err != nil {
+		return added, fmt.Errorf("add_fact: %w", err)
+	}
+	return added, r.manager.SetRef(r.formula, actualHandle)
+}
+
+func (r *FormulaCheckedTable) Empty() (empty bool, resultErr error) {
+	if err := r.open(); err != nil {
+		return false, err
+	}
+	if !r.table.Empty() {
+		return false, nil
+	}
+	formula, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return false, err
+	}
+	if r.manager.IsFalse(formula) {
+		return true, nil
+	}
+	ground, err := r.ground(formula)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&ground)) }()
+	value, err := r.manager.RefGet(ground)
+	if err != nil {
+		return false, err
+	}
+	falsehood, err := r.manager.MkFalse()
+	if err != nil {
+		return false, err
+	}
+	if err = r.checkEquivalent(falsehood, value); err != nil {
+		return false, fmt.Errorf("empty: %w", err)
+	}
+	return true, nil
+}
+
+func (r *FormulaCheckedTable) Reset() error {
+	if err := r.open(); err != nil {
+		return err
+	}
+	if err := r.table.Reset(); err != nil {
+		return err
+	}
+	value, err := r.manager.MkFalse()
+	if err != nil {
+		return err
+	}
+	return r.manager.SetRef(r.formula, value)
+}
+
+func (r *FormulaCheckedTable) Close() (result error) {
+	if r == nil || r.closed {
+		return nil
+	}
+	if r.formula != (ast.ASTRef{}) {
+		result = errors.Join(result, r.manager.DelRef(&r.formula))
+	}
+	if r.formula != (ast.ASTRef{}) {
+		return result
+	}
+	if r.table != nil {
+		result = errors.Join(result, r.table.Close())
+		r.table = nil
+	}
+	r.closed, r.manager = true, nil
+	return result
+}
