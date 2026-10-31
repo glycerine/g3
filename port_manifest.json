@@ -6088,7 +6088,8 @@
         "TestZ3LogFrontendReplaysFloatingPoint",
         "TestGeneratedFixedpointReplaySpacerReachable",
         "TestGeneratedQEReplayProjectionAndVectorMutation",
-        "TestGeneratedInterpolationReplayContextAndMarker"
+        "TestGeneratedInterpolationReplayContextAndMarker",
+        "TestGeneratedFixedpointReplayRejectsShortRepresentationArray"
       ],
       "methods_audited": false,
       "ownership_audited": false,

@@ -1,3 +1,5 @@
+Generated fixedpoint representation replay (2026-10-31 UTC): connected relation table selection and symbol-array validation. Normal and checked tests cover a valid representation and a short array; other generated commands remain unfinished.
+
 Generated interpolation context replay (2026-10-31 UTC): connected interpolation markers and proof-enabled context construction, including changes to supplied configuration. Normal and checked tests verify markers and configuration reuse; interpolation computation and other generated commands remain unfinished.
 
 Generated quantifier-elimination replay (2026-10-31 UTC): connected model and Skolem projection, model extrapolation and QE-lite vector updates. Normal and checked tests verify formulas, map contents and vector mutation after model release; other generated commands remain unfinished.

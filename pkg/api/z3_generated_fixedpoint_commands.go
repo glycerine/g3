@@ -24,7 +24,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		{511, "Z3_mk_fixedpoint"}, {512, "Z3_fixedpoint_inc_ref"}, {513, "Z3_fixedpoint_dec_ref"},
 		{515, "Z3_fixedpoint_add_fact"}, {516, "Z3_fixedpoint_assert"}, {517, "Z3_fixedpoint_query"}, {518, "Z3_fixedpoint_query_relations"},
 		{520, "Z3_fixedpoint_get_reason_unknown"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
-		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"},
+		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 		{533, "Z3_fixedpoint_to_string"},
 		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
@@ -190,6 +190,23 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		if err == nil {
 			err = f.value.RegisterRelation(decl.handle)
 		}
+	case 527:
+		decl, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		count, e := r.Uint(3)
+		if e != nil {
+			return e
+		}
+		kinds, e := r.SymbolArray(4)
+		if e != nil {
+			return e
+		}
+		if uint64(count) > uint64(len(kinds)) {
+			return ErrZ3ReplayReference
+		}
+		return f.value.SetPredicateRepresentation(decl.handle, kinds[:count]...)
 	case 528, 529:
 		var refs []ast.ASTRef
 		if id == 528 {

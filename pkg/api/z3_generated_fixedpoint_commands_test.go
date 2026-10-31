@@ -103,6 +103,7 @@ func TestGeneratedFixedpointReplayClosesIncompleteLog(t *testing.T) {
 func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
 		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nU 1\n$ |tr_hashtable|\ns 1\nC 527\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\nR\nP 0x41\nC 54\n= 0x45\nR\nP 0x41\nP 0x44\nP 0x45\nC 516\n" +
 		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nC 522\nR\nP 0x41\nP 0x44\nI -1\nP 0x43\nP 0x45\nC 524\nR\nP 0x41\nP 0x44\nP 0x43\nP 0x45\nC 655\n" +
@@ -242,5 +243,29 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 	}
 	if !checked {
 		t.Fatal("reachable result not checked")
+	}
+}
+
+func TestGeneratedFixedpointReplayRejectsShortRepresentationArray(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
+		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nU 2\n$ |tr_hashtable|\ns 1\nC 527\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), ErrZ3ReplayReference.Error()) {
+		t.Fatal("short representation array", err)
 	}
 }
