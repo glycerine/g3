@@ -1,3 +1,5 @@
+QF_UFNRA differential check (2026-10-31 UTC): ten mixed UF/real, Boolean guard, nonlinear, division, congruence and ITE cases matched the local Z3 result. Added focused regressions for guarded conflicts, division and nonlinear function constraints.
+
 QF_UFNRA regression checks (2026-10-31 UTC): named SMT-LIB unsat cores pass, the complete SMT-LIB parser package passes, and TestSMTLibRunnerScripts passes including the earlier fixedpoint ordering regression.
 
 QF_UFNRA strategy start (2026-10-31 UTC): added the source-ordered preprocessing strategy and registered qfufnra with the SMT-LIB and API tactic dispatch. Focused end-to-end tests cover a satisfying model, contradictory arithmetic and function congruence; the general arithmetic purifier and full failure-frontier audits remain partial.

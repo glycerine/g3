@@ -14,6 +14,9 @@ func TestSMT2QFUFNRATacticMixedArithmetic(t *testing.T) {
 		{"nonlinear-interface-model", "(assert (> (f (+ x 1)) (* x x)))", "(get-value ((> (f (+ x 1)) (* x x))))", "sat\n(((> (f (+ x 1)) (* x x)) true))\n"},
 		{"arithmetic-conflict", "(assert (> (f x) 0))(assert (< (f x) 0))", "", "unsat\n"},
 		{"function-congruence", "(assert (= x y))(assert (> (f x) 0))(assert (< (f y) 0))", "", "unsat\n"},
+		{"guarded-conflict", "(assert (or p (> (f x) 0)))(assert (not p))(assert (<= (f x) 0))", "", "unsat\n"},
+		{"division", "(assert (= x 2))(assert (= (f x) (/ 1 x)))(assert (> (f x) 0))", "", "sat\n"},
+		{"nonlinear-conflict", "(assert (= (f (+ x 1)) (* x x)))(assert (< (f (+ x 1)) 0))", "", "unsat\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			context, err := cmd_context.NewStandaloneContext()
@@ -26,7 +29,7 @@ func TestSMT2QFUFNRATacticMixedArithmetic(t *testing.T) {
 				}
 			}()
 			var output bytes.Buffer
-			script := "(set-logic QF_UFNRA)(declare-const x Real)(declare-const y Real)(declare-fun f (Real) Real)" + tc.assertions + "(check-sat-using qfufnra)" + tc.suffix
+			script := "(set-logic QF_UFNRA)(declare-const x Real)(declare-const y Real)(declare-const p Bool)(declare-fun f (Real) Real)" + tc.assertions + "(check-sat-using qfufnra)" + tc.suffix
 			if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
 				t.Fatal(err)
 			}
