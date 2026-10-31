@@ -59,3 +59,31 @@ func TestBoundRelationUnionSplitsEqualities(t *testing.T) {
 		}
 	}
 }
+
+func TestBoundRelationUnionDelta(t *testing.T) {
+	target, source, delta := NewBoundRelation(2, true), NewBoundRelation(2, false), NewBoundRelation(2, true)
+	astTestMust(t, source.AddLess(0, 1))
+	changed, err := target.UnionWithDelta(source, delta, false)
+	astTestMust(t, err)
+	if !changed || delta.Empty() {
+		t.Fatal("initial delta")
+	}
+	strict, _, err := delta.Bounds(0)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{1}) {
+		t.Fatal("initial delta bounds", strict)
+	}
+	changed, err = target.UnionWithDelta(source, delta, true)
+	astTestMust(t, err)
+	if changed {
+		t.Fatal("unchanged widening")
+	}
+	changed, err = target.UnionWithDelta(NewBoundRelation(2, true), delta, false)
+	astTestMust(t, err)
+	if changed || !delta.Empty() {
+		t.Fatal("empty source must reset delta")
+	}
+	if _, err = target.UnionWithDelta(source, target, false); err == nil {
+		t.Fatal("aliased delta accepted")
+	}
+}

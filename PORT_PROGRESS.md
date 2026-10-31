@@ -1,3 +1,5 @@
+Bound relation union delta (2026-10-31 UTC): added the source delta update behavior for union and widening, including empty sources and unchanged results. Delta must be distinct from both operands; relation registration and ownership/failure audit remain pending.
+
 Bound relation fact abstraction (2026-10-31 UTC): added source-style fact insertion via an unconstrained relation and its coarse nonempty membership check, with arity validation. Remaining filters, relation registration and allocation/failure audit remain pending.
 
 Interval relation formula (2026-10-31 UTC): added owned source-order AST formula construction for interval endpoints and equivalent columns, including strict and non-strict bounds. The relation plugin registration and full lifecycle/allocation audit remain pending.

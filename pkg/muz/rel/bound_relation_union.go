@@ -125,3 +125,25 @@ func (r *BoundRelation) Union(source *BoundRelation) (bool, error) {
 }
 
 func (r *BoundRelation) Widen(source *BoundRelation) (bool, error) { return r.Union(source) }
+
+// UnionWithDelta applies source union or widening and updates the distinct
+// delta relation when the target changes. An empty source resets delta.
+func (r *BoundRelation) UnionWithDelta(source, delta *BoundRelation, widen bool) (bool, error) {
+	if r == nil || source == nil || delta == nil || r == delta || source == delta || len(r.columns) != len(source.columns) || len(r.columns) != len(delta.columns) {
+		return false, ast.ErrASTDomain
+	}
+	changed, err := r.Union(source)
+	if err != nil {
+		return false, err
+	}
+	if source.empty {
+		delta.reset()
+	} else if changed {
+		delta.reset()
+		delta.empty = false
+		for i := range delta.columns {
+			delta.columns[i] = cloneBoundColumn(r.columns[r.find(uint32(i))])
+		}
+	}
+	return changed, nil
+}

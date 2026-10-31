@@ -89293,7 +89293,8 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
-        "TestBoundRelationFactAbstraction"
+        "TestBoundRelationFactAbstraction",
+        "TestBoundRelationUnionDelta"
       ],
       "assertions": [
         {
@@ -89414,13 +89415,22 @@
           "tests": [
             "TestBoundRelationFactAbstraction"
           ]
+        },
+        {
+          "name": "bound-vector union and widening delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_union.go",
+          "tests": [
+            "TestBoundRelationUnionDelta"
+          ]
         }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs."
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs.",
+        "The Go union delta requires a destination distinct from both operands."
       ]
     },
     {
@@ -89453,7 +89463,8 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
-        "TestBoundRelationFactAbstraction"
+        "TestBoundRelationFactAbstraction",
+        "TestBoundRelationUnionDelta"
       ],
       "conditionals": [
         {
@@ -89542,13 +89553,22 @@
           "tests": [
             "TestBoundRelationFactAbstraction"
           ]
+        },
+        {
+          "name": "bound-vector union and widening delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_union.go",
+          "tests": [
+            "TestBoundRelationUnionDelta"
+          ]
         }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs."
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs.",
+        "The Go union delta requires a destination distinct from both operands."
       ]
     },
     {
@@ -92762,7 +92782,8 @@
         "TestBoundRelationJoinAndProjection",
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
-        "TestBoundRelationToFormula"
+        "TestBoundRelationToFormula",
+        "TestBoundRelationUnionDelta"
       ],
       "conditionals": [
         {
@@ -92865,6 +92886,14 @@
           "tests": [
             "TestBoundRelationRename"
           ]
+        },
+        {
+          "name": "bound-vector union and widening delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_union.go",
+          "tests": [
+            "TestBoundRelationUnionDelta"
+          ]
         }
       ],
       "ownership": [
@@ -92872,7 +92901,8 @@
       ],
       "deviations": [
         "Pending remaining vector operations and live instantiations, filters, relation plugin registration, diagnostics and source ownership/allocation audit. Public interval projection and rename preserve emptiness; interval union delta requires a distinct destination. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles.",
-        "Public bound projection drops references to removed columns and preserves empty inputs; the C++ helper instead inserts the UINT_MAX removal sentinel and its vector projection does not propagate emptiness."
+        "Public bound projection drops references to removed columns and preserves empty inputs; the C++ helper instead inserts the UINT_MAX removal sentinel and its vector projection does not propagate emptiness.",
+        "The Go union delta requires a destination distinct from both operands."
       ]
     },
     {
