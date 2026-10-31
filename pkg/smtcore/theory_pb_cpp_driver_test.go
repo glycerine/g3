@@ -62,13 +62,19 @@ func TestPseudoBooleanTheorySourceConstantCardinalities(t *testing.T) {
 // source's nested push/check/pop fuzzer against all eight Boolean assignments.
 func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 	m := astTestManager(t)
-	family, err := m.RegisterPseudoBooleanPlugin()
+	_, err := m.RegisterPseudoBooleanPlugin()
 	astTestMust(t, err)
 	params, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
 	astTestMust(t, err)
 	solver, err := NewSMTSolver(m, nil, "QF_FD", SMTSolverConfig{Params: params})
 	astTestMust(t, err)
 	t.Cleanup(func() { astTestMust(t, solver.Close()); astTestMust(t, params.Close()) })
+	rw := smtQuickTheoryRewriter(t, m)
+	firstRewrite, err := m.NewRef(ast.ASTHandle{})
+	astTestMust(t, err)
+	secondRewrite, err := m.NewRef(ast.ASTHandle{})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, m.DelRef(&secondRewrite)); astTestMust(t, m.DelRef(&firstRewrite)) })
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)
 	var variables [3]ast.ASTHandle
@@ -83,7 +89,6 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 		for {
 			bound := int32(rng.Bounded(6))
 			var weights [3]int32
-			var sum int32
 			for i := range weights {
 				weight := int32(3) - int32(rng.Bounded(5))
 				if weight < 0 {
@@ -92,12 +97,6 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 					bound += weight
 				}
 				weights[i] = weight
-				sum += weight
-			}
-			// Discard trivially true and false constraints, as the source
-			// repeats until its theory rewriter leaves a PB inequality.
-			if bound <= 0 || bound > sum {
-				continue
 			}
 			var args [3]ast.ASTHandle
 			for i := range args {
@@ -107,16 +106,18 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 					astTestMust(t, err)
 				}
 			}
-			var parameters []ast.ASTParameter
-			for _, value := range []int32{bound, weights[0], weights[1], weights[2]} {
-				p, err := m.NewParameterInt(value)
-				astTestMust(t, err)
-				parameters = append(parameters, p)
-			}
-			formula, err := m.MkFamilyApp(family, int32(ast.ASTPBOpGE), parameters, args[:])
+			formula, err := m.MkPseudoBooleanGEIntegers(weights[:], args[:], bound)
 			astTestMust(t, err)
-			for i := range parameters {
-				astTestMust(t, m.DelParameter(&parameters[i]))
+			astTestMust(t, rw.Rewrite(formula, firstRewrite))
+			first, err := m.RefGet(firstRewrite)
+			astTestMust(t, err)
+			astTestMust(t, rw.Rewrite(first, secondRewrite))
+			second, err := m.RefGet(secondRewrite)
+			astTestMust(t, err)
+			isGE, err := m.IsPseudoBooleanGE(second)
+			astTestMust(t, err)
+			if !isGE {
+				continue
 			}
 			astTestMust(t, solver.Assert(formula))
 			var allowed uint8

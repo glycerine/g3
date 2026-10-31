@@ -52302,3 +52302,5 @@ Pseudo-Boolean nested fuzzer increment: translated seeded coefficient generation
 Trigonometric source driver started: checked the source's 64 rational e precision levels against independently derived exact factorial-series bounds. Floating-point e and the sine/cosine workloads remain open.
 
 Rational trigonometric driver increment: checked sine and cosine at all three source precision levels on 40 deterministic samples each, using independent consecutive alternating Taylor sums as exact rational enclosures. The source uses 200 C rand samples per level; its exact random sequence and floating-point workloads remain open.
+
+Pseudo-Boolean fuzzer source alignment: replaced the approximate trivial-bound filter with the original two theory-rewriter passes and the source PB-greater-or-equal acceptance condition. Repeated negations are represented by their Boolean parity; the routine test still limits the original 100,000 outer rounds to 100.

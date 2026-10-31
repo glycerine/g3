@@ -210668,7 +210668,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The constant-literal matrix uses scoped QF_FD solver assertions. The nested seeded fuzzer runs 100 rather than 100,000 outer rounds and rejects trivial constraints by their bounds instead of using the source theory rewriter, so exact source random consumption remains open."]
+      "deviations": ["The constant-literal matrix uses scoped QF_FD solver assertions. The nested seeded fuzzer runs 100 rather than 100,000 outer rounds, uses the source two-rewrite acceptance check, and collapses repeated literal negations to their Boolean parity."]
     },
     {
       "path": "src/test/timeout.cpp",
