@@ -422,7 +422,7 @@ var scriptResults = map[string]string{
 	"quant_lra_lia_solver.smt2":                    "sat\nunsat\nsat\nunsat\nsat\nunsat\n",
 	"qfnra_boolean.smt2":                           "sat\n",
 	"user_universe_factory_scopes.smt2":            "sat\n(((distinct a b c) true)\n ((= (f a) b) true)\n ((= (f b) c) true)\n ((= (f c) a) true))\nunsat\nsat\n(((distinct a b c) true)\n ((= (f a) b) true))\n",
-	"bv_native_operator_models.smt2":               "sat\n((a #xa)\n ((bvadd a b c) #xe)\n ((bvsub a b) #x7)\n ((bvmul a b c) #xe)\n ((bvudiv a b) #x3)\n ((bvurem a b) #x1)\n ((bvsdiv a b) #xe)\n ((bvsrem a b) #x0)\n ((bvsmod a b) #x0)\n ((bvshl a b) #x0)\n ((bvlshr a b) #x1)\n ((bvashr a b) #xf)\n ((ext_rotate_left a b) #x5)\n ((ext_rotate_right a b) #x5)\n ((bvumul_noovfl a b) false)\n ((bvsmul_noovfl a b) false)\n ((bvsmul_noudfl a b) false)\n ((bvredor a) #b1)\n ((bvredand a) #b0))\nunsat\nsat\nunsat\nsat\n",
+	"bv_native_operator_models.smt2":               "sat\n((a #xa)\n ((bvadd a b c) #xe)\n ((bvsub a b) #x7)\n ((bvmul a b c) #xe)\n ((bvudiv a b) #x3)\n ((bvurem a b) #x1)\n ((bvsdiv a b) #xe)\n ((bvsrem a b) #x0)\n ((bvsmod a b) #x0)\n ((bvshl a b) #x0)\n ((bvlshr a b) #x1)\n ((bvashr a b) #xf)\n ((ext_rotate_left a b) #x5)\n ((ext_rotate_right a b) #x5)\n ((bvumul_noovfl a b) false)\n ((bvsmul_noovfl a b) true)\n ((bvsmul_noudfl a b) false)\n ((bvredor a) #b1)\n ((bvredand a) #b0))\nunsat\nsat\nunsat\nsat\n",
 	"bv_integer_conversion_scopes.smt2":            "sat\n(((= b #xf) true)\n ((= (bv2int b) 15) true)\n ((= (bv2int (bvnot b)) 0) true))\nunsat\nsat\nunsat\nsat\n",
 	"bv_signed_function_model.smt2":                "sat\n(((f #x7) true)\n ((f #x5) false)\n ((= (mkbv p (not q) true false) #x7) true))\nunsat\nsat\n",
 	"bv_fixed_cache_scopes.smt2":                   "sat\n(((= x #x9) true)\n ((= y #x9) true)\n ((= x y) true))\nunsat\nsat\nsat\n(((= x #x9) true)\n ((= y #xa) true)\n ((distinct x y) true)\n ((distinct (f x) (f y)) true))\nsat\n",
@@ -1026,6 +1026,12 @@ func TestSMTLibRunnerCPPReference(t *testing.T) {
 					t.Fatal("native macro coercion result", string(cppOutput))
 				}
 				return
+			}
+			if name == "bv_native_operator_models.smt2" {
+				// The source constant folder treats signed #xa as +10. Go
+				// corrects the overflow predicate for -6 * 3, which has no
+				// positive overflow (but does have signed underflow).
+				cppOutput = bytes.Replace(cppOutput, []byte("((bvsmul_noovfl a b) false)"), []byte("((bvsmul_noovfl a b) true)"), 1)
 			}
 			if canonicalReferenceOutput(name, goOutput.String()) != canonicalReferenceOutput(name, string(cppOutput)) {
 				t.Fatalf("Go/C++ mismatch\nGo:\n%s\nC++:\n%s\nC++ diagnostics:\n%s", goOutput.String(), cppOutput, cppDiagnostics.String())

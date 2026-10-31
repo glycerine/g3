@@ -52292,3 +52292,5 @@ Datalog relation source driver started: translated the interval example's full/e
 Datalog relation source driver completion: added the bound-relation join, equality, rename, projection and both union examples. The union checks verify the common strict order modulo equality classes, filling in the source's TODO assertions.
 
 DDNF source driver started: translated tst_ddnf1's two-bit insertion sequence and checked all four vectors, the node count and the DAG invariant. The separate input-file forwarding and refinement command remains open.
+
+SMT-LIB regression integration: updated the signed multiply overflow model result for four-bit -6 times 3. Its product underflows but does not exceed the signed maximum; the optional C++ comparison accounts for the fork's incorrect constant fold while all other results remain compared. The complete SMT-LIB script runner passes in normal and checked builds.
