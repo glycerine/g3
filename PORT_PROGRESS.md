@@ -52332,3 +52332,5 @@ CNF backbone tracking increment: exercised the existing live DIMACS clause-track
 Persistent-array source driver started: ran the original million seeded updates over 100 Boolean expressions through the live Goal owning slice and verified both the mutated result and the unchanged snapshot. Go Boolean constants replace bound variables; the source-only integer template and heap-display paths remain outside the port.
 
 Datalog utility source driver started: extracted the existing concrete permutation-cycle algorithm used by finite-product rename and checked both original source permutations plus multiple-cycle removal. The paired-sort source example remains open until its mixed finite-product filter consumer is ported.
+
+Unsigned 16-bit multiplication equivalence: the source widened-product proof now passes using the dedicated QF_BV solver. Signed 16-bit multiplication overflow and underflow proofs remain open.

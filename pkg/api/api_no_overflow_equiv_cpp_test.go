@@ -24,8 +24,8 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 			{"div-overflow", false, false, 1, true, false}, {"neg-overflow", false, false, 1, false, false},
 		} {
 			for _, signed := range []bool{true, false} {
-				// The source 16-bit multiplication proofs exceed the focused-test budget.
-				if width == 16 && (tc.name == "mul-overflow" || tc.name == "mul-underflow") {
+				// The signed 16-bit multiplication proofs exceed the focused-test budget.
+				if width == 16 && signed && (tc.name == "mul-overflow" || tc.name == "mul-underflow") {
 					continue
 				}
 				if !signed && !tc.unsigned {
@@ -33,7 +33,13 @@ func TestNoOverflowSourceSymbolicEquivalences(t *testing.T) {
 				}
 				t.Run(fmt.Sprintf("%s/%d/signed=%t", tc.name, width, signed), func(t *testing.T) {
 					f := newSMTAPIFixture(t, "ALL", nil)
-					s, err := f.c.NewSolver()
+					var s *APISimpleSolver
+					var err error
+					if width == 16 && tc.name == "mul-overflow" && !signed {
+						s, err = f.c.NewSolverForLogic("QF_BV")
+					} else {
+						s, err = f.c.NewSolver()
+					}
 					astTestMust(t, err)
 					defer func() { astTestMust(t, s.Close()) }()
 					sort := f.pin(f.c.BitVectorSort(width))
