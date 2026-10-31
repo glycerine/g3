@@ -1,3 +1,7 @@
+The previously unstarted src/test/mpfx.cpp regression now checks the source power-of-two cases and fixed-point arithmetic and directed rounding in Go.
+
+The previously unstarted src/test/hwf.cpp regression is ported: Go tests cover finite values, exact rational conversions and the source integer-classification bit pattern.
+
 Finite-domain preprocessing tactics (lia2pb, eq2bv, card2bv and pb2bv) now translate with target services. Tests check bounded integer and cardinality models after source closure as well as replay.
 
 Solver translation now uses the API solver’s explicit parameter snapshot rather than backend defaults, and translated API solvers start with an empty explicit snapshot as in the source. Focused tests cover later backend changes, repeated translation and parameter overlays.

@@ -201936,9 +201936,13 @@
       "path": "src/test/hwf.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/util/numeral/hwf_cpp_regression_test.go"
+      ],
+      "tests": [
+        "TestHardwareFloatCPPRegression"
+      ],
       "conditionals": [
         {
           "line": 95,
@@ -202003,11 +202007,24 @@
           "text": "ENSURE(!m.is_int(a));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "bug_set_double, bug_to_rational, bug_is_int and tst_hwf",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/hwf_cpp_regression_test.go",
+          "tests": [
+            "TestHardwareFloatCPPRegression"
+          ]
+        }
+      ],
+      "ownership": [
+        "The regression uses scalar hardware floats and releases each rational through its owning manager."
+      ],
+      "deviations": [
+        "The Windows epsilon comparison is strengthened to exact binary64 rational equality; diagnostic printing is omitted."
+      ]
     },
     {
       "path": "src/test/im_float_config.h",
@@ -205122,20 +205139,37 @@
       "path": "src/test/mpfx.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/util/numeral/mpfx_cpp_regression_test.go"
+      ],
+      "tests": [
+        "TestFixedPointCPPRegression"
+      ],
       "assertions": [
         {
           "line": 42,
           "text": "ENSURE(m.prev_power_of_two(a) == expected);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst1, tst_prev_power_2 and tst_mpfx",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpfx_cpp_regression_test.go",
+          "tests": [
+            "TestFixedPointCPPRegression"
+          ]
+        }
+      ],
+      "ownership": [
+        "Each fixed-point value and its manager is closed by the Go regression."
+      ],
+      "deviations": [
+        "Printed diagnostic representations are replaced with numeric assertions for the same arithmetic and rounding operations."
+      ]
     },
     {
       "path": "src/test/mpq.cpp",
