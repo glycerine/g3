@@ -52214,3 +52214,5 @@ Ternary bit-vector source driver: ported zero-width behavior, source fills and i
 Vector source driver audit: connected the existing Go translation to its source manifest entry and reran its append, traversal, pop and bounded allocation-failure checks. The source's unbounded billion-element allocation loop uses a deterministic budget failure in Go.
 
 Horn subsumption model-converter source driver: translated the original five successive definition insertions and fresh-model applications, including both repeated-variable Horn conversions. The test checks the resulting false interpretation and verifies ownership through fixture cleanup.
+
+Pseudo-Boolean-to-bit-vector source driver: ported the five cardinality rewrites and both exhaustive four-variable matrices from test2 and test3. For each of 16 coefficient patterns, five bounds, three comparison kinds and 16 assignments, the direct rewriter plus side constraints and the finite-domain solver each check satisfiability followed by contradiction of the independently computed result. The Go tests reuse a solver through scopes for each formula; source diagnostic printing is omitted.

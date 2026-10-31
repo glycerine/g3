@@ -207479,9 +207479,9 @@
       "path": "src/test/pb2bv.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/portfolio/pb2bv_source_driver_test.go"],
+      "tests": ["TestPB2BVSourceDriverCardinality", "TestPB2BVSourceDriverRewriterExhaustive", "TestPB2BVSourceDriverFDSolverExhaustive"],
       "assertions": [
         {
           "line": 84,
@@ -207508,11 +207508,11 @@
           "text": "VERIFY(res == l_false);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "test1, test2/test_semantics and test3/test_solver_semantics", "status": "ported", "go_target": "pkg/tactic/portfolio/pb2bv_source_driver_test.go", "tests": ["TestPB2BVSourceDriverCardinality", "TestPB2BVSourceDriverRewriterExhaustive", "TestPB2BVSourceDriverFDSolverExhaustive"]}],
+      "ownership": ["The tests close each rewriter and solver, release returned side constraints and result references, and delete rational values before closing the shared fixture."],
+      "deviations": ["Each coefficient/bound/comparison combination uses solver scopes for the 16 assignments instead of constructing a separate solver for every assignment. Ground expected values are computed from the integer coefficients instead of the source theory rewriter; diagnostic output is omitted."]
     },
     {
       "path": "src/test/pdr.cpp",
