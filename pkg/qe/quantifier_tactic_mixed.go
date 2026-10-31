@@ -6,13 +6,14 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
 // eliminateQuantifierMixed separates Boolean and arithmetic declarations of
 // a single quantifier. Every group must be fully eliminated by its concrete
 // solver; unsupported declarations or group results report incomplete.
 func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
-	if m == nil {
+	if m == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}
 	defer func() {
@@ -22,6 +23,21 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	}()
 	kind, err := m.GetKind(quantifier)
 	if err != nil || kind != ast.ASTQuantifier {
+		return result, false, err
+	}
+	free, err := rewriter.NewExprFreeVars(m)
+	if err != nil {
+		return result, false, err
+	}
+	if err = free.Collect(quantifier); err != nil || !free.Empty() {
+		return result, false, err
+	}
+	body, err := m.GetQuantifierBody(quantifier)
+	if err != nil {
+		return result, false, err
+	}
+	nested, err := m.HasQuantifiers(body)
+	if err != nil || nested {
 		return result, false, err
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
@@ -63,7 +79,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	if len(boolVars) == 0 || len(arithmeticVars) == 0 {
 		return result, false, nil
 	}
-	body, err := m.RefGet(extracted.body)
+	body, err = m.RefGet(extracted.body)
 	if err != nil {
 		return result, false, err
 	}

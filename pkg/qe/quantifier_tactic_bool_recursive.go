@@ -73,6 +73,9 @@ func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config C
 		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
 		}
+		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierMixed(m, q, config)
+		}
 		if e != nil || !done {
 			return result, false, e
 		}

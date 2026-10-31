@@ -48,3 +48,23 @@ func TestSMTLibRunnerArithmeticEquationQETactic(t *testing.T) {
 		t.Fatalf("arithmetic QE tactic result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerMixedQETactic(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-const y Int)
+(assert (exists ((b Bool) (x Int)) (and b (= x y) (> x 0))))
+(assert (= y 3))
+(check-sat-using (then qe smt))
+(push)
+(assert (<= y 0))
+(check-sat-using (then qe smt))
+(pop)
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "sat unsat" {
+		t.Fatalf("mixed QE tactic result: %s", got)
+	}
+}
