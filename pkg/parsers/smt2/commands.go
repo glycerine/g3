@@ -262,7 +262,7 @@ func (p *commandParser) command() (bool, error) {
 	}
 	success := true
 	switch name {
-	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-pp-shared", "dbg-subst", "dbg-instantiate", "dbg-instantiate-nested", "dbg-elim-unused-vars", "dbg-bool-rewriter", "dbg-bool-flat-rewriter", "dbg-elim-and", "dbg-used-vars", "dbg-lt", "dbg-some-value":
+	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-pp-shared", "dbg-subst", "dbg-instantiate", "dbg-instantiate-nested", "dbg-elim-unused-vars", "dbg-bool-rewriter", "dbg-bool-flat-rewriter", "dbg-elim-and", "dbg-used-vars", "dbg-lt", "dbg-some-value", "dbg-params":
 		if err = p.debugCommand(name); err != nil {
 			return false, err
 		}
@@ -976,7 +976,7 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
-	case "simplify":
+	case "simplify", "dbg-th-rewriter":
 		if err = p.simplifyCommand(); err != nil {
 			return false, err
 		}

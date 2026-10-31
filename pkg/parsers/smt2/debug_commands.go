@@ -12,6 +12,58 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-params":
+		if err := p.requireEnd(); err != nil {
+			return err
+		}
+		globals, err := p.context.GlobalParameters()
+		if err != nil {
+			return err
+		}
+		c := globals.Context
+		first, err := c.NewValue()
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, c.Del(&first)) }()
+		second, err := c.NewValue()
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, c.Del(&second)) }()
+		key := "val"
+		if err = c.SetUIntName(&first, &key, 100); err != nil {
+			return err
+		}
+		if err = c.Copy(&second, &first); err != nil {
+			return err
+		}
+		if err = c.SetUIntName(&second, &key, 200); err != nil {
+			return err
+		}
+		firstValue, err := c.GetUIntName(&first, &key, 0)
+		if err != nil {
+			return err
+		}
+		secondValue, err := c.GetUIntName(&second, &key, 0)
+		if err != nil {
+			return err
+		}
+		if firstValue != 100 || secondValue != 200 {
+			return fmt.Errorf("parameter copy-on-write check failed")
+		}
+		if err = c.Copy(&second, &first); err != nil {
+			return err
+		}
+		secondValue, err = c.GetUIntName(&second, &key, 0)
+		if err != nil {
+			return err
+		}
+		if secondValue != 100 {
+			return fmt.Errorf("parameter reassignment check failed")
+		}
+		_, err = fmt.Fprintln(p.out, "worked")
+		return err
 	case "dbg-lt":
 		left, _, err := p.expression()
 		if err != nil {

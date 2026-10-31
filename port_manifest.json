@@ -46310,7 +46310,8 @@
         "TestDebugBooleanRewriters",
         "TestDebugUsedVariables",
         "TestDebugPrintShared",
-        "TestDebugOrderingAndSomeValue"
+        "TestDebugOrderingAndSomeValue",
+        "TestDebugParameterCopyAndTheoryRewrite"
       ],
       "assertions": [
         {
@@ -46400,6 +46401,14 @@
           "tests": [
             "TestDebugOrderingAndSomeValue"
           ]
+        },
+        {
+          "name": "parameter copy diagnostic and theory rewriting",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugParameterCopyAndTheoryRewrite"
+          ]
         }
       ],
       "ownership": [
@@ -46433,7 +46442,8 @@
         "TestDebugBooleanRewriters",
         "TestDebugUsedVariables",
         "TestDebugPrintShared",
-        "TestDebugOrderingAndSomeValue"
+        "TestDebugOrderingAndSomeValue",
+        "TestDebugParameterCopyAndTheoryRewrite"
       ],
       "conditionals": [
         {
@@ -46498,6 +46508,14 @@
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugOrderingAndSomeValue"
+          ]
+        },
+        {
+          "name": "parameter copy diagnostic and theory rewriting",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugParameterCopyAndTheoryRewrite"
           ]
         }
       ],

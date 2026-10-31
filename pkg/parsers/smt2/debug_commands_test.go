@@ -165,3 +165,13 @@ func TestDebugOrderingAndSomeValue(t *testing.T) {
 		t.Fatalf("debug ordering and values %q, want %q", out, want)
 	}
 }
+
+func TestDebugParameterCopyAndTheoryRewrite(t *testing.T) {
+	out, err := runApplyTacticScript(t, `(dbg-th-rewriter (+ 0 1))(dbg-params)`)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "1\nworked\n"; out != want {
+		t.Fatalf("debug output %q, want %q", out, want)
+	}
+}

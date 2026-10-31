@@ -1,3 +1,5 @@
+Debug parameter and theory commands (2026-10-31 UTC): implemented the parameter copy-on-write diagnostic and installed the existing simplify command under dbg-th-rewriter. Their combined output matches native Z3 in a checked-build test.
+
 Debug ordering and values (2026-10-31 UTC): connected dbg-lt and dbg-some-value to the existing AST total order and sort value constructors. Checked tests match native output for order reversals, equality, arithmetic, Boolean and bit-vector sorts.
 
 Debug traversal reports (2026-10-31 UTC): connected dbg-used-vars and dbg-pp-shared to existing used-variable and shared-occurrence traversal, including source indentation and empty reports. Checked tests match native output for missing indices, sorts, shared compound nodes and unshared atoms.
