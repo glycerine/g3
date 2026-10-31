@@ -71,3 +71,23 @@ func TestEq2BVWidthSourceUnsignedBoundaries(t *testing.T) {
 		}
 	}
 }
+
+func TestEq2BVPrepareRegistersBitVectors(t *testing.T) {
+	base, source := fixDLFixture(t, false)
+	m, e := ast.NewASTManager(ast.ASTManagerConfig{Symbols: source.Symbols, Numerals: source.NumeralService(), Budget: source.Budget()})
+	equationMust(t, e)
+	t.Cleanup(func() { equationMust(t, m.Close()) })
+	if _, e = m.BitVectorSort(2); e == nil {
+		t.Fatal("fixture unexpectedly registered bit-vectors")
+	}
+	bounds, e := NewBoundManager(m, base.context, base.globals)
+	equationMust(t, e)
+	t.Cleanup(func() { equationMust(t, bounds.Close()) })
+	x := fixDLConst(t, m, true, "new-manager-x")
+	n := fixDLNumber(t, m, true, "3")
+	root := collectorEq(t, m, x, n)
+	equationMust(t, bounds.Collect(root, ast.ASTDependency{}))
+	plan, e := eq2bvPrepare(m, bounds, []ast.ASTHandle{root})
+	equationMust(t, e)
+	equationMust(t, plan.Close())
+}

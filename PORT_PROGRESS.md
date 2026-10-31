@@ -1,3 +1,5 @@
+Finite-domain model conversion (2026-10-31 UTC): eq2bv now has a concrete model converter that restores original integer constants, copies other interpretations and supports translation. Preparation initializes the bit-vector plugin for fresh managers. Normal and checked focused tests and the full tactic package pass; goal integration, proof handling and tactic registration remain unfinished.
+
 Finite-domain bound translation (2026-10-31 UTC): eq2bv now constructs owned unsigned bit-vector lower and upper constraints, preserving source direction and goal dependencies. Focused normal and checked tests pass; goal integration, model conversion, proof handling and tactic registration remain unfinished.
 
 Finite-domain equality rewriting (2026-10-31 UTC): eq2bv now rewrites candidate integer/numeral equalities into bit-vector equalities throughout expressions, preserving source operand handling and skipping quantifier patterns. Focused normal and checked tests cover nested and reversed equalities; goal updates, bounds, model conversion, proof handling and tactic registration remain unfinished.

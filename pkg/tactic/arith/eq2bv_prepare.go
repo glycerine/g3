@@ -69,6 +69,11 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 	if err != nil {
 		return nil, err
 	}
+	if len(maxima) != 0 {
+		if _, err = m.RegisterBitVectorPlugin(); err != nil {
+			return nil, err
+		}
+	}
 	type indexed struct {
 		h  ast.ASTHandle
 		id uint32
