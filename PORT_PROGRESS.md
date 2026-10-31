@@ -52242,3 +52242,5 @@ NLSAT projection mode and root-order integration: restored source general projec
 NLSAT root and projection-mode drivers: ported tst10's quadratic-root explanation inputs for both coefficient signs and five model values, checking that explanation literals are false when the corresponding root relation holds. Ported tst9's three bound sets in signed mode and its unscaled set in general mode, with and without the equality. General projection with a symbolic multiplier exceeded a minute and remains open; source driver status remains partial.
 
 DOC source driver started: translated tst_doc1 at widths 5, 10 and 70, including copy, fill, equality, intersection, containment, negation folding and cross-manager projection. The randomized test_doc_cls scenarios remain open.
+
+DOC randomized projection driver: translated test_project1 and all 200 source-seeded four-variable projection rounds. Each result is checked against an exhaustive existential truth table, and source and destination documents are released per round; randomized merge, intersection and subtraction remain open.

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+
+	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
 
 func TestDOCSourceDriverCubeOperations(t *testing.T) {
@@ -132,4 +134,97 @@ func allocDocProjection(t *testing.T, source, destination *DocManager, deleted [
 		t.Fatal(e)
 	}
 	return result
+}
+
+// Source: src/test/doc.cpp test_doc_cls::test_project1 and test_project.
+func TestDOCSourceRandomProjection(t *testing.T) {
+	source, _ := newTestDocManager(t, 4)
+	destinations := make([]*DocManager, 5)
+	for i := uint32(1); i <= 4; i++ {
+		destinations[i], _ = newTestDocManager(t, i)
+	}
+	rng := z3rand.New(0)
+	must := func(e error) {
+		t.Helper()
+		if e != nil {
+			t.Fatal(e)
+		}
+	}
+	check := func(d *Doc, deleted []bool) {
+		t.Helper()
+		kept := uint32(0)
+		for _, remove := range deleted {
+			if !remove {
+				kept++
+			}
+		}
+		target := destinations[kept]
+		p, e := source.Project(target, deleted, d)
+		must(e)
+		for value := uint32(0); value < 1<<kept; value++ {
+			want := false
+			for removed := uint32(0); removed < 1<<(4-kept); removed++ {
+				if independentDocMatches(t, source, d, projectedAssignment(value, deleted, removed)) {
+					want = true
+					break
+				}
+			}
+			if got := independentDocMatches(t, target, p, value); got != want {
+				t.Fatalf("projection mask %v value %d got %v want %v", deleted, value, got, want)
+			}
+		}
+		must(target.Deallocate(p))
+	}
+	first, e := source.AllocateX()
+	must(e)
+	neg, e := source.vectors.AllocateX()
+	must(e)
+	must(source.vectors.Set(neg, 0, TBit0))
+	must(source.AddNegativeOwned(first, neg))
+	check(first, []bool{true, false, false, false})
+	must(source.Deallocate(first))
+	choose := func() TBit {
+		switch rng.Bounded(3) {
+		case 0:
+			return TBit0
+		case 1:
+			return TBit1
+		default:
+			return TBitX
+		}
+	}
+	for trial := 0; trial < 200; trial++ {
+		pos, e := source.vectors.Allocate()
+		must(e)
+		for i := uint32(0); i < 4; i++ {
+			must(source.vectors.Set(pos, i, choose()))
+		}
+		d, e := source.AllocateTBVCopy(pos)
+		must(e)
+		must(source.vectors.Deallocate(pos))
+		for j := 0; j < 3; j++ {
+			v, e := source.vectors.Allocate()
+			must(e)
+			for i := uint32(0); i < 4; i++ {
+				bit, e := source.vectors.Get(d.positive, i)
+				must(e)
+				if bit == TBitX {
+					bit = choose()
+				}
+				must(source.vectors.Set(v, i, bit))
+			}
+			must(source.AddNegativeOwned(d, v))
+		}
+		valid, e := source.WellFormed(d)
+		must(e)
+		if !valid {
+			t.Fatal("generated document invalid", trial)
+		}
+		deleted := make([]bool, 4)
+		for i := 1; i < 4; i++ {
+			deleted[i] = rng.Bounded(2) == 0
+		}
+		check(d, deleted)
+		must(source.Deallocate(d))
+	}
 }
