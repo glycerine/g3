@@ -455,3 +455,71 @@ func TestSMT2NegativeSoftParetoOptimizationEndToEnd(t *testing.T) {
 		t.Fatal("negative soft Pareto normalization", got, "want", want)
 	}
 }
+
+func TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	var output bytes.Buffer
+	script := `(set-logic QF_FD)
+(declare-const x Bool)
+(assert (not x))
+(assert-soft x :WEIGHT 2 :ID group)
+(check-sat)
+(get-objectives)`
+	if err = ParseCommands(c, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if got := strings.Join(strings.Fields(output.String()), " "); got != "sat (objectives (group 2) )" {
+		t.Fatal(got)
+	}
+	other, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := other.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	err = ParseCommands(other, strings.NewReader(`(assert-soft 3 :junk 2)`), &output)
+	if err == nil || !strings.Contains(err.Error(), "expected Boolean type") {
+		t.Fatal("non-Boolean formula should be rejected first", err)
+	}
+}
+
+func TestSMT2ObjectivePublishesBeforeExtraArgumentError(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	var output bytes.Buffer
+	if err = ParseCommands(c, strings.NewReader(`(set-option :print-success true)(declare-const x Int)`), &output); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	if err = ParseCommands(c, strings.NewReader(`(maximize x extra)`), &output); err == nil {
+		t.Fatal("extra argument was accepted")
+	}
+	if output.String() != "success\n" {
+		t.Fatalf("source success prefix: %q", output.String())
+	}
+	output.Reset()
+	if err = ParseCommands(c, strings.NewReader(`(check-sat)(get-objectives)`), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if got := strings.Join(strings.Fields(output.String()), " "); got != "sat (objectives (x oo) )" {
+		t.Fatal("objective did not survive command error", got)
+	}
+}

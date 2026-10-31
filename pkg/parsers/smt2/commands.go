@@ -587,29 +587,45 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		m, err := p.astManager()
+		if err != nil {
+			return false, err
+		}
+		sort, err := m.GetSort(expression)
+		if err != nil {
+			return false, err
+		}
+		boolean, err := m.MkBoolSort()
+		if err != nil {
+			return false, err
+		}
+		if sort != boolean {
+			return false, fmt.Errorf("invalid type for expression: expected Boolean type")
+		}
 		weight := new(big.Rat).Set(&p.softWeight)
 		id := p.softID
 		for p.token != RightParenToken {
 			if p.token != KeywordToken {
 				return false, fmt.Errorf("assert-soft option keyword expected")
 			}
-			key := p.scanner.ID()
+			rawKey := p.scanner.ID()
+			key := uparams.NormParamName(&rawKey)
 			if err = p.advance(); err != nil {
 				return false, err
 			}
 			switch key {
-			case ":weight":
+			case "weight":
 				weight, err = p.rational()
 				if err == nil {
 					p.softWeight.Set(weight)
 				}
-			case ":id":
+			case "id":
 				id, err = p.symbol()
 				if err == nil {
 					p.softID = id
 				}
 			default:
-				return false, fmt.Errorf("unsupported assert-soft option %s", key)
+				return false, fmt.Errorf("unsupported assert-soft option %s", rawKey)
 			}
 			if err != nil {
 				return false, err
@@ -623,10 +639,18 @@ func (p *commandParser) command() (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if err = p.requireEnd(); err != nil {
+		// The source registers the objective in set_next_arg, before the
+		// parser diagnoses an extra command argument.
+		if err = p.context.AddObjective(expression, name == "maximize"); err != nil {
 			return false, err
 		}
-		if err = p.context.AddObjective(expression, name == "maximize"); err != nil {
+		if p.context.PrintSuccess {
+			if _, err = fmt.Fprintln(p.out, "success"); err != nil {
+				return false, err
+			}
+		}
+		success = false
+		if err = p.requireEnd(); err != nil {
 			return false, err
 		}
 	case "push", "pop":

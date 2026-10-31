@@ -103593,41 +103593,110 @@
       "path": "src/opt/opt_cmds.cpp",
       "component": "opt",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/cmd_context/optimization.go", "pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/parsers/smt2/commands.go",
+        "pkg/cmd_context/optimization.go",
+        "pkg/cmd_context/optimization_pareto.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/api/api_optimize_parse_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMT2BoundedIntegerOptimizationEndToEnd",
+        "TestSMT2OptimizationObjectivesFollowScopes",
+        "TestSMT2WeightedSoftOptimizationEndToEnd",
+        "TestSMT2BitVectorOptimizationEndToEnd",
+        "TestSMT2StrictLexicographicIntervalEndToEnd",
+        "TestSMT2UnboundedLexicographicIntervalEndToEnd",
+        "TestSMT2BoxOptimizationEndToEnd",
+        "TestSMT2ParetoOptimizationEndToEnd",
+        "TestSMT2BitVectorParetoOptimizationEndToEnd",
+        "TestSMT2SoftParetoOptimizationEndToEnd",
+        "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+        "TestSMTLibRunnerCPPReference",
+        "TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst",
+        "TestSMT2ObjectivePublishesBeforeExtraArgumentError",
+        "TestAPIOptimizeParsedCommandsUseSuppliedOptimizer"
+      ],
       "assertions": [
         {
           "line": 86,
           "text": "SASSERT(m_idx == 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained maximize, minimize and get-objectives commands for arithmetic and bit-vector objectives, including scoped rollback (opt_cmds.cpp:115-180)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2OptimizationObjectivesFollowScopes", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMT2BoxOptimizationEndToEnd", "TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd"]
+          "tests": [
+            "TestSMT2BoundedIntegerOptimizationEndToEnd",
+            "TestSMT2OptimizationObjectivesFollowScopes",
+            "TestSMT2BitVectorOptimizationEndToEnd",
+            "TestSMT2StrictLexicographicIntervalEndToEnd",
+            "TestSMT2UnboundedLexicographicIntervalEndToEnd",
+            "TestSMT2BoxOptimizationEndToEnd",
+            "TestSMT2ParetoOptimizationEndToEnd",
+            "TestSMT2BitVectorParetoOptimizationEndToEnd",
+            "TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst",
+            "TestSMT2ObjectivePublishesBeforeExtraArgumentError"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/api/api_optimize_parse_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "assert-soft Boolean expression, persistent parametric weight/id lifecycle, grouped objective registration and exact assignment display (opt_cmds.cpp:46-107)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2WeightedSoftOptimizationEndToEnd",
+            "TestSMT2SoftParetoOptimizationEndToEnd",
+            "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+            "TestSMTLibRunnerCPPReference",
+            "TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst",
+            "TestSMT2ObjectivePublishesBeforeExtraArgumentError"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/api/api_optimize_parse_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "The parser owns command-local values; the optimization context owns published objective and soft-constraint AST references. API parsing directs commands to the supplied optimizer."
+      ],
+      "deviations": [
+        "Optimization commands are installed through concrete parser dispatch instead of a separate C++ command factory. The underlying optimization algorithms are tracked in their own source units."
+      ]
     },
     {
       "path": "src/opt/opt_cmds.h",
       "component": "opt",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/cmd_context/optimization.go", "pkg/api/api_optimize_parse.go", "pkg/api/api_optimize_parse_test.go"],
-      "tests": ["TestAPIOptimizeParsedCommandsUseSuppliedOptimizer", "TestAPIOptimizeParseStringAndFile", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2WeightedSoftOptimizationEndToEnd"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/parsers/smt2/commands.go",
+        "pkg/cmd_context/optimization.go",
+        "pkg/api/api_optimize_parse.go",
+        "pkg/api/api_optimize_parse_test.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestAPIOptimizeParsedCommandsUseSuppliedOptimizer",
+        "TestAPIOptimizeParseStringAndFile",
+        "TestSMT2BoundedIntegerOptimizationEndToEnd",
+        "TestSMT2WeightedSoftOptimizationEndToEnd",
+        "TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst",
+        "TestSMT2ObjectivePublishesBeforeExtraArgumentError"
+      ],
       "conditionals": [
         {
           "line": 18,
@@ -103638,11 +103707,33 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "optimization command installation for parser and supplied API optimizer", "status": "partial", "go_target": "pkg/parsers/smt2/commands.go", "tests": ["TestAPIOptimizeParsedCommandsUseSuppliedOptimizer", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2WeightedSoftOptimizationEndToEnd"]}],
-      "ownership": [],
-      "deviations": ["Optimization command registration is built into parser dispatch rather than exposed as a separate installer; the implementation and full lifecycle audits remain partial."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "optimization command installation for parser and supplied API optimizer",
+          "status": "ported",
+          "go_target": "pkg/parsers/smt2/commands.go",
+          "tests": [
+            "TestAPIOptimizeParsedCommandsUseSuppliedOptimizer",
+            "TestSMT2BoundedIntegerOptimizationEndToEnd",
+            "TestSMT2WeightedSoftOptimizationEndToEnd",
+            "TestSMT2AssertSoftNormalizesOptionsAndValidatesFormulaFirst",
+            "TestSMT2ObjectivePublishesBeforeExtraArgumentError"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/api/api_optimize_parse_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ]
+        }
+      ],
+      "ownership": [
+        "The parser owns command-local values; the optimization context owns published objective and soft-constraint AST references. API parsing directs commands to the supplied optimizer."
+      ],
+      "deviations": [
+        "Optimization commands are installed through concrete parser dispatch instead of a separate C++ command factory. The underlying optimization algorithms are tracked in their own source units."
+      ]
     },
     {
       "path": "src/opt/opt_context.cpp",
