@@ -16,6 +16,9 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	if err := e.clearExpressionQuery(); err != nil {
+		return lbool.Undef, err
+	}
 	e.queried = true
 	clone, err := e.newQueryClone()
 	if err != nil {
@@ -55,7 +58,11 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 		if e.backend == "ddnf" {
 			clone.ddnf.transferTrail(&e.ddnf)
 		}
-		resultErr = errors.Join(resultErr, clone.Close())
+		if resultErr == nil {
+			e.queryClone = clone
+		} else {
+			resultErr = errors.Join(resultErr, clone.Close())
+		}
 		if resultErr != nil {
 			e.recordQueryStatus(result, resultErr)
 		}
@@ -83,6 +90,41 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	} else {
 		result, err = clone.QueryPredicate(declaration)
 	}
+	if err == nil {
+		e.queryClonePredicate = declaration
+	}
 	e.recordQueryStatus(result, err)
 	return result, err
+}
+
+// clearExpressionQuery releases the backend state used to answer the previous
+// expression query. It is also called when the engine itself is closed.
+func (e *PropositionalEngine) clearExpressionQuery() error {
+	if e.queryClone == nil {
+		return nil
+	}
+	if err := e.queryClone.Close(); err != nil {
+		return err
+	}
+	e.queryClone = nil
+	e.queryClonePredicate = ast.ASTHandle{}
+	return nil
+}
+
+// ExpressionAnswer returns the backend answer to the most recent expression
+// query while its query snapshot is valid. The caller owns the returned ref.
+func (e *PropositionalEngine) ExpressionAnswer() (ast.ASTRef, error) {
+	if err := e.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	kind, err := parseEngineKind(e.backend)
+	if err != nil || !e.queryReady || e.queryRevision != e.revision || e.queryEngine != kind || e.queryClone == nil {
+		return ast.ASTRef{}, ErrPropositionalEngine
+	}
+	// BMC and tabulation transfer their proof/answer to the parent during query
+	// cleanup; their answer methods do not inspect the predicate argument.
+	if kind == EngineBMC || kind == EngineTab {
+		return e.Answer(e.queryClonePredicate)
+	}
+	return e.queryClone.Answer(e.queryClonePredicate)
 }

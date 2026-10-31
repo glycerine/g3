@@ -1,3 +1,5 @@
+Fixedpoint expression queries now keep their isolated backend until the next query or close, allowing an owned answer to be retrieved without changing the original rules. Datalog tuple and empty answers, stale result rejection, and answer reference lifetime are covered by normal and checked tests; public replay integration remains in progress.
+
 Floating-point sign and significand inspection now reads stored MPF fields directly, with a 112-bit significand test checking bit-vector precision and the uint64 overflow guard.
 
 Floating-point exponent inspection reads the source MPF fields directly for both biased and unbiased modes, including infinity; normal and checked tests cover normal and special values and generated replay.

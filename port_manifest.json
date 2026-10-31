@@ -84665,8 +84665,49 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/fp/datalog_model.go", "pkg/muz/fp/datalog_snapshots.go", "pkg/muz/fp/datalog_profile.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/base/hnf.go", "pkg/muz/base/datalog_context_background.go", "pkg/muz/base/datalog_context_background_snapshot.go", "pkg/muz/base/datalog_context_background_formula.go", "pkg/muz/base/rule_set_smt2.go", "pkg/muz/dataflow/reachability.go", "pkg/muz/rel/table.go", "pkg/muz/rel/relation_manager.go", "pkg/cmd_context/fixedpoint.go", "pkg/cmd_context/fixedpoint_datalog_snapshots.go", "pkg/cmd_context/fixedpoint_datalog_profile.go", "pkg/parsers/smt2/commands.go"],
-      "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal", "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestPDREngineMatchesCPPIntegerHornQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
+      "go_targets": [
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/rule_ingest.go",
+        "pkg/muz/fp/rule_ingest_unbound_test.go",
+        "pkg/muz/fp/datalog_model.go",
+        "pkg/muz/fp/datalog_snapshots.go",
+        "pkg/muz/fp/datalog_profile.go",
+        "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/base/hnf.go",
+        "pkg/muz/base/datalog_context_background.go",
+        "pkg/muz/base/datalog_context_background_snapshot.go",
+        "pkg/muz/base/datalog_context_background_formula.go",
+        "pkg/muz/base/rule_set_smt2.go",
+        "pkg/muz/dataflow/reachability.go",
+        "pkg/muz/rel/table.go",
+        "pkg/muz/rel/relation_manager.go",
+        "pkg/cmd_context/fixedpoint.go",
+        "pkg/cmd_context/fixedpoint_datalog_snapshots.go",
+        "pkg/cmd_context/fixedpoint_datalog_profile.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/query_expression_answer_test.go"
+      ],
+      "tests": [
+        "TestDatalogModelMaterializesFiniteRelationTables",
+        "TestHornTacticReturnsDatalogModelForFiniteGoal",
+        "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
+        "TestFiniteCompilerOrdersFactsAndIdentityRules",
+        "TestPropositionalEngineMatchesCPPFixedpointQueries",
+        "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter",
+        "TestPDREngineMatchesCPPIntegerHornQueries",
+        "TestPropositionalEngineExecutesStratifiedNegation",
+        "TestPropositionalEngineScopeGuards",
+        "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+        "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+        "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP",
+        "TestSMT2FixedpointFiniteRelationsMatchCPP",
+        "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP",
+        "TestSMT2FixedpointRejectsUnstratifiedNegation",
+        "TestSMT2FixedpointRuleScopesMatchCPP",
+        "TestFixedpointExpressionAnswerSurvivesQueryAndInvalidates",
+        "TestFixedpointExpressionAnswerForEmptyRelation"
+      ],
       "assertions": [
         {
           "line": 82,
@@ -84736,42 +84777,86 @@
           "name": "Retained register_predicate/add_rule/close-reopen/query orchestration for finite-domain Horn programs, including compiled relational-bytecode execution and recursive least-fixpoint saturation for positive rules with up to two tails and complete structural head assembly, implicit-variable binding, HNF ingestion with computed head terms, stratified negation, finite direct guards and ground theory-rewritten guards, dependency-ordered fallback table saturation, tuple answers, and lbool results (dl_context.cpp:122-190,344-469,680-738,861-889)",
           "status": "partial",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/muz/rel/compiler_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerSaturatesRecursiveRules", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"]
-
+          "go_targets": [
+            "pkg/muz/rel/compiler_test.go",
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ],
+          "tests": [
+            "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
+            "TestFiniteCompilerJoinsTwoPositiveTails",
+            "TestFiniteCompilerOrdersFactsAndIdentityRules",
+            "TestFiniteCompilerSaturatesRecursiveRules",
+            "TestPropositionalEngineMatchesCPPFixedpointQueries",
+            "TestPropositionalEngineExecutesStratifiedNegation",
+            "TestPropositionalEngineScopeGuards",
+            "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+            "TestSMT2FixedpointFiniteRelationsMatchCPP",
+            "TestSMT2FixedpointRecursiveClosureMatchesCPP",
+            "TestSMT2FixedpointTwoTailJoinMatchesCPP",
+            "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP",
+            "TestSMT2FixedpointRejectsUnstratifiedNegation",
+            "TestSMT2FixedpointRuleScopesMatchCPP"
+          ]
         },
         {
           "name": "Rule-set push/pop snapshots and native Datalog post-query pop refusal (dl_context.cpp:180-195)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go", "pkg/cmd/g3/main_test.go"],
-          "tests": ["TestPropositionalEngineScopeGuards", "TestSMT2FixedpointRuleScopesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestPropositionalEngineScopeGuards",
+            "TestSMT2FixedpointRuleScopesMatchCPP",
+            "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"
+          ]
         },
         {
           "name": "default fixedpoint SMT-LIB HORN rule-set dump with declarations, named rules and collision-safe fresh labels (dl_context.cpp:1120-1207)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_set_smt2.go",
-          "tests": ["TestRuleSetWriteSourceSMT2"]
+          "tests": [
+            "TestRuleSetWriteSourceSMT2"
+          ]
         },
         {
           "name": "finite-table predicate representation selection before the first query (dl_context.cpp:433-441)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/api/api_fixedpoint_test.go", "pkg/cmd/g3/main_test.go"],
-          "tests": ["TestSMTContextFixedpointPredicateRepresentation", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
+          "go_targets": [
+            "pkg/api/api_fixedpoint_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTContextFixedpointPredicateRepresentation",
+            "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"
+          ]
         },
         {
           "name": "Finite least-fixed-point model materialization with exact Boolean predicate interpretations and synthetic-query filtering (dl_context.cpp get_model)",
           "status": "ported",
           "go_target": "pkg/muz/fp/datalog_model.go",
-          "tests": ["TestDatalogModelMaterializesFiniteRelationTables", "TestHornTacticReturnsDatalogModelForFiniteGoal"]
+          "tests": [
+            "TestDatalogModelMaterializesFiniteRelationTables",
+            "TestHornTacticReturnsDatalogModelForFiniteGoal"
+          ]
         },
         {
           "name": "infinite-domain predicate registration, PDR/Spacer uninterpreted-symbol rule guard and query dispatch through the retained rule context",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "go_targets": ["pkg/parsers/smt2/fixedpoint_commands_test.go"],
-          "tests": ["TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP", "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP"]
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ],
+          "tests": [
+            "TestPDREngineMatchesCPPIntegerHornQueries",
+            "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+            "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP",
+            "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP",
+            "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP"
+          ]
         }
       ],
       "ownership": [
@@ -95624,7 +95709,8 @@
         "pkg/muz/fp/datalog_similarity.go",
         "pkg/muz/fp/datalog_similarity_test.go",
         "pkg/muz/rel/similarity_plugin.go",
-        "pkg/muz/rel/similarity_merge_finite.go"
+        "pkg/muz/rel/similarity_merge_finite.go",
+        "pkg/muz/fp/query_expression_answer_test.go"
       ],
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
@@ -95632,7 +95718,9 @@
         "TestDatalogProfileCountsRulesRelationsTuplesAndCompiler",
         "TestDatalogSimilarityLiveQuery",
         "TestDatalogSimilarityQueryParameterControls",
-        "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+        "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
+        "TestFixedpointExpressionAnswerSurvivesQueryAndInvalidates",
+        "TestFixedpointExpressionAnswerForEmptyRelation"
       ],
       "conditionals": [
         {
