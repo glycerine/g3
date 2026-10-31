@@ -42,6 +42,7 @@ type Z3Replayer struct {
 	tactics         map[uint64]*replayTactic
 	tacticResults   map[uint64]*replayTacticResult
 	probes          map[uint64]*replayProbe
+	statistics      map[uint64]*replayStatistics
 	nextObjectID    uint64
 	closed          bool
 }
@@ -101,5 +102,6 @@ func (r *Z3Replayer) Close() error {
 	r.tactics = nil
 	r.tacticResults = nil
 	r.probes = nil
+	r.statistics = nil
 	return nil
 }

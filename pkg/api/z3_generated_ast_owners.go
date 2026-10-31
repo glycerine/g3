@@ -145,6 +145,10 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		delete(r.probes, id)
 	}
 	owner.probeIDs = nil
+	for _, id := range owner.statisticIDs {
+		delete(r.statistics, id)
+	}
+	owner.statisticIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err

@@ -5972,7 +5972,9 @@
         "pkg/api/z3_generated_probe_commands.go",
         "pkg/api/z3_generated_probe_commands_test.go",
         "pkg/api/z3_generated_tactic_registry.go",
-        "pkg/api/z3_generated_tactic_registry_test.go"
+        "pkg/api/z3_generated_tactic_registry_test.go",
+        "pkg/api/z3_generated_statistics_commands.go",
+        "pkg/api/z3_generated_statistics_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6048,7 +6050,8 @@
         "TestGeneratedProbeCompositionReplay",
         "TestGeneratedProbeControlledTacticsReplay",
         "TestGeneratedTacticRegistryReplayDescriptions",
-        "TestGeneratedSolverFromTacticReplaySurvivesReset"
+        "TestGeneratedSolverFromTacticReplaySurvivesReset",
+        "TestGeneratedStatisticsReplaySurvivesSolverRelease"
       ],
       "methods_audited": false,
       "ownership_audited": false,

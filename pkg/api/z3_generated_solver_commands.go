@@ -74,7 +74,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
-	return nil
+	return registerZ3GeneratedStatistics(r)
 }
 func replayMkSolver(r *Z3Replayer) error           { return replayCreateSolver(r, 0) }
 func replayMkSimpleSolver(r *Z3Replayer) error     { return replayCreateSolver(r, 1) }
