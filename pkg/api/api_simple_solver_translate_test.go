@@ -550,7 +550,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("ctx-simplify")
+	simplify, err := source.Tactic("bit-blast")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -630,7 +630,7 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -664,7 +664,7 @@ func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)

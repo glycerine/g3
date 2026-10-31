@@ -43,6 +43,14 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 			return nil, true, err
 		}
 		source, sourceParams = t.context, &t.params
+	case *ContextSimplifyTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		if _, ok := t.current.simp.(*contextAssertions); !ok {
+			return nil, false, nil
+		}
+		source, sourceParams = t.context, &t.params
 	default:
 		return nil, false, nil
 	}
@@ -94,6 +102,13 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 		next, err = NewTseitinCNFCoreTactic(m, context, globals, &p, services)
 		if err == nil {
 			next.numAux = t.numAux
+			result = next
+		}
+	case *ContextSimplifyTactic:
+		var next *ContextSimplifyTactic
+		next, err = NewContextSimplifyTactic(m, context, globals, &p, services)
+		if err == nil {
+			next.trace = t.trace
 			result = next
 		}
 	}

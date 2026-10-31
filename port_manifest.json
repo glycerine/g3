@@ -185595,6 +185595,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/core/ctx_simplify_tactic.go",
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/core/ctx_simplify_rewrite.go",
         "pkg/tactic/core/ctx_simplify_trace.go",
         "pkg/tactic/core/ctx_simplify_tactic_test.go",
@@ -185612,6 +185615,9 @@
         "pkg/cmd/g3/test_vectors/ctx_simplify_proofs.smt2"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestContextSimplifyExactGoalsCPP",
         "TestContextSimplifyDepthAndStepFrontiersCPP",
         "TestContextSimplifySharedBooleanDAGsCPP",

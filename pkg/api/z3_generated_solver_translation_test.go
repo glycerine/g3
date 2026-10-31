@@ -278,7 +278,7 @@ func TestGeneratedSMTTacticSolverTranslationAcrossContexts(t *testing.T) {
 }
 
 func TestGeneratedComposedTacticSolverTranslationAcrossContexts(t *testing.T) {
-	for _, name := range []string{"simplify", "propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core"} {
+	for _, name := range []string{"simplify", "propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify"} {
 		t.Run(name, func(t *testing.T) { runGeneratedComposedTacticTranslation(t, name) })
 	}
 }
