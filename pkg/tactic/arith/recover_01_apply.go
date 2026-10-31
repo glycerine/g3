@@ -22,6 +22,11 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 	if err = tactic.FailIfUnsatCoreGeneration("recover-01", goal); err != nil {
 		return err
 	}
+	report, err := tactic.NewTacticReport("recover-01", goal)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, report.Close()) }()
 	m := goal.Manager()
 	if err = out.Prepare(m); err != nil {
 		return err
@@ -92,7 +97,7 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 	defer func() { err = errors.Join(err, m.DelExprSubstitution(&sub)) }()
 	defs := &recover01Definitions{manager: m, goal: newGoal, sub: sub}
 	defer func() { err = errors.Join(err, defs.Close()) }()
-	recovered := false
+	var recovered uint32
 	for _, group := range ordered {
 		clauses := groups[group.decl]
 		literals, coeffs, ok, e := recover01Coefficients(m, clauses)
@@ -114,10 +119,13 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 		if e = defs.build(variable, literals, coeffs); e != nil {
 			return e
 		}
-		recovered = true
+		recovered++
 	}
-	if !recovered {
+	if recovered == 0 {
 		return out.AddGoal(goal)
+	}
+	if err = tactic.ReportTacticProgress(":recovered-01-vars", recovered); err != nil {
+		return err
 	}
 	if err = rw.SetSubstitution(&sub); err != nil {
 		return err

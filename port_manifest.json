@@ -182300,6 +182300,7 @@
         "pkg/tactic/arith/recover_01_definitions_test.go",
         "pkg/tactic/arith/recover_01_model_test.go",
         "pkg/tactic/arith/recover_01_apply_test.go",
+        "pkg/tactic/arith/recover_01_progress_test.go",
         "pkg/tactic/arith/recover_01_tactic_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/recover_01_integration_test.go"
@@ -182312,6 +182313,7 @@
         "TestRecover01DefinitionsShareBooleansAndHandleSigns",
         "TestRecover01ModelReconstruction",
         "TestRecover01GoalTransformation",
+        "TestRecover01SourceProgressReports",
         "TestRecover01IncompleteTableLeavesOriginalGoal",
         "TestRecover01RejectsProofAndCoreGoals",
         "TestRecover01TacticParametersAndReuse",
@@ -182384,7 +182386,7 @@
         "Clause analysis borrows roots; substitutions and fresh-bit references are owned for the duration of the invocation, and the output owns the new goal and model converter."
       ],
       "deviations": [
-        "Clause truth-table analysis caps clause size at 31; source progress reporting and full source/ownership audits remain unfinished."
+        "Clause truth-table analysis caps clause size at 31; full source and ownership audits remain unfinished."
       ]
     },
     {
@@ -182407,6 +182409,7 @@
         "pkg/tactic/arith/recover_01_definitions_test.go",
         "pkg/tactic/arith/recover_01_model_test.go",
         "pkg/tactic/arith/recover_01_apply_test.go",
+        "pkg/tactic/arith/recover_01_progress_test.go",
         "pkg/tactic/arith/recover_01_tactic_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/recover_01_integration_test.go"
@@ -182419,6 +182422,7 @@
         "TestRecover01DefinitionsShareBooleansAndHandleSigns",
         "TestRecover01ModelReconstruction",
         "TestRecover01GoalTransformation",
+        "TestRecover01SourceProgressReports",
         "TestRecover01IncompleteTableLeavesOriginalGoal",
         "TestRecover01RejectsProofAndCoreGoals",
         "TestRecover01TacticParametersAndReuse",
@@ -182452,7 +182456,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Clause truth-table analysis caps clause size at 31; source progress reporting and full source/ownership audits remain unfinished."
+        "Clause truth-table analysis caps clause size at 31; full source and ownership audits remain unfinished."
       ]
     },
     {
