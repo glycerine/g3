@@ -40,87 +40,103 @@ func nla2BVTraceWrite(out io.Writer, text string) error {
 	return nil
 }
 
-// Source trace stream failures set badbit but never alter tactic execution.
-func (c *nla2BVInvocation) traceGoalCount(g *tactic.Goal, line int, display bool) {
-	tags := c.t.traceTags()
-	if !tags.ShouldTrace("nla2bv") {
-		return
-	}
-	_ = tags.EmitConditional("nla2bv", "operator()", "src/tactic/arith/nla2bv_tactic.cpp", line,
-		func() bool { return true }, func(out io.Writer) error {
-			if display {
-				if err := g.Display(out); err != nil {
-					return err
-				}
-			}
-			count, err := c.countMultiplications(g)
-			if err != nil {
-				return err
-			}
-			return nla2BVTraceWrite(out, "Muls: "+strconv.FormatUint(uint64(count), 10)+"\n")
-		})
+// Source insertion keeps evaluating operands after ostream badbit. Only stream
+// errors are ignored; operand construction errors interrupt the tactic.
+type nla2BVTraceOstream struct{ out io.Writer }
+
+func (w nla2BVTraceOstream) Write(p []byte) (int, error) {
+	_, _ = w.out.Write(p)
+	return len(p), nil
 }
 
-func (c *nla2BVInvocation) traceGoalDisplay(g *tactic.Goal, tag string, line int, heading string) {
+func (c *nla2BVInvocation) emitTrace(tag, method string, line int, body func(io.Writer) error) error {
 	tags := c.t.traceTags()
 	if !tags.ShouldTrace(tag) {
-		return
+		return nil
 	}
-	_ = tags.EmitConditional(tag, "operator()", "src/tactic/arith/nla2bv_tactic.cpp", line,
-		func() bool { return true }, func(out io.Writer) error {
-			if heading != "" {
-				if err := nla2BVTraceWrite(out, heading); err != nil {
-					return err
-				}
-			}
-			return g.Display(out)
-		})
+	err := tags.EmitConditional(tag, method, "src/tactic/arith/nla2bv_tactic.cpp", line,
+		func() bool { return true }, func(w io.Writer) error { return body(nla2BVTraceOstream{w}) })
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
 }
-
-func (c *nla2BVInvocation) tracePower2Substitution(key, value ast.ASTHandle) {
+func (c *nla2BVInvocation) traceGoalCount(g *tactic.Goal, line int, display bool) error {
 	tags := c.t.traceTags()
 	if !tags.ShouldTrace("nla2bv") {
-		return
+		return nil
 	}
-	_ = tags.EmitConditional("nla2bv", "collect_power2", "src/tactic/arith/nla2bv_tactic.cpp", 135,
-		func() bool { return true }, func(out io.Writer) error {
-			if err := c.writeTraceExpr(out, key); err != nil {
+	return c.emitTrace("nla2bv", "operator()", line, func(out io.Writer) error {
+		if display {
+			if err := g.Display(out); err != nil {
 				return err
 			}
-			if err := nla2BVTraceWrite(out, " "); err != nil {
-				return err
-			}
-			if err := c.writeTraceExpr(out, value); err != nil {
-				return err
-			}
-			return nla2BVTraceWrite(out, "\n")
-		})
+		}
+		count, err := c.countMultiplications(g)
+		if err != nil {
+			return err
+		}
+		return nla2BVTraceWrite(out, "Muls: "+strconv.FormatUint(uint64(count), 10)+"\n")
+	})
 }
 
-func (c *nla2BVInvocation) traceExpressionLine(method string, line int, prefix string, expression ast.ASTHandle) {
-	c.traceExpressionLines(method, line, prefix, []ast.ASTHandle{expression})
+func (c *nla2BVInvocation) traceGoalDisplay(g *tactic.Goal, tag string, line int, heading string) error {
+	tags := c.t.traceTags()
+	if !tags.ShouldTrace(tag) {
+		return nil
+	}
+	return c.emitTrace(tag, "operator()", line, func(out io.Writer) error {
+		if heading != "" {
+			if err := nla2BVTraceWrite(out, heading); err != nil {
+				return err
+			}
+		}
+		return g.Display(out)
+	})
 }
 
-func (c *nla2BVInvocation) traceExpressionLines(method string, line int, prefix string, expressions []ast.ASTHandle) {
+func (c *nla2BVInvocation) tracePower2Substitution(key, value ast.ASTHandle) error {
 	tags := c.t.traceTags()
 	if !tags.ShouldTrace("nla2bv") {
-		return
+		return nil
 	}
-	_ = tags.EmitConditional("nla2bv", method, "src/tactic/arith/nla2bv_tactic.cpp", line,
-		func() bool { return true }, func(out io.Writer) error {
-			for _, expression := range expressions {
-				if err := nla2BVTraceWrite(out, prefix); err != nil {
-					return err
-				}
-				if err := c.writeTraceExpr(out, expression); err != nil {
-					return err
-				}
-				if err := nla2BVTraceWrite(out, "\n"); err != nil {
-					return err
-				}
+	return c.emitTrace("nla2bv", "collect_power2", 135, func(out io.Writer) error {
+		if err := c.writeTraceExpr(out, key); err != nil {
+			return err
+		}
+		if err := nla2BVTraceWrite(out, " "); err != nil {
+			return err
+		}
+		if err := c.writeTraceExpr(out, value); err != nil {
+			return err
+		}
+		return nla2BVTraceWrite(out, "\n")
+	})
+}
+
+func (c *nla2BVInvocation) traceExpressionLine(method string, line int, prefix string, expression ast.ASTHandle) error {
+	return c.traceExpressionLines(method, line, prefix, []ast.ASTHandle{expression})
+}
+
+func (c *nla2BVInvocation) traceExpressionLines(method string, line int, prefix string, expressions []ast.ASTHandle) error {
+	tags := c.t.traceTags()
+	if !tags.ShouldTrace("nla2bv") {
+		return nil
+	}
+	return c.emitTrace("nla2bv", method, line, func(out io.Writer) error {
+		for _, expression := range expressions {
+			if err := nla2BVTraceWrite(out, prefix); err != nil {
+				return err
 			}
-			return nil
-		})
+			if err := c.writeTraceExpr(out, expression); err != nil {
+				return err
+			}
+			if err := nla2BVTraceWrite(out, "\n"); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (c *nla2BVInvocation) verboseSatPreserving() error {
@@ -148,6 +164,15 @@ func (c *nla2BVInvocation) writeTraceExpr(out io.Writer, expression ast.ASTHandl
 	if err != nil {
 		return err
 	}
+	formats, err := manager.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, formats.DelRef(&ref)) }()
 	stream, err := text.NewNumericTextStream(text.NumericTextStreamConfig{Budget: manager.Budget()})
 	if err != nil {
 		return err

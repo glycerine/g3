@@ -171193,7 +171193,9 @@
         "pkg/cmd/g3/main_test.go",
         "pkg/tactic/arith/nla2bv_translate.go",
         "pkg/tactic/arith/nla2bv_translate_test.go",
-        "pkg/tactic/arith/arith_target_services.go"
+        "pkg/tactic/arith/arith_target_services.go",
+        "pkg/tactic/arith/nla2bv_trace_ownership_test.go",
+        "pkg/tactic/tactic_goal_display.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171204,7 +171206,10 @@
         "pkg/cmd/g3/test_vectors/nla2bv_real_models.smt2",
         "pkg/cmd/g3/test_vectors/nla2bv_root_parameters.smt2",
         "TestNLA2BVTranslationIndependentManagersAndPolicies",
-        "TestNLA2BVTranslationAllocationFrontiers"
+        "TestNLA2BVTranslationAllocationFrontiers",
+        "TestNLA2BVTraceOperandFailuresReachCaller",
+        "TestNLA2BVTraceInitialFailurePrecedesGoalMutation",
+        "TestNLA2BVTraceExpressionReleasesFormatTree"
       ],
       "assertions": [
         {
@@ -171279,11 +171284,26 @@
             "TestNLA2BVTranslationIndependentManagersAndPolicies",
             "TestNLA2BVTranslationAllocationFrontiers"
           ]
+        },
+        {
+          "name": "source TRACE badbit operand evaluation, printer-error propagation at all trace call sites, and temporary format_ref lifetime",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_trace.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_rules.go",
+            "pkg/tactic/tactic_goal_display.go"
+          ],
+          "tests": [
+            "TestNLA2BVTraceOperandFailuresReachCaller",
+            "TestNLA2BVTraceInitialFailurePrecedesGoalMutation",
+            "TestNLA2BVTraceExpressionReleasesFormatTree"
+          ]
         }
       ],
       "ownership": [
         "Outer tactic owns its parameter snapshot and pending invocation cleanup. Each call owns the BV2real utility, BV2int context, bounds, substitution, declaration/definition/trail vectors, reducer/replacer temporaries and converter references. A stopped local cleanup is retained and blocks subsequent application until Cleanup/Close. Result owns the concatenated filter/extension converter independently of invocation destruction. Explicit source guards run before resetting the prior result.",
-        "Translation borrows the destination manager's parameter/global/numeral services, while process cooperation and an explicitly bound trace remain borrowed. The four NLA2BV uint policies plus BV2Int max_bv_size are copied by value into a destination-owned parameter snapshot; same-owner translation shares through the counted ParamsRef contract. Failed temporary parameter or tactic construction closes all partial owners and returns a nil interface. Target invocation and model reconstruction remain valid after source tactic mutation/close."
+        "Translation borrows the destination manager's parameter/global/numeral services, while process cooperation and an explicitly bound trace remain borrowed. The four NLA2BV uint policies plus BV2Int max_bv_size are copied by value into a destination-owned parameter snapshot; same-owner translation shares through the counted ParamsRef contract. Failed temporary parameter or tactic construction closes all partial owners and returns a nil interface. Target invocation and model reconstruction remain valid after source tactic mutation/close.",
+        "Diagnostic expression and goal printing pins and releases each temporary format tree. Trace stream badbit does not stop operand evaluation, while printer/allocation errors propagate before subsequent algorithm stages; the initial trace failure leaves the goal unchanged and creates no filter model converter."
       ],
       "deviations": [
         "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; power-two map iteration remains unspecified. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
@@ -180614,7 +180634,8 @@
         "pkg/cmd/g3/main_test.go",
         "pkg/cmd/g3/test_vectors/card2bv_core.smt2",
         "pkg/cmd/g3/test_vectors/card2bv_models_scopes.smt2",
-        "pkg/cmd/g3/test_vectors/card2bv_weighted_models.smt2"
+        "pkg/cmd/g3/test_vectors/card2bv_weighted_models.smt2",
+        "pkg/tactic/tactic_goal_format_lifetime_test.go"
       ],
       "tests": [
         "TestTacticGoalAssertionSplittingAndSourceOrder",
@@ -180647,7 +180668,8 @@
         "TestCommandContextPseudoBooleanBuiltinVisibilityAndDeclarationReferences",
         "TestSMT2TacticGrammarRejectsMalformedInputBeforeChecking",
         "TestSMTLibRunnerScripts",
-        "TestSMTLibRunnerCPPReference"
+        "TestSMTLibRunnerCPPReference",
+        "TestGoalDisplayReleasesTemporaryFormatTree"
       ],
       "assertions": [
         {
@@ -180771,7 +180793,8 @@
           "status": "ported",
           "go_target": "pkg/tactic/tactic_goal_display.go",
           "tests": [
-            "TestGoalSourceDefaultDisplayAndProcessPrinter"
+            "TestGoalSourceDefaultDisplayAndProcessPrinter",
+            "TestGoalDisplayReleasesTemporaryFormatTree"
           ]
         },
         {
@@ -180817,7 +180840,8 @@
       ],
       "ownership": [
         "Goal expression/dependency arrays retain their actual AST-manager owners. Assertions retain f/pr/dependencies through processing; false replacement protects proof/dependency references before reset. Redundancy membership uses local borrowed Go maps; original formula prefix/suffix ownership keeps encountered atoms alive through compaction. NumExprs shares a native identity map across formulas and the existing postorder project visitor with native frames, preserving shared-only deduplication, quantifier children and associative application weight. No shared mark/trail or native-frame backing reservation is credited at these callers.",
-        "quick_process temporary negations now use a native []ASTHandle with explicit INC before append and DEC on lexical exit, matching the source expr_ref_vector ownership. This corrects the prior nonowning expression-vector borrow. Goal output acquisition still precedes temporary cleanup."
+        "quick_process temporary negations now use a native []ASTHandle with explicit INC before append and DEC on lexical exit, matching the source expr_ref_vector ownership. This corrects the prior nonowning expression-vector borrow. Goal output acquisition still precedes temporary cleanup.",
+        "The shared SMT2 goal formula printer owns each temporary format tree through printing and releases it at return, including stream-construction and formatting errors, matching source format_ref lifetime."
       ],
       "deviations": [
         "The source printer overloads map to typed io.Writer methods using the retained SMT2 and low-level AST printers. A separate C++ ast_printer inheritance hierarchy is unnecessary for retained Go consumers.",

@@ -23,7 +23,9 @@ func (c *nla2BVInvocation) appendOwned(dst *[]ast.ASTHandle, h ast.ASTHandle) er
 }
 func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err error) {
 	m := c.t.manager
-	c.traceGoalCount(g, 86, true)
+	if err = c.traceGoalCount(g, 86, true); err != nil {
+		return err
+	}
 	c.filter, err = tactic.NewFilterModel(m)
 	if err != nil {
 		return err
@@ -63,14 +65,18 @@ func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err er
 	if err = c.substitute(g); err != nil {
 		return err
 	}
-	c.traceGoalDisplay(g, "nla2bv", 97, "substitute vars\n")
+	if err = c.traceGoalDisplay(g, "nla2bv", 97, "substitute vars\n"); err != nil {
+		return err
+	}
 	if err = c.reduceInteger(g); err != nil {
 		return err
 	}
 	if err = c.reduceReal(g); err != nil {
 		return err
 	}
-	c.traceGoalDisplay(g, "nla2bv", 100, "after reduce\n")
+	if err = c.traceGoalDisplay(g, "nla2bv", 100, "after reduce\n"); err != nil {
+		return err
+	}
 	c.extension, err = tactic.NewExtensionModel(m, c.t.services)
 	if err != nil {
 		return err
@@ -106,8 +112,12 @@ func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err er
 	if err = c.verboseSatPreserving(); err != nil {
 		return err
 	}
-	c.traceGoalDisplay(g, "nla2bv_verbose", 110, "")
-	c.traceGoalCount(g, 111, false)
+	if err = c.traceGoalDisplay(g, "nla2bv_verbose", 110, ""); err != nil {
+		return err
+	}
+	if err = c.traceGoalCount(g, 111, false); err != nil {
+		return err
+	}
 	if err = g.IncDepth(); err != nil {
 		return err
 	}
@@ -141,7 +151,9 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 		if err = c.t.manager.ExprSubstitutionInsert(c.sub, key, value, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
 			return errors.Join(err, c.local.releaseTo(mark))
 		}
-		c.tracePower2Substitution(key, value)
+		if err = c.tracePower2Substitution(key, value); err != nil {
+			return err
+		}
 		if err = c.local.releaseTo(mark); err != nil {
 			return err
 		}
@@ -311,8 +323,7 @@ func (c *nla2BVInvocation) assertSide(g *tactic.Goal, side []ast.ASTHandle) erro
 		}
 		c.satPreserving = false
 	}
-	c.traceExpressionLines("assert_side_conditions", 175, "", side)
-	return nil
+	return c.traceExpressionLines("assert_side_conditions", 175, "", side)
 }
 
 // The source routine returns ceil(log2(n)), with a minimum result of one.
@@ -401,7 +412,9 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 		span.Add(span, big.NewRat(1, 1))
 		bits = nla2BVLog2(span)
 	} else {
-		c.traceExpressionLine("add_int_var", 230, "no bounds for ", variable)
+		if err = c.traceExpressionLine("add_int_var", 230, "no bounds for ", variable); err != nil {
+			return err
+		}
 		c.satPreserving = false
 	}
 	fresh, err := c.fresh(variable, "", bits)
@@ -512,7 +525,9 @@ func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
 		} else if family == ast.NullFamilyID && n == 0 && sf == m.BasicFamilyID() {
 			// Uninterpreted Boolean constants are retained.
 		} else if !(family == c.real.arith && (op == 0 || op >= 2 && op <= 9) || decl == lt || decl == le || family == m.BasicFamilyID()) {
-			c.traceExpressionLine("get_uninterp_proc", 347, "Not supported: ", h)
+			if err = c.traceExpressionLine("get_uninterp_proc", 347, "Not supported: ", h); err != nil {
+				return false, err
+			}
 			supported = false
 		}
 		text, integer, numeral, err := m.ArithmeticNumeralText(h)

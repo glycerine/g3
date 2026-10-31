@@ -33,6 +33,15 @@ func (g *Goal) displaySMT2Formula(h ast.ASTHandle) (body string, result error) {
 	if err != nil {
 		return "", err
 	}
+	formats, err := g.manager.GetFormatManager()
+	if err != nil {
+		return "", err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: g.manager.BudgetField})
 	if err != nil {
 		return "", err
