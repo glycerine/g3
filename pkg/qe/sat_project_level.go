@@ -8,11 +8,12 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.ASTHandle, formula ast.ASTHandle, config Config, rw *rewriter.TheoryRewriter) (err error) {
+func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.ASTHandle, formula ast.ASTHandle, config Config, rw *rewriter.TheoryRewriter, strong *smtcore.ExprStrongContextSimplifier, local bool) (err error) {
 	if levels == nil || levels.manager == nil || rw == nil {
 		return ast.ErrASTHandle
 	}
@@ -20,6 +21,21 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 		return arena.ErrBounds
 	}
 	m := levels.manager
+	previous, err := m.RefGet(levels.levels[index].formula)
+	if err != nil {
+		return err
+	}
+	if strong != nil && local {
+		ref, e := simplifySATContext(m, strong, previous, formula)
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
+		formula, err = m.RefGet(ref)
+		if err != nil {
+			return err
+		}
+	}
 	next := levels.levels[index+1].solver
 	context, err := newSATSolverContext(m, next, config)
 	if err != nil {
@@ -92,9 +108,19 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 	if err != nil {
 		return err
 	}
-	previous, err := m.RefGet(levels.levels[index].formula)
-	if err != nil {
-		return err
+	if strong != nil && !local {
+		ref, e := simplifySATContext(m, strong, previous, negated)
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
+		if err = m.AssignRef(negRef, ref); err != nil {
+			return err
+		}
+		negated, err = m.RefGet(negRef)
+		if err != nil {
+			return err
+		}
 	}
 	conjunction, err := m.MkAnd(previous, negated)
 	if err != nil {
@@ -112,4 +138,21 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 		return err
 	}
 	return levels.levels[index].solver.AssertFormula(negated)
+}
+
+// simplifySATContext limits each source-level simplification to the current M(i).
+func simplifySATContext(m *ast.ASTManager, strong *smtcore.ExprStrongContextSimplifier, context, formula ast.ASTHandle) (result ast.ASTRef, err error) {
+	defer func() {
+		if err != nil && result != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&result))
+		}
+	}()
+	if err = strong.Push(); err != nil {
+		return result, err
+	}
+	defer func() { err = errors.Join(err, strong.Pop()) }()
+	if err = strong.Assert(context); err != nil {
+		return result, err
+	}
+	return strong.Simplify(formula)
 }

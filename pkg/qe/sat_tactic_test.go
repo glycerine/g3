@@ -35,9 +35,8 @@ func TestQESATTacticPartialGoalsAndModels(t *testing.T) {
 			params, err := f.r.config.Context.NewValue()
 			fmMust(t, err)
 			defer func() { fmMust(t, f.r.config.Context.Del(&params)) }()
-			for _, key := range []string{"projection_mode", "strong_context_simplify"} {
-				fmMust(t, f.r.config.Context.SetBoolName(&params, &key, false))
-			}
+			key := "projection_mode"
+			fmMust(t, f.r.config.Context.SetBoolName(&params, &key, false))
 			fmMust(t, port.UpdateParams(&params))
 			fmMust(t, port.Apply(goal, out))
 			if len(out.Goals) != 1 || out.Goals[0] != goal {

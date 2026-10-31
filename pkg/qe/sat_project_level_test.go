@@ -21,7 +21,7 @@ func TestSATPartialLevelProjectionUpdatesPredecessor(t *testing.T) {
 	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
 	fmMust(t, err)
 	defer func() { fmMust(t, rw.Close()) }()
-	fmMust(t, projectSATPartialLevel(levels, 0, []ast.ASTHandle{p}, formula, f.r.config, rw))
+	fmMust(t, projectSATPartialLevel(levels, 0, []ast.ASTHandle{p}, formula, f.r.config, rw, nil, false))
 	blocked, err := levels.check(0, q)
 	fmMust(t, err)
 	defer func() { fmMust(t, blocked.Close()) }()
@@ -39,7 +39,7 @@ func TestSATPartialLevelProjectionUpdatesPredecessor(t *testing.T) {
 	if m.IsTrue(h) {
 		t.Fatal("predecessor formula was not strengthened")
 	}
-	if err = projectSATPartialLevel(levels, 1, nil, truth, f.r.config, rw); err == nil {
+	if err = projectSATPartialLevel(levels, 1, nil, truth, f.r.config, rw, nil, false); err == nil {
 		t.Fatal("invalid level accepted")
 	}
 }

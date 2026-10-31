@@ -21,6 +21,7 @@ type satPartialSearch struct {
 	rw      *rewriter.TheoryRewriter
 	nnf     *QENNFNormalizer
 	aux     *smtcore.SMTSolver
+	strong  *smtcore.ExprStrongContextSimplifier
 }
 type satPartialResult struct {
 	manager *ast.ASTManager
@@ -32,8 +33,8 @@ func newSATPartialSearch(m *ast.ASTManager, config Config, alt *satAlternation, 
 	if m == nil || alt == nil || alt.closed || alt.manager != m || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
 		return nil, ast.ErrASTHandle
 	}
-	if options.projection || options.strongSimplify {
-		return nil, tactic.NewTacticException("qe-sat full projection and strong context simplification are not implemented")
+	if options.projection {
+		return nil, tactic.NewTacticException("qe-sat full projection is not implemented")
 	}
 	result = &satPartialSearch{manager: m, config: config, alt: alt, options: options}
 	defer func() {
@@ -63,6 +64,12 @@ func newSATPartialSearch(m *ast.ASTManager, config Config, alt *satAlternation, 
 	if err != nil {
 		return result, err
 	}
+	if options.strongSimplify {
+		result.strong, err = smtcore.NewExprStrongContextSimplifier(m, smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
+		if err != nil {
+			return result, err
+		}
+	}
 	return result, nil
 }
 func (s *satPartialSearch) checkpoint() error {
@@ -78,6 +85,12 @@ func (s *satPartialSearch) checkpoint() error {
 func (s *satPartialSearch) Close() error {
 	if s == nil || s.manager == nil {
 		return nil
+	}
+	if s.strong != nil {
+		if err := s.strong.Close(); err != nil {
+			return err
+		}
+		s.strong = nil
 	}
 	if s.aux != nil {
 		if err := s.aux.Close(); err != nil {
@@ -219,7 +232,7 @@ func (s *satPartialSearch) qt(index uint32, context ast.ASTHandle) (result *satP
 			}
 		}
 		if e == nil {
-			e = projectSATPartialLevel(s.levels, index, vars, childValue, s.config, s.rw)
+			e = projectSATPartialLevel(s.levels, index, vars, childValue, s.config, s.rw, s.strong, s.options.simplifyLocal)
 		}
 		e = errors.Join(e, child.Close(), m.DelRef(&ctxM), check.Close())
 		if e != nil {

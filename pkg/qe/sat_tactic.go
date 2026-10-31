@@ -13,7 +13,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// QESATTactic currently supports partial projection without strong context
+// QESATTactic supports partial projection with optional strong context
 // simplification. The source's default full projection is still in progress.
 type QESATTactic struct {
 	self                *QESATTactic
@@ -140,8 +140,8 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 	if goal == nil || goal.Manager() != t.manager || out == nil {
 		return ast.ErrASTHandle
 	}
-	if t.options.projection || t.options.strongSimplify {
-		return tactic.NewTacticException("qe-sat full projection and strong context simplification are not implemented")
+	if t.options.projection {
+		return tactic.NewTacticException("qe-sat full projection is not implemented")
 	}
 	if err = tactic.FailIfProofGeneration("qe-sat", goal); err != nil {
 		return err
