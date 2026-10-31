@@ -8,11 +8,13 @@ import (
 )
 
 func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, index int) (result lbool.LBool, resultErr error) {
+	environment := &groundEnvironment{manager: e.manager}
+	defer func() { resultErr = errors.Join(resultErr, environment.close()) }()
 	head, err := rule.Head()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	ground, err := e.ground(head)
+	ground, err := environment.ground(head)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -62,7 +64,7 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 		if x != nil {
 			return lbool.Undef, x
 		}
-		g, x := e.ground(tail)
+		g, x := environment.ground(tail)
 		if x != nil {
 			return lbool.Undef, x
 		}
@@ -87,7 +89,7 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 		if x != nil {
 			return lbool.Undef, x
 		}
-		g, x := e.ground(tail)
+		g, x := environment.ground(tail)
 		if x != nil {
 			return lbool.Undef, x
 		}

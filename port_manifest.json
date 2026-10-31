@@ -85902,8 +85902,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/ground.go", "pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_test_helpers_test.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/engine_lifecycle_test.go"],
-      "tests": ["TestCLPEngine"],
+      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/ground.go", "pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_test_helpers_test.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/engine_lifecycle_test.go", "pkg/muz/clp/engine_grounding_integration_test.go"],
+      "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -85914,9 +85914,9 @@
       "path": "src/muz/clp/clp_context.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_grounding_integration_test.go"],
+      "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"],
       "conditionals": [
         {
           "line": 19,
@@ -85929,9 +85929,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "bounded CLP engine construction, query and lifecycle", "status": "partial", "go_target": "pkg/muz/clp/engine_types.go", "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Fixedpoint engine registration and complete source and ownership audits remain pending."]
     },
     {
       "path": "src/muz/dataflow/CMakeLists.txt",
