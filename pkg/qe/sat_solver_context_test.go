@@ -21,6 +21,18 @@ func TestSATSolverContextNNFAndConstraints(t *testing.T) {
 	fmMust(t, context.addVariable(x))
 	fmMust(t, context.addVariable(y))
 	fmMust(t, context.addVariable(z))
+	if i, found, e := context.isVariable(y); e != nil || !found || i != 1 {
+		t.Fatal("variable lookup", i, found, e)
+	}
+	if _, found, e := context.isVariable(ast.ASTHandle{}); e != nil || found {
+		t.Fatal("unexpected variable", found, e)
+	}
+	if h, e := context.variable(2); e != nil || h != z {
+		t.Fatal("indexed variable lookup", h, e)
+	}
+	if _, e := context.variable(3); e == nil {
+		t.Fatal("accepted invalid index")
+	}
 	present, err := context.contains[1].Check(y)
 	fmMust(t, err)
 	if !present {
@@ -29,6 +41,9 @@ func TestSATSolverContextNNFAndConstraints(t *testing.T) {
 	fmMust(t, context.eliminateVariable(1, x, ast.ASTHandle{}))
 	if len(context.variables) != 2 {
 		t.Fatal("variable removal", len(context.variables))
+	}
+	if i, found, e := context.isVariable(z); e != nil || !found || i != 1 {
+		t.Fatal("lookup after erase", i, found, e)
 	}
 	first, err := f.r.manager.RefGet(context.variables[0])
 	fmMust(t, err)

@@ -102,6 +102,32 @@ func (c *satSolverContext) addVariable(variable ast.ASTHandle) error {
 	return nil
 }
 
+func (c *satSolverContext) variable(index uint32) (ast.ASTHandle, error) {
+	if c == nil || c.closed {
+		return ast.ASTHandle{}, ast.ErrASTHandle
+	}
+	if index >= uint32(len(c.variables)) {
+		return ast.ASTHandle{}, arena.ErrBounds
+	}
+	return c.manager.RefGet(c.variables[index])
+}
+
+func (c *satSolverContext) isVariable(expr ast.ASTHandle) (uint32, bool, error) {
+	if c == nil || c.closed {
+		return 0, false, ast.ErrASTHandle
+	}
+	for i := range c.variables {
+		h, err := c.manager.RefGet(c.variables[i])
+		if err != nil {
+			return 0, false, err
+		}
+		if h == expr {
+			return uint32(i), true, nil
+		}
+	}
+	return 0, false, nil
+}
+
 // eliminateVariable recomputes NNF then erases the selected entry while
 // preserving the order of the remaining variables. The definition is unused
 // by the source solver context.
