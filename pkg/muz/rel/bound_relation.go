@@ -29,6 +29,21 @@ func NewBoundRelation(arity uint32, empty bool) *BoundRelation {
 }
 func (r *BoundRelation) Empty() bool { return r == nil || r.empty }
 
+// AddFact joins the source's unconstrained abstraction of a concrete fact.
+// Its bound-relation equal-value filter does not add constraints.
+func (r *BoundRelation) AddFact(fact []ast.ASTHandle) error {
+	if r == nil || len(fact) != len(r.columns) {
+		return ast.ErrASTDomain
+	}
+	_, err := r.Union(NewBoundRelation(uint32(len(fact)), false))
+	return err
+}
+
+// ContainsFact follows the source's deliberately coarse membership check.
+func (r *BoundRelation) ContainsFact(fact []ast.ASTHandle) bool {
+	return r != nil && !r.empty && len(fact) == len(r.columns)
+}
+
 func (r *BoundRelation) find(index uint32) uint32 {
 	for r.parent[index] != index {
 		index = r.parent[index]

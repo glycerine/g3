@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
@@ -54,6 +55,36 @@ func TestBoundRelationOrderPropagationAndCycles(t *testing.T) {
 	}
 	if !weakCycle.Empty() {
 		t.Fatal("strict edge in weak cycle must be empty")
+	}
+}
+
+func TestBoundRelationFactAbstraction(t *testing.T) {
+	fact := make([]ast.ASTHandle, 2)
+	r := rel.NewBoundRelation(2, true)
+	if r.ContainsFact(fact) {
+		t.Fatal("empty relation contains fact")
+	}
+	if err := r.AddFact(fact); err != nil {
+		t.Fatal(err)
+	}
+	if r.Empty() || !r.ContainsFact(fact) {
+		t.Fatal("added fact")
+	}
+	if err := r.AddLess(0, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.AddFact(fact); err != nil {
+		t.Fatal(err)
+	}
+	strict, weak, err := r.Bounds(0)
+	if err != nil || len(strict) != 0 || len(weak) != 0 {
+		t.Fatal("fact abstraction must widen bounds", strict, weak, err)
+	}
+	if r.ContainsFact(fact[:1]) {
+		t.Fatal("wrong fact arity accepted")
+	}
+	if err := r.AddFact(fact[:1]); err == nil {
+		t.Fatal("wrong add fact arity accepted")
 	}
 }
 

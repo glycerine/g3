@@ -1,3 +1,5 @@
+Bound relation fact abstraction (2026-10-31 UTC): added source-style fact insertion via an unconstrained relation and its coarse nonempty membership check, with arity validation. Remaining filters, relation registration and allocation/failure audit remain pending.
+
 Interval relation formula (2026-10-31 UTC): added owned source-order AST formula construction for interval endpoints and equivalent columns, including strict and non-strict bounds. The relation plugin registration and full lifecycle/allocation audit remain pending.
 
 Bound relation rename and formula (2026-10-31 UTC): added source cycle renaming for bounds and equivalence classes, plus owned formula construction with source-order equalities and strict/weak inequalities. Remaining filters, relation registration and allocation/failure audit remain pending.

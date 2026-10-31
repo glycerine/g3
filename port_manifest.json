@@ -89292,7 +89292,8 @@
         "TestBoundRelationJoinAndProjection",
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
-        "TestBoundRelationToFormula"
+        "TestBoundRelationToFormula",
+        "TestBoundRelationFactAbstraction"
       ],
       "assertions": [
         {
@@ -89405,6 +89406,14 @@
           "tests": [
             "TestBoundRelationRename"
           ]
+        },
+        {
+          "name": "fact addition and coarse membership",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "tests": [
+            "TestBoundRelationFactAbstraction"
+          ]
         }
       ],
       "ownership": [
@@ -89443,7 +89452,8 @@
         "TestBoundRelationJoinAndProjection",
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
-        "TestBoundRelationToFormula"
+        "TestBoundRelationToFormula",
+        "TestBoundRelationFactAbstraction"
       ],
       "conditionals": [
         {
@@ -89523,6 +89533,14 @@
           "go_target": "pkg/muz/rel/bound_relation_transform.go",
           "tests": [
             "TestBoundRelationRename"
+          ]
+        },
+        {
+          "name": "fact addition and coarse membership",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "tests": [
+            "TestBoundRelationFactAbstraction"
           ]
         }
       ],
