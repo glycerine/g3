@@ -204625,14 +204625,14 @@
       "path": "src/test/model_evaluator.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": ["pkg/model/model_evaluator_cpp_test.go"],
+      "tests": ["TestModelEvaluatorSourceNestedFunctionInterpretations"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_model_evaluator", "status": "ported", "go_target": "pkg/model/model_evaluator_cpp_test.go", "tests": ["TestModelEvaluatorSourceNestedFunctionInterpretations"]}],
+      "ownership": ["The model owns the registered function interpretations, the fixture owns and closes the evaluator and model, and AST expressions are pinned until fixture cleanup."],
+      "deviations": ["The Go test checks quantifier preservation and the exact expanded result after interpretation replacement instead of printing the model and results."]
     },
     {
       "path": "src/test/model_retrieval.cpp",
