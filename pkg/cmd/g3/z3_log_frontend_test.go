@@ -92,3 +92,17 @@ func TestZ3LogFrontendReplaysSimplification(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysSequencesAndRegex(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 159\n= 0x42\n" +
+		"R\nP 0x41\nS \"hello\"\nC 161\n= 0x43\nR\nP 0x41\nP 0x43\nC 177\n= 0x44\n" +
+		"R\nP 0x41\nP 0x44\nU 1\nU 0\nC 185\n= 0x45\nR\nP 0x41\nP 0x43\nP 0x45\nC 178\n= 0x46\n" +
+		"M \"sequence-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "sequence-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}

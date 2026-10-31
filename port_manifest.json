@@ -5987,7 +5987,8 @@
         "TestGeneratedFiniteDomainSizeReplayOutput",
         "TestGeneratedSequenceAndStringReplay",
         "TestGeneratedSequenceOperationReplay",
-        "TestGeneratedRegexReplayAndLoopBounds"
+        "TestGeneratedRegexReplayAndLoopBounds",
+        "TestZ3LogFrontendReplaysSequencesAndRegex"
       ],
       "methods_audited": false,
       "ownership_audited": false,
