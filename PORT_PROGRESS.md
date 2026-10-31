@@ -1,3 +1,5 @@
+BMC linear rule compilation (2026-10-31 UTC): added source level predicates, shared rule-variable bindings and ground rule implications. SMT tests check level-zero exclusion and constrained rule results; branching or quantified rules are rejected by this compiler.
+
 BMC nonlinear rule traces (2026-10-31 UTC): traverse model-selected rules in source preorder and preserve owning rule references. Tests cover ground branching and parameterized shared-variable traces; raw untransformed rules bind head variables from the corresponding model arguments instead of unconstrained Skolem terms. Hyper-resolution proof reconstruction and engine registration remain pending.
 
 BMC nonlinear search (2026-10-31 UTC): added the source incremental level loop with guarded SMT queries and model production. A branching-rule test reaches its first model at level two and checks cancellation; trace reconstruction and fixedpoint registration remain pending.

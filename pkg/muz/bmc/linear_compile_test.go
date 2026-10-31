@@ -1,0 +1,127 @@
+package bmc_test
+
+import (
+	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/cmd_context"
+	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/bmc"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	context, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(context.Close()) }()
+	m, err := context.Manager()
+	must(err)
+	family, err := m.RegisterArithmeticPlugin()
+	must(err)
+	integer, err := m.MkFamilySort(family, 1, nil)
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	rm, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rm.Close()) }()
+	set, err := base.NewRuleSet(rm)
+	must(err)
+	defer func() { must(set.Close()) }()
+	decl := func(name string) ast.ASTHandle {
+		sym, err := m.Symbols.Intern(name)
+		must(err)
+		d, err := m.MkFuncDecl(sym, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+		must(err)
+		must(rm.RegisterPredicate(d))
+		return d
+	}
+	a, b := decl("linear-a"), decl("linear-b")
+	app := func(d, value ast.ASTHandle) ast.ASTHandle {
+		h, err := m.MkApp(d, []ast.ASTHandle{value})
+		must(err)
+		return h
+	}
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	must(err)
+	one, err := m.ArithmeticIntegerNumeralText("1")
+	must(err)
+	add := func(head ast.ASTHandle, tails []ast.ASTHandle) {
+		r, err := rm.NewRule(head, tails, nil, "")
+		must(err)
+		must(set.Add(r))
+		must(r.Close())
+	}
+	add(app(a, zero), nil)
+	add(app(a, one), nil)
+	x, err := m.MkVar(0, integer)
+	must(err)
+	positive, err := m.MkArithmeticGT(x, zero)
+	must(err)
+	add(app(b, x), []ast.ASTHandle{app(a, x), positive})
+	ok, err := set.Finalize()
+	must(err)
+	if !ok {
+		t.Fatal("rule set did not finalize")
+	}
+	compiler, err := bmc.NewCompiler(m)
+	must(err)
+	defer func() { must(compiler.Close()) }()
+	smt, err := context.NewSimpleSolver()
+	must(err)
+	defer func() { must(smt.Close()) }()
+	for level := uint32(0); level <= 1; level++ {
+		formulas, err := compiler.CompileLinear(set, level)
+		must(err)
+		for i := range formulas {
+			f, err := m.RefGet(formulas[i])
+			must(err)
+			must(smt.Assert(f))
+			must(m.DelRef(&formulas[i]))
+		}
+	}
+	zeroLevelRef, err := compiler.LinearQuery(b, 0)
+	must(err)
+	zeroLevel, err := m.RefGet(zeroLevelRef)
+	must(err)
+	status, err := smt.CheckSat([]ast.ASTHandle{zeroLevel})
+	must(err)
+	must(m.DelRef(&zeroLevelRef))
+	if status != lbool.False {
+		t.Fatal("recursive predicate reached at level zero", status)
+	}
+	queryRef, err := compiler.LinearQuery(b, 1)
+	must(err)
+	defer func() { must(m.DelRef(&queryRef)) }()
+	query, err := m.RefGet(queryRef)
+	must(err)
+	argName, err := m.Symbols.Intern("linear-b#1_0")
+	must(err)
+	arg, err := m.MkConst(argName, integer)
+	must(err)
+	argRef, err := m.NewRef(arg)
+	must(err)
+	defer func() { must(m.DelRef(&argRef)) }()
+	for _, tc := range []struct {
+		value ast.ASTHandle
+		want  lbool.LBool
+	}{{zero, lbool.False}, {one, lbool.True}} {
+		must(smt.Push())
+		eq, err := m.MkEq(arg, tc.value)
+		must(err)
+		must(smt.Assert(eq))
+		status, err := smt.CheckSat([]ast.ASTHandle{query})
+		must(err)
+		must(smt.Pop(1))
+		if status != tc.want {
+			t.Fatal("linear query", tc.value, status, tc.want)
+		}
+	}
+}

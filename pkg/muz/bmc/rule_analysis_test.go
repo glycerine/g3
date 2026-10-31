@@ -71,6 +71,14 @@ func TestBMCLinearSelectionChecksTailArityAndQuantifiers(t *testing.T) {
 			if got != tc.want {
 				t.Fatal("linear selection", got, tc.want)
 			}
+			if !tc.want {
+				compiler, err := bmc.NewCompiler(m)
+				must(err)
+				defer func() { must(compiler.Close()) }()
+				if formulas, err := compiler.CompileLinear(set, 1); err == nil || len(formulas) != 0 {
+					t.Fatal("nonlinear rule accepted by linear compiler", formulas, err)
+				}
+			}
 		})
 	}
 }
