@@ -182059,6 +182059,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_quantifier.go",
+        "pkg/tactic/arith/qfnra_purify_quantifier_test.go",
         "pkg/tactic/arith/qfnra_purify_integer_division.go",
         "pkg/tactic/arith/qfnra_purify_integer_division_test.go",
         "pkg/cmd/g3/test_vectors/qfufnra_integer_division.smt2",
@@ -182069,6 +182071,10 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestPurifyQuantifierScopesFreshVariablesAndProof",
+        "TestPurifyNestedQuantifiersShiftOuterVariables",
+        "TestPurifyUnchangedQuantifierWithProof",
+        "TestPurifyQuantifiedModulusBindsBothAuxiliaries",
         "TestPurifyIntegerDivisionAndModConstraints",
         "TestPurifyIntegerDivisionZeroGuardsAndModFirst",
         "TestSMTLibRunnerScripts/qfufnra_integer_division.smt2",
@@ -182133,6 +182139,13 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "quantifier-local arithmetic purification, variable shifting, existential abstraction and proof reconstruction",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/qfnra_purify_quantifier.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_quantifier_test.go"],
+          "tests": ["TestPurifyQuantifierScopesFreshVariablesAndProof", "TestPurifyNestedQuantifiersShiftOuterVariables", "TestPurifyUnchangedQuantifierWithProof", "TestPurifyQuantifiedModulusBindsBothAuxiliaries"]
+        },
+        {
           "name": "integer division and modulus paired definitions, Euclidean bounds and zero-divisor constraints",
           "status": "ported",
           "go_target": "pkg/tactic/arith/qfnra_purify_integer_division.go",
@@ -182165,8 +182178,9 @@
         "The QF_NRA invocation owns cached source terms, fresh constants, definition proofs, constraints, and filter-model declarations until result publication."
       ],
       "deviations": [
+        "Quantified proof reconstruction uses the actual rewritten body proof as a premise; the source process_quantifier instead passes an uninitialized result proof in those sites.",
         "When modulus occurs before division, the source builds its quotient proof using the modulus declaration and overwrites its cache entry. Go instead defines the quotient using integer division, shares both entries, and filters both fresh declarations, correcting the source proof premise and auxiliary-model leak.",
-        "The QF_UFNRA consumer also reaches the general purifier. Quantified purification and other general branches still require integration and source-fidelity audits; root-object and forward-trigonometric work has separate concrete implementations."
+        "The QF_UFNRA consumer also reaches the general purifier. Other general purification branches and quantified ownership/failure-frontier audits remain open; root-object and forward-trigonometric work has separate concrete implementations."
       ]
     },
     {

@@ -41,6 +41,7 @@ type qfnraPurifyInvocation struct {
 	constraints []ast.ASTRef
 	proofRefs   []ast.ASTRef
 	freshDecls  []ast.ASTHandle
+	quantRefs   []ast.ASTRef
 }
 
 func newQFNRAPurifyInvocation(owner *QFNRAPurifyTactic, goal *tactic.Goal) (*qfnraPurifyInvocation, error) {
@@ -57,6 +58,9 @@ func newQFNRAPurifyInvocation(owner *QFNRAPurifyTactic, goal *tactic.Goal) (*qfn
 
 func (i *qfnraPurifyInvocation) close() (err error) {
 	m := i.owner.manager
+	for j := len(i.quantRefs) - 1; j >= 0; j-- {
+		err = errors.Join(err, m.DelRef(&i.quantRefs[j]))
+	}
 	for j := len(i.proofRefs) - 1; j >= 0; j-- {
 		err = errors.Join(err, m.DelRef(&i.proofRefs[j]))
 	}
@@ -75,6 +79,7 @@ func (i *qfnraPurifyInvocation) close() (err error) {
 	i.constraints = nil
 	i.proofRefs = nil
 	i.freshDecls = nil
+	i.quantRefs = nil
 	return err
 }
 
