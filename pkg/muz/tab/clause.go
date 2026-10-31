@@ -17,6 +17,7 @@ type Clause struct {
 	head, constraint ast.ASTRef
 	predicates       []ast.ASTRef
 	numVars          uint32
+	index            uint32
 	closed           bool
 }
 
@@ -105,21 +106,29 @@ func (c *Clause) Predicates() ([]ast.ASTHandle, error) {
 	}
 	return out, nil
 }
-func (c *Clause) Close() (result error) {
+func (c *Clause) Close() error {
 	if c == nil || c.closed {
 		return nil
 	}
-	c.closed = true
 	for i := range c.predicates {
-		result = errors.Join(result, c.manager.DelRef(&c.predicates[i]))
+		if c.predicates[i] != (ast.ASTRef{}) {
+			if err := c.manager.DelRef(&c.predicates[i]); err != nil {
+				return err
+			}
+		}
 	}
 	if c.head != (ast.ASTRef{}) {
-		result = errors.Join(result, c.manager.DelRef(&c.head))
+		if err := c.manager.DelRef(&c.head); err != nil {
+			return err
+		}
 	}
 	if c.constraint != (ast.ASTRef{}) {
-		result = errors.Join(result, c.manager.DelRef(&c.constraint))
+		if err := c.manager.DelRef(&c.constraint); err != nil {
+			return err
+		}
 	}
-	return result
+	c.closed = true
+	return nil
 }
 
 // Constructor terms and values are the only legal substitution targets.

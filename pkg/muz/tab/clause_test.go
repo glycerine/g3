@@ -255,4 +255,39 @@ func TestClauseFromRuleInterpretedTailAndGroundCount(t *testing.T) {
 	if !m.IsTrue(condition) || c.NumVars() != 1 {
 		t.Fatal("source ground rule count", condition, c.NumVars())
 	}
+	set, err := base.NewRuleSet(rules)
+	must(err)
+	must(set.Add(rule))
+	must(set.Add(ground))
+	index, err := tab.NewRuleIndex(set, rw)
+	must(err)
+	must(set.Close())
+	count, err := index.Count(p)
+	must(err)
+	if count != 2 {
+		t.Fatal("indexed predicate count", count)
+	}
+	count, err = index.Count(q)
+	must(err)
+	if count != 0 {
+		t.Fatal("unexpected head predicate", count)
+	}
+	for i := 0; i < 2; i++ {
+		indexed, e := index.Rule(p, i)
+		must(e)
+		position, e := indexed.Index()
+		must(e)
+		if position != uint32(i) {
+			t.Fatal("source rule index", position, i)
+		}
+		sequential, e := index.Clause(i)
+		must(e)
+		if sequential != indexed {
+			t.Fatal("rule index order", i)
+		}
+	}
+	if _, err = index.Rule(p, 2); err == nil {
+		t.Fatal("missing bounds error")
+	}
+	must(index.Close())
 }

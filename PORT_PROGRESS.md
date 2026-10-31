@@ -1,3 +1,5 @@
+Tabulation rule indexing (2026-10-31 UTC): indexed owned rule clauses by head predicate in source order and preserved the original rule positions. Focused normal and checked tests cover lookups, ownership after rule-set closure, missing rules and bounds; subsumption, selection and proof search remain unfinished.
+
 Duality RPFP start (2026-10-31 UTC): ported the live Boolean complexity counter and node/edge indexed variable naming. Tests cover shared subexpressions, quantifiers, names and sorts in normal and checked builds; the RPFP graph and solver remain unfinished.
 
 Tabulation rule clauses (2026-10-31 UTC): connected Datalog rule heads, predicate tails and interpreted constraints to clause reduction, preserving the source variable count for ground rules. Focused normal and checked tests cover rule conversion and ownership; rule indexing and proof search remain unfinished.
