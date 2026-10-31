@@ -5964,7 +5964,9 @@
         "pkg/api/z3_generated_solver_commands.go",
         "pkg/api/z3_generated_solver_extra_test.go",
         "pkg/api/z3_generated_function_interp.go",
-        "pkg/api/z3_generated_function_interp_test.go"
+        "pkg/api/z3_generated_function_interp_test.go",
+        "pkg/api/z3_generated_tactic_commands.go",
+        "pkg/api/z3_generated_tactic_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6029,7 +6031,9 @@
         "TestGeneratedSolverReplayLoadsFile",
         "TestGeneratedFunctionInterpretationReplay",
         "TestGeneratedFunctionInterpretationReplayClosesIncompleteLog",
-        "TestGeneratedFunctionEntryReplaySurvivesModelRelease"
+        "TestGeneratedFunctionEntryReplaySurvivesModelRelease",
+        "TestGeneratedTacticReplayLifecycle",
+        "TestGeneratedTacticReplayClosesIncompleteLog"
       ],
       "methods_audited": false,
       "ownership_audited": false,

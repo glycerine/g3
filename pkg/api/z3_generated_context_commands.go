@@ -19,6 +19,7 @@ type replayContextOwner struct {
 	vectorIDs        []uint64
 	functionIDs      []uint64
 	functionEntryIDs []uint64
+	tacticIDs        []uint64
 }
 
 // RegisterZ3GeneratedContextCommands installs the implemented context replay
