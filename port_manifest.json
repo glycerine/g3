@@ -90383,7 +90383,8 @@
         "TestFiniteIntervalProductJoin",
         "TestFiniteIntervalProductInnerInterpretedFilter",
         "TestFiniteIntervalProductTableInterpretedFilter",
-        "TestFiniteIntervalProductMixedInterpretedFilter"
+        "TestFiniteIntervalProductMixedInterpretedFilter",
+        "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
       ],
       "conditionals": [
         {
@@ -90832,6 +90833,14 @@
           "tests": [
             "TestFiniteIntervalProductMixedInterpretedFilter"
           ]
+        },
+        {
+          "name": "interval cloning uses source vector copy equivalence behavior",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
+          ]
         }
       ],
       "ownership": [
@@ -90839,7 +90848,8 @@
       ],
       "deviations": [
         "Cross-kind joins, unaligned union, full/complement, manager registration and failure-frontier audit remain pending.",
-        "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior."
+        "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
+        "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior."
       ]
     },
     {
@@ -90874,7 +90884,8 @@
         "TestFiniteIntervalProductJoin",
         "TestFiniteIntervalProductInnerInterpretedFilter",
         "TestFiniteIntervalProductTableInterpretedFilter",
-        "TestFiniteIntervalProductMixedInterpretedFilter"
+        "TestFiniteIntervalProductMixedInterpretedFilter",
+        "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
       ],
       "conditionals": [
         {
@@ -91011,6 +91022,14 @@
           "tests": [
             "TestFiniteIntervalProductMixedInterpretedFilter"
           ]
+        },
+        {
+          "name": "interval cloning uses source vector copy equivalence behavior",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
+          ]
         }
       ],
       "ownership": [
@@ -91018,7 +91037,8 @@
       ],
       "deviations": [
         "Cross-kind joins, unaligned union, full/complement, manager registration and failure-frontier audit remain pending.",
-        "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior."
+        "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
+        "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior."
       ]
     },
     {

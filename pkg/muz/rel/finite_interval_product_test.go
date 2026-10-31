@@ -285,6 +285,35 @@ func TestFiniteIntervalProductFilterIdentical(t *testing.T) {
 	}
 }
 
+func TestFiniteIntervalProductCloneUsesSourceVectorCopy(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	one, err := f.ast.ArithmeticIntegerNumeralText("1")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, one)
+	three, err := f.ast.ArithmeticIntegerNumeralText("3")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, three)
+	p, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{integer, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	astTestMust(t, p.AddFact([]ast.ASTHandle{one, one}))
+	astTestMust(t, p.AddFact([]ast.ASTHandle{three, three}))
+	astTestMust(t, p.FilterIdentical([]uint32{0, 1}))
+	if found, err := p.ContainsFact([]ast.ASTHandle{one, three}); err != nil || found {
+		t.Fatal("source relation did not enforce equivalent columns", found, err)
+	}
+	clone, err := p.Clone()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, clone.Close()) }()
+	if found, err := clone.ContainsFact([]ast.ASTHandle{one, three}); err != nil || !found {
+		t.Fatal("source vector copy did not split equivalence classes", found, err)
+	}
+}
+
 func TestFiniteIntervalProductRename(t *testing.T) {
 	f := newTableRelationFixture(t)
 	family, err := f.ast.RegisterArithmeticPlugin()
