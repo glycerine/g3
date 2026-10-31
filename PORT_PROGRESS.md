@@ -1,3 +1,5 @@
+Generated tactic and probe registry replay (2026-10-31 UTC): added counts, names, descriptions, help and tactic parameter descriptors. Normal and checked tests verify descriptor lifetime; other generated commands remain unfinished.
+
 Generated probe-controlled tactic replay (2026-10-31 UTC): added conditional, when and fail-if constructors. Normal and checked tests execute the resulting tactics after releasing their inputs; other generated commands remain unfinished.
 
 Generated probe composition replay (2026-10-31 UTC): added comparisons, Boolean combinations and negation. Normal and checked tests verify each result after input probe release; other generated commands remain unfinished.

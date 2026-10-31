@@ -34,7 +34,10 @@ func registerZ3GeneratedTacticCommands(r *Z3Replayer) error {
 	if err := registerZ3GeneratedTacticApply(r); err != nil {
 		return err
 	}
-	return registerZ3GeneratedProbeCommands(r)
+	if err := registerZ3GeneratedProbeCommands(r); err != nil {
+		return err
+	}
+	return registerZ3GeneratedTacticRegistry(r)
 }
 func replayStoreTactic(r *Z3Replayer, owner *replayContextOwner, value *APITactic) error {
 	if r.nextObjectID == ^uint64(0) {
