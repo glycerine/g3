@@ -8305,7 +8305,7 @@
       "path": "src/api/dll/dll.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
+      "status": "platform_replacement",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -8334,11 +8334,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Windows-only DllMain handles all notifications with no action and always succeeds. The Go build has no C DLL entry point or corresponding initialization work."]
     },
     {
       "path": "src/api/dll/gparams_register_modules.cpp",
@@ -260041,9 +260041,9 @@
       "path": "src/util/plugin_manager.h",
       "component": "util",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/smtcore/smt_internalizer_state.go", "pkg/smtcore/proto_model/proto_model.go", "pkg/smtcore/proto_model/cleanup.go"],
+      "tests": ["TestSMTSolverOptimizerRejectsIncompatibleTheoryWithoutReplacement", "TestProtoModelCompletionCleanupEvaluationAndFinalModel", "TestStructuredFactoryClosedRegistryCannotRevive"],
       "conditionals": [
         {
           "line": 19,
@@ -260069,15 +260069,15 @@
       "methods": [
         {
           "name": "SMT context plugin_manager<theory> register/get and registration-order iteration",
-          "status": "unported"
+          "status": "partial"
         },
         {
           "name": "SMT proto_model plugin_manager<value_factory> register/get",
-          "status": "unported"
+          "status": "partial"
         },
         {
           "name": "Owner destruction deletes registered plugin objects; release has no direct retained production call",
-          "status": "unported"
+          "status": "partial"
         },
         {
           "name": "release clears family index and registration list without deletion, with no direct retained production call",
@@ -260085,10 +260085,10 @@
         }
       ],
       "ownership": [
-        "The only production specializations are SMT context theory and proto_model value_factory. Registration stores the same borrowed pointer in a family-ID index and in an owning registration-order list; manager destruction deletes each plugin from the latter once. The release method would discard both lists and transfer ownership outward but has no direct retained production call. Their Go SMT owners are not yet ported."
+        "The only production specializations are SMT context theory and proto_model value_factory. Registration stores the same borrowed pointer in a family-ID index and in an owning registration-order list; manager destruction deletes each plugin from the latter once. The release method would discard both lists and transfer ownership outward but has no direct retained production call. The Go SMT owners implement concrete family indexes and registration lists; teardown order and duplicate-registration behavior still require source audit."
       ],
       "deviations": [
-        "Use concrete typed Go family-ID indexes plus registration-order slices inside the SMT context and proto_model owners. Preserve duplicate-family refusal, null-family lookup and exactly-once plugin cleanup; no generic plugin manager or C++ vector implementation is needed."
+        "The two concrete Go owners provide family-ID indexes, registration-order slices and cleanup. Their teardown order and outer SMT duplicate-registration behavior still require source audit; the unused release template operation has no Go adapter."
       ]
     },
     {

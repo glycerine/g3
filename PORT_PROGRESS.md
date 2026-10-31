@@ -1,3 +1,5 @@
+Source reachability audit (2026-10-31 UTC): the Windows DLL entry point is a no-op and has no Go DLL counterpart. The SMT theory and proto-model factory specializations of plugin_manager already have concrete Go indexes and ownership lists; their remaining teardown and duplicate-registration differences are recorded as partial.
+
 QE-SAT variables (2026-10-31 UTC): added owned variables, occurrence helpers, formula refresh and source-ordered variable erasure. Normal and checked focused tests cover occurrence, erasure, bounds and polarity refresh; projection and tactic execution remain unfinished.
 
 QE-SAT tactic start (2026-10-31 UTC): connected its all-relevant NNF callbacks and literal disjunction assertions to the concrete SMT solver. Normal and checked focused tests cover polarity sets, formula reuse and enforced constraints; projection, search and tactic registration remain unfinished.
