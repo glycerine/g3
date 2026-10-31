@@ -106834,10 +106834,14 @@
       "status": "partial",
       "go_targets": [
         "pkg/qe/datalog_atoms.go",
-        "pkg/qe/datalog_atoms_test.go"
+        "pkg/qe/datalog_atoms_test.go",
+        "pkg/qe/datalog_plugin.go",
+        "pkg/qe/datalog_plugin_test.go"
       ],
       "tests": [
-        "TestDatalogQEAtomCollectionAndBranches"
+        "TestDatalogQEAtomCollectionAndBranches",
+        "TestDatalogQEContainsIgnoresQuantifierAnnotations",
+        "TestDatalogPluginPrepareCacheAndContextOwnership"
       ],
       "assertions": [
         {
@@ -106881,15 +106885,24 @@
           "status": "ported",
           "go_target": "pkg/qe/datalog_atoms.go",
           "tests": [
-            "TestDatalogQEAtomCollectionAndBranches"
+            "TestDatalogQEAtomCollectionAndBranches",
+            "TestDatalogQEContainsIgnoresQuantifierAnnotations"
+          ]
+        },
+        {
+          "name": "plugin creation, family dispatch, owned atom cache, explicit prepare and branch count from finite sort cardinality",
+          "status": "partial",
+          "go_target": "pkg/qe/datalog_plugin.go",
+          "tests": [
+            "TestDatalogPluginPrepareCacheAndContextOwnership"
           ]
         }
       ],
       "ownership": [
-        "Atom analysis borrows expression handles and preserves supplied context order."
+        "Prepared cache owns variable, formula and atom/value references independently of the supplied atom set; the solver context owns a registered plugin."
       ],
       "deviations": [
-        "Initial phase only: plugin cache, Datalog domain-size discovery, solver assignment, substitution, lifecycle, source diagnostics and live plugin integration remain pending. Datalog less-than reports an explicit unimplemented error as in source."
+        "Pending: automatic context-atom discovery, solver assignment, substitution, diagnostics, allocation-failure audit and live QE solver registration. Datalog less-than reports an explicit unimplemented error as in source."
       ]
     },
     {

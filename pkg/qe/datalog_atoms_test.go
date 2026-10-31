@@ -2,6 +2,7 @@ package qe
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"testing"
 )
 
@@ -45,5 +46,28 @@ func TestDatalogQEAtomCollectionAndBranches(t *testing.T) {
 	count, small := datalogQEBranchCount(10, empty)
 	if count != 1 || small {
 		t.Fatal(count, small)
+	}
+}
+
+func TestDatalogQEContainsIgnoresQuantifierAnnotations(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	x := f.constant("annotation-x", f.integer)
+	v := f.variable(0, f.integer)
+	patternTerm := f.own(m.MkArithmeticAdd(x, v))
+	pattern := f.own(m.MkPattern([]ast.ASTHandle{patternTerm}))
+	truth := f.own(m.MkBoolVal(true))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: truth, Patterns: []ast.ASTHandle{pattern}}))
+	found, e := datalogQEContains(m, q, x)
+	fmMust(t, e)
+	if found {
+		t.Fatal("annotation was treated as an occurrence")
+	}
+	body := f.own(m.MkEq(x, v))
+	qbody := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: body}))
+	found, e = datalogQEContains(m, qbody, x)
+	fmMust(t, e)
+	if !found {
+		t.Fatal("body occurrence missed")
 	}
 }

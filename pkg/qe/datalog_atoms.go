@@ -12,7 +12,8 @@ var errDatalogQELessThan = errors.New("datalog quantifier elimination: less-than
 type datalogQEAtom struct{ atom, value ast.ASTHandle }
 type datalogQEAtoms struct{ positive, negative []datalogQEAtom }
 
-// datalogQEContains follows expression children and borrows all handles.
+// datalogQEContains follows application arguments and quantifier bodies,
+// matching contains_app; quantifier annotations are not visited.
 func datalogQEContains(m *ast.ASTManager, term, variable ast.ASTHandle) (bool, error) {
 	todo := []ast.ASTHandle{term}
 	seen := map[ast.ASTHandle]bool{}
@@ -49,28 +50,6 @@ func datalogQEContains(m *ast.ASTManager, term, variable ast.ASTHandle) (bool, e
 				return false, e
 			}
 			todo = append(todo, b)
-			n, e := m.GetNumPatterns(h)
-			if e != nil {
-				return false, e
-			}
-			for i := uint32(0); i < n; i++ {
-				a, e := m.GetPattern(h, i)
-				if e != nil {
-					return false, e
-				}
-				todo = append(todo, a)
-			}
-			n, e = m.GetNumNoPatterns(h)
-			if e != nil {
-				return false, e
-			}
-			for i := uint32(0); i < n; i++ {
-				a, e := m.GetNoPattern(h, i)
-				if e != nil {
-					return false, e
-				}
-				todo = append(todo, a)
-			}
 		case ast.ASTVar:
 		default:
 			return false, ast.ErrASTDomain
