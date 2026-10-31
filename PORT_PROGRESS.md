@@ -1,3 +1,5 @@
+Generated symbol replay (2026-10-31 UTC): added integer and string symbol creation handlers and connected them to g3 log replay. Normal and checked tests cover context-local interning and CLI replay; AST objects and other generated commands remain unfinished.
+
 Generated context replay (2026-10-31 UTC): added configured and reference-counted context creation, deletion, parameter updates and interruption, with cleanup of contexts left open by a log. Normal and checked tests cover copied config, mode, cancellation, stale IDs and CLI replay; reference-counted AST behavior, context error-handler fidelity and other generated commands remain unfinished.
 
 API context configuration copy (2026-10-31 UTC): added a concrete context constructor that copies configuration values before initializing its independent manager. Tests verify proof settings survive later configuration changes and deletion; normal API and context/SMT focused tests and checked configuration tests pass. Reference-counted API-object integration remains unfinished.

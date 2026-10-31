@@ -16,7 +16,7 @@ func TestZ3LogFrontendCLIInputAndFile(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	log := "R\nC 3\n= 0x42\nR\nP 0x42\nS \"proof\"\nS \"true\"\nC 5\nR\nP 0x42\nC 6\n= 0x43\nR\nP 0x42\nC 4\nR\nP 0x43\nC 8\nR\nU 0\nU 0\nU 0\nU 0\nC 342\nR\nS \"timeout\"\nS \"19\"\nC 0\nM \"replayed\"\nR\nC 1\n"
+	log := "R\nC 3\n= 0x42\nR\nP 0x42\nS \"proof\"\nS \"true\"\nC 5\nR\nP 0x42\nC 6\n= 0x43\nR\nP 0x43\nS \"cli-symbol\"\nC 30\nR\nP 0x43\nI 3\nC 29\nR\nP 0x42\nC 4\nR\nP 0x43\nC 8\nR\nU 0\nU 0\nU 0\nU 0\nC 342\nR\nS \"timeout\"\nS \"19\"\nC 0\nM \"replayed\"\nR\nC 1\n"
 	for _, file := range []bool{false, true} {
 		var args []string
 		if file {
