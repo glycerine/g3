@@ -210629,14 +210629,14 @@
       "path": "src/test/theory_dl.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": ["pkg/smtcore/theory_dl_cpp_driver_test.go"],
+      "tests": ["TestDatalogTheorySourceIncrementalOrder"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_theory_dl", "status": "ported", "go_target": "pkg/smtcore/theory_dl_cpp_driver_test.go", "tests": ["TestDatalogTheorySourceIncrementalOrder"]}],
+      "ownership": ["The solver and each acquired model are released by the test; the AST fixture manages its context."],
+      "deviations": ["Printed models are checked for valid finite-domain values satisfying the successive constraints, and the final cyclic constraint is asserted unsatisfiable."]
     },
     {
       "path": "src/test/theory_pb.cpp",

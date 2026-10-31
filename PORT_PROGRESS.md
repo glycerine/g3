@@ -52258,3 +52258,5 @@ Simplifier source driver: ported the original 72-bit constant bit-vector operati
 Model-based optimization source driver: connected the existing test10 fixture to its source entry and checked the selected model and eliminated variables after each of the two source projections. The source entry point returns immediately after test10; its later examples are unreachable.
 
 PDR search-tree source driver started: translated 100 seeded level-four trees with the source's duplicate-state, growth, backtracking and well-formedness checks. The first source-seeded tree did not terminate within 100,000 Go mutations, so the routine test limits each tree to 500 mutations and resets it; convergence remains open and the driver is marked partial.
+
+Finite-domain theory source driver: recreated the 111-element sort and the source's successive a<b, b<c and c<a constraints. The first two checks validate the generated model values and their ordering; the final cycle must be unsatisfiable.
