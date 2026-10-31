@@ -1,3 +1,5 @@
+BMC source start (2026-10-31 UTC): ported the source linear/nonlinear compiler selection based on predicate-tail arity and quantified interpreted tails. The actual BMC compilers, solver loop and fixedpoint registration remain pending.
+
 CLP fixedpoint integration (2026-10-31 UTC): registered the bounded engine, applied source existential-tail and negation checks, and connected SMT-backed predicate queries and the source true answer. Tests cover rule constraints, existential predicate queries, stale-result invalidation and sat/unsat through SMT-LIB; the complete default transformation and source audit remain pending.
 
 Different-symbolic reachability audit (2026-10-31 UTC): dl_mk_different.h has no implementation, includes, construction or build references, so the unused declaration is classified as dead.

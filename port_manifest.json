@@ -85748,9 +85748,9 @@
       "path": "src/muz/bmc/dl_bmc_engine.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go"],
+      "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"],
       "assertions": [
         {
           "line": 138,
@@ -85851,17 +85851,17 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Only source compiler selection is ported; BMC rule compilation, solving, trace and fixedpoint registration remain pending."]
     },
     {
       "path": "src/muz/bmc/dl_bmc_engine.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go"],
+      "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"],
       "conditionals": [
         {
           "line": 20,
@@ -85874,9 +85874,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Only source compiler selection is ported; BMC rule compilation, solving, trace and fixedpoint registration remain pending."]
     },
     {
       "path": "src/muz/clp/CMakeLists.txt",
