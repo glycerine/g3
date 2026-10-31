@@ -168357,7 +168357,7 @@
         "pkg/tactic/arith/bv2real_owned_arithmetic.go",
         "pkg/tactic/arith/bv2real_defaults.go",
         "pkg/tactic/arith/bv2real_match_owned_test.go"
-      ],
+      , "pkg/tactic/arith/bv2real_signature_gate_test.go"],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
         "pkg/tactic/arith/bv2real_rewriter_test.go",
@@ -168393,7 +168393,7 @@
         "TestBV2RealOwnedMatchingAlignmentDoesNotMutateCache",
         "TestBV2RealRealConstantOwnedReadAndFailureFrontiers",
         "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers"
-      ],
+      , "TestBV2RealOwnedSignatureAssertionOperandGate", "TestBV2RealOwnedSignatureClosedDiagnosticPrecedesOperands"],
       "assertions": [
         {
           "line": 55,
@@ -168661,6 +168661,18 @@
             "TestBV2RealRealConstantOwnedReadAndFailureFrontiers",
             "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers"
           ]
+        },
+        {
+          "name": "cached signature SASSERT operand gating and integer/positive short circuit at source lines 60-63",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_match_owned.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_signature_gate_test.go"
+          ],
+          "tests": [
+            "TestBV2RealOwnedSignatureAssertionOperandGate",
+            "TestBV2RealOwnedSignatureClosedDiagnosticPrecedesOperands"
+          ]
         }
       ],
       "ownership": [
@@ -168710,7 +168722,7 @@
         "pkg/tactic/arith/bv2real_owned_arithmetic.go",
         "pkg/tactic/arith/bv2real_defaults.go",
         "pkg/tactic/arith/bv2real_match_owned_test.go"
-      ],
+      , "pkg/tactic/arith/bv2real_signature_gate_test.go"],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
         "pkg/tactic/arith/bv2real_rewriter_test.go",
@@ -168749,7 +168761,7 @@
         "TestBV2RealOwnedMatchingAlignmentDoesNotMutateCache",
         "TestBV2RealRealConstantOwnedReadAndFailureFrontiers",
         "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers"
-      ],
+      , "TestBV2RealOwnedSignatureAssertionOperandGate", "TestBV2RealOwnedSignatureClosedDiagnosticPrecedesOperands"],
       "conditionals": [
         {
           "line": 19,
@@ -168936,6 +168948,18 @@
             "TestBV2RealOwnedMatchingAlignmentDoesNotMutateCache",
             "TestBV2RealRealConstantOwnedReadAndFailureFrontiers",
             "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers"
+          ]
+        },
+        {
+          "name": "cached signature SASSERT operand gating and integer/positive short circuit at source lines 60-63",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_match_owned.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_signature_gate_test.go"
+          ],
+          "tests": [
+            "TestBV2RealOwnedSignatureAssertionOperandGate",
+            "TestBV2RealOwnedSignatureClosedDiagnosticPrecedesOperands"
           ]
         }
       ],

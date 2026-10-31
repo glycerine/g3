@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
@@ -190,15 +191,22 @@ func (c *bv2RealCall) matchTerm(h ast.ASTHandle) (term bv2RealTerm, found bool) 
 }
 
 func (c *bv2RealCall) checkOwnedSignature(a, b ast.ASTHandle, sig *bv2RealSignature, d, r *unumeral.OwnedRational) error {
+	enabled, err := diagnostic.SourceAssertionsEnabled(diagnostic.BorrowProcessDebugContext())
+	if err != nil || !enabled {
+		return err
+	}
 	s := c.u.manager.NumeralService()
 	for i, v := range []*unumeral.OwnedRational{d, r} {
 		integer, err := s.IsInt(v)
 		if err != nil {
 			return err
 		}
-		positive, err := s.IsPos(v)
-		if err != nil {
-			return err
+		positive := false
+		if integer {
+			positive, err = s.IsPos(v)
+			if err != nil {
+				return err
+			}
 		}
 		text := "sig.m_d.is_int() && sig.m_d.is_pos()"
 		if i == 1 {
