@@ -206113,14 +206113,14 @@
       "path": "src/test/nlarith_util.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": ["pkg/qe/nlarith_util_cpp_test.go"],
+      "tests": ["TestNLArithmeticUtilSourceTwoQuadratics"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_nlarith_util", "status": "ported", "go_target": "pkg/qe/nlarith_util_cpp_test.go", "tests": ["TestNLArithmeticUtilSourceTwoQuadratics"]}],
+      "ownership": ["The test closes its branch conditions, occurrence checker and nonlinear utility before the AST fixture is destroyed."],
+      "deviations": ["The Go test checks the generated substitutions and their independence from the eliminated variable instead of printing unused local vectors."]
     },
     {
       "path": "src/test/nlsat.cpp",
