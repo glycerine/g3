@@ -1,0 +1,133 @@
+package qe
+
+// Source: src/qe/qe_sat_tactic.cpp, default NNF callbacks and the concrete
+// solver_context formula initialization and constraint assertion.
+
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
+)
+
+type satNNFDefault struct{ manager *ast.ASTManager }
+
+func (d *satNNFDefault) IsRelevant(ast.ASTHandle) (bool, error) { return true, nil }
+func (d *satNNFDefault) NormalizeAtom(h ast.ASTHandle, positive bool) (ast.ASTHandle, error) {
+	if positive {
+		return h, nil
+	}
+	return d.manager.MkNot(h)
+}
+
+// satSolverContext borrows the enclosing tactic's SMT solver. Its formula and
+// atom index are owned, and refreshed together by initializeFormula.
+type satSolverContext struct {
+	manager    *ast.ASTManager
+	solver     *smtcore.SMTSolver
+	normalizer *QENNFNormalizer
+	formula    ast.ASTRef
+	atoms      *BoolAtomIndex
+	closed     bool
+}
+
+func newSATSolverContext(manager *ast.ASTManager, solver *smtcore.SMTSolver, config Config) (_ *satSolverContext, result error) {
+	if manager == nil || solver == nil {
+		return nil, ast.ErrASTHandle
+	}
+	owner, err := solver.Manager()
+	if err != nil {
+		return nil, err
+	}
+	if owner != manager {
+		return nil, ast.ErrASTHandle
+	}
+	defaults := &satNNFDefault{manager: manager}
+	normalizer, err := NewQENNFNormalizer(manager, defaults, defaults, config)
+	if err != nil {
+		return nil, err
+	}
+	c := &satSolverContext{manager: manager, solver: solver, normalizer: normalizer}
+	c.formula, err = manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return nil, errors.Join(err, normalizer.Close())
+	}
+	return c, nil
+}
+
+func (c *satSolverContext) initializeFormula(formula ast.ASTHandle) (result error) {
+	if c == nil || c.closed {
+		return ast.ErrASTHandle
+	}
+	next, err := c.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, c.manager.DelRef(&next)) }()
+	atoms, err := c.normalizer.Normalize(next)
+	if err != nil {
+		return err
+	}
+	if c.atoms != nil {
+		if err = c.atoms.Close(); err != nil {
+			return errors.Join(err, atoms.Close())
+		}
+		c.atoms = nil
+	}
+	if err = c.manager.AssignRef(c.formula, next); err != nil {
+		return errors.Join(err, atoms.Close())
+	}
+	c.atoms = atoms
+	return nil
+}
+
+// addConstraint intentionally ignores useVar, matching the source callback.
+func (c *satSolverContext) addConstraint(useVar bool, literals ...ast.ASTHandle) error {
+	if c == nil || c.closed {
+		return ast.ErrASTHandle
+	}
+	if len(literals) > 3 {
+		return ast.ErrASTDomain
+	}
+	args := make([]ast.ASTHandle, 0, len(literals))
+	for _, h := range literals {
+		if !h.IsNull() {
+			args = append(args, h)
+		}
+	}
+	clause, err := c.manager.MkOrArgs(args)
+	if err != nil {
+		return err
+	}
+	ref, err := c.manager.NewRef(clause)
+	if err != nil {
+		return err
+	}
+	err = c.solver.AssertFormula(clause)
+	return errors.Join(err, c.manager.DelRef(&ref))
+}
+
+func (c *satSolverContext) Close() (result error) {
+	if c == nil || c.closed {
+		return nil
+	}
+	if c.atoms != nil {
+		if err := c.atoms.Close(); err != nil {
+			return err
+		}
+		c.atoms = nil
+	}
+	if c.formula != (ast.ASTRef{}) {
+		if err := c.manager.DelRef(&c.formula); err != nil {
+			return err
+		}
+	}
+	if c.normalizer != nil {
+		if err := c.normalizer.Close(); err != nil {
+			return err
+		}
+		c.normalizer = nil
+	}
+	c.closed = true
+	return nil
+}

@@ -110644,9 +110644,9 @@
       "path": "src/qe/qe_sat_tactic.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/qe/sat_solver_context.go", "pkg/qe/sat_solver_context_test.go"],
+      "tests": ["TestSATSolverContextNNFAndConstraints"],
       "assertions": [
         {
           "line": 363,
@@ -110677,7 +110677,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Default NNF normalization and SMT constraint assertion are started; variable projection, search and tactic registration remain unfinished."]
     },
     {
       "path": "src/qe/qe_sat_tactic.h",
