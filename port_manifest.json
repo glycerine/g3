@@ -90457,9 +90457,15 @@
       "path": "src/muz/rel/dl_mk_similarity_compressor.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/similarity_compare.go",
+        "pkg/muz/rel/similarity_compare_test.go",
+        "pkg/muz/rel/similarity_fixtures_test.go"
+      ],
+      "tests": [
+        "TestSimilarityRuleComparisons"
+      ],
       "conditionals": [
         {
           "line": 460,
@@ -90554,9 +90560,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "rough_compare/total_compare/compare_var_args/compare_args: rule shape, variable identity, AST-ID ordering and skipped constant position",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/similarity_compare.go",
+          "tests": [
+            "TestSimilarityRuleComparisons"
+          ]
+        }
+      ],
+      "ownership": [
+        "Comparisons borrow rule and AST handles and return no expression owners."
+      ],
+      "deviations": [
+        "Pending: rule grouping and compression, constant table generation, auxiliary predicate construction, rule-set lifecycle, plugin registration, diagnostics and allocation audit."
+      ]
     },
     {
       "path": "src/muz/rel/dl_mk_similarity_compressor.h",
