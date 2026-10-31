@@ -107499,7 +107499,9 @@
         "pkg/qe/expr_quantifier_tree_pop_bool.go",
         "pkg/qe/expr_quantifier_tree_pop_bool_test.go",
         "pkg/qe/quantifier_tactic_bool_units.go",
-        "pkg/qe/quantifier_tactic_bool_units_test.go"
+        "pkg/qe/quantifier_tactic_bool_units_test.go",
+        "pkg/qe/expr_quantifier_bool_search.go",
+        "pkg/qe/expr_quantifier_bool_search_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107543,7 +107545,8 @@
         "TestExprQETreePartitionSeparatesIndependentVariables",
         "TestExprQETreeClosedPartitionCompletesModelAndBlocks",
         "TestExprQEBoolPopSolvesAndBlocksPath",
-        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
+        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+        "TestExprQEBoolSearchMatchesBranchExpansion"
       ],
       "conditionals": [
         {
@@ -107858,7 +107861,8 @@
             "TestExprQETreePartitionSeparatesIndependentVariables",
             "TestExprQETreeClosedPartitionCompletesModelAndBlocks",
             "TestExprQEBoolPopSolvesAndBlocksPath",
-            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
+            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+            "TestExprQEBoolSearchMatchesBranchExpansion"
           ]
         }
       ],
@@ -111104,6 +111108,7 @@
         "TestQuantifierTacticNonlinearOptionSnapshot",
         "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
         "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+        "TestQuantifierTacticBooleanPredicateBranches",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "assertions": [
@@ -111120,19 +111125,20 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "quantifier tactic lifecycle, quantifier-free goals, and Boolean unit elimination",
+          "name": "quantifier tactic lifecycle, quantifier-free goals, and supported Boolean quantifiers",
           "status": "partial",
           "go_target": "pkg/qe/quantifier_tactic.go",
           "tests": [
             "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
             "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+            "TestQuantifierTacticBooleanPredicateBranches",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Single Boolean quantifiers solved by unit and polarity rules are supported; branching, nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
+        "Single Boolean quantifiers support unit solving and solver-guided branches; independent partitions, nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
       ]
     },
     {
@@ -111150,6 +111156,7 @@
       "tests": [
         "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
         "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+        "TestQuantifierTacticBooleanPredicateBranches",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
@@ -111166,19 +111173,20 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "quantifier tactic lifecycle, quantifier-free goals, and Boolean unit elimination",
+          "name": "quantifier tactic lifecycle, quantifier-free goals, and supported Boolean quantifiers",
           "status": "partial",
           "go_target": "pkg/qe/quantifier_tactic.go",
           "tests": [
             "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
             "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+            "TestQuantifierTacticBooleanPredicateBranches",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Single Boolean quantifiers solved by unit and polarity rules are supported; branching, nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
+        "Single Boolean quantifiers support unit solving and solver-guided branches; independent partitions, nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
       ]
     },
     {

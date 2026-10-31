@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -119,5 +120,37 @@ func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 	fmMust(t, err)
 	if unchanged != exists {
 		t.Fatal("refusal partially changed the goal")
+	}
+}
+
+func TestQuantifierTacticBooleanPredicateBranches(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	v := f.own(m.MkVar(0, f.boolean))
+	body := f.predicate("qe-branch-predicate", v)
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(quantifier))
+	fmMust(t, port.Apply(goal, f.result()))
+	value, err := goal.Form(0)
+	fmMust(t, err)
+	truth := f.own(m.MkTrue())
+	falsity := f.own(m.MkFalse())
+	positive := f.predicate("qe-branch-predicate", truth)
+	negative := f.predicate("qe-branch-predicate", falsity)
+	expected := f.own(m.MkOr(positive, negative))
+	iff := f.own(m.MkIff(value, expected))
+	different := f.own(m.MkNot(iff))
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(different))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("QE result differs from the two Boolean predicate branches")
 	}
 }
