@@ -52338,3 +52338,5 @@ Unsigned 16-bit multiplication equivalence: the source widened-product proof now
 Seeded interval root endpoints: replayed all 1,000 square-root and 1,000 cube-root source intervals at precision 1/100, checking every finite endpoint against exact rational powers using the live scalar root routine. Full interval root output and the source-generated SMT-LIB implication files remain open.
 
 Subpaving cube-root integration: tested 500 deterministic intervals with finite, open and infinite endpoints. Independent rational cubes verify enclosure and whether each finite result boundary must be open.
+
+NLSAT projection profiling: the general four-inequality case spends substantial time validating polynomial numeric invocation contexts. Skipping validator calls for absent owners preserves validation of every present owner; in two 15-second profiles, lookup samples fell from 2.83 seconds to 0.62 seconds. Focused polynomial ownership/context tests pass in normal and checked builds, and the existing NLSAT source projection tests pass.
