@@ -60,6 +60,7 @@ type SMTSolver struct {
 	ownedCatalog  *uparams.GlobalParamsCatalog
 	ownedGlobals  *uparams.GlobalParamsService
 	closed        bool
+	optimization  *smtOptimizationSolverState
 }
 
 var _ solver.Solver = (*SMTSolver)(nil)
@@ -371,10 +372,15 @@ func (s *SMTSolver) AcquireModel() (*model.ModelCore, error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
-	if s.result == nil {
-		return nil, nil
+	var md *model.ModelCore
+	var err error
+	if s.result != nil {
+		md, err = s.result.AcquireModel()
 	}
-	return s.result.AcquireModel()
+	if err != nil || s.optimization == nil {
+		return md, err
+	}
+	return s.acquireOptimizationModel(md)
 }
 
 func (s *SMTSolver) Proof() (ast.ASTHandle, error) {
@@ -391,7 +397,7 @@ func (s *SMTSolver) ReasonUnknown() (string, error) {
 	if err := s.open(); err != nil {
 		return "", err
 	}
-	if s.result == nil {
+	if s.result == nil || s.optimization != nil {
 		return s.kernel.ReasonUnknown()
 	}
 	return s.result.ReasonUnknown()
@@ -560,7 +566,11 @@ func (s *SMTSolver) ScopeLevel() (uint32, error) {
 }
 
 func (s *SMTSolver) CheckSatCore(assumptions []ast.ASTHandle) (lbool.LBool, error) {
-	return s.checkSatCore(assumptions, false)
+	if err := s.open(); err != nil {
+		return lbool.Undef, err
+	}
+	setup := s.optimization != nil && s.optimization.first && len(assumptions) == 0 && s.kernel.ScopeLevel() == 0
+	return s.checkSatCore(assumptions, setup)
 }
 
 // The fresh tactic context uses setup_and_check without external assumptions.
@@ -585,6 +595,15 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 	}
 	if err != nil {
 		return lbool.Undef, err
+	}
+	if s.optimization != nil {
+		status = s.adjustOptimizationResult(status)
+		s.optimization.first = false
+		if status == lbool.True && s.produceModels && s.kernel.GeneratedModel() == nil {
+			if err = s.kernel.buildGeneratedModel(); err != nil {
+				return lbool.Undef, err
+			}
+		}
 	}
 	if err = result.SetStatus(status); err != nil {
 		return lbool.Undef, err
@@ -969,6 +988,13 @@ func (s *SMTSolver) Close() error {
 	result = errors.Join(result, s.named.Close())
 	result = errors.Join(result, s.restoreTracked(0))
 	result = errors.Join(result, s.ResetObjectives())
+	if s.optimization != nil && s.optimization.model != nil {
+		err := s.optimization.model.DecRef()
+		result = errors.Join(result, err)
+		if err == nil {
+			s.optimization.model = nil
+		}
+	}
 	result = errors.Join(result, s.kernel.Close())
 	result = errors.Join(result, s.config.Params.Del(&s.params))
 	if s.ownedGlobals != nil {

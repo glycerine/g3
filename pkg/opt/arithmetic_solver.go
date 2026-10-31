@@ -88,7 +88,7 @@ type arithmeticObjective struct {
 }
 
 func NewArithmeticSolver(m *ast.ASTManager, params *uparams.ParamsRef, logic string, config smtcore.SMTSolverConfig) (*ArithmeticSolver, error) {
-	backend, err := smtcore.NewSMTSolver(m, params, logic, config)
+	backend, err := smtcore.NewOptimizationSMTSolver(m, params, logic, config)
 	if err != nil {
 		return nil, err
 	}
@@ -711,6 +711,14 @@ func (s *ArithmeticSolver) Check() (result *ArithmeticResult, resultErr error) {
 	}
 	result = &ArithmeticResult{Status: lbool.Undef, Values: make([]ObjectiveValue, len(s.objectives))}
 	defer func() {
+		if resultErr == nil && result != nil && result.Status == lbool.True {
+			var wasUnknown bool
+			wasUnknown, resultErr = s.backend.OptimizationWasUnknown()
+			if resultErr == nil && wasUnknown {
+				result.Status, result.Optimal = lbool.Undef, false
+				result.ReasonUnknown, resultErr = s.backend.ReasonUnknown()
+			}
+		}
 		if resultErr == nil && result != nil && result.Model != nil {
 			resultErr = s.filterResultModel(result)
 		}

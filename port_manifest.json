@@ -102228,7 +102228,11 @@
         "pkg/smtcore/smt_solver_objective.go",
         "pkg/smtcore/smt_solver_objective_test.go",
         "pkg/smtcore/smt_pb_lifecycle.go",
-        "pkg/smtcore/smt_solver_optimizer_dispatch_test.go"
+        "pkg/smtcore/smt_solver_optimizer_dispatch_test.go",
+        "pkg/smtcore/smt_solver.go",
+        "pkg/smtcore/smt_solver_optimization.go",
+        "pkg/smtcore/smt_solver_optimization_test.go",
+        "pkg/opt/arithmetic_solver_quantifier_external_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102238,7 +102242,12 @@
         "TestSMTSolverOptimizerPreservesExistingSpecialization",
         "TestSMTSolverOptimizerRejectsIncompatibleTheoryWithoutReplacement",
         "TestSMTSolverOptimizerLateInstallMatchesContextScopes",
-        "TestSMTSolverOptimizerDispatchesAllConcreteFamilies"
+        "TestSMTSolverOptimizerDispatchesAllConcreteFamilies",
+        "TestOptimizationSolverQuantifierUnknownAdjustmentAndStickyFlag",
+        "TestOptimizationSolverModelFallbackAndCacheReplacement",
+        "TestOptimizationSolverCancellationDoesNotBecomeSatisfiable",
+        "TestArithmeticSolverQuantifierCandidateRemainsUnknown",
+        "TestOptimizationSolverFirstCheckHonorsAssumptionsAndScope"
       ],
       "assertions": [
         {
@@ -102309,13 +102318,33 @@
             "TestSMTSolverOptimizerLateInstallMatchesContextScopes",
             "TestSMTSolverOptimizerDispatchesAllConcreteFamilies"
           ]
+        },
+        {
+          "name": "check_sat_core first base/assumption-free setup selection, adjust_result quantifier-only provisional satisfiability with sticky was_unknown, cached get_model fallback and kernel reason_unknown; live arithmetic optimizer restores final unknown status (opt_solver.cpp:185-194,288-309,313-315; opt_context.cpp:325-330)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver.go",
+            "pkg/smtcore/smt_solver_optimization.go",
+            "pkg/smtcore/smt_solver_optimization_test.go",
+            "pkg/opt/arithmetic_solver.go",
+            "pkg/opt/arithmetic_solver_quantifier_external_test.go"
+          ],
+          "tests": [
+            "TestOptimizationSolverQuantifierUnknownAdjustmentAndStickyFlag",
+            "TestOptimizationSolverModelFallbackAndCacheReplacement",
+            "TestOptimizationSolverCancellationDoesNotBecomeSatisfiable",
+            "TestArithmeticSolverQuantifierCandidateRemainsUnknown",
+            "TestOptimizationSolverFirstCheckHonorsAssumptionsAndScope"
+          ]
         }
       ],
       "ownership": [
-        "Optimizer fallback initializes and publishes a concrete mixed arithmetic plugin before pushing it to each existing context scope, matching context::register_plugin. Existing plugins retain identity and current live arithmetic parameters configure only the newly installed plugin. Ordinary cold RegisterTheory restrictions remain separate; no generic late-plugin adapter is added."
+        "Optimizer fallback initializes and publishes a concrete mixed arithmetic plugin before pushing it to each existing context scope, matching context::register_plugin. Existing plugins retain identity and current live arithmetic parameters configure only the newly installed plugin. Ordinary cold RegisterTheory restrictions remain separate; no generic late-plugin adapter is added.",
+        "The optimization-specific solver state owns an independent cached model reference. Successful nonempty get_model replaces that reference; empty current results acquire the previous cache without changing it. Caller references survive replacement and solver teardown. Ordinary SMT construction retains its existing result/status policy. The arithmetic optimizer uses the concrete optimization constructor and restores sticky quantifier uncertainty at the result boundary."
       ],
       "deviations": [
-        "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit."
+        "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
+        "Optimization solver check/model policy is currently connected to ArithmeticSolver/MaxSMT. Pareto construction still uses the ordinary SMT constructor and needs this opt_context integration separately; constructor relevance rules, benchmark dumping and maximize/model-repair bodies remain open."
       ]
     },
     {
