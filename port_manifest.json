@@ -179763,9 +179763,31 @@
       "path": "src/tactic/core/injectivity_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/injectivity_tactic.go",
+        "pkg/tactic/core/injectivity_relations.go",
+        "pkg/tactic/core/injectivity_finder.go",
+        "pkg/tactic/core/injectivity_rewrite.go",
+        "pkg/tactic/core/injectivity_apply.go",
+        "pkg/tactic/core/injectivity_tactic_test.go",
+        "pkg/tactic/core/injectivity_finder_test.go",
+        "pkg/tactic/core/injectivity_nested_test.go",
+        "pkg/tactic/core/injectivity_refusal_test.go",
+        "pkg/tactic/core/injectivity_lifecycle_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/cmd/g3/injectivity_tactic_test.go"
+      ],
+      "tests": [
+        "TestInjectivityDiscoversInverseAndRewritesEquality",
+        "TestInjectivityFinderOrientationAndExactDeBruijnShape",
+        "TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration",
+        "TestInjectivityRefusesUnsatCoresBeforeProofs",
+        "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty",
+        "TestSMTLibRunnerInjectivityTactic"
+      ],
       "assertions": [
         {
           "line": 151,
@@ -179778,17 +179800,60 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "axiom recognition",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/injectivity_finder.go",
+          "tests": [
+            "TestInjectivityFinderOrientationAndExactDeBruijnShape"
+          ]
+        },
+        {
+          "name": "goal discovery and equality rewriting",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/injectivity_tactic.go",
+          "tests": [
+            "TestInjectivityDiscoversInverseAndRewritesEquality"
+          ]
+        }
+      ],
+      "ownership": [
+        "The tactic owns its rewrite traversal, inverse relation map and parameter value."
+      ],
+      "deviations": [
+        "Pending full source-method, assertion and ownership audit. The builtin factory and SMT-LIB application path are integrated."
+      ]
     },
     {
       "path": "src/tactic/core/injectivity_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/injectivity_tactic.go",
+        "pkg/tactic/core/injectivity_relations.go",
+        "pkg/tactic/core/injectivity_finder.go",
+        "pkg/tactic/core/injectivity_rewrite.go",
+        "pkg/tactic/core/injectivity_apply.go",
+        "pkg/tactic/core/injectivity_tactic_test.go",
+        "pkg/tactic/core/injectivity_finder_test.go",
+        "pkg/tactic/core/injectivity_nested_test.go",
+        "pkg/tactic/core/injectivity_refusal_test.go",
+        "pkg/tactic/core/injectivity_lifecycle_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/cmd/g3/injectivity_tactic_test.go"
+      ],
+      "tests": [
+        "TestInjectivityDiscoversInverseAndRewritesEquality",
+        "TestInjectivityFinderOrientationAndExactDeBruijnShape",
+        "TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration",
+        "TestInjectivityRefusesUnsatCoresBeforeProofs",
+        "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty",
+        "TestSMTLibRunnerInjectivityTactic"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -179801,9 +179866,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "axiom recognition",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/injectivity_finder.go",
+          "tests": [
+            "TestInjectivityFinderOrientationAndExactDeBruijnShape"
+          ]
+        },
+        {
+          "name": "goal discovery and equality rewriting",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/injectivity_tactic.go",
+          "tests": [
+            "TestInjectivityDiscoversInverseAndRewritesEquality"
+          ]
+        }
+      ],
+      "ownership": [
+        "The tactic owns its rewrite traversal, inverse relation map and parameter value."
+      ],
+      "deviations": [
+        "Pending full source-method, assertion and ownership audit. The builtin factory and SMT-LIB application path are integrated."
+      ]
     },
     {
       "path": "src/tactic/core/nnf_tactic.cpp",

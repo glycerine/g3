@@ -20,6 +20,7 @@ var builtinTacticDescriptions = map[string]string{
 	"card2bv":                 "convert pseudo-boolean constraints to bit-vectors.",
 	"ctx-simplify":            "apply contextual simplification rules.",
 	"collect-statistics":      "Collects various statistics.",
+	"injectivity":             "Identifies and applies injectivity axioms.",
 	"der":                     "destructive equality resolution.",
 	"diff-neq":                "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numeral, and all constants are bounded.",
 	"distribute-forall":       "distribute forall over conjunctions.",

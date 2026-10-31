@@ -1,3 +1,5 @@
+Injectivity tactic integration (2026-10-31 UTC): exposed the existing inverse-axiom recognizer and equality rewriter through the builtin registry and SMT-LIB application command. The C++ source and header have partial evidence; source and ownership audits remain pending.
+
 Statistics tactic integration (2026-10-31 UTC): connected the existing collect-statistics traversal and output implementation to the builtin registry and SMT-LIB command path. Its C++ source and header now have partial port evidence; parameter and ownership audits remain pending.
 
 Interval vector operations (2026-10-31 UTC): added interval join, projection, union and widening, then exposed a concrete relation API for facts, filters and these operations. The public projection preserves empty relations; rename, delta, remaining vector operations and relation-manager integration are still pending.
