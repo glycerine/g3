@@ -4,10 +4,12 @@ package smtcore
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -51,6 +53,30 @@ func (s *SMTSolver) optimizationObjectiveGE(index uint32, filter *tactic.FilterM
 	}
 	if value.Finite.Infinity.Sign() < 0 {
 		return s.manager.MkTrue()
+	}
+	objective, err := s.objective(index)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if value.Finite.Epsilon.Sign() != 0 {
+		switch objective.theory.(type) {
+		case *SMTRealDiffTheory, *SMTDenseDiffTheory:
+			// opt_solver::mk_ge supports these concrete difference families
+			// only at rational thresholds. Its fallback deliberately imposes
+			// no constraint; do not call their lower-bound builders here.
+			enabled, err := diagnostic.ProcessVerboseEnabled(0)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			if enabled {
+				stream, err := diagnostic.BorrowProcessVerboseStream()
+				if err != nil {
+					return ast.ASTHandle{}, err
+				}
+				_ = stream.AppendString("WARNING: unhandled theory " + fmt.Sprintf("%T", objective.theory) + "\n")
+			}
+			return s.manager.MkTrue()
+		}
 	}
 	return s.MakeObjectiveLowerBound(index, filter, value.Finite)
 }

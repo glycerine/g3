@@ -102276,7 +102276,8 @@
         "pkg/smtcore/smt_solver_optimization_trace_test.go",
         "pkg/smtcore/smt_solver_optimization_objective.go",
         "pkg/smtcore/smt_solver_optimization_objective_test.go",
-        "pkg/opt/arithmetic_solver_shared_repair_external_test.go"
+        "pkg/opt/arithmetic_solver_shared_repair_external_test.go",
+        "pkg/smtcore/smt_solver_optimization_bound_dispatch_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102314,7 +102315,10 @@
         "TestOptimizationObjectiveSatisfiableRepairUsesKernelModelWithoutDump",
         "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum",
         "TestOptimizationObjectiveSharedRepairAllocationFrontier",
-        "TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue"
+        "TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue",
+        "TestOptimizationObjectiveGEDifferenceEpsilonFallback",
+        "TestOptimizationObjectiveGEInfinityErasesObjectiveLookup",
+        "TestOptimizationObjectiveGELinearEpsilonStillBuildsTheoryBound"
       ],
       "assertions": [
         {
@@ -102498,6 +102502,19 @@
             "TestOptimizationObjectiveSharedRepairAllocationFrontier",
             "TestOptimizationObjectiveSuccessfulSharedRefreshRechecksChangedValue"
           ]
+        },
+        {
+          "name": "mk_ge concrete live difference/linear epsilon dispatch, early infinite-bound Boolean shortcuts, and unsupported epsilon warning/true fallback (opt_solver.cpp:365-433); finite-bound TRACE remains in the diagnostic audit",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver_optimization_objective.go",
+            "pkg/smtcore/smt_solver_optimization_bound_dispatch_test.go"
+          ],
+          "tests": [
+            "TestOptimizationObjectiveGEDifferenceEpsilonFallback",
+            "TestOptimizationObjectiveGEInfinityErasesObjectiveLookup",
+            "TestOptimizationObjectiveGELinearEpsilonStillBuildsTheoryBound"
+          ]
         }
       ],
       "ownership": [
@@ -102510,7 +102527,8 @@
       ],
       "deviations": [
         "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
-        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping and its option update are now connected. Pre-check opt_verbose is now live. Maximize/model-repair bodies, their diagnostics and the final source/owner audit remain open."
+        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping and its option update are now connected. Pre-check opt_verbose is now live. Maximize/model-repair bodies, their diagnostics and the final source/owner audit remain open.",
+        "The unsupported-bound warning uses the concrete Go type spelling instead of compiler-specific C++ type_info::name ABI spelling. The source prefix, level-zero gate and true fallback are preserved; no C++ RTTI/standard-library implementation is ported."
       ]
     },
     {
