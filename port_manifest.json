@@ -91938,9 +91938,9 @@
       "path": "src/muz/rel/dl_mk_explanations.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/explanation_relation_test.go"],
+      "tests": ["TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation"],
       "assertions": [
         {
           "line": 145,
@@ -92051,7 +92051,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Relation operations, plugin registration, rule transformation and Datalog integration remain unfinished."]
     },
     {
       "path": "src/muz/rel/dl_mk_explanations.h",
