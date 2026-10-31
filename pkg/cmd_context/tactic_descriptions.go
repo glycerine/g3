@@ -25,6 +25,7 @@ var builtinTacticDescriptions = map[string]string{
 	"diff-neq":                "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numeral, and all constants are bounded.",
 	"distribute-forall":       "distribute forall over conjunctions.",
 	"dt2bv":                   "eliminate finite domain data-types. Replace by bit-vectors.",
+	"eq2bv":                   "convert integer variables used as finite domain elements to bit-vectors.",
 	"elim-and":                "convert (and a b) into (not (or (not a) (not b))).",
 	"elim-small-bv":           "eliminate small, quantified bit-vectors by expansion.",
 	"elim-term-ite":           "eliminate term if-then-else by adding fresh auxiliary declarations.",

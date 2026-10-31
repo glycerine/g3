@@ -16,7 +16,7 @@ var builtinTacticNames = [...]string{
 	"reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr",
 	"occf", "split-clause", "symmetry-reduce", "der", "distribute-forall",
 	"nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv",
-	"fix-dl-var", "fm", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb",
+	"fix-dl-var", "eq2bv", "fm", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb",
 	"card2bv", "pb2bv", "qfbv", "qfaufbv", "qfufbv", "qfufbv_ackr",
 	"qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra",
 	"qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira",

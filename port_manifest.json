@@ -173099,11 +173099,23 @@
       "status": "partial",
       "go_targets": [
         "pkg/tactic/arith/eq2bv_collect.go",
-        "pkg/tactic/arith/unstarted_collectors_test.go"
+        "pkg/tactic/arith/eq2bv_prepare.go",
+        "pkg/tactic/arith/eq2bv_rewrite.go",
+        "pkg/tactic/arith/eq2bv_bounds.go",
+        "pkg/tactic/arith/eq2bv_apply.go",
+        "pkg/tactic/arith/eq2bv_tactic.go",
+        "pkg/tactic/eq2bv_model_converter.go",
+        "pkg/tactic/arith/eq2bv_apply_test.go",
+        "pkg/cmd/g3/eq2bv_integration_test.go"
       ],
       "tests": [
         "TestEq2BVCandidateBoundsMaximaAndDisqualification",
-        "TestArithmeticCandidateQuantifierAnnotations"
+        "TestEq2BVPrepareUsesBoundsAndOwnsFreshVariables",
+        "TestEq2BVRewriteNestedEqualities",
+        "TestEq2BVBoundConstraintsPreserveDirectionAndDependencies",
+        "TestEq2BVModelConverterRestoresIntegerAndCopiesBindings",
+        "TestEq2BVApplyRewritesGoalAndRestoresModel",
+        "TestSMTLibRunnerEq2BVTactic"
       ],
       "assertions": [
         {
@@ -173150,23 +173162,37 @@
             "TestEq2BVCandidateBoundsMaximaAndDisqualification",
             "TestArithmeticCandidateQuantifierAnnotations"
           ]
+        },
+        {
+          "name": "cleanup_fd, equality rewrite, bound conversion, model reconstruction and goal application",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/eq2bv_apply.go",
+          "tests": [
+            "TestEq2BVApplyRewritesGoalAndRestoresModel",
+            "TestSMTLibRunnerEq2BVTactic"
+          ]
         }
       ],
       "ownership": [
-        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
+        "Replacement plans own fresh AST references, converted bounds own formula references, and the model converter owns mapped declarations. Input roots and bound dependencies are borrowed from the goal and bound manager."
       ],
       "deviations": [
-        "Pending: bound-manager integration, cleanup_fd domain sizing, BV rewriting, bound dependencies, model converter, lifecycle and public tactic integration.",
-        "New source start only; not registered as an executable tactic and not claimed source-complete."
+        "The public tactic is registered and exercised through the QF_BV pipeline. Source debug assertions, failure/teardown fidelity, optimizer integration and full source audit remain incomplete."
       ]
     },
     {
       "path": "src/tactic/arith/eq2bv_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/arith/eq2bv_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerEq2BVTactic"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -173179,9 +173205,20 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "mk_eq2bv_tactic and registered eq2bv factory",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/eq2bv_tactic.go",
+          "tests": [
+            "TestSMTLibRunnerEq2BVTactic"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Registered factory exists; source and ownership audit remains in progress."
+      ]
     },
     {
       "path": "src/tactic/arith/factor_tactic.cpp",
