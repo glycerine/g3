@@ -20,6 +20,12 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{54, "Z3_mk_true", replayTrue}, {55, "Z3_mk_false", replayFalse}, {56, "Z3_mk_eq", replayEqual}, {58, "Z3_mk_not", replayNot},
 		{57, "Z3_mk_distinct", replayDistinct}, {59, "Z3_mk_ite", replayIte}, {60, "Z3_mk_iff", replayIff},
 		{61, "Z3_mk_implies", replayImplies}, {62, "Z3_mk_xor", replayXor}, {63, "Z3_mk_and", replayAnd}, {64, "Z3_mk_or", replayOr},
+		{65, "Z3_mk_add", replayAdd}, {66, "Z3_mk_mul", replayMul}, {67, "Z3_mk_sub", replaySub}, {68, "Z3_mk_unary_minus", replayNeg},
+		{69, "Z3_mk_div", replayDiv}, {70, "Z3_mk_mod", replayMod}, {71, "Z3_mk_rem", replayRem}, {72, "Z3_mk_power", replayPower},
+		{73, "Z3_mk_lt", replayLT}, {74, "Z3_mk_le", replayLE}, {75, "Z3_mk_gt", replayGT}, {76, "Z3_mk_ge", replayGE},
+		{77, "Z3_mk_int2real", replayIntToReal}, {78, "Z3_mk_real2int", replayRealToInt}, {79, "Z3_mk_is_int", replayIsInt},
+		{148, "Z3_mk_numeral", replayNumeral}, {149, "Z3_mk_real", replayReal}, {150, "Z3_mk_int", replayIntNumeral},
+		{151, "Z3_mk_unsigned_int", replayUIntNumeral}, {152, "Z3_mk_int64", replayInt64Numeral}, {153, "Z3_mk_unsigned_int64", replayUInt64Numeral},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
