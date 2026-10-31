@@ -4,6 +4,7 @@ package rel
 // and interval-relation instantiation.
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -149,9 +150,6 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	if len(p.available) == 0 && uint64(len(p.intervals)) >= math.MaxInt32 {
-		return ErrTableRelation
-	}
 	found, err := p.table.FetchFact(key)
 	if err != nil {
 		return err
@@ -167,12 +165,19 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 	if err = inner.AddFact(numbers); err != nil {
 		return err
 	}
+	return p.storeInner(key, inner)
+}
+
+func (p *FiniteIntervalProduct) storeInner(key Fact, inner *IntervalRelation) error {
+	if len(p.available) == 0 && uint64(len(p.intervals)) >= math.MaxInt32 {
+		return ErrTableRelation
+	}
 	index := len(p.intervals)
 	if len(p.available) != 0 {
 		index = p.available[len(p.available)-1]
 	}
 	key[len(key)-1] = Element(index)
-	if err = p.table.EnsureFact(key); err != nil {
+	if err := p.table.EnsureFact(key); err != nil {
 		return err
 	}
 	if index == len(p.intervals) {
@@ -265,6 +270,106 @@ func (p *FiniteIntervalProduct) FilterEqual(column uint32, value ast.ASTHandle) 
 		return nil
 	}
 	return ErrTableRelation
+}
+
+func (p *FiniteIntervalProduct) sameSpecification(other *FiniteIntervalProduct) bool {
+	if other == nil || p.manager != other.manager || len(p.sorts) != len(other.sorts) || len(p.tableColumns) != len(other.tableColumns) {
+		return false
+	}
+	for i := range p.sorts {
+		if p.sorts[i] != other.sorts[i] {
+			return false
+		}
+	}
+	for i := range p.tableColumns {
+		if p.tableColumns[i] != other.tableColumns[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// Union merges aligned table keys and unions their interval relations. Delta,
+// when supplied, accumulates the fresh interval deltas and source-only rows.
+func (p *FiniteIntervalProduct) Union(source, delta *FiniteIntervalProduct) (resultErr error) {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := source.open(); err != nil || !p.sameSpecification(source) {
+		return ErrTableRelation
+	}
+	if delta != nil {
+		if delta == p || delta == source || delta.open() != nil || !p.sameSpecification(delta) {
+			return ErrTableRelation
+		}
+		if _, err := delta.Empty(); err != nil {
+			return err
+		}
+	}
+	var fresh *FiniteIntervalProduct
+	if delta != nil {
+		mask := make([]bool, len(p.sorts))
+		for _, column := range p.tableColumns {
+			mask[column] = true
+		}
+		var err error
+		fresh, err = NewFiniteIntervalProduct(p.manager, p.sorts, mask)
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, fresh.Close()) }()
+	}
+	rows, err := source.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		sourceIndex := uint64(row[len(row)-1])
+		if sourceIndex >= uint64(len(source.intervals)) || source.intervals[sourceIndex] == nil {
+			return ErrTableRelation
+		}
+		src := source.intervals[sourceIndex]
+		key := cloneFact(row)
+		key[len(key)-1] = 0
+		found, err := p.table.FetchFact(key)
+		if err != nil {
+			return err
+		}
+		var merged, change *IntervalRelation
+		if found {
+			index := uint64(key[len(key)-1])
+			if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
+				return ErrTableRelation
+			}
+			merged = cloneIntervalRelation(p.intervals[index])
+			if fresh != nil {
+				change = NewIntervalEmpty(uint32(len(p.intervalColumns)))
+				_, err = merged.UnionWithDelta(src, change, false)
+			} else {
+				_, err = merged.Union(src, false)
+			}
+			if err != nil {
+				return err
+			}
+		} else {
+			merged = cloneIntervalRelation(src)
+			if fresh != nil {
+				change = cloneIntervalRelation(src)
+			}
+		}
+		if err = p.storeInner(key, merged); err != nil {
+			return err
+		}
+		if fresh != nil {
+			if err = fresh.storeInner(key, change); err != nil {
+				return err
+			}
+		}
+	}
+	if fresh != nil {
+		return delta.Union(fresh, nil)
+	}
+	return nil
 }
 
 // garbageCollect drops inner relations no longer referenced by the table and,

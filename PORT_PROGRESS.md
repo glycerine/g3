@@ -1,3 +1,5 @@
+Finite/interval aligned union (2026-10-31 UTC): implemented source overlapping-key interval union, source-only row copying and accumulation into an existing delta. Tests exercise both kinds of rows, pre-existing deltas, alias validation and self-union; layout conversion and other product operations remain pending.
+
 Finite/interval equality filtering (2026-10-31 UTC): implemented source table-column and inner-interval equality paths, collecting stale relations before inner mutation. Tests cover interleaved signature columns, incompatible values and removal of empty rows.
 
 Finite/interval product collection (2026-10-31 UTC): added removal of unreferenced and empty inner relations, source-style recycled index reuse, and collection on emptiness checks. Tests exercise repeated key replacement, slot reuse and removal of rows referencing empty inner relations.

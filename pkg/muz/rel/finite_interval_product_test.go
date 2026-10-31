@@ -150,3 +150,54 @@ func TestFiniteIntervalProductFilterEqual(t *testing.T) {
 		t.Fatal("invalid column accepted")
 	}
 }
+
+func TestFiniteIntervalProductUnionAndDelta(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	num := func(text string) ast.ASTHandle {
+		value, e := f.ast.ArithmeticIntegerNumeralText(text)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, value)
+		return value
+	}
+	one, two, three, five, nine := num("1"), num("2"), num("3"), num("5"), num("9")
+	create := func() *FiniteIntervalProduct {
+		p, e := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer}, nil)
+		astTestMust(t, e)
+		t.Cleanup(func() { astTestMust(t, p.Close()) })
+		return p
+	}
+	target, source, delta := create(), create(), create()
+	astTestMust(t, target.AddFact([]ast.ASTHandle{f.truth, one}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.truth, three}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.falsehood, five}))
+	astTestMust(t, delta.AddFact([]ast.ASTHandle{f.falsehood, nine}))
+	astTestMust(t, target.Union(source, delta))
+	for _, check := range []struct {
+		p    *FiniteIntervalProduct
+		fact []ast.ASTHandle
+		want bool
+	}{
+		{target, []ast.ASTHandle{f.truth, two}, true},
+		{target, []ast.ASTHandle{f.falsehood, five}, true},
+		{target, []ast.ASTHandle{f.falsehood, nine}, false},
+		{delta, []ast.ASTHandle{f.truth, two}, true},
+		{delta, []ast.ASTHandle{f.falsehood, five}, true},
+		{delta, []ast.ASTHandle{f.falsehood, nine}, true},
+	} {
+		got, err := check.p.ContainsFact(check.fact)
+		if err != nil || got != check.want {
+			t.Fatalf("union fact %v: got %v, err %v", check.fact, got, err)
+		}
+	}
+	if err := target.Union(source, target); err == nil {
+		t.Fatal("aliased delta accepted")
+	}
+	astTestMust(t, target.Union(target, nil))
+	if found, err := target.ContainsFact([]ast.ASTHandle{f.truth, two}); err != nil || !found {
+		t.Fatal("self union changed contents", found, err)
+	}
+}
