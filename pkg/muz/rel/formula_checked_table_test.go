@@ -218,3 +218,49 @@ func TestFormulaCheckedTableProjection(t *testing.T) {
 		t.Fatal("duplicate projected columns accepted")
 	}
 }
+
+func TestFormulaCheckedTableJoin(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	create := func() *FormulaCheckedTable {
+		table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean})
+		astTestMust(t, err)
+		r, err := NewFormulaCheckedTable(table, config)
+		astTestMust(t, err)
+		t.Cleanup(func() { astTestMust(t, r.Close()) })
+		return r
+	}
+	left, right := create(), create()
+	for _, value := range []ast.ASTHandle{f.falsehood, f.truth} {
+		_, err := left.AddFact([]ast.ASTHandle{value})
+		astTestMust(t, err)
+	}
+	_, err := right.AddFact([]ast.ASTHandle{f.falsehood})
+	astTestMust(t, err)
+	joined, err := left.Join(right, []int{0}, []int{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, joined.Close()) }()
+	if found, err := joined.ContainsFact([]ast.ASTHandle{f.falsehood, f.falsehood}); err != nil || !found {
+		t.Fatal("joined tuple", found, err)
+	}
+	if found, err := joined.ContainsFact([]ast.ASTHandle{f.truth, f.falsehood}); err != nil || found {
+		t.Fatal("join equality", found, err)
+	}
+	projected, err := joined.Project([]int{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	if found, err := projected.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || !found {
+		t.Fatal("join projection", found, err)
+	}
+	formula, err := left.joinFormula(right, []int{0}, []int{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.ast.DelRef(&formula)) }()
+	expected, err := f.ast.RefGet(formula)
+	astTestMust(t, err)
+	if err = joined.verifyGrounded(expected, f.falsehood, false); !errors.Is(err, ErrRelationVerification) {
+		t.Fatal("missed join counterexample", err)
+	}
+	if _, err = left.Join(right, []int{1}, []int{0}); err == nil {
+		t.Fatal("invalid join column accepted")
+	}
+}
