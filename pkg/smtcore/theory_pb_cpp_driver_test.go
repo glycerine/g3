@@ -77,11 +77,14 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, m.DelRef(&secondRewrite)); astTestMust(t, m.DelRef(&firstRewrite)) })
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)
-	var variables [3]ast.ASTHandle
+	var variables, negations [3]ast.ASTHandle
 	for i, name := range []string{"source-pb-b0", "source-pb-b1", "source-pb-b2"} {
 		variables[i], err = m.MkConst(astTestSymbol(t, m, name), boolean)
 		astTestMust(t, err)
 		astTestPin(t, m, variables[i])
+		negations[i], err = m.MkNot(variables[i])
+		astTestMust(t, err)
+		astTestPin(t, m, negations[i])
 	}
 	rng := z3rand.New(0)
 	addInequality := func() uint8 {
@@ -137,6 +140,7 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 			return allowed
 		}
 	}
+	verified := 0
 	var runRound func(*uint32, uint32, uint8)
 	runRound = func(previous *uint32, level uint32, allowed uint8) {
 		astTestMust(t, solver.Push())
@@ -153,6 +157,29 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 			if status != want {
 				t.Fatalf("level=%d round=%d mask=%08b: got %v want %v", level, rounds, allowed, status, want)
 			}
+			if verified < 12 {
+				for assignment := 0; assignment < 8; assignment++ {
+					astTestMust(t, solver.Push())
+					for i := range variables {
+						literal := negations[i]
+						if assignment&(1<<i) != 0 {
+							literal = variables[i]
+						}
+						astTestMust(t, solver.Assert(literal))
+					}
+					got, e := solver.CheckSat(nil)
+					astTestMust(t, e)
+					expected := lbool.False
+					if allowed&(1<<assignment) != 0 {
+						expected = lbool.True
+					}
+					if got != expected {
+						t.Fatalf("level=%d round=%d assignment=%03b mask=%08b: got %v want %v", level, rounds, assignment, allowed, got, expected)
+					}
+					astTestMust(t, solver.Pop(1))
+				}
+				verified++
+			}
 			rounds++
 			if status == lbool.False {
 				break
@@ -166,5 +193,8 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 	var rounds uint32
 	for i := 0; i < 100; i++ {
 		runRound(&rounds, 2, 0xff)
+	}
+	if verified != 12 {
+		t.Fatalf("checked %d nested scopes, want 12", verified)
 	}
 }

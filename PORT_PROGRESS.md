@@ -52344,3 +52344,5 @@ NLSAT projection profiling: the general four-inequality case spends substantial 
 Modular normalization profiling: the same absent-owner guard avoids context copies before choosing a live normalization receipt. In two 15-second projection profiles, samples in the normalization dispatcher fell from 0.82 seconds to 0.13 seconds; this is not an end-to-end runtime measurement. Focused polynomial context and NLSAT projection checks pass in normal and checked builds; the full four-inequality general projection still exceeded 75 seconds after the preceding optimization.
 
 Pseudo-Boolean source-driver correction: the nested fuzzer now asserts the twice-rewritten expression, as the source does, and checks its results against the independent Boolean truth table. The routine workload remains bounded to 100 of the source's 100,000 outer rounds.
+
+Pseudo-Boolean integration coverage: selected twelve nested solver scopes from the source-seeded fuzzer and checked all eight Boolean assignments in each against the independently calculated allowed mask. This verifies the full solution set in those scopes, beyond the source fuzzer's SAT/UNSAT check.
