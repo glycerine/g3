@@ -37,6 +37,24 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 			answer = ast.ASTRef{}
 		}
 	}()
+	ruleManager, err := rules.RuleManager()
+	if err != nil {
+		return lbool.Undef, answer, err
+	}
+	properties, err := base.NewRuleProperties(ruleManager)
+	if err != nil {
+		return lbool.Undef, answer, err
+	}
+	defer func() { err = errors.Join(err, properties.Close()) }()
+	if err = properties.Collect(rules); err != nil {
+		return lbool.Undef, answer, err
+	}
+	if err = properties.CheckExistentialTail(); err != nil {
+		return lbool.Undef, answer, err
+	}
+	if err = properties.CheckNegativePredicates(); err != nil {
+		return lbool.Undef, answer, err
+	}
 	index, err := NewRuleIndex(rules, rw)
 	if err != nil {
 		return lbool.Undef, answer, err

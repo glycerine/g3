@@ -104,4 +104,12 @@ func TestQueryPredicateBuildsProofAndUnreachableAnswer(t *testing.T) {
 		}
 		must(m.DelRef(&answer))
 	}
+	negative, err := rm.NewRule(app(p, one), []ast.ASTHandle{app(q, one)}, []bool{true}, "negative")
+	must(err)
+	must(rules.Add(negative))
+	must(negative.Close())
+	_, answer, err := tab.QueryPredicate(rules, app(p, one), rw, lite, querySolver, subSolver, "first")
+	if err == nil || answer != (ast.ASTRef{}) {
+		t.Fatal("tabulation accepted a negated predicate", err)
+	}
 }
