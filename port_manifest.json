@@ -89273,14 +89273,18 @@
         "pkg/muz/rel/bound_relation_test.go",
         "pkg/muz/rel/interval_relation.go",
         "pkg/muz/rel/bound_relation_filter.go",
-        "pkg/muz/rel/bound_relation_filter_test.go"
+        "pkg/muz/rel/bound_relation_filter_test.go",
+        "pkg/muz/rel/bound_relation_union.go",
+        "pkg/muz/rel/bound_relation_union_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
         "TestBoundRelationUnionInterval",
         "TestBoundRelationInterpretedVariableComparisons",
         "TestBoundRelationInterpretedPositiveOffsetEquality",
-        "TestBoundRelationInterpretedEqualityClasses"
+        "TestBoundRelationInterpretedEqualityClasses",
+        "TestBoundRelationUnionAndWiden",
+        "TestBoundRelationUnionSplitsEqualities"
       ],
       "assertions": [
         {
@@ -89367,6 +89371,15 @@
           "tests": [
             "TestBoundRelationInterpretedEqualityClasses"
           ]
+        },
+        {
+          "name": "bound-vector union, widening and equality remapping",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_union.go",
+          "tests": [
+            "TestBoundRelationUnionAndWiden",
+            "TestBoundRelationUnionSplitsEqualities"
+          ]
         }
       ],
       "ownership": [
@@ -89386,14 +89399,18 @@
         "pkg/muz/rel/bound_relation_test.go",
         "pkg/muz/rel/interval_relation.go",
         "pkg/muz/rel/bound_relation_filter.go",
-        "pkg/muz/rel/bound_relation_filter_test.go"
+        "pkg/muz/rel/bound_relation_filter_test.go",
+        "pkg/muz/rel/bound_relation_union.go",
+        "pkg/muz/rel/bound_relation_union_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
         "TestBoundRelationUnionInterval",
         "TestBoundRelationInterpretedVariableComparisons",
         "TestBoundRelationInterpretedPositiveOffsetEquality",
-        "TestBoundRelationInterpretedEqualityClasses"
+        "TestBoundRelationInterpretedEqualityClasses",
+        "TestBoundRelationUnionAndWiden",
+        "TestBoundRelationUnionSplitsEqualities"
       ],
       "conditionals": [
         {
@@ -89447,6 +89464,15 @@
           "go_target": "pkg/muz/rel/bound_relation_filter.go",
           "tests": [
             "TestBoundRelationInterpretedEqualityClasses"
+          ]
+        },
+        {
+          "name": "bound-vector union, widening and equality remapping",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_union.go",
+          "tests": [
+            "TestBoundRelationUnionAndWiden",
+            "TestBoundRelationUnionSplitsEqualities"
           ]
         }
       ],
@@ -92624,7 +92650,9 @@
         "pkg/muz/rel/interval_relation_test.go",
         "pkg/muz/rel/bound_relation.go",
         "pkg/muz/rel/bound_relation_filter.go",
-        "pkg/muz/rel/bound_relation_filter_test.go"
+        "pkg/muz/rel/bound_relation_filter_test.go",
+        "pkg/muz/rel/bound_relation_union.go",
+        "pkg/muz/rel/bound_relation_union_test.go"
       ],
       "tests": [
         "TestIntervalVectorColumnEquivalences",
@@ -92634,7 +92662,9 @@
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalVectorRenameEquivalences",
-        "TestBoundRelationInterpretedEqualityClasses"
+        "TestBoundRelationInterpretedEqualityClasses",
+        "TestBoundRelationUnionAndWiden",
+        "TestBoundRelationUnionSplitsEqualities"
       ],
       "conditionals": [
         {
@@ -92710,6 +92740,15 @@
           "go_target": "pkg/muz/rel/bound_relation_filter.go",
           "tests": [
             "TestBoundRelationInterpretedEqualityClasses"
+          ]
+        },
+        {
+          "name": "bound-vector union, widening and equality remapping",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_union.go",
+          "tests": [
+            "TestBoundRelationUnionAndWiden",
+            "TestBoundRelationUnionSplitsEqualities"
           ]
         }
       ],

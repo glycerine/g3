@@ -1,3 +1,7 @@
+Full native snapshot check (2026-10-31 UTC): suite on isolated commit dad552884 failed in two API tests that still expected the previous SMT-LIB objective output. All other package results passed; corrective commit d2bc4bfab updated those expectations to the native frontend format, and the complete API package and checked OPB/WCNF API tests passed afterward. This is not a passing full-suite checkpoint for the newer commits. Log: /tmp/g3-full-native-dad552884.log.
+
+Bound relation union (2026-10-31 UTC): added concrete source union and widening over bound sets, including joint equality classes and bound remapping. Tests cover stable bounds, empty relations and split equivalence classes; the remaining vector operations and live registration remain pending.
+
 Bound relation equality classes (2026-10-31 UTC): added the concrete vector intersection and union-by-size equivalence operation, connected variable-equality filters, and tested propagation and empty reset across merged columns. Remaining vector operations, filters and live relation registration are pending.
 
 Bound relation interpreted filters (2026-10-31 UTC): added source comparisons between column variables, negated forms, false-filter reset and positive-offset equality recognition. Equality classes, remaining filters and live relation registration remain pending.
