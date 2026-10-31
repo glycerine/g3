@@ -41,12 +41,12 @@ func TestExprQEBoolBranchPropagatesThenSubstitutes(t *testing.T) {
 	fmMust(t, root.initialize(formula))
 	fmMust(t, variables.consume(root))
 	fmMust(t, root.selectVariable(p, big.NewRat(2, 1)))
-	child, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(1, 1), f.r.config, rw, nnf, true)
+	child, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(1, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {
 		t.Fatal("new branch was not left for propagation")
 	}
-	child2, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(1, 1), f.r.config, rw, nnf, true)
+	child2, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(1, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if child2 != child || status != exprQEChooseVariable {
 		t.Fatal("existing branch not initialized")
@@ -104,12 +104,12 @@ func TestExprQEBVBranchPropagatesThenSubstitutes(t *testing.T) {
 	fmMust(t, root.initialize(formula))
 	fmMust(t, variables.consume(root))
 	fmMust(t, root.selectVariable(x, big.NewRat(4, 1)))
-	child, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(2, 1), f.r.config, rw, nnf, true)
+	child, status, err := stepExprQEScalarBranch(root, variables, plugin, big.NewRat(2, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {
 		t.Fatal("missing propagation step")
 	}
-	child, status, err = stepExprQEScalarBranch(root, variables, plugin, big.NewRat(2, 1), f.r.config, rw, nnf, true)
+	child, status, err = stepExprQEScalarBranch(root, variables, plugin, big.NewRat(2, 1), f.r.config, rw, nnf, nil, true)
 	fmMust(t, err)
 	if status != exprQEChooseVariable {
 		t.Fatal("missing substitution step")
