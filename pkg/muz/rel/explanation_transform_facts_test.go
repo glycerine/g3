@@ -88,3 +88,68 @@ func TestExplanationTransformerTransfersFiniteFacts(t *testing.T) {
 		t.Fatal("transformer left fact product live")
 	}
 }
+
+func TestExplanationTransformerTransfersRelationFacts(t *testing.T) {
+	f := newTableRelationFixture(t)
+	rm, err := base.NewRuleManager(f.ast)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rm.Close()) }()
+	set, err := base.NewRuleSet(rm)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, set.Close()) }()
+	makeDecl := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		sym, e := f.ast.Symbols.Intern(name)
+		astTestMust(t, e)
+		d, e := f.ast.MkFuncDecl(sym, domain, f.boolean, ast.ASTFuncDeclInfo{})
+		astTestMust(t, e)
+		astTestMust(t, rm.RegisterPredicate(d))
+		return d
+	}
+	ext := makeDecl("relation-explanation-extensional", []ast.ASTHandle{f.boolean})
+	dummy := makeDecl("relation-explanation-head", nil)
+	table, err := f.relations.GetRelation(ext)
+	astTestMust(t, err)
+	_, err = table.Add(Fact{1})
+	astTestMust(t, err)
+	_, err = table.Add(Fact{0})
+	astTestMust(t, err)
+	head, err := f.ast.MkApp(dummy, nil)
+	astTestMust(t, err)
+	rule, err := rm.NewRule(head, nil, nil, "dummy")
+	astTestMust(t, err)
+	astTestMust(t, set.Add(rule))
+	astTestMust(t, rule.Close())
+	astTestMust(t, set.SetOutputPredicate(ext))
+	transformer, err := NewExplanationTransformer(f.ast, rm)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, transformer.Close()) }()
+	target, err := transformer.TransformRulesOnly(set)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, transformer.TransferRelationFacts(set, target, f.relations, []ast.ASTHandle{ext, dummy}))
+	product, found, err := transformer.RelationProduct(ext)
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("missing relation-level product")
+	}
+	a, found, err := product.Explanation([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("first tuple missing")
+	}
+	b, found, err := product.Explanation([]ast.ASTHandle{f.falsehood})
+	astTestMust(t, err)
+	if !found || a != b {
+		t.Fatal("relation-level explanation differs", a, b, found)
+	}
+	astTestMust(t, table.Reset())
+	_, found, err = product.Explanation([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("product did not copy original facts")
+	}
+	astTestMust(t, transformer.Close())
+	if _, _, err = product.Explanation([]ast.ASTHandle{f.truth}); err == nil {
+		t.Fatal("closed relation product remains live")
+	}
+}

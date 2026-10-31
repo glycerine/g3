@@ -91947,8 +91947,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/finite_explanation_product.go", "pkg/muz/rel/finite_explanation_product_test.go", "pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/explanation_transform_facts.go", "pkg/muz/rel/explanation_transform_facts_test.go", "pkg/muz/rel/explanation_transform_rules.go", "pkg/muz/rel/explanation_transform_test.go", "pkg/muz/rel/explanation_relation_display.go", "pkg/muz/rel/explanation_relation_display_test.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
-      "tests": ["TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductZeroFiniteColumns", "TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter", "TestExplanationRelationFormulaDisplayAndForeignUnion", "TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay", "TestExplanationTransformerRuleSetAndOutputBridge", "TestExplanationTransformerTransfersFiniteFacts"],
+      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/finite_explanation_product.go", "pkg/muz/rel/finite_explanation_product_test.go", "pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/relation_explanation_product.go", "pkg/muz/rel/explanation_transform_facts.go", "pkg/muz/rel/explanation_transform_facts_test.go", "pkg/muz/rel/explanation_transform_rules.go", "pkg/muz/rel/explanation_transform_test.go", "pkg/muz/rel/explanation_relation_display.go", "pkg/muz/rel/explanation_relation_display_test.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
+      "tests": ["TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductZeroFiniteColumns", "TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter", "TestExplanationRelationFormulaDisplayAndForeignUnion", "TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay", "TestExplanationTransformerRuleSetAndOutputBridge", "TestExplanationTransformerTransfersFiniteFacts", "TestExplanationTransformerTransfersRelationFacts"],
       "assertions": [
         {
           "line": 145,
@@ -92059,15 +92059,15 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Join, projection, rename and fact/relation-level union are ported; assignment, intersection and negation filters are ported. Formula/display and foreign union are ported. Explanation predicates and individual rule translation are ported; rule-set transformation and output bridges are ported for rule-defined predicates. Fact-level finite fact transfer is ported; relation-level transfer, product registration and Datalog integration remain unfinished."]
+      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Join, projection, rename and fact/relation-level union are ported; assignment, intersection and negation filters are ported. Formula/display and foreign union are ported. Explanation predicates and individual rule translation are ported; rule-set transformation and output bridges are ported for rule-defined predicates. Fact-level and relation-level finite fact transfer are ported; product registration and Datalog integration remain unfinished."]
     },
     {
       "path": "src/muz/rel/dl_mk_explanations.h",
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/explanation_transform_facts.go", "pkg/muz/rel/explanation_transform_facts_test.go", "pkg/muz/rel/explanation_transform_rules.go", "pkg/muz/rel/explanation_transform_test.go"],
-      "tests": ["TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay", "TestExplanationTransformerRuleSetAndOutputBridge", "TestExplanationTransformerTransfersFiniteFacts"],
+      "go_targets": ["pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/relation_explanation_product.go", "pkg/muz/rel/explanation_transform_facts.go", "pkg/muz/rel/explanation_transform_facts_test.go", "pkg/muz/rel/explanation_transform_rules.go", "pkg/muz/rel/explanation_transform_test.go"],
+      "tests": ["TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay", "TestExplanationTransformerRuleSetAndOutputBridge", "TestExplanationTransformerTransfersFiniteFacts", "TestExplanationTransformerTransfersRelationFacts"],
       "conditionals": [
         {
           "line": 20,
@@ -92082,7 +92082,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["Explanation predicate declarations and individual rule translation are started; rule-set transformation and output bridges are ported for rule-defined predicates. Fact-level finite fact transfer is ported; relation-level transfer, product registration and Datalog integration remain unfinished."]
+      "deviations": ["Explanation predicate declarations and individual rule translation are started; rule-set transformation and output bridges are ported for rule-defined predicates. Fact-level and relation-level finite fact transfer are ported; product registration and Datalog integration remain unfinished."]
     },
     {
       "path": "src/muz/rel/dl_mk_similarity_compressor.cpp",

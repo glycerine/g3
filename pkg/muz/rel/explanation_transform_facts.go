@@ -1,6 +1,6 @@
 package rel
 
-// Source: src/muz/rel/dl_mk_explanations.cpp, fact-level transform_facts.
+// Source: src/muz/rel/dl_mk_explanations.cpp, transform_facts.
 
 import (
 	"errors"
@@ -11,9 +11,19 @@ import (
 
 // TransferFiniteFacts adds the source fact explanation to each existing
 // finite tuple and inherits predicates with facts or rules into target. The
-// transformer owns the resulting products until Close. Relation-level
-// explanations and product registration are separate port steps.
-func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) (resultErr error) {
+// transformer owns the resulting products until Close. Product registration
+// remains a separate port step.
+func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
+	return t.transferFacts(source, target, relations, predicates, false)
+}
+
+// TransferRelationFacts attaches the source fact explanation to the whole
+// finite relation rather than to individual tuples.
+func (t *ExplanationTransformer) TransferRelationFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle) error {
+	return t.transferFacts(source, target, relations, predicates, true)
+}
+
+func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, relations *RelationManager, predicates []ast.ASTHandle, relationLevel bool) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
 	}
@@ -68,6 +78,9 @@ func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSe
 		if _, exists := t.factProducts[original]; exists {
 			return ast.ErrASTDomain
 		}
+		if _, exists := t.relationProducts[original]; exists {
+			return ast.ErrASTDomain
+		}
 		derived, err := target.DerivedPredicate(original)
 		if err != nil {
 			return err
@@ -80,6 +93,14 @@ func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSe
 		sorts, _, err := relations.PredicateSignature(original)
 		if err != nil {
 			return err
+		}
+		if relationLevel {
+			product, err := newRelationExplanationProduct(relations, sorts, table, fact)
+			if err != nil {
+				return err
+			}
+			t.relationProducts[original] = product
+			continue
 		}
 		product, err := NewFiniteExplanationProduct(relations, sorts)
 		if err != nil {
@@ -100,6 +121,16 @@ func (t *ExplanationTransformer) TransferFiniteFacts(source, target *base.RuleSe
 		t.factProducts[original] = product
 	}
 	return nil
+}
+
+// RelationProduct returns a transformer-owned whole-relation explanation
+// product created by TransferRelationFacts.
+func (t *ExplanationTransformer) RelationProduct(original ast.ASTHandle) (*RelationExplanationProduct, bool, error) {
+	if err := t.open(); err != nil {
+		return nil, false, err
+	}
+	product, found := t.relationProducts[original]
+	return product, found, nil
 }
 
 // FactProduct returns the transformer-owned finite/explanation product for an

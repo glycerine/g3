@@ -16,12 +16,13 @@ import (
 // ExplanationTransformer owns fresh explanation declarations and borrows the
 // rule manager. The relation-level plugin assignment is not yet connected.
 type ExplanationTransformer struct {
-	manager      *ast.ASTManager
-	rules        *base.RuleManager
-	ruleSort     ast.ASTRef
-	declarations map[ast.ASTHandle]ast.ASTRef
-	factProducts map[ast.ASTHandle]*FiniteExplanationProduct
-	closed       bool
+	manager          *ast.ASTManager
+	rules            *base.RuleManager
+	ruleSort         ast.ASTRef
+	declarations     map[ast.ASTHandle]ast.ASTRef
+	factProducts     map[ast.ASTHandle]*FiniteExplanationProduct
+	relationProducts map[ast.ASTHandle]*RelationExplanationProduct
+	closed           bool
 }
 
 func NewExplanationTransformer(manager *ast.ASTManager, rules *base.RuleManager) (_ *ExplanationTransformer, resultErr error) {
@@ -36,7 +37,7 @@ func NewExplanationTransformer(manager *ast.ASTManager, rules *base.RuleManager)
 	if err != nil {
 		return nil, err
 	}
-	return &ExplanationTransformer{manager: manager, rules: rules, ruleSort: ref, declarations: make(map[ast.ASTHandle]ast.ASTRef), factProducts: make(map[ast.ASTHandle]*FiniteExplanationProduct)}, nil
+	return &ExplanationTransformer{manager: manager, rules: rules, ruleSort: ref, declarations: make(map[ast.ASTHandle]ast.ASTRef), factProducts: make(map[ast.ASTHandle]*FiniteExplanationProduct), relationProducts: make(map[ast.ASTHandle]*RelationExplanationProduct)}, nil
 }
 
 func (t *ExplanationTransformer) open() error {
@@ -266,6 +267,13 @@ func (t *ExplanationTransformer) Close() (result error) {
 	if t == nil || t.closed {
 		return nil
 	}
+	for key, product := range t.relationProducts {
+		if err := product.Close(); err != nil {
+			result = errors.Join(result, err)
+		} else {
+			delete(t.relationProducts, key)
+		}
+	}
 	for key, product := range t.factProducts {
 		if err := product.Close(); err != nil {
 			result = errors.Join(result, err)
@@ -284,7 +292,7 @@ func (t *ExplanationTransformer) Close() (result error) {
 		result = errors.Join(result, t.manager.DelRef(&t.ruleSort))
 	}
 	if result == nil {
-		t.manager, t.rules, t.declarations, t.factProducts, t.closed = nil, nil, nil, nil, true
+		t.manager, t.rules, t.declarations, t.factProducts, t.relationProducts, t.closed = nil, nil, nil, nil, nil, true
 	}
 	return result
 }
