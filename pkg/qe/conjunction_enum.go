@@ -144,6 +144,12 @@ func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
 		result = nil
 	}()
 	seen := make(map[ast.ASTHandle]bool)
+	var trail []ast.ASTRef
+	defer func() {
+		for i := len(trail) - 1; i >= 0; i-- {
+			err = errors.Join(err, c.manager.DelRef(&trail[i]))
+		}
+	}()
 	for i := range c.items {
 		expression, cause := c.manager.RefGet(c.items[i])
 		if cause != nil {
@@ -179,6 +185,11 @@ func (c *ConjunctionEnum) ExtractEqualities() (result []ast.ASTRef, err error) {
 			}
 			result = append(result, ref)
 		} else {
+			ref, cause := c.manager.NewRef(difference)
+			if cause != nil {
+				return nil, cause
+			}
+			trail = append(trail, ref)
 			seen[difference] = true
 		}
 	}
