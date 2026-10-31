@@ -9,7 +9,7 @@ import "github.com/glycerine/g3/pkg/arena"
 var builtinTacticNames = [...]string{
 	"qe-light", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec",
 	"smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving",
-	"simplify", "ctx-simplify", "add-bounds", "elim-and", "elim-term-ite",
+	"simplify", "ctx-simplify", "collect-statistics", "add-bounds", "elim-and", "elim-term-ite",
 	"tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values",
 	"propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast",
 	"elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size",

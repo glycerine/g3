@@ -178011,9 +178011,30 @@
       "path": "src/tactic/core/collect_statistics_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/collect_statistics_tactic.go",
+        "pkg/tactic/core/collect_statistics_traversal.go",
+        "pkg/tactic/core/collect_statistics_names.go",
+        "pkg/tactic/core/collect_statistics_output.go",
+        "pkg/tactic/core/collect_statistics_counts_test.go",
+        "pkg/tactic/core/collect_statistics_quantifier_test.go",
+        "pkg/tactic/core/collect_statistics_output_test.go",
+        "pkg/tactic/core/collect_statistics_lifecycle_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/cmd_context/collect_statistics_tactic_test.go",
+        "pkg/cmd/g3/collect_statistics_test.go"
+      ],
+      "tests": [
+        "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
+        "TestCollectStatisticsQuantifierVariablesPatternsAndDepth",
+        "TestCollectStatisticsOutputIsSourceMapOrdered",
+        "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
+        "TestCollectStatisticsBuiltinTactic",
+        "TestSMTLibRunnerCollectStatistics"
+      ],
       "assertions": [
         {
           "line": 115,
@@ -178022,17 +178043,68 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "tactic construction, traversal, output and lifecycle",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/collect_statistics_tactic.go",
+          "tests": [
+            "TestCollectStatisticsAccumulatesAcrossApplyAndReset"
+          ]
+        },
+        {
+          "name": "collect_proc expression and declaration statistics",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/collect_statistics_traversal.go",
+          "tests": [
+            "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
+            "TestCollectStatisticsQuantifierVariablesPatternsAndDepth"
+          ]
+        },
+        {
+          "name": "registered builtin factory",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/tactic_commands.go",
+          "tests": [
+            "TestCollectStatisticsBuiltinTactic"
+          ]
+        }
+      ],
+      "ownership": [
+        "The tactic owns accumulated counters and borrows the AST manager and selected output writer."
+      ],
+      "deviations": [
+        "Pending full source-method and ownership audit, including the parameter update and translation state; command registration and SMT-LIB invocation are integrated."
+      ]
     },
     {
       "path": "src/tactic/core/collect_statistics_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/core/collect_statistics_tactic.go",
+        "pkg/tactic/core/collect_statistics_traversal.go",
+        "pkg/tactic/core/collect_statistics_names.go",
+        "pkg/tactic/core/collect_statistics_output.go",
+        "pkg/tactic/core/collect_statistics_counts_test.go",
+        "pkg/tactic/core/collect_statistics_quantifier_test.go",
+        "pkg/tactic/core/collect_statistics_output_test.go",
+        "pkg/tactic/core/collect_statistics_lifecycle_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/cmd_context/collect_statistics_tactic_test.go",
+        "pkg/cmd/g3/collect_statistics_test.go"
+      ],
+      "tests": [
+        "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
+        "TestCollectStatisticsQuantifierVariablesPatternsAndDepth",
+        "TestCollectStatisticsOutputIsSourceMapOrdered",
+        "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
+        "TestCollectStatisticsBuiltinTactic",
+        "TestSMTLibRunnerCollectStatistics"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -178045,9 +178117,39 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "tactic construction, traversal, output and lifecycle",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/collect_statistics_tactic.go",
+          "tests": [
+            "TestCollectStatisticsAccumulatesAcrossApplyAndReset"
+          ]
+        },
+        {
+          "name": "collect_proc expression and declaration statistics",
+          "status": "partial",
+          "go_target": "pkg/tactic/core/collect_statistics_traversal.go",
+          "tests": [
+            "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
+            "TestCollectStatisticsQuantifierVariablesPatternsAndDepth"
+          ]
+        },
+        {
+          "name": "registered builtin factory",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/tactic_commands.go",
+          "tests": [
+            "TestCollectStatisticsBuiltinTactic"
+          ]
+        }
+      ],
+      "ownership": [
+        "The tactic owns accumulated counters and borrows the AST manager and selected output writer."
+      ],
+      "deviations": [
+        "Pending full source-method and ownership audit, including the parameter update and translation state; command registration and SMT-LIB invocation are integrated."
+      ]
     },
     {
       "path": "src/tactic/core/ctx_simplify_tactic.cpp",

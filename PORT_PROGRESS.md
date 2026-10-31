@@ -1,3 +1,5 @@
+Statistics tactic integration (2026-10-31 UTC): connected the existing collect-statistics traversal and output implementation to the builtin registry and SMT-LIB command path. Its C++ source and header now have partial port evidence; parameter and ownership audits remain pending.
+
 Interval vector operations (2026-10-31 UTC): added interval join, projection, union and widening, then exposed a concrete relation API for facts, filters and these operations. The public projection preserves empty relations; rename, delta, remaining vector operations and relation-manager integration are still pending.
 
 Vector relation source start (2026-10-31 UTC): began the concrete interval instantiation with column equivalences, union-by-size root selection, intersections and empty-state reset. Join, project, union, remaining live instantiations and relation plugin integration are pending.
