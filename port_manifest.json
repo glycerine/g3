@@ -89208,12 +89208,14 @@
         "pkg/muz/rel/formula_checked_table_test.go",
         "pkg/muz/rel/table_relation.go",
         "pkg/muz/rel/formula_checked_table_filter.go",
-        "pkg/muz/rel/formula_checked_table_union.go"
+        "pkg/muz/rel/formula_checked_table_union.go",
+        "pkg/muz/rel/formula_checked_table_transform.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
-        "TestFormulaCheckedTableUnionAndDelta"
+        "TestFormulaCheckedTableUnionAndDelta",
+        "TestFormulaCheckedTableRename"
       ],
       "assertions": [
         {
@@ -89263,13 +89265,21 @@
           "tests": [
             "TestFormulaCheckedTableUnionAndDelta"
           ]
+        },
+        {
+          "name": "SMT-verified column renaming",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
+          "tests": [
+            "TestFormulaCheckedTableRename"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, projection, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
@@ -89282,12 +89292,14 @@
         "pkg/muz/rel/formula_checked_table_test.go",
         "pkg/muz/rel/table_relation.go",
         "pkg/muz/rel/formula_checked_table_filter.go",
-        "pkg/muz/rel/formula_checked_table_union.go"
+        "pkg/muz/rel/formula_checked_table_union.go",
+        "pkg/muz/rel/formula_checked_table_transform.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
-        "TestFormulaCheckedTableUnionAndDelta"
+        "TestFormulaCheckedTableUnionAndDelta",
+        "TestFormulaCheckedTableRename"
       ],
       "conditionals": [
         {
@@ -89333,13 +89345,21 @@
           "tests": [
             "TestFormulaCheckedTableUnionAndDelta"
           ]
+        },
+        {
+          "name": "SMT-verified column renaming",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
+          "tests": [
+            "TestFormulaCheckedTableRename"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, projection, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {

@@ -149,3 +149,27 @@ func TestFormulaCheckedTableUnionAndDelta(t *testing.T) {
 		t.Fatal("missed incomplete delta", err)
 	}
 }
+
+func TestFormulaCheckedTableRename(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean, f.boolean, f.boolean})
+	astTestMust(t, err)
+	r, err := NewFormulaCheckedTable(table, config)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, r.Close()) }()
+	_, err = r.AddFact([]ast.ASTHandle{f.truth, f.falsehood, f.falsehood})
+	astTestMust(t, err)
+	renamed, err := r.RenameCycle([]int{0, 1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, renamed.Close()) }()
+	if found, err := renamed.ContainsFact([]ast.ASTHandle{f.falsehood, f.falsehood, f.truth}); err != nil || !found {
+		t.Fatal("renamed fact", found, err)
+	}
+	if found, err := r.ContainsFact([]ast.ASTHandle{f.truth, f.falsehood, f.falsehood}); err != nil || !found {
+		t.Fatal("rename changed source", found, err)
+	}
+	if _, err = r.RenameCycle([]int{0, 0}); err == nil {
+		t.Fatal("duplicate cycle accepted")
+	}
+}
