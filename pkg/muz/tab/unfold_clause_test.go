@@ -3,8 +3,6 @@ package tab
 import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
-	"github.com/glycerine/g3/pkg/cmd_context"
-	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"testing"
@@ -17,7 +15,7 @@ func TestUnfoldClauseExpressionsUnifiesBanksAndOrdersPredicates(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ctx, err := cmd_context.NewStandaloneContext()
+	ctx, err := newTabTestContext()
 	must(err)
 	defer func() { must(ctx.Close()) }()
 	m, err := ctx.Manager()

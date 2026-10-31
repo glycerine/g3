@@ -22,6 +22,14 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 		return lbool.Undef, err
 	}
 	defer func() {
+		if e.backend == "tab" && resultErr == nil {
+			if err := e.clearTabAnswer(); err != nil {
+				resultErr = errors.Join(resultErr, err)
+			} else {
+				e.tabAnswer = clone.tabAnswer
+				clone.tabAnswer = ast.ASTRef{}
+			}
+		}
 		if e.backend == "bmc" && resultErr == nil {
 			if err := e.clearBMCTrace(); err != nil {
 				resultErr = errors.Join(resultErr, err)

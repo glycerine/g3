@@ -46,12 +46,12 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		if err == nil {
 			err = properties.CheckInfiniteSorts()
 		}
-	case EnginePDR, EngineSpacer, EngineCLP:
+	case EnginePDR, EngineSpacer, EngineCLP, EngineTab:
 		err = properties.CheckExistentialTail()
 		if err == nil {
 			err = properties.CheckNegativePredicates()
 		}
-		if err == nil && kind != EngineCLP {
+		if err == nil && kind != EngineCLP && kind != EngineTab {
 			err = properties.CheckUninterpretedFree()
 		}
 	case EngineBMC:

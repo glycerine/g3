@@ -97,6 +97,7 @@ type PropositionalEngine struct {
 	bmcStatistics      statistics.Statistics
 	bmcTrace           []*base.Rule
 	bmcProof           ast.ASTRef
+	tabAnswer          ast.ASTRef
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
 	assertions         []ast.ASTRef
@@ -1613,6 +1614,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		}
 		return e.queryBMCPredicate(declaration)
 	}
+	if e.backend == "tab" {
+		e.compiled = false
+		return e.queryTabPredicate(declaration)
+	}
 	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
 }
 
@@ -1797,6 +1802,12 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 			return answer, err
 		}
 		return e.manager.NewRef(proof)
+	}
+	if kind == EngineTab {
+		if e.tabAnswer == (ast.ASTRef{}) {
+			return answer, ErrPropositionalEngine
+		}
+		return e.manager.CopyRef(e.tabAnswer)
 	}
 	if e.backend == "pdr" {
 		status, err := e.pdr.LastResult()
@@ -2078,6 +2089,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.queryParamsReady = false
 	}
 	result = errors.Join(result, e.clearBMCTrace())
+	result = errors.Join(result, e.clearTabAnswer())
 	if e.pdr != nil {
 		result = errors.Join(result, e.pdr.Close())
 		e.pdr = nil
