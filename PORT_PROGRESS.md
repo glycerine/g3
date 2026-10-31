@@ -1,3 +1,5 @@
+Inventory evidence repair, fifth batch (2026-10-31 UTC): added verified cross-package test-file links to ten tabulation and rule-transform entries. The validator now reaches a later transform entry; evidence review remains incomplete.
+
 Inventory target-path repair (2026-10-31 UTC): split the remaining semicolon-combined method targets into individual verified files. The validator now reaches a separate tabulation cross-package test link; evidence review remains in progress.
 
 Inventory evidence repair, fourth batch (2026-10-31 UTC): refreshed ten Spacer entries, corrected stale hash-table test names, and split invalid combined target paths. The validator now reaches another combined Spacer target path; the broader evidence audit remains incomplete.

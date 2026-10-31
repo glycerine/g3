@@ -99897,6 +99897,10 @@
             "TestTabSearchUnfoldsRulesAndBacktracks",
             "TestTabEngineQueryProofAndSnapshots",
             "TestSMTLibRunnerTabulationArithmeticRules"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/tab_engine_test.go",
+            "pkg/cmd/g3/tab_integration_test.go"
           ]
         }
       ],
@@ -99913,7 +99917,8 @@
       "go_targets": [
         "pkg/muz/tab/query.go",
         "pkg/muz/fp/tab_engine.go",
-        "pkg/muz/fp/register_engine.go"
+        "pkg/muz/fp/register_engine.go",
+        "pkg/cmd/g3/tab_integration_test.go"
       ],
       "tests": [
         "TestTabEngineQueryProofAndSnapshots",
@@ -99939,6 +99944,9 @@
           "tests": [
             "TestTabEngineQueryProofAndSnapshots",
             "TestSMTLibRunnerTabulationQueries"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/tab_integration_test.go"
           ]
         }
       ],
@@ -99976,7 +99984,8 @@
         "pkg/muz/transforms/array_blast_test.go",
         "pkg/muz/transforms/array_blast_coverage_test.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_array_blast.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_array_blast.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestArrayBlastEliminatesStoreDefinitionAndSelectPairs",
@@ -100003,6 +100012,9 @@
             "TestArrayBlastAckermannizesEverySelectIndex",
             "TestArrayBlastTransfersRuleRewriteProof",
             "TestSMTLibRunnerCPPReference/fp_spacer_array_blast.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -100072,7 +100084,8 @@
         "pkg/muz/transforms/array_eq_rewrite_test.go",
         "pkg/muz/transforms/array_eq_rewrite_coverage_test.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_array_eq_rewrite.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_array_eq_rewrite.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestArrayEqRewriteSelectsNonVariableRepresentativeAndExpandsSelectStore",
@@ -100082,7 +100095,7 @@
         "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
         "TestArrayEqRewritePluginCloseAndClosedTransform",
         "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
-            "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities",
+        "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference"
       ],
@@ -100100,13 +100113,18 @@
             "TestArrayEqRewriteMergesTransitiveClassesAndKeepsOtherEqualities",
             "TestArrayEqRewriteHandlesReflexiveArrayEqualityOnce",
             "TestArrayEqRewritePluginCloseAndClosedTransform",
-        "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
-        "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities",
+            "TestArrayEqRewriteExpandsSelectStoreInsidePredicateTail",
+            "TestArrayEqRewriteRebuildsRulesWithoutArrayEqualities",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
-      "ownership": ["The transform borrows its manager and rule manager, returns ownership of a newly constructed RuleSet, and owns no persistent AST references; RuleTransformer owns and closes the plugin."],
+      "ownership": [
+        "The transform borrows its manager and rule manager, returns ownership of a newly constructed RuleSet, and owns no persistent AST references; RuleTransformer owns and closes the plugin."
+      ],
       "deviations": []
     },
     {
@@ -100169,7 +100187,8 @@
         "pkg/muz/transforms/array_instantiation.go",
         "pkg/muz/transforms/array_instantiation_test.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_array_instantiation.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_array_instantiation.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestArrayInstantiationExpandsPredicateCellsAndIndices",
@@ -100196,6 +100215,9 @@
             "TestArrayInstantiationKeepsArrayAndCreatesFallbackIndex",
             "TestArrayInstantiationRejectsNegatedPredicateTail",
             "TestSMTLibRunnerCPPReference/fp_spacer_array_instantiation.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -100304,7 +100326,8 @@
         "pkg/muz/transforms/bit_blast.go",
         "pkg/muz/fp/spacer_bit_blast_results.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_bit_blast.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_bit_blast.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestBitBlastExpandsBitVectorPredicateSignatures",
@@ -100343,7 +100366,8 @@
           "go_targets": [
             "pkg/muz/transforms/bit_blast.go",
             "pkg/muz/fp/spacer_bit_blast_results.go",
-            "pkg/muz/fp/spacer_engine.go"
+            "pkg/muz/fp/spacer_engine.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestBitBlastExpandsBitVectorPredicateSignatures",
@@ -100369,7 +100393,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/bit_blast.go"
+        "pkg/muz/transforms/bit_blast.go",
+        "pkg/muz/fp/spacer_bit_blast_results_test.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestBitBlastExpandsBitVectorPredicateSignatures",
@@ -100400,7 +100426,8 @@
           "go_targets": [
             "pkg/muz/transforms/bit_blast.go",
             "pkg/muz/fp/spacer_bit_blast_results.go",
-            "pkg/muz/fp/spacer_engine.go"
+            "pkg/muz/fp/spacer_engine.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestBitBlastExpandsBitVectorPredicateSignatures",
@@ -100428,7 +100455,8 @@
       "go_targets": [
         "pkg/muz/transforms/rule_coalesce.go",
         "pkg/muz/transforms/rule_coalesce_test.go",
-        "pkg/muz/fp/spacer_engine.go"
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleCoalesceMergesSharedBodyConstraints",
@@ -100506,6 +100534,9 @@
           "tests": [
             "TestRuleCoalesceMergesSharedBodyConstraints",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_coalesce_unfold.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -100597,6 +100628,9 @@
             "TestConePluginCapturesOrderedModelDefinitions",
             "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
             "TestPDREngineExpandsSlicedModelsAndCovers"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go"
           ]
         },
         {
@@ -100630,7 +100664,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/coi.go",
-        "pkg/muz/transforms/coi_plugin.go"
+        "pkg/muz/transforms/coi_plugin.go",
+        "pkg/muz/fp/propositional_engine_test.go"
       ],
       "tests": [
         "TestConeOfInfluencePrunesOutsideAndUnfoundedRules",
@@ -100664,6 +100699,9 @@
             "TestConePluginCapturesOrderedModelDefinitions",
             "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
             "TestPDREngineExpandsSlicedModelsAndCovers"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go"
           ]
         }
       ],
