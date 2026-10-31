@@ -12,9 +12,11 @@ import (
 )
 
 type smtOptimizationSolverState struct {
-	first      bool
-	wasUnknown bool
-	model      *model.ModelCore
+	first          bool
+	wasUnknown     bool
+	model          *model.ModelCore
+	dumpBenchmarks bool
+	parameters     uparams.ModuleParamsOwner
 }
 
 // NewOptimizationSMTSolver selects the concrete opt_solver result/model policy
@@ -25,6 +27,11 @@ func NewOptimizationSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic str
 		return nil, err
 	}
 	s.optimization = &smtOptimizationSolverState{first: true}
+	owner := &s.optimization.parameters
+	owner.Self, owner.Budget = owner, m.Budget()
+	if err = owner.Bind(s.config.Params, s.kernel.paramGlobals); err != nil {
+		return nil, errors.Join(err, s.Close())
+	}
 	if s.kernel.smtParams.state.CaseSplitStrategy == 1 { // CS_ACTIVITY_DELAY_NEW
 		s.setOptimizationRelevancy(0)
 	}

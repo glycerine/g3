@@ -102269,7 +102269,9 @@
         "pkg/smtcore/smt_solver_optimization_relevancy_test.go",
         "pkg/cmd_context/optimization.go",
         "pkg/cmd_context/optimization_pareto.go",
-        "pkg/cmd_context/optimization_pareto_quantifiers_test.go"
+        "pkg/cmd_context/optimization_pareto_quantifiers_test.go",
+        "pkg/smtcore/smt_solver_optimization_benchmark.go",
+        "pkg/smtcore/smt_solver_optimization_benchmark_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102289,7 +102291,14 @@
         "TestOptimizationSolverQuantifiedAssertionEnablesRelevanceBeforeSimplification",
         "TestOptimizationSolverParameterUpdateDoesNotReapplyConstructorRule",
         "TestOptimizationSolverQuantifiedRelevancePrecedesAssertionRefusal",
-        "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
+        "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation",
+        "TestOptimizationSolverBenchmarkDumpOrderNumberingAndVerbosity",
+        "TestOptimizationSolverBenchmarkConstructorStartsDisabled",
+        "TestOptimizationSolverBenchmarkFileFailureStillRunsPrinter",
+        "TestOptimizationSolverBenchmarkGlobalFallbackAndLocalOverride",
+        "TestOptimizationSolverBenchmarkUsesGlobalPrettyPrinterDefaults",
+        "TestOptimizationSolverBenchmarkPreparationFailureFrontier",
+        "TestOptimizationSolverBenchmarkSuppressesFileErrorsAfterFirstRefusal"
       ],
       "assertions": [
         {
@@ -102405,16 +102414,36 @@
           "tests": [
             "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
           ]
+        },
+        {
+          "name": "updt_params dump flag, dump_benchmarks and check_sat_core benchmark/timing flow: process-wide filenames, assumptions before assertions, pp defaults, ignored file badbit, verbose creation/adjusted result and persistent fixed formatting (opt_solver.cpp:62-68,157-193,453-481)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver.go",
+            "pkg/smtcore/smt_solver_optimization.go",
+            "pkg/smtcore/smt_solver_optimization_benchmark.go",
+            "pkg/smtcore/smt_solver_optimization_benchmark_test.go"
+          ],
+          "tests": [
+            "TestOptimizationSolverBenchmarkDumpOrderNumberingAndVerbosity",
+            "TestOptimizationSolverBenchmarkConstructorStartsDisabled",
+            "TestOptimizationSolverBenchmarkFileFailureStillRunsPrinter",
+            "TestOptimizationSolverBenchmarkGlobalFallbackAndLocalOverride",
+            "TestOptimizationSolverBenchmarkUsesGlobalPrettyPrinterDefaults",
+            "TestOptimizationSolverBenchmarkPreparationFailureFrontier",
+            "TestOptimizationSolverBenchmarkSuppressesFileErrorsAfterFirstRefusal"
+          ]
         }
       ],
       "ownership": [
         "Optimizer fallback initializes and publishes a concrete mixed arithmetic plugin before pushing it to each existing context scope, matching context::register_plugin. Existing plugins retain identity and current live arithmetic parameters configure only the newly installed plugin. Ordinary cold RegisterTheory restrictions remain separate; no generic late-plugin adapter is added.",
         "The optimization-specific solver state owns an independent cached model reference. Successful nonempty get_model replaces that reference; empty current results acquire the previous cache without changing it. Caller references survive replacement and solver teardown. Ordinary SMT construction retains its existing result/status policy. The arithmetic optimizer uses the concrete optimization constructor and restores sticky quantifier uncertainty at the result boundary.",
-        "Source relevance writes update the internal fparams state plus the kernel/internalizer/service snapshots. Caller params remain unchanged; the relevance change is outside assertion scopes and survives kernel assertion refusal. A zero-to-enabled transition schedules root relevance repair for previously internalized assertions."
+        "Source relevance writes update the internal fparams state plus the kernel/internalizer/service snapshots. Caller params remain unchanged; the relevance change is outside assertion scopes and survives kernel assertion refusal. A zero-to-enabled transition schedules root relevance repair for previously internalized assertions.",
+        "The concrete optimization solver embeds one ModuleParamsOwner for reached lexical opt/pp generated helpers. Failed helper construction/destruction remains owned until CloseHelpers succeeds before parent parameter services close. Benchmark files are Go os.File owners closed on both printer success and failure; I/O badbit is ignored without suppressing printer operands. Source stopwatch measures the actual check and completed serialization, with no clock reads while dumping is disabled."
       ],
       "deviations": [
         "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
-        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping, maximize/model-repair bodies and remaining diagnostics remain open."
+        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping and its option update are now connected. Maximize/model-repair bodies, opt_verbose and remaining diagnostics remain open."
       ]
     },
     {

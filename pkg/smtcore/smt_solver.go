@@ -16,6 +16,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
@@ -441,6 +442,11 @@ func (s *SMTSolver) UpdateParams(p *uparams.ParamsRef) error {
 		empty := s.config.Params.EmptyValue()
 		p = &empty
 	}
+	if s.optimization != nil {
+		if err := s.updateOptimizationDumpParameter(p); err != nil {
+			return err
+		}
+	}
 	if err := s.config.Params.Copy(&s.params, p); err != nil {
 		return err
 	}
@@ -588,6 +594,10 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 	if err := s.open(); err != nil {
 		return lbool.Undef, err
 	}
+	watch := stopwatch.New(nil)
+	if err := s.beginOptimizationBenchmark(&watch, assumptions); err != nil {
+		return lbool.Undef, err
+	}
 	result, err := solver.NewSimpleCheckSatResult(s.manager)
 	if err != nil {
 		return lbool.Undef, err
@@ -608,6 +618,9 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 	if s.optimization != nil {
 		status = s.adjustOptimizationResult(status)
 		s.optimization.first = false
+		if err = s.finishOptimizationBenchmark(&watch, status); err != nil {
+			return lbool.Undef, err
+		}
 		if status == lbool.True && s.produceModels && s.kernel.GeneratedModel() == nil {
 			if err = s.kernel.buildGeneratedModel(); err != nil {
 				return lbool.Undef, err
@@ -997,6 +1010,11 @@ func (s *SMTSolver) Close() error {
 	result = errors.Join(result, s.named.Close())
 	result = errors.Join(result, s.restoreTracked(0))
 	result = errors.Join(result, s.ResetObjectives())
+	if s.optimization != nil {
+		if err := s.optimization.parameters.CloseHelpers(); err != nil {
+			return errors.Join(result, err)
+		}
+	}
 	if s.optimization != nil && s.optimization.model != nil {
 		err := s.optimization.model.DecRef()
 		result = errors.Join(result, err)
