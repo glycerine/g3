@@ -6078,7 +6078,8 @@
         "TestGeneratedFloatingPointReplayConstructors",
         "TestGeneratedFloatingPointReplayOperations",
         "TestGeneratedFloatingPointReplayConversions",
-        "TestGeneratedFloatingPointReplayRejectsWrongConversionSort"
+        "TestGeneratedFloatingPointReplayRejectsWrongConversionSort",
+        "TestGeneratedFloatingPointReplayInspectionOutputs"
       ],
       "methods_audited": false,
       "ownership_audited": false,

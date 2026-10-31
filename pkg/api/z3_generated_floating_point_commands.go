@@ -38,7 +38,92 @@ func registerZ3GeneratedFloatingPointCommands(r *Z3Replayer) error {
 	if err := r.RegisterCommand(649, "Z3_mk_fpa_to_ieee_bv", func(r *Z3Replayer) error { return replayFloatingPointConversion(r, 649) }); err != nil {
 		return err
 	}
+	inspections := []string{"get_ebits", "get_sbits", "is_numeral_nan", "is_numeral_inf", "is_numeral_zero", "is_numeral_normal", "is_numeral_subnormal", "is_numeral_positive", "is_numeral_negative", "get_numeral_sign_bv", "get_numeral_significand_bv", "get_numeral_sign", "get_numeral_significand_string", "get_numeral_significand_uint64", "get_numeral_exponent_string", "get_numeral_exponent_int64", "get_numeral_exponent_bv"}
+	for i, name := range inspections {
+		id := uint32(632 + i)
+		if err := r.RegisterCommand(id, "Z3_fpa_"+name, func(r *Z3Replayer) error { return replayFloatingPointInspection(r, id) }); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func replayFloatingPointInspection(r *Z3Replayer, id uint32) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	value, err := r.astObject(owner, 1)
+	if err != nil {
+		return err
+	}
+	c := owner.context
+	switch id {
+	case 632:
+		_, err = c.FloatingPointExponentBits(value.handle)
+	case 633:
+		_, err = c.FloatingPointSignificandBits(value.handle)
+	case 634, 635, 636, 637, 638, 639, 640:
+		kinds := [...]ast.FPAClassificationKind{ast.FPAIsNaN, ast.FPAIsInfinite, ast.FPAIsZero, ast.FPAIsNormal, ast.FPAIsSubnormal, ast.FPAIsPositive, ast.FPAIsNegative}
+		_, err = c.FloatingPointNumeralClass(value.handle, kinds[id-634])
+	case 641, 642, 648:
+		var result ast.ASTHandle
+		if id == 641 {
+			result, err = c.FloatingPointNumeralSignBit(value.handle)
+		} else if id == 642 {
+			result, err = c.FloatingPointNumeralSignificandBitVector(value.handle)
+		} else {
+			biased, e := r.Bool(2)
+			if e != nil {
+				return e
+			}
+			result, err = c.FloatingPointNumeralExponentBitVector(value.handle, biased)
+		}
+		if err != nil {
+			return err
+		}
+		return r.storeAST(owner, result)
+	case 643:
+		if _, err = r.Int64(2); err != nil {
+			return err
+		}
+		var sign int
+		sign, err = c.FloatingPointNumeralSign(value.handle)
+		if err == nil {
+			err = r.SetInt64(2, int64(sign))
+		}
+	case 644:
+		_, err = c.FloatingPointNumeralSignificandString(value.handle)
+	case 645:
+		if _, err = r.Uint64(2); err != nil {
+			return err
+		}
+		var n uint64
+		n, err = c.FloatingPointNumeralSignificandUint64(value.handle)
+		if err == nil {
+			err = r.SetUint64(2, n)
+		}
+	case 646:
+		var biased bool
+		biased, err = r.Bool(2)
+		if err == nil {
+			_, err = c.FloatingPointNumeralExponentString(value.handle, biased)
+		}
+	case 647:
+		if _, err = r.Int64(2); err != nil {
+			return err
+		}
+		biased, e := r.Bool(3)
+		if e != nil {
+			return e
+		}
+		var n int64
+		n, err = c.FloatingPointNumeralExponentInt64(value.handle, biased)
+		if err == nil {
+			err = r.SetInt64(2, n)
+		}
+	}
+	return err
 }
 
 func replayFloatingPointConversion(r *Z3Replayer, id uint32) (err error) {

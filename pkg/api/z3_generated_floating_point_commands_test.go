@@ -302,3 +302,91 @@ func TestGeneratedFloatingPointReplayRejectsWrongConversionSort(t *testing.T) {
 		t.Fatal("wrong conversion source sort", err)
 	}
 }
+
+func TestGeneratedFloatingPointReplayInspectionOutputs(t *testing.T) {
+	var log strings.Builder
+	log.WriteString("R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nD -1.5\nP 0x42\nC 596\n= 0x43\n")
+	for id := 632; id <= 640; id++ {
+		arg := "0x43"
+		if id <= 633 {
+			arg = "0x42"
+		}
+		fmt.Fprintf(&log, "R\nP 0x41\nP %s\nC %d\n", arg, id)
+	}
+	log.WriteString("R\nP 0x41\nP 0x43\nC 641\n= 0x44\nR\nP 0x41\nP 0x43\nC 642\n= 0x45\n")
+	log.WriteString("R\nP 0x41\nP 0x43\nI 7\nC 643\nC 900\nR\nP 0x41\nP 0x43\nC 644\n")
+	log.WriteString("R\nP 0x41\nP 0x43\nU 7\nC 645\nC 901\nR\nP 0x41\nP 0x43\nI 1\nC 646\n")
+	log.WriteString("R\nP 0x41\nP 0x43\nI 7\nI 1\nC 647\nC 902\nR\nP 0x41\nP 0x43\nI 1\nC 648\n= 0x46\n")
+	log.WriteString("R\nP 0x41\nP 0x44\nP 0x45\nP 0x46\nC 903\n")
+	r, err := NewZ3Replayer(strings.NewReader(log.String()), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := 0
+	for i, want := range []int64{1, 4194304, 127} {
+		id, expected := uint32(900+i), want
+		if err = r.RegisterCommand(id, "check-floating-point-output", func(r *Z3Replayer) error {
+			var value int64
+			if id == 901 {
+				n, e := r.Uint64(2)
+				if e != nil {
+					return e
+				}
+				value = int64(n)
+			} else {
+				n, e := r.Int64(2)
+				if e != nil {
+					return e
+				}
+				value = n
+			}
+			if value != expected {
+				t.Fatalf("output %d: %d, want %d", id, value, expected)
+			}
+			checked++
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = r.RegisterCommand(903, "check-floating-point-bits", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		for i, want := range []string{"1", "4194304", "127"} {
+			v, e := r.astObject(owner, uint32(i+1))
+			if e != nil {
+				return e
+			}
+			got, e := owner.context.NumeralString(v.handle)
+			if e != nil {
+				return e
+			}
+			if got != want {
+				t.Fatalf("component %d: %s, want %s", i, got, want)
+			}
+		}
+		checked++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if checked != 4 {
+		t.Fatal("floating-point inspection checks", checked)
+	}
+}

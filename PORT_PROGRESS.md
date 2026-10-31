@@ -1,3 +1,5 @@
+Generated floating-point inspection replay (2026-10-31 UTC): connected format dimensions, numeral classifications, component bit-vectors and scalar output parameters. Normal and checked tests verify signed finite components; other generated commands remain unfinished.
+
 Generated floating-point conversion replay (2026-10-31 UTC): connected conversions among floating-point, real and bit-vector expressions, including IEEE encoding. Normal and checked tests verify converted values and reject mismatched source sorts; other generated commands remain unfinished.
 
 Generated floating-point operation replay (2026-10-31 UTC): connected arithmetic, comparison and classification constructors. Normal and checked tests cover every operation and simplification of floating-point addition; conversions and other generated commands remain unfinished.
