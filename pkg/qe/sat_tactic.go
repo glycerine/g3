@@ -147,6 +147,16 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 		return err
 	}
 	m := t.manager
+	canceled, err := m.Canceled()
+	if err != nil {
+		return err
+	}
+	if canceled {
+		return tactic.NewTacticException(m.ResourceLimit().CancelMessage())
+	}
+	if err = t.config.Cooperation.Checkpoint("qe-sat"); err != nil {
+		return err
+	}
 	if err = out.Prepare(m); err != nil {
 		return err
 	}

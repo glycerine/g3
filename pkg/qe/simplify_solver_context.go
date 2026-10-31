@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/tactic"
 )
 
 type qeSimplifyResult struct {
@@ -73,6 +74,13 @@ func simplifyExists(m *ast.ASTManager, variables []ast.ASTHandle, formula ast.AS
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&current)) }()
 	for {
+		canceled, e := m.Canceled()
+		if e != nil {
+			return result, e
+		}
+		if canceled {
+			return result, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
+		}
 		f, e := m.RefGet(current)
 		if e != nil {
 			return result, e

@@ -87,3 +87,33 @@ func TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged(t *testing.T) {
 		t.Fatal("unsupported projection changed goal")
 	}
 }
+
+func TestQESATTacticCancellationBeforePreprocessingAndRetry(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	b := f.own(m.MkVar(0, f.boolean))
+	formula := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: b}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(formula))
+	port, err := NewQESATTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	out := f.result()
+	m.ResourceLimit().Cancel()
+	err = port.Apply(goal, out)
+	m.ResourceLimit().ResetCancel()
+	if err == nil {
+		t.Fatal("canceled tactic succeeded")
+	}
+	before, err := goal.Form(0)
+	fmMust(t, err)
+	if before != formula {
+		t.Fatal("cancellation changed the goal")
+	}
+	fmMust(t, port.Apply(goal, out))
+	got, err := goal.Form(0)
+	fmMust(t, err)
+	if !m.IsFalse(got) {
+		t.Fatal("retry did not prove the Boolean universal false")
+	}
+}

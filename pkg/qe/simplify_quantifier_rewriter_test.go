@@ -58,3 +58,24 @@ func TestSimplifyQEQuantifierSkipsPatterns(t *testing.T) {
 		t.Fatal("annotated quantifier changed")
 	}
 }
+
+func TestSimplifyQEQuantifierCancellationAndRetry(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	v := f.own(m.MkVar(0, f.boolean))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: v}))
+	m.ResourceLimit().Cancel()
+	result, err := SimplifyQuantifiers(m, q)
+	m.ResourceLimit().ResetCancel()
+	if err == nil || result != (ast.ASTRef{}) {
+		t.Fatal("canceled simplification succeeded")
+	}
+	result, err = SimplifyQuantifiers(m, q)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	got, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsTrue(got) {
+		t.Fatal("retry did not eliminate the existential Boolean unit")
+	}
+}

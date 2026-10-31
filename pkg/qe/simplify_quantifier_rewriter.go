@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -21,6 +22,13 @@ func SimplifyQuantifiers(m *ast.ASTManager, expression ast.ASTHandle) (ast.ASTRe
 func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result ast.ASTRef, err error) {
 	if m == nil {
 		return result, ast.ErrASTHandle
+	}
+	canceled, err := m.Canceled()
+	if err != nil {
+		return result, err
+	}
+	if canceled {
+		return result, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
 	}
 	defer func() {
 		if err != nil && result != (ast.ASTRef{}) {
