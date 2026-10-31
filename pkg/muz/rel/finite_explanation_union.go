@@ -1,0 +1,82 @@
+package rel
+
+// Source: src/muz/rel/dl_finite_product_relation.cpp union_fn, specialized to
+// the one-column fact-level explanation relation.
+
+import "github.com/glycerine/g3/pkg/ast"
+
+func (p *FiniteExplanationProduct) compatible(other *FiniteExplanationProduct) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := other.open(); err != nil {
+		return err
+	}
+	if p.manager != other.manager || len(p.finiteSorts) != len(other.finiteSorts) {
+		return ast.ErrASTDomain
+	}
+	for i := range p.finiteSorts {
+		if p.finiteSorts[i] != other.finiteSorts[i] {
+			return ast.ErrASTDomain
+		}
+	}
+	return nil
+}
+
+// Union adds source tuples that are absent from the target, preserving the
+// target's first explanation for overlapping tuples. Delta, when supplied,
+// accumulates newly added tuples and preserves its existing explanations.
+func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct) error {
+	if err := p.compatible(source); err != nil {
+		return err
+	}
+	if delta != nil {
+		if err := p.compatible(delta); err != nil {
+			return err
+		}
+		if delta == p || delta == source {
+			return ast.ErrASTDomain
+		}
+	}
+	facts, err := source.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, fact := range facts {
+		sourceIndex := uint64(fact[len(fact)-1])
+		if sourceIndex >= uint64(len(source.inner)) || source.inner[sourceIndex] == nil {
+			return ErrTableRelation
+		}
+		data, e := source.inner[sourceIndex].Data()
+		if e != nil {
+			return e
+		}
+		if len(data) != 1 {
+			return ErrTableRelation
+		}
+		key := append(Fact(nil), fact...)
+		found, e := p.table.FetchFact(key)
+		if e != nil {
+			return e
+		}
+		if found {
+			continue
+		}
+		if e = p.addEncoded(key, data[0]); e != nil {
+			return e
+		}
+		if delta != nil {
+			deltaKey := append(Fact(nil), fact...)
+			deltaFound, e := delta.table.FetchFact(deltaKey)
+			if e != nil {
+				return e
+			}
+			if !deltaFound {
+				if e = delta.addEncoded(deltaKey, data[0]); e != nil {
+					return e
+				}
+			}
+		}
+	}
+	return nil
+}

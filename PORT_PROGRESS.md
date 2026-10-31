@@ -1,3 +1,5 @@
+Fact explanation union (2026-10-31 UTC): added concrete finite/explanation product union and delta accumulation, preserving the first explanation on overlap. Focused normal and checked tests cover new, overlapping and pre-existing delta facts; other product operations and Datalog registration remain unfinished.
+
 Duality missing heads (2026-10-31 UTC): scan nested quantifier and implication heads and add the source false-body clauses for missing pinned predicates, with fresh, universally bound arguments. Normal and checked tests cover existing, quantified and ground heads.
 
 Duality fixedpoint interface start (2026-10-31 UTC): ported query-clause construction with universal closure, reverse numeric binder names and Bool sorts for variable gaps. Normal and checked tests cover sparse and ground queries; rule translation, RPFP dispatch and fixedpoint registration remain unfinished.

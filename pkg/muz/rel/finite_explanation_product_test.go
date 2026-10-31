@@ -65,3 +65,52 @@ func TestFiniteExplanationProductZeroFiniteColumns(t *testing.T) {
 		t.Fatal("zero-column explanation", got, found)
 	}
 }
+
+func TestFiniteExplanationProductUnionAndDelta(t *testing.T) {
+	f := newTableRelationFixture(t)
+	ruleSort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	makeExplanation := func(name string) ast.ASTHandle {
+		sym, e := f.ast.Symbols.Intern(name)
+		astTestMust(t, e)
+		h, e := f.ast.MkConst(sym, ruleSort)
+		astTestMust(t, e)
+		return h
+	}
+	old := makeExplanation("finite-union-old")
+	fresh := makeExplanation("finite-union-new")
+	prior := makeExplanation("finite-delta-prior")
+	target, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	source, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	delta, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, delta.Close()) }()
+	astTestMust(t, target.AddFact([]ast.ASTHandle{f.truth}, old))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.truth}, fresh))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.falsehood}, fresh))
+	astTestMust(t, delta.AddFact([]ast.ASTHandle{f.truth}, prior))
+	astTestMust(t, target.Union(source, delta))
+	for _, tc := range []struct {
+		p         *FiniteExplanationProduct
+		key, want ast.ASTHandle
+	}{{target, f.truth, old}, {target, f.falsehood, fresh}, {delta, f.truth, prior}, {delta, f.falsehood, fresh}} {
+		got, found, e := tc.p.Explanation([]ast.ASTHandle{tc.key})
+		astTestMust(t, e)
+		if !found || got != tc.want {
+			t.Fatal("union explanation", got, found, tc.want)
+		}
+	}
+	astTestMust(t, target.Union(source, nil))
+	count, err := target.Len()
+	astTestMust(t, err)
+	if count != 2 {
+		t.Fatal("repeated union count", count)
+	}
+	if err = target.Union(source, target); err == nil {
+		t.Fatal("accepted aliased delta")
+	}
+}
