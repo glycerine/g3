@@ -1,3 +1,5 @@
+Generated fixedpoint replay lifecycle (2026-10-31 UTC): added fixedpoint creation, scopes, relation registration and rule/assertion/statistics snapshots. Normal and checked API/CLI tests verify snapshot ownership and incomplete-log cleanup; fixedpoint query and other generated commands remain unfinished.
+
 Generated algebraic polynomial replay (2026-10-31 UTC): added root isolation, polynomial evaluation and subresultant vectors. Normal and checked tests verify both square roots of two and equal-input subresultants; other generated commands remain unfinished.
 
 Generated algebraic arithmetic replay (2026-10-31 UTC): added value/sign tests, arithmetic, roots, powers and comparisons. Normal and checked tests verify rational results and an irrational square-root identity; other generated commands remain unfinished.

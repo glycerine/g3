@@ -160,3 +160,16 @@ func TestZ3LogFrontendReplaysASTMap(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysFixedpoint(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 511\n= 0x42\nR\nP 0x41\nP 0x42\nC 512\n" +
+		"R\nP 0x41\nP 0x42\nC 536\nR\nP 0x41\nP 0x42\nC 537\nR\nP 0x41\nP 0x42\nC 528\n= 0x43\n" +
+		"R\nP 0x41\nP 0x42\nC 513\nM \"fixedpoint-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "fixedpoint-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}
