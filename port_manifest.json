@@ -90467,13 +90467,20 @@
         "pkg/muz/rel/similarity_classes.go",
         "pkg/muz/rel/similarity_classes_test.go",
         "pkg/muz/rel/similarity_rewrite.go",
-        "pkg/muz/rel/similarity_rewrite_test.go"
+        "pkg/muz/rel/similarity_rewrite_test.go",
+        "pkg/muz/rel/similarity_merge_finite.go",
+        "pkg/muz/rel/similarity_merge_finite_test.go",
+        "pkg/muz/rel/similarity_plugin.go",
+        "pkg/muz/rel/similarity_plugin_test.go"
       ],
       "tests": [
         "TestSimilarityRuleComparisons",
         "TestSimilarityVaryingConstantsAndEqualParents",
         "TestSimilarityClassesThresholdDuplicatesAndOutputs",
-        "TestSimilarityRewriteRuleAndAuxiliaryRows"
+        "TestSimilarityRewriteRuleAndAuxiliaryRows",
+        "TestSimilarityMergeFinitePublishesFactsAndRule",
+        "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
+        "TestFiniteSimilarityCompressorTransformerAndExecution"
       ],
       "conditionals": [
         {
@@ -90605,23 +90612,49 @@
           "tests": [
             "TestSimilarityRewriteRuleAndAuxiliaryRows"
           ]
+        },
+        {
+          "name": "finite-table merge_class/operator: generate auxiliary predicate, store facts and saturation, rewrite representative rule and expose context-owned transform",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/similarity_merge_finite.go",
+          "go_targets": [
+            "pkg/muz/rel/similarity_merge_finite.go",
+            "pkg/muz/rel/similarity_merge_finite_test.go",
+            "pkg/muz/rel/similarity_plugin.go",
+            "pkg/muz/rel/similarity_plugin_test.go"
+          ],
+          "tests": [
+            "TestSimilarityMergeFinitePublishesFactsAndRule",
+            "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
+            "TestFiniteSimilarityCompressorTransformerAndExecution"
+          ]
         }
       ],
       "ownership": [
         "Comparisons borrow rule and AST handles and return no expression owners.",
-        "The generated rule is caller-owned; auxiliary domain and fact rows borrow source-rule ASTs. Construction pins temporary variables and applications until the rule acquires its owners."
+        "The generated rule is caller-owned; auxiliary domain and fact rows borrow source-rule ASTs. Construction pins temporary variables and applications until the rule acquires its owners.",
+        "The transform borrows the Datalog and relation contexts; relation manager owns the published auxiliary table, generated predicate is owned by the Datalog context, and the returned rule set owns generated rules."
       ],
       "deviations": [
-        "Pending: auxiliary predicate creation, relation-manager fact publication and saturation, full class merge orchestration, result rule-set lifecycle, plugin registration, diagnostics and allocation audit."
+        "Pending: general non-finite relation support, source fresh-predicate origin metadata, automatic plugin registration, diagnostics and allocation/failure-frontier audit. Finite transform reports unsupported domains explicitly before predicate creation."
       ]
     },
     {
       "path": "src/muz/rel/dl_mk_similarity_compressor.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/similarity_merge_finite.go",
+        "pkg/muz/rel/similarity_merge_finite_test.go",
+        "pkg/muz/rel/similarity_plugin.go",
+        "pkg/muz/rel/similarity_plugin_test.go"
+      ],
+      "tests": [
+        "TestSimilarityMergeFinitePublishesFactsAndRule",
+        "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
+        "TestFiniteSimilarityCompressorTransformerAndExecution"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -90634,9 +90667,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "finite-table merge_class/operator: generate auxiliary predicate, store facts and saturation, rewrite representative rule and expose context-owned transform",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/similarity_merge_finite.go",
+          "go_targets": [
+            "pkg/muz/rel/similarity_merge_finite.go",
+            "pkg/muz/rel/similarity_merge_finite_test.go",
+            "pkg/muz/rel/similarity_plugin.go",
+            "pkg/muz/rel/similarity_plugin_test.go"
+          ],
+          "tests": [
+            "TestSimilarityMergeFinitePublishesFactsAndRule",
+            "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
+            "TestFiniteSimilarityCompressorTransformerAndExecution"
+          ]
+        }
+      ],
+      "ownership": [
+        "The transform borrows the Datalog and relation contexts; relation manager owns the published auxiliary table, generated predicate is owned by the Datalog context, and the returned rule set owns generated rules."
+      ],
+      "deviations": [
+        "Pending: general non-finite relation support, source fresh-predicate origin metadata, automatic plugin registration, diagnostics and allocation/failure-frontier audit. Finite transform reports unsupported domains explicitly before predicate creation."
+      ]
     },
     {
       "path": "src/muz/rel/dl_mk_simple_joins.cpp",
