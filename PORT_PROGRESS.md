@@ -52384,3 +52384,5 @@ Bound tactic solver translation: normalize-bounds and diff-neq now reconstruct w
 Elim01 and inequality propagation solver translation: both tactics now copy parameters to the target context and create independent target-owned services. Direct tests check parameter and service ownership; solver integration checks models after source-context closure in ordinary and checked builds.
 
 Translation regression correction: the unsupported-leaf API test now uses bv1-blast because propagate-ineqs gained target-context support. The test continues to check that a rejected translation leaves the source solver usable.
+
+Fourier–Motzkin solver translation: the raw tactic now copies its parameter snapshot to target-owned services when translating a composed solver. Direct policy and ownership coverage and a target-model integration test pass in ordinary and checked builds.

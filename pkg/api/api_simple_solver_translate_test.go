@@ -1012,6 +1012,7 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 		{"diff-neq", "QF_IDL", "(declare-const x Int) (declare-const y Int) (assert (>= x 0)) (assert (<= x 2)) (assert (>= y 0)) (assert (<= y 2)) (assert (not (= x y)))", 5},
 		{"elim01", "QF_LIA", "(declare-const x Int) (assert (>= x 0)) (assert (<= x 1)) (assert (= (* 2 x) 2))", 3},
 		{"propagate-ineqs", "QF_LIA", "(declare-const x Int) (declare-const y Int) (assert (>= x 0)) (assert (>= y 0)) (assert (>= (+ x y) 3)) (assert (<= x 5))", 4},
+		{"fm", "QF_LRA", "(declare-const x Real) (declare-const y Real) (assert (> x 1)) (assert (< x 3)) (assert (= y (+ x 1)))", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source, err := NewSMTContext()

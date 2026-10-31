@@ -76,6 +76,11 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 			return nil, true, err
 		}
 		source, params = t.context, &t.core.params
+	case *FMTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.params
 	default:
 		return nil, false, nil
 	}
@@ -153,6 +158,12 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 		}
 	case *PropagateIneqsTactic:
 		next, e := newPropagateIneqsAdapter(m, c, &p, 47)
+		err = e
+		if err == nil {
+			result = next
+		}
+	case *FMTactic:
+		next, e := NewFMTactic(m, c, g, &p, services)
 		err = e
 		if err == nil {
 			result = next

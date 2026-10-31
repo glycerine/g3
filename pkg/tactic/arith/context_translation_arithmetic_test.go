@@ -144,3 +144,27 @@ func TestElim01AndPropagateIneqsContextTranslation(t *testing.T) {
 		}
 	}
 }
+
+func TestFMContextTranslationCopiesTargetServicesAndPolicy(t *testing.T) {
+	source, manager := fixDLFixture(t, false)
+	p, err := source.context.NewValue()
+	equationMust(t, err)
+	key := "fm_limit"
+	equationMust(t, source.context.SetUIntName(&p, &key, 1234))
+	original, err := NewFMTactic(manager, source.context, source.globals, &p, source.services)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, original.Close()) })
+	equationMust(t, source.context.Del(&p))
+	target, targetManager := fixDLFixture(t, false)
+	translated, matched, err := TranslateContextLeaf(original, targetManager, target.context, target.globals, target.services)
+	equationMust(t, err)
+	if !matched {
+		t.Fatal("fm was not translated")
+	}
+	equationMust(t, translated.IncRef())
+	t.Cleanup(func() { equationMust(t, translated.DecRef()) })
+	copy, ok := translated.(*FMTactic)
+	if !ok || copy.context != target.context || copy.services.Cooperation != target.services.Cooperation || copy.limit != 1234 {
+		t.Fatalf("fm lost target services or policy: %T", translated)
+	}
+}

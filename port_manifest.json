@@ -178805,6 +178805,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/fm_candidate_analyze.go",
         "pkg/tactic/arith/fm_candidate_analyze_test.go",
         "pkg/tactic/arith/fm_candidate_cost.go",
@@ -178907,6 +178910,8 @@
         "pkg/tactic/arith/arith_target_services.go"
       ],
       "tests": [
+        "TestFMContextTranslationCopiesTargetServicesAndPolicy",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestAPIFMTacticRegistrationApplyAndModel",
         "TestFMBuildConstraintClearsIntegerStrictness",
         "TestFMBuildConstraintRetainsRealStrictness",
