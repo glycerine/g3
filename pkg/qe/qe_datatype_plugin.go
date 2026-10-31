@@ -20,6 +20,7 @@ type DatatypeSolverPlugin struct {
 	family        ast.FamilyID
 	constraints   []ArithmeticConstraint
 	substitutions map[datatypeSubstitutionKey]*datatypeSubstitution
+	equalities    map[arithmeticPluginKey]*datatypeEqualityAtoms
 	closed        bool
 }
 
@@ -35,7 +36,7 @@ func NewDatatypeSolverPlugin(context *SolverContext) (*DatatypeSolverPlugin, err
 	if err != nil {
 		return nil, err
 	}
-	p := &DatatypeSolverPlugin{context: context, manager: m, family: family, substitutions: make(map[datatypeSubstitutionKey]*datatypeSubstitution)}
+	p := &DatatypeSolverPlugin{context: context, manager: m, family: family, substitutions: make(map[datatypeSubstitutionKey]*datatypeSubstitution), equalities: make(map[arithmeticPluginKey]*datatypeEqualityAtoms)}
 	p.self = p
 	return p, nil
 }
@@ -91,6 +92,12 @@ func (p *DatatypeSolverPlugin) Close() error {
 		}
 		delete(p.substitutions, key)
 	}
+	for key, entry := range p.equalities {
+		if err := entry.close(p.manager); err != nil {
+			return err
+		}
+		delete(p.equalities, key)
+	}
 	p.closed = true
 	return nil
 }
@@ -119,10 +126,17 @@ func (p *DatatypeSolverPlugin) GetNumBranches(variable *ast.ContainsApp, formula
 		}
 		if found {
 			selector, e := p.hasSelector(target, formula, constructor)
-			if e != nil || !selector {
+			if e != nil {
 				return false, e
 			}
-			return true, p.manager.NumeralService().SetUnsigned(out, 1)
+			if selector {
+				return true, p.manager.NumeralService().SetUnsigned(out, 1)
+			}
+			entry := p.equalities[arithmeticPluginKey{variable: target, formula: formula}]
+			if entry == nil {
+				return false, nil
+			}
+			return true, p.manager.NumeralService().SetUnsigned(out, uint32(len(entry.positive)+1))
 		}
 		sort, e := p.manager.GetSort(target)
 		if e != nil {
@@ -182,10 +196,13 @@ func (p *DatatypeSolverPlugin) Assign(variable *ast.ContainsApp, formula ast.AST
 			if e != nil {
 				return e
 			}
-			if !selector || branch != 0 {
-				return ast.ErrASTDomain
+			if selector {
+				if branch != 0 {
+					return ast.ErrASTDomain
+				}
+				return nil
 			}
-			return nil
+			return p.assignEqualityBranch(target, formula, branch)
 		}
 		constructors, e := p.manager.DatatypeConstructors(sort)
 		if e != nil {

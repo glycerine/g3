@@ -107424,14 +107424,18 @@
       "go_targets": [
         "pkg/qe/qe_datatype_plugin.go",
         "pkg/qe/qe_datatype_plugin_test.go",
-        "pkg/qe/qe_datatype_plugin_substitute.go"
+        "pkg/qe/qe_datatype_plugin_substitute.go",
+        "pkg/qe/qe_datatype_plugin_atoms.go",
+        "pkg/qe/qe_datatype_plugin_atoms_test.go"
       ],
       "tests": [
         "TestDatatypeSolverPluginNonRecursiveBranches",
         "TestDatatypeSolverPluginBranchAssignment",
         "TestDatatypeSolverPluginSubstitutesAndReusesConstructor",
         "TestDatatypeSolverPluginSubstitutesRecognizedConstructor",
-        "TestDatatypeSolverPluginRecursiveSubstitution"
+        "TestDatatypeSolverPluginRecursiveSubstitution",
+        "TestDatatypeSolverPluginDirectEqualityBranches",
+        "TestDatatypeSolverPluginAtomOccursCheckAndRefusal"
       ],
       "assertions": [
         {
@@ -107566,13 +107570,22 @@
           "tests": [
             "TestDatatypeSolverPluginRecursiveSubstitution"
           ]
+        },
+        {
+          "name": "direct datatype equality atom preparation, occurs check and branch assignment",
+          "status": "partial",
+          "go_target": "pkg/qe/qe_datatype_plugin_atoms.go",
+          "tests": [
+            "TestDatatypeSolverPluginDirectEqualityBranches",
+            "TestDatatypeSolverPluginAtomOccursCheckAndRefusal"
+          ]
         }
       ],
       "ownership": [
-        "The plugin owns queued constraints and cached constructor substitutions; its solver context owns fresh variable references. TakeConstraints transfers formula references to the caller."
+        "The plugin owns cached atom and constructor-substitution references and queued constraints; the solver context owns fresh variable references. TakeConstraints transfers formula references to the caller."
       ],
       "deviations": [
-        "Pending recursive equality/disequality branching and substitution, foreign-variable lifting, complete failure/lifetime audit and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
+        "Pending nested positive constructor equalities and recursive equality/disequality substitution, foreign-variable lifting, complete failure/lifetime audit and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
       ]
     },
     {

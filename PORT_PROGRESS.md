@@ -1,3 +1,5 @@
+Datatype QE direct equality branching (2026-10-31 UTC): added source atom preparation for direct equalities and constructor disequalities, constructor occurs checks, cached branches and owned assignment constraints. Nested positive constructor equalities, equality substitution, full failure audit and automatic strategy integration remain pending.
+
 Datatype QE recursive substitution (2026-10-31 UTC): added recognizer introduction with a fresh recursive variable and constructor substitution for recognized matching selectors. Equality/disequality branches, full failure audit and automatic strategy integration remain pending.
 
 Datatype QE constructor substitution (2026-10-31 UTC): added non-recursive constructor substitution with owned fresh fields and source-style cache reuse; tests cover constructor recognition, formula replacement and variable reuse. Recursive substitution, complete failure audit and automatic strategy integration remain pending.
