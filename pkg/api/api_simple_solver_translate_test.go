@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("lia2pb")
+	simplify, err := source.Tactic("propagate-ineqs")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -631,7 +631,7 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor", "lia2pb", "eq2bv", "card2bv", "pb2bv"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -665,7 +665,7 @@ func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor", "lia2pb", "eq2bv", "card2bv", "pb2bv"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -692,6 +692,12 @@ func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
 				formula = `(declare-fun f ((_ BitVec 8)) Int) (assert (= (f #x01) 3))`
 			} else if name == "factor" {
 				formula = `(declare-const x Real) (assert (= (* (- x 1) (+ x 1)) 0))`
+			} else if name == "lia2pb" || name == "eq2bv" {
+				formula = `(declare-const x Int) (assert (and (>= x 0) (<= x 3) (= x 2)))`
+			} else if name == "card2bv" {
+				formula = `(declare-const p Bool) (declare-const q Bool) (assert ((_ at-most 1) p q))`
+			} else if name == "pb2bv" {
+				formula = `(declare-const x Int) (assert (>= x 0)) (assert (<= x 1)) (assert (= x 1))`
 			}
 			astTestMust(t, s.LoadSMT2String(formula))
 			translated, err := s.Translate(target)
@@ -702,28 +708,31 @@ func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
 			status, err := translated.Check()
 			astTestMust(t, err)
 			if status != lbool.True {
-				t.Fatal("translated status", status)
+				reason, _ := translated.ReasonUnknown()
+				t.Fatal("translated status", status, reason)
 			}
 			refs, err := translated.Assertions()
 			astTestMust(t, err)
-			if len(refs) != 1 {
-				t.Fatal("assertions", len(refs))
+			if len(refs) == 0 {
+				t.Fatal("missing assertions")
 			}
 			m, err := target.Manager()
 			astTestMust(t, err)
 			defer releaseAPIRefs(t, m, refs)
-			p, err := m.RefGet(refs[0])
-			astTestMust(t, err)
 			md, err := translated.Model()
 			astTestMust(t, err)
 			defer func() { astTestMust(t, md.Close()) }()
-			v, err := md.Evaluate(p, true)
-			astTestMust(t, err)
-			defer func() { astTestMust(t, m.DelRef(&v)) }()
-			h, err := m.RefGet(v)
-			astTestMust(t, err)
-			if !m.IsTrue(h) {
-				t.Fatal("model fails assertion", h)
+			for _, ref := range refs {
+				p, err := m.RefGet(ref)
+				astTestMust(t, err)
+				v, err := md.Evaluate(p, true)
+				astTestMust(t, err)
+				h, err := m.RefGet(v)
+				astTestMust(t, err)
+				if !m.IsTrue(h) {
+					t.Fatal("model fails assertion", h)
+				}
+				astTestMust(t, m.DelRef(&v))
 			}
 		})
 	}

@@ -1,3 +1,5 @@
+Finite-domain preprocessing tactics (lia2pb, eq2bv, card2bv and pb2bv) now translate with target services. Tests check bounded integer and cardinality models after source closure as well as replay.
+
 Solver translation now uses the API solver’s explicit parameter snapshot rather than backend defaults, and translated API solvers start with an empty explicit snapshot as in the source. Focused tests cover later backend changes, repeated translation and parameter overlays.
 
 Full native suite on committed snapshot 88d44324a passed, including the SMT-LIB runner. Later tactic-translation increments have focused normal and checked coverage.

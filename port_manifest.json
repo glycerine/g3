@@ -177366,6 +177366,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/arith/card2bv_tactic.go",
         "pkg/tactic/arith/card2bv_trace.go",
         "pkg/tactic/arith/card2bv_tactic_test.go",
@@ -177382,6 +177385,9 @@
         "pkg/cmd/g3/test_vectors/card2bv_weighted_models.smt2"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestCard2BVExactGoalsCPP",
         "TestCard2BVSideConstraintsCoreAndIndependentModel",
         "TestCard2BVParametersTranslationInconsistencyAndTrace",
@@ -178224,6 +178230,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/arith/eq2bv_collect.go",
         "pkg/tactic/arith/eq2bv_prepare.go",
         "pkg/tactic/arith/eq2bv_rewrite.go",
@@ -178235,6 +178244,9 @@
         "pkg/cmd/g3/eq2bv_integration_test.go"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestEq2BVCandidateBoundsMaximaAndDisqualification",
         "TestEq2BVPrepareUsesBoundsAndOwnsFreshVariables",
         "TestEq2BVRewriteNestedEqualities",
@@ -179660,6 +179672,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/arith/lia2pb_tactic.go",
         "pkg/tactic/arith/lia2pb_check.go",
         "pkg/tactic/arith/lia2pb_apply.go",
@@ -179669,6 +179684,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestLIA2PBConvertedDisequalities",
         "TestLIA2PBModelGridAndBoundDependencies",
         "TestLIA2PBAllocationFrontiers",
@@ -180776,6 +180794,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/arith/context_probe_translation.go",
         "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/pb2bv_tactic.go",
@@ -180794,6 +180815,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestAPISubsystemProbeTacticCrossContextTranslation",
         "TestPB2BVEncodingTruthTables",
         "TestPB2BVCoefficientNormalization",

@@ -40,6 +40,9 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 		case *bv.BitBlasterTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
 		default:
+			if value, matched, err := arith.TranslateContextLeaf(leaf, manager, config.Params, config.Globals, config.ModelEvaluator); matched {
+				return value, err
+			}
 			value, matched, err := core.TranslateContextLeaf(leaf, manager, config.Params, config.Globals, config.ModelEvaluator)
 			if matched {
 				return value, err
