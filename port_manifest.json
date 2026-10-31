@@ -17135,7 +17135,9 @@
         "pkg/ast/ast_smt_legacy_datatype.go",
         "pkg/ast/ast_smt_legacy_datatype_test.go",
         "pkg/cmd/g3/main_test.go",
-        "pkg/ast/ast_smt_legacy_string_test.go"
+        "pkg/ast/ast_smt_legacy_string_test.go",
+        "pkg/ast/ast_smt_legacy_benchmark_output.go",
+        "pkg/ast/ast_smt_legacy_benchmark_stream_test.go"
       ],
       "tests": [
         "TestLegacySMTRenamingReservedLegalityQuotingAndCollisions",
@@ -17157,7 +17159,10 @@
         "TestLegacySMTDatatypeCollectorVisitsFieldsAndOrdersMutualDefinitions",
         "TestLegacySMTParametricDatatypeBenchmarkDeclaresGenericBlockOnce",
         "TestSMTLibRunnerProofScript",
-        "TestLegacySMTPrinterStringLiteralByteEncoding"
+        "TestLegacySMTPrinterStringLiteralByteEncoding",
+        "TestLegacySMTBenchmarkPublishesPrefixBeforeDeclarationFailure",
+        "TestLegacySMTBenchmarkStreamFailureStillEvaluatesOperands",
+        "TestLegacySMTBenchmarkNilWriterPrecedesOperandReads"
       ],
       "conditionals": [
         {
@@ -17317,6 +17322,20 @@
             "TestLegacySMTDatatypeCollectorVisitsFieldsAndOrdersMutualDefinitions",
             "TestLegacySMTParametricDatatypeBenchmarkDeclaresGenericBlockOnce",
             "TestSMTLibRunnerProofScript"
+          ]
+        },
+        {
+          "name": "display_smt2 incremental benchmark emission: metadata precedes declaration dependency ordering and policy operands, assertion/proof prefixes precede expression printing, and stream failure does not suppress later operands (ast_smt_pp.cpp:919-1011)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/ast/ast_smt_legacy_benchmark.go",
+            "pkg/ast/ast_smt_legacy_benchmark_output.go",
+            "pkg/ast/ast_smt_legacy_benchmark_stream_test.go"
+          ],
+          "tests": [
+            "TestLegacySMTBenchmarkPublishesPrefixBeforeDeclarationFailure",
+            "TestLegacySMTBenchmarkStreamFailureStillEvaluatesOperands",
+            "TestLegacySMTBenchmarkNilWriterPrecedesOperandReads"
           ]
         }
       ],
