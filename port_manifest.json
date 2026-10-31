@@ -106000,13 +106000,16 @@
         "pkg/qe/qe_array_plugin_direct.go",
         "pkg/qe/qe_array_plugin_test.go",
         "pkg/qe/qe_array_plugin_select.go",
-        "pkg/qe/qe_array_plugin_select_test.go"
+        "pkg/qe/qe_array_plugin_select_test.go",
+        "pkg/qe/qe_array_plugin_store.go",
+        "pkg/qe/qe_array_plugin_store_test.go"
       ],
       "tests": [
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
         "TestArrayPluginEliminatesDirectEqualityInEitherOrientation",
         "TestArrayPluginSelectEqualityIntroducesFreshArray",
-        "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
+        "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula",
+        "TestArrayPluginNestedStoreElimination"
       ],
       "assertions": [
         {
@@ -106041,6 +106044,14 @@
             "TestArrayPluginSelectEqualityIntroducesFreshArray",
             "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
           ]
+        },
+        {
+          "name": "solve_store: inner-to-outer consistency equations and fresh values, safe replacement and context variable updates",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_array_plugin_store.go",
+          "tests": [
+            "TestArrayPluginNestedStoreElimination"
+          ]
         }
       ],
       "ownership": [
@@ -106048,7 +106059,7 @@
         "The context-owned array plugin independently pins fresh variables while the context variable list borrows them, including when the rewritten formula does not mention the fresh variable."
       ],
       "deviations": [
-        "Pending: solve_store, arithmetic zero-equation handling, top-level solve orchestration, diagnostics, allocation-failure audit and live QE solver registration."
+        "Pending: arithmetic zero-equation handling, top-level solve orchestration, diagnostics, allocation-failure audit and live QE solver registration."
       ]
     },
     {
