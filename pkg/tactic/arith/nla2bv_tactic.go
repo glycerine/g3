@@ -139,16 +139,6 @@ func (t *NLA2BVTactic) UpdateParams(p *uparams.ParamsRef) error {
 	}
 	return t.context.Assign(&t.params, p)
 }
-func (t *NLA2BVTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
-	if err := t.open(); err != nil {
-		return nil, err
-	}
-	result, err := NewNLA2BVTactic(m, t.context, t.globals, &t.params, t.services)
-	if result != nil {
-		result.trace = t.trace
-	}
-	return result, err
-}
 func (t *NLA2BVTactic) CollectStatistics() map[string]float64  { return nil }
 func (t *NLA2BVTactic) ResetStatistics() error                 { return t.open() }
 func (t *NLA2BVTactic) SetLogic(usymbol.Symbol) error          { return t.open() }

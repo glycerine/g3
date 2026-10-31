@@ -169903,7 +169903,8 @@
         "pkg/tactic/arith/fm_input_trace.go",
         "pkg/tactic/arith/fm_input_trace_test.go",
         "pkg/tactic/arith/fm_projection_oracle_test.go",
-        "pkg/tactic/arith/fm_source_audit_test.go"
+        "pkg/tactic/arith/fm_source_audit_test.go",
+        "pkg/tactic/arith/arith_target_services.go"
       ],
       "tests": [
         "TestAPIFMTacticRegistrationApplyAndModel",
@@ -170204,7 +170205,8 @@
             "pkg/tactic/arith/fm_model_ast.go",
             "pkg/tactic/arith/fm_model_bounds.go",
             "pkg/tactic/arith/fm_model_apply.go",
-            "pkg/tactic/arith/fm_model_translate.go"
+            "pkg/tactic/arith/fm_model_translate.go",
+            "pkg/tactic/arith/arith_target_services.go"
           ],
           "tests": [
             "TestFMModelConverterOwnsInsertedStateAndReferenceLifetime",
@@ -170259,7 +170261,8 @@
           "go_target": "pkg/tactic/arith/fm_tactic.go",
           "go_targets": [
             "pkg/tactic/arith/fm_tactic_apply.go",
-            "pkg/tactic/arith/fm_tactic_translate.go"
+            "pkg/tactic/arith/fm_tactic_translate.go",
+            "pkg/tactic/arith/arith_target_services.go"
           ],
           "tests": [
             "TestFMTacticCleanupReplacementFailurePreservesImplementation",
@@ -170275,7 +170278,8 @@
           "go_target": "pkg/tactic/arith/fm_model_translate.go",
           "go_targets": [
             "pkg/tactic/arith/fm_model_apply.go",
-            "pkg/tactic/arith/fm_tactic_translate.go"
+            "pkg/tactic/arith/fm_tactic_translate.go",
+            "pkg/tactic/arith/arith_target_services.go"
           ],
           "tests": [
             "TestFMTacticTranslationUsesIndependentTargetServices",
@@ -171186,7 +171190,10 @@
         "pkg/tactic/arith/nla2bv_goal_visit.go",
         "pkg/tactic/arith/nla2bv_tactic_test.go",
         "pkg/tactic/arith/nla2bv_cpp_test.go",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/tactic/arith/nla2bv_translate.go",
+        "pkg/tactic/arith/nla2bv_translate_test.go",
+        "pkg/tactic/arith/arith_target_services.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171195,7 +171202,9 @@
         "pkg/cmd/g3/test_vectors/nla2bv_bounded_scopes.smt2",
         "pkg/cmd/g3/test_vectors/nla2bv_under_unknown.smt2",
         "pkg/cmd/g3/test_vectors/nla2bv_real_models.smt2",
-        "pkg/cmd/g3/test_vectors/nla2bv_root_parameters.smt2"
+        "pkg/cmd/g3/test_vectors/nla2bv_root_parameters.smt2",
+        "TestNLA2BVTranslationIndependentManagersAndPolicies",
+        "TestNLA2BVTranslationAllocationFrontiers"
       ],
       "assertions": [
         {
@@ -171258,10 +171267,23 @@
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
           ]
+        },
+        {
+          "name": "nla2bv_tactic::translate independent destination parameter/evaluator owners, five concrete consumed uint policies, explicit trace binding, parameter snapshot and failed-constructor cleanup (nla2bv_tactic.cpp:421-423)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_translate.go",
+          "go_targets": [
+            "pkg/tactic/arith/arith_target_services.go"
+          ],
+          "tests": [
+            "TestNLA2BVTranslationIndependentManagersAndPolicies",
+            "TestNLA2BVTranslationAllocationFrontiers"
+          ]
         }
       ],
       "ownership": [
-        "Outer tactic owns its parameter snapshot and pending invocation cleanup. Each call owns the BV2real utility, BV2int context, bounds, substitution, declaration/definition/trail vectors, reducer/replacer temporaries and converter references. A stopped local cleanup is retained and blocks subsequent application until Cleanup/Close. Result owns the concatenated filter/extension converter independently of invocation destruction. Explicit source guards run before resetting the prior result."
+        "Outer tactic owns its parameter snapshot and pending invocation cleanup. Each call owns the BV2real utility, BV2int context, bounds, substitution, declaration/definition/trail vectors, reducer/replacer temporaries and converter references. A stopped local cleanup is retained and blocks subsequent application until Cleanup/Close. Result owns the concatenated filter/extension converter independently of invocation destruction. Explicit source guards run before resetting the prior result.",
+        "Translation borrows the destination manager's parameter/global/numeral services, while process cooperation and an explicitly bound trace remain borrowed. The four NLA2BV uint policies plus BV2Int max_bv_size are copied by value into a destination-owned parameter snapshot; same-owner translation shares through the counted ParamsRef contract. Failed temporary parameter or tactic construction closes all partial owners and returns a nil interface. Target invocation and model reconstruction remain valid after source tactic mutation/close."
       ],
       "deviations": [
         "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; power-two map iteration remains unspecified. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
