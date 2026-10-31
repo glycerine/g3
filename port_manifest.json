@@ -201066,14 +201066,14 @@
       "path": "src/test/expr_rand.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["This standalone source test command writes generated SMT-LIB files using a test-only expression generator. It has no retained Go production consumer and is not replaced with an unused generator adapter."]
     },
     {
       "path": "src/test/expr_substitution.cpp",
@@ -201483,7 +201483,7 @@
       "path": "src/test/for_each_file.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -201500,13 +201500,13 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Windows-only recursive file walker has no source callers outside its own recursive implementation. Go uses standard-library filesystem facilities for live file consumers."]
     },
     {
       "path": "src/test/for_each_file.h",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -201523,7 +201523,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The declaration is included only by its own implementation; no source consumer calls the standalone Windows file walker."]
     },
     {
       "path": "src/test/fuzzing/CMakeLists.txt",
@@ -201548,7 +201548,7 @@
       "path": "src/test/fuzzing/expr_delta.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -201565,13 +201565,13 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The delta-reduction class has no source callers outside its declaration and definition. It is reference material and is not introduced solely as an unused Go adapter."]
     },
     {
       "path": "src/test/fuzzing/expr_delta.h",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -201588,13 +201588,13 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Whole-source searches find no consumers of expr_delta beyond its own implementation; the test-only declaration remains reference material."]
     },
     {
       "path": "src/test/fuzzing/expr_rand.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -201607,13 +201607,13 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The expression generator is consumed only by the standalone src/test/expr_rand.cpp file generator, which has no retained Go production consumer."]
     },
     {
       "path": "src/test/fuzzing/expr_rand.h",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -201630,7 +201630,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The expression generator declaration is used only by its implementation and standalone source test-file generator; it has no retained Go production consumer."]
     },
     {
       "path": "src/test/get_consequences.cpp",
@@ -202565,7 +202565,7 @@
       "path": "src/test/install_tactic.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "registrations": [
@@ -202746,7 +202746,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["This is a CMake-generated test-runner registration file, absent from the checked-in source tree. Go tactic registration is implemented and tested through its native registry."]
     },
     {
       "path": "src/test/interval.cpp",
@@ -204350,7 +204350,7 @@
       "path": "src/test/main.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -204399,7 +204399,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The C++ standalone test-command dispatcher is not a Go production consumer. Go package tests run through the standard Go test harness; C++ command selection and process-exit behavior remain reference material."]
     },
     {
       "path": "src/test/map.cpp",
