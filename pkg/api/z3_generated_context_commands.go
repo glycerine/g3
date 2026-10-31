@@ -10,6 +10,7 @@ type replayContextOwner struct {
 	userRefCount bool
 	results      *apiContextResults
 	astIDs       []uint64
+	parameterIDs []uint64
 }
 
 // RegisterZ3GeneratedContextCommands installs the implemented context replay
