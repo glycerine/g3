@@ -52408,3 +52408,5 @@ QF_UFNRA cross-context integration: arithmetic and nonlinear purification leaves
 Nonlinear purification test fixture correction: install declaration plugins before constructing the model evaluator. The existing fixture failed its source precondition in debug builds; the complete nonlinear tactic package now passes in ordinary and combined debug/checked modes.
 
 QF_UFNRA translated-solver coverage also checks an unsatisfiable mixed-theory formula after the original solver and context are closed.
+
+BV1 solver context translation: the bit-vector blaster now copies its parameter snapshot and rebuilds with target-owned cooperation services while preserving trace selection. Direct policy and lifecycle coverage and API SAT/model and UNSAT tests run after source-context closure. The unsupported-leaf regression now uses dt2bv, which still exercises the rejection path.

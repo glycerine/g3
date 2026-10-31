@@ -182932,6 +182932,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/bv/bv1_blaster_context_translation.go",
+        "pkg/tactic/bv/bv1_blaster_context_translation_test.go",
         "pkg/api/api_caller_tactic_solver_translate.go",
         "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/bv/bv1_blaster_tactic.go",
@@ -182949,6 +182951,9 @@
         "pkg/cmd/g3/test_vectors/bv1_blast_uf_models.smt2"
       ],
       "tests": [
+        "TestBV1BlasterContextTranslationCopiesPolicyAndServices",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
+        "TestAPITacticSolverTranslateBV1UnsatAfterSourceClose",
         "TestAPISubsystemProbeTacticCrossContextTranslation",
         "TestBV1BlasterExactGoalsCPP",
         "TestBV1EqualityProbeAndRefusalsCPP",

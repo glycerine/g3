@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("bv1-blast")
+	simplify, err := source.Tactic("dt2bv")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1013,6 +1013,7 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 		{"elim01", "QF_LIA", "(declare-const x Int) (assert (>= x 0)) (assert (<= x 1)) (assert (= (* 2 x) 2))", 3},
 		{"propagate-ineqs", "QF_LIA", "(declare-const x Int) (declare-const y Int) (assert (>= x 0)) (assert (>= y 0)) (assert (>= (+ x y) 3)) (assert (<= x 5))", 4},
 		{"fm", "QF_LRA", "(declare-const x Real) (declare-const y Real) (assert (> x 1)) (assert (< x 3)) (assert (= y (+ x 1)))", 3},
+		{"bv1-blast", "QF_BV", "(declare-const x (_ BitVec 8)) (assert (= ((_ extract 7 4) x) #b1010)) (assert (= ((_ extract 3 0) x) #b0101))", 2},
 		{"qfufnra", "QF_UFNRA", "(declare-const x Real) (declare-fun f (Real) Real) (assert (= x 2)) (assert (= (f x) (/ 1 x))) (assert (> (f x) 0))", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1093,5 +1094,36 @@ func TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("translated unsatisfiable solver", status)
+	}
+}
+
+func TestAPITacticSolverTranslateBV1UnsatAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_BV"))
+	blast, err := source.Tactic("bv1-blast")
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := blast.AndThen(smt)
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	for _, owner := range []*APITactic{combined, smt, blast} {
+		astTestMust(t, owner.Close())
+	}
+	astTestMust(t, solver.LoadSMT2String("(declare-const x (_ BitVec 8)) (assert (= x #x01)) (assert (= x #x02))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated unsatisfiable bit-vector solver", status)
 	}
 }
