@@ -40,7 +40,8 @@ func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
 		t.Fatal("formula changed")
 	}
 	v := f.own(m.MkVar(0, f.boolean))
-	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: v}))
+	xor := f.own(m.MkXor(v, p))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: xor}))
 	quantified := f.goal(false, false)
 	fmMust(t, quantified.Assert(q))
 	second := f.result()
@@ -51,5 +52,61 @@ func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
 	fmMust(t, err)
 	if depth != 0 {
 		t.Fatal("refused goal was modified")
+	}
+}
+
+func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	v := f.own(m.MkVar(0, f.boolean))
+	r := f.constant("qe-unit-free", f.boolean)
+	conjunction := f.own(m.MkAnd(v, r))
+	exists := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: conjunction}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(exists))
+	out := f.result()
+	fmMust(t, port.Apply(goal, out))
+	value, err := goal.Form(0)
+	fmMust(t, err)
+	if value != r {
+		t.Fatal("existential unit did not preserve its free condition")
+	}
+	label := f.constant("qe-unit-label", f.boolean)
+	dep, err := m.DependencyLeaf(label)
+	fmMust(t, err)
+	fmMust(t, m.DependencyInc(dep))
+	defer func() { fmMust(t, m.DependencyDec(dep)) }()
+	coreGoal := f.goal(false, true)
+	fmMust(t, coreGoal.AssertWithProof(exists, ast.ASTHandle{}, dep))
+	fmMust(t, port.Apply(coreGoal, f.result()))
+	actual, err := coreGoal.Dependency(0)
+	fmMust(t, err)
+	if actual != dep {
+		t.Fatal("quantifier rewrite lost its assertion dependency")
+	}
+	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: v}))
+	unsatGoal := f.goal(false, false)
+	fmMust(t, unsatGoal.Assert(forall))
+	fmMust(t, port.Apply(unsatGoal, f.result()))
+	inconsistent, err := unsatGoal.Inconsistent()
+	fmMust(t, err)
+	if !inconsistent {
+		t.Fatal("universal Boolean variable should be false")
+	}
+	xor := f.own(m.MkXor(v, r))
+	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: xor}))
+	refused := f.goal(false, false)
+	fmMust(t, refused.Assert(exists))
+	fmMust(t, refused.Assert(unsupported))
+	if err = port.Apply(refused, f.result()); err == nil {
+		t.Fatal("branching quantifier was accepted")
+	}
+	unchanged, err := refused.Form(0)
+	fmMust(t, err)
+	if unchanged != exists {
+		t.Fatal("refusal partially changed the goal")
 	}
 }

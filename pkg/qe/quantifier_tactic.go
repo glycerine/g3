@@ -13,8 +13,9 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// QuantifierTactic currently processes quantifier-free goals. The general
-// expression elimination engine is still under construction.
+// QuantifierTactic handles quantifier-free goals and Boolean quantifiers that
+// source unit and polarity rules eliminate completely. General expression
+// elimination remains under construction.
 type QuantifierTactic struct {
 	self                *QuantifierTactic
 	manager             *ast.ASTManager
@@ -132,7 +133,7 @@ func (t *QuantifierTactic) CollectStatistics() map[string]float64  { return nil 
 func (t *QuantifierTactic) ResetStatistics() error                 { return t.open() }
 func (t *QuantifierTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *QuantifierTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) error {
+func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
 	}
@@ -146,6 +147,14 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) er
 	if err != nil {
 		return err
 	}
+	updates := make([]ast.ASTRef, n)
+	defer func() {
+		for i := range updates {
+			if updates[i] != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, t.manager.DelRef(&updates[i]))
+			}
+		}
+	}()
 	for i := uint32(0); i < n; i++ {
 		canceled, e := t.manager.Canceled()
 		if e != nil {
@@ -173,7 +182,44 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) er
 			return e
 		}
 		if quantified {
-			return tactic.NewTacticException("general quantifier elimination is not implemented")
+			proofs, e := goal.ProofsEnabled()
+			if e != nil {
+				return e
+			}
+			if proofs {
+				return tactic.NewTacticException("quantifier elimination proofs are not implemented")
+			}
+			var complete bool
+			updates[i], complete, e = eliminateQuantifierBoolUnits(t.manager, form, t.config)
+			if e != nil {
+				return e
+			}
+			if !complete {
+				return tactic.NewTacticException("general quantifier elimination is not implemented")
+			}
+		}
+	}
+	for i, update := range updates {
+		inconsistent, e := goal.Inconsistent()
+		if e != nil {
+			return e
+		}
+		if inconsistent {
+			break
+		}
+		if update == (ast.ASTRef{}) {
+			continue
+		}
+		formula, e := t.manager.RefGet(update)
+		if e != nil {
+			return e
+		}
+		dependency, e := goal.Dependency(uint32(i))
+		if e != nil {
+			return e
+		}
+		if e = goal.Update(uint32(i), formula, ast.ASTHandle{}, dependency); e != nil {
+			return e
 		}
 	}
 	if err = goal.IncDepth(); err != nil {

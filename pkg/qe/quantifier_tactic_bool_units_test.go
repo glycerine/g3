@@ -13,6 +13,7 @@ func TestQuantifierBoolUnitsEliminateExistentialAndUniversal(t *testing.T) {
 	v := f.own(m.MkVar(0, f.boolean))
 	r := f.constant("quant-unit-free", f.boolean)
 	conjunction := f.own(m.MkAnd(v, r))
+	disjunction := f.own(m.MkOr(v, r))
 	xor := f.own(m.MkXor(v, r))
 	for _, tc := range []struct {
 		name     string
@@ -24,6 +25,7 @@ func TestQuantifierBoolUnitsEliminateExistentialAndUniversal(t *testing.T) {
 		{"exists", v, false, f.own(m.MkTrue()), true},
 		{"forall", v, true, f.own(m.MkFalse()), true},
 		{"free", conjunction, false, r, true},
+		{"forall-free", disjunction, true, r, true},
 		{"needs-branch", xor, false, ast.ASTHandle{}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
