@@ -52,8 +52,7 @@ func (c *SMTContext) SymbolInteger(symbol usymbol.Symbol) (int32, error) {
 	if err != nil {
 		return 0, err
 	}
-	if value > uint32(^uint32(0)>>1) {
-		return 0, ast.ErrASTDomain
-	}
+	// get_num is unsigned but the source API returns int, preserving the
+	// selected native two's-complement narrowing for generated numeric names.
 	return int32(value), nil
 }

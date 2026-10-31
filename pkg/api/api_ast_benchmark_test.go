@@ -23,3 +23,26 @@ func TestSMTContextASTBenchmarkSMT2MetadataAssumptionsAndFormula(t *testing.T) {
 		}
 	}
 }
+
+func TestAPIBenchmarkUsesGlobalSimplifyImplies(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	boolean := f.pin(f.c.BoolSort())
+	a := f.pin(f.c.Constant("a", boolean))
+	b := f.pin(f.c.Constant("b", boolean))
+	c := f.pin(f.c.Constant("c", boolean))
+	inner := f.pin(f.c.Implies(b, c))
+	root := f.pin(f.c.Implies(a, inner))
+	globals, err := f.c.command.GlobalParameters()
+	astTestMust(t, err)
+	for _, tc := range []struct{ setting, want string }{
+		{"true", "(=> (and a b) c)"},
+		{"false", "(=> a (=> b c))"},
+	} {
+		astTestMust(t, globals.SourceSetName("pp.simplify_implies", tc.setting))
+		text, err := f.c.BenchmarkSMT2(root, APIBenchmarkConfig{})
+		astTestMust(t, err)
+		if !strings.Contains(text, tc.want) {
+			t.Fatal("benchmark implication setting", tc.setting, text)
+		}
+	}
+}

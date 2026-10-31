@@ -5,7 +5,6 @@ package api
 // adding mutable formatting state to the shared solver context.
 
 import (
-	"bytes"
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -54,43 +53,19 @@ func (p *APIASTPrinter) String(value ast.ASTHandle) (result string, resultErr er
 	if err != nil {
 		return "", err
 	}
-	var output bytes.Buffer
 	switch p.mode {
-	case APIASTPrintSMTFull:
-		err = ast.DisplayLegacySMT(&output, m, value, 0, nil)
+	case APIASTPrintSMTFull, APIASTPrintSMT2:
+		return p.smt2String(m, value)
 	case APIASTPrintLowLevel:
 		stream, streamErr := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 		if streamErr != nil {
 			return "", streamErr
 		}
-		if streamErr = m.DisplayLowLevel(stream, value, false, false); streamErr == nil {
+		if streamErr = m.DisplayLowLevel(stream, value, true, true); streamErr == nil {
 			result, streamErr = stream.String()
 		}
 		return result, errors.Join(streamErr, stream.Close())
-	case APIASTPrintSMT2:
-		printer, printerErr := ast.NewSimpleASTPrinterContext(m, &output, &output)
-		if printerErr != nil {
-			return "", printerErr
-		}
-		kind, kindErr := m.GetKind(value)
-		if kindErr != nil {
-			return "", kindErr
-		}
-		switch kind {
-		case ast.ASTSort:
-			err = printer.DisplaySort(&output, value, 0)
-		case ast.ASTFuncDecl:
-			err = printer.DisplayFuncDecl(&output, value, 0)
-		case ast.ASTApp, ast.ASTVar, ast.ASTQuantifier:
-			err = printer.DisplayExpr(&output, value, 0)
-		default:
-			err = ast.ErrASTDomain
-		}
 	default:
-		err = ast.ErrASTDomain
+		return "", ast.ErrASTDomain
 	}
-	if err != nil {
-		return "", err
-	}
-	return output.String(), nil
 }

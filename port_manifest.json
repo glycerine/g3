@@ -4907,9 +4907,157 @@
       "path": "src/api/api_ast.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_ast_construction.go", "pkg/api/api_ast_construction_test.go", "pkg/api/api_ast_inspection.go", "pkg/api/api_ast_inspection_test.go", "pkg/api/api_ast_update.go", "pkg/api/api_ast_update_test.go", "pkg/api/api_ast_substitution.go", "pkg/api/api_ast_substitution_test.go", "pkg/api/api_ast_translation.go", "pkg/api/api_ast_translation_test.go", "pkg/api/api_ast_simplify.go", "pkg/api/api_ast_simplify_test.go", "pkg/api/api_ast_declaration_parameters.go", "pkg/api/api_ast_declaration_parameters_test.go", "pkg/api/api_ast_sort_kind.go", "pkg/api/api_ast_sort_kind_test.go", "pkg/api/api_ast_symbols.go", "pkg/api/api_ast_symbols_test.go", "pkg/api/api_ast_identity.go", "pkg/api/api_ast_identity_test.go", "pkg/api/api_ast_printer.go", "pkg/api/api_ast_printer_test.go", "pkg/api/api_ast_benchmark.go", "pkg/api/api_ast_benchmark_test.go"],
-      "tests": ["TestSMTContextASTConstruction", "TestSMTContextASTUpdateApplicationsQuantifiersAndLeaves", "TestSMTContextASTSubstituteIsSimultaneousAndOwning", "TestSMTContextASTTranslationReturnsTargetOwnedReference", "TestSMTContextASTSimplifyDefaultAndConfigured", "TestSMTContextASTDeclarationParameterKindsAndValues", "TestSMTContextASTSortKindCoreFamilies", "TestSMTContextASTSymbolKindsAndValues", "TestSMTContextASTTypedIdentityAndDomainSize", "TestSMTContextASTPrinterModesAndConfiguration", "TestSMTContextASTBenchmarkSMT2MetadataAssumptionsAndFormula"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_ast_benchmark.go",
+        "pkg/api/api_ast_benchmark_test.go",
+        "pkg/api/api_ast_boolean_source_test.go",
+        "pkg/api/api_ast_construction.go",
+        "pkg/api/api_ast_construction_test.go",
+        "pkg/api/api_ast_decl_kind.go",
+        "pkg/api/api_ast_decl_kind_arithmetic.go",
+        "pkg/api/api_ast_decl_kind_arithmetic_map.go",
+        "pkg/api/api_ast_decl_kind_arithmetic_map_test.go",
+        "pkg/api/api_ast_decl_kind_arithmetic_test.go",
+        "pkg/api/api_ast_decl_kind_array.go",
+        "pkg/api/api_ast_decl_kind_array_map.go",
+        "pkg/api/api_ast_decl_kind_array_map_test.go",
+        "pkg/api/api_ast_decl_kind_array_test.go",
+        "pkg/api/api_ast_decl_kind_basic.go",
+        "pkg/api/api_ast_decl_kind_basic_test.go",
+        "pkg/api/api_ast_decl_kind_bitvector.go",
+        "pkg/api/api_ast_decl_kind_bitvector_arithmetic.go",
+        "pkg/api/api_ast_decl_kind_bitvector_arithmetic_test.go",
+        "pkg/api/api_ast_decl_kind_bitvector_live_test.go",
+        "pkg/api/api_ast_decl_kind_bitvector_overflow.go",
+        "pkg/api/api_ast_decl_kind_bitvector_overflow_test.go",
+        "pkg/api/api_ast_decl_kind_bitvector_relations.go",
+        "pkg/api/api_ast_decl_kind_bitvector_relations_test.go",
+        "pkg/api/api_ast_decl_kind_bitvector_structural.go",
+        "pkg/api/api_ast_decl_kind_bitvector_structural_test.go",
+        "pkg/api/api_ast_decl_kind_datalog.go",
+        "pkg/api/api_ast_decl_kind_datalog_filter.go",
+        "pkg/api/api_ast_decl_kind_datalog_filter_test.go",
+        "pkg/api/api_ast_decl_kind_datalog_finite.go",
+        "pkg/api/api_ast_decl_kind_datalog_finite_test.go",
+        "pkg/api/api_ast_decl_kind_datalog_live_test.go",
+        "pkg/api/api_ast_decl_kind_datalog_relation.go",
+        "pkg/api/api_ast_decl_kind_datalog_relation_test.go",
+        "pkg/api/api_ast_decl_kind_datatype.go",
+        "pkg/api/api_ast_decl_kind_datatype_test.go",
+        "pkg/api/api_ast_decl_kind_fallback_test.go",
+        "pkg/api/api_ast_decl_kind_family.go",
+        "pkg/api/api_ast_decl_kind_family_invalid_test.go",
+        "pkg/api/api_ast_decl_kind_family_values_test.go",
+        "pkg/api/api_ast_decl_kind_fpa.go",
+        "pkg/api/api_ast_decl_kind_fpa_arithmetic.go",
+        "pkg/api/api_ast_decl_kind_fpa_arithmetic_test.go",
+        "pkg/api/api_ast_decl_kind_fpa_conversions.go",
+        "pkg/api/api_ast_decl_kind_fpa_conversions_test.go",
+        "pkg/api/api_ast_decl_kind_fpa_extensions.go",
+        "pkg/api/api_ast_decl_kind_fpa_extensions_test.go",
+        "pkg/api/api_ast_decl_kind_fpa_live_test.go",
+        "pkg/api/api_ast_decl_kind_fpa_relations.go",
+        "pkg/api/api_ast_decl_kind_fpa_relations_test.go",
+        "pkg/api/api_ast_decl_kind_fpa_rounding.go",
+        "pkg/api/api_ast_decl_kind_fpa_rounding_test.go",
+        "pkg/api/api_ast_decl_kind_fpa_values.go",
+        "pkg/api/api_ast_decl_kind_fpa_values_test.go",
+        "pkg/api/api_ast_decl_kind_invalid_test.go",
+        "pkg/api/api_ast_decl_kind_label.go",
+        "pkg/api/api_ast_decl_kind_label_test.go",
+        "pkg/api/api_ast_decl_kind_pb.go",
+        "pkg/api/api_ast_decl_kind_pb_test.go",
+        "pkg/api/api_ast_decl_kind_proof.go",
+        "pkg/api/api_ast_decl_kind_proof_test.go",
+        "pkg/api/api_ast_decl_kind_public.go",
+        "pkg/api/api_ast_decl_kind_public_test.go",
+        "pkg/api/api_ast_decl_kind_regex.go",
+        "pkg/api/api_ast_decl_kind_regex_test.go",
+        "pkg/api/api_ast_decl_kind_sequence.go",
+        "pkg/api/api_ast_decl_kind_sequence_core.go",
+        "pkg/api/api_ast_decl_kind_sequence_core_test.go",
+        "pkg/api/api_ast_decl_kind_sequence_indexed.go",
+        "pkg/api/api_ast_decl_kind_sequence_indexed_test.go",
+        "pkg/api/api_ast_decl_kind_sequence_live_test.go",
+        "pkg/api/api_ast_decl_kind_sequence_relations.go",
+        "pkg/api/api_ast_decl_kind_sequence_relations_test.go",
+        "pkg/api/api_ast_decl_kind_sequence_string.go",
+        "pkg/api/api_ast_decl_kind_sequence_string_test.go",
+        "pkg/api/api_ast_decl_kind_values_test.go",
+        "pkg/api/api_ast_declaration_parameters.go",
+        "pkg/api/api_ast_declaration_parameters_test.go",
+        "pkg/api/api_ast_identity.go",
+        "pkg/api/api_ast_identity_test.go",
+        "pkg/api/api_ast_inspection.go",
+        "pkg/api/api_ast_inspection_test.go",
+        "pkg/api/api_ast_kind_source.go",
+        "pkg/api/api_ast_kind_source_test.go",
+        "pkg/api/api_ast_printer.go",
+        "pkg/api/api_ast_printer_smt2.go",
+        "pkg/api/api_ast_printer_source_test.go",
+        "pkg/api/api_ast_printer_test.go",
+        "pkg/api/api_ast_simplify.go",
+        "pkg/api/api_ast_simplify_interrupt.go",
+        "pkg/api/api_ast_simplify_interrupt_params_test.go",
+        "pkg/api/api_ast_simplify_interrupt_test.go",
+        "pkg/api/api_ast_simplify_test.go",
+        "pkg/api/api_ast_sort_kind.go",
+        "pkg/api/api_ast_sort_kind_test.go",
+        "pkg/api/api_ast_substitution.go",
+        "pkg/api/api_ast_substitution_test.go",
+        "pkg/api/api_ast_symbol_construction.go",
+        "pkg/api/api_ast_symbol_construction_test.go",
+        "pkg/api/api_ast_symbols.go",
+        "pkg/api/api_ast_symbols_test.go",
+        "pkg/api/api_ast_translation.go",
+        "pkg/api/api_ast_translation_test.go",
+        "pkg/api/api_ast_typed_identity.go",
+        "pkg/api/api_ast_typed_identity_test.go",
+        "pkg/api/api_ast_typed_string.go",
+        "pkg/api/api_ast_typed_symbols.go",
+        "pkg/api/api_ast_typed_symbols_test.go",
+        "pkg/api/api_ast_typed_views.go",
+        "pkg/api/api_ast_typed_views_test.go",
+        "pkg/api/api_ast_update.go",
+        "pkg/api/api_ast_update_test.go",
+        "pkg/ast/ast_decl_parameter_access.go",
+        "pkg/ast/ast_decl_parameter_access_source_test.go"
+      ],
+      "tests": [
+        "TestAPIASTKindAlgebraicIsApplication",
+        "TestAPIASTKindUsesNumeralSortAndUniqueValue",
+        "TestAPIASTPrinterFullOverridesOnlyAliasParameters",
+        "TestAPIASTPrinterLowLevelUsesSourceDefaultFlags",
+        "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting",
+        "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames",
+        "TestAPIASTSymbolEmptyAndCStringBehavior",
+        "TestAPIBenchmarkUsesGlobalSimplifyImplies",
+        "TestAPIBooleanEqualityKeepsSourceEqualityDeclaration",
+        "TestAPIBooleanNaryConstructorsDoNotSimplifyArityOrDuplicates",
+        "TestAPIIsApplicationNullAndInvalidOwners",
+        "TestAPINumericalSymbolNativeSignedGetterAndUnsignedSpelling",
+        "TestAPIPublicDeclarationKindAllFamiliesAndFallbacks",
+        "TestAPIPublicDeclarationKindRejectsInvalidInputs",
+        "TestAPISymbolConstructorsAndParametersRejectInvalidOwnersAndKinds",
+        "TestAPITypedASTIDsMatchManagerIDs",
+        "TestAPITypedASTSymbolsPreserveStringAndNumericalKinds",
+        "TestAPITypedASTViewsPreserveHandleIdentity",
+        "TestASTDeclParameterAccessMetadataAndBorrowedASTPayload",
+        "TestSMTContextASTConstruction",
+        "TestSMTContextASTDeclarationParameterKindsAndValues",
+        "TestSMTContextASTInspection",
+        "TestSMTContextASTSimplifyDefaultAndConfigured",
+        "TestSMTContextASTSimplifyDescriptionsHelpAndOwnership",
+        "TestSMTContextASTSortKindCoreFamilies",
+        "TestSMTContextASTSubstituteIsSimultaneousAndOwning",
+        "TestSMTContextASTSubstituteVariablesUsesAPIOrder",
+        "TestSMTContextASTSymbolKindsAndValues",
+        "TestSMTContextASTTranslationReturnsTargetOwnedReference",
+        "TestSMTContextASTTypedIdentityAndDomainSize",
+        "TestSMTContextASTUpdateApplicationsQuantifiersAndLeaves",
+        "TestSMTContextASTVariableAndBooleanInspection"
+      ],
       "assertions": [
         {
           "line": 344,
@@ -4936,11 +5084,613 @@
           "text": "SASSERT(mk_c(c)->m().contains(to_ast(a)));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Z3_mk_app => SMTContext.Apply",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_fresh_func_decl => SMTContext.FreshFunction",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_fresh_const => SMTContext.FreshConstant",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_true => SMTContext.Bool(true)",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_false => SMTContext.Bool(false)",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_bool_sort => SMTContext.BoolSort",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_not => SMTContext.Not",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_distinct => SMTContext.Distinct",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_iff => SMTContext.Iff",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_implies => SMTContext.Implies",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_xor => SMTContext.Xor",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_and => SMTContext.And",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_or => SMTContext.Or",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_ite => SMTContext.Ite",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestSMTContextASTConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_eq => SMTContext.Equal",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestAPIBooleanEqualityKeepsSourceEqualityDeclaration"
+          ]
+        },
+        {
+          "name": "Z3_mk_interpolant => SMTContext.Interpolant",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestAPIBooleanEqualityKeepsSourceEqualityDeclaration"
+          ]
+        },
+        {
+          "name": "Z3_mk_int_symbol => SMTContext.SignedIntegerSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbols.go",
+          "tests": [
+            "TestSMTContextASTSymbolKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_symbol_kind => SMTContext.SymbolKind",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbols.go",
+          "tests": [
+            "TestSMTContextASTSymbolKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_symbol_int => SMTContext.SymbolInteger",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbols.go",
+          "tests": [
+            "TestSMTContextASTSymbolKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_mk_string_symbol => SMTContext.StringSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestAPIASTSymbolEmptyAndCStringBehavior"
+          ]
+        },
+        {
+          "name": "Z3_get_symbol_string => SMTContext.SymbolString",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_construction.go",
+          "tests": [
+            "TestAPIASTSymbolEmptyAndCStringBehavior"
+          ]
+        },
+        {
+          "name": "Z3_mk_uninterpreted_sort => SMTContext.UninterpretedSortWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbol_construction.go",
+          "tests": [
+            "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+          ]
+        },
+        {
+          "name": "Z3_mk_func_decl => SMTContext.FunctionWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbol_construction.go",
+          "tests": [
+            "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+          ]
+        },
+        {
+          "name": "Z3_mk_const => SMTContext.ConstantWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbol_construction.go",
+          "tests": [
+            "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_symbol_parameter => SMTContext.DeclarationParameterSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_symbol_construction.go",
+          "tests": [
+            "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+          ]
+        },
+        {
+          "name": "Z3_is_eq_sort => SMTContext.SortEqual",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_identity.go",
+          "tests": [
+            "TestSMTContextASTTypedIdentityAndDomainSize"
+          ]
+        },
+        {
+          "name": "Z3_is_eq_func_decl => SMTContext.FunctionEqual",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_identity.go",
+          "tests": [
+            "TestSMTContextASTTypedIdentityAndDomainSize"
+          ]
+        },
+        {
+          "name": "Z3_get_domain_size => SMTContext.DeclarationDomainSize",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_identity.go",
+          "tests": [
+            "TestSMTContextASTTypedIdentityAndDomainSize"
+          ]
+        },
+        {
+          "name": "Z3_app_to_ast => SMTContext.ApplicationToAST",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_views.go",
+          "tests": [
+            "TestAPITypedASTViewsPreserveHandleIdentity"
+          ]
+        },
+        {
+          "name": "Z3_sort_to_ast => SMTContext.SortToAST",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_views.go",
+          "tests": [
+            "TestAPITypedASTViewsPreserveHandleIdentity"
+          ]
+        },
+        {
+          "name": "Z3_func_decl_to_ast => SMTContext.FunctionDeclarationToAST",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_views.go",
+          "tests": [
+            "TestAPITypedASTViewsPreserveHandleIdentity"
+          ]
+        },
+        {
+          "name": "Z3_to_app => SMTContext.ToApplication",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_views.go",
+          "tests": [
+            "TestAPITypedASTViewsPreserveHandleIdentity"
+          ]
+        },
+        {
+          "name": "Z3_to_func_decl => SMTContext.ToFunctionDeclaration",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_views.go",
+          "tests": [
+            "TestAPITypedASTViewsPreserveHandleIdentity"
+          ]
+        },
+        {
+          "name": "Z3_is_eq_ast => SMTContext.ASTEqual",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_ast_id => SMTContext.ASTID",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_ast_hash => SMTContext.ASTHash",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_is_well_sorted => SMTContext.IsWellSorted",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_app_decl => SMTContext.ApplicationDeclaration",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_app_num_args => SMTContext.ApplicationArgumentCount",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_app_arg => SMTContext.ApplicationArgument",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_sort => SMTContext.SortOf",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_arity => SMTContext.DeclarationArity",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_domain => SMTContext.DeclarationDomain",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_range => SMTContext.DeclarationRange",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTInspection"
+          ]
+        },
+        {
+          "name": "Z3_is_app => SMTContext.IsApplication",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestAPIIsApplicationNullAndInvalidOwners"
+          ]
+        },
+        {
+          "name": "Z3_get_ast_kind => SMTContext.APIKind",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestAPIASTKindUsesNumeralSortAndUniqueValue"
+          ]
+        },
+        {
+          "name": "Z3_get_bool_value => SMTContext.BooleanValue",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTVariableAndBooleanInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_index_value => SMTContext.VariableIndex",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_inspection.go",
+          "tests": [
+            "TestSMTContextASTVariableAndBooleanInspection"
+          ]
+        },
+        {
+          "name": "Z3_get_func_decl_id => SMTContext.FunctionDeclarationID",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_identity.go",
+          "tests": [
+            "TestAPITypedASTIDsMatchManagerIDs"
+          ]
+        },
+        {
+          "name": "Z3_get_sort_id => SMTContext.SortID",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_identity.go",
+          "tests": [
+            "TestAPITypedASTIDsMatchManagerIDs"
+          ]
+        },
+        {
+          "name": "Z3_get_sort_name => SMTContext.SortSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_symbols.go",
+          "tests": [
+            "TestAPITypedASTSymbolsPreserveStringAndNumericalKinds"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_name => SMTContext.DeclarationSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_symbols.go",
+          "tests": [
+            "TestAPITypedASTSymbolsPreserveStringAndNumericalKinds"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_num_parameters => SMTContext.DeclarationParameterCount",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_parameter_kind => SMTContext.DeclarationParameterKind",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_int_parameter => SMTContext.DeclarationIntegerParameter",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_double_parameter => SMTContext.DeclarationDoubleParameter",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_sort_parameter => SMTContext.DeclarationSortParameter",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_ast_parameter => SMTContext.DeclarationASTParameter",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_func_decl_parameter => SMTContext.DeclarationFunctionParameter",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_rational_parameter => SMTContext.DeclarationRationalParameter",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_declaration_parameters.go",
+          "tests": [
+            "TestSMTContextASTDeclarationParameterKindsAndValues"
+          ]
+        },
+        {
+          "name": "Z3_get_sort_kind => SMTContext.SortKind",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_sort_kind.go",
+          "tests": [
+            "TestSMTContextASTSortKindCoreFamilies"
+          ]
+        },
+        {
+          "name": "Z3_simplify => SMTContext.Simplify",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_simplify.go",
+          "tests": [
+            "TestSMTContextASTSimplifyDefaultAndConfigured"
+          ]
+        },
+        {
+          "name": "Z3_simplify_ex => SMTContext.SimplifyWithParameters",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_simplify.go",
+          "tests": [
+            "TestSMTContextASTSimplifyDefaultAndConfigured"
+          ]
+        },
+        {
+          "name": "Z3_simplify_get_help => SMTContext.SimplifyHelp",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_simplify.go",
+          "tests": [
+            "TestSMTContextASTSimplifyDescriptionsHelpAndOwnership"
+          ]
+        },
+        {
+          "name": "Z3_simplify_get_param_descrs => SMTContext.SimplifyParameterDescriptions",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_simplify.go",
+          "tests": [
+            "TestSMTContextASTSimplifyDescriptionsHelpAndOwnership"
+          ]
+        },
+        {
+          "name": "Z3_update_term => SMTContext.UpdateTerm",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_update.go",
+          "tests": [
+            "TestSMTContextASTUpdateApplicationsQuantifiersAndLeaves"
+          ]
+        },
+        {
+          "name": "Z3_substitute => SMTContext.Substitute",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_substitution.go",
+          "tests": [
+            "TestSMTContextASTSubstituteIsSimultaneousAndOwning"
+          ]
+        },
+        {
+          "name": "Z3_substitute_vars => SMTContext.SubstituteVariables",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_substitution.go",
+          "tests": [
+            "TestSMTContextASTSubstituteVariablesUsesAPIOrder"
+          ]
+        },
+        {
+          "name": "Z3_ast_to_string => SMTContext.ASTString",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_string.go",
+          "tests": [
+            "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting"
+          ]
+        },
+        {
+          "name": "Z3_sort_to_string => SMTContext.SortString",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_string.go",
+          "tests": [
+            "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting"
+          ]
+        },
+        {
+          "name": "Z3_func_decl_to_string => SMTContext.FunctionString",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_typed_string.go",
+          "tests": [
+            "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting"
+          ]
+        },
+        {
+          "name": "Z3_benchmark_to_smtlib_string => SMTContext.BenchmarkSMT2",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_benchmark.go",
+          "tests": [
+            "TestAPIBenchmarkUsesGlobalSimplifyImplies"
+          ]
+        },
+        {
+          "name": "Z3_get_decl_kind => SMTContext.PublicDeclarationKind",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_decl_kind_public.go",
+          "tests": [
+            "TestAPIPublicDeclarationKindAllFamiliesAndFallbacks"
+          ]
+        },
+        {
+          "name": "Z3_translate => SMTContext.TranslateAST",
+          "status": "ported",
+          "go_target": "pkg/api/api_ast_translation.go",
+          "tests": [
+            "TestSMTContextASTTranslationReturnsTargetOwnedReference"
+          ]
+        }
+      ],
+      "ownership": [
+        "SMTContext and APIASTPrinter borrow the live AST manager and shared parameter/symbol services. Typed handles enforce manager identity; constructors returning ASTHandle provide the manager view, and callers use explicit ASTRef ownership when keeping those nodes. There is no C pointer or ABI trail emulation.",
+        "UpdateTerm, substitution, translation and simplification return owning ASTRef values; temporary rewriters, substitution tables and translators close after the result is pinned. TranslateAST results belong to the target manager. Tests verify temporary-owner destruction, provenance and same-context refusal.",
+        "Declaration parameter getters copy only the selected parameter storage and numerical payload, then destroy that copy. AST payloads remain borrowed from the declaration. Parameter counts read metadata without allocation; bounds checks precede selected copies. Returned symbols borrow their symbol manager.",
+        "API string outputs are immutable Go strings. SMT2/full rendering owns a format-manager reference and rendering stream through printing, then destroys those owners and its pp parameter snapshot. Low-level printing uses the source expression-only/compact flags. Benchmark printing reads the current simplify_implies setting through an owned pp snapshot."
+      ],
+      "deviations": [
+        "Go returns typed errors for native context error-code/sentinel paths and checks invalid/foreign/closed handles. Native C pointer reinterpretations become checked identity views; C log macros and output-buffer invalidation have no C ABI counterpart. Public enum categories use distinct typed Go constants.",
+        "String-name constructors remain convenience methods; WithSymbol constructors and DeclarationParameterSymbol preserve numerical/null/text symbol identities. The existing DeclarationKind method exposes family-local operations; PublicDeclarationKind implements the source public enumeration dispatch.",
+        "Native save_ast_trail ownership is represented by explicit caller ASTRef ownership for persistent values; owning rewrite/translation results are returned directly rather than stored in a hidden context-global trail. The registered source printer and numeral-manager algorithms remain tracked in their own source units."
+      ]
     },
     {
       "path": "src/api/api_ast_map.cpp",
@@ -270450,8 +271200,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTViewsPreserveHandleIdentity"
+      ],
+      "go_target": "pkg/api/api_ast_typed_views.go"
     },
     {
       "name": "Z3_append_log",
@@ -270609,10 +271362,14 @@
     {
       "name": "Z3_ast_to_string",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting"
+      ],
+      "go_target": "pkg/api/api_ast_typed_string.go"
     },
     {
       "name": "Z3_ast_vector_dec_ref",
@@ -270701,8 +271458,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIBenchmarkUsesGlobalSimplifyImplies"
+      ],
+      "go_target": "pkg/api/api_ast_benchmark.go"
     },
     {
       "name": "Z3_check_interpolant",
@@ -271342,16 +272102,23 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTViewsPreserveHandleIdentity"
+      ],
+      "go_target": "pkg/api/api_ast_typed_views.go"
     },
     {
       "name": "Z3_func_decl_to_string",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting"
+      ],
+      "go_target": "pkg/api/api_ast_typed_string.go"
     },
     {
       "name": "Z3_func_entry_dec_ref",
@@ -271494,8 +272261,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_app_decl",
@@ -271503,8 +272273,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_app_num_args",
@@ -271512,8 +272285,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_arity",
@@ -271521,8 +272297,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_array_sort_domain",
@@ -271557,8 +272336,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_ast_id",
@@ -271566,8 +272348,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_ast_kind",
@@ -271575,8 +272360,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTKindUsesNumeralSortAndUniqueValue"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_bool_value",
@@ -271584,8 +272372,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTVariableAndBooleanInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_bv_sort_size",
@@ -271638,8 +272429,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_double_parameter",
@@ -271647,8 +272441,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_func_decl_parameter",
@@ -271656,8 +272453,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_int_parameter",
@@ -271665,8 +272465,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_kind",
@@ -271674,8 +272477,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIPublicDeclarationKindAllFamiliesAndFallbacks"
+      ],
+      "go_target": "pkg/api/api_ast_decl_kind_public.go"
     },
     {
       "name": "Z3_get_decl_name",
@@ -271683,8 +272489,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTSymbolsPreserveStringAndNumericalKinds"
+      ],
+      "go_target": "pkg/api/api_ast_typed_symbols.go"
     },
     {
       "name": "Z3_get_decl_num_parameters",
@@ -271692,8 +272501,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_parameter_kind",
@@ -271701,8 +272513,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_rational_parameter",
@@ -271710,8 +272525,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_sort_parameter",
@@ -271719,8 +272537,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTDeclarationParameterKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_declaration_parameters.go"
     },
     {
       "name": "Z3_get_decl_symbol_parameter",
@@ -271728,8 +272549,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+      ],
+      "go_target": "pkg/api/api_ast_symbol_construction.go"
     },
     {
       "name": "Z3_get_denominator",
@@ -271746,8 +272570,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_domain_size",
@@ -271755,8 +272582,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTTypedIdentityAndDomainSize"
+      ],
+      "go_target": "pkg/api/api_ast_identity.go"
     },
     {
       "name": "Z3_get_error_code",
@@ -271816,8 +272646,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTIDsMatchManagerIDs"
+      ],
+      "go_target": "pkg/api/api_ast_typed_identity.go"
     },
     {
       "name": "Z3_get_implied_equalities",
@@ -271834,8 +272667,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTVariableAndBooleanInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_interpolant",
@@ -272112,8 +272948,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_relation_arity",
@@ -272139,8 +272978,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_get_sort_id",
@@ -272148,16 +272990,23 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTIDsMatchManagerIDs"
+      ],
+      "go_target": "pkg/api/api_ast_typed_identity.go"
     },
     {
       "name": "Z3_get_sort_kind",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSortKindCoreFamilies"
+      ],
+      "go_target": "pkg/api/api_ast_sort_kind.go"
     },
     {
       "name": "Z3_get_sort_name",
@@ -272165,8 +273014,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTSymbolsPreserveStringAndNumericalKinds"
+      ],
+      "go_target": "pkg/api/api_ast_typed_symbols.go"
     },
     {
       "name": "Z3_get_string",
@@ -272183,8 +273035,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSymbolKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_symbols.go"
     },
     {
       "name": "Z3_get_symbol_kind",
@@ -272192,16 +273047,23 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSymbolKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_symbols.go"
     },
     {
       "name": "Z3_get_symbol_string",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTSymbolEmptyAndCStringBehavior"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_get_tactic_name",
@@ -272456,8 +273318,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIIsApplicationNullAndInvalidOwners"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_is_as_array",
@@ -272474,8 +273339,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_is_eq_func_decl",
@@ -272483,8 +273351,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTTypedIdentityAndDomainSize"
+      ],
+      "go_target": "pkg/api/api_ast_identity.go"
     },
     {
       "name": "Z3_is_eq_sort",
@@ -272492,8 +273363,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTTypedIdentityAndDomainSize"
+      ],
+      "go_target": "pkg/api/api_ast_identity.go"
     },
     {
       "name": "Z3_is_numeral_ast",
@@ -272555,8 +273429,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTInspection"
+      ],
+      "go_target": "pkg/api/api_ast_inspection.go"
     },
     {
       "name": "Z3_mk_add",
@@ -272569,10 +273446,14 @@
     {
       "name": "Z3_mk_and",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_app",
@@ -272580,8 +273461,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_array_default",
@@ -272669,8 +273553,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_bound",
@@ -273045,8 +273932,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+      ],
+      "go_target": "pkg/api/api_ast_symbol_construction.go"
     },
     {
       "name": "Z3_mk_const_array",
@@ -273114,10 +274004,14 @@
     {
       "name": "Z3_mk_distinct",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_div",
@@ -273149,10 +274043,14 @@
     {
       "name": "Z3_mk_eq",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIBooleanEqualityKeepsSourceEqualityDeclaration"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_exists",
@@ -273203,8 +274101,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_finite_domain_sort",
@@ -273816,8 +274717,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_fresh_func_decl",
@@ -273825,8 +274729,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_full_set",
@@ -273843,8 +274750,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+      ],
+      "go_target": "pkg/api/api_ast_symbol_construction.go"
     },
     {
       "name": "Z3_mk_ge",
@@ -273874,18 +274784,26 @@
     {
       "name": "Z3_mk_iff",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_implies",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_int",
@@ -273936,8 +274854,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSymbolKindsAndValues"
+      ],
+      "go_target": "pkg/api/api_ast_symbols.go"
     },
     {
       "name": "Z3_mk_int_to_str",
@@ -273950,14 +274871,14 @@
     {
       "name": "Z3_mk_interpolant",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_interp.h"
       ],
       "status": "ported",
       "tests": [
-        "TestInterpolationContextBinary",
-        "TestInterpolationContextTree"
+        "TestAPIBooleanEqualityKeepsSourceEqualityDeclaration"
       ],
-      "go_target": "pkg/api/api_interp.go"
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_interpolation_context",
@@ -273985,8 +274906,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_le",
@@ -274050,10 +274974,14 @@
     {
       "name": "Z3_mk_not",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_numeral",
@@ -274076,10 +275004,14 @@
     {
       "name": "Z3_mk_or",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_params",
@@ -274633,8 +275565,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTSymbolEmptyAndCStringBehavior"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_sub",
@@ -274660,8 +275595,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_tuple_sort",
@@ -274687,8 +275625,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTSymbolConstructorsPreserveNumericalNullAndTextNames"
+      ],
+      "go_target": "pkg/api/api_ast_symbol_construction.go"
     },
     {
       "name": "Z3_mk_unsigned_int",
@@ -274711,10 +275652,14 @@
     {
       "name": "Z3_mk_xor",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTConstruction"
+      ],
+      "go_target": "pkg/api/api_ast_construction.go"
     },
     {
       "name": "Z3_mk_zero_ext",
@@ -275696,8 +276641,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSimplifyDefaultAndConfigured"
+      ],
+      "go_target": "pkg/api/api_ast_simplify.go"
     },
     {
       "name": "Z3_simplify_ex",
@@ -275705,8 +276653,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSimplifyDefaultAndConfigured"
+      ],
+      "go_target": "pkg/api/api_ast_simplify.go"
     },
     {
       "name": "Z3_simplify_get_help",
@@ -275714,8 +276665,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSimplifyDescriptionsHelpAndOwnership"
+      ],
+      "go_target": "pkg/api/api_ast_simplify.go"
     },
     {
       "name": "Z3_simplify_get_param_descrs",
@@ -275723,8 +276677,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSimplifyDescriptionsHelpAndOwnership"
+      ],
+      "go_target": "pkg/api/api_ast_simplify.go"
     },
     {
       "name": "Z3_solver_assert",
@@ -275948,16 +276905,23 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTViewsPreserveHandleIdentity"
+      ],
+      "go_target": "pkg/api/api_ast_typed_views.go"
     },
     {
       "name": "Z3_sort_to_string",
       "sources": [
+        "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIASTPrinterUsesSourceSMT2DeclarationAndQuoting"
+      ],
+      "go_target": "pkg/api/api_ast_typed_string.go"
     },
     {
       "name": "Z3_stats_dec_ref",
@@ -276046,8 +277010,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSubstituteIsSimultaneousAndOwning"
+      ],
+      "go_target": "pkg/api/api_ast_substitution.go"
     },
     {
       "name": "Z3_substitute_vars",
@@ -276055,8 +277022,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTSubstituteVariablesUsesAPIOrder"
+      ],
+      "go_target": "pkg/api/api_ast_substitution.go"
     },
     {
       "name": "Z3_tactic_and_then",
@@ -276244,8 +277214,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTViewsPreserveHandleIdentity"
+      ],
+      "go_target": "pkg/api/api_ast_typed_views.go"
     },
     {
       "name": "Z3_to_func_decl",
@@ -276253,8 +277226,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITypedASTViewsPreserveHandleIdentity"
+      ],
+      "go_target": "pkg/api/api_ast_typed_views.go"
     },
     {
       "name": "Z3_toggle_warning_messages",
@@ -276272,8 +277248,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTTranslationReturnsTargetOwnedReference"
+      ],
+      "go_target": "pkg/api/api_ast_translation.go"
     },
     {
       "name": "Z3_update_param_value",
@@ -276290,8 +277269,11 @@
         "src/api/api_ast.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextASTUpdateApplicationsQuantifiersAndLeaves"
+      ],
+      "go_target": "pkg/api/api_ast_update.go"
     },
     {
       "name": "Z3_write_interpolation_problem",

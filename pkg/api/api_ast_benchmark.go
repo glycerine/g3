@@ -4,6 +4,7 @@ package api
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -22,7 +23,7 @@ func apiBenchmarkSymbol(m *ast.ASTManager, text string) (usymbol.Symbol, error) 
 	return m.Symbols.Intern(text)
 }
 
-func (c *SMTContext) BenchmarkSMT2(formula ast.ASTHandle, config APIBenchmarkConfig) (string, error) {
+func (c *SMTContext) BenchmarkSMT2(formula ast.ASTHandle, config APIBenchmarkConfig) (result string, resultErr error) {
 	m, err := c.Manager()
 	if err != nil {
 		return "", err
@@ -49,6 +50,22 @@ func (c *SMTContext) BenchmarkSMT2(formula ast.ASTHandle, config APIBenchmarkCon
 	}
 	printer, err := ast.NewLegacySMTPrinter(m)
 	if err != nil {
+		return "", err
+	}
+	globals, err := c.command.GlobalParameters()
+	if err != nil {
+		return "", err
+	}
+	settings, err := ast.NewPPParams(globals.Context, globals, nil)
+	if err != nil {
+		return "", err
+	}
+	defer func() { resultErr = errors.Join(resultErr, settings.Close()) }()
+	simplify, err := settings.SimplifyImplies()
+	if err != nil {
+		return "", err
+	}
+	if err := printer.SetSimplifyImplies(simplify); err != nil {
 		return "", err
 	}
 	var output bytes.Buffer

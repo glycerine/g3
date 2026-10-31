@@ -24,27 +24,7 @@ const (
 )
 
 func apiDeclarationParameter(m *ast.ASTManager, declaration ast.ASTHandle, index uint32) (selected ast.ASTParameter, resultErr error) {
-	parameters, err := m.GetDeclParametersCopy(declaration)
-	if err != nil {
-		return ast.ASTParameter{}, err
-	}
-	if uint64(index) >= uint64(len(parameters)) {
-		for i := range parameters {
-			resultErr = errors.Join(resultErr, m.DelParameter(&parameters[i]))
-		}
-		return ast.ASTParameter{}, errors.Join(ast.ErrASTDomain, resultErr)
-	}
-	selected = parameters[index]
-	for i := range parameters {
-		if uint32(i) != index {
-			resultErr = errors.Join(resultErr, m.DelParameter(&parameters[i]))
-		}
-	}
-	if resultErr != nil {
-		resultErr = errors.Join(resultErr, m.DelParameter(&selected))
-		return ast.ASTParameter{}, resultErr
-	}
-	return selected, nil
+	return m.GetDeclParameterCopy(declaration, index)
 }
 
 func (c *SMTContext) DeclarationParameterCount(declaration ast.ASTHandle) (uint32, error) {
@@ -52,15 +32,7 @@ func (c *SMTContext) DeclarationParameterCount(declaration ast.ASTHandle) (uint3
 	if err != nil {
 		return 0, err
 	}
-	parameters, err := m.GetDeclParametersCopy(declaration)
-	if err != nil {
-		return 0, err
-	}
-	result := uint32(len(parameters))
-	for i := range parameters {
-		err = errors.Join(err, m.DelParameter(&parameters[i]))
-	}
-	return result, err
+	return m.GetDeclNumParameters(declaration)
 }
 
 func (c *SMTContext) DeclarationParameterKind(declaration ast.ASTHandle, index uint32) (result APIDeclarationParameterKind, resultErr error) {

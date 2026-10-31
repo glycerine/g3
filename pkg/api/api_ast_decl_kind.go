@@ -7,8 +7,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// APIDeclarationKind is the retained public classification produced by the
-// core and pseudo-Boolean slices of Z3_get_decl_kind.
+// APIDeclarationKind is the public classification produced by Z3_get_decl_kind.
+// Each theory's source operation values map to distinct categories below.
 type APIDeclarationKind uint16
 
 const (
@@ -34,10 +34,8 @@ const (
 	APIDeclarationPBAtLeast
 )
 
-// CoreDeclarationKind translates the concrete retained basic, proof, and
-// pseudo-Boolean families. Other theory families are rejected until their
-// source switches are ported; returning a misleading public kind would make
-// later arithmetic, array, bit-vector, datatype, sequence, and FPA work unsafe.
+// CoreDeclarationKind is the basic, proof, and pseudo-Boolean specialization.
+// PublicDeclarationKind dispatches across every source family.
 func (c *SMTContext) CoreDeclarationKind(declaration ast.ASTHandle) (APIDeclarationKind, error) {
 	manager, err := c.Manager()
 	if err != nil {

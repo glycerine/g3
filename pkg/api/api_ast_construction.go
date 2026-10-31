@@ -20,7 +20,7 @@ func (c *SMTContext) StringSymbol(value string) (usymbol.Symbol, error) {
 	if e != nil {
 		return usymbol.Symbol{}, e
 	}
-	if value == "" {
+	if value == "" || value[0] == 0 {
 		return usymbol.Symbol{}, nil
 	}
 	return m.Symbols.Intern(value)
@@ -37,14 +37,15 @@ func (c *SMTContext) SymbolString(value usymbol.Symbol) (string, error) {
 		}
 		return strconv.FormatUint(uint64(n), 10), nil
 	}
-	return m.Symbols.Display(value)
+	text, _, e := m.Symbols.BareString(value)
+	return text, e
 }
 func (c *SMTContext) UninterpretedSort(name string) (ast.ASTHandle, error) {
 	m, e := c.Manager()
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	symbol, e := m.Symbols.Intern(name)
+	symbol, e := c.StringSymbol(name)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
@@ -55,7 +56,7 @@ func (c *SMTContext) Function(name string, domain []ast.ASTHandle, rangeSort ast
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	symbol, e := m.Symbols.Intern(name)
+	symbol, e := c.StringSymbol(name)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
@@ -73,7 +74,7 @@ func (c *SMTContext) Constant(name string, sort ast.ASTHandle) (ast.ASTHandle, e
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	symbol, e := m.Symbols.Intern(name)
+	symbol, e := c.StringSymbol(name)
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
@@ -123,7 +124,7 @@ func (c *SMTContext) Equal(a, b ast.ASTHandle) (ast.ASTHandle, error) {
 	if e != nil {
 		return ast.ASTHandle{}, e
 	}
-	return m.MkEq(a, b)
+	return m.MkFamilyApp(m.BasicFamilyID(), ast.ASTOpEq, nil, []ast.ASTHandle{a, b})
 }
 func (c *SMTContext) Distinct(args ...ast.ASTHandle) (ast.ASTHandle, error) {
 	m, e := c.Manager()

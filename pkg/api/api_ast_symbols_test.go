@@ -32,3 +32,24 @@ func TestSMTContextASTSymbolKindsAndValues(t *testing.T) {
 		t.Fatal("string as integer", err)
 	}
 }
+
+func TestAPINumericalSymbolNativeSignedGetterAndUnsignedSpelling(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	for _, tc := range []struct {
+		value  uint32
+		signed int32
+		text   string
+	}{
+		{0, 0, "0"}, {2147483647, 2147483647, "2147483647"},
+		{2147483648, -2147483648, "2147483648"}, {4294967295, -1, "4294967295"},
+	} {
+		symbol, err := f.c.IntegerSymbol(tc.value)
+		astTestMust(t, err)
+		if got, err := f.c.SymbolInteger(symbol); err != nil || got != tc.signed {
+			t.Fatal("native signed symbol getter", got, tc.signed, err)
+		}
+		if got, err := f.c.SymbolString(symbol); err != nil || got != tc.text {
+			t.Fatal("native unsigned symbol spelling", got, tc.text, err)
+		}
+	}
+}

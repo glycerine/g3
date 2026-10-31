@@ -60,7 +60,11 @@ func (c *SMTContext) APIKind(a ast.ASTHandle) (APIASTKind, error) {
 	}
 	switch kind {
 	case ast.ASTApp:
-		yes, e := c.IsNumeral(a)
+		m, e := c.Manager()
+		if e != nil {
+			return APIASTUnknown, e
+		}
+		yes, e := apiASTNumeralKind(m, a)
 		if e != nil {
 			return APIASTUnknown, e
 		}
@@ -80,6 +84,12 @@ func (c *SMTContext) APIKind(a ast.ASTHandle) (APIASTKind, error) {
 	return APIASTUnknown, nil
 }
 func (c *SMTContext) IsApplication(a ast.ASTHandle) (bool, error) {
+	if _, err := c.Manager(); err != nil {
+		return false, err
+	}
+	if a.IsNull() {
+		return false, nil
+	}
 	kind, e := c.ASTNodeKind(a)
 	return kind == ast.ASTApp, e
 }
