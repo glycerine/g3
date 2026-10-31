@@ -124,3 +124,36 @@ func TestQuantifierArithmeticEquationImpossibleDivisibility(t *testing.T) {
 		t.Fatal("two times an integer cannot equal one")
 	}
 }
+
+func TestQuantifierArithmeticEquationBoundsAndFreeDivisibility(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	x := f.own(m.MkVar(0, f.integer))
+	y := f.constant("arith-bounds-free", f.integer)
+	lower := f.own(m.MkArithmeticGE(x, y))
+	upper := f.own(m.MkArithmeticLE(x, y))
+	bounds := f.own(m.MkAnd(lower, upper))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: bounds}))
+	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("opposing bounds were not eliminated as an equation")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsTrue(value) {
+		t.Fatal("an integer equal to the free bound must exist")
+	}
+	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	divisibility := f.own(m.MkEq(twoX, y))
+	dependent := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: divisibility}))
+	unexpected, complete, err := eliminateQuantifierArithmeticEquations(m, dependent, f.r.config)
+	fmMust(t, err)
+	if complete || unexpected != (ast.ASTRef{}) {
+		if unexpected != (ast.ASTRef{}) {
+			fmMust(t, m.DelRef(&unexpected))
+		}
+		t.Fatal("free divisibility condition was prematurely eliminated")
+	}
+}

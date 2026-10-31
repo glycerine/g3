@@ -114,3 +114,18 @@ func TestSMTLibRunnerQEInequalityIsNotEquality(t *testing.T) {
 		t.Fatalf("inequality QE tactic result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerQEOpposingBounds(t *testing.T) {
+	script := `(set-logic LIA)
+(declare-const y Int)
+(assert (not (exists ((x Int)) (and (>= x y) (<= x y)))))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "unsat" {
+		t.Fatalf("opposing bounds QE tactic result: %s", got)
+	}
+}
