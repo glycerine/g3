@@ -1,3 +1,5 @@
+Generated fixedpoint expression-query replay (2026-10-31 UTC): connected Boolean query replay to the existing query engine with configured timeout handling. Normal and checked tests cover expression and relation queries; other generated fixedpoint commands remain unfinished.
+
 Generated fixedpoint fact and relation-query replay (2026-10-31 UTC): added table fact insertion, background assertions and relation queries. Normal and checked tests register a relation, add a fact and query it; expression queries and other generated commands remain unfinished.
 
 Generated fixedpoint replay lifecycle (2026-10-31 UTC): added fixedpoint creation, scopes, relation registration and rule/assertion/statistics snapshots. Normal and checked API/CLI tests verify snapshot ownership and incomplete-log cleanup; fixedpoint query and other generated commands remain unfinished.

@@ -235,6 +235,15 @@ func (c *Context) FixedpointPredicates() ([]ast.ASTHandle, error) {
 // QueryFixedpointWithParams applies query-local fixedpoint settings before
 // module settings and bounds the query with the effective fixedpoint timeout.
 func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
+	return c.queryFixedpoint(declaration, params, false)
+}
+
+// QueryFixedpointExpression evaluates a Boolean query with the configured timeout.
+func (c *Context) QueryFixedpointExpression(query ast.ASTHandle) (lbool.LBool, error) {
+	return c.queryFixedpoint(query, nil, true)
+}
+
+func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool) (result lbool.LBool, resultErr error) {
 	engine, err := c.prepareFixedpointQuery(params)
 	if err != nil {
 		return lbool.Undef, err
@@ -267,7 +276,10 @@ func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *u
 		resultErr = errors.Join(resultErr, timer.Close())
 		handler.close()
 	}()
-	return engine.QueryPredicate(declaration)
+	if expression {
+		return engine.QueryExpression(query)
+	}
+	return engine.QueryPredicate(query)
 }
 
 // QueryFixedpointRelations reports whether at least one requested relation is
