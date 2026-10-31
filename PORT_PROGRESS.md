@@ -1,3 +1,5 @@
+Finite/interval inner interpreted filter (2026-10-31 UTC): implemented source variable renaming and application of inner-only conditions to all live interval relations. Tests cover interleaved signatures, interval refinement and rejection of conditions requiring the pending table or mixed paths.
+
 Finite/interval join (2026-10-31 UTC): added concatenating joins with finite-key equality and interval-column equality, with tests for mixed layouts, mismatches, empty inputs and projection of the result. Cross-kind joins and manager registration remain pending.
 
 Finite/interval formula construction (2026-10-31 UTC): implemented source-order finite row disjunctions, table equalities and shifted interval formulas. The source assumes table columns lead the signature even when layouts are interleaved; the Go formula preserves this limitation and tests both layouts.
