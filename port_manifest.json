@@ -200875,9 +200875,9 @@
       "path": "src/test/doc.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/doc_cpp_driver_test.go"],
+      "tests": ["TestDOCSourceDriverCubeOperations"],
       "assertions": [
         {
           "line": 39,
@@ -200994,9 +200994,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [{"name": "tst_doc1 cube operations and projection", "status": "ported", "go_target": "pkg/muz/rel/doc_cpp_driver_test.go", "tests": ["TestDOCSourceDriverCubeOperations"]}, {"name": "test_doc_cls randomized projection, merge, intersection and subtraction", "status": "unported"}],
+      "ownership": ["The test fixtures own and close source and destination DOC managers; replacement of the source d10 document deallocates its prior value."],
+      "deviations": ["Source diagnostic output is omitted; the randomized DOC solver scenarios remain separate work."]
     },
     {
       "path": "src/test/escaped.cpp",
