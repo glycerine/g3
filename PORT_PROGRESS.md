@@ -1,3 +1,5 @@
+Generated optimizer replay lifecycle (2026-10-31 UTC): connected optimizer creation, scopes, assertions, objectives, checking, model and vector snapshots, parsing and display. Normal and checked API/CLI tests verify snapshot ownership and cleanup; soft assertions, bounds and other generated commands remain unfinished.
+
 Generated fixedpoint frame and display replay (2026-10-31 UTC): connected PDR frame counts, cover updates and snapshots, and fixedpoint query formatting. Normal and checked tests exercise covers and display under PDR; other generated fixedpoint commands remain unfinished.
 
 Generated fixedpoint expression-query replay (2026-10-31 UTC): connected Boolean query replay to the existing query engine with configured timeout handling. Normal and checked tests cover expression and relation queries; other generated fixedpoint commands remain unfinished.

@@ -157,6 +157,10 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		delete(r.fixedpoints, id)
 	}
 	owner.fixedpointIDs = nil
+	for _, id := range owner.optimizerIDs {
+		delete(r.optimizers, id)
+	}
+	owner.optimizerIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err

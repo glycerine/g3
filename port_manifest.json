@@ -5980,7 +5980,9 @@
         "pkg/api/z3_generated_algebraic_commands.go",
         "pkg/api/z3_generated_algebraic_commands_test.go",
         "pkg/api/z3_generated_fixedpoint_commands.go",
-        "pkg/api/z3_generated_fixedpoint_commands_test.go"
+        "pkg/api/z3_generated_fixedpoint_commands_test.go",
+        "pkg/api/z3_generated_optimize_commands.go",
+        "pkg/api/z3_generated_optimize_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6066,7 +6068,10 @@
         "TestGeneratedFixedpointReplaySnapshotsAndLifecycle",
         "TestGeneratedFixedpointReplayClosesIncompleteLog",
         "TestZ3LogFrontendReplaysFixedpoint",
-        "TestGeneratedFixedpointReplayFactsAndRelationQuery"
+        "TestGeneratedFixedpointReplayFactsAndRelationQuery",
+        "TestGeneratedOptimizeReplaySnapshotsAndLifecycle",
+        "TestGeneratedOptimizeReplayClosesIncompleteLog",
+        "TestZ3LogFrontendReplaysOptimize"
       ],
       "methods_audited": false,
       "ownership_audited": false,

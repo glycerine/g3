@@ -173,3 +173,17 @@ func TestZ3LogFrontendReplaysFixedpoint(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysOptimize(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 538\n= 0x42\nR\nP 0x41\nP 0x42\nC 539\n" +
+		"R\nP 0x41\nP 0x42\nS \"(declare-const x Int)(assert (<= x 2))(maximize x)\"\nC 557\n" +
+		"R\nP 0x41\nP 0x42\nC 547\nR\nP 0x41\nP 0x42\nC 562\n= 0x43\n" +
+		"R\nP 0x41\nP 0x42\nC 540\nM \"optimizer-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "optimizer-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}
