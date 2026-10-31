@@ -6001,7 +6001,8 @@
         "pkg/api/z3_generated_rcf_commands_test.go",
         "pkg/api/z3_generated_datatype_constructor_commands.go",
         "pkg/api/z3_generated_datatype_constructor_commands_test.go",
-        "pkg/api/z3_generated_fixedpoint_load_test.go"
+        "pkg/api/z3_generated_fixedpoint_load_test.go",
+        "pkg/cmd/g3/z3_log_fixedpoint_load_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6131,7 +6132,8 @@
         "TestGeneratedDatatypeConstructorReplayMutualRecursion",
         "TestZ3LogFrontendReplaysDatatypeConstructors",
         "TestGeneratedFixedpointReplayLoadQueries",
-        "TestGeneratedFixedpointReplayLoadErrors"
+        "TestGeneratedFixedpointReplayLoadErrors",
+        "TestZ3LogFrontendReplaysFixedpointProgramLoading"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -126424,14 +126426,16 @@
         "pkg/cmd/g3/main.go",
         "pkg/cmd/g3/z3_log_frontend_test.go",
         "pkg/api/z3_log_frontend_test.go",
-        "pkg/cmd/g3/z3_log_open_error.go"
+        "pkg/cmd/g3/z3_log_open_error.go",
+        "pkg/cmd/g3/z3_log_fixedpoint_load_test.go"
       ],
       "tests": [
         "TestZ3LogFrontendReplaysAndReports",
         "TestZ3LogFrontendCLIInputAndFile",
         "TestZ3LogFrontendReportsUnavailableCommands",
         "TestZ3LogFrontendReportsParseFailureAndWriterError",
-        "TestZ3LogFrontendMissingFileDiagnostic"
+        "TestZ3LogFrontendMissingFileDiagnostic",
+        "TestZ3LogFrontendReplaysFixedpointProgramLoading"
       ],
       "methods_audited": false,
       "ownership_audited": false,
