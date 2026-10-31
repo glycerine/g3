@@ -1,3 +1,5 @@
+Finite/interval projection (2026-10-31 UTC): added projection across finite and interval columns, merging colliding finite keys before projecting inner relations as in the source. Tests cover interleaved columns, interval hulls, zero-column results and invalid column lists.
+
 Finite/interval aligned union (2026-10-31 UTC): implemented source overlapping-key interval union, source-only row copying and accumulation into an existing delta. Tests exercise both kinds of rows, pre-existing deltas, alias validation and self-union; layout conversion and other product operations remain pending.
 
 Finite/interval equality filtering (2026-10-31 UTC): implemented source table-column and inner-interval equality paths, collecting stale relations before inner mutation. Tests cover interleaved signature columns, incompatible values and removal of empty rows.

@@ -90367,7 +90367,8 @@
         "TestFiniteIntervalProductColumnSelection",
         "TestFiniteIntervalProductGarbageCollectionAndReuse",
         "TestFiniteIntervalProductFilterEqual",
-        "TestFiniteIntervalProductUnionAndDelta"
+        "TestFiniteIntervalProductUnionAndDelta",
+        "TestFiniteIntervalProductProjection"
       ],
       "conditionals": [
         {
@@ -90752,13 +90753,21 @@
           "tests": [
             "TestFiniteIntervalProductUnionAndDelta"
           ]
+        },
+        {
+          "name": "projection with finite-key collision union before inner projection",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductProjection"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Join, projection, unaligned union, other filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
+        "Join, unaligned union, other filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
       ]
     },
     {
@@ -90777,7 +90786,8 @@
         "TestFiniteIntervalProductColumnSelection",
         "TestFiniteIntervalProductGarbageCollectionAndReuse",
         "TestFiniteIntervalProductFilterEqual",
-        "TestFiniteIntervalProductUnionAndDelta"
+        "TestFiniteIntervalProductUnionAndDelta",
+        "TestFiniteIntervalProductProjection"
       ],
       "conditionals": [
         {
@@ -90850,13 +90860,21 @@
           "tests": [
             "TestFiniteIntervalProductUnionAndDelta"
           ]
+        },
+        {
+          "name": "projection with finite-key collision union before inner projection",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductProjection"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Join, projection, unaligned union, other filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
+        "Join, unaligned union, other filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
       ]
     },
     {

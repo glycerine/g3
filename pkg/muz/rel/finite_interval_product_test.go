@@ -201,3 +201,47 @@ func TestFiniteIntervalProductUnionAndDelta(t *testing.T) {
 		t.Fatal("self union changed contents", found, err)
 	}
 }
+
+func TestFiniteIntervalProductProjection(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	num := func(text string) ast.ASTHandle {
+		value, e := f.ast.ArithmeticIntegerNumeralText(text)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, value)
+		return value
+	}
+	one, two, three := num("1"), num("2"), num("3")
+	product, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer, f.boolean}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	astTestMust(t, product.AddFact([]ast.ASTHandle{f.truth, one, f.truth}))
+	astTestMust(t, product.AddFact([]ast.ASTHandle{f.falsehood, three, f.truth}))
+	projected, err := product.Project([]uint32{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	if found, err := projected.ContainsFact([]ast.ASTHandle{two, f.truth}); err != nil || !found {
+		t.Fatal("projected keys did not merge interval hulls", found, err)
+	}
+	if found, err := projected.ContainsFact([]ast.ASTHandle{two, f.falsehood}); err != nil || found {
+		t.Fatal("projection introduced a different finite key", found, err)
+	}
+	finite, err := product.Project([]uint32{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, finite.Close()) }()
+	if found, err := finite.ContainsFact([]ast.ASTHandle{f.truth, f.truth}); err != nil || !found {
+		t.Fatal("projected arithmetic column lost finite fact", found, err)
+	}
+	all, err := product.Project([]uint32{0, 1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, all.Close()) }()
+	if found, err := all.ContainsFact(nil); err != nil || !found {
+		t.Fatal("projection to zero columns lost fact", found, err)
+	}
+	if _, err = product.Project([]uint32{1, 1}); err == nil {
+		t.Fatal("duplicate projected columns accepted")
+	}
+}

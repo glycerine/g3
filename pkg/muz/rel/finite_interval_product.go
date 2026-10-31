@@ -372,6 +372,98 @@ func (p *FiniteIntervalProduct) Union(source, delta *FiniteIntervalProduct) (res
 	return nil
 }
 
+// Project removes sorted signature columns. Table-key collisions are merged
+// before inner interval columns are projected, matching the source order.
+func (p *FiniteIntervalProduct) Project(removed []uint32) (_ *FiniteIntervalProduct, resultErr error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	deleted := make([]bool, len(p.sorts))
+	for i, column := range removed {
+		if uint64(column) >= uint64(len(p.sorts)) || i > 0 && column <= removed[i-1] {
+			return nil, ast.ErrASTDomain
+		}
+		deleted[column] = true
+	}
+	if err := p.garbageCollect(false); err != nil {
+		return nil, err
+	}
+	var sorts []ast.ASTHandle
+	mask := make([]bool, 0, len(p.sorts)-len(removed))
+	isTable := make([]bool, len(p.sorts))
+	for _, column := range p.tableColumns {
+		isTable[column] = true
+	}
+	for i, sort := range p.sorts {
+		if !deleted[i] {
+			sorts = append(sorts, sort)
+			mask = append(mask, isTable[i])
+		}
+	}
+	var removedInner []uint32
+	for local, global := range p.intervalColumns {
+		if deleted[global] {
+			removedInner = append(removedInner, uint32(local))
+		}
+	}
+	result, err := NewFiniteIntervalProduct(p.manager, sorts, mask)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	rows, err := p.table.Facts()
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		index := uint64(row[len(row)-1])
+		if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
+			return nil, ErrTableRelation
+		}
+		key := make(Fact, 0, len(result.tableColumns)+1)
+		for local, global := range p.tableColumns {
+			if !deleted[global] {
+				key = append(key, row[local])
+			}
+		}
+		key = append(key, 0)
+		found, err := result.table.FetchFact(key)
+		if err != nil {
+			return nil, err
+		}
+		inner := cloneIntervalRelation(p.intervals[index])
+		if found {
+			existing := uint64(key[len(key)-1])
+			if existing >= uint64(len(result.intervals)) || result.intervals[existing] == nil {
+				return nil, ErrTableRelation
+			}
+			merged := cloneIntervalRelation(result.intervals[existing])
+			if _, err = merged.Union(inner, false); err != nil {
+				return nil, err
+			}
+			inner = merged
+		}
+		if err = result.storeInner(key, inner); err != nil {
+			return nil, err
+		}
+	}
+	if len(removedInner) != 0 {
+		for i, inner := range result.intervals {
+			if inner != nil {
+				result.intervals[i], err = inner.Project(removedInner)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	return result, nil
+}
+
 // garbageCollect drops inner relations no longer referenced by the table and,
 // when requested, removes rows referring to empty inner relations.
 func (p *FiniteIntervalProduct) garbageCollect(removeEmpty bool) error {
