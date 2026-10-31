@@ -1,3 +1,5 @@
+Inventory evidence repair, fourteenth batch (2026-10-31 UTC): linked ten strategic-solver and logic-tactic entries to existing cross-package tests. The validator now reaches the QF_UFNRA header; the audit continues.
+
 Inventory evidence repair, thirteenth batch (2026-10-31 UTC): linked ten NNF, floating-point and portfolio entries to their existing cross-package tests. The validator now reaches a strategic-solver method; the audit continues.
 
 Inventory evidence repair, twelfth batch (2026-10-31 UTC): linked ten core tactic entries to the files declaring their existing cross-package tests. The validator now reaches a related NNF header entry; the audit continues.

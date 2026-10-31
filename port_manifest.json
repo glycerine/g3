@@ -191683,14 +191683,23 @@
             "pkg/cmd/g3/qsat_test.go",
             "pkg/cmd/g3/test_vectors/nra_solver_quantifiers.smt2"
           ],
-          "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "tests": [
+            "TestSMTLibRunnerQSATAndQuantifierElimination"
+          ]
         },
         {
           "name": "LRA and LIA logic dispatcher branches plus source default-strategy fallback for otherwise retained logic names",
           "status": "ported",
           "go_target": "pkg/tactic/portfolio/strategic_solver_factory.go",
-          "go_targets": ["pkg/tactic/portfolio/smt_strategic_solver.go", "pkg/tactic/smtlogics/quant_tactics.go"],
-          "tests": ["TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2", "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"]
+          "go_targets": [
+            "pkg/tactic/portfolio/smt_strategic_solver.go",
+            "pkg/tactic/smtlogics/quant_tactics.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2",
+            "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"
+          ]
         },
         {
           "name": "smt_strategic_solver_factory stored-logic selection, caller-logic fallback, public construction, borrowed session output and close guard over every retained dispatcher branch",
@@ -191883,7 +191892,8 @@
           "go_targets": [
             "pkg/tactic/portfolio/fd_solver.go",
             "pkg/cmd_context/context.go",
-            "pkg/cmd_context/fd_solver_test.go"
+            "pkg/cmd_context/fd_solver_test.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestCommandContextFiniteDomainSolverProofGate",
@@ -192088,7 +192098,8 @@
           "go_targets": [
             "pkg/tactic/portfolio/fd_solver.go",
             "pkg/cmd_context/context.go",
-            "pkg/cmd_context/fd_solver_test.go"
+            "pkg/cmd_context/fd_solver_test.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestCommandContextFiniteDomainSolverProofGate",
@@ -192977,12 +192988,38 @@
       "component": "tactic",
       "role": "generated_input",
       "status": "ported",
-      "go_targets": ["pkg/tactic/sls/sls_params.go", "pkg/tactic/sls/sls_params_test.go", "pkg/tactic/sls/gparams_catalog_collectors.go"],
-      "tests": ["TestSLSParamsGeneratedDefaults", "TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards", "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"],
+      "go_targets": [
+        "pkg/tactic/sls/sls_params.go",
+        "pkg/tactic/sls/sls_params_test.go",
+        "pkg/tactic/sls/gparams_catalog_collectors.go",
+        "pkg/util/params/util_gparams_catalog_test.go"
+      ],
+      "tests": [
+        "TestSLSParamsGeneratedDefaults",
+        "TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards",
+        "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+      ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"generated SLS schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/tactic/sls/sls_params.go","go_targets":["pkg/tactic/sls/gparams_catalog_collectors.go"],"tests":["TestSLSParamsGeneratedDefaults","TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
-      "ownership": ["Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or C++ source."],
+      "methods": [
+        {
+          "name": "generated SLS schema, descriptors, defaults and runtime getters",
+          "status": "ported",
+          "go_target": "pkg/tactic/sls/sls_params.go",
+          "go_targets": [
+            "pkg/tactic/sls/gparams_catalog_collectors.go",
+            "pkg/util/params/util_gparams_catalog_test.go"
+          ],
+          "tests": [
+            "TestSLSParamsGeneratedDefaults",
+            "TestSLSParamsLocalPrecedenceSnapshotAndOwnerGuards",
+            "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+          ]
+        }
+      ],
+      "ownership": [
+        "Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or C++ source."
+      ],
       "deviations": []
     },
     {
@@ -193265,7 +193302,9 @@
         "pkg/cmd/g3/qsat_test.go",
         "pkg/cmd/g3/test_vectors/nra_portfolio.smt2"
       ],
-      "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "tests": [
+        "TestSMTLibRunnerQSATAndQuantifierElimination"
+      ],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
@@ -193273,7 +193312,12 @@
           "name": "NRA simplify/propagate/QE-lite prefix, QF_NRA probe split, quantifier-free NLSAT portfolio and NLQSAT-before-SMT quantified fallback",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/nra_tactic.go",
-          "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "tests": [
+            "TestSMTLibRunnerQSATAndQuantifierElimination"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/qsat_test.go"
+          ]
         }
       ],
       "ownership": [
@@ -193288,8 +193332,14 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/smtlogics/nra_tactic.go", "pkg/cmd_context/tactic_commands.go"],
-      "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/nra_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qsat_test.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerQSATAndQuantifierElimination"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -193307,8 +193357,13 @@
           "name": "Public NRA tactic constructor and builtin tactic registration",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/nra_tactic.go",
-          "go_targets": ["pkg/cmd_context/tactic_commands.go"],
-          "tests": ["TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "go_targets": [
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd/g3/qsat_test.go"
+          ],
+          "tests": [
+            "TestSMTLibRunnerQSATAndQuantifierElimination"
+          ]
         }
       ],
       "ownership": [],
@@ -195039,6 +195094,9 @@
             "TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2",
             "TestSMTLibRunnerCPPReference/qfnia_solver_bounded.smt2",
             "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -195054,8 +195112,16 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/smtlogics/qfnia_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/tactic/portfolio/smt_strategic_solver.go"],
-      "tests": ["TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfnia_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/tactic/portfolio/smt_strategic_solver.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2",
+        "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -195073,7 +195139,12 @@
           "name": "complete QF_NIA tactic factory and command/strategic registration surface",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnia_tactic.go",
-          "tests": ["TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/qfnia_solver_bounded.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [
@@ -195086,19 +195157,31 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
-      "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfnra_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+      ],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
         {
           "name": "retained QF_NRA route ordering",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
-          "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
-      "ownership": ["The construction scope retains each parameter snapshot, child tactic and wrapper until the final using-params graph acquires it, then releases temporary owners in reverse order."],
+      "ownership": [
+        "The construction scope retains each parameter snapshot, child tactic and wrapper until the final using-params graph acquires it, then releases temporary owners in reverse order."
+      ],
       "deviations": []
     },
     {
@@ -195106,8 +195189,13 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
-      "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfnra_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -195120,8 +195208,23 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "QF_NRA tactic factory and builtin registration surface", "status": "ported", "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go", "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2", "TestSMTLibRunnerCPPReference/qfnra_nlsat.smt2"]}],
-      "ownership": ["The returned uncounted tactic graph owns counted child references and parameter copies."],
+      "methods": [
+        {
+          "name": "QF_NRA tactic factory and builtin registration surface",
+          "status": "ported",
+          "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
+          "tests": [
+            "TestSMTLibRunnerScripts/qfnra_nlsat.smt2",
+            "TestSMTLibRunnerCPPReference/qfnra_nlsat.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
+        }
+      ],
+      "ownership": [
+        "The returned uncounted tactic graph owns counted child references and parameter copies."
+      ],
       "deviations": []
     },
     {
@@ -196018,13 +196121,41 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/smtlogics/qfufnra_tactic.go", "pkg/tactic/nlsat_smt/nl_purify_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_descriptions.go", "pkg/parsers/smt2/qfufnra_tactic_test.go"],
-      "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestSMT2QFUFNRATacticUnsatCore", "TestNLPurifyCooperatingSolversMixedSatisfiability", "TestNLPurifyTacticReuseAfterCleanup"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfufnra_tactic.go",
+        "pkg/tactic/nlsat_smt/nl_purify_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/parsers/smt2/qfufnra_tactic_test.go"
+      ],
+      "tests": [
+        "TestSMT2QFUFNRATacticMixedArithmetic",
+        "TestSMT2QFUFNRATacticUnsatCore",
+        "TestNLPurifyCooperatingSolversMixedSatisfiability",
+        "TestNLPurifyTacticReuseAfterCleanup"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "QF_UFNRA tactic construction and command registration", "status": "partial", "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go", "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestNLPurifyCooperatingSolversMixedSatisfiability"]}],
+      "methods": [
+        {
+          "name": "QF_UFNRA tactic construction and command registration",
+          "status": "partial",
+          "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go",
+          "tests": [
+            "TestSMT2QFUFNRATacticMixedArithmetic",
+            "TestNLPurifyCooperatingSolversMixedSatisfiability"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/qfufnra_tactic_test.go",
+            "pkg/tactic/nlsat_smt/nl_purify_solve_test.go"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": ["Arithmetic purification uses the existing real-arithmetic specialization; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."]
+      "deviations": [
+        "Arithmetic purification uses the existing real-arithmetic specialization; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."
+      ]
     },
     {
       "path": "src/tactic/smtlogics/qfufnra_tactic.h",
