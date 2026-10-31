@@ -1,3 +1,5 @@
+SMT-LIB inventory evidence (2026-10-31 UTC): replaced obsolete fixedpoint query test names with current unknown-parameter and query-local engine tests. Both focused parser tests pass; inventory validation continues.
+
 Generated algebraic bounds replay (2026-10-31 UTC): added irrational-number recognition and lower/upper bound queries. Normal and checked tests verify bounds enclose the square root of two; other generated commands remain unfinished.
 
 Generated numeral inspection replay (2026-10-31 UTC): added numeral recognition, string and decimal queries, rational parts and integer output conversions. Normal and checked tests cover signed rational outputs and unchanged outputs on failed unsigned conversions; other generated commands remain unfinished.
