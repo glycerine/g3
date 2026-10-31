@@ -5,6 +5,8 @@ package api
 
 import (
 	"errors"
+	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -32,9 +34,9 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{488, "Z3_rcf_del"}, {489, "Z3_rcf_mk_rational"}, {490, "Z3_rcf_mk_small_int"},
-		{495, "Z3_rcf_add"}, {496, "Z3_rcf_sub"}, {497, "Z3_rcf_mul"}, {498, "Z3_rcf_div"}, {499, "Z3_rcf_neg"}, {500, "Z3_rcf_inv"},
+		{495, "Z3_rcf_add"}, {496, "Z3_rcf_sub"}, {497, "Z3_rcf_mul"}, {498, "Z3_rcf_div"}, {499, "Z3_rcf_neg"}, {500, "Z3_rcf_inv"}, {501, "Z3_rcf_power"},
 		{502, "Z3_rcf_lt"}, {503, "Z3_rcf_gt"}, {504, "Z3_rcf_le"}, {505, "Z3_rcf_ge"}, {506, "Z3_rcf_eq"}, {507, "Z3_rcf_neq"},
-		{508, "Z3_rcf_num_to_string"}, {509, "Z3_rcf_num_to_decimal_string"},
+		{508, "Z3_rcf_num_to_string"}, {509, "Z3_rcf_num_to_decimal_string"}, {510, "Z3_rcf_get_numerator_denominator"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -43,6 +45,25 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		}
 	}
 	return nil
+}
+
+func replayRCFOne(r *Z3Replayer, owner *replayContextOwner) (uint64, error) {
+	if owner.rcfOneID == 0 {
+		value, err := owner.context.RCFSmallInt(1)
+		if err != nil {
+			return 0, err
+		}
+		if err = replayStoreRCF(r, owner, value); err != nil {
+			return 0, err
+		}
+		owner.rcfOneID = r.result // One reference belongs to the source manager.
+	}
+	n := r.rcfNumbers[owner.rcfOneID]
+	if n == nil || n.refs == ^uint32(0) {
+		return 0, ErrZ3ReplayReference
+	}
+	n.refs++
+	return owner.rcfOneID, nil
 }
 
 // A source arithmetic identity can return the same pointer with an extra
@@ -156,6 +177,84 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 	}
 	if temporary {
 		defer func() { err = errors.Join(err, first.Close()) }()
+	}
+	if id == 501 {
+		power, e := r.Uint(2)
+		if e != nil {
+			return e
+		}
+		if power >= 1<<31 {
+			return fmt.Errorf("rcf replay: exponent exceeds terminating source range")
+		}
+		if power == 0 {
+			one, e := replayRCFOne(r, owner)
+			if e != nil {
+				return e
+			}
+			return r.StoreResult(one)
+		}
+		if temporary {
+			return r.StoreResult(0)
+		}
+		text, e := owner.context.RCFString(first)
+		if e != nil {
+			return e
+		}
+		if power == 1 || text == "1" || (text == "-1" && power%2 == 1) {
+			return replayRetainRCF(r, owner, 1)
+		}
+		result, e := owner.context.RCFPower(first, power)
+		if e != nil {
+			return e
+		}
+		return replayStoreRCF(r, owner, result)
+	}
+	if id == 510 {
+		if _, err = r.Object(2); err != nil {
+			return err
+		}
+		if _, err = r.Object(3); err != nil {
+			return err
+		}
+		text, e := owner.context.RCFString(first)
+		if e != nil {
+			return e
+		}
+		rational, ok := new(big.Rat).SetString(text)
+		if !ok {
+			return ErrRCFNumberOwner
+		}
+		var numerator, denominator uint64
+		if rational.IsInt() {
+			if e = replayRetainRCF(r, owner, 1); e != nil {
+				return e
+			}
+			numerator = r.result
+			denominator, e = replayRCFOne(r, owner)
+			if e != nil {
+				return e
+			}
+		} else {
+			n, d, e := owner.context.RCFNumeratorDenominator(first)
+			if e != nil {
+				return e
+			}
+			if e = replayStoreRCF(r, owner, n); e != nil {
+				return errors.Join(e, d.Close())
+			}
+			numerator = r.result
+			if e = replayStoreRCF(r, owner, d); e != nil {
+				return e
+			}
+			denominator = r.result
+		}
+		if e = r.SetObject(2, numerator); e != nil {
+			return e
+		}
+		if e = r.SetObject(3, denominator); e != nil {
+			return e
+		}
+		return r.StoreResult(0)
 	}
 	if id >= 495 && id <= 500 {
 		if id == 499 || id == 500 {

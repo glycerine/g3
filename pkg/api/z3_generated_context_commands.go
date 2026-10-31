@@ -28,6 +28,7 @@ type replayContextOwner struct {
 	fixedpointIDs    []uint64
 	optimizerIDs     []uint64
 	rcfNumberIDs     []uint64
+	rcfOneID         uint64
 }
 
 // RegisterZ3GeneratedContextCommands installs the implemented context replay

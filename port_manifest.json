@@ -6119,7 +6119,8 @@
         "TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation",
         "TestGeneratedFixedpointReplayRejectsComplexLevelQuery",
         "TestGeneratedRCFRationalReplayZeroAndLifecycle",
-        "TestGeneratedRCFRationalReplayArithmeticAndAliases"
+        "TestGeneratedRCFRationalReplayArithmeticAndAliases",
+        "TestGeneratedRCFRationalReplayPowersAndComponents"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6175,7 +6176,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Fixedpoint answer replay currently supports single-relation queries, including nullary relation expressions; other expression and multi-relation answer shapes are explicitly unsupported.",
         "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported.",
-        "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Rational powers, roots, non-rational values and remaining operations are unfinished."
+        "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected."
       ]
     },
     {

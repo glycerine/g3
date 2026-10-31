@@ -1,3 +1,5 @@
+Generated rational powers and components replay (2026-10-31 UTC): connected powers and numerator/denominator outputs, preserving shared-one and integer-numerator identities. Normal and checked tests exercise alias lifetimes and values; roots and non-rational extensions remain unfinished.
+
 Generated rational arithmetic replay (2026-10-31 UTC): connected addition, subtraction, multiplication, division, negation and inversion. Normal and checked tests verify values, null zero and source pointer aliases; powers, roots and non-rational extensions remain unfinished.
 
 Generated rational real-closed-field replay (2026-10-31 UTC): connected rational construction, deletion, comparison and display, preserving the source null representation of zero. Normal and checked tests cover incomplete-log cleanup; non-rational values and remaining operations are unfinished. Full native suite on committed snapshot b24ce6b1f passed 108 packages (three had no tests).
