@@ -169,8 +169,11 @@ func TestGeneratedGlobalLogFailureDoesNotSkipUpdate(t *testing.T) {
 			t.Error(e)
 		}
 	}()
-	if err = GlobalParamSet("timeout", "24"); !errors.Is(err, io.ErrClosedPipe) {
-		t.Fatal("log failure", err)
+	if err = GlobalParamSet("timeout", "24"); err != nil {
+		t.Fatal("source API failed", err)
+	}
+	if !errors.Is(writer.Err(), io.ErrClosedPipe) {
+		t.Fatal("log failure was not recorded", writer.Err())
 	}
 	processZ3Log = previous
 	value, ok, err := GlobalParamGet("timeout")

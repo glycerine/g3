@@ -55,11 +55,10 @@ func GlobalParamSet(id, value string) error {
 	if err != nil {
 		return err
 	}
-	var logErr error
 	if processZ3Log != nil && !processZ3LogInAPI {
 		processZ3LogInAPI = true
 		defer func() { processZ3LogInAPI = false }()
-		logErr = processZ3Log.globalParamSet(id, value)
+		_ = processZ3Log.globalParamSet(id, value)
 	}
 	if err = g.SourceSetName(id, value); err == nil {
 		manager, e := g.Manager()
@@ -70,9 +69,9 @@ func GlobalParamSet(id, value string) error {
 		}
 	}
 	if err != nil {
-		return errors.Join(logErr, globalParamCaughtWarning(err))
+		return globalParamCaughtWarning(err)
 	}
-	return logErr
+	return nil
 }
 
 func globalParamCaughtWarning(err error) error {
@@ -90,20 +89,19 @@ func GlobalParamResetAll() error {
 	if err != nil {
 		return err
 	}
-	var logErr error
 	if processZ3Log != nil && !processZ3LogInAPI {
 		processZ3LogInAPI = true
 		defer func() { processZ3LogInAPI = false }()
-		logErr = processZ3Log.globalParamReset()
+		_ = processZ3Log.globalParamReset()
 	}
 	if err = g.SourceReset(); err != nil {
-		return errors.Join(logErr, err)
+		return err
 	}
 	manager, err := g.Manager()
 	if err != nil {
-		return errors.Join(logErr, err)
+		return err
 	}
-	return errors.Join(logErr, params.UpdateProcessEnvParams(manager))
+	return params.UpdateProcessEnvParams(manager)
 }
 
 // GlobalParamGet owns its Go string. A failed source lookup returns false
@@ -113,18 +111,17 @@ func GlobalParamGet(id string) (value string, ok bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
-	var logErr error
 	if processZ3Log != nil && !processZ3LogInAPI {
 		processZ3LogInAPI = true
 		defer func() { processZ3LogInAPI = false }()
-		logErr = processZ3Log.globalParamGet(id)
+		_ = processZ3Log.globalParamGet(id)
 	}
 	value, err = g.SourceGetValueName(id)
 	if err != nil {
 		if warning := globalParamCaughtWarning(err); warning != nil {
-			return "", false, errors.Join(logErr, warning)
+			return "", false, warning
 		}
-		return "", false, logErr
+		return "", false, nil
 	}
-	return value, true, logErr
+	return value, true, nil
 }
