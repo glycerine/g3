@@ -38,6 +38,9 @@ func registerZ3GeneratedFloatingPointCommands(r *Z3Replayer) error {
 	if err := r.RegisterCommand(649, "Z3_mk_fpa_to_ieee_bv", func(r *Z3Replayer) error { return replayFloatingPointConversion(r, 649) }); err != nil {
 		return err
 	}
+	if err := r.RegisterCommand(650, "Z3_mk_fpa_to_fp_int_real", replayFloatingPointFromExponentSignificand); err != nil {
+		return err
+	}
 	inspections := []string{"get_ebits", "get_sbits", "is_numeral_nan", "is_numeral_inf", "is_numeral_zero", "is_numeral_normal", "is_numeral_subnormal", "is_numeral_positive", "is_numeral_negative", "get_numeral_sign_bv", "get_numeral_significand_bv", "get_numeral_sign", "get_numeral_significand_string", "get_numeral_significand_uint64", "get_numeral_exponent_string", "get_numeral_exponent_int64", "get_numeral_exponent_bv"}
 	for i, name := range inspections {
 		id := uint32(632 + i)
@@ -46,6 +49,26 @@ func registerZ3GeneratedFloatingPointCommands(r *Z3Replayer) error {
 		}
 	}
 	return nil
+}
+
+func replayFloatingPointFromExponentSignificand(r *Z3Replayer) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	args := make([]ast.ASTHandle, 4)
+	for i := range args {
+		value, e := r.astObject(owner, uint32(i+1))
+		if e != nil {
+			return e
+		}
+		args[i] = value.handle
+	}
+	value, err := owner.context.FloatingPointFromExponentSignificand(args[0], args[1], args[2], args[3])
+	if err != nil {
+		return err
+	}
+	return r.storeAST(owner, value)
 }
 
 func replayFloatingPointInspection(r *Z3Replayer, id uint32) error {

@@ -187,3 +187,16 @@ func TestZ3LogFrontendReplaysOptimize(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysFloatingPoint(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nC 572\n= 0x43\n" +
+		"R\nP 0x41\nI 1\nP 0x42\nC 597\n= 0x44\nR\nP 0x41\nP 0x43\nP 0x44\nP 0x44\nC 602\n= 0x45\n" +
+		"R\nP 0x41\nP 0x45\nC 287\n= 0x46\nR\nP 0x41\nP 0x46\nC 637\nM \"floating-point-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "floating-point-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}

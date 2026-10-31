@@ -1,3 +1,5 @@
+Generated floating-point exponent/significand replay (2026-10-31 UTC): connected the integer-exponent and real-significand conversion overload. Normal and checked API/CLI tests verify conversion and frontend execution; other generated commands remain unfinished.
+
 Generated floating-point inspection replay (2026-10-31 UTC): connected format dimensions, numeral classifications, component bit-vectors and scalar output parameters. Normal and checked tests verify signed finite components; other generated commands remain unfinished.
 
 Generated floating-point conversion replay (2026-10-31 UTC): connected conversions among floating-point, real and bit-vector expressions, including IEEE encoding. Normal and checked tests verify converted values and reject mismatched source sorts; other generated commands remain unfinished.

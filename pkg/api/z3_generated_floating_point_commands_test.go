@@ -390,3 +390,53 @@ func TestGeneratedFloatingPointReplayInspectionOutputs(t *testing.T) {
 		t.Fatal("floating-point inspection checks", checked)
 	}
 }
+
+func TestGeneratedFloatingPointReplayExponentSignificand(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nC 572\n= 0x43\n" +
+		"R\nP 0x41\nC 33\n= 0x44\nR\nP 0x41\nI 0\nP 0x44\nC 150\n= 0x45\nR\nP 0x41\nC 34\n= 0x46\n" +
+		"R\nP 0x41\nS \"3/2\"\nP 0x46\nC 148\n= 0x47\nR\nP 0x41\nP 0x43\nP 0x45\nP 0x47\nP 0x42\nC 650\n= 0x48\n" +
+		"R\nP 0x41\nP 0x48\nC 287\n= 0x49\nR\nP 0x41\nD 1.5\nP 0x42\nC 596\n= 0x50\nR\nP 0x41\nP 0x49\nP 0x50\nC 900\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-exponent-significand", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		a, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		b, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		if a.handle != b.handle {
+			t.Fatal("exponent-significand value differs from 1.5")
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("conversion not checked")
+	}
+}
