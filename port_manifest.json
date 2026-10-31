@@ -6143,7 +6143,8 @@
         "TestGeneratedFixedpointReplaySpacerExpressionFromLevel",
         "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer",
         "TestGeneratedDirectSolverTranslationAcrossContexts",
-        "TestGeneratedStrategicSolverTranslationWithinContext"
+        "TestGeneratedStrategicSolverTranslationWithinContext",
+        "TestGeneratedStrategicSolverTranslationAcrossContexts"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6199,7 +6200,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
-        "Generated solver translation replay handles direct SMT solvers across contexts and tactical or combined solvers within one context; cross-context tactical and combined solver translation remains unsupported."
+        "Generated solver translation replay supports direct SMT and strategic combined solvers across contexts, and tactic-backed solvers within a context. Cross-context caller-supplied tactic and finite-domain wrapper translation remain unsupported."
       ]
     },
     {
@@ -7796,7 +7797,8 @@
         "pkg/cmd_context/result_access.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/api/api_simple_solver_translate.go",
-        "pkg/api/api_simple_solver_translate_test.go"
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/api_strategic_solver_translate.go"
       ],
       "tests": [
         "TestSMTContextTypedParameterCatalog",
@@ -7817,7 +7819,10 @@
         "TestAPISimpleSolverTranslateWithinContext",
         "TestAPISimpleSolverTranslateConfiguredTheoriesAfterSourceClose",
         "TestAPISolverTranslateWithinContextFactories",
-        "TestAPIStrategicSolverCrossContextTranslationIsExplicitlyUnsupported"
+        "TestAPIStrategicSolverCrossContextTranslation",
+        "TestAPIStrategicSolverCrossContextConfiguredTheories",
+        "TestAPIStrategicSolverCrossContextTranslationRejectsActiveScope",
+        "TestAPIFiniteDomainCrossContextTranslationIsUnsupported"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -7850,7 +7855,7 @@
       ],
       "deviations": [
         "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Source C-ABI-only solver translation, opaque tactic construction, DIMACS file loading, help/descriptor wrappers and reference-count entry points have no retained Go consumers; replayable SMT2/WriteSMT2 supersedes the retained string-display use case.",
-        "Solver translation handles direct SMT solvers across contexts and tactical or combined solvers within one context. Cross-context tactical and combined solver translation and a complete ownership audit remain open."
+        "Solver translation supports direct SMT and strategic combined solvers across contexts, and tactic-backed solvers within a context. Cross-context caller-supplied tactics, finite-domain wrapper translation, and a complete ownership audit remain open."
       ]
     },
     {
@@ -123519,7 +123524,9 @@
         "pkg/sat/sat_solver/solver_trace_test.go",
         "pkg/sat/sat_solver/solver_cleanup_failure.go",
         "pkg/sat/sat_solver/solver_cleanup_failure_test.go",
-        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go"
+        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go",
+        "pkg/api/api_strategic_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestIncrementalSolverChecksScopesAndModelsCPP",
@@ -123556,7 +123563,9 @@
         "TestIncrementalSolverReasonCStringBoundary",
         "TestIncrementalSolverWeightedBitVectorsCPP",
         "TestIncrementalSolverCleanupReceiptPreservesObservedCause",
-        "TestQFUFBVAckrConstructorAndApplyAllocationFrontiers"
+        "TestQFUFBVAckrConstructorAndApplyAllocationFrontiers",
+        "TestAPIStrategicSolverCrossContextTranslation",
+        "TestAPIStrategicSolverCrossContextConfiguredTheories"
       ],
       "assertions": [
         {
@@ -173371,7 +173380,9 @@
       "go_targets": [
         "pkg/cmd/g3/combined_solver_gap_test.go",
         "pkg/cmd/g3/test_vectors/array_as_array_combined_fallback_gap.smt2",
-        "pkg/solver/combined_solver.go"
+        "pkg/solver/combined_solver.go",
+        "pkg/api/api_strategic_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestSMTLibRunnerAsArrayCombinedSolverFallback",
@@ -173380,7 +173391,9 @@
         "TestCombinedSolverUnknownPolicyAndTimedFallback",
         "TestCombinedSolverRealTimeoutCancellationIsScoped",
         "TestCombinedSolverFactoryOwnsFactoriesAndBuildsPair",
-        "TestCombinedSolverTranslationPreservesState"
+        "TestCombinedSolverTranslationPreservesState",
+        "TestAPIStrategicSolverCrossContextTranslation",
+        "TestAPIStrategicSolverCrossContextConfiguredTheories"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -174295,7 +174308,9 @@
         "pkg/solver/tactic_solver.go",
         "pkg/solver/tactic_solver_test.go",
         "pkg/sat/tactic/sat_tactic.go",
-        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go"
+        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go",
+        "pkg/api/api_strategic_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestTacticSolverSATUnknownScopesAndFailureReason",
@@ -174303,7 +174318,9 @@
         "TestTacticSolverBaseLevelTranslation",
         "TestTacticFactoryToSolverFactory",
         "TestTacticSolverExceptionTransportAndTrace",
-        "TestQFUFBVAckrConstructorAndApplyAllocationFrontiers"
+        "TestQFUFBVAckrConstructorAndApplyAllocationFrontiers",
+        "TestAPIStrategicSolverCrossContextTranslation",
+        "TestAPIStrategicSolverCrossContextConfiguredTheories"
       ],
       "methods_audited": true,
       "ownership_audited": true,

@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -43,7 +44,17 @@ func (s *Solver) drainTranslations() error {
 // Translate copies original assertion and tracker roots, rebuilding all SAT
 // state lazily. Independent parameter/numeral owners use TargetServices; the
 // target services are borrowed and must outlive the returned solver.
-func (s *Solver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (result solver.Solver, err error) {
+func (s *Solver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (solver.Solver, error) {
+	return s.translateWithServices(m, p, nil)
+}
+
+// TranslateWithServices copies solver state using the target's concrete
+// parameter, numeral, and model-evaluator services.
+func (s *Solver) TranslateWithServices(m *ast.ASTManager, p *uparams.ParamsRef, target model.ModelEvaluatorConfig) (solver.Solver, error) {
+	return s.translateWithServices(m, p, &target)
+}
+
+func (s *Solver) translateWithServices(m *ast.ASTManager, p *uparams.ParamsRef, target *model.ModelEvaluatorConfig) (result solver.Solver, err error) {
 	if err = s.open(); err != nil {
 		return nil, err
 	}
@@ -55,6 +66,12 @@ func (s *Solver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (result solv
 	}
 	defer func() { s.retainFailure(err) }()
 	services := s.services
+	if target != nil {
+		services = *target
+	}
+	if services.Context == nil {
+		return nil, uparams.ErrParamsOwner
+	}
 	if check := services.Context.CheckServices(m.Symbols, m.NumeralService()); check != nil {
 		if s.targetServices == nil {
 			return nil, check

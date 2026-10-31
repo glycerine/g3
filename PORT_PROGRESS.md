@@ -1,4 +1,4 @@
-Direct SMT solver translation now copies assertions and parameters across independent contexts, including generated log replay and ownership after source closure. Tactic-backed and combined solvers also translate within a context; their cross-context translation remains unsupported, so api_solver.cpp is marked partial pending that work and the broader ownership audit.
+Direct SMT solver translation now copies assertions and parameters across independent contexts, including generated log replay and ownership after source closure. Strategic combined solvers now also translate across contexts using the target strategy factory and independently translated SMT or incremental-SAT backends. Caller-supplied tactic solvers and finite-domain wrappers still lack cross-context translation, so api_solver.cpp remains partial.
 
 Spacer level queries now accept general Boolean expressions and preserve their answer state, including generated replay. Focused tests cover levels zero and one and reject level queries on unsupported engines.
 

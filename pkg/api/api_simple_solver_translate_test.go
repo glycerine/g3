@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -214,20 +213,175 @@ func TestAPISolverTranslateWithinContextFactories(t *testing.T) {
 	}
 }
 
-func TestAPIStrategicSolverCrossContextTranslationIsExplicitlyUnsupported(t *testing.T) {
-	f := newSMTAPIFixture(t, "QF_UF", nil)
+func TestAPIStrategicSolverCrossContextTranslation(t *testing.T) {
+	for _, kind := range []string{"default", "logic", "incremental"} {
+		t.Run(kind, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			var s *APISimpleSolver
+			if kind == "logic" {
+				s, err = source.NewSolverForLogic("QF_UF")
+			} else {
+				s, err = source.NewSolver()
+			}
+			astTestMust(t, err)
+			astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
+			params, err := source.NewParameterSet()
+			astTestMust(t, err)
+			astTestMust(t, params.SetUInt("random_seed", 17))
+			astTestMust(t, s.SetParameters(params))
+			astTestMust(t, params.Close())
+			if kind == "incremental" {
+				astTestMust(t, s.Push())
+				astTestMust(t, s.Pop(1))
+			}
+			status, err := s.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("source", status)
+			}
+			translated, err := s.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			globals, err := target.command.GlobalParameters()
+			astTestMust(t, err)
+			p, err := translated.solver.Params()
+			astTestMust(t, err)
+			key := "random_seed"
+			seed, err := globals.Context.GetUIntName(p, &key, 0)
+			astTestMust(t, err)
+			if seed != 17 {
+				t.Fatal("translated parameter", seed)
+			}
+			astTestMust(t, s.Close())
+			astTestMust(t, source.Close())
+			status, err = translated.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("translated", status)
+			}
+			refs, err := translated.Assertions()
+			astTestMust(t, err)
+			if len(refs) != 1 {
+				t.Fatal("assertions", len(refs))
+			}
+			m, err := target.Manager()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, m, refs)
+			h, err := m.RefGet(refs[0])
+			astTestMust(t, err)
+			notH, err := m.MkNot(h)
+			astTestMust(t, err)
+			astTestMust(t, translated.Assert(notH))
+			status, err = translated.Check()
+			astTestMust(t, err)
+			if status != lbool.False {
+				t.Fatal("contradictory translated solver", status)
+			}
+		})
+	}
+}
+
+func TestAPIStrategicSolverCrossContextConfiguredTheories(t *testing.T) {
+	for _, tc := range []struct{ logic, script string }{
+		{"QF_BV", `(declare-const x (_ BitVec 4)) (assert (= (bvadd x #x1) #x3))`},
+		{"QF_LIA", `(declare-const x Int) (assert (> x 2)) (assert (< x 5))`},
+	} {
+		for _, incremental := range []bool{false, true} {
+			name := tc.logic
+			if incremental {
+				name += "-incremental"
+			}
+			t.Run(name, func(t *testing.T) {
+				source, err := NewSMTContext()
+				astTestMust(t, err)
+				target, err := NewSMTContext()
+				astTestMust(t, err)
+				defer func() { astTestMust(t, target.Close()) }()
+				s, err := source.NewSolverForLogic(tc.logic)
+				astTestMust(t, err)
+				astTestMust(t, s.LoadSMT2String(tc.script))
+				if incremental {
+					astTestMust(t, s.Push())
+					astTestMust(t, s.Pop(1))
+				}
+				status, err := s.Check()
+				astTestMust(t, err)
+				if status != lbool.True {
+					t.Fatal("source", status)
+				}
+				translated, err := s.Translate(target)
+				astTestMust(t, err)
+				defer func() { astTestMust(t, translated.Close()) }()
+				astTestMust(t, s.Close())
+				astTestMust(t, source.Close())
+				status, err = translated.Check()
+				astTestMust(t, err)
+				if status != lbool.True {
+					t.Fatal("translated", status)
+				}
+				astTestMust(t, translated.Push())
+				m, err := target.Manager()
+				astTestMust(t, err)
+				no, err := m.MkFalse()
+				astTestMust(t, err)
+				astTestMust(t, translated.Assert(no))
+				status, err = translated.Check()
+				astTestMust(t, err)
+				if status != lbool.False {
+					t.Fatal("child scope", status)
+				}
+				astTestMust(t, translated.Pop(1))
+				status, err = translated.Check()
+				astTestMust(t, err)
+				if status != lbool.True {
+					t.Fatal("after pop", status)
+				}
+			})
+		}
+	}
+}
+
+func TestAPIStrategicSolverCrossContextTranslationRejectsActiveScope(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
 	target, err := NewSMTContext()
 	astTestMust(t, err)
 	defer func() { astTestMust(t, target.Close()) }()
-	s, err := f.c.NewSolver()
+	s, err := source.NewSolverForLogic("QF_UF")
 	astTestMust(t, err)
 	defer func() { astTestMust(t, s.Close()) }()
-	if _, err = s.Translate(target); err == nil || !strings.Contains(err.Error(), "cross-context") {
-		t.Fatal("translation diagnostic", err)
+	astTestMust(t, s.Push())
+	if _, err = s.Translate(target); err == nil {
+		t.Fatal("translated active scope")
+	}
+	astTestMust(t, s.Pop(1))
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	astTestMust(t, translated.Close())
+}
+
+func TestAPIFiniteDomainCrossContextTranslationIsUnsupported(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	s, err := source.NewSolverForLogic("QF_FD")
+	astTestMust(t, err)
+	defer func() { astTestMust(t, s.Close()) }()
+	astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
+	if _, err = s.Translate(target); err == nil {
+		t.Fatal("expected unsupported finite-domain wrapper")
 	}
 	status, err := s.Check()
 	astTestMust(t, err)
 	if status != lbool.True {
-		t.Fatal("source solver after rejection", status)
+		t.Fatal("source after rejection", status)
 	}
 }

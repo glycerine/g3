@@ -529,19 +529,57 @@ func (s *TacticSolver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (Solve
 	if err != nil {
 		return nil, err
 	}
-	logic := ""
-	if s.logic != (usymbol.Symbol{}) {
-		logic, err = s.manager.Symbols.String(s.logic)
-		if err != nil {
-			return nil, err
-		}
-	}
 	config := s.config
 	if check := config.Params.CheckServices(m.Symbols, m.NumeralService()); check != nil {
 		if config.TargetConfig == nil {
 			return nil, check
 		}
 		config, err = config.TargetConfig(m)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return s.translateWithTactic(m, p, translated, config)
+}
+
+// TranslationProfile exposes the concrete construction choices needed to
+// rebuild an internal strategic tactic in a target context.
+func (s *TacticSolver) TranslationProfile() (logic string, proofs, models, cores bool, err error) {
+	if err = s.open(); err != nil {
+		return
+	}
+	if s.logic != (usymbol.Symbol{}) {
+		logic, err = s.manager.Symbols.String(s.logic)
+		if err != nil {
+			return
+		}
+	}
+	return logic, s.produceProofs, s.produceModels, s.produceCores, nil
+}
+
+// TranslateWithTarget uses the tactic from a fresh target strategic solver.
+// The new solver acquires its own counted reference to that target tactic.
+func (s *TacticSolver) TranslateWithTarget(target *TacticSolver, p *uparams.ParamsRef) (Solver, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	if err := target.open(); err != nil {
+		return nil, err
+	}
+	if len(s.scopes) != 0 {
+		return nil, z3exception.NewDefaultException("translation of contexts is only supported at base level")
+	}
+	if target.tactic == nil {
+		return nil, ast.ErrASTHandle
+	}
+	return s.translateWithTactic(target.manager, p, target.tactic, target.config)
+}
+
+func (s *TacticSolver) translateWithTactic(m *ast.ASTManager, p *uparams.ParamsRef, translated tactic.Tactic, config TacticSolverConfig) (Solver, error) {
+	var err error
+	logic := ""
+	if s.logic != (usymbol.Symbol{}) {
+		logic, err = s.manager.Symbols.String(s.logic)
 		if err != nil {
 			return nil, err
 		}

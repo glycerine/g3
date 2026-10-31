@@ -10,9 +10,8 @@ import (
 	"github.com/glycerine/g3/pkg/solver"
 )
 
-// Translate copies solver state into target. Cross-context translation currently
-// supports direct SMT solvers; same-context translation supports all solver
-// implementations that expose a tactic translation. Close the returned solver
+// Translate copies solver state into target. Cross-context translation supports direct SMT and strategic solvers;
+// same-context translation supports solvers with a tactic translation. Close the returned solver
 // before closing target.
 func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver, resultErr error) {
 	if err := s.open(); err != nil {
@@ -57,6 +56,8 @@ func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver
 		translated, err = s.solver.Translate(manager, &translatedParams)
 	} else if direct, ok := s.solver.(*smtcore.SMTSolver); ok {
 		translated, err = direct.TranslateWithConfig(manager, &translatedParams, config)
+	} else if strategic, ok := s.solver.(*solver.CombinedSolver); ok {
+		translated, err = translateStrategicSolver(strategic, manager, &translatedParams, config)
 	} else {
 		return nil, fmt.Errorf("api: cross-context translation of this solver implementation is not yet supported")
 	}

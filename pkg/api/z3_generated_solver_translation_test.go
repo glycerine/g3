@@ -130,3 +130,57 @@ func TestGeneratedStrategicSolverTranslationWithinContext(t *testing.T) {
 		t.Fatal("translation not checked")
 	}
 }
+
+func TestGeneratedStrategicSolverTranslationAcrossContexts(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0\nC 6\n= 0x42\nR\nP 0x41\nC 32\n= 0x43\nR\nP 0x41\n$ |p|\nP 0x43\nC 51\n= 0x44\n" +
+		"R\nP 0x41\nC 408\n= 0x45\nR\nP 0x41\nP 0x45\nC 416\nR\nP 0x41\nP 0x45\nP 0x44\nC 422\n" +
+		"R\nP 0x41\nP 0x45\nP 0x42\nC 412\n= 0x46\nR\nP 0x42\nP 0x46\nC 416\nR\nP 0x41\nC 8\nR\nP 0x42\nP 0x46\nC 900\nR\nP 0x42\nP 0x46\nC 417\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	for _, register := range []func(*Z3Replayer) error{RegisterZ3GeneratedContextCommands, RegisterZ3GeneratedSolverCommands, RegisterZ3GeneratedASTCommands} {
+		if err = register(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-cross-context-strategy", func(r *Z3Replayer) error {
+		s, e := replayGetSolver(r)
+		if e != nil {
+			return e
+		}
+		if s.kind != 0 {
+			t.Fatal("factory kind", s.kind)
+		}
+		n, e := s.value.solver.NumAssertions()
+		if e != nil {
+			return e
+		}
+		if n != 1 {
+			t.Fatal("assertions", n)
+		}
+		status, e := s.value.Check()
+		if e != nil {
+			return e
+		}
+		if status != lbool.True {
+			t.Fatal("status", status)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("translation not checked")
+	}
+}

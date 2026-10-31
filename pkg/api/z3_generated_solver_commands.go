@@ -192,10 +192,9 @@ func replaySolverTranslate(r *Z3Replayer) error {
 		}
 		parameters = &ParameterSet{owner: target.context.smtContextState, params: globals.Context, value: value}
 	}
-	kind, logic := uint8(1), ""
+	kind, logic := source.kind, source.logic
 	var tacticValue *APITactic
 	if target == source.owner {
-		kind, logic = source.kind, source.logic
 		if source.tactic != nil {
 			tacticValue, err = source.tactic.Retain()
 			if err != nil {

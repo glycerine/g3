@@ -590,6 +590,33 @@ func (c *CombinedSolver) Translate(m *ast.ASTManager, p *uparams.ParamsRef) (Sol
 	next.secondStarted, next.incMode, next.checked, next.useFirst = c.secondStarted, c.incMode, c.checked, c.useFirst
 	return next, nil
 }
+
+// TranslationComponents borrows the source's two concrete solver components.
+func (c *CombinedSolver) TranslationComponents() (Solver, Solver, error) {
+	if err := c.open(); err != nil {
+		return nil, nil, err
+	}
+	return c.first, c.second, nil
+}
+
+// TranslateWithComponents installs independently translated components using
+// the target combined solver's services and the source's scheduling state.
+// On success the returned combined solver owns counted references to both.
+func (c *CombinedSolver) TranslateWithComponents(target *CombinedSolver, first, second Solver, p *uparams.ParamsRef) (Solver, error) {
+	if err := c.open(); err != nil {
+		return nil, err
+	}
+	if err := target.open(); err != nil {
+		return nil, err
+	}
+	next, err := NewCombinedSolver(first, second, p, target.config)
+	if err != nil {
+		return nil, err
+	}
+	next.secondStarted, next.incMode, next.checked, next.useFirst = c.secondStarted, c.incMode, c.checked, c.useFirst
+	return next, nil
+}
+
 func (c *CombinedSolver) Close() error {
 	if c == nil || c.self != c {
 		return ast.ErrASTHandle
