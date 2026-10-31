@@ -1,3 +1,5 @@
+Tabulation subsumption setup (2026-10-31 UTC): added source-order grounding of clause variables into numerical-symbol constants, with owned head, predicate and precondition expressions. Normal and checked tabulation package tests pass, including a lifetime check after the source clause closes; matching search and solver validation remain unfinished.
+
 Tabulation clause formulas (2026-10-31 UTC): clauses now expose their flattened body and universally closed Horn formula, using source fresh names and Boolean defaults for unused variable slots. Normal and checked tabulation package tests pass; clause search, subsumption and fixedpoint registration remain unfinished.
 
 Finite-domain dependency lifetime fix (2026-10-31 UTC): converted bounds now own their dependencies while original goal bounds are replaced. Normal and checked regressions cover the case where the goal is the sole previous owner of an explanation.

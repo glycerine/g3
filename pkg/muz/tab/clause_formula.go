@@ -75,22 +75,9 @@ func (c *Clause) Formula() (result ast.ASTRef, err error) {
 	if err = m.SetRef(result, formula); err != nil {
 		return result, err
 	}
-	fv, err := rewriter.NewExprFreeVars(m)
+	fv, err := c.freeVariables()
 	if err != nil {
 		return result, err
-	}
-	predicates, err := c.Predicates()
-	if err != nil {
-		return result, err
-	}
-	constraint, err := c.Constraint()
-	if err != nil {
-		return result, err
-	}
-	for _, h := range append(append([]ast.ASTHandle{head}, predicates...), constraint) {
-		if err = fv.Accumulate(h); err != nil {
-			return result, err
-		}
 	}
 	if fv.Size() != 0 {
 		sorts := make([]ast.ASTHandle, fv.Size())
@@ -125,4 +112,32 @@ func (c *Clause) Formula() (result ast.ASTRef, err error) {
 	}
 	owned = false
 	return result, nil
+}
+
+func (c *Clause) freeVariables() (*rewriter.ExprFreeVars, error) {
+	if c == nil || c.closed {
+		return nil, ast.ErrASTHandle
+	}
+	fv, err := rewriter.NewExprFreeVars(c.manager)
+	if err != nil {
+		return nil, err
+	}
+	head, err := c.Head()
+	if err != nil {
+		return nil, err
+	}
+	predicates, err := c.Predicates()
+	if err != nil {
+		return nil, err
+	}
+	constraint, err := c.Constraint()
+	if err != nil {
+		return nil, err
+	}
+	for _, h := range append(append([]ast.ASTHandle{head}, predicates...), constraint) {
+		if err = fv.Accumulate(h); err != nil {
+			return nil, err
+		}
+	}
+	return fv, nil
 }
