@@ -9,7 +9,8 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
-// rewriteQuantifierBool recursively eliminates supported Boolean quantifiers.
+// rewriteQuantifierBool recursively eliminates supported Boolean quantifiers
+// and arithmetic quantifiers solved by the equation plugin.
 // Free de Bruijn variables are temporarily represented by fresh constants while
 // eliminating each quantifier, then abstracted back into their original scope.
 func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
@@ -69,6 +70,9 @@ func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config C
 			return result, false, e
 		}
 		eliminated, done, e := eliminateQuantifierBoolUnits(m, q, config)
+		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
+		}
 		if e != nil || !done {
 			return result, false, e
 		}

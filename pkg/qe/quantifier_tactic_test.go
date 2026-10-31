@@ -108,13 +108,13 @@ func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 		t.Fatal("universal Boolean variable should be false")
 	}
 	integerVar := f.own(m.MkVar(0, f.integer))
-	equality := f.own(m.MkEq(integerVar, f.number("0")))
-	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: equality}))
+	positive := f.own(m.MkArithmeticGT(integerVar, f.number("0")))
+	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: positive}))
 	refused := f.goal(false, false)
 	fmMust(t, refused.Assert(exists))
 	fmMust(t, refused.Assert(unsupported))
 	if err = port.Apply(refused, f.result()); err == nil {
-		t.Fatal("non-Boolean quantifier was accepted")
+		t.Fatal("unsupported arithmetic quantifier was accepted")
 	}
 	unchanged, err := refused.Form(0)
 	fmMust(t, err)
@@ -218,5 +218,37 @@ func TestQuantifierTacticAlternatingBooleanQuantifiers(t *testing.T) {
 	fmMust(t, err)
 	if size != 0 {
 		t.Fatal("forall x exists y (x = y) should be true")
+	}
+}
+
+func TestQuantifierTacticArithmeticEquation(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	x := f.own(m.MkVar(0, f.integer))
+	y := f.constant("qe-equation-y", f.integer)
+	zero := f.number("0")
+	equality := f.own(m.MkEq(x, y))
+	positive := f.own(m.MkArithmeticGT(x, zero))
+	body := f.own(m.MkAnd(equality, positive))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(quantifier))
+	fmMust(t, port.Apply(goal, f.result()))
+	value, err := goal.Form(0)
+	fmMust(t, err)
+	expected := f.own(m.MkArithmeticGT(y, zero))
+	iff := f.own(m.MkIff(value, expected))
+	different := f.own(m.MkNot(iff))
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(different))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("arithmetic QE result differs from substitution")
 	}
 }
