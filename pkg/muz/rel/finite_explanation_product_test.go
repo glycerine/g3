@@ -259,3 +259,34 @@ func TestFiniteExplanationProductJoinRows(t *testing.T) {
 		t.Fatal("accepted invalid join column")
 	}
 }
+
+func TestFiniteExplanationProductRenameFinite(t *testing.T) {
+	f := newTableRelationFixture(t)
+	sort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	name, err := f.ast.Symbols.Intern("finite-rename-explanation")
+	astTestMust(t, err)
+	explanation, err := f.ast.MkConst(name, sort)
+	astTestMust(t, err)
+	source, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean, f.bits})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	two := f.bv(2)
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.truth, two}, explanation))
+	renamed, err := source.RenameFinite([]int{0, 1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, renamed.Close()) }()
+	got, found, err := renamed.Explanation([]ast.ASTHandle{two, f.truth})
+	astTestMust(t, err)
+	if !found || got != explanation {
+		t.Fatal("renamed tuple", got, found)
+	}
+	_, found, err = source.Explanation([]ast.ASTHandle{f.truth, two})
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("source was mutated")
+	}
+	if _, err = source.RenameFinite([]int{0, 0}); err == nil {
+		t.Fatal("accepted repeated rename column")
+	}
+}
