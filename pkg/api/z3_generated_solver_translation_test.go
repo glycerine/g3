@@ -278,11 +278,19 @@ func TestGeneratedSMTTacticSolverTranslationAcrossContexts(t *testing.T) {
 }
 
 func TestGeneratedComposedTacticSolverTranslationAcrossContexts(t *testing.T) {
+	for _, name := range []string{"simplify", "propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core"} {
+		t.Run(name, func(t *testing.T) { runGeneratedComposedTacticTranslation(t, name) })
+	}
+}
+
+func runGeneratedComposedTacticTranslation(t *testing.T, name string) {
+	t.Helper()
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0\nC 6\n= 0x42\nR\nP 0x41\nS \"simplify\"\nC 363\n= 0x43\nR\nP 0x41\nP 0x43\nC 364\n" +
 		"R\nP 0x41\nS \"smt\"\nC 363\n= 0x44\nR\nP 0x41\nP 0x44\nC 364\nR\nP 0x41\nP 0x43\nP 0x44\nC 369\n= 0x45\nR\nP 0x41\nP 0x45\nC 364\n" +
 		"R\nP 0x41\nP 0x45\nC 411\n= 0x46\nR\nP 0x41\nP 0x46\nC 416\nR\nP 0x41\nP 0x45\nC 365\nR\nP 0x41\nP 0x44\nC 365\nR\nP 0x41\nP 0x43\nC 365\n" +
 		"R\nP 0x41\nC 55\n= 0x47\nR\nP 0x41\nP 0x46\nP 0x47\nC 422\nR\nP 0x41\nP 0x46\nP 0x42\nC 412\n= 0x48\nR\nP 0x42\nP 0x48\nC 416\nR\nP 0x41\nC 8\n" +
 		"R\nP 0x42\nP 0x48\nC 900\nR\nP 0x42\nP 0x48\nC 417\n"
+	log = strings.Replace(log, `S "simplify"`, `S "`+name+`"`, 1)
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
 		t.Fatal(err)

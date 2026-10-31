@@ -27,6 +27,10 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 		case *core.SimplifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		default:
+			value, matched, err := core.TranslateContextLeaf(leaf, manager, config.Params, config.Globals, config.ModelEvaluator)
+			if matched {
+				return value, err
+			}
 			return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
 		}
 	})

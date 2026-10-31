@@ -550,7 +550,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("propagate-values")
+	simplify, err := source.Tactic("ctx-simplify")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -626,5 +626,94 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("translated simplify-smt", status)
+	}
+}
+
+func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core"} {
+		t.Run(name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			prefix, err := source.Tactic(name)
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			sequence, err := prefix.AndThen(smt)
+			astTestMust(t, err)
+			s, err := source.NewSolverFromTactic(sequence)
+			astTestMust(t, err)
+			for _, value := range []*APITactic{sequence, smt, prefix} {
+				astTestMust(t, value.Close())
+			}
+			astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p) (assert (not p))`))
+			translated, err := s.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, s.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != lbool.False {
+				t.Fatal("translated tactic", status)
+			}
+		})
+	}
+}
+
+func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core"} {
+		t.Run(name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			prefix, err := source.Tactic(name)
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			sequence, err := prefix.AndThen(smt)
+			astTestMust(t, err)
+			s, err := source.NewSolverFromTactic(sequence)
+			astTestMust(t, err)
+			for _, value := range []*APITactic{sequence, smt, prefix} {
+				astTestMust(t, value.Close())
+			}
+			astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
+			translated, err := s.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, s.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("translated status", status)
+			}
+			refs, err := translated.Assertions()
+			astTestMust(t, err)
+			if len(refs) != 1 {
+				t.Fatal("assertions", len(refs))
+			}
+			m, err := target.Manager()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, m, refs)
+			p, err := m.RefGet(refs[0])
+			astTestMust(t, err)
+			md, err := translated.Model()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, md.Close()) }()
+			v, err := md.Evaluate(p, true)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, m.DelRef(&v)) }()
+			h, err := m.RefGet(v)
+			astTestMust(t, err)
+			if !m.IsTrue(h) {
+				t.Fatal("model fails assertion", h)
+			}
+		})
 	}
 }

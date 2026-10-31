@@ -6203,7 +6203,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
-        "Generated solver translation replay supports direct, strategic, finite-domain and compositions of SMT and simplifier tactics across contexts. Other tactic leaves and probe conditionals remain unsupported."
+        "Generated solver translation replay supports direct, strategic, finite-domain and compositions of SMT and selected core tactics across contexts. Other tactic leaves and probe conditionals remain unsupported."
       ]
     },
     {
@@ -7804,7 +7804,8 @@
         "pkg/api/api_strategic_solver_translate.go",
         "pkg/tactic/portfolio/fd_solver_translate.go",
         "pkg/api/api_caller_tactic_solver_translate.go",
-        "pkg/tactic/tactic_context_translation.go"
+        "pkg/tactic/tactic_context_translation.go",
+        "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
         "TestSMTContextTypedParameterCatalog",
@@ -7835,7 +7836,9 @@
         "TestAPISMTTacticSolverCrossContextTranslationRejectsActiveScope",
         "TestAPIComposedTacticCrossContextTranslation",
         "TestAPIUnsupportedTacticLeafCrossContextTranslation",
-        "TestAPISimplifySMTTacticCrossContextTranslation"
+        "TestAPISimplifySMTTacticCrossContextTranslation",
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -7868,7 +7871,7 @@
       ],
       "deviations": [
         "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Go exposes solver translation, tactic construction, DIMACS loading and help through typed APIs; opaque C reference-count entry points have no Go equivalent.",
-        "Solver translation supports direct, strategic, finite-domain and compositions of SMT and simplifier tactics across contexts. Other tactic leaves, probe conditionals, and a complete ownership audit remain open."
+        "Solver translation supports direct, strategic, finite-domain and compositions of SMT and selected core tactics across contexts. Other tactic leaves, probe conditionals, and a complete ownership audit remain open."
       ]
     },
     {
@@ -186774,8 +186777,17 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/core/elim_term_ite_tactic.go"],
-      "tests": ["TestEliminateTermITEProofCoreAndModelFilter", "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"],
+      "go_targets": [
+        "pkg/tactic/core/elim_term_ite_tactic.go",
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go"
+      ],
+      "tests": [
+        "TestEliminateTermITEProofCoreAndModelFilter",
+        "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup",
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices"
+      ],
       "assertions": [
         {
           "line": 107,
@@ -186791,12 +186803,17 @@
       "methods": [
         {
           "name": "term ITE rewriting and fresh definitions",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/tactic/core/elim_term_ite_tactic.go",
-          "tests": ["TestEliminateTermITEProofCoreAndModelFilter", "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"]
+          "tests": [
+            "TestEliminateTermITEProofCoreAndModelFilter",
+            "TestEliminateTermITELeavesBooleanITEAndRecoversAfterCleanup"
+          ]
         }
       ],
-      "ownership": ["Defined names, traversal state, proof references, and filter-model declarations have explicit owners and cleanup."],
+      "ownership": [
+        "Defined names, traversal state, proof references, and filter-model declarations have explicit owners and cleanup."
+      ],
       "deviations": []
     },
     {
@@ -186845,7 +186862,9 @@
         "pkg/tactic/core/elim_uncnstr_trace_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/cmd_context/tactic_commands.go",
-        "pkg/tactic/core/collect_occs.go"
+        "pkg/tactic/core/collect_occs.go",
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestEliminateUnconstrainedProofCoreAndIndependentModel",
@@ -186854,7 +186873,9 @@
         "TestEliminateUnconstrainedBVProofGuardAndCPPApply",
         "TestEliminateUnconstrainedExactTraceAndStreamRefusal",
         "TestSMTLibRunnerScripts",
-        "TestSMTLibRunnerCPPReference"
+        "TestSMTLibRunnerCPPReference",
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices"
       ],
       "assertions": [
         {
@@ -187672,7 +187693,9 @@
         "pkg/ast/ast_expr_substitution_ops.go",
         "pkg/tactic/core/strategy_constructor_frontiers_test.go",
         "pkg/tactic/core/propagate_values_stopped_cleanup_release_test.go",
-        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go"
+        "pkg/tactic/smtlogics/qfufbv_ackr_tactic_test.go",
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestPropagateValuesDirectionalRoundsAndCPPApply",
@@ -187686,7 +187709,9 @@
         "TestSMTLibRunnerCPPReference",
         "TestCoreStrategyPrerequisiteConstructorFrontiers",
         "TestPropagateValuesCountedReleaseAfterFailedCleanupReconstruction",
-        "TestQFUFBVAckrConstructorAndApplyAllocationFrontiers"
+        "TestQFUFBVAckrConstructorAndApplyAllocationFrontiers",
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices"
       ],
       "assertions": [
         {
@@ -188737,7 +188762,9 @@
         "pkg/ast/ast_num_occurs.go",
         "pkg/tactic/core/solve_eqs_trace.go",
         "pkg/tactic/core/solve_eqs_trace_test.go",
-        "pkg/tactic/core/strategy_constructor_frontiers_test.go"
+        "pkg/tactic/core/strategy_constructor_frontiers_test.go",
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestSolveEquationsBooleanDefinitionsAndIndependentModel",
@@ -188751,7 +188778,9 @@
         "TestSMTLibRunnerCPPReference",
         "TestSolveEquationsExactTraceAndVerbose",
         "TestSolveEquationsSortTraceAndStreamRefusal",
-        "TestCoreStrategyPrerequisiteConstructorFrontiers"
+        "TestCoreStrategyPrerequisiteConstructorFrontiers",
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices"
       ],
       "conditionals": [
         {
@@ -189378,8 +189407,20 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/core/tseitin_cnf_tactic.go", "pkg/tactic/core/tseitin_cnf_encode.go", "pkg/cmd_context/tactic_commands.go"],
-      "tests": ["TestTseitinCNFNestedIffAndITEChain", "TestTseitinCNFCoreDependenciesModelFilterAndGuards", "TestTseitinCNFCommonPatternAndBoundedDistributivity"],
+      "go_targets": [
+        "pkg/tactic/core/tseitin_cnf_tactic.go",
+        "pkg/tactic/core/tseitin_cnf_encode.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go"
+      ],
+      "tests": [
+        "TestTseitinCNFNestedIffAndITEChain",
+        "TestTseitinCNFCoreDependenciesModelFilterAndGuards",
+        "TestTseitinCNFCommonPatternAndBoundedDistributivity",
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices"
+      ],
       "assertions": [
         {
           "line": 182,
@@ -189411,9 +189452,13 @@
       "methods": [
         {
           "name": "full Tseitin CNF traversal, specialized encodings, bounded distributivity, tactic factories and statistics",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/tactic/core/tseitin_cnf_encode.go",
-          "tests": ["TestTseitinCNFNestedIffAndITEChain", "TestTseitinCNFCoreDependenciesModelFilterAndGuards", "TestTseitinCNFCommonPatternAndBoundedDistributivity"]
+          "tests": [
+            "TestTseitinCNFNestedIffAndITEChain",
+            "TestTseitinCNFCoreDependenciesModelFilterAndGuards",
+            "TestTseitinCNFCommonPatternAndBoundedDistributivity"
+          ]
         }
       ],
       "ownership": [
