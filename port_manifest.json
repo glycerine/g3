@@ -90461,10 +90461,13 @@
       "go_targets": [
         "pkg/muz/rel/similarity_compare.go",
         "pkg/muz/rel/similarity_compare_test.go",
-        "pkg/muz/rel/similarity_fixtures_test.go"
+        "pkg/muz/rel/similarity_fixtures_test.go",
+        "pkg/muz/rel/similarity_constants.go",
+        "pkg/muz/rel/similarity_constants_test.go"
       ],
       "tests": [
-        "TestSimilarityRuleComparisons"
+        "TestSimilarityRuleComparisons",
+        "TestSimilarityVaryingConstantsAndEqualParents"
       ],
       "conditionals": [
         {
@@ -90567,6 +90570,14 @@
           "go_target": "pkg/muz/rel/similarity_compare.go",
           "tests": [
             "TestSimilarityRuleComparisons"
+          ]
+        },
+        {
+          "name": "collect_const_indexes/remove_stable_constants/detect_equal_constants: source-order varying columns and earliest equal parent",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/similarity_constants.go",
+          "tests": [
+            "TestSimilarityVaryingConstantsAndEqualParents"
           ]
         }
       ],
