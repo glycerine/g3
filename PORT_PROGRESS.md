@@ -1,3 +1,5 @@
+Generated parser and error-state replay (2026-10-31 UTC): connected benchmark formatting, persistent SMT-LIB evaluation, parser-error retrieval and error-code commands. Normal and checked tests verify persistent assertions and error-state transitions; complete error-handler fidelity and other generated commands remain unfinished.
+
 Generated bit-vector Boolean-array replay (2026-10-31 UTC): connected numeral creation and estimated process-allocation queries. Normal and checked tests verify native-byte interpretation and reject short arrays; other generated commands remain unfinished.
 
 Generated set and array-extensionality replay (2026-10-31 UTC): connected set constructors, mutations, operations and predicates along with array extensionality witnesses. Normal and checked tests verify construction and membership simplification; other generated commands remain unfinished.

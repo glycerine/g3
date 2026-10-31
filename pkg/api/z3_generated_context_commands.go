@@ -9,6 +9,7 @@ type replayContextOwner struct {
 	context          *SMTContext
 	userRefCount     bool
 	printMode        uint32
+	parserError      string
 	results          *apiContextResults
 	astIDs           []uint64
 	parameterIDs     []uint64
