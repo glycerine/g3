@@ -19,10 +19,12 @@ type z3LogFlusher interface {
 // Z3LogWriter emits the line-oriented format consumed by Z3Replayer. Each
 // operation is flushed, matching the C++ logger's crash-friendly behavior.
 type Z3LogWriter struct {
-	writer io.Writer
-	closer io.Closer
-	closed bool
-	failed error
+	writer       io.Writer
+	closer       io.Closer
+	closed       bool
+	failed       error
+	configIDs    map[*Config]uint64
+	nextObjectID uint64
 }
 
 func NewZ3LogWriter(writer io.Writer) (*Z3LogWriter, error) {
@@ -79,6 +81,6 @@ func (log *Z3LogWriter) Close() error {
 	if log.closer != nil {
 		err = errors.Join(err, log.closer.Close())
 	}
-	log.writer, log.closer = nil, nil
+	log.writer, log.closer, log.configIDs = nil, nil, nil
 	return err
 }

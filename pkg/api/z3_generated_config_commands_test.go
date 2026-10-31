@@ -115,3 +115,70 @@ func TestGeneratedConfigLogReplaysConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGeneratedConfigAPILogRoundTrip(t *testing.T) {
+	var output bytes.Buffer
+	writer, err := NewZ3LogWriter(&output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := processZ3Log
+	processZ3Log = writer
+	defer func() { processZ3Log = previous; _ = writer.Close() }()
+	config, err := MkConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = SetParamValue(config, "proof", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err = config.Close(); err != nil {
+		t.Fatal(err)
+	}
+	processZ3Log = previous
+	want := "R\nC 3\n= 0x1\nR\nP 0x1\nS \"proof\"\nS \"true\"\nC 5\nR\nP 0x1\nC 4\n"
+	if output.String() != want {
+		t.Fatalf("automatic config log\n got %q\nwant %q", output.String(), want)
+	}
+	r, err := NewZ3Replayer(bytes.NewReader(output.Bytes()), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if err = RegisterZ3GeneratedConfigCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.configs) != 0 {
+		t.Fatal("replayed config not closed")
+	}
+}
+
+func TestGeneratedConfigLogFailureDoesNotSkipLifecycle(t *testing.T) {
+	writer, err := NewZ3LogWriter(closedReplayWriter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := processZ3Log
+	processZ3Log = writer
+	defer func() { processZ3Log = previous; _ = writer.Close() }()
+	config, err := MkConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = SetParamValue(config, "proof", "true"); err != nil {
+		t.Fatal(err)
+	}
+	state, err := config.params.State()
+	if err != nil || !state.Proof {
+		t.Fatal("config not updated", state, err)
+	}
+	if err = config.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !errors.Is(writer.Err(), io.ErrClosedPipe) {
+		t.Fatal("log failure missing", writer.Err())
+	}
+}

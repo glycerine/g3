@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 var ErrConfigOwner = errors.New("api: invalid or closed config")
@@ -22,7 +23,27 @@ type Config struct {
 // MkConfig initializes the process and constructs context_params from its
 // current global parameter state.
 func MkConfig() (*Config, error) {
-	return mkConfigWithTrace(diagnostic.BorrowProcessTraceTags())
+	g, err := globalParamService()
+	if err != nil {
+		return nil, err
+	}
+	var log *Z3LogWriter
+	if processZ3Log != nil && !processZ3LogInAPI {
+		processZ3LogInAPI = true
+		defer func() { processZ3LogInAPI = false }()
+		log = processZ3Log
+		_ = log.LogZ3MkConfig()
+	}
+	config, err := mkConfigWithGlobals(g, diagnostic.BorrowProcessTraceTags())
+	if err != nil {
+		return nil, err
+	}
+	if log != nil {
+		if id, e := log.configID(config); e == nil {
+			_ = log.Result(id)
+		}
+	}
+	return config, nil
 }
 
 func mkConfigWithTrace(tags *diagnostic.TraceTags) (*Config, error) {
@@ -30,6 +51,10 @@ func mkConfigWithTrace(tags *diagnostic.TraceTags) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+	return mkConfigWithGlobals(g, tags)
+}
+
+func mkConfigWithGlobals(g *uparams.GlobalParamsService, tags *diagnostic.TraceTags) (*Config, error) {
 	p, err := smtcore.NewContextParamsWithAllocationHook(g.Context, g, g.Config.Budget, func(p *smtcore.ContextParams) {
 		traceConfigAllocated(tags, p)
 	})
@@ -47,12 +72,24 @@ func (c *Config) Close() error {
 	if c == nil || c.params == nil {
 		return ErrConfigOwner
 	}
+	var log *Z3LogWriter
+	if processZ3Log != nil && !processZ3LogInAPI {
+		processZ3LogInAPI = true
+		defer func() { processZ3LogInAPI = false }()
+		log = processZ3Log
+		if id, err := log.configID(c); err == nil {
+			_ = log.LogZ3DelConfig(id)
+		}
+	}
 	p := c.params
 	if err := p.Close(); err != nil {
 		return err
 	}
 	c.traceConfigDeallocated(p)
 	c.params = nil
+	if log != nil {
+		delete(log.configIDs, c)
+	}
 	return nil
 }
 
@@ -61,6 +98,13 @@ func (c *Config) Close() error {
 func SetParamValue(c *Config, id, value string) error {
 	if c == nil || c.params == nil {
 		return ErrConfigOwner
+	}
+	if processZ3Log != nil && !processZ3LogInAPI {
+		processZ3LogInAPI = true
+		defer func() { processZ3LogInAPI = false }()
+		if pointer, err := processZ3Log.configID(c); err == nil {
+			_ = processZ3Log.LogZ3SetParamValue(pointer, id, value)
+		}
 	}
 	return globalParamCaughtWarning(c.params.Set(&id, &value))
 }
