@@ -1,3 +1,5 @@
+Formula-checking projection (2026-10-31 UTC): added source existential projection and grounding followed by SMT equivalence checks. Tests cover multiple removed columns, zero-column output and a deliberately false projected formula that the solver rejects.
+
 Formula-checking rename (2026-10-31 UTC): added table cycle renaming and source variable-permutation equivalence checks using SMT. Tests cover a three-column cycle, unchanged source and invalid duplicate columns.
 
 Full native snapshot check (2026-10-31 UTC): the complete Go suite on clean snapshot 9590475a2 passed, with 105 packages passing and three packages reporting no test files. Later commits have focused verification but are outside this checkpoint. Log: /tmp/g3-native-check-9590475a2.log.

@@ -173,3 +173,48 @@ func TestFormulaCheckedTableRename(t *testing.T) {
 		t.Fatal("duplicate cycle accepted")
 	}
 }
+
+func TestFormulaCheckedTableProjection(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean, f.boolean, f.boolean})
+	astTestMust(t, err)
+	r, err := NewFormulaCheckedTable(table, config)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, r.Close()) }()
+	_, err = r.AddFact([]ast.ASTHandle{f.truth, f.falsehood, f.truth})
+	astTestMust(t, err)
+	_, err = r.AddFact([]ast.ASTHandle{f.falsehood, f.falsehood, f.truth})
+	astTestMust(t, err)
+	projected, err := r.Project([]int{0, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	if found, err := projected.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || !found {
+		t.Fatal("projected fact", found, err)
+	}
+	if found, err := projected.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || found {
+		t.Fatal("unexpected projected fact", found, err)
+	}
+	sourceFormula, err := r.table.ToFormula()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.ast.DelRef(&sourceFormula)) }()
+	sourceHandle, err := f.ast.RefGet(sourceFormula)
+	astTestMust(t, err)
+	existential, err := r.projectFormula(sourceHandle, []int{0, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.ast.DelRef(&existential)) }()
+	expected, err := f.ast.RefGet(existential)
+	astTestMust(t, err)
+	if err = projected.verifyGrounded(expected, f.falsehood, false); !errors.Is(err, ErrRelationVerification) {
+		t.Fatal("missed existential projection counterexample", err)
+	}
+	all, err := r.Project([]int{0, 1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, all.Close()) }()
+	if found, err := all.ContainsFact(nil); err != nil || !found {
+		t.Fatal("zero-column projection", found, err)
+	}
+	if _, err = r.Project([]int{1, 1}); err == nil {
+		t.Fatal("duplicate projected columns accepted")
+	}
+}

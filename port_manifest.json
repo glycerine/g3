@@ -89215,7 +89215,8 @@
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
         "TestFormulaCheckedTableUnionAndDelta",
-        "TestFormulaCheckedTableRename"
+        "TestFormulaCheckedTableRename",
+        "TestFormulaCheckedTableProjection"
       ],
       "assertions": [
         {
@@ -89273,13 +89274,21 @@
           "tests": [
             "TestFormulaCheckedTableRename"
           ]
+        },
+        {
+          "name": "SMT-verified existential projection",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
+          "tests": [
+            "TestFormulaCheckedTableProjection"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
@@ -89299,7 +89308,8 @@
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
         "TestFormulaCheckedTableUnionAndDelta",
-        "TestFormulaCheckedTableRename"
+        "TestFormulaCheckedTableRename",
+        "TestFormulaCheckedTableProjection"
       ],
       "conditionals": [
         {
@@ -89353,13 +89363,21 @@
           "tests": [
             "TestFormulaCheckedTableRename"
           ]
+        },
+        {
+          "name": "SMT-verified existential projection",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
+          "tests": [
+            "TestFormulaCheckedTableProjection"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
