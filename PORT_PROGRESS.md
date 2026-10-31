@@ -52360,3 +52360,7 @@ Empty relation formula correction: empty bound and interval relations now export
 Small allocator location reservation: stop scanning once enough reusable slots are found. A synthetic 8,192-entry ledger benchmark with the first slot reusable fell from about 6,983 ns/op to 3 ns/op; this measures the lookup only, not end-to-end projection time. The regression checks reuse, retired-slot exclusion, injected growth failure and successful retry.
 
 Memory API source-driver increment: created successive bit-vector sorts until an injected arena reservation failed, verified existing sort widths and successful creation after recovery. The separate 10/20/30 MiB runtime checks remain distinct from the source process-global limit/reset sequence.
+
+Interval dependency implication coverage: for 100 seeded intervals per operation, an independent half-integer grid checks that the reported dependency bounds imply each finite result bound for addition, subtraction, multiplication, negation, powers, inverse and division. This sampling does not replace a proof of the source-generated SMT-LIB implications.
+
+NLSAT projection checkpoint: the four-inequality general projection still exceeded a 75-second bounded run after the context and allocator scan optimizations. It remains excluded from the focused driver pending further work.
