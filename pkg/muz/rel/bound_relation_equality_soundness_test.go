@@ -2,6 +2,7 @@ package rel
 
 import (
 	"math/big"
+	"reflect"
 	"testing"
 )
 
@@ -64,5 +65,17 @@ func TestBoundRelationStrictCycleThroughMergedColumn(t *testing.T) {
 	astTestMust(t, r.AddLessEqual(2, 0))
 	if !r.Empty() {
 		t.Fatal("strict cycle through an equality class was not detected")
+	}
+}
+
+func TestIntervalBoundProductJoinShiftsRightBounds(t *testing.T) {
+	left, right := NewIntervalBoundProduct(1, false), NewIntervalBoundProduct(2, false)
+	astTestMust(t, right.bound.AddLess(0, 1))
+	joined, err := JoinIntervalBoundProducts(left, right, nil, nil)
+	astTestMust(t, err)
+	strict, weak, err := joined.bound.Bounds(1)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{2}) || len(weak) != 0 {
+		t.Fatalf("right relation bound targets wrong column: strict=%v weak=%v", strict, weak)
 	}
 }

@@ -25,7 +25,15 @@ func JoinBoundRelations(left, right *BoundRelation, leftColumns, rightColumns []
 		result.columns[i] = cloneBoundColumn(left.columns[left.find(uint32(i))])
 	}
 	for i := range right.columns {
-		result.columns[len(left.columns)+i] = cloneBoundColumn(right.columns[right.find(uint32(i))])
+		column := right.columns[right.find(uint32(i))]
+		shifted := boundColumn{lt: make(map[uint32]bool), le: make(map[uint32]bool)}
+		for index := range column.lt {
+			shifted.lt[uint32(len(left.columns))+index] = true
+		}
+		for index := range column.le {
+			shifted.le[uint32(len(left.columns))+index] = true
+		}
+		result.columns[len(left.columns)+i] = shifted
 	}
 	for i := range leftColumns {
 		if err := result.Equate(leftColumns[i], uint32(len(left.columns))+rightColumns[i]); err != nil {
