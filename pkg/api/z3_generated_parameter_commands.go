@@ -87,7 +87,11 @@ func replayParameters(r *Z3Replayer) (*replayParameterSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := r.Object(1)
+	return replayParametersAt(r, owner, 1)
+}
+
+func replayParametersAt(r *Z3Replayer, owner *replayContextOwner, position uint32) (*replayParameterSet, error) {
+	id, err := r.Object(position)
 	if err != nil {
 		return nil, err
 	}

@@ -1,3 +1,5 @@
+Generated simplification replay (2026-10-31 UTC): added default and configured simplification, help and parameter-description commands. Normal and checked API/CLI tests exercise rewrites and result ownership; other generated commands remain unfinished.
+
 Generated quantifier binder inspection (2026-10-31 UTC): added bound-count, bound-name, bound-sort and body replay commands. Normal and checked API/CLI tests verify borrowed result identity and unchanged AST-trail ownership.
 
 Generated quantifier inspection replay (2026-10-31 UTC): added ten pattern, bound-variable and quantifier inspection commands. Normal and checked API/CLI tests verify returned AST identity and confirm inspection does not add owning trail references. Other generated commands remain unfinished.

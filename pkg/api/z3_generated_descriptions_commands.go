@@ -28,20 +28,27 @@ func replaySolverDescriptions(r *Z3Replayer) error {
 	if err != nil {
 		return err
 	}
+	return storeReplayDescriptions(r, solver.owner, value)
+}
+
+func storeReplayDescriptions(r *Z3Replayer, owner *replayContextOwner, value *ParameterDescriptions) error {
+	if r.nextObjectID == ^uint64(0) {
+		return errors.Join(ErrZ3ReplayState, value.Close())
+	}
 	n := uint64(reflect.TypeOf(replayParameterDescriptions{}).Size())
-	if err = solver.owner.results.manager.Budget().Reserve(n); err != nil {
+	if err := owner.results.manager.Budget().Reserve(n); err != nil {
 		return errors.Join(err, value.Close())
 	}
-	d := &replayParameterDescriptions{owner: solver.owner, value: value}
-	d.object = apiObject{context: solver.owner.results, destructor: d, ownerBytes: n}
+	d := &replayParameterDescriptions{owner: owner, value: value}
+	d.object = apiObject{context: owner.results, destructor: d, ownerBytes: n}
 	d.object.self = &d.object
-	id, err := solver.owner.results.addObject(&d.object)
+	id, err := owner.results.addObject(&d.object)
 	if err != nil {
-		solver.owner.results.manager.Budget().Release(n)
+		owner.results.manager.Budget().Release(n)
 		return errors.Join(err, value.Close())
 	}
 	d.object.id = id
-	if err = solver.owner.results.saveObject(&d.object); err != nil {
+	if err = owner.results.saveObject(&d.object); err != nil {
 		return err
 	}
 	if r.descriptions == nil {
@@ -50,7 +57,7 @@ func replaySolverDescriptions(r *Z3Replayer) error {
 	r.nextObjectID++
 	replayID := r.nextObjectID
 	r.descriptions[replayID] = d
-	solver.owner.descriptionIDs = append(solver.owner.descriptionIDs, replayID)
+	owner.descriptionIDs = append(owner.descriptionIDs, replayID)
 	return r.StoreResult(replayID)
 }
 func replayDescriptions(r *Z3Replayer, position uint32, owner *replayContextOwner) (*replayParameterDescriptions, error) {
