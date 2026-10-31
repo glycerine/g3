@@ -184564,8 +184564,18 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic_test.go", "pkg/cmd/g3/test_vectors/qfnia_cofactor_term_ite.smt2"],
-      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITENegatedConditionPropagatesAtom", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"],
+      "go_targets": [
+        "pkg/tactic/core/cofactor_term_ite_rewriter.go",
+        "pkg/tactic/core/cofactor_term_ite_tactic_test.go",
+        "pkg/cmd/g3/test_vectors/qfnia_cofactor_term_ite.smt2",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestCofactorTermITEEliminatesArithmeticChoice",
+        "TestCofactorTermITENegatedConditionPropagatesAtom",
+        "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2",
+        "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"
+      ],
       "conditionals": [
         {
           "line": 640,
@@ -184617,13 +184627,46 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "active bottom_up_elim traversal, atom classification, term-ITE propagation and rebuilt application cache", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]},
-        {"name": "get_best condition selection by depth, occurrence count and equality tie-break", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice"]},
-        {"name": "positive/negative cofactor substitution, negated-atom propagation, equality-to-unique-value propagation and theory simplification", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITENegatedConditionPropagatesAtom", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"]},
-        {"name": "disabled analyzer/main_rw alternative under #if 0", "status": "dead_deleted"}
+        {
+          "name": "active bottom_up_elim traversal, atom classification, term-ITE propagation and rebuilt application cache",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go",
+          "tests": [
+            "TestCofactorTermITEEliminatesArithmeticChoice"
+          ]
+        },
+        {
+          "name": "get_best condition selection by depth, occurrence count and equality tie-break",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go",
+          "tests": [
+            "TestCofactorTermITEEliminatesArithmeticChoice"
+          ]
+        },
+        {
+          "name": "positive/negative cofactor substitution, negated-atom propagation, equality-to-unique-value propagation and theory simplification",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/cofactor_term_ite_rewriter.go",
+          "tests": [
+            "TestCofactorTermITEEliminatesArithmeticChoice",
+            "TestCofactorTermITENegatedConditionPropagatesAtom",
+            "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
+        },
+        {
+          "name": "disabled analyzer/main_rw alternative under #if 0",
+          "status": "dead_deleted"
+        }
       ],
-      "ownership": ["Each application owns a temporary ASTRef set for rebuilt and cofactored terms. Goal.Update acquires the published result before the temporary set closes; expression replacement and theory-rewriter outputs close in reverse order."],
-      "deviations": ["Native maps and slices replace source hash tables and frame buffers. Quantifiers remain black boxes, and the active source bottom-up path—not the disabled analyzer path—is retained."]
+      "ownership": [
+        "Each application owns a temporary ASTRef set for rebuilt and cofactored terms. Goal.Update acquires the published result before the temporary set closes; expression replacement and theory-rewriter outputs close in reverse order."
+      ],
+      "deviations": [
+        "Native maps and slices replace source hash tables and frame buffers. Quantifiers remain black boxes, and the active source bottom-up path—not the disabled analyzer path—is retained."
+      ]
     },
     {
       "path": "src/tactic/core/cofactor_elim_term_ite.h",
@@ -184653,8 +184696,18 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/core/cofactor_term_ite_rewriter.go", "pkg/tactic/core/cofactor_term_ite_tactic_test.go", "pkg/tactic/smtlogics/qfnia_tactic.go"],
-      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITEGuardsProofsAndCores", "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"],
+      "go_targets": [
+        "pkg/tactic/core/cofactor_term_ite_tactic.go",
+        "pkg/tactic/core/cofactor_term_ite_rewriter.go",
+        "pkg/tactic/core/cofactor_term_ite_tactic_test.go",
+        "pkg/tactic/smtlogics/qfnia_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestCofactorTermITEEliminatesArithmeticChoice",
+        "TestCofactorTermITEGuardsProofsAndCores",
+        "TestSMTLibRunnerCPPReference/qfnia_cofactor_term_ite.smt2"
+      ],
       "assertions": [
         {
           "line": 62,
@@ -184667,17 +184720,38 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "goal processing, proof/core guards, depth/result publication, parameters, cleanup and translation", "status": "ported", "go_target": "pkg/tactic/core/cofactor_term_ite_tactic.go", "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestCofactorTermITEGuardsProofsAndCores"]}],
-      "ownership": ["The counted tactic owns its parameter dictionary and theory rewriter. Apply borrows the goal, publishes it through TacticResult, and closes all temporary expression roots after Goal.Update acquires them."],
-      "deviations": ["Go returns explicit cancellation, memory-limit and cleanup errors in place of source exceptions and scoped destruction."]
+      "methods": [
+        {
+          "name": "goal processing, proof/core guards, depth/result publication, parameters, cleanup and translation",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/cofactor_term_ite_tactic.go",
+          "tests": [
+            "TestCofactorTermITEEliminatesArithmeticChoice",
+            "TestCofactorTermITEGuardsProofsAndCores"
+          ]
+        }
+      ],
+      "ownership": [
+        "The counted tactic owns its parameter dictionary and theory rewriter. Apply borrows the goal, publishes it through TacticResult, and closes all temporary expression roots after Goal.Update acquires them."
+      ],
+      "deviations": [
+        "Go returns explicit cancellation, memory-limit and cleanup errors in place of source exceptions and scoped destruction."
+      ]
     },
     {
       "path": "src/tactic/core/cofactor_term_ite_tactic.h",
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/smtlogics/qfnia_tactic.go"],
-      "tests": ["TestCofactorTermITEEliminatesArithmeticChoice", "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"],
+      "go_targets": [
+        "pkg/tactic/core/cofactor_term_ite_tactic.go",
+        "pkg/tactic/smtlogics/qfnia_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestCofactorTermITEEliminatesArithmeticChoice",
+        "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -184690,8 +184764,23 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "clean cofactor-term-ite tactic factory and QFNIA registration surface", "status": "ported", "go_targets": ["pkg/tactic/core/cofactor_term_ite_tactic.go", "pkg/tactic/smtlogics/qfnia_tactic.go"], "tests": ["TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"]}],
-      "ownership": ["MakeCofactorTermITETactic transfers the concrete child into the standard counted clean wrapper."],
+      "methods": [
+        {
+          "name": "clean cofactor-term-ite tactic factory and QFNIA registration surface",
+          "status": "ported",
+          "go_targets": [
+            "pkg/tactic/core/cofactor_term_ite_tactic.go",
+            "pkg/tactic/smtlogics/qfnia_tactic.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTLibRunnerScripts/qfnia_cofactor_term_ite.smt2"
+          ]
+        }
+      ],
+      "ownership": [
+        "MakeCofactorTermITETactic transfers the concrete child into the standard counted clean wrapper."
+      ],
       "deviations": []
     },
     {
@@ -185676,6 +185765,9 @@
             "TestDERTacticProofComposition",
             "TestSMTLibRunnerScripts/der_tactic.smt2",
             "TestSMTLibRunnerCPPReference/der_tactic.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -185691,7 +185783,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/core/der_tactic.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestDERTacticUnitQuantifierAndOwnership",
@@ -185719,6 +185812,9 @@
             "TestDERTacticUnitQuantifierAndOwnership",
             "TestDERTacticProofComposition",
             "TestSMTLibRunnerScripts/der_tactic.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -185732,7 +185828,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/core/distribute_forall_tactic.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestDistributeForallConjunctionAndNegatedDisjunction",
@@ -185760,6 +185857,9 @@
             "TestDistributeForallConjunctionAndNegatedDisjunction",
             "TestDistributeForallProofComposition",
             "TestSMTLibRunnerScripts/distribute_forall_tactic.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -185773,7 +185873,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/core/distribute_forall_tactic.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestDistributeForallConjunctionAndNegatedDisjunction",
@@ -185801,6 +185902,9 @@
             "TestDistributeForallConjunctionAndNegatedDisjunction",
             "TestDistributeForallProofComposition",
             "TestSMTLibRunnerScripts/distribute_forall_tactic.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -185825,7 +185929,8 @@
         "pkg/tactic/core/dom_simplify_goal_test.go",
         "pkg/tactic/core/dom_simplify_ite_test.go",
         "pkg/tactic/core/dom_simplify_lifecycle_test.go",
-        "pkg/tactic/core/dom_simplify_trace_test.go"
+        "pkg/tactic/core/dom_simplify_trace_test.go",
+        "pkg/tactic/bv/bv_bounds_tactic_test.go"
       ],
       "tests": [
         "TestExpressionDominatorsDiamondAndTree",
@@ -185957,6 +186062,9 @@
           "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
           "tests": [
             "TestBVBoundsDominatorScopesITEBranchBounds"
+          ],
+          "go_targets": [
+            "pkg/tactic/bv/bv_bounds_tactic_test.go"
           ]
         },
         {
@@ -186006,7 +186114,8 @@
         "pkg/tactic/core/dom_simplify_goal_test.go",
         "pkg/tactic/core/dom_simplify_ite_test.go",
         "pkg/tactic/core/dom_simplify_lifecycle_test.go",
-        "pkg/tactic/core/dom_simplify_trace_test.go"
+        "pkg/tactic/core/dom_simplify_trace_test.go",
+        "pkg/tactic/bv/bv_bounds_tactic_test.go"
       ],
       "tests": [
         "TestExpressionDominatorsDiamondAndTree",
@@ -186067,6 +186176,9 @@
           "tests": [
             "TestDomSimplifyDefaultCallbackSubstitutesBooleanIff",
             "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds"
+          ],
+          "go_targets": [
+            "pkg/tactic/bv/bv_bounds_tactic_test.go"
           ]
         },
         {
@@ -186681,7 +186793,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/core/nnf_tactic.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestNNFTacticFullModeProofComposition",
@@ -186707,6 +186820,9 @@
           "tests": [
             "TestNNFTacticFullModeProofComposition",
             "TestSMTLibRunnerScripts/nnf_tactics.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],

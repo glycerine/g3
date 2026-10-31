@@ -1,3 +1,5 @@
+Inventory evidence repair, twelfth batch (2026-10-31 UTC): linked ten core tactic entries to the files declaring their existing cross-package tests. The validator now reaches a related NNF header entry; the audit continues.
+
 Inventory evidence repair, eleventh batch (2026-10-31 UTC): linked ten arithmetic tactic entries to existing cross-package tests and refreshed the combined-solver fallback test name. The focused fallback test passes; inventory validation continues.
 
 UTVPI inventory evidence (2026-10-31 UTC): updated the renamed fractional-candidate test and verified it passes. Inventory validation now reaches a combined-solver test reference.
