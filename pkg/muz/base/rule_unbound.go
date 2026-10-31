@@ -302,6 +302,20 @@ func (m *RuleManager) FixUnboundVariables(rule *Rule, lite *qe.Lite, enabled boo
 	if err != nil {
 		return nil, false, err
 	}
+	fixedRef, err := m.manager.NewRef(fixed)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&fixedRef)) }()
+	simplified, err := qe.SimplifyQuantifiers(m.manager, fixed)
+	if err != nil {
+		return nil, false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&simplified)) }()
+	fixed, err = m.manager.RefGet(simplified)
+	if err != nil {
+		return nil, false, err
+	}
 	if !m.manager.IsTrue(fixed) {
 		kept = append(kept, fixed)
 	}

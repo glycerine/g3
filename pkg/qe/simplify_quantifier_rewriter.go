@@ -10,6 +10,12 @@ import (
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
+// SimplifyQuantifiers performs the source QE simplification used by QE-SAT
+// and Datalog rule normalization. The caller owns the returned reference.
+func SimplifyQuantifiers(m *ast.ASTManager, expression ast.ASTHandle) (ast.ASTRef, error) {
+	return simplifyQEExpression(m, expression)
+}
+
 // simplifyQEExpression visits unannotated quantifiers bottom-up and simplifies
 // their bodies without requiring every quantified variable to be eliminated.
 func simplifyQEExpression(m *ast.ASTManager, expression ast.ASTHandle) (result ast.ASTRef, err error) {

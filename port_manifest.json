@@ -84515,8 +84515,10 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/dataflow/reachability_test.go"],
-      "tests": ["TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
+      "go_targets": [
+        "pkg/qe/simplify_quantifier_rewriter.go","pkg/muz/base/rule.go", "pkg/muz/base/rule_substitute.go", "pkg/muz/base/rule_substitute_test.go", "pkg/muz/base/rule_proof.go", "pkg/muz/base/rule_proof_test.go", "pkg/muz/base/rule_formula.go", "pkg/muz/base/rule_formula_proof.go", "pkg/muz/base/rule_formula_test.go", "pkg/muz/base/hnf_proof.go", "pkg/muz/base/hnf_proof_test.go", "pkg/muz/base/rule_formula_display.go", "pkg/muz/base/rule_formula_string.go", "pkg/muz/base/rule_formula_display_test.go", "pkg/muz/base/rule_formula_public_test.go", "pkg/muz/base/rule_display.go", "pkg/muz/base/rule_unbound.go", "pkg/muz/base/rule_unbound_test.go", "pkg/muz/base/hnf.go", "pkg/muz/base/hnf_test.go", "pkg/muz/fp/rule_ingest.go", "pkg/muz/fp/rule_ingest_unbound_test.go", "pkg/muz/dataflow/reachability_test.go"],
+      "tests": [
+        "TestRuleManagerFixUnboundSimplifiesIntegerEquation","TestRuleManagerClassifiesAndOwnsNativeTailLayout", "TestRuleSubstitutionPreservesVariableIndices", "TestRuleManagerRejectsUnregisteredAndCompoundHeads", "TestRuleManagerNormalizesSparseVariablesBeforeFormulaConversion", "TestRuleManagerBuildsHornRuleFromQuantifiedFormula", "TestRuleManagerBuildsHornRuleAndCarriesFormulaProof", "TestRuleManagerFormulaProofNoOpPreservesEnabledProofMode", "TestRuleManagerAddsProofForAlreadyHornFormula", "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing", "TestRuleManagerRemovesLabelsAndPreservesHNFProofs", "TestRuleManagerAddsProofsForDisjunctiveHornSplit", "TestRuleManagerAddsProofsForQuantifiedDisjunctiveHornSplit", "TestRuleManagerAddsProofsForHNFDefinitionIntroduction", "TestRuleManagerFormulaNegationAndNonHornRefusal", "TestRuleManagerReducesUnboundInterpretedEquality", "TestRuleManagerFixesResidualUnboundPredicateExistentially", "TestRuleManagerGroupsMultipleResidualTailsUnderOneExistential", "TestRuleManagerAddFormulaAppliesUnboundVariableReductionAndFix", "TestPropositionalEngineRuleIngestionHonorsUnboundVariableParameter", "TestHornNormalizerPreservesAlreadyHornUniversalPrefix", "TestHornNormalizerKeepsVariableAntecedent", "TestHornNormalizerSplitsSingletonDisjunction", "TestHornNormalizerIntroducesAndMemoizesFreshPredicate", "TestRuleManagerAddFormulaRemovesNestedLabels", "TestReachabilityRunsFromIngestedHornProgram", "TestRuleProofOwnershipAndRewriteTransfer", "TestRuleSetProofCanBeClearedAndRejectsExpressions", "TestRuleRewriteProofNoOpsPreserveTargetState", "TestRuleManagerWriteRuleFormulaAndString", "TestRuleManagerWriteSourceRuleDisplay", "TestRuleFormulaPublicOwnershipAndClosedFailures"],
       "assertions": [
         {
           "line": 64,
@@ -107422,6 +107424,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/base/rule_unbound_test.go",
+        "pkg/muz/base/rule_unbound.go",
         "pkg/qe/simplify_quantifier_rewriter_test.go",
         "pkg/qe/simplify_quantifier_rewriter.go",
         "pkg/qe/simplify_solver_context_test.go",
@@ -107522,6 +107526,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestRuleManagerFixUnboundSimplifiesIntegerEquation",
         "TestSimplifyQEQuantifierSkipsPatterns",
         "TestSimplifyQEQuantifierPreservesOuterBindings",
         "TestSimplifyExistsOwnsFreshArithmeticVariables",
@@ -107925,11 +107930,14 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/base/rule_unbound_test.go",
+        "pkg/muz/base/rule_unbound.go",
         "pkg/qe/simplify_quantifier_rewriter_test.go",
         "pkg/qe/simplify_quantifier_rewriter.go",
         "pkg/qe/simplify_solver_context_test.go",
         "pkg/qe/simplify_solver_context.go","pkg/qe/qsat_recursive.go", "pkg/qe/qsat_recursive_test.go", "pkg/qe/qsat_search.go", "pkg/qe/qsat_search_loop.go", "pkg/ast/rewriter/var_shifter_export.go", "pkg/ast/rewriter/var_substitution.go", "pkg/ast/rewriter/var_shifter.go", "pkg/ast/ast_expr_abstract.go", "pkg/qe/solver_context.go", "pkg/qe/conjunction_enum.go", "pkg/qe/solver_context_test.go", "pkg/qe/conjunction_partition.go", "pkg/qe/definition_vector.go", "pkg/qe/qe_core_contract_test.go", "pkg/qe/solver_context_contains.go", "pkg/qe/solver_context_variables.go", "pkg/qe/solver_context_formula.go", "pkg/qe/solver_context_mutation_close.go", "pkg/qe/solver_context_eliminate.go", "pkg/qe/solver_context_contains_mutation_test.go", "pkg/qe/solver_context_add_variable_test.go", "pkg/qe/solver_context_eliminate_mutation_test.go", "pkg/qe/solver_context_formula_mutation_test.go", "pkg/qe/solver_context_mutation_validation_test.go"],
       "tests": [
+        "TestRuleManagerFixUnboundSimplifiesIntegerEquation",
         "TestSimplifyQEQuantifierSkipsPatterns",
         "TestSimplifyQEQuantifierPreservesOuterBindings",
         "TestSimplifyExistsOwnsFreshArithmeticVariables",

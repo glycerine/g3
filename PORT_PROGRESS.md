@@ -1,3 +1,5 @@
+Datalog unbound-variable preprocessing (2026-10-31 UTC): connected the source QE simplifier after residual interpreted variables are quantified. Normal and checked tests cover a two-variable integer equation that QE-lite leaves unchanged and the simplifier reduces to one quantified fresh variable.
+
 QE-SAT preprocessing (2026-10-31 UTC): connected source-style bottom-up quantifier simplification with Boolean units and arithmetic equations before alternation extraction. Normal and checked tests cover fresh arithmetic variables, free-variable binding, annotated quantifiers and SMT-LIB examples matching C++ Z3. Preprocessing parameter/statistics handling and general full projection remain incomplete.
 
 Native snapshot check (2026-10-31 UTC): the full native suite passed on clean snapshot 52c81c291, with 108 packages passing and three without test files. The first attempt exhausted temporary disk space; after removing older Go build-cache entries, the clean-snapshot retry passed. Later commits have focused validation and are outside this snapshot. Log: /tmp/g3-native-snapshot-52c81c291-retry.log.

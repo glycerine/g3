@@ -395,3 +395,73 @@ func TestRuleManagerNullProofIngestionKeepsUnboundReduction(t *testing.T) {
 		})
 	}
 }
+
+func TestRuleManagerFixUnboundSimplifiesIntegerEquation(t *testing.T) {
+	f := newUnboundFixture(t)
+	arithmetic, err := f.manager.ArithmeticFamilyID()
+	ruleMust(t, err)
+	integer, err := f.manager.MkFamilySort(arithmetic, 1, nil)
+	ruleMust(t, err)
+	y, err := f.manager.MkVar(0, integer)
+	ruleMust(t, err)
+	z, err := f.manager.MkVar(1, integer)
+	ruleMust(t, err)
+	two, err := f.manager.ArithmeticIntegerNumeralText("2")
+	ruleMust(t, err)
+	three, err := f.manager.ArithmeticIntegerNumeralText("3")
+	ruleMust(t, err)
+	one, err := f.manager.ArithmeticIntegerNumeralText("1")
+	ruleMust(t, err)
+	zero, err := f.manager.ArithmeticIntegerNumeralText("0")
+	ruleMust(t, err)
+	twoY, err := f.manager.MkArithmeticMul(two, y)
+	ruleMust(t, err)
+	threeZ, err := f.manager.MkArithmeticMul(three, z)
+	ruleMust(t, err)
+	sum, err := f.manager.MkArithmeticAdd(twoY, threeZ)
+	ruleMust(t, err)
+	sum, err = f.manager.MkArithmeticAdd(sum, one)
+	ruleMust(t, err)
+	formula, err := f.manager.MkEq(sum, zero)
+	ruleMust(t, err)
+	head := f.predicate(t, "fix-equation-head", nil, nil)
+	rule, err := f.rules.NewRule(head, []ast.ASTHandle{formula}, nil, "fix-equation")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, rule.Close()) }()
+	reduced, _, err := f.rules.ReduceUnboundVariables(rule, f.lite)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, reduced.Close()) }()
+	originalTail, _, err := reduced.Tail(0)
+	ruleMust(t, err)
+	used, err := ast.NewASTUsedVars(f.manager)
+	ruleMust(t, err)
+	ruleMust(t, used.Collect(originalTail))
+	if used.NumVars() != 2 {
+		t.Fatalf("QE-lite left %d variables, want two", used.NumVars())
+	}
+	fixed, changed, err := f.rules.FixUnboundVariables(rule, f.lite, true)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, fixed.Close()) }()
+	if !changed {
+		t.Fatal("rule was not simplified")
+	}
+	size, err := fixed.TailSize()
+	ruleMust(t, err)
+	if size != 1 {
+		t.Fatalf("tail size = %d", size)
+	}
+	tail, _, err := fixed.Tail(0)
+	ruleMust(t, err)
+	q, err := f.manager.GetArg(tail, 0)
+	ruleMust(t, err)
+	kind, err := f.manager.GetKind(q)
+	ruleMust(t, err)
+	if kind != ast.ASTQuantifier {
+		t.Fatalf("tail does not contain quantifier: %v", kind)
+	}
+	count, err := f.manager.GetNumDeclarations(q)
+	ruleMust(t, err)
+	if count != 1 {
+		t.Fatalf("simplification left %d quantified variables, want one", count)
+	}
+}
