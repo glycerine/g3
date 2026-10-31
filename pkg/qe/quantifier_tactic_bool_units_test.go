@@ -26,7 +26,8 @@ func TestQuantifierBoolUnitsEliminateExistentialAndUniversal(t *testing.T) {
 		{"forall", v, true, f.own(m.MkFalse()), true},
 		{"free", conjunction, false, r, true},
 		{"forall-free", disjunction, true, r, true},
-		{"needs-branch", xor, false, ast.ASTHandle{}, false},
+		{"xor-branch", xor, false, f.own(m.MkTrue()), true},
+		{"forall-xor-branch", xor, true, f.own(m.MkFalse()), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.forall, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: tc.body}))

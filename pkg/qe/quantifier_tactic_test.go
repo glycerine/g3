@@ -39,9 +39,9 @@ func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
 	if h != p {
 		t.Fatal("formula changed")
 	}
-	v := f.own(m.MkVar(0, f.boolean))
-	xor := f.own(m.MkXor(v, p))
-	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: xor}))
+	integerVar := f.own(m.MkVar(0, f.integer))
+	equality := f.own(m.MkEq(integerVar, f.number("0")))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: equality}))
 	quantified := f.goal(false, false)
 	fmMust(t, quantified.Assert(q))
 	second := f.result()
@@ -74,6 +74,16 @@ func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 	if value != r {
 		t.Fatal("existential unit did not preserve its free condition")
 	}
+	xor := f.own(m.MkXor(v, r))
+	xorQuantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: xor}))
+	xorGoal := f.goal(false, false)
+	fmMust(t, xorGoal.Assert(xorQuantifier))
+	fmMust(t, port.Apply(xorGoal, f.result()))
+	xorSize, err := xorGoal.Size()
+	fmMust(t, err)
+	if xorSize != 0 {
+		t.Fatal("existential XOR did not reduce to true")
+	}
 	label := f.constant("qe-unit-label", f.boolean)
 	dep, err := m.DependencyLeaf(label)
 	fmMust(t, err)
@@ -96,13 +106,14 @@ func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 	if !inconsistent {
 		t.Fatal("universal Boolean variable should be false")
 	}
-	xor := f.own(m.MkXor(v, r))
-	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: xor}))
+	integerVar := f.own(m.MkVar(0, f.integer))
+	equality := f.own(m.MkEq(integerVar, f.number("0")))
+	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: equality}))
 	refused := f.goal(false, false)
 	fmMust(t, refused.Assert(exists))
 	fmMust(t, refused.Assert(unsupported))
 	if err = port.Apply(refused, f.result()); err == nil {
-		t.Fatal("branching quantifier was accepted")
+		t.Fatal("non-Boolean quantifier was accepted")
 	}
 	unchanged, err := refused.Form(0)
 	fmMust(t, err)

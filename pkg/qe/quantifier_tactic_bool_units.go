@@ -7,10 +7,12 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
 )
 
-// eliminateQuantifierBoolUnits returns an owned formula only when source unit
-// and polarity solving eliminates every declaration of a single quantifier.
+// eliminateQuantifierBoolUnits returns an owned formula only when Boolean unit
+// solving and supported solver-guided branches eliminate all declarations.
 func eliminateQuantifierBoolUnits(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
 	defer func() {
 		if err != nil && result != (ast.ASTRef{}) {
@@ -132,10 +134,42 @@ func eliminateQuantifierBoolUnits(m *ast.ASTManager, quantifier ast.ASTHandle, c
 		return result, false, err
 	}
 	leaf, err := solveExprQEBoolUnits(root, variables, plugin, config, rw, nnf)
-	if err != nil || len(leaf.variables) != 0 {
+	if err != nil {
 		return result, false, err
 	}
-	body, err = m.RefGet(leaf.formula)
+	if len(leaf.variables) == 0 {
+		body, err = m.RefGet(leaf.formula)
+	} else {
+		partitioner, e := NewConjunctionPartitioner(m)
+		if e != nil {
+			return result, false, e
+		}
+		defer func() { err = errors.Join(err, partitioner.Close()) }()
+		if e = partitioner.AddPlugin(plugin); e != nil {
+			return result, false, e
+		}
+		solver, e := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
+		if e != nil {
+			return result, false, e
+		}
+		defer func() { err = errors.Join(err, solver.Close()) }()
+		if e = solver.SetProduceModels(true); e != nil {
+			return result, false, e
+		}
+		initial, e := m.RefGet(root.formula)
+		if e != nil {
+			return result, false, e
+		}
+		if e = solver.AssertFormula(initial); e != nil {
+			return result, false, e
+		}
+		searched, complete, e := searchExprQEBoolTree(root, variables, context, plugin, partitioner, solver, config, rw, nnf)
+		if e != nil || !complete {
+			return result, false, e
+		}
+		defer func() { err = errors.Join(err, m.DelRef(&searched)) }()
+		body, err = m.RefGet(searched)
+	}
 	if err != nil {
 		return result, false, err
 	}

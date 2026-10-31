@@ -13,9 +13,8 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// QuantifierTactic handles quantifier-free goals and Boolean quantifiers that
-// source unit and polarity rules eliminate completely. General expression
-// elimination remains under construction.
+// QuantifierTactic handles quantifier-free goals and supported Boolean
+// quantifiers. General expression elimination remains under construction.
 type QuantifierTactic struct {
 	self                *QuantifierTactic
 	manager             *ast.ASTManager
