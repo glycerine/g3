@@ -514,6 +514,23 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, optimized.Close()) }()
+	completed := optimized.Status == lbool.True
+	// Source optimize performs adjust_unknown only after the initial execution;
+	// an existing Pareto engine returns execute_pareto directly. yield updates
+	// objective bounds before that initial status adjustment.
+	if completed && !paretoContinuation && c.optimizationParetoBackend != nil {
+		wasUnknown, e := c.optimizationParetoBackend.OptimizationWasUnknown()
+		if e != nil {
+			return lbool.Undef, e
+		}
+		if wasUnknown {
+			optimized.Status = lbool.Undef
+			optimized.ReasonUnknown, err = c.optimizationParetoBackend.ReasonUnknown()
+			if err != nil {
+				return lbool.Undef, err
+			}
+		}
+	}
 	result, err := solver.NewSimpleCheckSatResult(c.manager)
 	if err != nil {
 		return lbool.Undef, err
@@ -542,7 +559,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	if err = result.SetLabels(optimized.Labels); err != nil {
 		return lbool.Undef, err
 	}
-	if optimized.Status == lbool.True && len(c.objectives) == len(optimized.Values) {
+	if completed && len(c.objectives) == len(optimized.Values) {
 		for i := range c.objectives {
 			if c.objectives[i].soft {
 				c.objectives[i].softValue.Set(&optimized.Values[i].SoftCost)

@@ -101441,7 +101441,8 @@
         "pkg/opt/objective_purifier_definition_test.go",
         "pkg/cmd_context/context.go",
         "pkg/cmd_context/optimization_pareto_purification.go",
-        "pkg/cmd_context/optimization_pareto_purification_test.go"
+        "pkg/cmd_context/optimization_pareto_purification_test.go",
+        "pkg/cmd_context/optimization_pareto_quantifiers_test.go"
       ],
       "tests": [
         "pkg/cmd/g3/optimization_normalization_test.go",
@@ -101478,7 +101479,8 @@
         "TestParetoLivePurificationPersistsAndFiltersFrontierModels",
         "TestParetoLiveSoftPurificationAndMutationCleanup",
         "TestParetoPurificationPreparationFailureCleanup",
-        "TestParetoBackendConstructionRefusalClosesUnpublishedSolver"
+        "TestParetoBackendConstructionRefusalClosesUnpublishedSolver",
+        "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
       ],
       "conditionals": [
         {
@@ -101761,6 +101763,18 @@
             "TestParetoLiveSoftPurificationAndMutationCleanup",
             "TestParetoPurificationPreparationFailureCleanup",
             "TestParetoBackendConstructionRefusalClosesUnpublishedSolver"
+          ]
+        },
+        {
+          "name": "Live Pareto uses optimization-specific SMT result/model policy; initial optimize adjusts sticky quantifier uncertainty after yield, while active Pareto continuation returns execute_pareto directly (opt_context.cpp:255-259,321-330,549-565; opt_solver.cpp:288-309)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/optimization.go",
+            "pkg/cmd_context/optimization_pareto.go",
+            "pkg/cmd_context/optimization_pareto_quantifiers_test.go"
+          ],
+          "tests": [
+            "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
           ]
         }
       ],
@@ -102233,7 +102247,10 @@
         "pkg/smtcore/smt_solver_optimization.go",
         "pkg/smtcore/smt_solver_optimization_test.go",
         "pkg/opt/arithmetic_solver_quantifier_external_test.go",
-        "pkg/smtcore/smt_solver_optimization_relevancy_test.go"
+        "pkg/smtcore/smt_solver_optimization_relevancy_test.go",
+        "pkg/cmd_context/optimization.go",
+        "pkg/cmd_context/optimization_pareto.go",
+        "pkg/cmd_context/optimization_pareto_quantifiers_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102252,7 +102269,8 @@
         "TestOptimizationSolverConstructorRelevanceFollowsCaseSplit",
         "TestOptimizationSolverQuantifiedAssertionEnablesRelevanceBeforeSimplification",
         "TestOptimizationSolverParameterUpdateDoesNotReapplyConstructorRule",
-        "TestOptimizationSolverQuantifiedRelevancePrecedesAssertionRefusal"
+        "TestOptimizationSolverQuantifiedRelevancePrecedesAssertionRefusal",
+        "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
       ],
       "assertions": [
         {
@@ -102356,6 +102374,18 @@
             "TestOptimizationSolverParameterUpdateDoesNotReapplyConstructorRule",
             "TestOptimizationSolverQuantifiedRelevancePrecedesAssertionRefusal"
           ]
+        },
+        {
+          "name": "Live Pareto uses optimization-specific SMT result/model policy; initial optimize adjusts sticky quantifier uncertainty after yield, while active Pareto continuation returns execute_pareto directly (opt_context.cpp:255-259,321-330,549-565; opt_solver.cpp:288-309)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/optimization.go",
+            "pkg/cmd_context/optimization_pareto.go",
+            "pkg/cmd_context/optimization_pareto_quantifiers_test.go"
+          ],
+          "tests": [
+            "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
+          ]
         }
       ],
       "ownership": [
@@ -102365,7 +102395,7 @@
       ],
       "deviations": [
         "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
-        "Optimization solver check/model policy is currently connected to ArithmeticSolver/MaxSMT. Pareto construction still uses the ordinary SMT constructor and needs this opt_context integration separately; constructor relevance rules, benchmark dumping and maximize/model-repair bodies remain open."
+        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping, maximize/model-repair bodies and remaining diagnostics remain open."
       ]
     },
     {

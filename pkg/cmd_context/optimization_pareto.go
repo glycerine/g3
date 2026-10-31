@@ -207,7 +207,7 @@ func (c *Context) closeParetoBackend() error {
 }
 
 func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcore.SMTSolver, resultErr error) {
-	backend, err := smtcore.NewSMTSolver(c.manager, &c.params, c.logic, c.config)
+	backend, err := smtcore.NewOptimizationSMTSolver(c.manager, &c.params, c.logic, c.config)
 	if err != nil {
 		return nil, err
 	}
