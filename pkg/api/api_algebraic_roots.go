@@ -20,7 +20,7 @@ func (c *SMTContext) AlgebraicRoots(expression ast.ASTHandle, assignments []ast.
 	if uint64(len(assignments)) >= math.MaxUint32 {
 		return nil, arena.ErrBounds
 	}
-	p, err := newAPIAlgebraicPolynomial(manager, expression)
+	p, err := c.newAlgebraicPolynomial(manager, expression)
 	if err != nil {
 		return nil, err
 	}
@@ -41,6 +41,12 @@ func (c *SMTContext) AlgebraicRoots(expression ast.ASTHandle, assignments []ast.
 	if err != nil {
 		return nil, err
 	}
+	evaluationManager, evaluationValue, evaluationRef, err := p.copyForAlgebraic(algebraic)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, evaluationRef.Close()) }()
+
 	roots, err := algebraic.NewVector()
 	if err != nil {
 		return nil, err
@@ -52,7 +58,7 @@ func (c *SMTContext) AlgebraicRoots(expression ast.ASTHandle, assignments []ast.
 			return operationErr
 		}
 		defer func() { operationErr = errors.Join(operationErr, interrupt.Close()) }()
-		return algebraic.IsolateMultivariateRoots(p.manager, p.value, &values, roots)
+		return algebraic.IsolateMultivariateRoots(evaluationManager, evaluationValue, &values, roots)
 	}()
 	if err != nil {
 		return nil, err

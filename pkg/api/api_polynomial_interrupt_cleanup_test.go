@@ -7,7 +7,7 @@ import (
 
 func TestAPIPolynomialInterruptScopeCloseStopsTimer(t *testing.T) {
 	context := newAPIInterruptFixture(t)
-	manager, err := context.Manager()
+	limit, err := context.polynomialLimit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,7 +22,7 @@ func TestAPIPolynomialInterruptScopeCloseStopsTimer(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(40 * time.Millisecond)
-	if manager.ResourceLimit().CancelFlag() {
+	if limit.CancelFlag() {
 		t.Fatal("closed polynomial timer fired")
 	}
 }

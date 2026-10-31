@@ -21,11 +21,15 @@ func newAPIOperationInterruptScope(context *SMTContext) (*apiOperationInterruptS
 	if err != nil {
 		return nil, err
 	}
+	return newAPIInterruptScopeForLimit(context, manager.ResourceLimit())
+}
+
+func newAPIInterruptScopeForLimit(context *SMTContext, limit *control.Reslimit) (*apiOperationInterruptScope, error) {
 	timeout, err := context.contextTimeout()
 	if err != nil {
 		return nil, err
 	}
-	handler := newSMTContextCancelHandler(manager.ResourceLimit())
+	handler := newSMTContextCancelHandler(limit)
 	scope, err := newSMTContextInterruptScope(context, handler)
 	if err != nil {
 		handler.close()
@@ -54,5 +58,9 @@ func (s *apiOperationInterruptScope) Close() (result error) {
 type apiPolynomialInterruptScope = apiOperationInterruptScope
 
 func newAPIPolynomialInterruptScope(context *SMTContext) (*apiPolynomialInterruptScope, error) {
-	return newAPIOperationInterruptScope(context)
+	limit, err := context.polynomialLimit()
+	if err != nil {
+		return nil, err
+	}
+	return newAPIInterruptScopeForLimit(context, limit)
 }

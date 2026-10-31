@@ -20,7 +20,7 @@ func (c *SMTContext) AlgebraicEval(expression ast.ASTHandle, assignments []ast.A
 	if uint64(len(assignments)) > math.MaxUint32 {
 		return 0, arena.ErrBounds
 	}
-	p, err := newAPIAlgebraicPolynomial(manager, expression)
+	p, err := c.newAlgebraicPolynomial(manager, expression)
 	if err != nil {
 		return 0, err
 	}
@@ -41,13 +41,19 @@ func (c *SMTContext) AlgebraicEval(expression ast.ASTHandle, assignments []ast.A
 	if err != nil {
 		return 0, err
 	}
+	evaluationManager, evaluationValue, evaluationRef, err := p.copyForAlgebraic(algebraic)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, evaluationRef.Close()) }()
+
 	err = func() (operationErr error) {
 		interrupt, operationErr := newAPIOperationInterruptScope(c)
 		if operationErr != nil {
 			return operationErr
 		}
 		defer func() { operationErr = errors.Join(operationErr, interrupt.Close()) }()
-		result, operationErr = algebraic.EvalSign(p.manager, p.value, &values)
+		result, operationErr = algebraic.EvalSign(evaluationManager, evaluationValue, &values)
 		return operationErr
 	}()
 	if result > 0 {

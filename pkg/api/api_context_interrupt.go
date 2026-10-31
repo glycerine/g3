@@ -19,6 +19,7 @@ func (c *SMTContext) Interrupt() error {
 	if c.interruptable != nil {
 		c.interruptable.HandleEvent(control.EventCallerAPIInterrupt)
 	}
+	c.polyLimit.Cancel()
 	manager.ResourceLimit().Cancel()
 	return nil
 }

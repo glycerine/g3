@@ -47,12 +47,9 @@ func (p *apiPolynomialInputs) close() (result error) {
 	return result
 }
 
-func newAPIPolynomialInputs(manager *ast.ASTManager, left, right ast.ASTHandle) (result apiPolynomialInputs, resultErr error) {
-	algebraic, err := manager.ArithmeticAlgebraicManager()
-	if err != nil {
-		return result, err
-	}
-	result.manager, err = algebraic.PolynomialManager()
+func (c *SMTContext) newPolynomialInputs(manager *ast.ASTManager, left, right ast.ASTHandle) (result apiPolynomialInputs, resultErr error) {
+	var err error
+	result.manager, err = c.polynomialManager()
 	if err != nil {
 		return result, err
 	}

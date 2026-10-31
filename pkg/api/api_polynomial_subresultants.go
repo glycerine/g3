@@ -14,7 +14,7 @@ func (c *SMTContext) PolynomialSubresultants(left, right, variable ast.ASTHandle
 	if err != nil {
 		return nil, err
 	}
-	inputs, err := newAPIPolynomialInputs(manager, left, right)
+	inputs, err := c.newPolynomialInputs(manager, left, right)
 	if err != nil {
 		return nil, err
 	}

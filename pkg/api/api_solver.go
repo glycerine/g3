@@ -35,6 +35,8 @@ type smtContextState struct {
 	interruptMu    sync.Mutex
 	interruptable  control.EventHandler
 	interruptScope *smtContextInterruptScope
+	polyLimit      control.Reslimit
+	polynomial     *apiPolynomialManager
 	closed         bool
 }
 
@@ -410,9 +412,14 @@ func (c *SMTContext) Close() error {
 	if c == nil || c.smtContextState == nil || c.closed {
 		return nil
 	}
+	if err := c.polynomial.close(); err != nil {
+		return err
+	}
+	c.polynomial = nil
 	if err := c.command.Close(); err != nil {
 		return err
 	}
+	c.polyLimit.Close()
 	c.command = nil
 	c.closed = true
 	return nil

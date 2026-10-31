@@ -9,7 +9,7 @@ import (
 
 func TestAPIPolynomialInterruptScopeTimesOutWithSourceCaller(t *testing.T) {
 	context := newAPIInterruptFixture(t)
-	manager, err := context.Manager()
+	limit, err := context.polynomialLimit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,10 +22,15 @@ func TestAPIPolynomialInterruptScopeTimesOutWithSourceCaller(t *testing.T) {
 	}
 	defer scope.Close()
 	deadline := time.Now().Add(time.Second)
-	for !manager.ResourceLimit().CancelFlag() && time.Now().Before(deadline) {
+	for !limit.CancelFlag() && time.Now().Before(deadline) {
 		time.Sleep(time.Millisecond)
 	}
-	if !manager.ResourceLimit().CancelFlag() || scope.handler.caller != control.EventCallerTimeout {
-		t.Fatal("polynomial timeout", manager.ResourceLimit().CancelFlag(), scope.handler.caller)
+	manager, err := context.Manager()
+	astTestMust(t, err)
+	if manager.ResourceLimit().CancelFlag() {
+		t.Fatal("polynomial timeout canceled the independent AST limit")
+	}
+	if !limit.CancelFlag() || scope.handler.caller != control.EventCallerTimeout {
+		t.Fatal("polynomial timeout", limit.CancelFlag(), scope.handler.caller)
 	}
 }

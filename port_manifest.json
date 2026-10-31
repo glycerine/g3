@@ -4794,21 +4794,37 @@
       "status": "ported",
       "go_targets": [
         "pkg/api/api_algebraic_arithmetic.go",
-        "pkg/api/api_algebraic_value.go",
-        "pkg/api/api_algebraic_sign.go",
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_polynomial.go",
+        "pkg/api/api_algebraic_polynomial_copy.go",
         "pkg/api/api_algebraic_power.go",
         "pkg/api/api_algebraic_relations.go",
-        "pkg/api/api_algebraic_eval.go",
-        "pkg/api/api_algebraic_roots.go"
+        "pkg/api/api_algebraic_roots.go",
+        "pkg/api/api_algebraic_sign.go",
+        "pkg/api/api_algebraic_value.go",
+        "pkg/api/api_context_interrupt.go",
+        "pkg/api/api_context_polynomial.go",
+        "pkg/api/api_context_polynomial_test.go",
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_interrupt.go",
+        "pkg/api/api_solver.go"
       ],
       "tests": [
-        "TestAPIAlgebraicRationalAndMixedArithmetic",
-        "TestAPIAlgebraicValueAndSign",
-        "TestAPIAlgebraicRootAndPower",
-        "TestAPIAlgebraicRelationsMixedValues",
-        "TestAPIAlgebraicRejectsInvalidOperands",
         "TestAPIAlgebraicEvalAtIrrationalValue",
-        "TestAPIAlgebraicRootsIrrationalAssignment"
+        "TestAPIAlgebraicRationalAndMixedArithmetic",
+        "TestAPIAlgebraicRejectsInvalidOperands",
+        "TestAPIAlgebraicRelationsMixedValues",
+        "TestAPIAlgebraicRootAndPower",
+        "TestAPIAlgebraicRootsIrrationalAssignment",
+        "TestAPIAlgebraicValueAndSign",
+        "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+        "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+        "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+        "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+        "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+        "TestAPIPolynomialPrivateOwnerExactResultants",
+        "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+        "TestAPIPolynomialSubresultantsUsesIndependentCancellation"
       ],
       "assertions": [
         {
@@ -4827,12 +4843,52 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "algebraic value/sign predicates and arithmetic/root/power operations", "status": "ported", "go_target": "pkg/api/api_algebraic_arithmetic.go", "go_targets": ["pkg/api/api_algebraic_value.go", "pkg/api/api_algebraic_sign.go", "pkg/api/api_algebraic_power.go"], "tests": ["TestAPIAlgebraicRationalAndMixedArithmetic", "TestAPIAlgebraicValueAndSign", "TestAPIAlgebraicRootAndPower", "TestAPIAlgebraicRejectsInvalidOperands"]},
-        {"name": "six algebraic comparisons", "status": "ported", "go_target": "pkg/api/api_algebraic_relations.go", "tests": ["TestAPIAlgebraicRelationsMixedValues", "TestAPIAlgebraicRejectsInvalidOperands"]},
-        {"name": "algebraic polynomial roots and sign evaluation under assignments", "status": "ported", "go_target": "pkg/api/api_algebraic_roots.go", "go_targets": ["pkg/api/api_algebraic_eval.go"], "tests": ["TestAPIAlgebraicRootsIrrationalAssignment", "TestAPIAlgebraicEvalAtIrrationalValue", "TestAPIAlgebraicPolynomialConsumersRejectInvalidDomains"]}
+        {
+          "name": "algebraic value/sign predicates and arithmetic/root/power operations",
+          "status": "ported",
+          "go_target": "pkg/api/api_algebraic_arithmetic.go",
+          "go_targets": [
+            "pkg/api/api_algebraic_value.go",
+            "pkg/api/api_algebraic_sign.go",
+            "pkg/api/api_algebraic_power.go"
+          ],
+          "tests": [
+            "TestAPIAlgebraicRationalAndMixedArithmetic",
+            "TestAPIAlgebraicValueAndSign",
+            "TestAPIAlgebraicRootAndPower",
+            "TestAPIAlgebraicRejectsInvalidOperands"
+          ]
+        },
+        {
+          "name": "six algebraic comparisons",
+          "status": "ported",
+          "go_target": "pkg/api/api_algebraic_relations.go",
+          "tests": [
+            "TestAPIAlgebraicRelationsMixedValues",
+            "TestAPIAlgebraicRejectsInvalidOperands"
+          ]
+        },
+        {
+          "name": "algebraic polynomial roots and sign evaluation under assignments",
+          "status": "ported",
+          "go_target": "pkg/api/api_algebraic_roots.go",
+          "go_targets": [
+            "pkg/api/api_algebraic_eval.go"
+          ],
+          "tests": [
+            "TestAPIAlgebraicRootsIrrationalAssignment",
+            "TestAPIAlgebraicEvalAtIrrationalValue",
+            "TestAPIAlgebraicPolynomialConsumersRejectInvalidDomains"
+          ]
+        }
       ],
-      "ownership": ["Algebraic operations borrow checked AST handles, own temporary real-closure values and interrupt scopes through cleanup, and return manager-owned AST handles or copied scalar results."],
-      "deviations": []
+      "ownership": [
+        "Algebraic operations borrow checked AST handles, own temporary real-closure values and interrupt scopes through cleanup, and return manager-owned AST handles or copied scalar results.",
+        "The API context owns a persistent polynomial manager and a separate embedded resource limit. Its private numerical domain borrows the context runtime and outlives the polynomial manager; Close drains failed numerical construction before closing the runtime. Subresultant cancellation targets the polynomial limit, algebraic-operation cancellation targets the AST limit, and context Interrupt calls the active handler before canceling both limits."
+      ],
+      "deviations": [
+        "The Go context initializes these polynomial services lazily alongside its existing lazy AST services. A private concrete rational manager supplies the integer owner and the rational-valued convenience overloads required by the Go polynomial implementation, instead of borrowing the arithmetic plugin numerical domain. Algebraic calls copy their source polynomial with the existing typed ConvertPolynomial algorithm into the algebraic domain and pin the copy until evaluation completes; C++ raw numeral pointers do not carry Go owner identity. The API context source/header as a whole remain partial for their other independently tracked members."
+      ]
     },
     {
       "path": "src/api/api_arith.cpp",
@@ -5908,36 +5964,53 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_polynomial.go",
+        "pkg/api/api_algebraic_polynomial_copy.go",
+        "pkg/api/api_algebraic_roots.go",
+        "pkg/api/api_ast_map_memory_trace.go",
+        "pkg/api/api_context_check_sorts.go",
+        "pkg/api/api_context_interrupt.go",
+        "pkg/api/api_context_polynomial.go",
+        "pkg/api/api_context_polynomial_test.go",
+        "pkg/api/api_context_results.go",
+        "pkg/api/api_context_warning.go",
         "pkg/api/api_goal_memory_trace.go",
         "pkg/api/api_goal_memory_trace_debug_test.go",
-        "pkg/api/api_context_results.go",
-        "pkg/api/api_context_check_sorts.go",
-        "pkg/api/api_context_warning.go",
-        "pkg/api/api_ast_map_memory_trace.go",
         "pkg/api/api_goal_object.go",
-        "pkg/api/api_trace.go",
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_interrupt.go",
         "pkg/api/api_solver.go",
+        "pkg/api/api_trace.go",
         "pkg/cmd_context/result_access.go"
       ],
       "tests": [
-        "TestAPIContextMemoryWrappersBindOwnProcessFinalization",
-        "TestAPIGoalSourceMemoryWrapperReleaseSites",
         "TestAPIASTMapSourceMemoryWrapperReleaseSites",
-        "TestAPIContextResultsExplicitReferencesAndAlias",
-        "TestAPIContextResultsAutomaticReferencesAllASTKinds",
-        "TestAPIContextObjectReferenceAssignmentAndRecycledIDs",
         "TestAPIContextGoalRootSurvivesExplicitResultResetAndDrains",
-        "TestAPIContextResultsCopiedAndForeignOwnerGuards",
-        "TestAPIContextObjectCloseUsesNativeFreeIDStorage",
+        "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+        "TestAPIContextMemoryWrappersBindOwnProcessFinalization",
         "TestAPIContextNativeResultGrowthAndReferenceRelease",
-        "TestAPIContextSourceObjectAndTrailAssertions",
+        "TestAPIContextObjectCloseUsesNativeFreeIDStorage",
+        "TestAPIContextObjectReferenceAssignmentAndRecycledIDs",
+        "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+        "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+        "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+        "TestAPIContextResultsAutomaticReferencesAllASTKinds",
+        "TestAPIContextResultsCopiedAndForeignOwnerGuards",
+        "TestAPIContextResultsExplicitReferencesAndAlias",
         "TestAPIContextSortCheckWarningAndErrorState",
-        "TestSMTContextEndToEndModelScopesAndAssumptions",
-        "TestSMTContextUnsatCoreAndProofResults",
+        "TestAPIContextSourceObjectAndTrailAssertions",
+        "TestAPIGoalSourceMemoryWrapperReleaseSites",
+        "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+        "TestAPIPolynomialPrivateOwnerExactResultants",
+        "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+        "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
         "TestSMTContextConsequencesOwnReturnedExpressions",
+        "TestSMTContextCopiesShareClose",
+        "TestSMTContextEndToEndModelScopesAndAssumptions",
         "TestSMTContextImpliedEqualities",
         "TestSMTContextUnknownReason",
-        "TestSMTContextCopiesShareClose"
+        "TestSMTContextUnsatCoreAndProofResults"
       ],
       "assertions": [
         {
@@ -5976,19 +6049,25 @@
           "name": "Z3_toggle_warning_messages forwards its Boolean gate to the process warning service at api_context.cpp:364-368",
           "status": "ported",
           "go_target": "pkg/api/api_context_warning.go",
-          "tests": ["TestAPIToggleWarningMessagesControlsReachedContextWarning"]
+          "tests": [
+            "TestAPIToggleWarningMessagesControlsReachedContextWarning"
+          ]
         },
         {
           "name": "Retained API object::dec_ref and context::save_ast_trail SASSERT gates at api_context.cpp:39,216",
           "status": "ported",
           "go_target": "pkg/api/api_context_results.go",
-          "tests": ["TestAPIContextSourceObjectAndTrailAssertions"]
+          "tests": [
+            "TestAPIContextSourceObjectAndTrailAssertions"
+          ]
         },
         {
           "name": "API context destructor DEBUG_CODE warning_msg for each uncollected registered object before removal (api_context.cpp:109-117); Go concrete type names replace compiler RTTI spelling",
           "status": "ported",
           "go_target": "pkg/api/api_context_results.go",
-          "tests": ["TestAPIContextUncollectedObjectSourceWarningGate"]
+          "tests": [
+            "TestAPIContextUncollectedObjectSourceWarningGate"
+          ]
         },
         {
           "name": "Retained API goal wrapper allocation and context deallocation debug records at api_goal.cpp:35 and api_context.cpp:54,116",
@@ -6002,7 +6081,9 @@
           "name": "API context::check_sorts shallow AST check, application warning, set_error_code publication and borrowed nonzero-code handler dispatch at api_context.cpp:147-151,284-307; constructor call sites and default error handler remain unported",
           "status": "partial",
           "go_target": "pkg/api/api_context_check_sorts.go",
-          "tests": ["TestAPIContextSortCheckWarningAndErrorState"]
+          "tests": [
+            "TestAPIContextSortCheckWarningAndErrorState"
+          ]
         },
         {
           "name": "AST-map wrapper deallocation debug memory records at context.cpp:54 and 116",
@@ -6011,15 +6092,36 @@
           "tests": [
             "TestAPIASTMapSourceMemoryWrapperReleaseSites"
           ]
+        },
+        {
+          "name": "context::m_limit, m_pmanager, pm, poly_limit and interrupt: independent persistent polynomial owner and cancellation of both member limits after the active handler",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "go_targets": [
+            "pkg/api/api_context_interrupt.go",
+            "pkg/api/api_context_polynomial_test.go"
+          ],
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+            "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+            "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+            "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+            "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
+            "TestAPIPolynomialPrivateOwnerExactResultants"
+          ]
         }
       ],
       "ownership": [
-        "API context result and automatic AST trails now own concrete native []ASTHandle backing. Each append acquires one AST reference; explicit single-result replacement retains the incoming alias across reset. Cleanup retires each consumed DEC before returning a destructor error and preserves only unread roots for retry. Close releases both backing slices. Only the real context cold header is reserved; no ASTRefVector wrapper, encoded vector record/payload or backing-growth reservation remains in these callers. A 4097-entry duplicate-root fixture checks actual reference counts, both result modes, reset/close and native growth under FailAfter0. See PORT_PROGRESS.md#native-api-context-result-roots."
+        "API context result and automatic AST trails now own concrete native []ASTHandle backing. Each append acquires one AST reference; explicit single-result replacement retains the incoming alias across reset. Cleanup retires each consumed DEC before returning a destructor error and preserves only unread roots for retry. Close releases both backing slices. Only the real context cold header is reserved; no ASTRefVector wrapper, encoded vector record/payload or backing-growth reservation remains in these callers. A 4097-entry duplicate-root fixture checks actual reference counts, both result modes, reset/close and native growth under FailAfter0. See PORT_PROGRESS.md#native-api-context-result-roots.",
+        "The API context owns a persistent polynomial manager and a separate embedded resource limit. Its private numerical domain borrows the context runtime and outlives the polynomial manager; Close drains failed numerical construction before closing the runtime. Subresultant cancellation targets the polynomial limit, algebraic-operation cancellation targets the AST limit, and context Interrupt calls the active handler before canceling both limits."
       ],
       "deviations": [
         "The api_context.cpp:39 zero-reference SASSERT follows the process assertion switch and debugger action before the Go invalid-owner guard; a continuing debugger action leaves the reference count intact. The api_context.cpp:216 membership SASSERT rejects null and foreign AST handles before the existing Go AST ownership guard.",
         "The api_context.cpp:114 DEBUG_CODE warning is emitted before each uncollected API object is removed, and warning_msg remains nonthrowing. Go uses the concrete destructor type name in place of compiler-specific C++ typeid(...).name() text; release builds erase the call.",
-        "Native result storage supersedes former source vector header/growth/refusal credit in this member grouping. Real AST reference callbacks and object destructor ordering remain; native backing creates no emulated Runtime/Budget events. The new public SMTContext owns a complete independent Go solver context, but does not claim the opaque C ABI context, callback/error-handler registry, or a general ref_vector implementation."
+        "Native result storage supersedes former source vector header/growth/refusal credit in this member grouping. Real AST reference callbacks and object destructor ordering remain; native backing creates no emulated Runtime/Budget events. The new public SMTContext owns a complete independent Go solver context, but does not claim the opaque C ABI context, callback/error-handler registry, or a general ref_vector implementation.",
+        "The Go context initializes these polynomial services lazily alongside its existing lazy AST services. A private concrete rational manager supplies the integer owner and the rational-valued convenience overloads required by the Go polynomial implementation, instead of borrowing the arithmetic plugin numerical domain. Algebraic calls copy their source polynomial with the existing typed ConvertPolynomial algorithm into the algebraic domain and pin the copy until evaluation completes; C++ raw numeral pointers do not carry Go owner identity. The API context source/header as a whole remain partial for their other independently tracked members."
       ]
     },
     {
@@ -6028,23 +6130,40 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_polynomial.go",
+        "pkg/api/api_algebraic_polynomial_copy.go",
+        "pkg/api/api_algebraic_roots.go",
+        "pkg/api/api_context_interrupt.go",
+        "pkg/api/api_context_polynomial.go",
+        "pkg/api/api_context_polynomial_test.go",
         "pkg/api/api_context_results.go",
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_interrupt.go",
         "pkg/api/api_solver.go",
         "pkg/cmd_context/result_access.go"
       ],
       "tests": [
-        "TestAPIContextResultsExplicitReferencesAndAlias",
-        "TestAPIContextResultsAutomaticReferencesAllASTKinds",
-        "TestAPIContextObjectReferenceAssignmentAndRecycledIDs",
         "TestAPIContextGoalRootSurvivesExplicitResultResetAndDrains",
-        "TestAPIContextResultsCopiedAndForeignOwnerGuards",
-        "TestAPIContextObjectCloseUsesNativeFreeIDStorage",
+        "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
         "TestAPIContextNativeResultGrowthAndReferenceRelease",
-        "TestSMTContextEndToEndModelScopesAndAssumptions",
-        "TestSMTContextUnsatCoreAndProofResults",
+        "TestAPIContextObjectCloseUsesNativeFreeIDStorage",
+        "TestAPIContextObjectReferenceAssignmentAndRecycledIDs",
+        "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+        "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+        "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+        "TestAPIContextResultsAutomaticReferencesAllASTKinds",
+        "TestAPIContextResultsCopiedAndForeignOwnerGuards",
+        "TestAPIContextResultsExplicitReferencesAndAlias",
+        "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+        "TestAPIPolynomialPrivateOwnerExactResultants",
+        "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+        "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
         "TestSMTContextConsequencesOwnReturnedExpressions",
+        "TestSMTContextCopiesShareClose",
+        "TestSMTContextEndToEndModelScopesAndAssumptions",
         "TestSMTContextUnknownReason",
-        "TestSMTContextCopiesShareClose"
+        "TestSMTContextUnsatCoreAndProofResults"
       ],
       "conditionals": [
         {
@@ -6058,12 +6177,34 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "context::m_limit, m_pmanager, pm, poly_limit and interrupt: independent persistent polynomial owner and cancellation of both member limits after the active handler",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "go_targets": [
+            "pkg/api/api_context_interrupt.go",
+            "pkg/api/api_context_polynomial_test.go"
+          ],
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+            "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+            "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+            "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+            "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
+            "TestAPIPolynomialPrivateOwnerExactResultants"
+          ]
+        }
+      ],
       "ownership": [
-        "API context result and automatic AST trails now own concrete native []ASTHandle backing. Each append acquires one AST reference; explicit single-result replacement retains the incoming alias across reset. Cleanup retires each consumed DEC before returning a destructor error and preserves only unread roots for retry. Close releases both backing slices. Only the real context cold header is reserved; no ASTRefVector wrapper, encoded vector record/payload or backing-growth reservation remains in these callers. A 4097-entry duplicate-root fixture checks actual reference counts, both result modes, reset/close and native growth under FailAfter0. See PORT_PROGRESS.md#native-api-context-result-roots."
+        "API context result and automatic AST trails now own concrete native []ASTHandle backing. Each append acquires one AST reference; explicit single-result replacement retains the incoming alias across reset. Cleanup retires each consumed DEC before returning a destructor error and preserves only unread roots for retry. Close releases both backing slices. Only the real context cold header is reserved; no ASTRefVector wrapper, encoded vector record/payload or backing-growth reservation remains in these callers. A 4097-entry duplicate-root fixture checks actual reference counts, both result modes, reset/close and native growth under FailAfter0. See PORT_PROGRESS.md#native-api-context-result-roots.",
+        "The API context owns a persistent polynomial manager and a separate embedded resource limit. Its private numerical domain borrows the context runtime and outlives the polynomial manager; Close drains failed numerical construction before closing the runtime. Subresultant cancellation targets the polynomial limit, algebraic-operation cancellation targets the AST limit, and context Interrupt calls the active handler before canceling both limits."
       ],
       "deviations": [
-        "Native result storage supersedes former source vector header/growth/refusal credit in this member grouping. Real AST reference callbacks and object destructor ordering remain; native backing creates no emulated Runtime/Budget events. This does not claim a general ref_vector implementation or complete API context construction."
+        "Native result storage supersedes former source vector header/growth/refusal credit in this member grouping. Real AST reference callbacks and object destructor ordering remain; native backing creates no emulated Runtime/Budget events. This does not claim a general ref_vector implementation or complete API context construction.",
+        "The Go context initializes these polynomial services lazily alongside its existing lazy AST services. A private concrete rational manager supplies the integer owner and the rational-valued convenience overloads required by the Go polynomial implementation, instead of borrowing the arithmetic plugin numerical domain. Algebraic calls copy their source polynomial with the existing typed ConvertPolynomial algorithm into the algebraic domain and pin the copy until evaluation completes; C++ raw numeral pointers do not carry Go owner identity. The API context source/header as a whole remain partial for their other independently tracked members."
       ]
     },
     {
@@ -6710,39 +6851,118 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/api/api_polynomial_conversion.go",
-        "pkg/api/api_polynomial_subresultants.go",
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_polynomial.go",
+        "pkg/api/api_algebraic_polynomial_copy.go",
+        "pkg/api/api_algebraic_roots.go",
+        "pkg/api/api_context_interrupt.go",
+        "pkg/api/api_context_polynomial.go",
+        "pkg/api/api_context_polynomial_test.go",
         "pkg/api/api_context_timeout.go",
-        "pkg/api/api_polynomial_interrupt.go"
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_interrupt.go",
+        "pkg/api/api_polynomial_subresultants.go",
+        "pkg/api/api_solver.go"
       ],
       "tests": [
-        "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
-        "TestAPIPolynomialSubresultantsRationalCoefficients",
-        "TestAPIPolynomialSubresultantsSwapPreservesSourceChain",
-        "TestAPIPolynomialSubresultantsNonMappedVariableIsEmpty",
-        "TestAPIPolynomialSubresultantsBoundsAndClose",
-        "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput",
-        "TestSMTContextOperationTimeoutTracksContextOption",
-        "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope",
-        "TestAPIPolynomialInterruptScopeTimesOutWithSourceCaller",
-        "TestAPIPolynomialZeroTimeoutIsDisabled",
-        "TestAPIPolynomialInterruptScopeRejectsClosedContext",
+        "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+        "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+        "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+        "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+        "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
         "TestAPIPolynomialInterruptScopeCloseStopsTimer",
-        "TestAPIPolynomialSubresultantsReleasesInterruptScope"
+        "TestAPIPolynomialInterruptScopeRejectsClosedContext",
+        "TestAPIPolynomialInterruptScopeTimesOutWithSourceCaller",
+        "TestAPIPolynomialPrivateOwnerExactResultants",
+        "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+        "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
+        "TestAPIPolynomialSubresultantsBoundsAndClose",
+        "TestAPIPolynomialSubresultantsNonMappedVariableIsEmpty",
+        "TestAPIPolynomialSubresultantsRationalCoefficients",
+        "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope",
+        "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput",
+        "TestAPIPolynomialSubresultantsReleasesInterruptScope",
+        "TestAPIPolynomialSubresultantsSwapPreservesSourceChain",
+        "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
+        "TestAPIPolynomialZeroTimeoutIsDisabled",
+        "TestSMTContextOperationTimeoutTracksContextOption"
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "Z3_polynomial_subresultants arithmetic-expression conversion, polynomial chain computation, AST-vector publication, validation, and interrupt scope", "status": "ported", "go_target": "pkg/api/api_polynomial_subresultants.go", "go_targets": ["pkg/api/api_polynomial_conversion.go", "pkg/api/api_polynomial_interrupt.go"], "tests": ["TestAPIPolynomialSubresultantsBasicAndEqualInputs", "TestAPIPolynomialSubresultantsRationalCoefficients", "TestAPIPolynomialSubresultantsSwapPreservesSourceChain", "TestAPIPolynomialSubresultantsNonMappedVariableIsEmpty", "TestAPIPolynomialSubresultantsBoundsAndClose", "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput", "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope", "TestAPIPolynomialSubresultantsReleasesInterruptScope"]}],
-      "ownership": ["APIPolynomialSubresultants owns rooted AST result references and releases them on Close; conversion temporaries and timeout/interrupt scopes are released on every return path."],
-      "deviations": []
+      "methods": [
+        {
+          "name": "Z3_polynomial_subresultants arithmetic-expression conversion, polynomial chain computation, AST-vector publication, validation, and interrupt scope",
+          "status": "ported",
+          "go_target": "pkg/api/api_polynomial_subresultants.go",
+          "go_targets": [
+            "pkg/api/api_polynomial_conversion.go",
+            "pkg/api/api_polynomial_interrupt.go"
+          ],
+          "tests": [
+            "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
+            "TestAPIPolynomialSubresultantsRationalCoefficients",
+            "TestAPIPolynomialSubresultantsSwapPreservesSourceChain",
+            "TestAPIPolynomialSubresultantsNonMappedVariableIsEmpty",
+            "TestAPIPolynomialSubresultantsBoundsAndClose",
+            "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput",
+            "TestAPIPolynomialSubresultantsRefusesNestedInterruptScope",
+            "TestAPIPolynomialSubresultantsReleasesInterruptScope"
+          ]
+        },
+        {
+          "name": "pmanager::pmanager(reslimit&) constructs the private numerical owner and persistent polynomial manager",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose"
+          ]
+        },
+        {
+          "name": "pmanager::~pmanager releases polynomial state before its private numerical owner",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose"
+          ]
+        }
+      ],
+      "ownership": [
+        "APIPolynomialSubresultants owns rooted AST result references and releases them on Close; conversion temporaries and timeout/interrupt scopes are released on every return path.",
+        "The API context owns a persistent polynomial manager and a separate embedded resource limit. Its private numerical domain borrows the context runtime and outlives the polynomial manager; Close drains failed numerical construction before closing the runtime. Subresultant cancellation targets the polynomial limit, algebraic-operation cancellation targets the AST limit, and context Interrupt calls the active handler before canceling both limits."
+      ],
+      "deviations": [
+        "The Go context initializes these polynomial services lazily alongside its existing lazy AST services. A private concrete rational manager supplies the integer owner and the rational-valued convenience overloads required by the Go polynomial implementation, instead of borrowing the arithmetic plugin numerical domain. Algebraic calls copy their source polynomial with the existing typed ConvertPolynomial algorithm into the algebraic domain and pin the copy until evaluation completes; C++ raw numeral pointers do not carry Go owner identity. The API context source/header as a whole remain partial for their other independently tracked members."
+      ]
     },
     {
       "path": "src/api/api_polynomial.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_polynomial.go",
+        "pkg/api/api_algebraic_polynomial_copy.go",
+        "pkg/api/api_algebraic_roots.go",
+        "pkg/api/api_context_interrupt.go",
+        "pkg/api/api_context_polynomial.go",
+        "pkg/api/api_context_polynomial_test.go",
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_interrupt.go",
+        "pkg/api/api_solver.go"
+      ],
+      "tests": [
+        "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+        "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+        "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+        "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+        "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+        "TestAPIPolynomialPrivateOwnerExactResultants",
+        "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+        "TestAPIPolynomialSubresultantsUsesIndependentCancellation"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -6753,11 +6973,61 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "pmanager::pmanager(reslimit&) constructs independent numerical and polynomial members",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+            "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+            "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+            "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+            "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
+            "TestAPIPolynomialPrivateOwnerExactResultants"
+          ]
+        },
+        {
+          "name": "pmanager::~pmanager releases polynomial members before their numerical owner",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+            "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+            "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+            "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+            "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
+            "TestAPIPolynomialPrivateOwnerExactResultants"
+          ]
+        },
+        {
+          "name": "pmanager::pm returns the persistent borrowed polynomial manager",
+          "status": "ported",
+          "go_target": "pkg/api/api_context_polynomial.go",
+          "tests": [
+            "TestAPIContextPolynomialOwnerIndependentAndSharedByCopies",
+            "TestAPIContextInterruptCancelsBothLimitsAfterHandler",
+            "TestAPIPolynomialScopeRoutesOnlyPolynomialLimit",
+            "TestAPIPolynomialAndAlgebraicConvertersUseContextOwner",
+            "TestAPIContextPolynomialConstructorRefusalDoesNotPublishOwner",
+            "TestAPIContextPolynomialConstructorAllocationPrefixesClose",
+            "TestAPIPolynomialSubresultantsUsesIndependentCancellation",
+            "TestAPIPolynomialPrivateOwnerExactResultants"
+          ]
+        }
+      ],
+      "ownership": [
+        "The API context owns a persistent polynomial manager and a separate embedded resource limit. Its private numerical domain borrows the context runtime and outlives the polynomial manager; Close drains failed numerical construction before closing the runtime. Subresultant cancellation targets the polynomial limit, algebraic-operation cancellation targets the AST limit, and context Interrupt calls the active handler before canceling both limits."
+      ],
+      "deviations": [
+        "The Go context initializes these polynomial services lazily alongside its existing lazy AST services. A private concrete rational manager supplies the integer owner and the rational-valued convenience overloads required by the Go polynomial implementation, instead of borrowing the arithmetic plugin numerical domain. Algebraic calls copy their source polynomial with the existing typed ConvertPolynomial algorithm into the algebraic domain and pin the copy until evaluation completes; C++ raw numeral pointers do not carry Go owner identity. The API context source/header as a whole remain partial for their other independently tracked members."
+      ]
     },
     {
       "path": "src/api/api_qe.cpp",

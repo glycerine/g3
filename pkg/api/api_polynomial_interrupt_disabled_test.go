@@ -7,7 +7,7 @@ import (
 
 func TestAPIPolynomialZeroTimeoutIsDisabled(t *testing.T) {
 	context := newAPIInterruptFixture(t)
-	manager, err := context.Manager()
+	limit, err := context.polynomialLimit()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -19,7 +19,7 @@ func TestAPIPolynomialZeroTimeoutIsDisabled(t *testing.T) {
 		t.Fatal(err)
 	}
 	time.Sleep(5 * time.Millisecond)
-	if manager.ResourceLimit().CancelFlag() {
+	if limit.CancelFlag() {
 		t.Fatal("disabled polynomial timer fired")
 	}
 	if err = scope.Close(); err != nil {

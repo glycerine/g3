@@ -39,12 +39,9 @@ func (p *apiAlgebraicPolynomial) close() (result error) {
 	return result
 }
 
-func newAPIAlgebraicPolynomial(manager *ast.ASTManager, expression ast.ASTHandle) (result apiAlgebraicPolynomial, resultErr error) {
-	algebraic, err := manager.ArithmeticAlgebraicManager()
-	if err != nil {
-		return result, err
-	}
-	result.manager, err = algebraic.PolynomialManager()
+func (c *SMTContext) newAlgebraicPolynomial(manager *ast.ASTManager, expression ast.ASTHandle) (result apiAlgebraicPolynomial, resultErr error) {
+	var err error
+	result.manager, err = c.polynomialManager()
 	if err != nil {
 		return result, err
 	}
