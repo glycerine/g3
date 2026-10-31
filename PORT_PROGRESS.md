@@ -1,3 +1,5 @@
+Generated bit-vector Boolean-array replay (2026-10-31 UTC): connected numeral creation and estimated process-allocation queries. Normal and checked tests verify native-byte interpretation and reject short arrays; other generated commands remain unfinished.
+
 Generated set and array-extensionality replay (2026-10-31 UTC): connected set constructors, mutations, operations and predicates along with array extensionality witnesses. Normal and checked tests verify construction and membership simplification; other generated commands remain unfinished.
 
 Generated optimizer soft-constraint replay (2026-10-31 UTC): connected unnamed and string-named groups with source rational parsing. Normal and checked tests verify fractional optimization and reject numeric or empty-string group symbols until their identities are supported.

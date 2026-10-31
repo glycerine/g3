@@ -17,7 +17,7 @@ func TestGeneratedProcessReplayVersionAndWarnings(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	log := "R\nI 0\nC 327\nC 900\nR\nU 0\nU 0\nU 0\nU 0\nC 342\nC 901\nR\nC 343\nR\nI 1\nC 327\n"
+	log := "R\nI 0\nC 327\nC 900\nR\nU 0\nU 0\nU 0\nU 0\nC 342\nC 901\nR\nC 343\nR\nC 446\nR\nI 1\nC 327\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
 		t.Fatal(err)

@@ -5990,7 +5990,9 @@
         "pkg/api/z3_generated_interpolation_commands.go",
         "pkg/api/z3_generated_interpolation_commands_test.go",
         "pkg/api/z3_generated_set_commands.go",
-        "pkg/api/z3_generated_set_commands_test.go"
+        "pkg/api/z3_generated_set_commands_test.go",
+        "pkg/api/z3_generated_bv_bool_numeral.go",
+        "pkg/api/z3_generated_bv_bool_numeral_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6097,7 +6099,9 @@
         "TestGeneratedFixedpointReplayRejectsUnsupportedRuleSymbol",
         "TestGeneratedOptimizeReplaySoftGroups",
         "TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol",
-        "TestGeneratedSetReplayConstructionAndMembership"
+        "TestGeneratedSetReplayConstructionAndMembership",
+        "TestGeneratedBitVectorBoolArrayReplay",
+        "TestGeneratedBitVectorBoolArrayReplayRejectsShortArray"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6147,7 +6151,8 @@
       "deviations": [
         "Global, configuration, context, parameter, solver, model and selected AST replay commands are connected, including pattern and quantified-formula constructors. Other generated commands and full API replay error-handler fidelity remain unfinished.",
         "Fixedpoint replay supports unnamed and nonempty string-named rule updates; numeric and empty-string symbols are explicitly unsupported until the rule store preserves their identities.",
-        "Optimizer replay supports unnamed and nonempty string-named soft groups; numeric and empty-string symbols are explicitly unsupported until the objective store preserves their identities."
+        "Optimizer replay supports unnamed and nonempty string-named soft groups; numeric and empty-string symbols are explicitly unsupported until the objective store preserves their identities.",
+        "Bit-vector Boolean-array replay follows the source replayer native-byte interpretation of unsigned-array storage; malformed arrays are rejected rather than read out of bounds."
       ]
     },
     {

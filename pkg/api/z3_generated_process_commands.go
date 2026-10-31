@@ -18,6 +18,7 @@ func RegisterZ3GeneratedProcessCommands(r *Z3Replayer) error {
 		{343, "Z3_get_full_version", replayGetFullVersion},
 		{344, "Z3_enable_trace", replayEnableTrace},
 		{345, "Z3_disable_trace", replayDisableTrace},
+		{446, "Z3_get_estimated_alloc_size", replayEstimatedAllocSize},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
@@ -48,7 +49,8 @@ func replayGetVersion(r *Z3Replayer) error {
 	}
 	return nil
 }
-func replayGetFullVersion(*Z3Replayer) error { _ = FullVersion(); return nil }
+func replayGetFullVersion(*Z3Replayer) error     { _ = FullVersion(); return nil }
+func replayEstimatedAllocSize(*Z3Replayer) error { _ = EstimatedAllocSize(); return nil }
 func replayEnableTrace(r *Z3Replayer) error {
 	tag, err := r.String(0)
 	if err != nil {
