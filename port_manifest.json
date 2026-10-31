@@ -97649,8 +97649,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/tab/matcher.go", "pkg/muz/tab/matcher_test.go"],
-      "tests": ["TestSemanticMatcherRepeatedVariablesAndConditions", "TestSemanticMatcherDatatypeConstructors"],
+      "go_targets": ["pkg/muz/tab/matcher.go", "pkg/muz/tab/matcher_test.go", "pkg/muz/tab/clause.go", "pkg/muz/tab/clause_test.go"],
+      "tests": ["TestSemanticMatcherRepeatedVariablesAndConditions", "TestSemanticMatcherDatatypeConstructors", "TestClauseEqualityReduction", "TestClauseDoesNotSubstituteUninterpretedTerms"],
       "assertions": [
         {
           "line": 384,
@@ -97717,7 +97717,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The concrete semantic matcher is started; clause state, proof search, fixedpoint registration and other tabulation context behavior remain unfinished."]
+      "deviations": ["The semantic matcher and clause equality reduction are started; remaining clause operations, proof search, fixedpoint registration and other tabulation context behavior remain unfinished."]
     },
     {
       "path": "src/muz/tab/tab_context.h",
