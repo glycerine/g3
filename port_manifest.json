@@ -8374,9 +8374,9 @@
       "path": "src/api/dll/install_tactic.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_commands.go", "pkg/api/api_tactic_registry_test.go", "pkg/api/api_probe_registry.go", "pkg/api/api_probe_factories_test.go"],
+      "tests": ["TestBuiltinTacticRegistryMembershipAndBounds", "TestCommandContextRegistersClausePreprocessingTactics", "TestAPITacticRegistryCountIndexAndNames", "TestAPIProbeAllSourceFactoriesConstructAndEvaluate"],
       "registrations": [
         {
           "line": 201,
@@ -8555,7 +8555,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The concrete Go tactic and probe registries cover part of the generated installer. Some source factories and generated ordering still require implementation and audit."]
     },
     {
       "path": "src/api/dll/mem_initializer.cpp",

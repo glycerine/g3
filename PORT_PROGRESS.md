@@ -1,3 +1,5 @@
+Generated tactic installer audit (2026-10-31 UTC): generated an installer in /tmp and mapped its existing Go tactic and probe registry paths. Focused registry and factory tests pass; missing factories and generated registration order remain partial.
+
 Generated API log/replay start (2026-10-31 UTC): regenerated the source files in /tmp to audit their command IDs, then connected global-parameter set/get/reset to Go logging and replay. Tests cover exact records, round-trip, null output, log failure and nested-call suppression; the full API package and focused checked tests pass. The other generated commands remain unfinished.
 
 Quantifier-elimination tactic start (2026-10-31 UTC): ported the nonlinear option update and parameter descriptor. Normal and checked tests cover snapshots, default reset and descriptor type; the general QE engine and tactic registration remain unfinished.
