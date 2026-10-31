@@ -107420,9 +107420,14 @@
       "path": "src/qe/qe_datatype_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/qe/qe_datatype_plugin.go",
+        "pkg/qe/qe_datatype_plugin_test.go"
+      ],
+      "tests": [
+        "TestDatatypeSolverPluginNonRecursiveBranches"
+      ],
       "assertions": [
         {
           "line": 134,
@@ -107523,9 +107528,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "datatype plugin factory and non-recursive constructor branching",
+          "status": "partial",
+          "go_target": "pkg/qe/qe_datatype_plugin.go",
+          "tests": [
+            "TestDatatypeSolverPluginNonRecursiveBranches"
+          ]
+        }
+      ],
+      "ownership": [
+        "The plugin borrows its solver context and AST manager; returned branch recognizer references are owned by the caller."
+      ],
+      "deviations": [
+        "Pending recursive datatype branching, constructor substitution, atom collection, foreign-variable lifting and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
+      ]
     },
     {
       "path": "src/qe/qe_datatypes.cpp",

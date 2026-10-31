@@ -1,3 +1,5 @@
+Datatype QE solver plugin source start (2026-10-31 UTC): implemented source non-recursive constructor branch counts, recognizer scanning and branch constraint construction in a concrete SolverContext plugin. Recursive datatype branching, substitution and strategy integration remain pending.
+
 Core API header source start (2026-10-31 UTC): recorded existing Go context, solver and numeral functionality against z3_api.h and z3_private.h. Added tests for copied rational results from arithmetic, bit-vector and finite-domain numerals; the large API header and ABI remain unaudited.
 
 Numeric public API header coverage (2026-10-31 UTC): recorded existing Go floating-point, algebraic, rational RCF and polynomial subresultant implementations against four previously unstarted headers. A new cross-component test passes an RCF rational result into algebraic arithmetic; the non-rational RCF operations and full header audits remain pending.
