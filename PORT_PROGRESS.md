@@ -1,4 +1,4 @@
-Fixedpoint expression queries now keep their isolated backend until the next query or close, allowing an owned answer to be retrieved without changing the original rules. Datalog tuple and empty answers, stale result rejection, and answer reference lifetime are covered by normal and checked tests; public replay integration remains in progress.
+Fixedpoint expression queries now keep their isolated backend until the next query or close, allowing an owned answer to be retrieved without changing the original rules. Datalog tuple and empty answers, stale result rejection, and answer reference lifetime are covered by normal and checked tests. The public fixedpoint object and generated replay expose expression answers; tests cover reachable and unreachable Datalog, PDR, and Spacer queries.
 
 Floating-point sign and significand inspection now reads stored MPF fields directly, with a 112-bit significand test checking bit-vector precision and the uint64 overflow guard.
 

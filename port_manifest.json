@@ -6002,7 +6002,8 @@
         "pkg/api/z3_generated_datatype_constructor_commands.go",
         "pkg/api/z3_generated_datatype_constructor_commands_test.go",
         "pkg/api/z3_generated_fixedpoint_load_test.go",
-        "pkg/cmd/g3/z3_log_fixedpoint_load_test.go"
+        "pkg/cmd/g3/z3_log_fixedpoint_load_test.go",
+        "pkg/api/z3_generated_fixedpoint_expression_answer_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6120,7 +6121,6 @@
         "TestAPIFixedpointParametersAreOwnedAndLocal",
         "TestAPIFixedpointParametersValidateCatalog",
         "TestGeneratedFixedpointReplayParameterUpdate",
-        "TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation",
         "TestGeneratedFixedpointReplayRejectsComplexLevelQuery",
         "TestGeneratedRCFRationalReplayZeroAndLifecycle",
         "TestGeneratedRCFRationalReplayArithmeticAndAliases",
@@ -6134,7 +6134,8 @@
         "TestGeneratedFixedpointReplayLoadQueries",
         "TestGeneratedFixedpointReplayLoadErrors",
         "TestZ3LogFrontendReplaysFixedpointProgramLoading",
-        "TestGeneratedFloatingPointReplayInfinityExponentBitVector"
+        "TestGeneratedFloatingPointReplayInfinityExponentBitVector",
+        "TestGeneratedFixedpointReplayExpressionAnswer"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6188,9 +6189,9 @@
         "Bit-vector Boolean-array replay follows the source replayer native-byte interpretation of unsigned-array storage; malformed arrays are rejected rather than read out of bounds.",
         "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished.",
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
-        "Fixedpoint answer replay currently supports single-relation queries, including nullary relation expressions; other expression and multi-relation answer shapes are explicitly unsupported.",
         "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported.",
-        "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected."
+        "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
+        "Fixedpoint answer replay supports single relations and expression queries; multiple-relation answers and ground answers for general expressions remain unsupported."
       ]
     },
     {
@@ -6513,7 +6514,9 @@
         "pkg/cmd_context/fixedpoint_named_rules.go",
         "pkg/cmd_context/fixedpoint_bind_rule.go",
         "pkg/muz/fp/rule_bind.go",
-        "pkg/cmd_context/parser_manager_ownership.go"
+        "pkg/cmd_context/parser_manager_ownership.go",
+        "pkg/api/api_fixedpoint_expression_answer_test.go",
+        "pkg/cmd_context/fixedpoint_expression_answer.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6534,7 +6537,9 @@
         "TestGeneratedFixedpointReplayParameterUpdate",
         "TestAPIFixedpointObjectLoadSMT2Queries",
         "TestAPIFixedpointObjectLoadQueriesIsolatedAndTransfersRules",
-        "TestAPIFixedpointObjectLoadQueriesSurviveParserReset"
+        "TestAPIFixedpointObjectLoadQueriesSurviveParserReset",
+        "TestAPIFixedpointExpressionAnswerBackends",
+        "TestAPIFixedpointExpressionAnswerUnreachableBackends"
       ],
       "assertions": [
         {
@@ -84686,7 +84691,9 @@
         "pkg/cmd_context/fixedpoint_datalog_profile.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/muz/fp/query_expression.go",
-        "pkg/muz/fp/query_expression_answer_test.go"
+        "pkg/muz/fp/query_expression_answer_test.go",
+        "pkg/api/api_fixedpoint_expression_answer_test.go",
+        "pkg/cmd_context/fixedpoint_expression_answer.go"
       ],
       "tests": [
         "TestDatalogModelMaterializesFiniteRelationTables",
@@ -84706,7 +84713,9 @@
         "TestSMT2FixedpointRejectsUnstratifiedNegation",
         "TestSMT2FixedpointRuleScopesMatchCPP",
         "TestFixedpointExpressionAnswerSurvivesQueryAndInvalidates",
-        "TestFixedpointExpressionAnswerForEmptyRelation"
+        "TestFixedpointExpressionAnswerForEmptyRelation",
+        "TestAPIFixedpointExpressionAnswerBackends",
+        "TestAPIFixedpointExpressionAnswerUnreachableBackends"
       ],
       "assertions": [
         {

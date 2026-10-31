@@ -505,29 +505,6 @@ func TestGeneratedFixedpointReplayParameterUpdate(t *testing.T) {
 	}
 }
 
-func TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation(t *testing.T) {
-	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
-		"R\nP 0x41\nP 0x43\nP 0x42\nC 517\nR\nP 0x41\nP 0x43\nC 519\n"
-	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if e := r.Close(); e != nil {
-			t.Error(e)
-		}
-	}()
-	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
-		t.Fatal(err)
-	}
-	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
-		t.Fatal(err)
-	}
-	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "answer requires a single relation query") {
-		t.Fatal("unsupported answer", err)
-	}
-}
-
 func TestGeneratedFixedpointReplayRejectsComplexLevelQuery(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
 		"R\nP 0x41\nP 0x43\nP 0x42\nU 0\nC 651\n"

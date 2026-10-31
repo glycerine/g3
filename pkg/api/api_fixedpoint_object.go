@@ -11,13 +11,14 @@ import (
 // AST manager but owns declarations, rules, assertions, scopes, and query
 // state, matching the independent Z3_fixedpoint object lifetime.
 type APIFixedpoint struct {
-	owner         *smtContextState
-	command       *cmd_context.Context
-	params        *ParameterSet
-	retiredParams []*ParameterSet
-	lastQuery     ast.ASTHandle
-	hasLastQuery  bool
-	closed        bool
+	owner             *smtContextState
+	command           *cmd_context.Context
+	params            *ParameterSet
+	retiredParams     []*ParameterSet
+	lastQuery         ast.ASTHandle
+	hasLastQuery      bool
+	hasLastExpression bool
+	closed            bool
 }
 
 func (c *SMTContext) NewFixedpoint() (*APIFixedpoint, error) {

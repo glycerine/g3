@@ -3,6 +3,7 @@ package api
 // Source: src/api/api_datalog.cpp:314-349, 405-440.
 
 import (
+	"fmt"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 )
@@ -81,4 +82,18 @@ func (f *APIFixedpoint) EvaluateModel(declaration, expression ast.ASTHandle, com
 		return ast.ASTRef{}, err
 	}
 	return f.command.EvaluateFixedpointModel(declaration, expression, completion)
+}
+
+// LastAnswer returns an owning formula for the latest supported query.
+func (f *APIFixedpoint) LastAnswer() (ast.ASTRef, error) {
+	if err := f.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	if f.hasLastQuery {
+		return f.command.FixedpointAnswer(f.lastQuery)
+	}
+	if f.hasLastExpression {
+		return f.command.FixedpointExpressionAnswer()
+	}
+	return ast.ASTRef{}, fmt.Errorf("fixedpoint: answer requires a completed query")
 }

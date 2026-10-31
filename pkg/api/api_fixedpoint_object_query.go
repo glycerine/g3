@@ -21,6 +21,7 @@ func (f *APIFixedpoint) Query(declaration ast.ASTHandle) (lbool.LBool, error) {
 		return lbool.Undef, err
 	}
 	f.hasLastQuery = false
+	f.hasLastExpression = false
 	status, err := f.command.QueryFixedpointWithParams(declaration, f.queryParameters())
 	if err == nil {
 		f.lastQuery, f.hasLastQuery = declaration, true
@@ -34,6 +35,7 @@ func (f *APIFixedpoint) QueryExpression(query ast.ASTHandle) (lbool.LBool, error
 		return lbool.Undef, err
 	}
 	f.hasLastQuery = false
+	f.hasLastExpression = false
 	status, err := f.command.QueryFixedpointExpressionWithParams(query, f.queryParameters())
 	if err != nil {
 		return status, err
@@ -44,6 +46,8 @@ func (f *APIFixedpoint) QueryExpression(query ast.ASTHandle) (lbool.LBool, error
 	}
 	if found {
 		f.lastQuery, f.hasLastQuery = decl, true
+	} else {
+		f.hasLastExpression = true
 	}
 	return status, nil
 }
@@ -86,6 +90,7 @@ func (f *APIFixedpoint) QueryExpressionFromLevel(query ast.ASTHandle, level uint
 		return lbool.Undef, err
 	}
 	f.hasLastQuery = false
+	f.hasLastExpression = false
 	declaration, found, err := f.nullaryRelation(query)
 	if err != nil {
 		return lbool.Undef, err
@@ -105,6 +110,7 @@ func (f *APIFixedpoint) QueryRelations(declarations []ast.ASTHandle) (lbool.LBoo
 		return lbool.Undef, err
 	}
 	f.hasLastQuery = false
+	f.hasLastExpression = false
 	status, err := f.command.QueryFixedpointRelationsWithParams(declarations, f.queryParameters())
 	if err == nil && len(declarations) == 1 {
 		f.lastQuery, f.hasLastQuery = declarations[0], true
