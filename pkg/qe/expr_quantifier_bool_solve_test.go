@@ -136,3 +136,54 @@ func TestExprQEBoolSolveCreatesUnitBranch(t *testing.T) {
 		t.Fatal("unit definition missing")
 	}
 }
+
+func TestExprQEBoolSolveRepeatsUntilFixedPoint(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	p := f.constant("solve-loop-p", f.boolean)
+	q := f.constant("solve-loop-q", f.boolean)
+	truth := f.own(m.MkTrue())
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{p, q})
+	fmMust(t, err)
+	defer func() { fmMust(t, ctx.Close()) }()
+	plugin, err := NewBoolPlugin(ctx)
+	fmMust(t, err)
+	defer func() { fmMust(t, plugin.Close()) }()
+	adapter, err := NewSolverNNFAdapter(ctx)
+	fmMust(t, err)
+	defer func() { fmMust(t, adapter.Close()) }()
+	nnf, err := NewQENNFNormalizer(m, adapter, adapter, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, nnf.Close()) }()
+	rw, err := rewriter.NewTheoryRewriter(m, f.r.config.Context, f.r.config.Globals, nil)
+	fmMust(t, err)
+	defer func() { fmMust(t, rw.Close()) }()
+	variables, err := newExprQEBranchVariables(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, variables.Close()) }()
+	fmMust(t, variables.add(q))
+	fmMust(t, variables.add(p))
+	root, err := newExprQETree(m, f.r.config, nil, truth)
+	fmMust(t, err)
+	defer func() { fmMust(t, root.Close()) }()
+	formula := f.own(m.MkAnd(p, q))
+	fmMust(t, root.initialize(formula))
+	fmMust(t, variables.consume(root))
+	root.atoms, err = NewBoolAtomIndex(m, []ast.ASTHandle{p, q}, nil)
+	fmMust(t, err)
+	leaf, err := solveExprQEBoolUnits(root, variables, plugin, f.r.config, rw, nnf)
+	fmMust(t, err)
+	if !root.isUnit() || !root.children[0].isUnit() || len(leaf.variables) != 0 {
+		t.Fatal("expected two successive unit eliminations")
+	}
+	result, err := m.RefGet(leaf.formula)
+	fmMust(t, err)
+	if !m.IsTrue(result) {
+		t.Fatal("expected the eliminated conjunction to simplify to true")
+	}
+	again, err := solveExprQEBoolUnits(leaf, variables, plugin, f.r.config, rw, nnf)
+	fmMust(t, err)
+	if again != leaf {
+		t.Fatal("fixed point produced another branch")
+	}
+}

@@ -118,3 +118,30 @@ func solveExprQEBool(node *exprQETree, variables *exprQEBranchVariables, plugin 
 	child, err = eliminateExprQETreeVariable(node, index, formula, definition, variables, config, rw, nnf)
 	return child, err == nil, err
 }
+
+// solveExprQEBoolUnits repeats the Boolean plugin's source solve pass until
+// no more variables can be eliminated. Each successful pass owns a new child.
+func solveExprQEBoolUnits(node *exprQETree, variables *exprQEBranchVariables, plugin *BoolPlugin, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (current *exprQETree, err error) {
+	current = node
+	for {
+		if current == nil || current.manager == nil || current.formula == (ast.ASTRef{}) {
+			return nil, ast.ErrASTHandle
+		}
+		formula, e := current.manager.RefGet(current.formula)
+		if e != nil {
+			return nil, e
+		}
+		conjs, e := NewConjunctionEnum(current.manager, formula)
+		if e != nil {
+			return nil, e
+		}
+		child, solved, solveErr := solveExprQEBool(current, variables, plugin, conjs, config, rw, nnf)
+		if e = errors.Join(solveErr, conjs.Close()); e != nil {
+			return nil, e
+		}
+		if !solved {
+			return current, nil
+		}
+		current = child
+	}
+}
