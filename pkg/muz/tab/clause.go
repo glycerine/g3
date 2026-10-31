@@ -18,6 +18,7 @@ type Clause struct {
 	predicates       []ast.ASTRef
 	numVars          uint32
 	index            uint32
+	sequence         uint32
 	closed           bool
 }
 

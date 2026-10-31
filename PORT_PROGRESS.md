@@ -1,3 +1,5 @@
+Tabulation subsumption search (2026-10-31 UTC): connected grounded goals, semantic matching, scoped substitution backtracking and solver validation, returning the matching clause sequence. Normal and checked tabulation package tests cover a failed predicate match followed by a successful alternative and solver cleanup. The counterexample cache and fixedpoint search loop remain unfinished.
+
 Tabulation subsumption validation (2026-10-31 UTC): substituted conditions and candidate constraints now pass through lightweight elimination and a scoped implication check against the query precondition. Normal and checked tabulation package tests cover valid and invalid implications and solver scope cleanup; the source counterexample-literal cache and matching search remain unfinished.
 
 Tabulation unfolding finalization (2026-10-31 UTC): added lightweight elimination of variables absent from clause predicates, rejection of false constraints, clause reduction and compaction of free-variable gaps. Normal and checked tabulation tests cover the complete unfolding path; proof-substitution extraction and search integration remain unfinished.
