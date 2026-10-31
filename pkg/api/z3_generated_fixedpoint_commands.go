@@ -27,7 +27,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		{520, "Z3_fixedpoint_get_reason_unknown"}, {521, "Z3_fixedpoint_update_rule"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
-		{533, "Z3_fixedpoint_to_string"},
+		{531, "Z3_fixedpoint_get_help"}, {532, "Z3_fixedpoint_get_param_descrs"}, {533, "Z3_fixedpoint_to_string"},
 		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
 	}
 	for _, entry := range entries {
@@ -256,6 +256,14 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		err = f.value.Push()
 	case 537:
 		err = f.value.Pop()
+	case 531:
+		_, err = f.value.ParameterHelp()
+	case 532:
+		value, e := f.value.ParameterDescriptions()
+		if e != nil {
+			return e
+		}
+		return storeReplayDescriptions(r, owner, value)
 	case 533:
 		queries, e := replayASTArray(r, owner, 2, 3)
 		if e != nil {

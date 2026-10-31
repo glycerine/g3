@@ -6107,7 +6107,8 @@
         "TestGeneratedParserReplayBenchmarkAndPersistentEvaluation",
         "TestGeneratedParserReplayReportsAndClearsError",
         "TestGeneratedParserReplayParsesBindingsAndFiles",
-        "TestGeneratedParserReplayRejectsUnsupportedBindingSymbol"
+        "TestGeneratedParserReplayRejectsUnsupportedBindingSymbol",
+        "TestGeneratedFixedpointReplayParameterDescriptions"
       ],
       "methods_audited": false,
       "ownership_audited": false,

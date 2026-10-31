@@ -1,3 +1,5 @@
+Generated fixedpoint parameter-description replay (2026-10-31 UTC): connected help and independently owned descriptor snapshots. Normal and checked tests verify catalog access after fixedpoint release; parameter updates and other generated commands remain unfinished.
+
 Generated SMT-LIB parse replay (2026-10-31 UTC): connected string and file parsing with string-named sort and declaration bindings. Normal and checked tests cover parsed bindings, malformed input and missing files; numeric and null binding symbols and complete diagnostic fidelity remain unfinished.
 
 Generated parser and error-state replay (2026-10-31 UTC): connected benchmark formatting, persistent SMT-LIB evaluation, parser-error retrieval and error-code commands. Normal and checked tests verify persistent assertions and error-state transitions; complete error-handler fidelity and other generated commands remain unfinished.
