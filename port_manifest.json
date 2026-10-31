@@ -107447,7 +107447,9 @@
         "pkg/qe/qe_array_plugin_full_solve.go",
         "pkg/qe/qe_array_plugin_full_solve_test.go",
         "pkg/qe/solver_context_owned_variable_test.go",
-        "pkg/qe/qe_array_plugin_select_test.go"
+        "pkg/qe/qe_array_plugin_select_test.go",
+        "pkg/qe/expr_quantifier_free_vars.go",
+        "pkg/qe/expr_quantifier_free_vars_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107463,7 +107465,8 @@
         "TestArrayPluginSolveDispatchesExplicitEquality",
         "TestArrayPluginSolveSkipsQuantifiedConjunct",
         "TestSolverContextOwnedVariableTransferAndSwap",
-        "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
+        "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula",
+        "TestExprQuantifierInstantiationAndAbstraction"
       ],
       "conditionals": [
         {
@@ -107737,6 +107740,14 @@
           "tests": [
             "TestSolverContextOwnedVariableTransferAndSwap",
             "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
+          ]
+        },
+        {
+          "name": "expr_quant_elim instantiate_expr/abstract_expr: free-variable fresh constants and de Bruijn restoration",
+          "status": "partial",
+          "go_target": "pkg/qe/expr_quantifier_free_vars.go",
+          "tests": [
+            "TestExprQuantifierInstantiationAndAbstraction"
           ]
         }
       ],
