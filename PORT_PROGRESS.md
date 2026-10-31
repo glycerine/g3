@@ -1,3 +1,5 @@
+The previously unstarted src/test/check_assumptions.cpp and src/test/smt_context.cpp regressions now exercise successive assumption and ordinary checks through the Go solver API.
+
 The previously unstarted src/test/expr_substitution.cpp regression now constructs the source bit-vector expressions and checks the normalized subtraction; its commented cyclic substitution remains unexecuted.
 
 The previously unstarted src/test/model_retrieval.cpp regression now exercises array model values across a second direct solver check. The generated as-array term triggers the native direct array theory incompleteness guard; the original model remains usable.

@@ -199985,20 +199985,37 @@
       "path": "src/test/check_assumptions.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_assumptions_cpp_test.go"
+      ],
+      "tests": [
+        "TestAPICPPAssumptionRegressions"
+      ],
       "assertions": [
         {
           "line": 41,
           "text": "VERIFY(res1 == l_true);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst_check_assumptions",
+          "status": "ported",
+          "go_target": "pkg/api/api_assumptions_cpp_test.go",
+          "tests": [
+            "TestAPICPPAssumptionRegressions"
+          ]
+        }
+      ],
+      "ownership": [
+        "The Go test pins formula ASTs and closes the solver and context through the fixture."
+      ],
+      "deviations": [
+        "The source ignores some check results; the Go test asserts their logical outcomes and verifies assumptions do not leak."
+      ]
     },
     {
       "path": "src/test/cnf_backbones.cpp",
@@ -209529,14 +209546,31 @@
       "path": "src/test/smt_context.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_assumptions_cpp_test.go"
+      ],
+      "tests": [
+        "TestAPICPPAssumptionRegressions"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst_smt_context",
+          "status": "ported",
+          "go_target": "pkg/api/api_assumptions_cpp_test.go",
+          "tests": [
+            "TestAPICPPAssumptionRegressions"
+          ]
+        }
+      ],
+      "ownership": [
+        "The Go test pins formula ASTs and closes the solver and context through the fixture."
+      ],
+      "deviations": [
+        "The source ignores some check results; the Go test asserts their logical outcomes and verifies assumptions do not leak."
+      ]
     },
     {
       "path": "src/test/smt_reader.h",
