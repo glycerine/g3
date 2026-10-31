@@ -1,3 +1,5 @@
+Duality fixedpoint interface start (2026-10-31 UTC): ported query-clause construction with universal closure, reverse numeric binder names and Bool sorts for variable gaps. Normal and checked tests cover sparse and ground queries; rule translation, RPFP dispatch and fixedpoint registration remain unfinished.
+
 Source reachability audit (2026-10-31 UTC): the Windows DLL entry point is a no-op and has no Go DLL counterpart. The SMT theory and proto-model factory specializations of plugin_manager already have concrete Go indexes and ownership lists; their remaining teardown and duplicate-registration differences are recorded as partial.
 
 QE-SAT variables (2026-10-31 UTC): added owned variables, occurrence helpers, formula refresh and source-ordered variable erasure. Normal and checked focused tests cover occurrence, erasure, bounds and polarity refresh; projection and tactic execution remain unfinished.

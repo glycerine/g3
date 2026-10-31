@@ -86180,9 +86180,9 @@
       "path": "src/muz/duality/duality_dl_interface.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/duality/query_clause.go", "pkg/muz/duality/query_clause_test.go"],
+      "tests": ["TestQueryClauseSparseAndGroundVariables"],
       "conditionals": [
         {
           "line": 44,
@@ -86267,7 +86267,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Source query-clause closure is started; rule translation, RPFP solver dispatch, answers and fixedpoint registration remain unfinished."]
     },
     {
       "path": "src/muz/duality/duality_dl_interface.h",
