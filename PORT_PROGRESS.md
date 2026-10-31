@@ -1,3 +1,5 @@
+Polynomial debug command start (2026-10-31 UTC): ported and registered the non-external to-poly command, including sum-of-monomials rendering, source denominator formatting and non-arithmetic refusal. The separate poly/factor and poly/isolate-roots commands remain unfinished.
+
 Z3 log frontend start (2026-10-31 UTC): ported the source stream replay and error, peak-memory and CPU-time reporting using the concrete Go replayer. Focused tests cover registered commands, log messages, parse failures and refused output. Generated API-command registration, filename selection and shell dispatch remain unfinished.
 
 Full native snapshot check (2026-10-31 UTC): the complete Go suite on clean snapshot 646617ff8 passed, with 106 packages passing and three packages reporting no test files. Later proof work has focused verification but is outside this checkpoint. Log: /tmp/g3-native-bmc-646617ff8.log.

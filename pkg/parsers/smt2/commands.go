@@ -976,6 +976,18 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "to-poly":
+		expression, _, err := p.expression()
+		if err != nil {
+			return false, err
+		}
+		if err = p.requireEnd(); err != nil {
+			return false, err
+		}
+		if err = p.context.WritePolynomial(p.out, expression); err != nil {
+			return false, err
+		}
+		success = false
 	case "simplify", "dbg-th-rewriter":
 		if err = p.simplifyCommand(); err != nil {
 			return false, err
