@@ -182059,6 +182059,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_integer_division.go",
+        "pkg/tactic/arith/qfnra_purify_integer_division_test.go",
+        "pkg/cmd/g3/test_vectors/qfufnra_integer_division.smt2",
         "pkg/tactic/arith/qfnra_purify_to_int.go",
         "pkg/tactic/arith/qfnra_purify_to_int_test.go",
         "pkg/cmd/g3/test_vectors/qfufnra_to_int.smt2",
@@ -182066,6 +182069,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestPurifyIntegerDivisionAndModConstraints",
+        "TestPurifyIntegerDivisionZeroGuardsAndModFirst",
+        "TestSMTLibRunnerScripts/qfufnra_integer_division.smt2",
         "TestPurifyToIntFloorConstraintsAndCachedProof",
         "TestSMTLibRunnerScripts/qfufnra_to_int.smt2",
         "TestQFNRAPurifyDivisionProofCoreAndModelFilter",
@@ -182127,6 +182133,13 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "integer division and modulus paired definitions, Euclidean bounds and zero-divisor constraints",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/qfnra_purify_integer_division.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_integer_division_test.go", "pkg/cmd/g3/main_test.go"],
+          "tests": ["TestPurifyIntegerDivisionAndModConstraints", "TestPurifyIntegerDivisionZeroGuardsAndModFirst", "TestSMTLibRunnerScripts/qfufnra_integer_division.smt2"]
+        },
+        {
           "name": "to_int fresh integer, floor constraints, cached definitions and proof premises",
           "status": "ported",
           "go_target": "pkg/tactic/arith/qfnra_purify_to_int.go",
@@ -182152,7 +182165,8 @@
         "The QF_NRA invocation owns cached source terms, fresh constants, definition proofs, constraints, and filter-model declarations until result publication."
       ],
       "deviations": [
-        "The QF_UFNRA consumer also reaches the general purifier. Integer div/mod, quantified purification and other general branches still require integration and source-fidelity audits; root-object and forward-trigonometric work has separate concrete implementations."
+        "When modulus occurs before division, the source builds its quotient proof using the modulus declaration and overwrites its cache entry. Go instead defines the quotient using integer division, shares both entries, and filters both fresh declarations, correcting the source proof premise and auxiliary-model leak.",
+        "The QF_UFNRA consumer also reaches the general purifier. Quantified purification and other general branches still require integration and source-fidelity audits; root-object and forward-trigonometric work has separate concrete implementations."
       ]
     },
     {

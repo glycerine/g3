@@ -20,6 +20,8 @@ import (
 
 const (
 	qfnraPurifyDiv     int32 = 10
+	qfnraPurifyIDiv    int32 = 11
+	qfnraPurifyMod     int32 = 13
 	qfnraPurifyToInt   int32 = 15
 	qfnraPurifyPower   int32 = 18
 	qfnraPurifyNegRoot int32 = 33
@@ -96,7 +98,7 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 		return rewriter.RewriteFailed, err
 	}
 	if (op == qfnraPurifyToInt && arguments.Count() != 1) ||
-		(op != qfnraPurifyToInt && (arguments.Count() != 2 || (op != qfnraPurifyDiv && op != qfnraPurifyPower))) {
+		(op != qfnraPurifyToInt && (arguments.Count() != 2 || (op != qfnraPurifyDiv && op != qfnraPurifyIDiv && op != qfnraPurifyMod && op != qfnraPurifyPower))) {
 		return rewriter.RewriteFailed, nil
 	}
 	args := make([]ast.ASTHandle, arguments.Count())
@@ -135,9 +137,27 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 			return rewriter.RewriteFailed, e
 		}
 	}
-	entry, err := i.newEntry(term)
+	definition := term
+	if op == qfnraPurifyMod {
+		// A modulus encountered first still needs a quotient definition.
+		// The source passes the modulus declaration as that definition,
+		// producing an invalid premise for its Euclidean constraint.
+		definition, err = m.MkFamilyApp(i.owner.arithmetic, qfnraPurifyIDiv, nil, args)
+		if err != nil {
+			return rewriter.RewriteFailed, err
+		}
+	}
+	entry, err := i.newEntry(definition)
 	if err != nil {
 		return rewriter.RewriteFailed, err
+	}
+	if op == qfnraPurifyIDiv || op == qfnraPurifyMod {
+		if err = i.processIntegerDivision(args[0], args[1], entry); err != nil {
+			return rewriter.RewriteFailed, err
+		}
+		// A modulus returns the cached remainder; a division returns its
+		// quotient. Both definitions remain available to later occurrences.
+		entry = i.cache[term]
 	}
 	fresh, err := m.RefGet(entry.fresh)
 	if err != nil {
@@ -155,7 +175,9 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 			return rewriter.RewriteFailed, e
 		}
 	}
-	if op == qfnraPurifyToInt {
+	if op == qfnraPurifyIDiv || op == qfnraPurifyMod {
+		return rewriter.RewriteDone, nil
+	} else if op == qfnraPurifyToInt {
 		err = i.processToInt(args[0], fresh, entry)
 	} else if op == qfnraPurifyDiv {
 		err = i.processDivision(args[0], args[1], fresh, entry)
@@ -267,7 +289,7 @@ func (t *qfnraPurifyTemps) close() (err error) {
 	return err
 }
 
-func (i *qfnraPurifyInvocation) addConstraint(constraint ast.ASTHandle, entry *qfnraPurifyEntry) (err error) {
+func (i *qfnraPurifyInvocation) addConstraint(constraint ast.ASTHandle, entries ...*qfnraPurifyEntry) (err error) {
 	m := i.owner.manager
 	ref, err := m.NewRef(constraint)
 	if err != nil {
@@ -275,11 +297,14 @@ func (i *qfnraPurifyInvocation) addConstraint(constraint ast.ASTHandle, entry *q
 	}
 	i.constraints = append(i.constraints, ref)
 	if i.proofs {
-		premise, e := m.RefGet(entry.proof)
-		if e != nil {
-			return e
+		premises := make([]ast.ASTHandle, len(entries))
+		for j, entry := range entries {
+			premises[j], err = m.RefGet(entry.proof)
+			if err != nil {
+				return err
+			}
 		}
-		proof, e := m.MkProofTheoryLemma(i.owner.arithmetic, constraint, []ast.ASTHandle{premise}, nil)
+		proof, e := m.MkProofTheoryLemma(i.owner.arithmetic, constraint, premises, nil)
 		if e != nil {
 			return e
 		}
