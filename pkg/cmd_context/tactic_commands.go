@@ -87,7 +87,11 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		}
 		return created, err
 	case "qe":
-		return qe.NewQuantifierTactic(m, nil, qe.Config{Context: c.config.Params, Globals: c.config.Globals, Cooperation: c.config.ModelEvaluator.Cooperation, Trace: c.config.ModelEvaluator.Trace})
+		created, err := qe.NewQuantifierTactic(m, nil, qe.Config{Context: c.config.Params, Globals: c.config.Globals, Cooperation: c.config.ModelEvaluator.Cooperation, Trace: c.config.ModelEvaluator.Trace})
+		if created == nil {
+			return nil, err
+		}
+		return created, err
 	case "qe-light":
 		created, err := qe.NewLiteTactic(m, nil, qe.Config{Context: c.config.Params, Globals: c.config.Globals, Cooperation: c.config.ModelEvaluator.Cooperation})
 		if created == nil {

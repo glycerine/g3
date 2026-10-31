@@ -107502,7 +107502,9 @@
         "pkg/qe/quantifier_tactic_bool_units_test.go",
         "pkg/qe/expr_quantifier_bool_search.go",
         "pkg/qe/expr_quantifier_bool_search_test.go",
-        "pkg/qe/expr_quantifier_bool_partition.go"
+        "pkg/qe/expr_quantifier_bool_partition.go",
+        "pkg/qe/quantifier_tactic_bool_recursive.go",
+        "pkg/qe/quantifier_tactic_bool_recursive_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107548,7 +107550,9 @@
         "TestExprQEBoolPopSolvesAndBlocksPath",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
         "TestExprQEBoolSearchMatchesBranchExpansion",
-        "TestQuantifierBoolIndependentPredicatePartitions"
+        "TestQuantifierBoolIndependentPredicatePartitions",
+        "TestRewriteQuantifierBoolPreservesOuterBindings",
+        "TestRewriteQuantifierBoolInsideApplication"
       ],
       "conditionals": [
         {
@@ -107865,7 +107869,9 @@
             "TestExprQEBoolPopSolvesAndBlocksPath",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
             "TestExprQEBoolSearchMatchesBranchExpansion",
-            "TestQuantifierBoolIndependentPredicatePartitions"
+            "TestQuantifierBoolIndependentPredicatePartitions",
+            "TestRewriteQuantifierBoolPreservesOuterBindings",
+            "TestRewriteQuantifierBoolInsideApplication"
           ]
         }
       ],
@@ -111105,7 +111111,11 @@
         "pkg/qe/quantifier_tactic.go",
         "pkg/qe/quantifier_tactic_test.go",
         "pkg/qe/quantifier_tactic_bool_units.go",
-        "pkg/qe/quantifier_tactic_bool_units_test.go"
+        "pkg/qe/quantifier_tactic_bool_units_test.go",
+        "pkg/qe/quantifier_tactic_bool_recursive.go",
+        "pkg/qe/quantifier_tactic_bool_recursive_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
         "TestQuantifierTacticNonlinearOptionSnapshot",
@@ -111113,6 +111123,8 @@
         "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
         "TestQuantifierTacticBooleanPredicateBranches",
         "TestQuantifierTacticUniversalIndependentPredicates",
+        "TestQuantifierTacticAlternatingBooleanQuantifiers",
+        "TestSMTLibRunnerBooleanQETactic",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "assertions": [
@@ -111132,18 +111144,23 @@
           "name": "quantifier tactic lifecycle, quantifier-free goals, and supported Boolean quantifiers",
           "status": "partial",
           "go_target": "pkg/qe/quantifier_tactic.go",
+          "go_targets": [
+            "pkg/cmd/g3/qe_boolean_integration_test.go"
+          ],
           "tests": [
             "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
             "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
             "TestQuantifierTacticBooleanPredicateBranches",
             "TestQuantifierTacticUniversalIndependentPredicates",
+            "TestQuantifierTacticAlternatingBooleanQuantifiers",
+            "TestSMTLibRunnerBooleanQETactic",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Single Boolean quantifiers support unit solving, solver-guided branches and independent partitions; nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
@@ -111156,13 +111173,19 @@
         "pkg/qe/quantifier_tactic_test.go",
         "pkg/qe/quantifier_tactic_options.go",
         "pkg/qe/quantifier_tactic_bool_units.go",
-        "pkg/qe/quantifier_tactic_bool_units_test.go"
+        "pkg/qe/quantifier_tactic_bool_units_test.go",
+        "pkg/qe/quantifier_tactic_bool_recursive.go",
+        "pkg/qe/quantifier_tactic_bool_recursive_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
         "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
         "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
         "TestQuantifierTacticBooleanPredicateBranches",
         "TestQuantifierTacticUniversalIndependentPredicates",
+        "TestQuantifierTacticAlternatingBooleanQuantifiers",
+        "TestSMTLibRunnerBooleanQETactic",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
@@ -111182,18 +111205,23 @@
           "name": "quantifier tactic lifecycle, quantifier-free goals, and supported Boolean quantifiers",
           "status": "partial",
           "go_target": "pkg/qe/quantifier_tactic.go",
+          "go_targets": [
+            "pkg/cmd/g3/qe_boolean_integration_test.go"
+          ],
           "tests": [
             "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
             "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
             "TestQuantifierTacticBooleanPredicateBranches",
             "TestQuantifierTacticUniversalIndependentPredicates",
+            "TestQuantifierTacticAlternatingBooleanQuantifiers",
+            "TestSMTLibRunnerBooleanQETactic",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Single Boolean quantifiers support unit solving, solver-guided branches and independent partitions; nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
