@@ -102,3 +102,64 @@ func TestQuantifierArithmeticSearchStrictBounds(t *testing.T) {
 		t.Fatal("real open interval differs from a positive bound")
 	}
 }
+
+func TestQuantifierArithmeticSearchTwoSymbolicBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name                 string
+		real, strict, forall bool
+	}{{"integer-closed", false, false, false}, {"integer-open", false, true, false}, {"real-closed", true, false, false}, {"real-open", true, true, false}, {"integer-universal", false, false, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := qsatKernelFixture(t)
+			m := f.r.manager
+			sort := f.integer
+			if tc.real {
+				sort = f.real
+			}
+			x := f.own(m.MkVar(0, sort))
+			lower := f.constant("two-bound-lower", sort)
+			upper := f.constant("two-bound-upper", sort)
+			var body, expected ast.ASTHandle
+			if tc.forall {
+				below := f.own(m.MkArithmeticLT(x, lower))
+				above := f.own(m.MkArithmeticGT(x, upper))
+				body = f.own(m.MkOr(below, above))
+				expected = f.own(m.MkArithmeticGT(lower, upper))
+			} else if tc.strict {
+				above := f.own(m.MkArithmeticGT(x, lower))
+				below := f.own(m.MkArithmeticLT(x, upper))
+				body = f.own(m.MkAnd(above, below))
+				if tc.real {
+					expected = f.own(m.MkArithmeticLT(lower, upper))
+				} else {
+					next := f.own(m.MkArithmeticAdd(lower, f.number("1")))
+					expected = f.own(m.MkArithmeticLT(next, upper))
+				}
+			} else {
+				above := f.own(m.MkArithmeticGE(x, lower))
+				below := f.own(m.MkArithmeticLE(x, upper))
+				body = f.own(m.MkAnd(above, below))
+				expected = f.own(m.MkArithmeticLE(lower, upper))
+			}
+			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.forall, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+			result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+			fmMust(t, err)
+			if !complete {
+				t.Fatal("two-symbolic-bound case was not eliminated")
+			}
+			defer func() { fmMust(t, m.DelRef(&result)) }()
+			value, err := m.RefGet(result)
+			fmMust(t, err)
+			iff := f.own(m.MkIff(value, expected))
+			different := f.own(m.MkNot(iff))
+			k := qsatKernelOwner(t, f)
+			solver, err := k.solver()
+			fmMust(t, err)
+			fmMust(t, solver.AssertFormula(different))
+			status, err := solver.CheckSat(nil)
+			fmMust(t, err)
+			if status != lbool.False {
+				t.Fatal("quantifier result differs from the symbolic bound condition")
+			}
+		})
+	}
+}
