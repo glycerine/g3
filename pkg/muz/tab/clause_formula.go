@@ -1,0 +1,128 @@
+package tab
+
+// Source: src/muz/tab/tab_context.cpp, clause get_body and to_formula.
+
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+)
+
+// Body returns an owning reference to the flattened predicate/constraint conjunction.
+func (c *Clause) Body() (result ast.ASTRef, err error) {
+	if c == nil || c.closed {
+		return result, ast.ErrASTHandle
+	}
+	m := c.manager
+	values, err := c.Predicates()
+	if err != nil {
+		return result, err
+	}
+	constraint, err := c.Constraint()
+	if err != nil {
+		return result, err
+	}
+	values = append(values, constraint)
+	values, err = m.FlattenAnd(values)
+	if err != nil {
+		return result, err
+	}
+	result, err = m.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	if err = rewriter.SimplifyBooleanGateDefault(m, ast.ASTOpAnd, values, result); err != nil {
+		return ast.ASTRef{}, errors.Join(err, m.DelRef(&result))
+	}
+	return result, nil
+}
+
+// Formula returns an owning reference to the universally closed Horn clause.
+func (c *Clause) Formula() (result ast.ASTRef, err error) {
+	if c == nil || c.closed {
+		return result, ast.ErrASTHandle
+	}
+	m := c.manager
+	result, err = c.Body()
+	if err != nil {
+		return result, err
+	}
+	owned := true
+	defer func() {
+		if err != nil && owned {
+			err = errors.Join(err, m.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
+	head, err := c.Head()
+	if err != nil {
+		return result, err
+	}
+	body, err := m.RefGet(result)
+	if err != nil {
+		return result, err
+	}
+	formula := head
+	if !m.IsTrue(body) {
+		formula, err = m.MkImplies(body, head)
+		if err != nil {
+			return result, err
+		}
+	}
+	if err = m.SetRef(result, formula); err != nil {
+		return result, err
+	}
+	fv, err := rewriter.NewExprFreeVars(m)
+	if err != nil {
+		return result, err
+	}
+	predicates, err := c.Predicates()
+	if err != nil {
+		return result, err
+	}
+	constraint, err := c.Constraint()
+	if err != nil {
+		return result, err
+	}
+	for _, h := range append(append([]ast.ASTHandle{head}, predicates...), constraint) {
+		if err = fv.Accumulate(h); err != nil {
+			return result, err
+		}
+	}
+	if fv.Size() != 0 {
+		sorts := make([]ast.ASTHandle, fv.Size())
+		names := make([]usymbol.Symbol, fv.Size())
+		fresh := model.NewFreshName(m)
+		if err = fresh.AddAST(formula); err != nil {
+			return result, err
+		}
+		for i := range sorts {
+			sorts[i], err = fv.Get(uint32(len(sorts) - 1 - i))
+			if err != nil {
+				return result, err
+			}
+			if sorts[i].IsNull() {
+				sorts[i], err = m.MkBoolSort()
+				if err != nil {
+					return result, err
+				}
+			}
+			names[i], err = fresh.Next()
+			if err != nil {
+				return result, err
+			}
+		}
+		formula, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: formula})
+		if err != nil {
+			return result, err
+		}
+		if err = m.SetRef(result, formula); err != nil {
+			return result, err
+		}
+	}
+	owned = false
+	return result, nil
+}

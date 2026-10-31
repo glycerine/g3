@@ -73,6 +73,14 @@ func TestClauseEqualityReduction(t *testing.T) {
 	if !m.IsTrue(condition) || c.NumVars() != 1 {
 		t.Fatal("constraint and original variable count", condition, c.NumVars())
 	}
+	formula, err := c.Formula()
+	must(err)
+	closed, err := m.RefGet(formula)
+	must(err)
+	if kind, e := m.GetKind(closed); e != nil || kind == ast.ASTQuantifier {
+		t.Fatal("reduced ground clause was unnecessarily quantified", kind, e)
+	}
+	must(m.DelRef(&formula))
 	must(c.Close())
 
 	// The source checks occurs-cycles before committing constructor bindings.

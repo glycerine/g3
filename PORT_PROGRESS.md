@@ -1,3 +1,5 @@
+Tabulation clause formulas (2026-10-31 UTC): clauses now expose their flattened body and universally closed Horn formula, using source fresh names and Boolean defaults for unused variable slots. Normal and checked tabulation package tests pass; clause search, subsumption and fixedpoint registration remain unfinished.
+
 Finite-domain dependency lifetime fix (2026-10-31 UTC): converted bounds now own their dependencies while original goal bounds are replaced. Normal and checked regressions cover the case where the goal is the sole previous owner of an explanation.
 
 Finite-domain tactic registration (2026-10-31 UTC): exposed eq2bv through the builtin tactic registry and exercised it from SMT-LIB with qfbv. SAT, reconstructed integer model and UNSAT results match the installed C++ Z3 for the test; normal and checked focused tests plus the full arithmetic-tactic, command-context and API packages pass. The source and ownership audit and optimizer-pipeline integration remain partial.

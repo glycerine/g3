@@ -97653,8 +97653,24 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/tab/matcher.go", "pkg/muz/tab/matcher_test.go", "pkg/muz/tab/clause.go", "pkg/muz/tab/clause_rule.go", "pkg/muz/tab/clause_index.go", "pkg/muz/tab/clause_test.go"],
-      "tests": ["TestSemanticMatcherRepeatedVariablesAndConditions", "TestSemanticMatcherDatatypeConstructors", "TestClauseEqualityReduction", "TestClauseDoesNotSubstituteUninterpretedTerms", "TestClauseFromRuleInterpretedTailAndGroundCount"],
+      "go_targets": [
+        "pkg/muz/tab/matcher.go",
+        "pkg/muz/tab/matcher_test.go",
+        "pkg/muz/tab/clause.go",
+        "pkg/muz/tab/clause_rule.go",
+        "pkg/muz/tab/clause_index.go",
+        "pkg/muz/tab/clause_test.go",
+        "pkg/muz/tab/clause_formula.go",
+        "pkg/muz/tab/clause_formula_test.go"
+      ],
+      "tests": [
+        "TestSemanticMatcherRepeatedVariablesAndConditions",
+        "TestSemanticMatcherDatatypeConstructors",
+        "TestClauseEqualityReduction",
+        "TestClauseDoesNotSubstituteUninterpretedTerms",
+        "TestClauseFromRuleInterpretedTailAndGroundCount",
+        "TestClauseFormulaClosesFreeVariablesAndAvoidsNames"
+      ],
       "assertions": [
         {
           "line": 384,
@@ -97719,9 +97735,21 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "clause get_body and to_formula",
+          "status": "ported",
+          "go_target": "pkg/muz/tab/clause_formula.go",
+          "tests": [
+            "TestClauseFormulaClosesFreeVariablesAndAvoidsNames",
+            "TestClauseEqualityReduction"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": ["The semantic matcher, clause equality reduction, rule conversion and predicate indexing are started; remaining clause operations, proof search, fixedpoint registration and other tabulation context behavior remain unfinished."]
+      "deviations": [
+        "The semantic matcher, clause equality reduction, rule conversion and predicate indexing are started; remaining clause operations, proof search, fixedpoint registration and other tabulation context behavior remain unfinished."
+      ]
     },
     {
       "path": "src/muz/tab/tab_context.h",
