@@ -1,3 +1,5 @@
+BMC nonlinear search (2026-10-31 UTC): added the source incremental level loop with guarded SMT queries and model production. A branching-rule test reaches its first model at level two and checks cancellation; trace reconstruction and fixedpoint registration remain pending.
+
 BMC nonlinear rule compilation (2026-10-31 UTC): added per-rule implications, head equality constraints, Skolem bindings and grouped level predicates. SMT-backed tests check level-zero versus level-one reachability, shared branch witnesses and repeated head variables; solving and fixedpoint registration remain pending.
 
 BMC quantified rule binding (2026-10-31 UTC): added source free-variable compaction, universally quantified formulas and head patterns. A focused test checks sparse variable indices, sorts and the generated pattern.
