@@ -230,7 +230,9 @@ func (c *Context) unifiedTraceConstraints(root *ModelNode, complete bool) (resul
 		if len(children) != uninterpreted {
 			return nil, fmt.Errorf("pdr: trace has %d children for %d uninterpreted tails: %w", len(children), uninterpreted, ast.ErrASTDomain)
 		}
-		for i := len(children) - 1; i >= 0; i-- {
+		// get_trace appends children in rule-tail order and pops the last
+		// child first. Keep its LIFO traversal and matching predicate pairing.
+		for i := 0; i < len(children); i++ {
 			work = append(work, traceObligation{node: children[i], predicate: appliedTails[i]})
 		}
 		iteration++

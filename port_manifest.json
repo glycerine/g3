@@ -84191,7 +84191,8 @@
         "pkg/muz/pdr/answer_trace.go",
         "pkg/muz/pdr/model_projection.go",
         "pkg/muz/pdr/model_search.go",
-        "pkg/muz/pdr/model_search_test.go"
+        "pkg/muz/pdr/model_search_test.go",
+        "pkg/cmd/g3/fixedpoint_trace_order_test.go"
       ],
       "tests": [
         "TestPredicateTransformerSignatureFramesAndReachability",
@@ -84230,7 +84231,8 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_untransformed_linear_trace.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_untransformed_nonlinear_trace.smt2",
         "TestModelSearchFrontierOrderingClosureAndOwnership",
-        "TestModelNodeRejectsInvalidParentLevel"
+        "TestModelNodeRejectsInvalidParentLevel",
+        "TestFixedpointPDRBranchingTraceSourceOrder"
       ],
       "assertions": [
         {
@@ -84439,8 +84441,19 @@
           "name": "default non-Boolean proof activation, common arithmetic tuning, DL/UTVPI/general backend classification before child solver construction, and selected-fragment term-ITE blasting after transition rewriting (pdr_context.cpp:1600-1690,1815-1843)",
           "status": "ported",
           "go_target": "pkg/muz/pdr/context.go",
-          "go_targets": ["pkg/muz/pdr/fragment.go", "pkg/muz/pdr/predicate_rules.go", "pkg/muz/pdr/smt_context_manager.go", "pkg/smtcore/smt_solver_arithmetic_state.go"],
-          "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestSMTSolverArithmeticStateOverrideSelectsBackendAndFreezesAtSetup", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_utvpi_fragment.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_general_arithmetic_fragment.smt2"]
+          "go_targets": [
+            "pkg/muz/pdr/fragment.go",
+            "pkg/muz/pdr/predicate_rules.go",
+            "pkg/muz/pdr/smt_context_manager.go",
+            "pkg/smtcore/smt_solver_arithmetic_state.go"
+          ],
+          "tests": [
+            "TestPDRDifferenceAndUTVPIFragmentClassification",
+            "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup",
+            "TestSMTSolverArithmeticStateOverrideSelectsBackendAndFreezesAtSetup",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_utvpi_fragment.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_general_arithmetic_fragment.smt2"
+          ]
         },
         {
           "name": "bounded tag-selected transition composition used as the narrow Go end-to-end integration path while native model_search is ported",
@@ -84507,35 +84520,76 @@
           "name": "unsuccessful-query direct-predicate inductive model and model-to-expression certificate construction (pdr_context.cpp:1864-1877,1945-1961,1989-1995; pdr_manager.cpp:57-122)",
           "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/parsers/smt2/commands.go"],
-          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMTContextFixedpointPDRLifecycle", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestSMT2FixedpointPDRPrintCertificate"]
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/parsers/smt2/commands.go"
+          ],
+          "tests": [
+            "TestContextSolveFindsInductiveUnreachablePredicate",
+            "TestPDREngineMatchesCPPIntegerHornQueries",
+            "TestSMTContextFixedpointPDRLifecycle",
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestSMT2FixedpointPDRPrintCertificate"
+          ]
         },
         {
           "name": "pred_transformer/context finite-level count, bound-variable cover insertion and exact finite/invariant cover-delta retrieval (pdr_context.cpp:359-412,1563-1594)",
           "status": "ported",
           "go_target": "pkg/muz/pdr/predicate_transformer.go",
-          "go_targets": ["pkg/muz/pdr/context_test.go", "pkg/api/api_fixedpoint_test.go"],
-          "tests": ["TestContextInitializesHornProgramAndAnswersInitialQueries", "TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": [
+            "pkg/muz/pdr/context_test.go",
+            "pkg/api/api_fixedpoint_test.go"
+          ],
+          "tests": [
+            "TestContextInitializesHornProgramAndAnswersInitialQueries",
+            "TestSMTContextFixedpointPDRLifecycle"
+          ]
         },
         {
           "name": "reverse-ledger model/cover converter application across slicing, cone filtering, subsumption, inlining, quantified arrays, scaling, Karr invariants and bit blasting, plus general linear rule/model trace unification",
           "status": "ported",
           "go_target": "pkg/muz/fp/spacer_slice_results.go",
-          "go_targets": ["pkg/muz/fp/horn_inline_results.go", "pkg/muz/pdr/answer_trace.go"],
-          "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers", "TestSMT2FixedpointPDRTraceReductionMatchesCPP"]
+          "go_targets": [
+            "pkg/muz/fp/horn_inline_results.go",
+            "pkg/muz/pdr/answer_trace.go"
+          ],
+          "tests": [
+            "TestHornModelConversionsReplayInReverseApplicationOrder",
+            "TestPDREngineExpandsSlicedModelsAndCovers",
+            "TestSMT2FixedpointPDRTraceReductionMatchesCPP"
+          ]
         },
         {
           "name": "per-node selected-rule proof reconstruction with two-bank rule unification, reduced Horn conclusions, source substitutions and nested hyper-resolution",
           "status": "ported",
           "go_target": "pkg/muz/pdr/proof_rule_reduction.go",
-          "go_targets": ["pkg/muz/pdr/proof_trace.go", "pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/api/api_fixedpoint.go"],
-          "tests": ["TestContextBoundedQueryTraversesTaggedHornChain", "TestSMTContextFixedpointPDRProofTrace"]
+          "go_targets": [
+            "pkg/muz/pdr/proof_trace.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/cmd_context/fixedpoint.go",
+            "pkg/api/api_fixedpoint.go"
+          ],
+          "tests": [
+            "TestContextBoundedQueryTraversesTaggedHornChain",
+            "TestSMTContextFixedpointPDRProofTrace"
+          ]
         },
         {
           "name": "pred_transformer, model_node, model_search and context stream renderers reached only by TRACE/IF_VERBOSE; live certificate display is ported separately",
           "status": "reference_only",
           "go_target": null,
           "tests": []
+        },
+        {
+          "name": "model_search::get_trace appends child nodes and paired predicates in ascending rule-tail order before LIFO traversal",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/answer_trace.go",
+          "go_targets": [
+            "pkg/cmd/g3/fixedpoint_trace_order_test.go"
+          ],
+          "tests": [
+            "TestFixedpointPDRBranchingTraceSourceOrder"
+          ]
         }
       ],
       "ownership": [
