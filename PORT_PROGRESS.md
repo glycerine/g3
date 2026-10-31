@@ -1,3 +1,5 @@
+External relation transforms (2026-10-31 UTC): implemented project and rename through typed reduction callbacks and source Datalog operator construction, including source signature permutation and validation. Tests cover callback dispatch, fallback expressions and invalid column lists.
+
 External relation source start (2026-10-31 UTC): added typed reduction callbacks, relation creation, store, emptiness, cloning, complement and formula access with source callback fallback. The source Datalog select guard rejects selection before callbacks; tests record that limitation. Fixedpoint registration, callback trail lifetime, relational transforms and full failure audit remain pending.
 
 Finite/interval symbolic fact insertion (2026-10-31 UTC): replaced numeral-only insertion with the source full interval and interpreted-equality construction, allowing symbolic arithmetic facts to produce the same conservative abstraction. A checked regression verifies widening from a singleton after a symbolic fact.

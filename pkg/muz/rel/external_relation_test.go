@@ -98,3 +98,52 @@ func TestExternalRelationFallbackAndFormula(t *testing.T) {
 		t.Fatal("fallback complement formula", op, err)
 	}
 }
+
+func TestExternalRelationProjectAndRename(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	real, err := f.ast.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	var operations []int32
+	callbacks := ExternalRelationCallbacks{Reduce: func(decl ast.ASTHandle, args []ast.ASTHandle) (ast.ASTHandle, error) {
+		op, err := f.ast.GetDeclKind(decl)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		operations = append(operations, op)
+		return ast.ASTHandle{}, nil
+	}}
+	r, err := NewExternalRelation(f.relations, []ast.ASTHandle{f.boolean, integer, real}, callbacks)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, r.Close()) }()
+	projected, err := r.Project([]uint32{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	projectSorts, err := projected.Sorts()
+	astTestMust(t, err)
+	if len(projectSorts) != 2 || projectSorts[0] != f.boolean || projectSorts[1] != real {
+		t.Fatal("projected signature", projectSorts)
+	}
+	renamed, err := r.Rename([]uint32{0, 1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, renamed.Close()) }()
+	renameSorts, err := renamed.Sorts()
+	astTestMust(t, err)
+	if len(renameSorts) != 3 || renameSorts[0] != integer || renameSorts[1] != real || renameSorts[2] != f.boolean {
+		t.Fatal("renamed signature", renameSorts)
+	}
+	if len(operations) != 2 || operations[0] != ast.DatalogOpProject || operations[1] != ast.DatalogOpRename {
+		t.Fatal("reduction operations", operations)
+	}
+	for _, invalid := range [][]uint32{nil, {1, 1}, {3}} {
+		if _, err := r.Project(invalid); err == nil {
+			t.Fatalf("accepted projection %v", invalid)
+		}
+	}
+	if _, err := r.Rename([]uint32{0, 0}); err == nil {
+		t.Fatal("accepted duplicate cycle")
+	}
+}
