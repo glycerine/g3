@@ -1,0 +1,43 @@
+package arith
+
+import (
+	"testing"
+
+	"github.com/glycerine/g3/pkg/tactic"
+)
+
+func TestDegreeShiftTacticApply(t *testing.T) {
+	for _, proofs := range []bool{false, true} {
+		t.Run(map[bool]string{false: "without_proofs", true: "with_proofs"}[proofs], func(t *testing.T) {
+			base, m := fixDLFixture(t, proofs)
+			x := fixDLConst(t, m, false, "tactic-x")
+			power := fixDLApp(t, m, 18, x, fixDLNumber(t, m, false, "2"))
+			form, err := m.MkEq(power, fixDLNumber(t, m, false, "4"))
+			equationMust(t, err)
+			fixDLPin(t, m, form)
+			goal := fixDLGoal(t, m, proofs, true, false, form)
+			shift, err := NewDegreeShiftTactic(m, base.services)
+			equationMust(t, err)
+			defer func() { equationMust(t, shift.Close()) }()
+			var out tactic.TacticResult
+			defer func() { equationMust(t, out.Close()) }()
+			equationMust(t, shift.Apply(goal, &out))
+			size, err := goal.Size()
+			equationMust(t, err)
+			if size != 2 || out.ModelConverter == nil {
+				t.Fatalf("got %d formulas and model converter %v", size, out.ModelConverter != nil)
+			}
+			for i := uint32(0); i < size && proofs; i++ {
+				f, e := goal.Form(i)
+				equationMust(t, e)
+				proof, e := goal.Proof(i)
+				equationMust(t, e)
+				fact, e := m.GetProofFact(proof)
+				equationMust(t, e)
+				if fact != f {
+					t.Fatal("goal proof has wrong fact")
+				}
+			}
+		})
+	}
+}
