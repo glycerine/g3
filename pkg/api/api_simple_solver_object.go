@@ -2,12 +2,18 @@ package api
 
 // Source: src/api/api_solver.cpp:65-73,249-262; src/api/api_solver.h.
 
-import "github.com/glycerine/g3/pkg/solver"
+import (
+	"github.com/glycerine/g3/pkg/solver"
+	uparams "github.com/glycerine/g3/pkg/util/params"
+)
 
 type APISimpleSolver struct {
-	owner  *smtContextState
-	solver solver.Solver
-	closed bool
+	owner           *smtContextState
+	solver          solver.Solver
+	explicitContext *uparams.ParamsContext
+	explicitParams  uparams.ParamsRef
+	explicitReady   bool
+	closed          bool
 }
 
 func (c *SMTContext) NewSimpleSolver() (*APISimpleSolver, error) {
@@ -35,6 +41,13 @@ func (s *APISimpleSolver) Close() error {
 	}
 	if s.solver == nil {
 		return ErrSMTContextOwner
+	}
+	if s.explicitReady {
+		if err := s.explicitContext.Del(&s.explicitParams); err != nil {
+			return err
+		}
+		s.explicitReady = false
+		s.explicitContext = nil
 	}
 	if err := s.solver.Close(); err != nil {
 		return err

@@ -7811,6 +7811,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPISolverTranslationUsesExplicitParameterSnapshot",
         "TestSMTContextTypedParameterCatalog",
         "TestSMTContextTypedParametersValidateCatalogAndOwner",
         "TestSMTContextEndToEndModelScopesAndAssumptions",

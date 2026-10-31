@@ -67,12 +67,32 @@ func (s *APISimpleSolver) SetParameters(parameters *ParameterSet) (resultErr err
 		return err
 	}
 	name := "model"
+	oldModels := true
+	if s.explicitReady {
+		oldModels, err = parameters.params.GetBoolName(&s.explicitParams, &name, true)
+		if err != nil {
+			return err
+		}
+	}
 	models, err := parameters.params.GetBoolName(&parameters.value, &name, true)
 	if err != nil {
 		return err
 	}
-	if err = s.solver.SetProduceModels(models); err != nil {
+	if oldModels != models {
+		if err = s.solver.SetProduceModels(models); err != nil {
+			return err
+		}
+	}
+	if err = s.solver.UpdateParams(&merged); err != nil {
 		return err
 	}
-	return s.solver.UpdateParams(&merged)
+	if !s.explicitReady {
+		s.explicitParams, err = parameters.params.NewValue()
+		if err != nil {
+			return err
+		}
+		s.explicitContext = parameters.params
+		s.explicitReady = true
+	}
+	return parameters.params.Append(&s.explicitParams, &parameters.value)
 }

@@ -40,6 +40,10 @@ func TestAPISimpleSolverParameterDescriptionsAndApplication(t *testing.T) {
 	if relevancy, e := overlay.params.GetUIntName(current, &name, 0); e != nil || relevancy != 1 {
 		t.Fatal("preserved parameter", relevancy, e)
 	}
+	name = "relevancy"
+	if relevancy, e := overlay.params.GetUIntName(&s.explicitParams, &name, 0); e != nil || relevancy != 1 {
+		t.Fatal("explicit parameter overlay", relevancy, e)
+	}
 	if status, e := s.Check(); e != nil || status != lbool.True {
 		t.Fatal("check", status, e)
 	}

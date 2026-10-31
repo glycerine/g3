@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 // Translate copies solver state into target. Cross-context translation supports direct SMT, finite-domain, strategic, and
@@ -34,11 +35,12 @@ func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver
 	if err != nil {
 		return nil, err
 	}
-	params, err := s.solver.Params()
-	if err != nil {
-		return nil, err
+	var translatedParams uparams.ParamsRef
+	if s.explicitReady {
+		translatedParams, err = sourceGlobals.Context.TranslateTo(&s.explicitParams, config.Params)
+	} else {
+		translatedParams, err = config.Params.NewValue()
 	}
-	translatedParams, err := sourceGlobals.Context.TranslateTo(params, config.Params)
 	if err != nil {
 		return nil, err
 	}

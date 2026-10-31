@@ -819,3 +819,53 @@ func TestAPISubsystemProbeTacticCrossContextTranslation(t *testing.T) {
 		})
 	}
 }
+
+func TestAPISolverTranslationUsesExplicitParameterSnapshot(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	third, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, third.Close()) }()
+	s, err := source.NewSimpleSolver()
+	astTestMust(t, err)
+	p, err := source.NewParameterSet()
+	astTestMust(t, err)
+	astTestMust(t, p.SetUInt("random_seed", 17))
+	astTestMust(t, s.SetParameters(p))
+	astTestMust(t, p.SetUInt("random_seed", 99))
+	astTestMust(t, s.solver.UpdateParams(&p.value))
+	astTestMust(t, p.Close())
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, s.Close())
+	astTestMust(t, source.Close())
+	globals, err := target.command.GlobalParameters()
+	astTestMust(t, err)
+	backend, err := translated.solver.Params()
+	astTestMust(t, err)
+	name := "random_seed"
+	seed, err := globals.Context.GetUIntName(backend, &name, 0)
+	astTestMust(t, err)
+	if seed != 17 {
+		t.Fatalf("translated backend seed = %d, want explicit 17", seed)
+	}
+	if translated.explicitReady {
+		t.Fatal("translated API solver inherited explicit parameter set")
+	}
+	again, err := translated.Translate(third)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, again.Close()) }()
+	globals, err = third.command.GlobalParameters()
+	astTestMust(t, err)
+	backend, err = again.solver.Params()
+	astTestMust(t, err)
+	seed, err = globals.Context.GetUIntName(backend, &name, 0)
+	astTestMust(t, err)
+	if seed != 0 {
+		t.Fatalf("second translation seed = %d, want default 0", seed)
+	}
+}
