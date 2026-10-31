@@ -1,3 +1,5 @@
+Tabulation predicate query (2026-10-31 UTC): connected the search to concrete Datalog rule sets and exposed a predicate query that returns an owned reachability proof or true for an unreachable query. Normal and checked tabulation package tests cover both outcomes after search cleanup. Public fixedpoint selection, compound query handling and the source counterexample cache remain unfinished.
+
 Tabulation proof replay (2026-10-31 UTC): successful search paths now replay rule applications and assemble hyper-resolution proofs using owned substitutions and the replacement proof converter. Normal and checked tabulation tests verify a two-step proof and its final fact. Counterexample caching, broader proof cases and public fixedpoint integration remain unfinished.
 
 Tabulation proof substitutions (2026-10-31 UTC): unfolding can preserve its two variable-bank substitution and compacted renaming, then extract owned per-rule substitutions for proof replay. Normal and checked tabulation tests verify both banks agree with the finalized clause; proof assembly and fixedpoint integration remain unfinished.
