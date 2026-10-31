@@ -50,7 +50,19 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	group, err := e.set.PredicateRules(declaration)
+	// BMC uses the same default Horn transformations and optional slicing as
+	// Spacer before it selects the linear or nonlinear compiler.
+	preprocessed, err := e.preprocessHornRules(declaration, true, true)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
+	rules := preprocessed.rules
+	declaration, err = rules.DerivedPredicate(declaration)
+	if err != nil {
+		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed BMC query: %w", err)
+	}
+	group, err := rules.PredicateRules(declaration)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -63,7 +75,7 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	if len(group) == 0 {
 		return lbool.False, nil
 	}
-	linear, err := bmc.IsLinear(e.set)
+	linear, err := bmc.IsLinear(rules)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -109,9 +121,9 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	defer func() { resultErr = errors.Join(resultErr, compiler.Close()) }()
 	var level uint32
 	if linear {
-		status, level, err = compiler.SearchLinear(e.set, declaration, solver, depth)
+		status, level, err = compiler.SearchLinear(rules, declaration, solver, depth)
 	} else {
-		status, level, err = compiler.SearchNonlinear(e.set, declaration, solver)
+		status, level, err = compiler.SearchNonlinear(rules, declaration, solver)
 	}
 	if err != nil || status != lbool.True {
 		return status, err
@@ -125,7 +137,7 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
 	if linear {
-		e.bmcTrace, err = compiler.LinearTrace(e.set, declaration, level, md)
+		e.bmcTrace, err = compiler.LinearTrace(rules, declaration, level, md)
 	} else {
 		cooperation, e2 := cooperate.NewCooperation(e.manager.Budget())
 		if e2 != nil {
@@ -133,7 +145,7 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 		}
 		defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
 		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
-		e.bmcTrace, err = compiler.NonlinearTrace(e.set, declaration, level, md, services)
+		e.bmcTrace, err = compiler.NonlinearTrace(rules, declaration, level, md, services)
 	}
 	if err != nil {
 		return lbool.Undef, err

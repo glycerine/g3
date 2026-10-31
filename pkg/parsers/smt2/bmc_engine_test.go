@@ -13,6 +13,8 @@ func TestSMT2BMCEngineSearch(t *testing.T) {
 	for _, tc := range []struct{ name, options, rules, want string }{
 		{"linear", "", "(rule A)(rule (=> A G))", "sat\n"},
 		{"bounded", "(set-option :fixedpoint.bmc.linear_unrolling_depth 0)", "(rule A)(rule (=> A G))", "unknown\n"},
+		{"bounded-after-inlining", "(set-option :fixedpoint.bmc.linear_unrolling_depth 1)", "(rule A)(rule (=> A G))", "sat\n"},
+		{"bounded-without-inlining", "(set-option :fixedpoint.bmc.linear_unrolling_depth 1)(set-option :fixedpoint.xform.inline_eager false)(set-option :fixedpoint.xform.inline_linear false)", "(rule A)(rule (=> A G))", "sat\n"},
 		{"nonlinear", "", "(rule A)(rule B)(rule (=> (and A B) G))", "sat\n"},
 		{"no-rules", "", "", "unsat\n"},
 	} {
