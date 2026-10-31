@@ -109858,7 +109858,8 @@
         "TestNLArithmeticLiteralAnalysisComparisonsAndDegreePolicy",
         "TestNonlinearArithmeticPluginEndToEndBranchesAssignSubstitute",
         "TestNonlinearArithmeticPluginClassificationAndModelMode",
-        "TestNLCreateBranchesDeclinesNonRealTargets"
+        "TestNLCreateBranchesDeclinesNonRealTargets",
+        "TestNLArithmeticExtractTraversesQuantifierBody"
       ],
       "conditionals": [
         {
@@ -109963,13 +109964,15 @@
         "pkg/qe/nlarith_branch_builder.go",
         "pkg/qe/nlarith_extract.go",
         "pkg/qe/nlarith_analysis_test.go",
-        "pkg/qe/nlarith_create_branches_test.go"
+        "pkg/qe/nlarith_create_branches_test.go",
+        "pkg/qe/nlarith_extract_test.go"
       ],
       "tests": [
         "TestNLBranchConditionsOwnResetAndReuse",
         "TestNLArithmeticExtractNonlinearTraversalAndWeightCache",
         "TestNLCreateQuadraticBranchesSubstitutionShapeAndOwnership",
-        "TestNLCreateBranchesDeclinesNonRealTargets"
+        "TestNLCreateBranchesDeclinesNonRealTargets",
+        "TestNLArithmeticExtractTraversesQuantifierBody"
       ],
       "conditionals": [
         {

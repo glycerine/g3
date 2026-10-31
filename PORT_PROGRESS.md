@@ -1,3 +1,5 @@
+Nonlinear variable extraction under quantifiers (2026-10-31 UTC): traversal now follows quantified bodies while finding free nonlinear real constants. Normal and checked tests verify source discovery order; the remaining whole-unit lifetime audit is still pending.
+
 Nonlinear branch target guard (2026-10-31 UTC): non-real targets are declined without error, matching the source utility. Normal and checked tests cover Boolean and integer targets; source search found no external consumers of the separate sign-branch API, while full lifetime audit remains pending.
 
 Z3 log frontend file-open diagnostics (2026-10-31 UTC): missing log files now emit the native stderr message and exit with ERR_OPEN_FILE (108). Normal and checked subprocess tests verify the diagnostic, status and empty stdout; reusable shell Runner dispatch remains unfinished.

@@ -69,6 +69,14 @@ func (u *NonlinearArithmeticUtil) ExtractNonlinear(root ast.ASTHandle) ([]ast.AS
 		if err != nil {
 			return nil, err
 		}
+		if kind == ast.ASTQuantifier {
+			body, cause := u.manager.GetQuantifierBody(w.h)
+			if cause != nil {
+				return nil, cause
+			}
+			todo = append(todo, work{body, w.nonlinear})
+			continue
+		}
 		if kind != ast.ASTApp {
 			continue
 		}
