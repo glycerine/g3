@@ -63,6 +63,14 @@ func TestExplanationTransformerTransfersFiniteFacts(t *testing.T) {
 	if name != "fact" {
 		t.Fatal("fact explanation symbol", name)
 	}
+	joined, err := product.Join(product, []int{0}, []int{0})
+	astTestMust(t, err)
+	row, found, err := joined.ExplanationRow([]ast.ASTHandle{f.truth, f.truth})
+	astTestMust(t, err)
+	if !found || len(row) != 2 || row[0] != explanation || row[1] != explanation {
+		t.Fatal("transferred fact join", row, found)
+	}
+	astTestMust(t, joined.Close())
 	_, found, err = product.Explanation([]ast.ASTHandle{f.falsehood})
 	astTestMust(t, err)
 	if found {

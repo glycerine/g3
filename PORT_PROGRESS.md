@@ -1,3 +1,5 @@
+Explanation transfer integration (2026-10-31 UTC): a transformed finite fact now feeds the concrete product join in a focused normal and checked regression, preserving both fact explanations. Fixedpoint engine registration remains unfinished.
+
 Fact explanation finite filters (2026-10-31 UTC): equal-value and identical-column filters now preserve explanations on surviving finite keys. Normal and checked tests cover both filters and invalid columns; general column interleaving and Datalog registration remain unfinished.
 
 Fact explanation renaming (2026-10-31 UTC): finite-column cycles now preserve the associated explanation rows. Normal and checked tests cover mixed sorts, source preservation and invalid cycles; Datalog registration and general column interleaving remain unfinished.
