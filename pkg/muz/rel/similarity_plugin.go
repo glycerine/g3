@@ -15,7 +15,10 @@ import (
 type FiniteSimilarityCompressor struct {
 	self      *FiniteSimilarityCompressor
 	context   *base.DatalogContext
+	rules     *base.RuleManager
 	relations *RelationManager
+	fresh     []ast.ASTHandle
+	protected map[ast.ASTHandle]bool
 	threshold uint32
 	closed    bool
 }
@@ -34,16 +37,48 @@ func NewFiniteSimilarityCompressor(context *base.DatalogContext, relations *Rela
 	if relations.manager != m {
 		return nil, ast.ErrASTDomain
 	}
-	p := &FiniteSimilarityCompressor{context: context, relations: relations, threshold: threshold}
+	rm, e := context.RuleManager()
+	if e != nil {
+		return nil, e
+	}
+	p := &FiniteSimilarityCompressor{context: context, rules: rm, relations: relations, threshold: threshold}
 	p.self = p
 	return p, nil
+}
+
+// NewFiniteSimilarityCompressorForRules binds the finite relational engine's
+// concrete rule manager directly; the relation manager owns generated facts.
+func NewFiniteSimilarityCompressorForRules(rules *base.RuleManager, relations *RelationManager, threshold uint32, outputs []ast.ASTHandle) (*FiniteSimilarityCompressor, error) {
+	if rules == nil || relations == nil || threshold <= 1 {
+		return nil, ast.ErrASTDomain
+	}
+	if err := relations.open(); err != nil {
+		return nil, err
+	}
+	p := &FiniteSimilarityCompressor{rules: rules, relations: relations, threshold: threshold}
+	p.protected = make(map[ast.ASTHandle]bool, len(outputs))
+	for _, output := range outputs {
+		p.protected[output] = true
+	}
+	p.self = p
+	return p, nil
+}
+
+// FreshPredicates returns borrowed declarations owned by the relation manager.
+func (p *FiniteSimilarityCompressor) FreshPredicates() []ast.ASTHandle {
+	if p == nil {
+		return nil
+	}
+	return append([]ast.ASTHandle(nil), p.fresh...)
 }
 func (p *FiniteSimilarityCompressor) open() error {
 	if p == nil || p.self != p || p.closed {
 		return ast.ErrASTHandle
 	}
-	if _, e := p.context.Manager(); e != nil {
-		return e
+	if p.context != nil {
+		if _, e := p.context.Manager(); e != nil {
+			return e
+		}
 	}
 	return p.relations.open()
 }
@@ -69,10 +104,7 @@ func (p *FiniteSimilarityCompressor) Transform(source *base.RuleSet) (result *ba
 	if e != nil {
 		return nil, e
 	}
-	rm, e := p.context.RuleManager()
-	if e != nil {
-		return nil, e
-	}
+	rm := p.rules
 	if sourceRM != rm {
 		return nil, ast.ErrASTDomain
 	}
@@ -97,7 +129,7 @@ func (p *FiniteSimilarityCompressor) Transform(source *base.RuleSet) (result *ba
 		}
 		rules = append(rules, r)
 	}
-	classes, changed, e := similarityClasses(source, rules, p.threshold)
+	classes, changed, e := similarityClassesExcept(source, rules, p.threshold, p.protected)
 	if e != nil {
 		return nil, e
 	}
@@ -116,10 +148,11 @@ func (p *FiniteSimilarityCompressor) Transform(source *base.RuleSet) (result *ba
 	}
 	for _, class := range classes {
 		if class.merge {
-			_, merged, e := similarityMergeFinite(p.context, p.relations, class)
+			aux, merged, e := similarityMergeFiniteCore(p.context, rm, p.relations, class)
 			if e != nil {
 				return result, e
 			}
+			p.fresh = append(p.fresh, aux)
 			e = result.Add(merged)
 			e = errors.Join(e, merged.Close())
 			if e != nil {

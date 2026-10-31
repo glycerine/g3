@@ -90471,7 +90471,10 @@
         "pkg/muz/rel/similarity_merge_finite.go",
         "pkg/muz/rel/similarity_merge_finite_test.go",
         "pkg/muz/rel/similarity_plugin.go",
-        "pkg/muz/rel/similarity_plugin_test.go"
+        "pkg/muz/rel/similarity_plugin_test.go",
+        "pkg/muz/fp/datalog_similarity.go",
+        "pkg/muz/fp/datalog_similarity_test.go",
+        "pkg/muz/fp/propositional_engine.go"
       ],
       "tests": [
         "TestSimilarityRuleComparisons",
@@ -90480,7 +90483,10 @@
         "TestSimilarityRewriteRuleAndAuxiliaryRows",
         "TestSimilarityMergeFinitePublishesFactsAndRule",
         "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
-        "TestFiniteSimilarityCompressorTransformerAndExecution"
+        "TestFiniteSimilarityCompressorTransformerAndExecution",
+        "TestDatalogSimilarityLiveQuery",
+        "TestDatalogSimilarityQueryParameterControls",
+        "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
       ],
       "conditionals": [
         {
@@ -90628,6 +90634,23 @@
             "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
             "TestFiniteSimilarityCompressorTransformerAndExecution"
           ]
+        },
+        {
+          "name": "rel_context finite Datalog similarity registration and query-local parameter/output selection",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/datalog_similarity.go",
+          "go_targets": [
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_test.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/rel/similarity_plugin.go",
+            "pkg/muz/rel/similarity_merge_finite.go"
+          ],
+          "tests": [
+            "TestDatalogSimilarityLiveQuery",
+            "TestDatalogSimilarityQueryParameterControls",
+            "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+          ]
         }
       ],
       "ownership": [
@@ -90636,7 +90659,8 @@
         "The transform borrows the Datalog and relation contexts; relation manager owns the published auxiliary table, generated predicate is owned by the Datalog context, and the returned rule set owns generated rules."
       ],
       "deviations": [
-        "Pending: general non-finite relation support, source fresh-predicate origin metadata, automatic plugin registration, diagnostics and allocation/failure-frontier audit. Finite transform reports unsupported domains explicitly before predicate creation."
+        "Pending: general non-finite relation support, source fresh-predicate origin metadata, diagnostics and allocation/failure-frontier audit. Finite transform reports unsupported domains explicitly before predicate creation.",
+        "Finite Datalog query hook is live; general non-finite relation support, query-scope restoration and fresh-predicate origin metadata remain open."
       ]
     },
     {
@@ -90648,12 +90672,18 @@
         "pkg/muz/rel/similarity_merge_finite.go",
         "pkg/muz/rel/similarity_merge_finite_test.go",
         "pkg/muz/rel/similarity_plugin.go",
-        "pkg/muz/rel/similarity_plugin_test.go"
+        "pkg/muz/rel/similarity_plugin_test.go",
+        "pkg/muz/fp/datalog_similarity.go",
+        "pkg/muz/fp/datalog_similarity_test.go",
+        "pkg/muz/fp/propositional_engine.go"
       ],
       "tests": [
         "TestSimilarityMergeFinitePublishesFactsAndRule",
         "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
-        "TestFiniteSimilarityCompressorTransformerAndExecution"
+        "TestFiniteSimilarityCompressorTransformerAndExecution",
+        "TestDatalogSimilarityLiveQuery",
+        "TestDatalogSimilarityQueryParameterControls",
+        "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
       ],
       "conditionals": [
         {
@@ -90683,13 +90713,31 @@
             "TestSimilarityMergeFiniteRejectsInfiniteDomainBeforeRegistration",
             "TestFiniteSimilarityCompressorTransformerAndExecution"
           ]
+        },
+        {
+          "name": "rel_context finite Datalog similarity registration and query-local parameter/output selection",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/datalog_similarity.go",
+          "go_targets": [
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_test.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/rel/similarity_plugin.go",
+            "pkg/muz/rel/similarity_merge_finite.go"
+          ],
+          "tests": [
+            "TestDatalogSimilarityLiveQuery",
+            "TestDatalogSimilarityQueryParameterControls",
+            "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+          ]
         }
       ],
       "ownership": [
         "The transform borrows the Datalog and relation contexts; relation manager owns the published auxiliary table, generated predicate is owned by the Datalog context, and the returned rule set owns generated rules."
       ],
       "deviations": [
-        "Pending: general non-finite relation support, source fresh-predicate origin metadata, automatic plugin registration, diagnostics and allocation/failure-frontier audit. Finite transform reports unsupported domains explicitly before predicate creation."
+        "Pending: general non-finite relation support, source fresh-predicate origin metadata, diagnostics and allocation/failure-frontier audit. Finite transform reports unsupported domains explicitly before predicate creation.",
+        "Finite Datalog query hook is live; general non-finite relation support, query-scope restoration and fresh-predicate origin metadata remain open."
       ]
     },
     {
@@ -92322,8 +92370,28 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/query_magic_sets.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/query_clone.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_magic_sets_test.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/muz/fp/datalog_profile_test.go", "pkg/muz/rel/relation_manager.go"],
-      "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate", "TestPropositionalEngineExecutesStratifiedNegation", "TestDatalogProfileCountsRulesRelationsTuplesAndCompiler"],
+      "go_targets": [
+        "pkg/muz/fp/query_magic_sets.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/query_clone.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/query_magic_sets_test.go",
+        "pkg/muz/fp/propositional_engine_test.go",
+        "pkg/muz/fp/datalog_profile_test.go",
+        "pkg/muz/rel/relation_manager.go",
+        "pkg/muz/fp/datalog_similarity.go",
+        "pkg/muz/fp/datalog_similarity_test.go",
+        "pkg/muz/rel/similarity_plugin.go",
+        "pkg/muz/rel/similarity_merge_finite.go"
+      ],
+      "tests": [
+        "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
+        "TestPropositionalEngineExecutesStratifiedNegation",
+        "TestDatalogProfileCountsRulesRelationsTuplesAndCompiler",
+        "TestDatalogSimilarityLiveQuery",
+        "TestDatalogSimilarityQueryParameterControls",
+        "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+      ],
       "conditionals": [
         {
           "line": 260,
@@ -92375,9 +92443,50 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "Scoped expression query magic-set pass with configured parameter lookup and filter-before-simple-join prerequisite; remaining relational query orchestration is unported", "status": "partial", "go_target": "pkg/muz/fp/query_magic_sets.go", "tests": ["TestQueryMagicSetsRunsForSyntheticQueryPredicate"]},
-        {"name": "Reset saturation marks and negation-dependent tables before compiled or interpreted query execution", "status": "partial", "go_target": "pkg/muz/fp/propositional_engine.go", "go_targets": ["pkg/muz/rel/relation_manager.go"], "tests": ["TestPropositionalEngineExecutesStratifiedNegation"]},
-        {"name": "Collect saturation time, compiled instruction statistics, and execution-context counters", "status": "partial", "go_target": "pkg/muz/fp/propositional_engine.go", "tests": ["TestDatalogProfileCountsRulesRelationsTuplesAndCompiler"]}
+        {
+          "name": "Scoped expression query magic-set pass with configured parameter lookup and filter-before-simple-join prerequisite; remaining relational query orchestration is unported",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/query_magic_sets.go",
+          "tests": [
+            "TestQueryMagicSetsRunsForSyntheticQueryPredicate"
+          ]
+        },
+        {
+          "name": "Reset saturation marks and negation-dependent tables before compiled or interpreted query execution",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/propositional_engine.go",
+          "go_targets": [
+            "pkg/muz/rel/relation_manager.go"
+          ],
+          "tests": [
+            "TestPropositionalEngineExecutesStratifiedNegation"
+          ]
+        },
+        {
+          "name": "Collect saturation time, compiled instruction statistics, and execution-context counters",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/propositional_engine.go",
+          "tests": [
+            "TestDatalogProfileCountsRulesRelationsTuplesAndCompiler"
+          ]
+        },
+        {
+          "name": "rel_context finite Datalog similarity registration and query-local parameter/output selection",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/datalog_similarity.go",
+          "go_targets": [
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_test.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/rel/similarity_plugin.go",
+            "pkg/muz/rel/similarity_merge_finite.go"
+          ],
+          "tests": [
+            "TestDatalogSimilarityLiveQuery",
+            "TestDatalogSimilarityQueryParameterControls",
+            "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+          ]
+        }
       ],
       "ownership": [],
       "deviations": []
@@ -92386,9 +92495,19 @@
       "path": "src/muz/rel/rel_context.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/fp/datalog_similarity.go",
+        "pkg/muz/fp/datalog_similarity_test.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/rel/similarity_plugin.go",
+        "pkg/muz/rel/similarity_merge_finite.go"
+      ],
+      "tests": [
+        "TestDatalogSimilarityLiveQuery",
+        "TestDatalogSimilarityQueryParameterControls",
+        "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -92401,9 +92520,29 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "rel_context finite Datalog similarity registration and query-local parameter/output selection",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/datalog_similarity.go",
+          "go_targets": [
+            "pkg/muz/fp/datalog_similarity.go",
+            "pkg/muz/fp/datalog_similarity_test.go",
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/muz/rel/similarity_plugin.go",
+            "pkg/muz/rel/similarity_merge_finite.go"
+          ],
+          "tests": [
+            "TestDatalogSimilarityLiveQuery",
+            "TestDatalogSimilarityQueryParameterControls",
+            "TestDatalogSimilarityKeepsQueriedOutputUnmerged"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Partial rel_context query/transform declaration coverage; remaining context operations, full ownership and source audit are open."
+      ]
     },
     {
       "path": "src/muz/rel/tbv.cpp",

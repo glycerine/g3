@@ -1633,6 +1633,15 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err = e.normalizeSimpleJoins(); err != nil {
 		return lbool.Undef, err
 	}
+	// Clear old query marks before transformations can publish saturated
+	// auxiliary relations for this query.
+	if err = e.relations.ResetSaturatedMarks(); err != nil {
+		return lbool.Undef, err
+	}
+	if err = e.applyDatalogSimilarity(declarations); err != nil {
+		return lbool.Undef, err
+	}
+
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
@@ -1642,9 +1651,6 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		}
 	}
 	e.datalogStats.Reset()
-	if err = e.relations.ResetSaturatedMarks(); err != nil {
-		return lbool.Undef, err
-	}
 	// rel_context::query resets negation-dependent tables before choosing and
 	// running the relational saturation implementation. Keep this outside the
 	// direct evaluator so compiled and interpreted execution see the same state.

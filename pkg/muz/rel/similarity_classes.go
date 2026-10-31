@@ -19,6 +19,10 @@ type similarityClass struct {
 // source comparator order; rules within each group are copied as borrowed
 // pointers. It does not create facts or mutate the source rule set.
 func similarityClasses(source *base.RuleSet, input []*base.Rule, threshold uint32) (classes []similarityClass, duplicates bool, err error) {
+	return similarityClassesExcept(source, input, threshold, nil)
+}
+
+func similarityClassesExcept(source *base.RuleSet, input []*base.Rule, threshold uint32, protected map[ast.ASTHandle]bool) (classes []similarityClass, duplicates bool, err error) {
 	if source == nil {
 		return nil, false, base.ErrRuleSetOwner
 	}
@@ -86,7 +90,7 @@ func similarityClasses(source *base.RuleSet, input []*base.Rule, threshold uint3
 			return nil, false, e
 		}
 		class := similarityClass{rules: group}
-		if len(positions) > 0 && !output && uint64(len(group)) > uint64(threshold) {
+		if len(positions) > 0 && !output && !protected[head] && uint64(len(group)) > uint64(threshold) {
 			class.constants, e = similarityVaryingConstants(group)
 			if e != nil {
 				return nil, false, e
