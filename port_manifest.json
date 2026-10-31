@@ -107514,7 +107514,8 @@
         "pkg/qe/conjunction_enum_regression_test.go",
         "pkg/qe/quantifier_tactic_arith_search.go",
         "pkg/qe/quantifier_tactic_arith_search_test.go",
-        "pkg/qe/expr_quantifier_arith_search_test.go"
+        "pkg/qe/expr_quantifier_arith_search_test.go",
+        "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107569,7 +107570,8 @@
         "TestQuantifierMixedBooleanArithmeticGroups",
         "TestQuantifierArithmeticClosedInequality",
         "TestQuantifierArithmeticSearchTwoSymbolicBounds",
-        "TestExprQEArithmeticSearchRetestsPropagation"
+        "TestExprQEArithmeticSearchRetestsPropagation",
+        "TestQuantifierBitVectorSearch"
       ],
       "conditionals": [
         {
@@ -107896,7 +107898,8 @@
             "TestQuantifierMixedBooleanArithmeticGroups",
             "TestQuantifierArithmeticClosedInequality",
             "TestQuantifierArithmeticSearchTwoSymbolicBounds",
-            "TestExprQEArithmeticSearchRetestsPropagation"
+            "TestExprQEArithmeticSearchRetestsPropagation",
+            "TestQuantifierBitVectorSearch"
           ]
         }
       ],
@@ -108288,8 +108291,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/arithmetic_qe_term.go", "pkg/qe/arithmetic_qe_relation.go", "pkg/qe/arithmetic_qe_construct.go", "pkg/qe/arithmetic_qe_bound.go", "pkg/qe/arithmetic_qe_divisibility.go", "pkg/qe/arithmetic_qe_bounds.go", "pkg/qe/arithmetic_qe_bounds_relations.go", "pkg/qe/arithmetic_qe_bounds_divides.go", "pkg/qe/arithmetic_qe_nested_divides.go", "pkg/qe/arithmetic_qe_substitution.go", "pkg/qe/arithmetic_qe_branch_key.go", "pkg/qe/arithmetic_qe_branch_formula.go", "pkg/qe/arithmetic_qe_branch_cache.go", "pkg/qe/arithmetic_qe_resolve.go", "pkg/qe/arithmetic_qe_atom.go", "pkg/qe/qe_arithmetic_plugin.go", "pkg/qe/qe_arithmetic_plugin_cache.go", "pkg/qe/qe_arithmetic_plugin_prepare.go", "pkg/qe/qe_arithmetic_plugin_policy.go", "pkg/qe/qe_arithmetic_plugin_branch.go", "pkg/qe/qe_arithmetic_plugin_result.go", "pkg/qe/qe_arithmetic_plugin_constraints.go", "pkg/qe/qe_arithmetic_plugin_classify.go", "pkg/qe/qe_arithmetic_plugin_definition.go", "pkg/qe/qe_arithmetic_plugin_rewrite.go", "pkg/qe/qe_arithmetic_plugin_assign.go", "pkg/qe/qe_arithmetic_plugin_substitute.go", "pkg/qe/arithmetic_qe_term_test.go", "pkg/qe/arithmetic_qe_bounds_test.go", "pkg/qe/arithmetic_qe_substitution_test.go", "pkg/qe/arithmetic_qe_resolve_test.go", "pkg/qe/qe_arithmetic_plugin_policy_test.go", "pkg/qe/qe_arithmetic_plugin_assign_test.go", "pkg/qe/qe_arithmetic_plugin_classify_test.go"],
-      "tests": ["TestArithmeticQE", "TestArithmeticPlugin"],
+      "go_targets": ["pkg/qe/arithmetic_qe_term.go", "pkg/qe/arithmetic_qe_relation.go", "pkg/qe/arithmetic_qe_construct.go", "pkg/qe/arithmetic_qe_bound.go", "pkg/qe/arithmetic_qe_divisibility.go", "pkg/qe/arithmetic_qe_bounds.go", "pkg/qe/arithmetic_qe_bounds_relations.go", "pkg/qe/arithmetic_qe_bounds_divides.go", "pkg/qe/arithmetic_qe_nested_divides.go", "pkg/qe/arithmetic_qe_substitution.go", "pkg/qe/arithmetic_qe_branch_key.go", "pkg/qe/arithmetic_qe_branch_formula.go", "pkg/qe/arithmetic_qe_branch_cache.go", "pkg/qe/arithmetic_qe_resolve.go", "pkg/qe/arithmetic_qe_resolve_cooper.go", "pkg/qe/arithmetic_qe_resolve_cooper_test.go", "pkg/qe/arithmetic_qe_atom.go", "pkg/qe/qe_arithmetic_plugin.go", "pkg/qe/qe_arithmetic_plugin_cache.go", "pkg/qe/qe_arithmetic_plugin_prepare.go", "pkg/qe/qe_arithmetic_plugin_policy.go", "pkg/qe/qe_arithmetic_plugin_branch.go", "pkg/qe/qe_arithmetic_plugin_result.go", "pkg/qe/qe_arithmetic_plugin_constraints.go", "pkg/qe/qe_arithmetic_plugin_classify.go", "pkg/qe/qe_arithmetic_plugin_definition.go", "pkg/qe/qe_arithmetic_plugin_rewrite.go", "pkg/qe/qe_arithmetic_plugin_assign.go", "pkg/qe/qe_arithmetic_plugin_substitute.go", "pkg/qe/arithmetic_qe_term_test.go", "pkg/qe/arithmetic_qe_bounds_test.go", "pkg/qe/arithmetic_qe_substitution_test.go", "pkg/qe/arithmetic_qe_resolve_test.go", "pkg/qe/qe_arithmetic_plugin_policy_test.go", "pkg/qe/qe_arithmetic_plugin_assign_test.go", "pkg/qe/qe_arithmetic_plugin_classify_test.go"],
+      "tests": ["TestArithmeticQEResolveUnitRealAndIntegerGate", "TestArithmeticQECooperResolutionMatchesSolver", "TestArithmeticPluginFiniteAssignSubstituteAndDefinition", "TestArithmeticPluginClassificationWeightAndClose"],
       "assertions": [
         {
           "line": 317,
@@ -111145,6 +111148,7 @@
         "pkg/qe/quantifier_tactic_arith_closed_test.go",
         "pkg/qe/quantifier_tactic_arith_search.go",
         "pkg/qe/quantifier_tactic_arith_search_test.go",
+        "pkg/qe/quantifier_tactic_bv_search_test.go",
         "pkg/qe/quantifier_tactic_mixed.go",
         "pkg/qe/quantifier_tactic_mixed_test.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -111169,6 +111173,10 @@
         "TestQuantifierArithmeticSearchTwoSymbolicBounds",
         "TestSMTLibRunnerQESymbolicIntegerBounds",
         "TestSMTLibRunnerQESymbolicRealBounds",
+        "TestQuantifierBitVectorSearch",
+        "TestQuantifierTacticSymbolicDivisibility",
+        "TestSMTLibRunnerQEBitVectorQuantifier",
+        "TestSMTLibRunnerQESymbolicDivisibility",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "assertions": [
@@ -111209,13 +111217,17 @@
             "TestQuantifierArithmeticSearchTwoSymbolicBounds",
             "TestSMTLibRunnerQESymbolicIntegerBounds",
             "TestSMTLibRunnerQESymbolicRealBounds",
+            "TestQuantifierBitVectorSearch",
+            "TestQuantifierTacticSymbolicDivisibility",
+            "TestSMTLibRunnerQEBitVectorQuantifier",
+            "TestSMTLibRunnerQESymbolicDivisibility",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities, bit-vector quantifiers and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
@@ -111237,6 +111249,7 @@
         "pkg/qe/quantifier_tactic_arith_closed_test.go",
         "pkg/qe/quantifier_tactic_arith_search.go",
         "pkg/qe/quantifier_tactic_arith_search_test.go",
+        "pkg/qe/quantifier_tactic_bv_search_test.go",
         "pkg/qe/quantifier_tactic_mixed.go",
         "pkg/qe/quantifier_tactic_mixed_test.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -111260,6 +111273,10 @@
         "TestQuantifierArithmeticSearchTwoSymbolicBounds",
         "TestSMTLibRunnerQESymbolicIntegerBounds",
         "TestSMTLibRunnerQESymbolicRealBounds",
+        "TestQuantifierBitVectorSearch",
+        "TestQuantifierTacticSymbolicDivisibility",
+        "TestSMTLibRunnerQEBitVectorQuantifier",
+        "TestSMTLibRunnerQESymbolicDivisibility",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
@@ -111300,13 +111317,17 @@
             "TestQuantifierArithmeticSearchTwoSymbolicBounds",
             "TestSMTLibRunnerQESymbolicIntegerBounds",
             "TestSMTLibRunnerQESymbolicRealBounds",
+            "TestQuantifierBitVectorSearch",
+            "TestQuantifierTacticSymbolicDivisibility",
+            "TestSMTLibRunnerQEBitVectorQuantifier",
+            "TestSMTLibRunnerQESymbolicDivisibility",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities, bit-vector quantifiers and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
