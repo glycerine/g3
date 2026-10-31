@@ -200153,9 +200153,9 @@
       "path": "src/test/cnf_backbones.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/sat/cnf_backbones_cpp_driver_test.go"],
+      "tests": ["TestCNFBackbonesSourceConsequences"],
       "conditionals": [
         {
           "line": 41,
@@ -200170,7 +200170,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The ordinary DIMACS consequence mode is checked on a concrete formula. The separate test-driver chunking algorithm, clause tracking, command-line and statistics paths remain open; the SAT solver's internal chunking returns conflict-core literals and is not equivalent to the driver's backbone output."]
     },
     {
       "path": "src/test/datalog_parser.cpp",
