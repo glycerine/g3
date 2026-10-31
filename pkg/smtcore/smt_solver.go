@@ -38,6 +38,8 @@ type smtSolverObjective struct {
 	term     ast.ASTRef
 	theory   smtArithmeticObjectiveTheory
 	variable SMTTheoryVar
+	saved    SMTArithmeticObjectiveValue
+	valid    bool
 }
 
 // SMTSolver exposes the retained SMT kernel through solver.Solver. The result
@@ -375,7 +377,12 @@ func (s *SMTSolver) AcquireModel() (*model.ModelCore, error) {
 	}
 	var md *model.ModelCore
 	var err error
-	if s.result != nil {
+	if s.optimization != nil {
+		md = s.kernel.GeneratedModel()
+		if md != nil {
+			err = md.IncRef()
+		}
+	} else if s.result != nil {
 		md, err = s.result.AcquireModel()
 	}
 	if err != nil || s.optimization == nil {
@@ -1016,6 +1023,17 @@ func (s *SMTSolver) Close() error {
 	if s.optimization != nil {
 		if err := s.optimization.parameters.CloseHelpers(); err != nil {
 			return errors.Join(result, err)
+		}
+	}
+	if s.optimization != nil {
+		for i, md := range s.optimization.models {
+			if md == nil {
+				continue
+			}
+			if err := md.DecRef(); err != nil {
+				return errors.Join(result, err)
+			}
+			s.optimization.models[i] = nil
 		}
 	}
 	if s.optimization != nil && s.optimization.model != nil {

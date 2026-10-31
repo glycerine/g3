@@ -15,6 +15,7 @@ type smtOptimizationSolverState struct {
 	first          bool
 	wasUnknown     bool
 	model          *model.ModelCore
+	models         []*model.ModelCore
 	dumpBenchmarks bool
 	parameters     uparams.ModuleParamsOwner
 }

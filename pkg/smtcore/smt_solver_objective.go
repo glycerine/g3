@@ -90,7 +90,12 @@ func (s *SMTSolver) AddObjective(term ast.ASTHandle) (uint32, error) {
 		return 0, err
 	}
 	index := uint32(len(s.objectives))
-	s.objectives = append(s.objectives, smtSolverObjective{term: ref, theory: theory, variable: variable})
+	entry := smtSolverObjective{term: ref, theory: theory, variable: variable, valid: true}
+	entry.saved.Finite.Infinity.SetInt64(-1)
+	s.objectives = append(s.objectives, entry)
+	if s.optimization != nil {
+		s.optimization.models = append(s.optimization.models, nil)
+	}
 	return index, nil
 }
 

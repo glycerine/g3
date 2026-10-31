@@ -309,18 +309,11 @@ func (s *ArithmeticSolver) optimizeArithmetic(index int, result *ArithmeticResul
 			}
 			break
 		}
-		value, blocker, shared, err := s.backend.MaximizeObjective(s.objectives[index].backendIndex)
+		value, blockerRef, err := s.backend.MaximizeOptimizationObjective(s.objectives[index].backendIndex, s.filter)
 		if err != nil {
 			return lbool.Undef, false, err
 		}
-		blockerRef, err := s.manager.NewRef(blocker)
-		if err != nil {
-			return lbool.Undef, false, err
-		}
-		updated, updateErr := s.backend.UpdateModel(shared)
-		if updateErr == nil && updated {
-			updateErr = s.replaceModel(result)
-		}
+		updateErr := s.replaceModel(result)
 		if updateErr != nil {
 			return lbool.Undef, false, errors.Join(updateErr, s.manager.DelRef(&blockerRef))
 		}

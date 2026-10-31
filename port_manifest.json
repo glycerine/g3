@@ -102273,7 +102273,10 @@
         "pkg/smtcore/smt_solver_optimization_benchmark.go",
         "pkg/smtcore/smt_solver_optimization_benchmark_test.go",
         "pkg/smtcore/smt_solver_optimization_trace.go",
-        "pkg/smtcore/smt_solver_optimization_trace_test.go"
+        "pkg/smtcore/smt_solver_optimization_trace_test.go",
+        "pkg/smtcore/smt_solver_optimization_objective.go",
+        "pkg/smtcore/smt_solver_optimization_objective_test.go",
+        "pkg/opt/arithmetic_solver_shared_repair_external_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102305,7 +102308,11 @@
         "TestOptimizationSolverContextTraceFailureStillEvaluatesOperands",
         "TestOptimizationSolverContextTraceErasesDisabledAndOrdinaryOperands",
         "TestOptimizationSolverContextTraceReleasesFormatDocuments",
-        "TestOptimizationSolverTraceExpressionUsesGlobalPrinterProfile"
+        "TestOptimizationSolverTraceExpressionUsesGlobalPrinterProfile",
+        "TestOptimizationObjectiveSharedRepairDecrementsRealOrInteger",
+        "TestOptimizationObjectiveUnsharedRefreshAndSavedOwnership",
+        "TestOptimizationObjectiveSatisfiableRepairUsesKernelModelWithoutDump",
+        "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum"
       ],
       "assertions": [
         {
@@ -102456,6 +102463,25 @@
             "TestOptimizationSolverContextTraceReleasesFormatDocuments",
             "TestOptimizationSolverTraceExpressionUsesGlobalPrinterProfile"
           ]
+        },
+        {
+          "name": "maximize_objective/set_model/decrement_value core: capture current model, save per-objective models/value/validity, refinalize shared assignments, scope a direct kernel bound recheck, decrement integer/real values on failed repair, and connect live arithmetic caller (opt_solver.cpp:226-286,342-363); diagnostics and remaining failure/changed-value audit remain open",
+          "status": "partial",
+          "go_targets": [
+            "pkg/smtcore/smt_solver.go",
+            "pkg/smtcore/smt_solver_objective.go",
+            "pkg/smtcore/smt_solver_optimization.go",
+            "pkg/smtcore/smt_solver_optimization_objective.go",
+            "pkg/smtcore/smt_solver_optimization_objective_test.go",
+            "pkg/opt/arithmetic_solver.go",
+            "pkg/opt/arithmetic_solver_shared_repair_external_test.go"
+          ],
+          "tests": [
+            "TestOptimizationObjectiveSharedRepairDecrementsRealOrInteger",
+            "TestOptimizationObjectiveUnsharedRefreshAndSavedOwnership",
+            "TestOptimizationObjectiveSatisfiableRepairUsesKernelModelWithoutDump",
+            "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum"
+          ]
         }
       ],
       "ownership": [
@@ -102463,7 +102489,8 @@
         "The optimization-specific solver state owns an independent cached model reference. Successful nonempty get_model replaces that reference; empty current results acquire the previous cache without changing it. Caller references survive replacement and solver teardown. Ordinary SMT construction retains its existing result/status policy. The arithmetic optimizer uses the concrete optimization constructor and restores sticky quantifier uncertainty at the result boundary.",
         "Source relevance writes update the internal fparams state plus the kernel/internalizer/service snapshots. Caller params remain unchanged; the relevance change is outside assertion scopes and survives kernel assertion refusal. A zero-to-enabled transition schedules root relevance repair for previously internalized assertions.",
         "The concrete optimization solver embeds one ModuleParamsOwner for reached lexical opt/pp generated helpers. Failed helper construction/destruction remains owned until CloseHelpers succeeds before parent parameter services close. Benchmark files are Go os.File owners closed on both printer success and failure; I/O badbit is ignored without suppressing printer operands. Source stopwatch measures the actual check and completed serialization, with no clock reads while dumping is disabled.",
-        "Pre-check trace expression printing owns a format-document reference and numeric text stream through each lexical render. Failed trace output suppresses subsequent writes but not later operand evaluation. Operand failures stop before benchmark creation, first-check publication or kernel search. Expression traversal and layout both read source global pp defaults; the numeric BV radix toggle is covered independently."
+        "Pre-check trace expression printing owns a format-document reference and numeric text stream through each lexical render. Failed trace output suppresses subsequent writes but not later operand evaluation. Operand failures stop before benchmark creation, first-check publication or kernel search. Expression traversal and layout both read source global pp defaults; the numeric BV radix toggle is covered independently.",
+        "Full objective maximization owns its blocker reference across model refresh and repair; callers receive that independent AST reference. Saved objective values are cloned and per-objective models own independent references released during solver destruction. Optimization model retrieval reads the kernel directly before falling back to its cache, so a direct decrement recheck can save its new model before PopCore clears it. Repair scopes pop on success and Go error. ResetObjectives leaves the separately owned saved-model slots, matching the source model vector."
       ],
       "deviations": [
         "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
