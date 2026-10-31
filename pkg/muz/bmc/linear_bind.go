@@ -102,7 +102,7 @@ func (c *Compiler) linearRuleBindings(rule *base.Rule, predicate ast.ASTHandle, 
 }
 
 // LinearModelBindings extracts the source rule-variable substitution from a
-// winning linear BMC model. Uninterpreted constants are left as bound
+// winning linear BMC model. Constants without interpretations become bound
 // variables. The caller owns each nonempty returned reference.
 func (c *Compiler) LinearModelBindings(rule *base.Rule, ruleIndex, level uint32, md *model.ModelCore) (result []ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || rule == nil || md == nil || md.Manager() != c.manager {

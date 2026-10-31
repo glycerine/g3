@@ -96,8 +96,9 @@ func (u *RuleUnifier) RuleSubstitution(rule *base.Rule, isTarget bool) ([]ast.AS
 	return refs, err
 }
 
-// ResolveRaw applies the current unifier and removes duplicate tails. The
-// source normalization and interpreted-tail simplification are separate.
+// ResolveRaw applies the current unifier, removes duplicate tails, and
+// normalizes variables. Unbound-variable processing and interpreted-tail
+// simplification are separate.
 func (u *RuleUnifier) ResolveRaw(rules *base.RuleManager, target *base.Rule, tailIndex int, source *base.Rule) (_ *base.Rule, resultErr error) {
 	if u == nil || u.manager == nil || !u.ready || rules == nil || target == nil || source == nil {
 		return nil, ast.ErrASTHandle

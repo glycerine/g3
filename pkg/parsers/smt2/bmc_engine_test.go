@@ -66,3 +66,51 @@ func TestSMT2BMCCertificate(t *testing.T) {
 		t.Fatalf("BMC certificates = %q", got)
 	}
 }
+
+func TestSMT2BMCRecursiveCertificate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	script := `(set-option :fixedpoint.engine bmc)
+(set-option :fixedpoint.bmc.linear_unrolling_depth 8)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-logic HORN)
+(declare-rel P (Int))
+(declare-rel G ())
+(declare-var x Int)
+(rule (P 0))
+(rule (=> (and (P x) (< x 3)) (P (+ x 1))))
+(rule (=> (P 3) G))
+(query G :print-certificate true)`
+	// Expected output comes from the installed C++ Z3 reference.
+	want := `sat
+(let ((a!1 ((_ hyper-res 0 1)
+             (asserted (=> G query!0))
+             (asserted (=> (P 3) G))
+             (=> (P 3) query!0)))
+      (a!2 (forall ((A Int) (B Int))
+             (=> (and (P B) (not (<= 3 B)) (= A (+ 1 B))) (P A)))))
+(let ((a!3 (hyper-res (hyper-res a!1 (asserted a!2) (=> (P 2) query!0))
+                      (asserted a!2)
+                      (=> (P 1) query!0))))
+  ((_ hyper-res 0 1)
+    (hyper-res a!3 (asserted a!2) (=> (P 0) query!0))
+    (asserted (P 0))
+    query!0)))
+
+`
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != want {
+		t.Fatalf("recursive BMC certificate:\n%s\nwant:\n%s", got, want)
+	}
+}
