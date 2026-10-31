@@ -284,3 +284,41 @@ func TestFiniteIntervalProductFilterIdentical(t *testing.T) {
 		t.Fatal("mismatched sorts accepted")
 	}
 }
+
+func TestFiniteIntervalProductRename(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	num := func(text string) ast.ASTHandle {
+		value, e := f.ast.ArithmeticIntegerNumeralText(text)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, value)
+		return value
+	}
+	one, two, three := num("1"), num("2"), num("3")
+	product, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	astTestMust(t, product.AddFact([]ast.ASTHandle{f.truth, one, two}))
+	renamed, err := product.Rename([]uint32{0, 1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, renamed.Close()) }()
+	if found, err := renamed.ContainsFact([]ast.ASTHandle{one, two, f.truth}); err != nil || !found {
+		t.Fatal("rename across finite and interval columns", found, err)
+	}
+	intervals, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{integer, integer, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, intervals.Close()) }()
+	astTestMust(t, intervals.AddFact([]ast.ASTHandle{one, two, three}))
+	rotated, err := intervals.Rename([]uint32{0, 1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rotated.Close()) }()
+	if found, err := rotated.ContainsFact([]ast.ASTHandle{three, one, two}); err != nil || !found {
+		t.Fatal("source inner permutation cycle", found, err)
+	}
+	if _, err := product.Rename([]uint32{0, 0}); err == nil {
+		t.Fatal("duplicate cycle column accepted")
+	}
+}

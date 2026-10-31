@@ -521,6 +521,110 @@ func (p *FiniteIntervalProduct) Project(removed []uint32) (_ *FiniteIntervalProd
 	return result, nil
 }
 
+// Rename rotates the global signature and applies the corresponding table
+// and inner permutations, including cycles that cross the two column kinds.
+func (p *FiniteIntervalProduct) Rename(cycle []uint32) (_ *FiniteIntervalProduct, resultErr error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if len(cycle) == 0 {
+		return nil, ast.ErrASTDomain
+	}
+	permutation := make([]int, len(p.sorts))
+	for i := range permutation {
+		permutation[i] = i
+	}
+	seen := make([]bool, len(permutation))
+	for _, column := range cycle {
+		if uint64(column) >= uint64(len(permutation)) || seen[column] {
+			return nil, ast.ErrASTDomain
+		}
+		seen[column] = true
+	}
+	for i, column := range cycle {
+		permutation[column] = int(cycle[(i+1)%len(cycle)])
+	}
+	if err := p.garbageCollect(false); err != nil {
+		return nil, err
+	}
+	tableLocal, innerLocal := make([]int, len(p.sorts)), make([]int, len(p.sorts))
+	for i := range p.sorts {
+		tableLocal[i], innerLocal[i] = -1, -1
+	}
+	for local, global := range p.tableColumns {
+		tableLocal[global] = local
+	}
+	for local, global := range p.intervalColumns {
+		innerLocal[global] = local
+	}
+	sorts := make([]ast.ASTHandle, len(p.sorts))
+	mask := make([]bool, len(p.sorts))
+	var tablePermutation []int
+	var innerPermutation []uint32
+	for i, old := range permutation {
+		sorts[i] = p.sorts[old]
+		if tableLocal[old] >= 0 {
+			mask[i] = true
+			tablePermutation = append(tablePermutation, tableLocal[old])
+		} else {
+			innerPermutation = append(innerPermutation, uint32(innerLocal[old]))
+		}
+	}
+	result, err := NewFiniteIntervalProduct(p.manager, sorts, mask)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	result.intervals = make([]*IntervalRelation, len(p.intervals))
+	result.available = append([]int(nil), p.available...)
+	for i, inner := range p.intervals {
+		if inner == nil {
+			continue
+		}
+		renamed := cloneIntervalRelation(inner)
+		remaining := append([]uint32(nil), innerPermutation...)
+		for start := range remaining {
+			if remaining[start] == uint32(start) {
+				continue
+			}
+			var localCycle []uint32
+			for current := uint32(start); ; {
+				localCycle = append(localCycle, current)
+				next := remaining[current]
+				remaining[current] = current
+				if next == uint32(start) {
+					break
+				}
+				current = next
+			}
+			renamed, err = renamed.Rename(localCycle)
+			if err != nil {
+				return nil, err
+			}
+		}
+		result.intervals[i] = renamed
+	}
+	rows, err := p.table.Facts()
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		newRow := make(Fact, len(row))
+		for i, old := range tablePermutation {
+			newRow[i] = row[old]
+		}
+		newRow[len(newRow)-1] = row[len(row)-1]
+		if err = result.table.EnsureFact(newRow); err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // garbageCollect drops inner relations no longer referenced by the table and,
 // when requested, removes rows referring to empty inner relations.
 func (p *FiniteIntervalProduct) garbageCollect(removeEmpty bool) error {

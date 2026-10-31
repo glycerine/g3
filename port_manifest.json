@@ -90369,7 +90369,8 @@
         "TestFiniteIntervalProductFilterEqual",
         "TestFiniteIntervalProductUnionAndDelta",
         "TestFiniteIntervalProductProjection",
-        "TestFiniteIntervalProductFilterIdentical"
+        "TestFiniteIntervalProductFilterIdentical",
+        "TestFiniteIntervalProductRename"
       ],
       "conditionals": [
         {
@@ -90770,6 +90771,14 @@
           "tests": [
             "TestFiniteIntervalProductFilterIdentical"
           ]
+        },
+        {
+          "name": "rename cycles across finite and interval columns",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductRename"
+          ]
         }
       ],
       "ownership": [
@@ -90797,7 +90806,8 @@
         "TestFiniteIntervalProductFilterEqual",
         "TestFiniteIntervalProductUnionAndDelta",
         "TestFiniteIntervalProductProjection",
-        "TestFiniteIntervalProductFilterIdentical"
+        "TestFiniteIntervalProductFilterIdentical",
+        "TestFiniteIntervalProductRename"
       ],
       "conditionals": [
         {
@@ -90885,6 +90895,14 @@
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFilterIdentical"
+          ]
+        },
+        {
+          "name": "rename cycles across finite and interval columns",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductRename"
           ]
         }
       ],
