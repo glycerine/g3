@@ -32,6 +32,7 @@ const (
 
 type qfnraPurifyEntry struct {
 	term, fresh, proof ast.ASTRef
+	bind               bool
 }
 
 type qfnraPurifyInvocation struct {
@@ -45,6 +46,8 @@ type qfnraPurifyInvocation struct {
 	proofRefs   []ast.ASTRef
 	freshDecls  []ast.ASTHandle
 	quantRefs   []ast.ASTRef
+	trig        *qfnraForwardTrigState
+	ownsTrig    bool
 }
 
 func newQFNRAPurifyInvocation(owner *QFNRAPurifyTactic, goal *tactic.Goal) (*qfnraPurifyInvocation, error) {
@@ -56,7 +59,7 @@ func newQFNRAPurifyInvocation(owner *QFNRAPurifyTactic, goal *tactic.Goal) (*qfn
 	if err != nil {
 		return nil, err
 	}
-	return &qfnraPurifyInvocation{owner: owner, goal: goal, proofs: proofs, models: models, cache: make(map[ast.ASTHandle]*qfnraPurifyEntry)}, nil
+	return &qfnraPurifyInvocation{owner: owner, goal: goal, proofs: proofs, models: models, cache: make(map[ast.ASTHandle]*qfnraPurifyEntry), trig: &qfnraForwardTrigState{}, ownsTrig: true}, nil
 }
 
 func (i *qfnraPurifyInvocation) close() (err error) {
@@ -83,6 +86,9 @@ func (i *qfnraPurifyInvocation) close() (err error) {
 	i.proofRefs = nil
 	i.freshDecls = nil
 	i.quantRefs = nil
+	if i.ownsTrig && i.trig != nil {
+		err = errors.Join(err, i.trig.close())
+	}
 	return err
 }
 
@@ -104,6 +110,9 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 	op, err := m.GetDeclKind(decl)
 	if err != nil {
 		return rewriter.RewriteFailed, err
+	}
+	if op == forwardTrigSin || op == forwardTrigCos {
+		return c.reduceForwardTrig(decl, op, arguments, out, proof)
 	}
 	unary := op == qfnraPurifyToInt || op == qfnraPurifyASin || op == qfnraPurifyACos || op == qfnraPurifyATan
 	if (unary && arguments.Count() != 1) ||
@@ -240,17 +249,27 @@ func (i *qfnraPurifyInvocation) powerEligible(exponent ast.ASTHandle) (_ bool, e
 
 func (i *qfnraPurifyInvocation) newEntry(term ast.ASTHandle) (_ *qfnraPurifyEntry, err error) {
 	m := i.owner.manager
-	entry := &qfnraPurifyEntry{}
-	if entry.term, err = m.NewRef(term); err != nil {
+	termRef, err := m.NewRef(term)
+	if err != nil {
 		return nil, err
 	}
+	defer func() { err = errors.Join(err, m.DelRef(&termRef)) }()
 	sort, err := m.GetSort(term)
 	if err != nil {
-		return nil, errors.Join(err, m.DelRef(&entry.term))
+		return nil, err
 	}
 	fresh, err := m.MkFreshConstNullable(nil, sort)
 	if err != nil {
-		return nil, errors.Join(err, m.DelRef(&entry.term))
+		return nil, err
+	}
+	return i.newEntryWithFresh(term, fresh, true)
+}
+
+func (i *qfnraPurifyInvocation) newEntryWithFresh(term, fresh ast.ASTHandle, bind bool) (_ *qfnraPurifyEntry, err error) {
+	m := i.owner.manager
+	entry := &qfnraPurifyEntry{bind: bind}
+	if entry.term, err = m.NewRef(term); err != nil {
+		return nil, err
 	}
 	if entry.fresh, err = m.NewRef(fresh); err != nil {
 		return nil, errors.Join(err, m.DelRef(&entry.term))
@@ -758,6 +777,9 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 		return err
 	}
 	defer func() { err = errors.Join(err, invocation.close()) }()
+	if err = invocation.trig.prepare(invocation); err != nil {
+		return err
+	}
 	config := &qfnraPurifyConfig{invocation: invocation}
 	var traversal *rewriter.Traversal
 	if invocation.proofs {
@@ -838,23 +860,8 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 			return err
 		}
 	}
-	if invocation.models && len(invocation.freshDecls) != 0 {
-		filter, e := tactic.NewFilterModel(t.manager)
-		if e != nil {
-			return e
-		}
-		if e = filter.IncRef(); e != nil {
-			return errors.Join(e, filter.Close())
-		}
-		defer func() { err = errors.Join(err, filter.DecRef()) }()
-		for _, declaration := range invocation.freshDecls {
-			if e = filter.Insert(declaration); e != nil {
-				return e
-			}
-		}
-		if err = result.SetModelConverter(filter); err != nil {
-			return err
-		}
+	if err = invocation.publishModel(result); err != nil {
+		return err
 	}
 	if err = goal.IncDepth(); err != nil {
 		return err

@@ -182059,6 +182059,10 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_forward_trig.go",
+        "pkg/tactic/arith/qfnra_purify_forward_trig_test.go",
+        "pkg/tactic/arith/forward_trig_purify_basis.go",
+        "pkg/cmd/g3/test_vectors/qfufnra_forward_trig.smt2",
         "pkg/tactic/arith/qfnra_purify_inverse_trig.go",
         "pkg/tactic/arith/qfnra_purify_inverse_trig_test.go",
         "pkg/cmd/g3/test_vectors/qfufnra_inverse_trig.smt2",
@@ -182078,6 +182082,12 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestGeneralPurifierForwardTrigMixedModelAndProof",
+        "TestGeneralPurifierForwardTrigRejectsUnsafeAngle",
+        "TestGeneralPurifierForwardTrigSeesEarlierRewrittenAngleUse",
+        "TestGeneralPurifierForwardTrigSharedAcrossQuantifiers",
+        "TestGeneralPurifierQuantifiedTrigAndDivisionScopes",
+        "TestSMTLibRunnerScripts/qfufnra_forward_trig.smt2",
         "TestPurifyInverseTrigRangesProofAndModel",
         "TestPurifyInverseTrigDisabledAndQuantified",
         "TestSMTLibRunnerScripts/qfufnra_inverse_trig.smt2",
@@ -182152,6 +182162,13 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "forward sine and cosine goal-wide basis, circle constraint, proof and model conversion",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/qfnra_purify_forward_trig.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_forward_trig_test.go", "pkg/cmd/g3/main_test.go"],
+          "tests": ["TestGeneralPurifierForwardTrigMixedModelAndProof", "TestGeneralPurifierForwardTrigRejectsUnsafeAngle", "TestGeneralPurifierForwardTrigSeesEarlierRewrittenAngleUse", "TestGeneralPurifierForwardTrigSharedAcrossQuantifiers", "TestGeneralPurifierQuantifiedTrigAndDivisionScopes", "TestSMTLibRunnerScripts/qfufnra_forward_trig.smt2"]
+        },
+        {
           "name": "inverse sine, cosine and tangent purification, range constraints and undefined-function guards",
           "status": "partial",
           "go_target": "pkg/tactic/arith/qfnra_purify_inverse_trig.go",
@@ -182205,9 +182222,11 @@
         "The QF_NRA invocation owns cached source terms, fresh constants, definition proofs, constraints, and filter-model declarations until result publication."
       ],
       "deviations": [
+        "Forward-trigonometric safety is scanned before rewriting any goal formula: the source lazy scan can miss an angle use moved into an earlier pending arithmetic constraint, resulting in an invalid reconstructed model.",
+        "When a quantified body produces only a goal-wide sine/cosine basis, Go preserves its circle constraint inside the quantifier; the source asserts that this case has no constraints and drops them in non-debug builds. Basis angles are explicitly rooted until model conversion is built.",
         "Quantified proof reconstruction uses the actual rewritten body proof as a premise; the source process_quantifier instead passes an uninitialized result proof in those sites.",
         "When modulus occurs before division, the source builds its quotient proof using the modulus declaration and overwrites its cache entry. Go instead defines the quotient using integer division, shares both entries, and filters both fresh declarations, correcting the source proof premise and auxiliary-model leak.",
-        "The QF_UFNRA consumer also reaches the general purifier. Other general purification branches and quantified ownership/failure-frontier audits remain open; root-object elimination now also reaches the general purifier; forward-trigonometric work has a separate concrete implementation."
+        "The QF_UFNRA consumer also reaches the general purifier. Other general purification branches and quantified ownership/failure-frontier audits remain open; root-object and forward-trigonometric elimination now also reach the general purifier."
       ]
     },
     {
@@ -197160,6 +197179,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd/g3/main_test.go",
+        "pkg/cmd/g3/test_vectors/qfufnra_forward_trig.smt2",
         "pkg/tactic/smtlogics/qfufnra_algebraic_test.go",
         "pkg/tactic/smtlogics/qfufnra_tactic.go",
         "pkg/tactic/nlsat_smt/nl_purify_tactic.go",
@@ -197169,6 +197190,7 @@
         "pkg/parsers/smt2/qfufnra_tactic_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerScripts/qfufnra_forward_trig.smt2",
         "TestQFUFNRATacticWithAlgebraicRoot",
         "TestSMT2QFUFNRATacticMixedArithmetic",
         "TestSMT2QFUFNRATacticUnsatCore",

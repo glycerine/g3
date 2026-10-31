@@ -396,6 +396,7 @@ var scriptResults = map[string]string{
 	"qfufnra_to_int.smt2":                          "sat\nunsat\n",
 	"qfufnra_integer_division.smt2":                "sat\nunsat\n",
 	"qfufnra_inverse_trig.smt2":                    "unknown\nunknown\nunknown\n",
+	"qfufnra_forward_trig.smt2":                    "sat\nunsat\n",
 	"utvpi_mixed_sum_model.smt2":                   "sat\n",
 	"nla2bv_bounded_scopes.smt2":                   "sat\n((x 7))\nunsat\nsat\n((x 7))\n",
 	"nla2bv_under_unknown.smt2":                    "unknown\nsat\n(((= (* x x) 4) true))\n",

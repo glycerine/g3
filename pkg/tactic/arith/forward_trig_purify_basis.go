@@ -34,7 +34,11 @@ func (i *forwardTrigInvocation) basis(theta ast.ASTHandle) (_ *forwardTrigPair, 
 	if e != nil {
 		return nil, false, errors.Join(e, m.DelRef(&sr))
 	}
-	p := &forwardTrigPair{theta: theta, sin: sr, cos: cr}
+	thetaRef, e := m.NewRef(theta)
+	if e != nil {
+		return nil, false, errors.Join(e, m.DelRef(&cr), m.DelRef(&sr))
+	}
+	p := &forwardTrigPair{theta: theta, thetaRef: thetaRef, sin: sr, cos: cr}
 	i.pairs[theta] = p
 	i.pairOrder = append(i.pairOrder, p)
 	return p, true, nil

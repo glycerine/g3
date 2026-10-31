@@ -1,9 +1,16 @@
 package arith
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func (i *forwardTrigInvocation) unitCircle(pair *forwardTrigPair, entry *forwardTrigEntry) (err error) {
-	m := i.owner.manager
+	return forwardTrigUnitCircle(i.owner.manager, pair, func(h ast.ASTHandle) error { return i.addConstraint(h, entry) })
+}
+
+func forwardTrigUnitCircle(m *ast.ASTManager, pair *forwardTrigPair, add func(ast.ASTHandle) error) (err error) {
 	t := forwardTrigTemps{manager: m}
 	defer func() { err = errors.Join(err, t.close()) }()
 	x, e := m.RefGet(pair.sin)
@@ -18,24 +25,33 @@ func (i *forwardTrigInvocation) unitCircle(pair *forwardTrigPair, entry *forward
 	if e != nil {
 		return e
 	}
-	t.hold(xx)
+	if _, e = t.hold(xx); e != nil {
+		return e
+	}
 	yy, e := m.MkArithmeticMul(y, y)
 	if e != nil {
 		return e
 	}
-	t.hold(yy)
+	if _, e = t.hold(yy); e != nil {
+		return e
+	}
 	sum, e := m.MkArithmeticAdd(xx, yy)
 	if e != nil {
 		return e
 	}
-	t.hold(sum)
+	if _, e = t.hold(sum); e != nil {
+		return e
+	}
 	one, e := m.ArithmeticRealNumeralText("1")
 	if e != nil {
+		return e
+	}
+	if _, e = t.hold(one); e != nil {
 		return e
 	}
 	eq, e := m.MkEq(one, sum)
 	if e != nil {
 		return e
 	}
-	return i.addConstraint(eq, entry)
+	return add(eq)
 }

@@ -8,6 +8,7 @@ import (
 
 type forwardTrigPair struct {
 	theta    ast.ASTHandle
+	thetaRef ast.ASTRef
 	sin, cos ast.ASTRef
 }
 type forwardTrigEntry struct{ term, fresh, proof ast.ASTRef }
@@ -51,7 +52,7 @@ func (i *forwardTrigInvocation) close() (err error) {
 	}
 	for j := len(i.pairOrder) - 1; j >= 0; j-- {
 		p := i.pairOrder[j]
-		err = errors.Join(err, m.DelRef(&p.cos), m.DelRef(&p.sin))
+		err = errors.Join(err, m.DelRef(&p.cos), m.DelRef(&p.sin), m.DelRef(&p.thetaRef))
 	}
 	return err
 }

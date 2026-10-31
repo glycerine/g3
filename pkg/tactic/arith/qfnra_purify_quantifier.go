@@ -46,6 +46,8 @@ func (i *qfnraPurifyInvocation) processQuantifier(q ast.ASTHandle) (result, proo
 	if err != nil {
 		return result, proof, err
 	}
+	child.trig = i.trig
+	child.ownsTrig = false
 	defer func() { err = errors.Join(err, child.close()) }()
 	config := &qfnraPurifyConfig{invocation: child}
 	var traversal *rewriter.Traversal
@@ -87,7 +89,13 @@ func (i *qfnraPurifyInvocation) processQuantifier(q ast.ASTHandle) (result, proo
 		return result, proof, err
 	}
 	inner := rewritten
-	if len(child.entries) != 0 {
+	var boundEntries []*qfnraPurifyEntry
+	for _, entry := range child.entries {
+		if entry.bind {
+			boundEntries = append(boundEntries, entry)
+		}
+	}
+	if len(child.constraints) != 0 || len(boundEntries) != 0 {
 		terms := make([]ast.ASTHandle, 0, len(child.constraints)+1)
 		for _, ref := range child.constraints {
 			value, e := m.RefGet(ref)
@@ -106,62 +114,65 @@ func (i *qfnraPurifyInvocation) processQuantifier(q ast.ASTHandle) (result, proo
 			return result, proof, e
 		}
 		defer func() { err = errors.Join(err, m.DelRef(&conjunctionRef)) }()
-		shiftedRef, e := m.NewRef(ast.ASTHandle{})
-		if e != nil {
-			return result, proof, e
-		}
-		defer func() { err = errors.Join(err, m.DelRef(&shiftedRef)) }()
-		shifter, e := rewriter.NewVarShifter(m)
-		if shifter != nil {
-			defer func() { err = errors.Join(err, shifter.Close()) }()
-		}
-		if e != nil {
-			return result, proof, e
-		}
-		if e = shifter.ShiftBy(conjunction, uint32(len(child.entries)), shiftedRef); e != nil {
-			return result, proof, e
-		}
-		shifted, e := m.RefGet(shiftedRef)
-		if e != nil {
-			return result, proof, e
-		}
-		bound := make([]ast.ASTHandle, 0, len(child.entries))
-		sorts := make([]ast.ASTHandle, 0, len(child.entries))
-		names := make([]usymbol.Symbol, 0, len(child.entries))
-		prefix := "x"
-		for _, entry := range child.entries {
-			fresh, e := m.RefGet(entry.fresh)
+		inner = conjunction
+		if len(boundEntries) != 0 {
+			shiftedRef, e := m.NewRef(ast.ASTHandle{})
 			if e != nil {
 				return result, proof, e
 			}
-			sort, e := m.GetSort(fresh)
+			defer func() { err = errors.Join(err, m.DelRef(&shiftedRef)) }()
+			shifter, e := rewriter.NewVarShifter(m)
+			if shifter != nil {
+				defer func() { err = errors.Join(err, shifter.Close()) }()
+			}
 			if e != nil {
 				return result, proof, e
 			}
-			name, e := m.MkFreshVarName(&prefix)
+			if e = shifter.ShiftBy(conjunction, uint32(len(boundEntries)), shiftedRef); e != nil {
+				return result, proof, e
+			}
+			shifted, e := m.RefGet(shiftedRef)
 			if e != nil {
 				return result, proof, e
 			}
-			bound, sorts, names = append(bound, fresh), append(sorts, sort), append(names, name)
-		}
-		abstractor, e := ast.NewExprAbstractor(m)
-		if e != nil {
-			return result, proof, e
-		}
-		defer func() { err = errors.Join(err, abstractor.Close()) }()
-		if e = abstractor.Abstract(0, bound, shifted, bodyRef); e != nil {
-			return result, proof, e
-		}
-		abstracted, e := m.RefGet(bodyRef)
-		if e != nil {
-			return result, proof, e
-		}
-		inner, e = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: sorts, Names: names, Body: abstracted})
-		if e != nil {
-			return result, proof, e
-		}
-		if e = m.SetRef(bodyRef, inner); e != nil {
-			return result, proof, e
+			bound := make([]ast.ASTHandle, 0, len(boundEntries))
+			sorts := make([]ast.ASTHandle, 0, len(boundEntries))
+			names := make([]usymbol.Symbol, 0, len(boundEntries))
+			prefix := "x"
+			for _, entry := range boundEntries {
+				fresh, e := m.RefGet(entry.fresh)
+				if e != nil {
+					return result, proof, e
+				}
+				sort, e := m.GetSort(fresh)
+				if e != nil {
+					return result, proof, e
+				}
+				name, e := m.MkFreshVarName(&prefix)
+				if e != nil {
+					return result, proof, e
+				}
+				bound, sorts, names = append(bound, fresh), append(sorts, sort), append(names, name)
+			}
+			abstractor, e := ast.NewExprAbstractor(m)
+			if e != nil {
+				return result, proof, e
+			}
+			defer func() { err = errors.Join(err, abstractor.Close()) }()
+			if e = abstractor.Abstract(0, bound, shifted, bodyRef); e != nil {
+				return result, proof, e
+			}
+			abstracted, e := m.RefGet(bodyRef)
+			if e != nil {
+				return result, proof, e
+			}
+			inner, e = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: false, Sorts: sorts, Names: names, Body: abstracted})
+			if e != nil {
+				return result, proof, e
+			}
+			if e = m.SetRef(bodyRef, inner); e != nil {
+				return result, proof, e
+			}
 		}
 		if i.proofs {
 			premises := make([]ast.ASTHandle, 0, len(child.proofRefs)+1)
