@@ -96,10 +96,13 @@ func TestBVRewriterSignedMultiplyBoundNumerals(t *testing.T) {
 	x, err := m.MkVar(0, sort)
 	astTestMust(t, err)
 	for _, mode := range []BVMultiplyBound{BVSignedNoOverflow, BVSignedNoUnderflow} {
-		st, err := p.RewriteMultiplyBound(ast.SliceArguments([]ast.ASTHandle{bvAddNum(t, m, 1, 1), x}), out, mode)
-		astTestMust(t, err)
-		if st != RewriteFailed {
-			t.Fatal("one-bit -1 with unknown operand must not fold", mode, st)
+		one := bvAddNum(t, m, 1, 1)
+		for _, pair := range [][]ast.ASTHandle{{one, x}, {x, one}} {
+			st, err := p.RewriteMultiplyBound(ast.SliceArguments(pair), out, mode)
+			astTestMust(t, err)
+			if st != RewriteFailed {
+				t.Fatal("one-bit -1 with unknown operand must not fold", mode, st)
+			}
 		}
 	}
 }
