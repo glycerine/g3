@@ -6125,7 +6125,9 @@
         "TestGeneratedRCFRationalReplayPowersAndComponents",
         "TestZ3LogFrontendReplaysRCFRational",
         "TestGeneratedDatatypeConstructorReplayLifecycle",
-        "TestGeneratedDatatypeConstructorReplayRejectsShortArrays"
+        "TestGeneratedDatatypeConstructorReplayRejectsShortArrays",
+        "TestGeneratedDatatypeConstructorReplayBuildAndQuery",
+        "TestGeneratedDatatypeConstructorReplayMutualRecursion"
       ],
       "methods_audited": false,
       "ownership_audited": false,

@@ -1,3 +1,5 @@
+Generated datatype build and query replay (2026-10-31 UTC): connected single and mutually recursive datatype construction and constructor query outputs. Normal and checked tests verify accessor behavior and cross-recursive sorts after temporary owners are released.
+
 Generated datatype constructor replay lifecycle (2026-10-31 UTC): connected typed constructor and non-owning list creation and deletion. Normal and checked tests verify ownership, incomplete-log cleanup and array bounds; datatype building and constructor query replay remain unfinished.
 
 Rational real-closed-field frontend integration (2026-10-31 UTC): normal and checked command-line tests replay arithmetic and powers through the log frontend. Non-rational extensions remain unfinished.

@@ -45,8 +45,8 @@ func registerZ3GeneratedDatatypeConstructorCommands(r *Z3Replayer) error {
 		id   uint32
 		name string
 	}{
-		{42, "Z3_mk_constructor"}, {43, "Z3_del_constructor"},
-		{45, "Z3_mk_constructor_list"}, {46, "Z3_del_constructor_list"},
+		{42, "Z3_mk_constructor"}, {43, "Z3_del_constructor"}, {44, "Z3_mk_datatype"},
+		{45, "Z3_mk_constructor_list"}, {46, "Z3_del_constructor_list"}, {47, "Z3_mk_datatypes"}, {48, "Z3_query_constructor"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -61,6 +61,9 @@ func replayDatatypeConstructorCommand(r *Z3Replayer, id uint32) error {
 	owner, err := replayContext(r, 0)
 	if err != nil {
 		return err
+	}
+	if id == 44 || id == 47 || id == 48 {
+		return replayDatatypeBuildOrQuery(r, owner, id)
 	}
 	if id == 43 || id == 46 {
 		object, e := r.Object(1)
@@ -189,4 +192,130 @@ func replayDatatypeConstructorCommand(r *Z3Replayer, id uint32) error {
 	r.datatypeLists[object] = &replayDatatypeList{owner: owner, value: value, budget: budget, bytes: n}
 	owner.datatypeListIDs = append(owner.datatypeListIDs, object)
 	return r.StoreResult(object)
+}
+
+func replayDatatypeBuildOrQuery(r *Z3Replayer, owner *replayContextOwner, id uint32) error {
+	if id == 48 {
+		object, err := r.Object(1)
+		if err != nil {
+			return err
+		}
+		constructor := r.datatypeConstructors[object]
+		if constructor == nil || constructor.owner != owner {
+			return ErrZ3ReplayReference
+		}
+		count, err := r.Uint(2)
+		if err != nil {
+			return err
+		}
+		if _, err = r.Object(3); err != nil {
+			return err
+		}
+		if _, err = r.Object(4); err != nil {
+			return err
+		}
+		outputs, err := replayOutputArray(r, 5, count)
+		if err != nil {
+			return err
+		}
+		if err = owner.results.resetLastResult(); err != nil {
+			return err
+		}
+		result, err := constructor.value.QueryFields(count)
+		if err != nil {
+			return err
+		}
+		first, err := replayMultipleAST(r, owner, result.Constructor)
+		if err != nil {
+			return err
+		}
+		second, err := replayMultipleAST(r, owner, result.Recognizer)
+		if err != nil {
+			return err
+		}
+		if err = r.SetObject(3, first); err != nil {
+			return err
+		}
+		if err = r.SetObject(4, second); err != nil {
+			return err
+		}
+		for i, value := range result.Accessors {
+			outputs[i], err = replayMultipleAST(r, owner, value)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if id == 44 {
+		name, err := replayTypedSymbol(r, owner, 1)
+		if err != nil {
+			return err
+		}
+		count, err := r.Uint(2)
+		if err != nil {
+			return err
+		}
+		objects, err := r.ObjectArray(3)
+		if err != nil {
+			return err
+		}
+		if uint64(count) > uint64(len(objects)) {
+			return ErrZ3ReplayReference
+		}
+		constructors := make([]*APIDatatypeConstructorObject, count)
+		for i := range constructors {
+			value := r.datatypeConstructors[objects[i]]
+			if value == nil || value.owner != owner {
+				return ErrZ3ReplayReference
+			}
+			constructors[i] = value.value
+		}
+		sort, err := owner.context.DatatypeSortFromConstructorsWithSymbol(name, constructors...)
+		if err != nil {
+			return err
+		}
+		return r.storeAST(owner, sort)
+	}
+	count, err := r.Uint(1)
+	if err != nil {
+		return err
+	}
+	names, err := replaySymbolValues(r, owner, 2, count)
+	if err != nil {
+		return err
+	}
+	outputs, err := replayOutputArray(r, 3, count)
+	if err != nil {
+		return err
+	}
+	objects, err := r.ObjectArray(4)
+	if err != nil {
+		return err
+	}
+	if uint64(count) > uint64(len(objects)) {
+		return ErrZ3ReplayReference
+	}
+	lists := make([]*APIDatatypeConstructorList, count)
+	for i := range lists {
+		value := r.datatypeLists[objects[i]]
+		if value == nil || value.owner != owner {
+			return ErrZ3ReplayReference
+		}
+		lists[i] = value.value
+	}
+	if err = owner.results.resetLastResult(); err != nil {
+		return err
+	}
+	sorts, err := owner.context.DatatypeSortsFromConstructorListsWithSymbols(names, lists)
+	if err != nil {
+		return err
+	}
+	for i, sort := range sorts {
+		outputs[i], err = replayMultipleAST(r, owner, sort)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
