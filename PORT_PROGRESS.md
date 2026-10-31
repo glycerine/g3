@@ -1,4 +1,4 @@
-Degree-shift rewriting (2026-10-31 UTC): candidate variables receive owned fresh variables and optional definition proofs, and nested powers are rewritten using their common exponents with optional theory-lemma proofs. Focused normal and checked tests cover multiple variables, degrees, sorts and proof facts; bounds, model reconstruction and tactic integration remain unfinished.
+Degree-shift components (2026-10-31 UTC): candidate variables receive owned fresh variables and optional definition proofs, nested powers are rewritten using common exponents, even degrees add nonnegative bounds, and model conversion reconstructs original values while filtering fresh variables. Focused normal and checked tests cover multiple variables, proof facts, bounds and reconstruction; tactic integration remains unfinished.
 
 Generated parameter-description replay (2026-10-31 UTC): added solver descriptor creation, reference counts, exact-symbol lookup, names, documentation, display and parameter validation. Focused normal and checked API/CLI tests and the full API package pass.
 
