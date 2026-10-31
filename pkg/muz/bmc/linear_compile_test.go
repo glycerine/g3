@@ -147,6 +147,20 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 			if md == nil {
 				t.Fatal("missing linear model")
 			}
+			proofRef, err := compiler.LinearProof(set, b, level, md)
+			must(err)
+			proof, err := m.RefGet(proofRef)
+			must(err)
+			fact, err := m.GetProofFact(proof)
+			must(err)
+			positiveOne, err := m.MkArithmeticGT(one, zero)
+			must(err)
+			wantFact, err := m.MkImplies(positiveOne, app(b, one))
+			must(err)
+			if fact != wantFact {
+				t.Fatal("linear BMC proof conclusion", fact, wantFact)
+			}
+			must(m.DelRef(&proofRef))
 			trace, err := compiler.LinearTrace(set, b, level, md)
 			must(err)
 			if len(trace) != 2 {
@@ -181,4 +195,30 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 		}
 		must(raw.Close())
 	}
+	// At level zero a ground fact uses its asserted proof directly.
+	raw, err := context.NewSimpleSolver()
+	must(err)
+	backend, ok := raw.(*smtcore.SMTSolver)
+	if !ok {
+		t.Fatal("simple solver is not native SMT")
+	}
+	status, level, err := compiler.SearchLinear(set, a, backend, 1)
+	must(err)
+	if status != lbool.True || level != 0 {
+		t.Fatal("fact search", status, level)
+	}
+	md, err := backend.AcquireModel()
+	must(err)
+	proofRef, err := compiler.LinearProof(set, a, level, md)
+	must(err)
+	proof, err := m.RefGet(proofRef)
+	must(err)
+	fact, err := m.GetProofFact(proof)
+	must(err)
+	if fact != app(a, zero) && fact != app(a, one) {
+		t.Fatal("ground proof conclusion", fact)
+	}
+	must(m.DelRef(&proofRef))
+	must(md.DecRef())
+	must(raw.Close())
 }

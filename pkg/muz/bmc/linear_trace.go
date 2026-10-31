@@ -36,48 +36,8 @@ func (c *Compiler) LinearTrace(rules *base.RuleSet, query ast.ASTHandle, level u
 		if canceled {
 			return result, fmt.Errorf("bmc: %s", m.ResourceLimit().CancelMessage())
 		}
-		group, err := rules.PredicateRules(predicate)
+		owned, _, err := c.selectedLinearRule(rules, predicate, level, md)
 		if err != nil {
-			return result, err
-		}
-		var selected *base.Rule
-		for i, rule := range group {
-			ref, e := c.linearRule(predicate, uint32(i), level)
-			if e != nil {
-				err = e
-				break
-			}
-			atom, e := m.RefGet(ref)
-			if e == nil {
-				var decl ast.ASTHandle
-				decl, e = m.GetDecl(atom)
-				if e == nil {
-					var value ast.ASTHandle
-					value, e = md.ConstantInterpretation(decl)
-					if e == nil && !value.IsNull() && m.IsTrue(value) {
-						selected = rule
-					}
-				}
-			}
-			err = errors.Join(e, m.DelRef(&ref))
-			if err != nil || selected != nil {
-				break
-			}
-		}
-		if err == nil && selected == nil {
-			err = fmt.Errorf("bmc: model has no selected linear rule at level %d", level)
-		}
-		var owned *base.Rule
-		if err == nil {
-			owned, err = selected.Retain()
-		}
-		for i := len(group) - 1; i >= 0; i-- {
-			err = errors.Join(err, group[i].Close())
-		}
-		if err != nil {
-			if owned != nil {
-				err = errors.Join(err, owned.Close())
-			}
 			return result, err
 		}
 		result = append(result, owned)
@@ -97,4 +57,56 @@ func (c *Compiler) LinearTrace(rules *base.RuleSet, query ast.ASTHandle, level u
 		}
 		level--
 	}
+}
+
+// selectedLinearRule returns an owning reference and its index in the group.
+func (c *Compiler) selectedLinearRule(rules *base.RuleSet, predicate ast.ASTHandle, level uint32, md *model.ModelCore) (*base.Rule, uint32, error) {
+	m := c.manager
+	group, err := rules.PredicateRules(predicate)
+	if err != nil {
+		return nil, 0, err
+	}
+	var selected *base.Rule
+	var selectedIndex uint32
+	for i, rule := range group {
+		ref, e := c.linearRule(predicate, uint32(i), level)
+		if e != nil {
+			err = e
+			break
+		}
+		atom, e := m.RefGet(ref)
+		if e == nil {
+			var decl ast.ASTHandle
+			decl, e = m.GetDecl(atom)
+			if e == nil {
+				var value ast.ASTHandle
+				value, e = md.ConstantInterpretation(decl)
+				if e == nil && !value.IsNull() && m.IsTrue(value) {
+					selected = rule
+					selectedIndex = uint32(i)
+				}
+			}
+		}
+		err = errors.Join(e, m.DelRef(&ref))
+		if err != nil || selected != nil {
+			break
+		}
+	}
+	if err == nil && selected == nil {
+		err = fmt.Errorf("bmc: model has no selected linear rule at level %d", level)
+	}
+	var owned *base.Rule
+	if err == nil {
+		owned, err = selected.Retain()
+	}
+	for i := len(group) - 1; i >= 0; i-- {
+		err = errors.Join(err, group[i].Close())
+	}
+	if err != nil {
+		if owned != nil {
+			err = errors.Join(err, owned.Close())
+		}
+		return nil, 0, err
+	}
+	return owned, selectedIndex, nil
 }
