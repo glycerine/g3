@@ -98463,7 +98463,7 @@
       "path": "src/muz/transforms/dl_mk_different.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
+      "status": "dead_deleted",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -98476,11 +98476,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The declared transformation has no implementation, construction, includes or build references outside this unused header."]
     },
     {
       "path": "src/muz/transforms/dl_mk_filter_rules.cpp",

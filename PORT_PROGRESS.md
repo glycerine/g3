@@ -1,3 +1,5 @@
+Different-symbolic reachability audit (2026-10-31 UTC): dl_mk_different.h has no implementation, includes, construction or build references, so the unused declaration is classified as dead.
+
 CLP rule grounding correction (2026-10-31 UTC): share fresh variables across each rule head and all tails, resetting them for each attempted rule as in the source. A real SMT regression shows Q(0) is false and Q(1) true for Q(x) :- P(x), x > 0; the header is now marked partial and fixedpoint registration remains pending.
 
 QF_UFNRA differential check (2026-10-31 UTC): ten mixed UF/real, Boolean guard, nonlinear, division, congruence and ITE cases matched the local Z3 result. Added focused regressions for guarded conflicts, division and nonlinear function constraints.
