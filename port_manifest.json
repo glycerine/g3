@@ -90114,9 +90114,14 @@
       "path": "src/muz/rel/dl_interval_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/interval_recognizer.go",
+        "pkg/muz/rel/interval_recognizer_test.go"
+      ],
+      "tests": [
+        "TestIntervalRelationLinearComparisonRecognition"
+      ],
       "assertions": [
         {
           "line": 266,
@@ -90145,17 +90150,35 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "is_linear/is_le/is_lt/is_eq: source arithmetic filter shape recognition and exact rational offsets",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_recognizer.go",
+          "tests": [
+            "TestIntervalRelationLinearComparisonRecognition"
+          ]
+        }
+      ],
+      "ownership": [
+        "The recognizer borrows AST handles and returns independent Go rational values."
+      ],
+      "deviations": [
+        "Pending: interval relation representation, union/widen/meet, join/project/rename, interpreted filtering, plugin registration, diagnostics and ownership/allocation audit. The recognizer is not yet installed in a live relation plugin."
+      ]
     },
     {
       "path": "src/muz/rel/dl_interval_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/interval_recognizer.go",
+        "pkg/muz/rel/interval_recognizer_test.go"
+      ],
+      "tests": [
+        "TestIntervalRelationLinearComparisonRecognition"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -90168,9 +90191,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "is_linear/is_le/is_lt/is_eq: source arithmetic filter shape recognition and exact rational offsets",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_recognizer.go",
+          "tests": [
+            "TestIntervalRelationLinearComparisonRecognition"
+          ]
+        }
+      ],
+      "ownership": [
+        "The recognizer borrows AST handles and returns independent Go rational values."
+      ],
+      "deviations": [
+        "Pending: interval relation representation, union/widen/meet, join/project/rename, interpreted filtering, plugin registration, diagnostics and ownership/allocation audit. The recognizer is not yet installed in a live relation plugin."
+      ]
     },
     {
       "path": "src/muz/rel/dl_lazy_table.cpp",
