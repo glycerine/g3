@@ -5,7 +5,9 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -66,8 +68,24 @@ func TestNLPurificationPreparesGoalsAndClauses(t *testing.T) {
 			if m.IsTrue(first) == cores {
 				t.Fatal("pure arithmetic transfer", cores, first)
 			}
+			_, _, config := nlModelEvaluatorFixture(t, m)
+			smt, err := smtcore.NewSMTSolver(m, nil, "QF_UF", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: config})
+			astTestMust(t, err)
+			defer func() { astTestMust(t, smt.Close()) }()
+			astTestMust(t, prep.assertSMT(smt))
 			if depth, err := goal.Depth(); err != nil || depth != 1 {
 				t.Fatal("goal depth", depth, err)
+			}
+			lastPred := prep.predicates.newPredicates[len(prep.predicates.newPredicates)-1]
+			notPred, err := m.MkNot(lastPred)
+			astTestMust(t, err)
+			astTestPin(t, m, notPred)
+			notP, err := m.MkNot(p)
+			astTestMust(t, err)
+			status, err := smt.CheckSat([]ast.ASTHandle{notPred, notP})
+			astTestMust(t, err)
+			if status != lbool.False {
+				t.Fatal("prepared SMT clauses", status)
 			}
 			md, err := model.NewModel(m)
 			astTestMust(t, err)

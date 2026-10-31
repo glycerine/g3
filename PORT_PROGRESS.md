@@ -1,3 +1,5 @@
+Mixed nonlinear SMT preparation (2026-10-31 UTC): the prepared interface definitions and extracted clauses can now be asserted in a concrete SMT solver before advancing goal depth. A regression checks both core settings by refuting a conflicting pair of assumptions.
+
 Mixed nonlinear model filtering (2026-10-31 UTC): preparation now records introduced real and Boolean interface declarations and dependency proxies in a model filter; equality discovery adds its predicates to the same filter. Tests apply the filter to actual models and confirm that user bindings remain.
 
 Mixed nonlinear interface equalities (2026-10-31 UTC): model values now identify equal interface variables and add the corresponding predicate equivalence to both nonlinear and SMT sides. A real SMT regression checks the equivalence, duplicate suppression and the separate unequal value.

@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
 )
@@ -13,11 +14,28 @@ import (
 // nlPurification owns the preparation state needed by the cooperating
 // nonlinear and SMT solvers. The input goal is borrowed and updated in place.
 type nlPurification struct {
+	goal       *tactic.Goal
 	nonlinear  *tactic.Goal
 	interfaces *nlInterfaceRewriter
 	predicates *nlPredicateRewriter
 	extraction *solver.ClauseExtraction
 	filter     *tactic.FilterModelConverter
+}
+
+// assertSMT publishes the interface definitions followed by extracted goal
+// clauses, in the same order as the source preparation path.
+func (p *nlPurification) assertSMT(s *smtcore.SMTSolver) error {
+	if p == nil || p.goal == nil || p.interfaces == nil || p.extraction == nil || s == nil {
+		return ast.ErrASTHandle
+	}
+	for _, group := range [][]ast.ASTHandle{p.interfaces.smtDefinitions, p.extraction.Clauses} {
+		for _, formula := range group {
+			if err := s.AssertFormula(formula); err != nil {
+				return err
+			}
+		}
+	}
+	return p.goal.IncDepth()
 }
 
 func prepareNLPurification(g *tactic.Goal) (result *nlPurification, resultErr error) {
@@ -34,7 +52,7 @@ func prepareNLPurification(g *tactic.Goal) (result *nlPurification, resultErr er
 	if proofs {
 		return nil, tactic.NewTacticException("qfufnra-purify does not support proof generation")
 	}
-	result = &nlPurification{}
+	result = &nlPurification{goal: g}
 	state := result
 	defer func() {
 		if resultErr != nil {
@@ -116,9 +134,6 @@ func prepareNLPurification(g *tactic.Goal) (result *nlPurification, resultErr er
 			return nil, e
 		}
 	}
-	if err = g.IncDepth(); err != nil {
-		return nil, err
-	}
 	return result, nil
 }
 
@@ -146,5 +161,6 @@ func (p *nlPurification) Close() (result error) {
 		result = errors.Join(result, p.nonlinear.Close())
 		p.nonlinear = nil
 	}
+	p.goal = nil
 	return result
 }
