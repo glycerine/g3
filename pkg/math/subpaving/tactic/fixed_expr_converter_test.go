@@ -199,6 +199,9 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 		if err := mapping.Reset(); err != nil {
 			t.Fatal(err)
 		}
+		if refs, err := m.GetRefCount(x); err != nil || refs != baseline+3 {
+			t.Fatal("inverse snapshot must own its own expression reference", refs, baseline, err)
+		}
 		var shown bytes.Buffer
 		if err := display(&shown, 0); err != nil || shown.String() != "x" {
 			t.Fatal("inverse display must own its supplied expressions", shown.String(), err)
