@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/tactic"
 )
 
 // NamedProbe constructs a retained primitive probe using its native name.
@@ -21,7 +20,7 @@ func (c *SMTContext) NamedProbe(name string) (result *APIProbe, resultErr error)
 	if !found {
 		return nil, ast.ErrASTDomain
 	}
-	probe, err := tactic.NewProbe(manager.Budget(), registration.kind, 0)
+	probe, err := c.newRegisteredProbe(manager, registration)
 	if err != nil {
 		return nil, err
 	}

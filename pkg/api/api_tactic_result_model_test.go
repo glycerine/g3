@@ -20,7 +20,10 @@ func apiTacticModelResult(t *testing.T, f *smtAPIFixture, declaration, definitio
 	copy, err := tactic.NewGoalCopy(goal.goal)
 	astTestMust(t, err)
 	astTestMust(t, goal.Close())
-	return &APITacticResult{owner: f.c.smtContextState, manager: f.m, goals: []*tactic.Goal{copy}, modelConverter: converter}
+	astTestMust(t, copy.IncRef())
+	result := &APITacticResult{owner: f.c.smtContextState, manager: f.m, goals: []*tactic.Goal{copy}, modelConverter: converter}
+	result.self = result
+	return result
 }
 
 func TestAPITacticResultConvertModelAppliesRetainedConverter(t *testing.T) {

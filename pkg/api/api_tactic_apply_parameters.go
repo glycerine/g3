@@ -15,8 +15,5 @@ func (t *APITactic) ApplyWithParameters(goal *APIGoal, parameters *ParameterSet)
 	if goal.owner != t.owner {
 		return nil, ErrSMTContextOwner
 	}
-	if err := t.tactic.UpdateParams(&parameters.value); err != nil {
-		return nil, err
-	}
-	return t.Apply(goal)
+	return t.apply(goal, parameters.params, &parameters.value)
 }

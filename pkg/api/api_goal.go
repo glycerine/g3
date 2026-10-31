@@ -12,10 +12,12 @@ import (
 )
 
 type APIGoal struct {
-	owner   *smtContextState
-	manager *ast.ASTManager
-	goal    *tactic.Goal
-	closed  bool
+	self            *APIGoal
+	owner           *smtContextState
+	manager         *ast.ASTManager
+	goal            *tactic.Goal
+	closed          bool
+	shared, cleanup bool
 }
 
 func (c *SMTContext) NewGoal(models, unsatCores, proofs bool) (*APIGoal, error) {
@@ -30,11 +32,13 @@ func (c *SMTContext) NewGoal(models, unsatCores, proofs bool) (*APIGoal, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &APIGoal{owner: c.smtContextState, manager: manager, goal: goal}, nil
+	result := &APIGoal{owner: c.smtContextState, manager: manager, goal: goal}
+	result.self = result
+	return result, nil
 }
 
 func (g *APIGoal) open() error {
-	if g == nil || g.owner == nil || g.manager == nil || g.goal == nil || g.closed || g.owner.closed || g.owner.command == nil {
+	if g == nil || g.self != g || g.owner == nil || g.manager == nil || g.goal == nil || g.closed || g.owner.closed || g.owner.command == nil {
 		return ErrSMTContextOwner
 	}
 	return g.goal.CheckOwner()
@@ -44,10 +48,19 @@ func (g *APIGoal) Close() error {
 	if g == nil || g.closed {
 		return nil
 	}
-	if g.goal == nil {
+	if g.self != g || g.goal == nil {
 		return ErrSMTContextOwner
 	}
-	err := g.goal.Close()
+	var err error
+	if g.shared && !g.cleanup {
+		var consumed bool
+		consumed, err = g.goal.DecRefConsumed()
+		if consumed {
+			g.cleanup = err != nil
+		}
+	} else {
+		err = g.goal.Close()
+	}
 	if err == nil {
 		g.closed = true
 		g.owner, g.manager, g.goal = nil, nil, nil

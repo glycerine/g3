@@ -17,7 +17,7 @@ func TestAPITacticResultConvertModelGuardsAndIndependentLifetime(t *testing.T) {
 	result := apiTacticModelResult(t, f, declaration, yes)
 	source, err := f.c.NewAPIModel()
 	astTestMust(t, err)
-	if _, err = result.ConvertModel(1, source); !errors.Is(err, ast.ErrASTDomain) {
+	if _, err = result.ConvertModel(2, source); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("subgoal bounds", err)
 	}
 	foreign := newSMTAPIFixture(t, "ALL", nil)

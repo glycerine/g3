@@ -8,6 +8,7 @@ import (
 )
 
 type APIProbe struct {
+	self   *APIProbe
 	owner  *smtContextState
 	probe  tactic.ProbeEvaluator
 	closed bool
@@ -20,11 +21,13 @@ func newAPIProbe(owner *smtContextState, probe tactic.ProbeEvaluator) (*APIProbe
 	if err := probe.IncRef(); err != nil {
 		return nil, err
 	}
-	return &APIProbe{owner: owner, probe: probe}, nil
+	result := &APIProbe{owner: owner, probe: probe}
+	result.self = result
+	return result, nil
 }
 
 func (p *APIProbe) open() error {
-	if p == nil || p.owner == nil || p.probe == nil || p.closed || p.owner.closed || p.owner.command == nil {
+	if p == nil || p.self != p || p.owner == nil || p.probe == nil || p.closed || p.owner.closed || p.owner.command == nil {
 		return ErrSMTContextOwner
 	}
 	return p.probe.Check()
@@ -34,7 +37,7 @@ func (p *APIProbe) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
-	if p.probe == nil {
+	if p.self != p || p.probe == nil {
 		return ErrSMTContextOwner
 	}
 	err := p.probe.DecRef()
@@ -43,6 +46,13 @@ func (p *APIProbe) Close() error {
 		p.owner, p.probe = nil, nil
 	}
 	return err
+}
+
+func (p *APIProbe) Retain() (*APIProbe, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	return newAPIProbe(p.owner, p.probe)
 }
 
 func (c *SMTContext) ConstantProbe(value float64) (*APIProbe, error) {

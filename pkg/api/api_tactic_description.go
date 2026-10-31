@@ -9,5 +9,5 @@ func (c *SMTContext) TacticDescription(name string) (string, error) {
 	if err := c.open(); err != nil {
 		return "", err
 	}
-	return cmd_context.BuiltinTacticDescription(name)
+	return cmd_context.BuiltinTacticDescription(apiTacticName(name))
 }

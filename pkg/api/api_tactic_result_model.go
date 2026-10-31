@@ -21,7 +21,9 @@ func (r *APITacticResult) ConvertModel(index uint32, source *APIModel) (result *
 	if source.owner != r.owner {
 		return nil, ErrSMTContextOwner
 	}
-	if uint64(index) >= uint64(len(r.goals)) {
+	// The source tests strictly greater here and never indexes the goal
+	// array. Equality is defined when no converter needs a subgoal index.
+	if uint64(index) > uint64(len(r.goals)) {
 		return nil, ast.ErrASTDomain
 	}
 	derived := source.core.DerivedModel()

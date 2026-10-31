@@ -9,7 +9,11 @@ import (
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
-func (p *APIASTPrinter) smt2String(m *ast.ASTManager, value ast.ASTHandle) (text string, resultErr error) {
+func (p *APIASTPrinter) smt2String(m *ast.ASTManager, value ast.ASTHandle) (string, error) {
+	return p.smt2StringIndented(m, value, 0)
+}
+
+func (p *APIASTPrinter) smt2StringIndented(m *ast.ASTManager, value ast.ASTHandle, indent uint32) (text string, resultErr error) {
 	globals, err := p.owner.command.GlobalParameters()
 	if err != nil {
 		return "", err
@@ -49,6 +53,15 @@ func (p *APIASTPrinter) smt2String(m *ast.ASTManager, value ast.ASTHandle) (text
 		return "", err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.Format.DelRef(&ref)) }()
+	if indent != 0 {
+		format, err = m.FormatIndent(indent, format)
+		if err != nil {
+			return "", err
+		}
+		if err = m.Format.SetRef(ref, format); err != nil {
+			return "", err
+		}
+	}
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: m.Budget()})
 	if err != nil {
 		return "", err

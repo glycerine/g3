@@ -11,15 +11,20 @@ import (
 )
 
 type APITacticResult struct {
+	self           *APITacticResult
 	owner          *smtContextState
 	manager        *ast.ASTManager
 	goals          []*tactic.Goal
+	goalCleanup    []bool
+	proofConverter tactic.ProofConverter
+	core           tactic.DependencyRef
 	modelConverter tactic.ModelConverter
+	modelCleanup   bool
 	closed         bool
 }
 
 func (r *APITacticResult) open() error {
-	if r == nil || r.owner == nil || r.manager == nil || r.closed || r.owner.closed || r.owner.command == nil {
+	if r == nil || r.self != r || r.owner == nil || r.manager == nil || r.closed || r.owner.closed || r.owner.command == nil {
 		return ErrSMTContextOwner
 	}
 	return nil
@@ -29,25 +34,60 @@ func (r *APITacticResult) Close() (result error) {
 	if r == nil || r.closed {
 		return nil
 	}
+	if r.self != r {
+		return ErrSMTContextOwner
+	}
+	if err := r.core.Close(); err != nil {
+		return err
+	}
+	if r.proofConverter != nil {
+		if err := r.proofConverter.DecRef(); err != nil {
+			return err
+		}
+		r.proofConverter = nil
+	}
+	if r.modelConverter != nil {
+		var err error
+		if r.modelCleanup {
+			err = r.modelConverter.Close()
+		} else {
+			var consumed bool
+			consumed, err = r.modelConverter.DecRefConsumed()
+			if consumed {
+				r.modelCleanup = err != nil
+			}
+		}
+		if err != nil {
+			return err
+		}
+		r.modelConverter = nil
+	}
+	for len(r.goalCleanup) < len(r.goals) {
+		r.goalCleanup = append(r.goalCleanup, false)
+	}
 	for i := len(r.goals) - 1; i >= 0; i-- {
 		if r.goals[i] == nil {
 			continue
 		}
-		if err := r.goals[i].Close(); err != nil {
+		var err error
+		if r.goalCleanup[i] {
+			err = r.goals[i].Close()
+		} else {
+			var consumed bool
+			consumed, err = r.goals[i].DecRefConsumed()
+			if consumed {
+				r.goalCleanup[i] = err != nil
+			}
+		}
+		if err != nil {
 			result = errors.Join(result, err)
 		} else {
 			r.goals[i] = nil
 		}
 	}
-	if r.modelConverter != nil {
-		if err := r.modelConverter.DecRef(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			r.modelConverter = nil
-		}
-	}
 	if result == nil {
 		r.goals = nil
+		r.goalCleanup = nil
 		r.closed = true
 		r.owner, r.manager = nil, nil
 	}
@@ -61,8 +101,8 @@ func (r *APITacticResult) NumSubgoals() (uint32, error) {
 	return uint32(len(r.goals)), nil
 }
 
-// Subgoal returns an independently owning copy, matching the source goal
-// wrapper returned from an apply result.
+// Subgoal owns one reference to the source shared goal. Mutations through
+// another wrapper are visible, and the goal may outlive its apply result.
 func (r *APITacticResult) Subgoal(index uint32) (*APIGoal, error) {
 	if err := r.open(); err != nil {
 		return nil, err
@@ -70,11 +110,13 @@ func (r *APITacticResult) Subgoal(index uint32) (*APIGoal, error) {
 	if uint64(index) >= uint64(len(r.goals)) {
 		return nil, ast.ErrASTDomain
 	}
-	goal, err := tactic.NewGoalCopy(r.goals[index])
-	if err != nil {
+	goal := r.goals[index]
+	if err := goal.IncRef(); err != nil {
 		return nil, err
 	}
-	return &APIGoal{owner: r.owner, manager: r.manager, goal: goal}, nil
+	result := &APIGoal{owner: r.owner, manager: r.manager, goal: goal, shared: true}
+	result.self = result
+	return result, nil
 }
 
 func (r *APITacticResult) String() (string, error) {
@@ -83,9 +125,8 @@ func (r *APITacticResult) String() (string, error) {
 	}
 	var output strings.Builder
 	output.WriteString("(goals\n")
-	for i := range r.goals {
-		view := &APIGoal{owner: r.owner, manager: r.manager, goal: r.goals[i]}
-		text, err := view.String()
+	for _, goal := range r.goals {
+		text, err := apiGoalString(r.owner, r.manager, goal)
 		if err != nil {
 			return "", err
 		}

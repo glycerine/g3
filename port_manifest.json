@@ -7497,31 +7497,660 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_solver.go", "pkg/api/api_probe.go", "pkg/api/api_probe_composition.go", "pkg/api/api_probe_apply.go", "pkg/api/api_tactic.go", "pkg/api/api_tactic_composition.go", "pkg/api/api_tactic_apply.go", "pkg/api/api_tactic_result.go", "pkg/api/api_probe_test.go", "pkg/api/api_probe_composition_test.go", "pkg/api/api_tactic_lifecycle_test.go", "pkg/api/api_tactic_composition_test.go", "pkg/api/api_tactic_apply_test.go"],
-      "tests": ["TestSMTContextCheckSatUsingPublishesTacticModel", "TestAPIProbeGoalMeasurementsAndLifecycle", "TestAPITacticConstructorsAndLifecycle"],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "go_targets": [
+        "pkg/api/api_ast_printer_smt2.go",
+        "pkg/api/api_goal.go",
+        "pkg/api/api_goal_display.go",
+        "pkg/api/api_goal_translation.go",
+        "pkg/api/api_probe.go",
+        "pkg/api/api_probe_apply.go",
+        "pkg/api/api_probe_composition.go",
+        "pkg/api/api_probe_composition_test.go",
+        "pkg/api/api_probe_factories.go",
+        "pkg/api/api_probe_factories_test.go",
+        "pkg/api/api_probe_named.go",
+        "pkg/api/api_probe_named_composition_test.go",
+        "pkg/api/api_probe_named_constants_test.go",
+        "pkg/api/api_probe_named_measurements_test.go",
+        "pkg/api/api_probe_named_ownership_test.go",
+        "pkg/api/api_probe_registry.go",
+        "pkg/api/api_probe_registry_copy_test.go",
+        "pkg/api/api_probe_registry_errors_test.go",
+        "pkg/api/api_probe_registry_list.go",
+        "pkg/api/api_probe_registry_order_test.go",
+        "pkg/api/api_probe_test.go",
+        "pkg/api/api_solver.go",
+        "pkg/api/api_tactic.go",
+        "pkg/api/api_tactic_apply.go",
+        "pkg/api/api_tactic_apply_parameters.go",
+        "pkg/api/api_tactic_apply_parameters_closed_test.go",
+        "pkg/api/api_tactic_apply_parameters_foreign_goal_test.go",
+        "pkg/api/api_tactic_apply_parameters_foreign_params_test.go",
+        "pkg/api/api_tactic_apply_parameters_helpers_test.go",
+        "pkg/api/api_tactic_apply_parameters_ownership_test.go",
+        "pkg/api/api_tactic_apply_parameters_persistence_test.go",
+        "pkg/api/api_tactic_apply_parameters_success_test.go",
+        "pkg/api/api_tactic_apply_parameters_validation_test.go",
+        "pkg/api/api_tactic_apply_test.go",
+        "pkg/api/api_tactic_composition.go",
+        "pkg/api/api_tactic_composition_test.go",
+        "pkg/api/api_tactic_description.go",
+        "pkg/api/api_tactic_description_construct_test.go",
+        "pkg/api/api_tactic_description_errors_test.go",
+        "pkg/api/api_tactic_descriptors.go",
+        "pkg/api/api_tactic_descriptors_copy_test.go",
+        "pkg/api/api_tactic_descriptors_test.go",
+        "pkg/api/api_tactic_execute.go",
+        "pkg/api/api_tactic_help.go",
+        "pkg/api/api_tactic_help_test.go",
+        "pkg/api/api_tactic_lifecycle_test.go",
+        "pkg/api/api_tactic_parallel.go",
+        "pkg/api/api_tactic_parameter_validation.go",
+        "pkg/api/api_tactic_parameters.go",
+        "pkg/api/api_tactic_parameters_empty_test.go",
+        "pkg/api/api_tactic_parameters_lifecycle_test.go",
+        "pkg/api/api_tactic_parameters_ownership_test.go",
+        "pkg/api/api_tactic_parameters_simplify_test.go",
+        "pkg/api/api_tactic_registry.go",
+        "pkg/api/api_tactic_registry_construct_test.go",
+        "pkg/api/api_tactic_registry_errors_test.go",
+        "pkg/api/api_tactic_registry_lookup.go",
+        "pkg/api/api_tactic_registry_test.go",
+        "pkg/api/api_tactic_result.go",
+        "pkg/api/api_tactic_result_model.go",
+        "pkg/api/api_tactic_result_model_guards_test.go",
+        "pkg/api/api_tactic_result_model_test.go",
+        "pkg/api/api_tactic_result_retain.go",
+        "pkg/api/api_tactic_source_test.go",
+        "pkg/api/api_tactic_using_params.go",
+        "pkg/api/api_tactic_using_params_invalid_test.go",
+        "pkg/api/api_tactic_using_params_test.go",
+        "pkg/tactic/tactic_result_goal_reference.go",
+        "pkg/tactic/tactic_result_goal_reference_test.go"
+      ],
+      "tests": [
+        "TestAPINamedProbeComposesWithPublicProbeAPI",
+        "TestAPINamedProbeConstantClasses",
+        "TestAPINamedProbeGoalMeasurements",
+        "TestAPINamedProbeOwnerAndLifecycle",
+        "TestAPINamedProbeRegistryErrors",
+        "TestAPINamedProbeRegistryReturnsCopies",
+        "TestAPINamedProbeRegistrySourceOrder",
+        "TestAPIProbeAllSourceFactoriesConstructAndEvaluate",
+        "TestAPIProbeArithmeticFactoriesAndMixedComposition",
+        "TestAPIProbeComparisonAndBooleanComposition",
+        "TestAPIProbeGoalMeasurementsAndLifecycle",
+        "TestAPIProbeRejectsForeignOwners",
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles",
+        "TestAPITacticApplyRejectsForeignGoal",
+        "TestAPITacticApplyResultOwnsIndependentSubgoals",
+        "TestAPITacticApplyWithParametersClosedOwners",
+        "TestAPITacticApplyWithParametersConcreteSuccess",
+        "TestAPITacticApplyWithParametersPersistsTacticUpdate",
+        "TestAPITacticApplyWithParametersRejectsForeignGoal",
+        "TestAPITacticApplyWithParametersRejectsForeignParameters",
+        "TestAPITacticApplyWithParametersRejectsUnknownOption",
+        "TestAPITacticApplyWithParametersResultOwnsOutput",
+        "TestAPITacticConstructorsAndLifecycle",
+        "TestAPITacticConvertModelSourceEqualSizeBoundaryWithoutConverter",
+        "TestAPITacticDescriptionErrorsAndClosedContext",
+        "TestAPITacticDescriptionMatchesConstructibleFactory",
+        "TestAPITacticDescriptorsAreCallerOwned",
+        "TestAPITacticDescriptorsFollowRegistryOrder",
+        "TestAPITacticHelpUsesCollectedParameterDescriptions",
+        "TestAPITacticNestedScopeRefusalStillUpdatesParameters",
+        "TestAPITacticParallelSourceFallbackAndInputOwnership",
+        "TestAPITacticParameterDescriptionsEmptyPrimitive",
+        "TestAPITacticParameterDescriptionsFromConcreteTactic",
+        "TestAPITacticParameterDescriptionsOwnIndependentCopy",
+        "TestAPITacticParameterMetadataOwnershipGuards",
+        "TestAPITacticRegistryCopiesBoundsAndClosedContext",
+        "TestAPITacticRegistryCountIndexAndNames",
+        "TestAPITacticRegistryNamesConstructConcreteTactics",
+        "TestAPITacticResultConvertModelAppliesRetainedConverter",
+        "TestAPITacticResultConvertModelGuardsAndIndependentLifetime",
+        "TestAPITacticResultOwnsProofConverterAndCore",
+        "TestAPITacticSequentialAlternativeAndConditionalComposition",
+        "TestAPITacticSourceControlCOptionAndHandlerRestoration",
+        "TestAPITacticSourceCopiedOwnersCannotReleaseSharedState",
+        "TestAPITacticSourceExecutionLifecycleAndInterruptScope",
+        "TestAPITacticSourceParameterTimeoutAndDefaultReset",
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult",
+        "TestAPITacticUsingParametersRejectsUnknownParameter",
+        "TestAPITacticUsingParametersValidatesAndCopies",
+        "TestSMTContextCheckSatUsingPublishesTacticModel"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Retained named tactic construction and application to the current assertion goal, with model/result publication; standalone public goal transformation, probes, combinators, and tactic metadata remain open",
+          "name": "Z3_mk_tactic => SMTContext.Tactic",
           "status": "partial",
-          "go_target": "pkg/api/api_solver.go",
-          "go_targets": ["pkg/cmd_context/tactic_commands.go"],
-          "tests": ["TestSMTContextCheckSatUsingPublishesTacticModel"]
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_tactic_inc_ref => APITactic.Retain",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_tactic_dec_ref => APITactic.Close",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_tactic_skip => SMTContext.SkipTactic",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_tactic_fail => SMTContext.FailTactic",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_tactic_fail_if_not_decided => SMTContext.FailIfUndecidedTactic",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticConstructorsAndLifecycle"
+          ]
+        },
+        {
+          "name": "Z3_mk_probe => SMTContext.NamedProbe",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_named.go",
+          "tests": [
+            "TestAPIProbeAllSourceFactoriesConstructAndEvaluate"
+          ]
+        },
+        {
+          "name": "Z3_probe_inc_ref => APIProbe.Retain",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_probe_dec_ref => APIProbe.Close",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_probe_const => SMTContext.ConstantProbe",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_tactic_and_then => APITactic.AndThen",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_or_else => APITactic.OrElse",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_try_for => APITactic.TryFor",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_when => APITactic.When",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_cond => APIProbe.Conditional",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_repeat => APITactic.Repeat",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_fail_if => APIProbe.FailIf",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_composition.go",
+          "tests": [
+            "TestAPITacticSequentialAlternativeAndConditionalComposition"
+          ]
+        },
+        {
+          "name": "Z3_tactic_par_or => SMTContext.ParallelOr",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_parallel.go",
+          "tests": [
+            "TestAPITacticParallelSourceFallbackAndInputOwnership"
+          ]
+        },
+        {
+          "name": "Z3_tactic_par_and_then => APITactic.ParallelAndThen",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_parallel.go",
+          "tests": [
+            "TestAPITacticParallelSourceFallbackAndInputOwnership"
+          ]
+        },
+        {
+          "name": "Z3_tactic_using_params => APITactic.UsingParameters",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_using_params.go",
+          "tests": [
+            "TestAPITacticUsingParametersValidatesAndCopies"
+          ]
+        },
+        {
+          "name": "Z3_probe_lt => APIProbe.Compare(APIProbeLess)",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_gt => APIProbe.Compare(APIProbeGreater)",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_le => APIProbe.Compare(APIProbeLessEqual)",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_ge => APIProbe.Compare(APIProbeGreaterEqual)",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_eq => APIProbe.Compare(APIProbeEqual)",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_and => APIProbe.And",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_or => APIProbe.Or",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_probe_not => APIProbe.Not",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_composition.go",
+          "tests": [
+            "TestAPIProbeComparisonAndBooleanComposition"
+          ]
+        },
+        {
+          "name": "Z3_get_num_tactics => SMTContext.TacticCount",
+          "status": "partial",
+          "go_target": "pkg/api/api_tactic_registry.go",
+          "tests": [
+            "TestAPITacticRegistryCountIndexAndNames"
+          ]
+        },
+        {
+          "name": "Z3_get_tactic_name => SMTContext.TacticName",
+          "status": "partial",
+          "go_target": "pkg/api/api_tactic_registry.go",
+          "tests": [
+            "TestAPITacticRegistryCountIndexAndNames"
+          ]
+        },
+        {
+          "name": "Z3_get_num_probes => SMTContext.ProbeCount",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_registry.go",
+          "tests": [
+            "TestAPINamedProbeRegistrySourceOrder"
+          ]
+        },
+        {
+          "name": "Z3_get_probe_name => SMTContext.ProbeDescriptor",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_registry.go",
+          "tests": [
+            "TestAPINamedProbeRegistrySourceOrder"
+          ]
+        },
+        {
+          "name": "Z3_probe_get_descr => SMTContext.ProbeDescription",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_registry.go",
+          "tests": [
+            "TestAPINamedProbeRegistrySourceOrder"
+          ]
+        },
+        {
+          "name": "Z3_tactic_get_descr => SMTContext.TacticDescription",
+          "status": "partial",
+          "go_target": "pkg/api/api_tactic_description.go",
+          "tests": [
+            "TestAPITacticDescriptionMatchesConstructibleFactory"
+          ]
+        },
+        {
+          "name": "Z3_tactic_get_help => APITactic.Help",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_help.go",
+          "tests": [
+            "TestAPITacticHelpUsesCollectedParameterDescriptions"
+          ]
+        },
+        {
+          "name": "Z3_tactic_get_param_descrs => APITactic.ParameterDescriptions",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_parameters.go",
+          "tests": [
+            "TestAPITacticParameterDescriptionsOwnIndependentCopy"
+          ]
+        },
+        {
+          "name": "Z3_probe_apply => APIProbe.Apply",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe_apply.go",
+          "tests": [
+            "TestAPIProbeGoalMeasurementsAndLifecycle"
+          ]
+        },
+        {
+          "name": "Z3_tactic_apply => APITactic.Apply",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_apply.go",
+          "tests": [
+            "TestAPITacticSourceExecutionLifecycleAndInterruptScope"
+          ]
+        },
+        {
+          "name": "Z3_tactic_apply_ex => APITactic.ApplyWithParameters",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_apply_parameters.go",
+          "tests": [
+            "TestAPITacticSourceParameterTimeoutAndDefaultReset"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_inc_ref => APITacticResult.Retain",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result_retain.go",
+          "tests": [
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_dec_ref => APITacticResult.Close",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result.go",
+          "tests": [
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_to_string => APITacticResult.String",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result.go",
+          "tests": [
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_get_num_subgoals => APITacticResult.NumSubgoals",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result.go",
+          "tests": [
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_get_subgoal => APITacticResult.Subgoal",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result.go",
+          "tests": [
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_convert_model => APITacticResult.ConvertModel",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result_model.go",
+          "tests": [
+            "TestAPITacticConvertModelSourceEqualSizeBoundaryWithoutConverter"
+          ]
+        },
+        {
+          "name": "_tactic_apply: copied input, parameter update, scoped interrupt/control-C/timer, exec reset/cleanup, output goal and converter/core ownership",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_execute.go",
+          "go_targets": [
+            "pkg/api/api_tactic_apply.go"
+          ],
+          "tests": [
+            "TestAPITacticSourceExecutionLifecycleAndInterruptScope",
+            "TestAPITacticSourceParameterTimeoutAndDefaultReset",
+            "TestAPITacticSourceControlCOptionAndHandlerRestoration",
+            "TestAPITacticNestedScopeRefusalStillUpdatesParameters",
+            "TestAPITacticResultOwnsProofConverterAndCore"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_ref constructor and RETURN_TACTIC/RETURN_PROBE wrapper publication",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result.go",
+          "go_targets": [
+            "pkg/api/api_tactic.go",
+            "pkg/api/api_probe.go"
+          ],
+          "tests": [
+            "TestAPITacticSourceCopiedOwnersCannotReleaseSharedState",
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "Tactic and probe API wrappers own one concrete backend reference each. Retain returns another independently closable handle to the same backend; copied owning structs are rejected. Combinators acquire their child references and remain usable after input handles close.",
+        "Apply copies its input goal once, updates parameters (including an empty update for plain apply), installs the AST-limit interrupt handler, then scoped ctrl-c and the local-parameter timeout, and executes through tactic.Exec. Timer, signal handler, context interrupt scope and transient results unwind before the input reference. Default timeout is UINT_MAX and ctrl_c defaults false; the context timeout is not substituted.",
+        "Apply results acquire the actual source output goal references through TacticResult.AcquireGoalReference, transferring direct TakeGoal cleanup obligations and acquiring additional references for AddGoal borrowers. Subgoal handles and retained results share mutable goal state, while the original input remains independent. Results preserve proof converters, dependency roots and model converters; cleanup follows source member destruction order, and consumed goal/model decrements carry cleanup state for retry.",
+        "Goal and apply-result rendering borrow their owning context parameter service and hold format-manager references during SMT2 printing with source indentation. Returned strings and descriptor/name snapshots are immutable or defensive copies."
+      ],
       "deviations": [
-        "The initial Go API exposes retained built-in tactics by name as an owning SMTContext check operation; it does not reproduce opaque C tactic handles."
+        "Go owning handles replace opaque C API object counters and hidden context last-object publication. Retain and Close express balanced ownership explicitly; foreign, closed, copied and invalid handles return typed errors. Source off-by-one subgoal indexing is rejected before undefined access, while ConvertModel preserves its defined equal-size boundary when no converter uses the index.",
+        "The _NO_OMP_ source profile selects ordered fallback for par_or and sequential subgoal composition for par_and_then. No parallel solver execution is introduced.",
+        "All 42 ADD_PROBE registrations are connected to their concrete Go factories in the header order generated by scripts/mk_genfile_common.py. Factory algorithms remain attributed to their own source units. The named tactic registry still exposes 78 Go names against 103 source registrations (29 source entries absent and four Go additions); construction, enumeration/order and description reconciliation remain partial.",
+        "Native exception handling and error-state callbacks are represented by returned Go errors at this public boundary; context error-state/default-handler integration remains independently tracked under api_context.cpp."
       ]
     },
     {
       "path": "src/api/api_tactic.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_ast_printer_smt2.go",
+        "pkg/api/api_goal.go",
+        "pkg/api/api_goal_display.go",
+        "pkg/api/api_goal_translation.go",
+        "pkg/api/api_probe.go",
+        "pkg/api/api_probe_apply.go",
+        "pkg/api/api_probe_composition.go",
+        "pkg/api/api_probe_composition_test.go",
+        "pkg/api/api_probe_factories.go",
+        "pkg/api/api_probe_factories_test.go",
+        "pkg/api/api_probe_named.go",
+        "pkg/api/api_probe_named_composition_test.go",
+        "pkg/api/api_probe_named_constants_test.go",
+        "pkg/api/api_probe_named_measurements_test.go",
+        "pkg/api/api_probe_named_ownership_test.go",
+        "pkg/api/api_probe_registry.go",
+        "pkg/api/api_probe_registry_copy_test.go",
+        "pkg/api/api_probe_registry_errors_test.go",
+        "pkg/api/api_probe_registry_list.go",
+        "pkg/api/api_probe_registry_order_test.go",
+        "pkg/api/api_probe_test.go",
+        "pkg/api/api_tactic.go",
+        "pkg/api/api_tactic_apply.go",
+        "pkg/api/api_tactic_apply_parameters.go",
+        "pkg/api/api_tactic_apply_parameters_closed_test.go",
+        "pkg/api/api_tactic_apply_parameters_foreign_goal_test.go",
+        "pkg/api/api_tactic_apply_parameters_foreign_params_test.go",
+        "pkg/api/api_tactic_apply_parameters_helpers_test.go",
+        "pkg/api/api_tactic_apply_parameters_ownership_test.go",
+        "pkg/api/api_tactic_apply_parameters_persistence_test.go",
+        "pkg/api/api_tactic_apply_parameters_success_test.go",
+        "pkg/api/api_tactic_apply_parameters_validation_test.go",
+        "pkg/api/api_tactic_apply_test.go",
+        "pkg/api/api_tactic_composition.go",
+        "pkg/api/api_tactic_composition_test.go",
+        "pkg/api/api_tactic_description.go",
+        "pkg/api/api_tactic_description_construct_test.go",
+        "pkg/api/api_tactic_description_errors_test.go",
+        "pkg/api/api_tactic_descriptors.go",
+        "pkg/api/api_tactic_descriptors_copy_test.go",
+        "pkg/api/api_tactic_descriptors_test.go",
+        "pkg/api/api_tactic_execute.go",
+        "pkg/api/api_tactic_help.go",
+        "pkg/api/api_tactic_help_test.go",
+        "pkg/api/api_tactic_lifecycle_test.go",
+        "pkg/api/api_tactic_parallel.go",
+        "pkg/api/api_tactic_parameter_validation.go",
+        "pkg/api/api_tactic_parameters.go",
+        "pkg/api/api_tactic_parameters_empty_test.go",
+        "pkg/api/api_tactic_parameters_lifecycle_test.go",
+        "pkg/api/api_tactic_parameters_ownership_test.go",
+        "pkg/api/api_tactic_parameters_simplify_test.go",
+        "pkg/api/api_tactic_registry.go",
+        "pkg/api/api_tactic_registry_construct_test.go",
+        "pkg/api/api_tactic_registry_errors_test.go",
+        "pkg/api/api_tactic_registry_lookup.go",
+        "pkg/api/api_tactic_registry_test.go",
+        "pkg/api/api_tactic_result.go",
+        "pkg/api/api_tactic_result_model.go",
+        "pkg/api/api_tactic_result_model_guards_test.go",
+        "pkg/api/api_tactic_result_model_test.go",
+        "pkg/api/api_tactic_result_retain.go",
+        "pkg/api/api_tactic_source_test.go",
+        "pkg/api/api_tactic_using_params.go",
+        "pkg/api/api_tactic_using_params_invalid_test.go",
+        "pkg/api/api_tactic_using_params_test.go",
+        "pkg/tactic/tactic_result_goal_reference.go",
+        "pkg/tactic/tactic_result_goal_reference_test.go"
+      ],
+      "tests": [
+        "TestAPINamedProbeComposesWithPublicProbeAPI",
+        "TestAPINamedProbeConstantClasses",
+        "TestAPINamedProbeGoalMeasurements",
+        "TestAPINamedProbeOwnerAndLifecycle",
+        "TestAPINamedProbeRegistryErrors",
+        "TestAPINamedProbeRegistryReturnsCopies",
+        "TestAPINamedProbeRegistrySourceOrder",
+        "TestAPIProbeAllSourceFactoriesConstructAndEvaluate",
+        "TestAPIProbeArithmeticFactoriesAndMixedComposition",
+        "TestAPIProbeComparisonAndBooleanComposition",
+        "TestAPIProbeGoalMeasurementsAndLifecycle",
+        "TestAPIProbeRejectsForeignOwners",
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles",
+        "TestAPITacticApplyRejectsForeignGoal",
+        "TestAPITacticApplyResultOwnsIndependentSubgoals",
+        "TestAPITacticApplyWithParametersClosedOwners",
+        "TestAPITacticApplyWithParametersConcreteSuccess",
+        "TestAPITacticApplyWithParametersPersistsTacticUpdate",
+        "TestAPITacticApplyWithParametersRejectsForeignGoal",
+        "TestAPITacticApplyWithParametersRejectsForeignParameters",
+        "TestAPITacticApplyWithParametersRejectsUnknownOption",
+        "TestAPITacticApplyWithParametersResultOwnsOutput",
+        "TestAPITacticConstructorsAndLifecycle",
+        "TestAPITacticConvertModelSourceEqualSizeBoundaryWithoutConverter",
+        "TestAPITacticDescriptionErrorsAndClosedContext",
+        "TestAPITacticDescriptionMatchesConstructibleFactory",
+        "TestAPITacticDescriptorsAreCallerOwned",
+        "TestAPITacticDescriptorsFollowRegistryOrder",
+        "TestAPITacticHelpUsesCollectedParameterDescriptions",
+        "TestAPITacticNestedScopeRefusalStillUpdatesParameters",
+        "TestAPITacticParallelSourceFallbackAndInputOwnership",
+        "TestAPITacticParameterDescriptionsEmptyPrimitive",
+        "TestAPITacticParameterDescriptionsFromConcreteTactic",
+        "TestAPITacticParameterDescriptionsOwnIndependentCopy",
+        "TestAPITacticParameterMetadataOwnershipGuards",
+        "TestAPITacticRegistryCopiesBoundsAndClosedContext",
+        "TestAPITacticRegistryCountIndexAndNames",
+        "TestAPITacticRegistryNamesConstructConcreteTactics",
+        "TestAPITacticResultConvertModelAppliesRetainedConverter",
+        "TestAPITacticResultConvertModelGuardsAndIndependentLifetime",
+        "TestAPITacticResultOwnsProofConverterAndCore",
+        "TestAPITacticSequentialAlternativeAndConditionalComposition",
+        "TestAPITacticSourceControlCOptionAndHandlerRestoration",
+        "TestAPITacticSourceCopiedOwnersCannotReleaseSharedState",
+        "TestAPITacticSourceExecutionLifecycleAndInterruptScope",
+        "TestAPITacticSourceParameterTimeoutAndDefaultReset",
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult",
+        "TestAPITacticUsingParametersRejectsUnknownParameter",
+        "TestAPITacticUsingParametersValidatesAndCopies"
+      ],
       "conditionals": [
         {
           "line": 18,
@@ -7532,11 +8161,45 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Z3_tactic_ref constructor/destructor and checked tactic views",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_probe_ref constructor/destructor and checked probe views",
+          "status": "ported",
+          "go_target": "pkg/api/api_probe.go",
+          "tests": [
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+          ]
+        },
+        {
+          "name": "Z3_apply_result_ref goals/model/proof/core members, destruction and checked result views",
+          "status": "ported",
+          "go_target": "pkg/api/api_tactic_result.go",
+          "tests": [
+            "TestAPITacticResultOwnsProofConverterAndCore",
+            "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+          ]
+        }
+      ],
+      "ownership": [
+        "Tactic and probe API wrappers own one concrete backend reference each. Retain returns another independently closable handle to the same backend; copied owning structs are rejected. Combinators acquire their child references and remain usable after input handles close.",
+        "Apply copies its input goal once, updates parameters (including an empty update for plain apply), installs the AST-limit interrupt handler, then scoped ctrl-c and the local-parameter timeout, and executes through tactic.Exec. Timer, signal handler, context interrupt scope and transient results unwind before the input reference. Default timeout is UINT_MAX and ctrl_c defaults false; the context timeout is not substituted.",
+        "Apply results acquire the actual source output goal references through TacticResult.AcquireGoalReference, transferring direct TakeGoal cleanup obligations and acquiring additional references for AddGoal borrowers. Subgoal handles and retained results share mutable goal state, while the original input remains independent. Results preserve proof converters, dependency roots and model converters; cleanup follows source member destruction order, and consumed goal/model decrements carry cleanup state for retry.",
+        "Goal and apply-result rendering borrow their owning context parameter service and hold format-manager references during SMT2 printing with source indentation. Returned strings and descriptor/name snapshots are immutable or defensive copies."
+      ],
+      "deviations": [
+        "Go owning handles replace opaque C API object counters and hidden context last-object publication. Retain and Close express balanced ownership explicitly; foreign, closed, copied and invalid handles return typed errors. Source off-by-one subgoal indexing is rejected before undefined access, while ConvertModel preserves its defined equal-size boundary when no converter uses the index.",
+        "The _NO_OMP_ source profile selects ordered fallback for par_or and sequential subgoal composition for par_and_then. No parallel solver execution is introduced."
+      ]
     },
     {
       "path": "src/api/api_util.h",
@@ -185661,22 +186324,31 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/api/api_ast_printer_smt2.go",
+        "pkg/api/api_goal.go",
+        "pkg/api/api_goal_display.go",
+        "pkg/api/api_goal_translation.go",
+        "pkg/api/api_tactic_source_test.go",
+        "pkg/tactic/arith/polynomial_progress_test.go",
+        "pkg/tactic/bv/max_bv_sharing_goal.go",
         "pkg/tactic/tactic_base.go",
         "pkg/tactic/tactic_base_test.go",
         "pkg/tactic/tactic_report.go",
         "pkg/tactic/tactic_report_test.go",
-        "pkg/tactic/arith/polynomial_progress_test.go",
-        "pkg/tactic/bv/max_bv_sharing_goal.go",
+        "pkg/tactic/tactic_result_goal_reference.go",
+        "pkg/tactic/tactic_result_goal_reference_test.go",
         "pkg/tactic/ufbv/rewrite_tactic.go"
       ],
       "tests": [
-        "TestBaseTacticSkipFailUndecidedAndExecCleanup",
         "TestBaseTacticCheckSatStatusesModelsAndReason",
         "TestBaseTacticFeatureGuardsAndReferenceLifetime",
         "TestBaseTacticResultGoalOwnershipAndFactory",
-        "TestTacticReportReadsProcessMemoryAndWritesSourceOrder",
-        "TestTacticProgressPositiveVerboseGateAndSourceFormat",
+        "TestBaseTacticSkipFailUndecidedAndExecCleanup",
         "TestInequalityBuilderPublishesRetainedProgressOnRealGoal",
+        "TestTacticProgressPositiveVerboseGateAndSourceFormat",
+        "TestTacticReportReadsProcessMemoryAndWritesSourceOrder",
+        "TestTacticResultGoalReferencePreservesBorrowerAndBounds",
+        "TestTacticResultGoalReferenceTransfersDirectOwner",
         "TestUFBVRewriterTacticGoalTransitionAndCoreRefusal"
       ],
       "assertions": [
@@ -185734,6 +186406,15 @@
           "go_target": "pkg/tactic/tactic_base.go",
           "tests": [
             "TestBaseTacticFeatureGuardsAndReferenceLifetime"
+          ]
+        },
+        {
+          "name": "Concrete API goal_ref buffer bridge: transfer direct result goal ownership into counted references, preserving borrowed goal owners and output identity",
+          "status": "ported",
+          "go_target": "pkg/tactic/tactic_result_goal_reference.go",
+          "tests": [
+            "TestTacticResultGoalReferenceTransfersDirectOwner",
+            "TestTacticResultGoalReferencePreservesBorrowerAndBounds"
           ]
         }
       ],
@@ -271715,8 +272396,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticConvertModelSourceEqualSizeBoundaryWithoutConverter"
+      ],
+      "go_target": "pkg/api/api_tactic_result_model.go"
     },
     {
       "name": "Z3_apply_result_dec_ref",
@@ -271724,8 +272408,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+      ],
+      "go_target": "pkg/api/api_tactic_result.go"
     },
     {
       "name": "Z3_apply_result_get_num_subgoals",
@@ -271733,8 +272420,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+      ],
+      "go_target": "pkg/api/api_tactic_result.go"
     },
     {
       "name": "Z3_apply_result_get_subgoal",
@@ -271742,8 +272432,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+      ],
+      "go_target": "pkg/api/api_tactic_result.go"
     },
     {
       "name": "Z3_apply_result_inc_ref",
@@ -271751,8 +272444,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+      ],
+      "go_target": "pkg/api/api_tactic_result_retain.go"
     },
     {
       "name": "Z3_apply_result_to_string",
@@ -271760,8 +272456,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceSharedSubgoalAndRetainedResult"
+      ],
+      "go_target": "pkg/api/api_tactic_result.go"
     },
     {
       "name": "Z3_ast_map_contains",
@@ -273238,8 +273937,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPINamedProbeRegistrySourceOrder"
+      ],
+      "go_target": "pkg/api/api_probe_registry.go"
     },
     {
       "name": "Z3_get_num_tactics",
@@ -273247,8 +273949,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "partial",
+      "tests": [
+        "TestAPITacticRegistryCountIndexAndNames"
+      ],
+      "go_target": "pkg/api/api_tactic_registry.go"
     },
     {
       "name": "Z3_get_numeral_decimal_string",
@@ -273373,8 +274078,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPINamedProbeRegistrySourceOrder"
+      ],
+      "go_target": "pkg/api/api_probe_registry.go"
     },
     {
       "name": "Z3_get_quantifier_body",
@@ -273586,8 +274294,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "partial",
+      "tests": [
+        "TestAPITacticRegistryCountIndexAndNames"
+      ],
+      "go_target": "pkg/api/api_tactic_registry.go"
     },
     {
       "name": "Z3_get_tuple_sort_field_decl",
@@ -275614,8 +276325,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeAllSourceFactoriesConstructAndEvaluate"
+      ],
+      "go_target": "pkg/api/api_probe_named.go"
     },
     {
       "name": "Z3_mk_quantifier",
@@ -276128,8 +276842,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "partial",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_tactic.go"
     },
     {
       "name": "Z3_mk_true",
@@ -276767,8 +277484,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_apply",
@@ -276776,8 +277496,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeGoalMeasurementsAndLifecycle"
+      ],
+      "go_target": "pkg/api/api_probe_apply.go"
     },
     {
       "name": "Z3_probe_const",
@@ -276785,8 +277508,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_probe.go"
     },
     {
       "name": "Z3_probe_dec_ref",
@@ -276794,8 +277520,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_probe.go"
     },
     {
       "name": "Z3_probe_eq",
@@ -276803,8 +277532,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_ge",
@@ -276812,8 +277544,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_get_descr",
@@ -276821,8 +277556,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPINamedProbeRegistrySourceOrder"
+      ],
+      "go_target": "pkg/api/api_probe_registry.go"
     },
     {
       "name": "Z3_probe_gt",
@@ -276830,8 +277568,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_inc_ref",
@@ -276839,8 +277580,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_probe.go"
     },
     {
       "name": "Z3_probe_le",
@@ -276848,8 +277592,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_lt",
@@ -276857,8 +277604,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_not",
@@ -276866,8 +277616,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_probe_or",
@@ -276875,8 +277628,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIProbeComparisonAndBooleanComposition"
+      ],
+      "go_target": "pkg/api/api_probe_composition.go"
     },
     {
       "name": "Z3_qe_lite",
@@ -277582,8 +278338,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_tactic_apply",
@@ -277591,8 +278350,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceExecutionLifecycleAndInterruptScope"
+      ],
+      "go_target": "pkg/api/api_tactic_apply.go"
     },
     {
       "name": "Z3_tactic_apply_ex",
@@ -277600,8 +278362,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSourceParameterTimeoutAndDefaultReset"
+      ],
+      "go_target": "pkg/api/api_tactic_apply_parameters.go"
     },
     {
       "name": "Z3_tactic_cond",
@@ -277609,8 +278374,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_tactic_dec_ref",
@@ -277618,8 +278386,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_tactic.go"
     },
     {
       "name": "Z3_tactic_fail",
@@ -277627,8 +278398,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_tactic.go"
     },
     {
       "name": "Z3_tactic_fail_if",
@@ -277636,8 +278410,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_tactic_fail_if_not_decided",
@@ -277645,8 +278422,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticConstructorsAndLifecycle"
+      ],
+      "go_target": "pkg/api/api_tactic.go"
     },
     {
       "name": "Z3_tactic_get_descr",
@@ -277654,8 +278434,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "partial",
+      "tests": [
+        "TestAPITacticDescriptionMatchesConstructibleFactory"
+      ],
+      "go_target": "pkg/api/api_tactic_description.go"
     },
     {
       "name": "Z3_tactic_get_help",
@@ -277663,8 +278446,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticHelpUsesCollectedParameterDescriptions"
+      ],
+      "go_target": "pkg/api/api_tactic_help.go"
     },
     {
       "name": "Z3_tactic_get_param_descrs",
@@ -277672,8 +278458,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticParameterDescriptionsOwnIndependentCopy"
+      ],
+      "go_target": "pkg/api/api_tactic_parameters.go"
     },
     {
       "name": "Z3_tactic_inc_ref",
@@ -277681,8 +278470,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_tactic.go"
     },
     {
       "name": "Z3_tactic_or_else",
@@ -277690,8 +278482,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_tactic_par_and_then",
@@ -277699,8 +278494,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticParallelSourceFallbackAndInputOwnership"
+      ],
+      "go_target": "pkg/api/api_tactic_parallel.go"
     },
     {
       "name": "Z3_tactic_par_or",
@@ -277708,8 +278506,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticParallelSourceFallbackAndInputOwnership"
+      ],
+      "go_target": "pkg/api/api_tactic_parallel.go"
     },
     {
       "name": "Z3_tactic_repeat",
@@ -277717,8 +278518,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_tactic_skip",
@@ -277726,8 +278530,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+      ],
+      "go_target": "pkg/api/api_tactic.go"
     },
     {
       "name": "Z3_tactic_try_for",
@@ -277735,8 +278542,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_tactic_using_params",
@@ -277744,8 +278554,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticUsingParametersValidatesAndCopies"
+      ],
+      "go_target": "pkg/api/api_tactic_using_params.go"
     },
     {
       "name": "Z3_tactic_when",
@@ -277753,8 +278566,11 @@
         "src/api/api_tactic.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITacticSequentialAlternativeAndConditionalComposition"
+      ],
+      "go_target": "pkg/api/api_tactic_composition.go"
     },
     {
       "name": "Z3_to_app",

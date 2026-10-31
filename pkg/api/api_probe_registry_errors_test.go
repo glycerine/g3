@@ -10,7 +10,9 @@ import (
 
 func TestAPINamedProbeRegistryErrors(t *testing.T) {
 	f := newSMTAPIFixture(t, "ALL", nil)
-	if _, err := f.c.ProbeDescriptor(16); !errors.Is(err, arena.ErrBounds) {
+	count, countErr := f.c.ProbeCount()
+	astTestMust(t, countErr)
+	if _, err := f.c.ProbeDescriptor(count); !errors.Is(err, arena.ErrBounds) {
 		t.Fatal("descriptor bound", err)
 	}
 	if _, err := f.c.ProbeDescription("not-a-probe"); !errors.Is(err, ast.ErrASTDomain) {

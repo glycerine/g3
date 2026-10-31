@@ -22,9 +22,35 @@ type apiProbeRegistration struct {
 	kind       tactic.ProbeKind
 }
 
-// Keep source registration order. This order is observable through
+// Keep generated registration order: scripts/mk_genfile_common.py sorts
+// headers by their path after src/, then keeps ADD_PROBE order within a header. This order is observable through
 // Z3_get_probe_name and is therefore not represented by a Go map.
 var apiProbeRegistrations = [...]apiProbeRegistration{
+	{APIProbeDescriptor{"ackr-bound-probe", "A probe to give an upper bound of Ackermann congruence lemmas that a formula might generate."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-unbounded", "true if the goal contains integer/real constants that do not have lower/upper bounds."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-pb", "true if the goal is a pseudo-boolean problem."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"arith-max-deg", "max polynomial total degree of an arithmetic atom."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"arith-avg-deg", "avg polynomial total degree of an arithmetic atom."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"arith-max-bw", "max coefficient bit width."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"arith-avg-bw", "avg coefficient bit width."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qflia", "true if the goal is in QF_LIA."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qfauflia", "true if the goal is in QF_AUFLIA."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qflra", "true if the goal is in QF_LRA."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qflira", "true if the goal is in QF_LIRA."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-ilp", "true if the goal is ILP."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qfnia", "true if the goal is in QF_NIA (quantifier-free nonlinear integer arithmetic)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qfnra", "true if the goal is in QF_NRA (quantifier-free nonlinear real arithmetic)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-nia", "true if the goal is in NIA (nonlinear integer arithmetic, formula may have quantifiers)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-nra", "true if the goal is in NRA (nonlinear real arithmetic, formula may have quantifiers)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-nira", "true if the goal is in NIRA (nonlinear integer and real arithmetic, formula may have quantifiers)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-lia", "true if the goal is in LIA (linear integer arithmetic, formula may have quantifiers)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-lra", "true if the goal is in LRA (linear real arithmetic, formula may have quantifiers)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-lira", "true if the goal is in LIRA (linear integer and real arithmetic, formula may have quantifiers)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qfufnra", "true if the goal is QF_UFNRA (quantifier-free nonlinear real arithmetic with other theories)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qfbv-eq", "true if the goal is in a fragment of QF_BV which uses only =, extract, concat."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qffp", "true if the goal is in QF_FP (floats)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qffpbv", "true if the goal is in QF_FPBV (floats+bit-vectors)."}, tactic.ProbeConstant},
+	{APIProbeDescriptor{"is-qffplra", "true if the goal is in QF_FPLRA."}, tactic.ProbeConstant},
 	{APIProbeDescriptor{"memory", "amount of used memory in megabytes."}, tactic.ProbeMemory},
 	{APIProbeDescriptor{"depth", "depth of the input goal."}, tactic.ProbeDepth},
 	{APIProbeDescriptor{"size", "number of assertions in the given goal."}, tactic.ProbeSize},
@@ -41,9 +67,11 @@ var apiProbeRegistrations = [...]apiProbeRegistration{
 	{APIProbeDescriptor{"is-propositional", "true if the goal is in propositional logic."}, tactic.ProbeIsPropositional},
 	{APIProbeDescriptor{"is-qfbv", "true if the goal is in QF_BV."}, tactic.ProbeIsQFBitVector},
 	{APIProbeDescriptor{"is-qfaufbv", "true if the goal is in QF_AUFBV."}, tactic.ProbeIsQFArrayUFBitVector},
+	{APIProbeDescriptor{"is-quasi-pb", "true if the goal is quasi-pb."}, tactic.ProbeConstant},
 }
 
 func apiProbeRegistrationByName(name string) (apiProbeRegistration, bool) {
+	name = apiTacticName(name)
 	for _, registration := range apiProbeRegistrations {
 		if registration.descriptor.Name == name {
 			return registration, true

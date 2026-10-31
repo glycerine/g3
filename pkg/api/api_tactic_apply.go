@@ -6,9 +6,22 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/tactic"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func (t *APITactic) Apply(goal *APIGoal) (result *APITacticResult, resultErr error) {
+func (t *APITactic) Apply(goal *APIGoal) (*APITacticResult, error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	globals, err := t.owner.command.GlobalParameters()
+	if err != nil {
+		return nil, err
+	}
+	empty := globals.Context.EmptyValue()
+	return t.apply(goal, globals.Context, &empty)
+}
+
+func (t *APITactic) apply(goal *APIGoal, params *uparams.ParamsContext, local *uparams.ParamsRef) (result *APITacticResult, resultErr error) {
 	if err := t.open(); err != nil {
 		return nil, err
 	}
@@ -22,30 +35,44 @@ func (t *APITactic) Apply(goal *APIGoal) (result *APITacticResult, resultErr err
 	if err != nil {
 		return nil, err
 	}
+	if err = working.IncRef(); err != nil {
+		return nil, errors.Join(err, working.Close())
+	}
 	native := &tactic.TacticResult{}
 	defer func() {
-		resultErr = errors.Join(resultErr, native.Close(), working.Close())
+		resultErr = errors.Join(resultErr, native.Close(), working.DecRef())
 		if resultErr != nil && result != nil {
 			resultErr = errors.Join(resultErr, result.Close())
 			result = nil
 		}
 	}()
-	if err = t.tactic.Apply(working, native); err != nil {
+	if err = t.execute(working, native, params, local); err != nil {
 		return nil, err
 	}
 	result = &APITacticResult{owner: t.owner, manager: goal.manager}
+	result.self = result
 	if native.ModelConverter != nil {
 		if err = native.ModelConverter.IncRef(); err != nil {
 			return result, err
 		}
 		result.modelConverter = native.ModelConverter
 	}
-	for _, subgoal := range native.Goals {
-		copy, copyErr := tactic.NewGoalCopy(subgoal)
-		if copyErr != nil {
-			return result, copyErr
+	if native.ProofConverter != nil {
+		if err = native.ProofConverter.IncRef(); err != nil {
+			return result, err
 		}
-		result.goals = append(result.goals, copy)
+		result.proofConverter = native.ProofConverter
 	}
+	if err = result.core.Set(goal.manager, native.Core); err != nil {
+		return result, err
+	}
+	for i := range native.Goals {
+		subgoal, err := native.AcquireGoalReference(uint32(i))
+		if err != nil {
+			return result, err
+		}
+		result.goals = append(result.goals, subgoal)
+	}
+
 	return result, nil
 }

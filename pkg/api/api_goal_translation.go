@@ -36,5 +36,7 @@ func (g *APIGoal) Translate(target *SMTContext) (result *APIGoal, resultErr erro
 	if err = translation.Close(); err != nil {
 		return nil, errors.Join(err, translated.Close())
 	}
-	return &APIGoal{owner: target.smtContextState, manager: targetManager, goal: translated}, nil
+	result = &APIGoal{owner: target.smtContextState, manager: targetManager, goal: translated}
+	result.self = result
+	return result, nil
 }
