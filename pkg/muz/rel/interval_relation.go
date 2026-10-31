@@ -87,6 +87,30 @@ func (r *IntervalRelation) Union(source *IntervalRelation, widen bool) (bool, er
 	return unionIntervalColumns(r.values, source.values, widen)
 }
 
+// UnionWithDelta applies a union or widening and updates delta when the source
+// operation reports a change. An empty source resets delta to empty.
+func (r *IntervalRelation) UnionWithDelta(source, delta *IntervalRelation, widen bool) (bool, error) {
+	if r == nil || source == nil || delta == nil || r.values == nil || source.values == nil || delta.values == nil || r == delta || source == delta || len(r.values.columns) != len(source.values.columns) || len(r.values.columns) != len(delta.values.columns) {
+		return false, ast.ErrASTDomain
+	}
+	changed, err := unionIntervalColumns(r.values, source.values, widen)
+	if err != nil {
+		return false, err
+	}
+	if source.Empty() {
+		delta.values.setEmpty()
+	} else if changed {
+		// vector_relation::copy copies source values into fresh destination
+		// columns; its second merge loop leaves those columns independent.
+		copy := newIntervalColumns(len(r.values.columns), false)
+		for i := range copy.columns {
+			copy.columns[i] = r.values.columns[r.values.find(uint32(i))]
+		}
+		delta.values = copy
+	}
+	return changed, nil
+}
+
 func JoinIntervalRelations(left, right *IntervalRelation, leftColumns, rightColumns []uint32) (*IntervalRelation, error) {
 	if left == nil || right == nil {
 		return nil, ast.ErrASTDomain
@@ -103,6 +127,21 @@ func (r *IntervalRelation) Project(removed []uint32) (*IntervalRelation, error) 
 		return nil, ast.ErrASTDomain
 	}
 	values, err := projectIntervalColumns(r.values, removed)
+	if err != nil {
+		return nil, err
+	}
+	if r.Empty() {
+		values.setEmpty()
+	}
+	return &IntervalRelation{values}, nil
+}
+
+// Rename rotates the columns in cycle, with each column moving to the next.
+func (r *IntervalRelation) Rename(cycle []uint32) (*IntervalRelation, error) {
+	if r == nil {
+		return nil, ast.ErrASTDomain
+	}
+	values, err := renameIntervalColumns(r.values, cycle)
 	if err != nil {
 		return nil, err
 	}

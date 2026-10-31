@@ -81470,9 +81470,17 @@
       "path": "src/math/subpaving/tactic/subpaving_tactic.h",
       "component": "math",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/math/subpaving/tactic/public_factory.go",
+        "pkg/math/subpaving/tactic/public_factory_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_commands_test.go"
+      ],
+      "tests": [
+        "TestSubpavingPublicFactoryOwnsSimplifyComposition",
+        "TestCommandContextRegistersRetainedSubpavingTactic"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -81485,9 +81493,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "mk_subpaving_tactic concrete public factory",
+          "status": "partial",
+          "go_target": "pkg/math/subpaving/tactic/public_factory.go",
+          "tests": [
+            "TestSubpavingPublicFactoryOwnsSimplifyComposition"
+          ]
+        }
+      ],
+      "ownership": [
+        "The public factory transfers ownership of the tactic composition to its caller."
+      ],
+      "deviations": [
+        "Pending source and ownership audit alongside the partially ported implementation; the factory is registered with the command context."
+      ]
     },
     {
       "path": "src/model/CMakeLists.txt",
@@ -90133,7 +90154,10 @@
         "TestIntervalColumnsBinaryPropagation",
         "TestIntervalVectorJoinProject",
         "TestIntervalVectorUnionAndWiden",
-        "TestIntervalRelationFactAndJoin"
+        "TestIntervalRelationFactAndJoin",
+        "TestIntervalRelationRename",
+        "TestIntervalRelationUnionDelta",
+        "TestIntervalVectorRenameEquivalences"
       ],
       "assertions": [
         {
@@ -90196,6 +90220,15 @@
           "tests": [
             "TestIntervalRelationFactAndJoin"
           ]
+        },
+        {
+          "name": "interval relation rename and union delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": [
+            "TestIntervalRelationRename",
+            "TestIntervalRelationUnionDelta"
+          ]
         }
       ],
       "ownership": [
@@ -90203,7 +90236,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: rename, delta and remaining filter operations, complete vector relation operations and other live instantiations, plugin registration, diagnostics and ownership/allocation audit. The public Project wrapper preserves emptiness even though the low-level native mk_project routine does not propagate it."
+        "Pending: remaining vector operations and live instantiations, other filter operations, plugin registration, diagnostics, and source ownership/allocation audit. Public projection and rename preserve emptiness; union delta requires a distinct destination."
       ]
     },
     {
@@ -90229,7 +90262,10 @@
         "TestIntervalColumnsBinaryPropagation",
         "TestIntervalVectorJoinProject",
         "TestIntervalVectorUnionAndWiden",
-        "TestIntervalRelationFactAndJoin"
+        "TestIntervalRelationFactAndJoin",
+        "TestIntervalRelationRename",
+        "TestIntervalRelationUnionDelta",
+        "TestIntervalVectorRenameEquivalences"
       ],
       "conditionals": [
         {
@@ -90276,6 +90312,15 @@
           "tests": [
             "TestIntervalRelationFactAndJoin"
           ]
+        },
+        {
+          "name": "interval relation rename and union delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": [
+            "TestIntervalRelationRename",
+            "TestIntervalRelationUnionDelta"
+          ]
         }
       ],
       "ownership": [
@@ -90283,7 +90328,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: rename, delta and remaining filter operations, complete vector relation operations and other live instantiations, plugin registration, diagnostics and ownership/allocation audit. The public Project wrapper preserves emptiness even though the low-level native mk_project routine does not propagate it."
+        "Pending: remaining vector operations and live instantiations, other filter operations, plugin registration, diagnostics, and source ownership/allocation audit. Public projection and rename preserve emptiness; union delta requires a distinct destination."
       ]
     },
     {
@@ -92232,7 +92277,10 @@
         "TestIntervalVectorColumnEquivalences",
         "TestIntervalVectorJoinProject",
         "TestIntervalVectorUnionAndWiden",
-        "TestIntervalRelationFactAndJoin"
+        "TestIntervalRelationFactAndJoin",
+        "TestIntervalRelationRename",
+        "TestIntervalRelationUnionDelta",
+        "TestIntervalVectorRenameEquivalences"
       ],
       "conditionals": [
         {
@@ -92292,13 +92340,22 @@
           "tests": [
             "TestIntervalRelationFactAndJoin"
           ]
+        },
+        {
+          "name": "interval relation rename and union delta",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": [
+            "TestIntervalRelationRename",
+            "TestIntervalRelationUnionDelta"
+          ]
         }
       ],
       "ownership": [
         "The interval instantiation owns its column values and union-find arrays."
       ],
       "deviations": [
-        "Pending: rename, delta and remaining filter operations, complete vector relation operations and other live instantiations, plugin registration, diagnostics and ownership/allocation audit. The public Project wrapper preserves emptiness even though the low-level native mk_project routine does not propagate it."
+        "Pending: remaining vector operations and live instantiations, other filter operations, plugin registration, diagnostics, and source ownership/allocation audit. Public projection and rename preserve emptiness; union delta requires a distinct destination."
       ]
     },
     {

@@ -1,3 +1,5 @@
+Interval vector rename and delta (2026-10-31 UTC): added concrete interval column rotation with equality classes and union delta behavior, with direct relation tests. Also recorded the already implemented and registered subpaving tactic header factory; the implementation and ownership audit remain partial.
+
 Injectivity tactic integration (2026-10-31 UTC): exposed the existing inverse-axiom recognizer and equality rewriter through the builtin registry and SMT-LIB application command. The C++ source and header have partial evidence; source and ownership audits remain pending.
 
 Statistics tactic integration (2026-10-31 UTC): connected the existing collect-statistics traversal and output implementation to the builtin registry and SMT-LIB command path. Its C++ source and header now have partial port evidence; parameter and ownership audits remain pending.

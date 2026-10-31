@@ -103,3 +103,13 @@ func TestIntervalVectorUnionAndWiden(t *testing.T) {
 		t.Fatal("empty source should not change union")
 	}
 }
+
+func TestIntervalVectorRenameEquivalences(t *testing.T) {
+	r := newIntervalColumns(3, false)
+	astTestMust(t, r.equate(0, 1))
+	renamed, err := renameIntervalColumns(r, []uint32{0, 2})
+	astTestMust(t, err)
+	if renamed.find(1) != renamed.find(2) || renamed.find(0) == renamed.find(1) {
+		t.Fatal("rename lost column equivalences")
+	}
+}

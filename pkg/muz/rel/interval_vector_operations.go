@@ -65,6 +65,42 @@ func projectIntervalColumns(source *intervalColumns, removed []uint32) (*interva
 	return result, nil
 }
 
+// renameIntervalColumns rotates the given columns and preserves the source's
+// equality classes. The destination of cycle[i] is cycle[(i+1)%len(cycle)].
+func renameIntervalColumns(source *intervalColumns, cycle []uint32) (*intervalColumns, error) {
+	if source == nil || len(cycle) == 0 {
+		return nil, ast.ErrASTDomain
+	}
+	seen := make(map[uint32]bool, len(cycle))
+	for _, column := range cycle {
+		if uint64(column) >= uint64(len(source.columns)) || seen[column] {
+			return nil, ast.ErrASTDomain
+		}
+		seen[column] = true
+	}
+	result := newIntervalColumns(len(source.columns), false)
+	classes := make([]uint32, len(source.columns))
+	for i := range source.columns {
+		classes[i] = source.find(uint32(i))
+		result.columns[i] = source.columns[classes[i]]
+	}
+	for i, column := range cycle {
+		destination := cycle[(i+1)%len(cycle)]
+		// The native routine reads the source vector directly here.
+		result.columns[destination] = source.columns[column]
+		classes[destination] = source.find(column)
+	}
+	first := make(map[uint32]uint32)
+	for i, class := range classes {
+		if representative, ok := first[class]; ok {
+			result.merge(representative, uint32(i))
+		} else {
+			first[class] = uint32(i)
+		}
+	}
+	return result, nil
+}
+
 // unionIntervalColumns updates the target with the source's hull or widening.
 // The result reports the source's delta-change condition.
 func unionIntervalColumns(target, source *intervalColumns, widen bool) (bool, error) {
