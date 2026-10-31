@@ -200711,9 +200711,9 @@
       "path": "src/test/dl_relation.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/dl_relation_cpp_driver_test.go"],
+      "tests": ["TestIntervalRelationSourceOperations"],
       "conditionals": [
         {
           "line": 7,
@@ -200774,7 +200774,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The interval relation driver is exercised with assertions in place of printed output; the bound relation driver remains open."]
     },
     {
       "path": "src/test/dl_table.cpp",

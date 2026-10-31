@@ -52286,3 +52286,5 @@ Arithmetic simplifier source driver: translated its active pair of integer equat
 Polynomial normalization source driver started: recreated both source expressions and checked their simplified values over nine integer assignments each. The source's diagnostic decomposition into coefficients and factors remains open.
 
 Polynomial normalization driver completion: ported the active source decomposition of rewritten sums into a constant and coefficient/factor pairs. The two source examples check their exact factors and coefficients as well as concrete evaluations.
+
+Datalog relation source driver started: translated the interval example's full/empty construction, interpreted and equality filters, joined projection, rename and source membership checks. The separate bound-relation source example remains open.
