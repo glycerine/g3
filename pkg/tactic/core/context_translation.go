@@ -71,6 +71,11 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 			return nil, true, err
 		}
 		source, sourceParams = t.context, &t.params
+	case *InjectivityTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, sourceParams = t.context, &t.params
 	default:
 		return nil, false, nil
 	}
@@ -134,6 +139,12 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 	case *NNFTactic:
 		var next *NNFTactic
 		next, err = newNNFTactic(m, context, globals, &p, t.full)
+		if err == nil {
+			result = next
+		}
+	case *InjectivityTactic:
+		var next *InjectivityTactic
+		next, err = NewInjectivityTactic(m, context, globals, &p)
 		if err == nil {
 			result = next
 		}

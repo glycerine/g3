@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/tactic/aig"
 	"github.com/glycerine/g3/pkg/tactic/arith"
 	"github.com/glycerine/g3/pkg/tactic/bv"
 	"github.com/glycerine/g3/pkg/tactic/core"
@@ -30,6 +31,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithConfig(manager, config)
 		case *core.SimplifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
+		case *aig.Tactic:
+			return sourceTactic.TranslateWithServices(config.Params, config.ModelEvaluator.Cooperation)
 		case *bv.BitBlasterTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
 		default:

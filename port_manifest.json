@@ -175156,6 +175156,10 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/aig/context_translation.go",
+        "pkg/api/api_caller_tactic_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/aig/aig_tactic.go",
         "pkg/tactic/aig/aig_tactic_memory_trace.go",
         "pkg/tactic/aig/aig_tactic_adapter.go",
@@ -175169,6 +175173,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestAIGPassPerAssertionPreservesDependenciesAndDepth",
         "TestAIGPassWholeGoalCombinesAndRejectsCore",
         "TestAIGPassRejectsProofBeforeGoalMutation",
@@ -187276,6 +187283,10 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_caller_tactic_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/core/injectivity_tactic.go",
         "pkg/tactic/core/injectivity_relations.go",
         "pkg/tactic/core/injectivity_finder.go",
@@ -187292,6 +187303,9 @@
         "pkg/cmd/g3/injectivity_tactic_test.go"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestInjectivityDiscoversInverseAndRewritesEquality",
         "TestInjectivityFinderOrientationAndExactDeBruijnShape",
         "TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration",
