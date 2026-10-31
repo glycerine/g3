@@ -90571,7 +90571,9 @@
         "pkg/muz/rel/interval_vector_operations.go",
         "pkg/muz/rel/interval_vector_operations_test.go",
         "pkg/muz/rel/interval_relation.go",
-        "pkg/muz/rel/interval_relation_test.go"
+        "pkg/muz/rel/interval_relation_test.go",
+        "pkg/muz/rel/interval_relation_formula.go",
+        "pkg/muz/rel/interval_relation_formula_test.go"
       ],
       "tests": [
         "TestIntervalRelationLinearComparisonRecognition",
@@ -90583,7 +90585,8 @@
         "TestIntervalRelationFactAndJoin",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
-        "TestIntervalVectorRenameEquivalences"
+        "TestIntervalVectorRenameEquivalences",
+        "TestIntervalRelationToFormula"
       ],
       "assertions": [
         {
@@ -90655,6 +90658,14 @@
             "TestIntervalRelationRename",
             "TestIntervalRelationUnionDelta"
           ]
+        },
+        {
+          "name": "source formula for interval bounds and equal columns",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_relation_formula.go",
+          "tests": [
+            "TestIntervalRelationToFormula"
+          ]
         }
       ],
       "ownership": [
@@ -90662,7 +90673,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: remaining vector operations and live instantiations, other filter operations, plugin registration, diagnostics, and source ownership/allocation audit. Public projection and rename preserve emptiness; union delta requires a distinct destination."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin."
       ]
     },
     {
@@ -90679,7 +90690,9 @@
         "pkg/muz/rel/interval_vector_operations.go",
         "pkg/muz/rel/interval_vector_operations_test.go",
         "pkg/muz/rel/interval_relation.go",
-        "pkg/muz/rel/interval_relation_test.go"
+        "pkg/muz/rel/interval_relation_test.go",
+        "pkg/muz/rel/interval_relation_formula.go",
+        "pkg/muz/rel/interval_relation_formula_test.go"
       ],
       "tests": [
         "TestIntervalRelationLinearComparisonRecognition",
@@ -90691,7 +90704,8 @@
         "TestIntervalRelationFactAndJoin",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
-        "TestIntervalVectorRenameEquivalences"
+        "TestIntervalVectorRenameEquivalences",
+        "TestIntervalRelationToFormula"
       ],
       "conditionals": [
         {
@@ -90747,6 +90761,14 @@
             "TestIntervalRelationRename",
             "TestIntervalRelationUnionDelta"
           ]
+        },
+        {
+          "name": "source formula for interval bounds and equal columns",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_relation_formula.go",
+          "tests": [
+            "TestIntervalRelationToFormula"
+          ]
         }
       ],
       "ownership": [
@@ -90754,7 +90776,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: remaining vector operations and live instantiations, other filter operations, plugin registration, diagnostics, and source ownership/allocation audit. Public projection and rename preserve emptiness; union delta requires a distinct destination."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin."
       ]
     },
     {

@@ -1,3 +1,5 @@
+Interval relation formula (2026-10-31 UTC): added owned source-order AST formula construction for interval endpoints and equivalent columns, including strict and non-strict bounds. The relation plugin registration and full lifecycle/allocation audit remain pending.
+
 Bound relation rename and formula (2026-10-31 UTC): added source cycle renaming for bounds and equivalence classes, plus owned formula construction with source-order equalities and strict/weak inequalities. Remaining filters, relation registration and allocation/failure audit remain pending.
 
 Bound relation join and projection (2026-10-31 UTC): added concrete vector joins and projection with column equality preservation. Projection drops references to removed columns and preserves empty inputs; C++ uses the UINT_MAX removal sentinel and does not propagate emptiness. Rename, remaining filters, formulas and live relation registration remain pending.
