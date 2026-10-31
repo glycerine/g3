@@ -39,3 +39,30 @@ func TestSMT2BMCEngineSearch(t *testing.T) {
 		})
 	}
 }
+
+func TestSMT2BMCCertificate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	script := `(set-option :fixedpoint.engine bmc)
+(declare-rel A ())
+(declare-rel G ())
+(declare-rel U ())
+(rule A)
+(rule (=> A G))
+(query G :print-certificate true)
+(query U :print-certificate true)`
+	var output bytes.Buffer
+	if err := ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if got := output.String(); got != "sat\n(asserted query!0)\n\nunsat\nnull\n\n" {
+		t.Fatalf("BMC certificates = %q", got)
+	}
+}

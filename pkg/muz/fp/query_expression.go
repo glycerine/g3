@@ -28,6 +28,8 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 			} else {
 				e.bmcTrace = clone.bmcTrace
 				clone.bmcTrace = nil
+				e.bmcProof = clone.bmcProof
+				clone.bmcProof = ast.ASTRef{}
 				e.bmcStatistics.Reset()
 				e.bmcStatistics.Copy(clone.bmcStatistics)
 			}

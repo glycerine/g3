@@ -15,7 +15,42 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+// queryBMCRelation constructs the same synthetic query rule used for an
+// expression query, preserving the source query predicate in proof answers.
+func (e *PropositionalEngine) queryBMCRelation(declaration ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	arity, err := e.manager.GetArity(declaration)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	arguments := make([]ast.ASTHandle, arity)
+	for i := uint32(0); i < arity; i++ {
+		sort, err := e.manager.GetDomain(declaration, i)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		arguments[i], err = e.manager.MkVar(arity-i-1, sort)
+		if err != nil {
+			return lbool.Undef, err
+		}
+	}
+	query, err := e.manager.MkApp(declaration, arguments)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	ref, err := e.manager.NewRef(query)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&ref)) }()
+	return e.QueryExpression(query)
+}
+
 func (e *PropositionalEngine) clearBMCTrace() (result error) {
+	if e.bmcProof != (ast.ASTRef{}) {
+		if err := e.manager.DelRef(&e.bmcProof); err != nil {
+			return err
+		}
+	}
 	for len(e.bmcTrace) != 0 {
 		i := len(e.bmcTrace) - 1
 		if err := e.bmcTrace[i].Close(); err != nil {
@@ -88,6 +123,10 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	if err != nil {
 		return lbool.Undef, err
 	}
+	proofTrace, err := view.Bool("generate_proof_trace", false)
+	if err != nil {
+		return lbool.Undef, err
+	}
 	local, err := e.params.NewValue()
 	if err != nil {
 		return lbool.Undef, err
@@ -138,6 +177,10 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
 	if linear {
 		e.bmcTrace, err = compiler.LinearTrace(rules, declaration, level, md)
+		if err == nil && !proofTrace && !e.forceProofTrace {
+			services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals}
+			e.bmcProof, err = compiler.LinearProof(rules, declaration, level, md, services)
+		}
 	} else {
 		cooperation, e2 := cooperate.NewCooperation(e.manager.Budget())
 		if e2 != nil {

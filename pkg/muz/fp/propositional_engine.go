@@ -96,6 +96,7 @@ type PropositionalEngine struct {
 	pdrStatistics      statistics.Statistics
 	bmcStatistics      statistics.Statistics
 	bmcTrace           []*base.Rule
+	bmcProof           ast.ASTRef
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
 	assertions         []ast.ASTRef
@@ -1607,6 +1608,9 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	if e.backend == "bmc" {
 		e.compiled = false
+		if !e.auxiliary[declaration] {
+			return e.queryBMCRelation(declaration)
+		}
 		return e.queryBMCPredicate(declaration)
 	}
 	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
@@ -1785,8 +1789,14 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		return e.manager.NewRef(value)
 	}
 	if kind == EngineBMC {
-		// Hyper-resolution answer reconstruction is not available yet.
-		return answer, ErrPropositionalEngine
+		if e.bmcProof == (ast.ASTRef{}) {
+			return answer, ErrPropositionalEngine
+		}
+		proof, err := e.manager.RefGet(e.bmcProof)
+		if err != nil {
+			return answer, err
+		}
+		return e.manager.NewRef(proof)
 	}
 	if e.backend == "pdr" {
 		status, err := e.pdr.LastResult()
@@ -1924,6 +1934,33 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	}
 	if e.backend == "ddnf" {
 		return false, ErrPropositionalEngine
+	}
+	if e.backend == "bmc" {
+		if err := e.requireResultSnapshot(EngineBMC); err != nil {
+			return false, err
+		}
+		status, err := e.LastResult()
+		if err != nil {
+			return false, err
+		}
+		if status != lbool.True {
+			_, err = fmt.Fprintln(out, "null")
+			return true, err
+		}
+		answer, err := e.Answer(declaration)
+		if err != nil {
+			return false, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&answer)) }()
+		proof, err := e.manager.RefGet(answer)
+		if err != nil {
+			return false, err
+		}
+		if err = writeExpression(out, proof); err != nil {
+			return true, err
+		}
+		_, err = fmt.Fprintln(out)
+		return true, err
 	}
 	if e.backend != "pdr" {
 		return false, nil
