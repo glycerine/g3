@@ -129,3 +129,43 @@ func TestSMTLibRunnerQEOpposingBounds(t *testing.T) {
 		t.Fatalf("opposing bounds QE tactic result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerQESymbolicIntegerBounds(t *testing.T) {
+	script := `(set-logic LIA)
+(declare-const y Int)
+(assert (exists ((x Int)) (and (>= x y) (<= x 0))))
+(push)
+(assert (> y 0))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= y (- 1)))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("symbolic integer QE result: %s", got)
+	}
+}
+
+func TestSMTLibRunnerQESymbolicRealBounds(t *testing.T) {
+	script := `(set-logic LRA)
+(declare-const y Real)
+(assert (exists ((x Real)) (and (> x 0.0) (< x y))))
+(push)
+(assert (<= y 0.0))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= y 1.0))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("symbolic real QE result: %s", got)
+	}
+}

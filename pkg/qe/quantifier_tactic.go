@@ -14,8 +14,8 @@ import (
 )
 
 // QuantifierTactic handles quantifier-free goals, supported Boolean quantifiers,
-// and arithmetic quantifiers solved by equations. General expression
-// elimination remains under construction.
+// and selected arithmetic quantifiers. General expression elimination remains
+// under construction.
 type QuantifierTactic struct {
 	self                *QuantifierTactic
 	manager             *ast.ASTManager

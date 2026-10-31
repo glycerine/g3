@@ -42,7 +42,8 @@ func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
 	}
 	integerVar := f.own(m.MkVar(0, f.integer))
 	freeInteger := f.constant("qe-unsupported-bound", f.integer)
-	inequality := f.own(m.MkArithmeticGT(integerVar, freeInteger))
+	square := f.own(m.MkArithmeticMul(integerVar, integerVar))
+	inequality := f.own(m.MkArithmeticGT(square, freeInteger))
 	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: inequality}))
 	quantified := f.goal(false, false)
 	fmMust(t, quantified.Assert(q))
@@ -110,7 +111,8 @@ func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 	}
 	integerVar := f.own(m.MkVar(0, f.integer))
 	freeInteger := f.constant("qe-atomic-unsupported-bound", f.integer)
-	positive := f.own(m.MkArithmeticGT(integerVar, freeInteger))
+	square := f.own(m.MkArithmeticMul(integerVar, integerVar))
+	positive := f.own(m.MkArithmeticGT(square, freeInteger))
 	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: positive}))
 	refused := f.goal(false, false)
 	fmMust(t, refused.Assert(exists))

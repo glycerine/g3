@@ -130,6 +130,9 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			if e == nil && !done {
 				eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
 			}
+			if e == nil && !done {
+				eliminated, done, e = eliminateQuantifierArithmeticSearch(m, q, config)
+			}
 		}
 		if e != nil || !done {
 			return result, false, errors.Join(e, m.DelRef(&bound))

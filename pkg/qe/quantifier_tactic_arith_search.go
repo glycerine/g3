@@ -176,6 +176,23 @@ func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHa
 	if err != nil || !complete {
 		return result, false, err
 	}
+	value, err := m.RefGet(result)
+	if err != nil {
+		return result, false, err
+	}
+	contains, err := ast.NewContainsApp(m, variable)
+	if err != nil {
+		return result, false, err
+	}
+	escaped, err := contains.Check(value)
+	err = errors.Join(err, contains.Close())
+	if err != nil {
+		return result, false, err
+	}
+	if escaped {
+		err = m.DelRef(&result)
+		return result, false, err
+	}
 	if forall {
 		value, e := m.RefGet(result)
 		if e != nil {
