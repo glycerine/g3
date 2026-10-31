@@ -5982,7 +5982,9 @@
         "pkg/api/z3_generated_fixedpoint_commands.go",
         "pkg/api/z3_generated_fixedpoint_commands_test.go",
         "pkg/api/z3_generated_optimize_commands.go",
-        "pkg/api/z3_generated_optimize_commands_test.go"
+        "pkg/api/z3_generated_optimize_commands_test.go",
+        "pkg/api/z3_generated_floating_point_commands.go",
+        "pkg/api/z3_generated_floating_point_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6072,7 +6074,8 @@
         "TestGeneratedOptimizeReplaySnapshotsAndLifecycle",
         "TestGeneratedOptimizeReplayClosesIncompleteLog",
         "TestZ3LogFrontendReplaysOptimize",
-        "TestGeneratedOptimizeReplayBoundsAndMetadata"
+        "TestGeneratedOptimizeReplayBoundsAndMetadata",
+        "TestGeneratedFloatingPointReplayConstructors"
       ],
       "methods_audited": false,
       "ownership_audited": false,

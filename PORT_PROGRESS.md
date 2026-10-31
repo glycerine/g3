@@ -1,3 +1,5 @@
+Generated floating-point constructor replay (2026-10-31 UTC): connected rounding modes, standard and custom sorts, special values, bit-vector components and numeral constructors. Normal and checked tests verify aliases, formats and value classifications; floating-point operations and other generated commands remain unfinished.
+
 Generated optimizer bounds and metadata replay (2026-10-31 UTC): connected parameter updates and descriptions, scalar and vector bounds, and statistics snapshots. Normal and checked tests verify finite bounds and ownership after optimizer release; soft assertions and other generated commands remain unfinished.
 
 Generated optimizer replay lifecycle (2026-10-31 UTC): connected optimizer creation, scopes, assertions, objectives, checking, model and vector snapshots, parsing and display. Normal and checked API/CLI tests verify snapshot ownership and cleanup; soft assertions, bounds and other generated commands remain unfinished.
