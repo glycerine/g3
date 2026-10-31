@@ -171658,7 +171658,10 @@
         "pkg/tactic/arith/nla2bv_numeric_checked_test.go",
         "pkg/tactic/arith/nla2bv_width_read_test.go",
         "pkg/tactic/arith/nla2bv_integer_numeric_test.go",
-        "pkg/tactic/arith/nla2bv_real_prefix_test.go"
+        "pkg/tactic/arith/nla2bv_real_prefix_test.go",
+        "pkg/tactic/arith/nla2bv_vector.go",
+        "pkg/tactic/arith/nla2bv_vector_test.go",
+        "pkg/tactic/arith/bv2real_vector.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171690,7 +171693,9 @@
         "TestNLA2BVIntegerDefinitionProjectBoundsAndCachedOffset",
         "TestNLA2BVUnboundedOffsetCacheFailureFrontiers",
         "TestNLA2BVRealSortFailurePrecedesPrecisionDowngrade",
-        "TestNLA2BVRealCoefficientCreationPrecedesFilterPublication"
+        "TestNLA2BVRealCoefficientCreationPrecedesFilterPublication",
+        "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
+        "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
       ],
       "assertions": [
         {
@@ -171865,6 +171870,20 @@
             "TestNLA2BVRealSortFailurePrecedesPrecisionDowngrade",
             "TestNLA2BVRealCoefficientCreationPrecedesFilterPublication"
           ]
+        },
+        {
+          "name": "live NLA2BV declaration/definition/trail AST reference-vector growth and destruction",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_vector.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_vector_test.go",
+            "pkg/tactic/arith/bv2real_vector.go",
+            "pkg/tactic/arith/nla2bv_tactic.go"
+          ],
+          "tests": [
+            "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
+            "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
+          ]
         }
       ],
       "ownership": [
@@ -171876,7 +171895,8 @@
         "Both live width call sites now use the project-rational log2 loop. The concrete pow receiver survives each physical compound multiplication invocation; source-ready and false/true/context cleanup retire successful invocations, while failed invocations keep lower roots until receiver destruction. The local two and imported boundary operand end at their helper scopes; failed cleanup attaches to the existing numeric call owner. Source width state is updated only after helper success. BoundManager Go rational values remain a concrete input boundary; span and absolute-value arithmetic are now project-owned.",
         "update_num_bits copies the actual arithmetic numeral through its concrete numeric invocation before testing the integer flag. Integer inputs use project Abs plus physical receiver CopyWithInvocation, destroy the absolute temporary before log2 and update the width only after successful arithmetic. Read/copy failure roots are retired before releasing parents, with stopped cleanup attached to the numeric call owner. Real-valued numerals still perform their source copy before refusal. Native string parsing and native big.Rat absolute values no longer drive this path; bounded-span arithmetic now uses separate project numeric temporaries.",
         "Integer bounds enter project owners at the BoundManager Go-rational boundary. The bounded-width full expression owns project subtraction, absolute-value, one and addition results through log2; all temporaries close before declaration construction, while the original bound owners survive for numeral offsets. Lower-zero testing and lower/upper arithmetic numeral construction read the actual project owners. Unbounded midpoint construction calls source PowerOfTwo and preserves its completed cache prefix on refusal, with the returned copy owned through numeral construction. The native-rational log2 import adapter is test-only; no production native span or midpoint arithmetic remains.",
-        "Real-variable encoding owns the BV sort before changing sat-preserving state, then owns both fresh coefficient applications before publishing either filter declaration. Filters acquire the first then second declaration in source order and survive later encoding/reconstruction failures. The sort and coefficient helper references close after definition handoff or failure; persistent trail, substitution, variable and model-definition owners keep completed outputs alive. Failure tests fill real AST pages with live constants and observe actual fresh-name counter and filter state without mutating internal stage metadata."
+        "Real-variable encoding owns the BV sort before changing sat-preserving state, then owns both fresh coefficient applications before publishing either filter declaration. Filters acquire the first then second declaration in source order and survive later encoding/reconstruction failures. The sort and coefficient helper references close after definition handoff or failure; persistent trail, substitution, variable and model-definition owners keep completed outputs alive. Failure tests fill real AST pages with live constants and observe actual fresh-name counter and filter state without mutating internal stage metadata.",
+        "The concrete NLA2BV variable, definition and trail vectors use the existing typed AST-handle reference-vector growth routine. Each invocation owns three independent storage charges; append grows with source 2,3,5,... capacities and preserves completed entries on reservation failure. Unpublished input references are recovered through the existing rollback/pending-owner protocol. Destruction consumes trail, definition and variable references in source reverse-member order, releases each allocation only after its entries are consumed and supports cleanup retries. No generic or unused vector operations are added."
       ],
       "deviations": [
         "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; the live power-two map now preserves source hash-bucket traversal order. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
@@ -259031,7 +259051,12 @@
         "pkg/opt/bound_expression.go",
         "pkg/opt/bound_expression_test.go",
         "pkg/math/polynomial/polynomial_ref_vector_projection.go",
-        "pkg/nlsat/explain_normalize.go"
+        "pkg/nlsat/explain_normalize.go",
+        "pkg/tactic/arith/nla2bv_vector.go",
+        "pkg/tactic/arith/nla2bv_vector_test.go",
+        "pkg/tactic/arith/bv2real_vector.go",
+        "pkg/tactic/arith/nla2bv_tactic.go",
+        "pkg/nlsat/explain_normalize_test.go"
       ],
       "tests": [
         "TestSMT2ParserQualifiedLocalSortAndIndexRefusals",
@@ -259117,7 +259142,9 @@
         "TestPolynomialReferenceVectorSourceFinalizeStoppedDEC",
         "TestExplanationNormalizeLexicalVectorDestruction",
         "TestExplanationVanishingVectorStableCompaction",
-        "TestExplanationVanishingVectorPreservesBorrowedSET"
+        "TestExplanationVanishingVectorPreservesBorrowedSET",
+        "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
+        "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
       ],
       "conditionals": [
         {
@@ -259422,13 +259449,31 @@
             "TestPolynomialReferenceVectorSourceFinalizeStoppedDEC",
             "TestExplanationNormalizeLexicalVectorDestruction",
             "TestExplanationVanishingVectorStableCompaction"
+          ],
+          "go_targets": [
+            "pkg/nlsat/explain_normalize_test.go"
+          ]
+        },
+        {
+          "name": "live NLA2BV declaration/definition/trail AST reference-vector growth and destruction",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_vector.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_vector_test.go",
+            "pkg/tactic/arith/bv2real_vector.go",
+            "pkg/tactic/arith/nla2bv_tactic.go"
+          ],
+          "tests": [
+            "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
+            "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
           ]
         }
       ],
       "ownership": [
         "Polynomial reference vectors, including Newton values and caller PSC outputs, use native []Polynomial storage. Actual INC-before-publication, SET incoming INC before old DEC, ascending reset and stopped reference destruction remain. Container growth/free has no Runtime faultpoints or charged backing; removed push-allocation receipts and obsolete incoming-growth failure fixtures. A 4097-entry independent association/count regression covers null entries, SET, reset, zero resize and reuse with Runtime reservations disabled. Cached display counts now stop at current native logical bounds after callback reset instead of reading retained backing tail. Actual reference/numeral constructors and destructor failure checks remain; no whole-unit completion credit is added.",
         "PolynomialRefVector.Set uses the existing actual accepted SET frame: incoming INC precedes the old index read and DEC. Shrink begins at the requested tail boundary, consumes forward DECs and publishes the new logical extent only after all tail releases. A callback refusal retains the exact consumed-DEC cursor and original extent; ordinary writes/reset refuse pending shrink. Explicit own-vector CleanupRetained finishes only accepted SET/SHRINK/RESET work. Close finishes an interrupted shrink tail before resetting the surviving prefix; no already consumed DEC is replayed. No unrelated vector or polynomial/numerical manager operation is acknowledged.",
-        "PolynomialRefVector.SourceFinalize uses the actual source forward reset, preserving the first stopped DEC and refusing pending SET/SHRINK rather than consuming them. Owning Close resumes the exact consumed decrement and remaining tail. A genuine deletion callback checks non-replay and order. Normalization's local owning vector uses the source phase after its younger polynomial reference; borrowed input vectors receive no outer cleanup authority. Native Go slices and concrete polynomial references remain in use."
+        "PolynomialRefVector.SourceFinalize uses the actual source forward reset, preserving the first stopped DEC and refusing pending SET/SHRINK rather than consuming them. Owning Close resumes the exact consumed decrement and remaining tail. A genuine deletion callback checks non-replay and order. Normalization's local owning vector uses the source phase after its younger polynomial reference; borrowed input vectors receive no outer cleanup authority. Native Go slices and concrete polynomial references remain in use.",
+        "The concrete NLA2BV variable, definition and trail vectors use the existing typed AST-handle reference-vector growth routine. Each invocation owns three independent storage charges; append grows with source 2,3,5,... capacities and preserves completed entries on reservation failure. Unpublished input references are recovered through the existing rollback/pending-owner protocol. Destruction consumes trail, definition and variable references in source reverse-member order, releases each allocation only after its entries are consumed and supports cleanup retries. No generic or unused vector operations are added."
       ],
       "deviations": [
         "No generic RefVectorCore, RefVector, or SRefVector exists in Go. Current AST, polynomial, and s-expression targets use concrete typed owners; remaining specializations should stay beside their consumers.",
@@ -271891,7 +271936,11 @@
         "pkg/math/subpaving/hardware_search_test.go",
         "pkg/math/subpaving/hardware_node.go",
         "pkg/math/subpaving/hardware_context_root.go",
-        "pkg/ast/pattern/collect.go"
+        "pkg/ast/pattern/collect.go",
+        "pkg/tactic/arith/nla2bv_vector.go",
+        "pkg/tactic/arith/nla2bv_vector_test.go",
+        "pkg/tactic/arith/bv2real_vector.go",
+        "pkg/tactic/arith/nla2bv_tactic.go"
       ],
       "tests": [
         "TestSATSolverScopesNativeGrowthAndPop",
@@ -272103,7 +272152,9 @@
         "TestHardwareSearchBreadthFirstSplitLimitAndChildCancellation",
         "TestHardwareClauseJustificationChildTrailAndContextClose",
         "TestPatternInferenceCollectorNestedDepthForbiddenAndOwnership",
-        "TestPatternInferenceCollectorArithmeticNestedAndDivisionException"
+        "TestPatternInferenceCollectorArithmeticNestedAndDivisionException",
+        "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
+        "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
       ],
       "conditionals": [
         {
@@ -272216,7 +272267,10 @@
           "name": "Retained bound-propagator trail and constraint vector cleanup uses native slices with source reverse/ascending destruction and stopped Go owning continuation",
           "status": "ported",
           "go_target": "pkg/tactic/arith/bound_equation_store.go",
-          "tests": ["TestBoundEquationStoreCloseResumesReverseTrailAfterStoppedRelease", "TestBoundEquationStoreCloseResumesConstraintRelease"]
+          "tests": [
+            "TestBoundEquationStoreCloseResumesReverseTrailAfterStoppedRelease",
+            "TestBoundEquationStoreCloseResumesConstraintRelease"
+          ]
         },
         {
           "name": "Concrete expr_abstractor borrowed application worklist and mk_forall/mk_exists sort/name buffers use native typed Go slices (expr_abstract.cpp:33-106,122-130)",
@@ -272562,8 +272616,12 @@
           "name": "Symmetric same-service binding of actual notification std::cerr and interactive action stream borrows, preserving nil/unbound and NO_Z3_DEBUGGER erased stream configurations",
           "status": "ported",
           "go_target": "pkg/util/diagnostic/util_debug_notification.go",
-          "go_targets": ["pkg/util/diagnostic/util_debug_action_binding.go"],
-          "tests": ["TestDebugInteractiveNotificationActionStreamCohort"]
+          "go_targets": [
+            "pkg/util/diagnostic/util_debug_action_binding.go"
+          ],
+          "tests": [
+            "TestDebugInteractiveNotificationActionStreamCohort"
+          ]
         },
         {
           "name": "Concrete uint32 sorting_network specialization, including zero padding, source index-buffer reuse, comparator order, and registered unsigned test inputs (sorting_network.h:28-110; sorting_network.cpp:40-128)",
@@ -272579,7 +272637,9 @@
           "name": "Concrete sorting-network ptr_vector<expr> literal storage uses native []ASTHandle, borrowed spans, nonowning reset and native recursive-frame cleanup (src/util/sorting_network.h:120-1046; src/test/sorting_network.cpp:150-181)",
           "status": "platform_replacement",
           "go_target": "pkg/ast/util_ast_literal_vector.go",
-          "go_targets": ["pkg/ast/util_psort_ast_network.go"],
+          "go_targets": [
+            "pkg/ast/util_psort_ast_network.go"
+          ],
           "tests": [
             "TestASTLiteralVectorNativeBorrowGrowthAndNonowningReset",
             "TestPsortASTNetworkEveryActualBoundReservationNamedBeforeFaultLift",
@@ -272620,7 +272680,9 @@
           "name": "Concrete context_hwf wrapper svector<hwf>::reserve retains higher logical slots through smaller sums using a typed Go slice (subpaving.cpp:174-176)",
           "status": "platform_replacement",
           "go_target": "pkg/math/subpaving/hardware_shell_coefficients.go",
-          "tests": ["TestSubpavingHardwareShellCoefficientAndInequalityConversion"]
+          "tests": [
+            "TestSubpavingHardwareShellCoefficientAndInequalityConversion"
+          ]
         },
         {
           "name": "Concrete config_hwf bound queue and per-variable polynomial watch lists replaced by typed Go slices",
@@ -272723,6 +272785,20 @@
             "TestSATSimplifierVisitedNativeStorageAndUnsignedExtent",
             "TestSATSimplifierVisitedRawRetainedAndMarkFailure"
           ]
+        },
+        {
+          "name": "live NLA2BV declaration/definition/trail AST reference-vector growth and destruction",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_vector.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_vector_test.go",
+            "pkg/tactic/arith/bv2real_vector.go",
+            "pkg/tactic/arith/nla2bv_tactic.go"
+          ],
+          "tests": [
+            "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
+            "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
+          ]
         }
       ],
       "ownership": [
@@ -272772,7 +272848,8 @@
         "The solver assignment trail owns native []Literal backing with a stable checked root identity. Runtime word encoding, vector geometry, captured physical byte backing, pending allocations and TLS refusal simulation are removed from this consumer. Only its actual cold header remains charged. Push/Read/Shrink retain ordered literal values and enforce current logical bounds; Free/Close retire the root and drop native storage. Source assignment/backtrack order, extension-boundary prefix and GC reactivation remain tested. Growth of 4097 values, exact cold-header refusal/refund, root guards, no-reservation assignment and independence from a borrowed Runtime TLS checkpoint are covered. Other scalar columns are separate work; no generic vector credit is added.",
         "Solver justifications use native []satJustification values, retaining source kind/literal words and complete checked clause locators together. Removed Runtime payload encoding, source vector geometry, separately charged provenance arrays, interrupted provenance publication and TLS/backing refusal simulation. Embedded member storage is covered by the actual variable-state cold header; native push/write/growth introduces no Budget reservations. Fixed allocator binding rejects foreign writes before mutation; original clause generations are preserved and stale values fail at actual clause dereference. Native logical bounds, shrink/current-member growth, shallow-copy/closed guards, 4097 mixed values, zero-allocation warm writes and actual clause-backed assignment under FailAfter(0) are covered. Compact source physical clause offsets remain a separate open contract; no generic vector implementation credit is added.",
         "Solver activity and simplifier literal-weight queues now share one concrete project heap algorithm over native []int32 values and reverse indexes. Source priority comparison, sentinel, move_up/down, erase/reinsert/reset order and current borrowed comparators remain. Removed the duplicate Runtime path, source vector capacity/payload/initialization geometry, backing reservations, source/owning destructor cursors and unused Clone/MoveClone and standalone activity-domain adapters. Only the actual queue cold header is budgeted. A 4097-key independent sorted-priority oracle, retained 12000-operation mutable-activity model, 81 finite priority worlds, real blocked-literal weights, warm zero-allocation reuse and exact cold-header/cohort/closed/index guards cover native behavior. Native backing introduces no Runtime or Budget allocation failures. No unused C++ vector/copy/move or general heap implementation credit is added.",
-        "SAT unsigned work columns now own native []uint32 backing for lemma/minimization, assumptions/core, model, consequence scopes and probing to-assert rows. Probing cache rows own native availability flags and unsigned slices. Copies own independent values, captured slices retain their actual backing, and checked column/parent closure rejects later access. Source model/mark/compaction algorithms remain; backing has no Runtime payload, Budget reservation, size_t header or pending block. The actual strict Runtime cache-memory cutoff still reads the caller Runtime counter. See PORT_PROGRESS.md#native-sat-unsigned-work-columns-and-probing-cache."
+        "SAT unsigned work columns now own native []uint32 backing for lemma/minimization, assumptions/core, model, consequence scopes and probing to-assert rows. Probing cache rows own native availability flags and unsigned slices. Copies own independent values, captured slices retain their actual backing, and checked column/parent closure rejects later access. Source model/mark/compaction algorithms remain; backing has no Runtime payload, Budget reservation, size_t header or pending block. The actual strict Runtime cache-memory cutoff still reads the caller Runtime counter. See PORT_PROGRESS.md#native-sat-unsigned-work-columns-and-probing-cache.",
+        "The concrete NLA2BV variable, definition and trail vectors use the existing typed AST-handle reference-vector growth routine. Each invocation owns three independent storage charges; append grows with source 2,3,5,... capacities and preserves completed entries on reservation failure. Unpublished input references are recovered through the existing rollback/pending-owner protocol. Destruction consumes trail, definition and variable references in source reverse-member order, releases each allocation only after its entries are consumed and supports cleanup retries. No generic or unused vector operations are added."
       ],
       "deviations": [
         "The retained SAT LAZY_USE_LIST outer directory and inner clause-reference lists now use native typed Go slices. Removed the outer and inner C++ 3/2 growth helpers, five-word arena codec and simulated backing charges; same-backing reconstruction and relocation/finalize view invalidation remain. Broader vector consumers are still partial.",

@@ -226,25 +226,26 @@ func (t *NLA2BVTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) (err erro
 }
 
 type nla2BVInvocation struct {
-	t                           *NLA2BVTactic
-	real                        *BV2RealUtil
-	integer                     *BV2IntContext
-	bounds                      *BoundManager
-	sub                         ast.ASTExprSubstitution
-	subReady                    bool
-	vars, defs, trail           []ast.ASTHandle
-	local                       *bv2RealCall
-	filter                      *tactic.FilterModelConverter
-	extension                   *tactic.ExtensionModelConverter
-	filterOwner, extensionOwner tactic.TacticResult
-	looseConcat                 tactic.ModelConverter
-	replacer                    *rewriter.DefaultExprReplacer
-	intRewrite                  *BV2IntRewriter
-	realRewrite                 *BV2RealRewriter
-	report                      *tactic.TacticReport
-	numBits                     uint32
-	satPreserving               bool
-	header                      uint64
+	t                                *NLA2BVTactic
+	real                             *BV2RealUtil
+	integer                          *BV2IntContext
+	bounds                           *BoundManager
+	sub                              ast.ASTExprSubstitution
+	subReady                         bool
+	vars, defs, trail                []ast.ASTHandle
+	varsBytes, defsBytes, trailBytes uint64
+	local                            *bv2RealCall
+	filter                           *tactic.FilterModelConverter
+	extension                        *tactic.ExtensionModelConverter
+	filterOwner, extensionOwner      tactic.TacticResult
+	looseConcat                      tactic.ModelConverter
+	replacer                         *rewriter.DefaultExprReplacer
+	intRewrite                       *BV2IntRewriter
+	realRewrite                      *BV2RealRewriter
+	report                           *tactic.TacticReport
+	numBits                          uint32
+	satPreserving                    bool
+	header                           uint64
 }
 
 func (t *NLA2BVTactic) newInvocation() (*nla2BVInvocation, error) {
@@ -333,10 +334,15 @@ func (c *nla2BVInvocation) close() error {
 		return err
 	}
 	if c.real != nil {
-		for _, slice := range []*[]ast.ASTHandle{&c.trail, &c.defs, &c.vars} {
-			if err := c.real.release(slice); err != nil {
+		for _, vector := range []struct {
+			values *[]ast.ASTHandle
+			bytes  *uint64
+		}{{&c.trail, &c.trailBytes}, {&c.defs, &c.defsBytes}, {&c.vars, &c.varsBytes}} {
+			if err := c.real.release(vector.values); err != nil {
 				return err
 			}
+			c.t.manager.Budget().Release(*vector.bytes)
+			*vector.values, *vector.bytes = nil, 0
 		}
 	}
 	if c.subReady {

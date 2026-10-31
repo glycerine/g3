@@ -12,8 +12,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// Concrete storage for the two live AST-handle vectors. Reset releases their
-// references while preserving capacity; destruction releases the allocation.
+// Concrete storage for live BV2Real and NLA2BV AST-handle vectors. Reset releases
+// their references while preserving capacity; destruction frees the allocation.
 func (u *BV2RealUtil) appendVectorRef(values *[]ast.ASTHandle, charged *uint64, h ast.ASTHandle) error {
 	if err := u.manager.IncRef(h); err != nil {
 		return err

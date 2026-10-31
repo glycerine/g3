@@ -12,16 +12,6 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c *nla2BVInvocation) appendOwned(dst *[]ast.ASTHandle, h ast.ASTHandle) error {
-	if c.local.err != nil {
-		return c.local.err
-	}
-	if err := c.t.manager.IncRef(h); err != nil {
-		return err
-	}
-	*dst = append(*dst, h)
-	return nil
-}
 func (c *nla2BVInvocation) run(g *tactic.Goal, out *tactic.TacticResult) (err error) {
 	m := c.t.manager
 	if err = c.traceGoalCount(g, 86, true); err != nil {
@@ -147,7 +137,7 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 		}
 		bits := c.local.bv(45, c.local.numeral(big.NewRat(1, 1), width), exponent)
 		value := c.local.hold(c.t.manager.MkBitVectorToInt(bits))
-		if err = c.appendOwned(&c.trail, value); err != nil {
+		if err = c.appendOwned(&c.trail, &c.trailBytes, value); err != nil {
 			return errors.Join(err, c.local.releaseTo(mark))
 		}
 		if err = c.t.manager.ExprSubstitutionInsert(c.sub, key, value, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
@@ -357,7 +347,7 @@ func (c *nla2BVInvocation) fresh(variable ast.ASTHandle, suffix string, width ui
 	return h, c.filter.Insert(decl)
 }
 func (c *nla2BVInvocation) addDefinition(variable, definition ast.ASTHandle) error {
-	if err := c.appendOwned(&c.trail, definition); err != nil {
+	if err := c.appendOwned(&c.trail, &c.trailBytes, definition); err != nil {
 		return err
 	}
 	m := c.t.manager
@@ -368,10 +358,10 @@ func (c *nla2BVInvocation) addDefinition(variable, definition ast.ASTHandle) err
 	if err != nil {
 		return err
 	}
-	if err = c.appendOwned(&c.vars, decl); err != nil {
+	if err = c.appendOwned(&c.vars, &c.varsBytes, decl); err != nil {
 		return err
 	}
-	return c.appendOwned(&c.defs, definition)
+	return c.appendOwned(&c.defs, &c.defsBytes, definition)
 }
 func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) {
 	mark := c.local.checkpoint()
@@ -481,7 +471,7 @@ func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) (resultErr error) {
 		}
 	}
 	encoded := c.local.encodingOwned(s, t, &c.real.defaults[1], &c.real.defaults[0])
-	if err = c.appendOwned(&c.trail, encoded); err != nil {
+	if err = c.appendOwned(&c.trail, &c.trailBytes, encoded); err != nil {
 		return err
 	}
 	if err = c.t.manager.ExprSubstitutionInsert(c.sub, variable, encoded, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
@@ -491,11 +481,11 @@ func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	if err = c.appendOwned(&c.vars, decl); err != nil {
+	if err = c.appendOwned(&c.vars, &c.varsBytes, decl); err != nil {
 		return err
 	}
 	reduced := c.local.reducedOwned(s, t, &c.real.defaults[1], &c.real.defaults[0])
-	return c.appendOwned(&c.defs, reduced)
+	return c.appendOwned(&c.defs, &c.defsBytes, reduced)
 }
 
 func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
