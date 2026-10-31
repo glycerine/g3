@@ -107511,7 +107511,10 @@
         "pkg/qe/quantifier_tactic_mixed_test.go",
         "pkg/qe/quantifier_tactic_arith_closed.go",
         "pkg/qe/quantifier_tactic_arith_closed_test.go",
-        "pkg/qe/conjunction_enum_regression_test.go"
+        "pkg/qe/conjunction_enum_regression_test.go",
+        "pkg/qe/quantifier_tactic_arith_search.go",
+        "pkg/qe/quantifier_tactic_arith_search_test.go",
+        "pkg/qe/expr_quantifier_arith_search_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107564,7 +107567,9 @@
         "TestQuantifierArithmeticRealEquationElimination",
         "TestQuantifierArithmeticEquationFreshVariable",
         "TestQuantifierMixedBooleanArithmeticGroups",
-        "TestQuantifierArithmeticClosedInequality"
+        "TestQuantifierArithmeticClosedInequality",
+        "TestQuantifierArithmeticSearchTwoSymbolicBounds",
+        "TestExprQEArithmeticSearchRetestsPropagation"
       ],
       "conditionals": [
         {
@@ -107889,7 +107894,9 @@
             "TestQuantifierArithmeticRealEquationElimination",
             "TestQuantifierArithmeticEquationFreshVariable",
             "TestQuantifierMixedBooleanArithmeticGroups",
-            "TestQuantifierArithmeticClosedInequality"
+            "TestQuantifierArithmeticClosedInequality",
+            "TestQuantifierArithmeticSearchTwoSymbolicBounds",
+            "TestExprQEArithmeticSearchRetestsPropagation"
           ]
         }
       ],
@@ -111136,6 +111143,8 @@
         "pkg/qe/quantifier_tactic_arith_equations_test.go",
         "pkg/qe/quantifier_tactic_arith_closed.go",
         "pkg/qe/quantifier_tactic_arith_closed_test.go",
+        "pkg/qe/quantifier_tactic_arith_search.go",
+        "pkg/qe/quantifier_tactic_arith_search_test.go",
         "pkg/qe/quantifier_tactic_mixed.go",
         "pkg/qe/quantifier_tactic_mixed_test.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -111157,6 +111166,9 @@
         "TestQuantifierArithmeticClosedInequality",
         "TestSMTLibRunnerArithmeticInequalityQETactic",
         "TestSMTLibRunnerQEInequalityIsNotEquality",
+        "TestQuantifierArithmeticSearchTwoSymbolicBounds",
+        "TestSMTLibRunnerQESymbolicIntegerBounds",
+        "TestSMTLibRunnerQESymbolicRealBounds",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "assertions": [
@@ -111194,13 +111206,16 @@
             "TestQuantifierArithmeticClosedInequality",
             "TestSMTLibRunnerArithmeticInequalityQETactic",
             "TestSMTLibRunnerQEInequalityIsNotEquality",
+            "TestQuantifierArithmeticSearchTwoSymbolicBounds",
+            "TestSMTLibRunnerQESymbolicIntegerBounds",
+            "TestSMTLibRunnerQESymbolicRealBounds",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer variables, independent single-variable inequalities and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
@@ -111220,6 +111235,8 @@
         "pkg/qe/quantifier_tactic_arith_equations_test.go",
         "pkg/qe/quantifier_tactic_arith_closed.go",
         "pkg/qe/quantifier_tactic_arith_closed_test.go",
+        "pkg/qe/quantifier_tactic_arith_search.go",
+        "pkg/qe/quantifier_tactic_arith_search_test.go",
         "pkg/qe/quantifier_tactic_mixed.go",
         "pkg/qe/quantifier_tactic_mixed_test.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -111240,6 +111257,9 @@
         "TestQuantifierArithmeticClosedInequality",
         "TestSMTLibRunnerArithmeticInequalityQETactic",
         "TestSMTLibRunnerQEInequalityIsNotEquality",
+        "TestQuantifierArithmeticSearchTwoSymbolicBounds",
+        "TestSMTLibRunnerQESymbolicIntegerBounds",
+        "TestSMTLibRunnerQESymbolicRealBounds",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
@@ -111277,13 +111297,16 @@
             "TestQuantifierArithmeticClosedInequality",
             "TestSMTLibRunnerArithmeticInequalityQETactic",
             "TestSMTLibRunnerQEInequalityIsNotEquality",
+            "TestQuantifierArithmeticSearchTwoSymbolicBounds",
+            "TestSMTLibRunnerQESymbolicIntegerBounds",
+            "TestSMTLibRunnerQESymbolicRealBounds",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer variables, independent single-variable inequalities and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
