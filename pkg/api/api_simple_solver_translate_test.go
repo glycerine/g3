@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("bit-blast")
+	simplify, err := source.Tactic("aig")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -631,7 +631,7 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -665,7 +665,7 @@ func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -683,7 +683,11 @@ func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
 			for _, value := range []*APITactic{sequence, smt, prefix} {
 				astTestMust(t, value.Close())
 			}
-			astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
+			formula := `(declare-const p Bool) (assert p)`
+			if name == "bit-blast" {
+				formula = `(declare-const x (_ BitVec 8)) (assert (= (bvadd x #x01) #x05))`
+			}
+			astTestMust(t, s.LoadSMT2String(formula))
 			translated, err := s.Translate(target)
 			astTestMust(t, err)
 			defer func() { astTestMust(t, translated.Close()) }()

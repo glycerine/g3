@@ -30,6 +30,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithConfig(manager, config)
 		case *core.SimplifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
+		case *bv.BitBlasterTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
 		default:
 			value, matched, err := core.TranslateContextLeaf(leaf, manager, config.Params, config.Globals, config.ModelEvaluator)
 			if matched {
