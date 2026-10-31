@@ -200780,7 +200780,7 @@
       "path": "src/test/dl_table.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -200831,7 +200831,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["This Windows-only driver exercises the bitvector table specialization, which has no Go production consumer under the existing dl_table.cpp audit. Live table behavior is tested through the concrete Go table implementations."]
     },
     {
       "path": "src/test/dl_util.cpp",
@@ -202040,7 +202040,7 @@
       "path": "src/test/heap_trie.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -202065,7 +202065,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The unsigned heap-trie specialization exercised here has no non-test source consumer. The separate Hilbert numeral index uses the Go concrete slice implementation documented by the production manifest; no universal trie adapter is added for this test."]
     },
     {
       "path": "src/test/hilbert_basis.cpp",
@@ -204405,7 +204405,7 @@
       "path": "src/test/map.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -204470,7 +204470,7 @@
       "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": [
+      "deviations": ["The char-pointer-to-int map specialization occurs only in this test. Go string maps serve live consumers without recreating an unused C++ template instantiation.", 
         "Intentionally not ported: this test-only source exercises a CString-to-int template specialization that has no retained production consumer in the Go port."
       ]
     },
@@ -208510,7 +208510,7 @@
       "path": "src/test/quant_solve.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -208557,20 +208557,20 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The guarded-definition solve_for_vars entry point is called only by this test driver; solve_for_var has no external caller. No unused Go adapter is introduced solely for the standalone driver."]
     },
     {
       "path": "src/test/random.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The driver only emits a zero-seeded random sequence when its trace is enabled. The live Go random generator is independently tested with source vectors; no trace-only driver adapter is added."]
     },
     {
       "path": "src/test/rational.cpp",
@@ -210248,7 +210248,7 @@
       "path": "src/test/string_buffer.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -210271,7 +210271,7 @@
       "ownership": [
         "All retained Go consumers now use standard bytes.Buffer or strings.Builder directly. Deleted the unused util/text.Buffer wrapper and its tests, along with the uncalled formatted-CString insertion adapter. No C++ container or template implementation is retained."
       ],
-      "deviations": [
+      "deviations": ["The driver exercises C++ string-buffer formatting; the Go port uses standard-library string handling and does not introduce a buffer adapter for this standalone test.", 
         "C++ string_buffer implementation and standalone container-driver completion credit are retired. Native caller behavior is checked in actual AST, SMT context, parameter-display, SMT2 quoting and numeric-stream tests. The upstream source files still exist; this is not a source dead-code claim."
       ]
     },

@@ -52318,3 +52318,5 @@ CNF backbone source driver started: the ordinary DIMACS consequence mode now che
 CNF backbone chunking increment: translated the test driver's separate core-based algorithm in the source test, preserving backbone rather than conflict-core output. The source chunk size and a single-literal chunk are checked, and all 16 two-variable binary CNFs are compared with exhaustive truth tables. Clause tracking and command-line paths remain open.
 
 Source-driver audit: classified seven test units as reference-only after verifying that their registered workloads are empty, commented out, disabled or return before the tests run. The quantifier-elimination test's formula-checking body is disabled; process finalization and exit are not recreated as a Go test adapter. This classification does not claim those source examples were ported.
+
+Source-consumer audit: classified six additional standalone drivers as reference-only. Their specific template instantiations or test-only entry points have no retained Go production consumer, or exercise C++ string/trace formatting that the Go port intentionally replaces; the manifest records each reason without crediting a port.
