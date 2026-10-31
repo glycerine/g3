@@ -25,11 +25,49 @@ func (s *SMTSolver) arithmeticObjectiveTheory() (smtArithmeticObjectiveTheory, e
 	if err != nil {
 		return nil, err
 	}
+	// opt_solver::get_optimizer installs theory_mi_arith only when the
+	// context has no arithmetic plugin. An existing incompatible plugin must
+	// not be silently replaced, since it can already own internalized terms.
+	if s.kernel.internalizer.theories[family] == nil {
+		if err = s.installOptimizerArithmetic(family); err != nil {
+			return nil, err
+		}
+	}
 	theory, ok := s.kernel.internalizer.theories[family].(smtArithmeticObjectiveTheory)
 	if !ok || theory == nil {
 		return nil, ast.ErrASTDomain
 	}
 	return theory, nil
+}
+
+// Source context::register_plugin initializes, publishes, then pushes the new
+// plugin to the current scope level. Optimizer discovery can occur after the
+// initial check/setup, when the ordinary cold-registration guard is too strict.
+// This concrete path is only for the live theory_mi_arith fallback.
+func (s *SMTSolver) installOptimizerArithmetic(family ast.FamilyID) error {
+	theory, err := NewSMTMixedLinearArithmeticTheory(family)
+	if err != nil {
+		return err
+	}
+	config := s.kernel.arithState
+	if owner := s.kernel.copiedArithmeticOwner; owner != nil {
+		config = owner.state
+	}
+	if err = theory.ConfigureArithmetic(config); err != nil {
+		return err
+	}
+	state := s.kernel.internalizer
+	if err = theory.Initialize(state); err != nil {
+		return err
+	}
+	state.theories[family] = theory
+	state.theoryOrder = append(state.theoryOrder, theory)
+	for range state.scopes {
+		if err = theory.PushScope(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AddObjective registers an arithmetic objective with the concrete arithmetic

@@ -102223,8 +102223,23 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/smtcore/smt_solver_objective.go", "pkg/smtcore/smt_solver_objective_test.go", "pkg/smtcore/smt_pb_lifecycle.go"],
-      "tests": ["TestSMTSolverArithmeticObjectiveFacade", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2WeightedSoftOptimizationEndToEnd"],
+      "go_targets": [
+        "pkg/opt/arithmetic_solver.go",
+        "pkg/smtcore/smt_solver_objective.go",
+        "pkg/smtcore/smt_solver_objective_test.go",
+        "pkg/smtcore/smt_pb_lifecycle.go",
+        "pkg/smtcore/smt_solver_optimizer_dispatch_test.go"
+      ],
+      "tests": [
+        "TestSMTSolverArithmeticObjectiveFacade",
+        "TestSMT2BoundedIntegerOptimizationEndToEnd",
+        "TestSMT2WeightedSoftOptimizationEndToEnd",
+        "TestSMTSolverOptimizerInstallsMissingMixedArithmetic",
+        "TestSMTSolverOptimizerPreservesExistingSpecialization",
+        "TestSMTSolverOptimizerRejectsIncompatibleTheoryWithoutReplacement",
+        "TestSMTSolverOptimizerLateInstallMatchesContextScopes",
+        "TestSMTSolverOptimizerDispatchesAllConcreteFamilies"
+      ],
       "assertions": [
         {
           "line": 119,
@@ -102262,18 +102277,46 @@
           "name": "dedicated SMT optimization backend, concrete arithmetic-theory objective dispatch, lower-bound commitment, blocker loops and best-model preservation (opt_solver.cpp:32-53,93-132,195-250,342-431)",
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
-          "tests": ["TestSMTSolverArithmeticObjectiveFacade", "TestSMT2BoundedIntegerOptimizationEndToEnd"]
+          "tests": [
+            "TestSMTSolverArithmeticObjectiveFacade",
+            "TestSMT2BoundedIntegerOptimizationEndToEnd"
+          ]
         },
         {
           "name": "capture backend unknown reason before objective-scope pop, preserve the lexicographic model, and leave the fresh box model empty on unknown (opt_solver.cpp:195-250; opt_context.cpp:325-330,434-467)",
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
-          "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/cmd_context/optimization.go"],
-          "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure"]
+          "go_targets": [
+            "pkg/opt/arithmetic_solver.go",
+            "pkg/cmd_context/optimization.go"
+          ],
+          "tests": [
+            "TestOptimizationUnknownReasonUsesBackendFailure",
+            "TestOptimizationCancellationOverridesBackendFailure"
+          ]
+        },
+        {
+          "name": "get_optimizer missing-theory mixed-arithmetic installation, current-scope initialization and concrete supported-theory dispatch (opt_solver.cpp:109-157; smt_context.cpp:2828-2846)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver_objective.go",
+            "pkg/smtcore/smt_solver_optimizer_dispatch_test.go"
+          ],
+          "tests": [
+            "TestSMTSolverOptimizerInstallsMissingMixedArithmetic",
+            "TestSMTSolverOptimizerPreservesExistingSpecialization",
+            "TestSMTSolverOptimizerRejectsIncompatibleTheoryWithoutReplacement",
+            "TestSMTSolverOptimizerLateInstallMatchesContextScopes",
+            "TestSMTSolverOptimizerDispatchesAllConcreteFamilies"
+          ]
         }
       ],
-      "ownership": [],
-      "deviations": []
+      "ownership": [
+        "Optimizer fallback initializes and publishes a concrete mixed arithmetic plugin before pushing it to each existing context scope, matching context::register_plugin. Existing plugins retain identity and current live arithmetic parameters configure only the newly installed plugin. Ordinary cold RegisterTheory restrictions remain separate; no generic late-plugin adapter is added."
+      ],
+      "deviations": [
+        "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit."
+      ]
     },
     {
       "path": "src/opt/opt_solver.h",
