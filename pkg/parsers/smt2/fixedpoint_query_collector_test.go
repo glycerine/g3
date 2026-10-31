@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
@@ -103,5 +104,64 @@ func TestFixedpointQueryCollectorOrdinaryScopesDoNotDiscardQueries(t *testing.T)
 	}()
 	if len(refs) != 1 {
 		t.Fatalf("got %d queries, want 1", len(refs))
+	}
+}
+
+func TestFixedpointProgramCollectsBoundRulesAndScopes(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := c.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	script := `(declare-rel R (Int)) (declare-var x Int) (rule (R x) first) (fixedpoint-push) (rule (R x) dropped) (query R) (fixedpoint-pop) (query R)`
+	p, err := smt2.ParseFixedpointProgram(c, strings.NewReader(script))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := c.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		for i := range p.Queries {
+			if e := m.DelRef(&p.Queries[i]); e != nil {
+				t.Error(e)
+			}
+		}
+		for i := range p.Rules {
+			if e := m.DelRef(&p.Rules[i]); e != nil {
+				t.Error(e)
+			}
+		}
+	}()
+	if len(p.Rules) != 1 || len(p.Names) != 1 || p.Names[0] != "first" || len(p.Queries) != 1 {
+		t.Fatalf("rules %d names %v queries %d", len(p.Rules), p.Names, len(p.Queries))
+	}
+	h, err := m.RefGet(p.Rules[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	kind, err := m.GetKind(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kind != ast.ASTQuantifier {
+		t.Fatalf("bound rule kind %v", kind)
+	}
+	engineRules, err := c.FixedpointRules()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range engineRules {
+		if e := m.DelRef(&engineRules[i]); e != nil {
+			t.Error(e)
+		}
+	}
+	if len(engineRules) != 0 {
+		t.Fatal("collector ingested rules", len(engineRules))
 	}
 }

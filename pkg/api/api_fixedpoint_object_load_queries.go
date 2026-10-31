@@ -36,35 +36,31 @@ func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector,
 	if err != nil {
 		return nil, err
 	}
-	queries, err := smt2.ParseAssertionsWithFixedpointQueries(parser, input)
+	program, err := smt2.ParseFixedpointProgram(parser, input)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		for i := range queries {
-			resultErr = errors.Join(resultErr, manager.DelRef(&queries[i]))
+		for i := range program.Queries {
+			resultErr = errors.Join(resultErr, manager.DelRef(&program.Queries[i]))
+		}
+	}()
+	defer func() {
+		for i := range program.Rules {
+			resultErr = errors.Join(resultErr, manager.DelRef(&program.Rules[i]))
 		}
 	}()
 	predicates, err := parser.FixedpointPredicates()
 	if err != nil {
 		return nil, err
 	}
-	rules, names, err := parser.FixedpointNamedRules()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		for i := range rules {
-			resultErr = errors.Join(resultErr, manager.DelRef(&rules[i]))
-		}
-	}()
 	assertions, err := parser.Assertions()
 	if err != nil {
 		return nil, err
 	}
-	values := make([]ast.ASTHandle, len(queries))
-	for i := range queries {
-		values[i], err = manager.RefGet(queries[i])
+	values := make([]ast.ASTHandle, len(program.Queries))
+	for i := range program.Queries {
+		values[i], err = manager.RefGet(program.Queries[i])
 		if err != nil {
 			return nil, err
 		}
@@ -78,12 +74,12 @@ func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector,
 			return vector, err
 		}
 	}
-	for i := range rules {
-		h, e := manager.RefGet(rules[i])
+	for i := range program.Rules {
+		h, e := manager.RefGet(program.Rules[i])
 		if e != nil {
 			return vector, e
 		}
-		if e = f.command.AddFixedpointRule(h, names[i]); e != nil {
+		if e = f.command.AddFixedpointRule(h, program.Names[i]); e != nil {
 			return vector, e
 		}
 	}

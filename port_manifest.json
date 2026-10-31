@@ -6507,7 +6507,9 @@
         "pkg/api/api_fixedpoint_object_parameters_test.go",
         "pkg/api/api_fixedpoint_object_load_queries.go",
         "pkg/api/api_fixedpoint_object_load_queries_test.go",
-        "pkg/cmd_context/fixedpoint_named_rules.go"
+        "pkg/cmd_context/fixedpoint_named_rules.go",
+        "pkg/cmd_context/fixedpoint_bind_rule.go",
+        "pkg/muz/fp/rule_bind.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6578,7 +6580,7 @@
       ],
       "deviations": [
         "The additive public Go surface reuses SMTContext instead of exposing the native opaque reference-counted fixedpoint object or C ABI. Fixedpoint parsing accepts an io.Reader instead of reproducing separate native string/file entry points. Cover operations are available after a retained PDR/Spacer query and operate on direct predicates; native slice/model-converter remapping remains outside this path. Unlisted api_datalog operations remain unported.",
-        "Query loading parses in a temporary context and transfers its rules after parsing succeeds; rules pass through Go rule ingestion before transfer rather than preserving the native collector’s original formula. Manager-destroying resets are explicitly rejected during query collection."
+        "Query loading parses in a temporary context and transfers bound original rules after parsing succeeds. Manager-destroying resets are explicitly rejected during query collection."
       ]
     },
     {
@@ -87283,7 +87285,9 @@
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_recursive_trace.smt2",
         "pkg/parsers/smt2/fixedpoint_query_collector.go",
         "pkg/parsers/smt2/fixedpoint_query_collector_test.go",
-        "pkg/cmd_context/fixedpoint_named_rules.go"
+        "pkg/cmd_context/fixedpoint_named_rules.go",
+        "pkg/cmd_context/fixedpoint_bind_rule.go",
+        "pkg/muz/fp/rule_bind.go"
       ],
       "tests": [
         "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
@@ -87311,7 +87315,8 @@
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2",
         "TestFixedpointQueryCollectorScopesAndVariables",
         "TestFixedpointQueryCollectorOrdinaryScopesDoNotDiscardQueries",
-        "TestFixedpointQueryCollectorParseErrorCleansUp"
+        "TestFixedpointQueryCollectorParseErrorCleansUp",
+        "TestFixedpointProgramCollectsBoundRulesAndScopes"
       ],
       "assertions": [
         {

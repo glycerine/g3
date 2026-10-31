@@ -568,7 +568,11 @@ func (p *commandParser) command() (bool, error) {
 		if err = p.requireEnd(); err != nil {
 			return false, err
 		}
-		if err = p.context.AddFixedpointRuleWithBound(expression, name, bound); err != nil {
+		if p.queryCollector != nil {
+			if err = p.queryCollector.addRule(p, expression, name); err != nil {
+				return false, err
+			}
+		} else if err = p.context.AddFixedpointRuleWithBound(expression, name, bound); err != nil {
 			return false, err
 		}
 	case "fixedpoint-push", "fixedpoint-pop":
