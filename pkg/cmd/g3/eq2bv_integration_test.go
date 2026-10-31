@@ -27,3 +27,70 @@ func TestSMTLibRunnerEq2BVTactic(t *testing.T) {
 		t.Fatalf("eq2bv result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerEq2BVUnconvertedBounds(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(declare-const x Int)
+(declare-const y Int)
+(assert (= x 1))
+(assert (>= y 1))
+(assert (<= y 0))
+(check-sat-using (then eq2bv smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "unsat" {
+		t.Fatalf("contradictory unconverted bounds: %s", got)
+	}
+}
+
+func TestSMTLibRunnerEq2BVLowerBoundDoesNotWrap(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(declare-const x Int)
+(assert (= x 1))
+(assert (>= x 5))
+(assert (<= x 1))
+(check-sat-using (then eq2bv smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "unsat" {
+		t.Fatalf("wrapped lower bound: %s", got)
+	}
+}
+
+func TestSMTLibRunnerEq2BVLowerBoundKeepsOtherValues(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(declare-const x Int)
+(assert (not (= x 1)))
+(assert (>= x 5))
+(check-sat-using (then eq2bv smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "sat" {
+		t.Fatalf("lower bound lost a valid integer witness: %s", got)
+	}
+}
+
+func TestSMTLibRunnerEq2BVUnboundedUint32Maximum(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(declare-const x Int)
+(assert (not (= x 4294967295)))
+(assert (>= x 4294967295))
+(check-sat-using (then eq2bv smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "sat" {
+		t.Fatalf("lost witness above uint32 maximum: %s", got)
+	}
+}

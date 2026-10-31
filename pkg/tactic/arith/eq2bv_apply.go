@@ -40,6 +40,19 @@ func eq2bvIsBound(plan *eq2bvReplacements, form ast.ASTHandle) (bool, error) {
 		if plan.nonfd[pair[0]] {
 			continue
 		}
+		// The source also accepts variables seen only in bounds, but no
+		// replacement bounds are generated for them. Dropping those formulas
+		// can change an unsatisfiable goal into a satisfiable one.
+		converted := false
+		for _, entry := range plan.entries {
+			if entry.original == pair[0] {
+				converted = true
+				break
+			}
+		}
+		if !converted {
+			continue
+		}
 		constant, e := arithmeticUninterpretedConstant(m, pair[0])
 		if e != nil {
 			return false, e

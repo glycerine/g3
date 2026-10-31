@@ -111,7 +111,29 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 				maximum = value
 			}
 		}
+		highDomain := maximum >= 1<<31
 		maximum, width := eq2bvWidth(maximum, found)
+		if highDomain {
+			if found {
+				width = 32
+			} else {
+				width = 33
+			}
+		}
+		// The source sizes from equalities and the upper bound only. A larger
+		// lower bound would otherwise wrap modulo the bit-vector width.
+		lower, lowerStrict, hasLower, e := bounds.Lower(entry.h)
+		if e != nil {
+			return plan, e
+		}
+		if hasLower && lower.Sign() >= 0 {
+			if lowerStrict || !lower.IsInt() {
+				return plan, ast.ErrASTDomain
+			}
+			if lowerBits := lower.Num().BitLen(); lowerBits > int(width) {
+				width = uint32(lowerBits)
+			}
+		}
 		sortHandle, e := m.BitVectorSort(width)
 		if e != nil {
 			return plan, e

@@ -91,3 +91,41 @@ func TestEq2BVPrepareRegistersBitVectors(t *testing.T) {
 	equationMust(t, e)
 	equationMust(t, plan.Close())
 }
+
+func TestEq2BVPrepareWidthsCoverLowerAndLargeBoundaries(t *testing.T) {
+	bounds, m := boundManagerFixture(t)
+	x := fixDLConst(t, m, true, "lower-width-x")
+	y := fixDLConst(t, m, true, "large-unbounded-y")
+	z := fixDLConst(t, m, true, "large-bounded-z")
+	n := func(value string) ast.ASTHandle { return fixDLNumber(t, m, true, value) }
+	maxEquality := collectorEq(t, m, y, n("4294967295"))
+	unequalMax, err := m.MkNot(maxEquality)
+	equationMust(t, err)
+	fixDLPin(t, m, unequalMax)
+	zEquality := collectorEq(t, m, z, n("1"))
+	unequalZ, err := m.MkNot(zEquality)
+	equationMust(t, err)
+	fixDLPin(t, m, unequalZ)
+	roots := []ast.ASTHandle{
+		collectorEq(t, m, x, n("1")), fixDLApp(t, m, 3, x, n("5")),
+		unequalMax,
+		unequalZ, fixDLApp(t, m, 2, z, n("2147483648")),
+	}
+	for _, root := range roots {
+		equationMust(t, bounds.Collect(root, ast.ASTDependency{}))
+	}
+	plan, err := eq2bvPrepare(m, bounds, roots)
+	equationMust(t, err)
+	defer func() { equationMust(t, plan.Close()) }()
+	want := map[ast.ASTHandle]uint32{x: 3, y: 33, z: 32}
+	for _, entry := range plan.entries {
+		width, found := want[entry.original]
+		if !found || entry.width != width {
+			t.Fatalf("replacement width %d, expected %d", entry.width, width)
+		}
+		delete(want, entry.original)
+	}
+	if len(want) != 0 {
+		t.Fatal("missing replacement widths", want)
+	}
+}

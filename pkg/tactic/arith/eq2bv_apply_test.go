@@ -134,6 +134,28 @@ func TestEq2BVApplyPreservesBoundsOfNonCandidates(t *testing.T) {
 	}
 }
 
+func TestEq2BVApplyPreservesBoundsOfUnconvertedVariables(t *testing.T) {
+	bounds, m := boundManagerFixture(t)
+	x := fixDLConst(t, m, true, "converted-x")
+	y := fixDLConst(t, m, true, "bounds-only-y")
+	one := fixDLNumber(t, m, true, "1")
+	zero := fixDLNumber(t, m, true, "0")
+	lower := fixDLApp(t, m, 3, y, one)
+	upper := fixDLApp(t, m, 2, y, zero)
+	xUse := collectorEq(t, m, x, one)
+	goal := fixDLGoal(t, m, false, false, false, lower, upper, xUse)
+	var result tactic.TacticResult
+	defer func() { equationMust(t, result.Close()) }()
+	equationMust(t, eq2bvApply(goal, bounds, &result))
+	for index, original := range []ast.ASTHandle{lower, upper} {
+		got, e := goal.Form(uint32(index))
+		equationMust(t, e)
+		if got != original {
+			t.Fatalf("unconverted variable lost bound %d", index)
+		}
+	}
+}
+
 func TestEq2BVApplyOwnsDependenciesDuringBoundReplacement(t *testing.T) {
 	bounds, m := boundManagerFixture(t)
 	x := fixDLConst(t, m, true, "core-x")
