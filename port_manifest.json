@@ -191054,7 +191054,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/smtlogics/qfufnra_tactic.go", "pkg/tactic/nlsat_smt/nl_purify_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_descriptions.go", "pkg/parsers/smt2/qfufnra_tactic_test.go"],
-      "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestNLPurifyCooperatingSolversMixedSatisfiability", "TestNLPurifyTacticReuseAfterCleanup"],
+      "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestSMT2QFUFNRATacticUnsatCore", "TestNLPurifyCooperatingSolversMixedSatisfiability", "TestNLPurifyTacticReuseAfterCleanup"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [{"name": "QF_UFNRA tactic construction and command registration", "status": "partial", "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go", "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestNLPurifyCooperatingSolversMixedSatisfiability"]}],
@@ -191067,7 +191067,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/smtlogics/qfufnra_tactic.go", "pkg/tactic/nlsat_smt/nl_purify_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_descriptions.go", "pkg/parsers/smt2/qfufnra_tactic_test.go"],
-      "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestNLPurifyCooperatingSolversMixedSatisfiability", "TestNLPurifyTacticReuseAfterCleanup"],
+      "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestSMT2QFUFNRATacticUnsatCore", "TestNLPurifyCooperatingSolversMixedSatisfiability", "TestNLPurifyTacticReuseAfterCleanup"],
       "conditionals": [
         {
           "line": 19,

@@ -1,3 +1,5 @@
+QF_UFNRA regression checks (2026-10-31 UTC): named SMT-LIB unsat cores pass, the complete SMT-LIB parser package passes, and TestSMTLibRunnerScripts passes including the earlier fixedpoint ordering regression.
+
 QF_UFNRA strategy start (2026-10-31 UTC): added the source-ordered preprocessing strategy and registered qfufnra with the SMT-LIB and API tactic dispatch. Focused end-to-end tests cover a satisfying model, contradictory arithmetic and function congruence; the general arithmetic purifier and full failure-frontier audits remain partial.
 
 Mixed nonlinear public tactic (2026-10-31 UTC): added the typed tactic factory, solver ownership, parameters, statistics and cleanup lifecycle around the cooperation loop. A regression runs sat, unsat and sat again with cleanup between applications; QF_UFNRA strategy registration remains pending.
