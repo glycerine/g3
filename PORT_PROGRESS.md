@@ -1,3 +1,5 @@
+Weighted MaxSAT start (2026-10-31 UTC): ported source model evaluation and soft assignment without model completion. Normal and checked tests distinguish unresolved values from completed models; the specialized SMT theory, search and engine registration remain unfinished.
+
 QE-SAT alternation (2026-10-31 UTC): ported existential-prefix skolemization and alternating quantifier extraction, including final negation after an odd number of blocks. Normal and checked tests cover nested existential/universal formulas; search and tactic registration remain unfinished.
 
 Full native snapshot check (2026-10-31 UTC): the complete Go suite on clean snapshot d6da8cdea passed, with 108 packages passing and three packages reporting no test files. Later Duality and QE-SAT work has focused verification but is outside this checkpoint. Log: /tmp/g3-native-explanations-d6da8cdea.log.
