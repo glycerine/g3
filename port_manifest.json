@@ -84540,8 +84540,15 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/base/bind_variables.go"],
-      "tests": ["TestVariableBinderAbstractsImplicitConstantsInSourceOrder", "TestVariableBinderWithoutVariablesReturnsOwnedIdentity"],
+      "go_targets": [
+        "pkg/muz/base/bind_variables.go",
+        "pkg/muz/base/bind_variables_used.go"
+      ],
+      "tests": [
+        "TestVariableBinderAbstractsImplicitConstantsInSourceOrder",
+        "TestVariableBinderWithoutVariablesReturnsOwnedIdentity",
+        "TestVariableBinderUsesExpressionOrderAndSkipsUnused"
+      ],
       "assertions": [
         {
           "line": 36,
@@ -84559,7 +84566,10 @@
           "name": "bind_variables construction, add_var, constant abstraction through nested scopes, empty identity, and forall/exists quantifier construction",
           "status": "ported",
           "go_target": "pkg/muz/base/bind_variables.go",
-          "tests": ["TestVariableBinderAbstractsImplicitConstantsInSourceOrder", "TestVariableBinderWithoutVariablesReturnsOwnedIdentity"]
+          "tests": [
+            "TestVariableBinderAbstractsImplicitConstantsInSourceOrder",
+            "TestVariableBinderWithoutVariablesReturnsOwnedIdentity"
+          ]
         }
       ],
       "ownership": [
@@ -84574,8 +84584,15 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/base/bind_variables.go"],
-      "tests": ["TestVariableBinderAbstractsImplicitConstantsInSourceOrder", "TestVariableBinderWithoutVariablesReturnsOwnedIdentity"],
+      "go_targets": [
+        "pkg/muz/base/bind_variables.go",
+        "pkg/muz/base/bind_variables_used.go"
+      ],
+      "tests": [
+        "TestVariableBinderAbstractsImplicitConstantsInSourceOrder",
+        "TestVariableBinderWithoutVariablesReturnsOwnedIdentity",
+        "TestVariableBinderUsesExpressionOrderAndSkipsUnused"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -84593,7 +84610,10 @@
           "name": "Concrete implicit-variable binder owner and complete retained public surface",
           "status": "ported",
           "go_target": "pkg/muz/base/bind_variables.go",
-          "tests": ["TestVariableBinderAbstractsImplicitConstantsInSourceOrder", "TestVariableBinderWithoutVariablesReturnsOwnedIdentity"]
+          "tests": [
+            "TestVariableBinderAbstractsImplicitConstantsInSourceOrder",
+            "TestVariableBinderWithoutVariablesReturnsOwnedIdentity"
+          ]
         }
       ],
       "ownership": [

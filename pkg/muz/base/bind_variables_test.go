@@ -110,3 +110,67 @@ func TestVariableBinderWithoutVariablesReturnsOwnedIdentity(t *testing.T) {
 		t.Fatal("empty binder changed expression", value, truth)
 	}
 }
+
+func TestVariableBinderUsesExpressionOrderAndSkipsUnused(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	ruleMust(t, err)
+	defer func() { ruleMust(t, c.Close()) }()
+	m, err := c.Manager()
+	ruleMust(t, err)
+	sort, err := m.MkBoolSort()
+	ruleMust(t, err)
+	makeConst := func(name string) ast.ASTHandle {
+		sym, e := m.Symbols.Intern(name)
+		ruleMust(t, e)
+		d, e := m.MkFuncDecl(sym, nil, sort, ast.ASTFuncDeclInfo{})
+		ruleMust(t, e)
+		a, e := m.MkApp(d, nil)
+		ruleMust(t, e)
+		return a
+	}
+	x, y, unused := makeConst("used-x"), makeConst("used-y"), makeConst("unused")
+	sym, err := m.Symbols.Intern("used-p")
+	ruleMust(t, err)
+	decl, err := m.MkFuncDecl(sym, []ast.ASTHandle{sort, sort}, sort, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	body, err := m.MkApp(decl, []ast.ASTHandle{y, x})
+	ruleMust(t, err)
+	pin, err := m.NewRef(body)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, m.DelRef(&pin)) }()
+	b, err := base.NewVariableBinder(m)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, b.Close()) }()
+	ruleMust(t, b.AddVariable(x))
+	ruleMust(t, b.AddVariable(y))
+	ruleMust(t, b.AddVariable(unused))
+	r, err := b.Bind(body, true)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, m.DelRef(&r)) }()
+	q, err := m.RefGet(r)
+	ruleMust(t, err)
+	n, err := m.GetNumDeclarations(q)
+	ruleMust(t, err)
+	if n != 2 {
+		t.Fatal("bound variables", n)
+	}
+	for i, want := range []string{"used-y", "used-x"} {
+		name, e := m.GetDeclarationName(q, uint32(i))
+		ruleMust(t, e)
+		got, e := m.Symbols.String(name)
+		ruleMust(t, e)
+		if got != want {
+			t.Fatalf("name %d: %s want %s", i, got, want)
+		}
+	}
+	truth, err := m.MkTrue()
+	ruleMust(t, err)
+	identity, err := b.Bind(truth, true)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, m.DelRef(&identity)) }()
+	got, err := m.RefGet(identity)
+	ruleMust(t, err)
+	if got != truth {
+		t.Fatal("unused variables changed formula")
+	}
+}

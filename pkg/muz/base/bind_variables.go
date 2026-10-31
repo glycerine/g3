@@ -99,7 +99,14 @@ func (b *VariableBinder) Bind(expression ast.ASTHandle, forall bool) (result ast
 			}
 		}
 	}()
-	if len(b.variables) == 0 {
+	var used []ast.ASTHandle
+	if len(b.variables) != 0 {
+		used, err = b.usedVariables(expression)
+		if err != nil {
+			return result, err
+		}
+	}
+	if len(used) == 0 {
 		err = b.manager.SetRef(result, expression)
 	} else {
 		abstractor, e := ast.NewExprAbstractor(b.manager)
@@ -114,9 +121,9 @@ func (b *VariableBinder) Bind(expression ast.ASTHandle, forall bool) (result ast
 			return result, e
 		}
 		if forall {
-			err = abstractor.MkForall(b.variables, expression, result)
+			err = abstractor.MkForall(used, expression, result)
 		} else {
-			err = abstractor.MkExists(b.variables, expression, result)
+			err = abstractor.MkExists(used, expression, result)
 		}
 		if err != nil {
 			return result, fmt.Errorf("muz/base: abstract implicit variables: %w", err)
