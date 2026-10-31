@@ -200875,9 +200875,9 @@
       "path": "src/test/doc.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/doc_cpp_driver_test.go"],
-      "tests": ["TestDOCSourceDriverCubeOperations", "TestDOCSourceRandomProjection"],
+      "tests": ["TestDOCSourceDriverCubeOperations", "TestDOCSourceRandomProjection", "TestDOCSourceRandomUnionOperations", "TestDOCSourceConcreteSubtraction"],
       "assertions": [
         {
           "line": 39,
@@ -200992,11 +200992,11 @@
           "text": "ENSURE(d1.well_formed(dm));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "tst_doc1 cube operations and projection", "status": "ported", "go_target": "pkg/muz/rel/doc_cpp_driver_test.go", "tests": ["TestDOCSourceDriverCubeOperations"]}, {"name": "test_doc_cls test_project1 and 200 seeded projections", "status": "ported", "go_target": "pkg/muz/rel/doc_cpp_driver_test.go", "tests": ["TestDOCSourceRandomProjection"]}, {"name": "test_doc_cls randomized merge, intersection and subtraction", "status": "unported"}],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_doc1 cube operations and projection", "status": "ported", "go_target": "pkg/muz/rel/doc_cpp_driver_test.go", "tests": ["TestDOCSourceDriverCubeOperations"]}, {"name": "test_doc_cls test_project1 and 200 seeded projections", "status": "ported", "go_target": "pkg/muz/rel/doc_cpp_driver_test.go", "tests": ["TestDOCSourceRandomProjection"]}, {"name": "test_doc_cls intersection, subtraction and merge", "status": "ported", "go_target": "pkg/muz/rel/doc_cpp_driver_test.go", "tests": ["TestDOCSourceRandomUnionOperations", "TestDOCSourceConcreteSubtraction"]}],
       "ownership": ["The test fixtures own and close source and destination DOC managers; replacement of the source d10 document deallocates its prior value."],
-      "deviations": ["Source diagnostic output is omitted; the randomized merge, intersection and subtraction scenarios remain separate work."]
+      "deviations": ["Source diagnostic output is omitted; exhaustive four-bit truth tables replace SMT equivalence checks and the source PRNG sequence is preserved."]
     },
     {
       "path": "src/test/escaped.cpp",
