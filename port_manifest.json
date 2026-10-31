@@ -172855,7 +172855,7 @@
         "pkg/solver/combined_solver.go"
       ],
       "tests": [
-        "TestSMTLibRunnerAsArrayCombinedSolverFallbackGap",
+        "TestSMTLibRunnerAsArrayCombinedSolverFallback",
         "TestCombinedSolverDelayedInitializationAndIncrementalRouting",
         "TestCombinedSolverAssumptionsAndTrackedAssertionsForceSecond",
         "TestCombinedSolverUnknownPolicyAndTimedFallback",
@@ -177195,6 +177195,9 @@
             "TestDegreeShiftTacticApply",
             "TestDegreeShiftFactorySimplifiesMultiplication",
             "TestSMTLibRunnerDegreeShiftTactic"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/degree_shift_integration_test.go"
           ]
         }
       ],
@@ -177259,6 +177262,9 @@
           "tests": [
             "TestDegreeShiftFactorySimplifiesMultiplication",
             "TestSMTLibRunnerDegreeShiftTactic"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/degree_shift_integration_test.go"
           ]
         }
       ],
@@ -177542,7 +177548,8 @@
         "pkg/tactic/arith/elim01_tactic.go",
         "pkg/tactic/arith/elim01_tactic_test.go",
         "pkg/tactic/smtlogics/qfnia_tactic.go",
-        "pkg/cmd/g3/test_vectors/qfnia_solver_bounded.smt2"
+        "pkg/cmd/g3/test_vectors/qfnia_solver_bounded.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestElim01FiniteRangeRewriteAndModel",
@@ -177580,7 +177587,9 @@
           "name": "bool2int model reconstruction and fresh-Boolean filtering",
           "status": "platform_replacement",
           "go_target": "pkg/tactic/arith/elim01_tactic.go",
-          "tests": ["TestElim01FiniteRangeRewriteAndModel"]
+          "tests": [
+            "TestElim01FiniteRangeRewriteAndModel"
+          ]
         }
       ],
       "ownership": [
@@ -177703,6 +177712,9 @@
           "tests": [
             "TestEq2BVApplyRewritesGoalAndRestoresModel",
             "TestSMTLibRunnerEq2BVTactic"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/eq2bv_integration_test.go"
           ]
         }
       ],
@@ -177721,7 +177733,8 @@
       "go_targets": [
         "pkg/tactic/arith/eq2bv_tactic.go",
         "pkg/cmd_context/tactic_commands.go",
-        "pkg/cmd_context/tactic_registry.go"
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd/g3/eq2bv_integration_test.go"
       ],
       "tests": [
         "TestSMTLibRunnerEq2BVTactic"
@@ -177745,6 +177758,9 @@
           "go_target": "pkg/tactic/arith/eq2bv_tactic.go",
           "tests": [
             "TestSMTLibRunnerEq2BVTactic"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/eq2bv_integration_test.go"
           ]
         }
       ],
@@ -181298,8 +181314,16 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic.go"],
-      "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower", "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
+      "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestQFNRAPurifyDivisionProofCoreAndModelFilter",
+        "TestQFNRAPurifyZeroOddAndEvenPowers",
+        "TestQFNRAPurifyLeavesPositiveIntegerPower",
+        "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+      ],
       "assertions": [
         {
           "line": 367,
@@ -181355,13 +181379,25 @@
       "methods": [
         {
           "name": "retained quantifier-free real DIV and zero/rational-root POWER purification",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/qfnra_purify_tactic.go",
-          "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower", "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
+          "tests": [
+            "TestQFNRAPurifyDivisionProofCoreAndModelFilter",
+            "TestQFNRAPurifyZeroOddAndEvenPowers",
+            "TestQFNRAPurifyLeavesPositiveIntegerPower",
+            "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
-      "ownership": ["The QF_NRA invocation owns cached source terms, fresh constants, definition proofs, constraints, and filter-model declarations until result publication."],
-      "deviations": ["The retained QF_NRA instantiation is complete. Integer div/mod/to-int, quantified purification, algebraic root-object elimination, and trigonometric branches belong to other source consumers and remain unported."]
+      "ownership": [
+        "The QF_NRA invocation owns cached source terms, fresh constants, definition proofs, constraints, and filter-model declarations until result publication."
+      ],
+      "deviations": [
+        "The retained QF_NRA instantiation is complete. Integer div/mod/to-int, quantified purification, algebraic root-object elimination, and trigonometric branches belong to other source consumers and remain unported."
+      ]
     },
     {
       "path": "src/tactic/arith/purify_arith_tactic.h",
@@ -181477,6 +181513,9 @@
             "TestRecover01RejectsProofAndCoreGoals",
             "TestRecover01TacticParametersAndReuse",
             "TestSMTLibRunnerRecover01Tactic"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/recover_01_integration_test.go"
           ]
         }
       ],
@@ -181539,6 +181578,9 @@
           "tests": [
             "TestRecover01TacticParametersAndReuse",
             "TestSMTLibRunnerRecover01Tactic"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/recover_01_integration_test.go"
           ]
         }
       ],
@@ -182979,55 +183021,93 @@
           "name": "64-bit modular interval construction, implication, intersection and negation (lines 28-154)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_interval.go",
-          "tests": ["TestBVBoundsSourceModularSetIntersectionComplement", "TestBVBoundsModularTightComplementPolicy", "TestBVBoundsModularIntersectionAndImplication"]
+          "tests": [
+            "TestBVBoundsSourceModularSetIntersectionComplement",
+            "TestBVBoundsModularTightComplementPolicy",
+            "TestBVBoundsModularIntersectionAndImplication"
+          ]
         },
         {
           "name": "Numeral recognition and unsigned/signed/equality bound parsing (lines 186-242)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_recognize.go",
-          "tests": ["TestBVBoundsSourceRecognizesUnsignedSignedAndEquality", "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64", "TestBVBoundsSourceEqualityBoundTargetsExtractTerm"]
+          "tests": [
+            "TestBVBoundsSourceRecognizesUnsignedSignedAndEquality",
+            "TestBVBoundsSourceRejectsNumeralBoundsWiderThanUint64",
+            "TestBVBoundsSourceEqualityBoundTargetsExtractTerm"
+          ]
         },
         {
           "name": "Parameter update and propagate-eq descriptor (lines 303-314, 612-623)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_params.go",
-          "tests": ["TestBVBoundsSourcePropagateEqualityAndTranslation"]
+          "tests": [
+            "TestBVBoundsSourcePropagateEqualityAndTranslation"
+          ]
         },
         {
           "name": "Contextual assertion, interval refinement and scope rollback (lines 325-354, 507-534)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_state.go",
-          "tests": ["TestBVBoundsSourceAssertionIntersectionAndPop", "TestBVBoundsSourceContradictionAndNegatedBound"]
+          "tests": [
+            "TestBVBoundsSourceAssertionIntersectionAndPop",
+            "TestBVBoundsSourceContradictionAndNegatedBound"
+          ]
         },
         {
           "name": "Context simplification and optional singleton equality propagation (lines 356-405)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_simplify.go",
-          "tests": ["TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds", "TestBVBoundsSimplifyTightNegation", "TestBVBoundsSimplifyNegatedIntersectionPropagatesEquality", "TestBVBoundsSimplifyFullWithoutContext", "TestBVBoundsSourceSingletonReplacesVariable"]
+          "tests": [
+            "TestBVBoundsSourceTacticSimplifiesUsingSiblingBounds",
+            "TestBVBoundsSimplifyTightNegation",
+            "TestBVBoundsSimplifyNegatedIntersectionPropagatesEquality",
+            "TestBVBoundsSimplifyFullWithoutContext",
+            "TestBVBoundsSourceSingletonReplacesVariable"
+          ]
         },
         {
           "name": "Expression containment and repeated-bound discovery (lines 407-468)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_contains.go",
-          "tests": ["TestBVBoundsContainsExpressionNestedTarget", "TestBVBoundsContainsExpressionSharedDAG", "TestBVBoundsContainsBoundFromContext", "TestBVBoundsContainsBoundRepeatedVariable"]
+          "tests": [
+            "TestBVBoundsContainsExpressionNestedTarget",
+            "TestBVBoundsContainsExpressionSharedDAG",
+            "TestBVBoundsContainsBoundFromContext",
+            "TestBVBoundsContainsBoundRepeatedVariable"
+          ]
         },
         {
           "name": "May-simplify eligibility and single-bound fast path (lines 470-508)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_simplify.go",
-          "tests": ["TestBVBoundsMaySimplifyNumeralAndSingleBound", "TestBVBoundsMaySimplifyContextAndNegation"]
+          "tests": [
+            "TestBVBoundsMaySimplifyNumeralAndSingleBound",
+            "TestBVBoundsMaySimplifyContextAndNegation"
+          ]
         },
         {
           "name": "Dominator callback assertions, rewrites and branch-local scopes (lines 538-818)",
           "status": "ported",
           "go_target": "pkg/tactic/core/dom_simplify_plugin.go",
-          "tests": ["TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds", "TestBVBoundsDominatorPropagatesSingletonEquality", "TestBVBoundsDominatorDetectsContradictorySiblingBounds", "TestBVBoundsDominatorScopesITEBranchBounds"]
+          "tests": [
+            "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
+            "TestBVBoundsDominatorPropagatesSingletonEquality",
+            "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
+            "TestBVBoundsDominatorScopesITEBranchBounds"
+          ],
+          "go_targets": [
+            "pkg/tactic/bv/bv_bounds_tactic_test.go"
+          ]
         },
         {
           "name": "Translation, scope reporting and both tactic factories (lines 529-534, 806-810, 817-823)",
           "status": "ported",
           "go_target": "pkg/tactic/bv/bv_bounds_translate.go",
-          "tests": ["TestBVBoundsSourcePropagateEqualityAndTranslation", "TestBVBoundsDominatorPropagatesSingletonEquality"]
+          "tests": [
+            "TestBVBoundsSourcePropagateEqualityAndTranslation",
+            "TestBVBoundsDominatorPropagatesSingletonEquality"
+          ]
         }
       ],
       "ownership": [
@@ -184457,6 +184537,9 @@
             "TestBuiltinTacticRegistryDrivesFactoryValidation",
             "TestBuiltinTacticRegistryRetainsFactoryOrder",
             "TestBuiltinTacticDescriptionsRetainSourceText"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/tactic_registry_factory_test.go"
           ]
         },
         {
