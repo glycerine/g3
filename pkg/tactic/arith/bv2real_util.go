@@ -34,6 +34,8 @@ type BV2RealUtil struct {
 	defaults                   [3]unumeral.OwnedRational
 	posLT, posLE               ast.ASTRef
 	decls, side                []ast.ASTHandle
+	declBytes, sideBytes       uint64
+	vectorPending              []ast.ASTHandle
 	forward                    map[bv2RealKey]ast.ASTHandle
 	reverse                    map[ast.ASTHandle]bv2RealSignature
 	pending                    []*bv2RealCall
@@ -121,7 +123,7 @@ func (u *BV2RealUtil) open() error {
 	if err := u.owner(); err != nil {
 		return err
 	}
-	if !u.ready || u.closing || u.resetting || u.cacheRetiring || len(u.pending) > 0 || len(u.tracePending) > 0 {
+	if !u.ready || u.closing || u.resetting || u.cacheRetiring || len(u.pending) > 0 || len(u.tracePending) > 0 || len(u.vectorPending) > 0 {
 		return ast.ErrASTPending
 	}
 	return nil
@@ -133,21 +135,13 @@ func (u *BV2RealUtil) AddAuxDecl(h ast.ASTHandle) error {
 	return u.addAuxDecl(h)
 }
 func (u *BV2RealUtil) addAuxDecl(h ast.ASTHandle) error {
-	if err := u.manager.IncRef(h); err != nil {
-		return err
-	}
-	u.decls = append(u.decls, h)
-	return nil
+	return u.appendVectorRef(&u.decls, &u.declBytes, h)
 }
 func (u *BV2RealUtil) AddSideCondition(h ast.ASTHandle) error {
 	if err := u.open(); err != nil {
 		return err
 	}
-	if err := u.manager.IncRef(h); err != nil {
-		return err
-	}
-	u.side = append(u.side, h)
-	return nil
+	return u.appendVectorRef(&u.side, &u.sideBytes, h)
 }
 func (u *BV2RealUtil) SideConditions() ([]ast.ASTHandle, error) {
 	if err := u.open(); err != nil {
@@ -212,14 +206,14 @@ func (u *BV2RealUtil) release(values *[]ast.ASTHandle) error {
 			return ast.ErrASTPending
 		}
 	}
-	*values = nil
+	*values = (*values)[:0]
 	return nil
 }
 func (u *BV2RealUtil) Reset() error {
 	if err := u.owner(); err != nil {
 		return err
 	}
-	if u.closing || u.cacheRetiring || len(u.pending) > 0 || len(u.tracePending) > 0 {
+	if u.closing || u.cacheRetiring || len(u.pending) > 0 || len(u.tracePending) > 0 || len(u.vectorPending) > 0 {
 		return ast.ErrASTPending
 	}
 	u.resetting = true
@@ -240,6 +234,9 @@ func (u *BV2RealUtil) Close() error {
 		return ast.ErrASTPending
 	}
 	u.closing = true
+	if err := u.release(&u.vectorPending); err != nil {
+		return err
+	}
 	if err := u.cleanupCacheFailures(); err != nil {
 		return err
 	}
@@ -271,6 +268,8 @@ func (u *BV2RealUtil) Close() error {
 	if err := u.release(&u.side); err != nil {
 		return err
 	}
+	u.manager.Budget().Release(u.sideBytes)
+	u.side, u.sideBytes = nil, 0
 	for _, ref := range []*ast.ASTRef{&u.posLT, &u.posLE} {
 		if *ref != (ast.ASTRef{}) {
 			if err := u.manager.DelRef(ref); err != nil {
@@ -281,6 +280,8 @@ func (u *BV2RealUtil) Close() error {
 	if err := u.release(&u.decls); err != nil {
 		return err
 	}
+	u.manager.Budget().Release(u.declBytes)
+	u.decls, u.declBytes = nil, 0
 	u.manager.Budget().Release(u.header)
 	u.header = 0
 	u.closed = true
