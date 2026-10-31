@@ -15,6 +15,7 @@ type exprQETree struct {
 	formula, assignment, selected ast.ASTRef
 	variables                     []ast.ASTRef
 	definitions                   *DefinitionVector
+	atoms                         *BoolAtomIndex
 	children                      []*exprQETree
 	branchIndex                   map[string]int
 	branches                      big.Rat
@@ -226,6 +227,12 @@ func (s *exprQETree) Close() error {
 			return err
 		}
 		s.children = s.children[:i]
+	}
+	if s.atoms != nil {
+		if err := s.atoms.Close(); err != nil {
+			return err
+		}
+		s.atoms = nil
 	}
 	if s.definitions != nil {
 		if err := s.definitions.Close(); err != nil {
