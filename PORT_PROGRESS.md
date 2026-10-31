@@ -1,3 +1,5 @@
+Inventory evidence repair, seventh batch (2026-10-31 UTC): linked ten rule-transform and nonlinear solver entries to the files declaring their existing tests. The validator now reaches a nonlinear build-file target that names a directory; the evidence audit remains open.
+
 Inventory evidence repair, sixth batch (2026-10-31 UTC): linked ten rule-transform entries to the files declaring their existing cross-package tests. Inventory validation is still in progress.
 
 Generated model replay (2026-10-31 UTC): added sort inspection, model translation, constant interpretations and array-function construction and inspection. Normal and checked model tests cover target ownership after source closure and returned AST identity; other generated commands remain unfinished.

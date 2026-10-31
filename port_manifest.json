@@ -102251,7 +102251,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/subsumption_checker.go",
-        "pkg/muz/fp/spacer_engine.go"
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestSubsumptionCheckerDropsTautologicalSelfRule",
@@ -102313,7 +102314,9 @@
           "name": "ordered total-relation model-converter extension",
           "status": "ported",
           "go_target": "pkg/muz/transforms/subsumption_checker.go",
-          "tests": ["TestSubsumptionCheckerRemovesTotalPositiveTail"]
+          "tests": [
+            "TestSubsumptionCheckerRemovesTotalPositiveTail"
+          ]
         },
         {
           "name": "finite relation-table cardinality discovery",
@@ -102522,7 +102525,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_unfold.go",
-        "pkg/muz/fp/spacer_engine.go"
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleUnfoldExpandsOriginalTailOnce",
@@ -102546,6 +102550,9 @@
           "tests": [
             "TestRuleUnfoldExpandsOriginalTailOnce",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_unfold_rules.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -102619,7 +102626,8 @@
         "pkg/muz/transforms/array_eq_rewrite.go",
         "pkg/muz/transforms/array_instantiation.go",
         "pkg/muz/transforms/quantifier_instantiation.go",
-        "pkg/muz/transforms/quantifier_abstraction.go"
+        "pkg/muz/transforms/quantifier_abstraction.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestSMTLibRunnerScripts/fixedpoint_spacer_acyclic_inlining.smt2",
@@ -102661,6 +102669,9 @@
             "TestPDREngineExpandsSlicedModelsAndCovers",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_bit_blast.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_scale.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -102673,6 +102684,9 @@
             "TestPDREngineExpandsSlicedModelsAndCovers",
             "TestHornModelConversionsReplayInReverseApplicationOrder",
             "TestSubsumptionCheckerRemovesTotalPositiveTail"
+          ],
+          "go_targets": [
+            "pkg/muz/transforms/subsumption_checker_test.go"
           ]
         },
         {
@@ -102703,7 +102717,8 @@
             "pkg/muz/transforms/bit_blast.go",
             "pkg/muz/transforms/scale.go",
             "pkg/muz/transforms/karr_invariants.go",
-            "pkg/muz/transforms/magic_symbolic.go"
+            "pkg/muz/transforms/magic_symbolic.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2",
@@ -102727,7 +102742,12 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/fp/horn_preprocess.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_engine.go"],
+      "go_targets": [
+        "pkg/muz/fp/horn_preprocess.go",
+        "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
       "tests": [
         "TestSMTLibRunnerCPPReference/fixedpoint_spacer_acyclic_inlining.smt2",
         "TestSMTLibRunnerCPPReference/fp_spacer_bit_blast.smt2",
@@ -103793,7 +103813,8 @@
         "pkg/nlsat/explain_main.go",
         "pkg/nlsat/explain_projection.go",
         "pkg/nlsat/explain_signed_projection.go",
-        "pkg/nlsat/solver_projection.go"
+        "pkg/nlsat/solver_projection.go",
+        "pkg/nlsat/tactic/model_projection_test.go"
       ],
       "tests": [
         "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
@@ -103817,8 +103838,18 @@
           "name": "Retained explanation construction/configuration, infeasible-core explanation and signed/ordinary model projection",
           "status": "ported",
           "go_target": "pkg/nlsat/explain_assumptions.go",
-          "go_targets": ["pkg/nlsat/explain_main.go", "pkg/nlsat/explain_projection.go", "pkg/nlsat/explain_signed_projection.go", "pkg/nlsat/solver_projection.go"],
-          "tests": ["TestExplanationMainCollectsAtomsAndBuildsProjectedCell", "TestSolverConflictMinimizationWithEquality", "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"]
+          "go_targets": [
+            "pkg/nlsat/explain_main.go",
+            "pkg/nlsat/explain_projection.go",
+            "pkg/nlsat/explain_signed_projection.go",
+            "pkg/nlsat/solver_projection.go",
+            "pkg/nlsat/tactic/model_projection_test.go"
+          ],
+          "tests": [
+            "TestExplanationMainCollectsAtomsAndBuildsProjectedCell",
+            "TestSolverConflictMinimizationWithEquality",
+            "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
+          ]
         }
       ],
       "ownership": [
@@ -104481,7 +104512,10 @@
         "pkg/nlsat/solver_projection.go",
         "pkg/nlsat/literal_vector.go",
         "pkg/nlsat/inline_variables.go",
-        "pkg/nlsat/univariate_conjunction.go"
+        "pkg/nlsat/univariate_conjunction.go",
+        "pkg/qe/nlqsat_initialize_test.go",
+        "pkg/cmd/g3/nra_backend_test.go",
+        "pkg/smtcore/smt_univariate_nra_test.go"
       ],
       "tests": [
         "pkg/nlsat/assumption_manager_test.go",
@@ -104532,28 +104566,28 @@
         "TestSearchSelectedWitnessPrebuiltCPPOracle",
         "TestSearchResolutionAntecedentStagesMarksAndDeduplication",
         "TestSearchResolutionClauseSkipAndNewArithmeticLevel",
-            "TestSearchResolutionLazyClauseUsesComposedExplanation",
-            "TestSearchResolutionAnalyzesDecisionAndClauseTrail",
-            "TestSearchResolutionJoinsConflictAssumptions",
-            "TestSearchResolutionPublishesJoinedReasonAssumptions",
-            "TestSearchResolutionPublishesBooleanLemmaAndDetectsEmptyLemma",
-            "TestSearchMainBooleanSATAndUNSAT",
-            "TestSearchMainSelectsArithmeticWitness",
-            "TestSearchMainLearnsAcrossBooleanStage",
-            "TestSearchMainConflictLimitAfterResolvedConflict",
-            "TestSolverMixedPolynomialSearchAndRepeatedModel",
-            "TestSolverMixedLinearConflict",
-            "TestSolverIntegerBranchAndBound",
-            "TestSolverConflictMinimizationWithEquality",
+        "TestSearchResolutionLazyClauseUsesComposedExplanation",
+        "TestSearchResolutionAnalyzesDecisionAndClauseTrail",
+        "TestSearchResolutionJoinsConflictAssumptions",
+        "TestSearchResolutionPublishesJoinedReasonAssumptions",
+        "TestSearchResolutionPublishesBooleanLemmaAndDetectsEmptyLemma",
+        "TestSearchMainBooleanSATAndUNSAT",
+        "TestSearchMainSelectsArithmeticWitness",
+        "TestSearchMainLearnsAcrossBooleanStage",
+        "TestSearchMainConflictLimitAfterResolvedConflict",
+        "TestSolverMixedPolynomialSearchAndRepeatedModel",
+        "TestSolverMixedLinearConflict",
+        "TestSolverIntegerBranchAndBound",
+        "TestSolverConflictMinimizationWithEquality",
         "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses",
         "TestSolverModelStateAndLiteralVariableViews",
         "TestNLQInitializeMapsCompilerVariablesAndArithmeticLevels",
         "TestSolverProjectOwnsResultAndRestoresVariableOrder",
         "TestLiteralVectorBlocksSolverCloseUntilReleased",
-            "TestSolverInlineVariablesPatchesModelAndConflict",
-            "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
-            "TestFullDimensionalLiteralClassification",
-            "TestSolverCheckPublishesFullDimensionalExplanationMode",
+        "TestSolverInlineVariablesPatchesModelAndConflict",
+        "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex",
+        "TestFullDimensionalLiteralClassification",
+        "TestSolverCheckPublishesFullDimensionalExplanationMode",
         "TestUnivariateConjunctionRejectsMixedVariablesAndOwnsDomain",
         "TestSMTLibRunnerUnivariateNRA",
         "TestSMTLibRunnerUnivariateNRAUnsupported",
@@ -105119,14 +105153,25 @@
           "name": "Per-arithmetic-variable watched-clause ordering by clause degree and original index (cpp2190-2238)",
           "status": "ported",
           "go_target": "pkg/nlsat/clause_order.go",
-          "go_targets": ["pkg/nlsat/solver.go"],
-          "tests": ["TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex"]
+          "go_targets": [
+            "pkg/nlsat/solver.go"
+          ],
+          "tests": [
+            "TestClauseStoreSortsArithmeticWatchesByDegreeAndOriginalIndex"
+          ]
         },
         {
           "name": "var_info_collector polynomial degree/occurrence scoring, native heuristic and seeded shuffle permutations, root-atom reorder guard, polynomial/atom/assignment/integer-map mutation, clause reattachment, and external-order restoration (cpp1893-2091)",
           "status": "ported",
           "go_target": "pkg/nlsat/variable_order.go",
-          "tests": ["TestSolverHeuristicVariablePermutation", "TestSolverShuffledVariablePermutation", "TestSMTLibRunnerCPPReference/nlsat_shuffle.smt2"]
+          "tests": [
+            "TestSolverHeuristicVariablePermutation",
+            "TestSolverShuffledVariablePermutation",
+            "TestSMTLibRunnerCPPReference/nlsat_shuffle.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "Nonincremental inline-variable simplification for isolatable real unit equalities, constraint-derived coefficient signs, polynomial-fraction substitution through inequality atoms, clause rewriting, reverse model patches, and retained patch ownership (cpp2300-2546)",
@@ -105134,7 +105179,8 @@
           "go_target": "pkg/nlsat/inline_variables.go",
           "go_targets": [
             "pkg/nlsat/solver.go",
-            "pkg/nlsat/tactic/nlsat_tactic.go"
+            "pkg/nlsat/tactic/nlsat_tactic.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSolverInlineVariablesPatchesModelAndConflict",
@@ -105145,20 +105191,33 @@
           "name": "Temporary literal-assumption unit clauses, input-element identity, UNSAT-core filtering, and assumption-dependent original/learned clause collection (cpp1354-1416)",
           "status": "ported",
           "go_target": "pkg/nlsat/solver_assumptions.go",
-          "tests": ["TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses"]
+          "tests": [
+            "TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses"
+          ]
         },
         {
           "name": "Public arithmetic/Boolean model copy and restoration, current literal evaluation, per-literal polynomial-variable enumeration, and live arithmetic-atom literal enumeration (cpp429-451,3155-3169,3230-3241)",
           "status": "ported",
           "go_target": "pkg/nlsat/solver_model_state.go",
-          "tests": ["TestSolverModelStateAndLiteralVariableViews", "TestNLQInitializeMapsCompilerVariablesAndArithmeticLevels"]
+          "tests": [
+            "TestSolverModelStateAndLiteralVariableViews",
+            "TestNLQInitializeMapsCompilerVariablesAndArithmeticLevels"
+          ],
+          "go_targets": [
+            "pkg/qe/nlqsat_initialize_test.go"
+          ]
         },
         {
           "name": "Public owning signed model-projection operation used by quantified nonlinear consumers",
           "status": "ported",
           "go_target": "pkg/nlsat/solver_projection.go",
-          "go_targets": ["pkg/nlsat/literal_vector.go"],
-          "tests": ["TestSolverProjectOwnsResultAndRestoresVariableOrder", "TestLiteralVectorBlocksSolverCloseUntilReleased"]
+          "go_targets": [
+            "pkg/nlsat/literal_vector.go"
+          ],
+          "tests": [
+            "TestSolverProjectOwnsResultAndRestoresVariableOrder",
+            "TestLiteralVectorBlocksSolverCloseUntilReleased"
+          ]
         },
         {
           "name": "Concrete public solver composition, variable/atom/input-clause construction, real/integer check with branch-and-bound cuts, heuristic variable reordering/restoration, retained inline-variable simplification, model values/snapshots, literal inspection, core extraction, and exact five-counter statistics/reset (cpp167-231,1258-1416,1875-2091,2300-2378,3155-3169,3230-3241; solver.h38-55,64-112,132,159-166,193-216)",
@@ -105403,8 +105462,22 @@
       "component": "nlsat",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/nlsat/tactic/goal2nlsat.go", "pkg/nlsat/tactic/nlsat2goal.go"],
-      "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies", "TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity", "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause", "TestNLQSATTacticPublishesOnlyFreeRealModelValues"],
+      "go_targets": [
+        "pkg/nlsat/tactic/goal2nlsat.go",
+        "pkg/nlsat/tactic/nlsat2goal.go",
+        "pkg/qe/nlqsat_tactic_test.go"
+      ],
+      "tests": [
+        "TestGoalCompilerRealQuadraticSat",
+        "TestGoalCompilerIntegerLinearUnsat",
+        "TestGoalCompilerRationalDenominatorClearing",
+        "TestGoalCompilerBooleanAbstractionModel",
+        "TestGoalCompilerUnsatCoreDependencies",
+        "TestGoalConverterReconstructsBooleanAndArithmeticLiterals",
+        "TestGoalConverterRetainsRootFallbackIdentity",
+        "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
+        "TestNLQSATTacticPublishesOnlyFreeRealModelValues"
+      ],
       "assertions": [
         {
           "line": 102,
@@ -105438,32 +105511,50 @@
           "name": "retained goal compiler, polynomial factor atoms, model reconstruction, and core mapping",
           "status": "ported",
           "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
-          "tests": ["TestGoalCompilerRealQuadraticSat", "TestGoalCompilerIntegerLinearUnsat", "TestGoalCompilerRationalDenominatorClearing", "TestGoalCompilerBooleanAbstractionModel", "TestGoalCompilerUnsatCoreDependencies"]
+          "tests": [
+            "TestGoalCompilerRealQuadraticSat",
+            "TestGoalCompilerIntegerLinearUnsat",
+            "TestGoalCompilerRationalDenominatorClearing",
+            "TestGoalCompilerBooleanAbstractionModel",
+            "TestGoalCompilerUnsatCoreDependencies"
+          ]
         },
         {
           "name": "Canonical public literal lookup through the retained compiler mappings for quantified-search assumptions",
           "status": "ported",
           "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
-          "tests": ["TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"]
+          "tests": [
+            "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause"
+          ]
         },
         {
           "name": "Frontend-expression-filtered arithmetic and Boolean model reconstruction for quantified consumers",
           "status": "ported",
           "go_target": "pkg/nlsat/tactic/goal2nlsat.go",
-          "tests": ["TestNLQSATTacticPublishesOnlyFreeRealModelValues"]
+          "tests": [
+            "TestNLQSATTacticPublishesOnlyFreeRealModelValues"
+          ],
+          "go_targets": [
+            "pkg/qe/nlqsat_tactic_test.go"
+          ]
         },
         {
           "name": "nlsat2goal Boolean abstraction, polynomial inequality reconstruction, complemented comparisons, and root-atom fallback (cpp298-445)",
           "status": "ported",
           "go_target": "pkg/nlsat/tactic/nlsat2goal.go",
-          "tests": ["TestGoalConverterReconstructsBooleanAndArithmeticLiterals", "TestGoalConverterRetainsRootFallbackIdentity"]
+          "tests": [
+            "TestGoalConverterReconstructsBooleanAndArithmeticLiterals",
+            "TestGoalConverterRetainsRootFallbackIdentity"
+          ]
         }
       ],
       "ownership": [
         "GoalCompiler borrows the AST manager and live NLSAT solver while owning expression-to-variable mappings, the arithmetic expression compiler, and retained assumption attachments. Compile transfers polynomial factors and clauses into the solver; Close retires compiler expressions and mappings, then dependency attachments, without closing the borrowed solver.",
         "GoalConverter and ModelProjector borrow compiler mappings and the solver. Converted literals return owning AST references, filtered model reconstruction admits only explicitly requested frontend constants, and projected literal vectors close before their borrowed solver."
       ],
-      "deviations": ["Root atoms retain the source's fresh-Boolean fallback semantics with a deterministic nlsat-root variable name instead of embedding the solver display text."]
+      "deviations": [
+        "Root atoms retain the source's fresh-Boolean fallback semantics with a deterministic nlsat-root variable name instead of embedding the solver display text."
+      ]
     },
     {
       "path": "src/nlsat/tactic/goal2nlsat.h",
@@ -105508,8 +105599,18 @@
       "component": "nlsat",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/nlsat/tactic/nlsat_tactic.go"],
-      "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRejectsProofGoal", "TestNLSATTacticAdvertisesConflictMinimization", "TestNLSATTacticRetainsParametersAcrossTranslation", "TestSMTLibRunnerScripts/nlsat_direct.smt2"],
+      "go_targets": [
+        "pkg/nlsat/tactic/nlsat_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestNLSATTacticPublishesSatModel",
+        "TestNLSATTacticPublishesUnsatCore",
+        "TestNLSATTacticRejectsProofGoal",
+        "TestNLSATTacticAdvertisesConflictMinimization",
+        "TestNLSATTacticRetainsParametersAcrossTranslation",
+        "TestSMTLibRunnerScripts/nlsat_direct.smt2"
+      ],
       "assertions": [
         {
           "line": 136,
@@ -105531,13 +105632,25 @@
           "name": "retained tactic application, SAT model publication, UNSAT core publication, solver statistics capture, and statistics reset",
           "status": "ported",
           "go_target": "pkg/nlsat/tactic/nlsat_tactic.go",
-          "tests": ["TestNLSATTacticPublishesSatModel", "TestNLSATTacticPublishesUnsatCore", "TestNLSATTacticRejectsProofGoal", "TestNLSATTacticAdvertisesConflictMinimization", "TestNLSATTacticRetainsParametersAcrossTranslation", "TestSMTLibRunnerScripts/nlsat_direct.smt2"]
+          "tests": [
+            "TestNLSATTacticPublishesSatModel",
+            "TestNLSATTacticPublishesUnsatCore",
+            "TestNLSATTacticRejectsProofGoal",
+            "TestNLSATTacticAdvertisesConflictMinimization",
+            "TestNLSATTacticRetainsParametersAcrossTranslation",
+            "TestSMTLibRunnerScripts/nlsat_direct.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [
         "NLSATTactic owns its copied parameter snapshot and statistics map. Each Apply call lexically owns the prime generator, polynomial manager, solver, and GoalCompiler in dependency order; the compiler closes before the solver, which closes before polynomial and prime services. Published SAT models are copied into a stored converter before this stack is retired, while UNSAT dependencies are joined into the result before compiler attachments close."
       ],
-      "deviations": ["The source display-variable callback only customizes internal diagnostic rendering. Go diagnostics use the solver's stable numeric variable identities; solving, model/core publication, parameters and translation, exact five-counter statistics forwarding, and reset behavior are integrated."]
+      "deviations": [
+        "The source display-variable callback only customizes internal diagnostic rendering. Go diagnostics use the solver's stable numeric variable identities; solving, model/core publication, parameters and translation, exact five-counter statistics forwarding, and reset behavior are integrated."
+      ]
     },
     {
       "path": "src/nlsat/tactic/nlsat_tactic.h",
@@ -105576,8 +105689,17 @@
       "component": "nlsat",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go", "pkg/tactic/core/tseitin_cnf_tactic.go", "pkg/tactic/core/tseitin_cnf_encode.go"],
-      "tests": ["TestTseitinCNFNestedIffAndITEChain", "TestTseitinCNFCommonPatternAndBoundedDistributivity", "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfnra_tactic.go",
+        "pkg/tactic/core/tseitin_cnf_tactic.go",
+        "pkg/tactic/core/tseitin_cnf_encode.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestTseitinCNFNestedIffAndITEChain",
+        "TestTseitinCNFCommonPatternAndBoundedDistributivity",
+        "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+      ],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
@@ -105585,10 +105707,17 @@
           "name": "retained polynomial-CNF route into NLSAT",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
-          "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
-      "ownership": ["The Go tactic builder retains every constructed child through the composed tactic tree and closes temporary construction owners on failure. Successful ownership transfers into the returned and-then/otherwise graph, whose reverse child teardown preserves the source pipeline dependencies."],
+      "ownership": [
+        "The Go tactic builder retains every constructed child through the composed tactic tree and closes temporary construction owners on failure. Successful ownership transfers into the returned and-then/otherwise graph, whose reverse child teardown preserves the source pipeline dependencies."
+      ],
       "deviations": []
     },
     {
@@ -105596,8 +105725,13 @@
       "component": "nlsat",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/smtlogics/qfnra_tactic.go"],
-      "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfnra_tactic.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -105615,13 +105749,20 @@
           "name": "mk_qfnra_nlsat_tactic and qfnra_nlsat_fct factory declarations",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfnra_tactic.go",
-          "tests": ["TestSMTLibRunnerScripts/qfnra_nlsat.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/qfnra_nlsat.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [
         "The tactic builder retains constructed children until ownership transfers into the returned composition and closes temporary construction owners on failure; the simple factory transfers that composition to its caller."
       ],
-      "deviations": ["The retained route includes simplification, arithmetic purification, value propagation, equation solving, unconstrained and term-ITE elimination, optional factorization, core-preserving Tseitin CNF, and the NLSAT backend. The Go QFNRA portfolio also adds bounded and SMT fallbacks around this source NLSAT route."]
+      "deviations": [
+        "The retained route includes simplification, arithmetic purification, value propagation, equation solving, unconstrained and term-ITE elimination, optional factorization, core-preserving Tseitin CNF, and the NLSAT backend. The Go QFNRA portfolio also adds bounded and SMT fallbacks around this source NLSAT route."
+      ]
     },
     {
       "path": "src/opt/CMakeLists.txt",
