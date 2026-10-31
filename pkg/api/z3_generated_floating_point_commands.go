@@ -2,7 +2,11 @@ package api
 
 // Source: generated api_commands.cpp and src/api/api_fpa.cpp.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 func registerZ3GeneratedFloatingPointCommands(r *Z3Replayer) error {
 	names := []string{
@@ -24,7 +28,117 @@ func registerZ3GeneratedFloatingPointCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
+	conversions := []string{"to_fp_bv", "to_fp_float", "to_fp_real", "to_fp_signed", "to_fp_unsigned", "to_ubv", "to_sbv", "to_real"}
+	for i, name := range conversions {
+		id := uint32(624 + i)
+		if err := r.RegisterCommand(id, "Z3_mk_fpa_"+name, func(r *Z3Replayer) error { return replayFloatingPointConversion(r, id) }); err != nil {
+			return err
+		}
+	}
+	if err := r.RegisterCommand(649, "Z3_mk_fpa_to_ieee_bv", func(r *Z3Replayer) error { return replayFloatingPointConversion(r, 649) }); err != nil {
+		return err
+	}
 	return nil
+}
+
+func replayFloatingPointConversion(r *Z3Replayer, id uint32) (err error) {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	m := owner.results.manager
+	family, err := m.RegisterFloatingPointPlugin()
+	if err != nil {
+		return err
+	}
+	var args []ast.ASTHandle
+	count := uint32(2)
+	if id == 624 || id == 631 || id == 649 {
+		count = 1
+	}
+	for i := uint32(1); i <= count; i++ {
+		v, e := r.astObject(owner, i)
+		if e != nil {
+			return e
+		}
+		args = append(args, v.handle)
+	}
+	var params []ast.ASTParameter
+	defer func() {
+		for i := range params {
+			err = errors.Join(err, m.DelParameter(&params[i]))
+		}
+	}()
+	addParam := func(n uint32) error {
+		p, e := m.NewParameterUint(n)
+		if e == nil {
+			params = append(params, p)
+		}
+		return e
+	}
+	kind := ast.FPAOpToFP
+	if id >= 624 && id <= 628 {
+		sort, e := r.astObject(owner, count+1)
+		if e != nil {
+			return e
+		}
+		ebits, sbits, ok, e := m.FloatingPointSortShape(sort.handle)
+		if e != nil {
+			return e
+		}
+		if !ok {
+			return ast.ErrASTDomain
+		}
+		sourceSort, e := m.GetSort(args[count-1])
+		if e != nil {
+			return e
+		}
+		sourceKind, e := owner.context.SortKind(sourceSort)
+		if e != nil {
+			return e
+		}
+		want := APISortBitVector
+		if id == 625 {
+			want = APISortFloatingPoint
+		}
+		if id == 626 {
+			want = APISortReal
+		}
+		if sourceKind != want {
+			return ast.ErrASTDomain
+		}
+		if e = addParam(ebits); e != nil {
+			return e
+		}
+		if e = addParam(sbits); e != nil {
+			return e
+		}
+		if id == 628 {
+			kind = ast.FPAOpToFPUnsigned
+		}
+	} else if id == 629 || id == 630 {
+		width, e := r.Uint(3)
+		if e != nil {
+			return e
+		}
+		if e = addParam(width); e != nil {
+			return e
+		}
+		if id == 629 {
+			kind = ast.FPAOpToUBV
+		} else {
+			kind = ast.FPAOpToSBV
+		}
+	} else if id == 631 {
+		kind = ast.FPAOpToReal
+	} else {
+		kind = ast.FPAOpToIEEEBV
+	}
+	value, err := m.MkFamilyApp(family, kind, params, args)
+	if err != nil {
+		return err
+	}
+	return r.storeAST(owner, value)
 }
 
 func replayFloatingPointOperation(r *Z3Replayer, id uint32) error {

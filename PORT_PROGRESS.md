@@ -1,3 +1,5 @@
+Generated floating-point conversion replay (2026-10-31 UTC): connected conversions among floating-point, real and bit-vector expressions, including IEEE encoding. Normal and checked tests verify converted values and reject mismatched source sorts; other generated commands remain unfinished.
+
 Generated floating-point operation replay (2026-10-31 UTC): connected arithmetic, comparison and classification constructors. Normal and checked tests cover every operation and simplification of floating-point addition; conversions and other generated commands remain unfinished.
 
 Generated floating-point constructor replay (2026-10-31 UTC): connected rounding modes, standard and custom sorts, special values, bit-vector components and numeral constructors. Normal and checked tests verify aliases, formats and value classifications; floating-point operations and other generated commands remain unfinished.

@@ -199,3 +199,106 @@ func TestGeneratedFloatingPointReplayOperations(t *testing.T) {
 		t.Fatal("floating-point operations not checked")
 	}
 }
+
+func TestGeneratedFloatingPointReplayConversions(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nC 572\n= 0x43\n" +
+		"R\nP 0x41\nI 1\nP 0x42\nC 597\n= 0x44\nR\nP 0x41\nU 32\nC 35\n= 0x45\n" +
+		"R\nP 0x41\nU 1065353216\nP 0x45\nC 151\n= 0x46\nR\nP 0x41\nU 1\nP 0x45\nC 151\n= 0x47\n" +
+		"R\nP 0x41\nC 34\n= 0x48\nR\nP 0x41\nS \"1\"\nP 0x48\nC 148\n= 0x49\n" +
+		"R\nP 0x41\nP 0x46\nP 0x42\nC 624\n= 0x50\nR\nP 0x41\nP 0x43\nP 0x44\nP 0x42\nC 625\n= 0x51\n" +
+		"R\nP 0x41\nP 0x43\nP 0x49\nP 0x42\nC 626\n= 0x52\nR\nP 0x41\nP 0x43\nP 0x47\nP 0x42\nC 627\n= 0x53\n" +
+		"R\nP 0x41\nP 0x43\nP 0x47\nP 0x42\nC 628\n= 0x54\nR\nP 0x41\nP 0x43\nP 0x44\nU 32\nC 629\n= 0x55\n" +
+		"R\nP 0x41\nP 0x43\nP 0x44\nU 32\nC 630\n= 0x56\nR\nP 0x41\nP 0x44\nC 631\n= 0x57\nR\nP 0x41\nP 0x44\nC 649\n= 0x58\n" +
+		"R\nP 0x41\nP 0x44\nP 0x47\nP 0x49\nP 0x46\nP 0x50\nP 0x51\nP 0x52\nP 0x53\nP 0x54\nP 0x55\nP 0x56\nP 0x57\nP 0x58\nC 900\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-floating-point-conversions", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		values := make([]ast.ASTHandle, 13)
+		for i := range values {
+			v, e := r.astObject(owner, uint32(i+1))
+			if e != nil {
+				return e
+			}
+			values[i] = v.handle
+		}
+		for i := 4; i < len(values); i++ {
+			ref, e := owner.context.Simplify(values[i])
+			if e != nil {
+				return e
+			}
+			got, e := owner.results.manager.RefGet(ref)
+			if e != nil {
+				_ = owner.results.manager.DelRef(&ref)
+				return e
+			}
+			want := values[0]
+			if i == 9 || i == 10 {
+				want = values[1]
+			}
+			if i == 11 {
+				want = values[2]
+			}
+			if i == 12 {
+				want = values[3]
+			}
+			if got != want {
+				t.Fatalf("conversion %d produced %v, want %v", i, got, want)
+			}
+			if e = owner.results.manager.DelRef(&ref); e != nil {
+				return e
+			}
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("floating-point conversions not checked")
+	}
+}
+
+func TestGeneratedFloatingPointReplayRejectsWrongConversionSort(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nC 572\n= 0x43\n" +
+		"R\nP 0x41\nU 32\nC 35\n= 0x44\nR\nP 0x41\nU 1\nP 0x44\nC 151\n= 0x45\n" +
+		"R\nP 0x41\nP 0x43\nP 0x45\nP 0x42\nC 625\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), ast.ErrASTDomain.Error()) {
+		t.Fatal("wrong conversion source sort", err)
+	}
+}
