@@ -90368,7 +90368,9 @@
         "pkg/muz/rel/finite_interval_product_filter.go",
         "pkg/muz/rel/finite_interval_product_filter_test.go",
         "pkg/muz/rel/finite_interval_product_table_filter.go",
-        "pkg/muz/rel/finite_interval_product_mixed_filter.go"
+        "pkg/muz/rel/finite_interval_product_mixed_filter.go",
+        "pkg/muz/rel/finite_interval_product_conversion.go",
+        "pkg/muz/rel/finite_interval_product_conversion_test.go"
       ],
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
@@ -90386,7 +90388,9 @@
         "TestFiniteIntervalProductMixedInterpretedFilter",
         "TestFiniteIntervalProductCloneUsesSourceVectorCopy",
         "TestFiniteIntervalProductFull",
-        "TestFiniteIntervalProductResetAndReuse"
+        "TestFiniteIntervalProductResetAndReuse",
+        "TestFiniteIntervalProductTableConversion",
+        "TestFiniteIntervalProductIntervalConversion"
       ],
       "conditionals": [
         {
@@ -90859,6 +90863,15 @@
           "tests": [
             "TestFiniteIntervalProductResetAndReuse"
           ]
+        },
+        {
+          "name": "table and interval conversion",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product_conversion.go",
+          "tests": [
+            "TestFiniteIntervalProductTableConversion",
+            "TestFiniteIntervalProductIntervalConversion"
+          ]
         }
       ],
       "ownership": [
@@ -90888,7 +90901,9 @@
         "pkg/muz/rel/finite_interval_product_filter.go",
         "pkg/muz/rel/finite_interval_product_filter_test.go",
         "pkg/muz/rel/finite_interval_product_table_filter.go",
-        "pkg/muz/rel/finite_interval_product_mixed_filter.go"
+        "pkg/muz/rel/finite_interval_product_mixed_filter.go",
+        "pkg/muz/rel/finite_interval_product_conversion.go",
+        "pkg/muz/rel/finite_interval_product_conversion_test.go"
       ],
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
@@ -90906,7 +90921,9 @@
         "TestFiniteIntervalProductMixedInterpretedFilter",
         "TestFiniteIntervalProductCloneUsesSourceVectorCopy",
         "TestFiniteIntervalProductFull",
-        "TestFiniteIntervalProductResetAndReuse"
+        "TestFiniteIntervalProductResetAndReuse",
+        "TestFiniteIntervalProductTableConversion",
+        "TestFiniteIntervalProductIntervalConversion"
       ],
       "conditionals": [
         {
@@ -91066,6 +91083,15 @@
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductResetAndReuse"
+          ]
+        },
+        {
+          "name": "table and interval conversion",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product_conversion.go",
+          "tests": [
+            "TestFiniteIntervalProductTableConversion",
+            "TestFiniteIntervalProductIntervalConversion"
           ]
         }
       ],

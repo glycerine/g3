@@ -1,3 +1,5 @@
+Finite/interval product conversions (2026-10-31 UTC): added concrete conversions from table and interval relations and back to table relations when no interval columns remain. Tests cover table round trips, independent ownership, source interval-copy behavior and empty inner relations.
+
 Finite/interval reset (2026-10-31 UTC): reset the functional table and collect its unreferenced intervals, then verified reuse after clearing a full product.
 
 Full finite/interval product construction (2026-10-31 UTC): implemented source mk_full through complementing an empty sparse functional table and sharing a full inner interval relation. Tests cover zero and one finite columns; the source table complement accepts at most one finite data column.
