@@ -25,6 +25,11 @@ func TestQuantifierTacticNonlinearOptionSnapshot(t *testing.T) {
 	if kind != uparams.ParamBool {
 		t.Fatal("option descriptor", kind)
 	}
+	kind, err = descriptions.KindName("eliminate_variables_as_block")
+	fmMust(t, err)
+	if kind != uparams.ParamBool {
+		t.Fatal("elimination option descriptor", kind)
+	}
 	var options quantifierTacticOptions
 	fmMust(t, options.update(ctx, &enabled))
 	if !options.nonlinear {

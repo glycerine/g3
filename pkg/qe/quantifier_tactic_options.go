@@ -29,5 +29,16 @@ func collectQuantifierTacticOptions(descriptions *uparams.ParamDescrs) error {
 		return ast.ErrASTHandle
 	}
 	text := "(default: false) enable virtual term substitution."
-	return descriptions.InsertName("qe_nonlinear", uparams.ParamBool, &text, nil, nil)
+	if err := descriptions.InsertName("qe_nonlinear", uparams.ParamBool, &text, nil, nil); err != nil {
+		return err
+	}
+	return collectExprQuantifierParams(descriptions)
+}
+
+func collectExprQuantifierParams(descriptions *uparams.ParamDescrs) error {
+	if descriptions == nil {
+		return ast.ErrASTHandle
+	}
+	text := "(default: true) eliminate variables as a block (true) or one at a time (false)"
+	return descriptions.InsertName("eliminate_variables_as_block", uparams.ParamBool, &text, nil, nil)
 }
