@@ -1,4 +1,6 @@
-SAT clause-set source audit (2026-10-31 UTC): completed the live clause-set implementation and corrected conditional invariant diagnostics to scan IDs in source order. Normal and checked tests cover mutation, assertion actions, iterator and allocator ownership. The production inventory has 255 partial entries and no entries classified unstarted.
+Command debug reference audit (2026-10-31 UTC): completed the live expression-reference helpers in `cmd_util.cpp` and its header. Normal and checked tests cover self-replacement, reset, borrowed lifetimes and a real allocation failure followed by retry; the source command macros use concrete parser dispatch. The production inventory has 253 partial entries and no entries classified unstarted.
+
+SAT clause-set source audit (2026-10-31 UTC): completed the live clause-set implementation and corrected conditional invariant diagnostics to scan IDs in source order. Normal and checked tests cover mutation, assertion actions, iterator and allocator ownership. At that audit the production inventory had 255 partial entries and no entries classified unstarted.
 
 SAT shared unit exchange (2026-10-31 UTC): completed the live `sat_par.cpp` and header audit. Normal and checked tests cover source ordering, both literal polarities, deduplication, limits, detached snapshots and solver import/export. At that audit the production inventory had 257 partial entries and no entries classified unstarted.
 

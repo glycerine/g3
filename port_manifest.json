@@ -45819,19 +45819,22 @@
       "path": "src/cmd_context/cmd_util.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/cmd_context/debug_expressions.go",
         "pkg/cmd_context/context.go",
         "pkg/parsers/smt2/debug_commands.go",
         "pkg/parsers/smt2/commands.go",
-        "pkg/parsers/smt2/debug_commands_test.go"
+        "pkg/parsers/smt2/debug_commands_test.go",
+        "pkg/cmd_context/debug_expressions_test.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
         "TestDebugShiftAndSharedExpressions",
-        "TestDebugSubstitutionBindingOrderAndReplacement"
+        "TestDebugSubstitutionBindingOrderAndReplacement",
+        "TestDebugExpressionOwnershipReplacementAndReset",
+        "TestDebugExpressionFailedReplacementPreservesValue"
       ],
       "assertions": [
         {
@@ -45839,45 +45842,46 @@
           "text": "SASSERT(r != 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
-          "status": "partial",
-          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "name": "get_ast_ref, get_expr_ref and store_expr_ref for live named-expression consumers",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/debug_expressions.go",
           "tests": [
-            "TestDebugExpressionCommands",
-            "TestDebugExpressionResetAndErrors",
-            "TestDebugShiftAndSharedExpressions",
-            "TestDebugSubstitutionBindingOrderAndReplacement"
+            "TestDebugExpressionOwnershipReplacementAndReset",
+            "TestDebugExpressionFailedReplacementPreservesValue"
           ]
         }
       ],
       "ownership": [
-        "Context owns stored AST references through replacement, reset and close."
+        "The command context owns named AST references; replacement acquires the new reference before releasing the previous one, and reset and close release stored expressions. A real reference-allocation failure leaves the previous value available for retry."
       ],
       "deviations": [
-        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+        "All live source stores create expression-valued AST references; unused generic object-reference kinds are not represented. Concrete parser commands replace C++ command-generating macros. Missing source lookups return an error instead of continuing after an assertion."
       ]
     },
     {
       "path": "src/cmd_context/cmd_util.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/cmd_context/debug_expressions.go",
         "pkg/cmd_context/context.go",
         "pkg/parsers/smt2/debug_commands.go",
         "pkg/parsers/smt2/commands.go",
-        "pkg/parsers/smt2/debug_commands_test.go"
+        "pkg/parsers/smt2/debug_commands_test.go",
+        "pkg/cmd_context/debug_expressions_test.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
         "TestDebugShiftAndSharedExpressions",
-        "TestDebugSubstitutionBindingOrderAndReplacement"
+        "TestDebugSubstitutionBindingOrderAndReplacement",
+        "TestDebugExpressionOwnershipReplacementAndReset",
+        "TestDebugExpressionFailedReplacementPreservesValue"
       ],
       "conditionals": [
         {
@@ -45889,26 +45893,33 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
-          "status": "partial",
+          "name": "get_ast_ref, get_expr_ref and store_expr_ref for live named-expression consumers",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/debug_expressions.go",
+          "tests": [
+            "TestDebugExpressionOwnershipReplacementAndReset",
+            "TestDebugExpressionFailedReplacementPreservesValue"
+          ]
+        },
+        {
+          "name": "atomic, unary and symbol-plus-argument command macros use concrete parser dispatch",
+          "status": "platform_replacement",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
-            "TestDebugExpressionResetAndErrors",
-            "TestDebugShiftAndSharedExpressions",
-            "TestDebugSubstitutionBindingOrderAndReplacement"
+            "TestDebugShiftAndSharedExpressions"
           ]
         }
       ],
       "ownership": [
-        "Context owns stored AST references through replacement, reset and close."
+        "The command context owns named AST references; replacement acquires the new reference before releasing the previous one, and reset and close release stored expressions. A real reference-allocation failure leaves the previous value available for retry."
       ],
       "deviations": [
-        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+        "All live source stores create expression-valued AST references; unused generic object-reference kinds are not represented. Concrete parser commands replace C++ command-generating macros. Missing source lookups return an error instead of continuing after an assertion."
       ]
     },
     {
