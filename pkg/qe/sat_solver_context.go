@@ -6,6 +6,7 @@ package qe
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
 )
@@ -28,6 +29,8 @@ type satSolverContext struct {
 	normalizer *QENNFNormalizer
 	formula    ast.ASTRef
 	atoms      *BoolAtomIndex
+	variables  []ast.ASTRef
+	contains   []*ast.ContainsApp
 	closed     bool
 }
 
@@ -81,6 +84,53 @@ func (c *satSolverContext) initializeFormula(formula ast.ASTHandle) (result erro
 	return nil
 }
 
+// addVariable stores both the application and the source contains-app helper.
+func (c *satSolverContext) addVariable(variable ast.ASTHandle) error {
+	if c == nil || c.closed {
+		return ast.ErrASTHandle
+	}
+	contains, err := ast.NewContainsApp(c.manager, variable)
+	if err != nil {
+		return err
+	}
+	ref, err := c.manager.NewRef(variable)
+	if err != nil {
+		return errors.Join(err, contains.Close())
+	}
+	c.variables = append(c.variables, ref)
+	c.contains = append(c.contains, contains)
+	return nil
+}
+
+// eliminateVariable recomputes NNF then erases the selected entry while
+// preserving the order of the remaining variables. The definition is unused
+// by the source solver context.
+func (c *satSolverContext) eliminateVariable(index uint32, formula, definition ast.ASTHandle) error {
+	if c == nil || c.closed {
+		return ast.ErrASTHandle
+	}
+	if index >= uint32(len(c.variables)) {
+		return arena.ErrBounds
+	}
+	if err := c.initializeFormula(formula); err != nil {
+		return err
+	}
+	if c.contains[index] != nil {
+		if err := c.contains[index].Close(); err != nil {
+			return err
+		}
+		c.contains[index] = nil
+	}
+	if err := c.manager.DelRef(&c.variables[index]); err != nil {
+		return err
+	}
+	copy(c.variables[index:], c.variables[index+1:])
+	c.variables = c.variables[:len(c.variables)-1]
+	copy(c.contains[index:], c.contains[index+1:])
+	c.contains = c.contains[:len(c.contains)-1]
+	return nil
+}
+
 // addConstraint intentionally ignores useVar, matching the source callback.
 func (c *satSolverContext) addConstraint(useVar bool, literals ...ast.ASTHandle) error {
 	if c == nil || c.closed {
@@ -110,6 +160,22 @@ func (c *satSolverContext) addConstraint(useVar bool, literals ...ast.ASTHandle)
 func (c *satSolverContext) Close() (result error) {
 	if c == nil || c.closed {
 		return nil
+	}
+	for len(c.variables) != 0 {
+		i := len(c.variables) - 1
+		if c.contains[i] != nil {
+			if err := c.contains[i].Close(); err != nil {
+				return err
+			}
+			c.contains[i] = nil
+		}
+		if c.variables[i] != (ast.ASTRef{}) {
+			if err := c.manager.DelRef(&c.variables[i]); err != nil {
+				return err
+			}
+		}
+		c.contains = c.contains[:i]
+		c.variables = c.variables[:i]
 	}
 	if c.atoms != nil {
 		if err := c.atoms.Close(); err != nil {

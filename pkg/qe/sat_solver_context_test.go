@@ -17,6 +17,29 @@ func TestSATSolverContextNNFAndConstraints(t *testing.T) {
 	t.Cleanup(func() { fmMust(t, context.Close()) })
 	x := f.constant("qe-sat-x", f.boolean)
 	y := f.constant("qe-sat-y", f.boolean)
+	z := f.constant("qe-sat-z", f.boolean)
+	fmMust(t, context.addVariable(x))
+	fmMust(t, context.addVariable(y))
+	fmMust(t, context.addVariable(z))
+	present, err := context.contains[1].Check(y)
+	fmMust(t, err)
+	if !present {
+		t.Fatal("variable occurrence helper")
+	}
+	fmMust(t, context.eliminateVariable(1, x, ast.ASTHandle{}))
+	if len(context.variables) != 2 {
+		t.Fatal("variable removal", len(context.variables))
+	}
+	first, err := f.r.manager.RefGet(context.variables[0])
+	fmMust(t, err)
+	second, err := f.r.manager.RefGet(context.variables[1])
+	fmMust(t, err)
+	if first != x || second != z {
+		t.Fatal("ordered erase", first, second)
+	}
+	if err = context.eliminateVariable(2, x, ast.ASTHandle{}); err == nil {
+		t.Fatal("variable bounds")
+	}
 	implication := f.own(f.r.manager.MkImplies(x, y))
 	fmMust(t, context.initializeFormula(implication))
 	formula, err := f.r.manager.RefGet(context.formula)

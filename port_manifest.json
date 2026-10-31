@@ -110677,7 +110677,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["Default NNF normalization and SMT constraint assertion are started; variable projection, search and tactic registration remain unfinished."]
+      "deviations": ["Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished."]
     },
     {
       "path": "src/qe/qe_sat_tactic.h",

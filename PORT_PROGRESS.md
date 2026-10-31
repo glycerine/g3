@@ -1,3 +1,5 @@
+QE-SAT variables (2026-10-31 UTC): added owned variables, occurrence helpers, formula refresh and source-ordered variable erasure. Normal and checked focused tests cover occurrence, erasure, bounds and polarity refresh; projection and tactic execution remain unfinished.
+
 QE-SAT tactic start (2026-10-31 UTC): connected its all-relevant NNF callbacks and literal disjunction assertions to the concrete SMT solver. Normal and checked focused tests cover polarity sets, formula reuse and enforced constraints; projection, search and tactic registration remain unfinished.
 
 Tabulation rule indexing (2026-10-31 UTC): indexed owned rule clauses by head predicate in source order and preserved the original rule positions. Focused normal and checked tests cover lookups, ownership after rule-set closure, missing rules and bounds; subsumption, selection and proof search remain unfinished.
