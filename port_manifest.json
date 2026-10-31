@@ -5980,7 +5980,8 @@
         "TestGeneratedASTInspectionReplayBorrowedResults",
         "TestGeneratedSortInspectionReplayBorrowedResults",
         "TestGeneratedDeclarationInspectionReplayBorrowedResults",
-        "TestGeneratedDeclarationParameterInspection"
+        "TestGeneratedDeclarationParameterInspection",
+        "TestGeneratedSymbolInspectionReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,

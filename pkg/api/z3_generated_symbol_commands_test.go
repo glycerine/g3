@@ -44,3 +44,27 @@ func TestGeneratedSymbolReplayInternsNames(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestGeneratedSymbolInspectionReplay(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\n" +
+		"R\nP 0x41\n# 37\nC 200\nR\nP 0x41\n# 37\nC 201\nR\nP 0x41\n# 37\nC 202\n" +
+		"R\nP 0x41\n$ |symbol-name|\nC 200\nR\nP 0x41\n$ |symbol-name|\nC 202\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedSymbolCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+}
