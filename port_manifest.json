@@ -107426,7 +107426,8 @@
         "pkg/qe/qe_datatype_plugin_test.go",
         "pkg/qe/qe_datatype_plugin_substitute.go",
         "pkg/qe/qe_datatype_plugin_atoms.go",
-        "pkg/qe/qe_datatype_plugin_atoms_test.go"
+        "pkg/qe/qe_datatype_plugin_atoms_test.go",
+        "pkg/qe/qe_datatype_plugin_equal_substitute.go"
       ],
       "tests": [
         "TestDatatypeSolverPluginNonRecursiveBranches",
@@ -107579,13 +107580,21 @@
             "TestDatatypeSolverPluginDirectEqualityBranches",
             "TestDatatypeSolverPluginAtomOccursCheckAndRefusal"
           ]
+        },
+        {
+          "name": "recursive direct equality and fallback substitution",
+          "status": "partial",
+          "go_target": "pkg/qe/qe_datatype_plugin_equal_substitute.go",
+          "tests": [
+            "TestDatatypeSolverPluginDirectEqualityBranches"
+          ]
         }
       ],
       "ownership": [
         "The plugin owns cached atom and constructor-substitution references and queued constraints; the solver context owns fresh variable references. TakeConstraints transfers formula references to the caller."
       ],
       "deviations": [
-        "Pending nested positive constructor equalities and recursive equality/disequality substitution, foreign-variable lifting, complete failure/lifetime audit and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
+        "Pending nested positive constructor equalities, foreign-variable lifting, complete failure/lifetime audit and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
       ]
     },
     {

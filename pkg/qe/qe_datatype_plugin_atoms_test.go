@@ -72,6 +72,54 @@ func TestDatatypeSolverPluginDirectEqualityBranches(t *testing.T) {
 		t.Fatal("wrong fallback constraint")
 	}
 	fmMust(t, m.DelRef(&constraints[0].Formula))
+	formulaRef, err := m.NewRef(formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formulaRef)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	fmMust(t, m.NumeralService().SetUnsigned(&branch, 0))
+	ok, err = p.SubstituteRecursive(contains, &branch, formulaRef, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("prepared equality substitution unsupported")
+	}
+	selected, err := m.RefGet(definition)
+	fmMust(t, err)
+	if selected != y {
+		t.Fatal("wrong equality definition")
+	}
+	got, err := m.RefGet(formulaRef)
+	fmMust(t, err)
+	truth := f.own(m.MkTrue())
+	want := f.own(m.MkAnd(truth, f.own(m.MkAnd(f.own(m.MkEq(y, y)), f.own(m.MkNot(f.own(m.MkEq(z, y))))))))
+	if got != want {
+		t.Fatal("wrong equality substitution")
+	}
+	fmMust(t, m.SetRef(formulaRef, formula))
+	fmMust(t, m.NumeralService().SetUnsigned(&branch, 1))
+	ok, err = p.SubstituteRecursive(contains, &branch, formulaRef, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("prepared fallback substitution unsupported")
+	}
+	got, err = m.RefGet(formulaRef)
+	fmMust(t, err)
+	no := f.own(m.MkFalse())
+	want = f.own(m.MkAnd(truth, f.own(m.MkAnd(no, f.own(m.MkNot(no))))))
+	if got != want {
+		t.Fatal("wrong fallback substitution")
+	}
+	diagonal, err := m.RefGet(definition)
+	fmMust(t, err)
+	if n, e := m.GetNumArgs(diagonal); e != nil || n != 1 {
+		t.Fatal("diagonal definition arity", n, e)
+	}
+	arg, err := m.GetArg(diagonal, 0)
+	fmMust(t, err)
+	if arg != z {
+		t.Fatal("diagonal disequality value")
+	}
 }
 
 func TestDatatypeSolverPluginAtomOccursCheckAndRefusal(t *testing.T) {

@@ -208,8 +208,11 @@ func (p *DatatypeSolverPlugin) SubstituteRecursive(variable *ast.ContainsApp, va
 	}
 	if found {
 		selector, e := p.hasSelector(target, current, constructor)
-		if e != nil || !selector {
+		if e != nil {
 			return false, e
+		}
+		if !selector {
+			return p.substituteEqualityBranch(target, current, constructor, branch, formula, definition)
 		}
 		if branch != 0 {
 			return false, ast.ErrASTDomain
