@@ -1,4 +1,4 @@
-Quantifier-elimination variables (2026-10-31 UTC): added fresh-constant instantiation, de Bruijn abstraction, quantified-variable extraction, rebinding of remaining variables and the expression eliminator's parameter description. Focused normal and checked tests verify sparse indices, nested quantifiers, declaration order and free-index shifts; the elimination traversal remains unfinished.
+Quantifier-elimination search state (2026-10-31 UTC): added fresh-constant instantiation, de Bruijn abstraction, quantified-variable extraction, rebinding of remaining variables and search-tree branching. Focused normal and checked tests verify binder handling, branch ownership, purity and leaf order; the full QE package and focused SMT solver tests pass. Search expansion and the elimination traversal remain unfinished.
 
 Duality query preparation (2026-10-31 UTC): combined rule formulas, universally closed query, missing predicate heads and source recursion-bound substitution into an owning query problem. Normal and checked Duality package tests cover clause order, reference lifetimes and bounds; RPFP construction and fixedpoint engine registration remain unfinished.
 
