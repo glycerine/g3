@@ -59,3 +59,19 @@ func TestSMTLibRunnerTabulationRecursiveCycle(t *testing.T) {
 		t.Fatalf("tabulation recursive result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerTabulationSelectionOptions(t *testing.T) {
+	for _, strategy := range []string{"weight", "basic-weight", "first", "var-use"} {
+		t.Run(strategy, func(t *testing.T) {
+			script := "(set-option :fixedpoint.engine tab)\n(set-option :fixedpoint.tab.selection " + strategy + ")\n" +
+				"(declare-rel p ())\n(declare-rel q ())\n(declare-rel goal ())\n(rule p)\n(rule q)\n(rule (=> (and p q) goal))\n(query goal)\n"
+			var out bytes.Buffer
+			if err := run(strings.NewReader(script), &out); err != nil {
+				t.Fatal(err, out.String())
+			}
+			if got := strings.TrimSpace(out.String()); got != "sat" {
+				t.Fatal("strategy result", got)
+			}
+		})
+	}
+}

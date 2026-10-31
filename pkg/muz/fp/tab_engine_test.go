@@ -99,3 +99,29 @@ func TestTabEngineQueryProofAndSnapshots(t *testing.T) {
 		t.Fatal("stale answer", err)
 	}
 }
+
+func TestTabEngineCompoundExpressionQuery(t *testing.T) {
+	engine, m := newRoutingEngine(t)
+	fpMust(t, engine.SelectEngine("tab"))
+	pDecl, p := routingPredicate(t, engine, m, "tab-compound-p")
+	_, q := routingPredicate(t, engine, m, "tab-compound-q")
+	fpMust(t, engine.AddRule(p, "p"))
+	fpMust(t, engine.AddRule(q, "q"))
+	query, err := m.MkAnd(p, q)
+	fpMust(t, err)
+	status, err := engine.QueryExpression(query)
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("compound query", status)
+	}
+	answer, err := engine.Answer(pDecl)
+	fpMust(t, err)
+	proof, err := m.RefGet(answer)
+	fpMust(t, err)
+	fact, err := m.GetProofFact(proof)
+	fpMust(t, err)
+	if !m.IsFalse(fact) {
+		t.Fatal("compound proof conclusion")
+	}
+	fpMust(t, m.DelRef(&answer))
+}
