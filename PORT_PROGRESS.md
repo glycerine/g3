@@ -1,4 +1,4 @@
-Explanation relation start (2026-10-31 UTC): ported the one-row rule-sort relation storage, ownership, empty/undefined state, reset, clone and complement. Focused tests verify row lifetime after reset and clone, zero-column relations and signature checks. Joins, unions, plugin registration, rule transformation and Datalog integration remain unfinished.
+Explanation relation start (2026-10-31 UTC): ported the one-row rule-sort relation storage, ownership, empty/undefined state, reset, clone, complement, join, projection, rename and fact/relation-level union. Focused tests verify row lifetime, zero-column relations, transformations and both union policies. Filters, plugin registration, rule transformation and Datalog integration remain unfinished.
 
 Subpaving debug command closure (2026-10-31 UTC): ported and registered the non-external to-subpaving command using the rational expression converter. Tests cover power simplification, mappings, generated constraints, a rational constant, writer failures and retry; the C++ hash-map display is stabilized by variable number in Go. The implementation and header are marked ported after the command and ownership audit.
 
