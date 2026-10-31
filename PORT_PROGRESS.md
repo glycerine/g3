@@ -52208,3 +52208,5 @@ Nonlinear arithmetic utility source driver: translated the two original quadrati
 Consequences source driver started: both source scenarios now exercise Boolean and bit-vector consequences, finite-domain datatype consequences, a scoped contradiction and model availability. The first scenario currently uses the finite-domain wrapper rather than the source's direct incremental SAT constructor, so the source test unit remains partial.
 
 Consequences driver completion: the Boolean and bit-vector case now also runs on the source's direct incremental SAT solver; the finite-domain datatype case uses the source finite-domain solver stack. The source driver is marked ported, and the additional finite-domain wrapper case remains as integration coverage.
+
+Ternary bit-vector source driver: ported zero-width behavior, source fills and intersection checks, projection across managers, and all 55 consecutive-value intersection cases at each original width 11, 15, 16, 17 and 31. Projection is verified bit by bit and the fixture checks manager cleanup.

@@ -210525,9 +210525,9 @@
       "path": "src/test/tbv.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/tbv_cpp_test.go"],
+      "tests": ["TestTBVSourceDriverWidthsAndIntersections"],
       "assertions": [
         {
           "line": 20,
@@ -210590,11 +210590,11 @@
           "text": "ENSURE(!m.is_well_formed(*t2));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst0, tst1 and tst2", "status": "ported", "go_target": "pkg/muz/rel/tbv_cpp_test.go", "tests": ["TestTBVSourceDriverWidthsAndIntersections"]}],
+      "ownership": ["The fixtures close the source and projection managers and check their budgets; the repeated-loop temporary vectors are explicitly deallocated."],
+      "deviations": ["Projection output is checked bit by bit instead of printed."]
     },
     {
       "path": "src/test/test_file_reader.h",
