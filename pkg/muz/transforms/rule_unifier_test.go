@@ -72,6 +72,18 @@ func TestRuleUnifierModelProofSubstitutionsAndReset(t *testing.T) {
 		if len(refs) != 0 {
 			t.Fatal("ground source has substitutions", len(refs))
 		}
+		resolved, err := u.ResolveRaw(f.rules, target, 0, tc.source)
+		coneMust(t, err)
+		head, err := resolved.Head()
+		coneMust(t, err)
+		argument, err := f.manager.GetArg(head, 0)
+		coneMust(t, err)
+		tails, err := resolved.TailSize()
+		coneMust(t, err)
+		if argument != tc.want || tails != 0 {
+			t.Fatal("resolved rule", argument, tails, tc.want)
+		}
+		coneMust(t, resolved.Close())
 	}
 	variableSource, err := f.rules.NewRule(app(p, x), nil, nil, "variable")
 	coneMust(t, err)

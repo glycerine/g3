@@ -5,6 +5,7 @@ package transforms
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/substitution"
@@ -93,6 +94,83 @@ func (u *RuleUnifier) RuleSubstitution(rule *base.Rule, isTarget bool) ([]ast.AS
 	}
 	_, refs, err := ruleProofSubstitution(u.manager, rule, offset, u.variables, u.subst)
 	return refs, err
+}
+
+// ResolveRaw applies the current unifier and removes duplicate tails. The
+// source normalization and interpreted-tail simplification are separate.
+func (u *RuleUnifier) ResolveRaw(rules *base.RuleManager, target *base.Rule, tailIndex int, source *base.Rule) (_ *base.Rule, resultErr error) {
+	if u == nil || u.manager == nil || !u.ready || rules == nil || target == nil || source == nil {
+		return nil, ast.ErrASTHandle
+	}
+	deltas := []uint32{0, u.variables}
+	var references []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(u.manager, references)) }()
+	apply := func(expression ast.ASTHandle, offset uint32) (ast.ASTHandle, error) {
+		ref, applyErr := u.manager.NewRef(ast.ASTHandle{})
+		if applyErr != nil {
+			return ast.ASTHandle{}, applyErr
+		}
+		references = append(references, ref)
+		if applyErr = u.subst.Apply(2, deltas, substitution.NewExprOffset(expression, offset), ref); applyErr != nil {
+			return ast.ASTHandle{}, applyErr
+		}
+		return u.manager.RefGet(ref)
+	}
+	targetHead, err := target.Head()
+	if err != nil {
+		return nil, err
+	}
+	newHead, err := apply(targetHead, 0)
+	if err != nil {
+		return nil, fmt.Errorf("muz/transforms: apply inline target head: %w", err)
+	}
+	var tails []ast.ASTHandle
+	var negatives []bool
+	appendRule := func(rule *base.Rule, offset uint32, skip int) error {
+		count, appendErr := rule.TailSize()
+		if appendErr != nil {
+			return appendErr
+		}
+		for index := 0; index < count; index++ {
+			if index == skip {
+				continue
+			}
+			expression, negative, getErr := rule.Tail(index)
+			if getErr != nil {
+				return getErr
+			}
+			updated, getErr := apply(expression, offset)
+			if getErr != nil {
+				return getErr
+			}
+			tails = append(tails, updated)
+			negatives = append(negatives, negative)
+		}
+		return nil
+	}
+	if err = appendRule(target, 0, tailIndex); err != nil {
+		return nil, fmt.Errorf("muz/transforms: apply inline target tail: %w", err)
+	}
+	if err = appendRule(source, 1, -1); err != nil {
+		return nil, fmt.Errorf("muz/transforms: apply inline source tail: %w", err)
+	}
+	tails, negatives, err = base.RemoveDuplicateRuleTails(tails, negatives)
+	if err != nil {
+		return nil, fmt.Errorf("muz/transforms: remove duplicate inline tails: %w", err)
+	}
+	targetName, err := target.Name()
+	if err != nil {
+		return nil, err
+	}
+	sourceName, err := source.Name()
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := rules.NewRule(newHead, tails, negatives, targetName+";"+sourceName)
+	if err != nil {
+		return nil, fmt.Errorf("muz/transforms: construct resolved rule: %w", err)
+	}
+	return resolved, nil
 }
 
 func (u *RuleUnifier) Close() error {

@@ -229,116 +229,30 @@ func ruleProofSubstitution(manager *ast.ASTManager, rule *base.Rule, offset uint
 }
 
 func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *base.Rule) (_ *base.Rule, resultErr error) {
-	tail, negated, err := target.Tail(tailIndex)
+	_, negated, err := target.Tail(tailIndex)
 	if err != nil || negated {
 		if err == nil {
 			err = ast.ErrASTDomain
 		}
 		return nil, err
 	}
-	sourceHead, err := source.Head()
+	unifier, err := NewRuleUnifier(p.manager)
 	if err != nil {
 		return nil, err
 	}
-	targetVariables, err := ruleVariableCount(p.manager, target)
-	if err != nil {
-		return nil, err
-	}
-	sourceVariables, err := ruleVariableCount(p.manager, source)
-	if err != nil {
-		return nil, err
-	}
-	variables := targetVariables
-	if sourceVariables > variables {
-		variables = sourceVariables
-	}
-	subst, err := substitution.New(p.manager)
-	if err != nil {
-		return nil, err
-	}
-	unifier, err := substitution.NewUnifier(p.manager)
-	if err != nil {
-		return nil, errors.Join(err, subst.Close())
-	}
-	defer func() { resultErr = errors.Join(resultErr, unifier.Close(), subst.Close()) }()
-	if err = subst.Reserve(2, variables); err != nil {
-		return nil, err
-	}
-	unified, err := unifier.UnifyPair(tail, sourceHead, subst, true)
+	defer func() { resultErr = errors.Join(resultErr, unifier.Close()) }()
+	unified, err := unifier.UnifyRules(target, tailIndex, source)
 	if err != nil {
 		return nil, fmt.Errorf("muz/transforms: unify inline tail and head: %w", err)
 	}
 	if !unified {
 		return nil, nil
 	}
-	deltas := []uint32{0, variables}
-	var references []ast.ASTRef
-	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(p.manager, references)) }()
-	apply := func(expression ast.ASTHandle, offset uint32) (ast.ASTHandle, error) {
-		ref, applyErr := p.manager.NewRef(ast.ASTHandle{})
-		if applyErr != nil {
-			return ast.ASTHandle{}, applyErr
-		}
-		references = append(references, ref)
-		if applyErr = subst.Apply(2, deltas, substitution.NewExprOffset(expression, offset), ref); applyErr != nil {
-			return ast.ASTHandle{}, applyErr
-		}
-		return p.manager.RefGet(ref)
-	}
-	targetHead, err := target.Head()
+	resolved, err := unifier.ResolveRaw(p.rules, target, tailIndex, source)
 	if err != nil {
 		return nil, err
 	}
-	newHead, err := apply(targetHead, 0)
-	if err != nil {
-		return nil, fmt.Errorf("muz/transforms: apply inline target head: %w", err)
-	}
-	var tails []ast.ASTHandle
-	var negatives []bool
-	appendRule := func(rule *base.Rule, offset uint32, skip int) error {
-		count, appendErr := rule.TailSize()
-		if appendErr != nil {
-			return appendErr
-		}
-		for index := 0; index < count; index++ {
-			if index == skip {
-				continue
-			}
-			expression, negative, getErr := rule.Tail(index)
-			if getErr != nil {
-				return getErr
-			}
-			updated, getErr := apply(expression, offset)
-			if getErr != nil {
-				return getErr
-			}
-			tails = append(tails, updated)
-			negatives = append(negatives, negative)
-		}
-		return nil
-	}
-	if err = appendRule(target, 0, tailIndex); err != nil {
-		return nil, fmt.Errorf("muz/transforms: apply inline target tail: %w", err)
-	}
-	if err = appendRule(source, 1, -1); err != nil {
-		return nil, fmt.Errorf("muz/transforms: apply inline source tail: %w", err)
-	}
-	tails, negatives, err = base.RemoveDuplicateRuleTails(tails, negatives)
-	if err != nil {
-		return nil, fmt.Errorf("muz/transforms: remove duplicate inline tails: %w", err)
-	}
-	targetName, err := target.Name()
-	if err != nil {
-		return nil, err
-	}
-	sourceName, err := source.Name()
-	if err != nil {
-		return nil, err
-	}
-	resolved, err := p.rules.NewRule(newHead, tails, negatives, targetName+";"+sourceName)
-	if err != nil {
-		return nil, fmt.Errorf("muz/transforms: construct resolved rule: %w", err)
-	}
+	variables, subst := unifier.variables, unifier.subst
 	if targetProof, hasProof, proofErr := target.Proof(); proofErr != nil {
 		return nil, errors.Join(proofErr, resolved.Close())
 	} else if hasProof {
