@@ -9,6 +9,9 @@ func registerZ3GeneratedInspectionCommands(r *Z3Replayer) error {
 		id   uint32
 		name string
 	}{
+		{203, "Z3_get_sort_name"}, {204, "Z3_get_sort_id"}, {205, "Z3_sort_to_ast"},
+		{206, "Z3_is_eq_sort"}, {207, "Z3_get_sort_kind"}, {208, "Z3_get_bv_sort_size"},
+		{210, "Z3_get_array_sort_domain"}, {211, "Z3_get_array_sort_range"},
 		{245, "Z3_app_to_ast"}, {246, "Z3_get_app_decl"}, {247, "Z3_get_app_num_args"},
 		{248, "Z3_get_app_arg"}, {249, "Z3_is_eq_ast"}, {250, "Z3_get_ast_id"},
 		{252, "Z3_get_sort"}, {253, "Z3_is_well_sorted"}, {254, "Z3_get_bool_value"},
@@ -33,6 +36,26 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 	}
 	var result ast.ASTHandle
 	switch id {
+	case 203:
+		_, err = owner.context.SortSymbol(value.handle)
+	case 204:
+		_, err = owner.context.SortID(value.handle)
+	case 205:
+		result, err = owner.context.SortToAST(value.handle)
+	case 206:
+		var other *replayASTOwner
+		other, err = r.astObject(owner, 2)
+		if err == nil {
+			_, err = owner.context.SortEqual(value.handle, other.handle)
+		}
+	case 207:
+		_, err = owner.context.SortKind(value.handle)
+	case 208:
+		_, err = owner.context.BitVectorSortSize(value.handle)
+	case 210:
+		result, err = owner.context.ArrayDomain(value.handle, 0)
+	case 211:
+		result, err = owner.context.ArrayRange(value.handle)
 	case 245:
 		result, err = owner.context.ApplicationToAST(value.handle)
 	case 246:
@@ -72,7 +95,7 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		return err
 	}
 	switch id {
-	case 245, 246, 248, 252, 259, 260:
+	case 205, 210, 211, 245, 246, 248, 252, 259, 260:
 		return r.storeBorrowedAST(owner, result)
 	}
 	return nil

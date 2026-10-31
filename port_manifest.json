@@ -5977,7 +5977,8 @@
         "TestGeneratedUpdateAndSubstitutionReplay",
         "TestGeneratedTranslateASTReplayOwnsTargetResult",
         "TestGeneratedModelTranslationAndArrayQueries",
-        "TestGeneratedASTInspectionReplayBorrowedResults"
+        "TestGeneratedASTInspectionReplayBorrowedResults",
+        "TestGeneratedSortInspectionReplayBorrowedResults"
       ],
       "methods_audited": false,
       "ownership_audited": false,
