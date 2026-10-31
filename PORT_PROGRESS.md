@@ -1,3 +1,5 @@
+Finite-domain goal transformation (2026-10-31 UTC): connected eq2bv candidate analysis, equality rewriting, bound constraints, proof facts and the model converter to an internal goal transformation. Normal and checked tests cover transformed goals, model reconstruction, no-op goals and bounds belonging to non-candidates. The public tactic factory and registry integration remain unfinished.
+
 Finite-domain model conversion (2026-10-31 UTC): eq2bv now has a concrete model converter that restores original integer constants, copies other interpretations and supports translation. Preparation initializes the bit-vector plugin for fresh managers. Normal and checked focused tests and the full tactic package pass; goal integration, proof handling and tactic registration remain unfinished.
 
 Finite-domain bound translation (2026-10-31 UTC): eq2bv now constructs owned unsigned bit-vector lower and upper constraints, preserving source direction and goal dependencies. Focused normal and checked tests pass; goal integration, model conversion, proof handling and tactic registration remain unfinished.

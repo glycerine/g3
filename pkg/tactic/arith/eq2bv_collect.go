@@ -11,12 +11,15 @@ import (
 // eq2bvCandidates returns observed equality maxima, before cleanup_fd adjusts
 // domain sizes from bounds and creates bit-vector constants. Handles are borrowed.
 func eq2bvCandidates(m *ast.ASTManager, roots []ast.ASTHandle) (map[ast.ASTHandle]uint32, error) {
+	return eq2bvCollect(m, roots, make(map[ast.ASTHandle]bool))
+}
+
+func eq2bvCollect(m *ast.ASTManager, roots []ast.ASTHandle, nonfd map[ast.ASTHandle]bool) (map[ast.ASTHandle]uint32, error) {
 	family, err := m.RegisterArithmeticPlugin()
 	if err != nil {
 		return nil, err
 	}
 	maxima := make(map[ast.ASTHandle]uint32)
-	nonfd := make(map[ast.ASTHandle]bool)
 	pair := func(v, c ast.ASTHandle, requireInt bool) (uint32, bool, error) {
 		constant, e := arithmeticUninterpretedConstant(m, v)
 		if e != nil || !constant || nonfd[v] {

@@ -20,6 +20,7 @@ type eq2bvReplacement struct {
 type eq2bvReplacements struct {
 	manager *ast.ASTManager
 	entries []eq2bvReplacement
+	nonfd   map[ast.ASTHandle]bool
 }
 
 func (p *eq2bvReplacements) Close() error {
@@ -65,7 +66,8 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 	if m == nil || bounds == nil || bounds.Manager() != m {
 		return nil, ast.ErrASTHandle
 	}
-	maxima, err := eq2bvCandidates(m, roots)
+	nonfd := make(map[ast.ASTHandle]bool)
+	maxima, err := eq2bvCollect(m, roots, nonfd)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +89,7 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 		ordered = append(ordered, indexed{h, id})
 	}
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].id < ordered[j].id })
-	plan = &eq2bvReplacements{manager: m}
+	plan = &eq2bvReplacements{manager: m, nonfd: nonfd}
 	defer func() {
 		if err != nil {
 			err = errors.Join(err, plan.Close())
