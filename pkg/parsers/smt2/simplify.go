@@ -46,8 +46,8 @@ func (p *commandParser) simplifyCommand() (resultErr error) {
 		if p.token != KeywordToken {
 			return fmt.Errorf("invalid simplify command, keyword expected")
 		}
-		key := strings.TrimPrefix(p.scanner.ID(), ":")
-		key = uparams.NormParamName(&key)
+		rawKey := p.scanner.ID()
+		key := uparams.NormParamName(&rawKey)
 		if err = p.advance(); err != nil {
 			return err
 		}

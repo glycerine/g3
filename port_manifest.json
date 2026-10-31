@@ -46471,22 +46471,54 @@
       "path": "src/cmd_context/parametric_cmd.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/parsers/smt2/tactics.go",
+        "pkg/parsers/smt2/apply_tactic.go",
+        "pkg/parsers/smt2/simplify.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/parametric_command_test.go"
+      ],
+      "tests": [
+        "TestParametricCommandsResetAndNormalizeOptions",
+        "TestParametricCommandRejectsInvalidKeywordAndValue"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "command-local typed parameter parsing and normalization",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/tactics.go",
+          "tests": [
+            "TestParametricCommandsResetAndNormalizeOptions",
+            "TestParametricCommandRejectsInvalidKeywordAndValue"
+          ]
+        }
+      ],
+      "ownership": [
+        "Parser owns each command parameter set and releases it after execution."
+      ],
+      "deviations": [
+        "Parametric command description caching and unified keyword/argument state remain pending; source command implementations use their own parser paths."
+      ]
     },
     {
       "path": "src/cmd_context/parametric_cmd.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/parsers/smt2/tactics.go",
+        "pkg/parsers/smt2/apply_tactic.go",
+        "pkg/parsers/smt2/simplify.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/parametric_command_test.go"
+      ],
+      "tests": [
+        "TestParametricCommandsResetAndNormalizeOptions",
+        "TestParametricCommandRejectsInvalidKeywordAndValue"
+      ],
       "conditionals": [
         {
           "line": 18,
@@ -46499,9 +46531,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "command-local typed parameter parsing and normalization",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/tactics.go",
+          "tests": [
+            "TestParametricCommandsResetAndNormalizeOptions",
+            "TestParametricCommandRejectsInvalidKeywordAndValue"
+          ]
+        }
+      ],
+      "ownership": [
+        "Parser owns each command parameter set and releases it after execution."
+      ],
+      "deviations": [
+        "Parametric command description caching and unified keyword/argument state remain pending; source command implementations use their own parser paths."
+      ]
     },
     {
       "path": "src/cmd_context/pdecl.cpp",

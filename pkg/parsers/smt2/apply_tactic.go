@@ -5,7 +5,6 @@ package smt2
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/glycerine/g3/pkg/cmd_context"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -43,8 +42,8 @@ func (p *commandParser) applyTactic(execute bool) (err error) {
 	}
 	defer func() { err = errors.Join(err, c.Del(&options)) }()
 	for p.token == KeywordToken {
-		key := strings.TrimPrefix(p.scanner.ID(), ":")
-		key = uparams.NormParamName(&key)
+		rawKey := p.scanner.ID()
+		key := uparams.NormParamName(&rawKey)
 		kind, found := applyTacticParameterKinds[key]
 		if !found {
 			return fmt.Errorf("invalid keyword argument")
