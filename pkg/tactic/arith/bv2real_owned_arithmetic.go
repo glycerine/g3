@@ -144,13 +144,11 @@ func (c *bv2RealCall) reducedOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRatio
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	dn := c.hold(c.u.manager.ArithmeticNumeral(d, false))
-	x = c.arith(10, x, dn)
+	x = c.divideRealOwned(x, d)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	dn = c.hold(c.u.manager.ArithmeticNumeral(d, false))
-	y = c.arith(10, y, dn)
+	y = c.divideRealOwned(y, d)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
@@ -166,4 +164,20 @@ func (c *bv2RealCall) reducedOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRatio
 	root := c.arith(18, rn, hn)
 	y = c.arith(9, y, root)
 	return c.arith(6, x, y)
+}
+
+// mk_div explicitly constructs rational(d) before passing it to mk_numeral.
+// Its numeric copy and numeral reference end when the division is handed back.
+func (c *bv2RealCall) divideRealOwned(e ast.ASTHandle, d *unumeral.OwnedRational) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
+	value := c.number()
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	if c.err = c.u.manager.NumeralService().Copy(value, d); c.err != nil {
+		return ast.ASTHandle{}
+	}
+	numeral := c.hold(c.u.manager.ArithmeticNumeral(value, false))
+	return c.arith(10, e, numeral)
 }

@@ -144,6 +144,72 @@ func TestBV2RealOwnedMatchingAlignmentDoesNotMutateCache(t *testing.T) {
 	}
 }
 
+func TestBV2RealCachedMatchOwnedCopyFailureFrontiers(t *testing.T) {
+	succeeded := false
+	for stop := int64(0); stop < 256; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			u, f := bv2RealFixture(t, 256)
+			s := f.m.NumeralService()
+			d, r := bv2RealWideCachePair()
+			out := bv2RealOut(t, f.m)
+			a, b := f.bv(t, 1, 3), f.bv(t, 2, 5)
+			equationMust(t, u.MkBV2RealC(a, b, d, r, out))
+			h, err := f.m.RefGet(out)
+			equationMust(t, err)
+			before, err := s.Stats()
+			equationMust(t, err)
+			persistent := bv2RealRecognitionPersistentObjects(t, s)
+			c := &bv2RealCall{u: u}
+			t.Cleanup(func() { equationMust(t, c.close()) })
+			f.m.Budget().FailAfter(stop)
+			term, found := c.matchTerm(h)
+			f.m.Budget().FailAfter(-1)
+			if c.err == nil {
+				succeeded = true
+				if !found || term.first != a || term.second != b {
+					t.Fatal("cached recognition lost its source arguments")
+				}
+				for i, value := range []*unumeral.OwnedRational{term.divisor, term.root} {
+					actual, err := s.String(value)
+					equationMust(t, err)
+					if actual != []*big.Rat{d, r}[i].RatString() {
+						t.Fatal("cached recognition lost its numeric copy", i, actual)
+					}
+				}
+			} else {
+				var failure umemory.Failure
+				if !errors.Is(c.err, arena.ErrInjectedFailure) && (!errors.As(c.err, &failure) || failure.Kind != umemory.FailureMemout || !s.RuntimeOwner().State().OutOfMemory) {
+					t.Fatal(c.err)
+				}
+				if found {
+					t.Fatal("failed numeric copy reported successful recognition")
+				}
+			}
+			equationMust(t, c.close())
+			after, err := s.Stats()
+			equationMust(t, err)
+			if after.LiveNumericObjects-bv2RealRecognitionPersistentObjects(t, s) != before.LiveNumericObjects-persistent {
+				t.Fatal("cached recognition leaked numeric copies", before, after)
+			}
+			for _, entry := range u.cacheOwners {
+				for i := range entry.values {
+					actual, err := s.String(&entry.values[i])
+					equationMust(t, err)
+					if actual != []*big.Rat{d, r}[i%2].RatString() {
+						t.Fatal("copy failure damaged the source cache", i, actual)
+					}
+				}
+			}
+		})
+		if succeeded {
+			break
+		}
+	}
+	if !succeeded {
+		t.Fatal("cached match copy success frontier was not reached")
+	}
+}
+
 func TestBV2RealRealConstantOwnedReadAndFailureFrontiers(t *testing.T) {
 	for _, integer := range []bool{false, true} {
 		succeeded := false
