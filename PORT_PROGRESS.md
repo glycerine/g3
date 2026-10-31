@@ -1,3 +1,5 @@
+Registered horn-simplify and the source ufbv-rewriter registration. The latter intentionally invokes the quasi-macro factory specified in the C++ registration.
+
 Registered sine-filter, elim01, bvarray2uf, nl-purify and the lra/lia/lira strategies. Fixed reentrant arithmetic-atom installation caused by term ITEs; SAT, UNSAT and reconstructed-model regressions exercise the integration.
 
 Registered blast-term-ite, cofactor-term-ite and pb-preprocess using their existing Go factories and target-context translations. The existing qfbv-sls factory is now included in the named catalog; API model tests and an SMT-LIB vector exercise the new registrations.

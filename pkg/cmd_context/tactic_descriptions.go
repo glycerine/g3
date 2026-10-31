@@ -16,6 +16,8 @@ var builtinTacticDescriptions = map[string]string{
 	"blast-term-ite":          "blast term if-then-else by hoisting them.",
 	"cofactor-term-ite":       "eliminate term if-the-else using cofactors.",
 	"pb-preprocess":           "pre-process pseudo-Boolean constraints a la Davis Putnam.",
+	"horn-simplify":           "simplify horn clauses.",
+	"ufbv-rewriter":           "Applies UFBV-specific rewriting rules, mainly demodulation.",
 	"sine-filter":             "eliminate premises using Sine Qua Non",
 	"elim01":                  "eliminate 0-1 integer variables, replace them by Booleans.",
 	"bvarray2uf":              "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.",
