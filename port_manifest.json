@@ -91539,9 +91539,17 @@
       "path": "src/muz/rel/dl_product_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/interval_bound_product.go",
+        "pkg/muz/rel/interval_bound_product_test.go",
+        "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/bound_relation.go"
+      ],
+      "tests": [
+        "TestIntervalBoundProductFiltersAndTransforms",
+        "TestIntervalBoundProductFactsAndEmpty"
+      ],
       "assertions": [
         {
           "line": 80,
@@ -91686,17 +91694,39 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "concrete interval/bound product facts, filters, formulas and transforms",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_bound_product.go",
+          "tests": [
+            "TestIntervalBoundProductFiltersAndTransforms",
+            "TestIntervalBoundProductFactsAndEmpty"
+          ]
+        }
+      ],
+      "ownership": [
+        "The concrete product owns its interval and bound relations and transfers returned formula references to the caller."
+      ],
+      "deviations": [
+        "Pending general product specifications, aligned and unaligned union/widening with side intersections and delta, other component combinations, relation-manager registration and ownership/failure audit."
+      ]
     },
     {
       "path": "src/muz/rel/dl_product_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/interval_bound_product.go",
+        "pkg/muz/rel/interval_bound_product_test.go",
+        "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/bound_relation.go"
+      ],
+      "tests": [
+        "TestIntervalBoundProductFiltersAndTransforms",
+        "TestIntervalBoundProductFactsAndEmpty"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -91709,9 +91739,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "concrete interval/bound product facts, filters, formulas and transforms",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_bound_product.go",
+          "tests": [
+            "TestIntervalBoundProductFiltersAndTransforms",
+            "TestIntervalBoundProductFactsAndEmpty"
+          ]
+        }
+      ],
+      "ownership": [
+        "The concrete product owns its interval and bound relations and transfers returned formula references to the caller."
+      ],
+      "deviations": [
+        "Pending general product specifications, aligned and unaligned union/widening with side intersections and delta, other component combinations, relation-manager registration and ownership/failure audit."
+      ]
     },
     {
       "path": "src/muz/rel/dl_relation_manager.cpp",

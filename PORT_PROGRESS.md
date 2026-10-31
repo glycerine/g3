@@ -1,3 +1,5 @@
+Interval/bound product source start (2026-10-31 UTC): added the concrete product relation for interval and bound components with facts, filters, source conjunction, join, project and rename. General product specifications, cross-component union/widening, relation-manager integration and failure audit remain pending.
+
 Bound relation union delta (2026-10-31 UTC): added the source delta update behavior for union and widening, including empty sources and unchanged results. Delta must be distinct from both operands; relation registration and ownership/failure audit remain pending.
 
 Bound relation fact abstraction (2026-10-31 UTC): added source-style fact insertion via an unconstrained relation and its coarse nonempty membership check, with arity validation. Remaining filters, relation registration and allocation/failure audit remain pending.
