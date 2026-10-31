@@ -182815,9 +182815,19 @@
       "path": "src/tactic/nlsat_smt/nl_purify_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/nlsat_smt/nl_purify_analysis.go",
+        "pkg/tactic/nlsat_smt/nl_purify_analysis_test.go",
+        "pkg/tactic/nlsat_smt/shared_ast_fixtures_test.go",
+        "pkg/tactic/nlsat_smt/doc.go"
+      ],
+      "tests": [
+        "TestNLPurifyPolaritiesUpgradeSharedSubexpressions",
+        "TestNLPurifyRejectsQuantifiersAndFreeBoundVariables",
+        "TestNLPurifyArithmeticPuritySeparatesInterfaces",
+        "TestNLPurifyMovesArithmeticGoalRoots"
+      ],
       "assertions": [
         {
           "line": 486,
@@ -182830,9 +182840,26 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "get_polarities/neg/is_pure_arithmetic/remove_pure_arith: shared-DAG polarity upgrades, quantifier rejection, real arithmetic purity and source-order goal transfers with proof handles",
+          "status": "ported",
+          "go_target": "pkg/tactic/nlsat_smt/nl_purify_analysis.go",
+          "tests": [
+            "TestNLPurifyPolaritiesUpgradeSharedSubexpressions",
+            "TestNLPurifyRejectsQuantifiersAndFreeBoundVariables",
+            "TestNLPurifyArithmeticPuritySeparatesInterfaces",
+            "TestNLPurifyMovesArithmeticGoalRoots"
+          ]
+        }
+      ],
+      "ownership": [
+        "Expression analysis borrows caller roots. Goal transfer acquires destination formula/proof/dependency owners before replacing the source slot."
+      ],
+      "deviations": [
+        "Pending: interface-variable and predicate rewriting, cooperating NLSAT/SMT search, equality assumptions/cores, merged models, parameter/statistics lifecycle, public factory and QF_UFNRA integration.",
+        "Purity classification runs before goal updates in this initial phase implementation; source allocation/error frontiers and diagnostic hooks have not been audited."
+      ]
     },
     {
       "path": "src/tactic/nlsat_smt/nl_purify_tactic.h",
