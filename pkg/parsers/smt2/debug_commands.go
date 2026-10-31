@@ -12,6 +12,60 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-used-vars":
+		expression, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		kind, err := m.GetKind(expression)
+		if err != nil {
+			return err
+		}
+		if kind == ast.ASTQuantifier {
+			expression, err = m.GetQuantifierBody(expression)
+			if err != nil {
+				return err
+			}
+		}
+		used, err := ast.NewASTUsedVars(m)
+		if err != nil {
+			return err
+		}
+		if err = used.Collect(expression); err != nil {
+			return err
+		}
+		if _, err = fmt.Fprint(p.out, "(vars"); err != nil {
+			return err
+		}
+		for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
+			if _, err = fmt.Fprintf(p.out, "\n  (%-6d ", i); err != nil {
+				return err
+			}
+			sort, err := used.Get(i)
+			if err != nil {
+				return err
+			}
+			if sort == (ast.ASTHandle{}) {
+				_, err = fmt.Fprint(p.out, "<not-used>")
+			} else {
+				err = p.context.WriteSort(p.out, sort, 10)
+			}
+			if err != nil {
+				return err
+			}
+			if _, err = fmt.Fprint(p.out, ")"); err != nil {
+				return err
+			}
+		}
+		_, err = fmt.Fprintln(p.out, ")")
+		return err
 	case "dbg-bool-rewriter", "dbg-bool-flat-rewriter", "dbg-elim-and":
 		expression, _, err := p.expression()
 		if err != nil {
@@ -325,7 +379,7 @@ func (p *commandParser) debugCommand(name string) (resultErr error) {
 			return err
 		}
 		return p.context.StoreDebugExpression(key, expression)
-	case "dbg-size", "dbg-num-shared":
+	case "dbg-size", "dbg-num-shared", "dbg-pp-shared":
 		expression, _, err := p.expression()
 		if err != nil {
 			return err
@@ -348,6 +402,42 @@ func (p *commandParser) debugCommand(name string) (resultErr error) {
 			defer func() { resultErr = errors.Join(resultErr, shared.Close()) }()
 			if err = shared.Collect(expression); err == nil {
 				count = shared.NumShared()
+			}
+			if err != nil {
+				return err
+			}
+			if name == "dbg-pp-shared" {
+				if _, err = fmt.Fprint(p.out, "(shared"); err != nil {
+					return err
+				}
+				iterator, err := shared.BeginShared()
+				if err != nil {
+					return err
+				}
+				for {
+					done, err := iterator.Done()
+					if err != nil {
+						return err
+					}
+					if done {
+						break
+					}
+					value, err := iterator.Value()
+					if err != nil {
+						return err
+					}
+					if _, err = fmt.Fprint(p.out, "\n  "); err != nil {
+						return err
+					}
+					if err = p.context.WriteExpressionIndented(p.out, value, 2); err != nil {
+						return err
+					}
+					if err = iterator.Next(); err != nil {
+						return err
+					}
+				}
+				_, err = fmt.Fprintln(p.out, ")")
+				return err
 			}
 		}
 		if err != nil {

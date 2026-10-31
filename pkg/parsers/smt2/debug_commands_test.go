@@ -127,3 +127,29 @@ func TestDebugBooleanRewriters(t *testing.T) {
 		t.Fatalf("debug Boolean rewriting %q, want %q", out, want)
 	}
 }
+
+func TestDebugUsedVariables(t *testing.T) {
+	script := `(dbg-used-vars (forall ((x Int) (y Bool) (z Int)) (> x z)))
+(dbg-used-vars true)`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	want := "(vars\n  (0      Int)\n  (1      <not-used>)\n  (2      Int))\n(vars)\n"
+	if out != want {
+		t.Fatalf("debug used variables %q, want %q", out, want)
+	}
+}
+
+func TestDebugPrintShared(t *testing.T) {
+	script := `(declare-const x Int)
+(dbg-pp-shared (+ (* x x) (* x x)))
+(dbg-pp-shared (+ x x))`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "(shared\n  (* x x))\n(shared)\n"; out != want {
+		t.Fatalf("debug shared expressions %q, want %q", out, want)
+	}
+}

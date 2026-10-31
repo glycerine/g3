@@ -46297,7 +46297,8 @@
         "pkg/parsers/smt2/debug_commands.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/parsers/smt2/debug_commands_test.go",
-        "pkg/ast/rewriter/bool_rewriter_public.go"
+        "pkg/ast/rewriter/bool_rewriter_public.go",
+        "pkg/cmd_context/results.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46306,7 +46307,9 @@
         "TestDebugSubstitutionBindingOrderAndReplacement",
         "TestDebugInstantiateQuantifiers",
         "TestDebugEliminateUnusedVariables",
-        "TestDebugBooleanRewriters"
+        "TestDebugBooleanRewriters",
+        "TestDebugUsedVariables",
+        "TestDebugPrintShared"
       ],
       "assertions": [
         {
@@ -46379,6 +46382,15 @@
           "tests": [
             "TestDebugBooleanRewriters"
           ]
+        },
+        {
+          "name": "used variables and shared-expression display",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugUsedVariables",
+            "TestDebugPrintShared"
+          ]
         }
       ],
       "ownership": [
@@ -46399,7 +46411,8 @@
         "pkg/parsers/smt2/debug_commands.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/parsers/smt2/debug_commands_test.go",
-        "pkg/ast/rewriter/bool_rewriter_public.go"
+        "pkg/ast/rewriter/bool_rewriter_public.go",
+        "pkg/cmd_context/results.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46408,7 +46421,9 @@
         "TestDebugSubstitutionBindingOrderAndReplacement",
         "TestDebugInstantiateQuantifiers",
         "TestDebugEliminateUnusedVariables",
-        "TestDebugBooleanRewriters"
+        "TestDebugBooleanRewriters",
+        "TestDebugUsedVariables",
+        "TestDebugPrintShared"
       ],
       "conditionals": [
         {
@@ -46456,6 +46471,15 @@
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugBooleanRewriters"
+          ]
+        },
+        {
+          "name": "used variables and shared-expression display",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugUsedVariables",
+            "TestDebugPrintShared"
           ]
         }
       ],

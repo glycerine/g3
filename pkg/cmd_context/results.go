@@ -57,10 +57,40 @@ func (h *contextTimeoutHandler) close() {
 }
 
 func (c *Context) WriteExpression(out io.Writer, expression ast.ASTHandle) (result error) {
+	return c.WriteExpressionIndented(out, expression, 0)
+}
+
+// WriteExpressionIndented applies the source display indentation to the format.
+func (c *Context) WriteExpressionIndented(out io.Writer, expression ast.ASTHandle, indent uint32) error {
 	format, err := c.manager.SMT2PPExprTree(expression, nil)
 	if err != nil {
 		return err
 	}
+	if indent != 0 {
+		format, err = c.manager.FormatIndent(indent, format)
+		if err != nil {
+			return err
+		}
+	}
+	return c.writeASTFormat(out, format)
+}
+
+// WriteSort prints a sort using the command context's SMT-LIB formatter.
+func (c *Context) WriteSort(out io.Writer, sort ast.ASTHandle, indent uint32) error {
+	format, err := c.manager.SMT2PPSort(sort)
+	if err != nil {
+		return err
+	}
+	if indent != 0 {
+		format, err = c.manager.FormatIndent(indent, format)
+		if err != nil {
+			return err
+		}
+	}
+	return c.writeASTFormat(out, format)
+}
+
+func (c *Context) writeASTFormat(out io.Writer, format ast.ASTHandle) (result error) {
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: c.manager.Budget()})
 	if err != nil {
 		return err
