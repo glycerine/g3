@@ -1,3 +1,5 @@
+Inventory evidence repair, eighth batch (2026-10-31 UTC): linked ten optimization, parser, quantifier and SMT entries to existing cross-package tests, and updated a stale nonlinear parameter test. Inventory validation continues.
+
 Nonlinear inventory evidence (2026-10-31 UTC): replaced two stale test names with current virtual-substitution and maximization tests, which pass. The validator now reaches a later parameter entry; its audit remains open.
 
 Generated declaration inspection replay (2026-10-31 UTC): added declaration identity, names, kinds, arity and domain/range queries. Normal and checked tests cover numeric symbols, borrowed identity and unchanged AST-trail ownership; other generated commands remain unfinished.

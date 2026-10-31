@@ -104326,7 +104326,9 @@
         "pkg/nlsat/gparams_catalog_collectors.go",
         "pkg/util/params/util_gparams_catalog_dispatch.go",
         "pkg/nlsat/tactic/nlsat_tactic.go",
-        "pkg/qe/nlqsat_tactic.go"
+        "pkg/qe/nlqsat_tactic.go",
+        "pkg/nlsat/tactic/nlsat_tactic_test.go",
+        "pkg/qe/nlqsat_tactic_test.go"
       ],
       "tests": [
         "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher",
@@ -104334,7 +104336,7 @@
         "TestGlobalParamsCatalogConstructorFailureAndDomains",
         "TestGlobalParamsCatalogDescriptionBorrowReadAndClosedPublicationPrefix",
         "TestGlobalParamsCatalogDispatcherFaultRoots",
-        "TestNLSATTacticAdvertisesConflictMinimization",
+        "TestNLSATTacticAdvertisesSourceParameterCatalog",
         "TestNLSATTacticRetainsParametersAcrossTranslation",
         "TestNLQSATTacticParametersAndTranslation"
       ],
@@ -104372,7 +104374,9 @@
       "ownership": [
         "Real descriptor ownership/merges and borrowed catalog-owned description bytes preserve source global temporary cleanup and unpublished descriptor pending roots. Tactics own copied ParamsRef snapshots, project every NLSAT field through typed getters for each scoped solver construction, and release snapshots on Close."
       ],
-      "deviations": ["The generated C++ accessor struct is represented by typed Go parameter reads at the two retained construction sites rather than another generated wrapper type. Defaults and global catalog metadata remain identical."]
+      "deviations": [
+        "The generated C++ accessor struct is represented by typed Go parameter reads at the two retained construction sites rather than another generated wrapper type. Defaults and global catalog metadata remain identical."
+      ]
     },
     {
       "path": "src/nlsat/nlsat_params.pyg",
@@ -105624,7 +105628,7 @@
         "TestNLSATTacticPublishesSatModel",
         "TestNLSATTacticPublishesUnsatCore",
         "TestNLSATTacticRejectsProofGoal",
-        "TestNLSATTacticAdvertisesConflictMinimization",
+        "TestNLSATTacticAdvertisesSourceParameterCatalog",
         "TestNLSATTacticRetainsParametersAcrossTranslation",
         "TestSMTLibRunnerScripts/nlsat_direct.smt2"
       ],
@@ -105653,7 +105657,7 @@
             "TestNLSATTacticPublishesSatModel",
             "TestNLSATTacticPublishesUnsatCore",
             "TestNLSATTacticRejectsProofGoal",
-            "TestNLSATTacticAdvertisesConflictMinimization",
+            "TestNLSATTacticAdvertisesSourceParameterCatalog",
             "TestNLSATTacticRetainsParametersAcrossTranslation",
             "TestSMTLibRunnerScripts/nlsat_direct.smt2"
           ],
@@ -105988,8 +105992,28 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/opt/maxsmt_assignment.go", "pkg/opt/maxsmt_assignment_value.go", "pkg/opt/maxsmt_assignment_weight.go", "pkg/opt/maxsmt_commit_validate.go", "pkg/opt/maxsmt_labels.go", "pkg/opt/maxsmt_label_clone.go", "pkg/opt/maxsmt_model_filter.go", "pkg/opt/maxsmt_result_bounds.go", "pkg/opt/maxsmt_statistics.go", "pkg/cmd_context/optimization.go", "pkg/parsers/smt2/optimization_test.go", "pkg/cmd/g3/test_vectors/weighted_soft_optimization.smt2"],
-      "tests": ["TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
+      "go_targets": [
+        "pkg/opt/arithmetic_solver.go",
+        "pkg/opt/maxsmt_assignment.go",
+        "pkg/opt/maxsmt_assignment_value.go",
+        "pkg/opt/maxsmt_assignment_weight.go",
+        "pkg/opt/maxsmt_commit_validate.go",
+        "pkg/opt/maxsmt_labels.go",
+        "pkg/opt/maxsmt_label_clone.go",
+        "pkg/opt/maxsmt_model_filter.go",
+        "pkg/opt/maxsmt_result_bounds.go",
+        "pkg/opt/maxsmt_statistics.go",
+        "pkg/cmd_context/optimization.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/cmd/g3/test_vectors/weighted_soft_optimization.smt2",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMT2WeightedSoftOptimizationEndToEnd",
+        "TestSMT2BitVectorOptimizationEndToEnd",
+        "TestSMTLibRunnerScripts",
+        "TestSMTLibRunnerCPPReference"
+      ],
       "assertions": [
         {
           "line": 44,
@@ -106015,7 +106039,16 @@
           "name": "retained weighted soft-objective initialization, exact model cost, improving pseudo-Boolean bounds and lexicographic assignment commitment (maxsmt.cpp:36-95,225-279,330-367)",
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
-          "tests": ["TestSMT2WeightedSoftOptimizationEndToEnd", "TestSMT2BitVectorOptimizationEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2WeightedSoftOptimizationEndToEnd",
+            "TestSMT2BitVectorOptimizationEndToEnd",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [],
@@ -106234,7 +106267,8 @@
         "pkg/tactic/arith/lia2card_sum.go",
         "pkg/tactic/arith/lia2card_sum_test.go",
         "pkg/opt/objective_decomposition_pb.go",
-        "pkg/opt/objective_decomposition_pb_test.go"
+        "pkg/opt/objective_decomposition_pb_test.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "pkg/cmd/g3/optimization_normalization_test.go",
@@ -106368,6 +106402,9 @@
           "tests": [
             "TestSMT2BoundedIntegerOptimizationEndToEnd",
             "TestSMT2OptimizationObjectivesFollowScopes"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go"
           ]
         },
         {
@@ -106377,7 +106414,9 @@
           "go_targets": [
             "pkg/cmd_context/optimization.go",
             "pkg/cmd_context/optimization_bounds.go",
-            "pkg/cmd_context/optimization_bounds_source_test.go"
+            "pkg/cmd_context/optimization_bounds_source_test.go",
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestOptimizationBoundsPreserveStrictLexicographicEndpoints",
@@ -106396,6 +106435,10 @@
             "TestSMT2WeightedSoftOptimizationEndToEnd",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -106406,6 +106449,10 @@
             "TestSMT2BitVectorOptimizationEndToEnd",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -106415,7 +106462,9 @@
           "go_targets": [
             "pkg/cmd_context/context.go",
             "pkg/cmd_context/optimization.go",
-            "pkg/cmd_context/optimization_parameters_pareto_test.go"
+            "pkg/cmd_context/optimization_parameters_pareto_test.go",
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestActiveBoxEnumerationSurvivesPriorityUpdate",
@@ -106451,6 +106500,10 @@
             "TestOptimizationObjectiveMutationClosesParetoSolverImmediately",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -106695,12 +106748,38 @@
       "component": "opt",
       "role": "generated_input",
       "status": "ported",
-      "go_targets": ["pkg/opt/opt_params.go", "pkg/opt/opt_params_test.go", "pkg/opt/gparams_catalog_collectors.go"],
-      "tests": ["TestOptParamsGeneratedDefaults", "TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards", "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"],
+      "go_targets": [
+        "pkg/opt/opt_params.go",
+        "pkg/opt/opt_params_test.go",
+        "pkg/opt/gparams_catalog_collectors.go",
+        "pkg/util/params/util_gparams_catalog_test.go"
+      ],
+      "tests": [
+        "TestOptParamsGeneratedDefaults",
+        "TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards",
+        "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+      ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"generated opt parameter schema, descriptors, defaults and runtime getters","status":"ported","go_target":"pkg/opt/opt_params.go","go_targets":["pkg/opt/gparams_catalog_collectors.go"],"tests":["TestOptParamsGeneratedDefaults","TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards","TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"]}],
-      "ownership": ["Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or the C++ source."],
+      "methods": [
+        {
+          "name": "generated opt parameter schema, descriptors, defaults and runtime getters",
+          "status": "ported",
+          "go_target": "pkg/opt/opt_params.go",
+          "go_targets": [
+            "pkg/opt/gparams_catalog_collectors.go",
+            "pkg/util/params/util_gparams_catalog_test.go"
+          ],
+          "tests": [
+            "TestOptParamsGeneratedDefaults",
+            "TestOptParamsLocalPrecedenceGlobalSnapshotAndOwnerGuards",
+            "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+          ]
+        }
+      ],
+      "ownership": [
+        "Generated Go tables and concrete accessors replace build-time Python generation; ordinary builds do not require Python or the C++ source."
+      ],
       "deviations": []
     },
     {
@@ -107104,7 +107183,8 @@
         "pkg/smtcore/smt_solver_optimization_objective.go",
         "pkg/smtcore/smt_solver_optimization_objective_test.go",
         "pkg/opt/arithmetic_solver_shared_repair_external_test.go",
-        "pkg/smtcore/smt_solver_optimization_bound_dispatch_test.go"
+        "pkg/smtcore/smt_solver_optimization_bound_dispatch_test.go",
+        "pkg/parsers/smt2/optimization_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -107187,6 +107267,10 @@
           "tests": [
             "TestSMTSolverArithmeticObjectiveFacade",
             "TestSMT2BoundedIntegerOptimizationEndToEnd"
+          ],
+          "go_targets": [
+            "pkg/smtcore/smt_solver_objective_test.go",
+            "pkg/parsers/smt2/optimization_test.go"
           ]
         },
         {
@@ -107405,8 +107489,18 @@
       "component": "opt",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/opt/arithmetic_solver.go", "pkg/parsers/smt2/optimization_test.go"],
-      "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"],
+      "go_targets": [
+        "pkg/opt/arithmetic_solver.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMT2BoundedIntegerOptimizationEndToEnd",
+        "TestSMT2StrictLexicographicIntervalEndToEnd",
+        "TestSMT2UnboundedLexicographicIntervalEndToEnd",
+        "TestSMTLibRunnerScripts",
+        "TestSMTLibRunnerCPPReference"
+      ],
       "assertions": [
         {
           "line": 113,
@@ -107452,7 +107546,18 @@
           "name": "geometric lex uses one-unit real bounds, exponentially wider integer jumps and rollback after infeasible jumps; basic box, Farkas, Symba and full multi-branch unbounded handling remain incomplete (optsmt.cpp:173-241,463-591)",
           "status": "partial",
           "go_target": "pkg/opt/arithmetic_solver.go",
-          "tests": ["TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches", "TestSMT2StrictLexicographicIntervalEndToEnd", "TestSMT2UnboundedLexicographicIntervalEndToEnd", "TestSMTLibRunnerScripts", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2BoundedIntegerOptimizationEndToEnd",
+            "TestSMT2GeometricIntegerOptimizationCrossesBooleanBranches",
+            "TestSMT2StrictLexicographicIntervalEndToEnd",
+            "TestSMT2UnboundedLexicographicIntervalEndToEnd",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [],
@@ -108995,7 +109100,8 @@
           "go_targets": [
             "pkg/parsers/smt2/commands.go",
             "pkg/parsers/smt2/check_logic_test.go",
-            "pkg/cmd/g3/test_vectors/fpa_canonical_model_scopes.smt2"
+            "pkg/cmd/g3/test_vectors/fpa_canonical_model_scopes.smt2",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMT2LogicValidationCPP",
@@ -109011,6 +109117,9 @@
             "TestSMT2CommandSessionGlobalBindingAndRestoration",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -109893,7 +110002,8 @@
           "go_targets": [
             "pkg/qe/nlqsat_tactic.go",
             "pkg/qe/nlqsat_tactic_test.go",
-            "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2"
+            "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2",
+            "pkg/cmd/g3/qsat_test.go"
           ],
           "tests": [
             "TestNLQSATTacticPurifiesSymbolicDivision",
@@ -109940,8 +110050,8 @@
         "nlqSearch owns two alternating projection LiteralVectors plus nlqState while borrowing its NLSAT solver. A projected core is evaluated only after restoring the saved SAT model; destination vectors reset before each elimination, learned clauses acquire their own atom references, and close retires projection vectors before state predicate vectors.",
         "Each NLQSATTactic application owns its hoisting preparation, retained free-variable references, CNF tactic/goal/result, prime generator, polynomial manager, NLSAT solver, GoalCompiler and nlqSearch in lexical dependency order. Projected/search literal owners close before the compiler and solver; the polynomial manager closes before its prime generator. A successful model contains only hoister-identified free expressions, transfers through a retained ModelRef into the stored converter, and remains usable after tactic/solver teardown.",
         "Division purification owns numerator, denominator and fresh-name references until all guarded and pairwise consistency axioms have been attached to the formula. Quantifier-block references independently retain every fresh quotient through level initialization and search.",
-        "NLQSATTactic owns an independent parameter snapshot. Updates replace that snapshot, translation copies it, each application projects it into the full NLSAT solver configuration while forcing factor=false, and Close releases it before the tactic header."
-        ,"QE-mode search owns the AST references for projected answers and assumption-variable formulas plus the cumulative safe-replacement trail that simplifies later answers using earlier projected clauses. Temporary assumption units removed by CheckAssumptions are restored into the saved Boolean model before later model-based projection, and close releases answer and assumption references and then the replacement trail before retiring the borrowed solver relationship."
+        "NLQSATTactic owns an independent parameter snapshot. Updates replace that snapshot, translation copies it, each application projects it into the full NLSAT solver configuration while forcing factor=false, and Close releases it before the tactic header.",
+        "QE-mode search owns the AST references for projected answers and assumption-variable formulas plus the cumulative safe-replacement trail that simplifies later answers using earlier projected clauses. Temporary assumption units removed by CheckAssumptions are restored into the saved Boolean model before later model-based projection, and close releases answer and assumption references and then the replacement trail before retiring the borrowed solver relationship."
       ],
       "deviations": [
         "The Go model path reconstructs only hoister-identified free frontend constants, directly excluding Tseitin, quantified and division auxiliaries instead of constructing a larger model and filtering it with the source m_aux_vars set. Native C++ differential expectations remain explicit for cases where the reference nlqsat tactic reports unknown while Go decides the formula."
@@ -109952,8 +110062,28 @@
       "component": "qe",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/qe/nlqsat_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd/g3/qsat_test.go", "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2", "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"],
-      "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestNLQAnswerSimplificationUsesPriorProjectedClauses", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"],
+      "go_targets": [
+        "pkg/qe/nlqsat_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qsat_test.go",
+        "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2",
+        "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
+      ],
+      "tests": [
+        "TestNLQSATTacticClosedExistentialAndFalseGoals",
+        "TestNLQSATTacticQuantifiedNonlinearRealGoals",
+        "TestNLQSATTacticMixedRealAlternationAndProjection",
+        "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
+        "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries",
+        "TestNLQSATTacticPurifiesSymbolicDivision",
+        "TestNLQSATTacticParametersAndTranslation",
+        "TestNLQETacticEliminatesNonlinearExistential",
+        "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
+        "TestNLQETacticComposesWithNLQSATForFreeParameters",
+        "TestNLQAnswerSimplificationUsesPriorProjectedClauses",
+        "TestSMTLibRunnerNLQEProjection",
+        "TestSMTLibRunnerQSATAndQuantifierElimination"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -109971,11 +110101,30 @@
           "name": "Public nonlinear quantified satisfiability tactic constructor and tactic interface",
           "status": "ported",
           "go_target": "pkg/qe/nlqsat_tactic.go",
-          "tests": ["TestNLQSATTacticClosedExistentialAndFalseGoals", "TestNLQSATTacticQuantifiedNonlinearRealGoals", "TestNLQSATTacticMixedRealAlternationAndProjection", "TestNLQSATTacticPublishesOnlyFreeRealModelValues", "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries", "TestNLQSATTacticPurifiesSymbolicDivision", "TestNLQSATTacticParametersAndTranslation", "TestNLQETacticEliminatesNonlinearExistential", "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear", "TestNLQETacticComposesWithNLQSATForFreeParameters", "TestNLQAnswerSimplificationUsesPriorProjectedClauses", "TestSMTLibRunnerNLQEProjection", "TestSMTLibRunnerQSATAndQuantifierElimination"]
+          "tests": [
+            "TestNLQSATTacticClosedExistentialAndFalseGoals",
+            "TestNLQSATTacticQuantifiedNonlinearRealGoals",
+            "TestNLQSATTacticMixedRealAlternationAndProjection",
+            "TestNLQSATTacticPublishesOnlyFreeRealModelValues",
+            "TestNLQSATTacticPublishesFreeBooleanAndRealWithoutAuxiliaries",
+            "TestNLQSATTacticPurifiesSymbolicDivision",
+            "TestNLQSATTacticParametersAndTranslation",
+            "TestNLQETacticEliminatesNonlinearExistential",
+            "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
+            "TestNLQETacticComposesWithNLQSATForFreeParameters",
+            "TestNLQAnswerSimplificationUsesPriorProjectedClauses",
+            "TestSMTLibRunnerNLQEProjection",
+            "TestSMTLibRunnerQSATAndQuantifierElimination"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/qsat_test.go"
+          ]
         }
       ],
       "ownership": [],
-      "deviations": ["The qsat-mode and nonlinear QE constructors are present, share the retained parameter surface, and are registered for SMT-LIB tactic use. The C++ header leaves nlqe behind a disabled TBD_TACTIC declaration; Go intentionally exposes the tested implementation, including cumulative projected-answer simplification."]
+      "deviations": [
+        "The qsat-mode and nonlinear QE constructors are present, share the retained parameter surface, and are registered for SMT-LIB tactic use. The C++ header leaves nlqe behind a disabled TBD_TACTIC declaration; Go intentionally exposes the tested implementation, including cumulative projected-answer simplification."
+      ]
     },
     {
       "path": "src/qe/qe.cpp",
@@ -134131,6 +134280,9 @@
             "TestSMTRelevanceFIFOEndSearchResetsAdmissionSentinel",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134145,6 +134297,9 @@
             "TestSMTRelevantActivityCaseSplitDelaysSearchVariables",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134160,6 +134315,9 @@
             "TestSMTRelevantGoalCaseSplitUsesLowestGeneration",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134175,6 +134333,9 @@
             "TestSMTActivityCaseSplitQueueHonorsConfiguredAndCachedPhases",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134189,6 +134350,9 @@
             "TestSMTActivityCaseSplitQueueCachesOnlyPositiveSearchActivity",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134205,6 +134369,9 @@
             "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134219,6 +134386,9 @@
             "TestSMTKernelQueueReadsBorrowedPhaseOwner",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134237,6 +134407,9 @@
             "TestSMTCaseSplitASTStreamOwnerRefusalPrecedesLiteralSelection",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134251,6 +134424,9 @@
             "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134505,6 +134681,9 @@
             "TestSMTRelevanceFIFOEndSearchResetsAdmissionSentinel",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134519,6 +134698,9 @@
             "TestSMTRelevantActivityCaseSplitDelaysSearchVariables",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134534,6 +134716,9 @@
             "TestSMTRelevantGoalCaseSplitUsesLowestGeneration",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134549,6 +134734,9 @@
             "TestSMTActivityCaseSplitQueueHonorsConfiguredAndCachedPhases",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134563,6 +134751,9 @@
             "TestSMTActivityCaseSplitQueueCachesOnlyPositiveSearchActivity",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134579,6 +134770,9 @@
             "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134593,6 +134787,9 @@
             "TestSMTKernelQueueReadsBorrowedPhaseOwner",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134611,6 +134808,9 @@
             "TestSMTCaseSplitASTStreamOwnerRefusalPrecedesLiteralSelection",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -134625,6 +134825,9 @@
             "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
