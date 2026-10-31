@@ -1,3 +1,5 @@
+Generated tactic application replay (2026-10-31 UTC): added application with and without parameters, result lifetime, subgoal inspection and model conversion. Normal and checked API/CLI tests cover product ownership after releasing original objects; other generated commands remain unfinished.
+
 Generated tactic composition replay (2026-10-31 UTC): added sequential, fallback, bounded, repeated, parameterized and single-goroutine parallel-fallback composition. Normal and checked tests execute compositions after releasing their inputs; other generated commands remain unfinished.
 
 Generated tactic replay lifecycle (2026-10-31 UTC): added named and basic tactic construction plus reference management. Normal and checked tests verify explicit release and incomplete-log cleanup; composition and application commands remain unfinished.

@@ -76,7 +76,10 @@ func replayGetGoal(r *Z3Replayer) (*replayGoal, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := r.Object(1)
+	return replayGoalAt(r, owner, 1)
+}
+func replayGoalAt(r *Z3Replayer, owner *replayContextOwner, position uint32) (*replayGoal, error) {
+	id, err := r.Object(position)
 	if err != nil {
 		return nil, err
 	}

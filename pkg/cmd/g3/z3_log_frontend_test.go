@@ -133,3 +133,16 @@ func TestZ3LogFrontendReplaysASTVector(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysTacticApplication(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nI 0\nI 0\nI 0\nC 348\n= 0x42\nR\nP 0x41\nP 0x42\nC 349\n" +
+		"R\nP 0x41\nC 377\n= 0x43\nR\nP 0x41\nP 0x43\nC 364\nR\nP 0x41\nP 0x43\nP 0x42\nC 400\n= 0x44\n" +
+		"R\nP 0x41\nP 0x44\nC 402\nR\nP 0x41\nP 0x44\nU 0\nC 406\n= 0x45\nR\nP 0x41\nP 0x44\nC 403\nM \"tactic-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "tactic-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}

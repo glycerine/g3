@@ -30,7 +30,7 @@ func registerZ3GeneratedTacticCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
-	return nil
+	return registerZ3GeneratedTacticApply(r)
 }
 func replayStoreTactic(r *Z3Replayer, owner *replayContextOwner, value *APITactic) error {
 	if r.nextObjectID == ^uint64(0) {

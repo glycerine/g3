@@ -77,7 +77,10 @@ func replayGetModel(r *Z3Replayer) (*replayModel, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := r.Object(1)
+	return replayModelAt(r, owner, 1)
+}
+func replayModelAt(r *Z3Replayer, owner *replayContextOwner, position uint32) (*replayModel, error) {
+	id, err := r.Object(position)
 	if err != nil {
 		return nil, err
 	}
