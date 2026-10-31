@@ -169835,7 +169835,10 @@
         "pkg/api/api_fm_tactic_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/tactic/arith/fm_tactic_translate.go",
-        "pkg/tactic/arith/fm_tactic_lifecycle_test.go"
+        "pkg/tactic/arith/fm_tactic_lifecycle_test.go",
+        "pkg/tactic/arith/fm_trace.go",
+        "pkg/tactic/arith/fm_model_trace.go",
+        "pkg/tactic/arith/fm_model_trace_test.go"
       ],
       "tests": [
         "TestAPIFMTacticRegistrationApplyAndModel",
@@ -169910,7 +169913,12 @@
         "TestFMTacticAllocationFrontiers",
         "TestFMTacticTranslationUsesIndependentTargetServices",
         "TestFMTacticTranslationAllocationFrontiers",
-        "TestFMModelReconstructionAllocationFrontiers"
+        "TestFMModelReconstructionAllocationFrontiers",
+        "TestFMModelTraceSourceRecordsAndClauseCheckpoints",
+        "TestFMModelTraceNoBoundAndRefusedStream",
+        "TestFMModelTraceOperandAllocationFailure",
+        "TestFMModelClauseCancellationAndReversePrefix",
+        "TestFMModelEmptySavedRowDoesNotCheckCancellation"
       ],
       "conditionals": [
         {
@@ -170183,11 +170191,29 @@
             "TestFMTacticTranslationUsesIndependentTargetServices",
             "TestFMModelReconstructionAllocationFrontiers"
           ]
+        },
+        {
+          "name": "fm_model_converter::operator() source fm_mc records, per-clause cancellation/resource checkpoints, interrupted reverse model prefix and empty-row checkpoint boundary (fm_tactic.cpp:184-243)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_apply.go",
+          "go_targets": [
+            "pkg/tactic/arith/fm_model_trace.go",
+            "pkg/tactic/arith/fm_trace.go",
+            "pkg/tactic/arith/fm_model_display.go"
+          ],
+          "tests": [
+            "TestFMModelTraceSourceRecordsAndClauseCheckpoints",
+            "TestFMModelTraceNoBoundAndRefusedStream",
+            "TestFMModelTraceOperandAllocationFailure",
+            "TestFMModelClauseCancellationAndReversePrefix",
+            "TestFMModelEmptySavedRowDoesNotCheckCancellation"
+          ]
         }
       ],
       "ownership": [
         "FMTactic owns its parameter snapshot and private run. The run owns constraints, parser expressions, a copied goal and a model-converter reference. Successful application transfers the copied goal and acquires a separate converter reference for the result; cleanup releases private state while output formulas, model reconstruction and joined core dependencies remain independently owned.",
-        "A charged empty FM implementation is allocated during construction. Cleanup builds and configures its replacement before clearing the old private graph; allocation failure preserves the old implementation. Application resets the existing implementation instead of reallocating its header. Cross-manager translation selects destination parameter/global/numeral owners, copies the seven concrete FM policy values, and continues to borrow process cooperation; translated model converters select the same destination evaluator services. Partially initialized model evaluators are closed on error. Constructor, application, cleanup, translation and model-reconstruction allocation sweeps require zero charged owner storage after teardown."
+        "A charged empty FM implementation is allocated during construction. Cleanup builds and configures its replacement before clearing the old private graph; allocation failure preserves the old implementation. Application resets the existing implementation instead of reallocating its header. Cross-manager translation selects destination parameter/global/numeral owners, copies the seven concrete FM policy values, and continues to borrow process cooperation; translated model converters select the same destination evaluator services. Partially initialized model evaluators are closed on error. Constructor, application, cleanup, translation and model-reconstruction allocation sweeps require zero charged owner storage after teardown.",
+        "FM model diagnostics construct formatted expressions through explicitly borrowed parameter owners and own/close temporary format references and output streams. Failed trace writes preserve computation and model registration; operand allocation errors propagate. Each saved clause executes the source resource-limit increment before bound processing; cancellation preserves only models from earlier completed variables. Empty saved rows have no checkpoint."
       ],
       "deviations": [
         "Whole-unit closure remains pending for source diagnostic/assertion coverage and the remaining concrete component audit. Cross-owner raw tactic translation copies the seven concrete FM policy values; unrelated caller parameters are not observed by this source tactic and do not require a universal adapter. Target managers must supply compatible parameter services or share the original owners; model reconstruction requires the source arithmetic/BV declaration-plugin setup."

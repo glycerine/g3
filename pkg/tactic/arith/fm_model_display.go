@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
@@ -59,9 +60,11 @@ func (c *FMModelConverter) Display(w io.Writer) error {
 	return fmDisplayWrite(w, ")\n")
 }
 func (c *FMModelConverter) displayClause(clause ast.ASTHandle) (body string, err error) {
-	m := c.manager
-	empty := c.services.Context.EmptyValue()
-	doc, err := m.SMT2PPExprTreeWithParams(clause, nil, c.services.Context, c.services.Globals, &empty)
+	return fmExpressionText(c.manager, c.services, clause, 2)
+}
+func fmExpressionText(m *ast.ASTManager, services model.ModelEvaluatorConfig, clause ast.ASTHandle, indent uint32) (body string, err error) {
+	empty := services.Context.EmptyValue()
+	doc, err := m.SMT2PPExprTreeWithParams(clause, nil, services.Context, services.Globals, &empty)
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +73,7 @@ func (c *FMModelConverter) displayClause(clause ast.ASTHandle) (body string, err
 		return "", err
 	}
 	defer func() { err = errors.Join(err, m.Format.DelRef(&ref)) }()
-	doc, err = m.FormatIndent(2, doc)
+	doc, err = m.FormatIndent(indent, doc)
 	if err != nil {
 		return "", err
 	}
@@ -82,7 +85,7 @@ func (c *FMModelConverter) displayClause(clause ast.ASTHandle) (body string, err
 		return "", err
 	}
 	defer func() { err = errors.Join(err, out.Close()) }()
-	if err = m.PrintFormat(out, doc, c.services.Context, &empty, c.services.Globals); err != nil {
+	if err = m.PrintFormat(out, doc, services.Context, &empty, services.Globals); err != nil {
 		return "", err
 	}
 	return out.String()

@@ -1,6 +1,6 @@
 package arith
 
-// Source: src/tactic/arith/fm_tactic.cpp:158-194.
+// Source: src/tactic/arith/fm_tactic.cpp:180-244.
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
@@ -23,6 +23,9 @@ func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, goal uint32) (err er
 	if md == nil || md.Manager() != c.manager {
 		return ast.ErrASTHandle
 	}
+	if e = c.traceModel(md, 184, true); e != nil {
+		return e
+	}
 	ev, e := model.NewModelEvaluator(md, c.services)
 	if e != nil {
 		if ev != nil {
@@ -40,10 +43,19 @@ func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, goal uint32) (err er
 	}
 	defer func() { err = errors.Join(err, c.manager.DelRef(&ref)) }()
 	for i := len(c.variables) - 1; i >= 0; i-- {
+		if e = c.traceVariable(c.variables[i], ast.ASTHandle{}); e != nil {
+			return e
+		}
 		var lower, upper *big.Rat
 		for _, clause := range c.clauses[i] {
+			if !c.manager.ResourceLimit().Inc() {
+				return tactic.NewTacticException(c.manager.ResourceLimit().CancelMessage())
+			}
 			kind, value, e := c.processBound(c.variables[i], clause, ev, ref)
 			if e != nil {
+				return e
+			}
+			if e = c.traceBound(kind, value, clause); e != nil {
 				return e
 			}
 			switch kind {
@@ -90,9 +102,12 @@ func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, goal uint32) (err er
 		if e != nil {
 			return e
 		}
+		if e = c.traceVariable(c.variables[i], value); e != nil {
+			return e
+		}
 		if e = md.RegisterConstant(c.variables[i], value); e != nil {
 			return e
 		}
 	}
-	return nil
+	return c.traceModel(md, 243, false)
 }
