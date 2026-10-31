@@ -450,54 +450,6 @@ func (c *bv2RealCall) realNumeral(q *big.Rat) ast.ASTHandle {
 	}
 	return c.hold(c.u.manager.ArithmeticNumeralRat(q, false))
 }
-func (c *bv2RealCall) signedNumeral(q *big.Rat) (result ast.ASTHandle) {
-	mark := c.checkpoint()
-	defer c.endExpressionScope(mark, &result)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	if c.err = bv2RealSourceAssert(245, "n.is_int()", q.IsInt()); c.err != nil {
-		return ast.ASTHandle{}
-	}
-	if !q.IsInt() {
-		c.err = ast.ErrASTDomain
-		return ast.ASTHandle{}
-	}
-	value := new(big.Rat).Abs(q)
-	width := uint32(value.Num().BitLen())
-	if width == 0 {
-		width = 1
-	}
-	h := c.numeral(value, width+1)
-	if q.Sign() < 0 {
-		h = c.bv(3, h)
-	}
-	return h
-}
-func (c *bv2RealCall) extend(n uint32, h ast.ASTHandle) (result ast.ASTHandle) {
-	mark := c.checkpoint()
-	defer c.endExpressionScope(mark, &result)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	if n == 0 {
-		return h
-	}
-	if q, ok := c.bvNumeral(h); ok {
-		width := c.width(h)
-		if c.err != nil {
-			return ast.ASTHandle{}
-		}
-		limit := new(big.Int).Lsh(big.NewInt(1), uint(width-1))
-		if q.Cmp(new(big.Rat).SetInt(limit)) < 0 {
-			return c.numeral(q, width+n)
-		}
-	}
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	return c.hold(c.u.manager.MkBitVectorSignExtend(n, h))
-}
 func (c *bv2RealCall) align(a, b ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
 	wa, wb := c.width(a), c.width(b)
 	if wa > wb {
@@ -656,20 +608,6 @@ func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle 
 		}
 	}
 	return c.hold(c.u.manager.MkApp(decl, []ast.ASTHandle{a, b}))
-}
-func (c *bv2RealCall) signedReal(h ast.ASTHandle) (result ast.ASTHandle) {
-	mark := c.checkpoint()
-	defer c.endExpressionScope(mark, &result)
-	width := c.width(h)
-	if c.err != nil {
-		return ast.ASTHandle{}
-	}
-	v := c.hold(c.u.manager.MkBitVectorToInt(h))
-	v = c.arith(14, v)
-	nonnegative := c.bv(23, c.numeral(big.NewRat(0, 1), width), h)
-	power := new(big.Int).Lsh(big.NewInt(1), uint(width))
-	negative := c.arith(7, v, c.realNumeral(new(big.Rat).SetInt(power)))
-	return c.basic(ast.ASTOpIte, nonnegative, v, negative)
 }
 func (c *bv2RealCall) reduced(a, b ast.ASTHandle, d, r *big.Rat) (result ast.ASTHandle) {
 	mark := c.checkpoint()
