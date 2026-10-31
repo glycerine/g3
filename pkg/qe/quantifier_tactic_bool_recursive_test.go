@@ -64,3 +64,27 @@ func TestRewriteQuantifierBoolInsideApplication(t *testing.T) {
 		t.Fatal("nested application differs after quantifier elimination")
 	}
 }
+
+func TestRewriteQuantifierBoolPreservesMultipleOuterVariableOrder(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	c := f.own(m.MkVar(0, f.boolean))
+	b := f.own(m.MkVar(1, f.boolean))
+	a := f.own(m.MkVar(2, f.boolean))
+	equality := f.own(m.MkIff(c, a))
+	body := f.own(m.MkAnd(equality, b))
+	inner := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(2)}, Body: body}))
+	middle := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(1)}, Body: inner}))
+	outer := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: middle}))
+	result, complete, err := rewriteQuantifierBool(m, outer, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("three nested Boolean binders were not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsFalse(value) {
+		t.Fatal("outer variable order changed: exists a forall b exists c ((c = a) and b) is false")
+	}
+}

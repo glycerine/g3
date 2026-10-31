@@ -104,3 +104,23 @@ func TestQuantifierArithmeticEquationFreshVariable(t *testing.T) {
 		t.Fatal("equation 2x + 3y + 1 = 0 should be satisfiable")
 	}
 }
+
+func TestQuantifierArithmeticEquationImpossibleDivisibility(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	x := f.own(m.MkVar(0, f.integer))
+	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	body := f.own(m.MkEq(twoX, f.number("1")))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("impossible integer equation was not decided")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsFalse(value) {
+		t.Fatal("two times an integer cannot equal one")
+	}
+}
