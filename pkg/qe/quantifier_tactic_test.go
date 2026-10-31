@@ -199,3 +199,24 @@ func TestQuantifierTacticUniversalIndependentPredicates(t *testing.T) {
 		t.Fatal("universal partition result differs from Boolean expansion")
 	}
 }
+
+func TestQuantifierTacticAlternatingBooleanQuantifiers(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	x := f.own(m.MkVar(1, f.boolean))
+	y := f.own(m.MkVar(0, f.boolean))
+	equality := f.own(m.MkIff(x, y))
+	inner := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(1)}, Body: equality}))
+	outer := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: inner}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(outer))
+	fmMust(t, port.Apply(goal, f.result()))
+	size, err := goal.Size()
+	fmMust(t, err)
+	if size != 0 {
+		t.Fatal("forall x exists y (x = y) should be true")
+	}
+}

@@ -189,7 +189,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 				return tactic.NewTacticException("quantifier elimination proofs are not implemented")
 			}
 			var complete bool
-			updates[i], complete, e = eliminateQuantifierBoolUnits(t.manager, form, t.config)
+			updates[i], complete, e = rewriteQuantifierBool(t.manager, form, t.config)
 			if e != nil {
 				return e
 			}
