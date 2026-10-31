@@ -115696,22 +115696,62 @@
       "path": "src/sat/sat_par.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/sat/sat_parallel_units.go", "pkg/sat/sat_parallel_exchange.go", "pkg/sat/sat_solver_parallel_bind.go", "pkg/sat/sat_solver_parallel_exchange.go"],
-      "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestParallelUnitExchangeLimitTracksFinalSharedSize", "TestSATSolverParallelExchangePublishesAndImportsRootUnits", "TestSATSolverParallelExchangeImportsConflictingUnit"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "shared unit exchange and solver root-level import/export", "status": "partial", "go_target": "pkg/sat/sat_parallel_exchange.go", "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestSATSolverParallelExchangePublishesAndImportsRootUnits"]}],
-      "ownership": ["Solvers borrow the synchronized exchange owner; snapshots copy unit slices and binding teardown does not close the exchange."],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/sat/sat_parallel_units.go",
+        "pkg/sat/sat_parallel_exchange.go",
+        "pkg/sat/sat_solver_parallel_bind.go",
+        "pkg/sat/sat_solver_parallel_exchange.go",
+        "pkg/sat/sat_parallel_exchange_test.go",
+        "pkg/sat/sat_parallel_ownership_test.go",
+        "pkg/sat/sat_parallel_limit_test.go"
+      ],
+      "tests": [
+        "TestParallelUnitExchangeSourceOrderAndDeduplication",
+        "TestParallelUnitExchangeLimitTracksFinalSharedSize",
+        "TestSATSolverParallelExchangePublishesAndImportsRootUnits",
+        "TestSATSolverParallelExchangeImportsConflictingUnit",
+        "TestParallelUnitExchangeLiteralPolarityAndDetachedOutput"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "shared unit exchange and solver root-level import/export",
+          "status": "ported",
+          "go_target": "pkg/sat/sat_parallel_exchange.go",
+          "tests": [
+            "TestParallelUnitExchangeSourceOrderAndDeduplication",
+            "TestSATSolverParallelExchangePublishesAndImportsRootUnits"
+          ]
+        }
+      ],
+      "ownership": [
+        "The exchange owns its unit vector and deduplication map; solvers borrow it. Returned slices and snapshots are independent copies, and closing the owner releases its references."
+      ],
+      "deviations": [
+        "The Go exchange returns the new output suffix as a detached slice; the live source caller passes an initially empty output vector."
+      ]
     },
     {
       "path": "src/sat/sat_par.h",
       "component": "sat",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/sat/sat_parallel_units.go", "pkg/sat/sat_parallel_exchange.go", "pkg/sat/sat_parallel_snapshot.go"],
-      "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestParallelUnitExchangeOwnershipAndClose", "TestParallelUnitExchangeLimitTracksFinalSharedSize"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/sat/sat_parallel_units.go",
+        "pkg/sat/sat_parallel_exchange.go",
+        "pkg/sat/sat_parallel_snapshot.go",
+        "pkg/sat/sat_parallel_exchange_test.go",
+        "pkg/sat/sat_parallel_ownership_test.go",
+        "pkg/sat/sat_parallel_limit_test.go"
+      ],
+      "tests": [
+        "TestParallelUnitExchangeSourceOrderAndDeduplication",
+        "TestParallelUnitExchangeOwnershipAndClose",
+        "TestParallelUnitExchangeLimitTracksFinalSharedSize",
+        "TestParallelUnitExchangeLiteralPolarityAndDetachedOutput"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -115722,11 +115762,25 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "typed synchronized unit-exchange owner and snapshots", "status": "partial", "go_target": "pkg/sat/sat_parallel_units.go", "tests": ["TestParallelUnitExchangeSourceOrderAndDeduplication", "TestParallelUnitExchangeOwnershipAndClose"]}],
-      "ownership": ["The exchange owns its unit storage and mutex state; bound solvers borrow it synchronously."],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "typed synchronized unit-exchange owner and snapshots",
+          "status": "ported",
+          "go_target": "pkg/sat/sat_parallel_units.go",
+          "tests": [
+            "TestParallelUnitExchangeSourceOrderAndDeduplication",
+            "TestParallelUnitExchangeOwnershipAndClose"
+          ]
+        }
+      ],
+      "ownership": [
+        "The exchange owns its unit vector and deduplication map; solvers borrow it. Returned slices and snapshots are independent copies, and closing the owner releases its references."
+      ],
+      "deviations": [
+        "The Go exchange returns the new output suffix as a detached slice; the live source caller passes an initially empty output vector."
+      ]
     },
     {
       "path": "src/sat/sat_params.hpp",
