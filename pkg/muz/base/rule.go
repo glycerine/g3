@@ -150,6 +150,10 @@ func (m *RuleManager) validHead(head ast.ASTHandle) error {
 // have one entry per tail. Negated interpreted formulas are materialized as
 // Boolean not applications, matching the native representation.
 func (m *RuleManager) NewRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name string) (_ *Rule, resultErr error) {
+	return m.newRule(head, tail, negated, name, true)
+}
+
+func (m *RuleManager) newRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool, name string, normalize bool) (_ *Rule, resultErr error) {
 	if err := m.open(); err != nil {
 		return nil, err
 	}
@@ -216,8 +220,10 @@ func (m *RuleManager) NewRule(head ast.ASTHandle, tail []ast.ASTHandle, negated 
 	r.state.positive = end
 	r.state.uninterpreted = len(uninterpreted)
 	r.state.tail = append(uninterpreted, interpreted...)
-	if err = m.normalizeVariables(r.state); err != nil {
-		return nil, err
+	if normalize {
+		if err = m.normalizeVariables(r.state); err != nil {
+			return nil, err
+		}
 	}
 	return r, nil
 }
