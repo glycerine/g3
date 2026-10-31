@@ -185666,6 +185666,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/nlsat_smt/nl_purify_solve.go",
+        "pkg/tactic/nlsat_smt/nl_purify_solve_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_model.go",
         "pkg/tactic/nlsat_smt/nl_purify_model_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_core.go",
@@ -185699,7 +185701,8 @@
         "TestNLPurifyModelAssumptionsRespectPolarity",
         "TestNLPurifyEnforcesModelEqualitiesInBothSolvers",
         "TestNLPurifyLearnsInterfaceCoreAndPreservesContextDependencies",
-        "TestNLPurifyMergeModelsRewritesRealFunctionGraphs"
+        "TestNLPurifyMergeModelsRewritesRealFunctionGraphs",
+        "TestNLPurifyCooperatingSolversMixedSatisfiability"
       ],
       "assertions": [
         {
@@ -185730,7 +185733,7 @@
         "Expression analysis borrows caller roots. Goal transfer acquires destination formula/proof/dependency owners before replacing the source slot; interface rewriting owns cached expressions, introduced constants and definitions until closure."
       ],
       "deviations": [
-        "Pending: cooperating NLSAT/SMT search, integrated solver loop, parameter/statistics lifecycle, public factory and QF_UFNRA integration; interface and predicate rewriting have not had a complete proof, cancellation and failure-frontier audit.",
+        "Pending: parameter/statistics lifecycle, public factory and QF_UFNRA integration; the cooperating solver loop and rewrites require broader source and failure-frontier audits.",
         "Purity classification runs before goal updates in this initial phase implementation; source allocation/error frontiers and diagnostic hooks have not been audited."
       ]
     },

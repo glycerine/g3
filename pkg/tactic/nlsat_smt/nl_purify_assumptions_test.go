@@ -20,6 +20,8 @@ func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *mo
 	globals, err := params.NewGlobalParamsService(m.Symbols, context, params.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
 	astTestMust(t, err)
 	astTestMust(t, globals.InitializeSource())
+	previous, err := params.BindProcessGlobalParamsService(globals)
+	astTestMust(t, err)
 	mem, err := memory.NewRuntime(memory.RuntimeConfig{Budget: m.Budget()})
 	astTestMust(t, err)
 	coop, err := cooperate.NewCooperation(m.Budget())
@@ -30,6 +32,8 @@ func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *mo
 	ev, err := model.NewModelEvaluator(md.Core(), config)
 	astTestMust(t, err)
 	t.Cleanup(func() {
+		_, err := params.BindProcessGlobalParamsService(previous)
+		astTestMust(t, err)
 		astTestMust(t, ev.Close())
 		astTestMust(t, md.Close())
 		astTestMust(t, coop.Close())

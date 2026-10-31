@@ -1,3 +1,5 @@
+Mixed nonlinear cooperating solver loop (2026-10-31 UTC): connected NLSAT models, SMT assumptions, equality discovery, core feedback and final model merging. Focused mixed UF/real tests pass for sat and unsat with and without cores, including validating the returned model against the input; public tactic and QF_UFNRA registration remain pending.
+
 Mixed nonlinear model merge (2026-10-31 UTC): translated real-dependent SMT function entries and else values from SMT to nonlinear model values, then copied nonlinear constant interpretations. A focused test checks graph arguments, results, defaults and an untouched integer-only graph.
 
 Mixed nonlinear unsat-core feedback (2026-10-31 UTC): split SMT cores into context and interface assumptions, add source-order blocking clauses to the nonlinear goal, and join accumulated context dependencies for a final false goal. A focused test checks the swap-and-pop ordering and dependency preservation.
