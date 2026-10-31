@@ -1,5 +1,10 @@
 package arith
 
+import (
+	"errors"
+	"github.com/glycerine/g3/pkg/ast"
+)
+
 // Source: src/tactic/arith/fm_tactic.cpp:1445-1516.
 func (e *FMEliminator) discard(cs []*FMConstraint) error {
 	for _, c := range cs {
@@ -18,18 +23,23 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 	lowers := e.Variables.Index.Lower[x]
 	uppers := e.Variables.Index.Upper[x]
 	if len(lowers) == 0 || len(uppers) == 0 {
-		e.markDead(x)
-		return true, nil
+		return true, e.markDead(x)
 	}
 	if !e.Config.permits(len(lowers), len(uppers)) || !e.Variables.CanEliminate(x) {
 		return false, nil
 	}
-	limit := len(lowers) + len(uppers) + int(e.Config.Extra)
-	created := make([]*FMConstraint, 0, len(lowers)*len(uppers))
+	limit := uint32(len(lowers)) + uint32(len(uppers)) + e.Config.Extra
+	if e.Counter != nil {
+		*e.Counter += uint32(len(lowers)) * uint32(len(uppers))
+	}
+	created := make([]*FMConstraint, 0)
 	for _, lower := range lowers {
 		for _, upper := range uppers {
-			if len(created) > limit {
+			if e.Inconsistent || uint32(len(created)) > limit {
 				return false, e.discard(created)
+			}
+			if e.Counter != nil {
+				*e.Counter += uint32(len(lower.Variables) + len(upper.Variables) + len(lower.Literals) + len(upper.Literals))
 			}
 			resolution, err := FMResolve(e.Store, e.Variables, lower, upper, x)
 			if err != nil {
@@ -41,17 +51,41 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 					_ = e.discard(created)
 					return false, err
 				}
-				return false, e.discard(created)
+				continue
 			}
 			if resolution.Constraint != nil {
 				created = append(created, resolution.Constraint)
 			}
 		}
 	}
-	e.markDead(x)
+	if err := e.markDead(x); err != nil {
+		return false, errors.Join(err, e.discard(created))
+	}
+	if e.Counter != nil {
+		*e.Counter += uint32(len(created))
+	}
 	for _, c := range created {
 		e.Variables.Index.Backward(c)
-		e.Variables.Register(c)
+		switch e.Variables.Register(c) {
+		case FMRegistrationFalse:
+			e.Inconsistent = true
+			if err := e.Store.Delete(c); err != nil {
+				return false, err
+			}
+		case FMRegistrationDeferred:
+			if e.Output != nil {
+				formula, err := e.Expressions.ConstraintExpression(c)
+				if err != nil {
+					return false, err
+				}
+				if err = e.Output.AssertWithProof(formula, ast.ASTHandle{}, c.Dependency); err != nil {
+					return false, err
+				}
+				if err = e.Store.Delete(c); err != nil {
+					return false, err
+				}
+			}
+		}
 	}
 	return true, nil
 }

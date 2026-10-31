@@ -3,10 +3,8 @@ package arith
 // Source: src/tactic/arith/fm_tactic.cpp:40-242, the retained model converter.
 
 import (
-	"io"
 	"reflect"
 
-	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -67,16 +65,6 @@ func (c *FMModelConverter) DecRefConsumed() (bool, error) {
 func (c *FMModelConverter) ApplyUnindexed(*tactic.ModelRef) error         { return c.open() }
 func (c *FMModelConverter) ApplyLabels(*tactic.ModelLabels, uint32) error { return c.open() }
 func (c *FMModelConverter) Cancel() error                                 { return c.open() }
-func (c *FMModelConverter) Display(w io.Writer) error {
-	if e := c.open(); e != nil {
-		return e
-	}
-	if w == nil {
-		return arena.ErrInvalidSlot
-	}
-	_, e := io.WriteString(w, "fm-model-converter\n")
-	return e
-}
 func (c *FMModelConverter) Close() error {
 	if c == nil || c.self != c {
 		return tactic.ErrModelConverterOwner

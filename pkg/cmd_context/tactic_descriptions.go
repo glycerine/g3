@@ -6,6 +6,7 @@ package cmd_context
 import "github.com/glycerine/g3/pkg/ast"
 
 var builtinTacticDescriptions = map[string]string{
+	"fm":                      "eliminate variables using fourier-motzkin elimination.",
 	"ackermannize_bv":         "A tactic for performing full Ackermannization on bv instances.",
 	"add-bounds":              "add bounds to unbounded variables (under approximation).",
 	"aig":                     "simplify Boolean structure using AIGs.",

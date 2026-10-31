@@ -169671,8 +169671,160 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/arith/fm_model_converter.go", "pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_ast.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go", "pkg/tactic/arith/fm_expression_table.go", "pkg/tactic/arith/fm_constraint_reconstruct.go", "pkg/tactic/arith/fm_reconstruction_batch.go", "pkg/tactic/arith/fm_model_save.go", "pkg/tactic/arith/fm_input_parser.go", "pkg/tactic/arith/fm_input_atoms.go", "pkg/tactic/arith/fm_input_polynomial.go", "pkg/tactic/arith/fm_input_recognize.go", "pkg/tactic/arith/fm_input_constraint.go"],
-      "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"],
+      "go_targets": [
+        "pkg/tactic/arith/fm_candidate_analyze.go",
+        "pkg/tactic/arith/fm_candidate_analyze_test.go",
+        "pkg/tactic/arith/fm_candidate_cost.go",
+        "pkg/tactic/arith/fm_candidate_cost_test.go",
+        "pkg/tactic/arith/fm_constraint.go",
+        "pkg/tactic/arith/fm_constraint_build.go",
+        "pkg/tactic/arith/fm_constraint_build_test.go",
+        "pkg/tactic/arith/fm_constraint_cleanup.go",
+        "pkg/tactic/arith/fm_constraint_cleanup_test.go",
+        "pkg/tactic/arith/fm_constraint_index.go",
+        "pkg/tactic/arith/fm_constraint_index_test.go",
+        "pkg/tactic/arith/fm_constraint_normalize.go",
+        "pkg/tactic/arith/fm_constraint_normalize_test.go",
+        "pkg/tactic/arith/fm_constraint_query.go",
+        "pkg/tactic/arith/fm_constraint_query_test.go",
+        "pkg/tactic/arith/fm_constraint_reconstruct.go",
+        "pkg/tactic/arith/fm_constraint_reconstruct_mixed_test.go",
+        "pkg/tactic/arith/fm_constraint_reconstruct_terms.go",
+        "pkg/tactic/arith/fm_constraint_reconstruct_test.go",
+        "pkg/tactic/arith/fm_constraint_register.go",
+        "pkg/tactic/arith/fm_constraint_register_test.go",
+        "pkg/tactic/arith/fm_constraint_set.go",
+        "pkg/tactic/arith/fm_constraint_set_test.go",
+        "pkg/tactic/arith/fm_constraint_store_test.go",
+        "pkg/tactic/arith/fm_constraint_subsume.go",
+        "pkg/tactic/arith/fm_constraint_subsume_test.go",
+        "pkg/tactic/arith/fm_eliminate.go",
+        "pkg/tactic/arith/fm_eliminate_config.go",
+        "pkg/tactic/arith/fm_eliminate_limits_test.go",
+        "pkg/tactic/arith/fm_eliminate_pair_test.go",
+        "pkg/tactic/arith/fm_eliminate_state.go",
+        "pkg/tactic/arith/fm_eliminate_trivial_test.go",
+        "pkg/tactic/arith/fm_expression_table.go",
+        "pkg/tactic/arith/fm_expression_table_close.go",
+        "pkg/tactic/arith/fm_expression_table_close_test.go",
+        "pkg/tactic/arith/fm_expression_table_test.go",
+        "pkg/tactic/arith/fm_input_atoms.go",
+        "pkg/tactic/arith/fm_input_clause_test.go",
+        "pkg/tactic/arith/fm_input_constraint.go",
+        "pkg/tactic/arith/fm_input_constraint_test.go",
+        "pkg/tactic/arith/fm_input_lifecycle.go",
+        "pkg/tactic/arith/fm_input_lifecycle_test.go",
+        "pkg/tactic/arith/fm_input_parser.go",
+        "pkg/tactic/arith/fm_input_parser_test.go",
+        "pkg/tactic/arith/fm_input_polynomial.go",
+        "pkg/tactic/arith/fm_input_polynomial_test.go",
+        "pkg/tactic/arith/fm_input_recognize.go",
+        "pkg/tactic/arith/fm_input_recognize_test.go",
+        "pkg/tactic/arith/fm_model_apply.go",
+        "pkg/tactic/arith/fm_model_ast.go",
+        "pkg/tactic/arith/fm_model_bounds.go",
+        "pkg/tactic/arith/fm_model_bounds_test.go",
+        "pkg/tactic/arith/fm_model_conditional_test.go",
+        "pkg/tactic/arith/fm_model_converter.go",
+        "pkg/tactic/arith/fm_model_display.go",
+        "pkg/tactic/arith/fm_model_integer_test.go",
+        "pkg/tactic/arith/fm_model_lifecycle_test.go",
+        "pkg/tactic/arith/fm_model_reverse_test.go",
+        "pkg/tactic/arith/fm_model_save.go",
+        "pkg/tactic/arith/fm_model_save_test.go",
+        "pkg/tactic/arith/fm_model_storage.go",
+        "pkg/tactic/arith/fm_model_test_helpers_test.go",
+        "pkg/tactic/arith/fm_model_translate.go",
+        "pkg/tactic/arith/fm_reconstruction_batch.go",
+        "pkg/tactic/arith/fm_reconstruction_batch_test.go",
+        "pkg/tactic/arith/fm_resolve.go",
+        "pkg/tactic/arith/fm_resolve_literals.go",
+        "pkg/tactic/arith/fm_resolve_literals_test.go",
+        "pkg/tactic/arith/fm_resolve_outcome_test.go",
+        "pkg/tactic/arith/fm_resolve_polynomial.go",
+        "pkg/tactic/arith/fm_resolve_polynomial_test.go",
+        "pkg/tactic/arith/fm_tactic.go",
+        "pkg/tactic/arith/fm_tactic_apply.go",
+        "pkg/tactic/arith/fm_tactic_factory.go",
+        "pkg/tactic/arith/fm_tactic_forbidden.go",
+        "pkg/tactic/arith/fm_tactic_test.go",
+        "pkg/tactic/arith/fm_variable_table.go",
+        "pkg/tactic/arith/fm_variable_table_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/api/api_fm_tactic_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestAPIFMTacticRegistrationApplyAndModel",
+        "TestFMBuildConstraintClearsIntegerStrictness",
+        "TestFMBuildConstraintRetainsRealStrictness",
+        "TestFMCanEliminateIntegerUnitSide",
+        "TestFMCanEliminateRejectsMixedIntegerBounds",
+        "TestFMCandidatesSourceOrdering",
+        "TestFMConstraintCleanupAndLiveCopy",
+        "TestFMConstraintExpressionConstantBranches",
+        "TestFMConstraintExpressionMixedArithmeticCoercesInteger",
+        "TestFMConstraintExpressionRebuildsLiteralClause",
+        "TestFMConstraintExpressionStrictUsesNotGE",
+        "TestFMConstraintFalseStrictZero",
+        "TestFMConstraintIndexDirectionAndBackwardSubsumption",
+        "TestFMConstraintIndexForbiddenVariable",
+        "TestFMConstraintMakeIntegerAndNormalize",
+        "TestFMConstraintNormalizeLeavesNonintegralInput",
+        "TestFMConstraintQueries",
+        "TestFMConstraintRegisterBranches",
+        "TestFMConstraintSetDensePositions",
+        "TestFMConstraintStoreDependencyAndIDLifecycle",
+        "TestFMConstraintStoreRejectsMalformedShape",
+        "TestFMConstraintSubsumesPermutationAndLiterals",
+        "TestFMConstraintSubsumesStrictBoundary",
+        "TestFMEliminateCutoffPreservesBounds",
+        "TestFMEliminateOneSidedVariable",
+        "TestFMEliminatePairRegistersResolvent",
+        "TestFMEliminateReportsDerivedContradiction",
+        "TestFMEliminationUnsignedCutoffProduct",
+        "TestFMExpressionTableCloseReleasesReferences",
+        "TestFMExpressionTableOwnsMappings",
+        "TestFMExpressionTableSavesLiveModelBounds",
+        "TestFMInputInequalityNormalizesGEAndNegation",
+        "TestFMInputInequalityRejectsNonNumeralRight",
+        "TestFMInputParseBuildsAndRegistersConstraint",
+        "TestFMInputParseLeavesUnrecognizedFormulaUntouched",
+        "TestFMInputParseOCCClause",
+        "TestFMInputParseRejectsTwoInequalitiesInClause",
+        "TestFMInputParserCloseIsIdempotent",
+        "TestFMInputParserForbiddenVariableDefersConstraint",
+        "TestFMInputParserInternsToRealBaseOnce",
+        "TestFMInputParserRealOnlyForbidsIntegers",
+        "TestFMInputPolynomialExtractsOrderedMonomials",
+        "TestFMInputPolynomialRejectsDuplicateVariable",
+        "TestFMLiteralVariableHandlesNegativeLimit",
+        "TestFMModelConverterConditionalBooleanClause",
+        "TestFMModelConverterDisplaysSavedClausesAndWriterErrors",
+        "TestFMModelConverterIntegerStrictRounding",
+        "TestFMModelConverterOwnsInsertedStateAndReferenceLifetime",
+        "TestFMModelConverterRealBoundsAndMidpoint",
+        "TestFMModelConverterReconstructsVariablesInReverse",
+        "TestFMRemainingDeduplicatesAndMarksConstraints",
+        "TestFMResolveClauseTautologyPrecedesAllocation",
+        "TestFMResolveLiteralUnionAndTautology",
+        "TestFMResolvePolynomialCombinesAndCancels",
+        "TestFMResolvePolynomialRoundsIntegerStrictResult",
+        "TestFMResolveTautologyAndInconsistency",
+        "TestFMTacticContradictionAndCost",
+        "TestFMTacticContradictionPreservesBothCoreDependencies",
+        "TestFMTacticFactorySimplifiesBeforeElimination",
+        "TestFMTacticForbidsSharedTermsAndPublishesDeferredResolvent",
+        "TestFMTacticIntegerPolicyAndReuseAfterCancel",
+        "TestFMTacticLimitPreservesBoundsInSourceOrder",
+        "TestFMTacticMemoryCheckpointAndEmptyGoal",
+        "TestFMTacticModelSurvivesCleanup",
+        "TestFMTacticRejectsProofProduction",
+        "TestFMVariableTableClassification",
+        "TestSMTLibRunnerScripts"
+      ],
       "conditionals": [
         {
           "line": 1008,
@@ -169855,17 +170007,95 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "fm model converter eliminated-variable storage, bound isolation, conditional clauses, reverse reconstruction and translation (fm_tactic.cpp:40-242)", "status": "ported", "go_target": "pkg/tactic/arith/fm_model_converter.go", "go_targets": ["pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_ast.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go"], "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"]}],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "fm model converter eliminated-variable storage, bound isolation, conditional clauses, reverse reconstruction and translation (fm_tactic.cpp:40-242)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_converter.go",
+          "go_targets": [
+            "pkg/tactic/arith/fm_model_storage.go",
+            "pkg/tactic/arith/fm_model_ast.go",
+            "pkg/tactic/arith/fm_model_bounds.go",
+            "pkg/tactic/arith/fm_model_apply.go",
+            "pkg/tactic/arith/fm_model_translate.go"
+          ],
+          "tests": [
+            "TestFMModelConverterOwnsInsertedStateAndReferenceLifetime",
+            "TestFMModelConverterIntegerStrictRounding",
+            "TestFMModelConverterReconstructsVariablesInReverse",
+            "TestFMModelConverterConditionalBooleanClause",
+            "TestFMModelConverterRealBoundsAndMidpoint"
+          ]
+        },
+        {
+          "name": "FM goal orchestration: forbidden-variable scan, input registration, subsumption, candidate checkpoints, cost limits, projection, model-bound saving, output goal/core transfer (fm_tactic.cpp:777-846,1120-1146,1445-1618)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_tactic_apply.go",
+          "tests": [
+            "TestFMTacticContradictionAndCost",
+            "TestFMTacticModelSurvivesCleanup",
+            "TestFMTacticLimitPreservesBoundsInSourceOrder",
+            "TestFMTacticForbidsSharedTermsAndPublishesDeferredResolvent",
+            "TestFMTacticIntegerPolicyAndReuseAfterCancel",
+            "TestFMTacticRejectsProofProduction",
+            "TestFMTacticMemoryCheckpointAndEmptyGoal",
+            "TestFMTacticContradictionPreservesBothCoreDependencies"
+          ]
+        },
+        {
+          "name": "mk_fm_tactic composed factory and named registration (fm_tactic.cpp:1685-1693)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_tactic_factory.go",
+          "tests": [
+            "TestFMTacticFactorySimplifiesBeforeElimination",
+            "TestAPIFMTacticRegistrationApplyAndModel",
+            "TestSMTLibRunnerScripts"
+          ]
+        },
+        {
+          "name": "fm_model_converter::display saved variable and clause formatting (fm_tactic.cpp:246-262)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_display.go",
+          "tests": [
+            "TestFMModelConverterDisplaysSavedClausesAndWriterErrors"
+          ]
+        },
+        {
+          "name": "FM enclosing tactic lifecycle, independent-manager translation, diagnostic and assertion audit",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/fm_tactic.go",
+          "tests": [
+            "TestFMTacticIntegerPolicyAndReuseAfterCancel"
+          ]
+        }
+      ],
+      "ownership": [
+        "FMTactic owns its parameter snapshot and private run. The run owns constraints, parser expressions, a copied goal and a model-converter reference. Successful application transfers the copied goal and acquires a separate converter reference for the result; cleanup releases private state while output formulas, model reconstruction and joined core dependencies remain independently owned."
+      ],
+      "deviations": [
+        "Whole-unit closure remains pending: source diagnostic/assertion coverage, eager implementation replacement during cleanup, failure-frontier audits and translation with independent target-manager parameter/evaluator services. The registered factory and defined projection/model result paths are executable and tested."
+      ]
     },
     {
       "path": "src/tactic/arith/fm_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/tactic/arith/fm_model_converter.go", "pkg/tactic/arith/fm_model_storage.go", "pkg/tactic/arith/fm_model_bounds.go", "pkg/tactic/arith/fm_model_apply.go", "pkg/tactic/arith/fm_model_translate.go"],
-      "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterIntegerStrictRounding", "TestFMModelConverterReconstructsVariablesInReverse", "TestFMModelConverterConditionalBooleanClause", "TestFMModelConverterRealBoundsAndMidpoint"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/tactic/arith/fm_tactic_factory.go",
+        "pkg/tactic/arith/fm_tactic.go",
+        "pkg/tactic/arith/fm_tactic_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/api/api_fm_tactic_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestFMTacticFactorySimplifiesBeforeElimination",
+        "TestAPIFMTacticRegistrationApplyAndModel",
+        "TestSMTLibRunnerScripts"
+      ],
       "conditionals": [
         {
           "line": 24,
@@ -169876,11 +170106,26 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "fm model-converter public construction and model-converter lifecycle", "status": "partial", "go_target": "pkg/tactic/arith/fm_model_converter.go", "tests": ["TestFMModelConverterOwnsInsertedStateAndReferenceLifetime", "TestFMModelConverterReconstructsVariablesInReverse"]}],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "mk_fm_tactic declaration, default empty parameters, simplifying/clean composition and ADD_TACTIC fm registration",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_tactic_factory.go",
+          "tests": [
+            "TestFMTacticFactorySimplifiesBeforeElimination",
+            "TestAPIFMTacticRegistrationApplyAndModel",
+            "TestSMTLibRunnerScripts"
+          ]
+        }
+      ],
+      "ownership": [
+        "MakeFMTactic owns an independent local parameter copy that forces arith_lhs, elim_and and som. Concrete using_params and clean wrappers acquire their child references; and_then acquires both wrappers before temporary construction references are released. The fm child borrows the manager and its explicit numeral/parameter/evaluator services; the final composition is caller-owned."
+      ],
+      "deviations": [
+        "The implementation source unit remains partial for its independent translation, diagnostic and detailed failure-frontier audits; this header contains only the factory declaration and named registration."
+      ]
     },
     {
       "path": "src/tactic/arith/lia2card_tactic.cpp",

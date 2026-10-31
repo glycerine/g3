@@ -2,11 +2,18 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:626-718.
 func FMConstraintSubsumes(a, b *FMConstraint) bool {
+	return fmConstraintSubsumes(a, b, nil)
+}
+
+func fmConstraintSubsumes(a, b *FMConstraint, counter *uint32) bool {
 	if a == nil || b == nil || a == b || len(a.Literals) > len(b.Literals) || len(a.Variables) != len(b.Variables) || a.Constant.Cmp(&b.Constant) > 0 {
 		return false
 	}
 	if !a.Strict && b.Strict && a.Constant.Cmp(&b.Constant) == 0 {
 		return false
+	}
+	if counter != nil {
+		*counter += uint32(len(a.Literals) + len(b.Literals))
 	}
 	pos := make(map[uint32]int, len(a.Variables))
 	for i, v := range a.Variables {

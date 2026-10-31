@@ -2,6 +2,7 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:720-775.
 type FMConstraintIndex struct {
+	Counter      *uint32
 	Lower, Upper map[uint32][]*FMConstraint
 	Forbidden    map[uint32]bool
 	Todo         FMConstraintSet
@@ -44,8 +45,11 @@ func (i *FMConstraintIndex) Backward(c *FMConstraint) {
 		}
 	}
 	kept := candidates[:0]
+	if i.Counter != nil && best > 0 {
+		*i.Counter += uint32(best)
+	}
 	for _, other := range candidates {
-		if !other.Dead && FMConstraintSubsumes(c, other) {
+		if !other.Dead && fmConstraintSubsumes(c, other, i.Counter) {
 			other.Dead = true
 		}
 		if !other.Dead {

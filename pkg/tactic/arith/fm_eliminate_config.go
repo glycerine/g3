@@ -15,5 +15,5 @@ func (c FMEliminationConfig) permits(lowers, uppers int) bool {
 	if uint32(lowers) > c.CutoffSide && uint32(uppers) > c.CutoffSide {
 		return false
 	}
-	return uint64(lowers)*uint64(uppers) <= uint64(c.CutoffProduct)
+	return uint32(lowers)*uint32(uppers) <= c.CutoffProduct
 }

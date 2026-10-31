@@ -38,7 +38,7 @@ func TestFMEliminateReportsDerivedContradiction(t *testing.T) {
 	t.Cleanup(func() { equationMust(t, e.Close()) })
 	ok, err := e.Try(x)
 	equationMust(t, err)
-	if ok || !e.Inconsistent {
+	if !ok || !e.Inconsistent {
 		t.Fatal("derived contradiction was not retained")
 	}
 }
