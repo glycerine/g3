@@ -25,6 +25,9 @@ func (c *FMModelConverter) ApplyModel(out *tactic.ModelRef, goal uint32) (err er
 	}
 	ev, e := model.NewModelEvaluator(md, c.services)
 	if e != nil {
+		if ev != nil {
+			e = errors.Join(e, ev.Close())
+		}
 		return e
 	}
 	defer func() { err = errors.Join(err, ev.Close()) }()

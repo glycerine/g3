@@ -169754,7 +169754,9 @@
         "pkg/cmd_context/tactic_registry.go",
         "pkg/cmd_context/tactic_descriptions.go",
         "pkg/api/api_fm_tactic_test.go",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/tactic/arith/fm_tactic_translate.go",
+        "pkg/tactic/arith/fm_tactic_lifecycle_test.go"
       ],
       "tests": [
         "TestAPIFMTacticRegistrationApplyAndModel",
@@ -169823,7 +169825,13 @@
         "TestFMTacticModelSurvivesCleanup",
         "TestFMTacticRejectsProofProduction",
         "TestFMVariableTableClassification",
-        "TestSMTLibRunnerScripts"
+        "TestSMTLibRunnerScripts",
+        "TestFMTacticCleanupReplacementFailurePreservesImplementation",
+        "TestFMTacticParamsSnapshotAndCleanupPolicy",
+        "TestFMTacticAllocationFrontiers",
+        "TestFMTacticTranslationUsesIndependentTargetServices",
+        "TestFMTacticTranslationAllocationFrontiers",
+        "TestFMModelReconstructionAllocationFrontiers"
       ],
       "conditionals": [
         {
@@ -170061,19 +170069,49 @@
           ]
         },
         {
-          "name": "FM enclosing tactic lifecycle, independent-manager translation, diagnostic and assertion audit",
+          "name": "FM source diagnostic/assertion and remaining concrete component audit",
           "status": "partial",
           "go_target": "pkg/tactic/arith/fm_tactic.go",
           "tests": [
             "TestFMTacticIntegerPolicyAndReuseAfterCancel"
           ]
+        },
+        {
+          "name": "fm_tactic implementation construction, ordered parameters, replacement-before-release cleanup and independent-manager translation (fm_tactic.cpp:777-795,1641-1657,1671-1676)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_tactic.go",
+          "go_targets": [
+            "pkg/tactic/arith/fm_tactic_apply.go",
+            "pkg/tactic/arith/fm_tactic_translate.go"
+          ],
+          "tests": [
+            "TestFMTacticCleanupReplacementFailurePreservesImplementation",
+            "TestFMTacticParamsSnapshotAndCleanupPolicy",
+            "TestFMTacticAllocationFrontiers",
+            "TestFMTacticTranslationUsesIndependentTargetServices",
+            "TestFMTacticTranslationAllocationFrontiers"
+          ]
+        },
+        {
+          "name": "fm_model_converter target evaluator-service translation and partial evaluator initialization cleanup",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_translate.go",
+          "go_targets": [
+            "pkg/tactic/arith/fm_model_apply.go",
+            "pkg/tactic/arith/fm_tactic_translate.go"
+          ],
+          "tests": [
+            "TestFMTacticTranslationUsesIndependentTargetServices",
+            "TestFMModelReconstructionAllocationFrontiers"
+          ]
         }
       ],
       "ownership": [
-        "FMTactic owns its parameter snapshot and private run. The run owns constraints, parser expressions, a copied goal and a model-converter reference. Successful application transfers the copied goal and acquires a separate converter reference for the result; cleanup releases private state while output formulas, model reconstruction and joined core dependencies remain independently owned."
+        "FMTactic owns its parameter snapshot and private run. The run owns constraints, parser expressions, a copied goal and a model-converter reference. Successful application transfers the copied goal and acquires a separate converter reference for the result; cleanup releases private state while output formulas, model reconstruction and joined core dependencies remain independently owned.",
+        "A charged empty FM implementation is allocated during construction. Cleanup builds and configures its replacement before clearing the old private graph; allocation failure preserves the old implementation. Application resets the existing implementation instead of reallocating its header. Cross-manager translation selects destination parameter/global/numeral owners, copies the seven concrete FM policy values, and continues to borrow process cooperation; translated model converters select the same destination evaluator services. Partially initialized model evaluators are closed on error. Constructor, application, cleanup, translation and model-reconstruction allocation sweeps require zero charged owner storage after teardown."
       ],
       "deviations": [
-        "Whole-unit closure remains pending: source diagnostic/assertion coverage, eager implementation replacement during cleanup, failure-frontier audits and translation with independent target-manager parameter/evaluator services. The registered factory and defined projection/model result paths are executable and tested."
+        "Whole-unit closure remains pending for source diagnostic/assertion coverage and the remaining concrete component audit. Cross-owner raw tactic translation copies the seven concrete FM policy values; unrelated caller parameters are not observed by this source tactic and do not require a universal adapter. Target managers must supply compatible parameter services or share the original owners; model reconstruction requires the source arithmetic/BV declaration-plugin setup."
       ]
     },
     {

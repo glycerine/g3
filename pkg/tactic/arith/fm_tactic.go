@@ -15,7 +15,15 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+type fmTacticPolicy struct {
+	config            FMEliminationConfig
+	maxMemory         uint64
+	limit             uint32
+	realOnly, clauses bool
+}
+
 type FMTactic struct {
+	fmTacticPolicy
 	self                 *FMTactic
 	manager              *ast.ASTManager
 	context              *uparams.ParamsContext
@@ -23,10 +31,6 @@ type FMTactic struct {
 	services             model.ModelEvaluatorConfig
 	params               uparams.ParamsRef
 	run                  *fmTacticRun
-	config               FMEliminationConfig
-	maxMemory            uint64
-	limit                uint32
-	realOnly, clauses    bool
 	refs                 uint32
 	bytes                uint64
 	paramsReady, running bool
@@ -62,7 +66,10 @@ func NewFMTactic(m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalP
 		_, err = m.RegisterArithmeticPlugin()
 	}
 	if err == nil {
-		err = t.readPolicy(&t.params)
+		t.run, err = newFMTacticRun(m)
+	}
+	if err == nil {
+		err = t.fmTacticPolicy.readPolicy(c, &t.params)
 	}
 	return t, err
 }
@@ -130,26 +137,36 @@ func (t *FMTactic) Cleanup() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if t.run != nil {
-		if err := t.run.close(); err != nil {
-			return err
-		}
-		t.run = nil
+	fresh, err := newFMTacticRun(t.manager)
+	if err != nil {
+		return err
 	}
+	policy := fmTacticPolicy{}
+	if err = policy.readPolicy(t.context, &t.params); err != nil {
+		return errors.Join(err, fresh.close())
+	}
+	if t.run != nil {
+		if err = t.run.close(); err != nil {
+			return errors.Join(err, fresh.close())
+		}
+	}
+	t.run, t.fmTacticPolicy = fresh, policy
 	return nil
 }
 func (t *FMTactic) Reset() error { return t.Cleanup() }
-func (t *FMTactic) readPolicy(p *uparams.ParamsRef) error {
+func (t *fmTacticPolicy) readPolicy(c *uparams.ParamsContext, p *uparams.ParamsRef) error {
 	key := "max_memory"
-	n, err := t.context.GetUIntName(p, &key, math.MaxUint32)
+	n, err := c.GetUIntName(p, &key, math.MaxUint32)
 	if err != nil {
 		return err
 	}
 	t.maxMemory = uint64(n) << 20
 	key = "fm_real_only"
-	if t.realOnly, err = t.context.GetBoolName(p, &key, true); err != nil {
+	realOnly, err := c.GetBoolName(p, &key, true)
+	if err != nil {
 		return err
 	}
+	t.realOnly = realOnly
 	for _, field := range []struct {
 		name     string
 		value    *uint32
@@ -158,13 +175,19 @@ func (t *FMTactic) readPolicy(p *uparams.ParamsRef) error {
 		{"fm_limit", &t.limit, 5000000}, {"fm_cutoff1", &t.config.CutoffSide, 8}, {"fm_cutoff2", &t.config.CutoffProduct, 256}, {"fm_extra", &t.config.Extra, 0},
 	} {
 		key = field.name
-		if *field.value, err = t.context.GetUIntName(p, &key, field.fallback); err != nil {
+		value, err := c.GetUIntName(p, &key, field.fallback)
+		if err != nil {
 			return err
 		}
+		*field.value = value
 	}
 	key = "fm_occ"
-	t.clauses, err = t.context.GetBoolName(p, &key, false)
-	return err
+	clauses, err := c.GetBoolName(p, &key, false)
+	if err != nil {
+		return err
+	}
+	t.clauses = clauses
+	return nil
 }
 func (t *FMTactic) UpdateParams(p *uparams.ParamsRef) error {
 	if err := t.open(); err != nil {
@@ -173,7 +196,7 @@ func (t *FMTactic) UpdateParams(p *uparams.ParamsRef) error {
 	if err := t.context.Assign(&t.params, p); err != nil {
 		return err
 	}
-	return t.readPolicy(p)
+	return t.fmTacticPolicy.readPolicy(t.context, p)
 }
 func (t *FMTactic) CollectParamDescrs(d *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
@@ -203,9 +226,3 @@ func (t *FMTactic) CollectStatistics() map[string]float64  { return nil }
 func (t *FMTactic) ResetStatistics() error                 { return t.open() }
 func (t *FMTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *FMTactic) SetProgressCallback(func(uint32)) error { return t.open() }
-func (t *FMTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
-	if err := t.open(); err != nil {
-		return nil, err
-	}
-	return NewFMTactic(m, t.context, t.globals, &t.params, t.services)
-}

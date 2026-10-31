@@ -164,7 +164,7 @@ func TestFMTacticRejectsProofProduction(t *testing.T) {
 	fm, m := fmTacticFixture(t, true)
 	g := fixDLGoal(t, m, true, false, false)
 	err := fm.Apply(g, fmResult(t))
-	if err == nil || !strings.Contains(err.Error(), "does not support proof production") || fm.run != nil {
+	if err == nil || !strings.Contains(err.Error(), "does not support proof production") || (fm.run == nil || fm.run.parser != nil) {
 		t.Fatal("proof guard", err)
 	}
 }

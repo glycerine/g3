@@ -4,12 +4,15 @@ package arith
 
 import (
 	"errors"
+	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
 type fmTacticRun struct {
+	manager             *ast.ASTManager
+	bytes               uint64
 	store               *FMConstraintStore
 	parser              *FMInputParser
 	eliminator          *FMEliminator
@@ -19,7 +22,22 @@ type fmTacticRun struct {
 	counter, eliminated uint32
 }
 
+func newFMTacticRun(m *ast.ASTManager) (*fmTacticRun, error) {
+	n := uint64(reflect.TypeOf(fmTacticRun{}).Size())
+	if err := m.Budget().Reserve(n); err != nil {
+		return nil, err
+	}
+	return &fmTacticRun{manager: m, bytes: n}, nil
+}
 func (r *fmTacticRun) close() error {
+	if err := r.clear(); err != nil {
+		return err
+	}
+	r.manager.Budget().Release(r.bytes)
+	r.bytes = 0
+	return nil
+}
+func (r *fmTacticRun) clear() error {
 	if r.store != nil {
 		if err := r.store.Close(); err != nil {
 			return err
@@ -60,6 +78,7 @@ func (r *fmTacticRun) close() error {
 		}
 		r.model = nil
 	}
+	r.counter, r.eliminated, r.modelCleanup = 0, 0, false
 	return nil
 }
 
@@ -83,13 +102,12 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 	if err = tactic.FailIfProofGeneration("fm", input); err != nil {
 		return err
 	}
-	if err = t.Cleanup(); err != nil {
+	r := t.run
+	if err = r.clear(); err != nil {
 		return err
 	}
 	t.running = true
 	defer func() { t.running = false }()
-	r := &fmTacticRun{}
-	t.run = r
 	r.store, err = NewFMConstraintStore(t.manager)
 	if err != nil {
 		return err

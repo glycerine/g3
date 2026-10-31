@@ -14,7 +14,11 @@ func (c *FMModelConverter) Translate(tr *ast.ASTTranslation) (_ tactic.ModelConv
 	if tr == nil || tr.From() != c.manager || tr.To() == nil {
 		return nil, ast.ErrASTHandle
 	}
-	r, e := NewFMModelConverter(tr.To(), c.services)
+	services, e := fmTargetServices(tr.To(), c.services)
+	if e != nil {
+		return nil, e
+	}
+	r, e := NewFMModelConverter(tr.To(), services)
 	if e != nil {
 		return nil, e
 	}
