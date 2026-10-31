@@ -90299,14 +90299,16 @@
         "pkg/muz/rel/external_relation_test.go",
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
-        "pkg/muz/rel/external_relation_filter.go"
+        "pkg/muz/rel/external_relation_filter.go",
+        "pkg/muz/rel/external_relation_callbacks.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
         "TestExternalRelationFallbackAndFormula",
         "TestExternalRelationProjectAndRename",
         "TestExternalRelationJoinUnionAndWiden",
-        "TestExternalRelationFilters"
+        "TestExternalRelationFilters",
+        "TestExternalRelationCallbackTrailLifetime"
       ],
       "assertions": [
         {
@@ -90369,13 +90371,21 @@
           "tests": [
             "TestExternalRelationFilters"
           ]
+        },
+        {
+          "name": "callback argument and result trail ownership",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation_callbacks.go",
+          "tests": [
+            "TestExternalRelationCallbackTrailLifetime"
+          ]
         }
       ],
       "ownership": [
-        "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
+        "The external relation owns its AST relation reference and accessor declarations. The shared plugin owns callback declaration, argument and result references until it closes after its relations."
       ],
       "deviations": [
-        "Fixedpoint callback registration and callback trail lifetime remain pending.",
+        "Fixedpoint callback registration remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
         "Full ownership and failure-frontier audits remain pending."
       ]
@@ -90390,14 +90400,16 @@
         "pkg/muz/rel/external_relation_test.go",
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
-        "pkg/muz/rel/external_relation_filter.go"
+        "pkg/muz/rel/external_relation_filter.go",
+        "pkg/muz/rel/external_relation_callbacks.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
         "TestExternalRelationFallbackAndFormula",
         "TestExternalRelationProjectAndRename",
         "TestExternalRelationJoinUnionAndWiden",
-        "TestExternalRelationFilters"
+        "TestExternalRelationFilters",
+        "TestExternalRelationCallbackTrailLifetime"
       ],
       "conditionals": [
         {
@@ -90444,13 +90456,21 @@
           "tests": [
             "TestExternalRelationFilters"
           ]
+        },
+        {
+          "name": "callback argument and result trail ownership",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation_callbacks.go",
+          "tests": [
+            "TestExternalRelationCallbackTrailLifetime"
+          ]
         }
       ],
       "ownership": [
-        "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
+        "The external relation owns its AST relation reference and accessor declarations. The shared plugin owns callback declaration, argument and result references until it closes after its relations."
       ],
       "deviations": [
-        "Fixedpoint callback registration and callback trail lifetime remain pending.",
+        "Fixedpoint callback registration remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
         "Full ownership and failure-frontier audits remain pending."
       ]

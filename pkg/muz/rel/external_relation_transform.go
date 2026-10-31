@@ -40,7 +40,8 @@ func (r *ExternalRelation) reduceRelation(app ast.ASTHandle, args, sorts []ast.A
 	if err != nil {
 		return nil, err
 	}
-	return &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), sorts...), callbacks: r.callbacks, relation: ref}, nil
+	r.plugin.users++
+	return &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), sorts...), relation: ref}, nil
 }
 
 // Project removes sorted, distinct columns and invokes the project reduction.
@@ -183,8 +184,5 @@ func (r *ExternalRelation) Union(source, delta *ExternalRelation, widen bool) (r
 		}
 		outputs = append(outputs, value)
 	}
-	if r.callbacks.ReduceAssign != nil {
-		return r.callbacks.ReduceAssign(decl, []ast.ASTHandle{target, input}, outputs)
-	}
-	return nil
+	return r.plugin.reduceAssign(decl, []ast.ASTHandle{target, input}, outputs)
 }

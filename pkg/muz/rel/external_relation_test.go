@@ -167,6 +167,7 @@ func TestExternalRelationJoinUnionAndWiden(t *testing.T) {
 	}
 	plugin, err := NewExternalRelationPlugin(f.relations, callbacks)
 	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, plugin.Close()) })
 	create := func() *ExternalRelation {
 		r, e := plugin.NewEmpty([]ast.ASTHandle{f.boolean})
 		astTestMust(t, e)
@@ -229,6 +230,7 @@ func TestExternalRelationFilters(t *testing.T) {
 	}}
 	plugin, err := NewExternalRelationPlugin(f.relations, callbacks)
 	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, plugin.Close()) })
 	left, err := plugin.NewEmpty([]ast.ASTHandle{f.boolean, f.boolean})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, left.Close()) }()
@@ -259,5 +261,36 @@ func TestExternalRelationFilters(t *testing.T) {
 	}
 	if err = left.FilterNegation(right, nil, nil); err == nil {
 		t.Fatal("source empty negation guard was bypassed")
+	}
+}
+
+func TestExternalRelationCallbackTrailLifetime(t *testing.T) {
+	f := newTableRelationFixture(t)
+	callbacks := ExternalRelationCallbacks{ReduceAssign: func(ast.ASTHandle, []ast.ASTHandle, []ast.ASTHandle) error { return nil }}
+	plugin, err := NewExternalRelationPlugin(f.relations, callbacks)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, plugin.Close()) }()
+	r, err := plugin.NewEmpty([]ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, r.Close()) }()
+	value, err := f.ast.MkFreshConst("callback-value", f.boolean)
+	astTestMust(t, err)
+	owner, err := f.ast.NewRef(value)
+	astTestMust(t, err)
+	astTestMust(t, r.AddFact([]ast.ASTHandle{value}))
+	astTestMust(t, f.ast.DelRef(&owner))
+	if _, err = f.ast.GetKind(value); err != nil {
+		t.Fatal("callback argument was not kept alive", err)
+	}
+	if err = plugin.Close(); err == nil {
+		t.Fatal("closed plugin with live relation")
+	}
+	astTestMust(t, r.Close())
+	if _, err = f.ast.GetKind(value); err != nil {
+		t.Fatal("trail was released before plugin", err)
+	}
+	astTestMust(t, plugin.Close())
+	if _, err = f.ast.GetKind(value); err == nil {
+		t.Fatal("plugin close did not release callback argument")
 	}
 }

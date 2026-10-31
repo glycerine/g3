@@ -1,3 +1,5 @@
+External callback trail ownership (2026-10-31 UTC): added the source fixedpoint callback trail to the shared external plugin, keeping callback declarations, arguments and reduction results alive until plugin closure. Tests verify argument lifetime, rejection of plugin closure while relations are live, and release afterward; fixedpoint registration remains pending.
+
 External relation filters (2026-10-31 UTC): added interpreted, equality, identical-column and negation assignment callbacks with source argument order. Tests verify operator kinds, callback outputs, invalid columns and the source empty-negation guard.
 
 External relation plugin and binary operations (2026-10-31 UTC): added shared concrete plugin identity, external join reduction, and union/widening assignment with optional delta output. Tests check callback argument order, fallback joins and rejection of different plugin instances.

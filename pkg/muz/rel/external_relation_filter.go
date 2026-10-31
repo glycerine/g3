@@ -18,10 +18,7 @@ func (r *ExternalRelation) applyAssignment(app ast.ASTHandle, args, outputs []as
 	if err != nil {
 		return err
 	}
-	if r.callbacks.ReduceAssign != nil {
-		return r.callbacks.ReduceAssign(decl, args, outputs)
-	}
-	return nil
+	return r.plugin.reduceAssign(decl, args, outputs)
 }
 
 // FilterInterpreted invokes the source filter assignment with a Boolean
