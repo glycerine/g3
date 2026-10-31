@@ -1,3 +1,5 @@
+Public API header coverage (2026-10-31 UTC): recorded existing concrete AST container, optimization, fixedpoint and Spacer Go APIs against four previously unstarted headers. A new cross-component test verifies an optimization bound remains owned by both an AST map and vector; full declaration and lifetime audits remain pending.
+
 Optimization frontend unsatisfiable bounds (2026-10-31 UTC): added the native default objective-bound display for hard-unsatisfiable OPB and WCNF input, with representative reference comparisons. Unknown-result bounds and signal/timeout behavior remain pending.
 
 Optimization header source coverage (2026-10-31 UTC): recorded existing objective solver and SortMax concrete implementations against optsmt.h, opt_solver.h and wmax.h, and tested SortMax through WCNF command dispatch. WMax and remaining optimization engines and header audits are pending.

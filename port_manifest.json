@@ -12092,9 +12092,23 @@
       "path": "src/api/z3_ast_containers.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_ast_map.go",
+        "pkg/api/api_ast_map_mutation.go",
+        "pkg/api/api_ast_map_queries.go",
+        "pkg/api/api_ast_map_keys.go",
+        "pkg/api/api_ast_vector.go",
+        "pkg/api/api_ast_vector_mutation.go",
+        "pkg/api/api_ast_vector_translate.go",
+        "pkg/api/api_ast_map_keys_test.go",
+        "pkg/api/api_ast_vector_translate_test.go",
+        "pkg/api/api_optimization_container_integration_test.go"
+      ],
+      "tests": [
+        "TestPublicASTMapKeysOwnIndependentRoots",
+        "TestOptimizationBoundStoredInASTContainers"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -12123,17 +12137,47 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "AST map construction and owning key snapshots",
+          "status": "partial",
+          "go_target": "pkg/api/api_ast_map.go",
+          "tests": [
+            "TestPublicASTMapKeysOwnIndependentRoots"
+          ]
+        },
+        {
+          "name": "AST vector construction and ownership",
+          "status": "partial",
+          "go_target": "pkg/api/api_ast_vector.go",
+          "tests": [
+            "TestOptimizationBoundStoredInASTContainers"
+          ]
+        }
+      ],
+      "ownership": [
+        "Go AST containers own their AST references and borrow the creating context."
+      ],
+      "deviations": [
+        "The Go API exposes concrete context-owned map and vector types; a complete declaration, source lifetime and C ABI audit remains pending."
+      ]
     },
     {
       "path": "src/api/z3_fixedpoint.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_fixedpoint.go",
+        "pkg/api/api_fixedpoint_object.go",
+        "pkg/api/api_fixedpoint_object_results.go",
+        "pkg/api/api_fixedpoint_object_query_test.go",
+        "pkg/api/api_fixedpoint_test.go"
+      ],
+      "tests": [
+        "TestAPIFixedpointRulesScopesAndQueries",
+        "TestSMTContextFixedpointPDRLifecycle"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -12162,9 +12206,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "fixedpoint object rule and query paths",
+          "status": "partial",
+          "go_target": "pkg/api/api_fixedpoint_object.go",
+          "tests": [
+            "TestAPIFixedpointRulesScopesAndQueries"
+          ]
+        }
+      ],
+      "ownership": [
+        "The fixedpoint object owns a parser context and borrows its parent SMT context."
+      ],
+      "deviations": [
+        "Pending full declaration, callback and ownership audit; Go methods expose the supported API without a C ABI."
+      ]
     },
     {
       "path": "src/api/z3_fpa.h",
@@ -12324,9 +12381,21 @@
       "path": "src/api/z3_optimization.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_optimize.go",
+        "pkg/api/api_optimize_assert.go",
+        "pkg/api/api_optimize_check.go",
+        "pkg/api/api_optimize_lower.go",
+        "pkg/api/api_optimize_upper.go",
+        "pkg/api/api_optimize_objectives.go",
+        "pkg/api/api_optimize_bounds_soft_test.go",
+        "pkg/api/api_optimization_container_integration_test.go"
+      ],
+      "tests": [
+        "TestAPIOptimizeSoftBoundsUseOptimalCost",
+        "TestOptimizationBoundStoredInASTContainers"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -12355,9 +12424,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "optimize object and objective bounds",
+          "status": "partial",
+          "go_target": "pkg/api/api_optimize.go",
+          "tests": [
+            "TestOptimizationBoundStoredInASTContainers"
+          ]
+        }
+      ],
+      "ownership": [
+        "The Go optimize object owns its command context and borrows the parent context; bound references are independently owned."
+      ],
+      "deviations": [
+        "Pending a complete declaration and source ownership audit; this is a Go API and does not provide a C ABI."
+      ]
     },
     {
       "path": "src/api/z3_polynomial.h",
@@ -12544,9 +12626,19 @@
       "path": "src/api/z3_spacer.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_fixedpoint.go",
+        "pkg/api/api_fixedpoint_test.go",
+        "pkg/api/api_qe_model_project.go",
+        "pkg/api/api_qe_model_project_skolem.go",
+        "pkg/api/api_qe_model_project_test.go",
+        "pkg/api/api_qe_model_project_skolem_test.go"
+      ],
+      "tests": [
+        "TestSMTContextFixedpointSpacerInductiveExports",
+        "TestAPIQEModelProjectEliminatesModelEquality"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -12575,9 +12667,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "Spacer fixedpoint trace and reachable exports",
+          "status": "partial",
+          "go_target": "pkg/api/api_fixedpoint.go",
+          "tests": [
+            "TestSMTContextFixedpointSpacerInductiveExports"
+          ]
+        }
+      ],
+      "ownership": [
+        "Fixedpoint results and projection expressions use the Go AST reference ownership model."
+      ],
+      "deviations": [
+        "Pending complete Spacer declaration and model-projection audit; no C ABI is supplied."
+      ]
     },
     {
       "path": "src/api/z3_v1.h",
