@@ -186836,7 +186836,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/core/nnf_tactic.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestNNFTacticFullModeProofComposition",
@@ -186862,6 +186863,9 @@
           "tests": [
             "TestNNFTacticFullModeProofComposition",
             "TestSMTLibRunnerScripts/nnf_tactics.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -186904,8 +186908,18 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/core/occf_tactic.go", "pkg/tactic/core/occf_tactic_test.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_commands_test.go"],
-      "tests": ["TestOCCFReusesAuxiliaryAndLeavesOneConstraintPerClause", "TestOCCFModelConverterAndProofGuard", "TestOCCFChecksCancellationBeforeCooperation", "TestCommandContextRegistersClausePreprocessingTactics"],
+      "go_targets": [
+        "pkg/tactic/core/occf_tactic.go",
+        "pkg/tactic/core/occf_tactic_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_commands_test.go"
+      ],
+      "tests": [
+        "TestOCCFReusesAuxiliaryAndLeavesOneConstraintPerClause",
+        "TestOCCFModelConverterAndProofGuard",
+        "TestOCCFChecksCancellationBeforeCooperation",
+        "TestCommandContextRegistersClausePreprocessingTactics"
+      ],
       "conditionals": [
         {
           "line": 24,
@@ -186918,8 +186932,23 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"OCCF tactic public factory, parameter update, translation, cleanup and application surface","status":"ported","go_target":"pkg/tactic/core/occf_tactic.go","tests":["TestOCCFModelConverterAndProofGuard","TestCommandContextRegistersClausePreprocessingTactics"]}],
-      "ownership": ["Factory results use the existing reference-counted tactic lifecycle; translation constructs an independent tactic against the destination manager."],
+      "methods": [
+        {
+          "name": "OCCF tactic public factory, parameter update, translation, cleanup and application surface",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/occf_tactic.go",
+          "tests": [
+            "TestOCCFModelConverterAndProofGuard",
+            "TestCommandContextRegistersClausePreprocessingTactics"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/tactic_commands_test.go"
+          ]
+        }
+      ],
+      "ownership": [
+        "Factory results use the existing reference-counted tactic lifecycle; translation constructs an independent tactic against the destination manager."
+      ],
       "deviations": []
     },
     {
@@ -189342,7 +189371,8 @@
           "go_targets": [
             "pkg/tactic/fpa/fpa2bv_tactic.go",
             "pkg/tactic/fpa/fpa2bv_tactic_adapter.go",
-            "pkg/cmd_context/tactic_commands.go"
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestFPA2BVTacticRewritesGoalAndPublishesSingleResult",
@@ -189441,7 +189471,8 @@
             "pkg/tactic/smtlogics/qffp_default_probe.go",
             "pkg/tactic/portfolio/smt_strategic_solver.go",
             "pkg/cmd_context/context.go",
-            "pkg/cmd_context/tactic_commands.go"
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestQFFPSourceStructuralProbeOrdering",
@@ -189471,7 +189502,8 @@
       "go_targets": [
         "pkg/tactic/smtlogics/qffp_tactic.go",
         "pkg/tactic/smtlogics/qffp_probe.go",
-        "pkg/tactic/smtlogics/qffp_default_probe.go"
+        "pkg/tactic/smtlogics/qffp_default_probe.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestQFFPSourceStructuralProbeOrdering",
@@ -189503,6 +189535,9 @@
             "TestQFFPSourceStructuralProbeOrdering",
             "TestSMTLibRunnerScripts/fpa_canonical_model_scopes.smt2",
             "TestSMTLibRunnerScripts/qffpbv_tactic.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -189544,6 +189579,9 @@
             "TestSMTLibRunnerCPPReference/qffplra_default.smt2",
             "TestSMTLibRunnerScripts/qffplra_solver.smt2",
             "TestSMTLibRunnerCPPReference/qffplra_solver.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -189561,7 +189599,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/smtlogics/qffplra_tactic.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestQFFPLRASourceStructuralProbe",
@@ -189587,6 +189626,9 @@
           "tests": [
             "TestQFFPLRASourceStructuralProbe",
             "TestSMTLibRunnerScripts/qffplra_solver.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -190862,8 +190904,14 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/portfolio/smt_strategic_solver.go"],
-      "tests": ["TestSMTLibRunnerScripts/nra_default_portfolio.smt2", "TestSMTLibRunnerCPPReference/nra_default_portfolio.smt2"],
+      "go_targets": [
+        "pkg/tactic/portfolio/smt_strategic_solver.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMTLibRunnerScripts/nra_default_portfolio.smt2",
+        "TestSMTLibRunnerCPPReference/nra_default_portfolio.smt2"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -190881,11 +190929,20 @@
           "name": "Complete retained default tactic factory and parameterized strategy ownership",
           "status": "ported",
           "go_target": "pkg/tactic/portfolio/smt_strategic_solver.go",
-          "tests": ["TestSMTLibRunnerScripts/nra_default_portfolio.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/nra_default_portfolio.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
-      "ownership": ["NewALLStrategicSolver owns the complete tactic/probe tree until it transfers the root strategy into the combined solver."],
-      "deviations": ["The source registration comment is represented by the retained default strategic-solver factory rather than a C++ tactic-header macro."]
+      "ownership": [
+        "NewALLStrategicSolver owns the complete tactic/probe tree until it transfers the root strategy into the combined solver."
+      ],
+      "deviations": [
+        "The source registration comment is represented by the retained default strategic-solver factory rather than a C++ tactic-header macro."
+      ]
     },
     {
       "path": "src/tactic/portfolio/enum2bv_solver.cpp",
@@ -191022,7 +191079,27 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/portfolio/fd_solver.go", "pkg/tactic/portfolio/fd_solver_test.go", "pkg/cmd_context/context.go", "pkg/cmd_context/fd_solver_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2", "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2", "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2", "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2", "pkg/tactic/portfolio/fd_tactic.go", "pkg/tactic/portfolio/fd_tactic_factory.go", "pkg/tactic/portfolio/fd_lazy_tactic.go", "pkg/tactic/portfolio/fd_tactic_apply_test.go", "pkg/tactic/portfolio/fd_tactic_constructor_test.go", "pkg/tactic/portfolio/fd_tactic_factory_test.go", "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go", "pkg/tactic/portfolio/fd_tactic_params_test.go", "pkg/tactic/portfolio/fd_tactic_statistics_test.go", "pkg/tactic/portfolio/fd_lazy_tactic_test.go"],
+      "go_targets": [
+        "pkg/tactic/portfolio/fd_solver.go",
+        "pkg/tactic/portfolio/fd_solver_test.go",
+        "pkg/cmd_context/context.go",
+        "pkg/cmd_context/fd_solver_test.go",
+        "pkg/cmd/g3/main_test.go",
+        "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2",
+        "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2",
+        "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2",
+        "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2",
+        "pkg/tactic/portfolio/fd_tactic.go",
+        "pkg/tactic/portfolio/fd_tactic_factory.go",
+        "pkg/tactic/portfolio/fd_lazy_tactic.go",
+        "pkg/tactic/portfolio/fd_tactic_apply_test.go",
+        "pkg/tactic/portfolio/fd_tactic_constructor_test.go",
+        "pkg/tactic/portfolio/fd_tactic_factory_test.go",
+        "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go",
+        "pkg/tactic/portfolio/fd_tactic_params_test.go",
+        "pkg/tactic/portfolio/fd_tactic_statistics_test.go",
+        "pkg/tactic/portfolio/fd_lazy_tactic_test.go"
+      ],
       "tests": [
         "TestFDSolverRetainedMixedStackAndScopes",
         "TestFDSolverConstructorRefusals",
@@ -191051,6 +191128,10 @@
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference",
             "TestFDSolverSortingNetworkStatisticsAndFiltering"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/fd_solver_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -191066,7 +191147,27 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/portfolio/fd_solver.go", "pkg/tactic/portfolio/fd_solver_test.go", "pkg/cmd_context/context.go", "pkg/cmd_context/fd_solver_test.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2", "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2", "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2", "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2", "pkg/tactic/portfolio/fd_tactic.go", "pkg/tactic/portfolio/fd_tactic_factory.go", "pkg/tactic/portfolio/fd_lazy_tactic.go", "pkg/tactic/portfolio/fd_tactic_apply_test.go", "pkg/tactic/portfolio/fd_tactic_constructor_test.go", "pkg/tactic/portfolio/fd_tactic_factory_test.go", "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go", "pkg/tactic/portfolio/fd_tactic_params_test.go", "pkg/tactic/portfolio/fd_tactic_statistics_test.go", "pkg/tactic/portfolio/fd_lazy_tactic_test.go"],
+      "go_targets": [
+        "pkg/tactic/portfolio/fd_solver.go",
+        "pkg/tactic/portfolio/fd_solver_test.go",
+        "pkg/cmd_context/context.go",
+        "pkg/cmd_context/fd_solver_test.go",
+        "pkg/cmd/g3/main_test.go",
+        "pkg/cmd/g3/test_vectors/fd_mixed_scopes_models.smt2",
+        "pkg/cmd/g3/test_vectors/fd_weighted_pb.smt2",
+        "pkg/cmd/g3/test_vectors/fd_wide_offset_model.smt2",
+        "pkg/cmd/g3/test_vectors/fd_unbounded_unknown.smt2",
+        "pkg/tactic/portfolio/fd_tactic.go",
+        "pkg/tactic/portfolio/fd_tactic_factory.go",
+        "pkg/tactic/portfolio/fd_lazy_tactic.go",
+        "pkg/tactic/portfolio/fd_tactic_apply_test.go",
+        "pkg/tactic/portfolio/fd_tactic_constructor_test.go",
+        "pkg/tactic/portfolio/fd_tactic_factory_test.go",
+        "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go",
+        "pkg/tactic/portfolio/fd_tactic_params_test.go",
+        "pkg/tactic/portfolio/fd_tactic_statistics_test.go",
+        "pkg/tactic/portfolio/fd_lazy_tactic_test.go"
+      ],
       "tests": [
         "TestFDSolverRetainedMixedStackAndScopes",
         "TestFDSolverConstructorRefusals",
@@ -191105,6 +191206,10 @@
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference",
             "TestFDSolverSortingNetworkStatisticsAndFiltering"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/fd_solver_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
