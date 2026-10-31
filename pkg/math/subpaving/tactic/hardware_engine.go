@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/subpaving"
 	"github.com/glycerine/g3/pkg/util/control"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
 )
@@ -83,6 +84,13 @@ func (e *HardwareEngine) Shell() (*subpaving.HardwareShellCoefficients, error) {
 		return nil, arena.ErrInvalidSlot
 	}
 	return e.shell, nil
+}
+
+func (e *HardwareEngine) BindCooperation(owner *cooperate.Cooperation) error {
+	if err := e.check(); err != nil {
+		return err
+	}
+	return e.shell.BindCooperation(owner)
 }
 
 func (e *HardwareEngine) Options() (Options, error) {

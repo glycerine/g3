@@ -79193,7 +79193,9 @@
         "pkg/math/subpaving/tactic/fixed_expr_converter_test.go",
         "pkg/math/subpaving/tactic/rational_expr_converter.go",
         "pkg/math/subpaving/tactic/rational_expr_arith.go",
-        "pkg/math/subpaving/tactic/rational_expr_converter_test.go"
+        "pkg/math/subpaving/tactic/rational_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/hardware_core_tactic_test.go",
+        "pkg/math/subpaving/tactic/arbitrary_core_tactic_test.go"
       ],
       "tests": [
         "TestHardwareExprConverterTerms",
@@ -79202,7 +79204,9 @@
         "TestFastExprConverterTermsAndClause",
         "TestFixedExprConverterTermsAndClause",
         "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats",
-        "TestRationalExprConverterExactLeafGoalAndCleanup"
+        "TestRationalExprConverterExactLeafGoalAndCleanup",
+        "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
+        "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
       ],
       "assertions": [
         {
@@ -79265,7 +79269,18 @@
           "name": "Concrete config_mpfx numeral and variable leaves, sums, products, powers, ref-counted term cache and source arithmetic refusal categories (expr2subpaving.cpp:99-363)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/tactic/fixed_expr_converter.go",
-          "tests": ["TestFixedExprConverterTermsAndClause"]
+          "tests": [
+            "TestFixedExprConverterTermsAndClause"
+          ]
+        },
+        {
+          "name": "HWF and MPF expression checkpoints cooperate after AST cancellation; selected core tactics forward the borrowed process owner to conversion and search and rebind after cleanup",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
+            "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
+          ]
         }
       ],
       "ownership": [],
@@ -79401,15 +79416,29 @@
           "name": "selected successful MPFF tactic imp borrows the AST raw Runtime for rational and fast-float members and destroys MPFF before rational",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fast_core_tactic.go",
-          "go_targets": ["pkg/math/subpaving/tactic/core_process_binding_test.go"],
-          "tests": ["TestFastCoreTacticNumericProcessCohort"]
+          "go_targets": [
+            "pkg/math/subpaving/tactic/core_process_binding_test.go"
+          ],
+          "tests": [
+            "TestFastCoreTacticNumericProcessCohort"
+          ]
         },
         {
           "name": "Concrete MPQ/hardware/MPFF/MPF/MPFX process_clause temporary inequality ref_buffer releases unpublished atoms in source push order after literal or clause failure and retains published clause/unit references (subpaving_tactic.cpp:165-178)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/inequality_buffer_release.go",
-          "go_targets": ["pkg/math/subpaving/tactic/rational_expr_converter.go", "pkg/math/subpaving/tactic/goal_internalize.go", "pkg/math/subpaving/tactic/fast_goal_internalize.go", "pkg/math/subpaving/tactic/fixed_goal_internalize.go", "pkg/math/subpaving/tactic/arbitrary_goal_internalize.go"],
-          "tests": ["TestSubpavingTemporaryInequalityBufferUnwind", "TestFastExprConverterTermsAndClause", "TestFixedExprConverterTermsAndClause"]
+          "go_targets": [
+            "pkg/math/subpaving/tactic/rational_expr_converter.go",
+            "pkg/math/subpaving/tactic/goal_internalize.go",
+            "pkg/math/subpaving/tactic/fast_goal_internalize.go",
+            "pkg/math/subpaving/tactic/fixed_goal_internalize.go",
+            "pkg/math/subpaving/tactic/arbitrary_goal_internalize.go"
+          ],
+          "tests": [
+            "TestSubpavingTemporaryInequalityBufferUnwind",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause"
+          ]
         },
         {
           "name": "Concrete MPQ print_nodes emits mapped SMT2 variable names, generated definition names, constraints, header and leaf bounds through a nonthrowing borrowed writer; wider interpreted expression display remains open (src/math/subpaving/tactic/subpaving_tactic.cpp:32-49,193-205)",
@@ -79435,7 +79464,12 @@
           "name": "All four concrete mk_ineq TRACE records at line 158 emit variable, rational coefficient, lower/open flags before context publication",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/goal_inequality_trace.go",
-          "tests": ["TestHardwareExprConverterTerms", "TestFastExprConverterTermsAndClause", "TestArbitraryExprConverterTermsAndClause", "TestRationalExprConverterExactLeafGoalAndCleanup"]
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestFastExprConverterTermsAndClause",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
         },
         {
           "name": "Concrete MPQ inequality and clause internalization plus goal-order search for arithmetic leaves and compound terms; full source exception transport remains open (src/math/subpaving/tactic/subpaving_tactic.cpp:128-190)",
@@ -79505,7 +79539,9 @@
           "name": "Concrete MPFX engine branch selects and owns context_mpfx_wrapper with borrowed numeral/rational managers and parameter update forwarding (subpaving_tactic.cpp:92-117)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fixed_engine.go",
-          "tests": ["TestFixedEngineSelectedOwnerUpdateAndRefusal"]
+          "tests": [
+            "TestFixedEngineSelectedOwnerUpdateAndRefusal"
+          ]
         },
         {
           "name": "Concrete MPFF goal internalize-then-search route (src/math/subpaving/tactic/subpaving_tactic.cpp:128-190)",
@@ -79519,7 +79555,9 @@
           "name": "Concrete MPFX goal inequality, clause and internalize-then-search route (subpaving_tactic.cpp:128-190)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/tactic/fixed_goal_internalize.go",
-          "tests": ["TestFixedExprConverterTermsAndClause"]
+          "tests": [
+            "TestFixedExprConverterTermsAndClause"
+          ]
         },
         {
           "name": "Concrete MPFF core tactic apply: retained goal, statistics, parameters, fresh cleanup and named-variable print_nodes output (src/math/subpaving/tactic/subpaving_tactic.cpp:32-49,193-268)",
@@ -79536,20 +79574,29 @@
           "name": "Concrete MPFX core tactic collect_param_descrs forwards through its selected context and appends numeral/print_nodes in source order (subpaving_tactic.cpp:83-89,232-234)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fixed_core_tactic.go",
-          "tests": ["TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup"]
+          "tests": [
+            "TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup"
+          ]
         },
         {
           "name": "Concrete MPFX core tactic translate constructs a separately owned implementation for the destination AST manager while retaining its parameter snapshot (subpaving_tactic.cpp:223-225)",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/fixed_core_tactic.go",
-          "tests": ["TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup"]
+          "tests": [
+            "TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup"
+          ]
         },
         {
           "name": "Concrete MPFX core tactic apply: borrowed goal result, selected search, statistics, parameter snapshot, fresh cleanup and named-variable print_nodes output (subpaving_tactic.cpp:32-49,193-268)",
           "status": "partial",
           "go_target": "pkg/math/subpaving/tactic/fixed_core_tactic.go",
-          "go_targets": ["pkg/math/subpaving/tactic/fixed_variable_display.go"],
-          "tests": ["TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup", "TestFixedCoreTacticRationalProcessBindingAndRefusedOwners"]
+          "go_targets": [
+            "pkg/math/subpaving/tactic/fixed_variable_display.go"
+          ],
+          "tests": [
+            "TestFixedCoreTacticBorrowedGoalPrintStatisticsAndCleanup",
+            "TestFixedCoreTacticRationalProcessBindingAndRefusedOwners"
+          ]
         },
         {
           "name": "MPFF core tactic outer catch converts a retained z3_exception message into a fresh tactic_exception after process failure (subpaving_tactic.cpp:245-261)",
@@ -79565,6 +79612,15 @@
           "go_target": "pkg/math/subpaving/tactic/fast_core_tactic.go",
           "tests": [
             "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats"
+          ]
+        },
+        {
+          "name": "HWF and MPF expression checkpoints cooperate after AST cancellation; selected core tactics forward the borrowed process owner to conversion and search and rebind after cleanup",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/hardware_core_tactic.go",
+          "tests": [
+            "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
+            "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
           ]
         }
       ],

@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/subpaving"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
@@ -21,6 +22,7 @@ type ArbitraryExprConverter struct {
 	ast                                  *ast.ASTManager
 	engine                               *ArbitraryEngine
 	trace                                *diagnostic.TraceTags
+	cooperation                          *cooperate.Cooperation
 	qm                                   *numeral.RationalManager
 	family                               ast.FamilyID
 	vars                                 map[ast.ASTHandle]uint32
@@ -67,10 +69,23 @@ func (c *ArbitraryExprConverter) check() error {
 	return err
 }
 
-// InternalizeTerm implements numeral and variable leaves, to_real, add, mul,
-// and positive integral powers.
-// The caller owns numerator and denominator.
-// math.MaxUint32 is the source null_var value for constant terms.
+// BindCooperation borrows the source process owner for expression checkpoints.
+func (c *ArbitraryExprConverter) BindCooperation(owner *cooperate.Cooperation) error {
+	if err := c.check(); err != nil {
+		return err
+	}
+	if owner == nil {
+		return arena.ErrConfig
+	}
+	if _, err := owner.Enabled(); err != nil {
+		return err
+	}
+	c.cooperation = owner
+	return nil
+}
+
+// InternalizeTerm implements arithmetic leaves, sums, products and integral powers.
+// The caller owns numerator and denominator; math.MaxUint32 denotes a constant.
 func (c *ArbitraryExprConverter) InternalizeTerm(t ast.ASTHandle, numerator, denominator *numeral.Int) (uint32, error) {
 	return c.process(t, numerator, denominator)
 }
@@ -88,6 +103,11 @@ func (c *ArbitraryExprConverter) process(t ast.ASTHandle, numerator, denominator
 	}
 	if canceled {
 		return 0, ErrExprConverterCanceled
+	}
+	if c.cooperation != nil {
+		if err := c.cooperation.Cooperate("expr2subpaving"); err != nil {
+			return 0, err
+		}
 	}
 	kind, err := c.ast.GetKind(t)
 	if err != nil {

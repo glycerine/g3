@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/subpaving"
 	"github.com/glycerine/g3/pkg/util/control"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
 )
@@ -63,6 +64,13 @@ func (e *ArbitraryEngine) Shell() (*subpaving.ArbitraryShellCoefficients, error)
 		return nil, err
 	}
 	return e.shell, nil
+}
+
+func (e *ArbitraryEngine) BindCooperation(owner *cooperate.Cooperation) error {
+	if err := e.check(); err != nil {
+		return err
+	}
+	return e.shell.BindCooperation(owner)
 }
 
 func (e *ArbitraryEngine) Options() (Options, error) {

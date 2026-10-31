@@ -108,6 +108,14 @@ func (t *HardwareCoreTactic) rebuild() error {
 		return errors.Join(err, engine.Close())
 	}
 	t.engine, t.converter = engine, converter
+	if t.cooperation != nil {
+		if err := engine.BindCooperation(t.cooperation); err != nil {
+			return err
+		}
+		if err := converter.BindCooperation(t.cooperation); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -126,6 +134,12 @@ func (t *HardwareCoreTactic) open() error {
 
 func (t *HardwareCoreTactic) BindCooperation(owner *cooperate.Cooperation) error {
 	if err := t.open(); err != nil {
+		return err
+	}
+	if err := t.engine.BindCooperation(owner); err != nil {
+		return err
+	}
+	if err := t.converter.BindCooperation(owner); err != nil {
 		return err
 	}
 	t.cooperation = owner

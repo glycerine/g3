@@ -8,6 +8,8 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	goaltactic "github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/cooperate"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/messages"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
@@ -75,6 +77,30 @@ func TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	cooperation, err := cooperate.NewCooperation(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := cooperation.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := cooperation.BeginSection(); err != nil {
+		t.Fatal(err)
+	}
+	var checkpoints bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&checkpoints)
+	tags.Enable("cooperate_detail")
+	if err := cooperation.BindTrace(tags); err != nil {
+		t.Fatal(err)
+	}
+	if err := core.BindCooperation(nil); !errors.Is(err, arena.ErrConfig) {
+		t.Fatal("nil cooperation must fail before publication", err)
+	}
+	if err := core.BindCooperation(cooperation); err != nil {
+		t.Fatal(err)
+	}
 	goal, err := goaltactic.NewGoal(m, false, false, false)
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +110,9 @@ func TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup(t *testing.T) 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
+		if err := cooperation.Close(); err != nil {
+			t.Error(err)
+		}
 		for _, e := range []error{goal.Close(), core.Close(), pc.Del(&p), pc.Close(), q.Del(&value), m.Close(), q.Close(), sy.Close(), numbers.Close(), fm.Close(), qm.CloseChecked()} {
 			if e != nil {
 				t.Error(e)
@@ -119,6 +148,25 @@ func TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup(t *testing.T) 
 	if err != nil || result != goal {
 		t.Fatal("source borrowed result", result, err)
 	}
+	if cooperation.OwnerThread != 0 {
+		t.Fatal("search omitted cooperation")
+	}
+	if tags.ShouldTrace("cooperate_detail") {
+		conversion := bytes.Index(checkpoints.Bytes(), []byte("\nexpr2subpaving, tid: 0\n"))
+		search := bytes.LastIndex(checkpoints.Bytes(), []byte("\nsubpaving, tid: 0\n"))
+		if conversion < 0 || search <= conversion {
+			t.Fatal("conversion must cooperate before search", checkpoints.String())
+		}
+	}
+	if err := cooperation.EndTask(); err != nil {
+		t.Fatal(err)
+	}
+	var n, d numeral.Int
+	m.ResourceLimit().Cancel()
+	if _, err := core.converter.InternalizeTerm(x, &n, &d); !errors.Is(err, ErrExprConverterCanceled) || cooperation.OwnerThread != -1 {
+		t.Fatal("cancellation must precede cooperation", err, cooperation.OwnerThread)
+	}
+	m.ResourceLimit().ResetCancel()
 	st := statistics.New()
 	if err := core.CollectStatistics(st); err != nil || st.Size() != 2 || st.Key(0) != "new bounds" || st.UintValue(0) != 1 || st.Key(1) != "nodes" || st.UintValue(1) != 1 {
 		t.Fatal("first search statistics", err)
@@ -126,9 +174,24 @@ func TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup(t *testing.T) 
 	if err := core.Cleanup(); err != nil {
 		t.Fatal("source fresh implementation", err)
 	}
+	if _, err := core.converter.InternalizeTerm(x, &n, &d); err != nil || cooperation.OwnerThread != 0 {
+		t.Fatal("cleanup lost converter cooperation", err, cooperation.OwnerThread)
+	}
+	if err := qm.Z.Del(&n); err != nil {
+		t.Fatal(err)
+	}
+	if err := qm.Z.Del(&d); err != nil {
+		t.Fatal(err)
+	}
+	if err := cooperation.EndTask(); err != nil {
+		t.Fatal(err)
+	}
 	result, err = core.Apply(goal)
 	if err != nil || result != goal {
 		t.Fatal("reused goal with fresh implementation", result, err)
+	}
+	if cooperation.OwnerThread != 0 {
+		t.Fatal("cleanup lost search cooperation")
 	}
 	st.Reset()
 	if err := core.CollectStatistics(st); err != nil || st.Size() != 4 || st.Key(2) != "new bounds" || st.UintValue(2) != 1 || st.Key(3) != "nodes" || st.UintValue(3) != 1 {

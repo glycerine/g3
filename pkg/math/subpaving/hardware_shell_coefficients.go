@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -197,6 +198,14 @@ func (w *HardwareShellCoefficients) CollectParamDescrs(d *params.ParamDescrs) er
 		return err
 	}
 	return CollectHardwareParamDescrs(d)
+}
+
+// BindCooperation forwards the borrowed process owner to search checkpoints.
+func (w *HardwareShellCoefficients) BindCooperation(owner *cooperate.Cooperation) error {
+	if err := w.open(); err != nil {
+		return err
+	}
+	return w.context.BindCooperation(owner)
 }
 
 func (w *HardwareShellCoefficients) UpdateParamsRef(pc *params.ParamsContext, p *params.ParamsRef) error {

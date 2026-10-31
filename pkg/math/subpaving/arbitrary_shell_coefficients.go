@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/control"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -140,6 +141,14 @@ func (w *ArbitraryShellCoefficients) DisplayConstraints(out io.Writer, useStar b
 		return err
 	}
 	return w.context.DisplayConstraints(out, useStar)
+}
+
+// BindCooperation forwards the borrowed process owner to search checkpoints.
+func (w *ArbitraryShellCoefficients) BindCooperation(owner *cooperate.Cooperation) error {
+	if err := w.open(); err != nil {
+		return err
+	}
+	return w.context.BindCooperation(owner)
 }
 
 func (w *ArbitraryShellCoefficients) UpdateParamsRef(pc *params.ParamsContext, p *params.ParamsRef) error {
