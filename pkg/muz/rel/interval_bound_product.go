@@ -45,6 +45,48 @@ func (p *IntervalBoundProduct) ContainsFact(values []*big.Rat) bool {
 	return p != nil && p.interval != nil && p.bound != nil && p.interval.ContainsFact(values) && p.bound.ContainsFact(make([]ast.ASTHandle, len(values)))
 }
 
+// Union combines aligned components. The C++ product skips cross-component
+// unions unless both directions are supported; interval and bound do not
+// satisfy that condition.
+func (p *IntervalBoundProduct) Union(source, delta *IntervalBoundProduct, widen bool) (bool, error) {
+	if p == nil || source == nil || p.interval == nil || source.interval == nil || p.interval.values == nil || source.interval.values == nil || p.bound == nil || source.bound == nil {
+		return false, ast.ErrASTDomain
+	}
+	arity := len(p.bound.columns)
+	if len(p.interval.values.columns) != arity || len(source.bound.columns) != arity || len(source.interval.values.columns) != arity {
+		return false, ast.ErrASTDomain
+	}
+	if delta != nil && (delta == p || delta == source || delta.interval == nil || delta.interval.values == nil || delta.bound == nil || len(delta.bound.columns) != arity || len(delta.interval.values.columns) != arity) {
+		return false, ast.ErrASTDomain
+	}
+	if delta == nil {
+		changedInterval, err := p.interval.Union(source.interval, widen)
+		if err != nil {
+			return false, err
+		}
+		changedBound, err := p.bound.Union(source.bound)
+		return changedInterval || changedBound, err
+	}
+	// The source unions into fresh component deltas, then unions those into
+	// the supplied delta, which may already contain results from earlier work.
+	fresh := NewIntervalBoundProduct(uint32(arity), true)
+	changedInterval, err := p.interval.UnionWithDelta(source.interval, fresh.interval, widen)
+	if err != nil {
+		return false, err
+	}
+	changedBound, err := p.bound.UnionWithDelta(source.bound, fresh.bound, widen)
+	if err != nil {
+		return false, err
+	}
+	if _, err = delta.interval.Union(fresh.interval, false); err != nil {
+		return false, err
+	}
+	if _, err = delta.bound.Union(fresh.bound); err != nil {
+		return false, err
+	}
+	return changedInterval || changedBound, nil
+}
+
 func (p *IntervalBoundProduct) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHandle) error {
 	if p == nil || p.interval == nil || p.bound == nil {
 		return ast.ErrASTDomain

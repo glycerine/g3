@@ -66,3 +66,39 @@ func TestIntervalBoundProductFactsAndEmpty(t *testing.T) {
 		t.Fatal("nil rational fact accepted")
 	}
 }
+
+func TestIntervalBoundProductUnionAndDelta(t *testing.T) {
+	fact := func(n int64) *IntervalBoundProduct {
+		p := NewIntervalBoundProduct(1, true)
+		astTestMust(t, p.AddFact([]*big.Rat{big.NewRat(n, 1)}))
+		return p
+	}
+	target, source, delta := fact(1), fact(3), fact(10)
+	changed, err := target.Union(source, delta, false)
+	astTestMust(t, err)
+	if !changed || !target.ContainsFact([]*big.Rat{big.NewRat(2, 1)}) || !delta.ContainsFact([]*big.Rat{big.NewRat(10, 1)}) || !delta.ContainsFact([]*big.Rat{big.NewRat(1, 1)}) {
+		t.Fatal("union or accumulated delta omitted facts")
+	}
+	changed, err = target.Union(NewIntervalBoundProduct(1, true), delta, false)
+	astTestMust(t, err)
+	if changed || !delta.ContainsFact([]*big.Rat{big.NewRat(10, 1)}) {
+		t.Fatal("empty source changed target or cleared accumulated delta")
+	}
+	if _, err = target.Union(source, target, false); err == nil {
+		t.Fatal("aliased delta accepted")
+	}
+	if _, err = target.Union(NewIntervalBoundProduct(2, false), nil, false); err == nil {
+		t.Fatal("mismatched arity accepted")
+	}
+}
+
+func TestIntervalBoundProductWiden(t *testing.T) {
+	target, source := NewIntervalBoundProduct(1, true), NewIntervalBoundProduct(1, true)
+	astTestMust(t, target.AddFact([]*big.Rat{big.NewRat(1, 1)}))
+	astTestMust(t, source.AddFact([]*big.Rat{big.NewRat(3, 1)}))
+	changed, err := target.Union(source, nil, true)
+	astTestMust(t, err)
+	if !changed || !target.ContainsFact([]*big.Rat{big.NewRat(100, 1)}) || target.ContainsFact([]*big.Rat{big.NewRat(0, 1)}) {
+		t.Fatal("widening did not extend the increasing upper endpoint")
+	}
+}
