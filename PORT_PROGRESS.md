@@ -1,3 +1,5 @@
+Generated datatype inspection replay (2026-10-31 UTC): added tuple and datatype constructor, recognizer and field queries. Normal and checked tests verify borrowed identities and unchanged AST-trail ownership; other generated commands remain unfinished.
+
 Generated pseudo-Boolean replay (2026-10-31 UTC): added cardinality and weighted comparison constructors. Normal and checked tests cover signed coefficients encoded in unsigned arrays and short-array rejection; other generated commands remain unfinished.
 
 Optimization inventory evidence (2026-10-31 UTC): refreshed four MaxRes test names and three moved decomposition and mutex-preprocessing paths. Focused MaxRes tests pass; inventory validation continues.
