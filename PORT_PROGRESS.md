@@ -1,3 +1,5 @@
+Generated AST map replay (2026-10-31 UTC): added map lifetime, lookup, mutation, key snapshots and display. Normal and checked API/CLI tests verify key ownership after reset and incomplete-log cleanup; other generated commands remain unfinished.
+
 Generated solver statistics replay (2026-10-31 UTC): added snapshot lifetime, formatting, keys and typed value queries. Normal and checked tests cover both value types and snapshots after solver release; other generated commands remain unfinished.
 
 Generated tactic-backed solver replay (2026-10-31 UTC): added solver construction from tactics and solver help. Normal and checked tests release the original tactic, reset the solver and solve an unsatisfiable goal; other generated commands remain unfinished.

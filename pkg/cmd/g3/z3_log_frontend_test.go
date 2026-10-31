@@ -40,7 +40,7 @@ func TestZ3LogFrontendCLIInputAndFile(t *testing.T) {
 
 func TestZ3LogFrontendReportsUnavailableCommands(t *testing.T) {
 	var out, diagnostics bytes.Buffer
-	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 457\n"), &out, &diagnostics); err != nil {
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 468\n"), &out, &diagnostics); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(diagnostics.String(), "invalid command") || !strings.Contains(out.String(), "max. heap size:") {
@@ -143,6 +143,20 @@ func TestZ3LogFrontendReplaysTacticApplication(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "tactic-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}
+
+func TestZ3LogFrontendReplaysASTMap(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 457\n= 0x42\nR\nP 0x41\nP 0x42\nC 458\n" +
+		"R\nP 0x41\nC 54\n= 0x43\nR\nP 0x41\nC 55\n= 0x44\n" +
+		"R\nP 0x41\nP 0x42\nP 0x43\nP 0x44\nC 462\nR\nP 0x41\nP 0x42\nP 0x43\nC 461\n= 0x45\n" +
+		"R\nP 0x41\nP 0x42\nC 459\nM \"map-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "map-replayed\nmax. heap size:") {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }

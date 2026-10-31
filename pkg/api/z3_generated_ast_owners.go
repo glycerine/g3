@@ -149,6 +149,10 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		delete(r.statistics, id)
 	}
 	owner.statisticIDs = nil
+	for _, id := range owner.mapIDs {
+		delete(r.maps, id)
+	}
+	owner.mapIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err
