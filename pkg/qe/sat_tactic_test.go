@@ -29,15 +29,6 @@ func TestQESATTacticPartialGoalsAndModels(t *testing.T) {
 			fmMust(t, err)
 			defer func() { fmMust(t, port.Close()) }()
 			out := f.result()
-			if err = port.Apply(goal, out); err == nil {
-				t.Fatal("unimplemented default mode accepted")
-			}
-			params, err := f.r.config.Context.NewValue()
-			fmMust(t, err)
-			defer func() { fmMust(t, f.r.config.Context.Del(&params)) }()
-			key := "projection_mode"
-			fmMust(t, f.r.config.Context.SetBoolName(&params, &key, false))
-			fmMust(t, port.UpdateParams(&params))
 			fmMust(t, port.Apply(goal, out))
 			if len(out.Goals) != 1 || out.Goals[0] != goal {
 				t.Fatal("goal not returned")
@@ -65,5 +56,34 @@ func TestQESATTacticPartialGoalsAndModels(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	sort := f.own(m.MkUninterpretedSort(symbol.Numerical(99022), nil))
+	v := f.own(m.MkVar(0, sort))
+	other := f.constant("full-unsupported-constant", sort)
+	body := f.own(m.MkEq(v, other))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(quantifier))
+	port, err := NewQESATTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	out := f.result()
+	if err = port.Apply(goal, out); err == nil {
+		t.Fatal("unsupported full projection succeeded")
+	}
+	size, err := goal.Size()
+	fmMust(t, err)
+	if size != 1 {
+		t.Fatalf("goal size changed to %d", size)
+	}
+	got, err := goal.Form(0)
+	fmMust(t, err)
+	if got != quantifier {
+		t.Fatal("unsupported projection changed goal")
 	}
 }

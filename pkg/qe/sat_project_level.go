@@ -13,7 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.ASTHandle, formula ast.ASTHandle, config Config, rw *rewriter.TheoryRewriter, strong *smtcore.ExprStrongContextSimplifier, local bool) (err error) {
+func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.ASTHandle, formula ast.ASTHandle, config Config, rw *rewriter.TheoryRewriter, strong *smtcore.ExprStrongContextSimplifier, local, full bool) (err error) {
 	if levels == nil || levels.manager == nil || rw == nil {
 		return ast.ErrASTHandle
 	}
@@ -66,6 +66,12 @@ func projectSATPartialLevel(levels *satLevels, index uint32, variables []ast.AST
 		}
 		if status != lbool.True {
 			return tactic.NewTacticException("qe-sat projection requires a satisfiable successor")
+		}
+		if full {
+			if e = context.projectFull(uint32(len(context.variables)-1), rw, config); e != nil {
+				return e
+			}
+			continue
 		}
 		md, e := next.AcquireModel()
 		if e != nil {

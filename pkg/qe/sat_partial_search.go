@@ -33,9 +33,6 @@ func newSATPartialSearch(m *ast.ASTManager, config Config, alt *satAlternation, 
 	if m == nil || alt == nil || alt.closed || alt.manager != m || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
 		return nil, ast.ErrASTHandle
 	}
-	if options.projection {
-		return nil, tactic.NewTacticException("qe-sat full projection is not implemented")
-	}
 	result = &satPartialSearch{manager: m, config: config, alt: alt, options: options}
 	defer func() {
 		if err != nil {
@@ -232,7 +229,7 @@ func (s *satPartialSearch) qt(index uint32, context ast.ASTHandle) (result *satP
 			}
 		}
 		if e == nil {
-			e = projectSATPartialLevel(s.levels, index, vars, childValue, s.config, s.rw, s.strong, s.options.simplifyLocal)
+			e = projectSATPartialLevel(s.levels, index, vars, childValue, s.config, s.rw, s.strong, s.options.simplifyLocal, s.options.projection)
 		}
 		e = errors.Join(e, child.Close(), m.DelRef(&ctxM), check.Close())
 		if e != nil {
