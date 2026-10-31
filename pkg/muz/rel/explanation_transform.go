@@ -20,6 +20,7 @@ type ExplanationTransformer struct {
 	rules        *base.RuleManager
 	ruleSort     ast.ASTRef
 	declarations map[ast.ASTHandle]ast.ASTRef
+	factProducts map[ast.ASTHandle]*FiniteExplanationProduct
 	closed       bool
 }
 
@@ -35,7 +36,7 @@ func NewExplanationTransformer(manager *ast.ASTManager, rules *base.RuleManager)
 	if err != nil {
 		return nil, err
 	}
-	return &ExplanationTransformer{manager: manager, rules: rules, ruleSort: ref, declarations: make(map[ast.ASTHandle]ast.ASTRef)}, nil
+	return &ExplanationTransformer{manager: manager, rules: rules, ruleSort: ref, declarations: make(map[ast.ASTHandle]ast.ASTRef), factProducts: make(map[ast.ASTHandle]*FiniteExplanationProduct)}, nil
 }
 
 func (t *ExplanationTransformer) open() error {
@@ -265,6 +266,13 @@ func (t *ExplanationTransformer) Close() (result error) {
 	if t == nil || t.closed {
 		return nil
 	}
+	for key, product := range t.factProducts {
+		if err := product.Close(); err != nil {
+			result = errors.Join(result, err)
+		} else {
+			delete(t.factProducts, key)
+		}
+	}
 	for key, ref := range t.declarations {
 		if err := t.manager.DelRef(&ref); err != nil {
 			result = errors.Join(result, err)
@@ -276,7 +284,7 @@ func (t *ExplanationTransformer) Close() (result error) {
 		result = errors.Join(result, t.manager.DelRef(&t.ruleSort))
 	}
 	if result == nil {
-		t.manager, t.rules, t.declarations, t.closed = nil, nil, nil, true
+		t.manager, t.rules, t.declarations, t.factProducts, t.closed = nil, nil, nil, nil, true
 	}
 	return result
 }
