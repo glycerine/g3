@@ -99280,39 +99280,157 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionFlattensInputInSourceOrder"]},
-        {"name": "qe_project use_native_mbp dispatch applies native forced MBP only to arithmetic after shared lightweight QE, Boolean and array stages (spacer_util.cpp:602-610)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_native.go", "pkg/muz/spacer/derivation.go", "pkg/muz/spacer/native_projection_test.go"], "tests": ["TestSpacerNativeProjectionUsesSharedStages"]},
-        {"name": "implicant_picker false distinct uses project_plugin::pick_equality first model-value identity lookup with owning evaluated values, replacing quadratic reevaluation (spacer_util.cpp:807-811; qe_mbp.cpp:58-76)", "status": "ported", "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_literals_test.go"], "tests": ["TestSpacerImplicantFalseDistinctPicksFirstRepeatedModelValue"]},
-        {"name": "compute_implicant_literals and implicant_picker::pick_implicant input preparation: source flatten_and order, false-conjunct collapse and shared visited marks across input roots (spacer_util.cpp:879-918)", "status": "ported", "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_literals_test.go"], "tests": ["TestSpacerImplicantSourceFlatteningAndSharedVisits"]},
-        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
-        {"name": "adhoc_rewriter_cfg concrete bottom-up normalization rewrites integer thresholds and double negation after child rebuilding, including quantifier body/annotation updates and owning result cache (spacer_util.cpp:980-1055)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go"], "tests": ["TestNormalizeAdhocRewritesChildrenBeforeParentThreshold", "TestNormalizeFormulaIntegerThresholds"]},
-        {"name": "qe_project unconditional array stage preserves reduce_all_selects when no array variables remain, including model-selected store index guards (spacer_util.cpp:556-581; spacer_qe_project.cpp:2298-2335)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionReducesAllSelectsWithoutArrayVariables"]},
-        {"name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_round.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"]},
-        {"name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_model_terms.go", "pkg/qe/legacy_projection_model_terms_test.go"], "tests": ["TestLegacyModelTermProjectionUsesFirstEquivalentIndex", "TestLegacyModelTermProjectionRejectsSelfOccurrence", "TestLegacyModelTermProjectionEqualityDirections"]},
-        {"name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open", "status": "partial", "go_targets": ["pkg/muz/spacer/lemma_generalizer.go", "pkg/muz/spacer/lemma_generalizer_test.go"], "tests": ["TestExpandInductiveDatatypeAndBitVectorEqualities"]},
+        {
+          "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_test.go"
+          ],
+          "tests": [
+            "TestLegacyProjectionFlattensInputInSourceOrder"
+          ]
+        },
+        {
+          "name": "qe_project use_native_mbp dispatch applies native forced MBP only to arithmetic after shared lightweight QE, Boolean and array stages (spacer_util.cpp:602-610)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_native.go",
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/native_projection_test.go"
+          ],
+          "tests": [
+            "TestSpacerNativeProjectionUsesSharedStages"
+          ]
+        },
+        {
+          "name": "implicant_picker false distinct uses project_plugin::pick_equality first model-value identity lookup with owning evaluated values, replacing quadratic reevaluation (spacer_util.cpp:807-811; qe_mbp.cpp:58-76)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_literals_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantFalseDistinctPicksFirstRepeatedModelValue"
+          ]
+        },
+        {
+          "name": "compute_implicant_literals and implicant_picker::pick_implicant input preparation: source flatten_and order, false-conjunct collapse and shared visited marks across input roots (spacer_util.cpp:879-918)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_literals_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantSourceFlatteningAndSharedVisits"
+          ]
+        },
+        {
+          "name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/normalize.go",
+            "pkg/muz/spacer/normalize_test.go",
+            "pkg/muz/spacer/spacer_ast_order_test.go"
+          ],
+          "tests": [
+            "TestNormalizeFormulaSortsConjunctsBySourceASTID",
+            "TestSpacerCubeAndBindingsUseSourceASTIDOrder"
+          ]
+        },
+        {
+          "name": "adhoc_rewriter_cfg concrete bottom-up normalization rewrites integer thresholds and double negation after child rebuilding, including quantifier body/annotation updates and owning result cache (spacer_util.cpp:980-1055)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/normalize.go",
+            "pkg/muz/spacer/normalize_test.go"
+          ],
+          "tests": [
+            "TestNormalizeAdhocRewritesChildrenBeforeParentThreshold",
+            "TestNormalizeFormulaIntegerThresholds"
+          ]
+        },
+        {
+          "name": "qe_project unconditional array stage preserves reduce_all_selects when no array variables remain, including model-selected store index guards (spacer_util.cpp:556-581; spacer_qe_project.cpp:2298-2335)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_test.go"
+          ],
+          "tests": [
+            "TestLegacyProjectionReducesAllSelectsWithoutArrayVariables"
+          ]
+        },
+        {
+          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial",
+          "status": "partial",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_round.go",
+            "pkg/qe/legacy_projection_test.go"
+          ],
+          "tests": [
+            "TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically",
+            "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"
+          ]
+        },
+        {
+          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open",
+          "status": "partial",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_model_terms.go",
+            "pkg/qe/legacy_projection_model_terms_test.go"
+          ],
+          "tests": [
+            "TestLegacyModelTermProjectionUsesFirstEquivalentIndex",
+            "TestLegacyModelTermProjectionRejectsSelfOccurrence",
+            "TestLegacyModelTermProjectionEqualityDirections"
+          ]
+        },
+        {
+          "name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open",
+          "status": "partial",
+          "go_targets": [
+            "pkg/muz/spacer/lemma_generalizer.go",
+            "pkg/muz/spacer/lemma_generalizer_test.go"
+          ],
+          "tests": [
+            "TestExpandInductiveDatatypeAndBitVectorEqualities"
+          ]
+        },
         {
           "name": "simplify_bounds_new and simplify_bounds: proof-disabled goal, propagate-values followed by propagate-inequalities, and single-goal result transfer",
           "status": "ported",
           "go_target": "pkg/muz/spacer/simplify_bounds.go",
-          "tests": ["TestSimplifyBoundsRunsValuesThenInequalities"]
+          "tests": [
+            "TestSimplifyBoundsRunsValuesThenInequalities"
+          ]
         },
         {
           "name": "qe_project retained live driver: flattening, qe_lite preprocessing, Boolean/array/arithmetic projection, spacer.native_mbp selection, retained failures, and final model substitution",
           "status": "ported",
-          "go_target": "pkg/qe/legacy_projection.go; pkg/muz/spacer/derivation.go; pkg/muz/spacer/manager.go",
+          "go_target": "pkg/qe/legacy_projection.go",
           "tests": [
             "TestContextConsumesNativeMBPPolicy",
             "TestLegacyProjectionCombinesBooleanArrayAndArithmetic",
             "TestLegacyProjectionRunsLiteBeforeTheoryDispatch"
+          ],
+          "go_targets": [
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/manager.go"
           ]
         },
         {
-      "name": "source implicant picker for model-true theory literals and branch-sensitive Boolean paths",
-      "status": "ported",
-      "go_target": "pkg/muz/spacer/implicant_literals.go",
-      "tests": ["TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder"]
-    },
-    {
+          "name": "source implicant picker for model-true theory literals and branch-sensitive Boolean paths",
+          "status": "ported",
+          "go_target": "pkg/muz/spacer/implicant_literals.go",
+          "tests": [
+            "TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder"
+          ]
+        },
+        {
           "name": "remaining Spacer utility algorithms",
           "status": "unported",
           "go_target": null,
@@ -99352,38 +99470,155 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionFlattensInputInSourceOrder"]},
-        {"name": "qe_project use_native_mbp dispatch applies native forced MBP only to arithmetic after shared lightweight QE, Boolean and array stages (spacer_util.cpp:602-610)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_native.go", "pkg/muz/spacer/derivation.go", "pkg/muz/spacer/native_projection_test.go"], "tests": ["TestSpacerNativeProjectionUsesSharedStages"]},
-        {"name": "implicant_picker false distinct uses project_plugin::pick_equality first model-value identity lookup with owning evaluated values, replacing quadratic reevaluation (spacer_util.cpp:807-811; qe_mbp.cpp:58-76)", "status": "ported", "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_literals_test.go"], "tests": ["TestSpacerImplicantFalseDistinctPicksFirstRepeatedModelValue"]},
-        {"name": "compute_implicant_literals and implicant_picker::pick_implicant input preparation: source flatten_and order, false-conjunct collapse and shared visited marks across input roots (spacer_util.cpp:879-918)", "status": "ported", "go_targets": ["pkg/muz/spacer/implicant_literals.go", "pkg/muz/spacer/implicant_literals_test.go"], "tests": ["TestSpacerImplicantSourceFlatteningAndSharedVisits"]},
-        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
-        {"name": "adhoc_rewriter_cfg concrete bottom-up normalization rewrites integer thresholds and double negation after child rebuilding, including quantifier body/annotation updates and owning result cache (spacer_util.cpp:980-1055)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go"], "tests": ["TestNormalizeAdhocRewritesChildrenBeforeParentThreshold", "TestNormalizeFormulaIntegerThresholds"]},
-        {"name": "qe_project unconditional array stage preserves reduce_all_selects when no array variables remain, including model-selected store index guards (spacer_util.cpp:556-581; spacer_qe_project.cpp:2298-2335)", "status": "ported", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionReducesAllSelectsWithoutArrayVariables"]},
-        {"name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_round.go", "pkg/qe/legacy_projection_test.go"], "tests": ["TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"]},
-        {"name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open", "status": "partial", "go_targets": ["pkg/qe/legacy_projection.go", "pkg/qe/legacy_projection_model_terms.go", "pkg/qe/legacy_projection_model_terms_test.go"], "tests": ["TestLegacyModelTermProjectionUsesFirstEquivalentIndex", "TestLegacyModelTermProjectionRejectsSelfOccurrence", "TestLegacyModelTermProjectionEqualityDirections"]},
-        {"name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open", "status": "partial", "go_targets": ["pkg/muz/spacer/lemma_generalizer.go", "pkg/muz/spacer/lemma_generalizer_test.go"], "tests": ["TestExpandInductiveDatatypeAndBitVectorEqualities"]},
         {
-          "name": "simplify_bounds retained lemma-vector simplification interface",
+          "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",
           "status": "ported",
-          "go_target": "pkg/muz/spacer/simplify_bounds.go",
-          "tests": ["TestSimplifyBoundsRunsValuesThenInequalities"]
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_test.go"
+          ],
+          "tests": [
+            "TestLegacyProjectionFlattensInputInSourceOrder"
+          ]
         },
         {
-          "name": "retained qe_project declaration and native-MBP selection interface",
+          "name": "qe_project use_native_mbp dispatch applies native forced MBP only to arithmetic after shared lightweight QE, Boolean and array stages (spacer_util.cpp:602-610)",
           "status": "ported",
-          "go_target": "pkg/qe/legacy_projection.go; pkg/muz/spacer/derivation.go",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_native.go",
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/native_projection_test.go"
+          ],
           "tests": [
-            "TestContextConsumesNativeMBPPolicy",
+            "TestSpacerNativeProjectionUsesSharedStages"
+          ]
+        },
+        {
+          "name": "implicant_picker false distinct uses project_plugin::pick_equality first model-value identity lookup with owning evaluated values, replacing quadratic reevaluation (spacer_util.cpp:807-811; qe_mbp.cpp:58-76)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_literals_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantFalseDistinctPicksFirstRepeatedModelValue"
+          ]
+        },
+        {
+          "name": "compute_implicant_literals and implicant_picker::pick_implicant input preparation: source flatten_and order, false-conjunct collapse and shared visited marks across input roots (spacer_util.cpp:879-918)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_literals_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantSourceFlatteningAndSharedVisits"
+          ]
+        },
+        {
+          "name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/normalize.go",
+            "pkg/muz/spacer/normalize_test.go",
+            "pkg/muz/spacer/spacer_ast_order_test.go"
+          ],
+          "tests": [
+            "TestNormalizeFormulaSortsConjunctsBySourceASTID",
+            "TestSpacerCubeAndBindingsUseSourceASTIDOrder"
+          ]
+        },
+        {
+          "name": "adhoc_rewriter_cfg concrete bottom-up normalization rewrites integer thresholds and double negation after child rebuilding, including quantifier body/annotation updates and owning result cache (spacer_util.cpp:980-1055)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/normalize.go",
+            "pkg/muz/spacer/normalize_test.go"
+          ],
+          "tests": [
+            "TestNormalizeAdhocRewritesChildrenBeforeParentThreshold",
+            "TestNormalizeFormulaIntegerThresholds"
+          ]
+        },
+        {
+          "name": "qe_project unconditional array stage preserves reduce_all_selects when no array variables remain, including model-selected store index guards (spacer_util.cpp:556-581; spacer_qe_project.cpp:2298-2335)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_test.go"
+          ],
+          "tests": [
+            "TestLegacyProjectionReducesAllSelectsWithoutArrayVariables"
+          ]
+        },
+        {
+          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial",
+          "status": "partial",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_round.go",
+            "pkg/qe/legacy_projection_test.go"
+          ],
+          "tests": [
+            "TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically",
             "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"
           ]
         },
         {
-      "name": "retained model implicant picker interface",
-      "status": "ported",
-      "go_target": "pkg/muz/spacer/implicant_literals.go",
-      "tests": ["TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder"]
-    },
-    {
+          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open",
+          "status": "partial",
+          "go_targets": [
+            "pkg/qe/legacy_projection.go",
+            "pkg/qe/legacy_projection_model_terms.go",
+            "pkg/qe/legacy_projection_model_terms_test.go"
+          ],
+          "tests": [
+            "TestLegacyModelTermProjectionUsesFirstEquivalentIndex",
+            "TestLegacyModelTermProjectionRejectsSelfOccurrence",
+            "TestLegacyModelTermProjectionEqualityDirections"
+          ]
+        },
+        {
+          "name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open",
+          "status": "partial",
+          "go_targets": [
+            "pkg/muz/spacer/lemma_generalizer.go",
+            "pkg/muz/spacer/lemma_generalizer_test.go"
+          ],
+          "tests": [
+            "TestExpandInductiveDatatypeAndBitVectorEqualities"
+          ]
+        },
+        {
+          "name": "simplify_bounds retained lemma-vector simplification interface",
+          "status": "ported",
+          "go_target": "pkg/muz/spacer/simplify_bounds.go",
+          "tests": [
+            "TestSimplifyBoundsRunsValuesThenInequalities"
+          ]
+        },
+        {
+          "name": "retained qe_project declaration and native-MBP selection interface",
+          "status": "ported",
+          "go_target": "pkg/qe/legacy_projection.go",
+          "tests": [
+            "TestContextConsumesNativeMBPPolicy",
+            "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"
+          ],
+          "go_targets": [
+            "pkg/muz/spacer/derivation.go"
+          ]
+        },
+        {
+          "name": "retained model implicant picker interface",
+          "status": "ported",
+          "go_target": "pkg/muz/spacer/implicant_literals.go",
+          "tests": [
+            "TestSpacerImplicantPickerUsesOneTrueBranchAndStableOrder"
+          ]
+        },
+        {
           "name": "remaining Spacer utility declarations",
           "status": "unported",
           "go_target": null,
@@ -212691,14 +212926,27 @@
         {
           "name": "combined_solver auxiliary timeout handler and check_sat_result caller-ID reason mapping (src/solver/combined_solver.cpp:85-100; src/solver/check_sat_result.cpp:21-38)",
           "status": "ported",
-          "go_target": "pkg/solver/combined_solver.go; pkg/solver/check_sat_result.go",
-          "tests": ["TestCombinedSolverRealTimeoutCancellationIsScoped", "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"]
+          "go_target": "pkg/solver/combined_solver.go",
+          "tests": [
+            "TestCombinedSolverRealTimeoutCancellationIsScoped",
+            "TestSimpleCheckSatResultReasonsLabelsAndReferenceLifetime"
+          ],
+          "go_targets": [
+            "pkg/solver/check_sat_result.go"
+          ]
         },
         {
           "name": "API context interruptable borrowed handler registration and interrupt dispatch (src/api/api_context.cpp:121-145)",
           "status": "ported",
-          "go_target": "pkg/api/api_context_interrupt.go; pkg/api/api_context_interrupt_scope.go",
-          "tests": ["TestSMTContextInterruptScopeDispatchAndRelease", "TestSMTContextInterruptSetsActualResourceLimit", "TestSMTContextInterruptAliasesShareScope"]
+          "go_target": "pkg/api/api_context_interrupt.go",
+          "tests": [
+            "TestSMTContextInterruptScopeDispatchAndRelease",
+            "TestSMTContextInterruptSetsActualResourceLimit",
+            "TestSMTContextInterruptAliasesShareScope"
+          ],
+          "go_targets": [
+            "pkg/api/api_context_interrupt_scope.go"
+          ]
         }
       ],
       "ownership": [
