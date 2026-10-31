@@ -52370,3 +52370,5 @@ Small allocator location installation: maintain a scan cursor and move it back w
 Collect-statistics parameter ownership: the registered tactic now owns the source parameter reference, replaces it on update, and copies it to translations. Tests verify caller mutation and release, translated lifetime, and rejection of foreign owners; source-method and interrupted-cleanup audits remain open.
 
 Collect-statistics cross-manager translation: verified the translated tactic can apply to a separate AST manager after the original tactic is closed while its parameter reference remains valid.
+
+Collect-statistics solver translation: the cross-context tactic dispatcher now copies its parameter reference into target-owned services, including the case where the source tactic has no parameter owner. An API integration test translates a composed solver and checks it after closing the source solver and context.

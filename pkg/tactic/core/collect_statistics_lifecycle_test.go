@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -126,5 +127,56 @@ func TestCollectStatisticsTranslationAcrossManagers(t *testing.T) {
 	simplifyMust(t, copy.Apply(goal, result))
 	if output.Len() == 0 {
 		t.Fatal("translated tactic did not write output")
+	}
+}
+
+func TestCollectStatisticsContextTranslationUsesTargetParameters(t *testing.T) {
+	source, sourceContext, _ := simplifyFixture(t)
+	params, err := sourceContext.NewValue()
+	simplifyMust(t, err)
+	key := "translated-parameter"
+	simplifyMust(t, sourceContext.SetBoolName(&params, &key, true))
+	runner, err := NewCollectStatisticsTacticWithServices(source, sourceContext, &params, &bytes.Buffer{})
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	simplifyMust(t, sourceContext.Del(&params))
+	target, targetContext, targetGlobals := simplifyFixture(t)
+	translated, matched, err := TranslateContextLeaf(runner, target, targetContext, targetGlobals, model.ModelEvaluatorConfig{})
+	simplifyMust(t, err)
+	if !matched {
+		t.Fatal("collect-statistics was not translated")
+	}
+	copy := translated.(*CollectStatisticsTactic)
+	t.Cleanup(func() { simplifyMust(t, copy.Close()) })
+	if copy.context != targetContext {
+		t.Fatal("translated tactic uses source parameter owner")
+	}
+	simplifyMust(t, runner.Close())
+	if value, err := targetContext.GetBoolName(&copy.params, &key, false); err != nil || !value {
+		t.Fatal("translated parameter", value, err)
+	}
+}
+
+func TestCollectStatisticsContextTranslationWithoutSourceParameterOwner(t *testing.T) {
+	manager, context, globals := simplifyFixture(t)
+	previous, err := uparams.BindProcessGlobalParamsService(nil)
+	simplifyMust(t, err)
+	runner, constructErr := NewCollectStatisticsTacticWithOutput(manager, nil, &bytes.Buffer{})
+	_, restoreErr := uparams.BindProcessGlobalParamsService(previous)
+	simplifyMust(t, restoreErr)
+	simplifyMust(t, constructErr)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	if runner.paramsReady {
+		t.Fatal("plain manager unexpectedly acquired parameters")
+	}
+	translated, matched, err := TranslateContextLeaf(runner, manager, context, globals, model.ModelEvaluatorConfig{})
+	simplifyMust(t, err)
+	if !matched {
+		t.Fatal("collect-statistics was not translated")
+	}
+	copy := translated.(*CollectStatisticsTactic)
+	t.Cleanup(func() { simplifyMust(t, copy.Close()) })
+	if copy.context != context || !copy.paramsReady {
+		t.Fatal("target parameter owner was not attached")
 	}
 }

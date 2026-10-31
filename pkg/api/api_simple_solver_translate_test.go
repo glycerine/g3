@@ -884,3 +884,34 @@ func TestAPISolverTranslationUsesExplicitParameterSnapshot(t *testing.T) {
 		t.Fatalf("second translation seed = %d, want default 0", seed)
 	}
 }
+
+func TestAPITacticSolverTranslateCollectStatisticsAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_UF"))
+	stats, err := source.Tactic("collect-statistics")
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := stats.AndThen(smt)
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	for _, owner := range []*APITactic{combined, smt, stats} {
+		astTestMust(t, owner.Close())
+	}
+	astTestMust(t, solver.LoadSMT2String("(declare-const p Bool) (assert p)"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("translated solver", status)
+	}
+}

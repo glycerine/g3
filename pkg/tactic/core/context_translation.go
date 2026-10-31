@@ -40,6 +40,14 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 			return nil, true, err
 		}
 		return r, true, nil
+	case *CollectStatisticsTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		if !t.paramsReady {
+			r, err := NewCollectStatisticsTacticWithServices(m, context, nil, t.output)
+			return r, true, err
+		}
 	case *ReduceArgsTactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
@@ -102,6 +110,11 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 		}
 		source, sourceParams = t.context, &t.params
 	case *InjectivityTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, sourceParams = t.context, &t.params
+	case *CollectStatisticsTactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
 		}
@@ -185,6 +198,12 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 	case *InjectivityTactic:
 		var next *InjectivityTactic
 		next, err = NewInjectivityTactic(m, context, globals, &p)
+		if err == nil {
+			result = next
+		}
+	case *CollectStatisticsTactic:
+		var next *CollectStatisticsTactic
+		next, err = NewCollectStatisticsTacticWithServices(m, context, &p, t.output)
 		if err == nil {
 			result = next
 		}
