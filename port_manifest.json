@@ -206131,7 +206131,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/nlsat/nlsat_interval_driver_cpp_test.go", "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "pkg/nlsat/nlsat_solver_driver_cpp_test.go"],
-      "tests": ["TestNLSATSourceIntervalUnionCases", "TestNLSATSourceRandomIntervalJustifications", "TestNLSATSourceEvaluatorCircleInfeasibleIntervals", "TestNLSATSourceAssumptionsConflictAndModel", "TestNLSATSourceProjectionDriver"],
+      "tests": ["TestNLSATSourceIntervalUnionCases", "TestNLSATSourceRandomIntervalJustifications", "TestNLSATSourceEvaluatorCircleInfeasibleIntervals", "TestNLSATSourceAssumptionsConflictAndModel", "TestNLSATSourceProjectionDriver", "TestNLSATSourceLinearBoundsProjectionModes", "TestNLSATSourceQuadraticRootExplanations"],
       "conditionals": [
         {
           "line": 592,
@@ -206222,9 +206222,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 circle infeasible intervals", "status": "ported", "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "tests": ["TestNLSATSourceEvaluatorCircleInfeasibleIntervals"]}, {"name": "tst7 assumptions and satisfiable prefix", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceAssumptionsConflictAndModel"]}, {"name": "tst6 and tst8 projection inputs", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceProjectionDriver"]}, {"name": "tst9 and tst10 projection modes and root literals", "status": "unported"}],
+      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 circle infeasible intervals", "status": "ported", "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "tests": ["TestNLSATSourceEvaluatorCircleInfeasibleIntervals"]}, {"name": "tst7 assumptions and satisfiable prefix", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceAssumptionsConflictAndModel"]}, {"name": "tst6 and tst8 projection inputs", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceProjectionDriver"]}, {"name": "tst9 linear bounds and projection modes", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceLinearBoundsProjectionModes"]}, {"name": "tst10 quadratic root explanations", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceQuadraticRootExplanations"]}],
       "ownership": ["The interval fixture owns its algebraic manager; each generated interval and union holds a reference until test cleanup."],
-      "deviations": ["Source diagnostic output is omitted. The tst6 inputs run in both modes except the four-inequality general case, which exceeded 45 seconds; tst8 runs in the source default general mode. Projection-mode and root-literal scenarios remain separate work."]
+      "deviations": ["Source diagnostic output is omitted. The tst6 inputs run in both modes except the four-inequality general case, which exceeded 45 seconds; tst8 runs in the source default general mode. For tst9, the symbolic-multiplier cases run signed projection only: general projection exceeded a minute. The plain bounds run in both modes."]
     },
     {
       "path": "src/test/no_overflow.cpp",

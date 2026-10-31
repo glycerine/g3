@@ -138,3 +138,106 @@ func checkSourceProjection(t *testing.T, s *Solver, variable uint32, input []sat
 		}
 	}
 }
+
+// Source: src/test/nlsat.cpp tst10 and test_root_literal.
+func TestNLSATSourceQuadraticRootExplanations(t *testing.T) {
+	s := solverFixture(t)
+	for i := 0; i < 4; i++ {
+		_, err := s.MkVar(false)
+		assignmentMust(t, err)
+	}
+	p := solverPolynomial(t, s, []int32{1, 1, 1}, [][]polynomial.MonomialPower{
+		{{Var: 0, Degree: 1}, {Var: 3, Degree: 2}}, {{Var: 1, Degree: 1}, {Var: 3, Degree: 1}}, {{Var: 2, Degree: 1}},
+	})
+	for _, coefficients := range [][3]int64{{1, -3, 2}, {-1, 3, -2}} {
+		for i, c := range coefficients {
+			evaluatorSetFraction(t, s.evaluator, uint32(i), c, 1)
+		}
+		for _, x := range []struct {
+			n int64
+			d uint64
+		}{{1, 1}, {2, 1}, {1, 2}, {-1, 1}, {3, 1}} {
+			evaluatorSetFraction(t, s.evaluator, 3, x.n, x.d)
+			sign, err := s.config.Algebraic.EvalSign(s.config.Polynomial, p, s.assignment)
+			assignmentMust(t, err)
+			for _, kind := range []AtomKind{AtomRootEQ, AtomRootLT, AtomRootGT, AtomRootLE, AtomRootGE} {
+				if !evaluatorTruth(sign, kind, false) {
+					continue
+				}
+				n := s.explanation
+				assignmentMust(t, n.reset())
+				assignmentMust(t, n.start())
+				assignmentMust(t, n.addRootLiteral(kind, 3, 1, p))
+				assignmentMust(t, n.finish(nil))
+				root, err := s.MkRoot(kind, 3, 1, p, false)
+				assignmentMust(t, err)
+				assignmentMust(t, s.RetainLiteral(root))
+				value, err := s.LiteralValue(root)
+				assignmentMust(t, err)
+				if value == lbool.True {
+					for _, lit := range n.output.result {
+						v, e := s.LiteralValue(lit)
+						assignmentMust(t, e)
+						if v != lbool.False {
+							t.Fatal("root explanation not false in satisfying model", coefficients, x, kind, lit, v)
+						}
+					}
+				}
+				assignmentMust(t, s.ReleaseLiteral(root))
+			}
+		}
+	}
+}
+
+// Source: src/test/nlsat.cpp tst9 and TEST_ON_OFF.
+func TestNLSATSourceLinearBoundsProjectionModes(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		scale int
+	}{{"plain", -1}, {"positive", 5}, {"negative", 1}} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := solverFixture(t)
+			for i := 0; i < 11; i++ {
+				_, err := s.MkVar(false)
+				assignmentMust(t, err)
+			}
+			for i, v := range []int64{-1, -2, -3, -4, 1, 2, 3, 4, 5, 0, 0} {
+				evaluatorSetFraction(t, s.evaluator, uint32(i), v, 1)
+			}
+			lits := make([]sat.Literal, 0, 10)
+			add := func(coeff []int32, powers [][]polynomial.MonomialPower, kind AtomKind) {
+				p := solverPolynomial(t, s, coeff, powers)
+				lit, e := s.MkInequality(kind, []polynomial.Polynomial{p}, []bool{false}, false)
+				assignmentMust(t, e)
+				assignmentMust(t, s.RetainLiteral(lit))
+				t.Cleanup(func() { assignmentMust(t, s.ReleaseLiteral(lit)) })
+				lits = append(lits, lit)
+			}
+			x := []polynomial.MonomialPower{{Var: 10, Degree: 1}}
+			if tc.scale >= 0 {
+				x = []polynomial.MonomialPower{{Var: uint32(tc.scale), Degree: 1}, {Var: 10, Degree: 1}}
+			}
+			for i := uint32(0); i < 4; i++ {
+				add([]int32{1, -1}, [][]polynomial.MonomialPower{x, {{Var: i, Degree: 1}}}, AtomGT)
+			}
+			for i := uint32(4); i < 9; i++ {
+				add([]int32{1, -1}, [][]polynomial.MonomialPower{{{Var: i, Degree: 1}}, x}, AtomGT)
+			}
+			equalityX := x
+			if tc.name == "negative" {
+				equalityX = []polynomial.MonomialPower{{Var: 10, Degree: 1}}
+			}
+			add([]int32{1, -1}, [][]polynomial.MonomialPower{equalityX, {{Var: 9, Degree: 1}}}, AtomEQ)
+			for _, length := range []int{9, 10} {
+				for _, signed := range []bool{false, true} {
+					// General projection with a symbolic multiplier exceeds the focused test budget.
+					if !signed && tc.scale >= 0 {
+						continue
+					}
+					assignmentMust(t, s.SetSignedProjection(signed))
+					checkSourceProjection(t, s, 10, lits[:length])
+				}
+			}
+		})
+	}
+}
