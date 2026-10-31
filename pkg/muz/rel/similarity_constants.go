@@ -159,3 +159,44 @@ func similarityVaryingConstants(rules []*base.Rule) ([]similarityConstant, error
 	}
 	return varying, nil
 }
+
+// similarityOrphanRows returns the auxiliary predicate's borrowed domain sorts
+// and fact columns. The caller keeps the source rules alive while using them.
+func similarityOrphanRows(rules []*base.Rule, positions []similarityConstant) ([]ast.ASTHandle, [][]ast.ASTHandle, error) {
+	if len(rules) == 0 {
+		return nil, nil, ast.ErrASTDomain
+	}
+	m, e := rules[0].ASTManager()
+	if e != nil {
+		return nil, nil, e
+	}
+	var domains []ast.ASTHandle
+	for _, p := range positions {
+		if p.parent >= 0 {
+			continue
+		}
+		v, e := similarityConstantValue(m, rules[0], p)
+		if e != nil {
+			return nil, nil, e
+		}
+		s, e := m.GetSort(v)
+		if e != nil {
+			return nil, nil, e
+		}
+		domains = append(domains, s)
+	}
+	rows := make([][]ast.ASTHandle, len(rules))
+	for i, r := range rules {
+		for _, p := range positions {
+			if p.parent >= 0 {
+				continue
+			}
+			v, e := similarityConstantValue(m, r, p)
+			if e != nil {
+				return nil, nil, e
+			}
+			rows[i] = append(rows[i], v)
+		}
+	}
+	return domains, rows, nil
+}

@@ -90465,12 +90465,15 @@
         "pkg/muz/rel/similarity_constants.go",
         "pkg/muz/rel/similarity_constants_test.go",
         "pkg/muz/rel/similarity_classes.go",
-        "pkg/muz/rel/similarity_classes_test.go"
+        "pkg/muz/rel/similarity_classes_test.go",
+        "pkg/muz/rel/similarity_rewrite.go",
+        "pkg/muz/rel/similarity_rewrite_test.go"
       ],
       "tests": [
         "TestSimilarityRuleComparisons",
         "TestSimilarityVaryingConstantsAndEqualParents",
-        "TestSimilarityClassesThresholdDuplicatesAndOutputs"
+        "TestSimilarityClassesThresholdDuplicatesAndOutputs",
+        "TestSimilarityRewriteRuleAndAuxiliaryRows"
       ],
       "conditionals": [
         {
@@ -90590,13 +90593,26 @@
           "tests": [
             "TestSimilarityClassesThresholdDuplicatesAndOutputs"
           ]
+        },
+        {
+          "name": "merge_class rule construction and orphan domain/fact-row extraction using an already registered auxiliary predicate",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/similarity_rewrite.go",
+          "go_targets": [
+            "pkg/muz/rel/similarity_rewrite.go",
+            "pkg/muz/rel/similarity_constants.go"
+          ],
+          "tests": [
+            "TestSimilarityRewriteRuleAndAuxiliaryRows"
+          ]
         }
       ],
       "ownership": [
-        "Comparisons borrow rule and AST handles and return no expression owners."
+        "Comparisons borrow rule and AST handles and return no expression owners.",
+        "The generated rule is caller-owned; auxiliary domain and fact rows borrow source-rule ASTs. Construction pins temporary variables and applications until the rule acquires its owners."
       ],
       "deviations": [
-        "Pending: auxiliary predicate/fact construction, generated rule replacement, result rule-set lifecycle, plugin registration, diagnostics and allocation audit. The class-selection phase does not mutate the source."
+        "Pending: auxiliary predicate creation, relation-manager fact publication and saturation, full class merge orchestration, result rule-set lifecycle, plugin registration, diagnostics and allocation audit."
       ]
     },
     {
