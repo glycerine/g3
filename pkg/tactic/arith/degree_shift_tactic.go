@@ -93,6 +93,20 @@ func (t *DegreeShiftTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) 
 	return NewDegreeShiftTactic(m, t.services)
 }
 
+func (t *DegreeShiftTactic) checkpoint() error {
+	canceled, err := t.manager.Canceled()
+	if err != nil {
+		return err
+	}
+	if canceled {
+		return tactic.NewTacticException(t.manager.ResourceLimit().CancelMessage())
+	}
+	if t.services.Cooperation != nil {
+		return t.services.Cooperation.Checkpoint("degree_shift")
+	}
+	return nil
+}
+
 func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
 	if err = t.open(); err != nil {
 		return err
@@ -123,7 +137,7 @@ func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	if err != nil {
 		return err
 	}
-	plan, err := degreeShiftPrepare(m, roots, proofs)
+	plan, err := degreeShiftPrepareWithCheckpoint(m, roots, proofs, t.checkpoint)
 	if err != nil {
 		return err
 	}
@@ -135,6 +149,9 @@ func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 		}
 		defer func() { err = errors.Join(err, walk.Close()) }()
 		for i, root := range roots {
+			if e := t.checkpoint(); e != nil {
+				return e
+			}
 			out, e := m.NewRef(ast.ASTHandle{})
 			if e != nil {
 				return e

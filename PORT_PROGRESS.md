@@ -1,4 +1,4 @@
-Degree-shift tactic integration (2026-10-31 UTC): registered the composed simplification and degree-shift tactic, including fresh variables, power rewriting, even-degree bounds, proofs and model reconstruction. Focused normal and checked tests, the arithmetic and command-context packages, and SMT-LIB regressions pass; cancellation checkpoints and the full source and ownership audits remain unfinished.
+Degree-shift tactic integration (2026-10-31 UTC): registered the composed simplification and degree-shift tactic, including fresh variables, power rewriting, even-degree bounds, proofs and model reconstruction. Focused normal and checked tests, the arithmetic and command-context packages, and SMT-LIB regressions pass; cancellation and cooperation checkpoints are covered by a cancellation-and-reuse test; full source and ownership audits remain unfinished.
 
 Generated parameter-description replay (2026-10-31 UTC): added solver descriptor creation, reference counts, exact-symbol lookup, names, documentation, display and parameter validation. Focused normal and checked API/CLI tests and the full API package pass.
 

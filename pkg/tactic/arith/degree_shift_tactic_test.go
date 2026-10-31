@@ -66,3 +66,30 @@ func TestDegreeShiftFactorySimplifiesMultiplication(t *testing.T) {
 		t.Fatalf("got %d goal formulas, want shifted equality and bound", size)
 	}
 }
+
+func TestDegreeShiftCancellationAndReuse(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	x := fixDLConst(t, m, false, "cancel-x")
+	power := fixDLApp(t, m, 18, x, fixDLNumber(t, m, false, "2"))
+	form, err := m.MkEq(power, fixDLNumber(t, m, false, "4"))
+	equationMust(t, err)
+	fixDLPin(t, m, form)
+	goal := fixDLGoal(t, m, false, false, false, form)
+	shift, err := NewDegreeShiftTactic(m, base.services)
+	equationMust(t, err)
+	defer func() { equationMust(t, shift.Close()) }()
+	var out tactic.TacticResult
+	defer func() { equationMust(t, out.Close()) }()
+	m.ResourceLimit().Cancel()
+	err = shift.Apply(goal, &out)
+	m.ResourceLimit().ResetCancel()
+	if err == nil {
+		t.Fatal("canceled degree shift succeeded")
+	}
+	equationMust(t, shift.Apply(goal, &out))
+	size, err := goal.Size()
+	equationMust(t, err)
+	if size != 2 {
+		t.Fatalf("after reset got %d formulas, want 2", size)
+	}
+}

@@ -94,10 +94,14 @@ func degreeShiftDefinitionProof(m *ast.ASTManager, original, fresh ast.ASTHandle
 	return m.NewRef(proof)
 }
 func degreeShiftPrepare(m *ast.ASTManager, roots []ast.ASTHandle, proofs bool) (plan *degreeShiftPlan, err error) {
+	return degreeShiftPrepareWithCheckpoint(m, roots, proofs, nil)
+}
+
+func degreeShiftPrepareWithCheckpoint(m *ast.ASTManager, roots []ast.ASTHandle, proofs bool, checkpoint func() error) (plan *degreeShiftPlan, err error) {
 	if m == nil {
 		return nil, ast.ErrASTHandle
 	}
-	degrees, err := degreeShiftCandidates(m, roots)
+	degrees, err := degreeShiftCandidatesWithCheckpoint(m, roots, checkpoint)
 	if err != nil {
 		return nil, err
 	}
