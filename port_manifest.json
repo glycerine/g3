@@ -48331,9 +48331,9 @@
       "path": "src/duality/duality_rpfp.cpp",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/duality/rpfp_expression.go", "pkg/duality/rpfp_expression_test.go"],
+      "tests": ["TestRPFPExpressionComplexityAndNames"],
       "conditionals": [
         {
           "line": 24,
@@ -48682,7 +48682,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The source expression complexity and indexed variable naming are started; RPFP nodes, edges and fixedpoint operations remain unfinished."]
     },
     {
       "path": "src/duality/duality_solver.cpp",

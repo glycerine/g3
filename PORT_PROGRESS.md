@@ -1,3 +1,5 @@
+Duality RPFP start (2026-10-31 UTC): ported the live Boolean complexity counter and node/edge indexed variable naming. Tests cover shared subexpressions, quantifiers, names and sorts in normal and checked builds; the RPFP graph and solver remain unfinished.
+
 Tabulation rule clauses (2026-10-31 UTC): connected Datalog rule heads, predicate tails and interpreted constraints to clause reduction, preserving the source variable count for ground rules. Focused normal and checked tests cover rule conversion and ownership; rule indexing and proof search remain unfinished.
 
 Tabulation clause reduction (2026-10-31 UTC): added owned clause expressions, original free-variable counts, and source equality substitution restricted to values and constructor terms, including the occurs check. Normal and checked tests cover head and predicate updates, cyclic constructors, and rejected uninterpreted terms; rule initialization, indexing and proof search remain unfinished.
