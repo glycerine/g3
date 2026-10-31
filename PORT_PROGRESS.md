@@ -1,3 +1,5 @@
+Fixedpoint string/file replay now returns owned query-expression vectors, including fixedpoint scope handling and parser-error results. The loader still uses the live fixedpoint parser context, so parse failures may leave prefix mutations and manager-destroying resets are rejected while collecting queries; the native temporary collection context remains to be ported.
+
 Floating-point conversion source guards (2026-10-31 UTC): public conversion entry points now reject input sorts belonging to other overloads, including the three-bitvector overload of exponent/significand conversion. Normal and checked floating-point suites pass; whole-unit audits remain pending.
 
 Datatype constructor frontend integration (2026-10-31 UTC): normal and checked command-line tests replay constructor creation, datatype construction and query.

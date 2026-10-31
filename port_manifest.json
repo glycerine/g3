@@ -6000,7 +6000,8 @@
         "pkg/api/z3_generated_rcf_commands.go",
         "pkg/api/z3_generated_rcf_commands_test.go",
         "pkg/api/z3_generated_datatype_constructor_commands.go",
-        "pkg/api/z3_generated_datatype_constructor_commands_test.go"
+        "pkg/api/z3_generated_datatype_constructor_commands_test.go",
+        "pkg/api/z3_generated_fixedpoint_load_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6128,7 +6129,9 @@
         "TestGeneratedDatatypeConstructorReplayRejectsShortArrays",
         "TestGeneratedDatatypeConstructorReplayBuildAndQuery",
         "TestGeneratedDatatypeConstructorReplayMutualRecursion",
-        "TestZ3LogFrontendReplaysDatatypeConstructors"
+        "TestZ3LogFrontendReplaysDatatypeConstructors",
+        "TestGeneratedFixedpointReplayLoadQueries",
+        "TestGeneratedFixedpointReplayLoadErrors"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6501,7 +6504,9 @@
         "pkg/cmd_context/fixedpoint_relation_registration.go",
         "pkg/cmd_context/fixedpoint_query_display.go",
         "pkg/api/api_fixedpoint_object_parameters.go",
-        "pkg/api/api_fixedpoint_object_parameters_test.go"
+        "pkg/api/api_fixedpoint_object_parameters_test.go",
+        "pkg/api/api_fixedpoint_object_load_queries.go",
+        "pkg/api/api_fixedpoint_object_load_queries_test.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6519,7 +6524,8 @@
         "TestSMTContextRelationSortQueries",
         "TestAPIFixedpointParametersAreOwnedAndLocal",
         "TestAPIFixedpointParametersValidateCatalog",
-        "TestGeneratedFixedpointReplayParameterUpdate"
+        "TestGeneratedFixedpointReplayParameterUpdate",
+        "TestAPIFixedpointObjectLoadSMT2Queries"
       ],
       "assertions": [
         {
@@ -6569,7 +6575,8 @@
         "SMTContext owns the shared command/fixedpoint context. QueryFixedpointWithOptions constructs one temporary catalog-validated ParamsRef, while the engine retains its own snapshot for the query and replaces it before the next query. FixedpointAnswer, FixedpointGroundSatAnswer, FixedpointCoverDelta, FixedpointReachable and EvaluateFixedpointModel each transfer one concrete ASTRef to the caller; FixedpointRules, FixedpointAssertions and FixedpointRulesAlongTrace transfer one ASTRef per formula, with ordinary Go name strings where present; FixedpointModel transfers one concrete model owner; replay writers borrow their destination synchronously; statistics are copied Go values, and relation/rule/assertion/cover inputs are borrowed for each call then retained by the underlying context when required."
       ],
       "deviations": [
-        "The additive public Go surface reuses SMTContext instead of exposing the native opaque reference-counted fixedpoint object or C ABI. Fixedpoint parsing accepts an io.Reader instead of reproducing separate native string/file entry points. Cover operations are available after a retained PDR/Spacer query and operate on direct predicates; native slice/model-converter remapping remains outside this path. Unlisted api_datalog operations remain unported."
+        "The additive public Go surface reuses SMTContext instead of exposing the native opaque reference-counted fixedpoint object or C ABI. Fixedpoint parsing accepts an io.Reader instead of reproducing separate native string/file entry points. Cover operations are available after a retained PDR/Spacer query and operate on direct predicates; native slice/model-converter remapping remains outside this path. Unlisted api_datalog operations remain unported.",
+        "Fixedpoint query loading currently parses into the live fixedpoint command context rather than a temporary collecting context, so a failed parse can leave prefix mutations; resets that destroy the parser manager are explicitly rejected during query collection."
       ]
     },
     {
@@ -87271,7 +87278,9 @@
         "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2",
         "pkg/cmd/g3/test_vectors/fixedpoint_finite_relations.smt2",
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_background.smt2",
-        "pkg/cmd/g3/test_vectors/fixedpoint_pdr_recursive_trace.smt2"
+        "pkg/cmd/g3/test_vectors/fixedpoint_pdr_recursive_trace.smt2",
+        "pkg/parsers/smt2/fixedpoint_query_collector.go",
+        "pkg/parsers/smt2/fixedpoint_query_collector_test.go"
       ],
       "tests": [
         "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
@@ -87296,7 +87305,10 @@
         "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2",
-        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2",
+        "TestFixedpointQueryCollectorScopesAndVariables",
+        "TestFixedpointQueryCollectorOrdinaryScopesDoNotDiscardQueries",
+        "TestFixedpointQueryCollectorParseErrorCleansUp"
       ],
       "assertions": [
         {
@@ -108259,7 +108271,9 @@
         "pkg/parsers/smt2/declare_map_test.go",
         "pkg/cmd/g3/test_vectors/declare_map.smt2",
         "pkg/parsers/smt2/fixedpoint_commands_test.go",
-        "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2"
+        "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2",
+        "pkg/parsers/smt2/fixedpoint_query_collector.go",
+        "pkg/parsers/smt2/fixedpoint_query_collector_test.go"
       ],
       "tests": [
         "TestSMT2FunctionDeclarationReferenceErrors",
@@ -108341,7 +108355,8 @@
         "TestSMTLibRunnerConcreteLRAScriptsMatchCPP",
         "TestSMTLibRunnerConcreteLRADefaultSelection",
         "TestSMT2ContextLemmaProblemsGoAndCPP",
-        "pkg/parsers/smt2/command_globals_test.go"
+        "pkg/parsers/smt2/command_globals_test.go",
+        "TestFixedpointQueryCollectorScopesAndVariables"
       ],
       "assertions": [
         {

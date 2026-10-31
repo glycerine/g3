@@ -5,6 +5,8 @@ package api
 import (
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 
@@ -28,6 +30,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		{519, "Z3_fixedpoint_get_answer"}, {520, "Z3_fixedpoint_get_reason_unknown"}, {521, "Z3_fixedpoint_update_rule"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
+		{534, "Z3_fixedpoint_from_string"}, {535, "Z3_fixedpoint_from_file"},
 		{530, "Z3_fixedpoint_set_params"}, {531, "Z3_fixedpoint_get_help"}, {532, "Z3_fixedpoint_get_param_descrs"}, {533, "Z3_fixedpoint_to_string"},
 		{651, "Z3_fixedpoint_query_from_lvl"}, {652, "Z3_fixedpoint_get_ground_sat_answer"}, {653, "Z3_fixedpoint_get_rules_along_trace"}, {654, "Z3_fixedpoint_get_rule_names_along_trace"},
 		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
@@ -107,6 +110,28 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		return err
 	}
 	switch id {
+	case 534, 535:
+		input, e := r.String(2)
+		if e != nil {
+			return e
+		}
+		var reader io.Reader = strings.NewReader(input)
+		if id == 535 {
+			file, x := os.Open(input)
+			if x != nil {
+				owner.results.setErrorCode(4)
+				return r.StoreResult(0)
+			}
+			defer func() { err = errors.Join(err, file.Close()) }()
+			reader = file
+		}
+		vector, e := f.value.LoadSMT2WithQueries(reader)
+		if e != nil {
+			owner.parserError = e.Error()
+			owner.results.setErrorCode(4)
+			return r.StoreResult(0)
+		}
+		return replayStoreVector(r, owner, vector)
 	case 512:
 		return f.object.incRef()
 	case 513:
