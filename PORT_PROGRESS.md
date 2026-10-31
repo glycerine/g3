@@ -1,3 +1,5 @@
+Bound relation join and projection (2026-10-31 UTC): added concrete vector joins and projection with column equality preservation. Projection drops references to removed columns and preserves empty inputs; C++ uses the UINT_MAX removal sentinel and does not propagate emptiness. Rename, remaining filters, formulas and live relation registration remain pending.
+
 Full native snapshot check (2026-10-31 UTC): suite on isolated commit dad552884 failed in two API tests that still expected the previous SMT-LIB objective output. All other package results passed; corrective commit d2bc4bfab updated those expectations to the native frontend format, and the complete API package and checked OPB/WCNF API tests passed afterward. This is not a passing full-suite checkpoint for the newer commits. Log: /tmp/g3-full-native-dad552884.log.
 
 Bound relation union (2026-10-31 UTC): added concrete source union and widening over bound sets, including joint equality classes and bound remapping. Tests cover stable bounds, empty relations and split equivalence classes; the remaining vector operations and live registration remain pending.
