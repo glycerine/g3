@@ -32,6 +32,7 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{488, "Z3_rcf_del"}, {489, "Z3_rcf_mk_rational"}, {490, "Z3_rcf_mk_small_int"},
+		{495, "Z3_rcf_add"}, {496, "Z3_rcf_sub"}, {497, "Z3_rcf_mul"}, {498, "Z3_rcf_div"}, {499, "Z3_rcf_neg"}, {500, "Z3_rcf_inv"},
 		{502, "Z3_rcf_lt"}, {503, "Z3_rcf_gt"}, {504, "Z3_rcf_le"}, {505, "Z3_rcf_ge"}, {506, "Z3_rcf_eq"}, {507, "Z3_rcf_neq"},
 		{508, "Z3_rcf_num_to_string"}, {509, "Z3_rcf_num_to_decimal_string"},
 	}
@@ -42,6 +43,24 @@ func registerZ3GeneratedRCFCommands(r *Z3Replayer) error {
 		}
 	}
 	return nil
+}
+
+// A source arithmetic identity can return the same pointer with an extra
+// owning reference. Preserve that identity for later delete commands.
+func replayRetainRCF(r *Z3Replayer, owner *replayContextOwner, position uint32) error {
+	id, err := r.Object(position)
+	if err != nil {
+		return err
+	}
+	if id == 0 {
+		return r.StoreResult(0)
+	}
+	n := r.rcfNumbers[id]
+	if n == nil || n.owner != owner || n.refs == 0 || n.refs == ^uint32(0) {
+		return ErrZ3ReplayReference
+	}
+	n.refs++
+	return r.StoreResult(id)
 }
 
 func replayStoreRCF(r *Z3Replayer, owner *replayContextOwner, value *RCFNumber) error {
@@ -137,6 +156,79 @@ func replayRCFCommand(r *Z3Replayer, id uint32) (err error) {
 	}
 	if temporary {
 		defer func() { err = errors.Join(err, first.Close()) }()
+	}
+	if id >= 495 && id <= 500 {
+		if id == 499 || id == 500 {
+			var result *RCFNumber
+			if id == 499 {
+				result, err = owner.context.RCFNeg(first)
+			} else {
+				result, err = owner.context.RCFInv(first)
+			}
+			if err != nil {
+				return err
+			}
+			return replayStoreRCF(r, owner, result)
+		}
+		second, secondTemporary, e := replayRCFAt(r, owner, 2)
+		if e != nil {
+			return e
+		}
+		if secondTemporary {
+			defer func() { err = errors.Join(err, second.Close()) }()
+		}
+		if id == 495 {
+			if temporary {
+				return replayRetainRCF(r, owner, 2)
+			}
+			if secondTemporary {
+				return replayRetainRCF(r, owner, 1)
+			}
+		}
+		if id == 496 && secondTemporary {
+			return replayRetainRCF(r, owner, 1)
+		}
+		if id == 497 || id == 498 {
+			if temporary {
+				return r.StoreResult(0)
+			}
+			if id == 497 && secondTemporary {
+				return r.StoreResult(0)
+			}
+			if id == 497 {
+				one, e := first.service.IsOne(&first.value)
+				if e != nil {
+					return e
+				}
+				if one {
+					return replayRetainRCF(r, owner, 2)
+				}
+			}
+			if !secondTemporary {
+				one, e := second.service.IsOne(&second.value)
+				if e != nil {
+					return e
+				}
+				if one {
+					return replayRetainRCF(r, owner, 1)
+				}
+			}
+		}
+		var result *RCFNumber
+		switch id {
+		case 495:
+			result, err = owner.context.RCFAdd(first, second)
+		case 496:
+			result, err = owner.context.RCFSub(first, second)
+		case 497:
+			result, err = owner.context.RCFMul(first, second)
+		case 498:
+			result, err = owner.context.RCFDiv(first, second)
+		}
+		if err != nil {
+			return err
+		}
+		return replayStoreRCF(r, owner, result)
 	}
 	if id >= 502 && id <= 507 {
 		second, secondTemporary, e := replayRCFAt(r, owner, 2)

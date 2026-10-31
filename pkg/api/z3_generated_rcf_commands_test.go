@@ -68,3 +68,70 @@ func TestGeneratedRCFRationalReplayZeroAndLifecycle(t *testing.T) {
 		t.Fatal("unreleased rational")
 	}
 }
+
+func TestGeneratedRCFRationalReplayArithmeticAndAliases(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nS \"3/2\"\nC 489\n= 0x42\nR\nP 0x41\nI 1\nC 490\n= 0x43\n" +
+		"R\nP 0x41\nP 0x42\nP 0\nC 495\n= 0x42\nR\nP 0x41\nP 0x43\nP 0x42\nC 497\n= 0x42\nR\nP 0x41\nP 0x42\nP 0x43\nC 498\n= 0x42\n" +
+		"R\nP 0x41\nP 0x42\nC 488\nR\nP 0x41\nP 0x42\nC 488\nR\nP 0x41\nP 0x42\nC 488\n" +
+		"R\nP 0x41\nP 0x42\nP 0x43\nC 495\n= 0x44\nR\nP 0x41\nP 0x42\nP 0x43\nC 496\n= 0x45\n" +
+		"R\nP 0x41\nP 0x42\nC 499\n= 0x46\nR\nP 0x41\nP 0x42\nC 500\n= 0x47\nR\nP 0x41\nP 0\nP 0\nC 498\n= 0x0\n" +
+		"R\nP 0x41\nP 0x42\nP 0x44\nP 0x45\nP 0x46\nP 0x47\nP 0\nC 900\n" +
+		"R\nP 0x41\nP 0x42\nC 488\nR\nP 0x41\nP 0x43\nC 488\nR\nP 0x41\nP 0x44\nC 488\nR\nP 0x41\nP 0x45\nC 488\nR\nP 0x41\nP 0x46\nC 488\nR\nP 0x41\nP 0x47\nC 488\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-rcf-arithmetic", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		for pos, want := range []string{"3/2", "5/2", "1/2", "-3/2", "2/3", "0"} {
+			value, temporary, e := replayRCFAt(r, owner, uint32(pos+1))
+			if e != nil {
+				return e
+			}
+			got, e := owner.context.RCFString(value)
+			if temporary {
+				if x := value.Close(); x != nil {
+					return x
+				}
+			}
+			if e != nil {
+				return e
+			}
+			if got != want {
+				t.Fatal("rational arithmetic", got, want)
+			}
+		}
+		id, e := r.Object(1)
+		if e != nil {
+			return e
+		}
+		if r.rcfNumbers[id].refs != 1 {
+			t.Fatal("alias count", r.rcfNumbers[id].refs)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked || len(r.rcfNumbers) != 0 {
+		t.Fatal("arithmetic lifecycle", checked, len(r.rcfNumbers))
+	}
+}
