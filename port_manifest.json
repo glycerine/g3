@@ -101882,7 +101882,7 @@
       "path": "src/opt/opt_pareto.cpp",
       "component": "opt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/cmd_context/optimization_pareto.go",
         "pkg/cmd_context/optimization_pareto_source_test.go",
@@ -101891,7 +101891,13 @@
         "pkg/opt/maxsmt_labels.go",
         "pkg/opt/arithmetic_solver.go",
         "pkg/cmd_context/optimization_pareto_trace.go",
-        "pkg/cmd_context/optimization_pareto_trace_test.go"
+        "pkg/cmd_context/optimization_pareto_trace_test.go",
+        "pkg/cmd_context/optimization_pareto_model_trace_test.go",
+        "pkg/cmd_context/optimization_pareto_purification.go",
+        "pkg/cmd_context/optimization_pareto_purification_test.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/api/api_optimize_parameters_pareto_test.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestSMT2ParetoOptimizationEndToEnd",
@@ -101910,7 +101916,15 @@
         "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop",
         "TestParetoFormulaTraceBeforeAssertionAndStreamRefusal",
         "TestParetoFormulaTraceOperandErrorAfterStreamFailure",
-        "TestParetoFormulaVerbosityThreshold"
+        "TestParetoFormulaVerbosityThreshold",
+        "TestParetoModelVerbosityGateAndFilteredCopy",
+        "TestParetoDisabledModelDiagnosticDoesNotFixModel",
+        "TestParetoLiveModelVerbosePrecedesDominanceTrace",
+        "TestParetoModelDiagnosticAllocationFailuresReleaseCopies",
+        "TestParetoLivePurificationPersistsAndFiltersFrontierModels",
+        "TestParetoLiveSoftPurificationAndMutationCleanup",
+        "TestParetoPurificationPreparationFailureCleanup",
+        "TestParetoBackendConstructionRefusalClosesUnpublishedSolver"
       ],
       "assertions": [
         {
@@ -101918,8 +101932,8 @@
           "text": "SASSERT(is_sat == l_false);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "GIA calls actual objective GE/GT callbacks in source interleaved order, builds one flat dominance conjunction, invokes only LE callbacks for permanent blockers and checks cancellation before acquiring the next model (opt_pareto.cpp:30-86)",
@@ -101936,7 +101950,7 @@
         },
         {
           "name": "GIA arithmetic, unsigned bit-vector and normalized weighted-soft Pareto improvement loop, retained best model and persistent not-dominated blockers across checks (opt_pareto.cpp:31-86)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
           "tests": [
             "TestSMT2ParetoOptimizationEndToEnd",
@@ -101949,6 +101963,11 @@
             "TestOptimizationUnknownReasonPreservesCancellation",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/api/api_optimize_parameters_pareto_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -101972,23 +101991,73 @@
             "TestParetoFormulaTraceOperandErrorAfterStreamFailure",
             "TestParetoFormulaVerbosityThreshold"
           ]
+        },
+        {
+          "name": "GIA level-one verbose callback fixes a lexical model reference after model/label capture and before dominance, prints new model through SMT2, erases operands when disabled and preserves ostream badbit semantics (opt_pareto.cpp:43-46)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/optimization_pareto_trace.go",
+            "pkg/cmd_context/optimization_pareto_model_trace_test.go",
+            "pkg/cmd_context/optimization_pareto_purification.go",
+            "pkg/cmd_context/optimization_pareto_purification_test.go"
+          ],
+          "tests": [
+            "TestParetoModelVerbosityGateAndFilteredCopy",
+            "TestParetoDisabledModelDiagnosticDoesNotFixModel",
+            "TestParetoLiveModelVerbosePrecedesDominanceTrace",
+            "TestParetoModelDiagnosticAllocationFailuresReleaseCopies"
+          ]
+        },
+        {
+          "name": "OIA constructor/destructor/operator and unused Pareto forwarding APIs",
+          "status": "reference_only",
+          "evidence": "Source consumer search finds only opt_context.cpp:556 constructing gia_pareto, :558 invoking operator() and :549 reading model/labels. No oia_pareto instantiation or calls to pareto_base updt_params/collect_param_descrs/collect_statistics/display exist; excluded under AGENTS.md."
         }
       ],
       "ownership": [
-        "The initial model is snapshotted before Push clears the Go solver result. Later models are acquired after the source cancellation check. Objective callbacks and constructed Pareto formulas own temporary AST references; returned formulas have independent references. Completed optimum values are evaluated at result publication.",
-        "Diagnostic formatting owns and releases its temporary format document and numeric text stream. Pareto formula records run before solver assertion, retain source trace gates and verbosity ten, include the raw dominance model and preserve operand evaluation after ostream failure. Model debug/SMT2 printers now hold concrete expression/sort document references across formatting and release them at each render return. No Pareto implementation closure is claimed; level-one fixed-model verbosity and the remaining owner audit are separate work."
+        "The command context owns the persistent concrete backend and purification state. Initial model/label snapshots precede Go PushCore because it clears the published solver result; later snapshots follow the source cancellation check. Models own AST interpretations and labels are independent symbol snapshots. All constructed comparison/formula roots and returned model references have explicit cleanup; canceled/unknown improvement pops the nested scope and terminal/context/mutation cleanup closes persistent owners.",
+        "Dominance invokes GE then GT per objective, builds one flat AND with the strict OR last, and asserts only after diagnostics. Blockers invoke LE only. The status != false return branch structurally establishes the source SASSERT(is_sat == l_false) before permanent blocker construction. Concrete Go slices replace project reference/symbol vectors while owning each AST reference explicitly; no unused generic callbacks or C++ standard-library internals are modeled.",
+        "Verbose level one filters an independently owned temporary model and releases it at the callback boundary on success or operand error, preserving raw models for comparisons and TRACE. Formula diagnostics hold lexical format-document and text-stream owners, run before assertion and continue operand evaluation after ostream failure. Persistent definitions survive continuation calls and published filtered models own their copied interpretations independently of backend/purifier teardown."
       ],
       "deviations": [
-        "The GIA control flow and formula callbacks are implemented; full diagnostic/verbose, label and ownership closure remains under audit. The OIA class has no source constructor consumer: opt_context.cpp:556 instantiates gia_pareto exclusively, so the uncalled alternative is not an implementation target under AGENTS.md."
+        "Only live GIA and its concrete arithmetic/BV/weighted-soft callback consumers are ported. OIA and uncalled header forwarding APIs are explicitly excluded by the consumer rule; the stored m_params has no live read and needs no independent Go copy.",
+        "Go solver PushCore clears its result, so initial owned model/label snapshots are acquired immediately before push. This preserves the source first-iteration model while subsequent snapshots remain after cancellation checks. Go errors have explicit retryable cleanup paths. Broader opt_context normalization, simplification/model converters and single-objective strategy dispatch remain tracked in that separate partial unit."
       ]
     },
     {
       "path": "src/opt/opt_pareto.h",
       "component": "opt",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/cmd_context/optimization_pareto.go"],
-      "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/cmd_context/optimization_pareto.go",
+        "pkg/cmd_context/optimization_pareto_trace.go",
+        "pkg/cmd_context/optimization_pareto_model_trace_test.go",
+        "pkg/cmd_context/optimization_pareto_purification.go",
+        "pkg/cmd_context/optimization_pareto_purification_test.go",
+        "pkg/parsers/smt2/optimization_test.go",
+        "pkg/api/api_optimize_parameters_pareto_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestSMT2ParetoOptimizationEndToEnd",
+        "TestSMT2BitVectorParetoOptimizationEndToEnd",
+        "TestSMT2SoftParetoOptimizationEndToEnd",
+        "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+        "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete",
+        "TestParetoIncomparableObjectiveUsesNeutralComparison",
+        "TestAPIOptimizeSetParametersSelectsLocalParetoPriority",
+        "TestOptimizationUnknownReasonPreservesCancellation",
+        "TestSMTLibRunnerCPPReference",
+        "TestParetoModelVerbosityGateAndFilteredCopy",
+        "TestParetoDisabledModelDiagnosticDoesNotFixModel",
+        "TestParetoLiveModelVerbosePrecedesDominanceTrace",
+        "TestParetoModelDiagnosticAllocationFailuresReleaseCopies",
+        "TestParetoLivePurificationPersistsAndFiltersFrontierModels",
+        "TestParetoLiveSoftPurificationAndMutationCleanup",
+        "TestParetoPurificationPreparationFailureCleanup",
+        "TestParetoBackendConstructionRefusalClosesUnpublishedSolver"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -101999,24 +102068,70 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "concrete arithmetic, unsigned bit-vector and normalized weighted-soft Pareto state and callback lifecycle used by the retained optimizer path (opt_pareto.h:31-109)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestSMT2ParetoOptimizationEndToEnd", "TestSMT2BitVectorParetoOptimizationEndToEnd", "TestSMT2SoftParetoOptimizationEndToEnd", "TestSMT2NegativeSoftParetoOptimizationEndToEnd", "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete", "TestParetoIncomparableObjectiveUsesNeutralComparison", "TestAPIOptimizeSetParametersSelectsLocalParetoPriority", "TestOptimizationUnknownReasonPreservesCancellation", "TestSMTLibRunnerCPPReference"]
+          "tests": [
+            "TestSMT2ParetoOptimizationEndToEnd",
+            "TestSMT2BitVectorParetoOptimizationEndToEnd",
+            "TestSMT2SoftParetoOptimizationEndToEnd",
+            "TestSMT2NegativeSoftParetoOptimizationEndToEnd",
+            "TestParetoModelEvaluationLeavesUninterpretedObjectiveIncomplete",
+            "TestParetoIncomparableObjectiveUsesNeutralComparison",
+            "TestAPIOptimizeSetParametersSelectsLocalParetoPriority",
+            "TestOptimizationUnknownReasonPreservesCancellation",
+            "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/optimization_test.go",
+            "pkg/api/api_optimize_parameters_pareto_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "capture unknown solver reason before closing the Pareto backend, both before the first model and after a feasible model (opt_context.cpp:568-575; opt_pareto.cpp:39-103)",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/cmd_context/optimization_pareto.go",
-          "tests": ["TestOptimizationUnknownReasonUsesBackendFailure", "TestOptimizationCancellationOverridesBackendFailure"]
+          "tests": [
+            "TestOptimizationUnknownReasonUsesBackendFailure",
+            "TestOptimizationCancellationOverridesBackendFailure"
+          ]
+        },
+        {
+          "name": "GIA level-one verbose callback fixes a lexical model reference after model/label capture and before dominance, prints new model through SMT2, erases operands when disabled and preserves ostream badbit semantics (opt_pareto.cpp:43-46)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/optimization_pareto_trace.go",
+            "pkg/cmd_context/optimization_pareto_model_trace_test.go",
+            "pkg/cmd_context/optimization_pareto_purification.go",
+            "pkg/cmd_context/optimization_pareto_purification_test.go"
+          ],
+          "tests": [
+            "TestParetoModelVerbosityGateAndFilteredCopy",
+            "TestParetoDisabledModelDiagnosticDoesNotFixModel",
+            "TestParetoLiveModelVerbosePrecedesDominanceTrace",
+            "TestParetoModelDiagnosticAllocationFailuresReleaseCopies"
+          ]
+        },
+        {
+          "name": "OIA constructor/destructor/operator and unused Pareto forwarding APIs",
+          "status": "reference_only",
+          "evidence": "Source consumer search finds only opt_context.cpp:556 constructing gia_pareto, :558 invoking operator() and :549 reading model/labels. No oia_pareto instantiation or calls to pareto_base updt_params/collect_param_descrs/collect_statistics/display exist; excluded under AGENTS.md."
         }
       ],
-      "ownership": ["Go context owns the persistent Pareto backend and closes it on reset, terminal status, or failure. The initial model is acquired before PushCore clears the published solver result."],
-      "deviations": ["The generic C++ callback interface is represented only by its live concrete arithmetic, unsigned bit-vector and weighted-soft uses; OIA and unused template generality are not ported."]
+      "ownership": [
+        "The command context owns the persistent concrete backend and purification state. Initial model/label snapshots precede Go PushCore because it clears the published solver result; later snapshots follow the source cancellation check. Models own AST interpretations and labels are independent symbol snapshots. All constructed comparison/formula roots and returned model references have explicit cleanup; canceled/unknown improvement pops the nested scope and terminal/context/mutation cleanup closes persistent owners.",
+        "Dominance invokes GE then GT per objective, builds one flat AND with the strict OR last, and asserts only after diagnostics. Blockers invoke LE only. The status != false return branch structurally establishes the source SASSERT(is_sat == l_false) before permanent blocker construction. Concrete Go slices replace project reference/symbol vectors while owning each AST reference explicitly; no unused generic callbacks or C++ standard-library internals are modeled.",
+        "Verbose level one filters an independently owned temporary model and releases it at the callback boundary on success or operand error, preserving raw models for comparisons and TRACE. Formula diagnostics hold lexical format-document and text-stream owners, run before assertion and continue operand evaluation after ostream failure. Persistent definitions survive continuation calls and published filtered models own their copied interpretations independently of backend/purifier teardown."
+      ],
+      "deviations": [
+        "Only live GIA and its concrete arithmetic/BV/weighted-soft callback consumers are ported. OIA and uncalled header forwarding APIs are explicitly excluded by the consumer rule; the stored m_params has no live read and needs no independent Go copy.",
+        "Go solver PushCore clears its result, so initial owned model/label snapshots are acquired immediately before push. This preserves the source first-iteration model while subsequent snapshots remain after cancellation checks. Go errors have explicit retryable cleanup paths. Broader opt_context normalization, simplification/model converters and single-objective strategy dispatch remain tracked in that separate partial unit."
+      ]
     },
     {
       "path": "src/opt/opt_parse.cpp",

@@ -29,6 +29,27 @@ func (w paretoVerboseWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
+// Source: opt_pareto.cpp:43-46. Only this lexical model reference is fixed;
+// the raw model remains available for the subsequent dominance callbacks.
+func (c *Context) paretoModelDiagnostic(raw *model.ModelCore) (resultErr error) {
+	enabled, err := diagnostic.ProcessVerboseEnabled(1)
+	if err != nil || !enabled {
+		return err
+	}
+	fixed, err := c.filterParetoModel(raw)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, fixed.DecRef()) }()
+	stream, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	out := paretoDiagnosticWriter{paretoVerboseWriter{stream}}
+	_, _ = io.WriteString(out, "new model:\n")
+	return fixed.WriteSMT2(out, c.config.Params, c.config.Globals, 0)
+}
+
 func (c *Context) writeParetoDiagnosticExpression(out io.Writer, expression ast.ASTHandle) (resultErr error) {
 	document, err := c.manager.SMT2PPExprTree(expression, nil)
 	if err != nil {

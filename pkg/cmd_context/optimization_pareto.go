@@ -355,6 +355,9 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			best, labels = candidate, candidateLabels
 		}
 		firstIteration = false
+		if err = c.paretoModelDiagnostic(best); err != nil {
+			return nil, err
+		}
 		if err = c.assertParetoFormula(backend, best, true); err != nil {
 			return nil, err
 		}
