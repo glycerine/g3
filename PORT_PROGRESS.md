@@ -1,3 +1,5 @@
+Explanation assignment validation (2026-10-31 UTC): reject unsupported interpreted conditions before visiting product rows, including empty products. Focused normal and checked tests pass.
+
 Explanation transfer integration (2026-10-31 UTC): a transformed finite fact now feeds the concrete product join in a focused normal and checked regression, preserving both fact explanations. Fixedpoint engine registration remains unfinished.
 
 Fact explanation finite filters (2026-10-31 UTC): equal-value and identical-column filters now preserve explanations on surviving finite keys. Normal and checked tests cover both filters and invalid columns; general column interleaving and Datalog registration remain unfinished.

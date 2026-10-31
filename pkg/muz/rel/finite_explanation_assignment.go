@@ -15,6 +15,43 @@ func (p *FiniteExplanationProduct) AssignExplanation(condition ast.ASTHandle) er
 	if err := p.open(); err != nil {
 		return err
 	}
+	m := p.manager.manager
+	family, op, left, right, binary, err := intervalParts(m, condition)
+	if err != nil {
+		return err
+	}
+	if !binary || family != m.BasicFamilyID() || op != ast.ASTOpEq {
+		return ast.ErrASTDomain
+	}
+	rightKind, err := m.GetKind(right)
+	if err != nil {
+		return err
+	}
+	if rightKind == ast.ASTVar {
+		left, right = right, left
+	}
+	leftKind, err := m.GetKind(left)
+	if err != nil {
+		return err
+	}
+	rightKind, err = m.GetKind(right)
+	if err != nil {
+		return err
+	}
+	if leftKind != ast.ASTVar || rightKind != ast.ASTApp {
+		return ast.ErrASTDomain
+	}
+	sort, err := m.GetSort(left)
+	if err != nil {
+		return err
+	}
+	isRule, err := m.IsDatalogRuleSort(sort)
+	if err != nil {
+		return err
+	}
+	if !isRule {
+		return ast.ErrASTDomain
+	}
 	facts, err := p.table.Facts()
 	if err != nil {
 		return err

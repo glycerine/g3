@@ -212,6 +212,9 @@ func TestFiniteExplanationProductJoinRows(t *testing.T) {
 	empty, err := newFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean, f.boolean}, 2)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, empty.Close()) }()
+	if err = empty.AssignExplanation(f.truth); err == nil {
+		t.Fatal("accepted unsupported assignment")
+	}
 	astTestMust(t, empty.Union(joined, nil))
 	row, found, err = empty.ExplanationRow([]ast.ASTHandle{f.truth, f.truth})
 	astTestMust(t, err)
