@@ -63,3 +63,29 @@ func TestFloatingPointNumeralExponentBitVectorSpecialValues(t *testing.T) {
 		})
 	}
 }
+
+func TestFloatingPointNumeralExponentNormalValues(t *testing.T) {
+	f := newFPANumeralPartsFixture(t)
+	for _, tc := range []struct {
+		value            float32
+		unbiased, biased int64
+	}{{6, 2, 129}, {0.25, -2, 125}} {
+		value, err := f.context.FloatingPointNumeralFloat32(tc.value, f.single)
+		value = f.pin(t, value, err)
+		for _, row := range []struct {
+			biased bool
+			want   int64
+		}{{false, tc.unbiased}, {true, tc.biased}} {
+			got, e := f.context.FloatingPointNumeralExponentInt64(value, row.biased)
+			astTestMust(t, e)
+			if got != row.want {
+				t.Fatalf("%g biased %v: got %d, want %d", tc.value, row.biased, got, row.want)
+			}
+			bits, e := f.context.FloatingPointNumeralExponentBitVector(value, row.biased)
+			bits = f.pin(t, bits, e)
+			if encoded := f.uint(t, bits); encoded != uint64(uint8(row.want)) {
+				t.Fatalf("%g biased %v: bitvector %d", tc.value, row.biased, encoded)
+			}
+		}
+	}
+}

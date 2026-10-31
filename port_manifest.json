@@ -6992,7 +6992,8 @@
         "TestFloatingPointExponentSignificandNegative",
         "TestFloatingPointExponentSignificandNearestTie",
         "TestSMTContextFloatingPointConversionRejectsOtherSourceKinds",
-        "TestFloatingPointNumeralExponentBitVectorSpecialValues"
+        "TestFloatingPointNumeralExponentBitVectorSpecialValues",
+        "TestFloatingPointNumeralExponentNormalValues"
       ],
       "assertions": [
         {

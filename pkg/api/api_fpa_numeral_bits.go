@@ -95,15 +95,15 @@ func (c *SMTContext) FloatingPointNumeralSignificandBitVector(value ast.ASTHandl
 }
 
 func (c *SMTContext) FloatingPointNumeralExponentBitVector(value ast.ASTHandle, biased bool) (ast.ASTHandle, error) {
-	parts, err := c.floatingPointNumeralBits(value)
+	parts, err := c.floatingPointRawNumeralParts(value)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	exponent, err := c.floatingPointNumeralExponentInt64Parts(value, parts, biased)
+	exponent, err := floatingPointNumeralExponent(parts, biased)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	sort, err := c.BitVectorSort(parts.ebits)
+	sort, err := c.BitVectorSort(parts.ExponentBits)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

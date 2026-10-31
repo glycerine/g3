@@ -1,4 +1,4 @@
-Floating-point exponent bit-vector inspection now uses the source internal exponent for both biased and unbiased modes, including infinity; normal and checked tests cover special values and generated replay.
+Floating-point exponent inspection reads the source MPF fields directly for both biased and unbiased modes, including infinity; normal and checked tests cover normal and special values and generated replay.
 
 Fixedpoint variable binding now quantifies only implicit variables actually present in the formula and follows source expression traversal order, rather than declaration order. Normal and checked fixedpoint tests cover unused variables and reversed declaration order.
 

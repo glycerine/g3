@@ -3,7 +3,6 @@ package api
 // Source: src/api/api_fpa.cpp:908-1158.
 
 import (
-	"math"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -39,58 +38,34 @@ func (c *SMTContext) FloatingPointNumeralSignificandUint64(value ast.ASTHandle) 
 }
 
 func (c *SMTContext) FloatingPointNumeralExponentInt64(value ast.ASTHandle, biased bool) (int64, error) {
-	parts, err := c.floatingPointNumeralBits(value)
+	parts, err := c.floatingPointRawNumeralParts(value)
 	if err != nil {
 		return 0, err
 	}
-	return c.floatingPointNumeralExponentInt64Parts(value, parts, biased)
+	return floatingPointNumeralExponent(parts, biased)
 }
 
-func (c *SMTContext) floatingPointNumeralExponentInt64Parts(value ast.ASTHandle, parts floatingPointNumeralBits, biased bool) (int64, error) {
-	encoded, err := c.bitVectorNumeralUint64(parts.exponent)
-	if err != nil {
-		return 0, err
-	}
-	zero, err := c.FloatingPointNumeralIsZero(value)
-	if err != nil {
-		return 0, err
-	}
-	infinite, err := c.FloatingPointNumeralIsInfinite(value)
-	if err != nil {
-		return 0, err
-	}
-	denormal, err := c.FloatingPointNumeralIsSubnormal(value)
-	if err != nil {
-		return 0, err
-	}
-	top := new(big.Int).Lsh(big.NewInt(1), uint(parts.ebits-1))
-	if zero {
+// floatingPointNumeralExponent follows api_fpa.cpp's MPF field access, including
+// its distinct zero, infinity and denormal cases.
+func floatingPointNumeralExponent(parts ast.FPANumeralParts, biased bool) (int64, error) {
+	if parts.Zero {
 		return 0, nil
 	}
-	if infinite {
-		if !top.IsInt64() {
-			return 0, ast.ErrASTDomain
-		}
-		return top.Int64(), nil
+	if parts.ExponentBits < 2 {
+		return 0, ast.ErrASTDomain
 	}
-	if denormal {
+	top := new(big.Int).Lsh(big.NewInt(1), uint(parts.ExponentBits-1))
+	var result *big.Int
+	if parts.Infinite {
+		result = top
+	} else if parts.Denormal && !biased {
+		result = new(big.Int).Sub(big.NewInt(2), top)
+	} else {
+		result = big.NewInt(parts.Exponent)
 		if biased {
-			return 0, nil
+			result.Add(result, new(big.Int).Sub(top, big.NewInt(1)))
 		}
-		minimum := new(big.Int).Sub(big.NewInt(2), top)
-		if !minimum.IsInt64() {
-			return 0, ast.ErrASTDomain
-		}
-		return minimum.Int64(), nil
 	}
-	if biased {
-		if encoded > math.MaxInt64 {
-			return 0, ast.ErrASTDomain
-		}
-		return int64(encoded), nil
-	}
-	bias := new(big.Int).Sub(top, big.NewInt(1))
-	result := new(big.Int).Sub(new(big.Int).SetUint64(encoded), bias)
 	if !result.IsInt64() {
 		return 0, ast.ErrASTDomain
 	}
