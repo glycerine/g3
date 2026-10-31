@@ -107485,7 +107485,15 @@
         "pkg/qe/expr_quantifier_arith_solve.go",
         "pkg/qe/expr_quantifier_arith_solve_test.go",
         "pkg/qe/expr_quantifier_select.go",
-        "pkg/qe/expr_quantifier_select_test.go"
+        "pkg/qe/expr_quantifier_select_test.go",
+        "pkg/qe/expr_quantifier_tree_advance.go",
+        "pkg/qe/expr_quantifier_tree_advance_test.go",
+        "pkg/qe/expr_quantifier_tree_constrain.go",
+        "pkg/qe/expr_quantifier_tree_constrain_test.go",
+        "pkg/qe/expr_quantifier_tree_block.go",
+        "pkg/qe/expr_quantifier_tree_block_test.go",
+        "pkg/qe/expr_quantifier_tree_partition.go",
+        "pkg/qe/expr_quantifier_tree_partition_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107521,7 +107529,12 @@
         "TestExprQEArithmeticBranchTransfersFreshVariables",
         "TestExprQEBoolSolveCreatesUnitBranch",
         "TestExprQEArithmeticSolvePublishesFreshVariable",
-        "TestExprQEVariableSelectionSourceOrderAndUnsupported"
+        "TestExprQEVariableSelectionSourceOrderAndUnsupported",
+        "TestExprQEBoolSolveRepeatsUntilFixedPoint",
+        "TestExprQETreeAdvanceAppliesModelBranch",
+        "TestExprQETreeChooseBranchSelectsAndPublishes",
+        "TestExprQETreeBlocksOnlySolvedPath",
+        "TestExprQETreePartitionSeparatesIndependentVariables"
       ],
       "conditionals": [
         {
@@ -107828,7 +107841,12 @@
             "TestExprQEArithmeticBranchTransfersFreshVariables",
             "TestExprQEBoolSolveCreatesUnitBranch",
             "TestExprQEArithmeticSolvePublishesFreshVariable",
-            "TestExprQEVariableSelectionSourceOrderAndUnsupported"
+            "TestExprQEVariableSelectionSourceOrderAndUnsupported",
+            "TestExprQEBoolSolveRepeatsUntilFixedPoint",
+            "TestExprQETreeAdvanceAppliesModelBranch",
+            "TestExprQETreeChooseBranchSelectsAndPublishes",
+            "TestExprQETreeBlocksOnlySolvedPath",
+            "TestExprQETreePartitionSeparatesIndependentVariables"
           ]
         }
       ],
@@ -285010,6 +285028,16 @@
     "full_suite_qualification": "Full native checkpoint17ecadb7 passed after this audit; subsequent commits changed only ledgers/documentation, so current Go code is covered by that run. Focused checked evidence remains separate."
   },
   "latest_full_native_checkpoint": {
+    "commit": "13e91f59a546d049afc56d565e3322a1bdf376c8",
+    "command": "env GOCACHE=/tmp/g3-go-build-cache CGO_ENABLED=0 go -C <clean-git-archive>/pkg test ./... -count=1",
+    "completed_utc": "2026-10-31T15:58:56Z",
+    "exit_code": 0,
+    "evidence": "Clean git archive snapshot; /tmp/g3-native-snapshot-13e91f59a.log",
+    "packages_with_ok_result": 108,
+    "packages_without_test_files": 3,
+    "scope_warning": "This checkpoint covers the committed snapshot identified above; later commits require their own focused validation. It does not replace separate C++ differential or checked-build results."
+  },
+  "previous_full_native_checkpoint": {
     "commit": "4156bc96f8864eaded00aed1f8733564a5721ca5",
     "command": "taskset -c 8-16 env GOTOOLCHAIN=local GOMAXPROCS=2 GOCACHE=/mnt/oldrog/tmp/g3-go-cache GOTMPDIR=/mnt/oldrog/tmp/g3-go-tmp GOPROXY=off CGO_ENABLED=0 go test ./pkg/... -count=1",
     "started_utc": "2026-10-29T19:36:40+00:00",
