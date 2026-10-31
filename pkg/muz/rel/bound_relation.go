@@ -86,9 +86,20 @@ func (r *BoundRelation) Equate(left, right uint32) error {
 	for i := range r.columns[right].le {
 		combined.le[i] = true
 	}
-	if combined.lt[left] || combined.le[left] {
-		r.empty = true
-		return nil
+	// Equality conflicts with a strict order in either direction. A weak
+	// order between the two classes becomes a redundant self-bound.
+	for index := range combined.lt {
+		root := r.find(index)
+		if root == left || root == right {
+			r.empty = true
+			return nil
+		}
+	}
+	for index := range combined.le {
+		root := r.find(index)
+		if root == left || root == right {
+			delete(combined.le, index)
+		}
 	}
 	if r.size[left] > r.size[right] {
 		left, right = right, left
@@ -118,6 +129,7 @@ func (r *BoundRelation) addBound(left, right uint32, strict bool) error {
 		i := len(todo) - 1
 		item := todo[i]
 		todo = todo[:i]
+		item.column = r.find(item.column)
 		if seen[item] {
 			continue
 		}

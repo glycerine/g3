@@ -91199,6 +91199,7 @@
       "go_targets": [
         "pkg/muz/rel/bound_relation.go",
         "pkg/muz/rel/bound_relation_test.go",
+        "pkg/muz/rel/bound_relation_equality_soundness_test.go",
         "pkg/muz/rel/interval_relation.go",
         "pkg/muz/rel/bound_relation_filter.go",
         "pkg/muz/rel/bound_relation_filter_test.go",
@@ -91211,6 +91212,9 @@
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
+        "TestBoundRelationEqualityPreservesWeakOrderAndRejectsStrictOrder",
+        "TestBoundRelationStrictCycleThroughMergedColumn",
+        "TestIntervalBoundProductIdenticalColumnsWithWeakOrder",
         "TestBoundRelationUnionInterval",
         "TestBoundRelationInterpretedVariableComparisons",
         "TestBoundRelationInterpretedPositiveOffsetEquality",
@@ -91357,7 +91361,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },
@@ -91495,7 +91499,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },

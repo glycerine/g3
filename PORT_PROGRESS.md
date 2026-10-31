@@ -52350,3 +52350,5 @@ Pseudo-Boolean integration coverage: selected twelve nested solver scopes from t
 Polynomial/NLSAT integration checkpoint: the complete native package suites passed at snapshot 99f590cdb after the numeric context optimizations. The polynomial package took 135 seconds and NLSAT took 3 seconds.
 
 SMT-LIB pseudo-Boolean integration: checked each assignment of a weighted constraint with a negated literal, using independent expected results and push/pop scopes through the executable command path.
+
+Bound-relation equality correction: equating columns now preserves weak order and rejects strict order in both directions, and traversal resolves merged representatives. This intentionally corrects the source vector relation check, which can declare a weak equality empty or miss the opposite strict direction. The interval/bound product and strict cycles through merged classes have regression coverage.
