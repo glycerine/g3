@@ -211643,9 +211643,9 @@
       "path": "src/test/vector.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/test/vector_source_test.go"],
+      "tests": ["TestSourceVectorTst1"],
       "assertions": [
         {
           "line": 23,
@@ -211688,11 +211688,11 @@
           "text": "ENSURE(v1.size() == 0);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst1", "status": "ported", "go_target": "pkg/test/vector_source_test.go", "tests": ["TestSourceVectorTst1"]}],
+      "ownership": ["The test closes both vector arenas; the bounded allocation fixture owns its budget."],
+      "deviations": ["The source billion-element allocation loop is replaced by a deterministic bounded allocation failure; iterator traversal uses indexed reads."]
     },
     {
       "path": "src/util/CMakeLists.txt",

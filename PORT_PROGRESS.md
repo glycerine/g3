@@ -52210,3 +52210,5 @@ Consequences source driver started: both source scenarios now exercise Boolean a
 Consequences driver completion: the Boolean and bit-vector case now also runs on the source's direct incremental SAT solver; the finite-domain datatype case uses the source finite-domain solver stack. The source driver is marked ported, and the additional finite-domain wrapper case remains as integration coverage.
 
 Ternary bit-vector source driver: ported zero-width behavior, source fills and intersection checks, projection across managers, and all 55 consecutive-value intersection cases at each original width 11, 15, 16, 17 and 31. Projection is verified bit by bit and the fixture checks manager cleanup.
+
+Vector source driver audit: connected the existing Go translation to its source manifest entry and reran its append, traversal, pop and bounded allocation-failure checks. The source's unbounded billion-element allocation loop uses a deterministic budget failure in Go.
