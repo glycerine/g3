@@ -56,7 +56,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		command ReplayCommand
 	}{
 		{408, "Z3_mk_solver", replayMkSolver}, {409, "Z3_mk_simple_solver", replayMkSimpleSolver}, {410, "Z3_mk_solver_for_logic", replayMkSolverForLogic},
-		{411, "Z3_mk_solver_from_tactic", replayMkSolverFromTactic}, {413, "Z3_solver_get_help", replaySolverHelp},
+		{411, "Z3_mk_solver_from_tactic", replayMkSolverFromTactic}, {412, "Z3_solver_translate", replaySolverTranslate}, {413, "Z3_solver_get_help", replaySolverHelp},
 		{414, "Z3_solver_get_param_descrs", replaySolverDescriptions}, {415, "Z3_solver_set_params", replaySolverSetParams}, {416, "Z3_solver_inc_ref", replaySolverIncRef}, {417, "Z3_solver_dec_ref", replaySolverDecRef},
 		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {420, "Z3_solver_reset", replaySolverReset}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
@@ -125,23 +125,34 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 	if err != nil {
 		return err
 	}
-	n := uint64(reflect.TypeOf(replaySolver{}).Size())
-	if err = owner.results.manager.Budget().Reserve(n); err != nil {
+	return replayStoreSolver(r, owner, value, kind, logic, tacticValue, nil)
+}
+
+func replayStoreSolver(r *Z3Replayer, owner *replayContextOwner, value *APISimpleSolver, kind uint8, logic string, tacticValue *APITactic, parameters *ParameterSet) error {
+	closeInputs := func(cause error) error {
+		cause = errors.Join(cause, value.Close())
 		if tacticValue != nil {
-			return errors.Join(err, value.Close(), tacticValue.Close())
+			cause = errors.Join(cause, tacticValue.Close())
 		}
-		return errors.Join(err, value.Close())
+		if parameters != nil {
+			cause = errors.Join(cause, parameters.Close())
+		}
+		return cause
 	}
-	s := &replaySolver{owner: owner, value: value, kind: kind, logic: logic, tactic: tacticValue}
+	if r.nextObjectID == ^uint64(0) {
+		return closeInputs(ErrZ3ReplayState)
+	}
+	n := uint64(reflect.TypeOf(replaySolver{}).Size())
+	if err := owner.results.manager.Budget().Reserve(n); err != nil {
+		return closeInputs(err)
+	}
+	s := &replaySolver{owner: owner, value: value, kind: kind, logic: logic, tactic: tacticValue, params: parameters}
 	s.object = apiObject{context: owner.results, destructor: s, ownerBytes: n}
 	s.object.self = &s.object
 	id, err := owner.results.addObject(&s.object)
 	if err != nil {
 		owner.results.manager.Budget().Release(n)
-		if tacticValue != nil {
-			return errors.Join(err, value.Close(), tacticValue.Close())
-		}
-		return errors.Join(err, value.Close())
+		return closeInputs(err)
 	}
 	s.object.id = id
 	if err = owner.results.saveObject(&s.object); err != nil {
@@ -155,6 +166,33 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 	r.solvers[replayID] = s
 	owner.solverIDs = append(owner.solverIDs, replayID)
 	return r.StoreResult(replayID)
+}
+func replaySolverTranslate(r *Z3Replayer) error {
+	source, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	target, err := replayContext(r, 2)
+	if err != nil {
+		return err
+	}
+	translated, err := source.value.Translate(target.context)
+	if err != nil {
+		return err
+	}
+	var parameters *ParameterSet
+	if source.params != nil {
+		globals, e := target.context.command.GlobalParameters()
+		if e != nil {
+			return errors.Join(e, translated.Close())
+		}
+		value, e := source.params.params.TranslateTo(&source.params.value, globals.Context)
+		if e != nil {
+			return errors.Join(e, translated.Close())
+		}
+		parameters = &ParameterSet{owner: target.context.smtContextState, params: globals.Context, value: value}
+	}
+	return replayStoreSolver(r, target, translated, 1, "", nil, parameters)
 }
 func replayGetSolver(r *Z3Replayer) (*replaySolver, error) {
 	owner, err := replayContext(r, 0)

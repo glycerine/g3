@@ -1,3 +1,5 @@
+Direct SMT solver translation now copies assertions and parameters across independent contexts, including generated log replay and ownership after source closure. Tactic-backed and combined solver translations remain unsupported, so api_solver.cpp is marked partial pending the broader translation and ownership audit.
+
 Spacer level queries now accept general Boolean expressions and preserve their answer state, including generated replay. Focused tests cover levels zero and one and reject level queries on unsupported engines.
 
 Datalog relation-array queries now return the source conjunction of relation formulas, including empty and mixed-result cases; public API and generated replay tests exercise the result and stale-query guards. Other backends still do not expose multiple-relation answers.

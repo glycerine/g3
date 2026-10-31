@@ -901,6 +901,17 @@ func (s *SMTSolver) Display(out io.Writer, assumptions []ast.ASTHandle) error {
 }
 
 func (s *SMTSolver) Translate(manager *ast.ASTManager, params *uparams.ParamsRef) (solver.Solver, error) {
+	return s.translateWithConfig(manager, params, nil)
+}
+
+// TranslateWithConfig translates into an explicitly supplied target context's
+// services. This is used by the public API when AST managers have independent
+// parameter and numeral owners.
+func (s *SMTSolver) TranslateWithConfig(manager *ast.ASTManager, params *uparams.ParamsRef, target SMTSolverConfig) (solver.Solver, error) {
+	return s.translateWithConfig(manager, params, &target)
+}
+
+func (s *SMTSolver) translateWithConfig(manager *ast.ASTManager, params *uparams.ParamsRef, target *SMTSolverConfig) (solver.Solver, error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
@@ -913,6 +924,12 @@ func (s *SMTSolver) Translate(manager *ast.ASTManager, params *uparams.ParamsRef
 		return nil, z3exception.NewDefaultException("translation of contexts is only supported at base level")
 	}
 	config := s.config
+	if target != nil {
+		config = *target
+	}
+	if config.Params == nil {
+		return nil, uparams.ErrParamsOwner
+	}
 	if err := config.Params.CheckServices(manager.Symbols, manager.NumeralService()); err != nil {
 		if config.TargetConfig == nil {
 			return nil, err

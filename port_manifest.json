@@ -6004,7 +6004,8 @@
         "pkg/api/z3_generated_fixedpoint_load_test.go",
         "pkg/cmd/g3/z3_log_fixedpoint_load_test.go",
         "pkg/api/z3_generated_fixedpoint_expression_answer_test.go",
-        "pkg/api/z3_generated_fixedpoint_relations_answer_test.go"
+        "pkg/api/z3_generated_fixedpoint_relations_answer_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6140,7 +6141,8 @@
         "TestGeneratedFixedpointReplaySpacerExpressionGroundAndTrace",
         "TestGeneratedFixedpointReplayMultipleRelationAnswer",
         "TestGeneratedFixedpointReplaySpacerExpressionFromLevel",
-        "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer"
+        "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer",
+        "TestGeneratedDirectSolverTranslationAcrossContexts"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6195,7 +6197,8 @@
         "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished.",
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
-        "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported."
+        "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
+        "Generated solver translation replay currently handles direct SMT solvers; tactic-backed and combined solver translation remains unsupported."
       ]
     },
     {
@@ -7781,7 +7784,7 @@
       "path": "src/api/api_solver.cpp",
       "component": "api",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/api/api_solver.go",
         "pkg/api/api_solver_params.go",
@@ -7790,7 +7793,9 @@
         "pkg/api/api_smt2_state_test.go",
         "pkg/cmd_context/replay_smt2.go",
         "pkg/cmd_context/result_access.go",
-        "pkg/parsers/smt2/commands.go"
+        "pkg/parsers/smt2/commands.go",
+        "pkg/api/api_simple_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestSMTContextTypedParameterCatalog",
@@ -7805,16 +7810,24 @@
         "TestSMTContextSMT2ReplaysParametricSortsAndNestedConstantArrays",
         "TestSMTContextWriteSMT2GuardsAndMatchesStringForm",
         "TestSMTContextUnknownReason",
-        "TestSMTContextCopiesShareClose"
+        "TestSMTContextCopiesShareClose",
+        "TestAPISimpleSolverTranslateIndependentContext",
+        "TestAPISimpleSolverTranslateRejectsActiveScope",
+        "TestAPISimpleSolverTranslateWithinContext",
+        "TestAPISimpleSolverTranslateConfiguredTheoriesAfterSourceClose"
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "Public strategic solver construction and retained assert/assert-and-track, assertion enumeration, push/pop/scope depth, check/check-assumptions, model, proof, unsat-core, reason-unknown, copied statistics, owning consequence results, implied-equality partitions, transactional assertion loading, stateful SMT-LIB command execution, and replayable declaration/assertion scope export",
           "status": "ported",
           "go_target": "pkg/api/api_solver.go",
-          "go_targets": ["pkg/cmd_context/result_access.go", "pkg/cmd_context/replay_smt2.go", "pkg/parsers/smt2/commands.go"],
+          "go_targets": [
+            "pkg/cmd_context/result_access.go",
+            "pkg/cmd_context/replay_smt2.go",
+            "pkg/parsers/smt2/commands.go"
+          ],
           "tests": [
             "TestSMTContextEndToEndModelScopesAndAssumptions",
             "TestSMTContextUnsatCoreAndProofResults",
@@ -7833,7 +7846,8 @@
         "SMTContext owns the command context, strategic solver, AST manager and independent runtime services. Returned models transfer one owning reference to the caller; core/proof handles remain borrowed from the last result. Copied SMTContext values share one close state. AssertSMT2 owns an isolated parser context and pins all translated target formulas until publication and cleanup. ExecuteSMT2 borrows caller streams for one parse and retains declarations, assertions, scopes and check results in the same owning command context across API calls. WriteSMT2 borrows its writer synchronously and exports no AST ownership."
       ],
       "deviations": [
-        "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Source C-ABI-only solver translation, opaque tactic construction, DIMACS file loading, help/descriptor wrappers and reference-count entry points have no retained Go consumers; replayable SMT2/WriteSMT2 supersedes the retained string-display use case."
+        "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Source C-ABI-only solver translation, opaque tactic construction, DIMACS file loading, help/descriptor wrappers and reference-count entry points have no retained Go consumers; replayable SMT2/WriteSMT2 supersedes the retained string-display use case.",
+        "Solver translation currently handles direct SMT solvers and rejects tactic-backed and combined solvers. A complete cross-context translation and ownership audit remains open."
       ]
     },
     {
@@ -149128,7 +149142,9 @@
         "pkg/smtcore/smt_case_split_factory_test.go",
         "pkg/smtcore/smt_queue_lifetime.go",
         "pkg/smtcore/smt_boolean_activity.go",
-        "pkg/cmd/g3/test_vectors/queue_factory_fallback_scopes.smt2"
+        "pkg/cmd/g3/test_vectors/queue_factory_fallback_scopes.smt2",
+        "pkg/cmd_context/solver_translation_config.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
@@ -149165,7 +149181,8 @@
         "TestSMTCaseSplitFactoryBorrowedMutationAndOwnedCopy",
         "TestSMTCaseSplitFactoryWarningBeforeMutationAndAllocationRefusal",
         "TestSMTCaseSplitFactoryWarningDisabledOrRefusedStillMutates",
-        "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext"
+        "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
+        "TestAPISimpleSolverTranslateIndependentContext"
       ],
       "assertions": [
         {
@@ -263654,7 +263671,9 @@
         "pkg/util/params/util_params_block_memory_trace_debug_test.go",
         "pkg/util/params/util_params_rational_entry_memory_trace.go",
         "pkg/util/params/util_params_rational_entry_memory_trace_debug_test.go",
-        "pkg/util/params/util_params_unreachable_debug_test.go"
+        "pkg/util/params/util_params_unreachable_debug_test.go",
+        "pkg/util/params/util_params_translate.go",
+        "pkg/util/params/util_params_translate_test.go"
       ],
       "tests": [
         "TestParamsReferenceCopyEmptySourceDetachesSharedDestination",
@@ -263757,7 +263776,9 @@
         "TestGlobalParamsImpMemoryTraceRefusalDoesNotStopLifecycle",
         "TestParamsBlockMemoryTraceFirstCopyOnWriteAndStableIdentity",
         "TestParamsRationalEntryMemoryTraceNewMatchedAndReleasePaths",
-        "TestParamsInvalidEntrySourceUnreachableContinue"
+        "TestParamsInvalidEntrySourceUnreachableContinue",
+        "TestParamsTranslateToIndependentServices",
+        "TestParamsTranslateFailureLeavesSourceUsable"
       ],
       "conditionals": [
         {
@@ -263802,7 +263823,9 @@
           "name": "params_ref::copy/append of owner-scoped null source: shared destination detaches before copy_core null return; refused entry copy retains published new block and old reference until exact owning cleanup; unique destination reuses its block",
           "status": "ported",
           "go_target": "pkg/util/params/util_params_ref.go",
-          "tests": ["TestParamsReferenceCopyEmptySourceDetachesSharedDestination"]
+          "tests": [
+            "TestParamsReferenceCopyEmptySourceDetachesSharedDestination"
+          ]
         },
         {
           "name": "SET_RAT_VALUE alloc(rational) on new and matched-scalar entries and params::del_value dealloc(rational) debug memory TRACE with stable typed Go entry ownership (params.cpp:757,996,1004)",
@@ -263943,7 +263966,11 @@
           "name": "param_descrs display sorted-name copy uses Go sort.Sort with concrete checked Symbol comparison instead of a hand-written STL sorting algorithm",
           "status": "platform_replacement",
           "go_target": "pkg/util/params/util_param_descrs.go",
-          "tests": ["TestParamDescrsDisplayLargeReverseRegistrationOrder", "TestParamDescrsSortRefusalPrecedesDisplayOutput", "TestParamDescrsDisplayIntoSourceBranchesAndSort"]
+          "tests": [
+            "TestParamDescrsDisplayLargeReverseRegistrationOrder",
+            "TestParamDescrsSortRefusalPrecedesDisplayOutput",
+            "TestParamDescrsDisplayIntoSourceBranchesAndSort"
+          ]
         },
         {
           "name": "five parameter descriptor insertion helpers with exact descriptions",
@@ -264035,14 +264062,21 @@
           "name": "Concrete params_ref copy_core stopped matched-numeral replacement owning abort with exact source receipt and no incoming publication (params.cpp:568-595,753-763)",
           "status": "ported",
           "go_target": "pkg/util/params/util_params_set_replacement_source.go",
-          "tests": ["TestParamsReferenceCopyStoppedReplacementOwningAbort"]
+          "tests": [
+            "TestParamsReferenceCopyStoppedReplacementOwningAbort"
+          ]
         },
         {
           "name": "Concrete params_ref copy_core matched-rational integer allocation receipt after physical backing and before descriptor publication",
           "status": "ported",
           "go_target": "pkg/util/params/util_params_ref.go",
-          "go_targets": ["pkg/util/numeral/rational_copy_allocation_receipt.go"],
-          "tests": ["TestParamsReferenceCopyMatchedNumeralPendingPhysicalAllocation", "TestRationalCopyAllocationReceiptSuccessfulCopyHasNoPendingOwner"]
+          "go_targets": [
+            "pkg/util/numeral/rational_copy_allocation_receipt.go"
+          ],
+          "tests": [
+            "TestParamsReferenceCopyMatchedNumeralPendingPhysicalAllocation",
+            "TestRationalCopyAllocationReceiptSuccessfulCopyHasNoPendingOwner"
+          ]
         },
         {
           "name": "params_ref::init alloc(params) COW placement uses a charged concrete paramsBlock directory slot and native typed entry pages; first initialization, shared copy and live-slot reuse preserve published refcount/entry owners (cpp598-611)",
@@ -264313,13 +264347,17 @@
           "name": "Concrete SET_RAT new-entry copy child postphysical allocation receipt and owning abort (params.cpp:992-1014)",
           "status": "ported",
           "go_target": "pkg/util/params/util_params_set_rat_source.go",
-          "tests": ["TestParamsReferenceSetRatNewEntryCleansPostphysicalCopyChild"]
+          "tests": [
+            "TestParamsReferenceSetRatNewEntryCleansPostphysicalCopyChild"
+          ]
         },
         {
           "name": "Concrete SET_RAT matched non-numeral replacement child postphysical receipt and owning abort (params.cpp:992-1014)",
           "status": "ported",
           "go_target": "pkg/util/params/util_params_set_rat_source.go",
-          "tests": ["TestParamsReferenceSetRatMatchedScalarCleansPostphysicalCopyChild"]
+          "tests": [
+            "TestParamsReferenceSetRatMatchedScalarCleansPostphysicalCopyChild"
+          ]
         },
         {
           "name": "selected matched SET_SIMPLE/SET_SYM NUM leaf before kind/field publication and exact explicit owning continuation",
@@ -290707,8 +290745,12 @@
         "src/api/api_solver.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "partial",
+      "tests": [
+        "TestAPISimpleSolverTranslateIndependentContext",
+        "TestGeneratedDirectSolverTranslationAcrossContexts"
+      ],
+      "go_target": "pkg/api/api_simple_solver_translate.go"
     },
     {
       "name": "Z3_sort_to_ast",
