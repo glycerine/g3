@@ -78,8 +78,14 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 		}
 	}
 	sat, err := e.solver.CheckSat(nil)
-	if err != nil || sat != lbool.True {
+	if err != nil {
 		return sat, err
+	}
+	if sat == lbool.Undef {
+		return sat, ErrSolverUnknown
+	}
+	if sat != lbool.True {
+		return sat, nil
 	}
 	if depth == 1 && u > 0 {
 		return lbool.Undef, nil

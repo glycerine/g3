@@ -12,6 +12,10 @@ import (
 
 var ErrCLP = errors.New("muz/clp: invalid bounded search")
 
+// ErrSolverUnknown matches the source CLP solver-check failure. A search depth
+// limit instead returns lbool.Undef without an error.
+var ErrSolverUnknown = errors.New("undef")
+
 type Solver interface {
 	Push() error
 	Pop(uint32) error

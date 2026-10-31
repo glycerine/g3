@@ -1,3 +1,5 @@
+CLP solver unknown handling (2026-10-31 UTC): distinguished an underlying solver unknown, which raises the source `undef` error, from bounded-search depth exhaustion, which returns unknown. Normal and checked tests verify the error, scope cleanup and retry; the full CLP source audit remains incomplete.
+
 Inventory evidence repair, third batch (2026-10-31 UTC): repaired cross-package links in ten PDR, relational and Spacer entries and replaced an obsolete reachable-query test name. The validator now reaches a separately stale hash-table size test name; the broader evidence audit remains incomplete.
 
 Inventory evidence repair, second batch (2026-10-31 UTC): added cross-package test-file links to ten Horn and PDR entries and replaced a directory target with a concrete Go file. The validator now reaches a stale PDR generalizer test name; remaining evidence still needs review.
