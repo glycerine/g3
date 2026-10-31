@@ -209723,14 +209723,14 @@
       "path": "src/test/smt2print_parse.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": ["pkg/api/api_smt2print_parse_cpp_test.go"],
+      "tests": ["TestSMT2PrintParseSourceBenchmarks"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_smt2print_parse, test_parseprint and test_print", "status": "ported", "go_target": "pkg/api/api_smt2print_parse_cpp_test.go", "tests": ["TestSMT2PrintParseSourceBenchmarks"]}],
+      "ownership": ["Each source benchmark is parsed in an isolated API context; both parsed formula references are released before context teardown."],
+      "deviations": ["The source prints each round trip; the Go test checks that both benchmark generation and reparsing succeed."]
     },
     {
       "path": "src/test/smt_context.cpp",

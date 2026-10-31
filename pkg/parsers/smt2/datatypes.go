@@ -319,7 +319,9 @@ func (p *commandParser) declareDatatypes(single bool) error {
 	for _, row := range pending {
 		field := &definitions[row.datatype].Constructors[row.constructor].Accessors[row.accessor]
 		if index, found := indices[row.name]; found {
-			if p.datatypeHeaders[row.name] != 0 {
+			// In the legacy common-parameter syntax, a bare datatype name
+			// denotes the recursive sort with those parameters applied.
+			if (modern || single) && p.datatypeHeaders[row.name] != 0 {
 				return fmt.Errorf("sort constructor expects parameters")
 			}
 			field.Recursive = true
