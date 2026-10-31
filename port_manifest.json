@@ -208407,9 +208407,9 @@
       "path": "src/test/qe_arith.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/qe/qe_arith_cpp_driver_test.go"],
-      "tests": ["TestArithmeticProjectionSourceIntegerExamples"],
+      "tests": ["TestArithmeticProjectionSourceIntegerExamples", "TestArithmeticProjectionSourceDistinctAndDisequality", "TestArithmeticProjectionSourceFunctionNonProjection"],
       "assertions": [
         {
           "line": 39,
@@ -208444,11 +208444,11 @@
           "text": "VERIFY(l_false == ctx.check());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The modulus, inequality and non-unit equality examples from test_project are checked; its other examples remain open. The entry point returns after test_project, making later driver calls unreachable."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_qe_arith and test_project", "status": "ported", "go_target": "pkg/qe/qe_arith_cpp_driver_test.go", "tests": ["TestArithmeticProjectionSourceIntegerExamples", "TestArithmeticProjectionSourceDistinctAndDisequality", "TestArithmeticProjectionSourceFunctionNonProjection"]}],
+      "ownership": ["The fixture owns expressions and models; function interpretation ownership transfers to the model."],
+      "deviations": ["Printed output is replaced with model and variable-elimination checks. The entry point returns after test_project, making later driver calls unreachable."]
     },
     {
       "path": "src/test/quant_elim.cpp",

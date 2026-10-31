@@ -52266,3 +52266,5 @@ Pseudo-Boolean theory source driver started: translated all constant-literal car
 Set-union API regression driver: translated the source's pushed solver, integer-set union and model retrieval. The model is evaluated for membership of 42, 43 and 44, checking both included elements and a nonmember.
 
 Arithmetic projection source driver started: translated the original integer modulus/equality, two-variable inequalities and non-unit equality examples. Each checks that projection eliminates the requested variables and that every result holds in the source model; the other test_project examples remain open.
+
+Arithmetic projection source driver completion: added the source's disequality, distinct and both negated-distinct examples, along with the function interpretation that prevents projection. All active test_project examples now check their results in the original model; the remaining source calls follow an unconditional return.
