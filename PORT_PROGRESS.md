@@ -52248,3 +52248,5 @@ DOC randomized projection driver: translated test_project1 and all 200 source-se
 DOC source driver completion: added the concrete subtraction example, 10,000 seeded union intersections, 1,000 seeded union subtractions and 200 seeded equality-class merges. All four-variable results are compared with exhaustive truth tables; the test advances the source PRNG through the preceding projection rounds so the generated union and merge cases follow the original sequence. The DOC source driver is marked ported.
 
 Simplex source driver: connected the existing four source row cases to the manifest and added the missing empty, unconstrained and fixed-variable checks from tst_simplex. The source prints feasibility; the Go tests assert the expected statuses and value.
+
+Extended-numeral source driver started: ported the original rational addition, subtraction, multiplication, inverse and 142 comparison cases, including the source symmetric-operation checks, against the concrete interval implementation. Standalone negation and predicate/display driver cases remain open.
