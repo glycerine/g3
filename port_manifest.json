@@ -209930,9 +209930,13 @@
       "path": "src/test/stack.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/util/stack/stack_cpp_regression_test.go"
+      ],
+      "tests": [
+        "TestStackCPPRegression"
+      ],
       "assertions": [
         {
           "line": 30,
@@ -209959,11 +209963,24 @@
           "text": "ENSURE(s.empty() || ptrs.back() == s.top());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst1, tst2 and tst_stack",
+          "status": "ported",
+          "go_target": "pkg/util/stack/stack_cpp_regression_test.go",
+          "tests": [
+            "TestStackCPPRegression"
+          ]
+        }
+      ],
+      "ownership": [
+        "The test checks stack references and closes every stack after draining its live allocations."
+      ],
+      "deviations": [
+        "A deterministic project random generator replaces implementation-dependent C rand; the source cleanup loop's inverted empty test is corrected so live allocations are actually drained."
+      ]
     },
     {
       "path": "src/test/string_buffer.cpp",

@@ -1,3 +1,5 @@
+The previously unstarted src/test/stack.cpp regression now runs its allocation counts, large-allocation paths and LIFO checks in Go; its inverted C++ cleanup condition is corrected in the test.
+
 The previously unstarted src/test/f2n.cpp regression now exercises positive, negative and integral floor/ceiling cases for both concrete floating-point numeral managers.
 
 The previously unstarted src/test/mpfx.cpp regression now checks the source power-of-two cases and fixed-point arithmetic and directed rounding in Go.
