@@ -1,3 +1,5 @@
+Tabulation predicate selection (2026-10-31 UTC): added first, basic-weight, weight and variable-use selection, source constructor/value scores, rule averages and the cached-score schedule. Normal and checked tabulation package tests pass; the selector is not yet connected to tabulation search.
+
 Tabulation subsumption setup (2026-10-31 UTC): added source-order grounding of clause variables into numerical-symbol constants, with owned head, predicate and precondition expressions. Normal and checked tabulation package tests pass, including a lifetime check after the source clause closes; matching search and solver validation remain unfinished.
 
 Tabulation clause formulas (2026-10-31 UTC): clauses now expose their flattened body and universally closed Horn formula, using source fresh names and Boolean defaults for unused variable slots. Normal and checked tabulation package tests pass; clause search, subsumption and fixedpoint registration remain unfinished.
