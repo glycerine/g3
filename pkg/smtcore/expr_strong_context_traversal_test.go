@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestExprStrongContextSimplifierModelBased(t *testing.T) {
@@ -70,4 +72,75 @@ func TestExprStrongContextSimplifierModelBased(t *testing.T) {
 		t.Fatalf("p under not p = %v, want false", got)
 	}
 	astTestMust(t, s.Pop())
+}
+
+func TestExprStrongContextSimplifierPreservesEquivalence(t *testing.T) {
+	m, solver := smtSolverFixture(t)
+	s, err := NewExprStrongContextSimplifier(m, solver.config)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, s.Close()) }()
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			astTestMust(t, m.DelRef(&refs[i]))
+		}
+	}()
+	own := func(h ast.ASTHandle, e error) ast.ASTHandle {
+		t.Helper()
+		astTestMust(t, e)
+		ref, e := m.NewRef(h)
+		astTestMust(t, e)
+		refs = append(refs, ref)
+		return h
+	}
+	boolean := own(m.MkBoolSort())
+	p := own(m.MkConst(astTestSymbol(t, m, "strong-equiv-p"), boolean))
+	q := own(m.MkConst(astTestSymbol(t, m, "strong-equiv-q"), boolean))
+	notP := own(m.MkNot(p))
+	shared := own(m.MkOr(p, q))
+	left := own(m.MkAnd(shared, p))
+	right := own(m.MkAnd(shared, notP))
+	formula := own(m.MkOr(left, right))
+	for _, assumed := range []bool{false, true} {
+		astTestMust(t, s.Push())
+		astTestMust(t, solver.Push())
+		if assumed {
+			astTestMust(t, s.Assert(p))
+			astTestMust(t, solver.AssertFormula(p))
+		}
+		ref, e := s.Simplify(formula)
+		astTestMust(t, e)
+		simplified, e := m.RefGet(ref)
+		astTestMust(t, e)
+		equality := own(m.MkIff(formula, simplified))
+		difference := own(m.MkNot(equality))
+		astTestMust(t, solver.AssertFormula(difference))
+		status, e := solver.CheckSat(nil)
+		astTestMust(t, e)
+		if status != lbool.False {
+			t.Fatalf("assumed=%t: simplified formula is not equivalent: %v", assumed, status)
+		}
+		astTestMust(t, m.DelRef(&ref))
+		astTestMust(t, solver.Pop(1))
+		astTestMust(t, s.Pop())
+	}
+	integer := own(m.ArithmeticIntegerNumeralText("17"))
+	ref, err := s.Simplify(integer)
+	astTestMust(t, err)
+	got, err := m.RefGet(ref)
+	astTestMust(t, err)
+	if got != integer {
+		t.Fatal("non-Boolean expression changed")
+	}
+	astTestMust(t, m.DelRef(&ref))
+	v := own(m.MkVar(0, boolean))
+	quantified := own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: v}))
+	ref, err = s.Simplify(quantified)
+	astTestMust(t, err)
+	got, err = m.RefGet(ref)
+	astTestMust(t, err)
+	if got != quantified {
+		t.Fatal("quantified expression changed")
+	}
+	astTestMust(t, m.DelRef(&ref))
 }

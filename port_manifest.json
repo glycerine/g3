@@ -110994,7 +110994,8 @@
         "TestSATPartialSearchBooleanQuantifiers",
         "TestSATPartialSearchAlternatingQuantifiers",
         "TestSATPartialSearchBitVectorAndArithmetic",
-        "TestQESATTacticPartialGoalsAndModels"
+        "TestQESATTacticPartialGoalsAndModels",
+        "TestSATPartialSearchStrongContextModes"
       ],
       "assertions": [
         {
@@ -111071,13 +111072,22 @@
             "TestSATPartialSearchBitVectorAndArithmetic",
             "TestQESATTacticPartialGoalsAndModels"
           ]
+        },
+        {
+          "name": "project: local and projected-result strong context simplification",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_project_level.go",
+          "tests": [
+            "TestSATPartialSearchStrongContextModes",
+            "TestQESATTacticPartialGoalsAndModels"
+          ]
         }
       ],
       "ownership": [
         "NNF strengthening owns its formula and substitutions and pops solver scopes on success or failure."
       ],
       "deviations": [
-        "The tactic currently supports partial projection only when strong context simplification is disabled; full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
+        "The tactic supports partial projection with both strong context simplification modes; full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
       ]
     },
     {
@@ -111097,7 +111107,8 @@
         "TestSATPartialSearchBooleanQuantifiers",
         "TestSATPartialSearchAlternatingQuantifiers",
         "TestSATPartialSearchBitVectorAndArithmetic",
-        "TestQESATTacticPartialGoalsAndModels"
+        "TestQESATTacticPartialGoalsAndModels",
+        "TestSATPartialSearchStrongContextModes"
       ],
       "conditionals": [
         {
@@ -111125,7 +111136,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "The tactic currently supports partial projection only when strong context simplification is disabled; full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
+        "The tactic supports partial projection with both strong context simplification modes; full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
       ]
     },
     {
@@ -125875,10 +125886,17 @@
       "status": "partial",
       "go_targets": [
         "pkg/smtcore/expr_strong_context_simplifier.go",
-        "pkg/smtcore/expr_strong_context_simplifier_test.go"
+        "pkg/smtcore/expr_strong_context_simplifier_test.go",
+        "pkg/smtcore/expr_strong_context_assignments.go",
+        "pkg/smtcore/expr_strong_context_assignments_test.go",
+        "pkg/smtcore/expr_strong_context_traversal.go",
+        "pkg/smtcore/expr_strong_context_traversal_test.go"
       ],
       "tests": [
-        "TestExprStrongContextSimplifierScopedForcedChecks"
+        "TestExprStrongContextSimplifierScopedForcedChecks",
+        "TestStrongContextAssignmentPropagation",
+        "TestExprStrongContextSimplifierModelBased",
+        "TestExprStrongContextSimplifierPreservesEquivalence"
       ],
       "conditionals": [
         {
@@ -125920,13 +125938,23 @@
           "name": "disabled quantifier-body descent",
           "status": "dead_deleted",
           "tests": []
+        },
+        {
+          "name": "strong context simplifier model-based traversal and path-sensitive cache",
+          "status": "partial",
+          "go_target": "pkg/smtcore/expr_strong_context_traversal.go",
+          "tests": [
+            "TestExprStrongContextSimplifierModelBased",
+            "TestExprStrongContextSimplifierPreservesEquivalence"
+          ]
         }
       ],
       "ownership": [
-        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed."
+        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed.",
+        "Assignment snapshots and temporary naming expressions own AST references; traversal restores solver scopes and returns an owned result reference."
       ],
       "deviations": [
-        "The live QE-SAT consumer requires the strong context simplifier. The model-based traversal and public integration are unfinished; the separate local Boolean simplifier has no live source consumer."
+        "Strong model-based traversal is connected to the live QE-SAT partial-projection consumer. Source and ownership audits remain incomplete; the separate local Boolean simplifier and unused basic traversal have no live source consumer."
       ]
     },
     {
@@ -125936,10 +125964,17 @@
       "status": "partial",
       "go_targets": [
         "pkg/smtcore/expr_strong_context_simplifier.go",
-        "pkg/smtcore/expr_strong_context_simplifier_test.go"
+        "pkg/smtcore/expr_strong_context_simplifier_test.go",
+        "pkg/smtcore/expr_strong_context_assignments.go",
+        "pkg/smtcore/expr_strong_context_assignments_test.go",
+        "pkg/smtcore/expr_strong_context_traversal.go",
+        "pkg/smtcore/expr_strong_context_traversal_test.go"
       ],
       "tests": [
-        "TestExprStrongContextSimplifierScopedForcedChecks"
+        "TestExprStrongContextSimplifierScopedForcedChecks",
+        "TestStrongContextAssignmentPropagation",
+        "TestExprStrongContextSimplifierModelBased",
+        "TestExprStrongContextSimplifierPreservesEquivalence"
       ],
       "conditionals": [
         {
@@ -125961,13 +125996,23 @@
           "tests": [
             "TestExprStrongContextSimplifierScopedForcedChecks"
           ]
+        },
+        {
+          "name": "strong context simplifier model-based traversal and path-sensitive cache",
+          "status": "partial",
+          "go_target": "pkg/smtcore/expr_strong_context_traversal.go",
+          "tests": [
+            "TestExprStrongContextSimplifierModelBased",
+            "TestExprStrongContextSimplifierPreservesEquivalence"
+          ]
         }
       ],
       "ownership": [
-        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed."
+        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed.",
+        "Assignment snapshots and temporary naming expressions own AST references; traversal restores solver scopes and returns an owned result reference."
       ],
       "deviations": [
-        "The live QE-SAT consumer requires the strong context simplifier. The model-based traversal and public integration are unfinished; the separate local Boolean simplifier has no live source consumer."
+        "Strong model-based traversal is connected to the live QE-SAT partial-projection consumer. Source and ownership audits remain incomplete; the separate local Boolean simplifier and unused basic traversal have no live source consumer."
       ]
     },
     {

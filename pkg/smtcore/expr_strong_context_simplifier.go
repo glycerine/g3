@@ -1,7 +1,7 @@
 package smtcore
 
 // Source: src/smt/expr_context_simplifier.cpp/.h, strong simplifier lifecycle
-// and scoped forced-value checks. Model-based traversal is still in progress.
+// and scoped forced-value checks. The model-based traversal is in a separate file.
 
 import (
 	"errors"
