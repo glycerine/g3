@@ -172730,11 +172730,31 @@
       "status": "partial",
       "go_targets": [
         "pkg/tactic/arith/degree_shift_collect.go",
-        "pkg/tactic/arith/unstarted_collectors_test.go"
+        "pkg/tactic/arith/degree_shift_prepare.go",
+        "pkg/tactic/arith/degree_shift_rewrite.go",
+        "pkg/tactic/arith/degree_shift_bounds.go",
+        "pkg/tactic/arith/degree_shift_model.go",
+        "pkg/tactic/arith/degree_shift_tactic.go",
+        "pkg/tactic/arith/degree_shift_factory.go",
+        "pkg/tactic/arith/degree_shift_prepare_test.go",
+        "pkg/tactic/arith/degree_shift_rewrite_test.go",
+        "pkg/tactic/arith/degree_shift_bounds_test.go",
+        "pkg/tactic/arith/degree_shift_model_test.go",
+        "pkg/tactic/arith/degree_shift_tactic_test.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/degree_shift_integration_test.go"
       ],
       "tests": [
         "TestDegreeShiftCandidateGCDAndOrdinaryOccurrences",
-        "TestArithmeticCandidateQuantifierAnnotations"
+        "TestArithmeticCandidateQuantifierAnnotations",
+        "TestDegreeShiftPrepare",
+        "TestDegreeShiftRewrite",
+        "TestDegreeShiftEvenBounds",
+        "TestDegreeShiftModelReconstruction",
+        "TestDegreeShiftTacticApply",
+        "TestDegreeShiftFactorySimplifiesMultiplication",
+        "TestSMTLibRunnerDegreeShiftTactic"
       ],
       "assertions": [
         {
@@ -172801,23 +172821,63 @@
             "TestDegreeShiftCandidateGCDAndOrdinaryOccurrences",
             "TestArithmeticCandidateQuantifierAnnotations"
           ]
+        },
+        {
+          "name": "prepare_substitution/rw_cfg/operator()/mk_degree_shift_tactic: substitutions, rewriting, bounds, proofs, model conversion and composed factory",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/degree_shift_tactic.go",
+          "tests": [
+            "TestDegreeShiftPrepare",
+            "TestDegreeShiftRewrite",
+            "TestDegreeShiftEvenBounds",
+            "TestDegreeShiftModelReconstruction",
+            "TestDegreeShiftTacticApply",
+            "TestDegreeShiftFactorySimplifiesMultiplication",
+            "TestSMTLibRunnerDegreeShiftTactic"
+          ]
         }
       ],
       "ownership": [
-        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
+        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners.",
+        "Plans own original and fresh variables and definition proofs; traversal and model converter owners are released after publication."
       ],
       "deviations": [
-        "Pending: cancellation/cooperation checkpoints, initial simplification, rewrite configuration, fresh variables, even-degree bounds, proof/model conversion, lifecycle and public tactic integration.",
-        "New source start only; not registered as an executable tactic and not claimed source-complete."
+        "Cancellation checkpoints and full source and ownership audits remain unfinished."
       ]
     },
     {
       "path": "src/tactic/arith/degree_shift_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/arith/degree_shift_collect.go",
+        "pkg/tactic/arith/degree_shift_prepare.go",
+        "pkg/tactic/arith/degree_shift_rewrite.go",
+        "pkg/tactic/arith/degree_shift_bounds.go",
+        "pkg/tactic/arith/degree_shift_model.go",
+        "pkg/tactic/arith/degree_shift_tactic.go",
+        "pkg/tactic/arith/degree_shift_factory.go",
+        "pkg/tactic/arith/degree_shift_prepare_test.go",
+        "pkg/tactic/arith/degree_shift_rewrite_test.go",
+        "pkg/tactic/arith/degree_shift_bounds_test.go",
+        "pkg/tactic/arith/degree_shift_model_test.go",
+        "pkg/tactic/arith/degree_shift_tactic_test.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/degree_shift_integration_test.go"
+      ],
+      "tests": [
+        "TestDegreeShiftCandidateGCDAndOrdinaryOccurrences",
+        "TestArithmeticCandidateQuantifierAnnotations",
+        "TestDegreeShiftPrepare",
+        "TestDegreeShiftRewrite",
+        "TestDegreeShiftEvenBounds",
+        "TestDegreeShiftModelReconstruction",
+        "TestDegreeShiftTacticApply",
+        "TestDegreeShiftFactorySimplifiesMultiplication",
+        "TestSMTLibRunnerDegreeShiftTactic"
+      ],
       "conditionals": [
         {
           "line": 22,
@@ -172830,9 +172890,21 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "mk_degree_shift_tactic: registered simplification and degree-shift factory",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/degree_shift_factory.go",
+          "tests": [
+            "TestDegreeShiftFactorySimplifiesMultiplication",
+            "TestSMTLibRunnerDegreeShiftTactic"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Cancellation checkpoints and full source and ownership audits remain unfinished."
+      ]
     },
     {
       "path": "src/tactic/arith/diff_neq_tactic.cpp",

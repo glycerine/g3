@@ -1,4 +1,4 @@
-Degree-shift goal transformation (2026-10-31 UTC): candidate variables receive owned fresh variables and optional definition proofs, nested powers are rewritten using common exponents, even degrees add nonnegative bounds, and model conversion reconstructs original values while filtering fresh variables. Focused normal and checked tests cover multiple variables, proof facts, bounds, reconstruction and goal application; source factory and public registration remain unfinished.
+Degree-shift tactic integration (2026-10-31 UTC): registered the composed simplification and degree-shift tactic, including fresh variables, power rewriting, even-degree bounds, proofs and model reconstruction. Focused normal and checked tests, the arithmetic and command-context packages, and SMT-LIB regressions pass; cancellation checkpoints and the full source and ownership audits remain unfinished.
 
 Generated parameter-description replay (2026-10-31 UTC): added solver descriptor creation, reference counts, exact-symbol lookup, names, documentation, display and parameter validation. Focused normal and checked API/CLI tests and the full API package pass.
 

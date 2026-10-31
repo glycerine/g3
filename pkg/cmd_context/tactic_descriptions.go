@@ -22,6 +22,7 @@ var builtinTacticDescriptions = map[string]string{
 	"collect-statistics":      "Collects various statistics.",
 	"injectivity":             "Identifies and applies injectivity axioms.",
 	"der":                     "destructive equality resolution.",
+	"degree-shift":            "try to reduce degree of polynomials (remark: :mul2power simplification is automatically applied).",
 	"diff-neq":                "specialized solver for integer arithmetic problems that contain only atoms of the form (<= k x) (<= x k) and (not (= (- x y) k)), where x and y are constants and k is a numeral, and all constants are bounded.",
 	"distribute-forall":       "distribute forall over conjunctions.",
 	"dt2bv":                   "eliminate finite domain data-types. Replace by bit-vectors.",

@@ -41,3 +41,28 @@ func TestDegreeShiftTacticApply(t *testing.T) {
 		})
 	}
 }
+
+func TestDegreeShiftFactorySimplifiesMultiplication(t *testing.T) {
+	base, m := fixDLFixture(t, false)
+	x := fixDLConst(t, m, false, "factory-x")
+	product := fixDLApp(t, m, 9, x, x)
+	form, err := m.MkEq(product, fixDLNumber(t, m, false, "4"))
+	equationMust(t, err)
+	fixDLPin(t, m, form)
+	goal := fixDLGoal(t, m, false, true, false, form)
+	shift, err := MakeDegreeShiftTactic(m, base.services.Context, base.services.Globals, base.services)
+	equationMust(t, err)
+	equationMust(t, shift.IncRef())
+	defer func() { equationMust(t, shift.DecRef()) }()
+	var out tactic.TacticResult
+	defer func() { equationMust(t, out.Close()) }()
+	equationMust(t, shift.Apply(goal, &out))
+	if out.ModelConverter == nil {
+		t.Fatal("multiplication was not converted to a power and shifted")
+	}
+	size, err := goal.Size()
+	equationMust(t, err)
+	if size != 2 {
+		t.Fatalf("got %d goal formulas, want shifted equality and bound", size)
+	}
+}
