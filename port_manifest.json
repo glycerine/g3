@@ -48191,8 +48191,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_transformer_test.go"],
-      "tests": ["TestRPFPTransformerOwnershipAndBooleanState"],
+      "go_targets": ["pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go"],
+      "tests": ["TestRPFPTransformerOwnershipAndBooleanState", "TestRPFPTransformerParameterSubstitution"],
       "conditionals": [
         {
           "line": 259,
@@ -48332,8 +48332,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/rpfp_expression.go", "pkg/duality/rpfp_expression_test.go"],
-      "tests": ["TestRPFPExpressionComplexityAndNames"],
+      "go_targets": ["pkg/duality/rpfp_expression.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go", "pkg/duality/rpfp_expression_test.go"],
+      "tests": ["TestRPFPExpressionComplexityAndNames", "TestRPFPTransformerParameterSubstitution"],
       "conditionals": [
         {
           "line": 24,
