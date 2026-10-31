@@ -75,3 +75,27 @@ func TestNLCreateBranchesLinearGateAndDegreeThreeRejection(t *testing.T) {
 		t.Fatal("degree-three accepted")
 	}
 }
+
+func TestNLCreateBranchesDeclinesNonRealTargets(t *testing.T) {
+	f := newArithmeticQEFixture(t)
+	u, err := qe.NewNonlinearArithmeticUtil(f.manager)
+	pluginMust(t, err)
+	defer func() { pluginMust(t, u.Close()) }()
+	branches, err := qe.NewNLBranchConditions(f.manager)
+	pluginMust(t, err)
+	defer func() { pluginMust(t, branches.Close()) }()
+	boolean := f.pin(f.manager.MkBoolSort())
+	name, err := f.manager.Symbols.Intern("non-real-variable")
+	pluginMust(t, err)
+	value := f.pin(f.manager.MkConst(name, boolean))
+	for _, target := range []ast.ASTHandle{value, f.x} {
+		contains, e := ast.NewContainsApp(f.manager, target)
+		pluginMust(t, e)
+		ok, e := u.CreateBranches(contains, nil, branches)
+		pluginMust(t, e)
+		pluginMust(t, contains.Close())
+		if ok || len(branches.Branches) != 0 {
+			t.Fatal("accepted non-real variable", target)
+		}
+	}
+}

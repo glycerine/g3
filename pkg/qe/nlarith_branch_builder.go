@@ -16,8 +16,19 @@ func (u *NonlinearArithmeticUtil) CreateBranches(variable *ast.ContainsApp, lite
 	if err != nil {
 		return false, err
 	}
-	integer, err := u.term.isInteger(target)
-	if err != nil || integer {
+	sort, err := u.manager.GetSort(target)
+	if err != nil {
+		return false, err
+	}
+	family, err := u.manager.GetFamilyID(sort)
+	if err != nil {
+		return false, err
+	}
+	if family != u.family {
+		return false, nil
+	}
+	kind, err := u.manager.GetDeclKind(sort)
+	if err != nil || kind != 0 {
 		return false, err
 	}
 	analysis, ok, err := u.Analyze(variable, literals)

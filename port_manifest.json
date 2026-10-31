@@ -109819,8 +109819,47 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/nlarith_util.go", "pkg/qe/nlarith_polynomial.go", "pkg/qe/nlarith_polynomial_decompose.go", "pkg/qe/nlarith_polynomial_ops.go", "pkg/qe/nlarith_polynomial_derivative.go", "pkg/qe/nlarith_polynomial_division.go", "pkg/qe/nlarith_numeral.go", "pkg/qe/nlarith_literal.go", "pkg/qe/nlarith_analysis.go", "pkg/qe/nlarith_branch_conditions.go", "pkg/qe/nlarith_extract.go", "pkg/qe/nlarith_weights.go", "pkg/qe/nlarith_branch_algebra.go", "pkg/qe/nlarith_root_form.go", "pkg/qe/nlarith_root_instantiate.go", "pkg/qe/nlarith_root_compare.go", "pkg/qe/nlarith_epsilon.go", "pkg/qe/nlarith_infinity.go", "pkg/qe/nlarith_candidate.go", "pkg/qe/nlarith_branch_builder.go", "pkg/qe/qe_nlarith_plugin.go", "pkg/qe/qe_nlarith_plugin_classify.go", "pkg/qe/qe_nlarith_plugin_prepare.go", "pkg/qe/qe_nlarith_plugin_branch.go", "pkg/qe/qe_nlarith_plugin_substitute.go", "pkg/qe/nlarith_polynomial_test.go", "pkg/qe/nlarith_analysis_test.go", "pkg/qe/nlarith_extract_test.go", "pkg/qe/nlarith_root_branch_test.go", "pkg/qe/nlarith_create_branches_test.go", "pkg/qe/qe_nlarith_plugin_test.go", "pkg/qe/nlarith_test_helpers_test.go"],
-      "tests": ["TestNLArithmeticPolynomialDecompositionOperationsAndDerivative", "TestNLArithmeticLiteralAnalysisComparisonsAndDegreePolicy", "TestNonlinearArithmeticPluginEndToEndBranchesAssignSubstitute", "TestNonlinearArithmeticPluginClassificationAndModelMode"],
+      "go_targets": [
+        "pkg/qe/nlarith_util.go",
+        "pkg/qe/nlarith_polynomial.go",
+        "pkg/qe/nlarith_polynomial_decompose.go",
+        "pkg/qe/nlarith_polynomial_ops.go",
+        "pkg/qe/nlarith_polynomial_derivative.go",
+        "pkg/qe/nlarith_polynomial_division.go",
+        "pkg/qe/nlarith_numeral.go",
+        "pkg/qe/nlarith_literal.go",
+        "pkg/qe/nlarith_analysis.go",
+        "pkg/qe/nlarith_branch_conditions.go",
+        "pkg/qe/nlarith_extract.go",
+        "pkg/qe/nlarith_weights.go",
+        "pkg/qe/nlarith_branch_algebra.go",
+        "pkg/qe/nlarith_root_form.go",
+        "pkg/qe/nlarith_root_instantiate.go",
+        "pkg/qe/nlarith_root_compare.go",
+        "pkg/qe/nlarith_epsilon.go",
+        "pkg/qe/nlarith_infinity.go",
+        "pkg/qe/nlarith_candidate.go",
+        "pkg/qe/nlarith_branch_builder.go",
+        "pkg/qe/qe_nlarith_plugin.go",
+        "pkg/qe/qe_nlarith_plugin_classify.go",
+        "pkg/qe/qe_nlarith_plugin_prepare.go",
+        "pkg/qe/qe_nlarith_plugin_branch.go",
+        "pkg/qe/qe_nlarith_plugin_substitute.go",
+        "pkg/qe/nlarith_polynomial_test.go",
+        "pkg/qe/nlarith_analysis_test.go",
+        "pkg/qe/nlarith_extract_test.go",
+        "pkg/qe/nlarith_root_branch_test.go",
+        "pkg/qe/nlarith_create_branches_test.go",
+        "pkg/qe/qe_nlarith_plugin_test.go",
+        "pkg/qe/nlarith_test_helpers_test.go"
+      ],
+      "tests": [
+        "TestNLArithmeticPolynomialDecompositionOperationsAndDerivative",
+        "TestNLArithmeticLiteralAnalysisComparisonsAndDegreePolicy",
+        "TestNonlinearArithmeticPluginEndToEndBranchesAssignSubstitute",
+        "TestNonlinearArithmeticPluginClassificationAndModelMode",
+        "TestNLCreateBranchesDeclinesNonRealTargets"
+      ],
       "conditionals": [
         {
           "line": 493,
@@ -109909,7 +109948,9 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "The sign-literal and sign-branch APIs have no source consumers outside this unit and are excluded under the live-consumer rule. Full declaration and lifetime audits remain pending."
+      ]
     },
     {
       "path": "src/qe/nlarith_util.h",
@@ -109927,7 +109968,8 @@
       "tests": [
         "TestNLBranchConditionsOwnResetAndReuse",
         "TestNLArithmeticExtractNonlinearTraversalAndWeightCache",
-        "TestNLCreateQuadraticBranchesSubstitutionShapeAndOwnership"
+        "TestNLCreateQuadraticBranchesSubstitutionShapeAndOwnership",
+        "TestNLCreateBranchesDeclinesNonRealTargets"
       ],
       "conditionals": [
         {
@@ -109956,7 +109998,7 @@
         "Branch conditions own references to predicates and branch expressions, including copied substitutions."
       ],
       "deviations": [
-        "Sign literal selection and sign-based branching, complete declaration and lifetime audits remain pending."
+        "The sign-literal and sign-branch APIs have no source consumers outside this unit and are excluded under the live-consumer rule. Full declaration and lifetime audits remain pending."
       ]
     },
     {
