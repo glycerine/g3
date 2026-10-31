@@ -787,10 +787,12 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	} else {
 		traversal, err = rewriter.NewTraversal(t.manager, config)
 	}
+	if traversal != nil {
+		defer func() { err = errors.Join(err, traversal.Close()) }()
+	}
 	if err != nil {
 		return err
 	}
-	defer func() { err = errors.Join(err, traversal.Close()) }()
 	size, err := goal.Size()
 	if err != nil {
 		return err

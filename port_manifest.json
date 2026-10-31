@@ -182059,6 +182059,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_failure_test.go",
         "pkg/tactic/arith/qfnra_purify_forward_trig.go",
         "pkg/tactic/arith/qfnra_purify_forward_trig_test.go",
         "pkg/tactic/arith/forward_trig_purify_basis.go",
@@ -182082,6 +182083,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestGeneralPurifierAllocationFrontiers",
+        "TestGeneralPurifierConstructorAllocationFrontiers",
         "TestGeneralPurifierForwardTrigMixedModelAndProof",
         "TestGeneralPurifierForwardTrigRejectsUnsafeAngle",
         "TestGeneralPurifierForwardTrigSeesEarlierRewrittenAngleUse",
@@ -182161,6 +182164,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "purifier construction and traversal refusal cleanup with retry",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/qfnra_purify_tactic.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_failure_test.go"],
+          "tests": ["TestGeneralPurifierAllocationFrontiers", "TestGeneralPurifierConstructorAllocationFrontiers"]
+        },
         {
           "name": "forward sine and cosine goal-wide basis, circle constraint, proof and model conversion",
           "status": "partial",
