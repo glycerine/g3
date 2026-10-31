@@ -12,7 +12,7 @@ import (
 )
 
 // Translate copies solver state into target. Cross-context translation supports direct SMT, finite-domain, strategic, and
-// SMT-tactic solvers;
+// supported caller-tactic solvers;
 // same-context translation supports solvers with a tactic translation. Close the returned solver
 // before closing target.
 func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver, resultErr error) {
@@ -61,7 +61,7 @@ func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver
 	} else if finite, ok := s.solver.(*portfolio.BoundedInt2BVSolver); ok {
 		translated, err = finite.TranslateFiniteDomain(manager, &translatedParams, config.ModelEvaluator)
 	} else if tactical, ok := s.solver.(*solver.TacticSolver); ok {
-		translated, err = translateSMTTacticSolver(tactical, target, manager, &translatedParams, config)
+		translated, err = translateCallerTacticSolver(tactical, target, manager, &translatedParams, config)
 	} else if strategic, ok := s.solver.(*solver.CombinedSolver); ok {
 		translated, err = translateStrategicSolver(strategic, manager, &translatedParams, config)
 	} else {

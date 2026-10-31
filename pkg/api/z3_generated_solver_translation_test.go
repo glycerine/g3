@@ -276,3 +276,49 @@ func TestGeneratedSMTTacticSolverTranslationAcrossContexts(t *testing.T) {
 		t.Fatal("checks", checks)
 	}
 }
+
+func TestGeneratedComposedTacticSolverTranslationAcrossContexts(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0\nC 6\n= 0x42\nR\nP 0x41\nC 377\n= 0x43\nR\nP 0x41\nP 0x43\nC 364\n" +
+		"R\nP 0x41\nS \"smt\"\nC 363\n= 0x44\nR\nP 0x41\nP 0x44\nC 364\nR\nP 0x41\nP 0x43\nP 0x44\nC 369\n= 0x45\nR\nP 0x41\nP 0x45\nC 364\n" +
+		"R\nP 0x41\nP 0x45\nC 411\n= 0x46\nR\nP 0x41\nP 0x46\nC 416\nR\nP 0x41\nP 0x45\nC 365\nR\nP 0x41\nP 0x44\nC 365\nR\nP 0x41\nP 0x43\nC 365\n" +
+		"R\nP 0x41\nC 55\n= 0x47\nR\nP 0x41\nP 0x46\nP 0x47\nC 422\nR\nP 0x41\nP 0x46\nP 0x42\nC 412\n= 0x48\nR\nP 0x42\nP 0x48\nC 416\nR\nP 0x41\nC 8\n" +
+		"R\nP 0x42\nP 0x48\nC 900\nR\nP 0x42\nP 0x48\nC 417\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	for _, register := range []func(*Z3Replayer) error{RegisterZ3GeneratedContextCommands, RegisterZ3GeneratedSolverCommands, RegisterZ3GeneratedASTCommands} {
+		if err = register(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-composed-tactic-translation", func(r *Z3Replayer) error {
+		s, e := replayGetSolver(r)
+		if e != nil {
+			return e
+		}
+		status, e := s.value.Check()
+		if e != nil {
+			return e
+		}
+		if status != lbool.False {
+			t.Fatal("status", status)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("translation not checked")
+	}
+}

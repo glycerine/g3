@@ -10,24 +10,27 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func translateSMTTacticSolver(source *solver.TacticSolver, target *SMTContext, manager *ast.ASTManager, params *uparams.ParamsRef, config smtcore.SMTSolverConfig) (result solver.Solver, resultErr error) {
+func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext, manager *ast.ASTManager, params *uparams.ParamsRef, config smtcore.SMTSolverConfig) (result solver.Solver, resultErr error) {
 	raw, err := source.TranslationTactic()
 	if err != nil {
 		return nil, err
 	}
-	sourceTactic, ok := raw.(*smtcore.SMTTactic)
-	if !ok {
-		return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
-	}
-	targetTactic, err := sourceTactic.TranslateWithConfig(manager, config)
+	targetTactic, err := tactic.TranslateWithContext(raw, manager, config.Params, func(leaf tactic.Tactic) (tactic.Tactic, error) {
+		sourceTactic, ok := leaf.(*smtcore.SMTTactic)
+		if !ok {
+			return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
+		}
+		return sourceTactic.TranslateWithConfig(manager, config)
+	})
 	if err != nil {
 		return nil, err
 	}
 	if err = targetTactic.IncRef(); err != nil {
-		return nil, errors.Join(err, targetTactic.Close())
+		return nil, err
 	}
 	defer func() {
 		resultErr = errors.Join(resultErr, targetTactic.DecRef())
