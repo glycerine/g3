@@ -36,6 +36,7 @@ type Z3Replayer struct {
 	solvers       map[uint64]*replaySolver
 	models        map[uint64]*replayModel
 	goals         map[uint64]*replayGoal
+	vectors       map[uint64]*replayASTVector
 	nextObjectID  uint64
 	closed        bool
 }
@@ -89,5 +90,6 @@ func (r *Z3Replayer) Close() error {
 	r.solvers = nil
 	r.models = nil
 	r.goals = nil
+	r.vectors = nil
 	return nil
 }
