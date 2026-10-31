@@ -123,3 +123,37 @@ func TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace(t *testing.T) {
 		t.Fatal("stale trace")
 	}
 }
+
+func TestAPIFixedpointSpacerExpressionQueryFromLevel(t *testing.T) {
+	f := newAPIFixedpointFixture(t)
+	astTestMust(t, f.c.SetFixedpointEngine("spacer"))
+	astTestMust(t, f.fp.AddFact(f.p, nil))
+	astTestMust(t, f.fp.AddFact(f.q, nil))
+	query := f.pin(f.m.MkAndArgs([]ast.ASTHandle{f.pAtom, f.qAtom}))
+	status, err := f.fp.QueryExpressionFromLevel(query, 0)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("level query", status)
+	}
+	answer, err := f.fp.LastAnswer()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.m.DelRef(&answer)) }()
+	h, err := f.m.RefGet(answer)
+	astTestMust(t, err)
+	if h.IsNull() {
+		t.Fatal("empty answer")
+	}
+	ground, err := f.fp.LastGroundSatAnswer()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, f.m.DelRef(&ground)) }()
+	h, err = f.m.RefGet(ground)
+	astTestMust(t, err)
+	if h.IsNull() {
+		t.Fatal("empty ground answer")
+	}
+	status, err = f.fp.QueryExpressionFromLevel(query, 1)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("level one query", status)
+	}
+}

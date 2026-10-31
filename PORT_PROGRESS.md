@@ -1,3 +1,5 @@
+Spacer level queries now accept general Boolean expressions and preserve their answer state, including generated replay. Focused tests cover levels zero and one and reject level queries on unsupported engines.
+
 Datalog relation-array queries now return the source conjunction of relation formulas, including empty and mixed-result cases; public API and generated replay tests exercise the result and stale-query guards. Other backends still do not expose multiple-relation answers.
 
 Spacer expression queries now expose their ground answer and rule trace through the preserved query backend, with stale snapshot guards and generated replay coverage. Preprocessing may collapse named facts into an unnamed synthetic trace rule; source trace-name reconstruction remains open.

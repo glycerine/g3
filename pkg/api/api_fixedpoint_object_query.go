@@ -3,7 +3,6 @@ package api
 // Source: src/api/api_datalog.cpp:277-327.
 
 import (
-	"fmt"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -86,7 +85,7 @@ func (f *APIFixedpoint) nullaryRelation(query ast.ASTHandle) (ast.ASTHandle, boo
 	return ast.ASTHandle{}, false, nil
 }
 
-// QueryExpressionFromLevel handles a nullary relation query at a Spacer level.
+// QueryExpressionFromLevel runs a Boolean query at a Spacer proof level.
 func (f *APIFixedpoint) QueryExpressionFromLevel(query ast.ASTHandle, level uint32) (lbool.LBool, error) {
 	if err := f.open(); err != nil {
 		return lbool.Undef, err
@@ -99,7 +98,11 @@ func (f *APIFixedpoint) QueryExpressionFromLevel(query ast.ASTHandle, level uint
 		return lbool.Undef, err
 	}
 	if !found {
-		return lbool.Undef, fmt.Errorf("fixedpoint: level query requires a nullary relation")
+		status, err := f.command.QueryFixedpointExpressionFromLevelWithParams(query, level, f.queryParameters())
+		if err == nil {
+			f.hasLastExpression = true
+		}
+		return status, err
 	}
 	status, err := f.command.QueryFixedpointFromLevelWithParams(declaration, level, f.queryParameters())
 	if err == nil {

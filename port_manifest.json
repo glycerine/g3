@@ -6122,7 +6122,7 @@
         "TestAPIFixedpointParametersAreOwnedAndLocal",
         "TestAPIFixedpointParametersValidateCatalog",
         "TestGeneratedFixedpointReplayParameterUpdate",
-        "TestGeneratedFixedpointReplayRejectsComplexLevelQuery",
+        "TestGeneratedFixedpointReplayRejectsNonSpacerLevelQuery",
         "TestGeneratedRCFRationalReplayZeroAndLifecycle",
         "TestGeneratedRCFRationalReplayArithmeticAndAliases",
         "TestGeneratedRCFRationalReplayPowersAndComponents",
@@ -6138,7 +6138,8 @@
         "TestGeneratedFloatingPointReplayInfinityExponentBitVector",
         "TestGeneratedFixedpointReplayExpressionAnswer",
         "TestGeneratedFixedpointReplaySpacerExpressionGroundAndTrace",
-        "TestGeneratedFixedpointReplayMultipleRelationAnswer"
+        "TestGeneratedFixedpointReplayMultipleRelationAnswer",
+        "TestGeneratedFixedpointReplaySpacerExpressionFromLevel"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6192,7 +6193,6 @@
         "Bit-vector Boolean-array replay follows the source replayer native-byte interpretation of unsigned-array storage; malformed arrays are rejected rather than read out of bounds.",
         "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished.",
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
-        "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported."
       ]
@@ -6523,7 +6523,8 @@
         "pkg/muz/fp/engine_result_routing_test.go",
         "pkg/muz/fp/relation_query_answer.go",
         "pkg/muz/fp/relation_query_answer_test.go",
-        "pkg/api/api_fixedpoint_relations_answer_test.go"
+        "pkg/api/api_fixedpoint_relations_answer_test.go",
+        "pkg/muz/fp/query_expression.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6551,7 +6552,8 @@
         "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
-        "TestAPIFixedpointDatalogMultipleRelationAnswers"
+        "TestAPIFixedpointDatalogMultipleRelationAnswers",
+        "TestAPIFixedpointSpacerExpressionQueryFromLevel"
       ],
       "assertions": [
         {
@@ -97441,7 +97443,8 @@
         "pkg/api/api_fixedpoint.go",
         "pkg/parsers/smt2/fixedpoint_commands_test.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
-        "pkg/muz/fp/engine_result_routing_test.go"
+        "pkg/muz/fp/engine_result_routing_test.go",
+        "pkg/muz/fp/query_expression.go"
       ],
       "tests": [
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
@@ -97451,7 +97454,8 @@
         "TestSMTContextFixedpointSpacerInductiveExports",
         "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
         "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
-        "TestExpressionQueryLastResultAndSpacerTraceInvalidation"
+        "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
+        "TestAPIFixedpointSpacerExpressionQueryFromLevel"
       ],
       "assertions": [
         {

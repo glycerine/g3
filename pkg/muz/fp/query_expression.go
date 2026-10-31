@@ -12,9 +12,22 @@ import (
 
 // QueryExpression evaluates an arbitrary Boolean Horn query without adding
 // its synthetic query predicate or rule to the caller's persistent program.
-func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool.LBool, resultErr error) {
+func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (lbool.LBool, error) {
+	return e.queryExpression(query, nil)
+}
+
+// QueryExpressionFromLevel runs a general Spacer expression query beginning
+// at the requested proof level without changing the persistent rule set.
+func (e *PropositionalEngine) QueryExpressionFromLevel(query ast.ASTHandle, level uint32) (lbool.LBool, error) {
+	return e.queryExpression(query, &level)
+}
+
+func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32) (result lbool.LBool, resultErr error) {
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
+	}
+	if level != nil && e.backend != "spacer" {
+		return lbool.Undef, ErrPropositionalEngine
 	}
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
@@ -85,7 +98,9 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	if err = clone.applyQueryMagicSets(declaration); err != nil {
 		return lbool.Undef, err
 	}
-	if clone.backend == "ddnf" {
+	if level != nil {
+		result, err = clone.QueryPredicateFromLevel(declaration, *level)
+	} else if clone.backend == "ddnf" {
 		result, err = clone.queryDDNF()
 	} else {
 		result, err = clone.QueryPredicate(declaration)

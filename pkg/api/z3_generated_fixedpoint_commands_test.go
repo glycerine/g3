@@ -505,7 +505,7 @@ func TestGeneratedFixedpointReplayParameterUpdate(t *testing.T) {
 	}
 }
 
-func TestGeneratedFixedpointReplayRejectsComplexLevelQuery(t *testing.T) {
+func TestGeneratedFixedpointReplayRejectsNonSpacerLevelQuery(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
 		"R\nP 0x41\nP 0x43\nP 0x42\nU 0\nC 651\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
@@ -523,7 +523,7 @@ func TestGeneratedFixedpointReplayRejectsComplexLevelQuery(t *testing.T) {
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
 		t.Fatal(err)
 	}
-	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "level query requires a nullary relation") {
-		t.Fatal("complex level query", err)
+	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "invalid or closed propositional engine") {
+		t.Fatal("non-Spacer level query", err)
 	}
 }

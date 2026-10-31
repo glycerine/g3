@@ -282,6 +282,9 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 		handler.close()
 	}()
 	if expression {
+		if level != nil {
+			return engine.QueryExpressionFromLevel(query, *level)
+		}
 		return engine.Query(query)
 	}
 	if level != nil {
@@ -315,6 +318,12 @@ func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint
 // QueryFixedpointFromLevelWithParams runs a bounded Spacer query with local settings.
 func (c *Context) QueryFixedpointFromLevelWithParams(declaration ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
 	return c.queryFixedpoint(declaration, params, false, &level)
+}
+
+// QueryFixedpointExpressionFromLevelWithParams runs a general Spacer query
+// beginning at the requested proof level with fixedpoint-local settings.
+func (c *Context) QueryFixedpointExpressionFromLevelWithParams(query ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpoint(query, params, true, &level)
 }
 
 // FixedpointReasonUnknown returns the execution status of the latest
