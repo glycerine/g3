@@ -19,13 +19,15 @@ const (
 )
 
 type z3ReplayValue struct {
-	kind       z3ReplayKind
-	i          int64
-	u          uint64
-	d          float64
-	f          float32
-	s          string
-	nullString bool
+	kind          z3ReplayKind
+	i             int64
+	u             uint64
+	d             float64
+	f             float32
+	s             string
+	nullString    bool
+	nullSymbol    bool
+	numericSymbol bool
 }
 
 func (r *Z3Replayer) value(position uint32, kind z3ReplayKind) (z3ReplayValue, error) {

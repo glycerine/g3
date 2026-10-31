@@ -36,7 +36,7 @@ func (r *Z3Replayer) Parse() error {
 				r.args = append(r.args, z3ReplayValue{kind: replayString, s: v})
 			}
 		case 'N':
-			r.args = append(r.args, z3ReplayValue{kind: replaySymbol})
+			r.args = append(r.args, z3ReplayValue{kind: replaySymbol, nullSymbol: true})
 		case '$':
 			var v string
 			v, err = s.quoted('|')
@@ -47,7 +47,7 @@ func (r *Z3Replayer) Parse() error {
 			var v uint64
 			v, err = s.uint64()
 			if err == nil {
-				r.args = append(r.args, z3ReplayValue{kind: replaySymbol, s: fmt.Sprint(v)})
+				r.args = append(r.args, z3ReplayValue{kind: replaySymbol, s: fmt.Sprint(v), u: v, numericSymbol: true})
 			}
 		case 'I':
 			var v int64

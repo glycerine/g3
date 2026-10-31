@@ -52,3 +52,22 @@ func TestZ3ReplayerTypedScalarArgumentsAndEscapes(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestZ3ReplayerPreservesSymbolKinds(t *testing.T) {
+	r, err := NewZ3Replayer(strings.NewReader("R\nN\n$ ||\n$ |42|\n# 42\nC 7\n"), &bytes.Buffer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	if err = r.RegisterCommand(7, "symbols", func(r *Z3Replayer) error {
+		if !r.args[0].nullSymbol || r.args[1].nullSymbol || r.args[2].numericSymbol || !r.args[3].numericSymbol || r.args[3].u != 42 {
+			t.Fatalf("symbol kinds: %+v", r.args)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+}
