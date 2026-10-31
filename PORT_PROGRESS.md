@@ -1,3 +1,5 @@
+Rational real-closed-field frontend integration (2026-10-31 UTC): normal and checked command-line tests replay arithmetic and powers through the log frontend. Non-rational extensions remain unfinished.
+
 Generated rational powers and components replay (2026-10-31 UTC): connected powers and numerator/denominator outputs, preserving shared-one and integer-numerator identities. Normal and checked tests exercise alias lifetimes and values; roots and non-rational extensions remain unfinished.
 
 Generated rational arithmetic replay (2026-10-31 UTC): connected addition, subtraction, multiplication, division, negation and inversion. Normal and checked tests verify values, null zero and source pointer aliases; powers, roots and non-rational extensions remain unfinished.

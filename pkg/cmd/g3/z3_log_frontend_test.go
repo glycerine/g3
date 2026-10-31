@@ -223,3 +223,16 @@ func TestZ3LogFrontendMissingFileDiagnostic(t *testing.T) {
 		t.Fatalf("stdout %q stderr %q, want stderr %q", out.String(), diagnostics.String(), want)
 	}
 }
+
+func TestZ3LogFrontendReplaysRCFRational(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nS \"3/2\"\nC 489\n= 0x42\nR\nP 0x41\nI 1\nC 490\n= 0x43\n" +
+		"R\nP 0x41\nP 0x42\nP 0x43\nC 495\n= 0x44\nR\nP 0x41\nP 0x44\nU 2\nC 501\n= 0x45\n" +
+		"R\nP 0x41\nP 0x42\nC 488\nR\nP 0x41\nP 0x43\nC 488\nR\nP 0x41\nP 0x44\nC 488\nR\nP 0x41\nP 0x45\nC 488\nM \"rcf-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "rcf-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}
