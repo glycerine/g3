@@ -1,3 +1,5 @@
+Interval vector operations (2026-10-31 UTC): added interval join, projection, union and widening, then exposed a concrete relation API for facts, filters and these operations. The public projection preserves empty relations; rename, delta, remaining vector operations and relation-manager integration are still pending.
+
 Vector relation source start (2026-10-31 UTC): began the concrete interval instantiation with column equivalences, union-by-size root selection, intersections and empty-state reset. Join, project, union, remaining live instantiations and relation plugin integration are pending.
 
 Interval relation ranges (2026-10-31 UTC): added source union, widening and intersection over the existing exact arithmetic intervals, and connected recognized linear comparisons to independent column bounds. Tests cover endpoint openness, infinity, disjoint ranges, interpreted filtering and binary propagation; column equivalence and plugin integration remain pending.

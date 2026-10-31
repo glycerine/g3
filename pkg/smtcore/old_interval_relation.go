@@ -35,6 +35,9 @@ func (i RelationInterval) Bounds() (lower *big.Rat, lowerOpen bool, upper *big.R
 
 func (i RelationInterval) Contains(value *big.Rat) bool { return i.value.contains(value) }
 
+// Equal compares endpoints and their openness.
+func (i RelationInterval) Equal(other RelationInterval) bool { return i.value.equal(other.value) }
+
 // EmptyBounds follows the relation plugin's check for reversed endpoints.
 func (i RelationInterval) EmptyBounds() bool { return i.value.upper.cmp(&i.value.lower) < 0 }
 

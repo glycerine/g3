@@ -36,6 +36,19 @@ func (r *intervalColumns) find(index uint32) uint32 {
 	return index
 }
 
+func (r *intervalColumns) merge(i, j uint32) uint32 {
+	i, j = r.find(i), r.find(j)
+	if i == j {
+		return i
+	}
+	if r.size[i] > r.size[j] {
+		i, j = j, i
+	}
+	r.parent[i] = j
+	r.size[j] += r.size[i]
+	return j
+}
+
 func (r *intervalColumns) setEmpty() {
 	r.empty = true
 	for i := range r.columns {
@@ -63,12 +76,7 @@ func (r *intervalColumns) equate(i, j uint32) error {
 	}
 	// union_find attaches the smaller root to the larger root, choosing the
 	// second root on equal sizes.
-	if r.size[i] > r.size[j] {
-		i, j = j, i
-	}
-	r.parent[i] = j
-	r.size[j] += r.size[i]
-	r.columns[j] = value
+	r.columns[r.merge(i, j)] = value
 	return nil
 }
 
