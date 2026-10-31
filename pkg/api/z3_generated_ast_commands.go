@@ -16,6 +16,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{9, "Z3_inc_ref", replayIncAST}, {10, "Z3_dec_ref", replayDecAST},
 		{32, "Z3_mk_bool_sort", replayBoolSort}, {33, "Z3_mk_int_sort", replayIntSort}, {34, "Z3_mk_real_sort", replayRealSort}, {35, "Z3_mk_bv_sort", replayBVSort},
 		{31, "Z3_mk_uninterpreted_sort", replayUninterpretedSort}, {49, "Z3_mk_func_decl", replayFunction}, {50, "Z3_mk_app", replayApplication},
+		{36, "Z3_mk_finite_domain_sort", replayFiniteDomainSort}, {37, "Z3_mk_array_sort", replayArraySort}, {38, "Z3_mk_array_sort_n", replayArraySortN},
 		{51, "Z3_mk_const", replayConstant}, {52, "Z3_mk_fresh_func_decl", replayFreshFunction}, {53, "Z3_mk_fresh_const", replayFreshConstant},
 		{54, "Z3_mk_true", replayTrue}, {55, "Z3_mk_false", replayFalse}, {56, "Z3_mk_eq", replayEqual}, {58, "Z3_mk_not", replayNot},
 		{57, "Z3_mk_distinct", replayDistinct}, {59, "Z3_mk_ite", replayIte}, {60, "Z3_mk_iff", replayIff},
@@ -25,6 +26,8 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{73, "Z3_mk_lt", replayLT}, {74, "Z3_mk_le", replayLE}, {75, "Z3_mk_gt", replayGT}, {76, "Z3_mk_ge", replayGE},
 		{77, "Z3_mk_int2real", replayIntToReal}, {78, "Z3_mk_real2int", replayRealToInt}, {79, "Z3_mk_is_int", replayIsInt},
 		{148, "Z3_mk_numeral", replayNumeral}, {149, "Z3_mk_real", replayReal}, {150, "Z3_mk_int", replayIntNumeral},
+		{128, "Z3_mk_select", replaySelect}, {129, "Z3_mk_select_n", replaySelectN}, {130, "Z3_mk_store", replayStore},
+		{131, "Z3_mk_store_n", replayStoreN}, {132, "Z3_mk_const_array", replayConstArray}, {133, "Z3_mk_map", replayArrayMap}, {134, "Z3_mk_array_default", replayArrayDefault},
 		{151, "Z3_mk_unsigned_int", replayUIntNumeral}, {152, "Z3_mk_int64", replayInt64Numeral}, {153, "Z3_mk_unsigned_int64", replayUInt64Numeral},
 	}
 	for _, entry := range entries {
