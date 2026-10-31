@@ -351,3 +351,32 @@ func TestFiniteIntervalProductRename(t *testing.T) {
 		t.Fatal("duplicate cycle column accepted")
 	}
 }
+
+func TestFiniteIntervalProductFull(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	value, err := f.ast.ArithmeticIntegerNumeralText("-29")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, value)
+	full, err := NewFullFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, full.Close()) }()
+	for _, b := range []ast.ASTHandle{f.falsehood, f.truth} {
+		found, err := full.ContainsFact([]ast.ASTHandle{b, value})
+		if err != nil || !found {
+			t.Fatal("full product omitted fact", b, found, err)
+		}
+	}
+	innerOnly, err := NewFullFiniteIntervalProduct(f.relations, []ast.ASTHandle{integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, innerOnly.Close()) }()
+	if found, err := innerOnly.ContainsFact([]ast.ASTHandle{value}); err != nil || !found {
+		t.Fatal("full product with no table columns", found, err)
+	}
+	if _, err = NewFullFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, f.boolean}, nil); err == nil {
+		t.Fatal("unsupported wide source table complement accepted")
+	}
+}

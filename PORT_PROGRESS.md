@@ -1,3 +1,5 @@
+Full finite/interval product construction (2026-10-31 UTC): implemented source mk_full through complementing an empty sparse functional table and sharing a full inner interval relation. Tests cover zero and one finite columns; the source table complement accepts at most one finite data column.
+
 Finite/interval clone correction (2026-10-31 UTC): aligned interval cloning with vector_relation::copy, which copies representative bounds but splits equivalence classes in the new relation. The regression checks both the original equality and the cloned relation behavior.
 
 Finite/interval mixed interpreted filter (2026-10-31 UTC): added source condition dispatch and mixed filtering by grouping finite-column values with the old inner relation, substituting values, and rebuilding the table. Tests cover mixed, inner-only and table-only dispatch, conservative unsupported interval expressions and empty inner removal.

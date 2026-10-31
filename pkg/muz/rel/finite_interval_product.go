@@ -85,6 +85,30 @@ func NewFiniteIntervalProduct(manager *RelationManager, sorts []ast.ASTHandle, c
 	return p, nil
 }
 
+// NewFullFiniteIntervalProduct implements source mk_full for this concrete
+// interval specialization by complementing a newly empty product.
+func NewFullFiniteIntervalProduct(manager *RelationManager, sorts []ast.ASTHandle, columns []bool) (_ *FiniteIntervalProduct, resultErr error) {
+	p, err := NewFiniteIntervalProduct(manager, sorts, columns)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, p.Close())
+		}
+	}()
+	fullTable, err := p.table.ComplementFunctional(Fact{0})
+	if err != nil {
+		return nil, err
+	}
+	if err = p.table.Close(); err != nil {
+		return nil, errors.Join(err, fullTable.Close())
+	}
+	p.table = fullTable
+	p.intervals = append(p.intervals, NewIntervalFull(uint32(len(p.intervalColumns))))
+	return p, nil
+}
+
 func (p *FiniteIntervalProduct) open() error {
 	if p == nil || p.manager == nil || p.manager.open() != nil || p.table == nil || p.table.open() != nil {
 		return ErrTableRelation

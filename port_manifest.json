@@ -90384,7 +90384,8 @@
         "TestFiniteIntervalProductInnerInterpretedFilter",
         "TestFiniteIntervalProductTableInterpretedFilter",
         "TestFiniteIntervalProductMixedInterpretedFilter",
-        "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
+        "TestFiniteIntervalProductCloneUsesSourceVectorCopy",
+        "TestFiniteIntervalProductFull"
       ],
       "conditionals": [
         {
@@ -90841,15 +90842,24 @@
           "tests": [
             "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
           ]
+        },
+        {
+          "name": "construct full finite/interval product",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductFull"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Cross-kind joins, unaligned union, full/complement, manager registration and failure-frontier audit remain pending.",
+        "Cross-kind joins, unaligned union, general complement, manager registration and failure-frontier audit remain pending.",
         "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
-        "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior."
+        "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior.",
+        "Full construction uses the source table complement, which accepts at most one finite data column."
       ]
     },
     {
@@ -90885,7 +90895,8 @@
         "TestFiniteIntervalProductInnerInterpretedFilter",
         "TestFiniteIntervalProductTableInterpretedFilter",
         "TestFiniteIntervalProductMixedInterpretedFilter",
-        "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
+        "TestFiniteIntervalProductCloneUsesSourceVectorCopy",
+        "TestFiniteIntervalProductFull"
       ],
       "conditionals": [
         {
@@ -91030,15 +91041,24 @@
           "tests": [
             "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
           ]
+        },
+        {
+          "name": "construct full finite/interval product",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductFull"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Cross-kind joins, unaligned union, full/complement, manager registration and failure-frontier audit remain pending.",
+        "Cross-kind joins, unaligned union, general complement, manager registration and failure-frontier audit remain pending.",
         "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
-        "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior."
+        "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior.",
+        "Full construction uses the source table complement, which accepts at most one finite data column."
       ]
     },
     {
