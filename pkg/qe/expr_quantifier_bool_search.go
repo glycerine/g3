@@ -16,7 +16,7 @@ import (
 // searchExprQEBoolTree explores model-selected Boolean assignments and
 // independent partitions. Unsupported plugin branches report incomplete.
 func searchExprQEBoolTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (result ast.ASTRef, complete bool, err error) {
-	if root == nil || root.manager == nil || root.formula == (ast.ASTRef{}) || solver == nil || config.Cooperation == nil {
+	if root == nil || root.manager == nil || root.formula == (ast.ASTRef{}) || variables == nil || context == nil || plugin == nil || partitioner == nil || solver == nil || rw == nil || nnf == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}
 	m := root.manager
@@ -60,7 +60,54 @@ func searchExprQEBoolTree(root *exprQETree, variables *exprQEBranchVariables, co
 		if e != nil {
 			return result, false, errors.Join(e, md.DecRef())
 		}
+		variableCount := len(variables.entries)
 		current, step, e := advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
+		// The normalizer is built from the initial variable set. Arithmetic
+		// branches that introduce fresh variables need a refreshed context.
+		if e == nil && len(variables.entries) != variableCount {
+			e = errors.Join(eval.Close(), md.DecRef())
+			return result, false, e
+		}
+		if e == nil && step == exprQEChooseVariable {
+			var checked lbool.LBool
+			checked, e = solver.CheckSat(nil)
+			if e == nil && checked != lbool.True {
+				e = errors.Join(eval.Close(), md.DecRef())
+				if e != nil || checked == lbool.Undef {
+					return result, false, e
+				}
+				continue
+			}
+			if e == nil {
+				var refreshed *model.ModelCore
+				refreshed, e = solver.AcquireModel()
+				if e == nil && refreshed == nil {
+					e = ast.ErrASTDomain
+				}
+				if e == nil {
+					var nextEval *model.ModelEvaluator
+					nextEval, e = model.NewModelEvaluator(refreshed, model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace})
+					if e == nil {
+						e = errors.Join(eval.Close(), md.DecRef())
+						eval, md = nextEval, refreshed
+					} else {
+						e = errors.Join(e, refreshed.DecRef())
+					}
+				}
+			}
+			if e == nil {
+				var selected *exprQETree
+				var nextStep exprQETreeStatus
+				selected, nextStep, _, e = seekExprQETree(root, variables, eval)
+				if e == nil && (selected != current || nextStep != exprQEChooseVariable) {
+					e = errors.Join(eval.Close(), md.DecRef())
+					if e != nil {
+						return result, false, e
+					}
+					continue
+				}
+			}
+		}
 		if e == nil && step == exprQEChooseVariable {
 			var outcome exprQEPopStatus
 			current, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, &free, false)
