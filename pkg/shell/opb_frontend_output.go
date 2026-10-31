@@ -19,13 +19,15 @@ func (f *OPBFrontend) WriteResult() error {
 	if _, err := fmt.Fprintln(f.output, status); err != nil {
 		return err
 	}
-	if f.status == lbool.True && f.summary.Objectives != 0 {
-		if err := f.context.WriteObjectives(f.output); err != nil {
+	if f.options.DisplayStatistics {
+		if err := f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds()); err != nil {
 			return err
 		}
 	}
-	if f.options.DisplayStatistics {
-		return f.context.WriteStatisticsWithTotalTime(f.output, f.elapsed.Seconds())
+	if f.status == lbool.True && f.summary.Objectives != 0 {
+		if err := f.context.WriteOptimizationFrontendValues(f.output); err != nil {
+			return err
+		}
 	}
 	return nil
 }

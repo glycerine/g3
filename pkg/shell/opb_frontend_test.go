@@ -38,7 +38,7 @@ func TestOPBFrontendOptimizesAndWritesResult(t *testing.T) {
 	if err != nil || status != lbool.True {
 		t.Fatal(status, err)
 	}
-	if text := output.String(); !strings.HasPrefix(text, "sat\n(objectives\n") || !strings.Contains(text, " 1)") {
+	if text := output.String(); text != "sat\n   1\n" {
 		t.Fatalf("output = %q", text)
 	}
 	summary, _ := f.Summary()
@@ -58,5 +58,21 @@ func TestOPBFrontendHardUnsat(t *testing.T) {
 	}
 	if output.String() != "unsat\n" {
 		t.Fatal(output.String())
+	}
+}
+
+func TestOPBFrontendStatisticsPrecedeObjective(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewOPBFrontend(opbFrontendContext(t), &output, OPBFrontendOptions{DisplayStatistics: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Run(strings.NewReader("min: 1 x1 +2 x2; 1 x1 +1 x2 >= 1;")); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	statistics, value := strings.Index(text, ":total-time"), strings.LastIndex(text, "   1\n")
+	if statistics < 0 || value < statistics {
+		t.Fatalf("statistics and objective order: %q", text)
 	}
 }

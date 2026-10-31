@@ -102681,11 +102681,14 @@
         "pkg/opt/opb_parse_test.go",
         "pkg/opt/wcnf_parse_test.go",
         "pkg/cmd_context/opb_loader.go",
-        "pkg/cmd_context/wcnf_loader.go"
+        "pkg/cmd_context/wcnf_loader.go",
+        "pkg/cmd_context/opb_terms.go",
+        "pkg/cmd_context/opb_loader_test.go"
       ],
       "tests": [
         "TestParseOPBObjectivesConstraintsAndProducts",
-        "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder"
+        "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder",
+        "TestLoadOPBSingleTermConstraintTruthTable"
       ],
       "conditionals": [
         {
@@ -102718,7 +102721,8 @@
         }
       ],
       "ownership": [
-        "Parsed document values own their literal slices and numeric coefficients before loading into the command context."
+        "Parsed document values own their literal slices and numeric coefficients before loading into the command context.",
+        "Single-term constraints are reduced to equivalent Boolean conditions before assertion."
       ],
       "deviations": [
         "The header declarations are represented by typed document parsers and command-context loaders; full signature and lifetime audit remains pending."
@@ -120639,7 +120643,10 @@
         "pkg/shell/runner_opb_test.go",
         "pkg/shell/runner_errors_owner_test.go",
         "pkg/cmd/g3/main.go",
-        "pkg/cmd/g3/optimization_frontend_test.go"
+        "pkg/cmd/g3/optimization_frontend_test.go",
+        "pkg/cmd_context/optimization_frontend_output.go",
+        "pkg/cmd_context/opb_terms.go",
+        "pkg/cmd_context/opb_loader_test.go"
       ],
       "tests": [
         "TestOPBFrontendOptimizesAndWritesResult",
@@ -120666,13 +120673,21 @@
             "TestRunnerDispatchesOPB",
             "TestRunnerDispatchesWCNF"
           ]
+        },
+        {
+          "name": "display_results: available objective bounds",
+          "status": "partial",
+          "go_target": "pkg/shell/opb_frontend_output.go",
+          "tests": [
+            "TestOPBFrontendOptimizesAndWritesResult"
+          ]
         }
       ],
       "ownership": [
         "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
       ],
       "deviations": [
-        "Pending native optimization frontend output parity, signal/timeout and statistics behavior, and source/ownership audit. Objective output currently uses the Go SMT-LIB objectives format."
+        "Pending native optimization frontend behavior for unavailable bounds on unsat/unknown, signal/timeout and statistics formatting, and full source/ownership audit. Available objective bounds now use the native shell format."
       ]
     },
     {
@@ -120693,7 +120708,10 @@
         "pkg/shell/runner_opb_test.go",
         "pkg/shell/runner_errors_owner_test.go",
         "pkg/cmd/g3/main.go",
-        "pkg/cmd/g3/optimization_frontend_test.go"
+        "pkg/cmd/g3/optimization_frontend_test.go",
+        "pkg/cmd_context/optimization_frontend_output.go",
+        "pkg/cmd_context/opb_terms.go",
+        "pkg/cmd_context/opb_loader_test.go"
       ],
       "tests": [
         "TestOPBFrontendOptimizesAndWritesResult",
@@ -120724,13 +120742,21 @@
             "TestRunnerDispatchesOPB",
             "TestRunnerDispatchesWCNF"
           ]
+        },
+        {
+          "name": "display_results: available objective bounds",
+          "status": "partial",
+          "go_target": "pkg/shell/opb_frontend_output.go",
+          "tests": [
+            "TestOPBFrontendOptimizesAndWritesResult"
+          ]
         }
       ],
       "ownership": [
         "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
       ],
       "deviations": [
-        "Pending native optimization frontend output parity, signal/timeout and statistics behavior, and source/ownership audit. Objective output currently uses the Go SMT-LIB objectives format."
+        "Pending native optimization frontend behavior for unavailable bounds on unsat/unknown, signal/timeout and statistics formatting, and full source/ownership audit. Available objective bounds now use the native shell format."
       ]
     },
     {

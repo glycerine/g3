@@ -50,6 +50,17 @@ func (c *Context) LoadOPB(document opt.OPBDocument) (OPBLoadSummary, error) {
 		if len(constraint.Terms) == 0 {
 			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d is empty", index+1)
 		}
+		if len(constraint.Terms) == 1 {
+			formula, e := c.makeSingleOPBConstraint(constraint, declarations)
+			if e == nil {
+				e = c.Assert(formula, "")
+			}
+			if e != nil {
+				return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d: %w", index+1, e)
+			}
+			summary.Constraints++
+			continue
+		}
 		left, e := c.makeOPBSum(constraint.Terms, true, declarations, zero)
 		if e != nil {
 			return OPBLoadSummary{}, fmt.Errorf("opb: constraint %d: %w", index+1, e)

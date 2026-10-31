@@ -1,7 +1,6 @@
 package shell_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/shell"
@@ -13,7 +12,7 @@ func TestRunnerDispatchesOPB(t *testing.T) {
 	if err := runner.Run(); err != nil {
 		t.Fatal(err)
 	}
-	if text := output.String(); !strings.HasPrefix(text, "sat\n(objectives\n") || !strings.Contains(text, " 1)") {
+	if text := output.String(); text != "sat\n   1\n" {
 		t.Fatalf("OPB output: %q", text)
 	}
 	result, err := runner.Result()

@@ -38,7 +38,7 @@ func TestWCNFFrontendOptimizesWeightedSoftClauses(t *testing.T) {
 	if err != nil || status != lbool.True {
 		t.Fatal(status, err)
 	}
-	if text := output.String(); !strings.HasPrefix(text, "sat\n(objectives\n") || !strings.Contains(text, " 2)") {
+	if text := output.String(); text != "sat\n   2\n" {
 		t.Fatalf("output=%q", text)
 	}
 	summary, _ := f.Summary()

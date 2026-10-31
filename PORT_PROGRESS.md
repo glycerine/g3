@@ -1,3 +1,5 @@
+Optimization frontend output and OPB fix (2026-10-31 UTC): available OPB and WCNF objective bounds now use the native shell format and follow statistics output. Single-term OPB constraints are reduced to equivalent Boolean conditions, avoiding an optimizer AST precondition failure; unsat/unknown bounds, signal/timeout and statistics parity remain pending.
+
 Shell frontend source coverage (2026-10-31 UTC): recorded the existing DIMACS solver, model and tracked-core frontend and SMT-LIB2 file frontend against three previously unstarted C++ units. Added a file-extension DIMACS integration test; native signal/timeout and SMT-LIB version-one entry points remain pending.
 
 Optimization frontend integration (2026-10-31 UTC): connected the existing OPB frontend to shell dispatch and enabled both OPB and WCNF in the g3 executable, including explicit flags and filename detection. Recorded three previously unstarted source units as partial; source-format objective output, signal and timeout parity remain pending.
