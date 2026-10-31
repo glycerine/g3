@@ -65,6 +65,7 @@ var builtinTacticDescriptions = map[string]string{
 	"qflra":                   "builtin strategy for solving QF_LRA problems.",
 	"qfnia":                   "builtin strategy for solving QF_NIA problems.",
 	"qfnra":                   "builtin strategy for solving QF_NRA problems.",
+	"qfufnra":                 "builtin strategy for solving QF_UNFRA problems.",
 	"qfuf":                    "builtin strategy for solving QF_UF problems.",
 	"qfufbv":                  "builtin strategy for solving QF_UFBV problems.",
 	"qfufbv_ackr":             "A tactic for solving QF_UFBV based on Ackermannization.",

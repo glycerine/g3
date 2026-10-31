@@ -1,3 +1,5 @@
+QF_UFNRA strategy start (2026-10-31 UTC): added the source-ordered preprocessing strategy and registered qfufnra with the SMT-LIB and API tactic dispatch. Focused end-to-end tests cover a satisfying model, contradictory arithmetic and function congruence; the general arithmetic purifier and full failure-frontier audits remain partial.
+
 Mixed nonlinear public tactic (2026-10-31 UTC): added the typed tactic factory, solver ownership, parameters, statistics and cleanup lifecycle around the cooperation loop. A regression runs sat, unsat and sat again with cleanup between applications; QF_UFNRA strategy registration remains pending.
 
 Mixed nonlinear cooperating solver loop (2026-10-31 UTC): connected NLSAT models, SMT assumptions, equality discovery, core feedback and final model merging. Focused mixed UF/real tests pass for sat and unsat with and without cores, including validating the returned model against the input; public tactic and QF_UFNRA registration remain pending.
