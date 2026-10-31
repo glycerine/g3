@@ -1,3 +1,5 @@
+Finite/interval join (2026-10-31 UTC): added concatenating joins with finite-key equality and interval-column equality, with tests for mixed layouts, mismatches, empty inputs and projection of the result. Cross-kind joins and manager registration remain pending.
+
 Finite/interval formula construction (2026-10-31 UTC): implemented source-order finite row disjunctions, table equalities and shifted interval formulas. The source assumes table columns lead the signature even when layouts are interleaved; the Go formula preserves this limitation and tests both layouts.
 
 Finite/interval rename (2026-10-31 UTC): added source signature cycles with corresponding sparse-table and interval permutations, including cycles crossing column kinds. Tests cover mixed sorts, a three-column interval cycle and invalid duplicate columns.
