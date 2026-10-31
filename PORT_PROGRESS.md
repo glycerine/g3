@@ -1,3 +1,5 @@
+Generated set and array-extensionality replay (2026-10-31 UTC): connected set constructors, mutations, operations and predicates along with array extensionality witnesses. Normal and checked tests verify construction and membership simplification; other generated commands remain unfinished.
+
 Generated optimizer soft-constraint replay (2026-10-31 UTC): connected unnamed and string-named groups with source rational parsing. Normal and checked tests verify fractional optimization and reject numeric or empty-string group symbols until their identities are supported.
 
 Generated fixedpoint rule replay (2026-10-31 UTC): connected unnamed and nonempty string-named rule insertion and updates. Normal and checked tests cover rule snapshots and explicitly reject numeric or empty-string symbols until their identities are supported.

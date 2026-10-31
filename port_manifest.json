@@ -5988,7 +5988,9 @@
         "pkg/api/z3_generated_qe_commands.go",
         "pkg/api/z3_generated_qe_commands_test.go",
         "pkg/api/z3_generated_interpolation_commands.go",
-        "pkg/api/z3_generated_interpolation_commands_test.go"
+        "pkg/api/z3_generated_interpolation_commands_test.go",
+        "pkg/api/z3_generated_set_commands.go",
+        "pkg/api/z3_generated_set_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6094,7 +6096,8 @@
         "TestGeneratedFixedpointReplayUnnamedRule",
         "TestGeneratedFixedpointReplayRejectsUnsupportedRuleSymbol",
         "TestGeneratedOptimizeReplaySoftGroups",
-        "TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol"
+        "TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol",
+        "TestGeneratedSetReplayConstructionAndMembership"
       ],
       "methods_audited": false,
       "ownership_audited": false,

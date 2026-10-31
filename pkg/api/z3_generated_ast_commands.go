@@ -94,6 +94,9 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 	if err := registerZ3GeneratedQECommands(r); err != nil {
 		return err
 	}
+	if err := registerZ3GeneratedSetCommands(r); err != nil {
+		return err
+	}
 	return registerZ3GeneratedOptimizeCommands(r)
 }
 func replayIncAST(r *Z3Replayer) error {
