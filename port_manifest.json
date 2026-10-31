@@ -6105,7 +6105,9 @@
         "TestGeneratedBitVectorBoolArrayReplay",
         "TestGeneratedBitVectorBoolArrayReplayRejectsShortArray",
         "TestGeneratedParserReplayBenchmarkAndPersistentEvaluation",
-        "TestGeneratedParserReplayReportsAndClearsError"
+        "TestGeneratedParserReplayReportsAndClearsError",
+        "TestGeneratedParserReplayParsesBindingsAndFiles",
+        "TestGeneratedParserReplayRejectsUnsupportedBindingSymbol"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6157,7 +6159,8 @@
         "Fixedpoint replay supports unnamed and nonempty string-named rule updates; numeric and empty-string symbols are explicitly unsupported until the rule store preserves their identities.",
         "Optimizer replay supports unnamed and nonempty string-named soft groups; numeric and empty-string symbols are explicitly unsupported until the objective store preserves their identities.",
         "Bit-vector Boolean-array replay follows the source replayer native-byte interpretation of unsigned-array storage; malformed arrays are rejected rather than read out of bounds.",
-        "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished."
+        "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished.",
+        "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending."
       ]
     },
     {
