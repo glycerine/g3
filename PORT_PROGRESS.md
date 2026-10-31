@@ -52324,3 +52324,5 @@ Source-consumer audit: classified six additional standalone drivers as reference
 Test-tool source audit: classified the unused delta reducer and Windows-only file walker, the standalone expression-file generator, the generated test tactic installer and the C++ test dispatcher as reference-only. Source searches found no retained Go production consumers for these test tools; Go package tests and tactic registration use their existing native harnesses.
 
 Real-closure source driver started: translated both integer solve cases, all three independent-row examples and the source tensor/column-selection example. The real-closure numeral and denominator-cleaning examples remain open; the printed matrix row permutation is used only by this source driver.
+
+Memory source driver started: exercised the original 10, 20 and 30 MiB limits with actual allocations, checking the failure state and owner cleanup at each limit. The source's Windows-only API loop and process-global reset path remain open.

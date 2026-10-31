@@ -204549,9 +204549,9 @@
       "path": "src/test/memory.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/util/memory/memory_cpp_driver_test.go"],
+      "tests": ["TestMemorySourceLimitSequence"],
       "conditionals": [
         {
           "line": 7,
@@ -204570,7 +204570,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The 10/20/30 MiB limits and actual allocation failures are checked with separate local runtime owners. The source Windows-only API loop that creates successive bit-vector sorts and resets process-global memory remains open."]
     },
     {
       "path": "src/test/model2expr.cpp",
