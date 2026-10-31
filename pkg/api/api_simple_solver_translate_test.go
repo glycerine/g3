@@ -1000,3 +1000,67 @@ func TestAPITacticSolverTranslateDegreeShiftAfterSourceClose(t *testing.T) {
 		astTestMust(t, manager.DelRef(&value))
 	}
 }
+
+func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing.T) {
+	for _, tc := range []struct {
+		name, logic, script string
+		assertions          int
+	}{
+		{"fix-dl-var", "QF_IDL", "(declare-const x Int) (declare-const y Int) (declare-const z Int) (assert (<= (- x y) 2)) (assert (<= (- x z) 3))", 2},
+		{"recover-01", "QF_LIA", "(declare-const p Bool) (declare-const x Int) (assert (or p (= x 0))) (assert (or (not p) (= x 3))) (assert p)", 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			astTestMust(t, source.SetLogic(tc.logic))
+			transform, err := source.Tactic(tc.name)
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			combined, err := transform.AndThen(smt)
+			astTestMust(t, err)
+			solver, err := source.NewSolverFromTactic(combined)
+			astTestMust(t, err)
+			for _, owner := range []*APITactic{combined, smt, transform} {
+				astTestMust(t, owner.Close())
+			}
+			astTestMust(t, solver.LoadSMT2String(tc.script))
+			translated, err := solver.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, solver.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("translated solver", status)
+			}
+			model, err := translated.Model()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, model.Close()) }()
+			manager, err := target.Manager()
+			astTestMust(t, err)
+			assertions, err := translated.Assertions()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, manager, assertions)
+			if len(assertions) != tc.assertions {
+				t.Fatalf("got %d assertions, want %d", len(assertions), tc.assertions)
+			}
+			for _, ref := range assertions {
+				formula, err := manager.RefGet(ref)
+				astTestMust(t, err)
+				value, err := model.Evaluate(formula, true)
+				astTestMust(t, err)
+				actual, err := manager.RefGet(value)
+				astTestMust(t, err)
+				if !manager.IsTrue(actual) {
+					t.Fatal("translated model violates original assertion")
+				}
+				astTestMust(t, manager.DelRef(&value))
+			}
+		})
+	}
+}

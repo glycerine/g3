@@ -46,6 +46,16 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 			return nil, true, err
 		}
 		source, params = t.context, &t.params
+	case *FixDLVarTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.params
+	case *Recover01Tactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.params
 	default:
 		return nil, false, nil
 	}
@@ -85,6 +95,19 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 		if err == nil {
 			next.trace = t.trace
 			next.bounds.trace = t.trace
+			result = next
+		}
+	case *FixDLVarTactic:
+		next, e := NewFixDLVarTactic(m, c, g, &p, services)
+		err = e
+		if err == nil {
+			next.trace = t.trace
+			result = next
+		}
+	case *Recover01Tactic:
+		next, e := NewRecover01Tactic(m, c, g, &p, services)
+		err = e
+		if err == nil {
 			result = next
 		}
 	}

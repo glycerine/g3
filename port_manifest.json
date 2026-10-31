@@ -178541,6 +178541,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/fix_dl_var_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/fix_dl_var_target.go",
         "pkg/tactic/arith/fix_dl_var_trace.go",
         "pkg/tactic/arith/fix_dl_var_test.go",
@@ -178548,6 +178551,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestArithmeticContextTranslationCopiesParametersAndServices",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestFixDLVarRewritesAndReconstructsIntegerAndRealModels",
         "TestFixDLVarNestedPenaltyBoundaryAndSharedAtoms",
         "TestFixDLVarRefusalsAndEmptyGoalDoNotChangeDepth",
@@ -178708,6 +178713,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/fix_dl_var_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/fix_dl_var_target.go",
         "pkg/tactic/arith/fix_dl_var_trace.go",
         "pkg/tactic/arith/fix_dl_var_test.go",
@@ -178715,6 +178723,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestArithmeticContextTranslationCopiesParametersAndServices",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestFixDLVarRewritesAndReconstructsIntegerAndRealModels",
         "TestFixDLVarNestedPenaltyBoundaryAndSharedAtoms",
         "TestFixDLVarRefusalsAndEmptyGoalDoNotChangeDepth",
@@ -182135,6 +182145,9 @@
         "pkg/tactic/arith/recover_01_model.go",
         "pkg/tactic/arith/recover_01_apply.go",
         "pkg/tactic/arith/recover_01_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/unstarted_collectors_test.go",
         "pkg/tactic/arith/recover_01_coeff_test.go",
         "pkg/tactic/arith/recover_01_definitions_test.go",
@@ -182145,6 +182158,8 @@
         "pkg/cmd/g3/recover_01_integration_test.go"
       ],
       "tests": [
+        "TestArithmeticContextTranslationCopiesParametersAndServices",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestRecover01ClauseShapeSizeAndFirstArity",
         "TestRecover01CoefficientsTruthTables",
         "TestRecover01DefinitionsShareBooleansAndHandleSigns",
@@ -182237,6 +182252,9 @@
         "pkg/tactic/arith/recover_01_model.go",
         "pkg/tactic/arith/recover_01_apply.go",
         "pkg/tactic/arith/recover_01_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/unstarted_collectors_test.go",
         "pkg/tactic/arith/recover_01_coeff_test.go",
         "pkg/tactic/arith/recover_01_definitions_test.go",
@@ -182247,6 +182265,8 @@
         "pkg/cmd/g3/recover_01_integration_test.go"
       ],
       "tests": [
+        "TestArithmeticContextTranslationCopiesParametersAndServices",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestRecover01ClauseShapeSizeAndFirstArity",
         "TestRecover01CoefficientsTruthTables",
         "TestRecover01DefinitionsShareBooleansAndHandleSigns",

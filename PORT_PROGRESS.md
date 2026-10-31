@@ -52376,3 +52376,5 @@ Collect-statistics solver translation: the cross-context tactic dispatcher now c
 Split-clause solver translation: the cross-context tactic dispatcher now recreates the tactic with target parameter services and copies its selected largest-clause policy. Direct coverage checks the selected branch count; an API integration test closes the source context before checking the translated solver.
 
 Degree-shift solver translation: the arithmetic tactic dispatcher now constructs the translated leaf with target evaluator services. Direct tests exercise its model converter; API integration closes the source context, solves a nonlinear example, and checks the resulting model against the original assertions.
+
+Arithmetic tactic solver translation: fix-dl-var and recover-01 now copy parameters to the target context and use its evaluator services. Tests cover copied policy and verify translated models against all original assertions after closing the source context.
