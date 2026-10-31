@@ -22,6 +22,11 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 		return lbool.Undef, err
 	}
 	defer func() {
+		if e.backend == "tab" {
+			e.tabUnfold += clone.tabUnfold
+			e.tabUnfoldFail += clone.tabUnfoldFail
+			e.tabSubsumed += clone.tabSubsumed
+		}
 		if e.backend == "tab" && resultErr == nil {
 			if err := e.clearTabAnswer(); err != nil {
 				resultErr = errors.Join(resultErr, err)

@@ -13,10 +13,20 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+// Statistics contains the tabulation engine's cumulative source counters.
+type Statistics struct {
+	Unfold, UnfoldFail, Subsumed uint32
+}
+
 // QueryPredicate runs tabulation for a predicate application over rules.
 // It returns an owning proof for a reachable query and true for an unreachable
 // query. The caller owns a nonzero answer reference and all supplied services.
 func QueryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string) (status lbool.LBool, answer ast.ASTRef, err error) {
+	return QueryPredicateWithStatistics(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil)
+}
+
+// QueryPredicateWithStatistics adds this query's search counters to stats.
+func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, stats *Statistics) (status lbool.LBool, answer ast.ASTRef, err error) {
 	if rules == nil || rw == nil || rw.Manager() == nil || lite == nil || querySolver == nil || subsumptionSolver == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -49,6 +59,13 @@ func QueryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 		return lbool.Undef, answer, errors.Join(err, goal.Close())
 	}
 	defer func() { err = errors.Join(err, search.Close()) }()
+	defer func() {
+		if stats != nil {
+			stats.Unfold += search.unfold
+			stats.UnfoldFail += search.unfoldFail
+			stats.Subsumed += search.subsumed
+		}
+	}()
 	status, err = search.Run()
 	if err != nil {
 		return status, answer, err

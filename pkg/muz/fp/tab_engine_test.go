@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 func TestTabEngineQueryProofAndSnapshots(t *testing.T) {
@@ -23,6 +24,23 @@ func TestTabEngineQueryProofAndSnapshots(t *testing.T) {
 	fpMust(t, err)
 	if status != lbool.True {
 		t.Fatal("reachable query", status)
+	}
+	var stats statistics.Statistics
+	fpMust(t, engine.CollectStatistics(&stats))
+	var unfolds uint32
+	for i := 0; i < stats.Size(); i++ {
+		if stats.Key(i) == "tab.num_unfold" && stats.IsUint(i) {
+			unfolds += stats.UintValue(i)
+		}
+	}
+	if unfolds == 0 {
+		t.Fatal("missing tabulation unfold statistics")
+	}
+	fpMust(t, engine.ResetStatistics())
+	stats.Reset()
+	fpMust(t, engine.CollectStatistics(&stats))
+	if stats.Size() != 0 {
+		t.Fatal("tabulation statistics were not reset")
 	}
 	answer, err := engine.Answer(goalDecl)
 	fpMust(t, err)
@@ -56,6 +74,17 @@ func TestTabEngineQueryProofAndSnapshots(t *testing.T) {
 	fpMust(t, err)
 	if status != lbool.True {
 		t.Fatal("expression query", status)
+	}
+	stats.Reset()
+	fpMust(t, engine.CollectStatistics(&stats))
+	unfolds = 0
+	for i := 0; i < stats.Size(); i++ {
+		if stats.Key(i) == "tab.num_unfold" && stats.IsUint(i) {
+			unfolds += stats.UintValue(i)
+		}
+	}
+	if unfolds == 0 {
+		t.Fatal("expression-query statistics were not transferred from the clone")
 	}
 	answer, err = engine.Answer(goalDecl)
 	fpMust(t, err)

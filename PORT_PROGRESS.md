@@ -1,3 +1,5 @@
+Tabulation statistics (2026-10-31 UTC): fixedpoint statistics now report and reset the source unfold, failed-unfold and subsumption counters, including work performed in expression-query clones. Focused normal and checked tests pass.
+
 Tabulation fixedpoint integration (2026-10-31 UTC): registered the tab engine, routed predicate and expression queries, retained owned proof/false-query answers across query clones, and enforced the source Horn fragment checks. Focused checked tests, full fixedpoint/tabulation/API package tests and SMT-LIB regressions cover reachable, unreachable, arithmetic and repeated queries; the installed C++ Z3 agrees on the CLI cases. Counterexample caching, compound-query fidelity and the full source/ownership audit remain unfinished.
 
 Tabulation predicate query (2026-10-31 UTC): connected the search to concrete Datalog rule sets and exposed a predicate query that returns an owned reachability proof or true for an unreachable query. Normal and checked tabulation package tests cover both outcomes after search cleanup. Public fixedpoint selection, compound query handling and the source counterexample cache remain unfinished.

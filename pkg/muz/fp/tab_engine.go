@@ -130,6 +130,10 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 		return lbool.Undef, err
 	}
 	defer func() { err = errors.Join(err, e.manager.DelRef(&ref)) }()
-	status, e.tabAnswer, err = tab.QueryPredicate(e.set, query, rw, lite, querySolver, subSolver, strategy)
+	var stats tab.Statistics
+	status, e.tabAnswer, err = tab.QueryPredicateWithStatistics(e.set, query, rw, lite, querySolver, subSolver, strategy, &stats)
+	e.tabUnfold += stats.Unfold
+	e.tabUnfoldFail += stats.UnfoldFail
+	e.tabSubsumed += stats.Subsumed
 	return status, err
 }

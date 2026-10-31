@@ -98,6 +98,9 @@ type PropositionalEngine struct {
 	bmcTrace           []*base.Rule
 	bmcProof           ast.ASTRef
 	tabAnswer          ast.ASTRef
+	tabUnfold          uint32
+	tabUnfoldFail      uint32
+	tabSubsumed        uint32
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
 	assertions         []ast.ASTRef
@@ -1493,6 +1496,12 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 		destination.Copy(e.bmcStatistics)
 		return nil
 	}
+	if e.backend == "tab" {
+		destination.UpdateUint("tab.num_unfold", e.tabUnfold)
+		destination.UpdateUint("tab.num_unfold_fail", e.tabUnfoldFail)
+		destination.UpdateUint("tab.num_subsumed", e.tabSubsumed)
+		return nil
+	}
 	if e.backend == "datalog" {
 		destination.UpdateDouble("saturation time", e.datalogElapsed)
 		destination.Copy(e.datalogStats)
@@ -1516,6 +1525,10 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	}
 	if e.backend == "bmc" {
 		e.bmcStatistics.Reset()
+		return nil
+	}
+	if e.backend == "tab" {
+		e.tabUnfold, e.tabUnfoldFail, e.tabSubsumed = 0, 0, 0
 		return nil
 	}
 	return nil
