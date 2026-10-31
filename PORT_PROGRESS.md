@@ -1,3 +1,5 @@
+Concrete matcher pool (2026-10-31 UTC): the live Go E-matcher now reuses typed enode slices in LIFO order, clearing borrowed pointers on return. Normal and checked matcher and quantifier-manager tests pass; the source instruction-tree owner has no direct Go counterpart. The documentation-only shell options header is reference-only.
+
 API header reachability audit (2026-10-31 UTC): classified the unused C++ facade, Z3 1.x compatibility and OCaml export stubs as reference-only, and the C ABI macros as platform-specific. The API umbrella header is partial because its Go package exists while individual APIs and generated command coverage remain incomplete.
 
 Generated tactic installer audit (2026-10-31 UTC): generated an installer in /tmp and mapped its existing Go tactic and probe registry paths. Focused registry and factory tests pass; missing factories and generated registration order remain partial.

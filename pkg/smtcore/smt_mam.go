@@ -12,13 +12,14 @@ type smtMAMPattern struct {
 }
 
 type SMTMAM struct {
-	state    *SMTInternalizerState
-	registry *SMTQuantifierRegistry
-	patterns []smtMAMPattern
-	known    map[smtMAMPattern]struct{}
-	shared   map[*SMTEnode]struct{}
-	scopes   []int
-	dirty    bool
+	state     *SMTInternalizerState
+	registry  *SMTQuantifierRegistry
+	patterns  []smtMAMPattern
+	known     map[smtMAMPattern]struct{}
+	shared    map[*SMTEnode]struct{}
+	scopes    []int
+	dirty     bool
+	enodePool smtMAMEnodePool
 }
 
 func NewSMTMAM(state *SMTInternalizerState, registry *SMTQuantifierRegistry) (*SMTMAM, error) {
@@ -200,28 +201,35 @@ func (m *SMTMAM) matchTerm(pattern ast.ASTHandle, candidate *SMTEnode, bindings 
 	}
 	for current := candidate.root; ; current = current.next {
 		if current.declaration == declaration && uint32(len(current.arguments)) == count {
-			savedBindings := append([]*SMTEnode(nil), bindings...)
-			savedUsed := len(*used)
-			matched := true
-			for i := uint32(0); i < count; i++ {
-				child, childErr := m.state.manager.GetArg(pattern, i)
-				if childErr != nil {
-					return false, childErr
+			matched, childErr := func() (bool, error) {
+				savedBindings := m.enodePool.take(len(bindings))
+				defer m.enodePool.recycle(savedBindings)
+				copy(savedBindings, bindings)
+				savedUsed := len(*used)
+				for i := uint32(0); i < count; i++ {
+					child, err := m.state.manager.GetArg(pattern, i)
+					if err != nil {
+						return false, err
+					}
+					matched, err := m.matchTerm(child, current.arguments[i], bindings, used)
+					if err != nil {
+						return false, err
+					}
+					if !matched {
+						copy(bindings, savedBindings)
+						*used = (*used)[:savedUsed]
+						return false, nil
+					}
 				}
-				matched, childErr = m.matchTerm(child, current.arguments[i], bindings, used)
-				if childErr != nil {
-					return false, childErr
-				}
-				if !matched {
-					break
-				}
+				return true, nil
+			}()
+			if childErr != nil {
+				return false, childErr
 			}
 			if matched {
 				*used = append(*used, current)
 				return true, nil
 			}
-			copy(bindings, savedBindings)
-			*used = (*used)[:savedUsed]
 		}
 		if current.next == candidate.root {
 			break
@@ -337,6 +345,7 @@ func (m *SMTMAM) Reset() {
 	m.known = make(map[smtMAMPattern]struct{})
 	m.shared = make(map[*SMTEnode]struct{})
 	m.scopes = nil
+	m.enodePool.free = nil
 	m.dirty = false
 }
 

@@ -122538,14 +122538,14 @@
       "path": "src/shell/options.h",
       "component": "shell",
       "role": "production",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["This header contains only Doxygen command-line documentation and has no included code or retained production consumer. The Go shell command-line implementation is tracked separately."]
     },
     {
       "path": "src/shell/smtlib_frontend.cpp",
@@ -260095,9 +260095,9 @@
       "path": "src/util/pool.h",
       "component": "util",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/smtcore/smt_mam_enode_pool.go", "pkg/smtcore/smt_mam.go", "pkg/smtcore/smt_mam_test.go"],
+      "tests": ["TestSMTMAMMatchesUnaryAndRepeatedVariablesModuloEquality", "TestSMTMAMJoinsMultiPatternsAndRollsBackPatterns", "TestSMTQuantifierManagerEMatchingFeedsInstanceQueue"],
       "conditionals": [
         {
           "line": 19,
@@ -260113,18 +260113,18 @@
       "methods": [
         {
           "name": "SMT MAM matcher and mam_impl pool<enode_vector> checkout with LIFO reuse or fresh vector allocation (mam.cpp:1874-1879,3088-3118)",
-          "status": "unported"
+          "status": "partial"
         },
         {
           "name": "SMT MAM reset on checkout, unchecked recycle and destruction of only pooled vectors (mam.cpp:1877-1884,3115-3122; pool.h:26-46)",
-          "status": "unported"
+          "status": "partial"
         }
       ],
       "ownership": [
-        "Both retained MAM owners borrow checked-out enode_vector objects until recycle; the pool owns recycled vectors and destroys only those at owner destruction. Each checkout resets the vector after mk, while recycle preserves its contents until the next checkout. The Go MAM node and owner are not yet ported."
+        "Both retained MAM owners borrow checked-out enode_vector objects until recycle; the pool owns recycled vectors and destroys only those at owner destruction. Each checkout resets the vector after mk, while recycle preserves its contents until the next checkout. The concrete Go matcher reuses borrowed enode slices; the second C++ instruction-tree owner has no direct counterpart in the current matcher."
       ],
       "deviations": [
-        "No generic Go adapter is retained. Live production specializations belong to their unported consumers and should use concrete typed slices with explicit reset/destruction behavior."
+        "The concrete Go matcher pool reuses slices in LIFO order and clears borrowed pointers when returned. The separate C++ instruction-tree pool remains unrepresented because the Go matcher uses a direct algorithm."
       ]
     },
     {
