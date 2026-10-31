@@ -90360,7 +90360,9 @@
         "pkg/muz/rel/finite_interval_product.go",
         "pkg/muz/rel/finite_interval_product_test.go",
         "pkg/muz/rel/sparse_functional_fact.go",
-        "pkg/muz/rel/interval_relation.go"
+        "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/finite_interval_product_formula.go",
+        "pkg/muz/rel/finite_interval_product_formula_test.go"
       ],
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
@@ -90370,7 +90372,8 @@
         "TestFiniteIntervalProductUnionAndDelta",
         "TestFiniteIntervalProductProjection",
         "TestFiniteIntervalProductFilterIdentical",
-        "TestFiniteIntervalProductRename"
+        "TestFiniteIntervalProductRename",
+        "TestFiniteIntervalProductToFormulaSourceOrder"
       ],
       "conditionals": [
         {
@@ -90779,13 +90782,22 @@
           "tests": [
             "TestFiniteIntervalProductRename"
           ]
+        },
+        {
+          "name": "source-order finite product formula construction",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product_formula.go",
+          "tests": [
+            "TestFiniteIntervalProductToFormulaSourceOrder"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Join, unaligned union, other filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
+        "Join, unaligned union, interpreted filters, full/complement, manager registration and failure-frontier audit remain pending.",
+        "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior."
       ]
     },
     {
@@ -90797,7 +90809,9 @@
         "pkg/muz/rel/finite_interval_product.go",
         "pkg/muz/rel/finite_interval_product_test.go",
         "pkg/muz/rel/sparse_functional_fact.go",
-        "pkg/muz/rel/interval_relation.go"
+        "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/finite_interval_product_formula.go",
+        "pkg/muz/rel/finite_interval_product_formula_test.go"
       ],
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
@@ -90807,7 +90821,8 @@
         "TestFiniteIntervalProductUnionAndDelta",
         "TestFiniteIntervalProductProjection",
         "TestFiniteIntervalProductFilterIdentical",
-        "TestFiniteIntervalProductRename"
+        "TestFiniteIntervalProductRename",
+        "TestFiniteIntervalProductToFormulaSourceOrder"
       ],
       "conditionals": [
         {
@@ -90904,13 +90919,22 @@
           "tests": [
             "TestFiniteIntervalProductRename"
           ]
+        },
+        {
+          "name": "source-order finite product formula construction",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product_formula.go",
+          "tests": [
+            "TestFiniteIntervalProductToFormulaSourceOrder"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Join, unaligned union, other filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
+        "Join, unaligned union, interpreted filters, full/complement, manager registration and failure-frontier audit remain pending.",
+        "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior."
       ]
     },
     {

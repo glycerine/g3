@@ -1,3 +1,5 @@
+Finite/interval formula construction (2026-10-31 UTC): implemented source-order finite row disjunctions, table equalities and shifted interval formulas. The source assumes table columns lead the signature even when layouts are interleaved; the Go formula preserves this limitation and tests both layouts.
+
 Finite/interval rename (2026-10-31 UTC): added source signature cycles with corresponding sparse-table and interval permutations, including cycles crossing column kinds. Tests cover mixed sorts, a three-column interval cycle and invalid duplicate columns.
 
 Finite/interval identical-column filters (2026-10-31 UTC): enforced same-sort equality for finite table columns and inner interval columns, including garbage collection before interval mutation. Tests cover interleaved columns, equality-constrained intervals and finite-row removal.
