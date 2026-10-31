@@ -6065,7 +6065,8 @@
         "TestGeneratedAlgebraicPolynomialReplayVectors",
         "TestGeneratedFixedpointReplaySnapshotsAndLifecycle",
         "TestGeneratedFixedpointReplayClosesIncompleteLog",
-        "TestZ3LogFrontendReplaysFixedpoint"
+        "TestZ3LogFrontendReplaysFixedpoint",
+        "TestGeneratedFixedpointReplayFactsAndRelationQuery"
       ],
       "methods_audited": false,
       "ownership_audited": false,

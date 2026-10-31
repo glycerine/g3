@@ -4,6 +4,9 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestGeneratedFixedpointReplaySnapshotsAndLifecycle(t *testing.T) {
@@ -94,5 +97,55 @@ func TestGeneratedFixedpointReplayClosesIncompleteLog(t *testing.T) {
 	}
 	if f == nil || !f.value.closed || !f.object.closed {
 		t.Fatal("unreleased fixedpoint")
+	}
+}
+
+func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
+		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\nR\nP 0x41\nC 54\n= 0x45\nR\nP 0x41\nP 0x44\nP 0x45\nC 516\n" +
+		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nP 0x43\nC 900\nR\nP 0x41\nP 0x44\nC 513\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-fixedpoint-query", func(r *Z3Replayer) error {
+		f, e := replayGetFixedpoint(r)
+		if e != nil {
+			return e
+		}
+		decl, e := r.astObject(f.owner, 2)
+		if e != nil {
+			return e
+		}
+		status, e := f.value.QueryRelations([]ast.ASTHandle{decl.handle})
+		if e != nil {
+			return e
+		}
+		if status != lbool.True {
+			t.Fatal("query status", status)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("fixedpoint query not checked")
 	}
 }

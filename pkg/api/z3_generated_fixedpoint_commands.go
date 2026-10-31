@@ -22,6 +22,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{511, "Z3_mk_fixedpoint"}, {512, "Z3_fixedpoint_inc_ref"}, {513, "Z3_fixedpoint_dec_ref"},
+		{515, "Z3_fixedpoint_add_fact"}, {516, "Z3_fixedpoint_assert"}, {518, "Z3_fixedpoint_query_relations"},
 		{520, "Z3_fixedpoint_get_reason_unknown"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 	}
@@ -104,6 +105,35 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		return f.object.incRef()
 	case 513:
 		return f.object.decRef()
+	case 515:
+		decl, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		count, e := r.Uint(3)
+		if e != nil {
+			return e
+		}
+		values, e := r.UintArray(4)
+		if e != nil {
+			return e
+		}
+		if uint64(count) > uint64(len(values)) {
+			return ErrZ3ReplayReference
+		}
+		err = f.value.AddTableFact(decl.handle, values[:count])
+	case 516:
+		value, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		err = f.value.Assert(value.handle)
+	case 518:
+		decls, e := replayASTArray(r, owner, 2, 3)
+		if e != nil {
+			return e
+		}
+		_, err = f.value.QueryRelations(decls)
 	case 520:
 		_, err = f.value.ReasonUnknown()
 	case 525:
