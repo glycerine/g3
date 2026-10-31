@@ -87265,6 +87265,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/datalog_parser_decls.go",
+        "pkg/muz/fp/datalog_parser_rules.go",
+        "pkg/muz/fp/datalog_parser_cpp_test.go",
         "pkg/cmd_context/datalog_token.go",
         "pkg/cmd_context/datalog_lexer.go",
         "pkg/cmd_context/datalog_parser.go",
@@ -87286,6 +87289,8 @@
         "pkg/muz/fp/datalog_lexer_test.go"
       ],
       "tests": [
+        "TestDatalogParserCPPSourceInputs",
+        "TestDatalogParserTypedDeclarationAsRuleHead",
         "TestDatalogLexerSourceTokensAndLocations",
         "TestDatalogParserFactsPositiveAndNegativeRules",
         "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
@@ -200157,14 +200162,45 @@
       "path": "src/test/datalog_parser.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/fp/datalog_parser_cpp_test.go",
+        "pkg/muz/fp/datalog_parser_file_test.go"
+      ],
+      "tests": [
+        "TestDatalogParserCPPSourceInputs",
+        "TestDatalogParserTypedDeclarationAsRuleHead",
+        "TestDatalogParserRelativeIncludeAndDomainMap",
+        "TestDatalogParserMissingFileAndIncludeFail"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "dparse_string and tst_datalog_parser",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_parser_cpp_test.go",
+          "tests": [
+            "TestDatalogParserCPPSourceInputs",
+            "TestDatalogParserTypedDeclarationAsRuleHead"
+          ]
+        },
+        {
+          "name": "dparse_file and tst_datalog_parser_file",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_parser_file_test.go",
+          "tests": [
+            "TestDatalogParserRelativeIncludeAndDomainMap",
+            "TestDatalogParserMissingFileAndIncludeFail"
+          ]
+        }
+      ],
+      "ownership": [
+        "The Go fixture closes the Datalog and command contexts after each independent parse."
+      ],
+      "deviations": [
+        "Source diagnostics are replaced by acceptance assertions compared with native Z3. The optional command-line wrapper is exercised through the direct file API rather than test-main argument dispatch."
+      ]
     },
     {
       "path": "src/test/ddnf.cpp",

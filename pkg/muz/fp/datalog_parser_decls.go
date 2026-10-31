@@ -84,6 +84,24 @@ func (p *datalogParser) parseDeclaration(name usymbol.Symbol) error {
 		}
 		p.advance()
 	}
+	if p.token.kind == datalogLeftArrow {
+		// parse_pred creates an application even for a new declaration, and
+		// parse_rule accepts that application as a rule head before ':-'.
+		p.vars = make(map[string]ast.ASTHandle)
+		p.nextVar = 0
+		args := make([]ast.ASTHandle, len(domain))
+		for i, sort := range domain {
+			args[i], err = p.manager.MkVar(p.nextVar, sort)
+			if err != nil {
+				return err
+			}
+		}
+		head, err := p.manager.MkApp(declaration, args)
+		if err != nil {
+			return err
+		}
+		return p.parseRuleBody(head)
+	}
 	if p.token.kind != datalogNewline && p.token.kind != datalogEOF {
 		return p.fail("predicate declaration should not end with '.'")
 	}

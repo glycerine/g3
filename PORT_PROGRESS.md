@@ -1,3 +1,5 @@
+Ported the source Datalog parser regression inputs and fixed newly declared predicate heads followed by :-, including typed declaration heads. Acceptance of the original seven inputs agrees with native Z3.
+
 Unit-subsumption goals now have focused proof/core coverage in all four configurations; surviving formulas keep their proof facts and dependencies. Exceptional cleanup remains under audit.
 
 The unit-subsume-simplify tactic now owns and reuses its solver and clause proxies and is registered for API and SMT-LIB use, including cross-context translation. Its proof/core and exceptional-cleanup audit remains open.

@@ -21,7 +21,11 @@ func (p *datalogParser) parseRule(name string, declaration ast.ASTHandle) error 
 		p.advance()
 		return p.addRule(head, nil, nil)
 	}
-	if err = p.expect(datalogLeftArrow, "expected '.' or ':-' after rule head"); err != nil {
+	return p.parseRuleBody(head)
+}
+
+func (p *datalogParser) parseRuleBody(head ast.ASTHandle) error {
+	if err := p.expect(datalogLeftArrow, "expected '.' or ':-' after rule head"); err != nil {
 		return err
 	}
 	var tail []ast.ASTHandle
