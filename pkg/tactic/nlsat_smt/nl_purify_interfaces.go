@@ -20,6 +20,7 @@ type nlInterfaceRewriter struct {
 	memo                 map[ast.ASTHandle]ast.ASTHandle
 	refs                 []ast.ASTRef
 	newReals             []ast.ASTHandle
+	interfaceValues      []ast.ASTHandle
 	nonlinearDefinitions []ast.ASTHandle
 	smtDefinitions       []ast.ASTHandle
 }
@@ -64,6 +65,7 @@ func (r *nlInterfaceRewriter) interfaceVar(arg ast.ASTHandle) (ast.ASTHandle, er
 			return ast.ASTHandle{}, err
 		}
 		r.cache[arg] = arg
+		r.interfaceValues = append(r.interfaceValues, arg)
 		return arg, nil
 	}
 	value, err := r.manager.MkFreshConstNullable(nil, r.real)
@@ -84,6 +86,7 @@ func (r *nlInterfaceRewriter) interfaceVar(arg ast.ASTHandle) (ast.ASTHandle, er
 		return ast.ASTHandle{}, err
 	}
 	r.cache[arg] = value
+	r.interfaceValues = append(r.interfaceValues, value)
 	r.newReals = append(r.newReals, value)
 	if family == r.arithmetic {
 		r.nonlinearDefinitions = append(r.nonlinearDefinitions, eq)

@@ -11,7 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/params"
 )
 
-func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *model.ModelEvaluator) {
+func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *model.ModelEvaluator, model.ModelEvaluatorConfig) {
 	t.Helper()
 	context, err := params.NewParamsContext(m.Symbols, m.NumeralService(), params.ParamsConfig{Budget: m.Budget()})
 	astTestMust(t, err)
@@ -26,7 +26,8 @@ func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *mo
 	astTestMust(t, err)
 	md, err := model.NewModel(m)
 	astTestMust(t, err)
-	ev, err := model.NewModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: context, Globals: globals, Memory: mem, Cooperation: coop})
+	config := model.ModelEvaluatorConfig{Context: context, Globals: globals, Memory: mem, Cooperation: coop}
+	ev, err := model.NewModelEvaluator(md.Core(), config)
 	astTestMust(t, err)
 	t.Cleanup(func() {
 		astTestMust(t, ev.Close())
@@ -37,12 +38,12 @@ func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *mo
 		astTestMust(t, catalog.Close())
 		astTestMust(t, context.Close())
 	})
-	return md, ev
+	return md, ev, config
 }
 
 func TestNLPurifyModelAssumptionsRespectPolarity(t *testing.T) {
 	m := astTestManager(t)
-	md, ev := nlModelEvaluatorFixture(t, m)
+	md, ev, _ := nlModelEvaluatorFixture(t, m)
 	boolean, err := m.MkBoolSort()
 	astTestMust(t, err)
 	truth, err := m.MkTrue()

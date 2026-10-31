@@ -1,3 +1,5 @@
+Mixed nonlinear interface equalities (2026-10-31 UTC): model values now identify equal interface variables and add the corresponding predicate equivalence to both nonlinear and SMT sides. A real SMT regression checks the equivalence, duplicate suppression and the separate unequal value.
+
 Mixed nonlinear model assumptions (2026-10-31 UTC): ported model evaluation of equality predicates and the source polarity-dependent assumption selection, preserving context and equality literal order. A focused test covers all polarities, undefined values and both equality signs.
 
 Mixed nonlinear preparation pipeline (2026-10-31 UTC): connected interface rewriting, optional pure-arithmetic transfer, polarity analysis, Boolean abstraction and solver clause/dependency extraction in source order. Tests cover both unsat-core modes and cleanup after rejected quantifiers; the solver cooperation loop remains pending.
