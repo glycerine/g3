@@ -1,0 +1,225 @@
+package rel
+
+// Source: src/muz/rel/dl_finite_product_relation.cpp/.h, concrete sparse-table
+// and interval-relation instantiation.
+
+import (
+	"fmt"
+	"math"
+	"math/big"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/smtcore"
+)
+
+// FiniteIntervalProduct maps each tuple of finite columns to an interval
+// abstraction over the remaining arithmetic columns. It borrows the manager
+// and sort handles, and owns the table and interval relations.
+type FiniteIntervalProduct struct {
+	manager                       *RelationManager
+	sorts                         []ast.ASTHandle
+	tableColumns, intervalColumns []int
+	table                         *SparseTable
+	intervals                     []*IntervalRelation
+}
+
+// NewFiniteIntervalProduct selects every table-compatible sort when columns is
+// nil; an explicit mask may instead leave arithmetic columns in the interval.
+func NewFiniteIntervalProduct(manager *RelationManager, sorts []ast.ASTHandle, columns []bool) (*FiniteIntervalProduct, error) {
+	if manager == nil || manager.open() != nil || columns != nil && len(columns) != len(sorts) {
+		return nil, ast.ErrASTDomain
+	}
+	m := manager.manager
+	family, err := m.RegisterArithmeticPlugin()
+	if err != nil {
+		return nil, err
+	}
+	realSort, err := m.MkFamilySort(family, 0, nil)
+	if err != nil {
+		return nil, err
+	}
+	intSort, err := m.MkFamilySort(family, 1, nil)
+	if err != nil {
+		return nil, err
+	}
+	p := &FiniteIntervalProduct{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...)}
+	var domains []uint64
+	for i, sort := range sorts {
+		kind, err := m.GetKind(sort)
+		if err != nil {
+			return nil, err
+		}
+		if kind != ast.ASTSort {
+			return nil, ast.ErrASTDomain
+		}
+		domain, domainErr := manager.sortDomain(sort)
+		asTable := domainErr == nil
+		if columns != nil {
+			asTable = columns[i]
+		}
+		if asTable {
+			if domainErr != nil {
+				return nil, domainErr
+			}
+			p.tableColumns = append(p.tableColumns, i)
+			domains = append(domains, domain)
+		} else {
+			if sort != intSort && sort != realSort {
+				return nil, fmt.Errorf("%w: interval columns must be arithmetic", ErrTableRelation)
+			}
+			p.intervalColumns = append(p.intervalColumns, i)
+		}
+	}
+	// The source stores inner relation indexes in an INT_MAX-sized functional column.
+	domains = append(domains, math.MaxInt32)
+	signature, err := NewSignature(domains)
+	if err != nil {
+		return nil, err
+	}
+	p.table, err = NewSparseTable(signature, 1)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func (p *FiniteIntervalProduct) open() error {
+	if p == nil || p.manager == nil || p.manager.open() != nil || p.table == nil || p.table.open() != nil {
+		return ErrTableRelation
+	}
+	return nil
+}
+
+func (p *FiniteIntervalProduct) splitFact(values []ast.ASTHandle) (Fact, []*big.Rat, error) {
+	if err := p.open(); err != nil {
+		return nil, nil, err
+	}
+	if len(values) != len(p.sorts) {
+		return nil, nil, ast.ErrASTDomain
+	}
+	key := make(Fact, len(p.tableColumns)+1)
+	for i, col := range p.tableColumns {
+		value, err := p.manager.EncodeValue(p.sorts[col], values[col])
+		if err != nil {
+			return nil, nil, err
+		}
+		key[i] = value
+	}
+	numbers := make([]*big.Rat, len(p.intervalColumns))
+	for i, col := range p.intervalColumns {
+		sort, err := p.manager.manager.GetSort(values[col])
+		if err != nil {
+			return nil, nil, err
+		}
+		if sort != p.sorts[col] {
+			return nil, nil, ast.ErrASTDomain
+		}
+		text, _, matched, err := p.manager.manager.ArithmeticNumeralText(values[col])
+		if err != nil {
+			return nil, nil, err
+		}
+		if !matched {
+			return nil, nil, ast.ErrASTDomain
+		}
+		numbers[i], matched = new(big.Rat).SetString(text)
+		if !matched {
+			return nil, nil, ast.ErrASTDomain
+		}
+	}
+	return key, numbers, nil
+}
+
+func cloneIntervalRelation(source *IntervalRelation) *IntervalRelation {
+	values := source.values
+	copy := newIntervalColumns(len(values.columns), values.empty)
+	copy.parent = append(copy.parent[:0], values.parent...)
+	copy.size = append(copy.size[:0], values.size...)
+	for i, interval := range values.columns {
+		lo, loOpen, hi, hiOpen := interval.Bounds()
+		copy.columns[i] = smtcore.NewRelationInterval(lo, loOpen, hi, hiOpen)
+	}
+	return &IntervalRelation{values: copy}
+}
+
+// AddFact creates a fresh inner relation for a new table key, and replaces an
+// existing key's inner relation with a clone extended by the new fact.
+func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
+	key, numbers, err := p.splitFact(values)
+	if err != nil {
+		return err
+	}
+	if uint64(len(p.intervals)) >= math.MaxInt32 {
+		return ErrTableRelation
+	}
+	found, err := p.table.FetchFact(key)
+	if err != nil {
+		return err
+	}
+	inner := NewIntervalEmpty(uint32(len(numbers)))
+	if found {
+		index := uint64(key[len(key)-1])
+		if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
+			return ErrTableRelation
+		}
+		inner = cloneIntervalRelation(p.intervals[index])
+	}
+	if err = inner.AddFact(numbers); err != nil {
+		return err
+	}
+	key[len(key)-1] = Element(len(p.intervals))
+	if err = p.table.EnsureFact(key); err != nil {
+		return err
+	}
+	p.intervals = append(p.intervals, inner)
+	return nil
+}
+
+func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {
+	key, numbers, err := p.splitFact(values)
+	if err != nil {
+		return false, err
+	}
+	found, err := p.table.FetchFact(key)
+	if err != nil || !found {
+		return false, err
+	}
+	index := uint64(key[len(key)-1])
+	if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
+		return false, ErrTableRelation
+	}
+	return p.intervals[index].ContainsFact(numbers), nil
+}
+
+func (p *FiniteIntervalProduct) Empty() (bool, error) {
+	if err := p.open(); err != nil {
+		return false, err
+	}
+	n, err := p.table.Len()
+	return n == 0, err
+}
+
+func (p *FiniteIntervalProduct) Clone() (*FiniteIntervalProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	table, err := p.table.Clone()
+	if err != nil {
+		return nil, err
+	}
+	copy := &FiniteIntervalProduct{manager: p.manager, sorts: append([]ast.ASTHandle(nil), p.sorts...), tableColumns: append([]int(nil), p.tableColumns...), intervalColumns: append([]int(nil), p.intervalColumns...), table: table, intervals: make([]*IntervalRelation, len(p.intervals))}
+	for i, inner := range p.intervals {
+		if inner != nil {
+			copy.intervals[i] = cloneIntervalRelation(inner)
+		}
+	}
+	return copy, nil
+}
+
+func (p *FiniteIntervalProduct) Close() error {
+	if p == nil || p.table == nil {
+		return nil
+	}
+	err := p.table.Close()
+	p.table, p.manager, p.sorts, p.intervals = nil, nil, nil, nil
+	return err
+}

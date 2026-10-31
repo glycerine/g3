@@ -1,3 +1,5 @@
+Finite/interval product start (2026-10-31 UTC): began the finite-product C++ source and header with a concrete sparse functional table mapping finite tuples to interval relations, including source signature splitting, fact insertion, lookup, empty state and independent cloning. Tests cover per-key interval hulls, clone isolation, mixed signatures and zero-column facts; joins, filters, union, formula conversion, garbage collection and manager registration remain pending.
+
 Debug AST translation (2026-10-31 UTC): connected dbg-translator to fresh-manager AST translation and printing, with explicit translation and manager cleanup. Checked tests match native output for arithmetic and recursive datatype expressions; source debug command and failure audits remain pending.
 
 Debug AST ID selection (2026-10-31 UTC): implemented ast_manager::set_next_expr_id and dbg-set-next-id, skipping IDs already in the canonical AST table as well as generator free-list entries. Focused AST and SMT-LIB tests pass in native and checked builds.

@@ -90355,9 +90355,17 @@
       "path": "src/muz/rel/dl_finite_product_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/finite_interval_product.go",
+        "pkg/muz/rel/finite_interval_product_test.go",
+        "pkg/muz/rel/sparse_functional_fact.go",
+        "pkg/muz/rel/interval_relation.go"
+      ],
+      "tests": [
+        "TestFiniteIntervalProductFactsAndClone",
+        "TestFiniteIntervalProductColumnSelection"
+      ],
       "conditionals": [
         {
           "line": 152,
@@ -90708,17 +90716,39 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "concrete finite-table/interval construction, fact insertion, lookup and clone",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductFactsAndClone",
+            "TestFiniteIntervalProductColumnSelection"
+          ]
+        }
+      ],
+      "ownership": [
+        "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
+      ],
+      "deviations": [
+        "Join, projection, union, filters, formula generation, garbage collection, full/complement, manager registration and failure-frontier audit remain pending."
+      ]
     },
     {
       "path": "src/muz/rel/dl_finite_product_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/finite_interval_product.go",
+        "pkg/muz/rel/finite_interval_product_test.go",
+        "pkg/muz/rel/sparse_functional_fact.go",
+        "pkg/muz/rel/interval_relation.go"
+      ],
+      "tests": [
+        "TestFiniteIntervalProductFactsAndClone",
+        "TestFiniteIntervalProductColumnSelection"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -90757,9 +90787,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "concrete finite-table/interval construction, fact insertion, lookup and clone",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductFactsAndClone",
+            "TestFiniteIntervalProductColumnSelection"
+          ]
+        }
+      ],
+      "ownership": [
+        "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
+      ],
+      "deviations": [
+        "Join, projection, union, filters, formula generation, garbage collection, full/complement, manager registration and failure-frontier audit remain pending."
+      ]
     },
     {
       "path": "src/muz/rel/dl_instruction.cpp",
