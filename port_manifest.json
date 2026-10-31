@@ -6203,7 +6203,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
-        "Generated solver translation replay supports direct, strategic, finite-domain and supported SMT-tactic compositions across contexts. Other tactic leaves and probe conditionals remain unsupported."
+        "Generated solver translation replay supports direct, strategic, finite-domain and compositions of SMT and simplifier tactics across contexts. Other tactic leaves and probe conditionals remain unsupported."
       ]
     },
     {
@@ -7834,7 +7834,8 @@
         "TestAPISMTTacticSolverCrossContextTranslation",
         "TestAPISMTTacticSolverCrossContextTranslationRejectsActiveScope",
         "TestAPIComposedTacticCrossContextTranslation",
-        "TestAPIUnsupportedTacticLeafCrossContextTranslation"
+        "TestAPIUnsupportedTacticLeafCrossContextTranslation",
+        "TestAPISimplifySMTTacticCrossContextTranslation"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -7867,7 +7868,7 @@
       ],
       "deviations": [
         "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Go exposes solver translation, tactic construction, DIMACS loading and help through typed APIs; opaque C reference-count entry points have no Go equivalent.",
-        "Solver translation supports direct, strategic, finite-domain and supported SMT-tactic compositions across contexts. Other tactic leaves, probe conditionals, and a complete ownership audit remain open."
+        "Solver translation supports direct, strategic, finite-domain and compositions of SMT and simplifier tactics across contexts. Other tactic leaves, probe conditionals, and a complete ownership audit remain open."
       ]
     },
     {
@@ -188379,7 +188380,9 @@
         "pkg/sat/tactic/sat_goal_recovery.go",
         "pkg/sat/tactic/sat_boolean_model.go",
         "pkg/sat/tactic/sat_tactic_trace.go",
-        "pkg/tactic/core/simplify_stopped_cleanup_release_test.go"
+        "pkg/tactic/core/simplify_stopped_cleanup_release_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/api_caller_tactic_solver_translate.go"
       ],
       "tests": [
         "TestSimplifyTacticProofDependenciesDepthAndCleanup",
@@ -188397,7 +188400,8 @@
         "TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership",
         "TestSATGoalBorrowedAtomMapDependenciesAndPerCallInterpretedAtoms",
         "TestSATGoalBorrowedAtomMapBooleanModelIncludesEarlierAtoms",
-        "TestSimplifyCountedReleaseAfterFailedCleanupReconstruction"
+        "TestSimplifyCountedReleaseAfterFailedCleanupReconstruction",
+        "TestAPISimplifySMTTacticCrossContextTranslation"
       ],
       "assertions": [
         {

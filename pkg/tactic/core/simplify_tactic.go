@@ -331,6 +331,31 @@ func (t *SimplifyTactic) Translate(manager *ast.ASTManager) (tactic.Tactic, erro
 	return translated, nil
 }
 
+// TranslateWithServices copies the tactic parameters into the target's
+// independently owned parameter and global services.
+func (t *SimplifyTactic) TranslateWithServices(manager *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (result *SimplifyTactic, resultErr error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	p, err := t.context.TranslateTo(&t.params, context)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, context.Del(&p))
+		if resultErr != nil && result != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
+		}
+	}()
+	result, err = NewSimplifyTactic(manager, context, globals, &p)
+	if err != nil {
+		return nil, err
+	}
+	result.trace = t.trace
+	return result, nil
+}
+
 func (t *SimplifyTactic) Close() error {
 	if t == nil || t.self != t {
 		return ast.ErrASTHandle

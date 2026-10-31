@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/tactic/core"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -20,11 +21,14 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 		return nil, err
 	}
 	targetTactic, err := tactic.TranslateWithContext(raw, manager, config.Params, func(leaf tactic.Tactic) (tactic.Tactic, error) {
-		sourceTactic, ok := leaf.(*smtcore.SMTTactic)
-		if !ok {
+		switch sourceTactic := leaf.(type) {
+		case *smtcore.SMTTactic:
+			return sourceTactic.TranslateWithConfig(manager, config)
+		case *core.SimplifyTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
+		default:
 			return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
 		}
-		return sourceTactic.TranslateWithConfig(manager, config)
 	})
 	if err != nil {
 		return nil, err

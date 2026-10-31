@@ -550,7 +550,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("simplify")
+	simplify, err := source.Tactic("propagate-values")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -591,4 +591,40 @@ func TestAPISMTTacticSolverCrossContextTranslationRejectsActiveScope(t *testing.
 	translated, err := s.Translate(target)
 	astTestMust(t, err)
 	astTestMust(t, translated.Close())
+}
+
+func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	simplify, err := source.Tactic("simplify")
+	astTestMust(t, err)
+	params, err := source.NewParameterSet()
+	astTestMust(t, err)
+	astTestMust(t, params.SetBool("elim_and", true))
+	configured, err := simplify.UsingParameters(params)
+	astTestMust(t, err)
+	astTestMust(t, params.Close())
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	sequence, err := configured.AndThen(smt)
+	astTestMust(t, err)
+	s, err := source.NewSolverFromTactic(sequence)
+	astTestMust(t, err)
+	for _, tac := range []*APITactic{sequence, smt, configured, simplify} {
+		astTestMust(t, tac.Close())
+	}
+	astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p) (assert (not p))`))
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, s.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated simplify-smt", status)
+	}
 }
