@@ -110979,7 +110979,9 @@
         "pkg/qe/sat_tactic.go",
         "pkg/qe/sat_tactic_test.go",
         "pkg/qe/sat_project_full.go",
-        "pkg/qe/sat_project_full_test.go"
+        "pkg/qe/sat_project_full_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qe_sat_integration_test.go"
       ],
       "tests": [
         "TestSATSolverContextNNFAndConstraints",
@@ -110999,7 +111001,8 @@
         "TestQESATTacticPartialGoalsAndModels",
         "TestSATPartialSearchStrongContextModes",
         "TestSATFullProjectionScalarAndRefusal",
-        "TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged"
+        "TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged",
+        "TestSMTLibRunnerQESATTactic"
       ],
       "assertions": [
         {
@@ -111100,7 +111103,7 @@
         "NNF strengthening owns its formula and substitutions and pops solver scopes on success or failure."
       ],
       "deviations": [
-        "The tactic supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. General full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
+        "The tactic is registered for SMT-LIB and supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. General full projection, source QE preprocessing, proof/core modes and statistics remain unfinished."
       ]
     },
     {
@@ -111116,7 +111119,9 @@
         "pkg/qe/sat_tactic.go",
         "pkg/qe/sat_tactic_test.go",
         "pkg/qe/sat_project_full.go",
-        "pkg/qe/sat_project_full_test.go"
+        "pkg/qe/sat_project_full_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/qe_sat_integration_test.go"
       ],
       "tests": [
         "TestSATPartialSearchBooleanQuantifiers",
@@ -111125,7 +111130,8 @@
         "TestQESATTacticPartialGoalsAndModels",
         "TestSATPartialSearchStrongContextModes",
         "TestSATFullProjectionScalarAndRefusal",
-        "TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged"
+        "TestQESATTacticFullProjectionUnsupportedGoalIsUnchanged",
+        "TestSMTLibRunnerQESATTactic"
       ],
       "conditionals": [
         {
@@ -111153,7 +111159,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "The tactic supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. General full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
+        "The tactic is registered for SMT-LIB and supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. General full projection, source QE preprocessing, proof/core modes and statistics remain unfinished."
       ]
     },
     {

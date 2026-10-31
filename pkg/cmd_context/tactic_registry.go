@@ -7,7 +7,7 @@ package cmd_context
 import "github.com/glycerine/g3/pkg/arena"
 
 var builtinTacticNames = [...]string{
-	"qe-light", "qe", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec",
+	"qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec",
 	"smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving",
 	"simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite",
 	"tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values",

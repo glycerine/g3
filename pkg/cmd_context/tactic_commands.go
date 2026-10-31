@@ -58,7 +58,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return nil, err
 	}
 	switch name {
-	case "qe-light", "qe", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "fm", "simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "eq2bv", "degree-shift", "recover-01", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
+	case "qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "fm", "simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "eq2bv", "degree-shift", "recover-01", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
 	default:
 		return nil, fmt.Errorf("invalid tactic, unknown tactic %s", name)
 	}
@@ -82,6 +82,12 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		case "qe_rec":
 			created, err = qe.NewQERecursiveTactic(m, nil, config)
 		}
+		if created == nil {
+			return nil, err
+		}
+		return created, err
+	case "qe-sat":
+		created, err := qe.NewQESATTactic(m, nil, qe.Config{Context: c.config.Params, Globals: c.config.Globals, Cooperation: c.config.ModelEvaluator.Cooperation, Trace: c.config.ModelEvaluator.Trace})
 		if created == nil {
 			return nil, err
 		}

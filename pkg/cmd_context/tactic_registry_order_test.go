@@ -20,7 +20,7 @@ func TestBuiltinTacticRegistryRetainsFactoryOrder(t *testing.T) {
 			t.Fatalf("BV bounds registration order: %v", wantBV)
 		}
 	}
-	wantPrefix := []string{"qe-light", "qe", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat"}
+	wantPrefix := []string{"qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat"}
 	for i := range wantPrefix {
 		if names[i] != wantPrefix[i] {
 			t.Fatalf("prefix %d: %q, want %q", i, names[i], wantPrefix[i])
