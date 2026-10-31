@@ -45,5 +45,81 @@ func registerZ3GeneratedBitVectorCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
+	return registerZ3GeneratedBitVectorParameters(r)
+}
+
+func registerZ3GeneratedBitVectorParameters(r *Z3Replayer) error {
+	entries := []struct {
+		id   uint32
+		name string
+	}{
+		{107, "Z3_mk_extract"}, {108, "Z3_mk_sign_ext"}, {109, "Z3_mk_zero_ext"},
+		{110, "Z3_mk_repeat"}, {114, "Z3_mk_rotate_left"}, {115, "Z3_mk_rotate_right"},
+		{118, "Z3_mk_int2bv"}, {119, "Z3_mk_bv2int"},
+	}
+	for _, entry := range entries {
+		id := entry.id
+		if err := r.RegisterCommand(id, entry.name, func(r *Z3Replayer) error {
+			owner, err := replayContext(r, 0)
+			if err != nil {
+				return err
+			}
+			if id == 119 {
+				value, e := r.astObject(owner, 1)
+				if e != nil {
+					return e
+				}
+				signed, e := r.Bool(2)
+				if e != nil {
+					return e
+				}
+				h, e := owner.context.BitVectorToInt(value.handle, signed)
+				if e != nil {
+					return e
+				}
+				return r.storeAST(owner, h)
+			}
+			amount, err := r.Uint(1)
+			if err != nil {
+				return err
+			}
+			position := uint32(2)
+			var low uint32
+			if id == 107 {
+				low, err = r.Uint(2)
+				if err != nil {
+					return err
+				}
+				position = 3
+			}
+			value, err := r.astObject(owner, position)
+			if err != nil {
+				return err
+			}
+			var h ast.ASTHandle
+			switch id {
+			case 107:
+				h, err = owner.context.BitVectorExtract(amount, low, value.handle)
+			case 108:
+				h, err = owner.context.BitVectorSignExtend(amount, value.handle)
+			case 109:
+				h, err = owner.context.BitVectorZeroExtend(amount, value.handle)
+			case 110:
+				h, err = owner.context.BitVectorRepeat(amount, value.handle)
+			case 114:
+				h, err = owner.context.BitVectorRotateLeft(amount, value.handle)
+			case 115:
+				h, err = owner.context.BitVectorRotateRight(amount, value.handle)
+			case 118:
+				h, err = owner.context.IntToBitVector(amount, value.handle)
+			}
+			if err != nil {
+				return err
+			}
+			return r.storeAST(owner, h)
+		}); err != nil {
+			return err
+		}
+	}
 	return nil
 }

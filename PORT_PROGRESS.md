@@ -1,3 +1,5 @@
+Parameterized bit-vector replay (2026-10-31 UTC): added extract, extensions, repeat, fixed rotations and integer/bit-vector conversions. Normal and checked focused tests verify widths and concrete values through QF_BV solving, plus signed versus unsigned conversion shapes.
+
 Native snapshot check (2026-10-31 UTC): the complete native suite passed on clean snapshot f9da8103f: 108 packages passed and three had no test files. Later tabulation statistics, query validation and replay additions have focused verification but are outside this checkpoint. Log: /tmp/g3-native-tab-f9da8103f.log.
 
 Generated bit-vector replay (2026-10-31 UTC): added basic bit-vector operations, comparisons, concatenation, shifts and extended rotations to the log frontend. Normal and checked tests verify arithmetic, logical and signed/unsigned semantics through a QF_BV solver and CLI replay.
