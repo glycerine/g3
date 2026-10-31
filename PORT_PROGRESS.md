@@ -52232,3 +52232,5 @@ Full native checkpoint: the complete Go suite passed on clean committed snapshot
 NLSAT randomized interval driver: ported the original 200 seeded generated pairs, with both source ranges and interval counts. It checks union containment and commutativity, full-set consistency, and that each result interval is contained in the source interval set named by its justification.
 
 Overflow symbolic equivalences started: the source's widened-arithmetic equivalence checks pass for all operations at widths 1, 2 and 7, and for non-multiplication operations at width 16. The signed 16-bit multiplication overflow proof exceeded a four-minute focused run; 16-bit multiplication equivalences are left out of the routine test and remain open, alongside the source constant-folding discrepancy already recorded.
+
+NLSAT source evaluator and solver drivers: ported tst5's circle-polynomial infeasible intervals before and after assigning the projected variable, with independent point checks. Ported tst7's three assumed inequalities, checking the conflicting set, satisfiable prefix and resulting literal values. The projection and root-literal scenarios remain open.
