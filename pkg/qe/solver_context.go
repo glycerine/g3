@@ -27,6 +27,7 @@ type SolverContext struct {
 	self            *SolverContext
 	manager         *ast.ASTManager
 	variables       []ast.ASTHandle
+	variableOwners  []ast.ASTRef
 	contains        []*ast.ContainsApp
 	currentFormula  ast.ASTRef
 	plugins         []SolverPlugin
@@ -39,7 +40,7 @@ func NewSolverContext(manager *ast.ASTManager, variables []ast.ASTHandle) (*Solv
 	if manager == nil {
 		return nil, ast.ErrASTHandle
 	}
-	c := &SolverContext{manager: manager, variables: append([]ast.ASTHandle(nil), variables...)}
+	c := &SolverContext{manager: manager, variables: append([]ast.ASTHandle(nil), variables...), variableOwners: make([]ast.ASTRef, len(variables))}
 	c.self = c
 	for _, variable := range c.variables {
 		kind, err := manager.GetKind(variable)

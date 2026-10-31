@@ -104,5 +104,16 @@ func TestArrayPluginSelectFreshVariableSurvivesAbsentFormula(t *testing.T) {
 	}
 	_, e = m.GetKind(variables[0])
 	fmMust(t, e)
+	// The context owns the new variable even after the plugin is closed.
+	fmMust(t, p.Close())
+	_, e = m.GetKind(variables[0])
+	fmMust(t, e)
+	contains, e := ctx.Contains(0)
+	fmMust(t, e)
+	found, e := contains.Check(variables[0])
+	fmMust(t, e)
+	if !found {
+		t.Fatal("fresh context variable lost its owner")
+	}
 	fmMust(t, ctx.Close())
 }

@@ -105120,7 +105120,9 @@
         "pkg/qe/solver_context_formula_mutation_test.go",
         "pkg/qe/solver_context_mutation_validation_test.go",
         "pkg/qe/qe_array_plugin_full_solve.go",
-        "pkg/qe/qe_array_plugin_full_solve_test.go"
+        "pkg/qe/qe_array_plugin_full_solve_test.go",
+        "pkg/qe/solver_context_owned_variable_test.go",
+        "pkg/qe/qe_array_plugin_select_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -105134,7 +105136,9 @@
         "TestGuardedDefinitionsOwnsNormalizedCopies",
         "TestArrayPluginSolveExtractionFallbackRejectsSubtraction",
         "TestArrayPluginSolveDispatchesExplicitEquality",
-        "TestArrayPluginSolveSkipsQuantifiedConjunct"
+        "TestArrayPluginSolveSkipsQuantifiedConjunct",
+        "TestSolverContextOwnedVariableTransferAndSwap",
+        "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
       ],
       "conditionals": [
         {
@@ -105392,6 +105396,22 @@
           "go_target": "pkg/qe/conjunction_enum.go",
           "tests": [
             "TestArrayPluginSolveSkipsQuantifiedConjunct"
+          ]
+        },
+        {
+          "name": "fresh variable ownership transfer into context, swap and context-close cleanup",
+          "status": "ported",
+          "go_target": "pkg/qe/solver_context_variables.go",
+          "go_targets": [
+            "pkg/qe/solver_context_variables.go",
+            "pkg/qe/solver_context_eliminate.go",
+            "pkg/qe/solver_context_mutation_close.go",
+            "pkg/qe/solver_context_owned_variable_test.go",
+            "pkg/qe/qe_array_plugin_select_test.go"
+          ],
+          "tests": [
+            "TestSolverContextOwnedVariableTransferAndSwap",
+            "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
           ]
         }
       ],
@@ -106045,7 +106065,11 @@
         "pkg/qe/qe_array_plugin_solve_test.go",
         "pkg/qe/qe_array_plugin_full_solve.go",
         "pkg/qe/qe_array_plugin_full_solve_test.go",
-        "pkg/qe/conjunction_enum.go"
+        "pkg/qe/conjunction_enum.go",
+        "pkg/qe/solver_context_variables.go",
+        "pkg/qe/solver_context_eliminate.go",
+        "pkg/qe/solver_context_mutation_close.go",
+        "pkg/qe/solver_context_owned_variable_test.go"
       ],
       "tests": [
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
@@ -106058,7 +106082,8 @@
         "TestArrayPluginExplicitSolveSelectInEitherOrientation",
         "TestArrayPluginSolveExtractionFallbackRejectsSubtraction",
         "TestArrayPluginSolveDispatchesExplicitEquality",
-        "TestArrayPluginSolveSkipsQuantifiedConjunct"
+        "TestArrayPluginSolveSkipsQuantifiedConjunct",
+        "TestSolverContextOwnedVariableTransferAndSwap"
       ],
       "assertions": [
         {
@@ -106121,11 +106146,27 @@
             "TestArrayPluginSolveDispatchesExplicitEquality",
             "TestArrayPluginSolveSkipsQuantifiedConjunct"
           ]
+        },
+        {
+          "name": "fresh variable ownership transfer into context, swap and context-close cleanup",
+          "status": "ported",
+          "go_target": "pkg/qe/solver_context_variables.go",
+          "go_targets": [
+            "pkg/qe/solver_context_variables.go",
+            "pkg/qe/solver_context_eliminate.go",
+            "pkg/qe/solver_context_mutation_close.go",
+            "pkg/qe/solver_context_owned_variable_test.go",
+            "pkg/qe/qe_array_plugin_select_test.go"
+          ],
+          "tests": [
+            "TestSolverContextOwnedVariableTransferAndSwap",
+            "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula"
+          ]
         }
       ],
       "ownership": [
         "The plugin borrows its context and expression roots; the context owns a registered plugin and acquires the rewritten formula before removing the variable.",
-        "The context-owned array plugin independently pins fresh variables while the context variable list borrows them, including when the rewritten formula does not mention the fresh variable."
+        "Fresh variables transfer their reference to the owning solver context, independently of the plugin and rewritten formula."
       ],
       "deviations": [
         "Pending: diagnostics, allocation-failure audit and live QE solver registration.",

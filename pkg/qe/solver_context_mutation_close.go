@@ -21,5 +21,14 @@ func (c *SolverContext) closeMutationState() error {
 			return err
 		}
 	}
+	for len(c.variableOwners) > 0 {
+		i := len(c.variableOwners) - 1
+		if c.variableOwners[i] != (ast.ASTRef{}) {
+			if err := c.manager.DelRef(&c.variableOwners[i]); err != nil {
+				return err
+			}
+		}
+		c.variableOwners = c.variableOwners[:i]
+	}
 	return nil
 }

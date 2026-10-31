@@ -111,11 +111,9 @@ func (p *ArrayPlugin) TryStoreEquality(lhs, rhs, formula ast.ASTHandle) (solved 
 		if e = p.manager.SetRef(replacement, newStore); e != nil {
 			return e
 		}
-		if e = p.context.AddVariable(fresh); e != nil {
+		if e = p.context.adoptVariable(fresh, &freshRef); e != nil {
 			return e
 		}
-		p.fresh = append(p.fresh, freshRef)
-		freshRef = ast.ASTRef{}
 		return nil
 	}
 	for i := len(levels) - 1; i >= 0; i-- {

@@ -19,7 +19,32 @@ func (c *SolverContext) AddVariable(variable ast.ASTHandle) error {
 		return errors.Join(ast.ErrASTDomain, err)
 	}
 	c.variables = append(c.variables, variable)
+	c.variableOwners = append(c.variableOwners, ast.ASTRef{})
 	c.contains = append(c.contains, nil)
+	return nil
+}
+
+// adoptVariable transfers an existing reference into the context's variable
+// vector. Ownership transfers only after the borrowed insertion succeeds.
+func (c *SolverContext) adoptVariable(variable ast.ASTHandle, owner *ast.ASTRef) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if owner == nil || *owner == (ast.ASTRef{}) {
+		return ast.ErrASTHandle
+	}
+	h, err := c.manager.RefGet(*owner)
+	if err != nil {
+		return err
+	}
+	if h != variable {
+		return ast.ErrASTDomain
+	}
+	if err = c.AddVariable(variable); err != nil {
+		return err
+	}
+	c.variableOwners[len(c.variableOwners)-1] = *owner
+	*owner = ast.ASTRef{}
 	return nil
 }
 

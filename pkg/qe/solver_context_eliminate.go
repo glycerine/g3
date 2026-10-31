@@ -47,6 +47,14 @@ func (c *SolverContext) EliminateVariable(index uint32, formula, definition ast.
 			return err
 		}
 	}
+	if c.variableOwners[index] != (ast.ASTRef{}) {
+		if err = c.manager.DelRef(&c.variableOwners[index]); err != nil {
+			return err
+		}
+	}
+	c.variableOwners[index] = c.variableOwners[last]
+	c.variableOwners[last] = ast.ASTRef{}
+	c.variableOwners = c.variableOwners[:last]
 	c.variables[index] = c.variables[last]
 	c.variables = c.variables[:last]
 	c.contains[index] = c.contains[last]

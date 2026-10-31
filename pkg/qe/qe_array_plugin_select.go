@@ -69,13 +69,9 @@ func (p *ArrayPlugin) TrySelectEquality(lhs, rhs, formula ast.ASTHandle) (solved
 	if e != nil {
 		return false, e
 	}
-	if e = p.context.AddVariable(fresh); e != nil {
+	if e = p.context.adoptVariable(fresh, &freshRef); e != nil {
 		return false, e
 	}
-	// SolverContext's variable list borrows its handles; keep the fresh owner
-	// until the context-owned plugin closes, even if elimination later fails.
-	p.fresh = append(p.fresh, freshRef)
-	freshRef = ast.ASTRef{}
 	if e = p.context.EliminateVariable(idx, rewritten, store); e != nil {
 		return false, e
 	}

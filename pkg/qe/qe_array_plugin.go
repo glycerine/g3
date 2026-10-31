@@ -13,7 +13,6 @@ type ArrayPlugin struct {
 	context *SolverContext
 	manager *ast.ASTManager
 	family  ast.FamilyID
-	fresh   []ast.ASTRef
 	closed  bool
 }
 
@@ -73,13 +72,6 @@ func (p *ArrayPlugin) Close() error {
 	}
 	if p.closed {
 		return nil
-	}
-	for len(p.fresh) > 0 {
-		i := len(p.fresh) - 1
-		if e := p.manager.DelRef(&p.fresh[i]); e != nil {
-			return e
-		}
-		p.fresh = p.fresh[:i]
 	}
 	p.closed = true
 	return nil
