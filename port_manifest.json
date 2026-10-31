@@ -177944,6 +177944,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/diff_neq_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/diff_neq_compile.go",
         "pkg/tactic/arith/diff_neq_search.go",
         "pkg/tactic/arith/diff_neq_trace.go",
@@ -177953,6 +177956,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestBoundTacticContextTranslationPreservesSourcePolicies",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestDiffNeqExhaustiveSmallDomains",
         "TestDiffNeqBacktrackingStatisticsAndIndependentModel",
         "TestDiffNeqRefusalsLimitsAndCancellation",
@@ -178137,6 +178142,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/diff_neq_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/diff_neq_compile.go",
         "pkg/tactic/arith/diff_neq_search.go",
         "pkg/tactic/arith/diff_neq_trace.go",
@@ -178146,6 +178154,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestBoundTacticContextTranslationPreservesSourcePolicies",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestDiffNeqExhaustiveSmallDomains",
         "TestDiffNeqBacktrackingStatisticsAndIndependentModel",
         "TestDiffNeqRefusalsLimitsAndCancellation",
@@ -180572,6 +180582,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/normalize_bounds_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/normalize_bounds_trace.go",
         "pkg/tactic/arith/normalize_bounds_test.go",
         "pkg/tactic/arith/bound_manager.go",
@@ -180581,6 +180594,8 @@
         "pkg/parsers/smt2/tactics_test.go"
       ],
       "tests": [
+        "TestBoundTacticContextTranslationPreservesSourcePolicies",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestNormalizeBoundsModelsProofsAndCoreDependencies",
         "TestNormalizeBoundsNoOpAndConstructorParameterSnapshot",
         "TestNormalizeBoundsCPPApplyAndTrace",
@@ -180694,6 +180709,9 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/normalize_bounds_tactic.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/normalize_bounds_trace.go",
         "pkg/tactic/arith/normalize_bounds_test.go",
         "pkg/tactic/arith/bound_manager.go",
@@ -180703,6 +180721,8 @@
         "pkg/parsers/smt2/tactics_test.go"
       ],
       "tests": [
+        "TestBoundTacticContextTranslationPreservesSourcePolicies",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestNormalizeBoundsModelsProofsAndCoreDependencies",
         "TestNormalizeBoundsNoOpAndConstructorParameterSnapshot",
         "TestNormalizeBoundsCPPApplyAndTrace",

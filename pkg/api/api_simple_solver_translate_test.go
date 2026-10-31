@@ -1008,6 +1008,8 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 	}{
 		{"fix-dl-var", "QF_IDL", "(declare-const x Int) (declare-const y Int) (declare-const z Int) (assert (<= (- x y) 2)) (assert (<= (- x z) 3))", 2},
 		{"recover-01", "QF_LIA", "(declare-const p Bool) (declare-const x Int) (assert (or p (= x 0))) (assert (or (not p) (= x 3))) (assert p)", 3},
+		{"normalize-bounds", "QF_LIA", "(declare-const x Int) (assert (>= x 4)) (assert (<= x 6))", 2},
+		{"diff-neq", "QF_IDL", "(declare-const x Int) (declare-const y Int) (assert (>= x 0)) (assert (<= x 2)) (assert (>= y 0)) (assert (<= y 2)) (assert (not (= x y)))", 5},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source, err := NewSMTContext()

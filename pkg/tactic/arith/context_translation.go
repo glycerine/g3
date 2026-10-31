@@ -56,6 +56,16 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 			return nil, true, err
 		}
 		source, params = t.context, &t.params
+	case *NormalizeBoundsTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.params
+	case *DiffNeqTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.params
 	default:
 		return nil, false, nil
 	}
@@ -108,6 +118,21 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 		next, e := NewRecover01Tactic(m, c, g, &p, services)
 		err = e
 		if err == nil {
+			result = next
+		}
+	case *NormalizeBoundsTactic:
+		next, e := NewNormalizeBoundsTactic(m, c, g, &p, services)
+		err = e
+		if err == nil {
+			next.trace = t.trace
+			next.bounds.trace = t.trace
+			result = next
+		}
+	case *DiffNeqTactic:
+		next, e := NewDiffNeqTactic(m, c, g, &p)
+		err = e
+		if err == nil {
+			next.trace = t.trace
 			result = next
 		}
 	}
