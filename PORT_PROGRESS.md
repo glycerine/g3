@@ -1,3 +1,5 @@
+Generated datatype replay (2026-10-31 UTC): added tuple, enumeration and list constructors, including typed symbol arrays, multi-result AST trails, output-pointer mapping and temporary-object reset. Focused normal and checked API/CLI tests and the full API package pass; other generated datatype and API commands remain unfinished.
+
 Tabulation direct-query validation (2026-10-31 UTC): direct rule-set queries now apply the source existential-tail and negative-predicate checks before indexing. Focused normal and checked tests include a rejected negated predicate.
 
 Tabulation statistics (2026-10-31 UTC): fixedpoint statistics now report and reset the source unfold, failed-unfold and subsumption counters, including work performed in expression-query clones. Focused normal and checked tests pass.

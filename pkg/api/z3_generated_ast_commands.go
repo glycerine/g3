@@ -17,6 +17,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{32, "Z3_mk_bool_sort", replayBoolSort}, {33, "Z3_mk_int_sort", replayIntSort}, {34, "Z3_mk_real_sort", replayRealSort}, {35, "Z3_mk_bv_sort", replayBVSort},
 		{31, "Z3_mk_uninterpreted_sort", replayUninterpretedSort}, {49, "Z3_mk_func_decl", replayFunction}, {50, "Z3_mk_app", replayApplication},
 		{36, "Z3_mk_finite_domain_sort", replayFiniteDomainSort}, {37, "Z3_mk_array_sort", replayArraySort}, {38, "Z3_mk_array_sort_n", replayArraySortN},
+		{39, "Z3_mk_tuple_sort", replayTupleSort}, {40, "Z3_mk_enumeration_sort", replayEnumerationSort}, {41, "Z3_mk_list_sort", replayListSort},
 		{51, "Z3_mk_const", replayConstant}, {52, "Z3_mk_fresh_func_decl", replayFreshFunction}, {53, "Z3_mk_fresh_const", replayFreshConstant},
 		{54, "Z3_mk_true", replayTrue}, {55, "Z3_mk_false", replayFalse}, {56, "Z3_mk_eq", replayEqual}, {58, "Z3_mk_not", replayNot},
 		{57, "Z3_mk_distinct", replayDistinct}, {59, "Z3_mk_ite", replayIte}, {60, "Z3_mk_iff", replayIff},

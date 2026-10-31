@@ -34,6 +34,9 @@ func replayTypedSymbol(r *Z3Replayer, owner *replayContextOwner, position uint32
 	if err != nil {
 		return usymbol.Symbol{}, err
 	}
+	return replaySymbolValue(owner, v)
+}
+func replaySymbolValue(owner *replayContextOwner, v z3ReplayValue) (usymbol.Symbol, error) {
 	if v.nullSymbol {
 		return usymbol.Symbol{}, nil
 	}
