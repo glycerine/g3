@@ -22,7 +22,7 @@ func TestArithmeticQEResolveUnitRealAndIntegerGate(t *testing.T) {
 		t.Fatal("resolved real bound kind", kind, err)
 	}
 	pluginMust(t, f.manager.DelRef(&resolved))
-	resolved, handled, err = f.util.ResolveUnitOrReal(f.x, false, big.NewRat(2, 1), f.y, big.NewRat(-3, 1), f.x)
+	resolved, handled, err = f.util.ResolveUnitOrReal(f.x, false, big.NewRat(4, 1), f.y, big.NewRat(-5, 1), f.x)
 	pluginMust(t, err)
 	if handled || resolved != (ast.ASTRef{}) {
 		t.Fatal("nonunit integer resolution bypassed Cooper gate")

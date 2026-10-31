@@ -170,7 +170,7 @@ func TestQuantifierArithmeticSearchUnsupportedDivisibility(t *testing.T) {
 	m := f.r.manager
 	x := f.own(m.MkVar(0, f.integer))
 	y := f.constant("arith-search-divisibility-y", f.integer)
-	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	twoX := f.own(m.MkArithmeticMul(f.number("4"), x))
 	body := f.own(m.MkEq(twoX, y))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
@@ -214,5 +214,42 @@ func TestQuantifierArithmeticSearchOneUnitCoefficient(t *testing.T) {
 	fmMust(t, err)
 	if status != lbool.False {
 		t.Fatal("integer QE result differs from 2*z <= y")
+	}
+}
+
+func TestQuantifierArithmeticSearchDivisibility(t *testing.T) {
+	for _, tc := range []struct{ coefficient, divisor string }{{"2", "2"}, {"3", "3"}, {"-2", "2"}} {
+		t.Run(tc.coefficient, func(t *testing.T) {
+			f := qsatKernelFixture(t)
+			m := f.r.manager
+			x := f.own(m.MkVar(0, f.integer))
+			y := f.constant("arith-search-divisibility-y", f.integer)
+			coefficient := f.number(tc.coefficient)
+			divisor := f.number(tc.divisor)
+			product := f.own(m.MkArithmeticMul(coefficient, x))
+			body := f.own(m.MkEq(product, y))
+			quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+			result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+			fmMust(t, err)
+			if !complete {
+				t.Fatal("integer divisibility was not eliminated")
+			}
+			defer func() { fmMust(t, m.DelRef(&result)) }()
+			value, err := m.RefGet(result)
+			fmMust(t, err)
+			mod := f.own(m.MkFamilyApp(f.r.arithmetic, 13, nil, []ast.ASTHandle{y, divisor}))
+			expected := f.own(m.MkEq(mod, f.number("0")))
+			iff := f.own(m.MkIff(value, expected))
+			different := f.own(m.MkNot(iff))
+			k := qsatKernelOwner(t, f)
+			solver, err := k.solver()
+			fmMust(t, err)
+			fmMust(t, solver.AssertFormula(different))
+			status, err := solver.CheckSat(nil)
+			fmMust(t, err)
+			if status != lbool.False {
+				t.Fatal("integer divisibility result differs from the remainder condition")
+			}
+		})
 	}
 }

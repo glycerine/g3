@@ -11,8 +11,8 @@ import (
 )
 
 // ResolveUnitOrReal eliminates opposite-signed occurrences from two bounds.
-// Integer bounds with two non-unit coefficients require the later bounded-
-// variable Cooper expansion and are reported as unhandled.
+// Integer bounds with two non-unit coefficients use the supported small
+// bounded-variable Cooper expansion.
 func (u *ArithmeticQETermUtil) ResolveUnitOrReal(variable ast.ASTHandle, strict bool, a *big.Rat, t ast.ASTHandle, b *big.Rat, s ast.ASTHandle) (result ast.ASTRef, handled bool, resultErr error) {
 	if resultErr = u.open(); resultErr != nil {
 		return result, false, resultErr
@@ -27,7 +27,10 @@ func (u *ArithmeticQETermUtil) ResolveUnitOrReal(variable ast.ASTHandle, strict 
 	}
 	one := big.NewRat(1, 1)
 	if integer && absA.Cmp(one) != 0 && absB.Cmp(one) != 0 {
-		return result, false, nil
+		if strict {
+			return result, false, ast.ErrASTDomain
+		}
+		return u.resolveSmallCooper(variable, a, t, b, s)
 	}
 	if strict && (absA.Cmp(one) != 0 || absB.Cmp(one) != 0) {
 		return result, false, ast.ErrASTDomain

@@ -192,3 +192,23 @@ func TestSMTLibRunnerQEMixedCoefficientBounds(t *testing.T) {
 		t.Fatalf("mixed coefficient QE result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerQESmallDivisibility(t *testing.T) {
+	script := `(set-logic LIA)
+(declare-const y Int)
+(assert (exists ((x Int)) (= (* 2 x) y)))
+(push)
+(assert (= y 1))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= y 2))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("small divisibility QE result: %s", got)
+	}
+}

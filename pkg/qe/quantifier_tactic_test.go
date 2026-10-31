@@ -266,7 +266,7 @@ func TestQuantifierTacticUnsupportedDivisibilityIsExplicit(t *testing.T) {
 	defer func() { fmMust(t, port.Close()) }()
 	x := f.own(m.MkVar(0, f.integer))
 	y := f.constant("qe-unsupported-divisibility", f.integer)
-	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	twoX := f.own(m.MkArithmeticMul(f.number("4"), x))
 	body := f.own(m.MkEq(twoX, y))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	goal := f.goal(false, false)
