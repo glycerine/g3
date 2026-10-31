@@ -64,24 +64,9 @@ func replayBooleanArray(r *Z3Replayer, op uint8) error {
 	if err != nil {
 		return err
 	}
-	n, err := r.Uint(1)
+	args, err := replayASTArray(r, owner, 1, 2)
 	if err != nil {
 		return err
-	}
-	ids, err := r.ObjectArray(2)
-	if err != nil {
-		return err
-	}
-	if uint64(n) > uint64(len(ids)) {
-		return ErrZ3ReplayReference
-	}
-	args := make([]ast.ASTHandle, n)
-	for i := range args {
-		entry, e := r.astByID(owner, ids[i])
-		if e != nil {
-			return e
-		}
-		args[i] = entry.handle
 	}
 	var h ast.ASTHandle
 	switch op {
