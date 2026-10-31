@@ -125,6 +125,10 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		delete(r.vectors, id)
 	}
 	owner.vectorIDs = nil
+	for _, id := range owner.functionIDs {
+		delete(r.functions, id)
+	}
+	owner.functionIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err

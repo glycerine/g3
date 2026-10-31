@@ -41,7 +41,7 @@ func RegisterZ3GeneratedModelCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
-	return nil
+	return registerZ3GeneratedFunctionInterpretation(r)
 }
 func replayStoreModel(r *Z3Replayer, owner *replayContextOwner, value *APIModel) error {
 	if r.nextObjectID == ^uint64(0) {

@@ -5962,7 +5962,9 @@
         "pkg/api/z3_generated_vector_commands_test.go",
         "pkg/api/z3_generated_vector_consumers_test.go",
         "pkg/api/z3_generated_solver_commands.go",
-        "pkg/api/z3_generated_solver_extra_test.go"
+        "pkg/api/z3_generated_solver_extra_test.go",
+        "pkg/api/z3_generated_function_interp.go",
+        "pkg/api/z3_generated_function_interp_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6024,7 +6026,9 @@
         "TestGeneratedSolverConsequencesReplayAppendsOutput",
         "TestGeneratedImpliedEqualitiesReplayWritesClasses",
         "TestGeneratedSolverProofReplayOwnsResult",
-        "TestGeneratedSolverReplayLoadsFile"
+        "TestGeneratedSolverReplayLoadsFile",
+        "TestGeneratedFunctionInterpretationReplay",
+        "TestGeneratedFunctionInterpretationReplayClosesIncompleteLog"
       ],
       "methods_audited": false,
       "ownership_audited": false,
