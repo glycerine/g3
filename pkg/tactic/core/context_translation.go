@@ -31,6 +31,15 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 			return nil, true, err
 		}
 		return r, true, nil
+	case *PBPreprocessTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		r, err := NewPBPreprocessTactic(m, services)
+		if err != nil {
+			return nil, true, err
+		}
+		return r, true, nil
 	case *ReduceArgsTactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
@@ -93,6 +102,16 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 		}
 		source, sourceParams = t.context, &t.params
 	case *InjectivityTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, sourceParams = t.context, &t.params
+	case *BlastTermITETactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, sourceParams = t.context, &t.params
+	case *CofactorTermITETactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
 		}
@@ -166,6 +185,18 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 	case *InjectivityTactic:
 		var next *InjectivityTactic
 		next, err = NewInjectivityTactic(m, context, globals, &p)
+		if err == nil {
+			result = next
+		}
+	case *BlastTermITETactic:
+		var next *BlastTermITETactic
+		next, err = NewBlastTermITETactic(m, context, globals, &p, services)
+		if err == nil {
+			result = next
+		}
+	case *CofactorTermITETactic:
+		var next *CofactorTermITETactic
+		next, err = NewCofactorTermITETactic(m, context, globals, &p, services)
 		if err == nil {
 			result = next
 		}

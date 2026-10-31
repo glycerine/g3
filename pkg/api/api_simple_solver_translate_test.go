@@ -631,7 +631,7 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor", "lia2pb", "eq2bv", "card2bv", "pb2bv"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor", "lia2pb", "eq2bv", "card2bv", "pb2bv", "blast-term-ite", "cofactor-term-ite", "pb-preprocess"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -665,7 +665,7 @@ func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor", "lia2pb", "eq2bv", "card2bv", "pb2bv"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor", "lia2pb", "eq2bv", "card2bv", "pb2bv", "blast-term-ite", "cofactor-term-ite", "pb-preprocess"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -698,6 +698,12 @@ func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
 				formula = `(declare-const p Bool) (declare-const q Bool) (assert ((_ at-most 1) p q))`
 			} else if name == "pb2bv" {
 				formula = `(declare-const x Int) (assert (>= x 0)) (assert (<= x 1)) (assert (= x 1))`
+			} else if name == "blast-term-ite" {
+				formula = `(declare-const p Bool) (declare-fun f (Int) Int) (assert (= (f (ite p 1 2)) 3))`
+			} else if name == "cofactor-term-ite" {
+				formula = `(declare-const p Bool) (assert (= (+ (ite p 1 2) 3) 4))`
+			} else if name == "pb-preprocess" {
+				formula = `(declare-const p Bool) (declare-const q Bool) (assert ((_ at-least 1) p q))`
 			}
 			astTestMust(t, s.LoadSMT2String(formula))
 			translated, err := s.Translate(target)
