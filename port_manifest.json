@@ -110759,7 +110759,9 @@
         "pkg/qe/sat_strengthen.go",
         "pkg/qe/sat_strengthen_test.go",
         "pkg/qe/sat_weaken.go",
-        "pkg/qe/sat_weaken_test.go"
+        "pkg/qe/sat_weaken_test.go",
+        "pkg/qe/sat_extrapolate_core.go",
+        "pkg/qe/sat_extrapolate_core_test.go"
       ],
       "tests": [
         "TestSATSolverContextNNFAndConstraints",
@@ -110767,7 +110769,8 @@
         "TestSATTacticOptionsDefaultsAndUpdates",
         "TestSATSolverNNFStrengtheningAndScope",
         "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure",
-        "TestSATSolverNNFWeakeningAndScope"
+        "TestSATSolverNNFWeakeningAndScope",
+        "TestSATSolverCoreExtrapolation"
       ],
       "assertions": [
         {
@@ -110814,6 +110817,14 @@
           "go_target": "pkg/qe/sat_weaken.go",
           "tests": [
             "TestSATSolverNNFWeakeningAndScope"
+          ]
+        },
+        {
+          "name": "smt_test_extrapolate: assumption proxies, unsatisfiable core mapping and conjunction",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_extrapolate_core.go",
+          "tests": [
+            "TestSATSolverCoreExtrapolation"
           ]
         }
       ],
