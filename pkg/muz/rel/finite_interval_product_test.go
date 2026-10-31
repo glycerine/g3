@@ -435,3 +435,31 @@ func TestFiniteIntervalProductSourceFactLookup(t *testing.T) {
 		t.Fatal("collected row remained visible", found, err)
 	}
 }
+
+func TestFiniteIntervalProductSymbolicFactInsertion(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	one, err := f.ast.ArithmeticIntegerNumeralText("1")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, one)
+	two, err := f.ast.ArithmeticIntegerNumeralText("2")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, two)
+	symbolic, err := f.ast.MkFreshConst("symbolic-fact", integer)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, symbolic)
+	p, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	astTestMust(t, p.AddFact([]ast.ASTHandle{f.truth, one}))
+	if found, err := p.ContainsFact([]ast.ASTHandle{f.truth, two}); err != nil || found {
+		t.Fatal("initial singleton", found, err)
+	}
+	astTestMust(t, p.AddFact([]ast.ASTHandle{f.truth, symbolic}))
+	if found, err := p.ContainsFact([]ast.ASTHandle{f.truth, two}); err != nil || !found {
+		t.Fatal("symbolic source equality did not widen the interval", found, err)
+	}
+}

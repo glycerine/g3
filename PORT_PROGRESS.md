@@ -1,3 +1,5 @@
+Finite/interval symbolic fact insertion (2026-10-31 UTC): replaced numeral-only insertion with the source full interval and interpreted-equality construction, allowing symbolic arithmetic facts to produce the same conservative abstraction. A checked regression verifies widening from a singleton after a symbolic fact.
+
 Finite/interval fact lookup correction (2026-10-31 UTC): matched source AST identity checks for equivalent columns, conservative non-numeral membership, and visibility of empty inner rows before collection. Regression tests cover the source edge cases and confirm collection removes the row.
 
 Finite/interval product conversions (2026-10-31 UTC): added concrete conversions from table and interval relations and back to table relations when no interval columns remain. Tests cover table round trips, independent ownership, source interval-copy behavior and empty inner relations.

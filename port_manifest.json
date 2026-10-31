@@ -90391,7 +90391,8 @@
         "TestFiniteIntervalProductResetAndReuse",
         "TestFiniteIntervalProductTableConversion",
         "TestFiniteIntervalProductIntervalConversion",
-        "TestFiniteIntervalProductSourceFactLookup"
+        "TestFiniteIntervalProductSourceFactLookup",
+        "TestFiniteIntervalProductSymbolicFactInsertion"
       ],
       "conditionals": [
         {
@@ -90881,6 +90882,14 @@
           "tests": [
             "TestFiniteIntervalProductSourceFactLookup"
           ]
+        },
+        {
+          "name": "interval fact insertion via interpreted equalities",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductSymbolicFactInsertion"
+          ]
         }
       ],
       "ownership": [
@@ -90934,7 +90943,8 @@
         "TestFiniteIntervalProductResetAndReuse",
         "TestFiniteIntervalProductTableConversion",
         "TestFiniteIntervalProductIntervalConversion",
-        "TestFiniteIntervalProductSourceFactLookup"
+        "TestFiniteIntervalProductSourceFactLookup",
+        "TestFiniteIntervalProductSymbolicFactInsertion"
       ],
       "conditionals": [
         {
@@ -91111,6 +91121,14 @@
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductSourceFactLookup"
+          ]
+        },
+        {
+          "name": "interval fact insertion via interpreted equalities",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductSymbolicFactInsertion"
           ]
         }
       ],

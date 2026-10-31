@@ -116,7 +116,7 @@ func (p *FiniteIntervalProduct) open() error {
 	return nil
 }
 
-func (p *FiniteIntervalProduct) splitFact(values []ast.ASTHandle) (Fact, []*big.Rat, error) {
+func (p *FiniteIntervalProduct) splitFact(values []ast.ASTHandle) (Fact, []ast.ASTHandle, error) {
 	if err := p.open(); err != nil {
 		return nil, nil, err
 	}
@@ -131,8 +131,15 @@ func (p *FiniteIntervalProduct) splitFact(values []ast.ASTHandle) (Fact, []*big.
 		}
 		key[i] = value
 	}
-	numbers := make([]*big.Rat, len(p.intervalColumns))
+	other := make([]ast.ASTHandle, len(p.intervalColumns))
 	for i, col := range p.intervalColumns {
+		kind, err := p.manager.manager.GetKind(values[col])
+		if err != nil {
+			return nil, nil, err
+		}
+		if kind != ast.ASTApp {
+			return nil, nil, ast.ErrASTDomain
+		}
 		sort, err := p.manager.manager.GetSort(values[col])
 		if err != nil {
 			return nil, nil, err
@@ -140,19 +147,46 @@ func (p *FiniteIntervalProduct) splitFact(values []ast.ASTHandle) (Fact, []*big.
 		if sort != p.sorts[col] {
 			return nil, nil, ast.ErrASTDomain
 		}
-		text, _, matched, err := p.manager.manager.ArithmeticNumeralText(values[col])
+		other[i] = values[col]
+	}
+	return key, other, nil
+}
+
+// intervalFact mirrors interval_relation::add_fact's full relation followed
+// by interpreted equalities for the supplied expressions.
+func (p *FiniteIntervalProduct) intervalFact(values []ast.ASTHandle) (_ *IntervalRelation, resultErr error) {
+	m := p.manager.manager
+	var refs []ast.ASTRef
+	defer func() {
+		for i := len(refs) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
+		}
+	}()
+	inner := NewIntervalFull(uint32(len(values)))
+	for i, value := range values {
+		variable, err := m.MkVar(uint32(i), p.sorts[p.intervalColumns[i]])
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		if !matched {
-			return nil, nil, ast.ErrASTDomain
+		variableRef, err := m.NewRef(variable)
+		if err != nil {
+			return nil, err
 		}
-		numbers[i], matched = new(big.Rat).SetString(text)
-		if !matched {
-			return nil, nil, ast.ErrASTDomain
+		refs = append(refs, variableRef)
+		equality, err := m.MkEq(variable, value)
+		if err != nil {
+			return nil, err
+		}
+		equalityRef, err := m.NewRef(equality)
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, equalityRef)
+		if err = inner.FilterInterpreted(m, equality); err != nil {
+			return nil, err
 		}
 	}
-	return key, numbers, nil
+	return inner, nil
 }
 
 func cloneIntervalRelation(source *IntervalRelation) *IntervalRelation {
@@ -174,7 +208,7 @@ func cloneIntervalRelation(source *IntervalRelation) *IntervalRelation {
 // AddFact creates a fresh inner relation for a new table key, and replaces an
 // existing key's inner relation with a clone extended by the new fact.
 func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
-	key, numbers, err := p.splitFact(values)
+	key, other, err := p.splitFact(values)
 	if err != nil {
 		return err
 	}
@@ -182,7 +216,7 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	inner := NewIntervalEmpty(uint32(len(numbers)))
+	inner := NewIntervalEmpty(uint32(len(other)))
 	if found {
 		index := uint64(key[len(key)-1])
 		if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
@@ -190,7 +224,11 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 		}
 		inner = cloneIntervalRelation(p.intervals[index])
 	}
-	if err = inner.AddFact(numbers); err != nil {
+	fact, err := p.intervalFact(other)
+	if err != nil {
+		return err
+	}
+	if _, err = inner.Union(fact, false); err != nil {
 		return err
 	}
 	return p.storeInner(key, inner)
