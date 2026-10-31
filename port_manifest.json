@@ -45826,7 +45826,8 @@
       "tests": [
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
-        "TestDebugShiftAndSharedExpressions"
+        "TestDebugShiftAndSharedExpressions",
+        "TestDebugSubstitutionBindingOrderAndReplacement"
       ],
       "assertions": [
         {
@@ -45838,13 +45839,14 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
             "TestDebugExpressionResetAndErrors",
-            "TestDebugShiftAndSharedExpressions"
+            "TestDebugShiftAndSharedExpressions",
+            "TestDebugSubstitutionBindingOrderAndReplacement"
           ]
         }
       ],
@@ -45870,7 +45872,8 @@
       "tests": [
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
-        "TestDebugShiftAndSharedExpressions"
+        "TestDebugShiftAndSharedExpressions",
+        "TestDebugSubstitutionBindingOrderAndReplacement"
       ],
       "conditionals": [
         {
@@ -45886,13 +45889,14 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
             "TestDebugExpressionResetAndErrors",
-            "TestDebugShiftAndSharedExpressions"
+            "TestDebugShiftAndSharedExpressions",
+            "TestDebugSubstitutionBindingOrderAndReplacement"
           ]
         }
       ],
@@ -46297,7 +46301,8 @@
       "tests": [
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
-        "TestDebugShiftAndSharedExpressions"
+        "TestDebugShiftAndSharedExpressions",
+        "TestDebugSubstitutionBindingOrderAndReplacement"
       ],
       "assertions": [
         {
@@ -46337,13 +46342,14 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
             "TestDebugExpressionResetAndErrors",
-            "TestDebugShiftAndSharedExpressions"
+            "TestDebugShiftAndSharedExpressions",
+            "TestDebugSubstitutionBindingOrderAndReplacement"
           ]
         }
       ],
@@ -46369,7 +46375,8 @@
       "tests": [
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
-        "TestDebugShiftAndSharedExpressions"
+        "TestDebugShiftAndSharedExpressions",
+        "TestDebugSubstitutionBindingOrderAndReplacement"
       ],
       "conditionals": [
         {
@@ -46385,13 +46392,14 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, substitution, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
             "TestDebugExpressionResetAndErrors",
-            "TestDebugShiftAndSharedExpressions"
+            "TestDebugShiftAndSharedExpressions",
+            "TestDebugSubstitutionBindingOrderAndReplacement"
           ]
         }
       ],

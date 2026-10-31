@@ -48,3 +48,18 @@ func TestDebugShiftAndSharedExpressions(t *testing.T) {
 		t.Fatalf("debug output %q, want %q", out, want)
 	}
 }
+
+func TestDebugSubstitutionBindingOrderAndReplacement(t *testing.T) {
+	script := `(dbg-get-qbody s (forall ((x Int) (y Int)) (> x y)))
+(dbg-set a 3)
+(dbg-set b 5)
+(dbg-subst s (a b) s)
+(dbg-pp-var s)`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "(> 5 3)\n"; out != want {
+		t.Fatalf("debug substitution %q, want %q", out, want)
+	}
+}

@@ -1,3 +1,5 @@
+Debug expression substitution (2026-10-31 UTC): connected dbg-subst to the concrete beta-based variable substitution, preserving source binding order and allowing the destination to replace the source. The combined SMT-LIB test matches native Z3 output; remaining debug commands and failure audits are pending.
+
 Debug expression transformations (2026-10-31 UTC): integrated dbg-shift-vars through the concrete variable shifter and dbg-num-shared through shared occurrence analysis. An SMT-LIB script verifies shifted bound-variable indices and shared compound versus atomic terms against native Z3 output.
 
 Debug commands and global expression references (2026-10-31 UTC): started cmd_util.cpp/.h and dbg_cmds.cpp/.h with named expression storage, replacement and reset plus dbg-set, dbg-get-qbody, dbg-pp-var and dbg-size in the SMT-LIB parser. Output for a combined script matches the installed native Z3; remaining debug commands and generic object kinds remain pending.

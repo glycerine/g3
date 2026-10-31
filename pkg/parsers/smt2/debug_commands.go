@@ -12,6 +12,64 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-subst":
+		source, err := p.symbol()
+		if err != nil {
+			return err
+		}
+		term, err := p.context.DebugExpression(source)
+		if err != nil {
+			return err
+		}
+		if err = p.expect(LeftParenToken); err != nil {
+			return err
+		}
+		var args []ast.ASTHandle
+		for p.token != RightParenToken {
+			key, err := p.symbol()
+			if err != nil {
+				return err
+			}
+			value, err := p.context.DebugExpression(key)
+			if err != nil {
+				return err
+			}
+			args = append(args, value)
+		}
+		if err = p.advance(); err != nil {
+			return err
+		}
+		target, err := p.symbol()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		subst, err := rewriter.NewVarSubstitution(m, false)
+		if subst != nil {
+			defer func() { resultErr = errors.Join(resultErr, subst.Close()) }()
+		}
+		if err != nil {
+			return err
+		}
+		result, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, m.DelRef(&result)) }()
+		if err = subst.Substitute(term, args, result); err != nil {
+			return err
+		}
+		value, err := m.RefGet(result)
+		if err != nil {
+			return err
+		}
+		return p.context.StoreDebugExpression(target, value)
 	case "dbg-set", "dbg-get-qbody":
 		key, err := p.symbol()
 		if err != nil {
@@ -73,10 +131,12 @@ func (p *commandParser) debugCommand(name string) (resultErr error) {
 			return err
 		}
 		shifter, err := rewriter.NewVarShifter(m)
+		if shifter != nil {
+			defer func() { resultErr = errors.Join(resultErr, shifter.Close()) }()
+		}
 		if err != nil {
 			return err
 		}
-		defer func() { resultErr = errors.Join(resultErr, shifter.Close()) }()
 		result, err := m.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return err

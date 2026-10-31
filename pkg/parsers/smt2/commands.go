@@ -262,7 +262,7 @@ func (p *commandParser) command() (bool, error) {
 	}
 	success := true
 	switch name {
-	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared":
+	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-subst":
 		if err = p.debugCommand(name); err != nil {
 			return false, err
 		}
