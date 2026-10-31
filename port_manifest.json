@@ -185666,6 +185666,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/nlsat_smt/nl_purify_tactic.go",
+        "pkg/tactic/nlsat_smt/nl_purify_tactic_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_solve.go",
         "pkg/tactic/nlsat_smt/nl_purify_solve_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_model.go",
@@ -185702,7 +185704,8 @@
         "TestNLPurifyEnforcesModelEqualitiesInBothSolvers",
         "TestNLPurifyLearnsInterfaceCoreAndPreservesContextDependencies",
         "TestNLPurifyMergeModelsRewritesRealFunctionGraphs",
-        "TestNLPurifyCooperatingSolversMixedSatisfiability"
+        "TestNLPurifyCooperatingSolversMixedSatisfiability",
+        "TestNLPurifyTacticReuseAfterCleanup"
       ],
       "assertions": [
         {
@@ -185733,7 +185736,7 @@
         "Expression analysis borrows caller roots. Goal transfer acquires destination formula/proof/dependency owners before replacing the source slot; interface rewriting owns cached expressions, introduced constants and definitions until closure."
       ],
       "deviations": [
-        "Pending: parameter/statistics lifecycle, public factory and QF_UFNRA integration; the cooperating solver loop and rewrites require broader source and failure-frontier audits.",
+        "Pending: QF_UFNRA strategy integration and broader source, parameter, statistics and failure-frontier audits.",
         "Purity classification runs before goal updates in this initial phase implementation; source allocation/error frontiers and diagnostic hooks have not been audited."
       ]
     },
@@ -185741,9 +185744,9 @@
       "path": "src/tactic/nlsat_smt/nl_purify_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/tactic/nlsat_smt/nl_purify_tactic.go", "pkg/tactic/nlsat_smt/nl_purify_tactic_test.go"],
+      "tests": ["TestNLPurifyTacticReuseAfterCleanup", "TestNLPurifyCooperatingSolversMixedSatisfiability"],
       "conditionals": [
         {
           "line": 21,
@@ -185756,9 +185759,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "mixed nonlinear tactic factory and typed lifecycle", "status": "partial", "go_target": "pkg/tactic/nlsat_smt/nl_purify_tactic.go", "tests": ["TestNLPurifyTacticReuseAfterCleanup", "TestNLPurifyCooperatingSolversMixedSatisfiability"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The source factory is exposed as a typed Go constructor; QF_UFNRA strategy integration and full lifecycle audits remain pending."]
     },
     {
       "path": "src/tactic/portfolio/CMakeLists.txt",

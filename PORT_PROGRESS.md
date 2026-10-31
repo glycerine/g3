@@ -1,3 +1,5 @@
+Mixed nonlinear public tactic (2026-10-31 UTC): added the typed tactic factory, solver ownership, parameters, statistics and cleanup lifecycle around the cooperation loop. A regression runs sat, unsat and sat again with cleanup between applications; QF_UFNRA strategy registration remains pending.
+
 Mixed nonlinear cooperating solver loop (2026-10-31 UTC): connected NLSAT models, SMT assumptions, equality discovery, core feedback and final model merging. Focused mixed UF/real tests pass for sat and unsat with and without cores, including validating the returned model against the input; public tactic and QF_UFNRA registration remain pending.
 
 Mixed nonlinear model merge (2026-10-31 UTC): translated real-dependent SMT function entries and else values from SMT to nonlinear model values, then copied nonlinear constant interpretations. A focused test checks graph arguments, results, defaults and an untouched integer-only graph.
