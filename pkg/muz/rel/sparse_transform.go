@@ -1,6 +1,12 @@
 package rel
 
 func (t *SparseTable) Project(removed []int) (*SparseTable, error) {
+	if e := t.open(); e != nil {
+		return nil, e
+	}
+	if t.functional != 0 {
+		return t.ProjectFunctional(removed)
+	}
 	sig, e := projectedSignature(t.signature, removed)
 	if e != nil {
 		return nil, e

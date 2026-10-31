@@ -52278,3 +52278,5 @@ Signed multiplication overflow correction: the source rewriter interprets signed
 Product-relation source driver started: translated the functional sparse-table insertion, projection, suggest and ensure examples. The source manager's functional-column join uses a generic fallback after the sparse plugin declines it; that fallback, projection with reduction and finite product examples remain open.
 
 Sparse functional-column join integration: when the sparse indexed plugin declines a join on functional columns, SparseTable.Join now performs the source relation-manager nested-loop fallback, keeping the source key/functional column order and metadata. The original product-relation join example passes alongside existing sparse join and projection checks.
+
+Sparse projection integration: route functional sparse tables through the existing source-aware projection path, including projections after the newly integrated functional-column join. Tests check that functional metadata and the projected row survive the combined operation.

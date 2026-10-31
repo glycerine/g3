@@ -16,7 +16,7 @@ func TestProductRelationSourceFunctionalRows(t *testing.T) {
 		}
 	}
 	for _, removed := range []int{0, 1} {
-		projected, err := table.ProjectFunctional([]int{removed})
+		projected, err := table.Project([]int{removed})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,5 +74,16 @@ func TestProductRelationSourceFunctionalColumnJoin(t *testing.T) {
 		if got, err := joined.Contains(tc.fact); err != nil || got != tc.want {
 			t.Fatal("join fact", tc.fact, got, err)
 		}
+	}
+	projected, err := table.JoinProject(table, []int{1}, []int{1}, []int{3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer projected.Close()
+	if n, err := projected.FunctionalColumns(); err != nil || n != 1 {
+		t.Fatal("joined projection functional columns", n, err)
+	}
+	if got, err := projected.Contains(Fact{0, 0, 1}); err != nil || !got {
+		t.Fatal("joined projection", got, err)
 	}
 }
