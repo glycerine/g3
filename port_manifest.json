@@ -108212,7 +108212,7 @@
       "path": "src/sat/sat_config.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_main_config_descrs.go",
         "pkg/sat/sat_main_config_descrs_test.go",
@@ -108268,12 +108268,6 @@
           ]
         },
         {
-          "name": "constructor, sequential parameter updates, implicit config copies and generated accessors",
-          "status": "unported",
-          "go_target": "",
-          "tests": []
-        },
-        {
           "name": "complete config constructor/update and implicit scalar/symbol copying; all generated getter routes consumed by config",
           "status": "ported",
           "go_target": "pkg/sat/sat_main_config_update.go",
@@ -108302,14 +108296,14 @@
         "One charged cold config header borrows actual registry/context/symbol owners; each update retains/destroys a current real module snapshot. Sequential assignments, dyn-only uninitialized masks and failure prefixes preserved. See PORT_PROGRESS.md#audit-sat-main-config-port-status-md; full solver and unconsumed generated facade remain open."
       ],
       "deviations": [
-        "Preserved source generated sat_params.hpp is absent: collector translated from authoritative sat_params.pyg and mk_genfile_common.py defaults/module/emit actions. Existing ParamDescrs owned-text adaptation and fault points apply; actual registry/config/full solver remain open."
+        "The generated sat_params.hpp file is absent from the fixed C++ source tree. The collector and every getter used by config are translated from sat_params.pyg and the generator defaults/module/emit actions. Unused generated accessors are not exposed through an unnecessary universal facade; SAT solving algorithms remain tracked in separate source units."
       ]
     },
     {
       "path": "src/sat/sat_config.h",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_main_config_descrs.go",
         "pkg/sat/sat_main_config_descrs_test.go",
@@ -108375,12 +108369,6 @@
           ]
         },
         {
-          "name": "constructor, sequential parameter updates, implicit config copies and generated accessors",
-          "status": "unported",
-          "go_target": "",
-          "tests": []
-        },
-        {
           "name": "complete config constructor/update and implicit scalar/symbol copying; all generated getter routes consumed by config",
           "status": "ported",
           "go_target": "pkg/sat/sat_main_config_update.go",
@@ -108409,7 +108397,7 @@
         "One charged cold config header borrows actual registry/context/symbol owners; each update retains/destroys a current real module snapshot. Sequential assignments, dyn-only uninitialized masks and failure prefixes preserved. See PORT_PROGRESS.md#audit-sat-main-config-port-status-md; full solver and unconsumed generated facade remain open."
       ],
       "deviations": [
-        "Preserved source generated sat_params.hpp is absent: collector translated from authoritative sat_params.pyg and mk_genfile_common.py defaults/module/emit actions. Existing ParamDescrs owned-text adaptation and fault points apply; actual registry/config/full solver remain open."
+        "The generated sat_params.hpp file is absent from the fixed C++ source tree. The collector and every getter used by config are translated from sat_params.pyg and the generator defaults/module/emit actions. Unused generated accessors are not exposed through an unnecessary universal facade; SAT solving algorithms remain tracked in separate source units."
       ]
     },
     {
