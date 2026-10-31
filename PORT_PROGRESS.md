@@ -1,3 +1,5 @@
+CLP fixedpoint integration (2026-10-31 UTC): registered the bounded engine, applied source existential-tail and negation checks, and connected SMT-backed predicate queries and the source true answer. Tests cover rule constraints, existential predicate queries, stale-result invalidation and sat/unsat through SMT-LIB; the complete default transformation and source audit remain pending.
+
 Different-symbolic reachability audit (2026-10-31 UTC): dl_mk_different.h has no implementation, includes, construction or build references, so the unused declaration is classified as dead.
 
 CLP rule grounding correction (2026-10-31 UTC): share fresh variables across each rule head and all tails, resetting them for each attempted rule as in the source. A real SMT regression shows Q(0) is false and Q(1) true for Q(x) :- P(x), x > 0; the header is now marked partial and fixedpoint registration remains pending.

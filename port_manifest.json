@@ -85902,8 +85902,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/ground.go", "pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_test_helpers_test.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/engine_lifecycle_test.go", "pkg/muz/clp/engine_grounding_integration_test.go"],
-      "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"],
+      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/ground.go", "pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/search_rule.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_test_helpers_test.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go", "pkg/muz/clp/engine_failure_test.go", "pkg/muz/clp/engine_lifecycle_test.go", "pkg/muz/clp/engine_grounding_integration_test.go", "pkg/muz/fp/clp_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"],
+      "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody", "TestSMT2CLPEngineConstrainedRules", "TestCLPEngineResultSnapshotAndAnswer"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
@@ -85915,8 +85915,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_grounding_integration_test.go"],
-      "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"],
+      "go_targets": ["pkg/muz/clp/engine_types.go", "pkg/muz/clp/query.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_grounding_integration_test.go", "pkg/muz/fp/clp_engine.go", "pkg/parsers/smt2/clp_engine_test.go"],
+      "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody", "TestSMT2CLPEngineConstrainedRules", "TestCLPEngineResultSnapshotAndAnswer"],
       "conditionals": [
         {
           "line": 19,
@@ -85931,7 +85931,7 @@
       "ownership_audited": false,
       "methods": [{"name": "bounded CLP engine construction, query and lifecycle", "status": "partial", "go_target": "pkg/muz/clp/engine_types.go", "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPLifecycleAndStatistics", "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody"]}],
       "ownership": [],
-      "deviations": ["Fixedpoint engine registration and complete source and ownership audits remain pending."]
+      "deviations": ["Default rule transformation and complete source and ownership audits remain pending."]
     },
     {
       "path": "src/muz/dataflow/CMakeLists.txt",
@@ -86558,8 +86558,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/register_engine.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/ddnf_engine.go", "pkg/cmd_context/fixedpoint.go"],
-      "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestRetainedEngineKindSelectionAndDiagnostics", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"],
+      "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/register_engine.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/ddnf_engine.go", "pkg/cmd_context/fixedpoint.go"],
+      "tests": ["TestSMT2CLPEngineConstrainedRules", "TestCLPEngineResultSnapshotAndAnswer", "TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP", "TestRetainedEngineKindSelectionAndDiagnostics", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
@@ -86582,8 +86582,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/register_engine.go", "pkg/cmd_context/fixedpoint.go"],
-      "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/register_engine.go", "pkg/cmd_context/fixedpoint.go"],
+      "tests": ["TestSMT2CLPEngineConstrainedRules", "TestCLPEngineResultSnapshotAndAnswer", "TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"],
       "conditionals": [
         {
           "line": 19,

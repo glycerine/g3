@@ -1591,6 +1591,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		e.compiled = false
 		return e.queryDDNFPredicate(declaration)
 	}
+	if e.backend == "clp" {
+		e.compiled = false
+		return e.queryCLPPredicate(declaration)
+	}
 	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
 }
 
@@ -1758,6 +1762,13 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
+	}
+	if kind == EngineCLP {
+		value, err := e.manager.MkTrue()
+		if err != nil {
+			return answer, err
+		}
+		return e.manager.NewRef(value)
 	}
 	if e.backend == "pdr" {
 		status, err := e.pdr.LastResult()

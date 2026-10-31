@@ -1,4 +1,4 @@
-package clp
+package clp_test
 
 import (
 	"github.com/glycerine/g3/pkg/ast"

@@ -1,13 +1,14 @@
-package clp
+package clp_test
 
 import (
+	"github.com/glycerine/g3/pkg/muz/clp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"testing"
 )
 
 func TestCLPBoundedRecursiveQuery(t *testing.T) {
 	f := newFixture(t)
-	e, x := NewEngine(f.m, f.set, f.solver, 20)
+	e, x := clp.NewEngine(f.m, f.set, f.solver, 20)
 	if x != nil {
 		t.Fatal(x)
 	}

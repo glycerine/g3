@@ -1,6 +1,7 @@
-package clp
+package clp_test
 
 import (
+	"github.com/glycerine/g3/pkg/muz/clp"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -72,7 +73,7 @@ func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 	solver, err := context.NewSimpleSolver()
 	must(err)
 	defer func() { must(solver.Close()) }()
-	engine, err := NewEngine(m, set, solver, 20)
+	engine, err := clp.NewEngine(m, set, solver, 20)
 	must(err)
 	defer func() { must(engine.Close()) }()
 	for _, tc := range []struct {

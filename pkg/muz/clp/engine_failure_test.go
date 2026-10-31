@@ -1,7 +1,8 @@
-package clp
+package clp_test
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/muz/clp"
 	"testing"
 )
 
@@ -9,7 +10,7 @@ func TestCLPSolverFailureBalancesScope(t *testing.T) {
 	f := newFixture(t)
 	stop := errors.New("stop")
 	f.solver.fail = stop
-	e, x := NewEngine(f.m, f.set, f.solver, 20)
+	e, x := clp.NewEngine(f.m, f.set, f.solver, 20)
 	if x != nil {
 		t.Fatal(x)
 	}

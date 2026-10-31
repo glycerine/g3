@@ -1,13 +1,14 @@
-package clp
+package clp_test
 
 import (
+	"github.com/glycerine/g3/pkg/muz/clp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"testing"
 )
 
 func TestCLPDepthFrontierUnknown(t *testing.T) {
 	f := newFixture(t)
-	e, x := NewEngine(f.m, f.set, f.solver, 1)
+	e, x := clp.NewEngine(f.m, f.set, f.solver, 1)
 	if x != nil {
 		t.Fatal(x)
 	}
