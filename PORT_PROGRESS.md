@@ -1,3 +1,5 @@
+Generated relation and datatype update replay (2026-10-31 UTC): added relation arity/column queries and the source field-update path. Normal and checked tests cover returned columns and the source fork’s field-update error; other generated commands remain unfinished.
+
 Generated datatype inspection replay (2026-10-31 UTC): added tuple and datatype constructor, recognizer and field queries. Normal and checked tests verify borrowed identities and unchanged AST-trail ownership; other generated commands remain unfinished.
 
 Generated pseudo-Boolean replay (2026-10-31 UTC): added cardinality and weighted comparison constructors. Normal and checked tests cover signed coefficients encoded in unsigned arrays and short-array rejection; other generated commands remain unfinished.

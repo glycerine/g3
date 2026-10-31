@@ -5995,7 +5995,9 @@
         "TestZ3LogFrontendReplaysSequencesAndRegex",
         "TestGeneratedPseudoBooleanReplaySignedCoefficients",
         "TestGeneratedPseudoBooleanReplayRejectsShortCoefficients",
-        "TestGeneratedDatatypeInspectionReplayBorrowedResults"
+        "TestGeneratedDatatypeInspectionReplayBorrowedResults",
+        "TestGeneratedRelationInspectionReplay",
+        "TestGeneratedDatatypeUpdateReplayReportsSourceError"
       ],
       "methods_audited": false,
       "ownership_audited": false,

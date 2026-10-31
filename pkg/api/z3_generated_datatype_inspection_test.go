@@ -4,6 +4,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestGeneratedDatatypeInspectionReplayBorrowedResults(t *testing.T) {
@@ -72,5 +74,100 @@ func TestGeneratedDatatypeInspectionReplayBorrowedResults(t *testing.T) {
 	}
 	if !checked {
 		t.Fatal("datatype inspection not checked")
+	}
+}
+
+func TestGeneratedRelationInspectionReplay(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
+		"R\nP 0x41\nP 0x42\nC 900\n= 0x43\nR\nP 0x41\nP 0x43\nC 220\n" +
+		"R\nP 0x41\nP 0x43\nU 0\nC 221\n= 0x44\nR\nP 0x41\nP 0x42\nP 0x44\nC 901\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(900, "make-relation-sort", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		column, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		m := owner.results.manager
+		if _, e = m.RegisterDatalogPlugin(); e != nil {
+			return e
+		}
+		sort, e := m.MkDatalogRelationSort([]ast.ASTHandle{column.handle})
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, sort)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(901, "check-relation-column", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		a, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		b, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		if a.handle != b.handle {
+			t.Fatal("relation column", a.handle, b.handle)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("relation column not checked")
+	}
+}
+
+func TestGeneratedDatatypeUpdateReplayReportsSourceError(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
+		"R\nP 0x41\n$ |Pair|\nU 1\n$ |field|\ns 1\nP 0x42\np 1\nP 0\nP 0\np 1\nC 39\n= 0x43\n* 0x44 5\n@ 0x45 6 0\n" +
+		"R\nP 0x41\nC 54\n= 0x46\nR\nP 0x41\nP 0x44\nU 1\nP 0x46\np 1\nC 50\n= 0x47\n" +
+		"R\nP 0x41\nP 0x45\nP 0x47\nP 0x46\nC 219\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), ast.ErrASTDomain.Error()) {
+		t.Fatal("source field-update error", err)
 	}
 }
