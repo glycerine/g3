@@ -7,6 +7,19 @@ package api
 var processZ3Log *Z3LogWriter
 var processZ3LogInAPI bool
 
+func enterZ3APILog() *Z3LogWriter {
+	if processZ3Log == nil || processZ3LogInAPI {
+		return nil
+	}
+	processZ3LogInAPI = true
+	return processZ3Log
+}
+func leaveZ3APILog(log *Z3LogWriter) {
+	if log != nil {
+		processZ3LogInAPI = false
+	}
+}
+
 func Z3OpenLog(filename string) (bool, error) {
 	return Z3OpenLogWithBuildDate(filename, "")
 }

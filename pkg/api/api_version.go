@@ -11,6 +11,11 @@ type APIVersion struct {
 
 // Version returns the four components exposed by Z3_get_version.
 func Version() APIVersion {
+	log := enterZ3APILog()
+	defer leaveZ3APILog(log)
+	if log != nil {
+		_ = log.logVersion()
+	}
 	return APIVersion{
 		Major:    uversion.Major,
 		Minor:    uversion.Minor,
@@ -20,4 +25,11 @@ func Version() APIVersion {
 }
 
 // FullVersion returns the generated source version spelling.
-func FullVersion() string { return uversion.Full }
+func FullVersion() string {
+	log := enterZ3APILog()
+	defer leaveZ3APILog(log)
+	if log != nil {
+		_ = log.logFullVersion()
+	}
+	return uversion.Full
+}

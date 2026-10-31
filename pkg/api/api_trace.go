@@ -11,6 +11,11 @@ func EnableTrace(tag string) error {
 	if err != nil {
 		return err
 	}
+	log := enterZ3APILog()
+	defer leaveZ3APILog(log)
+	if log != nil {
+		_ = log.logTrace(tag, true)
+	}
 	symbols := g.Context.Symbols()
 	s, err := symbols.Intern(tag)
 	if err != nil {
@@ -29,5 +34,10 @@ func EnableTrace(tag string) error {
 
 // DisableTrace removes a tag from the same process trace owner.
 func DisableTrace(tag string) {
+	log := enterZ3APILog()
+	defer leaveZ3APILog(log)
+	if log != nil {
+		_ = log.logTrace(tag, false)
+	}
 	diagnostic.BorrowProcessTraceTags().Disable(tag)
 }

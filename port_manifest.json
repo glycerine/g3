@@ -6897,21 +6897,21 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_config_log.go", "pkg/api/api_config_params.go", "pkg/api/z3_generated_config_commands_test.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
-      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedConfigLogReplaysConfiguration", "TestGeneratedConfigAPILogRoundTrip", "TestGeneratedConfigLogFailureDoesNotSkipLifecycle", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_process_log.go", "pkg/api/z3_generated_process_commands_test.go", "pkg/api/z3_generated_config_log.go", "pkg/api/api_config_params.go", "pkg/api/z3_generated_config_commands_test.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedProcessAPILogRoundTrip", "TestGeneratedConfigLogReplaysConfiguration", "TestGeneratedConfigAPILogRoundTrip", "TestGeneratedConfigLogFailureDoesNotSkipLifecycle", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["Global-parameter and configuration API calls emit generated records and can be replayed. Go uses stable log-local object IDs; the remaining generated API commands and logging integration remain unfinished."]
+      "deviations": ["Global-parameter, configuration, warning, version and trace API calls emit generated records and can be replayed. Go uses stable log-local object IDs; the remaining generated API commands and logging integration remain unfinished."]
     },
     {
       "path": "src/api/api_log_macros.h",
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_config_log.go", "pkg/api/api_config_params.go", "pkg/api/z3_generated_config_commands_test.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
-      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedConfigLogReplaysConfiguration", "TestGeneratedConfigAPILogRoundTrip", "TestGeneratedConfigLogFailureDoesNotSkipLifecycle", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_process_log.go", "pkg/api/z3_generated_process_commands_test.go", "pkg/api/z3_generated_config_log.go", "pkg/api/api_config_params.go", "pkg/api/z3_generated_config_commands_test.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedProcessAPILogRoundTrip", "TestGeneratedConfigLogReplaysConfiguration", "TestGeneratedConfigAPILogRoundTrip", "TestGeneratedConfigLogFailureDoesNotSkipLifecycle", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "conditionals": [
         {
           "line": 3,
@@ -6930,7 +6930,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["Global-parameter and configuration API calls emit generated records and can be replayed. Go uses stable log-local object IDs; the remaining generated API commands and logging integration remain unfinished."]
+      "deviations": ["Global-parameter, configuration, warning, version and trace API calls emit generated records and can be replayed. Go uses stable log-local object IDs; the remaining generated API commands and logging integration remain unfinished."]
     },
     {
       "path": "src/api/api_model.cpp",

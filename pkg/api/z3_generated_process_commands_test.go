@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"io"
 	"strings"
 	"testing"
@@ -88,5 +89,55 @@ func TestGeneratedProcessReplayTraceControls(t *testing.T) {
 	}
 	if err = r.Parse(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestGeneratedProcessAPILogRoundTrip(t *testing.T) {
+	warnings := diagnostic.BorrowProcessWarningService()
+	old := warnings.Enabled()
+	defer func() {
+		if err := warnings.Enable(old); err != nil {
+			t.Error(err)
+		}
+	}()
+	const tag = "g3-replay-process-log"
+	defer DisableTrace(tag)
+	var out bytes.Buffer
+	log, err := NewZ3LogWriter(&out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := processZ3Log
+	processZ3Log = log
+	defer func() { processZ3Log = previous; _ = log.Close() }()
+	ToggleWarningMessages(false)
+	v := Version()
+	_ = FullVersion()
+	if err = EnableTrace(tag); err != nil {
+		t.Fatal(err)
+	}
+	DisableTrace(tag)
+	ToggleWarningMessages(true)
+	processZ3Log = previous
+	want := "R\nI 0\nC 327\nR\nU 0\nU 0\nU 0\nU 0\nC 342\nR\nC 343\nR\nS \"" + tag + "\"\nC 344\nR\nS \"" + tag + "\"\nC 345\nR\nI 1\nC 327\n"
+	if out.String() != want {
+		t.Fatalf("process records\n got %q\nwant %q", out.String(), want)
+	}
+	if v != Version() {
+		t.Fatal("version changed")
+	}
+	replay, err := NewZ3Replayer(bytes.NewReader(out.Bytes()), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer replay.Close()
+	if err = RegisterZ3GeneratedProcessCommands(replay); err != nil {
+		t.Fatal(err)
+	}
+	if err = replay.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !warnings.Enabled() || diagnostic.BorrowProcessTraceTags().IsEnabled(tag) {
+		t.Fatal("replayed process state")
 	}
 }
