@@ -594,6 +594,9 @@ func (s *SMTSolver) checkSatCore(assumptions []ast.ASTHandle, setup bool) (lbool
 	if err := s.open(); err != nil {
 		return lbool.Undef, err
 	}
+	if err := s.traceOptimizationCheck(); err != nil {
+		return lbool.Undef, err
+	}
 	watch := stopwatch.New(nil)
 	if err := s.beginOptimizationBenchmark(&watch, assumptions); err != nil {
 		return lbool.Undef, err

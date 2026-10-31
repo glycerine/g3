@@ -102271,7 +102271,9 @@
         "pkg/cmd_context/optimization_pareto.go",
         "pkg/cmd_context/optimization_pareto_quantifiers_test.go",
         "pkg/smtcore/smt_solver_optimization_benchmark.go",
-        "pkg/smtcore/smt_solver_optimization_benchmark_test.go"
+        "pkg/smtcore/smt_solver_optimization_benchmark_test.go",
+        "pkg/smtcore/smt_solver_optimization_trace.go",
+        "pkg/smtcore/smt_solver_optimization_trace_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102298,7 +102300,12 @@
         "TestOptimizationSolverBenchmarkGlobalFallbackAndLocalOverride",
         "TestOptimizationSolverBenchmarkUsesGlobalPrettyPrinterDefaults",
         "TestOptimizationSolverBenchmarkPreparationFailureFrontier",
-        "TestOptimizationSolverBenchmarkSuppressesFileErrorsAfterFirstRefusal"
+        "TestOptimizationSolverBenchmarkSuppressesFileErrorsAfterFirstRefusal",
+        "TestOptimizationSolverContextTraceBeforeDumpAndSearch",
+        "TestOptimizationSolverContextTraceFailureStillEvaluatesOperands",
+        "TestOptimizationSolverContextTraceErasesDisabledAndOrdinaryOperands",
+        "TestOptimizationSolverContextTraceReleasesFormatDocuments",
+        "TestOptimizationSolverTraceExpressionUsesGlobalPrinterProfile"
       ],
       "assertions": [
         {
@@ -102433,17 +102440,34 @@
             "TestOptimizationSolverBenchmarkPreparationFailureFrontier",
             "TestOptimizationSolverBenchmarkSuppressesFileErrorsAfterFirstRefusal"
           ]
+        },
+        {
+          "name": "check_sat_core opt_verbose TRACE prints context size and source-order assertions before stopwatch/benchmark/search; assumptions are excluded and erased tracing avoids operand construction (opt_solver.cpp:162-167)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver.go",
+            "pkg/smtcore/smt_solver_optimization_trace.go",
+            "pkg/smtcore/smt_solver_optimization_trace_test.go"
+          ],
+          "tests": [
+            "TestOptimizationSolverContextTraceBeforeDumpAndSearch",
+            "TestOptimizationSolverContextTraceFailureStillEvaluatesOperands",
+            "TestOptimizationSolverContextTraceErasesDisabledAndOrdinaryOperands",
+            "TestOptimizationSolverContextTraceReleasesFormatDocuments",
+            "TestOptimizationSolverTraceExpressionUsesGlobalPrinterProfile"
+          ]
         }
       ],
       "ownership": [
         "Optimizer fallback initializes and publishes a concrete mixed arithmetic plugin before pushing it to each existing context scope, matching context::register_plugin. Existing plugins retain identity and current live arithmetic parameters configure only the newly installed plugin. Ordinary cold RegisterTheory restrictions remain separate; no generic late-plugin adapter is added.",
         "The optimization-specific solver state owns an independent cached model reference. Successful nonempty get_model replaces that reference; empty current results acquire the previous cache without changing it. Caller references survive replacement and solver teardown. Ordinary SMT construction retains its existing result/status policy. The arithmetic optimizer uses the concrete optimization constructor and restores sticky quantifier uncertainty at the result boundary.",
         "Source relevance writes update the internal fparams state plus the kernel/internalizer/service snapshots. Caller params remain unchanged; the relevance change is outside assertion scopes and survives kernel assertion refusal. A zero-to-enabled transition schedules root relevance repair for previously internalized assertions.",
-        "The concrete optimization solver embeds one ModuleParamsOwner for reached lexical opt/pp generated helpers. Failed helper construction/destruction remains owned until CloseHelpers succeeds before parent parameter services close. Benchmark files are Go os.File owners closed on both printer success and failure; I/O badbit is ignored without suppressing printer operands. Source stopwatch measures the actual check and completed serialization, with no clock reads while dumping is disabled."
+        "The concrete optimization solver embeds one ModuleParamsOwner for reached lexical opt/pp generated helpers. Failed helper construction/destruction remains owned until CloseHelpers succeeds before parent parameter services close. Benchmark files are Go os.File owners closed on both printer success and failure; I/O badbit is ignored without suppressing printer operands. Source stopwatch measures the actual check and completed serialization, with no clock reads while dumping is disabled.",
+        "Pre-check trace expression printing owns a format-document reference and numeric text stream through each lexical render. Failed trace output suppresses subsequent writes but not later operand evaluation. Operand failures stop before benchmark creation, first-check publication or kernel search. Expression traversal and layout both read source global pp defaults; the numeric BV radix toggle is covered independently."
       ],
       "deviations": [
         "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
-        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping and its option update are now connected. Maximize/model-repair bodies, opt_verbose and remaining diagnostics remain open."
+        "Optimization solver check/model policy and relevance rules are connected to ArithmeticSolver/MaxSMT and Pareto. Benchmark dumping and its option update are now connected. Pre-check opt_verbose is now live. Maximize/model-repair bodies, their diagnostics and the final source/owner audit remain open."
       ]
     },
     {
