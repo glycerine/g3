@@ -65,3 +65,24 @@ func (p *FiniteExplanationProduct) FilterFiniteIdentical(columns []int) error {
 	}
 	return nil
 }
+
+// FilterFiniteNegation removes keys matching any tuple in negative on the
+// specified finite columns. Explanation rows do not participate in the key.
+func (p *FiniteExplanationProduct) FilterFiniteNegation(negative *FiniteExplanationProduct, targetColumns, negativeColumns []int) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := negative.open(); err != nil {
+		return err
+	}
+	if p.manager != negative.manager || len(targetColumns) != len(negativeColumns) {
+		return ast.ErrASTDomain
+	}
+	for i, col := range targetColumns {
+		other := negativeColumns[i]
+		if col < 0 || col >= len(p.finiteSorts) || other < 0 || other >= len(negative.finiteSorts) || p.finiteSorts[col] != negative.finiteSorts[other] {
+			return ast.ErrASTDomain
+		}
+	}
+	return p.table.FilterNegation(negative.table, targetColumns, negativeColumns)
+}

@@ -329,3 +329,36 @@ func TestFiniteExplanationProductFiniteFilters(t *testing.T) {
 		t.Fatal("accepted invalid column")
 	}
 }
+
+func TestFiniteExplanationProductNegationFilter(t *testing.T) {
+	f := newTableRelationFixture(t)
+	sort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	name, err := f.ast.Symbols.Intern("finite-negative-explanation")
+	astTestMust(t, err)
+	explanation, err := f.ast.MkConst(name, sort)
+	astTestMust(t, err)
+	target, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	negative, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, negative.Close()) }()
+	astTestMust(t, target.AddFact([]ast.ASTHandle{f.truth}, explanation))
+	astTestMust(t, target.AddFact([]ast.ASTHandle{f.falsehood}, explanation))
+	astTestMust(t, negative.AddFact([]ast.ASTHandle{f.falsehood}, explanation))
+	astTestMust(t, target.FilterFiniteNegation(negative, []int{0}, []int{0}))
+	got, found, err := target.Explanation([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	if !found || got != explanation {
+		t.Fatal("surviving explanation", got, found)
+	}
+	_, found, err = target.Explanation([]ast.ASTHandle{f.falsehood})
+	astTestMust(t, err)
+	if found {
+		t.Fatal("negated tuple survived")
+	}
+	if err = target.FilterFiniteNegation(negative, []int{1}, []int{0}); err == nil {
+		t.Fatal("accepted invalid negation key")
+	}
+}

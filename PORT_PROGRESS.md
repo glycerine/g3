@@ -1,3 +1,5 @@
+Fact explanation negation (2026-10-31 UTC): filter finite keys against negative products while preserving surviving explanations. Normal and checked tests cover matching, nonmatching and invalid keys; general column interleaving and fixedpoint registration remain unfinished.
+
 Explanation assignment validation (2026-10-31 UTC): reject unsupported interpreted conditions before visiting product rows, including empty products. Focused normal and checked tests pass.
 
 Explanation transfer integration (2026-10-31 UTC): a transformed finite fact now feeds the concrete product join in a focused normal and checked regression, preserving both fact explanations. Fixedpoint engine registration remains unfinished.
