@@ -200154,8 +200154,8 @@
       "component": "test",
       "role": "test",
       "status": "partial",
-      "go_targets": ["pkg/sat/cnf_backbones_cpp_driver_test.go"],
-      "tests": ["TestCNFBackbonesSourceConsequences", "TestCNFBackbonesSourceChunking", "TestCNFBackbonesSourceChunkingExhaustiveBinaryCNFs"],
+      "go_targets": ["pkg/sat/cnf_backbones_cpp_driver_test.go", "pkg/shell/cnf_backbones_cpp_driver_test.go", "pkg/shell/dimacs_core.go"],
+      "tests": ["TestCNFBackbonesSourceConsequences", "TestCNFBackbonesSourceChunking", "TestCNFBackbonesSourceChunkingExhaustiveBinaryCNFs", "TestCNFBackbonesSourceTrackedConsequences"],
       "conditionals": [
         {
           "line": 41,
@@ -200170,7 +200170,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The DIMACS consequence mode and the separate test-driver chunking algorithm are covered, including exhaustive two-variable binary CNFs. Clause tracking, command-line and statistics paths remain open; the SAT solver's internal chunking emits conflict-core literals rather than the driver's backbone output."]
+      "deviations": ["The DIMACS consequence mode and the separate test-driver chunking algorithm are covered, including exhaustive two-variable binary CNFs. Tracked clause assumptions are exercised through the live DIMACS frontend; command-line and statistics paths remain open; the SAT solver's internal chunking emits conflict-core literals rather than the driver's backbone output."]
     },
     {
       "path": "src/test/datalog_parser.cpp",

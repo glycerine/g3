@@ -52326,3 +52326,5 @@ Test-tool source audit: classified the unused delta reducer and Windows-only fil
 Real-closure source driver started: translated both integer solve cases, all three independent-row examples and the source tensor/column-selection example. The real-closure numeral and denominator-cleaning examples remain open; the printed matrix row permutation is used only by this source driver.
 
 Memory source driver started: exercised the original 10, 20 and 30 MiB limits with actual allocations, checking the failure state and owner cleanup at each limit. The source's Windows-only API loop and process-global reset path remain open.
+
+CNF backbone tracking increment: exercised the existing live DIMACS clause-tracking implementation and queried all original and tracking variables under its assumptions. The test verifies the forced variables and excludes a free variable; the source command-line/statistics wrapper remains open.
