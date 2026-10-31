@@ -1,3 +1,5 @@
+Fact explanation column renaming (2026-10-31 UTC): joined explanation columns can now be permuted independently of finite keys. Normal and checked join regressions verify the permuted rows.
+
 Fact explanation negation (2026-10-31 UTC): filter finite keys against negative products while preserving surviving explanations. Normal and checked tests cover matching, nonmatching and invalid keys; general column interleaving and fixedpoint registration remain unfinished.
 
 Explanation assignment validation (2026-10-31 UTC): reject unsupported interpreted conditions before visiting product rows, including empty products. Focused normal and checked tests pass.

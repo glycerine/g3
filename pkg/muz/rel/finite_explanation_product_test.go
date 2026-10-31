@@ -201,6 +201,14 @@ func TestFiniteExplanationProductJoinRows(t *testing.T) {
 	if _, _, err = joined.Explanation([]ast.ASTHandle{f.truth, f.truth}); err == nil {
 		t.Fatal("accepted multiple explanations as one")
 	}
+	renamed, err := joined.RenameExplanation([]int{0, 1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, renamed.Close()) }()
+	row, found, err = renamed.ExplanationRow([]ast.ASTHandle{f.truth, f.truth})
+	astTestMust(t, err)
+	if !found || len(row) != 2 || row[0] != rightFact || row[1] != leftFact {
+		t.Fatal("renamed explanation row", row, found)
+	}
 	projected, err := joined.Project([]int{1})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, projected.Close()) }()
