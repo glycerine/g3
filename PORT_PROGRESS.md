@@ -52380,3 +52380,5 @@ Degree-shift solver translation: the arithmetic tactic dispatcher now constructs
 Arithmetic tactic solver translation: fix-dl-var and recover-01 now copy parameters to the target context and use its evaluator services. Tests cover copied policy and verify translated models against all original assertions after closing the source context.
 
 Bound tactic solver translation: normalize-bounds and diff-neq now reconstruct with target-owned parameter services. Coverage checks the source constructor-versus-live-update behavior for normalize-bounds, the diff-neq threshold, and translated models against original assertions after source-context closure.
+
+Elim01 and inequality propagation solver translation: both tactics now copy parameters to the target context and create independent target-owned services. Direct tests check parameter and service ownership; solver integration checks models after source-context closure in ordinary and checked builds.

@@ -99,3 +99,48 @@ func TestBoundTacticContextTranslationPreservesSourcePolicies(t *testing.T) {
 		}
 	}
 }
+
+func TestElim01AndPropagateIneqsContextTranslation(t *testing.T) {
+	source, manager := fixDLFixture(t, false)
+	p, err := source.context.NewValue()
+	equationMust(t, err)
+	key := "max_coefficient"
+	equationMust(t, source.context.SetUIntName(&p, &key, 3))
+	elim, err := NewElim01Tactic(manager, source.context, source.globals, &p, source.services)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, elim.Close()) })
+	propagate, err := NewPropagateIneqsTactic(manager, source.context, &p)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, propagate.Close()) })
+	equationMust(t, source.context.Del(&p))
+	target, targetManager := fixDLFixture(t, false)
+	for _, original := range []tactic.Tactic{elim, propagate} {
+		translated, matched, err := TranslateContextLeaf(original, targetManager, target.context, target.globals, target.services)
+		equationMust(t, err)
+		if !matched {
+			t.Fatal("arithmetic tactic was not translated")
+		}
+		equationMust(t, translated.IncRef())
+		t.Cleanup(func() { equationMust(t, translated.DecRef()) })
+		var copied *params.ParamsRef
+		switch copy := translated.(type) {
+		case *Elim01Tactic:
+			if copy.context != target.context || copy.services.Cooperation != target.services.Cooperation || copy.maxCoefficient != 3 {
+				t.Fatal("elim01 lost target services or policy")
+			}
+			copied = &copy.params
+		case *PropagateIneqsTactic:
+			if copy.context != target.context || copy.numbers == propagate.numbers {
+				t.Fatal("propagate-ineqs did not create target-owned services")
+			}
+			copied = &copy.core.params
+		default:
+			t.Fatalf("unexpected tactic %T", translated)
+		}
+		value, err := target.context.GetUIntName(copied, &key, 0)
+		equationMust(t, err)
+		if value != 3 {
+			t.Fatalf("translated parameter = %d", value)
+		}
+	}
+}

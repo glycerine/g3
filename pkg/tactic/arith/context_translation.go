@@ -66,6 +66,16 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 			return nil, true, err
 		}
 		source, params = t.context, &t.params
+	case *Elim01Tactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.params
+	case *PropagateIneqsTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		source, params = t.context, &t.core.params
 	default:
 		return nil, false, nil
 	}
@@ -133,6 +143,18 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 		err = e
 		if err == nil {
 			next.trace = t.trace
+			result = next
+		}
+	case *Elim01Tactic:
+		next, e := NewElim01Tactic(m, c, g, &p, services)
+		err = e
+		if err == nil {
+			result = next
+		}
+	case *PropagateIneqsTactic:
+		next, e := newPropagateIneqsAdapter(m, c, &p, 47)
+		err = e
+		if err == nil {
 			result = next
 		}
 	}

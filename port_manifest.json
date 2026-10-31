@@ -178219,6 +178219,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
         "pkg/cmd_context/tactic_descriptions.go",
@@ -178230,6 +178233,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestElim01AndPropagateIneqsContextTranslation",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestAPIMoreRegisteredTacticFactories",
         "TestElim01FiniteRangeRewriteAndModel",
         "TestElim01ProofsAndNonTargetNoOp",
@@ -181777,6 +181782,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/propagate_ineq_outer_memory_trace.go",
         "pkg/tactic/tactic_goal_inequality_memory_trace.go",
         "pkg/tactic/arith/propagate_ineq_memory_trace.go",
@@ -181798,6 +181806,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestElim01AndPropagateIneqsContextTranslation",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestPropagateIneqOuterMemoryWrapperFactoryAndTranslate",
         "TestPropagateIneqImplementationMemoryWrapperSourceLifetime",
         "TestInequalityPolynomialBuilderArithmeticASTAndRationalBuffer",
