@@ -99,10 +99,7 @@ func (c *SMTContext) FloatingPointNumeralExponentBitVector(value ast.ASTHandle, 
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	if biased {
-		return parts.exponent, nil
-	}
-	exponent, err := c.FloatingPointNumeralExponentInt64(value, false)
+	exponent, err := c.floatingPointNumeralExponentInt64Parts(value, parts, biased)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

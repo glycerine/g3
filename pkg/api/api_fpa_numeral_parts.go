@@ -43,6 +43,10 @@ func (c *SMTContext) FloatingPointNumeralExponentInt64(value ast.ASTHandle, bias
 	if err != nil {
 		return 0, err
 	}
+	return c.floatingPointNumeralExponentInt64Parts(value, parts, biased)
+}
+
+func (c *SMTContext) floatingPointNumeralExponentInt64Parts(value ast.ASTHandle, parts floatingPointNumeralBits, biased bool) (int64, error) {
 	encoded, err := c.bitVectorNumeralUint64(parts.exponent)
 	if err != nil {
 		return 0, err

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -29,5 +30,36 @@ func TestFloatingPointNumeralBitVectorWidthsAndValues(t *testing.T) {
 		if queryErr != nil || bits != row.bits || f.uint(t, row.value) != row.want {
 			t.Fatal(bits, queryErr, f.uint(t, row.value), row.want)
 		}
+	}
+}
+
+func TestFloatingPointNumeralExponentBitVectorSpecialValues(t *testing.T) {
+	f := newFPANumeralPartsFixture(t)
+	for _, tc := range []struct {
+		name             string
+		makeValue        func() (ast.ASTHandle, error)
+		biased, unbiased uint64
+	}{
+		{"positive infinity", func() (ast.ASTHandle, error) { return f.context.FloatingPointInfinity(f.single, false) }, 128, 128},
+		{"negative infinity", func() (ast.ASTHandle, error) { return f.context.FloatingPointInfinity(f.single, true) }, 128, 128},
+		{"negative zero", func() (ast.ASTHandle, error) { return f.context.FloatingPointZero(f.single, true) }, 0, 0},
+		{"smallest subnormal", func() (ast.ASTHandle, error) {
+			return f.context.FloatingPointNumeralFloat32(math.SmallestNonzeroFloat32, f.single)
+		}, 0, 130},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			value, err := tc.makeValue()
+			value = f.pin(t, value, err)
+			for _, row := range []struct {
+				biased bool
+				want   uint64
+			}{{true, tc.biased}, {false, tc.unbiased}} {
+				bits, e := f.context.FloatingPointNumeralExponentBitVector(value, row.biased)
+				bits = f.pin(t, bits, e)
+				if got := f.uint(t, bits); got != row.want {
+					t.Fatalf("biased %v: got %d, want %d", row.biased, got, row.want)
+				}
+			}
+		})
 	}
 }

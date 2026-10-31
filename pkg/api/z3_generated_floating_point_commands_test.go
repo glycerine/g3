@@ -440,3 +440,52 @@ func TestGeneratedFloatingPointReplayExponentSignificand(t *testing.T) {
 		t.Fatal("conversion not checked")
 	}
 }
+
+func TestGeneratedFloatingPointReplayInfinityExponentBitVector(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\n" +
+		"R\nP 0x41\nP 0x42\nI 0\nC 592\n= 0x43\n" +
+		"R\nP 0x41\nP 0x43\nI 1\nC 648\n= 0x44\nR\nP 0x41\nP 0x44\nC 900\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-infinity-exponent", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		value, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		text, e := owner.context.NumeralString(value.handle)
+		if e != nil {
+			return e
+		}
+		if text != "128" {
+			t.Fatalf("exponent %s, want 128", text)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("exponent not checked")
+	}
+}

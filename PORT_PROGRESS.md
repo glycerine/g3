@@ -1,3 +1,5 @@
+Floating-point exponent bit-vector inspection now uses the source internal exponent for both biased and unbiased modes, including infinity; normal and checked tests cover special values and generated replay.
+
 Fixedpoint variable binding now quantifies only implicit variables actually present in the formula and follows source expression traversal order, rather than declaration order. Normal and checked fixedpoint tests cover unused variables and reversed declaration order.
 
 Fixedpoint string/file replay returns owned query-expression vectors, including fixedpoint scope handling and parser-error results. A temporary parser context prevents parse failures from mutating the target, and collected bound rule formulas transfer without prior engine normalization. API loading supports parser resets while preserving collected relations, rules, and queries; standalone parsers that own their AST manager reject manager-destroying resets during collection.

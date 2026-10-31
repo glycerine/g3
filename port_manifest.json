@@ -6133,7 +6133,8 @@
         "TestZ3LogFrontendReplaysDatatypeConstructors",
         "TestGeneratedFixedpointReplayLoadQueries",
         "TestGeneratedFixedpointReplayLoadErrors",
-        "TestZ3LogFrontendReplaysFixedpointProgramLoading"
+        "TestZ3LogFrontendReplaysFixedpointProgramLoading",
+        "TestGeneratedFloatingPointReplayInfinityExponentBitVector"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6970,7 +6971,8 @@
         "pkg/api/api_fpa_arithmetic_test.go",
         "pkg/api/api_fpa_relations_test.go",
         "pkg/api/api_fpa_conversions_test.go",
-        "pkg/api/api_fpa_numeral_classes_test.go"
+        "pkg/api/api_fpa_numeral_classes_test.go",
+        "pkg/api/api_fpa_numeral_bitvectors_test.go"
       ],
       "tests": [
         "TestSMTContextFloatingPointSortsAndShapes",
@@ -6989,7 +6991,8 @@
         "TestFloatingPointExponentSignificandPositive",
         "TestFloatingPointExponentSignificandNegative",
         "TestFloatingPointExponentSignificandNearestTie",
-        "TestSMTContextFloatingPointConversionRejectsOtherSourceKinds"
+        "TestSMTContextFloatingPointConversionRejectsOtherSourceKinds",
+        "TestFloatingPointNumeralExponentBitVectorSpecialValues"
       ],
       "assertions": [
         {
