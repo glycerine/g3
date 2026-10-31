@@ -1,3 +1,5 @@
+Mixed nonlinear unsat-core feedback (2026-10-31 UTC): split SMT cores into context and interface assumptions, add source-order blocking clauses to the nonlinear goal, and join accumulated context dependencies for a final false goal. A focused test checks the swap-and-pop ordering and dependency preservation.
+
 Mixed nonlinear SMT preparation (2026-10-31 UTC): the prepared interface definitions and extracted clauses can now be asserted in a concrete SMT solver before advancing goal depth. A regression checks both core settings by refuting a conflicting pair of assumptions.
 
 Mixed nonlinear model filtering (2026-10-31 UTC): preparation now records introduced real and Boolean interface declarations and dependency proxies in a model filter; equality discovery adds its predicates to the same filter. Tests apply the filter to actual models and confirm that user bindings remain.
