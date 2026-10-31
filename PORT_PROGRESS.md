@@ -52330,3 +52330,5 @@ Memory source driver started: exercised the original 10, 20 and 30 MiB limits wi
 CNF backbone tracking increment: exercised the existing live DIMACS clause-tracking implementation and queried all original and tracking variables under its assumptions. The test verifies the forced variables and excludes a free variable; the source command-line/statistics wrapper remains open.
 
 Persistent-array source driver started: ran the original million seeded updates over 100 Boolean expressions through the live Goal owning slice and verified both the mutated result and the unchanged snapshot. Go Boolean constants replace bound variables; the source-only integer template and heap-display paths remain outside the port.
+
+Datalog utility source driver started: extracted the existing concrete permutation-cycle algorithm used by finite-product rename and checked both original source permutations plus multiple-cycle removal. The paired-sort source example remains open until its mixed finite-product filter consumer is ported.

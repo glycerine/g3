@@ -694,19 +694,10 @@ func (p *FiniteIntervalProduct) Rename(cycle []uint32) (_ *FiniteIntervalProduct
 		}
 		renamed := cloneIntervalRelation(inner)
 		remaining := append([]uint32(nil), innerPermutation...)
-		for start := range remaining {
-			if remaining[start] == uint32(start) {
-				continue
-			}
-			var localCycle []uint32
-			for current := uint32(start); ; {
-				localCycle = append(localCycle, current)
-				next := remaining[current]
-				remaining[current] = current
-				if next == uint32(start) {
-					break
-				}
-				current = next
+		for {
+			localCycle, found := removePermutationCycle(remaining)
+			if !found {
+				break
 			}
 			renamed, err = renamed.Rename(localCycle)
 			if err != nil {
