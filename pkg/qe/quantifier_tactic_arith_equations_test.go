@@ -80,3 +80,27 @@ func TestQuantifierArithmeticRealEquationElimination(t *testing.T) {
 		t.Fatal("a nonzero real coefficient should be solvable")
 	}
 }
+
+func TestQuantifierArithmeticEquationFreshVariable(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	x := f.own(m.MkVar(0, f.integer))
+	y := f.own(m.MkVar(1, f.integer))
+	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	threeY := f.own(m.MkArithmeticMul(f.number("3"), y))
+	linear := f.own(m.MkArithmeticAdd(twoX, threeY))
+	left := f.own(m.MkArithmeticAdd(linear, f.number("1")))
+	body := f.own(m.MkEq(left, f.number("0")))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
+	result, complete, err := eliminateQuantifierArithmeticEquations(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("integer equation with a fresh variable was not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsTrue(value) {
+		t.Fatal("equation 2x + 3y + 1 = 0 should be satisfiable")
+	}
+}

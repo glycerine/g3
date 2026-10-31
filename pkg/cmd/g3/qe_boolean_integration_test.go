@@ -68,3 +68,17 @@ func TestSMTLibRunnerMixedQETactic(t *testing.T) {
 		t.Fatalf("mixed QE tactic result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerFreshIntegerEquationQETactic(t *testing.T) {
+	script := `(set-logic LIA)
+(assert (not (exists ((x Int) (y Int)) (= (+ (* 2 x) (* 3 y) 1) 0))))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "unsat" {
+		t.Fatalf("fresh integer QE tactic result: %s", got)
+	}
+}
