@@ -19,6 +19,7 @@ var builtinTacticDescriptions = map[string]string{
 	"horn-simplify":           "simplify horn clauses.",
 	"ufbv-rewriter":           "Applies UFBV-specific rewriting rules, mainly demodulation.",
 	"default":                 "default strategy used when no logic is specified.",
+	"unit-subsume-simplify":   "unit subsumption simplification.",
 	"sine-filter":             "eliminate premises using Sine Qua Non",
 	"elim01":                  "eliminate 0-1 integer variables, replace them by Booleans.",
 	"bvarray2uf":              "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.",

@@ -1,3 +1,5 @@
+The unit-subsume-simplify tactic now owns and reuses its solver and clause proxies and is registered for API and SMT-LIB use, including cross-context translation. Its proof/core and exceptional-cleanup audit remains open.
+
 The named default tactic now constructs the source simplify-first conditional strategy with the original probe order. Named API tests cover multiple fragments and models, and SMT-LIB results match native Z3.
 
 Registered horn-simplify and the source ufbv-rewriter registration. The latter intentionally invokes the quasi-macro factory specified in the C++ registration.

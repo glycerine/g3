@@ -29,6 +29,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 		switch sourceTactic := leaf.(type) {
 		case *smtcore.SMTTactic:
 			return sourceTactic.TranslateWithConfig(manager, config)
+		case *smtcore.UnitSubsumptionTactic:
+			return sourceTactic.TranslateWithConfig(manager, config)
 		case *core.SimplifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		case *arith.FactorTactic:
