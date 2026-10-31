@@ -1,3 +1,5 @@
+BMC linear rule traces (2026-10-31 UTC): follow model-selected level-rule constants down to a fact, returning owning rule references. The linear search regression verifies the model-selected path; proof reconstruction remains pending.
+
 BMC linear search (2026-10-31 UTC): added the source bounded level loop with model production and unknown on exhausted depth. The SMT-backed linear regression checks depth-one exhaustion and a depth-two model.
 
 BMC linear rule compilation (2026-10-31 UTC): added source level predicates, shared rule-variable bindings and ground rule implications. SMT tests check level-zero exclusion and constrained rule results; branching or quantified rules are rejected by this compiler.

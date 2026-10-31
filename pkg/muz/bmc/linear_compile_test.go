@@ -146,6 +146,14 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 			if md == nil {
 				t.Fatal("missing linear model")
 			}
+			trace, err := compiler.LinearTrace(set, b, level, md)
+			must(err)
+			if len(trace) != 2 {
+				t.Fatal("linear trace length", len(trace))
+			}
+			for i := len(trace) - 1; i >= 0; i-- {
+				must(trace[i].Close())
+			}
 			must(md.DecRef())
 		}
 		must(raw.Close())
