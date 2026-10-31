@@ -171652,7 +171652,9 @@
         "pkg/tactic/arith/bv2real_defaults.go",
         "pkg/tactic/arith/bv2real_match_owned_test.go",
         "pkg/tactic/arith/bv2int_power_map.go",
-        "pkg/tactic/arith/bv2int_power_map_test.go"
+        "pkg/tactic/arith/bv2int_power_map_test.go",
+        "pkg/tactic/arith/nla2bv_numeric.go",
+        "pkg/tactic/arith/nla2bv_numeric_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171673,7 +171675,10 @@
         "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers",
         "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
         "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
-        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
+        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder",
+        "TestNLA2BVProjectLog2WideBoundariesAndLocalOwnership",
+        "TestNLA2BVProjectLog2CompoundFailureFrontiers",
+        "TestNLA2BVLog2SourceBoundaries"
       ],
       "assertions": [
         {
@@ -171793,6 +171798,20 @@
             "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
             "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
           ]
+        },
+        {
+          "name": "imp::log2 source comparison/compound-multiplication loop and caller width error propagation",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_numeric.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_numeric_test.go",
+            "pkg/tactic/arith/nla2bv_tactic_test.go"
+          ],
+          "tests": [
+            "TestNLA2BVProjectLog2WideBoundariesAndLocalOwnership",
+            "TestNLA2BVProjectLog2CompoundFailureFrontiers",
+            "TestNLA2BVLog2SourceBoundaries"
+          ]
         }
       ],
       "ownership": [
@@ -171800,7 +171819,8 @@
         "Translation borrows the destination manager's parameter/global/numeral services, while process cooperation and an explicitly bound trace remain borrowed. The four NLA2BV uint policies plus BV2Int max_bv_size are copied by value into a destination-owned parameter snapshot; same-owner translation shares through the counted ParamsRef contract. Failed temporary parameter or tactic construction closes all partial owners and returns a nil interface. Target invocation and model reconstruction remain valid after source tactic mutation/close.",
         "Diagnostic expression and goal printing pins and releases each temporary format tree. Trace stream badbit does not stop operand evaluation, while printer/allocation errors propagate before subsequent algorithm stages; the initial trace failure leaves the goal unchanged and creates no filter model converter.",
         "Matched divisor/root values are independent project owners kept through the caller reducer scope; cached signature temporaries close at recognition return. Returned component references survive input and utility destruction. Real numeral recognition owns its AST copy invocation and cleans false/value/true/context phases on success, refusal and failure. Live scalar arithmetic, common-divisor updates, multiplication products, encoding and NLA2BV real definitions use actual project owners; defaults have no duplicate Go numeric authority. Native Go rational snapshots remain only at compatibility boundaries.",
-        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order."
+        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order.",
+        "Both live width call sites now use the project-rational log2 loop. The concrete pow receiver survives each physical compound multiplication invocation; source-ready and false/true/context cleanup retire successful invocations, while failed invocations keep lower roots until receiver destruction. The local two and imported boundary operand end at their helper scopes; failed cleanup attaches to the existing numeric call owner. Source width state is updated only after helper success. Native Go rational boundary values remain for the still-open bound-span and absolute-value audit."
       ],
       "deviations": [
         "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; the live power-two map now preserves source hash-bucket traversal order. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",

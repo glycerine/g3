@@ -327,19 +327,6 @@ func (c *nla2BVInvocation) assertSide(g *tactic.Goal, side []ast.ASTHandle) erro
 	return c.traceExpressionLines("assert_side_conditions", 175, "", side)
 }
 
-// The source routine returns ceil(log2(n)), with a minimum result of one.
-func nla2BVLog2(n *big.Rat) uint32 {
-	pow, two := big.NewRat(1, 1), big.NewRat(2, 1)
-	var bits uint32
-	for pow.Cmp(n) < 0 {
-		bits++
-		pow.Mul(pow, two)
-	}
-	if bits == 0 {
-		bits = 1
-	}
-	return bits
-}
 func (c *nla2BVInvocation) fresh(variable ast.ASTHandle, suffix string, width uint32) (ast.ASTHandle, error) {
 	m := c.t.manager
 	sort, err := m.BitVectorSort(width)
@@ -411,7 +398,10 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 		span := new(big.Rat).Sub(&up, &low)
 		span.Abs(span)
 		span.Add(span, big.NewRat(1, 1))
-		bits = nla2BVLog2(span)
+		bits = c.log2Rat(span)
+		if c.local.err != nil {
+			return c.local.err
+		}
 	} else {
 		if err = c.traceExpressionLine("add_int_var", 230, "no bounds for ", variable); err != nil {
 			return err
@@ -541,7 +531,10 @@ func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
 				return false, ast.ErrASTDomain
 			}
 			n.Abs(n)
-			bits := nla2BVLog2(n)
+			bits := c.log2Rat(n)
+			if c.local.err != nil {
+				return false, c.local.err
+			}
 			if c.numBits <= bits {
 				c.numBits = bits + 1
 			}

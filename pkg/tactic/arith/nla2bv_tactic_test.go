@@ -109,10 +109,15 @@ func TestNLA2BVSourceTraversalVisitsSharedNodesOnceAcrossGoalRoots(t *testing.T)
 }
 
 func TestNLA2BVLog2SourceBoundaries(t *testing.T) {
+	r := nla2BVFixture(t, false)
+	c, err := r.newInvocation()
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, c.close()) })
 	for denominator := int64(1); denominator <= 17; denominator++ {
 		for numerator := int64(1); numerator <= 1024; numerator++ {
 			n := new(big.Rat).SetFrac64(numerator, denominator)
-			got := nla2BVLog2(n)
+			got := c.log2Rat(n)
+			equationMust(t, c.local.err)
 			upper := new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(got)))
 			lower := new(big.Rat).SetInt(new(big.Int).Lsh(big.NewInt(1), uint(got-1)))
 			if n.Cmp(upper) > 0 || got > 1 && n.Cmp(lower) <= 0 {
@@ -121,7 +126,7 @@ func TestNLA2BVLog2SourceBoundaries(t *testing.T) {
 		}
 	}
 	for _, n := range []*big.Rat{big.NewRat(0, 1), big.NewRat(-1, 2), big.NewRat(-8, 1)} {
-		if got := nla2BVLog2(n); got != 1 {
+		if got := c.log2Rat(n); got != 1 {
 			t.Fatalf("source minimum for %s = %d, want 1", n, got)
 		}
 	}
