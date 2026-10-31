@@ -91939,8 +91939,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
-      "tests": ["TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion"],
+      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
+      "tests": ["TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter"],
       "assertions": [
         {
           "line": 145,
@@ -92051,7 +92051,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Join, projection, rename and fact/relation-level union are ported; filters, plugin registration, rule transformation and Datalog integration remain unfinished."]
+      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Join, projection, rename and fact/relation-level union are ported; assignment, intersection and negation filters are ported. Foreign union, plugin registration, rule transformation and Datalog integration remain unfinished."]
     },
     {
       "path": "src/muz/rel/dl_mk_explanations.h",
