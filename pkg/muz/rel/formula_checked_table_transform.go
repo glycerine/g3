@@ -34,6 +34,10 @@ func (r *FormulaCheckedTable) substitute(formula ast.ASTHandle, bindings []ast.A
 }
 
 func (r *FormulaCheckedTable) projectFormula(formula ast.ASTHandle, removed []int) (result ast.ASTRef, resultErr error) {
+	return r.projectFormulaForSorts(formula, r.table.sorts, removed)
+}
+
+func (r *FormulaCheckedTable) projectFormulaForSorts(formula ast.ASTHandle, sorts []ast.ASTHandle, removed []int) (result ast.ASTRef, resultErr error) {
 	var refs []ast.ASTRef
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
@@ -44,11 +48,11 @@ func (r *FormulaCheckedTable) projectFormula(formula ast.ASTHandle, removed []in
 			result = ast.ASTRef{}
 		}
 	}()
-	bindings := make([]ast.ASTHandle, len(r.table.sorts))
+	bindings := make([]ast.ASTHandle, len(sorts))
 	var bound []ast.ASTHandle
 	var names []symbol.Symbol
 	removedIndex, remainingIndex := 0, 0
-	for i, sort := range r.table.sorts {
+	for i, sort := range sorts {
 		index := remainingIndex + len(removed)
 		if removedIndex < len(removed) && removed[removedIndex] == i {
 			index = removedIndex

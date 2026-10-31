@@ -138,3 +138,65 @@ func (r *FormulaCheckedTable) Join(other *FormulaCheckedTable, columns, otherCol
 	}
 	return result, nil
 }
+
+// JoinProject verifies the combined join and existential projection operation.
+func (r *FormulaCheckedTable) JoinProject(other *FormulaCheckedTable, columns, otherColumns, removed []int) (_ *FormulaCheckedTable, resultErr error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	if other.open() != nil || r.manager != other.manager || len(columns) != len(otherColumns) {
+		return nil, ErrTableRelation
+	}
+	for i, column := range columns {
+		oc := otherColumns[i]
+		if column < 0 || column >= len(r.table.sorts) || oc < 0 || oc >= len(other.table.sorts) || r.table.sorts[column] != other.table.sorts[oc] {
+			return nil, ast.ErrASTDomain
+		}
+	}
+	if len(removed) == 0 {
+		return nil, ast.ErrASTDomain
+	}
+	sorts := append(append([]ast.ASTHandle(nil), r.table.sorts...), other.table.sorts...)
+	if _, err := tableRelationRemovedColumns(len(sorts), removed); err != nil {
+		return nil, err
+	}
+	table, err := r.table.JoinProject(other.table, columns, otherColumns, removed)
+	if err != nil {
+		return nil, err
+	}
+	result, err := NewFormulaCheckedTable(table, r.config)
+	if err != nil {
+		return nil, errors.Join(err, table.Close())
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	joined, err := r.joinFormula(other, columns, otherColumns)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&joined)) }()
+	joinedHandle, err := r.manager.RefGet(joined)
+	if err != nil {
+		return nil, err
+	}
+	projected, err := r.projectFormulaForSorts(joinedHandle, sorts, removed)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&projected)) }()
+	expected, err := r.manager.RefGet(projected)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := r.manager.RefGet(result.formula)
+	if err != nil {
+		return nil, err
+	}
+	if err = result.verifyGrounded(expected, actual, false); err != nil {
+		return nil, fmt.Errorf("join_project: %w", err)
+	}
+	return result, nil
+}

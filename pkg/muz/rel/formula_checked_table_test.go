@@ -252,6 +252,15 @@ func TestFormulaCheckedTableJoin(t *testing.T) {
 	if found, err := projected.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || !found {
 		t.Fatal("join projection", found, err)
 	}
+	combined, err := left.JoinProject(right, []int{0}, []int{0}, []int{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, combined.Close()) }()
+	if found, err := combined.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || !found {
+		t.Fatal("combined join projection", found, err)
+	}
+	if found, err := combined.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || found {
+		t.Fatal("combined join projection excluded tuple", found, err)
+	}
 	formula, err := left.joinFormula(right, []int{0}, []int{0})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, f.ast.DelRef(&formula)) }()
