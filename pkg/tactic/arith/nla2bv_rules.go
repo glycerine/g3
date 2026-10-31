@@ -195,6 +195,9 @@ func (c *nla2BVInvocation) substitute(g *tactic.Goal) (resultErr error) {
 			return err
 		}
 	}
+	if err = c.local.releaseTo(mark); err != nil {
+		return err
+	}
 	if err = c.replacer.Close(); err != nil {
 		return err
 	}
@@ -243,6 +246,9 @@ func (c *nla2BVInvocation) reduceInteger(g *tactic.Goal) (resultErr error) {
 		return err
 	}
 	if err = c.assertSide(g, side); err != nil {
+		return err
+	}
+	if err = c.local.releaseTo(mark); err != nil {
 		return err
 	}
 	if err = c.intRewrite.Close(); err != nil {
@@ -300,6 +306,9 @@ func (c *nla2BVInvocation) reduceReal(g *tactic.Goal) (resultErr error) {
 		return err
 	}
 	if err = c.assertSide(g, side); err != nil {
+		return err
+	}
+	if err = c.local.releaseTo(mark); err != nil {
 		return err
 	}
 	if err = c.realRewrite.Close(); err != nil {
@@ -543,7 +552,7 @@ func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
 		}
 		if family == ast.NullFamilyID && n == 0 && sf == c.real.arith && (sk == 0 || sk == 1) {
 			variables = append(variables, h)
-		} else if family == ast.NullFamilyID && n == 0 && sf == m.BasicFamilyID() {
+		} else if family == ast.NullFamilyID && n == 0 && sf == m.BasicFamilyID() && sk == 0 {
 			// Uninterpreted Boolean constants are retained.
 		} else if !(family == c.real.arith && (op == 0 || op >= 2 && op <= 9) || decl == lt || decl == le || family == m.BasicFamilyID()) {
 			if err = c.traceExpressionLine("get_uninterp_proc", 347, "Not supported: ", h); err != nil {

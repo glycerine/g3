@@ -171630,7 +171630,7 @@
       "path": "src/tactic/arith/nla2bv_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/nla2bv_tactic.go",
         "pkg/tactic/arith/nla2bv_rules.go",
@@ -171661,7 +171661,8 @@
         "pkg/tactic/arith/nla2bv_real_prefix_test.go",
         "pkg/tactic/arith/nla2bv_vector.go",
         "pkg/tactic/arith/nla2bv_vector_test.go",
-        "pkg/tactic/arith/bv2real_vector.go"
+        "pkg/tactic/arith/bv2real_vector.go",
+        "pkg/tactic/arith/nla2bv_lifecycle_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171695,7 +171696,10 @@
         "TestNLA2BVRealSortFailurePrecedesPrecisionDowngrade",
         "TestNLA2BVRealCoefficientCreationPrecedesFilterPublication",
         "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
-        "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
+        "TestNLA2BVVectorWarmAppendGrowthFailureAndClose",
+        "TestNLA2BVCollectorDistinguishesBooleanAndProofConstants",
+        "TestNLA2BVRealReductionRefusalKeepsCompletedGoalPrefix",
+        "TestNLA2BVHelpersReleaseOutputsAndPreserveGoalOwnership"
       ],
       "assertions": [
         {
@@ -171719,12 +171723,12 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "per-application imp construction, variable classification, integer bounds and signed offsets, real coefficient substitution, power-two substitution, BV2int/BV2real reduction, side conditions and precision downgrade",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/nla2bv_rules.go",
           "tests": [
             "TestNLA2BVExactGoalsPrebuiltCPP",
@@ -171744,7 +171748,7 @@
         },
         {
           "name": "factory registration, parameter snapshots/descriptions, proof/core guards, translation, fresh per-call implementation ownership, extension/filter model reconstruction and scoped implementation clearing",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/nla2bv_tactic.go",
           "tests": [
             "TestNLA2BVProofAndCoreGuardsPreserveResult",
@@ -171884,6 +171888,19 @@
             "TestNLA2BVDefinitionVectorAllocationPublicationPrefixes",
             "TestNLA2BVVectorWarmAppendGrowthFailureAndClose"
           ]
+        },
+        {
+          "name": "final helper output/traversal lexical cleanup, basic-sort fragment classification and completed-goal refusal prefixes",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_rules.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_lifecycle_test.go"
+          ],
+          "tests": [
+            "TestNLA2BVCollectorDistinguishesBooleanAndProofConstants",
+            "TestNLA2BVRealReductionRefusalKeepsCompletedGoalPrefix",
+            "TestNLA2BVHelpersReleaseOutputsAndPreserveGoalOwnership"
+          ]
         }
       ],
       "ownership": [
@@ -171896,10 +171913,11 @@
         "update_num_bits copies the actual arithmetic numeral through its concrete numeric invocation before testing the integer flag. Integer inputs use project Abs plus physical receiver CopyWithInvocation, destroy the absolute temporary before log2 and update the width only after successful arithmetic. Read/copy failure roots are retired before releasing parents, with stopped cleanup attached to the numeric call owner. Real-valued numerals still perform their source copy before refusal. Native string parsing and native big.Rat absolute values no longer drive this path; bounded-span arithmetic now uses separate project numeric temporaries.",
         "Integer bounds enter project owners at the BoundManager Go-rational boundary. The bounded-width full expression owns project subtraction, absolute-value, one and addition results through log2; all temporaries close before declaration construction, while the original bound owners survive for numeral offsets. Lower-zero testing and lower/upper arithmetic numeral construction read the actual project owners. Unbounded midpoint construction calls source PowerOfTwo and preserves its completed cache prefix on refusal, with the returned copy owned through numeral construction. The native-rational log2 import adapter is test-only; no production native span or midpoint arithmetic remains.",
         "Real-variable encoding owns the BV sort before changing sat-preserving state, then owns both fresh coefficient applications before publishing either filter declaration. Filters acquire the first then second declaration in source order and survive later encoding/reconstruction failures. The sort and coefficient helper references close after definition handoff or failure; persistent trail, substitution, variable and model-definition owners keep completed outputs alive. Failure tests fill real AST pages with live constants and observe actual fresh-name counter and filter state without mutating internal stage metadata.",
-        "The concrete NLA2BV variable, definition and trail vectors use the existing typed AST-handle reference-vector growth routine. Each invocation owns three independent storage charges; append grows with source 2,3,5,... capacities and preserves completed entries on reservation failure. Unpublished input references are recovered through the existing rollback/pending-owner protocol. Destruction consumes trail, definition and variable references in source reverse-member order, releases each allocation only after its entries are consumed and supports cleanup retries. No generic or unused vector operations are added."
+        "The concrete NLA2BV variable, definition and trail vectors use the existing typed AST-handle reference-vector growth routine. Each invocation owns three independent storage charges; append grows with source 2,3,5,... capacities and preserves completed entries on reservation failure. Unpublished input references are recovered through the existing rollback/pending-owner protocol. Destruction consumes trail, definition and variable references in source reverse-member order, releases each allocation only after its entries are consumed and supports cleanup retries. No generic or unused vector operations are added.",
+        "Substitution, BV2Int reduction and BV2Real reduction release their later-declared local output reference before closing the corresponding traversal on success. Deferred scope cleanup remains idempotent and preserves enclosing expression/numeral owners. Published goal formulas survive traversal and invocation destruction with only goal ownership; a later unsupported real formula preserves prior goal updates and leaves the refused formula unchanged. The collector distinguishes BOOL_SORT from PROOF_SORT within the basic family and still constructs collected integer substitutions before reporting unsupported input."
       ],
       "deviations": [
-        "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; the live power-two map now preserves source hash-bucket traversal order. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
+        "Native Go maps/slices implement MarkAll traversal scratch and non-owning collected-variable lists. The live power-two table preserves source hash/probe/bucket traversal order, and persistent declaration/definition/trail vectors have explicit source growth charges. BoundManager Go rational snapshots are concrete input boundaries; live width, bound-span, absolute-value and midpoint arithmetic uses project owners and numeric invocations. Source frame/helper lifetimes, allocation refusals and completed publication prefixes are audited, including the actual AST-page boundary between real coefficient factories. Replacement allocation and unpublished-reference rollback preserve retryable Go ownership where C++ allocation failure would lose storage or references. All source trace/count/verbosity, assertion, factory/parameter, guard, translation, model-converter and application lifecycle bodies are audited. The write-only source m_default_bv_size field is omitted because no live consumer reads it.",
         "Sixteen prebuilt-C++ whole-goal/refusal cases cover bounded/unbounded integers, signed offsets, nonlinear products, reals/ITE/comparisons, constant width growth, unsupported functions/division/quantifiers, post-power-two classification refusal and inability to eliminate a real denominator. Five end-to-end solving/model cases and four retained CLI vectors cover sat/unsat/unknown, models and scopes/parameters. These checks do not prove completion of the general nonlinear strategy dispatcher, nlsat tactic or broader smtcore/solver/API/higher engines."
       ]
     },
