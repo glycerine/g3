@@ -1,3 +1,5 @@
+Mixed nonlinear model assumptions (2026-10-31 UTC): ported model evaluation of equality predicates and the source polarity-dependent assumption selection, preserving context and equality literal order. A focused test covers all polarities, undefined values and both equality signs.
+
 Mixed nonlinear preparation pipeline (2026-10-31 UTC): connected interface rewriting, optional pure-arithmetic transfer, polarity analysis, Boolean abstraction and solver clause/dependency extraction in source order. Tests cover both unsat-core modes and cleanup after rejected quantifiers; the solver cooperation loop remains pending.
 
 Mixed nonlinear predicate rewriting (2026-10-31 UTC): added polarity-directed arithmetic atom abstraction and nonlinear implication clauses, with shared predicate caching. Tests cover positive, negative and dual polarity and run both interface and predicate rewrites on a mixed goal; cooperating solver search and registration remain pending.
