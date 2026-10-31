@@ -85257,8 +85257,30 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/base/util_uint64_scan.go", "pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go", "pkg/muz/base/util_path.go", "pkg/cmd_context/wpa_discover.go", "pkg/muz/rel/compiler.go", "pkg/muz/rel/table.go", "pkg/muz/rel/sieve_relation.go", "pkg/muz/transforms/simple_joins_pair.go"],
-      "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal", "TestFileNameWithoutExtensionMatchesDatalogSource", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPAFileBaseMatchesDatalogExtensionRule", "TestWPADirectoryMapsRulesRelationsAndSaturation"],
+      "go_targets": [
+        "pkg/muz/base/util_uint64_scan.go",
+        "pkg/muz/base/util_uint64_string.go",
+        "pkg/muz/base/util_uint64_fields.go",
+        "pkg/muz/base/util_uint64_mapping.go",
+        "pkg/muz/base/util_uint64_format.go",
+        "pkg/muz/base/util_path.go",
+        "pkg/cmd_context/wpa_discover.go",
+        "pkg/muz/rel/compiler.go",
+        "pkg/muz/rel/table.go",
+        "pkg/muz/rel/sieve_relation.go",
+        "pkg/muz/transforms/simple_joins_pair.go"
+      ],
+      "tests": [
+        "TestReadUint64BoundariesAndPointerContract",
+        "TestStringToUint64ScanfPrefixSemantics",
+        "TestParseUint64FieldsSpacingCommentsAndEmptyLines",
+        "TestParseUint64MappingPreservesRawName",
+        "TestUint64TextCanonicalDecimal",
+        "TestFileNameWithoutExtensionMatchesDatalogSource",
+        "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
+        "TestWPAFileBaseMatchesDatalogExtensionRule",
+        "TestWPADirectoryMapsRulesRelationsAndSaturation"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -85281,9 +85303,63 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"retained uint64 scanner, conversion and formatting declarations with concrete Datalog row/map consumers","status":"ported","go_target":"pkg/muz/base/util_uint64_scan.go","tests":["TestReadUint64BoundariesAndPointerContract","TestStringToUint64ScanfPrefixSemantics","TestParseUint64FieldsSpacingCommentsAndEmptyLines","TestParseUint64MappingPreservesRawName","TestUint64TextCanonicalDecimal"]},{"name":"get_file_names declaration used by retained WPA directory parser (dl_util.h:581-587)","status":"ported","go_target":"pkg/cmd_context/wpa_discover.go","tests":["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories","TestWPADirectoryMapsRulesRelationsAndSaturation"]},{"name":"get_file_name_without_extension declaration used by Datalog relation-file lookup","status":"ported","go_target":"pkg/muz/base/util_path.go","tests":["TestFileNameWithoutExtensionMatchesDatalogSource","TestWPAFileBaseMatchesDatalogExtensionRule"]},{"name":"concrete variable_intersection, idx_set_union, project_out_vector_columns, permutate_by_cycle, reverse_renaming, and add_sequence consumers in retained relational/simple-join code","status":"ported","go_target":"pkg/muz/rel/compiler.go","go_targets":["pkg/muz/rel/table.go","pkg/muz/rel/sieve_relation.go","pkg/muz/transforms/simple_joins_pair.go"],"tests":["TestFiniteCompilerJoinsTwoPositiveTails","TestHashTableJoinProjectSelectionAndRename","TestSieveRenameCycleMovesMaskDomainsAndRows","TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder"]}],
-      "ownership": ["Pure set/index helpers borrow their input slices; Go relation and table operations return fresh typed slices or owned table values, while file discovery returns an owned path slice."],
-      "deviations": ["C++ templates are represented only for retained concrete consumers. Helpers used only by unported explanation, similarity-compression, finite-product, or test sources and generic STL-oriented adapters remain excluded."]
+      "methods": [
+        {
+          "name": "retained uint64 scanner, conversion and formatting declarations with concrete Datalog row/map consumers",
+          "status": "ported",
+          "go_target": "pkg/muz/base/util_uint64_scan.go",
+          "tests": [
+            "TestReadUint64BoundariesAndPointerContract",
+            "TestStringToUint64ScanfPrefixSemantics",
+            "TestParseUint64FieldsSpacingCommentsAndEmptyLines",
+            "TestParseUint64MappingPreservesRawName",
+            "TestUint64TextCanonicalDecimal"
+          ]
+        },
+        {
+          "name": "get_file_names declaration used by retained WPA directory parser (dl_util.h:581-587)",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/wpa_discover.go",
+          "tests": [
+            "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
+            "TestWPADirectoryMapsRulesRelationsAndSaturation"
+          ]
+        },
+        {
+          "name": "get_file_name_without_extension declaration used by Datalog relation-file lookup",
+          "status": "ported",
+          "go_target": "pkg/muz/base/util_path.go",
+          "tests": [
+            "TestFileNameWithoutExtensionMatchesDatalogSource",
+            "TestWPAFileBaseMatchesDatalogExtensionRule"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/wpa_discover_test.go"
+          ]
+        },
+        {
+          "name": "concrete variable_intersection, idx_set_union, project_out_vector_columns, permutate_by_cycle, reverse_renaming, and add_sequence consumers in retained relational/simple-join code",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/compiler.go",
+          "go_targets": [
+            "pkg/muz/rel/table.go",
+            "pkg/muz/rel/sieve_relation.go",
+            "pkg/muz/transforms/simple_joins_pair.go"
+          ],
+          "tests": [
+            "TestFiniteCompilerJoinsTwoPositiveTails",
+            "TestHashTableJoinProjectSelectionAndRename",
+            "TestSieveRenameCycleMovesMaskDomainsAndRows",
+            "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder"
+          ]
+        }
+      ],
+      "ownership": [
+        "Pure set/index helpers borrow their input slices; Go relation and table operations return fresh typed slices or owned table values, while file discovery returns an owned path slice."
+      ],
+      "deviations": [
+        "C++ templates are represented only for retained concrete consumers. Helpers used only by unported explanation, similarity-compression, finite-product, or test sources and generic STL-oriented adapters remain excluded."
+      ]
     },
     {
       "path": "src/muz/base/fixedpoint_params.hpp",
@@ -85383,7 +85459,6 @@
         "TestHornNormalizerSplitsSingletonDisjunction",
         "TestHornNormalizerIntroducesAndMemoizesFreshPredicate",
         "TestHornNormalizerStopsWorklistWhenManagerIsCanceled",
-        "TestHornNormalizer",
         "TestRuleManagerAddsProofForAlreadyHornFormula",
         "TestRuleManagerRejectsMismatchedHNFProofWithoutPublishing",
         "TestRuleManagerRemovesLabelsAndPreservesHNFProofs",
@@ -85657,8 +85732,24 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/base/rule_properties.go", "pkg/muz/base/rule_properties_test.go", "pkg/muz/fp/rule_fragment.go", "pkg/muz/fp/rule_fragment_test.go", "pkg/muz/fp/propositional_engine.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-      "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership", "TestFixedpointRulePropertyValidationWiring", "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"],
+      "go_targets": [
+        "pkg/muz/base/rule_properties.go",
+        "pkg/muz/base/rule_properties_test.go",
+        "pkg/muz/fp/rule_fragment.go",
+        "pkg/muz/fp/rule_fragment_test.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+      ],
+      "tests": [
+        "TestRulePropertiesExistentialTraversalDistinctionsAndReuse",
+        "TestRulePropertiesFirstRuleOrderNegativeAndOwnership",
+        "TestFixedpointRulePropertyValidationWiring",
+        "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
+        "TestPDRAndSpacerRejectNegativePredicates",
+        "TestPDRAndSpacerRejectPartialDatatypeAccessors",
+        "TestDatalogRejectsInfinitePredicateSorts",
+        "TestDatalogRejectsQuantifiedInterpretedTails"
+      ],
       "assertions": [
         {
           "line": 193,
@@ -85672,49 +85763,87 @@
           "name": "PDR/Spacer check_uninterpreted_free rejection of ordinary uninterpreted constants and functions in interpreted rule tails (rule_properties.cpp:83-96)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP"]
+          "tests": [
+            "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         },
         {
           "name": "PDR/Spacer check_for_negated_predicates rejection before solver initialization (rule_properties.cpp:72-80)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestPDRAndSpacerRejectNegativePredicates"]
+          "tests": [
+            "TestPDRAndSpacerRejectNegativePredicates"
+          ]
         },
         {
           "name": "PDR/Spacer check_uninterpreted_free rejection of accessors from datatypes with multiple constructors (rule_properties.cpp:190-196)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestPDRAndSpacerRejectPartialDatatypeAccessors"]
+          "tests": [
+            "TestPDRAndSpacerRejectPartialDatatypeAccessors"
+          ]
         },
         {
           "name": "Datalog check_infinite_sorts over predicate-head domain columns with the internal rule-sort exception (rule_properties.cpp:49-59,96-104)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestDatalogRejectsInfinitePredicateSorts"]
+          "tests": [
+            "TestDatalogRejectsInfinitePredicateSorts"
+          ]
         },
         {
           "name": "Datalog check_quantifier_free over interpreted rule tails (rule_properties.cpp:37-48,62-70,181-183)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestDatalogRejectsQuantifiedInterpretedTails"]
+          "tests": [
+            "TestDatalogRejectsQuantifiedInterpretedTails"
+          ]
         },
         {
           "name": "rule-property collection, nested predicate and existential-tail validation with reusable source state",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_properties.go",
-          "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership", "TestFixedpointRulePropertyValidationWiring"]
+          "tests": [
+            "TestRulePropertiesExistentialTraversalDistinctionsAndReuse",
+            "TestRulePropertiesFirstRuleOrderNegativeAndOwnership",
+            "TestFixedpointRulePropertyValidationWiring"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/rule_fragment_test.go"
+          ]
         }
       ],
       "ownership": [],
-      "deviations": ["The retained PDR guards inspect the concrete HNF rule set and return checked Go errors instead of constructing native rule display exceptions. Other rule-property collectors and engine-specific checks remain unported."]
+      "deviations": [
+        "The retained PDR guards inspect the concrete HNF rule set and return checked Go errors instead of constructing native rule display exceptions. Other rule-property collectors and engine-specific checks remain unported."
+      ]
     },
     {
       "path": "src/muz/base/rule_properties.h",
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/base/rule_properties.go", "pkg/muz/base/rule_properties_test.go", "pkg/muz/fp/rule_fragment.go", "pkg/muz/fp/rule_fragment_test.go", "pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership", "TestFixedpointRulePropertyValidationWiring", "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"],
+      "go_targets": [
+        "pkg/muz/base/rule_properties.go",
+        "pkg/muz/base/rule_properties_test.go",
+        "pkg/muz/fp/rule_fragment.go",
+        "pkg/muz/fp/rule_fragment_test.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+      ],
+      "tests": [
+        "TestRulePropertiesExistentialTraversalDistinctionsAndReuse",
+        "TestRulePropertiesFirstRuleOrderNegativeAndOwnership",
+        "TestFixedpointRulePropertyValidationWiring",
+        "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
+        "TestPDRAndSpacerRejectNegativePredicates",
+        "TestPDRAndSpacerRejectPartialDatatypeAccessors",
+        "TestDatalogRejectsInfinitePredicateSorts",
+        "TestDatalogRejectsQuantifiedInterpretedTails"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -85732,17 +85861,31 @@
           "name": "retained engine-specific uninterpreted-free, partial-datatype-accessor, negative-predicate, infinite-sort and quantifier-free rule-check surface",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "tests": ["TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP", "TestPDRAndSpacerRejectNegativePredicates", "TestPDRAndSpacerRejectPartialDatatypeAccessors", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails"]
+          "tests": [
+            "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP",
+            "TestPDRAndSpacerRejectNegativePredicates",
+            "TestPDRAndSpacerRejectPartialDatatypeAccessors",
+            "TestDatalogRejectsInfinitePredicateSorts",
+            "TestDatalogRejectsQuantifiedInterpretedTails"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         },
         {
           "name": "complete reusable rule_properties collection and validation surface",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_properties.go",
-          "tests": ["TestRulePropertiesExistentialTraversalDistinctionsAndReuse", "TestRulePropertiesFirstRuleOrderNegativeAndOwnership"]
+          "tests": [
+            "TestRulePropertiesExistentialTraversalDistinctionsAndReuse",
+            "TestRulePropertiesFirstRuleOrderNegativeAndOwnership"
+          ]
         }
       ],
       "ownership": [],
-      "deviations": ["The Go PDR engine performs the retained check through its concrete rule set without adding a general rule_properties owner."]
+      "deviations": [
+        "The Go PDR engine performs the retained check through its concrete rule set without adding a general rule_properties owner."
+      ]
     },
     {
       "path": "src/muz/bmc/CMakeLists.txt",
@@ -86091,8 +86234,45 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/ddnf/core.go", "pkg/muz/ddnf/core_test.go", "pkg/muz/ddnf/registry.go", "pkg/muz/ddnf/registry_test.go", "pkg/muz/ddnf/preprocess.go", "pkg/muz/ddnf/preprocess_test.go", "pkg/muz/ddnf/compiler.go", "pkg/muz/fp/ddnf_engine.go", "pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_kind.go", "pkg/muz/fp/register_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/ddnf_engine_internal_test.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/ddnf_engine_lifetime.go", "pkg/muz/fp/ddnf_engine_lifetime_test.go"],
-      "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFPreprocessorPrintsFirstRejectedRule", "TestDDNFRejectedRuleIsPrintedBeforeUnknown", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput", "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRegistryPersistsAcrossQueryClones", "TestDDNFCoreInsertionAllocationRefusalCanRetry", "TestDDNFQueryExpressionTransfersCompiledASTTrail", "TestDDNFEngineCloseRetriesUnreleasedTrailAfterClosed"],
+      "go_targets": [
+        "pkg/muz/ddnf/core.go",
+        "pkg/muz/ddnf/core_test.go",
+        "pkg/muz/ddnf/registry.go",
+        "pkg/muz/ddnf/registry_test.go",
+        "pkg/muz/ddnf/preprocess.go",
+        "pkg/muz/ddnf/preprocess_test.go",
+        "pkg/muz/ddnf/compiler.go",
+        "pkg/muz/fp/ddnf_engine.go",
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/engine_kind.go",
+        "pkg/muz/fp/register_engine.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/ddnf_engine_internal_test.go",
+        "pkg/muz/fp/engine_result_routing_test.go",
+        "pkg/muz/fp/ddnf_engine_lifetime.go",
+        "pkg/muz/fp/ddnf_engine_lifetime_test.go"
+      ],
+      "tests": [
+        "TestDDNFCoreSourceIntersectionDAGAndAccumulate",
+        "TestDDNFCoreIndependentFiniteDescendantOracle",
+        "TestDDNFCoreValidationAndClose",
+        "TestDDNFRegistrySourceWidthsLookupAndFreeze",
+        "TestDDNFRegistryConstructionFailureDoesNotPublishWidth",
+        "TestDDNFPreprocessorRecordsFullAndExtractEqualities",
+        "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint",
+        "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState",
+        "TestDDNFPreprocessorRejectsUnsupportedAtom",
+        "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective",
+        "TestDDNFPreprocessorPrintsFirstRejectedRule",
+        "TestDDNFRejectedRuleIsPrintedBeforeUnknown",
+        "TestDDNFCompilerMapsRefinedEqualityToNodeIDs",
+        "TestDDNFCompilerRewritesPredicateDomainsAndOutput",
+        "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown",
+        "TestDDNFRegistryPersistsAcrossQueryClones",
+        "TestDDNFCoreInsertionAllocationRefusalCanRetry",
+        "TestDDNFQueryExpressionTransfersCompiledASTTrail",
+        "TestDDNFEngineCloseRetriesUnreleasedTrailAfterClosed"
+      ],
       "assertions": [
         {
           "line": 87,
@@ -86121,9 +86301,84 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)", "status": "ported", "go_target": "pkg/muz/ddnf/preprocess.go", "tests": ["TestDDNFPreprocessorRecordsFullAndExtractEqualities", "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState", "TestDDNFPreprocessorRejectsUnsupportedAtom", "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective", "TestDDNFPreprocessorPrintsFirstRejectedRule"]}, {"name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)", "status": "ported", "go_target": "pkg/muz/ddnf/compiler.go", "tests": ["TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint", "TestDDNFCompilerMapsRefinedEqualityToNodeIDs", "TestDDNFCompilerRewritesPredicateDomainsAndOutput"]}, {"name": "DDNF query-local preprocessing, rule compilation, SMT-LIB HORN dump, and source unknown result while execution remains disabled (ddnf.cpp:507-526,664-676,885-896)", "status": "ported", "go_target": "pkg/muz/fp/ddnf_engine.go", "tests": ["TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown", "TestDDNFRejectedRuleIsPrintedBeforeUnknown", "TestDDNFRegistryPersistsAcrossQueryClones"]}, {"name": "DDNF core node DAG, insertion/intersection and descendant lookup manager (ddnf.cpp:37-424)", "status": "ported", "go_target": "pkg/muz/ddnf/core.go", "tests": ["TestDDNFCoreSourceIntersectionDAGAndAccumulate", "TestDDNFCoreIndependentFiniteDescendantOracle", "TestDDNFCoreValidationAndClose", "TestDDNFCoreInsertionAllocationRefusalCanRetry"]}, {"name": "Width-indexed DDNF manager registry and lifecycle (ddnf.cpp:428-472)", "status": "ported", "go_target": "pkg/muz/ddnf/registry.go", "tests": ["TestDDNFRegistrySourceWidthsLookupAndFreeze", "TestDDNFRegistryConstructionFailureDoesNotPublishWidth", "TestDDNFRegistryPersistsAcrossQueryClones"]}, {"name": "Empty DDNF statistics operations and unreachable answer/certificate path (ddnf.cpp:531-553,885-896)", "status": "ported", "go_target": "pkg/muz/fp/propositional_engine.go", "tests": ["TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"]}],
-      "ownership": ["DDNF source m_expr2tbv vectors are owned by the width-specific tbv_manager; Go preprocessing stores borrowed vector pointers in the equality map and the persistent Registry owns the managers.", "Source m_cache is reset per query while m_trail remains an imp member until engine destruction or backend replacement. Compiler.DetachReferences transfers cached-expression refs into ddnfEngineState.trail; QueryExpression transfers clone-created refs back before clone cleanup; backend replacement and engine Close release the trail.", "The compiled RuleSet independently owns generated rule formulas; Compiler.Close releases query-local maps and only releases refs that were not transferred to the source-lifetime trail. Error paths preserve unconsumed DDNF refs across backend replacement and engine Close; a later Close retries the outstanding releases."],
-      "deviations": ["compile_eq resolves DDNF vectors by the source variable width used by process_eq, correcting the source numeral-width lookup mismatch for extracted constraints.", "The DDNF width registry persists with the selected engine. The first equality lookup internalizes its core; a later insertion into that width is refused by the retained Go ErrCore guard at the source SASSERT boundary rather than silently rebuilding or reusing stale descendants.", "DDNF returns unknown because execute_rules is disabled and get_answer is source-UNREACHABLE; PropositionalEngine.Answer now refuses DDNF instead of falling through to the Datalog relation table, with the DDNF answer/model/certificate regression in TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown.", "The Go DDNF compiler retains source m_trail references in the engine state across queries and query-clone cleanup, then releases them when DDNF is replaced or the engine closes; this corrects premature release at Compiler.Close."]
+      "methods": [
+        {
+          "name": "DDNF interpreted-tail preprocessing and bit-vector equality constraint collection (ddnf.cpp:556-660)",
+          "status": "ported",
+          "go_target": "pkg/muz/ddnf/preprocess.go",
+          "tests": [
+            "TestDDNFPreprocessorRecordsFullAndExtractEqualities",
+            "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint",
+            "TestDDNFPreprocessorTraversesRuleSetAndResetsQueryState",
+            "TestDDNFPreprocessorRejectsUnsupportedAtom",
+            "TestDDNFPreprocessorRejectsQuantifierReachedThroughBooleanConnective",
+            "TestDDNFPreprocessorPrintsFirstRejectedRule"
+          ]
+        },
+        {
+          "name": "DDNF rule compilation into compact bit-vector node-ID domains (ddnf.cpp:691-868)",
+          "status": "ported",
+          "go_target": "pkg/muz/ddnf/compiler.go",
+          "tests": [
+            "TestDDNFPreprocessorAcceptsVariableEqualityWithoutConstraint",
+            "TestDDNFCompilerMapsRefinedEqualityToNodeIDs",
+            "TestDDNFCompilerRewritesPredicateDomainsAndOutput"
+          ]
+        },
+        {
+          "name": "DDNF query-local preprocessing, rule compilation, SMT-LIB HORN dump, and source unknown result while execution remains disabled (ddnf.cpp:507-526,664-676,885-896)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/ddnf_engine.go",
+          "tests": [
+            "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown",
+            "TestDDNFRejectedRuleIsPrintedBeforeUnknown",
+            "TestDDNFRegistryPersistsAcrossQueryClones"
+          ]
+        },
+        {
+          "name": "DDNF core node DAG, insertion/intersection and descendant lookup manager (ddnf.cpp:37-424)",
+          "status": "ported",
+          "go_target": "pkg/muz/ddnf/core.go",
+          "tests": [
+            "TestDDNFCoreSourceIntersectionDAGAndAccumulate",
+            "TestDDNFCoreIndependentFiniteDescendantOracle",
+            "TestDDNFCoreValidationAndClose",
+            "TestDDNFCoreInsertionAllocationRefusalCanRetry"
+          ]
+        },
+        {
+          "name": "Width-indexed DDNF manager registry and lifecycle (ddnf.cpp:428-472)",
+          "status": "ported",
+          "go_target": "pkg/muz/ddnf/registry.go",
+          "tests": [
+            "TestDDNFRegistrySourceWidthsLookupAndFreeze",
+            "TestDDNFRegistryConstructionFailureDoesNotPublishWidth",
+            "TestDDNFRegistryPersistsAcrossQueryClones"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/ddnf_engine_internal_test.go"
+          ]
+        },
+        {
+          "name": "Empty DDNF statistics operations and unreachable answer/certificate path (ddnf.cpp:531-553,885-896)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/propositional_engine.go",
+          "tests": [
+            "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"
+          ]
+        }
+      ],
+      "ownership": [
+        "DDNF source m_expr2tbv vectors are owned by the width-specific tbv_manager; Go preprocessing stores borrowed vector pointers in the equality map and the persistent Registry owns the managers.",
+        "Source m_cache is reset per query while m_trail remains an imp member until engine destruction or backend replacement. Compiler.DetachReferences transfers cached-expression refs into ddnfEngineState.trail; QueryExpression transfers clone-created refs back before clone cleanup; backend replacement and engine Close release the trail.",
+        "The compiled RuleSet independently owns generated rule formulas; Compiler.Close releases query-local maps and only releases refs that were not transferred to the source-lifetime trail. Error paths preserve unconsumed DDNF refs across backend replacement and engine Close; a later Close retries the outstanding releases."
+      ],
+      "deviations": [
+        "compile_eq resolves DDNF vectors by the source variable width used by process_eq, correcting the source numeral-width lookup mismatch for extracted constraints.",
+        "The DDNF width registry persists with the selected engine. The first equality lookup internalizes its core; a later insertion into that width is refused by the retained Go ErrCore guard at the source SASSERT boundary rather than silently rebuilding or reusing stale descendants.",
+        "DDNF returns unknown because execute_rules is disabled and get_answer is source-UNREACHABLE; PropositionalEngine.Answer now refuses DDNF instead of falling through to the Datalog relation table, with the DDNF answer/model/certificate regression in TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown.",
+        "The Go DDNF compiler retains source m_trail references in the engine state across queries and query-clone cleanup, then releases them when DDNF is replaced or the engine closes; this corrects premature release at Compiler.Close."
+      ]
     },
     {
       "path": "src/muz/ddnf/ddnf.h",
@@ -86376,8 +86631,34 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/datalog_token.go", "pkg/cmd_context/datalog_lexer.go", "pkg/cmd_context/datalog_parser.go", "pkg/cmd_context/datalog_parser_errors.go", "pkg/cmd_context/datalog_parser_domains.go", "pkg/cmd_context/datalog_parser_declarations.go", "pkg/cmd_context/datalog_parser_rules.go", "pkg/cmd_context/datalog_parser_terms.go", "pkg/cmd_context/datalog_parser_include.go", "pkg/cmd_context/datalog_parser_constants.go", "pkg/cmd_context/datalog_lexer_test.go", "pkg/cmd_context/datalog_parser_test.go", "pkg/cmd_context/datalog_parser_include_test.go", "pkg/cmd_context/wpa_parser.go", "pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go"],
-      "tests": ["TestDatalogLexer", "TestDatalogParser", "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate"],
+      "go_targets": [
+        "pkg/cmd_context/datalog_token.go",
+        "pkg/cmd_context/datalog_lexer.go",
+        "pkg/cmd_context/datalog_parser.go",
+        "pkg/cmd_context/datalog_parser_errors.go",
+        "pkg/cmd_context/datalog_parser_domains.go",
+        "pkg/cmd_context/datalog_parser_declarations.go",
+        "pkg/cmd_context/datalog_parser_rules.go",
+        "pkg/cmd_context/datalog_parser_terms.go",
+        "pkg/cmd_context/datalog_parser_include.go",
+        "pkg/cmd_context/datalog_parser_constants.go",
+        "pkg/cmd_context/datalog_lexer_test.go",
+        "pkg/cmd_context/datalog_parser_test.go",
+        "pkg/cmd_context/datalog_parser_include_test.go",
+        "pkg/cmd_context/wpa_parser.go",
+        "pkg/cmd_context/wpa_discover.go",
+        "pkg/cmd_context/wpa_map.go",
+        "pkg/cmd_context/wpa_rules.go",
+        "pkg/cmd_context/wpa_relation.go",
+        "pkg/muz/fp/datalog_lexer_test.go"
+      ],
+      "tests": [
+        "TestDatalogLexerSourceTokensAndLocations",
+        "TestDatalogParserFactsPositiveAndNegativeRules",
+        "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
+        "TestWPADirectoryMapsRulesRelationsAndSaturation",
+        "TestWPADirectoryRejectsUnknownTuplePredicate"
+      ],
       "conditionals": [
         {
           "line": 67,
@@ -86496,7 +86777,24 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "wpa_parser_impl directory discovery, map/rule/relation file parsing and finite fact loading (datalog_parser.cpp:1218-1264)", "status": "ported", "go_target": "pkg/cmd_context/wpa_parser.go", "go_targets": ["pkg/cmd_context/wpa_discover.go", "pkg/cmd_context/wpa_map.go", "pkg/cmd_context/wpa_rules.go", "pkg/cmd_context/wpa_relation.go"], "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation", "TestWPADirectoryRejectsUnknownTuplePredicate"]}],
+      "methods": [
+        {
+          "name": "wpa_parser_impl directory discovery, map/rule/relation file parsing and finite fact loading (datalog_parser.cpp:1218-1264)",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/wpa_parser.go",
+          "go_targets": [
+            "pkg/cmd_context/wpa_discover.go",
+            "pkg/cmd_context/wpa_map.go",
+            "pkg/cmd_context/wpa_rules.go",
+            "pkg/cmd_context/wpa_relation.go"
+          ],
+          "tests": [
+            "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
+            "TestWPADirectoryMapsRulesRelationsAndSaturation",
+            "TestWPADirectoryRejectsUnknownTuplePredicate"
+          ]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
@@ -86528,8 +86826,45 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/spacer/fixedpoint_params.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2", "pkg/cmd/g3/test_vectors/fixedpoint_finite_relations.smt2", "pkg/cmd/g3/test_vectors/fixedpoint_pdr_background.smt2", "pkg/cmd/g3/test_vectors/fixedpoint_pdr_recursive_trace.smt2"],
-      "tests": ["TestSMT2FixedpointEmptyProgramQueryMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleNameAndBoundMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointTupleAnswerMatchesCPP", "TestSMT2FixedpointRuleScopesMatchCPP", "TestSMT2FixedpointQueryRefusesUnknownOutputParameters", "TestSMT2FixedpointQueryLocalParametersMatchCPP", "TestSMT2FixedpointPDRStatistics", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP", "TestSMT2FixedpointQueryRefusesUnportedEngine", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestPropositionalEngineSelection", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"],
+      "go_targets": [
+        "pkg/cmd_context/fixedpoint.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/fixedpoint_params.go",
+        "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/muz/spacer/fixedpoint_params.go",
+        "pkg/cmd/g3/main_test.go",
+        "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2",
+        "pkg/cmd/g3/test_vectors/fixedpoint_finite_relations.smt2",
+        "pkg/cmd/g3/test_vectors/fixedpoint_pdr_background.smt2",
+        "pkg/cmd/g3/test_vectors/fixedpoint_pdr_recursive_trace.smt2"
+      ],
+      "tests": [
+        "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
+        "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+        "TestSMT2FixedpointRuleNameAndBoundMatchCPP",
+        "TestSMT2FixedpointFiniteRelationsMatchCPP",
+        "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP",
+        "TestSMT2FixedpointRejectsUnstratifiedNegation",
+        "TestSMT2FixedpointTupleAnswerMatchesCPP",
+        "TestSMT2FixedpointRuleScopesMatchCPP",
+        "TestSMT2FixedpointQueryRefusesUnknownOutputParameters",
+        "TestSMT2FixedpointQueryLocalParametersMatchCPP",
+        "TestSMT2FixedpointPDRStatistics",
+        "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+        "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP",
+        "TestPropositionalEngineMatchesCPPFixedpointQueries",
+        "TestPropositionalEngineExecutesStratifiedNegation",
+        "TestPropositionalEngineScopeGuards",
+        "TestPropositionalEngineSelection",
+        "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
+        "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2",
+        "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"
+      ],
       "assertions": [
         {
           "line": 305,
@@ -86551,19 +86886,53 @@
           "name": "declare-rel, declare-var, named/bounded rule, command-assertion background handoff and declaration-query execution for retained Horn programs, including typed query-local fixedpoint parameters, timeout, answer, PDR certificate and statistics output plus finite tuple-answer formulas (dl_cmds.cpp:64-370)",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2FixedpointEmptyProgramQueryMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleNameAndBoundMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointTupleAnswerMatchesCPP", "TestSMT2FixedpointQueryRefusesUnknownOutputParameters", "TestSMT2FixedpointQueryLocalParametersMatchCPP", "TestSMT2FixedpointPDRStatistics", "TestSMT2FixedpointPDRPrintCertificate", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"]
+          "tests": [
+            "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
+            "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+            "TestSMT2FixedpointRuleNameAndBoundMatchCPP",
+            "TestSMT2FixedpointFiniteRelationsMatchCPP",
+            "TestSMT2FixedpointTupleAnswerMatchesCPP",
+            "TestSMT2FixedpointQueryRefusesUnknownOutputParameters",
+            "TestSMT2FixedpointQueryLocalParametersMatchCPP",
+            "TestSMT2FixedpointPDRStatistics",
+            "TestSMT2FixedpointPDRPrintCertificate",
+            "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+            "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP",
+            "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
+            "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2",
+            "TestSMTLibRunnerScripts/fixedpoint_pdr_background.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_background.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "fixedpoint-push and fixedpoint-pop command dispatch with scoped rule restoration (dl_cmds.cpp:481-525)",
           "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2FixedpointRuleScopesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
+          "tests": [
+            "TestSMT2FixedpointRuleScopesMatchCPP",
+            "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "declare-rel optional finite-table representation symbols (dl_cmds.cpp:376-427)",
           "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMTLibRunnerScripts/fixedpoint_relation_representations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/fixedpoint_relation_representations.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [
@@ -86578,8 +86947,26 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/cmd/g3/main_test.go", "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2", "pkg/cmd/g3/test_vectors/fixedpoint_finite_relations.smt2"],
-      "tests": ["TestSMT2FixedpointEmptyProgramQueryMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRuleNameAndBoundMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointTupleAnswerMatchesCPP", "TestSMT2FixedpointRuleScopesMatchCPP", "TestSMT2FixedpointQueryRefusesUnknownOutputParameters", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2"],
+      "go_targets": [
+        "pkg/cmd_context/fixedpoint.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/cmd/g3/main_test.go",
+        "pkg/cmd/g3/test_vectors/fixedpoint_propositional.smt2",
+        "pkg/cmd/g3/test_vectors/fixedpoint_finite_relations.smt2"
+      ],
+      "tests": [
+        "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
+        "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+        "TestSMT2FixedpointRuleNameAndBoundMatchCPP",
+        "TestSMT2FixedpointFiniteRelationsMatchCPP",
+        "TestSMT2FixedpointTupleAnswerMatchesCPP",
+        "TestSMT2FixedpointRuleScopesMatchCPP",
+        "TestSMT2FixedpointQueryRefusesUnknownOutputParameters",
+        "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
+        "TestSMTLibRunnerScripts/fixedpoint_finite_relations.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_finite_relations.smt2"
+      ],
       "conditionals": [
         {
           "line": 18,
@@ -86597,13 +86984,23 @@
           "name": "Registration surface for the retained declare-rel, rule, and query command subset (dl_cmds.h:23-34)",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2FixedpointEmptyProgramQueryMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"]
+          "tests": [
+            "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
+            "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+            "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2",
+            "TestSMTLibRunnerCPPReference/fixedpoint_propositional.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "Registration surface for retained fixedpoint-push and fixedpoint-pop commands (dl_cmds.h:23-34)",
           "status": "ported",
           "go_target": "pkg/parsers/smt2/commands.go",
-          "tests": ["TestSMT2FixedpointRuleScopesMatchCPP"]
+          "tests": [
+            "TestSMT2FixedpointRuleScopesMatchCPP"
+          ]
         }
       ],
       "ownership": [
@@ -86626,7 +87023,8 @@
         "pkg/muz/fp/ddnf_engine.go",
         "pkg/cmd_context/fixedpoint.go",
         "pkg/muz/fp/tab_engine.go",
-        "pkg/muz/fp/tab_engine_test.go"
+        "pkg/muz/fp/tab_engine_test.go",
+        "pkg/parsers/smt2/bmc_engine_test.go"
       ],
       "tests": [
         "TestBMCEngineRuleTraceAndSnapshot",
@@ -86654,6 +87052,9 @@
             "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP",
             "TestRetainedEngineKindSelectionAndDiagnostics",
             "TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ]
         }
       ],
@@ -86669,8 +87070,23 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/register_engine.go", "pkg/cmd_context/fixedpoint.go"],
-      "tests": ["TestBMCEngineRuleTraceAndSnapshot", "TestSMT2BMCEngineSearch", "TestSMT2CLPEngineConstrainedRules", "TestCLPEngineResultSnapshotAndAnswer", "TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"],
+      "go_targets": [
+        "pkg/muz/fp/clp_engine.go",
+        "pkg/muz/fp/bmc_engine.go",
+        "pkg/muz/fp/register_engine.go",
+        "pkg/cmd_context/fixedpoint.go",
+        "pkg/parsers/smt2/bmc_engine_test.go"
+      ],
+      "tests": [
+        "TestBMCEngineRuleTraceAndSnapshot",
+        "TestSMT2BMCEngineSearch",
+        "TestSMT2CLPEngineConstrainedRules",
+        "TestCLPEngineResultSnapshotAndAnswer",
+        "TestPropositionalEngineSelection",
+        "TestPDREngineMatchesCPPIntegerHornQueries",
+        "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+        "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -86688,7 +87104,15 @@
           "name": "Retained concrete engine-selection surface for Datalog and PDR/Spacer backends (dl_register_engine.h:25-33)",
           "status": "partial",
           "go_target": "pkg/muz/fp/register_engine.go",
-          "tests": ["TestPropositionalEngineSelection", "TestPDREngineMatchesCPPIntegerHornQueries", "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP", "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"]
+          "tests": [
+            "TestPropositionalEngineSelection",
+            "TestPDREngineMatchesCPPIntegerHornQueries",
+            "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
+            "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         }
       ],
       "ownership": [
