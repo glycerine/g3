@@ -46636,9 +46636,9 @@
       "path": "src/cmd_context/extra_cmds/subpaving_cmds.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/subpaving_commands_test.go"],
-      "tests": ["TestSMT2ToSubpavingCommand"],
+      "status": "ported",
+      "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/cmd_context/subpaving_commands_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/subpaving_commands_test.go"],
+      "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"],
       "conditionals": [
         {
           "line": 53,
@@ -46649,24 +46649,24 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Broader display and exceptional-path audit remains open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "non-external unary command, rational term translation and display", "status": "ported", "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"]}],
+      "ownership": ["The command scopes and closes its parameter, numeral, subpaving, expression-mapping and rewriter owners; the input expression and output writer are borrowed."],
+      "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Go propagates writer errors and uses the existing package-specific cleanup services."]
     },
     {
       "path": "src/cmd_context/extra_cmds/subpaving_cmds.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/subpaving_commands_test.go"],
-      "tests": ["TestSMT2ToSubpavingCommand"],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Broader display and exceptional-path audit remains open."]
+      "status": "ported",
+      "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/cmd_context/subpaving_commands_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/subpaving_commands_test.go"],
+      "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "non-external unary command, rational term translation and display", "status": "ported", "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"]}],
+      "ownership": ["The command scopes and closes its parameter, numeral, subpaving, expression-mapping and rewriter owners; the input expression and output writer are borrowed."],
+      "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Go propagates writer errors and uses the existing package-specific cleanup services."]
     },
     {
       "path": "src/cmd_context/interpolant_cmds.cpp",
