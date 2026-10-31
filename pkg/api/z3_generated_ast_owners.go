@@ -48,11 +48,15 @@ func (r *Z3Replayer) astObject(owner *replayContextOwner, position uint32) (*rep
 	if err != nil {
 		return nil, err
 	}
+	return r.astByID(owner, id)
+}
+
+func (r *Z3Replayer) astByID(owner *replayContextOwner, id uint64) (*replayASTOwner, error) {
 	entry := r.asts[id]
 	if entry == nil || entry.owner != owner || owner == nil || owner.results == nil {
 		return nil, ErrZ3ReplayReference
 	}
-	if _, err = owner.results.manager.GetKind(entry.handle); err != nil {
+	if _, err := owner.results.manager.GetKind(entry.handle); err != nil {
 		return nil, err
 	}
 	return entry, nil
