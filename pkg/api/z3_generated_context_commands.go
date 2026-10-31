@@ -63,6 +63,10 @@ func replayCreateContext(r *Z3Replayer, userRef bool) error {
 			return ErrZ3ReplayReference
 		}
 	}
+	return replayCreateContextWithConfig(r, config, userRef)
+}
+
+func replayCreateContextWithConfig(r *Z3Replayer, config *Config, userRef bool) error {
 	if r.nextObjectID == ^uint64(0) {
 		return ErrZ3ReplayState
 	}

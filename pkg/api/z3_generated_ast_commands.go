@@ -30,6 +30,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{128, "Z3_mk_select", replaySelect}, {129, "Z3_mk_select_n", replaySelectN}, {130, "Z3_mk_store", replayStore},
 		{131, "Z3_mk_store_n", replayStoreN}, {132, "Z3_mk_const_array", replayConstArray}, {133, "Z3_mk_map", replayArrayMap}, {134, "Z3_mk_array_default", replayArrayDefault}, {135, "Z3_mk_as_array", replayAsArray},
 		{151, "Z3_mk_unsigned_int", replayUIntNumeral}, {152, "Z3_mk_int64", replayInt64Numeral}, {153, "Z3_mk_unsigned_int64", replayUInt64Numeral},
+		{563, "Z3_mk_interpolant", replayMkInterpolant}, {564, "Z3_mk_interpolation_context", replayMkInterpolationContext},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
