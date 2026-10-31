@@ -1001,6 +1001,29 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "poly/isolate-roots":
+		if p.token == RightParenToken {
+			return false, fmt.Errorf("polynomial expected")
+		}
+		expression, _, err := p.expression()
+		if err != nil {
+			return false, err
+		}
+		var assignments []ast.ASTHandle
+		for p.token != RightParenToken {
+			argument, _, err := p.expression()
+			if err != nil {
+				return false, err
+			}
+			assignments = append(assignments, argument)
+		}
+		if err = p.requireEnd(); err != nil {
+			return false, err
+		}
+		if err = p.context.WritePolynomialRoots(p.out, expression, assignments); err != nil {
+			return false, err
+		}
+		success = false
 	case "poly/factor":
 		expression, _, err := p.expression()
 		if err != nil {

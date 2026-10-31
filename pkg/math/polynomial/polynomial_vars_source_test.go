@@ -40,15 +40,18 @@ func TestPolynomialVarsOriginalDormantAssertions(t *testing.T) {
 	for _, row := range rows {
 		p := parser.evaluate(row.expression)
 		serviceMust(t, m.Vars(p, xs))
-		n, e := xs.size()
+		n, e := xs.Len()
 		serviceMust(t, e)
 		if n != uint32(len(row.want)) {
 			t.Fatalf("%s size %d", row.literal, n)
 		}
 		got := make([]uint32, n)
 		for i := range got {
-			got[i], e = variableAt(xs, uint32(i))
+			got[i], e = xs.At(uint32(i))
 			serviceMust(t, e)
+		}
+		if _, err := xs.At(n); !errors.Is(err, arena.ErrBounds) {
+			t.Fatal("variable vector bounds", err)
 		}
 		sort.Slice(got, func(i, j int) bool { return got[i] < got[j] })
 		for i := range got {

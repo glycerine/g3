@@ -63,6 +63,25 @@ func (d *PolynomialVariableDegrees) size() (uint32, error) {
 	}
 	return uint32(len(d.values)), nil
 }
+
+// Len returns the number of entries in the source variable vector.
+func (d *PolynomialVariableDegrees) Len() (uint32, error) {
+	if err := d.open(); err != nil {
+		return 0, err
+	}
+	return d.size()
+}
+
+// At returns a variable index from a vector filled by Vars.
+func (d *PolynomialVariableDegrees) At(index uint32) (uint32, error) {
+	if err := d.open(); err != nil {
+		return 0, err
+	}
+	if uint64(index) >= uint64(len(d.values)) {
+		return 0, arena.ErrBounds
+	}
+	return d.values[index], nil
+}
 func (d *PolynomialVariableDegrees) resize(n uint32) error {
 	if uint64(n) > uint64(^uint(0)>>1) {
 		return arena.ErrBounds
