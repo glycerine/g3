@@ -169935,9 +169935,15 @@
       "path": "src/tactic/arith/degree_shift_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/arith/degree_shift_collect.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go"
+      ],
+      "tests": [
+        "TestDegreeShiftCandidateGCDAndOrdinaryOccurrences",
+        "TestArithmeticCandidateQuantifierAnnotations"
+      ],
       "assertions": [
         {
           "line": 64,
@@ -169994,9 +170000,24 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "save_degree/visit/visit_args/collect/discard_non_candidates: real-constant exponent GCD collection, ordinary-use exclusion, DAG sharing and quantifier annotations",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/degree_shift_collect.go",
+          "tests": [
+            "TestDegreeShiftCandidateGCDAndOrdinaryOccurrences",
+            "TestArithmeticCandidateQuantifierAnnotations"
+          ]
+        }
+      ],
+      "ownership": [
+        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
+      ],
+      "deviations": [
+        "Pending: cancellation/cooperation checkpoints, initial simplification, rewrite configuration, fresh variables, even-degree bounds, proof/model conversion, lifecycle and public tactic integration.",
+        "New source start only; not registered as an executable tactic and not claimed source-complete."
+      ]
     },
     {
       "path": "src/tactic/arith/degree_shift_tactic.h",
@@ -170383,9 +170404,15 @@
       "path": "src/tactic/arith/eq2bv_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/arith/eq2bv_collect.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go"
+      ],
+      "tests": [
+        "TestEq2BVCandidateBoundsMaximaAndDisqualification",
+        "TestArithmeticCandidateQuantifierAnnotations"
+      ],
       "assertions": [
         {
           "line": 151,
@@ -170422,9 +170449,24 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "collect_fd/is_fd/add_fd/is_var_const_pair/is_bound: observed uint32 maxima, root-bound exclusion and non-finite occurrence removal",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/eq2bv_collect.go",
+          "tests": [
+            "TestEq2BVCandidateBoundsMaximaAndDisqualification",
+            "TestArithmeticCandidateQuantifierAnnotations"
+          ]
+        }
+      ],
+      "ownership": [
+        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
+      ],
+      "deviations": [
+        "Pending: bound-manager integration, cleanup_fd domain sizing, BV rewriting, bound dependencies, model converter, lifecycle and public tactic integration.",
+        "New source start only; not registered as an executable tactic and not claimed source-complete."
+      ]
     },
     {
       "path": "src/tactic/arith/eq2bv_tactic.h",
@@ -174028,9 +174070,15 @@
       "path": "src/tactic/arith/recover_01_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/arith/recover_01_collect.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go",
+        "pkg/tactic/arith/eq2bv_collect.go"
+      ],
+      "tests": [
+        "TestRecover01ClauseShapeSizeAndFirstArity"
+      ],
       "assertions": [
         {
           "line": 199,
@@ -174059,9 +174107,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "save_clause: Boolean literal and single numeral-equality matching, strict size limit and first accepted clause arity",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/recover_01_collect.go",
+          "tests": [
+            "TestRecover01ClauseShapeSizeAndFirstArity"
+          ]
+        }
+      ],
+      "ownership": [
+        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
+      ],
+      "deviations": [
+        "Pending: zero-clause search, literal assignment indexing, complete coefficient recovery, substitutions, model/proof conversion, lifecycle and public tactic integration.",
+        "New source start only; not registered as an executable tactic and not claimed source-complete."
+      ]
     },
     {
       "path": "src/tactic/arith/recover_01_tactic.h",
