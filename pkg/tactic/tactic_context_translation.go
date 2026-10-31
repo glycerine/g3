@@ -6,10 +6,47 @@ package tactic
 
 import (
 	"errors"
+	"fmt"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
+
+// translateContextProbe copies the built-in probe tree into the target budget.
+// Subsystem probes need their own target services and are rejected for now.
+func translateContextProbe(value ProbeEvaluator, budget *arena.Budget) (result ProbeEvaluator, resultErr error) {
+	p, ok := value.(*Probe)
+	if !ok {
+		return nil, fmt.Errorf("tactic: cross-context translation of this probe is not yet supported")
+	}
+	if err := p.Check(); err != nil {
+		return nil, err
+	}
+	if p.left == nil {
+		return NewProbe(budget, p.kind, p.constant)
+	}
+	left, err := translateContextProbe(p.left, budget)
+	if err != nil {
+		return nil, err
+	}
+	if err = left.IncRef(); err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, left.DecRef()) }()
+	if p.right == nil {
+		return NewNotProbe(budget, left)
+	}
+	right, err := translateContextProbe(p.right, budget)
+	if err != nil {
+		return nil, err
+	}
+	if err = right.IncRef(); err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, right.DecRef()) }()
+	return NewBinaryProbe(budget, p.kind, left, right)
+}
 
 // TranslateWithContext rebuilds supported tactic compositions for a target
 // parameter service. translateLeaf handles the concrete subsystem tactics;
@@ -104,6 +141,34 @@ func TranslateWithContext(value Tactic, m *ast.ASTManager, params *uparams.Param
 			return nil, err
 		}
 		return newUnaryTactic(t.kind, c, t.threshold)
+	case *conditionalTactic:
+		if err := t.open(); err != nil {
+			return nil, err
+		}
+		var probe ProbeEvaluator
+		if t.probe != nil {
+			var err error
+			probe, err = translateContextProbe(t.probe, m.Budget())
+			if err != nil {
+				return nil, err
+			}
+			if err = probe.IncRef(); err != nil {
+				return nil, err
+			}
+			defer func() { resultErr = errors.Join(resultErr, probe.DecRef()) }()
+		}
+		first, err := child(t.thenTactic)
+		if err != nil {
+			return nil, err
+		}
+		var second Tactic
+		if t.elseTactic != nil {
+			second, err = child(t.elseTactic)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return newConditionalTactic(t.kind, probe, first, second)
 	default:
 		return translateLeaf(value)
 	}

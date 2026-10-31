@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -713,6 +714,56 @@ func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
 			astTestMust(t, err)
 			if !m.IsTrue(h) {
 				t.Fatal("model fails assertion", h)
+			}
+		})
+	}
+}
+
+func TestAPIConditionalTacticCrossContextTranslation(t *testing.T) {
+	for _, invert := range []bool{false, true} {
+		t.Run(fmt.Sprintf("invert=%v", invert), func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			size, err := source.GoalProbe(APIGoalProbeSize)
+			astTestMust(t, err)
+			zero, err := source.ConstantProbe(0)
+			astTestMust(t, err)
+			positive, err := size.Compare(APIProbeGreater, zero)
+			astTestMust(t, err)
+			probe, err := positive.Not()
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			fail, err := source.FailTactic()
+			astTestMust(t, err)
+			var conditional *APITactic
+			if invert {
+				conditional, err = probe.Conditional(fail, smt)
+			} else {
+				conditional, err = positive.Conditional(smt, fail)
+			}
+			astTestMust(t, err)
+			s, err := source.NewSolverFromTactic(conditional)
+			astTestMust(t, err)
+			for _, value := range []*APITactic{conditional, smt, fail} {
+				astTestMust(t, value.Close())
+			}
+			for _, value := range []*APIProbe{probe, positive, zero, size} {
+				astTestMust(t, value.Close())
+			}
+			astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
+			translated, err := s.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, s.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("translated conditional", status)
 			}
 		})
 	}
