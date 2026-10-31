@@ -445,14 +445,40 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) (resultErr error) {
 	mark := c.local.checkpoint()
 	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
+	m := c.t.manager
+	sort := c.local.hold(m.BitVectorSort(c.numBits))
+	if c.local.err != nil {
+		return c.local.err
+	}
 	c.satPreserving = false
-	s, err := c.fresh(variable, "", c.numBits)
+	variableDecl, err := m.GetDecl(variable)
 	if err != nil {
 		return err
 	}
-	t, err := c.fresh(variable, "_r", c.numBits)
+	name, err := m.GetASTName(variableDecl)
 	if err != nil {
 		return err
+	}
+	text, err := m.Symbols.String(name)
+	if err != nil {
+		return err
+	}
+	s := c.local.hold(m.MkFreshConst(text, sort))
+	if c.local.err != nil {
+		return c.local.err
+	}
+	t := c.local.hold(m.MkFreshConst(text+"_r", sort))
+	if c.local.err != nil {
+		return c.local.err
+	}
+	for _, coefficient := range []ast.ASTHandle{s, t} {
+		declaration, err := m.GetDecl(coefficient)
+		if err != nil {
+			return err
+		}
+		if err = c.filter.Insert(declaration); err != nil {
+			return err
+		}
 	}
 	encoded := c.local.encodingOwned(s, t, &c.real.defaults[1], &c.real.defaults[0])
 	if err = c.appendOwned(&c.trail, encoded); err != nil {

@@ -171657,7 +171657,8 @@
         "pkg/tactic/arith/nla2bv_numeric_test.go",
         "pkg/tactic/arith/nla2bv_numeric_checked_test.go",
         "pkg/tactic/arith/nla2bv_width_read_test.go",
-        "pkg/tactic/arith/nla2bv_integer_numeric_test.go"
+        "pkg/tactic/arith/nla2bv_integer_numeric_test.go",
+        "pkg/tactic/arith/nla2bv_real_prefix_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171687,7 +171688,9 @@
         "TestNLA2BVWidthReadAndAbsoluteAssignmentFailureFrontiers",
         "TestNLA2BVBoundedBitsProjectArithmeticAndFailureFrontiers",
         "TestNLA2BVIntegerDefinitionProjectBoundsAndCachedOffset",
-        "TestNLA2BVUnboundedOffsetCacheFailureFrontiers"
+        "TestNLA2BVUnboundedOffsetCacheFailureFrontiers",
+        "TestNLA2BVRealSortFailurePrecedesPrecisionDowngrade",
+        "TestNLA2BVRealCoefficientCreationPrecedesFilterPublication"
       ],
       "assertions": [
         {
@@ -171850,6 +171853,18 @@
             "TestNLA2BVIntegerDefinitionProjectBoundsAndCachedOffset",
             "TestNLA2BVUnboundedOffsetCacheFailureFrontiers"
           ]
+        },
+        {
+          "name": "imp::add_real_var source sort/precision and both-factories-before-filter publication order",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/nla2bv_rules.go",
+          "go_targets": [
+            "pkg/tactic/arith/nla2bv_real_prefix_test.go"
+          ],
+          "tests": [
+            "TestNLA2BVRealSortFailurePrecedesPrecisionDowngrade",
+            "TestNLA2BVRealCoefficientCreationPrecedesFilterPublication"
+          ]
         }
       ],
       "ownership": [
@@ -171860,7 +171875,8 @@
         "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order.",
         "Both live width call sites now use the project-rational log2 loop. The concrete pow receiver survives each physical compound multiplication invocation; source-ready and false/true/context cleanup retire successful invocations, while failed invocations keep lower roots until receiver destruction. The local two and imported boundary operand end at their helper scopes; failed cleanup attaches to the existing numeric call owner. Source width state is updated only after helper success. BoundManager Go rational values remain a concrete input boundary; span and absolute-value arithmetic are now project-owned.",
         "update_num_bits copies the actual arithmetic numeral through its concrete numeric invocation before testing the integer flag. Integer inputs use project Abs plus physical receiver CopyWithInvocation, destroy the absolute temporary before log2 and update the width only after successful arithmetic. Read/copy failure roots are retired before releasing parents, with stopped cleanup attached to the numeric call owner. Real-valued numerals still perform their source copy before refusal. Native string parsing and native big.Rat absolute values no longer drive this path; bounded-span arithmetic now uses separate project numeric temporaries.",
-        "Integer bounds enter project owners at the BoundManager Go-rational boundary. The bounded-width full expression owns project subtraction, absolute-value, one and addition results through log2; all temporaries close before declaration construction, while the original bound owners survive for numeral offsets. Lower-zero testing and lower/upper arithmetic numeral construction read the actual project owners. Unbounded midpoint construction calls source PowerOfTwo and preserves its completed cache prefix on refusal, with the returned copy owned through numeral construction. The native-rational log2 import adapter is test-only; no production native span or midpoint arithmetic remains."
+        "Integer bounds enter project owners at the BoundManager Go-rational boundary. The bounded-width full expression owns project subtraction, absolute-value, one and addition results through log2; all temporaries close before declaration construction, while the original bound owners survive for numeral offsets. Lower-zero testing and lower/upper arithmetic numeral construction read the actual project owners. Unbounded midpoint construction calls source PowerOfTwo and preserves its completed cache prefix on refusal, with the returned copy owned through numeral construction. The native-rational log2 import adapter is test-only; no production native span or midpoint arithmetic remains.",
+        "Real-variable encoding owns the BV sort before changing sat-preserving state, then owns both fresh coefficient applications before publishing either filter declaration. Filters acquire the first then second declaration in source order and survive later encoding/reconstruction failures. The sort and coefficient helper references close after definition handoff or failure; persistent trail, substitution, variable and model-definition owners keep completed outputs alive. Failure tests fill real AST pages with live constants and observe actual fresh-name counter and filter state without mutating internal stage metadata."
       ],
       "deviations": [
         "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; the live power-two map now preserves source hash-bucket traversal order. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
