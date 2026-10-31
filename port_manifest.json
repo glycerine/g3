@@ -6019,7 +6019,8 @@
         "TestGeneratedASTVectorReplayClosesIncompleteLog",
         "TestZ3LogFrontendReplaysASTVector",
         "TestGeneratedModelUniverseVectorReplay",
-        "TestGeneratedSolverAssertionAndCoreVectorsReplay"
+        "TestGeneratedSolverAssertionAndCoreVectorsReplay",
+        "TestGeneratedSolverConsequencesReplayAppendsOutput"
       ],
       "methods_audited": false,
       "ownership_audited": false,

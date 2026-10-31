@@ -134,3 +134,73 @@ func TestGeneratedSolverAssertionAndCoreVectorsReplay(t *testing.T) {
 		t.Fatal("missing solver vector checks", checks)
 	}
 }
+
+func TestGeneratedSolverConsequencesReplayAppendsOutput(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |p|\nP 0x42\nC 51\n= 0x43\n" +
+		"R\nP 0x41\nC 54\n= 0x44\nR\nP 0x41\nC 408\n= 0x45\nR\nP 0x41\nP 0x45\nC 416\nR\nP 0x41\nP 0x45\nP 0x43\nC 422\n" +
+		"R\nP 0x41\nC 447\n= 0x46\nR\nP 0x41\nP 0x46\nC 448\nR\nP 0x41\nC 447\n= 0x47\nR\nP 0x41\nP 0x47\nC 448\n" +
+		"R\nP 0x41\nP 0x47\nP 0x43\nC 454\nR\nP 0x41\nC 447\n= 0x48\nR\nP 0x41\nP 0x48\nC 448\nR\nP 0x41\nP 0x48\nP 0x44\nC 454\n" +
+		"R\nP 0x41\nP 0x45\nP 0x46\nP 0x47\nP 0x48\nC 430\nR\nP 0x41\nP 0x45\nC 417\n" +
+		"R\nP 0x41\nP 0x48\nP 0x44\nP 0x42\nC 900\nR\nP 0x41\nP 0x46\nC 449\nR\nP 0x41\nP 0x47\nC 449\nR\nP 0x41\nP 0x48\nC 449\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	for _, reg := range []func(*Z3Replayer) error{RegisterZ3GeneratedContextCommands, RegisterZ3GeneratedASTCommands, RegisterZ3GeneratedSolverCommands} {
+		if err = reg(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-consequence-vector", func(r *Z3Replayer) error {
+		v, e := replayGetVector(r)
+		if e != nil {
+			return e
+		}
+		existing, e := r.astObject(v.owner, 2)
+		if e != nil {
+			return e
+		}
+		boolSort, e := r.astObject(v.owner, 3)
+		if e != nil {
+			return e
+		}
+		size, e := v.value.Len()
+		if e != nil {
+			return e
+		}
+		if size != 2 {
+			t.Fatal("consequences were not appended", size)
+		}
+		first, e := v.value.At(0)
+		if e != nil {
+			return e
+		}
+		second, e := v.value.At(1)
+		if e != nil {
+			return e
+		}
+		sort, e := v.owner.context.SortOf(second)
+		if e != nil {
+			return e
+		}
+		if first != existing.handle || sort != boolSort.handle {
+			t.Fatal("consequence vector contents")
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("consequences were not checked")
+	}
+}

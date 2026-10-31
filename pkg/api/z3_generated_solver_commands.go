@@ -54,6 +54,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
 		{424, "Z3_solver_get_assertions", func(r *Z3Replayer) error { return replaySolverVector(r, false) }},
 		{433, "Z3_solver_get_unsat_core", func(r *Z3Replayer) error { return replaySolverVector(r, true) }},
+		{430, "Z3_solver_get_consequences", replaySolverConsequences},
 		{426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},
 		{428, "Z3_solver_check_assumptions", replaySolverCheckAssumptions}, {434, "Z3_solver_get_reason_unknown", replaySolverReasonUnknown},
 		{436, "Z3_solver_to_string", replaySolverString},
@@ -300,4 +301,51 @@ func replaySolverVector(r *Z3Replayer, core bool) (err error) {
 		return err
 	}
 	return replayStoreVector(r, s.owner, vector)
+}
+
+func replaySolverConsequences(r *Z3Replayer) (err error) {
+	s, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	assumptions, err := replayVectorAt(r, s.owner, 2)
+	if err != nil {
+		return err
+	}
+	variables, err := replayVectorAt(r, s.owner, 3)
+	if err != nil {
+		return err
+	}
+	output, err := replayVectorAt(r, s.owner, 4)
+	if err != nil {
+		return err
+	}
+	av, err := assumptions.value.Values()
+	if err != nil {
+		return err
+	}
+	vv, err := variables.value.Values()
+	if err != nil {
+		return err
+	}
+	_, refs, err := s.value.Consequences(av, vv)
+	if err != nil {
+		return err
+	}
+	manager := s.owner.results.manager
+	defer func() {
+		for i := range refs {
+			err = errors.Join(err, manager.DelRef(&refs[i]))
+		}
+	}()
+	for i := range refs {
+		value, e := manager.RefGet(refs[i])
+		if e != nil {
+			return e
+		}
+		if e = output.value.Push(value); e != nil {
+			return e
+		}
+	}
+	return nil
 }

@@ -67,7 +67,10 @@ func replayGetVector(r *Z3Replayer) (*replayASTVector, error) {
 	if err != nil {
 		return nil, err
 	}
-	id, err := r.Object(1)
+	return replayVectorAt(r, owner, 1)
+}
+func replayVectorAt(r *Z3Replayer, owner *replayContextOwner, position uint32) (*replayASTVector, error) {
+	id, err := r.Object(position)
 	if err != nil {
 		return nil, err
 	}
