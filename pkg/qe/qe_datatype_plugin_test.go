@@ -83,3 +83,107 @@ func TestDatatypeSolverPluginNonRecursiveBranches(t *testing.T) {
 		t.Fatal("closed plugin", err)
 	}
 }
+
+func TestDatatypeSolverPluginBranchAssignment(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	m, f := d.f.r.manager, d.f
+	x := f.constant("qe-recursive-list", d.list)
+	truth := f.own(m.MkTrue())
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	p, err := NewDatatypeSolverPlugin(ctx)
+	fmMust(t, err)
+	fmMust(t, ctx.AddPlugin(p))
+	defer func() { fmMust(t, ctx.Close()) }()
+	service := m.NumeralService()
+	count, err := service.NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, service.CleanupValue(&count)) }()
+	ok, err := p.GetNumBranches(contains, truth, &count)
+	fmMust(t, err)
+	n, err := service.Unsigned(&count)
+	fmMust(t, err)
+	if !ok || n != 2 {
+		t.Fatal("recursive constructor branch count", ok, n)
+	}
+	branch, err := service.NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, service.CleanupValue(&branch)) }()
+	fmMust(t, service.SetUnsigned(&branch, 1))
+	fmMust(t, p.Assign(contains, truth, &branch))
+	constraints, err := p.TakeConstraints()
+	fmMust(t, err)
+	if len(constraints) != 1 || !constraints[0].UseVariable {
+		t.Fatal("branch constraints", len(constraints))
+	}
+	condition, err := m.RefGet(constraints[0].Formula)
+	fmMust(t, err)
+	if condition != d.app(d.consTest, x) {
+		t.Fatal("recursive constructor recognizer")
+	}
+	fmMust(t, m.DelRef(&constraints[0].Formula))
+	recognized := d.app(d.consTest, x)
+	ok, err = p.GetNumBranches(contains, recognized, &count)
+	fmMust(t, err)
+	if ok {
+		t.Fatal("recursive recognized equality path is not yet implemented")
+	}
+	if err = p.Assign(contains, recognized, &branch); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("unsupported recursive assignment", err)
+	}
+	head := d.app(d.listFields[0], x)
+	headEq := f.own(m.MkEq(head, f.number("1")))
+	withSelector := f.own(m.MkAnd(recognized, headEq))
+	ok, err = p.GetNumBranches(contains, withSelector, &count)
+	fmMust(t, err)
+	n, err = service.Unsigned(&count)
+	fmMust(t, err)
+	if !ok || n != 1 {
+		t.Fatal("recognized recursive selector", ok, n)
+	}
+	fmMust(t, service.SetUnsigned(&branch, 0))
+	fmMust(t, p.Assign(contains, withSelector, &branch))
+	constraints, err = p.TakeConstraints()
+	fmMust(t, err)
+	if len(constraints) != 0 {
+		t.Fatal("recognized selector adds no constraint")
+	}
+	nilTest, err := m.DatatypeConstructorRecognizer(d.nilCtor)
+	fmMust(t, err)
+	otherRecognizer := d.app(nilTest, x)
+	wrongSelector := f.own(m.MkAnd(otherRecognizer, headEq))
+	ok, err = p.GetNumBranches(contains, wrongSelector, &count)
+	fmMust(t, err)
+	if ok {
+		t.Fatal("selector from another constructor must not match")
+	}
+	color := f.constant("qe-enum-color", d.color)
+	colorContains, err := ast.NewContainsApp(m, color)
+	fmMust(t, err)
+	defer func() { fmMust(t, colorContains.Close()) }()
+	ok, err = p.GetNumBranches(colorContains, truth, &count)
+	fmMust(t, err)
+	n, err = service.Unsigned(&count)
+	fmMust(t, err)
+	if !ok || n != 2 {
+		t.Fatal("enum branch count", ok, n)
+	}
+	fmMust(t, service.SetUnsigned(&branch, 1))
+	fmMust(t, p.Assign(colorContains, truth, &branch))
+	constraints, err = p.TakeConstraints()
+	fmMust(t, err)
+	if len(constraints) != 1 {
+		t.Fatal("enum branch constraint count", len(constraints))
+	}
+	condition, err = m.RefGet(constraints[0].Formula)
+	fmMust(t, err)
+	blueTest, err := m.DatatypeConstructorRecognizer(d.blue)
+	fmMust(t, err)
+	if condition != d.app(blueTest, color) {
+		t.Fatal("enum branch recognizer")
+	}
+	fmMust(t, m.DelRef(&constraints[0].Formula))
+}

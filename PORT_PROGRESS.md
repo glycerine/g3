@@ -1,3 +1,5 @@
+Datatype QE recursive branch increment (2026-10-31 UTC): added solver-style branch counting and owned assignment constraints for unrecognized recursive constructors, plus the existing-recognizer matching-selector case. Recursive equality branching, constructor substitution and automatic strategy integration remain pending.
+
 Datatype QE solver plugin source start (2026-10-31 UTC): implemented source non-recursive constructor branch counts, recognizer scanning and branch constraint construction in a concrete SolverContext plugin. Recursive datatype branching, substitution and strategy integration remain pending.
 
 Core API header source start (2026-10-31 UTC): recorded existing Go context, solver and numeral functionality against z3_api.h and z3_private.h. Added tests for copied rational results from arithmetic, bit-vector and finite-domain numerals; the large API header and ABI remain unaudited.

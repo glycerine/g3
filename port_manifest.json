@@ -107426,7 +107426,8 @@
         "pkg/qe/qe_datatype_plugin_test.go"
       ],
       "tests": [
-        "TestDatatypeSolverPluginNonRecursiveBranches"
+        "TestDatatypeSolverPluginNonRecursiveBranches",
+        "TestDatatypeSolverPluginBranchAssignment"
       ],
       "assertions": [
         {
@@ -107536,13 +107537,21 @@
           "tests": [
             "TestDatatypeSolverPluginNonRecursiveBranches"
           ]
+        },
+        {
+          "name": "recursive constructor and matching-selector branches; assignment constraints",
+          "status": "partial",
+          "go_target": "pkg/qe/qe_datatype_plugin.go",
+          "tests": [
+            "TestDatatypeSolverPluginBranchAssignment"
+          ]
         }
       ],
       "ownership": [
-        "The plugin borrows its solver context and AST manager; returned branch recognizer references are owned by the caller."
+        "The plugin borrows its solver context and AST manager, owns queued constraint references and transfers them to callers via TakeConstraints."
       ],
       "deviations": [
-        "Pending recursive datatype branching, constructor substitution, atom collection, foreign-variable lifting and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
+        "Pending recursive equality/disequality branching, constructor substitution, foreign-variable lifting and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
       ]
     },
     {

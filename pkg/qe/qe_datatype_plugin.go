@@ -8,16 +8,18 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // DatatypeSolverPlugin implements the non-recursive datatype branch of the
 // QE solver plugin. Recursive branching and substitution are still pending.
 type DatatypeSolverPlugin struct {
-	self    *DatatypeSolverPlugin
-	context *SolverContext
-	manager *ast.ASTManager
-	family  ast.FamilyID
-	closed  bool
+	self        *DatatypeSolverPlugin
+	context     *SolverContext
+	manager     *ast.ASTManager
+	family      ast.FamilyID
+	constraints []ArithmeticConstraint
+	closed      bool
 }
 
 func NewDatatypeSolverPlugin(context *SolverContext) (*DatatypeSolverPlugin, error) {
@@ -75,59 +77,227 @@ func (p *DatatypeSolverPlugin) Close() error {
 	if p == nil || p.self != p {
 		return ast.ErrASTHandle
 	}
+	for len(p.constraints) != 0 {
+		i := len(p.constraints) - 1
+		if err := p.manager.DelRef(&p.constraints[i].Formula); err != nil {
+			return err
+		}
+		p.constraints = p.constraints[:i]
+	}
 	p.closed = true
 	return nil
 }
 
-func (p *DatatypeSolverPlugin) hasRecognizer(variable, formula ast.ASTHandle) (found bool, err error) {
-	conjunction, err := NewConjunctionEnum(p.manager, formula)
+// GetNumBranches follows the source constructor cases. Recursive variables
+// with a recognizer but no matching selector require the pending equality path.
+func (p *DatatypeSolverPlugin) GetNumBranches(variable *ast.ContainsApp, formula ast.ASTHandle, out *numeral.OwnedRational) (bool, error) {
+	if err := p.open(); err != nil {
+		return false, err
+	}
+	if variable == nil || out == nil {
+		return false, ast.ErrASTHandle
+	}
+	target, err := variable.Target()
 	if err != nil {
 		return false, err
+	}
+	count, supported, err := p.NonRecursiveBranches(target, formula)
+	if err != nil {
+		return false, err
+	}
+	if !supported {
+		constructor, found, e := p.findRecognizer(target, formula)
+		if e != nil {
+			return false, e
+		}
+		if found {
+			selector, e := p.hasSelector(target, formula, constructor)
+			if e != nil || !selector {
+				return false, e
+			}
+			return true, p.manager.NumeralService().SetUnsigned(out, 1)
+		}
+		sort, e := p.manager.GetSort(target)
+		if e != nil {
+			return false, e
+		}
+		constructors, e := p.manager.DatatypeConstructors(sort)
+		if e != nil {
+			return false, e
+		}
+		count, supported = uint32(len(constructors)), true
+	}
+	return supported, p.manager.NumeralService().SetUnsigned(out, count)
+}
+
+// Assign publishes constructor recognizers as owned branch constraints.
+func (p *DatatypeSolverPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHandle, value *numeral.OwnedRational) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if variable == nil || value == nil {
+		return ast.ErrASTHandle
+	}
+	service := p.manager.NumeralService()
+	unsigned, err := service.IsUnsigned(value)
+	if err != nil {
+		return err
+	}
+	if !unsigned {
+		return ast.ErrASTDomain
+	}
+	branch, err := service.Unsigned(value)
+	if err != nil {
+		return err
+	}
+	target, err := variable.Target()
+	if err != nil {
+		return err
+	}
+	sort, err := p.manager.GetSort(target)
+	if err != nil {
+		return err
+	}
+	recursive, err := p.manager.DatatypeIsRecursive(sort)
+	if err != nil {
+		return err
+	}
+	var ref ast.ASTRef
+	if !recursive {
+		ref, err = p.NonRecursiveBranchConstraint(target, formula, branch)
+	} else {
+		constructor, found, e := p.findRecognizer(target, formula)
+		if e != nil {
+			return e
+		}
+		if found {
+			selector, e := p.hasSelector(target, formula, constructor)
+			if e != nil {
+				return e
+			}
+			if !selector || branch != 0 {
+				return ast.ErrASTDomain
+			}
+			return nil
+		}
+		constructors, e := p.manager.DatatypeConstructors(sort)
+		if e != nil {
+			return e
+		}
+		if uint64(branch) >= uint64(len(constructors)) {
+			return ast.ErrASTDomain
+		}
+		recognizer, e := p.manager.DatatypeConstructorRecognizer(constructors[branch])
+		if e != nil {
+			return e
+		}
+		application, e := p.manager.MkApp(recognizer, []ast.ASTHandle{target})
+		if e != nil {
+			return e
+		}
+		ref, err = p.manager.NewRef(application)
+	}
+	if err != nil {
+		return err
+	}
+	if ref != (ast.ASTRef{}) {
+		p.constraints = append(p.constraints, ArithmeticConstraint{UseVariable: true, Formula: ref})
+	}
+	return nil
+}
+
+// TakeConstraints transfers the generated formula references to the caller.
+func (p *DatatypeSolverPlugin) TakeConstraints() ([]ArithmeticConstraint, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	result := p.constraints
+	p.constraints = nil
+	return result, nil
+}
+
+func (p *DatatypeSolverPlugin) findRecognizer(variable, formula ast.ASTHandle) (constructor ast.ASTHandle, found bool, err error) {
+	conjunction, err := NewConjunctionEnum(p.manager, formula)
+	if err != nil {
+		return constructor, false, err
 	}
 	defer func() { err = errors.Join(err, conjunction.Close()) }()
 	count, err := conjunction.Len()
 	if err != nil {
-		return false, err
+		return constructor, false, err
 	}
 	for i := uint32(0); i < count; i++ {
 		h, e := conjunction.At(i)
 		if e != nil {
-			return false, e
+			return constructor, false, e
 		}
 		kind, e := p.manager.GetKind(h)
 		if e != nil {
-			return false, e
+			return constructor, false, e
 		}
 		if kind != ast.ASTApp {
 			continue
 		}
 		family, e := p.manager.GetFamilyID(h)
 		if e != nil {
-			return false, e
+			return constructor, false, e
 		}
 		if family != p.family {
 			continue
 		}
 		decl, e := p.manager.GetDecl(h)
 		if e != nil {
-			return false, e
+			return constructor, false, e
 		}
-		_, matched, e := p.manager.DatatypeRecognizerConstructor(decl)
+		candidate, matched, e := p.manager.DatatypeRecognizerConstructor(decl)
 		if e != nil {
-			return false, e
+			return constructor, false, e
 		}
 		if !matched {
 			continue
 		}
 		argument, e := p.manager.GetArg(h, 0)
 		if e != nil {
-			return false, e
+			return constructor, false, e
 		}
 		if argument == variable {
-			return true, nil
+			return candidate, true, nil
 		}
 	}
-	return false, nil
+	return constructor, false, nil
+}
+
+func (p *DatatypeSolverPlugin) hasRecognizer(variable, formula ast.ASTHandle) (bool, error) {
+	_, found, err := p.findRecognizer(variable, formula)
+	return found, err
+}
+
+func (p *DatatypeSolverPlugin) hasSelector(variable, formula, constructor ast.ASTHandle) (found bool, err error) {
+	check, err := ast.NewCheckPredicate(p.manager, func(h ast.ASTHandle) (bool, error) {
+		kind, e := p.manager.GetKind(h)
+		if e != nil || kind != ast.ASTApp {
+			return false, e
+		}
+		family, e := p.manager.GetFamilyID(h)
+		if e != nil || family != p.family {
+			return false, e
+		}
+		decl, e := p.manager.GetDecl(h)
+		if e != nil {
+			return false, e
+		}
+		_, matched, e := p.manager.DatatypeAccessorIndex(decl, constructor)
+		if e != nil || !matched {
+			return false, e
+		}
+		arg, e := p.manager.GetArg(h, 0)
+		return arg == variable, e
+	})
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, check.Close()) }()
+	return check.Check(formula)
 }
 
 // NonRecursiveBranches returns the source branch count and whether the target
