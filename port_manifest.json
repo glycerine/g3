@@ -122644,14 +122644,14 @@
       "path": "src/shell/z3_log_frontend.cpp",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/z3_log_frontend.go", "pkg/api/z3_log_frontend_test.go"],
+      "tests": ["TestZ3LogFrontendReplaysAndReports", "TestZ3LogFrontendReportsParseFailureAndWriterError"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The stream solve path uses the concrete Go replay parser and process CPU/memory services; API-command registration, file selection and shell dispatch remain unported. The Go driver borrows a configured replayer to avoid a shell-to-api import cycle."]
     },
     {
       "path": "src/shell/z3_log_frontend.h",
