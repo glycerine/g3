@@ -1,3 +1,5 @@
+Datatype constructor frontend integration (2026-10-31 UTC): normal and checked command-line tests replay constructor creation, datatype construction and query.
+
 Generated datatype build and query replay (2026-10-31 UTC): connected single and mutually recursive datatype construction and constructor query outputs. Normal and checked tests verify accessor behavior and cross-recursive sorts after temporary owners are released.
 
 Generated datatype constructor replay lifecycle (2026-10-31 UTC): connected typed constructor and non-owning list creation and deletion. Normal and checked tests verify ownership, incomplete-log cleanup and array bounds; datatype building and constructor query replay remain unfinished.

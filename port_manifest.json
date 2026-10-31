@@ -6127,7 +6127,8 @@
         "TestGeneratedDatatypeConstructorReplayLifecycle",
         "TestGeneratedDatatypeConstructorReplayRejectsShortArrays",
         "TestGeneratedDatatypeConstructorReplayBuildAndQuery",
-        "TestGeneratedDatatypeConstructorReplayMutualRecursion"
+        "TestGeneratedDatatypeConstructorReplayMutualRecursion",
+        "TestZ3LogFrontendReplaysDatatypeConstructors"
       ],
       "methods_audited": false,
       "ownership_audited": false,

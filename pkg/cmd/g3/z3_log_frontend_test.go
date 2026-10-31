@@ -236,3 +236,16 @@ func TestZ3LogFrontendReplaysRCFRational(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysDatatypeConstructors(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\n$ |nil|\n$ |is-nil|\nU 0\ns 0\np 0\nu 0\nC 42\n= 0x42\n" +
+		"R\nP 0x41\n$ |List|\nU 1\nP 0x42\np 1\nC 44\n= 0x43\nR\nP 0x41\nP 0x42\nU 0\nP 0\nP 0\np 0\nC 48\n* 0x44 3\n" +
+		"R\nP 0x41\nP 0x42\nC 43\nM \"datatype-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "datatype-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}
