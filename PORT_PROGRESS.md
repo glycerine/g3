@@ -52282,3 +52282,5 @@ Sparse functional-column join integration: when the sparse indexed plugin declin
 Sparse projection integration: route functional sparse tables through the existing source-aware projection path, including projections after the newly integrated functional-column join. Tests check that functional metadata and the projected row survive the combined operation.
 
 Arithmetic simplifier source driver: translated its active pair of integer equation rows and checked the returned contradiction witness with the integer GCD test. The source's earlier two examples are disabled by #if 0.
+
+Polynomial normalization source driver started: recreated both source expressions and checked their simplified values over nine integer assignments each. The source's diagnostic decomposition into coefficients and factors remains open.

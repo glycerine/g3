@@ -208277,9 +208277,9 @@
       "path": "src/test/polynorm.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/polynorm_cpp_driver_test.go"],
+      "tests": ["TestPolynomialNormalizationSourceExamples"],
       "conditionals": [
         {
           "line": 119,
@@ -208324,7 +208324,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The two source polynomial expressions are simplified and evaluated on a grid of integer inputs. The source diagnostic coefficient/factor decomposition remains open."]
     },
     {
       "path": "src/test/prime_generator.cpp",
