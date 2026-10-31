@@ -196162,8 +196162,20 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/smtlogics/qfufnra_tactic.go", "pkg/tactic/nlsat_smt/nl_purify_tactic.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_descriptions.go", "pkg/parsers/smt2/qfufnra_tactic_test.go"],
-      "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestSMT2QFUFNRATacticUnsatCore", "TestNLPurifyCooperatingSolversMixedSatisfiability", "TestNLPurifyTacticReuseAfterCleanup"],
+      "go_targets": [
+        "pkg/tactic/smtlogics/qfufnra_tactic.go",
+        "pkg/tactic/nlsat_smt/nl_purify_tactic.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/parsers/smt2/qfufnra_tactic_test.go"
+      ],
+      "tests": [
+        "TestSMT2QFUFNRATacticMixedArithmetic",
+        "TestSMT2QFUFNRATacticUnsatCore",
+        "TestNLPurifyCooperatingSolversMixedSatisfiability",
+        "TestNLPurifyTacticReuseAfterCleanup"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -196176,9 +196188,25 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "QF_UFNRA tactic construction and command registration", "status": "partial", "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go", "tests": ["TestSMT2QFUFNRATacticMixedArithmetic", "TestNLPurifyCooperatingSolversMixedSatisfiability"]}],
+      "methods": [
+        {
+          "name": "QF_UFNRA tactic construction and command registration",
+          "status": "partial",
+          "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go",
+          "tests": [
+            "TestSMT2QFUFNRATacticMixedArithmetic",
+            "TestNLPurifyCooperatingSolversMixedSatisfiability"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/qfufnra_tactic_test.go",
+            "pkg/tactic/nlsat_smt/nl_purify_solve_test.go"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": ["Arithmetic purification uses the existing real-arithmetic specialization; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."]
+      "deviations": [
+        "Arithmetic purification uses the existing real-arithmetic specialization; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."
+      ]
     },
     {
       "path": "src/tactic/smtlogics/quant_tactics.cpp",
@@ -196276,8 +196304,15 @@
           "name": "Shared LRA/LIA/LIRA factory: quantified preprocessing, QE-lite, quantified-LIRA guard, QSAT, QE2 plus SMT fallback, and direct SMT for residual goals",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/quant_tactics.go",
-          "go_targets": ["pkg/tactic/portfolio/smt_strategic_solver.go", "pkg/tactic/portfolio/strategic_solver_factory.go"],
-          "tests": ["TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2", "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"]
+          "go_targets": [
+            "pkg/tactic/portfolio/smt_strategic_solver.go",
+            "pkg/tactic/portfolio/strategic_solver_factory.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2",
+            "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"
+          ]
         }
       ],
       "ownership": [
@@ -196394,7 +196429,13 @@
           "name": "Complete retained LRA/LIA/LIRA tactic factory declarations",
           "status": "ported",
           "go_target": "pkg/tactic/smtlogics/quant_tactics.go",
-          "tests": ["TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2", "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"]
+          "tests": [
+            "TestSMTLibRunnerScripts/quant_lra_lia_solver.smt2",
+            "TestSMTLibRunnerCPPReference/quant_lra_lia_solver.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         }
       ],
       "ownership": [
@@ -197248,7 +197289,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/ufbv/macro_tactics.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestMacroFinderTacticGoalProofCoreAndModelBoundary",
@@ -197274,6 +197316,9 @@
           "tests": [
             "TestMacroFinderTacticGoalProofCoreAndModelBoundary",
             "TestSMTLibRunnerScripts/ufbv_macro_tactics.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -197287,7 +197332,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/ufbv/macro_tactics.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestMacroFinderTacticGoalProofCoreAndModelBoundary",
@@ -197313,6 +197359,9 @@
           "tests": [
             "TestMacroFinderTacticGoalProofCoreAndModelBoundary",
             "TestSMTLibRunnerScripts/ufbv_macro_tactics.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -197326,7 +197375,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/ufbv/macro_tactics.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestQuasiMacrosTacticRunsToFixedPoint",
@@ -197352,6 +197402,9 @@
           "tests": [
             "TestQuasiMacrosTacticRunsToFixedPoint",
             "TestSMTLibRunnerScripts/ufbv_macro_tactics.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -197365,7 +197418,8 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/ufbv/macro_tactics.go",
-        "pkg/cmd_context/tactic_commands.go"
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestQuasiMacrosTacticRunsToFixedPoint",
@@ -197391,6 +197445,9 @@
           "tests": [
             "TestQuasiMacrosTacticRunsToFixedPoint",
             "TestSMTLibRunnerScripts/ufbv_macro_tactics.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -198040,7 +198097,8 @@
         "pkg/tactic/ufbv/ufbv_tactic.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
         "pkg/cmd_context/tactic_commands.go",
-        "pkg/cmd_context/context.go"
+        "pkg/cmd_context/context.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestSMTLibRunnerScripts/ufbv_tactic.smt2",
@@ -198068,6 +198126,9 @@
             "TestSMTLibRunnerCPPReference/bv_quantified_strategy.smt2",
             "TestSMTLibRunnerScripts/bv_quantified_mbqi.smt2",
             "TestSMTLibRunnerCPPReference/bv_quantified_mbqi.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -198085,7 +198146,8 @@
         "pkg/tactic/ufbv/ufbv_tactic.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
         "pkg/cmd_context/tactic_commands.go",
-        "pkg/cmd_context/context.go"
+        "pkg/cmd_context/context.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestSMTLibRunnerScripts/ufbv_tactic.smt2",
@@ -198123,6 +198185,9 @@
             "TestSMTLibRunnerCPPReference/bv_quantified_strategy.smt2",
             "TestSMTLibRunnerScripts/bv_quantified_mbqi.smt2",
             "TestSMTLibRunnerCPPReference/bv_quantified_mbqi.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -208982,6 +209047,9 @@
           "tests": [
             "TestPsortASTNetworkRegisteredOddDriverCampaign",
             "TestPsortRegisteredComparisonsUseSMTKernel"
+          ],
+          "go_targets": [
+            "pkg/smtcore/smt_sorting_network_source_test.go"
           ]
         },
         {
