@@ -28,6 +28,28 @@ func TestZ3ReplayerTypedArraysPreserveSourceOrder(t *testing.T) {
 	}
 }
 
+func TestZ3ReplayerSymbolArrayPreservesKinds(t *testing.T) {
+	log := "R\nN\n$ ||\n$ |42|\n# 42\ns 4\nC 1\n"
+	r, _ := NewZ3Replayer(strings.NewReader(log), new(bytes.Buffer))
+	defer r.Close()
+	if err := r.RegisterCommand(1, "symbols", func(r *Z3Replayer) error {
+		v, e := r.value(0, replaySymbolArray)
+		if e != nil {
+			return e
+		}
+		row := r.symbolArrays[v.u]
+		if !row[0].nullSymbol || row[1].nullSymbol || row[2].numericSymbol || !row[3].numericSymbol || row[3].u != 42 {
+			t.Fatalf("symbol kinds: %+v", row)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestZ3ReplayerRejectsMixedAndOversizedArrays(t *testing.T) {
 	for _, log := range []string{"R\nU 1\nI 2\nu 2\n", "R\nu 1\n"} {
 		r, _ := NewZ3Replayer(strings.NewReader(log), new(bytes.Buffer))

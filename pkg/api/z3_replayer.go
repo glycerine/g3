@@ -22,7 +22,7 @@ type Z3Replayer struct {
 	heap          map[uint64]uint64
 	commands      map[uint32]replayCommandEntry
 	objectArrays  [][]uint64
-	symbolArrays  [][]string
+	symbolArrays  [][]z3ReplayValue
 	uintArrays    [][]uint32
 	intArrays     [][]int32
 	configs       map[uint64]*Config

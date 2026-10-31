@@ -27,10 +27,8 @@ func (r *Z3Replayer) pushArray(size uint64, element z3ReplayKind) error {
 		value = z3ReplayValue{kind: replayIntArray, u: uint64(len(r.intArrays))}
 		r.intArrays = append(r.intArrays, row)
 	case replaySymbol:
-		row := make([]string, size)
-		for i := range row {
-			row[i] = r.args[start+i].s
-		}
+		row := make([]z3ReplayValue, size)
+		copy(row, r.args[start:])
 		value = z3ReplayValue{kind: replaySymbolArray, u: uint64(len(r.symbolArrays))}
 		r.symbolArrays = append(r.symbolArrays, row)
 	case replayObject:
@@ -66,7 +64,12 @@ func (r *Z3Replayer) SymbolArray(p uint32) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return r.symbolArrays[v.u], nil
+	values := r.symbolArrays[v.u]
+	result := make([]string, len(values))
+	for i := range values {
+		result[i] = values[i].s
+	}
+	return result, nil
 }
 func (r *Z3Replayer) ObjectArray(p uint32) ([]uint64, error) {
 	v, err := r.value(p, replayObjectArray)
