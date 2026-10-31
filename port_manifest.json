@@ -6144,7 +6144,8 @@
         "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer",
         "TestGeneratedDirectSolverTranslationAcrossContexts",
         "TestGeneratedStrategicSolverTranslationWithinContext",
-        "TestGeneratedStrategicSolverTranslationAcrossContexts"
+        "TestGeneratedStrategicSolverTranslationAcrossContexts",
+        "TestGeneratedFiniteDomainSolverTranslationAcrossContexts"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6200,7 +6201,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
-        "Generated solver translation replay supports direct SMT and strategic combined solvers across contexts, and tactic-backed solvers within a context. Cross-context caller-supplied tactic and finite-domain wrapper translation remain unsupported."
+        "Generated solver translation replay supports direct SMT, strategic combined, and finite-domain solvers across contexts, and tactic-backed solvers within a context. Cross-context caller-supplied tactics remain unsupported."
       ]
     },
     {
@@ -7798,7 +7799,8 @@
         "pkg/parsers/smt2/commands.go",
         "pkg/api/api_simple_solver_translate.go",
         "pkg/api/api_simple_solver_translate_test.go",
-        "pkg/api/api_strategic_solver_translate.go"
+        "pkg/api/api_strategic_solver_translate.go",
+        "pkg/tactic/portfolio/fd_solver_translate.go"
       ],
       "tests": [
         "TestSMTContextTypedParameterCatalog",
@@ -7822,7 +7824,9 @@
         "TestAPIStrategicSolverCrossContextTranslation",
         "TestAPIStrategicSolverCrossContextConfiguredTheories",
         "TestAPIStrategicSolverCrossContextTranslationRejectsActiveScope",
-        "TestAPIFiniteDomainCrossContextTranslationIsUnsupported"
+        "TestAPIFiniteDomainCrossContextTranslation",
+        "TestAPIFiniteDomainTranslationDoesNotFlushPendingAssertions",
+        "TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -7855,7 +7859,7 @@
       ],
       "deviations": [
         "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Source C-ABI-only solver translation, opaque tactic construction, DIMACS file loading, help/descriptor wrappers and reference-count entry points have no retained Go consumers; replayable SMT2/WriteSMT2 supersedes the retained string-display use case.",
-        "Solver translation supports direct SMT and strategic combined solvers across contexts, and tactic-backed solvers within a context. Cross-context caller-supplied tactics, finite-domain wrapper translation, and a complete ownership audit remain open."
+        "Solver translation supports direct SMT, strategic combined, and finite-domain solvers across contexts, and tactic-backed solvers within a context. Cross-context caller-supplied tactics and a complete ownership audit remain open."
       ]
     },
     {
@@ -191227,12 +191231,17 @@
       "status": "ported",
       "go_targets": [
         "pkg/tactic/portfolio/bounded_int2bv_solver.go",
-        "pkg/tactic/portfolio/bounded_int2bv_conversion.go"
+        "pkg/tactic/portfolio/bounded_int2bv_conversion.go",
+        "pkg/tactic/portfolio/fd_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "pkg/tactic/portfolio/bounded_int2bv_solver_test.go",
         "pkg/tactic/portfolio/bounded_int2bv_prefix_test.go",
-        "pkg/tactic/portfolio/bounded_int2bv_cpp_test.go"
+        "pkg/tactic/portfolio/bounded_int2bv_cpp_test.go",
+        "TestAPIFiniteDomainCrossContextTranslation",
+        "TestAPIFiniteDomainTranslationDoesNotFlushPendingAssertions",
+        "TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope"
       ],
       "assertions": [
         {
@@ -191489,7 +191498,9 @@
         "pkg/tactic/portfolio/enum2bv_solver.go",
         "pkg/tactic/portfolio/enum2bv_solver_test.go",
         "pkg/tactic/portfolio/enum2bv_solver_prefix_test.go",
-        "pkg/tactic/portfolio/enum2bv_solver_cpp_test.go"
+        "pkg/tactic/portfolio/enum2bv_solver_cpp_test.go",
+        "pkg/tactic/portfolio/fd_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestEnum2BVSolverQFFDReference",
@@ -191499,7 +191510,10 @@
         "TestEnum2BVSolverIncrementalModelsAndScopes",
         "TestEnum2BVSolverTrackedAssumptionsAndCores",
         "TestEnum2BVSolverConsequencesTranslateAndInternalize",
-        "TestEnum2BVSolverBaseStatusIndependentOfBackend"
+        "TestEnum2BVSolverBaseStatusIndependentOfBackend",
+        "TestAPIFiniteDomainCrossContextTranslation",
+        "TestAPIFiniteDomainTranslationDoesNotFlushPendingAssertions",
+        "TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope"
       ],
       "assertions": [
         {
@@ -191634,7 +191648,9 @@
         "pkg/tactic/portfolio/fd_tactic_owner_failure_test.go",
         "pkg/tactic/portfolio/fd_tactic_params_test.go",
         "pkg/tactic/portfolio/fd_tactic_statistics_test.go",
-        "pkg/tactic/portfolio/fd_lazy_tactic_test.go"
+        "pkg/tactic/portfolio/fd_lazy_tactic_test.go",
+        "pkg/tactic/portfolio/fd_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestFDSolverRetainedMixedStackAndScopes",
@@ -191645,7 +191661,10 @@
         "TestCommandContextFiniteDomainStoppedConstructorPreservesManager",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
-        "TestFDSolverSortingNetworkStatisticsAndFiltering"
+        "TestFDSolverSortingNetworkStatisticsAndFiltering",
+        "TestAPIFiniteDomainCrossContextTranslation",
+        "TestAPIFiniteDomainTranslationDoesNotFlushPendingAssertions",
+        "TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -191765,7 +191784,9 @@
         "pkg/tactic/portfolio/pb2bv_solver.go",
         "pkg/tactic/portfolio/pb2bv_solver_test.go",
         "pkg/tactic/portfolio/pb2bv_solver_prefix_test.go",
-        "pkg/tactic/portfolio/pb2bv_solver_cpp_test.go"
+        "pkg/tactic/portfolio/pb2bv_solver_cpp_test.go",
+        "pkg/tactic/portfolio/fd_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go"
       ],
       "tests": [
         "TestPB2BVSolverQFFDTruthTableReference",
@@ -191776,7 +191797,10 @@
         "TestPB2BVSolverBuffersAndFlushesAtSourceBoundaries",
         "TestPB2BVSolverPopDiscardsPendingAndPreservesZeroPop",
         "TestPB2BVSolverFreshModelFilteringAfterDestruction",
-        "TestPB2BVSolverNamedCoreAndNoFreshModelIdentity"
+        "TestPB2BVSolverNamedCoreAndNoFreshModelIdentity",
+        "TestAPIFiniteDomainCrossContextTranslation",
+        "TestAPIFiniteDomainTranslationDoesNotFlushPendingAssertions",
+        "TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope"
       ],
       "methods_audited": true,
       "ownership_audited": true,

@@ -8,9 +8,10 @@ import (
 
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/tactic/portfolio"
 )
 
-// Translate copies solver state into target. Cross-context translation supports direct SMT and strategic solvers;
+// Translate copies solver state into target. Cross-context translation supports direct SMT, finite-domain, and strategic solvers;
 // same-context translation supports solvers with a tactic translation. Close the returned solver
 // before closing target.
 func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver, resultErr error) {
@@ -56,6 +57,8 @@ func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver
 		translated, err = s.solver.Translate(manager, &translatedParams)
 	} else if direct, ok := s.solver.(*smtcore.SMTSolver); ok {
 		translated, err = direct.TranslateWithConfig(manager, &translatedParams, config)
+	} else if finite, ok := s.solver.(*portfolio.BoundedInt2BVSolver); ok {
+		translated, err = finite.TranslateFiniteDomain(manager, &translatedParams, config.ModelEvaluator)
 	} else if strategic, ok := s.solver.(*solver.CombinedSolver); ok {
 		translated, err = translateStrategicSolver(strategic, manager, &translatedParams, config)
 	} else {

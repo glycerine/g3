@@ -365,7 +365,33 @@ func TestAPIStrategicSolverCrossContextTranslationRejectsActiveScope(t *testing.
 	astTestMust(t, translated.Close())
 }
 
-func TestAPIFiniteDomainCrossContextTranslationIsUnsupported(t *testing.T) {
+func TestAPIFiniteDomainCrossContextTranslation(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	s, err := source.NewSolverForLogic("QF_FD")
+	astTestMust(t, err)
+	astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p) (assert (not p))`))
+	status, err := s.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("source", status)
+	}
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, s.Close())
+	astTestMust(t, source.Close())
+	status, err = translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated", status)
+	}
+}
+
+func TestAPIFiniteDomainTranslationDoesNotFlushPendingAssertions(t *testing.T) {
 	source, err := NewSMTContext()
 	astTestMust(t, err)
 	defer func() { astTestMust(t, source.Close()) }()
@@ -375,13 +401,42 @@ func TestAPIFiniteDomainCrossContextTranslationIsUnsupported(t *testing.T) {
 	s, err := source.NewSolverForLogic("QF_FD")
 	astTestMust(t, err)
 	defer func() { astTestMust(t, s.Close()) }()
-	astTestMust(t, s.LoadSMT2String(`(declare-const p Bool) (assert p)`))
-	if _, err = s.Translate(target); err == nil {
-		t.Fatal("expected unsupported finite-domain wrapper")
-	}
-	status, err := s.Check()
+	m, err := source.Manager()
+	astTestMust(t, err)
+	no, err := m.MkFalse()
+	astTestMust(t, err)
+	astTestMust(t, s.Assert(no))
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	status, err := translated.Check()
 	astTestMust(t, err)
 	if status != lbool.True {
-		t.Fatal("source after rejection", status)
+		t.Fatal("pending assertion was copied", status)
 	}
+	status, err = s.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("source lost pending assertion", status)
+	}
+}
+
+func TestAPIFiniteDomainCrossContextTranslationRejectsActiveScope(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	s, err := source.NewSolverForLogic("QF_FD")
+	astTestMust(t, err)
+	defer func() { astTestMust(t, s.Close()) }()
+	astTestMust(t, s.Push())
+	if _, err = s.Translate(target); err == nil {
+		t.Fatal("translated active scope")
+	}
+	astTestMust(t, s.Pop(1))
+	translated, err := s.Translate(target)
+	astTestMust(t, err)
+	astTestMust(t, translated.Close())
 }
