@@ -1,3 +1,5 @@
+Inventory evidence repair, fourth batch (2026-10-31 UTC): refreshed ten Spacer entries, corrected stale hash-table test names, and split invalid combined target paths. The validator now reaches another combined Spacer target path; the broader evidence audit remains incomplete.
+
 SAT watch-list source audit (2026-10-31 UTC): completed `sat_watched.cpp` display and first-match erasure paths, with normal and checked tests. The Go display intentionally reports the actual external constraint index, preserving the existing correction to the source getter defect; the larger header audit remains partial. The production inventory has 250 partial entries and no entries classified unstarted.
 
 CLP solver unknown handling (2026-10-31 UTC): distinguished an underlying solver unknown, which raises the source `undef` error, from bounded-search depth exhaustion, which returns unknown. Normal and checked tests verify the error, scope cleanup and retry; the full CLP source audit remains incomplete.
