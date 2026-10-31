@@ -703,6 +703,14 @@ func (t *SMTLinearArithmeticTheory) InternalizeAtom(expression ast.ASTHandle, _ 
 	} else {
 		form = newSMTLinearForm()
 	}
+	// Internalizing an arithmetic term can recursively internalize the same
+	// comparison (for example via term-ITE equalities and bound axioms).
+	// The nested call has already installed the complete theory atom.
+	if variable, found := state.boolVar[expression]; found {
+		if _, installed := t.atomByBool[variable]; installed {
+			return true, nil
+		}
+	}
 	variable, err := state.MkBoolVar(expression)
 	if err != nil {
 		return false, err

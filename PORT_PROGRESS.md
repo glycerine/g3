@@ -1,3 +1,5 @@
+Registered sine-filter, elim01, bvarray2uf, nl-purify and the lra/lia/lira strategies. Fixed reentrant arithmetic-atom installation caused by term ITEs; SAT, UNSAT and reconstructed-model regressions exercise the integration.
+
 Registered blast-term-ite, cofactor-term-ite and pb-preprocess using their existing Go factories and target-context translations. The existing qfbv-sls factory is now included in the named catalog; API model tests and an SMT-LIB vector exercise the new registrations.
 
 The previously unstarted src/test/check_assumptions.cpp and src/test/smt_context.cpp regressions now exercise successive assumption and ordinary checks through the Go solver API.

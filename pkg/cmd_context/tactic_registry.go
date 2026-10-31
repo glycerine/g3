@@ -9,7 +9,7 @@ import "github.com/glycerine/g3/pkg/arena"
 var builtinTacticNames = [...]string{
 	"qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec",
 	"smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving",
-	"simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess",
+	"simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess", "sine-filter", "elim01", "bvarray2uf", "nl-purify",
 	"tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values",
 	"propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast",
 	"elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size",
@@ -20,7 +20,7 @@ var builtinTacticNames = [...]string{
 	"card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr",
 	"qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra",
 	"qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira",
-	"aufnira", "skip", "fail", "fail-if-undecided",
+	"aufnira", "lra", "lia", "lira", "skip", "fail", "fail-if-undecided",
 }
 
 // IsBuiltinTactic reports whether name has a retained concrete factory.

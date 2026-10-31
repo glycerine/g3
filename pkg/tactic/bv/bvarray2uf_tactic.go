@@ -214,3 +214,16 @@ func (t *BVArray2UFTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	}
 	return NewBVArray2UFTactic(m, nil, t.services)
 }
+
+// MakeBVArray2UFTactic follows the source factory's cleanup wrapper.
+func MakeBVArray2UFTactic(m *ast.ASTManager, p *uparams.ParamsRef, services model.ModelEvaluatorConfig) (tactic.Tactic, error) {
+	child, err := NewBVArray2UFTactic(m, p, services)
+	if err != nil {
+		return nil, err
+	}
+	wrapped, err := tactic.NewCleanTactic(child)
+	if err != nil {
+		return nil, errors.Join(err, child.Close())
+	}
+	return wrapped, nil
+}

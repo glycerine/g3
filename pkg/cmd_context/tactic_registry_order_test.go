@@ -26,7 +26,7 @@ func TestBuiltinTacticRegistryRetainsFactoryOrder(t *testing.T) {
 			t.Fatalf("prefix %d: %q, want %q", i, names[i], wantPrefix[i])
 		}
 	}
-	wantSuffix := []string{"auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided"}
+	wantSuffix := []string{"auflia", "auflira", "aufnira", "lra", "lia", "lira", "skip", "fail", "fail-if-undecided"}
 	for i := range wantSuffix {
 		index := len(names) - len(wantSuffix) + i
 		if names[index] != wantSuffix[i] {

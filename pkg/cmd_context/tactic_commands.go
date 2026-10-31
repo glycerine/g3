@@ -24,6 +24,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic/bv"
 	"github.com/glycerine/g3/pkg/tactic/core"
 	fpatactic "github.com/glycerine/g3/pkg/tactic/fpa"
+	"github.com/glycerine/g3/pkg/tactic/nlsat_smt"
 	"github.com/glycerine/g3/pkg/tactic/smtlogics"
 	ufbvtactic "github.com/glycerine/g3/pkg/tactic/ufbv"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -58,7 +59,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return nil, err
 	}
 	switch name {
-	case "qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "fm", "simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "eq2bv", "degree-shift", "recover-01", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
+	case "qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "fm", "simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess", "sine-filter", "elim01", "bvarray2uf", "nl-purify", "lra", "lia", "lira", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "eq2bv", "degree-shift", "recover-01", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided":
 	default:
 		return nil, fmt.Errorf("invalid tactic, unknown tactic %s", name)
 	}
@@ -138,6 +139,20 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return core.MakeCofactorTermITETactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
 	case "pb-preprocess":
 		return core.NewPBPreprocessTactic(m, c.config.ModelEvaluator)
+	case "sine-filter":
+		return tactic.NewSineTactic(m, nil)
+	case "elim01":
+		return arith.MakeElim01Tactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
+	case "bvarray2uf":
+		return bv.MakeBVArray2UFTactic(m, nil, c.config.ModelEvaluator)
+	case "nl-purify":
+		return nlsatsmt.NewNLPurifyTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
+	case "lra":
+		return smtlogics.NewLRATactic(m, nil, c.config)
+	case "lia":
+		return smtlogics.NewLIATactic(m, nil, c.config)
+	case "lira":
+		return smtlogics.NewLIRATactic(m, nil, c.config)
 	case "tseitin-cnf":
 		return core.MakeTseitinCNFTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
 	case "tseitin-cnf-core":
