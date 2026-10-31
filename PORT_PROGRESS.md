@@ -1,3 +1,5 @@
+Finite-domain bound translation (2026-10-31 UTC): eq2bv now constructs owned unsigned bit-vector lower and upper constraints, preserving source direction and goal dependencies. Focused normal and checked tests pass; goal integration, model conversion, proof handling and tactic registration remain unfinished.
+
 Finite-domain equality rewriting (2026-10-31 UTC): eq2bv now rewrites candidate integer/numeral equalities into bit-vector equalities throughout expressions, preserving source operand handling and skipping quantifier patterns. Focused normal and checked tests cover nested and reversed equalities; goal updates, bounds, model conversion, proof handling and tactic registration remain unfinished.
 
 Arithmetic finite-domain preparation (2026-10-31 UTC): eq2bv now computes source bit-vector widths from equality maxima and upper bounds, creates owned fresh constants, and cleans them up. Focused normal and checked tests cover bounded and unbounded domains, source unsigned edge cases and replacement lifetimes; rewriting, model conversion and tactic registration remain unfinished.
