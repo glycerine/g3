@@ -110761,7 +110761,13 @@
         "pkg/qe/sat_weaken.go",
         "pkg/qe/sat_weaken_test.go",
         "pkg/qe/sat_extrapolate_core.go",
-        "pkg/qe/sat_extrapolate_core_test.go"
+        "pkg/qe/sat_extrapolate_core_test.go",
+        "pkg/qe/sat_levels.go",
+        "pkg/qe/sat_levels_test.go",
+        "pkg/qe/sat_level_check.go",
+        "pkg/qe/sat_level_check_test.go",
+        "pkg/qe/sat_project_partial.go",
+        "pkg/qe/sat_project_partial_test.go"
       ],
       "tests": [
         "TestSATSolverContextNNFAndConstraints",
@@ -110770,7 +110776,11 @@
         "TestSATSolverNNFStrengtheningAndScope",
         "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure",
         "TestSATSolverNNFWeakeningAndScope",
-        "TestSATSolverCoreExtrapolation"
+        "TestSATSolverCoreExtrapolation",
+        "TestSATLevelsInitializeAndClose",
+        "TestSATLevelChecksOwnAssignmentsAndModel",
+        "TestSATPartialProjectionBooleanAndBitVector",
+        "TestSATPartialProjectionArithmetic"
       ],
       "assertions": [
         {
@@ -110826,13 +110836,25 @@
           "tests": [
             "TestSATSolverCoreExtrapolation"
           ]
+        },
+        {
+          "name": "init_Ms/is_sat/project_var_partial: per-level solvers, owned models and assignments, model-based projection",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_project_partial.go",
+          "tests": [
+            "TestSATLevelsInitializeAndClose",
+            "TestSATLevelChecksOwnAssignmentsAndModel",
+            "TestSATPartialProjectionBooleanAndBitVector",
+            "TestSATPartialProjectionArithmetic"
+          ]
         }
       ],
       "ownership": [
         "NNF strengthening owns its formula and substitutions and pops solver scopes on success or failure."
       ],
       "deviations": [
-        "Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished."
+        "Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished.",
+        "Full projection, recursive search and public registration remain unfinished; partial arithmetic projection follows the existing bounds-based plugin and rejects unsupported equalities."
       ]
     },
     {
