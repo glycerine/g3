@@ -915,3 +915,34 @@ func TestAPITacticSolverTranslateCollectStatisticsAfterSourceClose(t *testing.T)
 		t.Fatal("translated solver", status)
 	}
 }
+
+func TestAPITacticSolverTranslateSplitClauseAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_UF"))
+	split, err := source.Tactic("split-clause")
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := split.AndThen(smt)
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	for _, owner := range []*APITactic{combined, smt, split} {
+		astTestMust(t, owner.Close())
+	}
+	astTestMust(t, solver.LoadSMT2String("(declare-const p Bool) (declare-const q Bool) (assert (or p q))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("translated solver", status)
+	}
+}

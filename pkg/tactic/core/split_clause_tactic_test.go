@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
@@ -152,5 +153,41 @@ func TestSplitClauseProofConverterClosesBranchHypotheses(t *testing.T) {
 	}
 	if err = result.ProofConverter.Convert(m, branchProofs[:1], out); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("source branch count assertion boundary", err)
+	}
+}
+
+func TestSplitClauseContextTranslationPreservesPolicy(t *testing.T) {
+	source, sourceContext, _ := simplifyFixture(t)
+	params, err := sourceContext.NewValue()
+	simplifyMust(t, err)
+	key := "split_largest_clause"
+	simplifyMust(t, sourceContext.SetBoolName(&params, &key, true))
+	runner, err := NewSplitClauseTactic(source, sourceContext, &params)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	simplifyMust(t, sourceContext.Del(&params))
+	target, targetContext, globals := simplifyFixture(t)
+	translated, matched, err := TranslateContextLeaf(runner, target, targetContext, globals, model.ModelEvaluatorConfig{})
+	simplifyMust(t, err)
+	if !matched {
+		t.Fatal("split-clause was not translated")
+	}
+	copy := translated.(*SplitClauseTactic)
+	t.Cleanup(func() { simplifyMust(t, copy.Close()) })
+	if copy.context != targetContext || !copy.largestClause {
+		t.Fatal("target owner or clause policy was lost")
+	}
+	simplifyMust(t, runner.Close())
+	a := splitClauseAtom(t, target, "translated-split-a")
+	b := splitClauseAtom(t, target, "translated-split-b")
+	c := splitClauseAtom(t, target, "translated-split-c")
+	d := splitClauseAtom(t, target, "translated-split-d")
+	goal, _ := splitClauseGoal(t, target, false, []ast.ASTHandle{a, b}, []ast.ASTHandle{b, c, d})
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	var result tactic.TacticResult
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	simplifyMust(t, copy.Apply(goal, &result))
+	if len(result.Goals) != 3 {
+		t.Fatalf("largest clause produced %d branches", len(result.Goals))
 	}
 }

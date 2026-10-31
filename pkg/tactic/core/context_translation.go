@@ -48,6 +48,16 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 			r, err := NewCollectStatisticsTacticWithServices(m, context, nil, t.output)
 			return r, true, err
 		}
+	case *SplitClauseTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		r, err := NewSplitClauseTactic(m, context, nil)
+		if err != nil {
+			return nil, true, err
+		}
+		r.largestClause = t.largestClause
+		return r, true, nil
 	case *ReduceArgsTactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
