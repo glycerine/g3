@@ -52204,3 +52204,5 @@ SMT-LIB print/parse source driver: ported all six original datatype, array, arit
 Implied-equalities source driver: ported both original API cases, including congruence classes for uninterpreted function applications, the class merge caused by arithmetic bounds, and equality of differently ordered array stores. The test checks every source partition assertion using a simple solver and closes each solver and fixture.
 
 Nonlinear arithmetic utility source driver: translated the two original quadratic literals and branch-generation call, and added checks that each generated branch supplies substitutions free of the eliminated variable. The source's local vectors used only for printing are empty and do not represent the populated branch conditions.
+
+Consequences source driver started: both source scenarios now exercise Boolean and bit-vector consequences, finite-domain datatype consequences, a scoped contradiction and model availability. The first scenario currently uses the finite-domain wrapper rather than the source's direct incremental SAT constructor, so the source test unit remains partial.

@@ -201632,9 +201632,9 @@
       "path": "src/test/get_consequences.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_consequences_cpp_test.go"],
+      "tests": ["TestConsequencesSourceBooleanAndBitVectors", "TestConsequencesSourceFiniteDomain"],
       "assertions": [
         {
           "line": 69,
@@ -201663,9 +201663,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [{"name": "test1 Boolean/bit-vector consequence scenario", "status": "partial", "go_target": "pkg/api/api_consequences_cpp_test.go", "tests": ["TestConsequencesSourceBooleanAndBitVectors"]}, {"name": "test2 finite-domain consequences and scoped models", "status": "ported", "go_target": "pkg/api/api_consequences_cpp_test.go", "tests": ["TestConsequencesSourceFiniteDomain"]}],
+      "ownership": ["The Go fixture owns the constructed AST references; both tests close their solvers and release returned consequence references and models."],
+      "deviations": ["The first source scenario uses the incremental SAT solver directly; this initial test runs the same formulas through the finite-domain solver. The source prints consequences and models, while Go verifies status, count and model availability."]
     },
     {
       "path": "src/test/get_implied_equalities.cpp",
