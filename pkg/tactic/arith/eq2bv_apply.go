@@ -131,7 +131,12 @@ func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticRe
 		if e != nil {
 			return e
 		}
-		if e = converter.Insert(freshDecl, originalDecl); e != nil {
+		if entry.negativeSentinel {
+			e = converter.InsertWithNegativeSentinel(freshDecl, originalDecl, entry.width)
+		} else {
+			e = converter.Insert(freshDecl, originalDecl)
+		}
+		if e != nil {
 			return e
 		}
 	}

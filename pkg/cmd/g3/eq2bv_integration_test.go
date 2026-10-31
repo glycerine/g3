@@ -94,3 +94,42 @@ func TestSMTLibRunnerEq2BVUnboundedUint32Maximum(t *testing.T) {
 		t.Fatalf("lost witness above uint32 maximum: %s", got)
 	}
 }
+
+func TestSMTLibRunnerEq2BVNegativeWitness(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(set-option :produce-models true)
+(declare-const x Int)
+(assert (not (= x 0)))
+(assert (<= x 0))
+(check-sat-using (then eq2bv qfbv))
+(get-value (x))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "sat ((x (- 1)))" {
+		t.Fatalf("lost negative witness or reconstructed model: %s", got)
+	}
+}
+
+func TestSMTLibRunnerEq2BVNegativeSentinelDoesNotCollide(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(set-option :produce-models true)
+(declare-const x Int)
+(assert (<= x 3))
+(assert (not (= x 0)))
+(assert (not (= x 1)))
+(assert (not (= x 2)))
+(assert (not (= x 3)))
+(check-sat-using (then eq2bv qfbv))
+(get-value (x))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "sat ((x (- 1)))" {
+		t.Fatalf("negative sentinel collided with a numeral: %s", got)
+	}
+}

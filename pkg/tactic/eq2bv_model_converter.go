@@ -5,13 +5,17 @@ package tactic
 import (
 	"errors"
 	"io"
+	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 )
 
-type eq2bvModelPair struct{ fresh, original ast.ASTHandle }
+type eq2bvModelPair struct {
+	fresh, original ast.ASTHandle
+	negativeWidth   uint32
+}
 type Eq2BVModelConverter struct {
 	tacticConverterBase
 	manager *ast.ASTManager
@@ -32,6 +36,11 @@ func NewEq2BVModelConverter(m *ast.ASTManager) (*Eq2BVModelConverter, error) {
 	return c, nil
 }
 func (c *Eq2BVModelConverter) Insert(fresh, original ast.ASTHandle) (err error) {
+	return c.InsertWithNegativeSentinel(fresh, original, 0)
+}
+
+// InsertWithNegativeSentinel maps the all-ones value to -1 when width is nonzero.
+func (c *Eq2BVModelConverter) InsertWithNegativeSentinel(fresh, original ast.ASTHandle, width uint32) (err error) {
 	if err = c.open(); err != nil {
 		return err
 	}
@@ -44,6 +53,19 @@ func (c *Eq2BVModelConverter) Insert(fresh, original ast.ASTHandle) (err error) 
 			return ast.ErrASTDomain
 		}
 	}
+	if width != 0 {
+		rangeSort, e := c.manager.GetRange(fresh)
+		if e != nil {
+			return e
+		}
+		size, e := c.manager.BitVectorSize(rangeSort)
+		if e != nil {
+			return e
+		}
+		if size != width {
+			return ast.ErrASTDomain
+		}
+	}
 	if err = c.manager.IncRef(fresh); err != nil {
 		return err
 	}
@@ -51,7 +73,7 @@ func (c *Eq2BVModelConverter) Insert(fresh, original ast.ASTHandle) (err error) 
 		_, cleanup := c.manager.DecRefConsumed(fresh)
 		return errors.Join(err, cleanup)
 	}
-	c.pairs = append(c.pairs, eq2bvModelPair{fresh, original})
+	c.pairs = append(c.pairs, eq2bvModelPair{fresh: fresh, original: original, negativeWidth: width})
 	return nil
 }
 func (c *Eq2BVModelConverter) ApplyModel(out *ModelRef, goal uint32) (err error) {
@@ -107,6 +129,17 @@ func (c *Eq2BVModelConverter) ApplyModel(out *ModelRef, goal uint32) (err error)
 				return e
 			}
 			if found {
+				if pair.negativeWidth != 0 {
+					valueInt, ok := new(big.Int).SetString(text, 10)
+					if !ok {
+						return ast.ErrASTDomain
+					}
+					sentinel := new(big.Int).Lsh(big.NewInt(1), uint(pair.negativeWidth))
+					sentinel.Sub(sentinel, big.NewInt(1))
+					if valueInt.Cmp(sentinel) == 0 {
+						text = "-1"
+					}
+				}
 				value, e = c.manager.ArithmeticIntegerNumeralText(text)
 				if e != nil {
 					return e
@@ -164,7 +197,7 @@ func (c *Eq2BVModelConverter) Translate(t *ast.ASTTranslation) (_ ModelConverter
 		if e != nil {
 			return nil, e
 		}
-		if e = result.Insert(a, b); e != nil {
+		if e = result.InsertWithNegativeSentinel(a, b, pair.negativeWidth); e != nil {
 			return nil, e
 		}
 	}

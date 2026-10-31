@@ -114,6 +114,30 @@ func eq2bvMakeBounds(plan *eq2bvReplacements, source *BoundManager) (result *eq2
 			if e != nil {
 				return result, e
 			}
+			if !lower && entry.negativeSentinel {
+				boundRef, x := m.NewRef(formula)
+				if x != nil {
+					return result, x
+				}
+				max := new(big.Int).Lsh(big.NewInt(1), uint(entry.width))
+				max.Sub(max, big.NewInt(1))
+				sentinel, x := eq2bvNumeral(m, new(big.Rat).SetInt(max), entry.width)
+				if x == nil {
+					sentinel, x = m.MkEq(fresh, sentinel)
+				}
+				if x == nil {
+					var sentinelRef ast.ASTRef
+					sentinelRef, x = m.NewRef(sentinel)
+					if x == nil {
+						formula, x = m.MkOr(formula, sentinel)
+						x = errors.Join(x, m.DelRef(&sentinelRef))
+					}
+				}
+				x = errors.Join(x, m.DelRef(&boundRef))
+				if x != nil {
+					return result, x
+				}
+			}
 			ref, e := m.NewRef(formula)
 			if e != nil {
 				return result, e

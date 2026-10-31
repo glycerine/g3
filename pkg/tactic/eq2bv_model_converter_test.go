@@ -86,7 +86,7 @@ func TestEq2BVModelConverterTranslatesDeclarations(t *testing.T) {
 	c, e := NewEq2BVModelConverter(from)
 	satOK(t, e)
 	t.Cleanup(func() { satOK(t, c.Close()) })
-	satOK(t, c.Insert(b, a))
+	satOK(t, c.InsertWithNegativeSentinel(b, a, 2))
 	tr, e := ast.NewASTTranslation(from, to, true)
 	satOK(t, e)
 	t.Cleanup(func() { satOK(t, tr.Close()) })
@@ -98,7 +98,54 @@ func TestEq2BVModelConverterTranslatesDeclarations(t *testing.T) {
 	satOK(t, e)
 	wantOriginal, e := tr.Translate(a)
 	satOK(t, e)
-	if len(actual.pairs) != 1 || actual.pairs[0] != (eq2bvModelPair{wantFresh, wantOriginal}) {
+	if len(actual.pairs) != 1 || actual.pairs[0] != (eq2bvModelPair{fresh: wantFresh, original: wantOriginal, negativeWidth: 2}) {
 		t.Fatal("incorrect translated mappings")
+	}
+}
+
+func TestEq2BVModelConverterRestoresNegativeSentinel(t *testing.T) {
+	for _, row := range []struct {
+		value uint32
+		want  string
+	}{{3, "-1"}, {2, "2"}} {
+		m := astTestManager(t)
+		family, err := m.RegisterArithmeticPlugin()
+		satOK(t, err)
+		integer, err := m.MkFamilySort(family, 1, nil)
+		satOK(t, err)
+		_, err = m.RegisterBitVectorPlugin()
+		satOK(t, err)
+		bits, err := m.BitVectorSort(2)
+		satOK(t, err)
+		original, err := m.MkConst(astTestSymbol(t, m, "sentinel-original"), integer)
+		satOK(t, err)
+		originalDecl, err := m.GetDecl(original)
+		satOK(t, err)
+		fresh, err := m.MkConst(astTestSymbol(t, m, "sentinel-fresh"), bits)
+		satOK(t, err)
+		freshDecl, err := m.GetDecl(fresh)
+		satOK(t, err)
+		converter, err := NewEq2BVModelConverter(m)
+		satOK(t, err)
+		satOK(t, converter.InsertWithNegativeSentinel(freshDecl, originalDecl, 2))
+		value, err := m.BitVectorNumeralUnsigned(row.value, 2)
+		satOK(t, err)
+		md, err := model.NewModel(m)
+		satOK(t, err)
+		satOK(t, md.Core().RegisterConstant(freshDecl, value))
+		var ref ModelRef
+		satOK(t, ref.Set(md.Core()))
+		satOK(t, converter.ApplyUnindexed(&ref))
+		converted, err := ref.Get()
+		satOK(t, err)
+		integerValue, err := converted.ConstantInterpretation(originalDecl)
+		satOK(t, err)
+		text, _, found, err := m.ArithmeticNumeralText(integerValue)
+		satOK(t, err)
+		if !found || text != row.want {
+			t.Fatalf("converted %d to %q, want %s", row.value, text, row.want)
+		}
+		satOK(t, ref.Close())
+		satOK(t, converter.Close())
 	}
 }

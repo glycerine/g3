@@ -12,10 +12,11 @@ import (
 )
 
 type eq2bvReplacement struct {
-	original ast.ASTHandle
-	fresh    ast.ASTRef
-	maximum  uint32
-	width    uint32
+	original         ast.ASTHandle
+	fresh            ast.ASTRef
+	maximum          uint32
+	width            uint32
+	negativeSentinel bool
 }
 type eq2bvReplacements struct {
 	manager *ast.ASTManager
@@ -111,6 +112,7 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 				maximum = value
 			}
 		}
+		domainMaximum := maximum
 		highDomain := maximum >= 1<<31
 		maximum, width := eq2bvWidth(maximum, found)
 		if highDomain {
@@ -134,6 +136,10 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 				width = uint32(lowerBits)
 			}
 		}
+		negativeSentinel := found && (!hasLower || lower.Sign() < 0)
+		if negativeSentinel && width <= 32 && uint64(domainMaximum) == (uint64(1)<<width)-1 {
+			width++
+		}
 		sortHandle, e := m.BitVectorSort(width)
 		if e != nil {
 			return plan, e
@@ -146,7 +152,7 @@ func eq2bvPrepare(m *ast.ASTManager, bounds *BoundManager, roots []ast.ASTHandle
 		if e != nil {
 			return plan, e
 		}
-		plan.entries = append(plan.entries, eq2bvReplacement{original: entry.h, fresh: ref, maximum: maximum, width: width})
+		plan.entries = append(plan.entries, eq2bvReplacement{original: entry.h, fresh: ref, maximum: maximum, width: width, negativeSentinel: negativeSentinel})
 	}
 	return plan, nil
 }

@@ -178336,7 +178336,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/arith/eq2bv_prepare_test.go",
+      "go_targets": ["pkg/tactic/eq2bv_model_converter_test.go","pkg/tactic/arith/eq2bv_prepare_test.go",
         "pkg/tactic/arith/context_translation.go",
         "pkg/api/api_simple_solver_translate_test.go",
         "pkg/api/z3_generated_solver_translation_test.go",
@@ -178350,7 +178350,7 @@
         "pkg/tactic/arith/eq2bv_apply_test.go",
         "pkg/cmd/g3/eq2bv_integration_test.go"
       ],
-      "tests": ["TestSMTLibRunnerEq2BVUnboundedUint32Maximum","TestSMTLibRunnerEq2BVLowerBoundKeepsOtherValues","TestSMTLibRunnerEq2BVLowerBoundDoesNotWrap","TestSMTLibRunnerEq2BVUnconvertedBounds","TestEq2BVApplyPreservesBoundsOfUnconvertedVariables","TestEq2BVPrepareWidthsCoverLowerAndLargeBoundaries",
+      "tests": ["TestSMTLibRunnerEq2BVNegativeSentinelDoesNotCollide","TestSMTLibRunnerEq2BVNegativeWitness","TestEq2BVModelConverterRestoresNegativeSentinel","TestEq2BVSentinelReservesDistinctLargeValue","TestEq2BVPrepareReservesNegativeSentinel","TestSMTLibRunnerEq2BVUnboundedUint32Maximum","TestSMTLibRunnerEq2BVLowerBoundKeepsOtherValues","TestSMTLibRunnerEq2BVLowerBoundDoesNotWrap","TestSMTLibRunnerEq2BVUnconvertedBounds","TestEq2BVApplyPreservesBoundsOfUnconvertedVariables","TestEq2BVPrepareWidthsCoverLowerAndLargeBoundaries",
         "TestAPICoreTacticSolversCrossContextTranslation",
         "TestAPICoreTacticTranslatedModelsUseTargetServices",
         "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
@@ -178424,7 +178424,7 @@
       "ownership": [
         "Replacement plans own fresh AST references, converted bounds own formula references, and the model converter owns mapped declarations. Input roots are borrowed; converted bounds own their dependencies while the goal changes."
       ],
-      "deviations": ["Only replace bounds for converted variables, size bit-vectors for lower bounds and prevent uint32 power-of-two overflow; the source can otherwise return sat for unsatisfiable constraints.",
+      "deviations": ["A reserved bit-vector value represents negative integers when only an upper bound is known; model conversion maps that value to -1, preventing the unsigned source encoding from losing valid negative witnesses.","Only replace bounds for converted variables, size bit-vectors for lower bounds and prevent uint32 power-of-two overflow; the source can otherwise return sat for unsatisfiable constraints.",
         "The public tactic is registered and exercised through the QF_BV pipeline. Source debug assertions, failure/teardown fidelity, optimizer integration and full source audit remain incomplete."
       ]
     },
@@ -178433,13 +178433,13 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/arith/eq2bv_apply_test.go","pkg/tactic/arith/eq2bv_prepare_test.go",
+      "go_targets": ["pkg/tactic/eq2bv_model_converter_test.go","pkg/tactic/eq2bv_model_converter.go","pkg/tactic/arith/eq2bv_apply_test.go","pkg/tactic/arith/eq2bv_prepare_test.go",
         "pkg/tactic/arith/eq2bv_tactic.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
         "pkg/cmd/g3/eq2bv_integration_test.go"
       ],
-      "tests": ["TestSMTLibRunnerEq2BVUnboundedUint32Maximum","TestSMTLibRunnerEq2BVLowerBoundKeepsOtherValues","TestSMTLibRunnerEq2BVLowerBoundDoesNotWrap","TestSMTLibRunnerEq2BVUnconvertedBounds","TestEq2BVApplyPreservesBoundsOfUnconvertedVariables","TestEq2BVPrepareWidthsCoverLowerAndLargeBoundaries",
+      "tests": ["TestSMTLibRunnerEq2BVNegativeSentinelDoesNotCollide","TestSMTLibRunnerEq2BVNegativeWitness","TestEq2BVModelConverterRestoresNegativeSentinel","TestEq2BVSentinelReservesDistinctLargeValue","TestEq2BVPrepareReservesNegativeSentinel","TestSMTLibRunnerEq2BVUnboundedUint32Maximum","TestSMTLibRunnerEq2BVLowerBoundKeepsOtherValues","TestSMTLibRunnerEq2BVLowerBoundDoesNotWrap","TestSMTLibRunnerEq2BVUnconvertedBounds","TestEq2BVApplyPreservesBoundsOfUnconvertedVariables","TestEq2BVPrepareWidthsCoverLowerAndLargeBoundaries",
         "TestSMTLibRunnerEq2BVTactic"
       ],
       "conditionals": [

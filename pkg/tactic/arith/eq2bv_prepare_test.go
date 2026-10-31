@@ -129,3 +129,50 @@ func TestEq2BVPrepareWidthsCoverLowerAndLargeBoundaries(t *testing.T) {
 		t.Fatal("missing replacement widths", want)
 	}
 }
+
+func TestEq2BVPrepareReservesNegativeSentinel(t *testing.T) {
+	bounds, m := boundManagerFixture(t)
+	x := fixDLConst(t, m, true, "negative-sentinel-x")
+	zero := fixDLNumber(t, m, true, "0")
+	eq := collectorEq(t, m, x, zero)
+	neq, err := m.MkNot(eq)
+	equationMust(t, err)
+	fixDLPin(t, m, neq)
+	upper := fixDLApp(t, m, 2, x, zero)
+	for _, root := range []ast.ASTHandle{neq, upper} {
+		equationMust(t, bounds.Collect(root, ast.ASTDependency{}))
+	}
+	plan, err := eq2bvPrepare(m, bounds, []ast.ASTHandle{neq, upper})
+	equationMust(t, err)
+	defer func() { equationMust(t, plan.Close()) }()
+	if len(plan.entries) != 1 || !plan.entries[0].negativeSentinel || plan.entries[0].width != 1 {
+		t.Fatal("negative sentinel allocation", plan.entries)
+	}
+}
+
+func TestEq2BVSentinelReservesDistinctLargeValue(t *testing.T) {
+	for _, row := range []struct {
+		bound string
+		width uint32
+	}{{"3", 3}, {"4294967295", 33}} {
+		t.Run(row.bound, func(t *testing.T) {
+			bounds, m := boundManagerFixture(t)
+			x := fixDLConst(t, m, true, "sentinel-boundary-x")
+			n := fixDLNumber(t, m, true, row.bound)
+			eq := collectorEq(t, m, x, n)
+			neq, err := m.MkNot(eq)
+			equationMust(t, err)
+			fixDLPin(t, m, neq)
+			upper := fixDLApp(t, m, 2, x, n)
+			for _, root := range []ast.ASTHandle{neq, upper} {
+				equationMust(t, bounds.Collect(root, ast.ASTDependency{}))
+			}
+			plan, err := eq2bvPrepare(m, bounds, []ast.ASTHandle{neq, upper})
+			equationMust(t, err)
+			defer func() { equationMust(t, plan.Close()) }()
+			if len(plan.entries) != 1 || !plan.entries[0].negativeSentinel || plan.entries[0].width != row.width {
+				t.Fatal("sentinel collides with observed numeral", plan.entries)
+			}
+		})
+	}
+}
