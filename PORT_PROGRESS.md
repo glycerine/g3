@@ -1,3 +1,5 @@
+Generated goal replay lifecycle (2026-10-31 UTC): added goal creation and reference management. Normal and checked tests verify flags, explicit release and cleanup of incomplete logs; goal operations and other generated commands remain unfinished.
+
 Generated AST print replay (2026-10-31 UTC): added context-local print mode and AST, pattern, sort and declaration formatting commands. Normal and checked tests exercise all three modes and independent contexts; other generated commands remain unfinished.
 
 Full native checkpoint and inventory validation (2026-10-31 UTC): all 108 tested packages passed on snapshot `725cac4fa` (three additional packages have no tests). The inventory checker now passes after linking utility and cross-package API evidence; 250 production entries remain partial, and API operations also remain unfinished.

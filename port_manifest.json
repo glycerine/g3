@@ -5955,7 +5955,9 @@
         "pkg/api/z3_generated_numeral_inspection.go",
         "pkg/api/z3_generated_numeral_inspection_test.go",
         "pkg/api/z3_generated_print_commands.go",
-        "pkg/api/z3_generated_print_commands_test.go"
+        "pkg/api/z3_generated_print_commands_test.go",
+        "pkg/api/z3_generated_goal_commands.go",
+        "pkg/api/z3_generated_goal_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6004,7 +6006,9 @@
         "TestGeneratedDatatypeUpdateReplayReportsSourceError",
         "TestGeneratedNumeralInspectionReplayOutputs",
         "TestGeneratedAlgebraicBoundsReplay",
-        "TestGeneratedASTPrintReplayContextModes"
+        "TestGeneratedASTPrintReplayContextModes",
+        "TestGeneratedGoalReplayLifecycle",
+        "TestGeneratedGoalReplayClosesIncompleteLog"
       ],
       "methods_audited": false,
       "ownership_audited": false,
