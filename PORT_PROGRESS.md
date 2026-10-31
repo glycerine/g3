@@ -1,3 +1,5 @@
+Full native checkpoint and inventory validation (2026-10-31 UTC): all 108 tested packages passed on snapshot `725cac4fa` (three additional packages have no tests). The inventory checker now passes after linking utility and cross-package API evidence; 250 production entries remain partial, and API operations also remain unfinished.
+
 Inventory evidence repair, fifteenth batch (2026-10-31 UTC): linked ten logic-tactic, macro and sorting-network entries to their existing cross-package tests. The validator now reaches a utility reference entry; the audit continues.
 
 Inventory evidence repair, fourteenth batch (2026-10-31 UTC): linked ten strategic-solver and logic-tactic entries to existing cross-package tests. The validator now reaches the QF_UFNRA header; the audit continues.

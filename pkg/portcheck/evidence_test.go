@@ -136,3 +136,24 @@ func BenchmarkExecutableEvidenceSharedDirectory(b *testing.B) {
 		}
 	}
 }
+
+func TestExecutableAPIEvidenceExplicitSplitTargets(t *testing.T) {
+	root := t.TempDir()
+	source(t, root, "api/impl.go", "package api\n")
+	source(t, root, "api/impl_test.go", "package api\nimport \"testing\"\nfunc TestAPI(t *testing.T) {}\n")
+	source(t, root, "cli/integration_test.go", "package cli\nimport \"testing\"\nfunc TestCLI(t *testing.T) {}\n")
+	m := Manifest{APIs: []API{{Name: "Z3_fixture", GoTarget: "api/impl.go", Tests: []string{"TestAPI", "TestCLI/case"}}}}
+	if err := VerifyEvidence(m, root); err == nil {
+		t.Fatal("unlinked cross-package test accepted")
+	}
+	m.APIs[0].GoTargets = []string{"cli/integration_test.go"}
+	if err := VerifyEvidence(m, root); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(root, "cli/integration_test.go")); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyEvidence(m, root); err == nil {
+		t.Fatal("removed API evidence accepted")
+	}
+}

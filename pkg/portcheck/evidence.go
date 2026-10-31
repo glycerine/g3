@@ -111,7 +111,8 @@ func VerifyEvidence(m Manifest, root string) error {
 	}
 	for _, a := range m.APIs {
 		if a.GoTarget != "" {
-			if err := check(a.Name, []string{a.GoTarget}, a.Tests); err != nil {
+			targets := append([]string{a.GoTarget}, a.GoTargets...)
+			if err := check(a.Name, targets, a.Tests); err != nil {
 				return err
 			}
 		}

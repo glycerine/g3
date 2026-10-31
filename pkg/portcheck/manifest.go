@@ -58,11 +58,12 @@ type Unit struct {
 	Deviations []string          `json:"deviations"`
 }
 type API struct {
-	Name     string   `json:"name"`
-	Sources  []string `json:"sources"`
-	Status   string   `json:"status"`
-	GoTarget string   `json:"go_target,omitempty"`
-	Tests    []string `json:"tests,omitempty"`
+	Name      string   `json:"name"`
+	Sources   []string `json:"sources"`
+	Status    string   `json:"status"`
+	GoTarget  string   `json:"go_target,omitempty"`
+	GoTargets []string `json:"go_targets,omitempty"`
+	Tests     []string `json:"tests,omitempty"`
 }
 
 var apiPattern = regexp.MustCompile(`\bZ3_API\s+(Z3_[A-Za-z0-9_]+)\s*\(`)
@@ -293,6 +294,11 @@ func Validate(m Manifest) error {
 		for _, p := range a.Sources {
 			if !seen[p] {
 				return fmt.Errorf("API %s source %s absent", a.Name, p)
+			}
+		}
+		for _, p := range append([]string{a.GoTarget}, a.GoTargets...) {
+			if p != "" && !validPath(p) {
+				return fmt.Errorf("invalid Go target %q for API %s", p, a.Name)
 			}
 		}
 		if a.Status == "ported" && (a.GoTarget == "" || len(a.Tests) == 0) {
