@@ -5968,7 +5968,9 @@
         "pkg/api/z3_generated_tactic_commands.go",
         "pkg/api/z3_generated_tactic_commands_test.go",
         "pkg/api/z3_generated_tactic_apply_commands.go",
-        "pkg/api/z3_generated_tactic_apply_commands_test.go"
+        "pkg/api/z3_generated_tactic_apply_commands_test.go",
+        "pkg/api/z3_generated_probe_commands.go",
+        "pkg/api/z3_generated_probe_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6038,7 +6040,9 @@
         "TestGeneratedTacticReplayClosesIncompleteLog",
         "TestGeneratedTacticCompositionReplay",
         "TestGeneratedTacticApplyReplayAndSubgoalOwnership",
-        "TestZ3LogFrontendReplaysTacticApplication"
+        "TestZ3LogFrontendReplaysTacticApplication",
+        "TestGeneratedProbeReplayLifecycleAndApplication",
+        "TestGeneratedProbeReplayClosesIncompleteLog"
       ],
       "methods_audited": false,
       "ownership_audited": false,

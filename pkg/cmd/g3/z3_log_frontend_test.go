@@ -40,7 +40,7 @@ func TestZ3LogFrontendCLIInputAndFile(t *testing.T) {
 
 func TestZ3LogFrontendReportsUnavailableCommands(t *testing.T) {
 	var out, diagnostics bytes.Buffer
-	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 366\n"), &out, &diagnostics); err != nil {
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 383\n"), &out, &diagnostics); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(diagnostics.String(), "invalid command") || !strings.Contains(out.String(), "max. heap size:") {
