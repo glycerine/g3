@@ -52256,3 +52256,5 @@ Extended-numeral predicate driver: added the source zero, sign and display cases
 Simplifier source driver: ported the original 72-bit constant bit-vector operations, one-bit sign extension, Boolean equalities, list recognizers/accessors, array simplifications and quantified skolemization regression through the API. Source diagnostic output is omitted; the Go tests also check array selections and all source assertions.
 
 Model-based optimization source driver: connected the existing test10 fixture to its source entry and checked the selected model and eliminated variables after each of the two source projections. The source entry point returns immediately after test10; its later examples are unreachable.
+
+PDR search-tree source driver started: translated 100 seeded level-four trees with the source's duplicate-state, growth, backtracking and well-formedness checks. The first source-seeded tree did not terminate within 100,000 Go mutations, so the routine test limits each tree to 500 mutations and resets it; convergence remains open and the driver is marked partial.

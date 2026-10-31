@@ -207521,14 +207521,14 @@
       "path": "src/test/pdr.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/pdr/model_search_cpp_driver_test.go"],
+      "tests": ["TestModelSearchSourceRandomTrees"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The original seeded tree workload is bounded to 500 mutations per tree: its first Go run did not converge within 100,000 mutations. Source diagnostic output is omitted."]
     },
     {
       "path": "src/test/permutation.cpp",
