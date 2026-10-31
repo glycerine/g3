@@ -253,78 +253,32 @@ func (c *Compiler) compileLinearRule(rule *base.Rule, predicate ast.ASTHandle, r
 		ref, err := m.NewRef(value)
 		return holdRef(ref, err)
 	}
-	sorts, err := rule.VariableSorts()
+	bindingRefs, err := c.linearRuleBindings(rule, predicate, ruleIndex, level)
 	if err != nil {
 		return result, err
 	}
-	bindings := make([]ast.ASTHandle, len(sorts))
+	bindings := make([]ast.ASTHandle, len(bindingRefs))
+	for _, ref := range bindingRefs {
+		if ref != (ast.ASTRef{}) {
+			refs = append(refs, ref)
+		}
+	}
+	for i, ref := range bindingRefs {
+		if ref == (ast.ASTRef{}) {
+			continue
+		}
+		bindings[i], err = m.RefGet(ref)
+		if err != nil {
+			return result, err
+		}
+	}
 	head, err := rule.Head()
 	if err != nil {
-		return result, err
-	}
-	bindArguments := func(application, declaration ast.ASTHandle, atLevel uint32) error {
-		arity, err := m.GetArity(declaration)
-		if err != nil {
-			return err
-		}
-		for i := uint32(0); i < arity; i++ {
-			arg, err := m.GetArg(application, i)
-			if err != nil {
-				return err
-			}
-			kind, err := m.GetKind(arg)
-			if err != nil {
-				return err
-			}
-			if kind != ast.ASTVar {
-				continue
-			}
-			index, err := m.GetVarIndex(arg)
-			if err != nil || int(index) >= len(bindings) {
-				return errors.Join(ast.ErrASTDomain, err)
-			}
-			if bindings[index].IsNull() {
-				bindings[index], err = holdRef(c.linearArgument(declaration, i, atLevel))
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	if err = bindArguments(head, predicate, level); err != nil {
 		return result, err
 	}
 	uninterpreted, err := rule.UninterpretedTailSize()
 	if err != nil {
 		return result, err
-	}
-	for i := 0; i < uninterpreted; i++ {
-		if level == 0 {
-			return result, ast.ErrASTDomain
-		}
-		tail, _, err := rule.Tail(i)
-		if err != nil {
-			return result, err
-		}
-		decl, err := rule.TailDeclaration(i)
-		if err != nil {
-			return result, err
-		}
-		if err = bindArguments(tail, decl, level-1); err != nil {
-			return result, err
-		}
-	}
-	var fresh uint32
-	for i, sort := range sorts {
-		if sort.IsNull() || !bindings[i].IsNull() {
-			continue
-		}
-		bindings[i], err = holdRef(c.linearName(predicate, fmt.Sprintf("#%d_%d_%d", level, ruleIndex, fresh), sort))
-		if err != nil {
-			return result, err
-		}
-		fresh++
 	}
 	sub, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
