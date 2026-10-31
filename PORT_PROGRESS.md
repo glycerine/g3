@@ -52346,3 +52346,7 @@ Modular normalization profiling: the same absent-owner guard avoids context copi
 Pseudo-Boolean source-driver correction: the nested fuzzer now asserts the twice-rewritten expression, as the source does, and checks its results against the independent Boolean truth table. The routine workload remains bounded to 100 of the source's 100,000 outer rounds.
 
 Pseudo-Boolean integration coverage: selected twelve nested solver scopes from the source-seeded fuzzer and checked all eight Boolean assignments in each against the independently calculated allowed mask. This verifies the full solution set in those scopes, beyond the source fuzzer's SAT/UNSAT check.
+
+Polynomial/NLSAT integration checkpoint: the complete native package suites passed at snapshot 99f590cdb after the numeric context optimizations. The polynomial package took 135 seconds and NLSAT took 3 seconds.
+
+SMT-LIB pseudo-Boolean integration: checked each assignment of a weighted constraint with a negated literal, using independent expected results and push/pop scopes through the executable command path.
