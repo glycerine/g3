@@ -90117,10 +90117,16 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/rel/interval_recognizer.go",
-        "pkg/muz/rel/interval_recognizer_test.go"
+        "pkg/muz/rel/interval_recognizer_test.go",
+        "pkg/smtcore/old_interval_relation.go",
+        "pkg/muz/rel/interval_columns.go",
+        "pkg/muz/rel/interval_columns_test.go"
       ],
       "tests": [
-        "TestIntervalRelationLinearComparisonRecognition"
+        "TestIntervalRelationLinearComparisonRecognition",
+        "TestIntervalRelationRangeOperations",
+        "TestIntervalColumnsInterpretedFilters",
+        "TestIntervalColumnsBinaryPropagation"
       ],
       "assertions": [
         {
@@ -90158,13 +90164,31 @@
           "tests": [
             "TestIntervalRelationLinearComparisonRecognition"
           ]
+        },
+        {
+          "name": "unite/widen/meet: exact rational endpoint operations",
+          "status": "ported",
+          "go_target": "pkg/smtcore/old_interval_relation.go",
+          "tests": [
+            "TestIntervalRelationRangeOperations"
+          ]
+        },
+        {
+          "name": "filter_interpreted: independent column bounds and recognized comparisons",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_columns.go",
+          "tests": [
+            "TestIntervalColumnsInterpretedFilters",
+            "TestIntervalColumnsBinaryPropagation"
+          ]
         }
       ],
       "ownership": [
-        "The recognizer borrows AST handles and returns independent Go rational values."
+        "The recognizer borrows AST handles and returns independent Go rational values.",
+        "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: interval relation representation, union/widen/meet, join/project/rename, interpreted filtering, plugin registration, diagnostics and ownership/allocation audit. The recognizer is not yet installed in a live relation plugin."
+        "Pending: full vector relation representation and column equivalence, join/project/rename/union, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The column implementation is not yet installed in a live relation plugin."
       ]
     },
     {
@@ -90174,10 +90198,16 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/rel/interval_recognizer.go",
-        "pkg/muz/rel/interval_recognizer_test.go"
+        "pkg/muz/rel/interval_recognizer_test.go",
+        "pkg/smtcore/old_interval_relation.go",
+        "pkg/muz/rel/interval_columns.go",
+        "pkg/muz/rel/interval_columns_test.go"
       ],
       "tests": [
-        "TestIntervalRelationLinearComparisonRecognition"
+        "TestIntervalRelationLinearComparisonRecognition",
+        "TestIntervalRelationRangeOperations",
+        "TestIntervalColumnsInterpretedFilters",
+        "TestIntervalColumnsBinaryPropagation"
       ],
       "conditionals": [
         {
@@ -90199,13 +90229,31 @@
           "tests": [
             "TestIntervalRelationLinearComparisonRecognition"
           ]
+        },
+        {
+          "name": "unite/widen/meet: exact rational endpoint operations",
+          "status": "ported",
+          "go_target": "pkg/smtcore/old_interval_relation.go",
+          "tests": [
+            "TestIntervalRelationRangeOperations"
+          ]
+        },
+        {
+          "name": "filter_interpreted: independent column bounds and recognized comparisons",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/interval_columns.go",
+          "tests": [
+            "TestIntervalColumnsInterpretedFilters",
+            "TestIntervalColumnsBinaryPropagation"
+          ]
         }
       ],
       "ownership": [
-        "The recognizer borrows AST handles and returns independent Go rational values."
+        "The recognizer borrows AST handles and returns independent Go rational values.",
+        "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending: interval relation representation, union/widen/meet, join/project/rename, interpreted filtering, plugin registration, diagnostics and ownership/allocation audit. The recognizer is not yet installed in a live relation plugin."
+        "Pending: full vector relation representation and column equivalence, join/project/rename/union, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The column implementation is not yet installed in a live relation plugin."
       ]
     },
     {
