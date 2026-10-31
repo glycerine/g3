@@ -338,6 +338,7 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"qfnra_nlsat_named.smt2":                       "sat\nunsat\nsat\nsat\nunsat\n",
 	"unit_subsumption_named.smt2":                  "sat\nunsat\n",
 	"default_named_tactic.smt2":                    "sat\nunsat\nsat\n",
 	"more_tactic_factories.smt2":                   "sat\nsat\nsat\nsat\n",

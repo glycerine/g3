@@ -20,6 +20,7 @@ var builtinTacticDescriptions = map[string]string{
 	"ufbv-rewriter":           "Applies UFBV-specific rewriting rules, mainly demodulation.",
 	"default":                 "default strategy used when no logic is specified.",
 	"unit-subsume-simplify":   "unit subsumption simplification.",
+	"qfnra-nlsat":             "builtin strategy for solving QF_NRA problems using only nlsat.",
 	"sine-filter":             "eliminate premises using Sine Qua Non",
 	"elim01":                  "eliminate 0-1 integer variables, replace them by Booleans.",
 	"bvarray2uf":              "Rewrite bit-vector arrays into bit-vector (uninterpreted) functions.",
