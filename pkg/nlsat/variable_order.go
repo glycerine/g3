@@ -161,7 +161,7 @@ func validateVariablePermutation(permutation []uint32, count int) error {
 }
 
 // ReorderVariables applies an old-position-to-new-position permutation to the
-// live inequality-only solver. It preserves the current arithmetic model and
+// solver. It preserves the current arithmetic model and
 // composes the external/internal variable maps exactly as the source does.
 func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 	if err := s.open(); err != nil {
@@ -173,11 +173,6 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 	}
 	if err := validateVariablePermutation(permutation, count); err != nil {
 		return err
-	}
-	for _, atom := range s.atoms.bools.atoms {
-		if root, ok := atom.(*RootAtom); ok && root != nil {
-			return ErrSearchOwner
-		}
 	}
 	nextAssignment, err := NewAssignment(s.config.Algebraic)
 	if err != nil {
@@ -232,22 +227,94 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 	if err != nil {
 		return err
 	}
+	recache := func(p polynomial.Polynomial) error {
+		unique, e := s.cache.MkUnique(p)
+		if e != nil {
+			return e
+		}
+		if unique != p {
+			return ErrSearchOwner
+		}
+		return nil
+	}
+	// A root atom's distinguished variable must follow its polynomial through
+	// the same permutation. Update the existing interning table as well.
 	for _, atom := range s.atoms.bools.atoms {
-		inequality, ok := atom.(*InequalityAtom)
-		if !ok || inequality == nil {
+		root, ok := atom.(*RootAtom)
+		if !ok || root == nil {
 			continue
 		}
-		maximum := uint32(NullVariable)
-		for _, factor := range inequality.factors {
-			x, xErr := core.MaxVariable(factor.Polynomial)
-			if xErr != nil {
-				return xErr
+		owner := s.atoms.ownedRoots[root]
+		if owner == nil || uint64(root.x) >= uint64(len(permutation)) {
+			return ErrSearchOwner
+		}
+		s.atoms.eraseRoot(owner)
+		root.x = permutation[root.x]
+		owner.hash, err = root.Hash(core)
+		if err != nil {
+			return err
+		}
+		s.atoms.roots[owner.hash] = append(s.atoms.roots[owner.hash], owner)
+		owner.inTable = true
+	}
+	// Source reorder removes learned clauses whose root atoms are ill-formed
+	// in the new variable order.
+	for _, clause := range append([]*Clause(nil), s.clauses.learned...) {
+		illFormed := false
+		for _, literal := range clause.Literals() {
+			atom, e := s.clauses.literalAtom(literal)
+			if e != nil {
+				return e
 			}
-			if x != NullVariable && (maximum == NullVariable || x > maximum) {
-				maximum = x
+			if root, ok := atom.(*RootAtom); ok && root != nil {
+				maximum, e := core.MaxVariable(root.polynomial)
+				if e != nil {
+					return e
+				}
+				if maximum != NullVariable && root.x < maximum {
+					illFormed = true
+					break
+				}
 			}
 		}
-		inequality.maxVar = maximum
+		if illFormed {
+			if err = s.clauses.deleteClause(clause); err != nil {
+				return err
+			}
+		}
+	}
+	for _, atom := range s.atoms.bools.atoms {
+		switch a := atom.(type) {
+		case *InequalityAtom:
+			if a == nil {
+				continue
+			}
+			maximum := uint32(NullVariable)
+			for _, factor := range a.factors {
+				if err = recache(factor.Polynomial); err != nil {
+					return err
+				}
+				x, xErr := core.MaxVariable(factor.Polynomial)
+				if xErr != nil {
+					return xErr
+				}
+				if x != NullVariable && (maximum == NullVariable || x > maximum) {
+					maximum = x
+				}
+			}
+			a.maxVar = maximum
+		case *RootAtom:
+			if a == nil {
+				continue
+			}
+			if err = recache(a.polynomial); err != nil {
+				return err
+			}
+			a.maxVar, err = core.MaxVariable(a.polynomial)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	variables.isInt = newInteger
 	variables.inv = newInverse

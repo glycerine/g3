@@ -20,6 +20,16 @@ func literalContainsVariable(variables []uint32, variable uint32) bool {
 	return false
 }
 
+// SetSignedProjection selects the source explain::set_signed_project mode.
+// General projection is the default; NLQSAT enables signed projection.
+func (s *Solver) SetSignedProjection(enabled bool) error {
+	if err := s.open(); err != nil {
+		return err
+	}
+	s.explanation.signedProjection = enabled
+	return nil
+}
+
 // Project eliminates one arithmetic variable from literals that are true in
 // the current model. Result owns the returned literals and is reset first.
 func (s *Solver) Project(variable uint32, literals []sat.Literal, result *LiteralVector) (err error) {
@@ -107,7 +117,11 @@ func (s *Solver) Project(variable uint32, literals []sat.Literal, result *Litera
 	}
 	if len(dependent) != 0 {
 		if err = n.elimVanishingVector(ps); err == nil {
-			err = n.signedProject(ps, maximum)
+			if n.signedProjection {
+				err = n.signedProject(ps, maximum)
+			} else {
+				err = n.project(ps, maximum)
+			}
 		}
 	}
 	if err = n.finish(err); err != nil {

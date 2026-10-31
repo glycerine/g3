@@ -49,7 +49,7 @@ func TestNLSATSourceAssumptionsConflictAndModel(t *testing.T) {
 	}
 }
 
-// Source: src/test/nlsat.cpp tst6 and tst8, currently using signed projection.
+// Source: src/test/nlsat.cpp tst6 and tst8.
 func TestNLSATSourceProjectionDriver(t *testing.T) {
 	t.Run("four inequalities", func(t *testing.T) {
 		s := solverFixture(t)
@@ -74,11 +74,19 @@ func TestNLSATSourceProjectionDriver(t *testing.T) {
 			assignmentMust(t, s.RetainLiteral(lits[i]))
 			defer func(lit sat.Literal) { assignmentMust(t, s.ReleaseLiteral(lit)) }(lits[i])
 		}
-		for _, tc := range []struct {
+		cases := []struct {
 			variable     uint32
 			start, count int
-		}{{4, 0, 2}, {5, 0, 3}, {6, 0, 3}, {6, 0, 2}, {6, 0, 4}, {6, 1, 3}} {
-			checkSourceProjection(t, s, tc.variable, lits[tc.start:tc.start+tc.count])
+		}{{4, 0, 2}, {5, 0, 3}, {6, 0, 3}, {6, 0, 2}, {6, 0, 4}, {6, 1, 3}}
+		for _, signed := range []bool{false, true} {
+			assignmentMust(t, s.SetSignedProjection(signed))
+			for _, tc := range cases {
+				// General projection of all four inputs exceeds the focused test budget.
+				if !signed && tc.count == 4 {
+					continue
+				}
+				checkSourceProjection(t, s, tc.variable, lits[tc.start:tc.start+tc.count])
+			}
 		}
 	})
 	t.Run("quadratic equality", func(t *testing.T) {

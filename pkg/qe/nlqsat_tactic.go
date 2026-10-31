@@ -328,6 +328,9 @@ func (t *NLQSATTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (er
 		}
 		err = errors.Join(err, solver.Close())
 	}()
+	if err = solver.SetSignedProjection(true); err != nil {
+		return err
+	}
 	compiler, err := nlsattactic.NewGoalCompiler(t.manager, solver)
 	if err != nil {
 		return err

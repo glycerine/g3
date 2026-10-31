@@ -29,6 +29,7 @@ type explanationAssumptions struct {
 	cell                    explanationCellScope
 	factorProjection        bool
 	fullDimensional         bool
+	signedProjection        bool
 	projectionFactors       explanationProjectionFactorScope
 	leading                 explanationLeadingScope
 	simplifiedCore          scopedLiteralVector

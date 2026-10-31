@@ -60,3 +60,19 @@ func TestLiteralVectorBlocksSolverCloseUntilReleased(t *testing.T) {
 	assignmentMust(t, v.Close())
 	assignmentMust(t, s.Close())
 }
+
+func TestSolverProjectionModeDefaultsAndSurvivesReset(t *testing.T) {
+	s := solverFixture(t)
+	if s.explanation.signedProjection {
+		t.Fatal("signed projection enabled by default")
+	}
+	assignmentMust(t, s.SetSignedProjection(true))
+	assignmentMust(t, s.Reset())
+	if !s.explanation.signedProjection {
+		t.Fatal("solver reset changed projection mode")
+	}
+	assignmentMust(t, s.SetSignedProjection(false))
+	if s.explanation.signedProjection {
+		t.Fatal("general projection was not restored")
+	}
+}

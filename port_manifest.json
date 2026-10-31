@@ -104268,7 +104268,7 @@
           ]
         },
         {
-          "name": "Public signed projection with literal splitting, dependent-polynomial collection, temporary maximal-variable reorder/restoration and final result polarity (cpp1465-1529)",
+          "name": "Public general/signed projection with literal splitting, dependent-polynomial collection, temporary maximal-variable reorder/restoration and final result polarity (cpp1465-1529)",
           "status": "partial",
           "go_target": "pkg/nlsat/solver_projection.go",
           "tests": [
@@ -104300,7 +104300,7 @@
         "The public projection operation borrows model-true input literals, owns dependent polynomials through a local reference vector, and copies final complements into a caller-owned LiteralVector before resetting the internal explanation output. Temporary reorder restoration precedes publication so returned atoms are observed in external variable order."
       ],
       "deviations": [
-        "Public Project currently always takes signed projection; the source defaults to general projection and exposes set_signed_project. General projection can generate root atoms that the Go reorder path refuses to restore, and the source restore leaves their root variable unchanged. These paths require further integration and source-behavior reconciliation.",
+        "Public Project now defaults to general projection and supports the source signed-projection setting; NLQSAT enables it. Root variables follow variable permutations, correcting the fork restore path that otherwise produced a false projected literal. One four-inequality general projection case exceeds the focused test budget; broader exceptional-path audit remains open.",
         "Only the retained core-minimization routines are ported here; public explain constructor/operator, normalization, vanishing-coefficient elimination, projection, simplification, result display/TRACE and solver resolution/main-search integration remain unported or unaudited. Native charged component storage and Go slices replace C++ object/vector layouts; no identical std::vector growth or allocation-prefix claim is made. The source empty-todo assertion at1373 remains observable for the qualified redundant order tested by TestExplanationMinimizeSourceEmptyTodoGuard; release still terminates by reconstructing the already-full core. No source progress or reference repair suppresses that difference. Thirty-six prebuilt C++ qfnra-nlsat queries verify unsatisfiability and deletion-minimality of nine reduced cores; these prove core properties rather than identical C++ internal selection order or whole-backend completeness. Source preconditions remain caller obligations.",
         "This implements only the actual retained projection worklist prerequisite. Vanishing-coefficient elimination, normalization, projection algorithms, complete explain construction/interface and solver resolution/main-search integration remain unported or unaudited. Native charged component/vector headers and Go slices differ from C++ field/std::vector allocation layouts; no identical vector allocation frontier is claimed. Five worklist tests include a 100-step independent membership/order/reference model, actual canonical duplicates, reset/reinsert behavior, source constant guard and both constructor reservations. Existing C++ NLSAT oracles remain enabled in package profiles; there is no new claim of arithmetic/projection theorem completeness from ownership-only worklist checks.",
         "This is the retained assumption-generation prerequisite, not complete explanation construction or normalization. Vanishing-coefficient elimination, normalization, projection and public explanation/solver wiring remain pending. Four profiles, 36 prebuilt C++ disagreement queries, a native consecutive allocation sweep through success36 and callback/older-owner tests pass. Actual source polynomial display emits diagnostic monomial notation, so the C++ oracle independently serializes real polynomial terms to SMT-LIB instead of changing that diagnostic printer. Native slice/header allocations do not claim C++ vector-layout/frontier equivalence; full TRACE and whole-unit ownership audits remain incomplete.",
@@ -105007,6 +105007,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/nlsat/variable_order_root_test.go",
         "pkg/nlsat/assumption.go",
         "pkg/nlsat/assumption_manager.go",
         "pkg/nlsat/inequality_atom_cache.go",
@@ -105723,7 +105724,7 @@
           ]
         },
         {
-          "name": "Public owning signed model-projection operation used by quantified nonlinear consumers",
+          "name": "Public owning general/signed model-projection operation used by quantified nonlinear consumers",
           "status": "ported",
           "go_target": "pkg/nlsat/solver_projection.go",
           "go_targets": [
@@ -105760,6 +105761,7 @@
         "Public projected results own atom references through LiteralVector. Solver Close refuses before mutating member state while any such result remains live; closing the result releases its literals forward and removes that borrower."
       ],
       "deviations": [
+        "Explicit variable reordering remaps a root atom’s distinguished variable together with its polynomial and reindexes the existing root table. The fork leaves that variable unchanged, which makes a projected root false after restoring the order in the tst6 fixture; heuristic reorder still refuses root atoms as in source.",
         "The NLSAT assumption specialization is concrete and AST-independent: leaf values carry either a frontend attachment identity or a borrowed pointer to an actual input literal. Nonzero-sized attachment tokens preserve distinct native identities; the retained goal frontend must map its concrete AST dependencies to these identities when integrated. Equal-valued literals at different input positions remain distinct. No any-valued callback/value adapter or C++ standard-library container is introduced. Native Go layouts/array capacities differ from source; caller output slices use Go storage. Every allocation/lexical/diagnostic frontier and full solver integration remain unaudited.",
         "The staged solver port now includes the retained assumption manager, atoms, clauses/watches, search/explanation, model access, variable ordering, temporary-assumption/core protocol, and public composition tracked above. The whole source unit remains partial for unretained diagnostics and any consumer-facing surfaces still identified separately.",
         "Go maps/slices replace source hashtable/vector internals. Native reflected storage extents and per-factor PolynomialRef owner headers differ from the C++ packed atom layout and introduce native allocation frontiers; focused failures verify native cleanup, not identical C++ allocation counts. Inner factory TRACE/display frontiers, complete physical/lexical ownership audit, outer Boolean registration, root factory, explanation and search remain unported or unaudited. Both whole-unit audit flags remain false.",
@@ -206222,7 +206224,7 @@
       "ownership_audited": false,
       "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 circle infeasible intervals", "status": "ported", "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "tests": ["TestNLSATSourceEvaluatorCircleInfeasibleIntervals"]}, {"name": "tst7 assumptions and satisfiable prefix", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceAssumptionsConflictAndModel"]}, {"name": "tst6 and tst8 projection inputs", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceProjectionDriver"]}, {"name": "tst9 and tst10 projection modes and root literals", "status": "unported"}],
       "ownership": ["The interval fixture owns its algebraic manager; each generated interval and union holds a reference until test cleanup."],
-      "deviations": ["Source diagnostic output is omitted. The tst6 and tst8 inputs currently use signed projection; the source defaults to general projection. Projection-mode and root-literal scenarios remain separate work."]
+      "deviations": ["Source diagnostic output is omitted. The tst6 inputs run in both modes except the four-inequality general case, which exceeded 45 seconds; tst8 runs in the source default general mode. Projection-mode and root-literal scenarios remain separate work."]
     },
     {
       "path": "src/test/no_overflow.cpp",
