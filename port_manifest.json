@@ -101435,7 +101435,10 @@
         "pkg/cmd_context/optimization_model_comparison_test.go",
         "pkg/cmd_context/optimization_labels_test.go",
         "pkg/opt/maxsmt_labels.go",
-        "pkg/opt/arithmetic_solver.go"
+        "pkg/opt/arithmetic_solver.go",
+        "pkg/opt/objective_purifier_definition.go",
+        "pkg/opt/objective_purifier_prefix.go",
+        "pkg/opt/objective_purifier_definition_test.go"
       ],
       "tests": [
         "pkg/cmd/g3/optimization_normalization_test.go",
@@ -101464,7 +101467,11 @@
         "TestOptimizationSoftModelComparisonDoesNotCompleteNegatedTerm",
         "TestOptimizationComparisonCatchesSourceEvaluatorStepFailure",
         "TestOptimizationPublishesRelevantLabels",
-        "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
+        "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop",
+        "TestObjectivePurifierPrintedDefinitionNames",
+        "TestObjectivePurifierDefinitionPublishesEqualityBeforeFilter",
+        "TestObjectivePurifierPrefixReleasesFormatDocuments",
+        "TestObjectivePurifierPrefixFailureDoesNotConsumeFreshName"
       ],
       "conditionals": [
         {
@@ -101716,6 +101723,21 @@
           "tests": [
             "TestOptimizationPublishesRelevantLabels",
             "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
+          ]
+        },
+        {
+          "name": "context::purify fresh definitions use the printed SMT2 term prefix and append the defining equality before inserting the fresh declaration into the model filter (opt_context.cpp:1100-1107)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/opt/objective_purifier_definition.go",
+            "pkg/opt/objective_purifier_prefix.go",
+            "pkg/opt/objective_purifier_definition_test.go"
+          ],
+          "tests": [
+            "TestObjectivePurifierPrintedDefinitionNames",
+            "TestObjectivePurifierDefinitionPublishesEqualityBeforeFilter",
+            "TestObjectivePurifierPrefixReleasesFormatDocuments",
+            "TestObjectivePurifierPrefixFailureDoesNotConsumeFreshName"
           ]
         }
       ],
