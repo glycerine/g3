@@ -95,6 +95,28 @@ func TestTabSearchUnfoldsRulesAndBacktracks(t *testing.T) {
 			_ = search.Close()
 			t.Fatal("unfolded path was not recorded")
 		}
+		if status == lbool.True {
+			proof, e := search.Proof()
+			must(e)
+			proofHandle, e := m.RefGet(proof)
+			must(e)
+			proofKind, e := m.GetDeclKind(proofHandle)
+			must(e)
+			if proofKind != ast.ASTPrHyperResolve {
+				t.Fatal("winning path did not produce a hyper-resolution proof", proofKind)
+			}
+			fact, e := m.GetProofFact(proofHandle)
+			must(e)
+			leaf, e := search.stack[len(search.stack)-1].Formula()
+			must(e)
+			leafFormula, e := m.RefGet(leaf)
+			must(e)
+			if fact != leafFormula {
+				t.Fatal("proof conclusion does not match the final clause")
+			}
+			must(m.DelRef(&leaf))
+			must(m.DelRef(&proof))
+		}
 		if status == lbool.False && search.unfoldFail == 0 {
 			_ = search.Close()
 			t.Fatal("expected failed rule match")

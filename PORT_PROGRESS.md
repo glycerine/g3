@@ -1,3 +1,5 @@
+Tabulation proof replay (2026-10-31 UTC): successful search paths now replay rule applications and assemble hyper-resolution proofs using owned substitutions and the replacement proof converter. Normal and checked tabulation tests verify a two-step proof and its final fact. Counterexample caching, broader proof cases and public fixedpoint integration remain unfinished.
+
 Tabulation proof substitutions (2026-10-31 UTC): unfolding can preserve its two variable-bank substitution and compacted renaming, then extract owned per-rule substitutions for proof replay. Normal and checked tabulation tests verify both banks agree with the finalized clause; proof assembly and fixedpoint integration remain unfinished.
 
 Tabulation internal search (2026-10-31 UTC): connected rule selection, unfolding, tautology checks, subsumption and backtracking, with owned clause paths and source status polarity. Normal and checked tests cover a two-rule derivation, a failed query and recursive-cycle subsumption. Proof reconstruction, counterexample caching and public fixedpoint integration remain unfinished.
