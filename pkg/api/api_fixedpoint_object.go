@@ -8,9 +8,11 @@ import "github.com/glycerine/g3/pkg/cmd_context"
 // AST manager but owns declarations, rules, assertions, scopes, and query
 // state, matching the independent Z3_fixedpoint object lifetime.
 type APIFixedpoint struct {
-	owner   *smtContextState
-	command *cmd_context.Context
-	closed  bool
+	owner         *smtContextState
+	command       *cmd_context.Context
+	params        *ParameterSet
+	retiredParams []*ParameterSet
+	closed        bool
 }
 
 func (c *SMTContext) NewFixedpoint() (*APIFixedpoint, error) {
@@ -37,6 +39,19 @@ func (f *APIFixedpoint) Close() error {
 	}
 	if f.command == nil {
 		return ErrSMTContextOwner
+	}
+	if f.params != nil {
+		if err := f.params.Close(); err != nil {
+			return err
+		}
+		f.params = nil
+	}
+	for len(f.retiredParams) != 0 {
+		i := len(f.retiredParams) - 1
+		if err := f.retiredParams[i].Close(); err != nil {
+			return err
+		}
+		f.retiredParams = f.retiredParams[:i]
 	}
 	if err := f.command.Close(); err != nil {
 		return err

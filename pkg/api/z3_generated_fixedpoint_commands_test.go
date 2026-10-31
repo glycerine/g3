@@ -423,3 +423,50 @@ func TestGeneratedFixedpointReplayParameterDescriptions(t *testing.T) {
 		t.Fatal("descriptions not checked")
 	}
 }
+
+func TestGeneratedFixedpointReplayParameterUpdate(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 511\n= 0x42\nR\nP 0x41\nP 0x42\nC 512\n" +
+		"R\nP 0x41\nC 13\n= 0x43\nR\nP 0x41\nP 0x43\nC 14\nR\nP 0x41\nP 0x43\n$ |engine|\n$ |pdr|\nC 19\n" +
+		"R\nP 0x41\nP 0x42\nP 0x43\nC 530\nR\nP 0x41\nP 0x43\nC 15\nR\nP 0x41\nP 0x42\nC 900\nR\nP 0x41\nP 0x42\nC 513\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	for _, reg := range []func(*Z3Replayer) error{RegisterZ3GeneratedContextCommands, RegisterZ3GeneratedASTCommands, RegisterZ3GeneratedParameterCommands} {
+		if err = reg(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-fixedpoint-parameter-copy", func(r *Z3Replayer) error {
+		f, e := replayGetFixedpoint(r)
+		if e != nil {
+			return e
+		}
+		if f.value.params == nil {
+			t.Fatal("missing parameter copy")
+		}
+		value, e := f.value.params.String()
+		if e != nil {
+			return e
+		}
+		if !strings.Contains(value, "pdr") {
+			t.Fatal("parameter copy", value)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("parameter copy not checked")
+	}
+}

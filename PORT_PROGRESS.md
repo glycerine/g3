@@ -1,3 +1,5 @@
+Fixedpoint local parameter updates (2026-10-31 UTC): fixedpoint owners now validate and copy options, apply them to predicate, expression and relation queries, and keep them isolated per object. Normal and checked tests cover parameter ownership, validation, query behavior and replay; other fixedpoint commands remain unfinished.
+
 Generated fixedpoint parameter-description replay (2026-10-31 UTC): connected help and independently owned descriptor snapshots. Normal and checked tests verify catalog access after fixedpoint release; parameter updates and other generated commands remain unfinished.
 
 Generated SMT-LIB parse replay (2026-10-31 UTC): connected string and file parsing with string-named sort and declaration bindings. Normal and checked tests cover parsed bindings, malformed input and missing files; numeric and null binding symbols and complete diagnostic fidelity remain unfinished.

@@ -243,6 +243,11 @@ func (c *Context) QueryFixedpointExpression(query ast.ASTHandle) (lbool.LBool, e
 	return c.queryFixedpoint(query, nil, true)
 }
 
+// QueryFixedpointExpressionWithParams applies fixedpoint-local settings to a Boolean query.
+func (c *Context) QueryFixedpointExpressionWithParams(query ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpoint(query, params, true)
+}
+
 func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool) (result lbool.LBool, resultErr error) {
 	engine, err := c.prepareFixedpointQuery(params)
 	if err != nil {
@@ -286,7 +291,12 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 // nonempty. PDR and Spacer accept exactly one relation, matching the native
 // fixedpoint engine contract.
 func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {
-	engine, err := c.prepareFixedpointQuery(nil)
+	return c.QueryFixedpointRelationsWithParams(declarations, nil)
+}
+
+// QueryFixedpointRelationsWithParams applies fixedpoint-local relation-query settings.
+func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+	engine, err := c.prepareFixedpointQuery(params)
 	if err != nil {
 		return lbool.Undef, err
 	}
