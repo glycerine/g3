@@ -204716,7 +204716,7 @@
       "path": "src/test/mpf.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "ported",
       "go_targets": [
         "pkg/util/numeral/mpf_value_input_driver_source_test.go"
       ],
@@ -204797,9 +204797,16 @@
           "text": "ENSURE(fm.to_float(a) == -42.25);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "bug_set_int and bug_set_double",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/mpf_value_input_driver_source_test.go",
+          "tests": ["TestArbitraryFloatOriginalSetIntAndDoubleDriverAssertions"]
+        }
+      ],
       "ownership": [
         "All eighteen active ENSURE assertions in src/test/mpf.cpp:23-82 execute the literal int/double/float SET and ToDouble/ToFloat bodies. The Go fixture matches the separate manager and scoped value lifetimes of bug_set_int and bug_set_double. The source-commented rounding-dependent INT_MAX float assertion remains disabled; the trace toggle is diagnostic. Production MPF completion is not inferred from these driver assertions."
       ],
@@ -209582,13 +209589,20 @@
       "path": "src/test/simple_parser.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "status": "ported",
+      "go_targets": ["pkg/smtcore/simple_parser_cpp_test.go"],
+      "tests": ["TestSimpleParserSourceExpressionsAndCostEvaluator"],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst_simple_parser",
+          "status": "ported",
+          "go_target": "pkg/smtcore/simple_parser_cpp_test.go",
+          "tests": ["TestSimpleParserSourceExpressionsAndCostEvaluator"]
+        }
+      ],
+      "ownership": ["The parser owns its variable references, and the test releases each successful parse result before closing the parser and AST manager."],
       "deviations": []
     },
     {
