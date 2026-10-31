@@ -6059,7 +6059,8 @@
         "TestGeneratedASTMapReplayKeySnapshot",
         "TestGeneratedASTMapReplayClosesIncompleteLog",
         "TestZ3LogFrontendReplaysASTMap",
-        "TestGeneratedAlgebraicReplayArithmeticAndRelations"
+        "TestGeneratedAlgebraicReplayArithmeticAndRelations",
+        "TestGeneratedAlgebraicPolynomialReplayVectors"
       ],
       "methods_audited": false,
       "ownership_audited": false,
