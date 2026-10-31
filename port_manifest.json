@@ -141677,7 +141677,7 @@
       "tests": [
         "TestSMTSolverImpliedEqualitiesPartitionsByProofAndSort",
         "TestSMTSolverImpliedEqualitiesUnsatAndEmptyInputs",
-        "TestSMTImpliedEqualities"
+        "TestSMTImpliedEqualitiesArraysUseExactExtensionalFallback", "TestSMTImpliedEqualitiesModelBucketsReduceExactProbes", "TestSMTImpliedEqualitiesMissingEvaluatorUsesExactFallback"
       ],
       "conditionals": [
         {
@@ -158105,7 +158105,8 @@
             "pkg/smtcore/theory_bv_model_source_test.go",
             "pkg/smtcore/theory_bv_invariants_test.go",
             "pkg/smtcore/theory_bv.go",
-            "pkg/smtcore/theory_bv_invariants.go"
+            "pkg/smtcore/theory_bv_invariants.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTBVModelValueRuntimeAssertionsAndActions",
@@ -158701,7 +158702,8 @@
             "pkg/smtcore/theory_bv_model_source_test.go",
             "pkg/smtcore/theory_bv_invariants_test.go",
             "pkg/smtcore/theory_bv.go",
-            "pkg/smtcore/theory_bv_invariants.go"
+            "pkg/smtcore/theory_bv_invariants.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTBVModelValueRuntimeAssertionsAndActions",
@@ -162210,6 +162212,9 @@
           "tests": [
             "TestFloatingPointFactoryBothWidthAssertionsThenLiteralParameters",
             "TestASTFPAModelFactoryUsesOneLiveNumericalScope"
+          ],
+          "go_targets": [
+            "pkg/smtcore/proto_model/fpa_factory_source_test.go"
           ]
         },
         {
@@ -162618,20 +162623,296 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "Concrete LRA numerical owner for retained imp::get_var_index/init_left_side/internalize_def term registration, assert_bound direction/complement and inequality provenance, get_ivalue/finite model reconstruction, make_feasible status mapping, maximize_term coefficient/constant transport and numeric scope mapping. Calls the existing util/lp LARSolver, not math/simplex algorithms. AST/internalizer/event callbacks and setup replacement are still open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_numeric_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go", "pkg/smtcore/test_vectors/lra_numeric_objective.smt2", "pkg/smtcore/test_vectors/lra_numeric_coupled.smt2"], "tests": ["TestSMTLRANumericOrderedCancellationAndRegistration", "TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery", "TestSMTLRANumericConflictEvidenceAndReusedConstraintIndex", "TestSMTLRANumericUnboundedAndConstantTerm", "TestSMTLRANumericInterruptedRegistrationCleanup", "TestSMTLRANumericCoupledRowsStrictOptimumAndConflict"]},
-        {"name": "Retained immediate AST/frontend prefix: producer-order swap-last linearization, coefficient compaction/constants and unit-variable fast path, term/slack registration onto concrete LAR, normalized <=/>= atom registration, reflection/congruence policy, queued Boolean bound assignment with numerical feasibility and inequality conflict publication, scope restoration/replay and owner cleanup. This is not the completed source propagate/final/model or public optimization interface.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_test.go"], "tests": ["TestSMTLRAFrontendWorkStackCompactionAndUnitVariable", "TestSMTLRAFrontendBooleanBoundsConflictAndScopeReplay", "TestSMTLRAFrontendStrictBoxThroughActualLAR", "TestSMTLRAFrontendNativeNormalizationBoundaryAndNumeralWrapper", "TestSMTLRAFrontendSubtractionAndRightNumeralMultiplication", "TestSMTLRAFrontendUnderspecifiedReflectionAndIterativeUnitTerms"]},
-        {"name": "Concrete retained LRA equality triangles and bound axioms: normalized arithmetic equality/disequality callbacks, ordered scoped pair cache, true-first phase forwarding, pair relevancy, eager restart reconstruction, cached triangle-eq proof hint, immediate four-neighbor selection and deferred grouped/sorted bound publication with Farkas coefficients and integer adjacency. Complete LRA propagation/model/setup remain open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_bound_axioms.go", "pkg/smtcore/theory_lra_eq_adapter.go", "pkg/smtcore/theory_lra_axioms_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRABoundAxiomsKindsAndIntegerAdjacency", "TestSMTLRAEqualityTrianglesCacheScopeAndNumericalConflict", "TestSMTLRAEqualityRestartAndRelevancy", "TestSMTLRABoundNearestNeighborsAndUnitAxis", "TestSMTLRAAxiomProofOwnershipAndPhase", "TestSMTLRABoundAxiomAllocationRefusalAndRetry", "TestSMTLRAEqualityNativeScopeOracle"]},
-        {"name": "Retained basic and LP-row bound propagation: queued bound checks after feasibility, source nearest-threshold/self-premise behavior, strict/non-strict implication filtering, concrete LAR bound-interest and witness-consumer hooks, column/term reverse directories, original inequality evidence, source small auxiliary-lemma versus external-justification publication, cancellation, scoped counters and owned stopped propagator cleanup. Fixed-bound equality propagation and complete LRA model/setup remain open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_propagation.go", "pkg/smtcore/theory_lra_propagation_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRALPDerivedBoundStrictnessReasonsAndScopes", "TestSMTLRAImpliedBoundTruthTable", "TestSMTLRABasicBoundSourceTautologyAndScope", "TestSMTLRALPDerivedCompoundTerm", "TestSMTLRALPPropagationCancelRetainsRowsAndResumes", "TestSMTLRALPPropagationDisabledRetainsRows", "TestSMTLRALPPropagationAllocationCleanup", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle"]},
-        {"name": "LRA propagation-mode threshold and search lifetime: count actual numerical conflicts, gate basic and LP propagation and the initial LP setting by the source conflict threshold, retain the count across scope pop and reset it at init_search_eh.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_propagation.go", "pkg/smtcore/theory_lra_propagation_test.go"], "tests": ["TestSMTLRAPropagationConflictThresholdSurvivesPop", "TestSMTLRAPropagationZeroThresholdDisablesBasicAndLP"]},
-        {"name": "Retained fixed-bound equalities: strongest nonstrict term-bound metadata with scoped witness restoration, proper-column exact/strict witness queries, implicit constant bounds and numeral cache seeding, persistent value/sort fixed-variable cache with source stale-entry revalidation, four-bound equality evidence and core/congruence equality publication. Shared-value model combination and complete LRA model/setup remain open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_fixed.go", "pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_fixed_test.go", "pkg/smtcore/theory_lra_numeric_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRANumericFixedBoundQueryRefusalCleanup", "TestSMTLRAFixedColumnsEqualityEvidenceAndPop", "TestSMTLRAFixedEqualityCongruenceConflictAndPop", "TestSMTLRAFixedNumeralImplicitWitnesses", "TestSMTLRAFixedTermBoundsTrailAndEquality", "TestSMTLRAFixedCacheRevalidatesPoppedColumn", "TestSMTLRAFixedCacheReplacesPoppedVariableID", "TestSMTLRAFixedSortKeysAndIndependentBoundMode", "TestSMTLRAFixedEqualityConfigurationAndStrictness", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle", "TestSMTLRAFixedEqualityNativeOracle"]},
-        {"name": "Retained shared-value and model callback bodies: exact common/underspecified sharing scans, actual LAR random_update, cyclic rational/epsilon/Int-sort candidate grouping, scoped preferred-phase equality proposals and current-value rechecks, actual strict-delta column model extraction, source rational/term cache semantics and arithmetic factory/model-value publication through SMTModelGenerator. FinalCheck/setup integration and remaining source callbacks stay open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_shared.go", "pkg/smtcore/theory_lra_model.go", "pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_shared_model_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRASharedCandidatesOrderPhaseAndScope", "TestSMTLRASharedUnderspecifiedParentScan", "TestSMTLRADelayedCandidateRechecksCurrentValues", "TestSMTLRASharedRandomizationSeparatesFlexibleValues", "TestSMTLRADelayedCandidateKeepsEpsilonDistinct", "TestSMTLRAModelStrictValuesTermFactoryAndOwnership", "TestSMTLRAModelMissingColumnCacheAndFeasibilityReset", "TestSMTLRAModelRejectsFractionalIntAndUninitializedGenerator", "TestSMTLRAModelAllocationRefusalOwnership", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle", "TestSMTLRAFixedEqualityNativeOracle", "TestSMTLRASharedEqualityNativeOracle", "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"]},
-        {"name": "Retained LRA Relevant operator axioms: real division zero guard/product identity, signed remainder and modulo bounds/identity, floor and is_int equivalences, source literal/unit publication and conditional relevance watches with scoped target ownership.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_operator_axioms.go", "pkg/smtcore/smt_equality_atom.go", "pkg/smtcore/theory_lra_operator_axioms_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRAOperatorConstantDivisionThroughRelevance", "TestSMTLRAOperatorDivisionZeroAndSymbolicGuard", "TestSMTLRAOperatorNegatedWatchTargetOwnership", "TestSMTLRAOperatorProfileRejectsDeadEnumeration", "TestSMTLRAOperatorIntegerDivisionRemainderClauseShapes", "TestSMTLRAOperatorFloorAndIsIntAxioms", "TestSMTLRAOperatorToIntToRealRoundTrip", "TestSMTLRAOperatorZeroModAndNoDirectIDivCallback", "TestSMTLRAOperatorPhysicalRefusalAndOwnerCleanup", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle", "TestSMTLRAFixedEqualityNativeOracle", "TestSMTLRASharedEqualityNativeOracle", "TestSMTLRAOperatorDivisionNativeOracle"]},
-        {"name": "Retained immediate final_check_eh: skip feasibility only at OPTIMAL, clear rational model on make_feasible, process delayed then fresh shared equalities before unsupported terms, publish infeasibility conflict and map unknown through AST cancellation.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_final_check_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope", "TestSMTLRAFinalCheckNumericalConflict", "TestSMTLRAFinalCheckUnknownCancellationAndFailure", "TestSMTLRAFinalCheckDelayedBeforeFreshAndUnsupported", "TestSMTLRAFinalCheckFreshSharedBeforeUnsupported", "TestSMTLRAFinalCheckKernelModelConflictAndRecovery", "TestSMTLRAFinalCheckKernelSharedEquality", "TestSMTLRAFinalCheckNativeOracle", "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"]},
-        {"name": "Retained context::get_value and LRA cached numeral callback connected to quick_checker::canonize via its managed context, sort-family theory dispatch and per-query AST value roots.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_model.go", "pkg/smtcore/smt_theory.go", "pkg/smtcore/smt_quick_checker.go", "pkg/smtcore/smt_quantifier_manager.go", "pkg/smtcore/theory_lra_direct_value_test.go"], "tests": ["TestSMTLRADirectValueEligibilityAndSortDispatch", "TestSMTLRADirectValueIntegerAndStoppedOwnerGuards", "TestSMTLRADirectValueManagedQuickChecker", "TestSMTLRADirectValueQuickCheckerRootsEveryArgument"]},
-        {"name": "Retained LRA init_solver LP parameter forwarding through context m_params and module lp; source mk_fresh integration creates independent concrete LRA/LAR owners reading destination LP settings.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/smt_internalizer_state.go", "pkg/smtcore/smt_kernel.go", "pkg/smtcore/smt_arithmetic_lifecycle.go", "pkg/smtcore/theory_lra_lifecycle_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRALPSettingsLocalGlobalAndFrozenInitialization", "TestSMTLRALPSettingsRejectInvalidStrategyAndRetireHelper", "TestSMTLRALPFreshCopyUsesDestinationSettingsAndIndependentNumerics", "TestSMTLRALPInitializationAllocationRefusalCleanup", "TestSMTLRALPSettingsNativeOracle"]},
-        {"name": "Retained LRA collect_statistics and get_name: exact native counter names/order/uint32 width; cumulative inequality rows, conflicts, disequalities and completed basic propagation; make_feasible LP sampling/maxima; existing solver statistics interface integration.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_statistics.go", "pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_propagation.go", "pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_statistics_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRAStatisticsActualRowsScopesAndSearchLifetime", "TestSMTLRAStatisticsBasicVersusLPAndEqualityCallbacks", "TestSMTLRAStatisticsUnsignedWidthAndGuards", "TestSMTLRAStatisticsSolverCollectionAndResetNoOp", "TestSMTLRAStatisticsNativeOracle"]},
-        {"name": "Retained LRA theory_opt callbacks add_objective/value/maximize/mk_gt/mk_obj/mk_ge: actual LAR local maximization, exact epsilon/integer blockers, typed objective reconstruction and filtered/scoped Boolean lower-bound registration.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_objective.go", "pkg/smtcore/theory_lra_objective_test.go"], "tests": ["TestSMTLRAObjectiveStrictValueAndSourceBlocker", "TestSMTLRAObjectiveRetainsLocalImprovementAndScope", "TestSMTLRAObjectiveUnmappedAndUnsupportedRegistration", "TestSMTLRAObjectiveBlockerRoundingAndEpsilon", "TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse", "TestSMTLRAObjectiveLowerBoundActualConstraintsAndDomains", "TestSMTLRAObjectivePhysicalRefusalAndOwnerCleanup", "TestSMTLRAObjectiveMappedRayAndConstant"]},
-        {"name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.", "status": "ported", "go_targets": ["pkg/smtcore/smt_setup_real.go", "pkg/smtcore/smt_setup_simple.go", "pkg/smtcore/smt_kernel.go", "pkg/cmd_context/context.go", "pkg/cmd_context/reason_unknown.go", "pkg/cmd_context/tactic_commands.go", "pkg/parsers/smt2/commands.go", "pkg/smtcore/smt_setup_lra_backend_test.go", "pkg/cmd_context/statistics_test.go", "pkg/cmd/g3/lra_backend_test.go"], "tests": ["TestSMTLRAPublicSetupLogicAutoAndFirstPush", "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate", "TestSMTLRAPublicSetupProofAndTrackedConflict", "TestCommandContextStatisticsResultPriorityAndProcessCounters", "TestCommandContextStatisticsWriterAndWatch", "TestSMTLibRunnerConcreteLRASmoke", "TestSMTLibRunnerConcreteLRAIsIntNormalization", "TestSMTLibRunnerConcreteLRAScriptsMatchCPP", "TestSMTLibRunnerConcreteLRADefaultSelection", "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"]},
+        {
+          "name": "Concrete LRA numerical owner for retained imp::get_var_index/init_left_side/internalize_def term registration, assert_bound direction/complement and inequality provenance, get_ivalue/finite model reconstruction, make_feasible status mapping, maximize_term coefficient/constant transport and numeric scope mapping. Calls the existing util/lp LARSolver, not math/simplex algorithms. AST/internalizer/event callbacks and setup replacement are still open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_numeric_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go",
+            "pkg/smtcore/test_vectors/lra_numeric_objective.smt2",
+            "pkg/smtcore/test_vectors/lra_numeric_coupled.smt2"
+          ],
+          "tests": [
+            "TestSMTLRANumericOrderedCancellationAndRegistration",
+            "TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery",
+            "TestSMTLRANumericConflictEvidenceAndReusedConstraintIndex",
+            "TestSMTLRANumericUnboundedAndConstantTerm",
+            "TestSMTLRANumericInterruptedRegistrationCleanup",
+            "TestSMTLRANumericCoupledRowsStrictOptimumAndConflict"
+          ]
+        },
+        {
+          "name": "Retained immediate AST/frontend prefix: producer-order swap-last linearization, coefficient compaction/constants and unit-variable fast path, term/slack registration onto concrete LAR, normalized <=/>= atom registration, reflection/congruence policy, queued Boolean bound assignment with numerical feasibility and inequality conflict publication, scope restoration/replay and owner cleanup. This is not the completed source propagate/final/model or public optimization interface.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAFrontendWorkStackCompactionAndUnitVariable",
+            "TestSMTLRAFrontendBooleanBoundsConflictAndScopeReplay",
+            "TestSMTLRAFrontendStrictBoxThroughActualLAR",
+            "TestSMTLRAFrontendNativeNormalizationBoundaryAndNumeralWrapper",
+            "TestSMTLRAFrontendSubtractionAndRightNumeralMultiplication",
+            "TestSMTLRAFrontendUnderspecifiedReflectionAndIterativeUnitTerms"
+          ]
+        },
+        {
+          "name": "Concrete retained LRA equality triangles and bound axioms: normalized arithmetic equality/disequality callbacks, ordered scoped pair cache, true-first phase forwarding, pair relevancy, eager restart reconstruction, cached triangle-eq proof hint, immediate four-neighbor selection and deferred grouped/sorted bound publication with Farkas coefficients and integer adjacency. Complete LRA propagation/model/setup remain open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_bound_axioms.go",
+            "pkg/smtcore/theory_lra_eq_adapter.go",
+            "pkg/smtcore/theory_lra_axioms_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRABoundAxiomsKindsAndIntegerAdjacency",
+            "TestSMTLRAEqualityTrianglesCacheScopeAndNumericalConflict",
+            "TestSMTLRAEqualityRestartAndRelevancy",
+            "TestSMTLRABoundNearestNeighborsAndUnitAxis",
+            "TestSMTLRAAxiomProofOwnershipAndPhase",
+            "TestSMTLRABoundAxiomAllocationRefusalAndRetry",
+            "TestSMTLRAEqualityNativeScopeOracle"
+          ]
+        },
+        {
+          "name": "Retained basic and LP-row bound propagation: queued bound checks after feasibility, source nearest-threshold/self-premise behavior, strict/non-strict implication filtering, concrete LAR bound-interest and witness-consumer hooks, column/term reverse directories, original inequality evidence, source small auxiliary-lemma versus external-justification publication, cancellation, scoped counters and owned stopped propagator cleanup. Fixed-bound equality propagation and complete LRA model/setup remain open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_propagation.go",
+            "pkg/smtcore/theory_lra_propagation_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRALPDerivedBoundStrictnessReasonsAndScopes",
+            "TestSMTLRAImpliedBoundTruthTable",
+            "TestSMTLRABasicBoundSourceTautologyAndScope",
+            "TestSMTLRALPDerivedCompoundTerm",
+            "TestSMTLRALPPropagationCancelRetainsRowsAndResumes",
+            "TestSMTLRALPPropagationDisabledRetainsRows",
+            "TestSMTLRALPPropagationAllocationCleanup",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle"
+          ]
+        },
+        {
+          "name": "LRA propagation-mode threshold and search lifetime: count actual numerical conflicts, gate basic and LP propagation and the initial LP setting by the source conflict threshold, retain the count across scope pop and reset it at init_search_eh.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_propagation.go",
+            "pkg/smtcore/theory_lra_propagation_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAPropagationConflictThresholdSurvivesPop",
+            "TestSMTLRAPropagationZeroThresholdDisablesBasicAndLP"
+          ]
+        },
+        {
+          "name": "Retained fixed-bound equalities: strongest nonstrict term-bound metadata with scoped witness restoration, proper-column exact/strict witness queries, implicit constant bounds and numeral cache seeding, persistent value/sort fixed-variable cache with source stale-entry revalidation, four-bound equality evidence and core/congruence equality publication. Shared-value model combination and complete LRA model/setup remain open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_fixed.go",
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_fixed_test.go",
+            "pkg/smtcore/theory_lra_numeric_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRANumericFixedBoundQueryRefusalCleanup",
+            "TestSMTLRAFixedColumnsEqualityEvidenceAndPop",
+            "TestSMTLRAFixedEqualityCongruenceConflictAndPop",
+            "TestSMTLRAFixedNumeralImplicitWitnesses",
+            "TestSMTLRAFixedTermBoundsTrailAndEquality",
+            "TestSMTLRAFixedCacheRevalidatesPoppedColumn",
+            "TestSMTLRAFixedCacheReplacesPoppedVariableID",
+            "TestSMTLRAFixedSortKeysAndIndependentBoundMode",
+            "TestSMTLRAFixedEqualityConfigurationAndStrictness",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle",
+            "TestSMTLRAFixedEqualityNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained shared-value and model callback bodies: exact common/underspecified sharing scans, actual LAR random_update, cyclic rational/epsilon/Int-sort candidate grouping, scoped preferred-phase equality proposals and current-value rechecks, actual strict-delta column model extraction, source rational/term cache semantics and arithmetic factory/model-value publication through SMTModelGenerator. FinalCheck/setup integration and remaining source callbacks stay open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_shared.go",
+            "pkg/smtcore/theory_lra_model.go",
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_shared_model_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go",
+            "pkg/cmd/g3/lra_scoped_differential_test.go"
+          ],
+          "tests": [
+            "TestSMTLRASharedCandidatesOrderPhaseAndScope",
+            "TestSMTLRASharedUnderspecifiedParentScan",
+            "TestSMTLRADelayedCandidateRechecksCurrentValues",
+            "TestSMTLRASharedRandomizationSeparatesFlexibleValues",
+            "TestSMTLRADelayedCandidateKeepsEpsilonDistinct",
+            "TestSMTLRAModelStrictValuesTermFactoryAndOwnership",
+            "TestSMTLRAModelMissingColumnCacheAndFeasibilityReset",
+            "TestSMTLRAModelRejectsFractionalIntAndUninitializedGenerator",
+            "TestSMTLRAModelAllocationRefusalOwnership",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle",
+            "TestSMTLRAFixedEqualityNativeOracle",
+            "TestSMTLRASharedEqualityNativeOracle",
+            "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"
+          ]
+        },
+        {
+          "name": "Retained LRA Relevant operator axioms: real division zero guard/product identity, signed remainder and modulo bounds/identity, floor and is_int equivalences, source literal/unit publication and conditional relevance watches with scoped target ownership.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_operator_axioms.go",
+            "pkg/smtcore/smt_equality_atom.go",
+            "pkg/smtcore/theory_lra_operator_axioms_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAOperatorConstantDivisionThroughRelevance",
+            "TestSMTLRAOperatorDivisionZeroAndSymbolicGuard",
+            "TestSMTLRAOperatorNegatedWatchTargetOwnership",
+            "TestSMTLRAOperatorProfileRejectsDeadEnumeration",
+            "TestSMTLRAOperatorIntegerDivisionRemainderClauseShapes",
+            "TestSMTLRAOperatorFloorAndIsIntAxioms",
+            "TestSMTLRAOperatorToIntToRealRoundTrip",
+            "TestSMTLRAOperatorZeroModAndNoDirectIDivCallback",
+            "TestSMTLRAOperatorPhysicalRefusalAndOwnerCleanup",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle",
+            "TestSMTLRAFixedEqualityNativeOracle",
+            "TestSMTLRASharedEqualityNativeOracle",
+            "TestSMTLRAOperatorDivisionNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained immediate final_check_eh: skip feasibility only at OPTIMAL, clear rational model on make_feasible, process delayed then fresh shared equalities before unsupported terms, publish infeasibility conflict and map unknown through AST cancellation.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_final_check_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go",
+            "pkg/cmd/g3/lra_scoped_differential_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope",
+            "TestSMTLRAFinalCheckNumericalConflict",
+            "TestSMTLRAFinalCheckUnknownCancellationAndFailure",
+            "TestSMTLRAFinalCheckDelayedBeforeFreshAndUnsupported",
+            "TestSMTLRAFinalCheckFreshSharedBeforeUnsupported",
+            "TestSMTLRAFinalCheckKernelModelConflictAndRecovery",
+            "TestSMTLRAFinalCheckKernelSharedEquality",
+            "TestSMTLRAFinalCheckNativeOracle",
+            "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"
+          ]
+        },
+        {
+          "name": "Retained context::get_value and LRA cached numeral callback connected to quick_checker::canonize via its managed context, sort-family theory dispatch and per-query AST value roots.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_model.go",
+            "pkg/smtcore/smt_theory.go",
+            "pkg/smtcore/smt_quick_checker.go",
+            "pkg/smtcore/smt_quantifier_manager.go",
+            "pkg/smtcore/theory_lra_direct_value_test.go"
+          ],
+          "tests": [
+            "TestSMTLRADirectValueEligibilityAndSortDispatch",
+            "TestSMTLRADirectValueIntegerAndStoppedOwnerGuards",
+            "TestSMTLRADirectValueManagedQuickChecker",
+            "TestSMTLRADirectValueQuickCheckerRootsEveryArgument"
+          ]
+        },
+        {
+          "name": "Retained LRA init_solver LP parameter forwarding through context m_params and module lp; source mk_fresh integration creates independent concrete LRA/LAR owners reading destination LP settings.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/smt_internalizer_state.go",
+            "pkg/smtcore/smt_kernel.go",
+            "pkg/smtcore/smt_arithmetic_lifecycle.go",
+            "pkg/smtcore/theory_lra_lifecycle_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRALPSettingsLocalGlobalAndFrozenInitialization",
+            "TestSMTLRALPSettingsRejectInvalidStrategyAndRetireHelper",
+            "TestSMTLRALPFreshCopyUsesDestinationSettingsAndIndependentNumerics",
+            "TestSMTLRALPInitializationAllocationRefusalCleanup",
+            "TestSMTLRALPSettingsNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained LRA collect_statistics and get_name: exact native counter names/order/uint32 width; cumulative inequality rows, conflicts, disequalities and completed basic propagation; make_feasible LP sampling/maxima; existing solver statistics interface integration.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_statistics.go",
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_propagation.go",
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_statistics_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAStatisticsActualRowsScopesAndSearchLifetime",
+            "TestSMTLRAStatisticsBasicVersusLPAndEqualityCallbacks",
+            "TestSMTLRAStatisticsUnsignedWidthAndGuards",
+            "TestSMTLRAStatisticsSolverCollectionAndResetNoOp",
+            "TestSMTLRAStatisticsNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained LRA theory_opt callbacks add_objective/value/maximize/mk_gt/mk_obj/mk_ge: actual LAR local maximization, exact epsilon/integer blockers, typed objective reconstruction and filtered/scoped Boolean lower-bound registration.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_objective.go",
+            "pkg/smtcore/theory_lra_objective_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAObjectiveStrictValueAndSourceBlocker",
+            "TestSMTLRAObjectiveRetainsLocalImprovementAndScope",
+            "TestSMTLRAObjectiveUnmappedAndUnsupportedRegistration",
+            "TestSMTLRAObjectiveBlockerRoundingAndEpsilon",
+            "TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse",
+            "TestSMTLRAObjectiveLowerBoundActualConstraintsAndDomains",
+            "TestSMTLRAObjectivePhysicalRefusalAndOwnerCleanup",
+            "TestSMTLRAObjectiveMappedRayAndConstant"
+          ]
+        },
+        {
+          "name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_setup_real.go",
+            "pkg/smtcore/smt_setup_simple.go",
+            "pkg/smtcore/smt_kernel.go",
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/reason_unknown.go",
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/smtcore/smt_setup_lra_backend_test.go",
+            "pkg/cmd_context/statistics_test.go",
+            "pkg/cmd/g3/lra_backend_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAPublicSetupLogicAutoAndFirstPush",
+            "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate",
+            "TestSMTLRAPublicSetupProofAndTrackedConflict",
+            "TestCommandContextStatisticsResultPriorityAndProcessCounters",
+            "TestCommandContextStatisticsWriterAndWatch",
+            "TestSMTLibRunnerConcreteLRASmoke",
+            "TestSMTLibRunnerConcreteLRAIsIntNormalization",
+            "TestSMTLibRunnerConcreteLRAScriptsMatchCPP",
+            "TestSMTLibRunnerConcreteLRADefaultSelection",
+            "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"
+          ]
+        },
         {
           "name": "display (2455-2468), context display callback, LP lists, conditional model cache and independent shared/relevant flags",
           "status": "ported",
@@ -162755,6 +163036,9 @@
             "TestSMTLRAKernelParameterUpdatePreservesInitialTracking",
             "TestSMTLRAFreshCopyInitializesTrackingFromCurrentParameters",
             "TestSMTLibRunnerLRAPropagationModeUpdatesMatchCPP"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/lra_backend_test.go"
           ]
         }
       ],
@@ -162992,20 +163276,296 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "Concrete LRA numerical owner for retained imp::get_var_index/init_left_side/internalize_def term registration, assert_bound direction/complement and inequality provenance, get_ivalue/finite model reconstruction, make_feasible status mapping, maximize_term coefficient/constant transport and numeric scope mapping. Calls the existing util/lp LARSolver, not math/simplex algorithms. AST/internalizer/event callbacks and setup replacement are still open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_numeric_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go", "pkg/smtcore/test_vectors/lra_numeric_objective.smt2", "pkg/smtcore/test_vectors/lra_numeric_coupled.smt2"], "tests": ["TestSMTLRANumericOrderedCancellationAndRegistration", "TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery", "TestSMTLRANumericConflictEvidenceAndReusedConstraintIndex", "TestSMTLRANumericUnboundedAndConstantTerm", "TestSMTLRANumericInterruptedRegistrationCleanup", "TestSMTLRANumericCoupledRowsStrictOptimumAndConflict"]},
-        {"name": "Retained immediate AST/frontend prefix: producer-order swap-last linearization, coefficient compaction/constants and unit-variable fast path, term/slack registration onto concrete LAR, normalized <=/>= atom registration, reflection/congruence policy, queued Boolean bound assignment with numerical feasibility and inequality conflict publication, scope restoration/replay and owner cleanup. This is not the completed source propagate/final/model or public optimization interface.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_test.go"], "tests": ["TestSMTLRAFrontendWorkStackCompactionAndUnitVariable", "TestSMTLRAFrontendBooleanBoundsConflictAndScopeReplay", "TestSMTLRAFrontendStrictBoxThroughActualLAR", "TestSMTLRAFrontendNativeNormalizationBoundaryAndNumeralWrapper", "TestSMTLRAFrontendSubtractionAndRightNumeralMultiplication", "TestSMTLRAFrontendUnderspecifiedReflectionAndIterativeUnitTerms"]},
-        {"name": "Concrete retained LRA equality triangles and bound axioms: normalized arithmetic equality/disequality callbacks, ordered scoped pair cache, true-first phase forwarding, pair relevancy, eager restart reconstruction, cached triangle-eq proof hint, immediate four-neighbor selection and deferred grouped/sorted bound publication with Farkas coefficients and integer adjacency. Complete LRA propagation/model/setup remain open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_bound_axioms.go", "pkg/smtcore/theory_lra_eq_adapter.go", "pkg/smtcore/theory_lra_axioms_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRABoundAxiomsKindsAndIntegerAdjacency", "TestSMTLRAEqualityTrianglesCacheScopeAndNumericalConflict", "TestSMTLRAEqualityRestartAndRelevancy", "TestSMTLRABoundNearestNeighborsAndUnitAxis", "TestSMTLRAAxiomProofOwnershipAndPhase", "TestSMTLRABoundAxiomAllocationRefusalAndRetry", "TestSMTLRAEqualityNativeScopeOracle"]},
-        {"name": "Retained basic and LP-row bound propagation: queued bound checks after feasibility, source nearest-threshold/self-premise behavior, strict/non-strict implication filtering, concrete LAR bound-interest and witness-consumer hooks, column/term reverse directories, original inequality evidence, source small auxiliary-lemma versus external-justification publication, cancellation, scoped counters and owned stopped propagator cleanup. Fixed-bound equality propagation and complete LRA model/setup remain open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_propagation.go", "pkg/smtcore/theory_lra_propagation_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRALPDerivedBoundStrictnessReasonsAndScopes", "TestSMTLRAImpliedBoundTruthTable", "TestSMTLRABasicBoundSourceTautologyAndScope", "TestSMTLRALPDerivedCompoundTerm", "TestSMTLRALPPropagationCancelRetainsRowsAndResumes", "TestSMTLRALPPropagationDisabledRetainsRows", "TestSMTLRALPPropagationAllocationCleanup", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle"]},
-        {"name": "LRA propagation-mode threshold and search lifetime: count actual numerical conflicts, gate basic and LP propagation and the initial LP setting by the source conflict threshold, retain the count across scope pop and reset it at init_search_eh.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_propagation.go", "pkg/smtcore/theory_lra_propagation_test.go"], "tests": ["TestSMTLRAPropagationConflictThresholdSurvivesPop", "TestSMTLRAPropagationZeroThresholdDisablesBasicAndLP"]},
-        {"name": "Retained fixed-bound equalities: strongest nonstrict term-bound metadata with scoped witness restoration, proper-column exact/strict witness queries, implicit constant bounds and numeral cache seeding, persistent value/sort fixed-variable cache with source stale-entry revalidation, four-bound equality evidence and core/congruence equality publication. Shared-value model combination and complete LRA model/setup remain open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_fixed.go", "pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_fixed_test.go", "pkg/smtcore/theory_lra_numeric_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRANumericFixedBoundQueryRefusalCleanup", "TestSMTLRAFixedColumnsEqualityEvidenceAndPop", "TestSMTLRAFixedEqualityCongruenceConflictAndPop", "TestSMTLRAFixedNumeralImplicitWitnesses", "TestSMTLRAFixedTermBoundsTrailAndEquality", "TestSMTLRAFixedCacheRevalidatesPoppedColumn", "TestSMTLRAFixedCacheReplacesPoppedVariableID", "TestSMTLRAFixedSortKeysAndIndependentBoundMode", "TestSMTLRAFixedEqualityConfigurationAndStrictness", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle", "TestSMTLRAFixedEqualityNativeOracle"]},
-        {"name": "Retained shared-value and model callback bodies: exact common/underspecified sharing scans, actual LAR random_update, cyclic rational/epsilon/Int-sort candidate grouping, scoped preferred-phase equality proposals and current-value rechecks, actual strict-delta column model extraction, source rational/term cache semantics and arithmetic factory/model-value publication through SMTModelGenerator. FinalCheck/setup integration and remaining source callbacks stay open.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_shared.go", "pkg/smtcore/theory_lra_model.go", "pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_shared_model_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRASharedCandidatesOrderPhaseAndScope", "TestSMTLRASharedUnderspecifiedParentScan", "TestSMTLRADelayedCandidateRechecksCurrentValues", "TestSMTLRASharedRandomizationSeparatesFlexibleValues", "TestSMTLRADelayedCandidateKeepsEpsilonDistinct", "TestSMTLRAModelStrictValuesTermFactoryAndOwnership", "TestSMTLRAModelMissingColumnCacheAndFeasibilityReset", "TestSMTLRAModelRejectsFractionalIntAndUninitializedGenerator", "TestSMTLRAModelAllocationRefusalOwnership", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle", "TestSMTLRAFixedEqualityNativeOracle", "TestSMTLRASharedEqualityNativeOracle", "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"]},
-        {"name": "Retained LRA Relevant operator axioms: real division zero guard/product identity, signed remainder and modulo bounds/identity, floor and is_int equivalences, source literal/unit publication and conditional relevance watches with scoped target ownership.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_operator_axioms.go", "pkg/smtcore/smt_equality_atom.go", "pkg/smtcore/theory_lra_operator_axioms_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRAOperatorConstantDivisionThroughRelevance", "TestSMTLRAOperatorDivisionZeroAndSymbolicGuard", "TestSMTLRAOperatorNegatedWatchTargetOwnership", "TestSMTLRAOperatorProfileRejectsDeadEnumeration", "TestSMTLRAOperatorIntegerDivisionRemainderClauseShapes", "TestSMTLRAOperatorFloorAndIsIntAxioms", "TestSMTLRAOperatorToIntToRealRoundTrip", "TestSMTLRAOperatorZeroModAndNoDirectIDivCallback", "TestSMTLRAOperatorPhysicalRefusalAndOwnerCleanup", "TestSMTLRAEqualityNativeScopeOracle", "TestSMTLRALPPropagationNativeOracle", "TestSMTLRAFixedEqualityNativeOracle", "TestSMTLRASharedEqualityNativeOracle", "TestSMTLRAOperatorDivisionNativeOracle"]},
-        {"name": "Retained immediate final_check_eh: skip feasibility only at OPTIMAL, clear rational model on make_feasible, process delayed then fresh shared equalities before unsupported terms, publish infeasibility conflict and map unknown through AST cancellation.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_final_check_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope", "TestSMTLRAFinalCheckNumericalConflict", "TestSMTLRAFinalCheckUnknownCancellationAndFailure", "TestSMTLRAFinalCheckDelayedBeforeFreshAndUnsupported", "TestSMTLRAFinalCheckFreshSharedBeforeUnsupported", "TestSMTLRAFinalCheckKernelModelConflictAndRecovery", "TestSMTLRAFinalCheckKernelSharedEquality", "TestSMTLRAFinalCheckNativeOracle", "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"]},
-        {"name": "Retained context::get_value and LRA cached numeral callback connected to quick_checker::canonize via its managed context, sort-family theory dispatch and per-query AST value roots.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_model.go", "pkg/smtcore/smt_theory.go", "pkg/smtcore/smt_quick_checker.go", "pkg/smtcore/smt_quantifier_manager.go", "pkg/smtcore/theory_lra_direct_value_test.go"], "tests": ["TestSMTLRADirectValueEligibilityAndSortDispatch", "TestSMTLRADirectValueIntegerAndStoppedOwnerGuards", "TestSMTLRADirectValueManagedQuickChecker", "TestSMTLRADirectValueQuickCheckerRootsEveryArgument"]},
-        {"name": "Retained LRA init_solver LP parameter forwarding through context m_params and module lp; source mk_fresh integration creates independent concrete LRA/LAR owners reading destination LP settings.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra.go", "pkg/smtcore/smt_internalizer_state.go", "pkg/smtcore/smt_kernel.go", "pkg/smtcore/smt_arithmetic_lifecycle.go", "pkg/smtcore/theory_lra_lifecycle_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRALPSettingsLocalGlobalAndFrozenInitialization", "TestSMTLRALPSettingsRejectInvalidStrategyAndRetireHelper", "TestSMTLRALPFreshCopyUsesDestinationSettingsAndIndependentNumerics", "TestSMTLRALPInitializationAllocationRefusalCleanup", "TestSMTLRALPSettingsNativeOracle"]},
-        {"name": "Retained LRA collect_statistics and get_name: exact native counter names/order/uint32 width; cumulative inequality rows, conflicts, disequalities and completed basic propagation; make_feasible LP sampling/maxima; existing solver statistics interface integration.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_statistics.go", "pkg/smtcore/theory_lra_numeric.go", "pkg/smtcore/theory_lra_propagation.go", "pkg/smtcore/theory_lra.go", "pkg/smtcore/theory_lra_statistics_test.go", "pkg/smtcore/theory_lra_numeric_reference_test.go"], "tests": ["TestSMTLRAStatisticsActualRowsScopesAndSearchLifetime", "TestSMTLRAStatisticsBasicVersusLPAndEqualityCallbacks", "TestSMTLRAStatisticsUnsignedWidthAndGuards", "TestSMTLRAStatisticsSolverCollectionAndResetNoOp", "TestSMTLRAStatisticsNativeOracle"]},
-        {"name": "Retained LRA theory_opt callbacks add_objective/value/maximize/mk_gt/mk_obj/mk_ge: actual LAR local maximization, exact epsilon/integer blockers, typed objective reconstruction and filtered/scoped Boolean lower-bound registration.", "status": "ported", "go_targets": ["pkg/smtcore/theory_lra_objective.go", "pkg/smtcore/theory_lra_objective_test.go"], "tests": ["TestSMTLRAObjectiveStrictValueAndSourceBlocker", "TestSMTLRAObjectiveRetainsLocalImprovementAndScope", "TestSMTLRAObjectiveUnmappedAndUnsupportedRegistration", "TestSMTLRAObjectiveBlockerRoundingAndEpsilon", "TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse", "TestSMTLRAObjectiveLowerBoundActualConstraintsAndDomains", "TestSMTLRAObjectivePhysicalRefusalAndOwnerCleanup", "TestSMTLRAObjectiveMappedRayAndConstant"]},
-        {"name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.", "status": "ported", "go_targets": ["pkg/smtcore/smt_setup_real.go", "pkg/smtcore/smt_setup_simple.go", "pkg/smtcore/smt_kernel.go", "pkg/cmd_context/context.go", "pkg/cmd_context/reason_unknown.go", "pkg/cmd_context/tactic_commands.go", "pkg/parsers/smt2/commands.go", "pkg/smtcore/smt_setup_lra_backend_test.go", "pkg/cmd_context/statistics_test.go", "pkg/cmd/g3/lra_backend_test.go"], "tests": ["TestSMTLRAPublicSetupLogicAutoAndFirstPush", "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate", "TestSMTLRAPublicSetupProofAndTrackedConflict", "TestCommandContextStatisticsResultPriorityAndProcessCounters", "TestCommandContextStatisticsWriterAndWatch", "TestSMTLibRunnerConcreteLRASmoke", "TestSMTLibRunnerConcreteLRAIsIntNormalization", "TestSMTLibRunnerConcreteLRAScriptsMatchCPP", "TestSMTLibRunnerConcreteLRADefaultSelection", "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"]},
+        {
+          "name": "Concrete LRA numerical owner for retained imp::get_var_index/init_left_side/internalize_def term registration, assert_bound direction/complement and inequality provenance, get_ivalue/finite model reconstruction, make_feasible status mapping, maximize_term coefficient/constant transport and numeric scope mapping. Calls the existing util/lp LARSolver, not math/simplex algorithms. AST/internalizer/event callbacks and setup replacement are still open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_numeric_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go",
+            "pkg/smtcore/test_vectors/lra_numeric_objective.smt2",
+            "pkg/smtcore/test_vectors/lra_numeric_coupled.smt2"
+          ],
+          "tests": [
+            "TestSMTLRANumericOrderedCancellationAndRegistration",
+            "TestSMTLRANumericStrictOptimizationModelsAndScopeRecovery",
+            "TestSMTLRANumericConflictEvidenceAndReusedConstraintIndex",
+            "TestSMTLRANumericUnboundedAndConstantTerm",
+            "TestSMTLRANumericInterruptedRegistrationCleanup",
+            "TestSMTLRANumericCoupledRowsStrictOptimumAndConflict"
+          ]
+        },
+        {
+          "name": "Retained immediate AST/frontend prefix: producer-order swap-last linearization, coefficient compaction/constants and unit-variable fast path, term/slack registration onto concrete LAR, normalized <=/>= atom registration, reflection/congruence policy, queued Boolean bound assignment with numerical feasibility and inequality conflict publication, scope restoration/replay and owner cleanup. This is not the completed source propagate/final/model or public optimization interface.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAFrontendWorkStackCompactionAndUnitVariable",
+            "TestSMTLRAFrontendBooleanBoundsConflictAndScopeReplay",
+            "TestSMTLRAFrontendStrictBoxThroughActualLAR",
+            "TestSMTLRAFrontendNativeNormalizationBoundaryAndNumeralWrapper",
+            "TestSMTLRAFrontendSubtractionAndRightNumeralMultiplication",
+            "TestSMTLRAFrontendUnderspecifiedReflectionAndIterativeUnitTerms"
+          ]
+        },
+        {
+          "name": "Concrete retained LRA equality triangles and bound axioms: normalized arithmetic equality/disequality callbacks, ordered scoped pair cache, true-first phase forwarding, pair relevancy, eager restart reconstruction, cached triangle-eq proof hint, immediate four-neighbor selection and deferred grouped/sorted bound publication with Farkas coefficients and integer adjacency. Complete LRA propagation/model/setup remain open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_bound_axioms.go",
+            "pkg/smtcore/theory_lra_eq_adapter.go",
+            "pkg/smtcore/theory_lra_axioms_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRABoundAxiomsKindsAndIntegerAdjacency",
+            "TestSMTLRAEqualityTrianglesCacheScopeAndNumericalConflict",
+            "TestSMTLRAEqualityRestartAndRelevancy",
+            "TestSMTLRABoundNearestNeighborsAndUnitAxis",
+            "TestSMTLRAAxiomProofOwnershipAndPhase",
+            "TestSMTLRABoundAxiomAllocationRefusalAndRetry",
+            "TestSMTLRAEqualityNativeScopeOracle"
+          ]
+        },
+        {
+          "name": "Retained basic and LP-row bound propagation: queued bound checks after feasibility, source nearest-threshold/self-premise behavior, strict/non-strict implication filtering, concrete LAR bound-interest and witness-consumer hooks, column/term reverse directories, original inequality evidence, source small auxiliary-lemma versus external-justification publication, cancellation, scoped counters and owned stopped propagator cleanup. Fixed-bound equality propagation and complete LRA model/setup remain open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_propagation.go",
+            "pkg/smtcore/theory_lra_propagation_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRALPDerivedBoundStrictnessReasonsAndScopes",
+            "TestSMTLRAImpliedBoundTruthTable",
+            "TestSMTLRABasicBoundSourceTautologyAndScope",
+            "TestSMTLRALPDerivedCompoundTerm",
+            "TestSMTLRALPPropagationCancelRetainsRowsAndResumes",
+            "TestSMTLRALPPropagationDisabledRetainsRows",
+            "TestSMTLRALPPropagationAllocationCleanup",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle"
+          ]
+        },
+        {
+          "name": "LRA propagation-mode threshold and search lifetime: count actual numerical conflicts, gate basic and LP propagation and the initial LP setting by the source conflict threshold, retain the count across scope pop and reset it at init_search_eh.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_propagation.go",
+            "pkg/smtcore/theory_lra_propagation_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAPropagationConflictThresholdSurvivesPop",
+            "TestSMTLRAPropagationZeroThresholdDisablesBasicAndLP"
+          ]
+        },
+        {
+          "name": "Retained fixed-bound equalities: strongest nonstrict term-bound metadata with scoped witness restoration, proper-column exact/strict witness queries, implicit constant bounds and numeral cache seeding, persistent value/sort fixed-variable cache with source stale-entry revalidation, four-bound equality evidence and core/congruence equality publication. Shared-value model combination and complete LRA model/setup remain open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_fixed.go",
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_fixed_test.go",
+            "pkg/smtcore/theory_lra_numeric_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRANumericFixedBoundQueryRefusalCleanup",
+            "TestSMTLRAFixedColumnsEqualityEvidenceAndPop",
+            "TestSMTLRAFixedEqualityCongruenceConflictAndPop",
+            "TestSMTLRAFixedNumeralImplicitWitnesses",
+            "TestSMTLRAFixedTermBoundsTrailAndEquality",
+            "TestSMTLRAFixedCacheRevalidatesPoppedColumn",
+            "TestSMTLRAFixedCacheReplacesPoppedVariableID",
+            "TestSMTLRAFixedSortKeysAndIndependentBoundMode",
+            "TestSMTLRAFixedEqualityConfigurationAndStrictness",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle",
+            "TestSMTLRAFixedEqualityNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained shared-value and model callback bodies: exact common/underspecified sharing scans, actual LAR random_update, cyclic rational/epsilon/Int-sort candidate grouping, scoped preferred-phase equality proposals and current-value rechecks, actual strict-delta column model extraction, source rational/term cache semantics and arithmetic factory/model-value publication through SMTModelGenerator. FinalCheck/setup integration and remaining source callbacks stay open.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_shared.go",
+            "pkg/smtcore/theory_lra_model.go",
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_shared_model_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go",
+            "pkg/cmd/g3/lra_scoped_differential_test.go"
+          ],
+          "tests": [
+            "TestSMTLRASharedCandidatesOrderPhaseAndScope",
+            "TestSMTLRASharedUnderspecifiedParentScan",
+            "TestSMTLRADelayedCandidateRechecksCurrentValues",
+            "TestSMTLRASharedRandomizationSeparatesFlexibleValues",
+            "TestSMTLRADelayedCandidateKeepsEpsilonDistinct",
+            "TestSMTLRAModelStrictValuesTermFactoryAndOwnership",
+            "TestSMTLRAModelMissingColumnCacheAndFeasibilityReset",
+            "TestSMTLRAModelRejectsFractionalIntAndUninitializedGenerator",
+            "TestSMTLRAModelAllocationRefusalOwnership",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle",
+            "TestSMTLRAFixedEqualityNativeOracle",
+            "TestSMTLRASharedEqualityNativeOracle",
+            "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"
+          ]
+        },
+        {
+          "name": "Retained LRA Relevant operator axioms: real division zero guard/product identity, signed remainder and modulo bounds/identity, floor and is_int equivalences, source literal/unit publication and conditional relevance watches with scoped target ownership.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_operator_axioms.go",
+            "pkg/smtcore/smt_equality_atom.go",
+            "pkg/smtcore/theory_lra_operator_axioms_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAOperatorConstantDivisionThroughRelevance",
+            "TestSMTLRAOperatorDivisionZeroAndSymbolicGuard",
+            "TestSMTLRAOperatorNegatedWatchTargetOwnership",
+            "TestSMTLRAOperatorProfileRejectsDeadEnumeration",
+            "TestSMTLRAOperatorIntegerDivisionRemainderClauseShapes",
+            "TestSMTLRAOperatorFloorAndIsIntAxioms",
+            "TestSMTLRAOperatorToIntToRealRoundTrip",
+            "TestSMTLRAOperatorZeroModAndNoDirectIDivCallback",
+            "TestSMTLRAOperatorPhysicalRefusalAndOwnerCleanup",
+            "TestSMTLRAEqualityNativeScopeOracle",
+            "TestSMTLRALPPropagationNativeOracle",
+            "TestSMTLRAFixedEqualityNativeOracle",
+            "TestSMTLRASharedEqualityNativeOracle",
+            "TestSMTLRAOperatorDivisionNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained immediate final_check_eh: skip feasibility only at OPTIMAL, clear rational model on make_feasible, process delayed then fresh shared equalities before unsupported terms, publish infeasibility conflict and map unknown through AST cancellation.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_final_check_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go",
+            "pkg/cmd/g3/lra_scoped_differential_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAFinalCheckFeasibilityCacheAndUnsupportedScope",
+            "TestSMTLRAFinalCheckNumericalConflict",
+            "TestSMTLRAFinalCheckUnknownCancellationAndFailure",
+            "TestSMTLRAFinalCheckDelayedBeforeFreshAndUnsupported",
+            "TestSMTLRAFinalCheckFreshSharedBeforeUnsupported",
+            "TestSMTLRAFinalCheckKernelModelConflictAndRecovery",
+            "TestSMTLRAFinalCheckKernelSharedEquality",
+            "TestSMTLRAFinalCheckNativeOracle",
+            "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"
+          ]
+        },
+        {
+          "name": "Retained context::get_value and LRA cached numeral callback connected to quick_checker::canonize via its managed context, sort-family theory dispatch and per-query AST value roots.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_model.go",
+            "pkg/smtcore/smt_theory.go",
+            "pkg/smtcore/smt_quick_checker.go",
+            "pkg/smtcore/smt_quantifier_manager.go",
+            "pkg/smtcore/theory_lra_direct_value_test.go"
+          ],
+          "tests": [
+            "TestSMTLRADirectValueEligibilityAndSortDispatch",
+            "TestSMTLRADirectValueIntegerAndStoppedOwnerGuards",
+            "TestSMTLRADirectValueManagedQuickChecker",
+            "TestSMTLRADirectValueQuickCheckerRootsEveryArgument"
+          ]
+        },
+        {
+          "name": "Retained LRA init_solver LP parameter forwarding through context m_params and module lp; source mk_fresh integration creates independent concrete LRA/LAR owners reading destination LP settings.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/smt_internalizer_state.go",
+            "pkg/smtcore/smt_kernel.go",
+            "pkg/smtcore/smt_arithmetic_lifecycle.go",
+            "pkg/smtcore/theory_lra_lifecycle_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRALPSettingsLocalGlobalAndFrozenInitialization",
+            "TestSMTLRALPSettingsRejectInvalidStrategyAndRetireHelper",
+            "TestSMTLRALPFreshCopyUsesDestinationSettingsAndIndependentNumerics",
+            "TestSMTLRALPInitializationAllocationRefusalCleanup",
+            "TestSMTLRALPSettingsNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained LRA collect_statistics and get_name: exact native counter names/order/uint32 width; cumulative inequality rows, conflicts, disequalities and completed basic propagation; make_feasible LP sampling/maxima; existing solver statistics interface integration.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_statistics.go",
+            "pkg/smtcore/theory_lra_numeric.go",
+            "pkg/smtcore/theory_lra_propagation.go",
+            "pkg/smtcore/theory_lra.go",
+            "pkg/smtcore/theory_lra_statistics_test.go",
+            "pkg/smtcore/theory_lra_numeric_reference_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAStatisticsActualRowsScopesAndSearchLifetime",
+            "TestSMTLRAStatisticsBasicVersusLPAndEqualityCallbacks",
+            "TestSMTLRAStatisticsUnsignedWidthAndGuards",
+            "TestSMTLRAStatisticsSolverCollectionAndResetNoOp",
+            "TestSMTLRAStatisticsNativeOracle"
+          ]
+        },
+        {
+          "name": "Retained LRA theory_opt callbacks add_objective/value/maximize/mk_gt/mk_obj/mk_ge: actual LAR local maximization, exact epsilon/integer blockers, typed objective reconstruction and filtered/scoped Boolean lower-bound registration.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_lra_objective.go",
+            "pkg/smtcore/theory_lra_objective_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAObjectiveStrictValueAndSourceBlocker",
+            "TestSMTLRAObjectiveRetainsLocalImprovementAndScope",
+            "TestSMTLRAObjectiveUnmappedAndUnsupportedRegistration",
+            "TestSMTLRAObjectiveBlockerRoundingAndEpsilon",
+            "TestSMTLRAObjectiveLowerBoundReconstructionAndBooleanReuse",
+            "TestSMTLRAObjectiveLowerBoundActualConstraintsAndDomains",
+            "TestSMTLRAObjectivePhysicalRefusalAndOwnerCleanup",
+            "TestSMTLRAObjectiveMappedRayAndConstant"
+          ]
+        },
+        {
+          "name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_setup_real.go",
+            "pkg/smtcore/smt_setup_simple.go",
+            "pkg/smtcore/smt_kernel.go",
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/reason_unknown.go",
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/smtcore/smt_setup_lra_backend_test.go",
+            "pkg/cmd_context/statistics_test.go",
+            "pkg/cmd/g3/lra_backend_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAPublicSetupLogicAutoAndFirstPush",
+            "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate",
+            "TestSMTLRAPublicSetupProofAndTrackedConflict",
+            "TestCommandContextStatisticsResultPriorityAndProcessCounters",
+            "TestCommandContextStatisticsWriterAndWatch",
+            "TestSMTLibRunnerConcreteLRASmoke",
+            "TestSMTLibRunnerConcreteLRAIsIntNormalization",
+            "TestSMTLibRunnerConcreteLRAScriptsMatchCPP",
+            "TestSMTLibRunnerConcreteLRADefaultSelection",
+            "TestSMTLibRunnerLRAScopedRationalAndUFModelOracles"
+          ]
+        },
         {
           "name": "display override, consumed by context::display_theories",
           "status": "ported",
@@ -163048,6 +163608,9 @@
             "TestSMTLRAKernelParameterUpdatePreservesInitialTracking",
             "TestSMTLRAFreshCopyInitializesTrackingFromCurrentParameters",
             "TestSMTLibRunnerLRAPropagationModeUpdatesMatchCPP"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/lra_backend_test.go"
           ]
         }
       ],
@@ -165333,13 +165896,16 @@
         },
         {
           "name": "retained negative-suffix shared-segment mismatch witness and active lazy negative-prefix protocol; inactive prefix-mismatch and first/last suffix variants excluded",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_boundary_negative.go",
           "tests": [
             "TestSMTSequenceTheoryNegativeBoundaryWitnesses",
             "TestSMTSequenceTheoryNegativePrefixPropagatesToTails",
             "TestSMTSequenceTheoryNegativeSuffixDoesNotExposeInactiveInitialSegments",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -165505,7 +166071,7 @@
         },
         {
           "name": "integrated retained sequence path across cyclic and literal word equations, fixed lengths, positive and negative prefix/suffix relations, containment witnesses, bounded regex membership, and integer/string conversion, with scoped model restoration and C++ differential output",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/cmd/g3/test_vectors/sequence_word_equations_relations.smt2",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -165517,7 +166083,7 @@
         },
         {
           "name": "collect_statistics source-width sequence counters and exact public key order, including retained axiom, reduction, branching, automata, coherence, equality, disequality, extensionality, fixed-length and integer-string writers",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_statistics.go",
           "go_targets": [
             "pkg/smtcore/theory_seq.go",
@@ -165533,7 +166099,7 @@
         },
         {
           "name": "whole retained source-function inventory: external theory callbacks, word equations, arithmetic length reasoning, containment, regular-language propagation, branching, axiom dispatch, model construction and statistics are covered by the concrete rows above; eager Go axiom construction replaces the native queue dispatcher, stateless Go automata need no init_search cache reset, explain_empty and propagate_max_length have no retained caller, display helpers are diagnostic-only, and compile-disabled negative-prefix/suffix alternatives remain excluded",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq.go",
           "go_targets": [
             "pkg/smtcore/theory_seq_solve.go",
@@ -165832,7 +166398,7 @@
           ],
           "tests": [
             "TestSMTSequenceCanonicalResidualGetsFreshPrefixSearch",
-        "TestSMTSequenceTheorySymbolicNonContainsGivesUp",
+            "TestSMTSequenceTheorySymbolicNonContainsGivesUp",
             "TestSMTSequenceTheoryLengthLowerBoundDecomposition",
             "TestSMTSequenceTheoryLengthBoundsConstrainRemainder"
           ]
@@ -165929,7 +166495,7 @@
         },
         {
           "name": "canonizes(false, e) before negative containment assignment consequences, scoped solution expansion and conditional decision/equality dependencies; concrete index operands expand while their offset remains unchanged; nonnegative integer-to-string expansion requires merged numeral evidence or emits guarded equivalence axioms",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_canonize.go",
           "tests": [
             "TestSMTSequenceNonContainsCanonicalDisjunctionAndScope",
@@ -165938,6 +166504,9 @@
             "TestSMTSequenceNonContainsUnresolvedQueuePreventsDone",
             "TestSMTSequenceCanonicalConditionalScope",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -166334,7 +166903,7 @@
         },
         {
           "name": "collect_statistics declaration and source-width sequence counters with exact public key order",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_statistics.go",
           "go_targets": [
             "pkg/smtcore/theory_seq_statistics_test.go"
@@ -166347,14 +166916,15 @@
         },
         {
           "name": "whole retained declaration inventory for theory callbacks, scoped state, word equations, arithmetic length reasoning, containment, regular-language propagation, branching, model construction and statistics; source-private templates and declarations without retained consumers have no universal Go adapter",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq.go",
           "go_targets": [
             "pkg/smtcore/theory_seq_solve.go",
             "pkg/smtcore/theory_seq_fixed_length.go",
             "pkg/smtcore/theory_seq_regex.go",
             "pkg/smtcore/theory_seq_statistics.go",
-            "pkg/cmd/g3/test_vectors/sequence_helper_inventory.smt2"
+            "pkg/cmd/g3/test_vectors/sequence_helper_inventory.smt2",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTSequenceStatisticsFlowThroughSolverCollection",
@@ -166597,7 +167167,7 @@
           ],
           "tests": [
             "TestSMTSequenceCanonicalResidualGetsFreshPrefixSearch",
-        "TestSMTSequenceTheorySymbolicNonContainsGivesUp",
+            "TestSMTSequenceTheorySymbolicNonContainsGivesUp",
             "TestSMTSequenceTheoryLengthLowerBoundDecomposition",
             "TestSMTSequenceTheoryLengthBoundsConstrainRemainder"
           ]
@@ -166694,7 +167264,7 @@
         },
         {
           "name": "canonizes(false, e) before negative containment assignment consequences, scoped solution expansion and conditional decision/equality dependencies; concrete index operands expand while their offset remains unchanged; nonnegative integer-to-string expansion requires merged numeral evidence or emits guarded equivalence axioms",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_seq_canonize.go",
           "tests": [
             "TestSMTSequenceNonContainsCanonicalDisjunctionAndScope",
@@ -166703,6 +167273,9 @@
             "TestSMTSequenceNonContainsUnresolvedQueuePreventsDone",
             "TestSMTSequenceCanonicalConditionalScope",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -172732,6 +173305,9 @@
             "TestSolverDefaultsScopedPushAssertionsAndConsequence",
             "TestSolverDefaultConsequenceForNonBooleanValue",
             "TestSMTSolverDerivesArithmeticConsequences"
+          ],
+          "go_targets": [
+            "pkg/smtcore/smt_solver_test.go"
           ]
         },
         {
@@ -174229,7 +174805,8 @@
         "pkg/cmd/g3/test_vectors/add_bounds_existing_bounds.smt2",
         "pkg/cmd/g3/test_vectors/add_bounds_fractional_real.smt2",
         "pkg/cmd/g3/test_vectors/add_bounds_negative_params.smt2",
-        "pkg/cmd/g3/test_vectors/add_bounds_proof_under.smt2"
+        "pkg/cmd/g3/test_vectors/add_bounds_proof_under.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestAddBoundsExactGoalsAndUnboundedProbeCPP",
@@ -174534,13 +175111,21 @@
           "name": "bounds_arith_subsumption retained proof-disabled Farkas-lemma instantiation",
           "status": "ported",
           "go_target": "pkg/tactic/arith/arith_bounds.go",
-          "tests": ["TestArithmeticBoundsKeepStrongestBounds", "TestPropSolverExtractsFarkasTheoryCore"]
+          "tests": [
+            "TestArithmeticBoundsKeepStrongestBounds",
+            "TestPropSolverExtractsFarkasTheoryCore"
+          ],
+          "go_targets": [
+            "pkg/muz/pdr/prop_solver_test.go"
+          ]
         },
         {
           "name": "generic tactic wrapper used by retained Farkas callers",
           "status": "platform_replacement",
           "go_target": "pkg/muz/pdr/prop_solver.go",
-          "tests": ["TestPropSolverExtractsFarkasTheoryCore"]
+          "tests": [
+            "TestPropSolverExtractsFarkasTheoryCore"
+          ]
         }
       ],
       "ownership": [
