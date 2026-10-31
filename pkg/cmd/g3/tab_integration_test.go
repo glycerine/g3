@@ -44,3 +44,18 @@ func TestSMTLibRunnerTabulationArithmeticRules(t *testing.T) {
 		t.Fatalf("tabulation arithmetic result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerTabulationRecursiveCycle(t *testing.T) {
+	script := `(set-option :fixedpoint.engine tab)
+(declare-rel loop ())
+(rule (=> loop loop))
+(query loop)
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "unsat" {
+		t.Fatalf("tabulation recursive result: %s", got)
+	}
+}
