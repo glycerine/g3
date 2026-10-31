@@ -6929,8 +6929,53 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fpa_base.go", "pkg/api/api_fpa_sorts.go", "pkg/api/api_fpa_rounding.go", "pkg/api/api_fpa_values.go", "pkg/api/api_fpa_arithmetic.go", "pkg/api/api_fpa_comparisons.go", "pkg/api/api_fpa_predicates.go", "pkg/api/api_fpa_conversions.go", "pkg/api/api_fpa_numeral_classes.go", "pkg/api/api_fpa_native_numerals.go", "pkg/api/api_fpa_component_numeral.go", "pkg/api/api_fpa_numeral_parts.go", "pkg/api/api_fpa_numeral_bits.go", "pkg/api/api_fpa_numeral_exponent_string.go", "pkg/api/api_fpa_numeral_significand_string.go", "pkg/api/api_fpa_exponent_significand.go", "pkg/api/api_fpa_rounding_short_aliases.go", "pkg/api/api_fpa_sort_numeric_aliases.go", "pkg/api/api_fpa_sort_dimensions.go", "pkg/api/api_fpa_sorts_test.go", "pkg/api/api_fpa_rounding_test.go", "pkg/api/api_fpa_values_test.go", "pkg/api/api_fpa_arithmetic_test.go", "pkg/api/api_fpa_relations_test.go", "pkg/api/api_fpa_conversions_test.go", "pkg/api/api_fpa_numeral_classes_test.go"],
-      "tests": ["TestSMTContextFloatingPointSortsAndShapes", "TestSMTContextFloatingPointArithmeticConstructors", "TestSMTContextFloatingPointRelationsAndClassifications", "TestSMTContextFloatingPointConversions", "TestSMTContextFloatingPointSpecialValuesAndComponents", "TestSMTContextFloatingPointRoundingModes", "TestSMTContextFloatingPointNumeralClasses", "TestFloatingPointNativeFloat32NumeralParts", "TestFloatingPointNativeFloat64NumeralParts", "TestFloatingPointComponentNumeralSingle", "TestFloatingPointComponentNumeralDouble", "TestFloatingPointNumeralBitVectorWidthsAndValues", "TestFloatingPointNumeralStrings", "TestFloatingPointExponentSignificandPositive", "TestFloatingPointExponentSignificandNegative", "TestFloatingPointExponentSignificandNearestTie"],
+      "go_targets": [
+        "pkg/api/api_fpa_base.go",
+        "pkg/api/api_fpa_sorts.go",
+        "pkg/api/api_fpa_rounding.go",
+        "pkg/api/api_fpa_values.go",
+        "pkg/api/api_fpa_arithmetic.go",
+        "pkg/api/api_fpa_comparisons.go",
+        "pkg/api/api_fpa_predicates.go",
+        "pkg/api/api_fpa_conversions.go",
+        "pkg/api/api_fpa_numeral_classes.go",
+        "pkg/api/api_fpa_native_numerals.go",
+        "pkg/api/api_fpa_component_numeral.go",
+        "pkg/api/api_fpa_numeral_parts.go",
+        "pkg/api/api_fpa_numeral_bits.go",
+        "pkg/api/api_fpa_numeral_exponent_string.go",
+        "pkg/api/api_fpa_numeral_significand_string.go",
+        "pkg/api/api_fpa_exponent_significand.go",
+        "pkg/api/api_fpa_rounding_short_aliases.go",
+        "pkg/api/api_fpa_sort_numeric_aliases.go",
+        "pkg/api/api_fpa_sort_dimensions.go",
+        "pkg/api/api_fpa_sorts_test.go",
+        "pkg/api/api_fpa_rounding_test.go",
+        "pkg/api/api_fpa_values_test.go",
+        "pkg/api/api_fpa_arithmetic_test.go",
+        "pkg/api/api_fpa_relations_test.go",
+        "pkg/api/api_fpa_conversions_test.go",
+        "pkg/api/api_fpa_numeral_classes_test.go"
+      ],
+      "tests": [
+        "TestSMTContextFloatingPointSortsAndShapes",
+        "TestSMTContextFloatingPointArithmeticConstructors",
+        "TestSMTContextFloatingPointRelationsAndClassifications",
+        "TestSMTContextFloatingPointConversions",
+        "TestSMTContextFloatingPointSpecialValuesAndComponents",
+        "TestSMTContextFloatingPointRoundingModes",
+        "TestSMTContextFloatingPointNumeralClasses",
+        "TestFloatingPointNativeFloat32NumeralParts",
+        "TestFloatingPointNativeFloat64NumeralParts",
+        "TestFloatingPointComponentNumeralSingle",
+        "TestFloatingPointComponentNumeralDouble",
+        "TestFloatingPointNumeralBitVectorWidthsAndValues",
+        "TestFloatingPointNumeralStrings",
+        "TestFloatingPointExponentSignificandPositive",
+        "TestFloatingPointExponentSignificandNegative",
+        "TestFloatingPointExponentSignificandNearestTie",
+        "TestSMTContextFloatingPointConversionRejectsOtherSourceKinds"
+      ],
       "assertions": [
         {
           "line": 981,
@@ -12644,11 +12689,14 @@
         "pkg/api/api_fpa_rounding.go",
         "pkg/api/api_fpa_values.go",
         "pkg/api/api_fpa_arithmetic_test.go",
-        "pkg/api/api_fpa_values_test.go"
+        "pkg/api/api_fpa_values_test.go",
+        "pkg/api/api_fpa_exponent_significand.go",
+        "pkg/api/api_fpa_conversions_test.go"
       ],
       "tests": [
         "TestSMTContextFloatingPointArithmeticConstructors",
-        "TestSMTContextFloatingPointSpecialValuesAndComponents"
+        "TestSMTContextFloatingPointSpecialValuesAndComponents",
+        "TestSMTContextFloatingPointConversionRejectsOtherSourceKinds"
       ],
       "conditionals": [
         {

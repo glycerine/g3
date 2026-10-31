@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -66,5 +67,28 @@ func TestSMTContextFloatingPointConversions(t *testing.T) {
 	}
 	if _, err := f.c.FloatingPointToUnsignedBitVector(rounding, zero, 0); err == nil {
 		t.Fatal("zero-width conversion accepted")
+	}
+}
+
+func TestSMTContextFloatingPointConversionRejectsOtherSourceKinds(t *testing.T) {
+	f := newSMTAPIFixture(t, "ALL", nil)
+	sort := f.pin(f.c.FloatingPointSingleSort())
+	round := f.pin(f.c.FloatingPointRoundNearestEven())
+	value := f.pin(f.c.FloatingPointZero(sort, false))
+	real := f.pin(f.c.Real(3, 2))
+	bvSort := f.pin(f.c.BitVectorSort(32))
+	bv := f.pin(f.c.BitVectorValue(1, bvSort))
+	for _, makeValue := range []func() (ast.ASTHandle, error){
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointFromIEEEBitVector(value, sort) },
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointConvert(round, real, sort) },
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointConvert(round, bv, sort) },
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointFromReal(round, value, sort) },
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointFromSignedBitVector(round, real, sort) },
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointFromUnsignedBitVector(round, value, sort) },
+		func() (ast.ASTHandle, error) { return f.c.FloatingPointFromExponentSignificand(bv, bv, bv, sort) },
+	} {
+		if _, err := makeValue(); !errors.Is(err, ast.ErrASTDomain) {
+			t.Fatal("accepted wrong conversion source", err)
+		}
 	}
 }

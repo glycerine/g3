@@ -44,19 +44,53 @@ func (c *SMTContext) floatingPointToFormat(kind int32, target ast.ASTHandle, arg
 }
 
 func (c *SMTContext) FloatingPointFromIEEEBitVector(value, target ast.ASTHandle) (ast.ASTHandle, error) {
+	if err := c.requireFloatingPointConversionSource(value, APISortBitVector); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return c.floatingPointToFormat(ast.FPAOpToFP, target, value)
 }
 func (c *SMTContext) FloatingPointConvert(rounding, value, target ast.ASTHandle) (ast.ASTHandle, error) {
+	if err := c.requireFloatingPointConversionSource(value, APISortFloatingPoint); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return c.floatingPointToFormat(ast.FPAOpToFP, target, rounding, value)
 }
 func (c *SMTContext) FloatingPointFromReal(rounding, value, target ast.ASTHandle) (ast.ASTHandle, error) {
+	if err := c.requireFloatingPointConversionSource(value, APISortReal); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return c.floatingPointToFormat(ast.FPAOpToFP, target, rounding, value)
 }
 func (c *SMTContext) FloatingPointFromSignedBitVector(rounding, value, target ast.ASTHandle) (ast.ASTHandle, error) {
+	if err := c.requireFloatingPointConversionSource(value, APISortBitVector); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return c.floatingPointToFormat(ast.FPAOpToFP, target, rounding, value)
 }
 func (c *SMTContext) FloatingPointFromUnsignedBitVector(rounding, value, target ast.ASTHandle) (ast.ASTHandle, error) {
+	if err := c.requireFloatingPointConversionSource(value, APISortBitVector); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	return c.floatingPointToFormat(ast.FPAOpToFPUnsigned, target, rounding, value)
+}
+
+func (c *SMTContext) requireFloatingPointConversionSource(value ast.ASTHandle, expected APISortKind) error {
+	m, err := c.Manager()
+	if err != nil {
+		return err
+	}
+	sort, err := m.GetSort(value)
+	if err != nil {
+		return err
+	}
+	kind, err := c.SortKind(sort)
+	if err != nil {
+		return err
+	}
+	if kind != expected {
+		return ast.ErrASTDomain
+	}
+	return nil
 }
 
 func (c *SMTContext) floatingPointToBitVector(kind int32, rounding, value ast.ASTHandle, bits uint32) (result ast.ASTHandle, resultErr error) {

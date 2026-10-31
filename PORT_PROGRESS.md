@@ -1,3 +1,5 @@
+Floating-point conversion source guards (2026-10-31 UTC): public conversion entry points now reject input sorts belonging to other overloads, including the three-bitvector overload of exponent/significand conversion. Normal and checked floating-point suites pass; whole-unit audits remain pending.
+
 Datatype constructor frontend integration (2026-10-31 UTC): normal and checked command-line tests replay constructor creation, datatype construction and query.
 
 Generated datatype build and query replay (2026-10-31 UTC): connected single and mutually recursive datatype construction and constructor query outputs. Normal and checked tests verify accessor behavior and cross-recursive sorts after temporary owners are released.
