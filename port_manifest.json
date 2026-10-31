@@ -6139,7 +6139,8 @@
         "TestGeneratedFixedpointReplayExpressionAnswer",
         "TestGeneratedFixedpointReplaySpacerExpressionGroundAndTrace",
         "TestGeneratedFixedpointReplayMultipleRelationAnswer",
-        "TestGeneratedFixedpointReplaySpacerExpressionFromLevel"
+        "TestGeneratedFixedpointReplaySpacerExpressionFromLevel",
+        "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -126573,7 +126574,8 @@
         "TestZ3LogFrontendReportsUnavailableCommands",
         "TestZ3LogFrontendReportsParseFailureAndWriterError",
         "TestZ3LogFrontendMissingFileDiagnostic",
-        "TestZ3LogFrontendReplaysFixedpointProgramLoading"
+        "TestZ3LogFrontendReplaysFixedpointProgramLoading",
+        "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer"
       ],
       "methods_audited": false,
       "ownership_audited": false,
