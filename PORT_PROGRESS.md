@@ -1,3 +1,5 @@
+Ported src/test/model2expr.cpp using its original two-argument full and partial interpretations. Tests check the resulting constant and quantified clauses and evaluate representative instances against the model.
+
 Ported the source Datalog parser regression inputs and fixed newly declared predicate heads followed by :-, including typed declaration heads. Acceptance of the original seven inputs agrees with native Z3.
 
 Unit-subsumption goals now have focused proof/core coverage in all four configurations; surviving formulas keep their proof facts and dependencies. Exceptional cleanup remains under audit.

@@ -204562,14 +204562,31 @@
       "path": "src/test/model2expr.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/model/model2expr_cpp_test.go"
+      ],
+      "tests": [
+        "TestModel2ExprCPPFullAndPartialFunctions"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst_model2expr",
+          "status": "ported",
+          "go_target": "pkg/model/model2expr_cpp_test.go",
+          "tests": [
+            "TestModel2ExprCPPFullAndPartialFunctions"
+          ]
+        }
+      ],
+      "ownership": [
+        "The Go fixture owns the AST manager, model and interpretations; the test closes the builder and pins its output."
+      ],
+      "deviations": [
+        "Printed expressions are checked structurally and by evaluating instantiated clauses in the source model."
+      ]
     },
     {
       "path": "src/test/model_based_opt.cpp",
