@@ -6047,7 +6047,8 @@
         "TestGeneratedProbeReplayClosesIncompleteLog",
         "TestGeneratedProbeCompositionReplay",
         "TestGeneratedProbeControlledTacticsReplay",
-        "TestGeneratedTacticRegistryReplayDescriptions"
+        "TestGeneratedTacticRegistryReplayDescriptions",
+        "TestGeneratedSolverFromTacticReplaySurvivesReset"
       ],
       "methods_audited": false,
       "ownership_audited": false,

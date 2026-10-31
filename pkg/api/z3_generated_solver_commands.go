@@ -17,6 +17,7 @@ type replaySolver struct {
 	logic         string
 	params        *ParameterSet
 	retiredParams []*ParameterSet
+	tactic        *APITactic
 }
 
 func (s *replaySolver) apiDestroy() error {
@@ -36,6 +37,12 @@ func (s *replaySolver) apiDestroy() error {
 		}
 		s.retiredParams = s.retiredParams[:i]
 	}
+	if s.tactic != nil {
+		if err := s.tactic.Close(); err != nil {
+			return err
+		}
+		s.tactic = nil
+	}
 	return nil
 }
 
@@ -49,6 +56,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		command ReplayCommand
 	}{
 		{408, "Z3_mk_solver", replayMkSolver}, {409, "Z3_mk_simple_solver", replayMkSimpleSolver}, {410, "Z3_mk_solver_for_logic", replayMkSolverForLogic},
+		{411, "Z3_mk_solver_from_tactic", replayMkSolverFromTactic}, {413, "Z3_solver_get_help", replaySolverHelp},
 		{414, "Z3_solver_get_param_descrs", replaySolverDescriptions}, {415, "Z3_solver_set_params", replaySolverSetParams}, {416, "Z3_solver_inc_ref", replaySolverIncRef}, {417, "Z3_solver_dec_ref", replaySolverDecRef},
 		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {420, "Z3_solver_reset", replaySolverReset}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
@@ -68,9 +76,10 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 	}
 	return nil
 }
-func replayMkSolver(r *Z3Replayer) error         { return replayCreateSolver(r, 0) }
-func replayMkSimpleSolver(r *Z3Replayer) error   { return replayCreateSolver(r, 1) }
-func replayMkSolverForLogic(r *Z3Replayer) error { return replayCreateSolver(r, 2) }
+func replayMkSolver(r *Z3Replayer) error           { return replayCreateSolver(r, 0) }
+func replayMkSimpleSolver(r *Z3Replayer) error     { return replayCreateSolver(r, 1) }
+func replayMkSolverForLogic(r *Z3Replayer) error   { return replayCreateSolver(r, 2) }
+func replayMkSolverFromTactic(r *Z3Replayer) error { return replayCreateSolver(r, 3) }
 func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 	owner, err := replayContext(r, 0)
 	if err != nil {
@@ -81,6 +90,7 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 	}
 	var value *APISimpleSolver
 	var logic string
+	var tacticValue *APITactic
 	switch kind {
 	case 0:
 		value, err = owner.context.NewSolver()
@@ -96,6 +106,19 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 		}
 		logic = name.s
 		value, err = owner.context.NewSolverForLogic(logic)
+	case 3:
+		tactic, e := replayTacticAt(r, owner, 1)
+		if e != nil {
+			return e
+		}
+		tacticValue, err = tactic.value.Retain()
+		if err != nil {
+			return err
+		}
+		value, err = owner.context.NewSolverFromTactic(tacticValue)
+		if err != nil {
+			return errors.Join(err, tacticValue.Close())
+		}
 	default:
 		return ErrZ3ReplayState
 	}
@@ -104,14 +127,20 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 	}
 	n := uint64(reflect.TypeOf(replaySolver{}).Size())
 	if err = owner.results.manager.Budget().Reserve(n); err != nil {
+		if tacticValue != nil {
+			return errors.Join(err, value.Close(), tacticValue.Close())
+		}
 		return errors.Join(err, value.Close())
 	}
-	s := &replaySolver{owner: owner, value: value, kind: kind, logic: logic}
+	s := &replaySolver{owner: owner, value: value, kind: kind, logic: logic, tactic: tacticValue}
 	s.object = apiObject{context: owner.results, destructor: s, ownerBytes: n}
 	s.object.self = &s.object
 	id, err := owner.results.addObject(&s.object)
 	if err != nil {
 		owner.results.manager.Budget().Release(n)
+		if tacticValue != nil {
+			return errors.Join(err, value.Close(), tacticValue.Close())
+		}
 		return errors.Join(err, value.Close())
 	}
 	s.object.id = id
@@ -402,4 +431,13 @@ func replaySolverProof(r *Z3Replayer) (err error) {
 		return err
 	}
 	return r.storeAST(s.owner, value)
+}
+
+func replaySolverHelp(r *Z3Replayer) error {
+	s, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	_, err = s.value.ParameterHelp()
+	return err
 }

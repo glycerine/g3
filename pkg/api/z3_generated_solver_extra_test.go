@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestGeneratedSolverProofReplayOwnsResult(t *testing.T) {
@@ -105,5 +107,50 @@ func TestGeneratedSolverReplayLoadsFile(t *testing.T) {
 	}
 	if !checked {
 		t.Fatal("file assertions not checked")
+	}
+}
+
+func TestGeneratedSolverFromTacticReplaySurvivesReset(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nS \"smt\"\nC 363\n= 0x42\nR\nP 0x41\nP 0x42\nC 364\n" +
+		"R\nP 0x41\nP 0x42\nC 411\n= 0x43\nR\nP 0x41\nP 0x43\nC 416\nR\nP 0x41\nP 0x42\nC 365\n" +
+		"R\nP 0x41\nP 0x43\nC 413\nR\nP 0x41\nP 0x43\nC 420\nR\nP 0x41\nC 55\n= 0x44\n" +
+		"R\nP 0x41\nP 0x43\nP 0x44\nC 422\nR\nP 0x41\nP 0x43\nC 427\nR\nP 0x41\nP 0x43\nC 900\nR\nP 0x41\nP 0x43\nC 417\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	for _, reg := range []func(*Z3Replayer) error{RegisterZ3GeneratedContextCommands, RegisterZ3GeneratedASTCommands, RegisterZ3GeneratedSolverCommands} {
+		if err = reg(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-tactic-solver", func(r *Z3Replayer) error {
+		s, e := replayGetSolver(r)
+		if e != nil {
+			return e
+		}
+		status, e := s.value.Check()
+		if e != nil {
+			return e
+		}
+		if status != lbool.False {
+			t.Fatal("reset tactic solver status", status)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("tactic solver not checked")
 	}
 }

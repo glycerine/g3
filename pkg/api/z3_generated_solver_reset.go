@@ -51,6 +51,8 @@ func replaySolverReset(r *Z3Replayer) (err error) {
 		next, err = s.owner.context.NewSimpleSolver()
 	case 2:
 		next, err = s.owner.context.NewSolverForLogic(s.logic)
+	case 3:
+		next, err = s.owner.context.NewSolverFromTactic(s.tactic)
 	default:
 		return ErrZ3ReplayState
 	}
