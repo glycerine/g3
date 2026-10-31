@@ -12,6 +12,18 @@ import (
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 )
 
+// Import independent test inputs at the project numeric boundary.
+func (c *nla2BVInvocation) log2Rat(n *big.Rat) uint32 {
+	local := c.local
+	count := len(local.numbers)
+	defer func() { local.err = errors.Join(local.err, local.releaseNumbersTo(count)) }()
+	value := local.rational(n)
+	if local.err != nil {
+		return 0
+	}
+	return c.log2Owned(value)
+}
+
 func TestNLA2BVProjectLog2WideBoundariesAndLocalOwnership(t *testing.T) {
 	r := nla2BVFixture(t, false)
 	c, err := r.newInvocation()

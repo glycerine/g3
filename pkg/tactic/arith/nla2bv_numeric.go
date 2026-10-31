@@ -4,21 +4,41 @@ package arith
 
 import (
 	"errors"
-	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func (c *nla2BVInvocation) log2Rat(n *big.Rat) uint32 {
+// Source: src/tactic/arith/nla2bv_tactic.cpp:225. All full-expression
+// temporaries remain owned until log2 returns; caller bounds stay borrowed.
+func (c *nla2BVInvocation) boundedBits(lower, upper *unumeral.OwnedRational) (bits uint32) {
 	local := c.local
-	count := len(local.numbers)
-	defer func() { local.err = errors.Join(local.err, local.releaseNumbersTo(count)) }()
-	value := local.rational(n)
 	if local.err != nil {
 		return 0
 	}
-	return c.log2Owned(value)
+	count := len(local.numbers)
+	defer func() { local.err = errors.Join(local.err, local.releaseNumbersTo(count)) }()
+	s := c.t.manager.NumeralService()
+	difference := local.takeRational(s.Sub(upper, lower))
+	if local.err != nil {
+		return 0
+	}
+	absolute := local.takeRational(s.Abs(difference))
+	if local.err != nil {
+		return 0
+	}
+	one := local.number()
+	if local.err == nil {
+		local.err = s.SetInt64(one, 1)
+	}
+	if local.err != nil {
+		return 0
+	}
+	span := local.takeRational(s.Add(absolute, one))
+	if local.err != nil {
+		return 0
+	}
+	return c.log2Owned(span)
 }
 
 func (c *nla2BVInvocation) updateNumBits(h ast.ASTHandle) (err error) {

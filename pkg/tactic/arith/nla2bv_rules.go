@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func (c *nla2BVInvocation) appendOwned(dst *[]ast.ASTHandle, h ast.ASTHandle) error {
@@ -375,6 +376,7 @@ func (c *nla2BVInvocation) addDefinition(variable, definition ast.ASTHandle) err
 func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) {
 	mark := c.local.checkpoint()
 	defer func() { resultErr = errors.Join(resultErr, c.local.releaseTo(mark)) }()
+	var lower, upper *unumeral.OwnedRational
 	low, strict, hasLow, err := c.bounds.Lower(variable)
 	if err != nil {
 		return err
@@ -382,6 +384,10 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 	if hasLow {
 		if err = nla2BVAssert(214, "!is_strict", !strict); err != nil {
 			return err
+		}
+		lower = c.local.rational(&low)
+		if c.local.err != nil {
+			return c.local.err
 		}
 	}
 	up, strict, hasUp, err := c.bounds.Upper(variable)
@@ -392,13 +398,14 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 		if err = nla2BVAssert(218, "!is_strict", !strict); err != nil {
 			return err
 		}
+		upper = c.local.rational(&up)
+		if c.local.err != nil {
+			return c.local.err
+		}
 	}
 	bits := c.numBits
 	if hasLow && hasUp {
-		span := new(big.Rat).Sub(&up, &low)
-		span.Abs(span)
-		span.Add(span, big.NewRat(1, 1))
-		bits = c.log2Rat(span)
+		bits = c.boundedBits(lower, upper)
 		if c.local.err != nil {
 			return c.local.err
 		}
@@ -414,14 +421,21 @@ func (c *nla2BVInvocation) addInteger(variable ast.ASTHandle) (resultErr error) 
 	}
 	value := c.local.hold(c.t.manager.MkBitVectorToInt(fresh))
 	if hasLow {
-		if low.Sign() != 0 {
-			value = c.local.arith(6, value, c.local.hold(c.t.manager.ArithmeticNumeralRat(&low, true)))
+		zero, err := c.t.manager.NumeralService().IsZero(lower)
+		if err != nil {
+			return err
+		}
+		if !zero {
+			value = c.local.arith(6, value, c.local.hold(c.t.manager.ArithmeticNumeral(lower, true)))
 		}
 	} else if hasUp {
-		value = c.local.arith(7, c.local.hold(c.t.manager.ArithmeticNumeralRat(&up, true)), value)
+		value = c.local.arith(7, c.local.hold(c.t.manager.ArithmeticNumeral(upper, true)), value)
 	} else {
-		mid := new(big.Int).Lsh(big.NewInt(1), uint(bits-1))
-		value = c.local.arith(7, value, c.local.hold(c.t.manager.ArithmeticNumeralRat(new(big.Rat).SetInt(mid), true)))
+		mid := c.local.takeRational(c.t.manager.NumeralService().PowerOfTwo(bits - 1))
+		if c.local.err != nil {
+			return c.local.err
+		}
+		value = c.local.arith(7, value, c.local.hold(c.t.manager.ArithmeticNumeral(mid, true)))
 	}
 	if c.local.err != nil {
 		return c.local.err
