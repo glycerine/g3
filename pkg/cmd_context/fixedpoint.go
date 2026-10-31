@@ -7,12 +7,10 @@ package cmd_context
 import (
 	"errors"
 	"io"
-	"math"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
-	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -253,34 +251,11 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 	if err != nil {
 		return lbool.Undef, err
 	}
-	module, err := c.config.Globals.SourceGetModuleName("fixedpoint")
+	scope, err := c.beginFixedpointTimeout(params)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&module)) }()
-	timeoutName := "timeout"
-	timeout := uint32(math.MaxUint32)
-	if params == nil {
-		timeout, err = c.config.Params.GetUIntName(&module, &timeoutName, timeout)
-	} else {
-		timeout, err = c.config.Params.GetUIntFallbackName(params, &timeoutName, &module, timeout)
-	}
-	if err != nil {
-		return lbool.Undef, err
-	}
-	manager, err := c.Manager()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	handler := &contextTimeoutHandler{limit: manager.ResourceLimit(), active: true}
-	timer, err := control.NewScopedTimer(timeout, handler)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	defer func() {
-		resultErr = errors.Join(resultErr, timer.Close())
-		handler.close()
-	}()
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	if expression {
 		if level != nil {
 			return engine.QueryExpressionFromLevel(query, *level)
@@ -301,11 +276,16 @@ func (c *Context) QueryFixedpointRelations(declarations []ast.ASTHandle) (lbool.
 }
 
 // QueryFixedpointRelationsWithParams applies fixedpoint-local relation-query settings.
-func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
+func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
 	engine, err := c.prepareFixedpointQuery(params)
 	if err != nil {
 		return lbool.Undef, err
 	}
+	scope, err := c.beginFixedpointTimeout(params)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	return engine.QueryPredicates(declarations)
 }
 

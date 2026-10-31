@@ -6502,6 +6502,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd_context/fixedpoint_timeout.go",
+        "pkg/cmd_context/fixedpoint_timeout_test.go",
         "pkg/api/api_fixedpoint.go",
         "pkg/api/api_fixedpoint_params.go",
         "pkg/api/api_fixedpoint_test.go",
@@ -6539,6 +6541,7 @@
         "pkg/muz/fp/query_expression.go"
       ],
       "tests": [
+        "TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation",
         "TestSMTContextFixedpointPDRLifecycle",
         "TestSMTContextFixedpointParameterDescriptors",
         "TestSMTContextFixedpointQueryOptionsAreLocalAndTyped",
@@ -6605,7 +6608,7 @@
           ]
         },
         {
-          "name": "remaining object-local parameter descriptors/setters and external-relation callbacks",
+          "name": "external-relation callbacks",
           "status": "unported",
           "go_target": null,
           "tests": []
