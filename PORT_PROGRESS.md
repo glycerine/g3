@@ -1,3 +1,5 @@
+Tabulation unfolding finalization (2026-10-31 UTC): added lightweight elimination of variables absent from clause predicates, rejection of false constraints, clause reduction and compaction of free-variable gaps. Normal and checked tabulation tests cover the complete unfolding path; proof-substitution extraction and search integration remain unfinished.
+
 Tabulation unfolding substitutions (2026-10-31 UTC): added two-bank unification and construction of the substituted head, ordered predicates and combined constraint. Normal and checked tabulation package tests cover shared variables and incompatible constants; quantifier elimination, variable compaction and search integration remain unfinished.
 
 Tabulation predicate selection (2026-10-31 UTC): added first, basic-weight, weight and variable-use selection, source constructor/value scores, rule averages and the cached-score schedule. Normal and checked tabulation package tests pass; the selector is not yet connected to tabulation search.

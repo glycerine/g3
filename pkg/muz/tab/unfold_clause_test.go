@@ -5,6 +5,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"testing"
 )
 
@@ -94,6 +96,23 @@ func TestUnfoldClauseExpressionsUnifiesBanksAndOrdersPredicates(t *testing.T) {
 		if a != variable {
 			t.Fatal("constraint lost unification")
 		}
+	}
+	cooperation, err := cooperate.NewCooperation(m.Budget())
+	must(err)
+	defer func() { must(cooperation.Close()) }()
+	lite, err := qe.NewLite(m, nil, false, qe.Config{Context: globals.Context, Globals: globals, Cooperation: cooperation})
+	must(err)
+	defer func() { must(lite.Close()) }()
+	final, matched, err := finalizeUnfoldedClause(result, rw, lite)
+	must(err)
+	if !matched || final == nil {
+		t.Fatal("finalization rejected a satisfiable unfolding")
+	}
+	defer func() { must(final.Close()) }()
+	finalPreds, err := final.Predicates()
+	must(err)
+	if len(finalPreds) != 3 {
+		t.Fatal("finalization lost predicates")
 	}
 	truth, err := m.MkTrue()
 	must(err)
