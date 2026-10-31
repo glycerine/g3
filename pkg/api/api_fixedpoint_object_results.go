@@ -31,6 +31,22 @@ func (f *APIFixedpoint) AddCover(level int, declaration, property ast.ASTHandle)
 	return f.command.AddFixedpointCover(level, declaration, property)
 }
 
+// AddInvariant adds a property to the invariant frame.
+func (f *APIFixedpoint) AddInvariant(declaration, property ast.ASTHandle) error {
+	if err := f.open(); err != nil {
+		return err
+	}
+	return f.command.AddFixedpointInvariant(declaration, property)
+}
+
+// Reachable returns an owning reference to the Spacer reach summary.
+func (f *APIFixedpoint) Reachable(declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if err := f.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return f.command.FixedpointReachable(declaration)
+}
+
 func (f *APIFixedpoint) ReasonUnknown() (string, error) {
 	if err := f.open(); err != nil {
 		return "", err

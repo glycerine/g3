@@ -6081,7 +6081,8 @@
         "TestGeneratedFloatingPointReplayRejectsWrongConversionSort",
         "TestGeneratedFloatingPointReplayInspectionOutputs",
         "TestGeneratedFloatingPointReplayExponentSignificand",
-        "TestZ3LogFrontendReplaysFloatingPoint"
+        "TestZ3LogFrontendReplaysFloatingPoint",
+        "TestGeneratedFixedpointReplaySpacerReachable"
       ],
       "methods_audited": false,
       "ownership_audited": false,

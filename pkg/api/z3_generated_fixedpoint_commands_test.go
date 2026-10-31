@@ -105,7 +105,7 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\nR\nP 0x41\nC 54\n= 0x45\nR\nP 0x41\nP 0x44\nP 0x45\nC 516\n" +
 		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\n" +
-		"R\nP 0x41\nP 0x44\nP 0x43\nC 522\nR\nP 0x41\nP 0x44\nI -1\nP 0x43\nP 0x45\nC 524\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nC 522\nR\nP 0x41\nP 0x44\nI -1\nP 0x43\nP 0x45\nC 524\nR\nP 0x41\nP 0x44\nP 0x43\nP 0x45\nC 655\n" +
 		"R\nP 0x41\nP 0x44\nI -1\nP 0x43\nC 523\n= 0x47\n" +
 		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x46\nR\nP 0x41\nP 0x44\nU 1\nP 0x46\np 1\nC 533\n" +
 		"R\nP 0x41\nP 0x44\nP 0x46\nC 517\n" +
@@ -186,5 +186,61 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 	}
 	if !checked {
 		t.Fatal("fixedpoint query not checked")
+	}
+}
+
+func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
+		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nC 526\nR\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\n" +
+		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nP 0x43\nC 656\n= 0x45\n" +
+		"R\nP 0x41\nP 0x44\nC 513\nR\nP 0x41\nP 0x45\nC 900\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(901, "set-spacer-engine", func(r *Z3Replayer) error {
+		f, e := replayGetFixedpoint(r)
+		if e != nil {
+			return e
+		}
+		return f.owner.context.SetFixedpointEngine("spacer")
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-reachable-result", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		value, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		if !owner.results.manager.IsTrue(value.handle) {
+			t.Fatal("reachable nullary fact should be true")
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("reachable result not checked")
 	}
 }

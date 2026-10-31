@@ -27,6 +27,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 		{533, "Z3_fixedpoint_to_string"},
+		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -227,6 +228,29 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 			return e
 		}
 		_, err = f.value.SMT2(queries...)
+	case 655, 656:
+		decl, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		if id == 655 {
+			property, e := r.astObject(owner, 3)
+			if e != nil {
+				return e
+			}
+			return f.value.AddInvariant(decl.handle, property.handle)
+		}
+		ref, e := f.value.Reachable(decl.handle)
+		if e != nil {
+			return e
+		}
+		manager := owner.results.manager
+		defer func() { err = errors.Join(err, manager.DelRef(&ref)) }()
+		handle, e := manager.RefGet(ref)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, handle)
 	}
 	return err
 }
