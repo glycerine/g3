@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
+	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
 
 func TestPseudoBooleanTheorySourceConstantCardinalities(t *testing.T) {
@@ -54,5 +55,114 @@ func TestPseudoBooleanTheorySourceConstantCardinalities(t *testing.T) {
 				astTestMust(t, solver.Pop(1))
 			}
 		}
+	}
+}
+
+// TestPseudoBooleanTheorySourceNestedFuzz checks a bounded version of the
+// source's nested push/check/pop fuzzer against all eight Boolean assignments.
+func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterPseudoBooleanPlugin()
+	astTestMust(t, err)
+	params, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
+	astTestMust(t, err)
+	solver, err := NewSMTSolver(m, nil, "QF_FD", SMTSolverConfig{Params: params})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, solver.Close()); astTestMust(t, params.Close()) })
+	boolean, err := m.MkBoolSort()
+	astTestMust(t, err)
+	var variables [3]ast.ASTHandle
+	for i, name := range []string{"source-pb-b0", "source-pb-b1", "source-pb-b2"} {
+		variables[i], err = m.MkConst(astTestSymbol(t, m, name), boolean)
+		astTestMust(t, err)
+		astTestPin(t, m, variables[i])
+	}
+	rng := z3rand.New(0)
+	addInequality := func() uint8 {
+		var negated [3]bool
+		for {
+			bound := int32(rng.Bounded(6))
+			var weights [3]int32
+			var sum int32
+			for i := range weights {
+				weight := int32(3) - int32(rng.Bounded(5))
+				if weight < 0 {
+					negated[i] = !negated[i]
+					weight = -weight
+					bound += weight
+				}
+				weights[i] = weight
+				sum += weight
+			}
+			// Discard trivially true and false constraints, as the source
+			// repeats until its theory rewriter leaves a PB inequality.
+			if bound <= 0 || bound > sum {
+				continue
+			}
+			var args [3]ast.ASTHandle
+			for i := range args {
+				args[i] = variables[i]
+				if negated[i] {
+					args[i], err = m.MkNot(args[i])
+					astTestMust(t, err)
+				}
+			}
+			var parameters []ast.ASTParameter
+			for _, value := range []int32{bound, weights[0], weights[1], weights[2]} {
+				p, err := m.NewParameterInt(value)
+				astTestMust(t, err)
+				parameters = append(parameters, p)
+			}
+			formula, err := m.MkFamilyApp(family, int32(ast.ASTPBOpGE), parameters, args[:])
+			astTestMust(t, err)
+			for i := range parameters {
+				astTestMust(t, m.DelParameter(&parameters[i]))
+			}
+			astTestMust(t, solver.Assert(formula))
+			var allowed uint8
+			for assignment := 0; assignment < 8; assignment++ {
+				var total int32
+				for i, weight := range weights {
+					value := assignment&(1<<i) != 0
+					if value != negated[i] {
+						total += weight
+					}
+				}
+				if total >= bound {
+					allowed |= 1 << assignment
+				}
+			}
+			return allowed
+		}
+	}
+	var runRound func(*uint32, uint32, uint8)
+	runRound = func(previous *uint32, level uint32, allowed uint8) {
+		astTestMust(t, solver.Push())
+		defer func() { astTestMust(t, solver.Pop(1)) }()
+		var nested, rounds uint32
+		for rounds <= *previous+1 {
+			allowed &= addInequality()
+			status, err := solver.CheckSat(nil)
+			astTestMust(t, err)
+			want := lbool.False
+			if allowed != 0 {
+				want = lbool.True
+			}
+			if status != want {
+				t.Fatalf("level=%d round=%d mask=%08b: got %v want %v", level, rounds, allowed, status, want)
+			}
+			rounds++
+			if status == lbool.False {
+				break
+			}
+			if level > 0 {
+				runRound(&nested, level-1, allowed)
+			}
+		}
+		*previous = rounds
+	}
+	var rounds uint32
+	for i := 0; i < 100; i++ {
+		runRound(&rounds, 2, 0xff)
 	}
 }
