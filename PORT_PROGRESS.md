@@ -1,3 +1,5 @@
+Duality transformer start (2026-10-31 UTC): ported concrete parameter and formula ownership, copying, full/empty state and complement. Normal and checked tests cover independent copies and lifecycle; graph operations, substitution and solver integration remain unfinished.
+
 Fact explanation column renaming (2026-10-31 UTC): joined explanation columns can now be permuted independently of finite keys. Normal and checked join regressions verify the permuted rows.
 
 Fact explanation negation (2026-10-31 UTC): filter finite keys against negative products while preserving surviving explanations. Normal and checked tests cover matching, nonmatching and invalid keys; general column interleaving and fixedpoint registration remain unfinished.

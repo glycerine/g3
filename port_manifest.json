@@ -48190,9 +48190,9 @@
       "path": "src/duality/duality.h",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_transformer_test.go"],
+      "tests": ["TestRPFPTransformerOwnershipAndBooleanState"],
       "conditionals": [
         {
           "line": 259,
@@ -48271,7 +48271,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Concrete transformer ownership and Boolean state are started; graph nodes, edges, substitution, interpolation and solver integration remain unfinished."]
     },
     {
       "path": "src/duality/duality_profiling.cpp",
