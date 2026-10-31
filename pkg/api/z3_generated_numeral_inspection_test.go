@@ -100,3 +100,82 @@ func TestGeneratedNumeralInspectionReplayOutputs(t *testing.T) {
 		t.Fatal("missing numeral checks", checks)
 	}
 }
+
+func TestGeneratedAlgebraicBoundsReplay(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 34\n= 0x42\nR\nP 0x41\nI 2\nP 0x42\nC 150\n= 0x43\n" +
+		"R\nP 0x41\nP 0x43\nC 900\n= 0x44\nR\nP 0x41\nP 0x44\nC 258\n" +
+		"R\nP 0x41\nP 0x44\nU 8\nC 271\n= 0x45\nR\nP 0x41\nP 0x44\nU 8\nC 272\n= 0x46\n" +
+		"R\nP 0x41\nP 0x45\nP 0x44\nP 0x46\nC 901\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(900, "make-square-root", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		value, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		root, e := owner.context.AlgebraicRoot(value.handle, 2)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, root)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(901, "check-algebraic-bounds", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		lower, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		root, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		upper, e := r.astObject(owner, 3)
+		if e != nil {
+			return e
+		}
+		below, e := owner.context.AlgebraicLT(lower.handle, root.handle)
+		if e != nil {
+			return e
+		}
+		above, e := owner.context.AlgebraicLT(root.handle, upper.handle)
+		if e != nil {
+			return e
+		}
+		if !below || !above {
+			t.Fatal("algebraic bounds do not enclose root")
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("algebraic bounds not checked")
+	}
+}

@@ -9,10 +9,11 @@ func registerZ3GeneratedNumeralInspection(r *Z3Replayer) error {
 		id   uint32
 		name string
 	}{
-		{257, "Z3_is_numeral_ast"}, {261, "Z3_get_numeral_string"}, {262, "Z3_get_numeral_decimal_string"},
+		{257, "Z3_is_numeral_ast"}, {258, "Z3_is_algebraic_number"}, {261, "Z3_get_numeral_string"}, {262, "Z3_get_numeral_decimal_string"},
 		{263, "Z3_get_numerator"}, {264, "Z3_get_denominator"}, {265, "Z3_get_numeral_small"},
 		{266, "Z3_get_numeral_int"}, {267, "Z3_get_numeral_uint"}, {268, "Z3_get_numeral_uint64"},
 		{269, "Z3_get_numeral_int64"}, {270, "Z3_get_numeral_rational_int64"},
+		{271, "Z3_get_algebraic_number_lower"}, {272, "Z3_get_algebraic_number_upper"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -36,6 +37,8 @@ func replayNumeralInspection(r *Z3Replayer, id uint32) error {
 	switch id {
 	case 257:
 		_, err = c.IsNumeral(value.handle)
+	case 258:
+		_, err = c.IsIrrationalAlgebraicNumber(value.handle)
 	case 261:
 		_, err = c.NumeralString(value.handle)
 	case 262:
@@ -99,11 +102,22 @@ func replayNumeralInspection(r *Z3Replayer, id uint32) error {
 		if err == nil && matched {
 			err = r.SetUint64(2, n)
 		}
+	case 271, 272:
+		var precision uint32
+		precision, err = r.Uint(2)
+		if err != nil {
+			return err
+		}
+		if id == 271 {
+			result, err = c.AlgebraicNumberLower(value.handle, precision)
+		} else {
+			result, err = c.AlgebraicNumberUpper(value.handle, precision)
+		}
 	}
 	if err != nil {
 		return err
 	}
-	if id == 263 || id == 264 {
+	if id == 263 || id == 264 || id == 271 || id == 272 {
 		return r.storeAST(owner, result)
 	}
 	return nil

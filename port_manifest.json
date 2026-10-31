@@ -6000,7 +6000,8 @@
         "TestGeneratedDatatypeInspectionReplayBorrowedResults",
         "TestGeneratedRelationInspectionReplay",
         "TestGeneratedDatatypeUpdateReplayReportsSourceError",
-        "TestGeneratedNumeralInspectionReplayOutputs"
+        "TestGeneratedNumeralInspectionReplayOutputs",
+        "TestGeneratedAlgebraicBoundsReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,

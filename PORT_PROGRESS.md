@@ -1,3 +1,5 @@
+Generated algebraic bounds replay (2026-10-31 UTC): added irrational-number recognition and lower/upper bound queries. Normal and checked tests verify bounds enclose the square root of two; other generated commands remain unfinished.
+
 Generated numeral inspection replay (2026-10-31 UTC): added numeral recognition, string and decimal queries, rational parts and integer output conversions. Normal and checked tests cover signed rational outputs and unchanged outputs on failed unsigned conversions; other generated commands remain unfinished.
 
 Generated relation and datatype update replay (2026-10-31 UTC): added relation arity/column queries and the source field-update path. Normal and checked tests cover returned columns and the source fork’s field-update error; other generated commands remain unfinished.
