@@ -393,6 +393,7 @@ var scriptResults = map[string]string{
 	"nlsat_shuffle.smt2":                           "sat\n",
 	"nlsat_inline.smt2":                            "sat\n((x 1.0)\n (y 1.0))\n",
 	"qfnra_nlsat.smt2":                             "unsat\nsat\nunsat\nsat\nsat\nsat\nunsat\nsat\n",
+	"qfufnra_to_int.smt2":                          "sat\nunsat\n",
 	"utvpi_mixed_sum_model.smt2":                   "sat\n",
 	"nla2bv_bounded_scopes.smt2":                   "sat\n((x 7))\nunsat\nsat\n((x 7))\n",
 	"nla2bv_under_unknown.smt2":                    "unknown\nsat\n(((= (* x x) 4) true))\n",

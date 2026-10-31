@@ -20,6 +20,7 @@ import (
 
 const (
 	qfnraPurifyDiv     int32 = 10
+	qfnraPurifyToInt   int32 = 15
 	qfnraPurifyPower   int32 = 18
 	qfnraPurifyNegRoot int32 = 33
 )
@@ -94,17 +95,18 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
-	if arguments.Count() != 2 || (op != qfnraPurifyDiv && op != qfnraPurifyPower) {
+	if (op == qfnraPurifyToInt && arguments.Count() != 1) ||
+		(op != qfnraPurifyToInt && (arguments.Count() != 2 || (op != qfnraPurifyDiv && op != qfnraPurifyPower))) {
 		return rewriter.RewriteFailed, nil
 	}
-	args := [2]ast.ASTHandle{}
+	args := make([]ast.ASTHandle, arguments.Count())
 	for j := range args {
 		args[j], err = arguments.At(uint32(j))
 		if err != nil {
 			return rewriter.RewriteFailed, err
 		}
 	}
-	term, err := m.MkApp(decl, args[:])
+	term, err := m.MkApp(decl, args)
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
@@ -153,7 +155,9 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 			return rewriter.RewriteFailed, e
 		}
 	}
-	if op == qfnraPurifyDiv {
+	if op == qfnraPurifyToInt {
+		err = i.processToInt(args[0], fresh, entry)
+	} else if op == qfnraPurifyDiv {
 		err = i.processDivision(args[0], args[1], fresh, entry)
 	} else {
 		err = i.processPower(args[0], args[1], fresh, entry)

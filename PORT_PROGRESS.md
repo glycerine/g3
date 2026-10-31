@@ -52386,3 +52386,5 @@ Elim01 and inequality propagation solver translation: both tactics now copy para
 Translation regression correction: the unsupported-leaf API test now uses bv1-blast because propagate-ineqs gained target-context support. The test continues to check that a rejected translation leaves the source solver usable.
 
 Fourier–Motzkin solver translation: the raw tactic now copies its parameter snapshot to target-owned services when translating a composed solver. Direct policy and ownership coverage and a target-model integration test pass in ordinary and checked builds.
+
+General arithmetic purification increment: the QF_UFNRA pipeline now rewrites to_int to a cached fresh integer and the source floor constraints, with proof premises and model filtering. Direct tests check negative and positive floor boundaries, repeated occurrences and proof conclusions; SMT-LIB integration checks satisfiable and contradictory negative intervals. The purifier source units are corrected from ported to partial because the live general consumer still needs other branches and ownership audits.

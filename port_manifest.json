@@ -182057,12 +182057,17 @@
       "path": "src/tactic/arith/purify_arith_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_to_int.go",
+        "pkg/tactic/arith/qfnra_purify_to_int_test.go",
+        "pkg/cmd/g3/test_vectors/qfufnra_to_int.smt2",
         "pkg/tactic/arith/qfnra_purify_tactic.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestPurifyToIntFloorConstraintsAndCachedProof",
+        "TestSMTLibRunnerScripts/qfufnra_to_int.smt2",
         "TestQFNRAPurifyDivisionProofCoreAndModelFilter",
         "TestQFNRAPurifyZeroOddAndEvenPowers",
         "TestQFNRAPurifyLeavesPositiveIntegerPower",
@@ -182118,9 +182123,16 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
+        {
+          "name": "to_int fresh integer, floor constraints, cached definitions and proof premises",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/qfnra_purify_to_int.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_to_int_test.go", "pkg/cmd/g3/main_test.go"],
+          "tests": ["TestPurifyToIntFloorConstraintsAndCachedProof", "TestSMTLibRunnerScripts/qfufnra_to_int.smt2"]
+        },
         {
           "name": "retained quantifier-free real DIV and zero/rational-root POWER purification",
           "status": "ported",
@@ -182140,14 +182152,14 @@
         "The QF_NRA invocation owns cached source terms, fresh constants, definition proofs, constraints, and filter-model declarations until result publication."
       ],
       "deviations": [
-        "The retained QF_NRA instantiation is complete. Integer div/mod/to-int, quantified purification, algebraic root-object elimination, and trigonometric branches belong to other source consumers and remain unported."
+        "The QF_UFNRA consumer also reaches the general purifier. Integer div/mod, quantified purification and other general branches still require integration and source-fidelity audits; root-object and forward-trigonometric work has separate concrete implementations."
       ]
     },
     {
       "path": "src/tactic/arith/purify_arith_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic.go"],
       "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
       "conditionals": [
@@ -182160,13 +182172,13 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [{"name": "retained QF_NRA purifier construction and tactic surface", "status": "ported", "go_target": "pkg/tactic/arith/qfnra_purify_tactic.go", "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"]}],
       "ownership": [
         "The concrete QF_NRA purifier owns generated definitions and model-filter declarations until they transfer into the result goal/converter; borrowed input formulas remain rooted by the source Goal."
       ],
-      "deviations": ["Only the concrete quantifier-free real specialization reached by QF_NRA is exported; unused universal arithmetic variants are intentionally omitted."]
+      "deviations": ["The QF_UFNRA consumer reaches general arithmetic purification beyond the QF_NRA specialization; its remaining branches and ownership require integration and auditing."]
     },
     {
       "path": "src/tactic/arith/recover_01_tactic.cpp",
