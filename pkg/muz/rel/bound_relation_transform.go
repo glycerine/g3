@@ -93,3 +93,65 @@ func (r *BoundRelation) Project(removed []uint32) (*BoundRelation, error) {
 	}
 	return result, nil
 }
+
+// Rename rotates the selected columns and applies the source bound-set rename.
+func (r *BoundRelation) Rename(cycle []uint32) (*BoundRelation, error) {
+	if r == nil || len(cycle) == 0 {
+		return nil, ast.ErrASTDomain
+	}
+	seen := make(map[uint32]bool, len(cycle))
+	for _, column := range cycle {
+		if uint64(column) >= uint64(len(r.columns)) || seen[column] {
+			return nil, ast.ErrASTDomain
+		}
+		seen[column] = true
+	}
+	result := NewBoundRelation(uint32(len(r.columns)), false)
+	if r.empty {
+		result.reset()
+		return result, nil
+	}
+	classes := make([]uint32, len(r.columns))
+	for i := range r.columns {
+		classes[i] = r.find(uint32(i))
+		result.columns[i] = cloneBoundColumn(r.columns[classes[i]])
+	}
+	for i, column := range cycle {
+		dest := cycle[(i+1)%len(cycle)]
+		result.columns[dest] = cloneBoundColumn(r.columns[column])
+		classes[dest] = r.find(column)
+	}
+	first := make(map[uint32]uint32)
+	for i, class := range classes {
+		if representative, ok := first[class]; ok {
+			result.merge(representative, uint32(i))
+		} else {
+			first[class] = uint32(i)
+		}
+	}
+	for i := range result.columns {
+		column := &result.columns[i]
+		last := result.find(cycle[len(cycle)-1])
+		lastLT, lastLE := column.lt[last], column.le[last]
+		delete(column.lt, last)
+		delete(column.le, last)
+		for j := 0; j+1 < len(cycle); j++ {
+			from, to := result.find(cycle[j]), result.find(cycle[j+1])
+			if column.lt[from] {
+				delete(column.lt, from)
+				column.lt[to] = true
+			}
+			if column.le[from] {
+				delete(column.le, from)
+				column.le[to] = true
+			}
+		}
+		if lastLT {
+			column.lt[result.find(cycle[0])] = true
+		}
+		if lastLE {
+			column.le[result.find(cycle[0])] = true
+		}
+	}
+	return result, nil
+}

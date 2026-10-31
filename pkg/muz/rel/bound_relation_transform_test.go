@@ -66,3 +66,45 @@ func TestBoundRelationProjectionPreservesEquivalence(t *testing.T) {
 		t.Fatal("projection changed equivalence classes")
 	}
 }
+
+func TestBoundRelationRename(t *testing.T) {
+	r := NewBoundRelation(3, false)
+	astTestMust(t, r.AddLessEqual(1, 2))
+	astTestMust(t, r.AddLess(0, 1))
+	renamed, err := r.Rename([]uint32{0, 1, 2})
+	astTestMust(t, err)
+	strict, weak, err := renamed.Bounds(1)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{0, 2}) || len(weak) != 0 {
+		t.Fatal("renamed strict bounds", strict, weak)
+	}
+	strict, weak, err = renamed.Bounds(2)
+	astTestMust(t, err)
+	if len(strict) != 0 || !reflect.DeepEqual(weak, []uint32{0}) {
+		t.Fatal("renamed weak bounds", strict, weak)
+	}
+	strict, _, err = r.Bounds(0)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{1, 2}) {
+		t.Fatal("rename changed source", strict)
+	}
+	if _, err = r.Rename([]uint32{0, 0}); err == nil {
+		t.Fatal("duplicate cycle accepted")
+	}
+	if _, err = r.Rename(nil); err == nil {
+		t.Fatal("empty cycle accepted")
+	}
+	empty, err := NewBoundRelation(2, true).Rename([]uint32{0, 1})
+	astTestMust(t, err)
+	if !empty.Empty() {
+		t.Fatal("empty rename")
+	}
+
+	equivalent := NewBoundRelation(3, false)
+	astTestMust(t, equivalent.Equate(0, 1))
+	renamed, err = equivalent.Rename([]uint32{0, 2})
+	astTestMust(t, err)
+	if renamed.find(1) != renamed.find(2) || renamed.find(0) == renamed.find(1) {
+		t.Fatal("renamed equivalence classes")
+	}
+}

@@ -1,3 +1,5 @@
+Bound relation rename and formula (2026-10-31 UTC): added source cycle renaming for bounds and equivalence classes, plus owned formula construction with source-order equalities and strict/weak inequalities. Remaining filters, relation registration and allocation/failure audit remain pending.
+
 Bound relation join and projection (2026-10-31 UTC): added concrete vector joins and projection with column equality preservation. Projection drops references to removed columns and preserves empty inputs; C++ uses the UINT_MAX removal sentinel and does not propagate emptiness. Rename, remaining filters, formulas and live relation registration remain pending.
 
 Full native snapshot check (2026-10-31 UTC): suite on isolated commit dad552884 failed in two API tests that still expected the previous SMT-LIB objective output. All other package results passed; corrective commit d2bc4bfab updated those expectations to the native frontend format, and the complete API package and checked OPB/WCNF API tests passed afterward. This is not a passing full-suite checkpoint for the newer commits. Log: /tmp/g3-full-native-dad552884.log.

@@ -89277,7 +89277,9 @@
         "pkg/muz/rel/bound_relation_union.go",
         "pkg/muz/rel/bound_relation_union_test.go",
         "pkg/muz/rel/bound_relation_transform.go",
-        "pkg/muz/rel/bound_relation_transform_test.go"
+        "pkg/muz/rel/bound_relation_transform_test.go",
+        "pkg/muz/rel/bound_relation_formula.go",
+        "pkg/muz/rel/bound_relation_formula_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -89288,7 +89290,9 @@
         "TestBoundRelationUnionAndWiden",
         "TestBoundRelationUnionSplitsEqualities",
         "TestBoundRelationJoinAndProjection",
-        "TestBoundRelationProjectionPreservesEquivalence"
+        "TestBoundRelationProjectionPreservesEquivalence",
+        "TestBoundRelationRename",
+        "TestBoundRelationToFormula"
       ],
       "assertions": [
         {
@@ -89393,14 +89397,21 @@
             "TestBoundRelationJoinAndProjection",
             "TestBoundRelationProjectionPreservesEquivalence"
           ]
+        },
+        {
+          "name": "bound-vector rename and source formula",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_transform.go",
+          "tests": [
+            "TestBoundRelationRename"
+          ]
         }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles.",
-        "Public bound projection drops references to removed columns and preserves empty inputs; the C++ helper instead inserts the UINT_MAX removal sentinel and its vector projection does not propagate emptiness."
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs."
       ]
     },
     {
@@ -89417,7 +89428,9 @@
         "pkg/muz/rel/bound_relation_union.go",
         "pkg/muz/rel/bound_relation_union_test.go",
         "pkg/muz/rel/bound_relation_transform.go",
-        "pkg/muz/rel/bound_relation_transform_test.go"
+        "pkg/muz/rel/bound_relation_transform_test.go",
+        "pkg/muz/rel/bound_relation_formula.go",
+        "pkg/muz/rel/bound_relation_formula_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -89428,7 +89441,9 @@
         "TestBoundRelationUnionAndWiden",
         "TestBoundRelationUnionSplitsEqualities",
         "TestBoundRelationJoinAndProjection",
-        "TestBoundRelationProjectionPreservesEquivalence"
+        "TestBoundRelationProjectionPreservesEquivalence",
+        "TestBoundRelationRename",
+        "TestBoundRelationToFormula"
       ],
       "conditionals": [
         {
@@ -89501,14 +89516,21 @@
             "TestBoundRelationJoinAndProjection",
             "TestBoundRelationProjectionPreservesEquivalence"
           ]
+        },
+        {
+          "name": "bound-vector rename and source formula",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_transform.go",
+          "tests": [
+            "TestBoundRelationRename"
+          ]
         }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles.",
-        "Public bound projection drops references to removed columns and preserves empty inputs; the C++ helper instead inserts the UINT_MAX removal sentinel and its vector projection does not propagate emptiness."
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs."
       ]
     },
     {
@@ -92682,7 +92704,9 @@
         "pkg/muz/rel/bound_relation_union.go",
         "pkg/muz/rel/bound_relation_union_test.go",
         "pkg/muz/rel/bound_relation_transform.go",
-        "pkg/muz/rel/bound_relation_transform_test.go"
+        "pkg/muz/rel/bound_relation_transform_test.go",
+        "pkg/muz/rel/bound_relation_formula.go",
+        "pkg/muz/rel/bound_relation_formula_test.go"
       ],
       "tests": [
         "TestIntervalVectorColumnEquivalences",
@@ -92696,7 +92720,9 @@
         "TestBoundRelationUnionAndWiden",
         "TestBoundRelationUnionSplitsEqualities",
         "TestBoundRelationJoinAndProjection",
-        "TestBoundRelationProjectionPreservesEquivalence"
+        "TestBoundRelationProjectionPreservesEquivalence",
+        "TestBoundRelationRename",
+        "TestBoundRelationToFormula"
       ],
       "conditionals": [
         {
@@ -92790,6 +92816,14 @@
           "tests": [
             "TestBoundRelationJoinAndProjection",
             "TestBoundRelationProjectionPreservesEquivalence"
+          ]
+        },
+        {
+          "name": "bound-vector rename and source formula",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_transform.go",
+          "tests": [
+            "TestBoundRelationRename"
           ]
         }
       ],
