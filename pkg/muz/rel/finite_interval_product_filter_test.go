@@ -42,3 +42,38 @@ func TestFiniteIntervalProductInnerInterpretedFilter(t *testing.T) {
 		t.Fatal("finite-column condition accepted by inner-only path")
 	}
 }
+
+func TestFiniteIntervalProductTableInterpretedFilter(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, f.ast, h); return h }
+	one := own(f.ast.ArithmeticIntegerNumeralText("1"))
+	p, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{integer, f.boolean}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	astTestMust(t, p.AddFact([]ast.ASTHandle{one, f.truth}))
+	astTestMust(t, p.AddFact([]ast.ASTHandle{one, f.falsehood}))
+	variable := own(f.ast.MkVar(1, f.boolean))
+	condition := own(f.ast.MkEq(variable, f.truth))
+	theory := tableRelationTheoryRewriter(t, f.ast)
+	astTestMust(t, p.FilterInterpretedTable(condition, theory))
+	if found, err := p.ContainsFact([]ast.ASTHandle{one, f.truth}); err != nil || !found {
+		t.Fatal("matching finite row removed", found, err)
+	}
+	if found, err := p.ContainsFact([]ast.ASTHandle{one, f.falsehood}); err != nil || found {
+		t.Fatal("nonmatching finite row kept", found, err)
+	}
+	innerVariable := own(f.ast.MkVar(0, integer))
+	innerCondition := own(f.ast.MkArithmeticLE(innerVariable, one))
+	if err = p.FilterInterpretedTable(innerCondition, theory); err == nil {
+		t.Fatal("interval condition accepted by table-only path")
+	}
+	groundFalse := own(f.ast.MkEq(f.truth, f.falsehood))
+	astTestMust(t, p.FilterInterpretedTable(groundFalse, theory))
+	if empty, err := p.Empty(); err != nil || !empty {
+		t.Fatal("ground false condition did not empty product", empty, err)
+	}
+}
