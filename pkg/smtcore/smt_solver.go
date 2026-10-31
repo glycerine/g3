@@ -351,6 +351,15 @@ func (s *SMTSolver) UnsatCore() ([]ast.ASTHandle, error) {
 	return s.result.UnsatCore()
 }
 
+// Assignments returns the kernel's borrowed literals from the latest check.
+// Callers that keep them across a subsequent solver operation must own refs.
+func (s *SMTSolver) Assignments() ([]ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	return s.kernel.Assignments()
+}
+
 func (s *SMTSolver) clearConsequences() error {
 	for len(s.consequences) != 0 {
 		i := len(s.consequences) - 1
