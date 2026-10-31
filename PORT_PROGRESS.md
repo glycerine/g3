@@ -1,3 +1,5 @@
+Debug ordering and values (2026-10-31 UTC): connected dbg-lt and dbg-some-value to the existing AST total order and sort value constructors. Checked tests match native output for order reversals, equality, arithmetic, Boolean and bit-vector sorts.
+
 Debug traversal reports (2026-10-31 UTC): connected dbg-used-vars and dbg-pp-shared to existing used-variable and shared-occurrence traversal, including source indentation and empty reports. Checked tests match native output for missing indices, sorts, shared compound nodes and unshared atoms.
 
 Debug Boolean rewriting (2026-10-31 UTC): exposed the existing concrete recursive Boolean rewriter and connected the source debug rewrite, flat rewrite and conjunction-elimination commands. The SMT-LIB test matches native output for all three operations; other debug commands remain pending.

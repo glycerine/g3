@@ -46309,7 +46309,8 @@
         "TestDebugEliminateUnusedVariables",
         "TestDebugBooleanRewriters",
         "TestDebugUsedVariables",
-        "TestDebugPrintShared"
+        "TestDebugPrintShared",
+        "TestDebugOrderingAndSomeValue"
       ],
       "assertions": [
         {
@@ -46391,6 +46392,14 @@
             "TestDebugUsedVariables",
             "TestDebugPrintShared"
           ]
+        },
+        {
+          "name": "AST ordering and some-value debug commands",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugOrderingAndSomeValue"
+          ]
         }
       ],
       "ownership": [
@@ -46423,7 +46432,8 @@
         "TestDebugEliminateUnusedVariables",
         "TestDebugBooleanRewriters",
         "TestDebugUsedVariables",
-        "TestDebugPrintShared"
+        "TestDebugPrintShared",
+        "TestDebugOrderingAndSomeValue"
       ],
       "conditionals": [
         {
@@ -46480,6 +46490,14 @@
           "tests": [
             "TestDebugUsedVariables",
             "TestDebugPrintShared"
+          ]
+        },
+        {
+          "name": "AST ordering and some-value debug commands",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugOrderingAndSomeValue"
           ]
         }
       ],

@@ -153,3 +153,15 @@ func TestDebugPrintShared(t *testing.T) {
 		t.Fatalf("debug shared expressions %q, want %q", out, want)
 	}
 }
+
+func TestDebugOrderingAndSomeValue(t *testing.T) {
+	script := `(dbg-lt 1 2)(dbg-lt 2 1)(dbg-lt true true)
+(dbg-some-value Int)(dbg-some-value Bool)(dbg-some-value (_ BitVec 4))`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "true\nfalse\nfalse\n0\nfalse\n#x0\n"; out != want {
+		t.Fatalf("debug ordering and values %q, want %q", out, want)
+	}
+}

@@ -12,6 +12,49 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-lt":
+		left, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		right, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		less, err := m.ASTLess(left, right)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(p.out, less)
+		return err
+	case "dbg-some-value":
+		sort, err := p.sort()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		value, err := m.GetSomeValue(sort)
+		if err != nil {
+			return err
+		}
+		if err = p.context.WriteExpression(p.out, value); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(p.out)
+		return err
 	case "dbg-used-vars":
 		expression, _, err := p.expression()
 		if err != nil {
