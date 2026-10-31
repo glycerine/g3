@@ -106,3 +106,17 @@ func TestZ3LogFrontendReplaysSequencesAndRegex(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysGoal(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nI 1\nI 0\nI 0\nC 348\n= 0x42\n" +
+		"R\nP 0x41\nP 0x42\nC 349\nR\nP 0x41\nC 55\n= 0x43\n" +
+		"R\nP 0x41\nP 0x42\nP 0x43\nC 352\nR\nP 0x41\nP 0x42\nC 353\n" +
+		"R\nP 0x41\nP 0x42\nU 0\nC 357\n= 0x44\nR\nP 0x41\nP 0x42\nC 350\nM \"goal-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "goal-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}

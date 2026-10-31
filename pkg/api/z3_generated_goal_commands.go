@@ -22,6 +22,18 @@ func registerZ3GeneratedGoalCommands(r *Z3Replayer) error {
 		command ReplayCommand
 	}{
 		{348, "Z3_mk_goal", replayMkGoal}, {349, "Z3_goal_inc_ref", replayGoalIncRef}, {350, "Z3_goal_dec_ref", replayGoalDecRef},
+		{351, "Z3_goal_precision", func(r *Z3Replayer) error { return replayGoalOperation(r, 351) }},
+		{352, "Z3_goal_assert", func(r *Z3Replayer) error { return replayGoalOperation(r, 352) }},
+		{353, "Z3_goal_inconsistent", func(r *Z3Replayer) error { return replayGoalOperation(r, 353) }},
+		{354, "Z3_goal_depth", func(r *Z3Replayer) error { return replayGoalOperation(r, 354) }},
+		{355, "Z3_goal_reset", func(r *Z3Replayer) error { return replayGoalOperation(r, 355) }},
+		{356, "Z3_goal_size", func(r *Z3Replayer) error { return replayGoalOperation(r, 356) }},
+		{357, "Z3_goal_formula", func(r *Z3Replayer) error { return replayGoalOperation(r, 357) }},
+		{358, "Z3_goal_num_exprs", func(r *Z3Replayer) error { return replayGoalOperation(r, 358) }},
+		{359, "Z3_goal_is_decided_sat", func(r *Z3Replayer) error { return replayGoalOperation(r, 359) }},
+		{360, "Z3_goal_is_decided_unsat", func(r *Z3Replayer) error { return replayGoalOperation(r, 360) }},
+		{361, "Z3_goal_translate", func(r *Z3Replayer) error { return replayGoalOperation(r, 361) }},
+		{362, "Z3_goal_to_string", func(r *Z3Replayer) error { return replayGoalOperation(r, 362) }},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
@@ -122,4 +134,66 @@ func replayGoalDecRef(r *Z3Replayer) error {
 		return err
 	}
 	return g.object.decRef()
+}
+
+func replayGoalOperation(r *Z3Replayer, id uint32) (err error) {
+	g, err := replayGetGoal(r)
+	if err != nil {
+		return err
+	}
+	switch id {
+	case 351:
+		_, err = g.value.Precision()
+	case 352:
+		var formula *replayASTOwner
+		formula, err = r.astObject(g.owner, 2)
+		if err == nil {
+			err = g.value.Assert(formula.handle)
+		}
+	case 353:
+		_, err = g.value.Inconsistent()
+	case 354:
+		_, err = g.value.Depth()
+	case 355:
+		err = g.value.Reset()
+	case 356:
+		_, err = g.value.Size()
+	case 357:
+		var index uint32
+		index, err = r.Uint(2)
+		if err != nil {
+			return err
+		}
+		ref, e := g.value.Formula(index)
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, g.owner.results.manager.DelRef(&ref)) }()
+		var result = g.owner.results.manager
+		h, e := result.RefGet(ref)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(g.owner, h)
+	case 358:
+		_, err = g.value.NumExpressions()
+	case 359:
+		_, err = g.value.IsDecidedSat()
+	case 360:
+		_, err = g.value.IsDecidedUnsat()
+	case 361:
+		var target *replayContextOwner
+		target, err = replayContext(r, 2)
+		if err != nil {
+			return err
+		}
+		value, e := g.value.Translate(target.context)
+		if e != nil {
+			return e
+		}
+		return replayStoreGoal(r, target, value)
+	case 362:
+		_, err = g.value.String()
+	}
+	return err
 }

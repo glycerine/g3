@@ -6008,7 +6008,9 @@
         "TestGeneratedAlgebraicBoundsReplay",
         "TestGeneratedASTPrintReplayContextModes",
         "TestGeneratedGoalReplayLifecycle",
-        "TestGeneratedGoalReplayClosesIncompleteLog"
+        "TestGeneratedGoalReplayClosesIncompleteLog",
+        "TestGeneratedGoalReplayOperationsAndTranslation",
+        "TestZ3LogFrontendReplaysGoal"
       ],
       "methods_audited": false,
       "ownership_audited": false,

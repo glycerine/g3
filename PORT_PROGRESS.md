@@ -1,3 +1,5 @@
+Generated goal operation replay (2026-10-31 UTC): added assertions, inspection, reset, translation and display. Normal and checked API/CLI tests verify saved formulas and translated goals after source-context closure; other generated commands remain unfinished.
+
 Generated goal replay lifecycle (2026-10-31 UTC): added goal creation and reference management. Normal and checked tests verify flags, explicit release and cleanup of incomplete logs; goal operations and other generated commands remain unfinished.
 
 Generated AST print replay (2026-10-31 UTC): added context-local print mode and AST, pattern, sort and declaration formatting commands. Normal and checked tests exercise all three modes and independent contexts; other generated commands remain unfinished.
