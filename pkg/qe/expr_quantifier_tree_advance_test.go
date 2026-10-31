@@ -1,7 +1,6 @@
 package qe
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -12,6 +11,9 @@ import (
 func TestExprQETreeAdvanceAppliesModelBranch(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
 	p := f.constant("advance-p", f.boolean)
 	q := f.constant("advance-q", f.boolean)
 	truth := f.own(m.MkTrue())
@@ -24,7 +26,7 @@ func TestExprQETreeAdvanceAppliesModelBranch(t *testing.T) {
 	eval, err := model.NewModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: f.r.config.Context, Globals: f.r.config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: f.r.config.Cooperation})
 	fmMust(t, err)
 	defer func() { fmMust(t, eval.Close()) }()
-	ctx, err := NewSolverContext(m, []ast.ASTHandle{p, q})
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{p})
 	fmMust(t, err)
 	defer func() { fmMust(t, ctx.Close()) }()
 	plugin, err := NewBoolPlugin(ctx)
@@ -42,7 +44,6 @@ func TestExprQETreeAdvanceAppliesModelBranch(t *testing.T) {
 	variables, err := newExprQEBranchVariables(m)
 	fmMust(t, err)
 	defer func() { fmMust(t, variables.Close()) }()
-	fmMust(t, variables.add(q))
 	fmMust(t, variables.add(p))
 	root, err := newExprQETree(m, f.r.config, nil, truth)
 	fmMust(t, err)
@@ -50,13 +51,20 @@ func TestExprQETreeAdvanceAppliesModelBranch(t *testing.T) {
 	formula := f.own(m.MkOr(p, q))
 	fmMust(t, root.initialize(formula))
 	fmMust(t, variables.consume(root))
-	fmMust(t, root.selectVariable(p, big.NewRat(2, 1)))
-	child, status, err := advanceExprQEScalarTree(root, variables, ctx, eval, f.r.config, rw, nnf, nil, true)
+	root.atoms, err = NewBoolAtomIndex(m, []ast.ASTHandle{p}, nil)
+	fmMust(t, err)
+	var free []ast.ASTRef
+	found, err := chooseExprQETreeBranch(root, variables, ctx, solver, &free)
+	fmMust(t, err)
+	if !found || len(free) != 0 {
+		t.Fatal("model branch selection failed")
+	}
+	child, status, err := advanceExprQEScalarTree(root, variables, ctx, eval, f.r.config, rw, nnf, solver, true)
 	fmMust(t, err)
 	if status != exprQENeedPropagation || child.formula != (ast.ASTRef{}) {
 		t.Fatal("missing model-guided propagation")
 	}
-	child2, status, err := advanceExprQEScalarTree(root, variables, ctx, eval, f.r.config, rw, nnf, nil, true)
+	child2, status, err := advanceExprQEScalarTree(root, variables, ctx, eval, f.r.config, rw, nnf, solver, true)
 	fmMust(t, err)
 	if child2 != child || status != exprQEChooseVariable {
 		t.Fatal("branch substitution did not follow propagation")
@@ -66,7 +74,7 @@ func TestExprQETreeAdvanceAppliesModelBranch(t *testing.T) {
 	if !m.IsTrue(result) {
 		t.Fatal("model branch formula did not simplify")
 	}
-	again, status, err := advanceExprQEScalarTree(root, variables, ctx, eval, f.r.config, rw, nnf, nil, true)
+	again, status, err := advanceExprQEScalarTree(root, variables, ctx, eval, f.r.config, rw, nnf, solver, true)
 	fmMust(t, err)
 	if again != child || status != exprQEChooseVariable {
 		t.Fatal("initialized branch was not reused")
