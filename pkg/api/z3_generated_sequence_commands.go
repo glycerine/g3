@@ -13,6 +13,10 @@ func registerZ3GeneratedSequenceCommands(r *Z3Replayer) error {
 		{158, "Z3_is_re_sort"}, {159, "Z3_mk_string_sort"}, {160, "Z3_is_string_sort"},
 		{161, "Z3_mk_string"}, {162, "Z3_is_string"}, {163, "Z3_get_string"},
 		{164, "Z3_mk_seq_empty"}, {165, "Z3_mk_seq_unit"}, {166, "Z3_mk_seq_concat"},
+		{167, "Z3_mk_seq_prefix"}, {168, "Z3_mk_seq_suffix"}, {169, "Z3_mk_seq_contains"},
+		{170, "Z3_mk_seq_extract"}, {171, "Z3_mk_seq_replace"}, {172, "Z3_mk_seq_at"},
+		{173, "Z3_mk_seq_length"}, {174, "Z3_mk_seq_index"}, {175, "Z3_mk_str_to_int"},
+		{176, "Z3_mk_int_to_str"}, {177, "Z3_mk_seq_to_re"}, {178, "Z3_mk_seq_in_re"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -36,6 +40,21 @@ func replaySequenceCommand(r *Z3Replayer, id uint32) error {
 			return err
 		}
 		value = input.handle
+	}
+	var second, third ast.ASTHandle
+	if id == 167 || id == 168 || id == 169 || id == 170 || id == 171 || id == 172 || id == 174 || id == 178 {
+		input, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		second = input.handle
+	}
+	if id == 170 || id == 171 || id == 174 {
+		input, e := r.astObject(owner, 3)
+		if e != nil {
+			return e
+		}
+		third = input.handle
 	}
 	var result ast.ASTHandle
 	switch id {
@@ -75,12 +94,36 @@ func replaySequenceCommand(r *Z3Replayer, id uint32) error {
 		if err == nil {
 			result, err = c.SequenceConcat(args...)
 		}
+	case 167:
+		result, err = c.SequencePrefix(value, second)
+	case 168:
+		result, err = c.SequenceSuffix(value, second)
+	case 169:
+		result, err = c.SequenceContains(value, second)
+	case 170:
+		result, err = c.SequenceExtract(value, second, third)
+	case 171:
+		result, err = c.SequenceReplace(value, second, third)
+	case 172:
+		result, err = c.SequenceAt(value, second)
+	case 173:
+		result, err = c.SequenceLength(value)
+	case 174:
+		result, err = c.SequenceIndex(value, second, third)
+	case 175:
+		result, err = c.StringToInt(value)
+	case 176:
+		result, err = c.IntToString(value)
+	case 177:
+		result, err = c.SequenceToRegex(value)
+	case 178:
+		result, err = c.SequenceInRegex(value, second)
 	}
 	if err != nil {
 		return err
 	}
 	switch id {
-	case 155, 157, 159, 161, 164, 165, 166:
+	case 155, 157, 159, 161, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178:
 		return r.storeAST(owner, result)
 	}
 	return nil

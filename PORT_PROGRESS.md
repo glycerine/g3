@@ -1,3 +1,5 @@
+Generated sequence operation replay (2026-10-31 UTC): added prefix, suffix, containment, extraction, replacement, indexing, length, conversions and regex membership. Normal and checked tests verify operands; other generated commands remain unfinished.
+
 Generated sequence and string replay (2026-10-31 UTC): added sequence and regex sorts, string values, empty and unit sequences, and concatenation. Normal and checked tests verify resulting sorts and string content; other generated commands remain unfinished.
 
 Generated finite-domain size replay (2026-10-31 UTC): added the output-parameter query and verified a size above 32 bits in normal and checked tests. Other generated commands remain unfinished.

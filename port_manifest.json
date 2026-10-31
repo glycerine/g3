@@ -5985,7 +5985,8 @@
         "TestGeneratedDeclarationParameterInspection",
         "TestGeneratedSymbolInspectionReplay",
         "TestGeneratedFiniteDomainSizeReplayOutput",
-        "TestGeneratedSequenceAndStringReplay"
+        "TestGeneratedSequenceAndStringReplay",
+        "TestGeneratedSequenceOperationReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,
