@@ -1,8 +1,11 @@
 package smtcore
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
@@ -143,4 +146,56 @@ func TestExprStrongContextSimplifierPreservesEquivalence(t *testing.T) {
 		t.Fatal("quantified expression changed")
 	}
 	astTestMust(t, m.DelRef(&ref))
+}
+
+func TestExprStrongContextSimplifierAllocationFailureCanRetry(t *testing.T) {
+	refusals := 0
+	for _, stop := range []int64{0, 1, 2, 4, 8, 16, 32, 64, 128} {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			m, fixture := smtSolverFixture(t)
+			s, err := NewExprStrongContextSimplifier(m, fixture.config)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, s.Close()) }()
+			boolean, err := m.MkBoolSort()
+			astTestMust(t, err)
+			p, err := m.MkConst(astTestSymbol(t, m, "strong-retry-p"), boolean)
+			astTestMust(t, err)
+			ref, err := m.NewRef(p)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, m.DelRef(&ref)) }()
+			astTestMust(t, s.Push())
+			astTestMust(t, s.Assert(p))
+			m.Budget().FailAfter(stop)
+			failed, err := s.Simplify(p)
+			m.Budget().FailAfter(-1)
+			if failed != (ast.ASTRef{}) {
+				astTestMust(t, m.DelRef(&failed))
+			}
+			if err != nil {
+				if !errors.Is(err, arena.ErrInjectedFailure) {
+					t.Fatalf("unexpected failure: %v", err)
+				}
+				refusals++
+			}
+			result, err := s.Simplify(p)
+			astTestMust(t, err)
+			got, err := m.RefGet(result)
+			astTestMust(t, err)
+			if !m.IsTrue(got) {
+				t.Fatal("simplifier lost its asserted context after retry")
+			}
+			astTestMust(t, m.DelRef(&result))
+			astTestMust(t, s.Pop())
+			falsity, err := m.MkFalse()
+			astTestMust(t, err)
+			forced, err := s.isForced(p, falsity)
+			astTestMust(t, err)
+			if forced {
+				t.Fatal("failure left a solver scope asserted")
+			}
+		})
+	}
+	if refusals == 0 {
+		t.Fatal("injection did not reach an allocation")
+	}
 }
