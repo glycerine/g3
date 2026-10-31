@@ -36,3 +36,12 @@ func (o *APIOptimize) Statistics() (statistics.Statistics, error) {
 	}
 	return o.command.Statistics()
 }
+
+// StatisticsObject returns an independently owned optimizer statistics snapshot.
+func (o *APIOptimize) StatisticsObject() (*APIStatistics, error) {
+	value, err := o.Statistics()
+	if err != nil {
+		return nil, err
+	}
+	return newAPIStatistics(o.owner, value)
+}

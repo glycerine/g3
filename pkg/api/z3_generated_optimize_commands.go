@@ -26,9 +26,12 @@ func registerZ3GeneratedOptimizeCommands(r *Z3Replayer) error {
 		{541, "Z3_optimize_assert"}, {543, "Z3_optimize_maximize"}, {544, "Z3_optimize_minimize"},
 		{545, "Z3_optimize_push"}, {546, "Z3_optimize_pop"}, {547, "Z3_optimize_check"},
 		{548, "Z3_optimize_get_reason_unknown"}, {549, "Z3_optimize_get_model"},
+		{550, "Z3_optimize_set_params"}, {551, "Z3_optimize_get_param_descrs"},
+		{552, "Z3_optimize_get_lower"}, {553, "Z3_optimize_get_upper"},
+		{554, "Z3_optimize_get_lower_as_vector"}, {555, "Z3_optimize_get_upper_as_vector"},
 		{556, "Z3_optimize_to_string"}, {557, "Z3_optimize_from_string"},
 		{558, "Z3_optimize_from_file"}, {559, "Z3_optimize_get_help"},
-		{561, "Z3_optimize_get_assertions"}, {562, "Z3_optimize_get_objectives"},
+		{560, "Z3_optimize_get_statistics"}, {561, "Z3_optimize_get_assertions"}, {562, "Z3_optimize_get_objectives"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -139,6 +142,39 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 			return e
 		}
 		return replayStoreModel(r, owner, value)
+	case 550:
+		parameters, e := replayParametersAt(r, owner, 2)
+		if e != nil {
+			return e
+		}
+		return o.value.SetParameters(parameters.value)
+	case 551:
+		value, e := o.value.ParameterDescriptions()
+		if e != nil {
+			return e
+		}
+		return storeReplayDescriptions(r, owner, value)
+	case 552, 553:
+		index, e := r.Uint(2)
+		if e != nil {
+			return e
+		}
+		var ref ast.ASTRef
+		if id == 552 {
+			ref, err = o.value.Lower(index)
+		} else {
+			ref, err = o.value.Upper(index)
+		}
+		if err != nil {
+			return err
+		}
+		manager := owner.results.manager
+		defer func() { err = errors.Join(err, manager.DelRef(&ref)) }()
+		handle, e := manager.RefGet(ref)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, handle)
 	case 556:
 		_, err = o.value.SMT2()
 	case 557, 558:
@@ -153,9 +189,25 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 		}
 	case 559:
 		_, err = o.value.ParameterHelp()
-	case 561, 562:
+	case 560:
+		value, e := o.value.StatisticsObject()
+		if e != nil {
+			return e
+		}
+		return replayStoreStatistics(r, owner, value)
+	case 554, 555, 561, 562:
 		var refs []ast.ASTRef
-		if id == 561 {
+		if id == 554 || id == 555 {
+			index, e := r.Uint(2)
+			if e != nil {
+				return e
+			}
+			if id == 554 {
+				refs, err = o.value.LowerVector(index)
+			} else {
+				refs, err = o.value.UpperVector(index)
+			}
+		} else if id == 561 {
 			refs, err = o.value.AssertionRefs()
 		} else {
 			refs, err = o.value.ObjectiveExpressions()

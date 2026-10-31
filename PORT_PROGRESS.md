@@ -1,3 +1,5 @@
+Generated optimizer bounds and metadata replay (2026-10-31 UTC): connected parameter updates and descriptions, scalar and vector bounds, and statistics snapshots. Normal and checked tests verify finite bounds and ownership after optimizer release; soft assertions and other generated commands remain unfinished.
+
 Generated optimizer replay lifecycle (2026-10-31 UTC): connected optimizer creation, scopes, assertions, objectives, checking, model and vector snapshots, parsing and display. Normal and checked API/CLI tests verify snapshot ownership and cleanup; soft assertions, bounds and other generated commands remain unfinished.
 
 Generated fixedpoint frame and display replay (2026-10-31 UTC): connected PDR frame counts, cover updates and snapshots, and fixedpoint query formatting. Normal and checked tests exercise covers and display under PDR; other generated fixedpoint commands remain unfinished.

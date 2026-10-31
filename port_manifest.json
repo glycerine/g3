@@ -6071,7 +6071,8 @@
         "TestGeneratedFixedpointReplayFactsAndRelationQuery",
         "TestGeneratedOptimizeReplaySnapshotsAndLifecycle",
         "TestGeneratedOptimizeReplayClosesIncompleteLog",
-        "TestZ3LogFrontendReplaysOptimize"
+        "TestZ3LogFrontendReplaysOptimize",
+        "TestGeneratedOptimizeReplayBoundsAndMetadata"
       ],
       "methods_audited": false,
       "ownership_audited": false,
