@@ -200222,12 +200222,12 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/muz/ddnf/ddnf_cpp_driver_test.go"],
-      "tests": ["TestDDNFSourceTwoBitInsertion"],
+      "tests": ["TestDDNFSourceTwoBitInsertion", "TestDDNFSourceForwardingRefinement"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The tst_ddnf1 source example is covered; the separate file-driven tst_ddnf command and forwarding/refinement workflow remain open."]
+      "deviations": ["Both tst_ddnf1 and the forwarding/refinement workflow are exercised with an in-memory routing table. The source command-line and file-error handling remain open."]
     },
     {
       "path": "src/test/diff_logic.cpp",

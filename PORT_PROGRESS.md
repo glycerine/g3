@@ -52294,3 +52294,5 @@ Datalog relation source driver completion: added the bound-relation join, equali
 DDNF source driver started: translated tst_ddnf1's two-bit insertion sequence and checked all four vectors, the node count and the DAG invariant. The separate input-file forwarding and refinement command remains open.
 
 SMT-LIB regression integration: updated the signed multiply overflow model result for four-bit -6 times 3. Its product underflows but does not exceed the signed maximum; the optional C++ comparison accounts for the fork's incorrect constant fold while all other results remain compared. The complete SMT-LIB script runner passes in normal and checked builds.
+
+DDNF forwarding driver: added the source's two-pass population and first-match accumulation over two routing tables, followed by pair-based class refinement. Four resulting forwarding classes and each source-pattern port pair are checked; command-line and file-error handling remain open.
