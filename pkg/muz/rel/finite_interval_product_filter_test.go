@@ -23,6 +23,9 @@ func TestFiniteIntervalProductInnerInterpretedFilter(t *testing.T) {
 	x := own(f.ast.MkVar(1, integer))
 	condition := own(f.ast.MkArithmeticLE(x, two))
 	astTestMust(t, p.FilterInterpretedInner(condition))
+	if _, err = p.Empty(); err != nil {
+		t.Fatal(err)
+	}
 	for _, tc := range []struct {
 		fact []ast.ASTHandle
 		want bool
@@ -105,12 +108,15 @@ func TestFiniteIntervalProductMixedInterpretedFilter(t *testing.T) {
 		}
 	}
 	astTestMust(t, p.FilterInterpreted(comparison, nil))
-	if found, err := p.ContainsFact([]ast.ASTHandle{f.falsehood, three}); err != nil || found {
-		t.Fatal("inner dispatch did not filter interval", found, err)
+	if found, err := p.ContainsFact([]ast.ASTHandle{f.falsehood, three}); err != nil || !found {
+		t.Fatal("source lookup before empty-row collection", found, err)
 	}
 	astTestMust(t, p.FilterInterpreted(mixed, nil))
 	if count, err := p.table.Len(); err != nil || count != 1 {
 		t.Fatal("mixed filter retained empty inner relation", count, err)
+	}
+	if found, err := p.ContainsFact([]ast.ASTHandle{f.falsehood, three}); err != nil || found {
+		t.Fatal("empty row survived mixed filter", found, err)
 	}
 	theory := tableRelationTheoryRewriter(t, f.ast)
 	condition := own(f.ast.MkEq(b, f.truth))

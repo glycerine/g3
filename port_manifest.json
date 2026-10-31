@@ -90390,7 +90390,8 @@
         "TestFiniteIntervalProductFull",
         "TestFiniteIntervalProductResetAndReuse",
         "TestFiniteIntervalProductTableConversion",
-        "TestFiniteIntervalProductIntervalConversion"
+        "TestFiniteIntervalProductIntervalConversion",
+        "TestFiniteIntervalProductSourceFactLookup"
       ],
       "conditionals": [
         {
@@ -90872,6 +90873,14 @@
             "TestFiniteIntervalProductTableConversion",
             "TestFiniteIntervalProductIntervalConversion"
           ]
+        },
+        {
+          "name": "source fact lookup including nonnumerals and uncollected empty rows",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductSourceFactLookup"
+          ]
         }
       ],
       "ownership": [
@@ -90881,7 +90890,8 @@
         "Cross-kind joins, unaligned union, general complement, manager registration and failure-frontier audit remain pending.",
         "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
         "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior.",
-        "Full construction uses the source table complement, which accepts at most one finite data column."
+        "Full construction uses the source table complement, which accepts at most one finite data column.",
+        "Source interval fact lookup conservatively accepts non-numerals and may report a fact in an empty inner relation until empty-row collection runs; Go follows this behavior."
       ]
     },
     {
@@ -90923,7 +90933,8 @@
         "TestFiniteIntervalProductFull",
         "TestFiniteIntervalProductResetAndReuse",
         "TestFiniteIntervalProductTableConversion",
-        "TestFiniteIntervalProductIntervalConversion"
+        "TestFiniteIntervalProductIntervalConversion",
+        "TestFiniteIntervalProductSourceFactLookup"
       ],
       "conditionals": [
         {
@@ -91093,6 +91104,14 @@
             "TestFiniteIntervalProductTableConversion",
             "TestFiniteIntervalProductIntervalConversion"
           ]
+        },
+        {
+          "name": "source fact lookup including nonnumerals and uncollected empty rows",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductSourceFactLookup"
+          ]
         }
       ],
       "ownership": [
@@ -91102,7 +91121,8 @@
         "Cross-kind joins, unaligned union, general complement, manager registration and failure-frontier audit remain pending.",
         "Source formula construction assumes finite columns lead the signature even when actual column layouts are interleaved; Go follows this behavior.",
         "Source interval clone splits column equivalence classes while copying representative bounds; Go follows this behavior.",
-        "Full construction uses the source table complement, which accepts at most one finite data column."
+        "Full construction uses the source table complement, which accepts at most one finite data column.",
+        "Source interval fact lookup conservatively accepts non-numerals and may report a fact in an empty inner relation until empty-row collection runs; Go follows this behavior."
       ]
     },
     {

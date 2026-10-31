@@ -217,10 +217,23 @@ func (p *FiniteIntervalProduct) storeInner(key Fact, inner *IntervalRelation) er
 	return nil
 }
 
+// ContainsFact follows the source interval lookup: non-numerals are accepted
+// conservatively, and rows with empty inner relations remain visible until a
+// collection operation such as Empty removes them.
 func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {
-	key, numbers, err := p.splitFact(values)
-	if err != nil {
+	if err := p.open(); err != nil {
 		return false, err
+	}
+	if len(values) != len(p.sorts) {
+		return false, ast.ErrASTDomain
+	}
+	key := make(Fact, len(p.tableColumns)+1)
+	for local, global := range p.tableColumns {
+		value, err := p.manager.EncodeValue(p.sorts[global], values[global])
+		if err != nil {
+			return false, err
+		}
+		key[local] = value
 	}
 	found, err := p.table.FetchFact(key)
 	if err != nil || !found {
@@ -230,7 +243,35 @@ func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, erro
 	if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
 		return false, ErrTableRelation
 	}
-	return p.intervals[index].ContainsFact(numbers), nil
+	inner := p.intervals[index].values
+	m := p.manager.manager
+	for local, global := range p.intervalColumns {
+		sort, err := m.GetSort(values[global])
+		if err != nil {
+			return false, err
+		}
+		if sort != p.sorts[global] {
+			return false, ast.ErrASTDomain
+		}
+		root := inner.find(uint32(local))
+		if values[global] != values[p.intervalColumns[root]] {
+			return false, nil
+		}
+		text, _, matched, err := m.ArithmeticNumeralText(values[global])
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			value, ok := new(big.Rat).SetString(text)
+			if !ok {
+				return false, ast.ErrASTDomain
+			}
+			if !inner.columns[root].Contains(value) {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
 }
 
 // FilterEqual restricts a finite column in the table or an arithmetic column
