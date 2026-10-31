@@ -18,7 +18,8 @@ func registerZ3GeneratedProbeCommands(r *Z3Replayer) error {
 	entries := []struct {
 		id   uint32
 		name string
-	}{{366, "Z3_mk_probe"}, {367, "Z3_probe_inc_ref"}, {368, "Z3_probe_dec_ref"}, {382, "Z3_probe_const"}, {399, "Z3_probe_apply"}}
+	}{{366, "Z3_mk_probe"}, {367, "Z3_probe_inc_ref"}, {368, "Z3_probe_dec_ref"}, {382, "Z3_probe_const"}, {383, "Z3_probe_lt"}, {384, "Z3_probe_gt"}, {385, "Z3_probe_le"},
+		{386, "Z3_probe_ge"}, {387, "Z3_probe_eq"}, {388, "Z3_probe_and"}, {389, "Z3_probe_or"}, {390, "Z3_probe_not"}, {399, "Z3_probe_apply"}}
 	for _, entry := range entries {
 		id := entry.id
 		if err := r.RegisterCommand(id, entry.name, func(r *Z3Replayer) error { return replayProbeCommand(r, id) }); err != nil {
@@ -91,6 +92,41 @@ func replayProbeCommand(r *Z3Replayer, id uint32) error {
 			return err
 		}
 		return replayStoreProbe(r, owner, value)
+	}
+	if id >= 383 && id <= 390 {
+		left, e := replayProbeAt(r, owner, 1)
+		if e != nil {
+			return e
+		}
+		var result *APIProbe
+		if id == 390 {
+			result, err = left.value.Not()
+		} else {
+			right, e := replayProbeAt(r, owner, 2)
+			if e != nil {
+				return e
+			}
+			switch id {
+			case 383:
+				result, err = left.value.Compare(APIProbeLess, right.value)
+			case 384:
+				result, err = left.value.Compare(APIProbeGreater, right.value)
+			case 385:
+				result, err = left.value.Compare(APIProbeLessEqual, right.value)
+			case 386:
+				result, err = left.value.Compare(APIProbeGreaterEqual, right.value)
+			case 387:
+				result, err = left.value.Compare(APIProbeEqual, right.value)
+			case 388:
+				result, err = left.value.And(right.value)
+			case 389:
+				result, err = left.value.Or(right.value)
+			}
+		}
+		if err != nil {
+			return err
+		}
+		return replayStoreProbe(r, owner, result)
 	}
 	if id == 367 || id == 368 {
 		object, e := r.Object(1)

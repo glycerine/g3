@@ -1,3 +1,5 @@
+Generated probe composition replay (2026-10-31 UTC): added comparisons, Boolean combinations and negation. Normal and checked tests verify each result after input probe release; other generated commands remain unfinished.
+
 Generated probe replay lifecycle (2026-10-31 UTC): added named/constant probes, reference management and goal application. Normal and checked tests cover values and incomplete-log cleanup; probe composition and other generated commands remain unfinished.
 
 Generated tactic application replay (2026-10-31 UTC): added application with and without parameters, result lifetime, subgoal inspection and model conversion. Normal and checked API/CLI tests cover product ownership after releasing original objects; other generated commands remain unfinished.

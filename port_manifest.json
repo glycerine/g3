@@ -6042,7 +6042,8 @@
         "TestGeneratedTacticApplyReplayAndSubgoalOwnership",
         "TestZ3LogFrontendReplaysTacticApplication",
         "TestGeneratedProbeReplayLifecycleAndApplication",
-        "TestGeneratedProbeReplayClosesIncompleteLog"
+        "TestGeneratedProbeReplayClosesIncompleteLog",
+        "TestGeneratedProbeCompositionReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,
