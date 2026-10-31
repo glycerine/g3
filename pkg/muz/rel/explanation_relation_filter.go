@@ -67,7 +67,8 @@ func (r *ExplanationRelation) FilterInterpreted(condition ast.ASTHandle) (matche
 			}
 		}
 	}
-	sub, err := rewriter.NewVarSubstitution(m, false)
+	// dl_context constructs its shared var_subst in standard order.
+	sub, err := rewriter.NewVarSubstitution(m, true)
 	if err != nil {
 		return false, err
 	}

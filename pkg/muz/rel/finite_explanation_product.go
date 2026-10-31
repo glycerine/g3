@@ -27,7 +27,7 @@ func NewFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 }
 
 func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int) (*FiniteExplanationProduct, error) {
-	if explanationColumns < 1 {
+	if explanationColumns < 0 {
 		return nil, ast.ErrASTDomain
 	}
 	if manager == nil || manager.open() != nil {

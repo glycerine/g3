@@ -1,3 +1,5 @@
+Fact explanation assignment (2026-10-31 UTC): joined rows can now fill an undefined explanation and project away premise columns. A joined-rule regression exposed and fixed the explanation filter's substitution order to match the Datalog context; focused normal and checked tests pass, while Datalog registration and general column interleaving remain unfinished.
+
 Fact explanation joins (2026-10-31 UTC): finite-key joins now carry concatenated explanation rows; projection and union preserve the multi-column rows. Normal and checked tests cover equality joins, missing matches, subsequent projection and union; column interleaving, assignment and Datalog registration remain unfinished.
 
 Fact explanation projection (2026-10-31 UTC): remove finite columns and merge colliding tuples using the source fact-level first-explanation policy. Focused normal and checked tests cover collision, distinct keys and invalid columns; mixed joins and Datalog registration remain unfinished.
