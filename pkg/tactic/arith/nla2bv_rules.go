@@ -130,14 +130,15 @@ func (c *nla2BVInvocation) collectPower2(g *tactic.Goal) error {
 	if err := c.integer.CollectPower2(g); err != nil {
 		return err
 	}
-	powers, err := c.integer.Power2()
+	powers, err := c.integer.power2Entries()
 	if err != nil {
 		return err
 	}
 	if len(powers) == 0 {
 		return nil
 	}
-	for key, exponent := range powers {
+	for _, entry := range powers {
+		key, exponent := entry.key, entry.value
 		mark := c.local.checkpoint()
 		width, err := c.t.manager.BitVectorSize(exponent)
 		if err != nil {

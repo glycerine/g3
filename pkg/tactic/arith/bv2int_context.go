@@ -25,7 +25,9 @@ type BV2IntContext struct {
 	trace                      *diagnostic.TraceTags
 	maxSize                    uint32
 	side, trail                []ast.ASTHandle
-	power2                     map[ast.ASTHandle]ast.ASTHandle
+	power2                     []bv2IntPowerEntry
+	power2Size                 uint32
+	power2Bytes                uint64
 	header                     uint64
 	borrowers                  uint32
 	resetting, closing, closed bool
@@ -58,8 +60,12 @@ func NewBV2IntContext(m *ast.ASTManager, c *uparams.ParamsContext, p *uparams.Pa
 	if err = m.Budget().Reserve(n); err != nil {
 		return nil, err
 	}
-	r := &BV2IntContext{manager: m, context: c, maxSize: max, header: n, power2: make(map[ast.ASTHandle]ast.ASTHandle)}
+	r := &BV2IntContext{manager: m, context: c, maxSize: max, header: n}
 	r.self = r
+	if err = r.resizePower2(8); err != nil {
+		m.Budget().Release(n)
+		return nil, err
+	}
 	return r, nil
 }
 func (r *BV2IntContext) owner() error {
@@ -105,19 +111,20 @@ func (r *BV2IntContext) IsPower2(e ast.ASTHandle) (ast.ASTHandle, bool, error) {
 	if err := r.open(); err != nil {
 		return ast.ASTHandle{}, false, err
 	}
-	h, ok := r.power2[e]
-	return h, ok, nil
+	return r.findPower2(e)
 }
 
-// Power2 returns a detached map of borrowed expressions for the retained NLA
-// substitution consumer. Iteration order is unspecified, as in obj_map.
+// Power2 returns a detached compatibility snapshot of borrowed expressions.
+// The NLA substitution consumer uses source bucket order via power2Entries.
 func (r *BV2IntContext) Power2() (map[ast.ASTHandle]ast.ASTHandle, error) {
 	if err := r.open(); err != nil {
 		return nil, err
 	}
-	result := make(map[ast.ASTHandle]ast.ASTHandle, len(r.power2))
-	for k, v := range r.power2 {
-		result[k] = v
+	result := make(map[ast.ASTHandle]ast.ASTHandle, int(r.power2Size))
+	for _, entry := range r.power2 {
+		if !entry.key.IsNull() {
+			result[entry.key] = entry.value
+		}
 	}
 	return result, nil
 }
@@ -255,7 +262,9 @@ func (r *BV2IntContext) CollectPower2(g *tactic.Goal) error {
 		if err = r.tracePower(v, logx); err != nil {
 			return err
 		}
-		r.power2[v] = logx
+		if err = r.insertPower2(v, logx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -293,7 +302,9 @@ func (r *BV2IntContext) Reset() error {
 	if err := r.release(&r.trail); err != nil {
 		return err
 	}
-	clear(r.power2)
+	if err := r.resetPower2(); err != nil {
+		return err
+	}
 	r.resetting = false
 	return nil
 }
@@ -312,7 +323,8 @@ func (r *BV2IntContext) Close() error {
 	if err := r.release(&r.trail); err != nil {
 		return err
 	}
-	clear(r.power2)
+	r.manager.Budget().Release(r.power2Bytes)
+	r.power2, r.power2Size, r.power2Bytes = nil, 0, 0
 	if err := r.release(&r.side); err != nil {
 		return err
 	}

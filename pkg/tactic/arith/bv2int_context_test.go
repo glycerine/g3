@@ -310,7 +310,7 @@ func TestBV2IntContextTracePublicationOrderAndErasure(t *testing.T) {
 		if len(r.trail) != 1 {
 			t.Fatal("trace before trail publication")
 		}
-		if _, ok := r.power2[x]; ok {
+		if _, ok, err := r.findPower2(x); err != nil || ok {
 			t.Fatal("map published before trace")
 		}
 	}

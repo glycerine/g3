@@ -168095,13 +168095,19 @@
         "pkg/tactic/arith/bv2int_context_borrow.go",
         "pkg/tactic/arith/bv2int_rewriter.go",
         "pkg/tactic/arith/bv2int_rules.go",
-        "pkg/tactic/arith/bv2int_rewriter_diagnostics.go"
+        "pkg/tactic/arith/bv2int_rewriter_diagnostics.go",
+        "pkg/tactic/arith/bv2int_power_map.go",
+        "pkg/tactic/arith/bv2int_power_map_test.go",
+        "pkg/tactic/arith/nla2bv_rules.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2int_context_test.go",
         "pkg/tactic/arith/bv2int_context_borrow_test.go",
         "pkg/tactic/arith/bv2int_context_borrow_failure_test.go",
-        "pkg/tactic/arith/bv2int_rewriter_test.go"
+        "pkg/tactic/arith/bv2int_rewriter_test.go",
+        "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+        "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
       ],
       "conditionals": [
         {
@@ -168239,11 +168245,26 @@
             "TestBV2IntPartialRewriterRetainsContextBorrow",
             "TestBV2IntContextWaitsForAllBorrowingRewriters"
           ]
+        },
+        {
+          "name": "live obj_map<expr,expr*> power-two lookup and bucket traversal specialization",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2int_power_map.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2int_power_map_test.go",
+            "pkg/tactic/arith/nla2bv_rules.go"
+          ],
+          "tests": [
+            "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+            "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+            "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
+          ]
         }
       ],
       "ownership": [
         "BV2IntContext owns the side-condition and exponent AST references. power2 keys borrow goal expressions and values borrow references held by the trail. Reset releases side conditions then trail then clears the map; destruction releases trail then map then side conditions, matching source member/reset order. Consumed decrements remain recorded for retry. ParamsContext and trace writer are borrowed; max_bv_size is read once.",
-        "BV2IntRewriter borrows its context and manager, owns the configured traversal, and retains a borrower until traversal cleanup completes. Each reduction call owns its temporary rational values and pins generated AST intermediates until result handoff; pending cleanup resumes numeral and AST-reference release, skipping references already consumed by a previous attempt. Constructor-prefix and close-order tests cover partial traversal construction and multiple borrowers."
+        "BV2IntRewriter borrows its context and manager, owns the configured traversal, and retains a borrower until traversal cleanup completes. Each reduction call owns its temporary rational values and pins generated AST intermediates until result handoff; pending cleanup resumes numeral and AST-reference release, skipping references already consumed by a previous attempt. Constructor-prefix and close-order tests cover partial traversal construction and multiple borrowers.",
+        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order."
       ],
       "deviations": [
         "Go slices and math/big replace vector capacity and rational scratch storage. Source AST reference acquisition, publication, member cleanup order, and allocation-refusal behavior at manager-owned boundaries are preserved; native Go container capacity is not exposed as source behavior. The signed-remainder and alternate signed-value recognition branches are disabled under #if 0; IDIV and REM helpers are live source stubs that return BR_FAILED.",
@@ -168261,13 +168282,19 @@
         "pkg/tactic/arith/bv2int_context_borrow.go",
         "pkg/tactic/arith/bv2int_rewriter.go",
         "pkg/tactic/arith/bv2int_rules.go",
-        "pkg/tactic/arith/bv2int_rewriter_diagnostics.go"
+        "pkg/tactic/arith/bv2int_rewriter_diagnostics.go",
+        "pkg/tactic/arith/bv2int_power_map.go",
+        "pkg/tactic/arith/bv2int_power_map_test.go",
+        "pkg/tactic/arith/nla2bv_rules.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2int_context_test.go",
         "pkg/tactic/arith/bv2int_context_borrow_test.go",
         "pkg/tactic/arith/bv2int_context_borrow_failure_test.go",
-        "pkg/tactic/arith/bv2int_rewriter_test.go"
+        "pkg/tactic/arith/bv2int_rewriter_test.go",
+        "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+        "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
       ],
       "conditionals": [
         {
@@ -168319,11 +168346,26 @@
             "TestBV2IntPartialRewriterRetainsContextBorrow",
             "TestBV2IntContextWaitsForAllBorrowingRewriters"
           ]
+        },
+        {
+          "name": "live obj_map<expr,expr*> power-two lookup and bucket traversal specialization",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2int_power_map.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2int_power_map_test.go",
+            "pkg/tactic/arith/nla2bv_rules.go"
+          ],
+          "tests": [
+            "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+            "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+            "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
+          ]
         }
       ],
       "ownership": [
         "BV2IntContext owns the side-condition and exponent AST references. power2 keys borrow goal expressions and values borrow references held by the trail. Reset releases side conditions then trail then clears the map; destruction releases trail then map then side conditions, matching source member/reset order. Consumed decrements remain recorded for retry. ParamsContext and trace writer are borrowed; max_bv_size is read once.",
-        "BV2IntRewriter borrows its context and manager, owns the configured traversal, and retains a borrower until traversal cleanup completes. Each reduction call owns its temporary rational values and pins generated AST intermediates until result handoff; pending cleanup resumes numeral and AST-reference release, skipping references already consumed by a previous attempt. Constructor-prefix and close-order tests cover partial traversal construction and multiple borrowers."
+        "BV2IntRewriter borrows its context and manager, owns the configured traversal, and retains a borrower until traversal cleanup completes. Each reduction call owns its temporary rational values and pins generated AST intermediates until result handoff; pending cleanup resumes numeral and AST-reference release, skipping references already consumed by a previous attempt. Constructor-prefix and close-order tests cover partial traversal construction and multiple borrowers.",
+        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order."
       ],
       "deviations": [
         "Go slices and math/big replace vector capacity and rational scratch storage. Source AST reference acquisition, publication, member cleanup order, and allocation-refusal behavior at manager-owned boundaries are preserved; native Go container capacity is not exposed as source behavior. The signed-remainder and alternate signed-value recognition branches are disabled under #if 0; IDIV and REM helpers are live source stubs that return BR_FAILED.",
@@ -171608,7 +171650,9 @@
         "pkg/tactic/arith/bv2real_match_owned.go",
         "pkg/tactic/arith/bv2real_owned_arithmetic.go",
         "pkg/tactic/arith/bv2real_defaults.go",
-        "pkg/tactic/arith/bv2real_match_owned_test.go"
+        "pkg/tactic/arith/bv2real_match_owned_test.go",
+        "pkg/tactic/arith/bv2int_power_map.go",
+        "pkg/tactic/arith/bv2int_power_map_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171626,7 +171670,10 @@
         "TestBV2RealMatchedProjectOwnersOutliveInputAndUtility",
         "TestBV2RealOwnedMatchingAlignmentDoesNotMutateCache",
         "TestBV2RealRealConstantOwnedReadAndFailureFrontiers",
-        "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers"
+        "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers",
+        "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+        "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
       ],
       "assertions": [
         {
@@ -171732,16 +171779,31 @@
             "TestBV2RealRealConstantOwnedReadAndFailureFrontiers",
             "TestBV2RealOwnedDefaultsAndConstructorFailureFrontiers"
           ]
+        },
+        {
+          "name": "live obj_map<expr,expr*> power-two lookup and bucket traversal specialization",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2int_power_map.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2int_power_map_test.go",
+            "pkg/tactic/arith/nla2bv_rules.go"
+          ],
+          "tests": [
+            "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+            "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+            "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
+          ]
         }
       ],
       "ownership": [
         "Outer tactic owns its parameter snapshot and pending invocation cleanup. Each call owns the BV2real utility, BV2int context, bounds, substitution, declaration/definition/trail vectors, reducer/replacer temporaries and converter references. A stopped local cleanup is retained and blocks subsequent application until Cleanup/Close. Result owns the concatenated filter/extension converter independently of invocation destruction. Explicit source guards run before resetting the prior result.",
         "Translation borrows the destination manager's parameter/global/numeral services, while process cooperation and an explicitly bound trace remain borrowed. The four NLA2BV uint policies plus BV2Int max_bv_size are copied by value into a destination-owned parameter snapshot; same-owner translation shares through the counted ParamsRef contract. Failed temporary parameter or tactic construction closes all partial owners and returns a nil interface. Target invocation and model reconstruction remain valid after source tactic mutation/close.",
         "Diagnostic expression and goal printing pins and releases each temporary format tree. Trace stream badbit does not stop operand evaluation, while printer/allocation errors propagate before subsequent algorithm stages; the initial trace failure leaves the goal unchanged and creates no filter model converter.",
-        "Matched divisor/root values are independent project owners kept through the caller reducer scope; cached signature temporaries close at recognition return. Returned component references survive input and utility destruction. Real numeral recognition owns its AST copy invocation and cleans false/value/true/context phases on success, refusal and failure. Live scalar arithmetic, common-divisor updates, multiplication products, encoding and NLA2BV real definitions use actual project owners; defaults have no duplicate Go numeric authority. Native Go rational snapshots remain only at compatibility boundaries."
+        "Matched divisor/root values are independent project owners kept through the caller reducer scope; cached signature temporaries close at recognition return. Returned component references survive input and utility destruction. Real numeral recognition owns its AST copy invocation and cleans false/value/true/context phases on success, refusal and failure. Live scalar arithmetic, common-divisor updates, multiplication products, encoding and NLA2BV real definitions use actual project owners; defaults have no duplicate Go numeric authority. Native Go rational snapshots remain only at compatibility boundaries.",
+        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order."
       ],
       "deviations": [
-        "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; power-two map iteration remains unspecified. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
+        "Native Go maps/slices implement concrete postorder MarkAll traversal and vectors; the live power-two map now preserves source hash-bucket traversal order. Persistent source m_trail/model-converter owners remain through result handoff, while temporary generated AST refs are released at substitution/reduction/variable-encoding helper boundaries; integer and real definitions assert this handoff. Go tests sweep manager allocation refusal thresholds 0 through 257 during Apply, require cleanup after each refusal, and successfully reapply the tactic after every injected failure. Exact source rational/ref-vector lifetime and project allocator behavior remain unaudited. Source trace sites, count_mul diagnostics, and final verbose sat-preserving output are checked before and after reduction; whole-unit ownership and method audits remain open.",
         "Sixteen prebuilt-C++ whole-goal/refusal cases cover bounded/unbounded integers, signed offsets, nonlinear products, reals/ITE/comparisons, constant width growth, unsupported functions/division/quantifiers, post-power-two classification refusal and inability to eliminate a real denominator. Five end-to-end solving/model cases and four retained CLI vectors cover sat/unsat/unknown, models and scopes/parameters. These checks do not prove completion of the general nonlinear strategy dispatcher, nlsat tactic or broader smtcore/solver/API/higher engines."
       ]
     },
@@ -207899,7 +207961,10 @@
         "pkg/ast/rewriter/bv_trailing_table.go",
         "pkg/ast/rewriter/used_vars_ufbv.go",
         "pkg/parsers/smt2/local_sort_names.go",
-        "pkg/smtcore/param_datatype_refs.go"
+        "pkg/smtcore/param_datatype_refs.go",
+        "pkg/tactic/arith/bv2int_power_map.go",
+        "pkg/tactic/arith/bv2int_power_map_test.go",
+        "pkg/tactic/arith/nla2bv_rules.go"
       ],
       "tests": [
         "TestModel2ExprFreshNameConcreteSymbolSetAndSequence",
@@ -207982,7 +208047,10 @@
         "TestUFBVUsedVarsExpressionDepthAndQuantifierAnnotations",
         "TestSMT2SortAndDatatypeNameTablesSourceScopes",
         "TestParamDatatypeFixMissingRefsSourceOrderAndOverwrite",
-        "TestParamDatatypeValidationFirstMissingAndDuplicateAcrossConstructors"
+        "TestParamDatatypeValidationFirstMissingAndDuplicateAcrossConstructors",
+        "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+        "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
       ],
       "conditionals": [
         {
@@ -208107,7 +208175,9 @@
           "name": "Concrete model2expr symbol_set insert/contains uses a typed Go symbol map; no probing or universal adapter (model2expr.h:25-39)",
           "status": "platform_replacement",
           "go_target": "pkg/model/model2expr_fresh_name.go",
-          "tests": ["TestModel2ExprFreshNameConcreteSymbolSetAndSequence"]
+          "tests": [
+            "TestModel2ExprFreshNameConcreteSymbolSetAndSequence"
+          ]
         },
         {
           "name": "Retained SAT u_map<index_set> antecedent map insertion/find/contains/reset and owned row lifetime",
@@ -208125,13 +208195,18 @@
           "name": "SAT AMD64 Z3DEBUG last-segment clause ID-to-pointer u_map is replaced by owner- and generation-checked StoredClauseRef offsets; no physical pointer segment encoding or overflow side table remains (sat_clause.cpp:135-216)",
           "status": "platform_replacement",
           "go_target": "pkg/sat/sat_clause_storage.go",
-          "tests": ["TestSATClauseSourceIDsLocatorsAndDeleteFailure", "TestSATClauseNativeIDFreeListAndLIFO"]
+          "tests": [
+            "TestSATClauseSourceIDsLocatorsAndDeleteFailure",
+            "TestSATClauseNativeIDFreeListAndLIFO"
+          ]
         },
         {
           "name": "AST debug-ref-count deleted-ID u_map<unsigned> contains and insertion use a native uint32 set; the C++ mapped value is always zero and no iteration is reached (ast.cpp:1798,1842)",
           "status": "platform_replacement",
           "go_target": "pkg/ast/ast_core_delete.go",
-          "tests": ["TestASTDebugRefCountActualDeletedIDMapAndSkippedRecycle"]
+          "tests": [
+            "TestASTDebugRefCountActualDeletedIDMapAndSkippedRecycle"
+          ]
         },
         {
           "name": "Concrete MPF powers2 four u_map<mpz*> caches: key lookup, insertion, borrowed wrapper IDs, and disposal on owner destruction (mpf.h:241-287)",
@@ -208207,8 +208282,13 @@
           "name": "AST user_sort_plugin dictionary<int> name-to-kind lookup and insertion use a native Symbol-to-int32 map; the separate name vector preserves registration order, and no hash-table iteration is reached (ast.cpp:1272-1281)",
           "status": "platform_replacement",
           "go_target": "pkg/util/symbol/dictionary_int32.go",
-          "go_targets": ["pkg/ast/ast_builtin_plugins_user.go"],
-          "tests": ["TestSymbolDictionaryInt32LookupMutationAndReset", "TestASTUserNameDictionaryRegistration"]
+          "go_targets": [
+            "pkg/ast/ast_builtin_plugins_user.go"
+          ],
+          "tests": [
+            "TestSymbolDictionaryInt32LookupMutationAndReset",
+            "TestASTUserNameDictionaryRegistration"
+          ]
         },
         {
           "name": "descriptor dictionary physical probing/growth/removal/tombstone cleanup specialization",
@@ -208326,19 +208406,39 @@
           "name": "SMT2 parser native typed symbol maps replace reached dictionary hash-table storage without carrying probing mechanics",
           "status": "platform_replacement",
           "go_target": "pkg/parsers/smt2/local_sort_names.go",
-          "tests": ["TestSMT2SortAndDatatypeNameTablesSourceScopes"]
+          "tests": [
+            "TestSMT2SortAndDatatypeNameTablesSourceScopes"
+          ]
         },
         {
           "name": "Parametric datatype recursive-name dictionary uses native typed Go map storage; hash probing is not carried over",
           "status": "platform_replacement",
           "go_target": "pkg/smtcore/param_datatype_refs.go",
-          "tests": ["TestParamDatatypeFixMissingRefsSourceOrderAndOverwrite"]
+          "tests": [
+            "TestParamDatatypeFixMissingRefsSourceOrderAndOverwrite"
+          ]
         },
         {
           "name": "pdatatype_decl concrete accessor-name set uses native typed Go symbol map for reached contains/insert across constructors",
           "status": "platform_replacement",
           "go_target": "pkg/smtcore/param_datatype_refs.go",
-          "tests": ["TestParamDatatypeValidationFirstMissingAndDuplicateAcrossConstructors"]
+          "tests": [
+            "TestParamDatatypeValidationFirstMissingAndDuplicateAcrossConstructors"
+          ]
+        },
+        {
+          "name": "live obj_map<expr,expr*> power-two lookup and bucket traversal specialization",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2int_power_map.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2int_power_map_test.go",
+            "pkg/tactic/arith/nla2bv_rules.go"
+          ],
+          "tests": [
+            "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+            "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+            "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
+          ]
         }
       ],
       "ownership": [
@@ -208359,7 +208459,8 @@
         "Legacy collision count is the existing actual embedded raw.inlineStatistics[2] source scalar, initialized only after completed constructor/copy source actions; it has no Runtime block, second mirror or synthetic event, and is charged once in existing reflected header. Runtime statistics keeps its sole physical32-byte object/lexical inline route. Every actual legacy constructor/copy/growth/replacement reservation through first success has immediate independent named table/cold/region census before fault lift, completed DT then separate failed-constructor/NEW owning abort.",
         "SourceFinalize/CloseChecked validate exact raw.self in both Runtime and legacy profiles before any allocation release/cause mutation; ordinary open and empty reset reject accidental copied or zero/unprepared Go wrappers. Real Clone constructors establish fresh exact owner identity, and retained failed-copy owners still perform separate owning abort.",
         "Default-entry Runtime mode has NIL Go hot slice and actual wrapper24/32-byte object plus40-byte record payload. Legacy mode has actual Go backing and cold scalar capacity/counter. Acquisitions stamp exact returned allocation; lexical copies are inline owners. Current field/pending nodes and failed copy owners remain named; source-completed DT separate from owning abort; immediate raw bijection/full cold sums precede each real reservation fault lift. Accidental Go owner copies reject exact self before mutation; actual source clones prepare valid owners.",
-        "Mutex detection uses a native map[[2]uint32]struct{} for literal-pair membership. It never iterates the map; source clause collection and clique traversal order remain. Removed Runtime-backed bucket geometry, cached hashes, FREE/default member construction, rehash/copy and allocation/destructor refusal simulation. Only the actual lexical frame header remains budgeted. A 32-variable complete graph exercises 496 pairs through both collection passes, repeats append-only queries with just one permitted header reservation, checks independent clique membership and exact frame cleanup. No C++ hash/table implementation credit is added."
+        "Mutex detection uses a native map[[2]uint32]struct{} for literal-pair membership. It never iterates the map; source clause collection and clique traversal order remain. Removed Runtime-backed bucket geometry, cached hashes, FREE/default member construction, rehash/copy and allocation/destructor refusal simulation. Only the actual lexical frame header remains budgeted. A 32-variable complete graph exercises 496 pairs through both collection passes, repeats append-only queries with just one permitted header reservation, checks independent clique membership and exact frame cleanup. No C++ hash/table implementation credit is added.",
+        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order."
       ],
       "deviations": [
         "The remaining generic u_map<unsigned> and map<uint_set,unsigned> rows have no Go target because their owners (SAT incremental consequences, AST static features, SMT arithmetic/sequence/UTVPI, MUZ compiler, and symbolic automata) are unported. The reached AST deleted-ID map and SAT antecedent map already use native Go collections. Port each remaining instantiation with its owning consumer, not as a standalone template adapter.",
@@ -253053,7 +253154,10 @@
         "pkg/tactic/ufbv/rewrite_rule_index.go",
         "pkg/tactic/ufbv/rewrite_back_index.go",
         "pkg/tactic/ufbv/rewrite_demodulator_schedule.go",
-        "pkg/ast/pattern/preferred_pattern.go"
+        "pkg/ast/pattern/preferred_pattern.go",
+        "pkg/tactic/arith/bv2int_power_map.go",
+        "pkg/tactic/arith/bv2int_power_map_test.go",
+        "pkg/tactic/arith/nla2bv_rules.go"
       ],
       "tests": [
         "TestASTSharedOccurrencesActualMultiplicityAndDefaults",
@@ -253118,7 +253222,10 @@
         "TestRewriteRuleIndexTriesRulesAndOwnsDemodulators",
         "TestRewriteBackIndexReschedulesProcessedAcrossQuantifierAnnotations",
         "TestRewriteDemodulatorRescheduleMatchesAnnotationsAndTransfersRoot",
-        "TestPatternInferencePreferredPatternsCompleteAndOwned"
+        "TestPatternInferencePreferredPatternsCompleteAndOwned",
+        "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+        "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+        "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
       ],
       "conditionals": [
         {
@@ -253299,11 +253406,26 @@
             "TestFunctionInterpretationBooleanIffRemainsElseAndTieOrder",
             "TestFunctionInterpretationNativeOccurrenceGrowthAndEmptyResult"
           ]
+        },
+        {
+          "name": "live obj_map<expr,expr*> power-two lookup and bucket traversal specialization",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2int_power_map.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2int_power_map_test.go",
+            "pkg/tactic/arith/nla2bv_rules.go"
+          ],
+          "tests": [
+            "TestBV2IntPowerMapSourceCollisionGrowthAndReplacementOrder",
+            "TestBV2IntPowerMapSparseResetFailureRetryAndDestruction",
+            "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder"
+          ]
         }
       ],
       "ownership": [
         "Sparse marks use a native Go map of borrowed slot/generation identities. Shared occurrences use insdict.Dict with one owned reference per key and discovery-order iteration/destruction. Visitation and traversal use native slices; actual cold headers and node shared flags remain. See PORT_PROGRESS.md#native-sparse-marks-and-shared-occurrence-collections.",
-        "Three selected expression substitution map backings retain distinct capacities and actual ownership bits; expansion temporaries are nonowning, sparse reset publishes half-capacity before allocation and finalize publishes64 after allocation. Generic maps remain partial."
+        "Three selected expression substitution map backings retain distinct capacities and actual ownership bits; expansion temporaries are nonowning, sparse reset publishes half-capacity before allocation and finalize publishes64 after allocation. Generic maps remain partial.",
+        "The concrete power map borrows AST keys/values from the goal and exponent trail, stores their immutable AST hashes, probes linearly with wraparound, expands before lookup above 75 percent load and rehashes in old bucket order. NLA2BV iterates a detached bucket-ordered entry slice. Storage is charged at construction/growth and released at close. Reset preserves dense capacity and halves sparse storage; replacement is allocated before freeing old storage so failed reset can be retried with reuse blocked. The existing detached Go map is a compatibility snapshot only and does not choose live substitution order."
       ],
       "deviations": [
         "Container probing, tombstones, capacity arithmetic, simulated storage failures and backing-only epochs are replaced by native Go collections. Iterators borrow an insertion-order view invalidated by key changes/reset/close. Consumed cleanup keys are removed before returning callback errors. SMT2 display remains open; these consumers add no C++ generic container implementation credit. See PORT_PROGRESS.md#native-sparse-marks-and-shared-occurrence-collections.",
