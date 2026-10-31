@@ -1,3 +1,5 @@
+Duality missing heads (2026-10-31 UTC): scan nested quantifier and implication heads and add the source false-body clauses for missing pinned predicates, with fresh, universally bound arguments. Normal and checked tests cover existing, quantified and ground heads.
+
 Duality fixedpoint interface start (2026-10-31 UTC): ported query-clause construction with universal closure, reverse numeric binder names and Bool sorts for variable gaps. Normal and checked tests cover sparse and ground queries; rule translation, RPFP dispatch and fixedpoint registration remain unfinished.
 
 Source reachability audit (2026-10-31 UTC): the Windows DLL entry point is a no-op and has no Go DLL counterpart. The SMT theory and proto-model factory specializations of plugin_manager already have concrete Go indexes and ownership lists; their remaining teardown and duplicate-registration differences are recorded as partial.

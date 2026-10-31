@@ -86181,8 +86181,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/duality/query_clause.go", "pkg/muz/duality/query_clause_test.go"],
-      "tests": ["TestQueryClauseSparseAndGroundVariables"],
+      "go_targets": ["pkg/muz/duality/query_clause.go", "pkg/muz/duality/query_clause_test.go", "pkg/muz/duality/missing_heads.go", "pkg/muz/duality/missing_heads_test.go"],
+      "tests": ["TestQueryClauseSparseAndGroundVariables", "TestMissingHeadClausesQuantifiedAndGround"],
       "conditionals": [
         {
           "line": 44,
