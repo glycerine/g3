@@ -8243,7 +8243,7 @@
       "path": "src/api/c++/z3++.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -8280,7 +8280,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The public C++ wrapper has no include or construction in retained production sources. No universal Go facade is added for external C++ consumers."]
     },
     {
       "path": "src/api/dll/CMakeLists.txt",
@@ -11702,7 +11702,7 @@
       "path": "src/api/ml/z3native_stubs.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -11755,7 +11755,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["This header only defines shared-library visibility for the OCaml native stubs, whose C binding is outside the Go port."]
     },
     {
       "path": "src/api/python/.gitignore",
@@ -11983,9 +11983,9 @@
       "path": "src/api/z3.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/api_global_params.go", "pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go"],
+      "tests": ["TestGeneratedGlobalLogAndReplay", "TestAPIGlobalParamsGeneratedProcessSetGetResetAndWarnings"],
       "conditionals": [
         {
           "line": 21,
@@ -12000,7 +12000,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The C umbrella header is represented by the Go api package; individual API behavior and generated command coverage remain partial."]
     },
     {
       "path": "src/api/z3_algebraic.h",
@@ -12414,7 +12414,7 @@
       "path": "src/api/z3_macros.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
+      "status": "platform_replacement",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -12455,7 +12455,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The C ABI export and opaque-pointer macros do not apply to the Go API, which uses Go declarations and typed handles."]
     },
     {
       "path": "src/api/z3_optimization.h",
@@ -12833,7 +12833,7 @@
       "path": "src/api/z3_v1.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -12850,7 +12850,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Z3 1.x compatibility macros have no retained production source consumers; no unused Go aliases are added."]
     },
     {
       "path": "src/ast/CMakeLists.txt",

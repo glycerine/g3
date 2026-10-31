@@ -1,3 +1,5 @@
+API header reachability audit (2026-10-31 UTC): classified the unused C++ facade, Z3 1.x compatibility and OCaml export stubs as reference-only, and the C ABI macros as platform-specific. The API umbrella header is partial because its Go package exists while individual APIs and generated command coverage remain incomplete.
+
 Generated tactic installer audit (2026-10-31 UTC): generated an installer in /tmp and mapped its existing Go tactic and probe registry paths. Focused registry and factory tests pass; missing factories and generated registration order remain partial.
 
 Generated API log/replay start (2026-10-31 UTC): regenerated the source files in /tmp to audit their command IDs, then connected global-parameter set/get/reset to Go logging and replay. Tests cover exact records, round-trip, null output, log failure and nested-call suppression; the full API package and focused checked tests pass. The other generated commands remain unfinished.
