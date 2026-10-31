@@ -52212,3 +52212,5 @@ Consequences driver completion: the Boolean and bit-vector case now also runs on
 Ternary bit-vector source driver: ported zero-width behavior, source fills and intersection checks, projection across managers, and all 55 consecutive-value intersection cases at each original width 11, 15, 16, 17 and 31. Projection is verified bit by bit and the fixture checks manager cleanup.
 
 Vector source driver audit: connected the existing Go translation to its source manifest entry and reran its append, traversal, pop and bounded allocation-failure checks. The source's unbounded billion-element allocation loop uses a deterministic budget failure in Go.
+
+Horn subsumption model-converter source driver: translated the original five successive definition insertions and fresh-model applications, including both repeated-variable Horn conversions. The test checks the resulting false interpretation and verifies ownership through fixture cleanup.

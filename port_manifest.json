@@ -202123,9 +202123,9 @@
       "path": "src/test/horn_subsume_model_converter.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/horn_subsume_model_converter_cpp_test.go"],
+      "tests": ["TestHornSubsumeSourceDriverProgressiveDefinitions"],
       "assertions": [
         {
           "line": 53,
@@ -202136,11 +202136,11 @@
           "text": "VERIFY(mc->mk_horn(head1, body1, pred, body2));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_horn_subsume_model_converter", "status": "ported", "go_target": "pkg/tactic/horn_subsume_model_converter_cpp_test.go", "tests": ["TestHornSubsumeSourceDriverProgressiveDefinitions"]}],
+      "ownership": ["The fixture owns the AST manager and current model; replacing the model releases the previous owner, and the converter is closed after its accumulated definitions are exercised."],
+      "deviations": ["The model outputs are checked for the expected false interpretation rather than printed."]
     },
     {
       "path": "src/test/hwf.cpp",
