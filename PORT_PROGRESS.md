@@ -1,3 +1,5 @@
+Generated regex replay (2026-10-31 UTC): added plus, star, option, union, concatenation, range, loops, intersection, complement and empty/full constructors. Normal and checked tests cover result sorts and bounded versus unbounded loop parameters; other generated commands remain unfinished.
+
 Generated sequence operation replay (2026-10-31 UTC): added prefix, suffix, containment, extraction, replacement, indexing, length, conversions and regex membership. Normal and checked tests verify operands; other generated commands remain unfinished.
 
 Generated sequence and string replay (2026-10-31 UTC): added sequence and regex sorts, string values, empty and unit sequences, and concatenation. Normal and checked tests verify resulting sorts and string content; other generated commands remain unfinished.

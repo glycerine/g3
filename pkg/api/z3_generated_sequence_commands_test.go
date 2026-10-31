@@ -145,3 +145,108 @@ func TestGeneratedSequenceOperationReplay(t *testing.T) {
 		t.Fatal("missing checks", checks)
 	}
 }
+
+func TestGeneratedRegexReplayAndLoopBounds(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 159\n= 0x42\nR\nP 0x41\nP 0x42\nC 157\n= 0x43\n" +
+		"R\nP 0x41\nS \"a\"\nC 161\n= 0x44\nR\nP 0x41\nS \"z\"\nC 161\n= 0x45\n" +
+		"R\nP 0x41\nP 0x44\nC 177\n= 0x46\nR\nP 0x41\nP 0x45\nC 177\n= 0x47\n" +
+		"R\nP 0x41\nP 0x46\nC 179\n= 0x48\nR\nP 0x41\nP 0x46\nC 180\n= 0x49\nR\nP 0x41\nP 0x46\nC 181\n= 0x50\n" +
+		"R\nP 0x41\nU 2\nP 0x46\nP 0x47\np 2\nC 182\n= 0x51\nR\nP 0x41\nU 2\nP 0x46\nP 0x47\np 2\nC 183\n= 0x52\n" +
+		"R\nP 0x41\nP 0x44\nP 0x45\nC 184\n= 0x53\nR\nP 0x41\nP 0x46\nU 2\nU 0\nC 185\n= 0x54\n" +
+		"R\nP 0x41\nP 0x46\nU 2\nU 5\nC 185\n= 0x55\nR\nP 0x41\nU 2\nP 0x46\nP 0x47\np 2\nC 186\n= 0x56\n" +
+		"R\nP 0x41\nP 0x46\nC 187\n= 0x57\nR\nP 0x41\nP 0x43\nC 188\n= 0x58\nR\nP 0x41\nP 0x43\nC 189\n= 0x59\n" +
+		"R\nP 0x41\nP 0x43\nP 0x48\nP 0x49\nP 0x50\nP 0x51\nP 0x52\nP 0x53\nP 0x54\nP 0x55\nP 0x56\nP 0x57\nP 0x58\nP 0x59\nC 900\n" +
+		"R\nP 0x41\nP 0x54\nP 0x55\nC 901\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checks := 0
+	if err = r.RegisterCommand(900, "check-regex-sorts", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		sort, e := r.astObject(owner, 1)
+		if e != nil {
+			return e
+		}
+		for pos := uint32(2); pos <= 13; pos++ {
+			result, e := r.astObject(owner, pos)
+			if e != nil {
+				return e
+			}
+			got, e := owner.context.SortOf(result.handle)
+			if e != nil {
+				return e
+			}
+			if got != sort.handle {
+				t.Fatal("regex sort", pos, got, sort.handle)
+			}
+		}
+		checks++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(901, "check-loop-bounds", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		for pos := uint32(1); pos <= 2; pos++ {
+			result, e := r.astObject(owner, pos)
+			if e != nil {
+				return e
+			}
+			decl, e := owner.context.ApplicationDeclaration(result.handle)
+			if e != nil {
+				return e
+			}
+			count, e := owner.context.DeclarationParameterCount(decl)
+			if e != nil {
+				return e
+			}
+			if count != pos {
+				t.Fatal("loop parameter count", pos, count)
+			}
+			lower, e := owner.context.DeclarationIntegerParameter(decl, 0)
+			if e != nil {
+				return e
+			}
+			if lower != 2 {
+				t.Fatal("lower bound", lower)
+			}
+			if pos == 2 {
+				upper, e := owner.context.DeclarationIntegerParameter(decl, 1)
+				if e != nil {
+					return e
+				}
+				if upper != 5 {
+					t.Fatal("upper bound", upper)
+				}
+			}
+		}
+		checks++
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if checks != 2 {
+		t.Fatal("missing regex checks", checks)
+	}
+}

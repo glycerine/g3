@@ -17,6 +17,10 @@ func registerZ3GeneratedSequenceCommands(r *Z3Replayer) error {
 		{170, "Z3_mk_seq_extract"}, {171, "Z3_mk_seq_replace"}, {172, "Z3_mk_seq_at"},
 		{173, "Z3_mk_seq_length"}, {174, "Z3_mk_seq_index"}, {175, "Z3_mk_str_to_int"},
 		{176, "Z3_mk_int_to_str"}, {177, "Z3_mk_seq_to_re"}, {178, "Z3_mk_seq_in_re"},
+		{179, "Z3_mk_re_plus"}, {180, "Z3_mk_re_star"}, {181, "Z3_mk_re_option"},
+		{182, "Z3_mk_re_union"}, {183, "Z3_mk_re_concat"}, {184, "Z3_mk_re_range"},
+		{185, "Z3_mk_re_loop"}, {186, "Z3_mk_re_intersect"}, {187, "Z3_mk_re_complement"},
+		{188, "Z3_mk_re_empty"}, {189, "Z3_mk_re_full"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -33,7 +37,7 @@ func replaySequenceCommand(r *Z3Replayer, id uint32) error {
 	}
 	c := owner.context
 	var value ast.ASTHandle
-	if id != 159 && id != 161 && id != 166 {
+	if id != 159 && id != 161 && id != 166 && id != 182 && id != 183 && id != 186 {
 		var input *replayASTOwner
 		input, err = r.astObject(owner, 1)
 		if err != nil {
@@ -42,7 +46,7 @@ func replaySequenceCommand(r *Z3Replayer, id uint32) error {
 		value = input.handle
 	}
 	var second, third ast.ASTHandle
-	if id == 167 || id == 168 || id == 169 || id == 170 || id == 171 || id == 172 || id == 174 || id == 178 {
+	if id == 167 || id == 168 || id == 169 || id == 170 || id == 171 || id == 172 || id == 174 || id == 178 || id == 184 {
 		input, e := r.astObject(owner, 2)
 		if e != nil {
 			return e
@@ -118,12 +122,54 @@ func replaySequenceCommand(r *Z3Replayer, id uint32) error {
 		result, err = c.SequenceToRegex(value)
 	case 178:
 		result, err = c.SequenceInRegex(value, second)
+	case 179:
+		result, err = c.RegexPlus(value)
+	case 180:
+		result, err = c.RegexStar(value)
+	case 181:
+		result, err = c.RegexOption(value)
+	case 182, 183, 186:
+		var args []ast.ASTHandle
+		args, err = replayASTArray(r, owner, 1, 2)
+		if err == nil {
+			switch id {
+			case 182:
+				result, err = c.RegexUnion(args...)
+			case 183:
+				result, err = c.RegexConcat(args...)
+			case 186:
+				result, err = c.RegexIntersect(args...)
+			}
+		}
+	case 184:
+		result, err = c.RegexRange(value, second)
+	case 185:
+		var lower, upper uint32
+		lower, err = r.Uint(2)
+		if err != nil {
+			return err
+		}
+		upper, err = r.Uint(3)
+		if err != nil {
+			return err
+		}
+		if upper == 0 {
+			result, err = c.RegexLoop(value, int32(lower))
+		} else {
+			result, err = c.RegexLoop(value, int32(lower), int32(upper))
+		}
+	case 187:
+		result, err = c.RegexComplement(value)
+	case 188:
+		result, err = c.RegexEmpty(value)
+	case 189:
+		result, err = c.RegexFull(value)
 	}
 	if err != nil {
 		return err
 	}
 	switch id {
-	case 155, 157, 159, 161, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178:
+	case 155, 157, 159, 161, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189:
 		return r.storeAST(owner, result)
 	}
 	return nil
