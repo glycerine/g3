@@ -282,7 +282,7 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 		handler.close()
 	}()
 	if expression {
-		return engine.QueryExpression(query)
+		return engine.Query(query)
 	}
 	return engine.QueryPredicate(query)
 }

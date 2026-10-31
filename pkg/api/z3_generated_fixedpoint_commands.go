@@ -25,11 +25,11 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 	}{
 		{511, "Z3_mk_fixedpoint"}, {512, "Z3_fixedpoint_inc_ref"}, {513, "Z3_fixedpoint_dec_ref"}, {514, "Z3_fixedpoint_add_rule"},
 		{515, "Z3_fixedpoint_add_fact"}, {516, "Z3_fixedpoint_assert"}, {517, "Z3_fixedpoint_query"}, {518, "Z3_fixedpoint_query_relations"},
-		{520, "Z3_fixedpoint_get_reason_unknown"}, {521, "Z3_fixedpoint_update_rule"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
+		{519, "Z3_fixedpoint_get_answer"}, {520, "Z3_fixedpoint_get_reason_unknown"}, {521, "Z3_fixedpoint_update_rule"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 		{530, "Z3_fixedpoint_set_params"}, {531, "Z3_fixedpoint_get_help"}, {532, "Z3_fixedpoint_get_param_descrs"}, {533, "Z3_fixedpoint_to_string"},
-		{653, "Z3_fixedpoint_get_rules_along_trace"}, {654, "Z3_fixedpoint_get_rule_names_along_trace"},
+		{652, "Z3_fixedpoint_get_ground_sat_answer"}, {653, "Z3_fixedpoint_get_rules_along_trace"}, {654, "Z3_fixedpoint_get_rule_names_along_trace"},
 		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
 	}
 	for _, entry := range entries {
@@ -162,6 +162,26 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 			return e
 		}
 		_, err = f.value.QueryRelations(decls)
+	case 519, 652:
+		if !f.value.hasLastQuery {
+			return fmt.Errorf("fixedpoint replay: answer requires a single relation query")
+		}
+		var ref ast.ASTRef
+		if id == 519 {
+			ref, err = f.value.Answer(f.value.lastQuery)
+		} else {
+			ref, err = f.value.command.FixedpointGroundSatAnswer(f.value.lastQuery)
+		}
+		if err != nil {
+			return err
+		}
+		manager := owner.results.manager
+		defer func() { err = errors.Join(err, manager.DelRef(&ref)) }()
+		value, e := manager.RefGet(ref)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, value)
 	case 520:
 		_, err = f.value.ReasonUnknown()
 	case 522:

@@ -2,7 +2,10 @@ package api
 
 // Source: src/api/api_datalog.cpp:39-52, 144-162.
 
-import "github.com/glycerine/g3/pkg/cmd_context"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/cmd_context"
+)
 
 // APIFixedpoint is an owning fixedpoint engine view. It shares its parent's
 // AST manager but owns declarations, rules, assertions, scopes, and query
@@ -12,6 +15,8 @@ type APIFixedpoint struct {
 	command       *cmd_context.Context
 	params        *ParameterSet
 	retiredParams []*ParameterSet
+	lastQuery     ast.ASTHandle
+	hasLastQuery  bool
 	closed        bool
 }
 

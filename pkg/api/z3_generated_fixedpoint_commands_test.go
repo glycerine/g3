@@ -105,12 +105,12 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nU 1\n$ |tr_hashtable|\ns 1\nC 527\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\nR\nP 0x41\nC 54\n= 0x45\nR\nP 0x41\nP 0x44\nP 0x45\nC 516\n" +
-		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\n" +
+		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nC 519\n= 0x48\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nC 522\nR\nP 0x41\nP 0x44\nI -1\nP 0x43\nP 0x45\nC 524\nR\nP 0x41\nP 0x44\nP 0x43\nP 0x45\nC 655\n" +
 		"R\nP 0x41\nP 0x44\nI -1\nP 0x43\nC 523\n= 0x47\n" +
 		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x46\nR\nP 0x41\nP 0x44\nU 1\nP 0x46\np 1\nC 533\n" +
-		"R\nP 0x41\nP 0x44\nP 0x46\nC 517\n" +
-		"R\nP 0x41\nP 0x44\nP 0x43\nP 0x46\nP 0x47\nC 900\nR\nP 0x41\nP 0x44\nC 513\n"
+		"R\nP 0x41\nP 0x44\nP 0x46\nC 517\nR\nP 0x41\nP 0x44\nC 519\n= 0x49\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nP 0x46\nP 0x47\nP 0x48\nP 0x49\nC 900\nR\nP 0x41\nP 0x44\nC 513\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
 		t.Fatal(err)
@@ -163,6 +163,20 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 		if !f.owner.results.manager.IsTrue(cover.handle) {
 			t.Fatal("cover is not true")
 		}
+		answer, e := r.astObject(f.owner, 5)
+		if e != nil {
+			return e
+		}
+		if !f.owner.results.manager.IsTrue(answer.handle) {
+			t.Fatal("reachable answer is not true")
+		}
+		expressionAnswer, e := r.astObject(f.owner, 6)
+		if e != nil {
+			return e
+		}
+		if !f.owner.results.manager.IsTrue(expressionAnswer.handle) {
+			t.Fatal("expression query answer is not true")
+		}
 		printed, e := f.value.SMT2(query.handle)
 		if e != nil {
 			return e
@@ -194,9 +208,9 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
 		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nC 526\nR\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\n" +
-		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nC 653\n= 0x46\nR\nP 0x41\nP 0x46\nC 448\n" +
+		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nC 652\n= 0x47\nR\nP 0x41\nP 0x44\nC 653\n= 0x46\nR\nP 0x41\nP 0x46\nC 448\n" +
 		"R\nP 0x41\nP 0x44\nC 654\nR\nP 0x41\nP 0x44\nP 0x43\nC 656\n= 0x45\n" +
-		"R\nP 0x41\nP 0x44\nC 513\nR\nP 0x41\nP 0x45\nP 0x46\nC 900\nR\nP 0x41\nP 0x46\nC 449\n"
+		"R\nP 0x41\nP 0x44\nC 513\nR\nP 0x41\nP 0x45\nP 0x46\nP 0x47\nC 900\nR\nP 0x41\nP 0x46\nC 449\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
 		t.Fatal(err)
@@ -244,6 +258,13 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 		}
 		if n != 1 {
 			t.Fatal("trace rule count", n)
+		}
+		ground, e := r.astObject(owner, 3)
+		if e != nil {
+			return e
+		}
+		if ground.handle.IsNull() {
+			t.Fatal("empty ground answer")
 		}
 		checked = true
 		return nil
@@ -480,5 +501,28 @@ func TestGeneratedFixedpointReplayParameterUpdate(t *testing.T) {
 	}
 	if !checked {
 		t.Fatal("parameter copy not checked")
+	}
+}
+
+func TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
+		"R\nP 0x41\nP 0x43\nP 0x42\nC 517\nR\nP 0x41\nP 0x43\nC 519\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "answer requires a single relation query") {
+		t.Fatal("unsupported answer", err)
 	}
 }
