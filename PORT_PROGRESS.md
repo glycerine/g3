@@ -1,3 +1,5 @@
+Generated solver reset replay (2026-10-31 UTC): replayed default, simple and logic-specific solvers now reset their assertions and scopes while preserving snapshots of applied parameters. Normal and checked focused API/CLI tests and the full API package pass; the source uses lazy recreation while this Go replay recreates immediately.
+
 Parameterized bit-vector replay (2026-10-31 UTC): added extract, extensions, repeat, fixed rotations and integer/bit-vector conversions. Normal and checked focused tests verify widths and concrete values through QF_BV solving, plus signed versus unsigned conversion shapes.
 
 Native snapshot check (2026-10-31 UTC): the complete native suite passed on clean snapshot f9da8103f: 108 packages passed and three had no test files. Later tabulation statistics, query validation and replay additions have focused verification but are outside this checkpoint. Log: /tmp/g3-native-tab-f9da8103f.log.

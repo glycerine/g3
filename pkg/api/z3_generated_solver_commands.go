@@ -8,12 +8,34 @@ import (
 )
 
 type replaySolver struct {
-	object apiObject
-	owner  *replayContextOwner
-	value  *APISimpleSolver
+	object        apiObject
+	owner         *replayContextOwner
+	value         *APISimpleSolver
+	kind          uint8
+	logic         string
+	params        *ParameterSet
+	retiredParams []*ParameterSet
 }
 
-func (s *replaySolver) apiDestroy() error { return s.value.Close() }
+func (s *replaySolver) apiDestroy() error {
+	if err := s.value.Close(); err != nil {
+		return err
+	}
+	if s.params != nil {
+		if err := s.params.Close(); err != nil {
+			return err
+		}
+		s.params = nil
+	}
+	for len(s.retiredParams) != 0 {
+		i := len(s.retiredParams) - 1
+		if err := s.retiredParams[i].Close(); err != nil {
+			return err
+		}
+		s.retiredParams = s.retiredParams[:i]
+	}
+	return nil
+}
 
 func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 	if r == nil || r.closed {
@@ -26,7 +48,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 	}{
 		{408, "Z3_mk_solver", replayMkSolver}, {409, "Z3_mk_simple_solver", replayMkSimpleSolver}, {410, "Z3_mk_solver_for_logic", replayMkSolverForLogic},
 		{415, "Z3_solver_set_params", replaySolverSetParams}, {416, "Z3_solver_inc_ref", replaySolverIncRef}, {417, "Z3_solver_dec_ref", replaySolverDecRef},
-		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
+		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {420, "Z3_solver_reset", replaySolverReset}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
 		{426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},
 		{428, "Z3_solver_check_assumptions", replaySolverCheckAssumptions}, {434, "Z3_solver_get_reason_unknown", replaySolverReasonUnknown},
@@ -51,6 +73,7 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 		return ErrZ3ReplayState
 	}
 	var value *APISimpleSolver
+	var logic string
 	switch kind {
 	case 0:
 		value, err = owner.context.NewSolver()
@@ -64,7 +87,8 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 		if name.numericSymbol || name.nullSymbol {
 			return ErrZ3ReplayReference
 		}
-		value, err = owner.context.NewSolverForLogic(name.s)
+		logic = name.s
+		value, err = owner.context.NewSolverForLogic(logic)
 	default:
 		return ErrZ3ReplayState
 	}
@@ -75,7 +99,7 @@ func replayCreateSolver(r *Z3Replayer, kind uint8) error {
 	if err = owner.results.manager.Budget().Reserve(n); err != nil {
 		return errors.Join(err, value.Close())
 	}
-	s := &replaySolver{owner: owner, value: value}
+	s := &replaySolver{owner: owner, value: value, kind: kind, logic: logic}
 	s.object = apiObject{context: owner.results, destructor: s, ownerBytes: n}
 	s.object.self = &s.object
 	id, err := owner.results.addObject(&s.object)
@@ -124,7 +148,7 @@ func replaySolverSetParams(r *Z3Replayer) error {
 	if p == nil || p.owner != s.owner || p.object.open() != nil {
 		return ErrZ3ReplayReference
 	}
-	return s.value.SetParameters(p.value)
+	return s.setParameters(p.value)
 }
 func replaySolverIncRef(r *Z3Replayer) error {
 	s, e := replayGetSolver(r)
