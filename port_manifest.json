@@ -6092,7 +6092,9 @@
         "TestGeneratedFixedpointReplayRejectsShortRepresentationArray",
         "TestGeneratedFixedpointReplayNamedRuleUpdate",
         "TestGeneratedFixedpointReplayUnnamedRule",
-        "TestGeneratedFixedpointReplayRejectsUnsupportedRuleSymbol"
+        "TestGeneratedFixedpointReplayRejectsUnsupportedRuleSymbol",
+        "TestGeneratedOptimizeReplaySoftGroups",
+        "TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6141,7 +6143,8 @@
       "ownership": [],
       "deviations": [
         "Global, configuration, context, parameter, solver, model and selected AST replay commands are connected, including pattern and quantified-formula constructors. Other generated commands and full API replay error-handler fidelity remain unfinished.",
-        "Fixedpoint replay supports unnamed and nonempty string-named rule updates; numeric and empty-string symbols are explicitly unsupported until the rule store preserves their identities."
+        "Fixedpoint replay supports unnamed and nonempty string-named rule updates; numeric and empty-string symbols are explicitly unsupported until the rule store preserves their identities.",
+        "Optimizer replay supports unnamed and nonempty string-named soft groups; numeric and empty-string symbols are explicitly unsupported until the objective store preserves their identities."
       ]
     },
     {

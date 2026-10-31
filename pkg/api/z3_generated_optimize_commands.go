@@ -4,6 +4,8 @@ package api
 
 import (
 	"errors"
+	"fmt"
+	"math/big"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -23,7 +25,7 @@ func registerZ3GeneratedOptimizeCommands(r *Z3Replayer) error {
 		name string
 	}{
 		{538, "Z3_mk_optimize"}, {539, "Z3_optimize_inc_ref"}, {540, "Z3_optimize_dec_ref"},
-		{541, "Z3_optimize_assert"}, {543, "Z3_optimize_maximize"}, {544, "Z3_optimize_minimize"},
+		{541, "Z3_optimize_assert"}, {542, "Z3_optimize_assert_soft"}, {543, "Z3_optimize_maximize"}, {544, "Z3_optimize_minimize"},
 		{545, "Z3_optimize_push"}, {546, "Z3_optimize_pop"}, {547, "Z3_optimize_check"},
 		{548, "Z3_optimize_get_reason_unknown"}, {549, "Z3_optimize_get_model"},
 		{550, "Z3_optimize_set_params"}, {551, "Z3_optimize_get_param_descrs"},
@@ -128,6 +130,40 @@ func replayOptimizeCommand(r *Z3Replayer, id uint32) (err error) {
 		} else {
 			_, err = o.value.Minimize(value.handle)
 		}
+	case 542:
+		value, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		weightText, e := r.String(3)
+		if e != nil {
+			return e
+		}
+		name, e := r.value(4, replaySymbol)
+		if e != nil {
+			return e
+		}
+		if name.numericSymbol || (!name.nullSymbol && name.s == "") {
+			return fmt.Errorf("optimizer replay: numeric and empty-string soft group names are not supported")
+		}
+		service := owner.results.manager.NumeralService()
+		weight, e := service.NewValue()
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, service.CleanupValue(&weight)) }()
+		if e = service.SetString(&weight, weightText); e != nil {
+			return e
+		}
+		text, e := service.String(&weight)
+		if e != nil {
+			return e
+		}
+		rational, ok := new(big.Rat).SetString(text)
+		if !ok {
+			return ast.ErrASTDomain
+		}
+		_, err = o.value.AssertSoft(value.handle, rational, name.s)
 	case 545:
 		err = o.value.Push()
 	case 546:

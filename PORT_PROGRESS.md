@@ -1,3 +1,5 @@
+Generated optimizer soft-constraint replay (2026-10-31 UTC): connected unnamed and string-named groups with source rational parsing. Normal and checked tests verify fractional optimization and reject numeric or empty-string group symbols until their identities are supported.
+
 Generated fixedpoint rule replay (2026-10-31 UTC): connected unnamed and nonempty string-named rule insertion and updates. Normal and checked tests cover rule snapshots and explicitly reject numeric or empty-string symbols until their identities are supported.
 
 Nonlinear variable extraction under quantifiers (2026-10-31 UTC): traversal now follows quantified bodies while finding free nonlinear real constants. Normal and checked tests verify source discovery order; the remaining whole-unit lifetime audit is still pending.

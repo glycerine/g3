@@ -186,3 +186,104 @@ func TestGeneratedOptimizeReplayBoundsAndMetadata(t *testing.T) {
 		t.Fatal("optimizer bounds were not checked")
 	}
 }
+
+func TestGeneratedOptimizeReplaySoftGroups(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |p|\nP 0x42\nC 51\n= 0x43\n" +
+		"R\nP 0x41\nP 0x43\nC 58\n= 0x44\nR\nP 0x41\nC 538\n= 0x45\nR\nP 0x41\nP 0x45\nC 539\n" +
+		"R\nP 0x41\nP 0x45\nP 0x43\nS \"2\"\n$ |prefs|\nC 542\nR\nP 0x41\nP 0x45\nP 0x44\nS \"1/2\"\n$ |prefs|\nC 542\n" +
+		"R\nP 0x41\nP 0x45\nC 547\nR\nP 0x41\nP 0x45\nC 900\n" +
+		"R\nP 0x41\nP 0x45\nP 0x43\nS \"1\"\nN\nC 542\nR\nP 0x41\nP 0x45\nC 901\nR\nP 0x41\nP 0x45\nC 540\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-soft-objective", func(r *Z3Replayer) error {
+		o, e := replayGetOptimize(r)
+		if e != nil {
+			return e
+		}
+		n, e := o.value.NumObjectives()
+		if e != nil {
+			return e
+		}
+		if n != 1 {
+			t.Fatal("soft group count", n)
+		}
+		objective, e := o.value.Objective(0)
+		if e != nil {
+			return e
+		}
+		if objective.ID != "prefs" || len(objective.SoftTerms) != 2 {
+			t.Fatal("soft group", objective)
+		}
+		value, e := o.value.ObjectiveValue(0)
+		if e != nil {
+			return e
+		}
+		if !value.Available || value.SoftCost.RatString() != "1/2" {
+			t.Fatal("soft optimum", value)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(901, "check-unnamed-soft-group", func(r *Z3Replayer) error {
+		o, e := replayGetOptimize(r)
+		if e != nil {
+			return e
+		}
+		objective, e := o.value.Objective(1)
+		if e != nil {
+			return e
+		}
+		if objective.ID != "" || len(objective.SoftTerms) != 1 {
+			t.Fatal("unnamed soft group", objective)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("soft objective not checked")
+	}
+}
+
+func TestGeneratedOptimizeReplayRejectsUnsupportedSoftGroupSymbol(t *testing.T) {
+	for _, name := range []string{"# 7", "$ ||"} {
+		log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 538\n= 0x43\nR\nP 0x41\nP 0x43\nC 539\n" +
+			"R\nP 0x41\nP 0x43\nP 0x42\nS \"1\"\n" + name + "\nC 542\n"
+		r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+			t.Fatal(err)
+		}
+		if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+			t.Fatal(err)
+		}
+		err = r.Parse()
+		if err == nil || !strings.Contains(err.Error(), "soft group names are not supported") {
+			t.Fatal("soft group symbol", name, err)
+		}
+		if err = r.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
