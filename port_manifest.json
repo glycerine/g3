@@ -210642,9 +210642,9 @@
       "path": "src/test/theory_pb.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/smtcore/theory_pb_cpp_driver_test.go"],
+      "tests": ["TestPseudoBooleanTheorySourceConstantCardinalities"],
       "assertions": [
         {
           "line": 15,
@@ -210667,7 +210667,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The constant-literal cardinality matrix uses scoped QF_FD solver assertions instead of internal C++ literals. The randomized nested pseudo-Boolean fuzzer remains unported."]
     },
     {
       "path": "src/test/timeout.cpp",

@@ -52260,3 +52260,5 @@ Model-based optimization source driver: connected the existing test10 fixture to
 PDR search-tree source driver started: translated 100 seeded level-four trees with the source's duplicate-state, growth, backtracking and well-formedness checks. The first source-seeded tree did not terminate within 100,000 Go mutations, so the routine test limits each tree to 500 mutations and resets it; convergence remains open and the driver is marked partial.
 
 Finite-domain theory source driver: recreated the 111-element sort and the source's successive a<b, b<c and c<a constraints. The first two checks validate the generated model values and their ordering; the final cycle must be unsatisfiable.
+
+Pseudo-Boolean theory source driver started: translated all constant-literal cardinality cases for widths 4 through 10, checking both the exact population count and the impossible next bound with scoped solver assertions. The source's nested randomized fuzzer remains open.
