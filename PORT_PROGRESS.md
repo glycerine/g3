@@ -1,3 +1,5 @@
+UTVPI inventory evidence (2026-10-31 UTC): updated the renamed fractional-candidate test and verified it passes. Inventory validation now reaches a combined-solver test reference.
+
 Inventory evidence repair, tenth batch (2026-10-31 UTC): linked ten SMT, solver and arithmetic entries to existing cross-package tests and replaced an implied-equalities test prefix with runnable declarations. Focused implied-equalities tests pass; inventory validation continues.
 
 Frontend inventory evidence (2026-10-31 UTC): replaced Datalog and SMT-LIB test prefixes with current runnable declarations. Focused frontend tests pass; the validator now reaches an SMT equality entry.
