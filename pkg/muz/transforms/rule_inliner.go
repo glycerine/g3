@@ -215,18 +215,15 @@ func (p *RuleInlinerPlugin) ruleProofSubstitution(rule *base.Rule, offset uint32
 		}
 		refs = append(refs, ref)
 		if mkErr = subst.Apply(2, deltas, substitution.NewExprOffset(variable, offset), ref); mkErr != nil {
-			refs = append(refs, ref)
 			_ = releaseTransformRefs(p.manager, refs)
 			return nil, nil, mkErr
 		}
 		value, mkErr := p.manager.RefGet(ref)
 		if mkErr != nil {
-			refs = append(refs, ref)
 			_ = releaseTransformRefs(p.manager, refs)
 			return nil, nil, mkErr
 		}
 		result = append(result, value)
-		refs = append(refs, ref)
 	}
 	return result, refs, nil
 }

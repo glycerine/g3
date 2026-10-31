@@ -1,3 +1,5 @@
+BMC proof prerequisite (2026-10-31 UTC): shared linear rule-variable construction between compilation and the forthcoming model reconstruction. Fixed the rule inliner's repeated ownership of substitution references; a variable-bearing proof regression first failed with an invalid AST lifetime and now checks the resolved proof fact.
+
 BMC fixedpoint integration (2026-10-31 UTC): registered the BMC branch, selected linear or nonlinear search and exposed owned rule traces, including across expression-query clones. BMC now runs the shared default Horn transformations and slicing before search; bounded examples agree with the installed C++ Z3, and rule traces describe the transformed rules. SMT-LIB tests cover linear, nonlinear, empty, bounded-unknown and preprocessing cases. Hyper-resolution proof answers and quantified BMC remain pending.
 
 BMC linear rule traces (2026-10-31 UTC): follow model-selected level-rule constants down to a fact, returning owning rule references. The linear search regression verifies the model-selected path; proof reconstruction remains pending.

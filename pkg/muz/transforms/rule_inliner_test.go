@@ -345,7 +345,31 @@ func TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput(t *testing.T) {
 }
 
 func TestRuleInlinerUsesDisjointVariableBanks(t *testing.T) {
+	testRuleInlinerVariableBanks(t, false)
+}
+
+func TestRuleInlinerVariableProofSubstitutionsOwnReferencesOnce(t *testing.T) {
+	testRuleInlinerVariableBanks(t, true)
+}
+
+func testRuleInlinerVariableBanks(t *testing.T, proofs bool) {
 	f := newConeFixture(t)
+	if proofs {
+		coneMust(t, f.manager.ToggleProofMode(ast.ASTProofEnabled))
+	}
+	attachProof := func(rule *base.Rule) {
+		if !proofs {
+			return
+		}
+		formula, err := rule.ToFormula()
+		coneMust(t, err)
+		value, err := f.manager.RefGet(formula)
+		coneMust(t, err)
+		proof, err := f.manager.MkProofAsserted(value)
+		coneMust(t, err)
+		coneMust(t, rule.SetProof(proof))
+		coneMust(t, f.manager.DelRef(&formula))
+	}
 	boolean, err := f.manager.MkBoolSort()
 	coneMust(t, err)
 	zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
@@ -366,6 +390,7 @@ func TestRuleInlinerUsesDisjointVariableBanks(t *testing.T) {
 	coneMust(t, err)
 	fact, err := f.rules.NewRule(pZero, nil, nil, "fact")
 	coneMust(t, err)
+	attachProof(fact)
 	coneMust(t, f.set.Add(fact))
 	coneMust(t, fact.Close())
 	variable, err := f.manager.MkVar(0, integer)
@@ -376,6 +401,7 @@ func TestRuleInlinerUsesDisjointVariableBanks(t *testing.T) {
 	coneMust(t, err)
 	edge, err := f.rules.NewRule(qVariable, []ast.ASTHandle{pVariable}, nil, "edge")
 	coneMust(t, err)
+	attachProof(edge)
 	coneMust(t, f.set.Add(edge))
 	coneMust(t, edge.Close())
 	coneMust(t, f.set.SetOutputPredicate(q))
@@ -401,6 +427,23 @@ func TestRuleInlinerUsesDisjointVariableBanks(t *testing.T) {
 	coneMust(t, err)
 	if headDeclaration, err := f.manager.GetDecl(head); err != nil || headDeclaration != q || argument != zero {
 		t.Fatal("resolved variable head", headDeclaration, argument, err)
+	}
+	if proofs {
+		proof, found, err := rule.Proof()
+		coneMust(t, err)
+		if !found {
+			t.Fatal("resolved rule lost its proof")
+		}
+		fact, err := f.manager.GetProofFact(proof)
+		coneMust(t, err)
+		formula, err := rule.ToFormula()
+		coneMust(t, err)
+		value, err := f.manager.RefGet(formula)
+		coneMust(t, err)
+		if fact != value {
+			t.Fatal("resolved proof has the wrong fact")
+		}
+		coneMust(t, f.manager.DelRef(&formula))
 	}
 }
 
