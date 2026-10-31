@@ -12006,9 +12006,21 @@
       "path": "src/api/z3_algebraic.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_algebraic_arithmetic.go",
+        "pkg/api/api_algebraic_power.go",
+        "pkg/api/api_algebraic_roots.go",
+        "pkg/api/api_algebraic_eval.go",
+        "pkg/api/api_algebraic_arithmetic_test.go",
+        "pkg/api/api_algebraic_roots_test.go",
+        "pkg/api/api_algebraic_rcf_integration_test.go"
+      ],
+      "tests": [
+        "TestAPIAlgebraicRationalAndMixedArithmetic",
+        "TestAPIAlgebraicRootsRationalAssignment",
+        "TestRCFRationalResultFeedsAlgebraicNumeral"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -12037,9 +12049,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "algebraic arithmetic operations",
+          "status": "partial",
+          "go_target": "pkg/api/api_algebraic_arithmetic.go",
+          "tests": [
+            "TestAPIAlgebraicRationalAndMixedArithmetic",
+            "TestRCFRationalResultFeedsAlgebraicNumeral"
+          ]
+        }
+      ],
+      "ownership": [
+        "Algebraic expressions use the parent context AST lifetime and explicit references where required."
+      ],
+      "deviations": [
+        "Pending complete declaration and ownership audit; Go APIs do not supply a C ABI."
+      ]
     },
     {
       "path": "src/api/z3_api.h",
@@ -12227,9 +12253,19 @@
       "path": "src/api/z3_fpa.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_fpa_arithmetic.go",
+        "pkg/api/api_fpa_conversions.go",
+        "pkg/api/api_fpa_rounding.go",
+        "pkg/api/api_fpa_values.go",
+        "pkg/api/api_fpa_arithmetic_test.go",
+        "pkg/api/api_fpa_values_test.go"
+      ],
+      "tests": [
+        "TestSMTContextFloatingPointArithmeticConstructors",
+        "TestSMTContextFloatingPointSpecialValuesAndComponents"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -12258,9 +12294,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "floating-point arithmetic and value constructors",
+          "status": "partial",
+          "go_target": "pkg/api/api_fpa_arithmetic.go",
+          "tests": [
+            "TestSMTContextFloatingPointArithmeticConstructors"
+          ]
+        }
+      ],
+      "ownership": [
+        "Floating-point expressions follow the parent SMT context AST ownership rules."
+      ],
+      "deviations": [
+        "Pending complete header declaration, type-validation and ownership audit; Go APIs do not supply a C ABI."
+      ]
     },
     {
       "path": "src/api/z3_interp.h",
@@ -12445,9 +12494,18 @@
       "path": "src/api/z3_polynomial.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_polynomial_subresultants.go",
+        "pkg/api/api_polynomial_result.go",
+        "pkg/api/api_polynomial_conversion.go",
+        "pkg/api/api_polynomial_subresultants_test.go",
+        "pkg/api/api_polynomial_invalid_test.go"
+      ],
+      "tests": [
+        "TestAPIPolynomialSubresultantsBasicAndEqualInputs",
+        "TestAPIPolynomialSubresultantsRejectsNonPolynomialInput"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -12476,9 +12534,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "polynomial subresultant sequence",
+          "status": "partial",
+          "go_target": "pkg/api/api_polynomial_subresultants.go",
+          "tests": [
+            "TestAPIPolynomialSubresultantsBasicAndEqualInputs"
+          ]
+        }
+      ],
+      "ownership": [
+        "Polynomial result objects own result AST references until closed."
+      ],
+      "deviations": [
+        "Pending complete declaration, cancellation and ownership audit; the Go API does not supply a C ABI."
+      ]
     },
     {
       "path": "src/api/z3_private.h",
@@ -12523,9 +12594,20 @@
       "path": "src/api/z3_rcf.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_rcf_rational_owner.go",
+        "pkg/api/api_rcf_rational_arithmetic.go",
+        "pkg/api/api_rcf_rational_unary.go",
+        "pkg/api/api_rcf_rational_display.go",
+        "pkg/api/api_rcf_rational_arithmetic_test.go",
+        "pkg/api/api_algebraic_rcf_integration_test.go"
+      ],
+      "tests": [
+        "TestAPIRCFRationalArithmetic",
+        "TestAPIRCFRationalUnary",
+        "TestRCFRationalResultFeedsAlgebraicNumeral"
+      ],
       "conditionals": [
         {
           "line": 22,
@@ -12554,9 +12636,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "rational RCF construction and arithmetic",
+          "status": "partial",
+          "go_target": "pkg/api/api_rcf_rational_arithmetic.go",
+          "tests": [
+            "TestAPIRCFRationalArithmetic",
+            "TestRCFRationalResultFeedsAlgebraicNumeral"
+          ]
+        }
+      ],
+      "ownership": [
+        "RCFNumber owns its concrete rational value and borrows its creating context."
+      ],
+      "deviations": [
+        "Transcendental, infinitesimal, algebraic-extension and root operations remain pending, as do full declaration and ownership audits."
+      ]
     },
     {
       "path": "src/api/z3_replayer.cpp",
