@@ -185631,6 +185631,8 @@
         "TestCollectStatisticsQuantifierVariablesPatternsAndDepth",
         "TestCollectStatisticsOutputIsSourceMapOrdered",
         "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
+        "TestCollectStatisticsCopiesAndTranslatesParameters",
+        "TestCollectStatisticsRejectsForeignParameterOwner",
         "TestCollectStatisticsBuiltinTactic",
         "TestSMTLibRunnerCollectStatistics"
       ],
@@ -185670,10 +185672,10 @@
         }
       ],
       "ownership": [
-        "The tactic owns accumulated counters and borrows the AST manager and selected output writer."
+        "The tactic owns accumulated counters and a parameter reference, and borrows the AST manager, parameter context and selected output writer."
       ],
       "deviations": [
-        "Pending full source-method and ownership audit, including the parameter update and translation state; command registration and SMT-LIB invocation are integrated."
+        "Constructor, update and translation preserve the source parameter reference. Full source-method and interrupted ownership/failure audits remain pending; command registration and SMT-LIB invocation are integrated."
       ]
     },
     {
@@ -185701,6 +185703,8 @@
         "TestCollectStatisticsQuantifierVariablesPatternsAndDepth",
         "TestCollectStatisticsOutputIsSourceMapOrdered",
         "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
+        "TestCollectStatisticsCopiesAndTranslatesParameters",
+        "TestCollectStatisticsRejectsForeignParameterOwner",
         "TestCollectStatisticsBuiltinTactic",
         "TestSMTLibRunnerCollectStatistics"
       ],
@@ -185744,10 +185748,10 @@
         }
       ],
       "ownership": [
-        "The tactic owns accumulated counters and borrows the AST manager and selected output writer."
+        "The tactic owns accumulated counters and a parameter reference, and borrows the AST manager, parameter context and selected output writer."
       ],
       "deviations": [
-        "Pending full source-method and ownership audit, including the parameter update and translation state; command registration and SMT-LIB invocation are integrated."
+        "Constructor, update and translation preserve the source parameter reference. Full source-method and interrupted ownership/failure audits remain pending; command registration and SMT-LIB invocation are integrated."
       ]
     },
     {
