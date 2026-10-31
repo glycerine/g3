@@ -112,39 +112,42 @@ func TestSATPartialSearchOptionsAndCancellation(t *testing.T) {
 
 func TestSATPartialSearchBitVectorAndArithmetic(t *testing.T) {
 	for _, bitvector := range []bool{false, true} {
-		t.Run(map[bool]string{false: "integer", true: "bitvector"}[bitvector], func(t *testing.T) {
-			f := qsatKernelFixture(t)
-			m := f.r.manager
-			sort := f.integer
-			if bitvector {
-				sort = f.own(m.BitVectorSort(2))
-			}
-			v := f.own(m.MkVar(0, sort))
-			var body ast.ASTHandle
-			if bitvector {
-				body = f.own(m.MkEq(v, f.own(m.BitVectorNumeralUint64(0, 2))))
-			} else {
-				body = f.own(m.MkArithmeticGE(v, f.number("0")))
-			}
-			formula := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
-			alt, err := extractSATAlternation(m, f.r.config, formula)
-			fmMust(t, err)
-			defer func() { fmMust(t, alt.Close()) }()
-			options := newSATTacticOptions()
-			options.projection = false
-			options.strongSimplify = false
-			search, err := newSATPartialSearch(m, f.r.config, alt, options)
-			fmMust(t, err)
-			defer func() { fmMust(t, search.Close()) }()
-			truth := f.own(m.MkTrue())
-			result, err := search.qt(0, truth)
-			fmMust(t, err)
-			defer func() { fmMust(t, result.Close()) }()
-			h, err := m.RefGet(result.formula)
-			fmMust(t, err)
-			if !m.IsFalse(h) {
-				t.Fatal("universal formula should be unsatisfiable")
-			}
-		})
+		for _, strategy := range []uint32{0, 1, 2, 3} {
+			t.Run(fmt.Sprintf("%s/strategy=%d", map[bool]string{false: "integer", true: "bitvector"}[bitvector], strategy), func(t *testing.T) {
+				f := qsatKernelFixture(t)
+				m := f.r.manager
+				sort := f.integer
+				if bitvector {
+					sort = f.own(m.BitVectorSort(2))
+				}
+				v := f.own(m.MkVar(0, sort))
+				var body ast.ASTHandle
+				if bitvector {
+					body = f.own(m.MkEq(v, f.own(m.BitVectorNumeralUint64(0, 2))))
+				} else {
+					body = f.own(m.MkArithmeticGE(v, f.number("0")))
+				}
+				formula := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+				alt, err := extractSATAlternation(m, f.r.config, formula)
+				fmMust(t, err)
+				defer func() { fmMust(t, alt.Close()) }()
+				options := newSATTacticOptions()
+				options.projection = false
+				options.strongSimplify = false
+				options.extrapolate = strategy
+				search, err := newSATPartialSearch(m, f.r.config, alt, options)
+				fmMust(t, err)
+				defer func() { fmMust(t, search.Close()) }()
+				truth := f.own(m.MkTrue())
+				result, err := search.qt(0, truth)
+				fmMust(t, err)
+				defer func() { fmMust(t, result.Close()) }()
+				h, err := m.RefGet(result.formula)
+				fmMust(t, err)
+				if !m.IsFalse(h) {
+					t.Fatal("universal formula should be unsatisfiable")
+				}
+			})
+		}
 	}
 }

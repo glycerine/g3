@@ -110819,7 +110819,12 @@
         "pkg/qe/sat_level_check.go",
         "pkg/qe/sat_level_check_test.go",
         "pkg/qe/sat_project_partial.go",
-        "pkg/qe/sat_project_partial_test.go"
+        "pkg/qe/sat_project_partial_test.go",
+        "pkg/qe/sat_partial_search.go",
+        "pkg/qe/sat_partial_search_test.go",
+        "pkg/qe/sat_project_level.go",
+        "pkg/qe/sat_tactic.go",
+        "pkg/qe/sat_tactic_test.go"
       ],
       "tests": [
         "TestSATSolverContextNNFAndConstraints",
@@ -110832,7 +110837,11 @@
         "TestSATLevelsInitializeAndClose",
         "TestSATLevelChecksOwnAssignmentsAndModel",
         "TestSATPartialProjectionBooleanAndBitVector",
-        "TestSATPartialProjectionArithmetic"
+        "TestSATPartialProjectionArithmetic",
+        "TestSATPartialSearchBooleanQuantifiers",
+        "TestSATPartialSearchAlternatingQuantifiers",
+        "TestSATPartialSearchBitVectorAndArithmetic",
+        "TestQESATTacticPartialGoalsAndModels"
       ],
       "assertions": [
         {
@@ -110899,23 +110908,44 @@
             "TestSATPartialProjectionBooleanAndBitVector",
             "TestSATPartialProjectionArithmetic"
           ]
+        },
+        {
+          "name": "QE-SAT partial search and tactic lifecycle: alternations, model-based projection and goal result",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_tactic.go",
+          "tests": [
+            "TestSATPartialSearchAlternatingQuantifiers",
+            "TestSATPartialSearchBitVectorAndArithmetic",
+            "TestQESATTacticPartialGoalsAndModels"
+          ]
         }
       ],
       "ownership": [
         "NNF strengthening owns its formula and substitutions and pops solver scopes on success or failure."
       ],
       "deviations": [
-        "Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished.",
-        "Full projection, strong contextual simplification and public registration remain unfinished; partial arithmetic projection normalizes comparison and equality atoms before bounds analysis."
+        "The tactic currently supports partial projection only when strong context simplification is disabled; full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
       ]
     },
     {
       "path": "src/qe/qe_sat_tactic.h",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/qe/sat_partial_search.go",
+        "pkg/qe/sat_partial_search_test.go",
+        "pkg/qe/sat_project_level.go",
+        "pkg/qe/sat_project_partial.go",
+        "pkg/qe/sat_tactic.go",
+        "pkg/qe/sat_tactic_test.go"
+      ],
+      "tests": [
+        "TestSATPartialSearchBooleanQuantifiers",
+        "TestSATPartialSearchAlternatingQuantifiers",
+        "TestSATPartialSearchBitVectorAndArithmetic",
+        "TestQESATTacticPartialGoalsAndModels"
+      ],
       "conditionals": [
         {
           "line": 22,
@@ -110928,9 +110958,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "QE-SAT partial search and tactic lifecycle: alternations, model-based projection and goal result",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_tactic.go",
+          "tests": [
+            "TestSATPartialSearchAlternatingQuantifiers",
+            "TestSATPartialSearchBitVectorAndArithmetic",
+            "TestQESATTacticPartialGoalsAndModels"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "The tactic currently supports partial projection only when strong context simplification is disabled; full projection, source QE preprocessing, proof/core modes, statistics and public SMT-LIB registration remain unfinished."
+      ]
     },
     {
       "path": "src/qe/qe_tactic.cpp",
