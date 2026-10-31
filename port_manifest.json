@@ -105094,7 +105094,34 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/qsat_recursive.go", "pkg/qe/qsat_recursive_test.go", "pkg/qe/qsat_search.go", "pkg/qe/qsat_search_loop.go", "pkg/ast/rewriter/var_shifter_export.go", "pkg/ast/rewriter/var_substitution.go", "pkg/ast/rewriter/var_shifter.go", "pkg/ast/ast_expr_abstract.go", "pkg/qe/solver_context.go", "pkg/qe/conjunction_enum.go", "pkg/qe/solver_context_test.go", "pkg/qe/conjunction_partition.go", "pkg/qe/definition_vector.go", "pkg/qe/qe_core_contract_test.go", "pkg/qe/solver_context_contains.go", "pkg/qe/solver_context_variables.go", "pkg/qe/solver_context_formula.go", "pkg/qe/solver_context_mutation_close.go", "pkg/qe/solver_context_eliminate.go", "pkg/qe/solver_context_contains_mutation_test.go", "pkg/qe/solver_context_add_variable_test.go", "pkg/qe/solver_context_eliminate_mutation_test.go", "pkg/qe/solver_context_formula_mutation_test.go", "pkg/qe/solver_context_mutation_validation_test.go"],
+      "go_targets": [
+        "pkg/qe/qsat_recursive.go",
+        "pkg/qe/qsat_recursive_test.go",
+        "pkg/qe/qsat_search.go",
+        "pkg/qe/qsat_search_loop.go",
+        "pkg/ast/rewriter/var_shifter_export.go",
+        "pkg/ast/rewriter/var_substitution.go",
+        "pkg/ast/rewriter/var_shifter.go",
+        "pkg/ast/ast_expr_abstract.go",
+        "pkg/qe/solver_context.go",
+        "pkg/qe/conjunction_enum.go",
+        "pkg/qe/solver_context_test.go",
+        "pkg/qe/conjunction_partition.go",
+        "pkg/qe/definition_vector.go",
+        "pkg/qe/qe_core_contract_test.go",
+        "pkg/qe/solver_context_contains.go",
+        "pkg/qe/solver_context_variables.go",
+        "pkg/qe/solver_context_formula.go",
+        "pkg/qe/solver_context_mutation_close.go",
+        "pkg/qe/solver_context_eliminate.go",
+        "pkg/qe/solver_context_contains_mutation_test.go",
+        "pkg/qe/solver_context_add_variable_test.go",
+        "pkg/qe/solver_context_eliminate_mutation_test.go",
+        "pkg/qe/solver_context_formula_mutation_test.go",
+        "pkg/qe/solver_context_mutation_validation_test.go",
+        "pkg/qe/qe_array_plugin_full_solve.go",
+        "pkg/qe/qe_array_plugin_full_solve_test.go"
+      ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
@@ -105104,7 +105131,10 @@
         "TestConjunctionPartitionSourceClassification",
         "TestConjunctionPartitionMajorityAndUnionOrdering",
         "TestDefinitionVectorNormalizeProjectAndOwnership",
-        "TestGuardedDefinitionsOwnsNormalizedCopies"
+        "TestGuardedDefinitionsOwnsNormalizedCopies",
+        "TestArrayPluginSolveExtractionFallbackRejectsSubtraction",
+        "TestArrayPluginSolveDispatchesExplicitEquality",
+        "TestArrayPluginSolveSkipsQuantifiedConjunct"
       ],
       "conditionals": [
         {
@@ -105354,6 +105384,14 @@
             "TestQSATRecursiveCPPFormulaEquivalence",
             "TestQSATRecursiveSharedDAGAndExtractionShift",
             "TestQSATRecursiveAllocationFrontiers"
+          ]
+        },
+        {
+          "name": "conj_enum::extract_equalities: skip non-application conjuncts before arithmetic relation recognition",
+          "status": "ported",
+          "go_target": "pkg/qe/conjunction_enum.go",
+          "tests": [
+            "TestArrayPluginSolveSkipsQuantifiedConjunct"
           ]
         }
       ],
@@ -106004,7 +106042,10 @@
         "pkg/qe/qe_array_plugin_store.go",
         "pkg/qe/qe_array_plugin_store_test.go",
         "pkg/qe/qe_array_plugin_solve.go",
-        "pkg/qe/qe_array_plugin_solve_test.go"
+        "pkg/qe/qe_array_plugin_solve_test.go",
+        "pkg/qe/qe_array_plugin_full_solve.go",
+        "pkg/qe/qe_array_plugin_full_solve_test.go",
+        "pkg/qe/conjunction_enum.go"
       ],
       "tests": [
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
@@ -106014,7 +106055,10 @@
         "TestArrayPluginNestedStoreElimination",
         "TestArrayPluginExplicitSolveUsesSourceSidePrecedence",
         "TestArrayPluginExplicitSolveSkipsNonEqualities",
-        "TestArrayPluginExplicitSolveSelectInEitherOrientation"
+        "TestArrayPluginExplicitSolveSelectInEitherOrientation",
+        "TestArrayPluginSolveExtractionFallbackRejectsSubtraction",
+        "TestArrayPluginSolveDispatchesExplicitEquality",
+        "TestArrayPluginSolveSkipsQuantifiedConjunct"
       ],
       "assertions": [
         {
@@ -106067,6 +106111,16 @@
             "TestArrayPluginExplicitSolveSkipsNonEqualities",
             "TestArrayPluginExplicitSolveSelectInEitherOrientation"
           ]
+        },
+        {
+          "name": "solve: explicit equality dispatch, arithmetic equality extraction and source add-only guard over extracted subtraction expressions",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_array_plugin_full_solve.go",
+          "tests": [
+            "TestArrayPluginSolveExtractionFallbackRejectsSubtraction",
+            "TestArrayPluginSolveDispatchesExplicitEquality",
+            "TestArrayPluginSolveSkipsQuantifiedConjunct"
+          ]
         }
       ],
       "ownership": [
@@ -106074,7 +106128,8 @@
         "The context-owned array plugin independently pins fresh variables while the context variable list borrows them, including when the rewritten formula does not mention the fresh variable."
       ],
       "deviations": [
-        "Pending: arithmetic zero-equation handling, arithmetic-zero fallback orchestration, diagnostics, allocation-failure audit and live QE solver registration."
+        "Pending: diagnostics, allocation-failure audit and live QE solver registration.",
+        "The solve_eq_zero rewriting body is unreachable through conj_enum::extract_equalities: extracted arithmetic equalities are OP_SUB, while its guard accepts only OP_ADD. Go guards this source invariant and omits that dead body."
       ]
     },
     {

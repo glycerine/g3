@@ -72,6 +72,10 @@ func (c *ConjunctionEnum) At(index uint32) (ast.ASTHandle, error) {
 }
 
 func (c *ConjunctionEnum) arithmeticRelation(expression ast.ASTHandle) (kind int32, left, right ast.ASTHandle, matched bool, err error) {
+	nodeKind, err := c.manager.GetKind(expression)
+	if err != nil || nodeKind != ast.ASTApp {
+		return 0, left, right, false, err
+	}
 	family, err := c.manager.GetFamilyID(expression)
 	if err != nil {
 		return 0, left, right, false, err
