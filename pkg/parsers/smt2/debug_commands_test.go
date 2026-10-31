@@ -175,3 +175,13 @@ func TestDebugParameterCopyAndTheoryRewrite(t *testing.T) {
 		t.Fatalf("debug output %q, want %q", out, want)
 	}
 }
+
+func TestDebugSetNextID(t *testing.T) {
+	out, err := runApplyTacticScript(t, `(dbg-set-next-id 100000)(dbg-lt 1 2)`)
+	if err != nil || out != "true\n" {
+		t.Fatalf("debug set next ID: output %q, error %v", out, err)
+	}
+	if _, err = runApplyTacticScript(t, `(dbg-set-next-id -1)`); err == nil {
+		t.Fatal("accepted a negative ID")
+	}
+}

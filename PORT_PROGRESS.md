@@ -1,3 +1,5 @@
+Debug AST ID selection (2026-10-31 UTC): implemented ast_manager::set_next_expr_id and dbg-set-next-id, skipping IDs already in the canonical AST table as well as generator free-list entries. Focused AST and SMT-LIB tests pass in native and checked builds.
+
 Debug parameter and theory commands (2026-10-31 UTC): implemented the parameter copy-on-write diagnostic and installed the existing simplify command under dbg-th-rewriter. Their combined output matches native Z3 in a checked-build test.
 
 Debug ordering and values (2026-10-31 UTC): connected dbg-lt and dbg-some-value to the existing AST total order and sort value constructors. Checked tests match native output for order reversals, equality, arithmetic, Boolean and bit-vector sorts.

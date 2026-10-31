@@ -12,6 +12,19 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-set-next-id":
+		id, err := p.unsigned()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		return m.SetNextExprID(id)
 	case "dbg-params":
 		if err := p.requireEnd(); err != nil {
 			return err

@@ -46298,7 +46298,9 @@
         "pkg/parsers/smt2/commands.go",
         "pkg/parsers/smt2/debug_commands_test.go",
         "pkg/ast/rewriter/bool_rewriter_public.go",
-        "pkg/cmd_context/results.go"
+        "pkg/cmd_context/results.go",
+        "pkg/ast/ast_expr_id_debug.go",
+        "pkg/ast/ast_expr_id_debug_test.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46311,7 +46313,9 @@
         "TestDebugUsedVariables",
         "TestDebugPrintShared",
         "TestDebugOrderingAndSomeValue",
-        "TestDebugParameterCopyAndTheoryRewrite"
+        "TestDebugParameterCopyAndTheoryRewrite",
+        "TestDebugSetNextID",
+        "TestSetNextExprIDAvoidsExistingASTIDs"
       ],
       "assertions": [
         {
@@ -46409,6 +46413,22 @@
           "tests": [
             "TestDebugParameterCopyAndTheoryRewrite"
           ]
+        },
+        {
+          "name": "debug AST ID selection",
+          "status": "partial",
+          "go_target": "pkg/ast/ast_expr_id_debug.go",
+          "tests": [
+            "TestSetNextExprIDAvoidsExistingASTIDs"
+          ]
+        },
+        {
+          "name": "debug set next ID command",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugSetNextID"
+          ]
         }
       ],
       "ownership": [
@@ -46430,7 +46450,9 @@
         "pkg/parsers/smt2/commands.go",
         "pkg/parsers/smt2/debug_commands_test.go",
         "pkg/ast/rewriter/bool_rewriter_public.go",
-        "pkg/cmd_context/results.go"
+        "pkg/cmd_context/results.go",
+        "pkg/ast/ast_expr_id_debug.go",
+        "pkg/ast/ast_expr_id_debug_test.go"
       ],
       "tests": [
         "TestDebugExpressionCommands",
@@ -46443,7 +46465,9 @@
         "TestDebugUsedVariables",
         "TestDebugPrintShared",
         "TestDebugOrderingAndSomeValue",
-        "TestDebugParameterCopyAndTheoryRewrite"
+        "TestDebugParameterCopyAndTheoryRewrite",
+        "TestDebugSetNextID",
+        "TestSetNextExprIDAvoidsExistingASTIDs"
       ],
       "conditionals": [
         {
@@ -46516,6 +46540,22 @@
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugParameterCopyAndTheoryRewrite"
+          ]
+        },
+        {
+          "name": "debug AST ID selection",
+          "status": "partial",
+          "go_target": "pkg/ast/ast_expr_id_debug.go",
+          "tests": [
+            "TestSetNextExprIDAvoidsExistingASTIDs"
+          ]
+        },
+        {
+          "name": "debug set next ID command",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugSetNextID"
           ]
         }
       ],
