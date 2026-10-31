@@ -1,3 +1,5 @@
+Optimization command header audit (2026-10-31 UTC): connected opt_cmds.h to the existing parser dispatch and API optimizer parsing path. A new regression verifies that parsed soft and maximize commands join direct objectives on the supplied optimizer without affecting a separate optimizer; focused API and SMT-LIB tests pass. The command implementation remains partial.
+
 Quantifier command reachability audit (2026-10-31 UTC): qe_cmd.cpp/.h define an installer that has no callers; only the implementation includes the header. The source is compiled but its command is never installed, so these two units are classified as dead under the live-consumer rule.
 
 Unstarted source reachability audit (2026-10-31 UTC): dl_table_plugin.h has no consumers or build references; the live table and relation infrastructure is defined in dl_base.h. Classified the duplicate header as dead rather than porting its unused template.

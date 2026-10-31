@@ -103449,9 +103449,9 @@
       "path": "src/opt/opt_cmds.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/parsers/smt2/commands.go", "pkg/cmd_context/optimization.go", "pkg/api/api_optimize_parse.go", "pkg/api/api_optimize_parse_test.go"],
+      "tests": ["TestAPIOptimizeParsedCommandsUseSuppliedOptimizer", "TestAPIOptimizeParseStringAndFile", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2WeightedSoftOptimizationEndToEnd"],
       "conditionals": [
         {
           "line": 18,
@@ -103464,9 +103464,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "optimization command installation for parser and supplied API optimizer", "status": "partial", "go_target": "pkg/parsers/smt2/commands.go", "tests": ["TestAPIOptimizeParsedCommandsUseSuppliedOptimizer", "TestSMT2BoundedIntegerOptimizationEndToEnd", "TestSMT2WeightedSoftOptimizationEndToEnd"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Optimization command registration is built into parser dispatch rather than exposed as a separate installer; the implementation and full lifecycle audits remain partial."]
     },
     {
       "path": "src/opt/opt_context.cpp",

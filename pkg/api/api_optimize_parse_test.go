@@ -35,3 +35,23 @@ func TestAPIOptimizeParseStringAndFile(t *testing.T) {
 		t.Fatal("file objective count", n, err)
 	}
 }
+
+func TestAPIOptimizeParsedCommandsUseSuppliedOptimizer(t *testing.T) {
+	f := newAPIOptimizeFixture(t)
+	other := newAPIOptimizeFixture(t)
+	_, err := f.opt.Minimize(f.x)
+	astTestMust(t, err)
+	astTestMust(t, f.opt.ParseString("(declare-const p Bool)(assert-soft p :weight 2 :id group)(maximize 3)"))
+	if n, err := f.opt.NumObjectives(); err != nil || n != 3 {
+		t.Fatal("direct and parsed objectives", n, err)
+	}
+	if n, err := other.opt.NumObjectives(); err != nil || n != 0 {
+		t.Fatal("another optimizer changed", n, err)
+	}
+	if objective, err := f.opt.Objective(1); err != nil || !objective.Soft || objective.ID != "group" {
+		t.Fatal("parsed soft objective", objective, err)
+	}
+	if objective, err := f.opt.Objective(2); err != nil || !objective.Maximize || objective.Soft {
+		t.Fatal("parsed maximize objective", objective, err)
+	}
+}
