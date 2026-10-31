@@ -306,3 +306,21 @@ func TestSATSolverNativeWatchColdHeaderAndWarmIterator(t *testing.T) {
 		t.Fatal("cold header not refunded", b.Used())
 	}
 }
+
+func TestSATSolverWatchStoreDisplaysActualExternalIndex(t *testing.T) {
+	store, _ := satWatchStoreFixture(t)
+	list, err := store.NewList()
+	paramsMust(t, err)
+	watch, err := newSATExternalWatch(42)
+	paramsMust(t, err)
+	paramsMust(t, store.Push(list, watch))
+	out, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{})
+	paramsMust(t, err)
+	defer out.Close()
+	paramsMust(t, store.DisplayInto(list, nil, out))
+	value, err := out.String()
+	paramsMust(t, err)
+	if value != "42" {
+		t.Fatal("external index display", value)
+	}
+}

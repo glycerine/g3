@@ -122559,11 +122559,13 @@
       "path": "src/sat/sat_watched.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_solver_watch_store.go",
         "pkg/sat/sat_storage_vector.go",
-        "pkg/sat/sat_watched.go"
+        "pkg/sat/sat_watched.go",
+        "pkg/sat/sat_solver_watch_store_test.go",
+        "pkg/sat/sat_solver_clause_attach_test.go"
       ],
       "tests": [
         "TestSATSolverWatchStoreActualWatchDisplayAndStableSort",
@@ -122572,52 +122574,36 @@
         "TestSATWatchedSourceTagsWidthDefectAndErase",
         "TestSATSolverNativeWatchGrowthAndSequenceOracle",
         "TestSATSolverNativeWatchIteratorLifetimes",
-        "TestSATSolverNativeWatchColdHeaderAndWarmIterator"
+        "TestSATSolverNativeWatchColdHeaderAndWarmIterator",
+        "TestSATSolverWatchStoreDisplaysActualExternalIndex",
+        "TestSATSolverDetachInteriorNaryWatchKeepsOrder"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "watched display and remaining source text/runtime policy",
-          "status": "partial",
-          "go_target": "pkg/sat/sat_watched.go",
+          "name": "erase_clause_watch removes the first matching clause and preserves suffix order",
+          "status": "ported",
+          "go_target": "pkg/sat/sat_solver_watch_store.go",
           "tests": [
-            "TestSATStorageSourceTextAndWidthActions",
-            "TestSATWatchedSourceTagsWidthDefectAndErase"
+            "TestSATSolverDetachInteriorNaryWatchKeepsOrder"
           ]
         },
         {
-          "name": "erase_clause_watch first-match and stable suffix shift using native watched slice (sat_watched.cpp:24-39)",
+          "name": "display formats binary, ternary, clause and external watches",
           "status": "ported",
           "go_target": "pkg/sat/sat_solver_watch_store.go",
-          "tests": ["TestSATWatchedSourceTagsWidthDefectAndErase", "TestSATSolverDetachInteriorNaryWatchKeepsOrder"]
-        },
-        {
-          "name": "whole runtime conditional debug-tag/TRACE policy and remaining consumer integration",
-          "status": "unported",
-          "tests": []
-        },
-        {
-          "name": "Retained native solver watch slices, checked iterator borrows and logical erase/lifetime routes",
-          "status": "partial",
-          "go_target": "pkg/sat/sat_solver_watch_store.go",
           "tests": [
-            "TestSATSolverNativeWatchGrowthAndSequenceOracle",
-            "TestSATSolverNativeWatchIteratorLifetimes",
-            "TestSATSolverNativeWatchColdHeaderAndWarmIterator",
             "TestSATSolverWatchStoreActualWatchDisplayAndStableSort",
-            "TestSATSolverWatchStoreOwnerLedgerRetirement",
-            "TestSATSolverDetachInteriorNaryWatchKeepsOrder"
+            "TestSATSolverWatchStoreDisplaysActualExternalIndex"
           ]
         }
       ],
       "ownership": [
-        "Concrete scalar clause locators are distinct from source IDs. Retained physical clause storage and its actual cold headers/directories/backing remain budgeted. Live clause, wrapper, binary-clause and activity consumers now use native Go slices; clause vectors retain borrowed allocator bindings in a native map. Only their actual cold owner headers are charged. The unused standalone watched-vector adapter and its template-only operations, iterator factories and slot metadata were removed. Solver watch-store backing now also uses native slices with checked iterator borrows.",
-        "SAT watches now use native []satWatched backing and a native outer slice/directory of checked list references. Actual cold outer/store headers are charged; native backing is uncharged. Iterator values borrow native backing identities: writes remain visible, current logical bounds reject discarded tails, and real backing growth/finalization/free invalidate stale borrows. Owner/generation guards preserve child lifetime across outer relocation and slot reuse. Removed payload codecs, lifetime bitmaps, simulated capacity growth/refusals and unused copy/move/fill/reverse/constructor helpers. Actual source tag/equality, propagation compaction, clause/ternary erase and stable class sorting remain."
+        "Watch-list storage owns its watch sequence; clause display borrows the allocator and output stream. Erasure updates the existing list without owning the referenced clauses."
       ],
       "deviations": [
-        "Pointer ABI becomes owner/kind/slot/generation locators and explicit typed invalid-domain guards. No fake address ordering, global OOM service, external extension callback, solver result or propagation/search algorithm is provided by this storage packet. Source OutOfMemory callback is borrowed; source global policy, conditional CASSERT tag control and TRACE/printer runtime remain open. Concrete vector aliases/invalid source instantiations and self-append/Fill nontermination adapters are recorded explicitly. No Go generics are used.",
-        "Native watch backing no longer emulates C++ allocation events, erase-tail spare storage, pool growth or template-only copy/move helpers. No generic C++ vector implementation credit is claimed. Retained project consumers use checked native iterator borrows; stable sorting preserves actual watched comparator classes."
+        "The existing Go port deliberately displays the external constraint index stored in the watch; the source getter returns the tag value 3 instead. Clause offsets use checked owner and generation locators."
       ]
     },
     {

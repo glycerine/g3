@@ -1,3 +1,5 @@
+SAT watch-list source audit (2026-10-31 UTC): completed `sat_watched.cpp` display and first-match erasure paths, with normal and checked tests. The Go display intentionally reports the actual external constraint index, preserving the existing correction to the source getter defect; the larger header audit remains partial. The production inventory has 250 partial entries and no entries classified unstarted.
+
 CLP solver unknown handling (2026-10-31 UTC): distinguished an underlying solver unknown, which raises the source `undef` error, from bounded-search depth exhaustion, which returns unknown. Normal and checked tests verify the error, scope cleanup and retry; the full CLP source audit remains incomplete.
 
 Inventory evidence repair, third batch (2026-10-31 UTC): repaired cross-package links in ten PDR, relational and Spacer entries and replaced an obsolete reachable-query test name. The validator now reaches a separately stale hash-table size test name; the broader evidence audit remains incomplete.
@@ -6,7 +8,7 @@ Inventory evidence repair, second batch (2026-10-31 UTC): added cross-package te
 
 Inventory evidence repair (2026-10-31 UTC): fixed cross-package links and obsolete generic test names in ten source entries. The validator now advances to a separate Horn-tactic cross-package link; a complete evidence audit is still pending.
 
-Optimization command audit (2026-10-31 UTC): completed the live `opt_cmds.cpp` and header paths. Normal and checked tests cover CLI and supplied API optimizers; C++ Z3 comparisons verified normalized `assert-soft` options, formula validation order, and objective publication before an extra-argument error. The production inventory has 251 partial entries and no entries classified unstarted.
+Optimization command audit (2026-10-31 UTC): completed the live `opt_cmds.cpp` and header paths. Normal and checked tests cover CLI and supplied API optimizers; C++ Z3 comparisons verified normalized `assert-soft` options, formula validation order, and objective publication before an extra-argument error. At that audit the production inventory had 251 partial entries and no entries classified unstarted.
 
 Command debug reference audit (2026-10-31 UTC): completed the live expression-reference helpers in `cmd_util.cpp` and its header. Normal and checked tests cover self-replacement, reset, borrowed lifetimes and a real allocation failure followed by retry; the source command macros use concrete parser dispatch. At that audit the production inventory had 253 partial entries and no entries classified unstarted.
 
