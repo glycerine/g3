@@ -11,9 +11,24 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
-// eliminateQuantifierArithmeticSearch handles one arithmetic declaration when
-// scalar branch propagation finishes without introducing fresh variables.
-func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
+type qeScalarSearchKind uint8
+
+const (
+	qeScalarArithmetic qeScalarSearchKind = iota
+	qeScalarBitVector
+)
+
+func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
+	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarArithmetic)
+}
+
+func eliminateQuantifierBitVectorSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
+	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarBitVector)
+}
+
+// eliminateQuantifierScalarSearch handles one concrete arithmetic or bit-vector
+// declaration when branch propagation finishes without fresh variables.
+func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config, searchKind qeScalarSearchKind) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}
@@ -53,8 +68,16 @@ func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHa
 	if err != nil {
 		return result, false, err
 	}
-	arithmetic, err := m.ArithmeticFamilyID()
-	if err != nil || family != arithmetic {
+	var expectedFamily ast.FamilyID
+	switch searchKind {
+	case qeScalarArithmetic:
+		expectedFamily, err = m.ArithmeticFamilyID()
+	case qeScalarBitVector:
+		expectedFamily, err = m.BitVectorUtilityFamilyID()
+	default:
+		return result, false, ast.ErrASTDomain
+	}
+	if err != nil || family != expectedFamily {
 		return result, false, err
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
@@ -97,19 +120,30 @@ func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHa
 	if err = context.AddPlugin(boolPlugin); err != nil {
 		return result, false, errors.Join(err, boolPlugin.Close())
 	}
-	arithPlugin, err := NewArithmeticPlugin(context)
+	var scalarPlugin SolverPlugin
+	var arithPlugin *ArithmeticPlugin
+	if searchKind == qeScalarArithmetic {
+		arithPlugin, err = NewArithmeticPlugin(context)
+		scalarPlugin = arithPlugin
+	} else {
+		var bitVectorPlugin *BitVectorPlugin
+		bitVectorPlugin, err = NewBitVectorPlugin(context)
+		scalarPlugin = bitVectorPlugin
+	}
 	if err != nil {
 		return result, false, err
 	}
-	if err = context.AddPlugin(arithPlugin); err != nil {
-		return result, false, errors.Join(err, arithPlugin.Close())
+	if err = context.AddPlugin(scalarPlugin); err != nil {
+		return result, false, errors.Join(err, scalarPlugin.Close())
 	}
 	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
 	if err != nil {
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, rw.Close()) }()
-	arithPlugin.util.theory = rw
+	if arithPlugin != nil {
+		arithPlugin.util.theory = rw
+	}
 	adapter, err := NewSolverNNFAdapter(context)
 	if err != nil {
 		return result, false, err
@@ -128,7 +162,7 @@ func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHa
 	if err = partitioner.AddPlugin(boolPlugin); err != nil {
 		return result, false, err
 	}
-	if err = partitioner.AddPlugin(arithPlugin); err != nil {
+	if err = partitioner.AddPlugin(scalarPlugin); err != nil {
 		return result, false, err
 	}
 	variables, err := newExprQEBranchVariables(m)
