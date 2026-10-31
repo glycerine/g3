@@ -290,3 +290,39 @@ func TestFiniteExplanationProductRenameFinite(t *testing.T) {
 		t.Fatal("accepted repeated rename column")
 	}
 }
+
+func TestFiniteExplanationProductFiniteFilters(t *testing.T) {
+	f := newTableRelationFixture(t)
+	sort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	name, err := f.ast.Symbols.Intern("finite-filter-explanation")
+	astTestMust(t, err)
+	explanation, err := f.ast.MkConst(name, sort)
+	astTestMust(t, err)
+	p, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean, f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	for _, row := range [][]ast.ASTHandle{{f.truth, f.truth}, {f.truth, f.falsehood}, {f.falsehood, f.falsehood}} {
+		astTestMust(t, p.AddFact(row, explanation))
+	}
+	astTestMust(t, p.FilterFiniteIdentical([]int{0, 1}))
+	count, err := p.Len()
+	astTestMust(t, err)
+	if count != 2 {
+		t.Fatal("identical filter count", count)
+	}
+	astTestMust(t, p.FilterFiniteEqual(0, f.truth))
+	got, found, err := p.Explanation([]ast.ASTHandle{f.truth, f.truth})
+	astTestMust(t, err)
+	if !found || got != explanation {
+		t.Fatal("filtered explanation", got, found)
+	}
+	count, err = p.Len()
+	astTestMust(t, err)
+	if count != 1 {
+		t.Fatal("equal filter count", count)
+	}
+	if err = p.FilterFiniteEqual(2, f.truth); err == nil {
+		t.Fatal("accepted invalid column")
+	}
+}

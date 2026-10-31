@@ -1,3 +1,5 @@
+Fact explanation finite filters (2026-10-31 UTC): equal-value and identical-column filters now preserve explanations on surviving finite keys. Normal and checked tests cover both filters and invalid columns; general column interleaving and Datalog registration remain unfinished.
+
 Fact explanation renaming (2026-10-31 UTC): finite-column cycles now preserve the associated explanation rows. Normal and checked tests cover mixed sorts, source preservation and invalid cycles; Datalog registration and general column interleaving remain unfinished.
 
 Fact explanation assignment (2026-10-31 UTC): joined rows can now fill an undefined explanation and project away premise columns. A joined-rule regression exposed and fixed the explanation filter's substitution order to match the Datalog context; focused normal and checked tests pass, while Datalog registration and general column interleaving remain unfinished.
