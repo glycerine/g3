@@ -8,6 +8,7 @@ import "errors"
 type replayContextOwner struct {
 	context        *SMTContext
 	userRefCount   bool
+	printMode      uint32
 	results        *apiContextResults
 	astIDs         []uint64
 	parameterIDs   []uint64

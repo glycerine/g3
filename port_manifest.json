@@ -5953,7 +5953,9 @@
         "pkg/api/z3_generated_datatype_inspection.go",
         "pkg/api/z3_generated_datatype_inspection_test.go",
         "pkg/api/z3_generated_numeral_inspection.go",
-        "pkg/api/z3_generated_numeral_inspection_test.go"
+        "pkg/api/z3_generated_numeral_inspection_test.go",
+        "pkg/api/z3_generated_print_commands.go",
+        "pkg/api/z3_generated_print_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6001,7 +6003,8 @@
         "TestGeneratedRelationInspectionReplay",
         "TestGeneratedDatatypeUpdateReplayReportsSourceError",
         "TestGeneratedNumeralInspectionReplayOutputs",
-        "TestGeneratedAlgebraicBoundsReplay"
+        "TestGeneratedAlgebraicBoundsReplay",
+        "TestGeneratedASTPrintReplayContextModes"
       ],
       "methods_audited": false,
       "ownership_audited": false,
