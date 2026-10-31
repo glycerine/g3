@@ -125872,9 +125872,14 @@
       "path": "src/smt/expr_context_simplifier.cpp",
       "component": "smt",
       "role": "production",
-      "status": "reference_only",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/smtcore/expr_strong_context_simplifier.go",
+        "pkg/smtcore/expr_strong_context_simplifier_test.go"
+      ],
+      "tests": [
+        "TestExprStrongContextSimplifierScopedForcedChecks"
+      ],
       "conditionals": [
         {
           "line": 85,
@@ -125895,8 +125900,8 @@
           "text": "VERIFY(cache.find(fml, path_r));"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "expr_context_simplifier local Boolean context reduction and fixed-point traversal",
@@ -125904,9 +125909,12 @@
           "tests": []
         },
         {
-          "name": "expr_strong_context_simplifier kernel-backed basic and model-based reduction",
-          "status": "reference_only",
-          "tests": []
+          "name": "strong context simplifier lifecycle, scoped assertions, forced-value checks, and statistics",
+          "status": "partial",
+          "tests": [
+            "TestExprStrongContextSimplifierScopedForcedChecks"
+          ],
+          "go_target": "pkg/smtcore/expr_strong_context_simplifier.go"
         },
         {
           "name": "disabled quantifier-body descent",
@@ -125914,18 +125922,25 @@
           "tests": []
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed."
+      ],
       "deviations": [
-        "The only production consumer is src/qe/qe_sat_tactic.cpp, which belongs to the unretained native QE component. The retained Go Boolean rewriter has its own local-context implementation and is not treated as a port of this source unit."
+        "The live QE-SAT consumer requires the strong context simplifier. The model-based traversal and public integration are unfinished; the separate local Boolean simplifier has no live source consumer."
       ]
     },
     {
       "path": "src/smt/expr_context_simplifier.h",
       "component": "smt",
       "role": "production",
-      "status": "reference_only",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/smtcore/expr_strong_context_simplifier.go",
+        "pkg/smtcore/expr_strong_context_simplifier_test.go"
+      ],
+      "tests": [
+        "TestExprStrongContextSimplifierScopedForcedChecks"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -125936,18 +125951,23 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": true,
-      "ownership_audited": true,
+      "methods_audited": false,
+      "ownership_audited": false,
       "methods": [
         {
-          "name": "local and strong context simplifier declarations and solver ownership contract",
-          "status": "reference_only",
-          "tests": []
+          "name": "strong context simplifier declarations and scoped solver ownership",
+          "status": "partial",
+          "go_target": "pkg/smtcore/expr_strong_context_simplifier.go",
+          "tests": [
+            "TestExprStrongContextSimplifierScopedForcedChecks"
+          ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed."
+      ],
       "deviations": [
-        "The declarations are consumed only by the unretained native QE SAT tactic."
+        "The live QE-SAT consumer requires the strong context simplifier. The model-based traversal and public integration are unfinished; the separate local Boolean simplifier has no live source consumer."
       ]
     },
     {
