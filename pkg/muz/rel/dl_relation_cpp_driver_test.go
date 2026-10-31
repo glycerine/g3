@@ -53,3 +53,57 @@ func TestIntervalRelationSourceOperations(t *testing.T) {
 		t.Fatal("projection of source join became empty")
 	}
 }
+
+func TestBoundRelationSourceOperations(t *testing.T) {
+	empty, full := NewBoundRelation(4, true), NewBoundRelation(4, false)
+	if !empty.Empty() || full.Empty() {
+		t.Fatal("source empty/full initialization")
+	}
+	joined, err := JoinBoundRelations(full, full, []uint32{1, 2}, []uint32{2, 3})
+	astTestMust(t, err)
+	astTestMust(t, full.AddLess(2, 3))
+	astTestMust(t, full.Equate(1, 2))
+	if full.find(1) != full.find(2) || full.Empty() {
+		t.Fatal("source equality and strict bound")
+	}
+	renamed, err := full.Rename([]uint32{0, 2, 3})
+	astTestMust(t, err)
+	if renamed.Empty() {
+		t.Fatal("renamed source relation")
+	}
+	projected, err := joined.Project([]uint32{2, 3})
+	astTestMust(t, err)
+	if projected.Empty() {
+		t.Fatal("projected source join")
+	}
+	for _, which := range []int{0, 1} {
+		left, right := NewBoundRelation(4, false), NewBoundRelation(4, false)
+		astTestMust(t, left.Equate(1, 3))
+		if which == 0 {
+			astTestMust(t, left.AddLess(0, 1))
+			astTestMust(t, left.AddLess(1, 2))
+			astTestMust(t, right.Equate(2, 3))
+			astTestMust(t, right.AddLess(0, 3))
+		} else {
+			astTestMust(t, left.Equate(2, 3))
+			astTestMust(t, left.AddLess(0, 1))
+			astTestMust(t, right.Equate(1, 3))
+			astTestMust(t, right.AddLess(0, 2))
+			astTestMust(t, right.AddLess(0, 3))
+		}
+		_, err := left.Union(right)
+		astTestMust(t, err)
+		if left.Empty() {
+			t.Fatal("source union became empty", which)
+		}
+		strict, _, err := left.Bounds(0)
+		astTestMust(t, err)
+		found := false
+		for _, column := range strict {
+			found = found || left.find(column) == left.find(3)
+		}
+		if !found {
+			t.Fatal("source union lost common bound x0 < x3", which, strict)
+		}
+	}
+}

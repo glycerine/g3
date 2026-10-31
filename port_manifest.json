@@ -200711,9 +200711,9 @@
       "path": "src/test/dl_relation.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/muz/rel/dl_relation_cpp_driver_test.go"],
-      "tests": ["TestIntervalRelationSourceOperations"],
+      "tests": ["TestIntervalRelationSourceOperations", "TestBoundRelationSourceOperations"],
       "conditionals": [
         {
           "line": 7,
@@ -200770,11 +200770,11 @@
           "text": "ENSURE(!i2.empty());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["The interval relation driver is exercised with assertions in place of printed output; the bound relation driver remains open."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_dl_relation, test_interval_relation and test_bound_relation", "status": "ported", "go_target": "pkg/muz/rel/dl_relation_cpp_driver_test.go", "tests": ["TestIntervalRelationSourceOperations", "TestBoundRelationSourceOperations"]}],
+      "ownership": ["The fixture manages its AST references and the concrete interval and bound relations use Go-managed storage."],
+      "deviations": ["Assertions replace printed output; bound-relation order and equality filters use direct concrete methods, and the source constant-equality filter is a no-op. The source union examples have TODO checks; the Go test verifies their common strict bound modulo equality classes."]
     },
     {
       "path": "src/test/dl_table.cpp",

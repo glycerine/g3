@@ -52288,3 +52288,5 @@ Polynomial normalization source driver started: recreated both source expression
 Polynomial normalization driver completion: ported the active source decomposition of rewritten sums into a constant and coefficient/factor pairs. The two source examples check their exact factors and coefficients as well as concrete evaluations.
 
 Datalog relation source driver started: translated the interval example's full/empty construction, interpreted and equality filters, joined projection, rename and source membership checks. The separate bound-relation source example remains open.
+
+Datalog relation source driver completion: added the bound-relation join, equality, rename, projection and both union examples. The union checks verify the common strict order modulo equality classes, filling in the source's TODO assertions.
