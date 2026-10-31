@@ -1,3 +1,5 @@
+Inventory evidence repair, ninth batch (2026-10-31 UTC): linked ten SMT entries to existing cross-package tests and replaced nonlinear QE test prefixes with runnable declarations. The focused QE tests pass; inventory validation continues.
+
 SMT-LIB inventory evidence (2026-10-31 UTC): replaced obsolete fixedpoint query test names with current unknown-parameter and query-local engine tests. Both focused parser tests pass; inventory validation continues.
 
 Generated algebraic bounds replay (2026-10-31 UTC): added irrational-number recognition and lower/upper bound queries. Normal and checked tests verify bounds enclose the square root of two; other generated commands remain unfinished.

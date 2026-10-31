@@ -109732,7 +109732,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/qe/nlarith_util.go", "pkg/qe/nlarith_polynomial.go", "pkg/qe/nlarith_polynomial_decompose.go", "pkg/qe/nlarith_polynomial_ops.go", "pkg/qe/nlarith_polynomial_derivative.go", "pkg/qe/nlarith_polynomial_division.go", "pkg/qe/nlarith_numeral.go", "pkg/qe/nlarith_literal.go", "pkg/qe/nlarith_analysis.go", "pkg/qe/nlarith_branch_conditions.go", "pkg/qe/nlarith_extract.go", "pkg/qe/nlarith_weights.go", "pkg/qe/nlarith_branch_algebra.go", "pkg/qe/nlarith_root_form.go", "pkg/qe/nlarith_root_instantiate.go", "pkg/qe/nlarith_root_compare.go", "pkg/qe/nlarith_epsilon.go", "pkg/qe/nlarith_infinity.go", "pkg/qe/nlarith_candidate.go", "pkg/qe/nlarith_branch_builder.go", "pkg/qe/qe_nlarith_plugin.go", "pkg/qe/qe_nlarith_plugin_classify.go", "pkg/qe/qe_nlarith_plugin_prepare.go", "pkg/qe/qe_nlarith_plugin_branch.go", "pkg/qe/qe_nlarith_plugin_substitute.go", "pkg/qe/nlarith_polynomial_test.go", "pkg/qe/nlarith_analysis_test.go", "pkg/qe/nlarith_extract_test.go", "pkg/qe/nlarith_root_branch_test.go", "pkg/qe/nlarith_create_branches_test.go", "pkg/qe/qe_nlarith_plugin_test.go", "pkg/qe/nlarith_test_helpers_test.go"],
-      "tests": ["TestNL", "TestNonlinearArithmeticPlugin"],
+      "tests": ["TestNLArithmeticPolynomialDecompositionOperationsAndDerivative", "TestNLArithmeticLiteralAnalysisComparisonsAndDegreePolicy", "TestNonlinearArithmeticPluginEndToEndBranchesAssignSubstitute", "TestNonlinearArithmeticPluginClassificationAndModelMode"],
       "conditionals": [
         {
           "line": 493,
@@ -138613,7 +138613,8 @@
             "pkg/smtcore/smt_arithmetic_lifecycle.go",
             "pkg/smtcore/smt_setup_basic_arithmetic.go",
             "pkg/smtcore/theory_arith_infinite_test.go",
-            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2"
+            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTInfiniteArithmeticConfiguredSolverModelAndPop",
@@ -138700,6 +138701,9 @@
             "TestSMTRelevanceFIFOEndSearchResetsAdmissionSentinel",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138714,6 +138718,9 @@
             "TestSMTRelevantActivityCaseSplitDelaysSearchVariables",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138729,6 +138736,9 @@
             "TestSMTRelevantGoalCaseSplitUsesLowestGeneration",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138744,6 +138754,9 @@
             "TestSMTActivityCaseSplitQueueHonorsConfiguredAndCachedPhases",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138758,6 +138771,9 @@
             "TestSMTActivityCaseSplitQueueCachesOnlyPositiveSearchActivity",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138774,6 +138790,9 @@
             "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138788,6 +138807,9 @@
             "TestSMTKernelQueueReadsBorrowedPhaseOwner",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138806,6 +138828,9 @@
             "TestSMTCaseSplitASTStreamOwnerRefusalPrecedesLiteralSelection",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -138820,6 +138845,9 @@
             "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140182,6 +140210,9 @@
             "TestSMTRelevanceFIFOEndSearchResetsAdmissionSentinel",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140196,6 +140227,9 @@
             "TestSMTRelevantActivityCaseSplitDelaysSearchVariables",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140211,6 +140245,9 @@
             "TestSMTRelevantGoalCaseSplitUsesLowestGeneration",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140226,6 +140263,9 @@
             "TestSMTActivityCaseSplitQueueHonorsConfiguredAndCachedPhases",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140240,6 +140280,9 @@
             "TestSMTActivityCaseSplitQueueCachesOnlyPositiveSearchActivity",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140256,6 +140299,9 @@
             "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140270,6 +140316,9 @@
             "TestSMTKernelQueueReadsBorrowedPhaseOwner",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140288,6 +140337,9 @@
             "TestSMTCaseSplitASTStreamOwnerRefusalPrecedesLiteralSelection",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -140302,6 +140354,9 @@
             "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -147074,6 +147129,9 @@
             "TestSMTBitVectorTranslationOwnersModelsAndIndependentScopes",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -147833,8 +147891,64 @@
             "TestSMTQuantifiedLogicSetupProfilesAndConstructorCaches"
           ]
         },
-        {"name": "Retained inf_ext integration through the existing concrete mixed arithmetic tableau: mode5 setup and fresh-plugin copy selection; owned nonstandard lower-bound construction/name/complement; full infinity/rational/epsilon bound normalization, row transport, shared-value equality keys and rational-only polynomial guards; native model projection and refine_epsilon infinity skip. Scope-limited transport credit, not complete arithmetic or higher optimizer coverage.", "status": "ported", "go_targets": ["pkg/smtcore/theory_arith_linear.go", "pkg/smtcore/theory_arith_objective_bound.go", "pkg/smtcore/theory_arith_assume_eq.go", "pkg/smtcore/theory_arith_mutation.go", "pkg/smtcore/theory_arith_fixed_bounds.go", "pkg/smtcore/theory_arith_max_min.go", "pkg/smtcore/theory_arith_grobner.go", "pkg/smtcore/theory_arith_nonlinear.go", "pkg/smtcore/theory_arith_epsilon.go", "pkg/smtcore/smt_arithmetic_lifecycle.go", "pkg/smtcore/smt_setup_basic_arithmetic.go", "pkg/smtcore/theory_arith_infinite_test.go", "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2"], "tests": ["TestSMTInfiniteArithmeticConfiguredSolverModelAndPop", "TestSMTInfiniteArithmeticThresholdNameComplementAndCopies", "TestSMTInfiniteArithmeticMaximizeKeepsAllCoordinatesAndPop", "TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity", "TestSMTInfiniteArithmeticCompoundBoundAndRationalRounding", "TestSMTInfiniteArithmeticSharedModelDeltaSkipsInfinity", "TestSMTArithmeticTranslationRetainsConcreteBackendsAndModels", "TestSMTLibRunnerScripts/basic_infinite_arithmetic.smt2", "TestSMTLibRunnerCPPReference/basic_infinite_arithmetic.smt2"]},
-        {"name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.", "status": "ported", "go_targets": ["pkg/smtcore/smt_setup_real.go", "pkg/smtcore/smt_setup_simple.go", "pkg/smtcore/smt_kernel.go", "pkg/cmd_context/context.go", "pkg/cmd_context/reason_unknown.go", "pkg/cmd_context/tactic_commands.go", "pkg/parsers/smt2/commands.go", "pkg/smtcore/smt_setup_lra_backend_test.go", "pkg/cmd_context/statistics_test.go", "pkg/cmd/g3/lra_backend_test.go"], "tests": ["TestSMTLRAPublicSetupLogicAutoAndFirstPush", "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate", "TestSMTLRAPublicSetupProofAndTrackedConflict", "TestCommandContextStatisticsResultPriorityAndProcessCounters", "TestCommandContextStatisticsWriterAndWatch", "TestSMTLibRunnerConcreteLRASmoke", "TestSMTLibRunnerConcreteLRAIsIntNormalization", "TestSMTLibRunnerConcreteLRAScriptsMatchCPP", "TestSMTLibRunnerConcreteLRADefaultSelection"]}
+        {
+          "name": "Retained inf_ext integration through the existing concrete mixed arithmetic tableau: mode5 setup and fresh-plugin copy selection; owned nonstandard lower-bound construction/name/complement; full infinity/rational/epsilon bound normalization, row transport, shared-value equality keys and rational-only polynomial guards; native model projection and refine_epsilon infinity skip. Scope-limited transport credit, not complete arithmetic or higher optimizer coverage.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_arith_linear.go",
+            "pkg/smtcore/theory_arith_objective_bound.go",
+            "pkg/smtcore/theory_arith_assume_eq.go",
+            "pkg/smtcore/theory_arith_mutation.go",
+            "pkg/smtcore/theory_arith_fixed_bounds.go",
+            "pkg/smtcore/theory_arith_max_min.go",
+            "pkg/smtcore/theory_arith_grobner.go",
+            "pkg/smtcore/theory_arith_nonlinear.go",
+            "pkg/smtcore/theory_arith_epsilon.go",
+            "pkg/smtcore/smt_arithmetic_lifecycle.go",
+            "pkg/smtcore/smt_setup_basic_arithmetic.go",
+            "pkg/smtcore/theory_arith_infinite_test.go",
+            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTInfiniteArithmeticConfiguredSolverModelAndPop",
+            "TestSMTInfiniteArithmeticThresholdNameComplementAndCopies",
+            "TestSMTInfiniteArithmeticMaximizeKeepsAllCoordinatesAndPop",
+            "TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity",
+            "TestSMTInfiniteArithmeticCompoundBoundAndRationalRounding",
+            "TestSMTInfiniteArithmeticSharedModelDeltaSkipsInfinity",
+            "TestSMTArithmeticTranslationRetainsConcreteBackendsAndModels",
+            "TestSMTLibRunnerScripts/basic_infinite_arithmetic.smt2",
+            "TestSMTLibRunnerCPPReference/basic_infinite_arithmetic.smt2"
+          ]
+        },
+        {
+          "name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_setup_real.go",
+            "pkg/smtcore/smt_setup_simple.go",
+            "pkg/smtcore/smt_kernel.go",
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/reason_unknown.go",
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/smtcore/smt_setup_lra_backend_test.go",
+            "pkg/cmd_context/statistics_test.go",
+            "pkg/cmd/g3/lra_backend_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAPublicSetupLogicAutoAndFirstPush",
+            "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate",
+            "TestSMTLRAPublicSetupProofAndTrackedConflict",
+            "TestCommandContextStatisticsResultPriorityAndProcessCounters",
+            "TestCommandContextStatisticsWriterAndWatch",
+            "TestSMTLibRunnerConcreteLRASmoke",
+            "TestSMTLibRunnerConcreteLRAIsIntNormalization",
+            "TestSMTLibRunnerConcreteLRAScriptsMatchCPP",
+            "TestSMTLibRunnerConcreteLRADefaultSelection"
+          ]
+        }
       ],
       "ownership": [
         "Basic setup releases its temporary feature collector on every exit and replaces only an unused arithmetic owner before scope/theory setup. A pre-existing disabled checkpoint can be replaced after a parameter update. Mixed graph model delta and numeral types come from the existing concrete graph and AST owner. Initialized direct-internalizer column specializations remain stable.",
@@ -147848,7 +147962,7 @@
         "Quantified setup closes its temporary feature collector on all exits, updates existing parameter owners and the live quantifier manager, and retains constructor-owned cost expressions and cached eager threshold. Pattern inference updates its existing rewriter; MBQI uses the existing concrete checker factory.",
         "LRA synchronizes scalar fields in existing SMT, arithmetic and preprocessing owners with the registered concrete arithmetic theory at the first setup boundary. LRA/UFLRA use per-variable mixed arithmetic without replacing an initialized theory; backend mode selection beyond the existing mixed/default and disabled modes remains partial.",
         "Bit-vector setup updates existing scalar parameter owners and the registered concrete BV theory before first-boundary internalization. The bit-blaster borrows the existing manager; successful add/subtract calls transfer all owned output and carry AST references into the theory temporary roots, released by its existing reset/close lifetime. Engine failure paths release their own incomplete outputs.",
-        "IDL feature validation uses the existing temporary collector over borrowed assertions and closes it on rejection and success. The normal registered arithmetic backend is the concrete integer simplex; static proof mode selects the shared implementation\u2019s per-column mixed integrality before assertion internalization. Selected policy remains in the existing owners and live consumers. Arithmetic setup now forwards Boolean heuristic settings before variable creation, as required by IDL unit randomization.",
+        "IDL feature validation uses the existing temporary collector over borrowed assertions and closes it on rejection and success. The normal registered arithmetic backend is the concrete integer simplex; static proof mode selects the shared implementation’s per-column mixed integrality before assertion internalization. Selected policy remains in the existing owners and live consumers. Arithmetic setup now forwards Boolean heuristic settings before variable creation, as required by IDL unit randomization.",
         "Dense matrix cells notify their concrete owning theory immediately at each source update, preserving occurrence/antecedent timing without a generic callback layer. The theory borrows its base/context in concrete syntax helpers and owns atom maps, occurrences, integrality flags, scopes and model numerals. Logical-context scopes own propagation and conflict justifications. Dense setup replaces only a theory with no variables or scopes before theory setup; it preserves registry order and closes the unused owner.",
         "RDL setup closes temporary feature collectors on validation failure and success, and configures the existing owning parameter fields before assertion internalization. Dense and sparse graph routes share the checked replacement of an unused constructor-time arithmetic plugin, preserving registry order and closing the replaced owner; default, proof, ITE and simplex routes keep their existing mixed-arithmetic owner.",
         "UFIDL setup uses the existing temporary feature collector and releases it on success or real-sort rejection. Normal and first-push integer arithmetic reuse the constructor-time concrete owner, static proofs select per-column mixed integrality before internalization, and no-UF dense input reuses the checked unused-owner replacement path. The dense early return preserves unassigned parameter fields in their existing owners.",
@@ -148118,7 +148232,8 @@
             "pkg/smtcore/smt_setup_simple.go",
             "pkg/smtcore/smt_setup_array.go",
             "pkg/smtcore/smt_setup_bv.go",
-            "pkg/smtcore/smt_setup_quantified.go"
+            "pkg/smtcore/smt_setup_quantified.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTUnknownStaticSetupClassifiesLinearArithmetic",
@@ -148414,7 +148529,33 @@
             "TestSMTLibRunnerCPPReference"
           ]
         },
-        {"name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.", "status": "ported", "go_targets": ["pkg/smtcore/smt_setup_real.go", "pkg/smtcore/smt_setup_simple.go", "pkg/smtcore/smt_kernel.go", "pkg/cmd_context/context.go", "pkg/cmd_context/reason_unknown.go", "pkg/cmd_context/tactic_commands.go", "pkg/parsers/smt2/commands.go", "pkg/smtcore/smt_setup_lra_backend_test.go", "pkg/cmd_context/statistics_test.go", "pkg/cmd/g3/lra_backend_test.go"], "tests": ["TestSMTLRAPublicSetupLogicAutoAndFirstPush", "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate", "TestSMTLRAPublicSetupProofAndTrackedConflict", "TestCommandContextStatisticsResultPriorityAndProcessCounters", "TestCommandContextStatisticsWriterAndWatch", "TestSMTLibRunnerConcreteLRASmoke", "TestSMTLibRunnerConcreteLRAIsIntNormalization", "TestSMTLibRunnerConcreteLRAScriptsMatchCPP", "TestSMTLibRunnerConcreteLRADefaultSelection"]}
+        {
+          "name": "Source setup_r_arith selection for automatic QF_LRA/QF_UFLRA at first setup/check after logic parameters, including independent copied-plugin preservation and failure-owned candidate retirement.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_setup_real.go",
+            "pkg/smtcore/smt_setup_simple.go",
+            "pkg/smtcore/smt_kernel.go",
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/reason_unknown.go",
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/smtcore/smt_setup_lra_backend_test.go",
+            "pkg/cmd_context/statistics_test.go",
+            "pkg/cmd/g3/lra_backend_test.go"
+          ],
+          "tests": [
+            "TestSMTLRAPublicSetupLogicAutoAndFirstPush",
+            "TestSMTLRAPublicSetupAllocationFailureRetiresCandidate",
+            "TestSMTLRAPublicSetupProofAndTrackedConflict",
+            "TestCommandContextStatisticsResultPriorityAndProcessCounters",
+            "TestCommandContextStatisticsWriterAndWatch",
+            "TestSMTLibRunnerConcreteLRASmoke",
+            "TestSMTLibRunnerConcreteLRAIsIntNormalization",
+            "TestSMTLibRunnerConcreteLRAScriptsMatchCPP",
+            "TestSMTLibRunnerConcreteLRADefaultSelection"
+          ]
+        }
       ],
       "ownership": [
         "Basic setup releases its temporary feature collector on every exit and replaces only an unused arithmetic owner before scope/theory setup. A pre-existing disabled checkpoint can be replaced after a parameter update. Mixed graph model delta and numeral types come from the existing concrete graph and AST owner. Initialized direct-internalizer column specializations remain stable.",
@@ -148427,7 +148568,7 @@
         "Quantified setup closes its temporary feature collector on all exits, updates existing parameter owners and the live quantifier manager, and retains constructor-owned cost expressions and cached eager threshold. Pattern inference updates its existing rewriter; MBQI uses the existing concrete checker factory.",
         "LRA synchronizes scalar fields in existing SMT, arithmetic and preprocessing owners with the registered concrete arithmetic theory at the first setup boundary. LRA/UFLRA use per-variable mixed arithmetic without replacing an initialized theory; backend mode selection beyond the existing mixed/default and disabled modes remains partial.",
         "Bit-vector setup updates existing scalar parameter owners and the registered concrete BV theory before first-boundary internalization. The bit-blaster borrows the existing manager; successful add/subtract calls transfer all owned output and carry AST references into the theory temporary roots, released by its existing reset/close lifetime. Engine failure paths release their own incomplete outputs.",
-        "IDL feature validation uses the existing temporary collector over borrowed assertions and closes it on rejection and success. The normal registered arithmetic backend is the concrete integer simplex; static proof mode selects the shared implementation\u2019s per-column mixed integrality before assertion internalization. Selected policy remains in the existing owners and live consumers. Arithmetic setup now forwards Boolean heuristic settings before variable creation, as required by IDL unit randomization.",
+        "IDL feature validation uses the existing temporary collector over borrowed assertions and closes it on rejection and success. The normal registered arithmetic backend is the concrete integer simplex; static proof mode selects the shared implementation’s per-column mixed integrality before assertion internalization. Selected policy remains in the existing owners and live consumers. Arithmetic setup now forwards Boolean heuristic settings before variable creation, as required by IDL unit randomization.",
         "Dense matrix cells notify their concrete owning theory immediately at each source update, preserving occurrence/antecedent timing without a generic callback layer. The theory borrows its base/context in concrete syntax helpers and owns atom maps, occurrences, integrality flags, scopes and model numerals. Logical-context scopes own propagation and conflict justifications. Dense setup replaces only a theory with no variables or scopes before theory setup; it preserves registry order and closes the unused owner.",
         "RDL setup closes temporary feature collectors on validation failure and success, and configures the existing owning parameter fields before assertion internalization. Dense and sparse graph routes share the checked replacement of an unused constructor-time arithmetic plugin, preserving registry order and closing the replaced owner; default, proof, ITE and simplex routes keep their existing mixed-arithmetic owner.",
         "UFIDL setup uses the existing temporary feature collector and releases it on success or real-sort rejection. Normal and first-push integer arithmetic reuse the constructor-time concrete owner, static proofs select per-column mixed integrality before internalization, and no-UF dense input reuses the checked unused-owner replacement path. The dense early return preserves unassigned parameter fields in their existing owners.",
@@ -148733,6 +148874,9 @@
             "TestSMTCaseSplitFactoryDoesNotReplaceAlreadyConstructedRawContext",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -149984,8 +150128,14 @@
       "component": "smt",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/smtcore/unit_subsumption.go"],
-      "tests": ["TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder", "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"],
+      "go_targets": [
+        "pkg/smtcore/unit_subsumption.go",
+        "pkg/muz/spacer/context_lemma_frames_test.go"
+      ],
+      "tests": [
+        "TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder",
+        "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"
+      ],
       "assertions": [
         {
           "line": 125,
@@ -149999,13 +150149,21 @@
           "name": "clause proxy creation, contextual subsumption checks and goal reconstruction",
           "status": "ported",
           "go_target": "pkg/smtcore/unit_subsumption.go",
-          "tests": ["TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder", "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"]
+          "tests": [
+            "TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder",
+            "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"
+          ],
+          "go_targets": [
+            "pkg/muz/spacer/context_lemma_frames_test.go"
+          ]
         },
         {
           "name": "retained parameter snapshot, cancellation and concrete construction",
           "status": "ported",
           "go_target": "pkg/smtcore/unit_subsumption.go",
-          "tests": ["TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder"]
+          "tests": [
+            "TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder"
+          ]
         }
       ],
       "ownership": [
@@ -150333,7 +150491,7 @@
         },
         {
           "name": "antecedents, bounds, atoms, derived bounds, variable metadata and bound trail declarations",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_bounds.go",
           "tests": [
             "TestSMTArithmeticValueLexicographicAndAtomComplements",
@@ -150345,7 +150503,7 @@
         },
         {
           "name": "retained rational linear internalization, atom assignment, simplex feasibility, scope replay, equality axioms, and model values",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "tests": [
             "TestSMTSolverSetupUsesLinearRealArithmetic",
@@ -150470,9 +150628,86 @@
             "TestSMTArithmeticObjectiveDomainsAndScopeLifetime"
           ]
         },
-        {"name": "mk_ge(filter_model_converter&,theory_var,inf_numeral), concrete mi_ext: exact native Boolean name/reuse guard, filtered helper declaration, full infinitesimal bound and integer unit-step complement; immediate/delayed nearest-neighbor bound axioms, integer adjacent cover, Farkas coefficients and scoped parameter ownership; exact infinitesimal row deductions during shared optimization recovery.", "status": "ported", "go_targets": ["pkg/smtcore/theory_arith_objective_bound.go", "pkg/smtcore/theory_arith_bound_axioms.go", "pkg/smtcore/theory_arith_linear.go", "pkg/smtcore/theory_arith_fixed_bounds.go", "pkg/smtcore/theory_arith_grobner.go", "pkg/smtcore/theory_arith_mixed.go", "pkg/smtcore/smt_internalizer.go"], "tests": ["TestSMTObjectiveLowerBoundExistingBooleanAndDomains", "TestSMTObjectiveLowerBoundIntegralRealCastUsesUnitStep", "TestSMTObjectiveLowerBoundRecoversSharedOptimization", "TestSMTObjectiveLowerBoundThresholdAndComplement", "TestSMTObjectiveLowerBoundCompoundOffsetAndName", "TestSMTObjectiveLowerBoundSolverScopesAndModelFilter", "TestSMTObjectiveLowerBoundRejectsImproperSupremum", "TestSMTArithmeticBoundAxiomAllocationFrontiersAndRetry", "TestSMTArithmeticBoundAxiomsKindsAndIntegerAdjacency", "TestSMTArithmeticBoundAxiomsNearestNeighborsAndAxisIdentity", "TestSMTArithmeticBoundAxiomProofParametersAndScopeOwnership"]},
-        {"name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/arith_optimize.go", "pkg/math/simplex/arith_freedom.go", "pkg/math/simplex/arith_integer_patch.go", "pkg/math/simplex/arith_gcd.go", "pkg/math/simplex/arith_gomory.go", "pkg/math/simplex/infinite_value_test.go"], "tests": ["TestInfiniteValueLexicographicOrderAndOwnedCopies", "TestInfiniteValueCoordinateArithmeticOracle", "TestInfiniteTableauFeasibilityPivotAndMinimize", "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel", "TestInfiniteTableauBoundsAndBasicSeed", "TestInfiniteTableauRationalIntegerGuards", "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"]},
-        {"name": "Retained inf_ext integration through the existing concrete mixed arithmetic tableau: mode5 setup and fresh-plugin copy selection; owned nonstandard lower-bound construction/name/complement; full infinity/rational/epsilon bound normalization, row transport, shared-value equality keys and rational-only polynomial guards; native model projection and refine_epsilon infinity skip. Scope-limited transport credit, not complete arithmetic or higher optimizer coverage.", "status": "ported", "go_targets": ["pkg/smtcore/theory_arith_linear.go", "pkg/smtcore/theory_arith_objective_bound.go", "pkg/smtcore/theory_arith_assume_eq.go", "pkg/smtcore/theory_arith_mutation.go", "pkg/smtcore/theory_arith_fixed_bounds.go", "pkg/smtcore/theory_arith_max_min.go", "pkg/smtcore/theory_arith_grobner.go", "pkg/smtcore/theory_arith_nonlinear.go", "pkg/smtcore/theory_arith_epsilon.go", "pkg/smtcore/smt_arithmetic_lifecycle.go", "pkg/smtcore/smt_setup_basic_arithmetic.go", "pkg/smtcore/theory_arith_infinite_test.go", "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2"], "tests": ["TestSMTInfiniteArithmeticConfiguredSolverModelAndPop", "TestSMTInfiniteArithmeticThresholdNameComplementAndCopies", "TestSMTInfiniteArithmeticMaximizeKeepsAllCoordinatesAndPop", "TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity", "TestSMTInfiniteArithmeticCompoundBoundAndRationalRounding", "TestSMTInfiniteArithmeticSharedModelDeltaSkipsInfinity", "TestSMTArithmeticTranslationRetainsConcreteBackendsAndModels", "TestSMTLibRunnerScripts/basic_infinite_arithmetic.smt2", "TestSMTLibRunnerCPPReference/basic_infinite_arithmetic.smt2"]}
+        {
+          "name": "mk_ge(filter_model_converter&,theory_var,inf_numeral), concrete mi_ext: exact native Boolean name/reuse guard, filtered helper declaration, full infinitesimal bound and integer unit-step complement; immediate/delayed nearest-neighbor bound axioms, integer adjacent cover, Farkas coefficients and scoped parameter ownership; exact infinitesimal row deductions during shared optimization recovery.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_arith_objective_bound.go",
+            "pkg/smtcore/theory_arith_bound_axioms.go",
+            "pkg/smtcore/theory_arith_linear.go",
+            "pkg/smtcore/theory_arith_fixed_bounds.go",
+            "pkg/smtcore/theory_arith_grobner.go",
+            "pkg/smtcore/theory_arith_mixed.go",
+            "pkg/smtcore/smt_internalizer.go"
+          ],
+          "tests": [
+            "TestSMTObjectiveLowerBoundExistingBooleanAndDomains",
+            "TestSMTObjectiveLowerBoundIntegralRealCastUsesUnitStep",
+            "TestSMTObjectiveLowerBoundRecoversSharedOptimization",
+            "TestSMTObjectiveLowerBoundThresholdAndComplement",
+            "TestSMTObjectiveLowerBoundCompoundOffsetAndName",
+            "TestSMTObjectiveLowerBoundSolverScopesAndModelFilter",
+            "TestSMTObjectiveLowerBoundRejectsImproperSupremum",
+            "TestSMTArithmeticBoundAxiomAllocationFrontiersAndRetry",
+            "TestSMTArithmeticBoundAxiomsKindsAndIntegerAdjacency",
+            "TestSMTArithmeticBoundAxiomsNearestNeighborsAndAxisIdentity",
+            "TestSMTArithmeticBoundAxiomProofParametersAndScopeOwnership"
+          ]
+        },
+        {
+          "name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/math/simplex/simplex.go",
+            "pkg/math/simplex/arith_optimize.go",
+            "pkg/math/simplex/arith_freedom.go",
+            "pkg/math/simplex/arith_integer_patch.go",
+            "pkg/math/simplex/arith_gcd.go",
+            "pkg/math/simplex/arith_gomory.go",
+            "pkg/math/simplex/infinite_value_test.go",
+            "pkg/smtcore/theory_arith_objective_bound_test.go"
+          ],
+          "tests": [
+            "TestInfiniteValueLexicographicOrderAndOwnedCopies",
+            "TestInfiniteValueCoordinateArithmeticOracle",
+            "TestInfiniteTableauFeasibilityPivotAndMinimize",
+            "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel",
+            "TestInfiniteTableauBoundsAndBasicSeed",
+            "TestInfiniteTableauRationalIntegerGuards",
+            "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"
+          ]
+        },
+        {
+          "name": "Retained inf_ext integration through the existing concrete mixed arithmetic tableau: mode5 setup and fresh-plugin copy selection; owned nonstandard lower-bound construction/name/complement; full infinity/rational/epsilon bound normalization, row transport, shared-value equality keys and rational-only polynomial guards; native model projection and refine_epsilon infinity skip. Scope-limited transport credit, not complete arithmetic or higher optimizer coverage.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_arith_linear.go",
+            "pkg/smtcore/theory_arith_objective_bound.go",
+            "pkg/smtcore/theory_arith_assume_eq.go",
+            "pkg/smtcore/theory_arith_mutation.go",
+            "pkg/smtcore/theory_arith_fixed_bounds.go",
+            "pkg/smtcore/theory_arith_max_min.go",
+            "pkg/smtcore/theory_arith_grobner.go",
+            "pkg/smtcore/theory_arith_nonlinear.go",
+            "pkg/smtcore/theory_arith_epsilon.go",
+            "pkg/smtcore/smt_arithmetic_lifecycle.go",
+            "pkg/smtcore/smt_setup_basic_arithmetic.go",
+            "pkg/smtcore/theory_arith_infinite_test.go",
+            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTInfiniteArithmeticConfiguredSolverModelAndPop",
+            "TestSMTInfiniteArithmeticThresholdNameComplementAndCopies",
+            "TestSMTInfiniteArithmeticMaximizeKeepsAllCoordinatesAndPop",
+            "TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity",
+            "TestSMTInfiniteArithmeticCompoundBoundAndRationalRounding",
+            "TestSMTInfiniteArithmeticSharedModelDeltaSkipsInfinity",
+            "TestSMTArithmeticTranslationRetainsConcreteBackendsAndModels",
+            "TestSMTLibRunnerScripts/basic_infinite_arithmetic.smt2",
+            "TestSMTLibRunnerCPPReference/basic_infinite_arithmetic.smt2"
+          ]
+        }
       ],
       "ownership": [
         "Scoped native equality bounds borrow context enodes. Simplex retains opaque premise identifiers and deep-owned coefficients; pop removes child bounds before parent replay. Context justifications own their proof parameters.",
@@ -151197,9 +151432,86 @@
             "TestSMTArithmeticObjectiveDomainsAndScopeLifetime"
           ]
         },
-        {"name": "mk_ge(filter_model_converter&,theory_var,inf_numeral), concrete mi_ext: exact native Boolean name/reuse guard, filtered helper declaration, full infinitesimal bound and integer unit-step complement; immediate/delayed nearest-neighbor bound axioms, integer adjacent cover, Farkas coefficients and scoped parameter ownership; exact infinitesimal row deductions during shared optimization recovery.", "status": "ported", "go_targets": ["pkg/smtcore/theory_arith_objective_bound.go", "pkg/smtcore/theory_arith_bound_axioms.go", "pkg/smtcore/theory_arith_linear.go", "pkg/smtcore/theory_arith_fixed_bounds.go", "pkg/smtcore/theory_arith_grobner.go", "pkg/smtcore/theory_arith_mixed.go", "pkg/smtcore/smt_internalizer.go"], "tests": ["TestSMTObjectiveLowerBoundExistingBooleanAndDomains", "TestSMTObjectiveLowerBoundIntegralRealCastUsesUnitStep", "TestSMTObjectiveLowerBoundRecoversSharedOptimization", "TestSMTObjectiveLowerBoundThresholdAndComplement", "TestSMTObjectiveLowerBoundCompoundOffsetAndName", "TestSMTObjectiveLowerBoundSolverScopesAndModelFilter", "TestSMTObjectiveLowerBoundRejectsImproperSupremum", "TestSMTArithmeticBoundAxiomAllocationFrontiersAndRetry", "TestSMTArithmeticBoundAxiomsKindsAndIntegerAdjacency", "TestSMTArithmeticBoundAxiomsNearestNeighborsAndAxisIdentity", "TestSMTArithmeticBoundAxiomProofParametersAndScopeOwnership"]},
-        {"name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.", "status": "ported", "go_targets": ["pkg/math/simplex/simplex.go", "pkg/math/simplex/arith_optimize.go", "pkg/math/simplex/arith_freedom.go", "pkg/math/simplex/arith_integer_patch.go", "pkg/math/simplex/arith_gcd.go", "pkg/math/simplex/arith_gomory.go", "pkg/math/simplex/infinite_value_test.go"], "tests": ["TestInfiniteValueLexicographicOrderAndOwnedCopies", "TestInfiniteValueCoordinateArithmeticOracle", "TestInfiniteTableauFeasibilityPivotAndMinimize", "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel", "TestInfiniteTableauBoundsAndBasicSeed", "TestInfiniteTableauRationalIntegerGuards", "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"]},
-        {"name": "Retained inf_ext integration through the existing concrete mixed arithmetic tableau: mode5 setup and fresh-plugin copy selection; owned nonstandard lower-bound construction/name/complement; full infinity/rational/epsilon bound normalization, row transport, shared-value equality keys and rational-only polynomial guards; native model projection and refine_epsilon infinity skip. Scope-limited transport credit, not complete arithmetic or higher optimizer coverage.", "status": "ported", "go_targets": ["pkg/smtcore/theory_arith_linear.go", "pkg/smtcore/theory_arith_objective_bound.go", "pkg/smtcore/theory_arith_assume_eq.go", "pkg/smtcore/theory_arith_mutation.go", "pkg/smtcore/theory_arith_fixed_bounds.go", "pkg/smtcore/theory_arith_max_min.go", "pkg/smtcore/theory_arith_grobner.go", "pkg/smtcore/theory_arith_nonlinear.go", "pkg/smtcore/theory_arith_epsilon.go", "pkg/smtcore/smt_arithmetic_lifecycle.go", "pkg/smtcore/smt_setup_basic_arithmetic.go", "pkg/smtcore/theory_arith_infinite_test.go", "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2"], "tests": ["TestSMTInfiniteArithmeticConfiguredSolverModelAndPop", "TestSMTInfiniteArithmeticThresholdNameComplementAndCopies", "TestSMTInfiniteArithmeticMaximizeKeepsAllCoordinatesAndPop", "TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity", "TestSMTInfiniteArithmeticCompoundBoundAndRationalRounding", "TestSMTInfiniteArithmeticSharedModelDeltaSkipsInfinity", "TestSMTArithmeticTranslationRetainsConcreteBackendsAndModels", "TestSMTLibRunnerScripts/basic_infinite_arithmetic.smt2", "TestSMTLibRunnerCPPReference/basic_infinite_arithmetic.smt2"]}
+        {
+          "name": "mk_ge(filter_model_converter&,theory_var,inf_numeral), concrete mi_ext: exact native Boolean name/reuse guard, filtered helper declaration, full infinitesimal bound and integer unit-step complement; immediate/delayed nearest-neighbor bound axioms, integer adjacent cover, Farkas coefficients and scoped parameter ownership; exact infinitesimal row deductions during shared optimization recovery.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_arith_objective_bound.go",
+            "pkg/smtcore/theory_arith_bound_axioms.go",
+            "pkg/smtcore/theory_arith_linear.go",
+            "pkg/smtcore/theory_arith_fixed_bounds.go",
+            "pkg/smtcore/theory_arith_grobner.go",
+            "pkg/smtcore/theory_arith_mixed.go",
+            "pkg/smtcore/smt_internalizer.go"
+          ],
+          "tests": [
+            "TestSMTObjectiveLowerBoundExistingBooleanAndDomains",
+            "TestSMTObjectiveLowerBoundIntegralRealCastUsesUnitStep",
+            "TestSMTObjectiveLowerBoundRecoversSharedOptimization",
+            "TestSMTObjectiveLowerBoundThresholdAndComplement",
+            "TestSMTObjectiveLowerBoundCompoundOffsetAndName",
+            "TestSMTObjectiveLowerBoundSolverScopesAndModelFilter",
+            "TestSMTObjectiveLowerBoundRejectsImproperSupremum",
+            "TestSMTArithmeticBoundAxiomAllocationFrontiersAndRetry",
+            "TestSMTArithmeticBoundAxiomsKindsAndIntegerAdjacency",
+            "TestSMTArithmeticBoundAxiomsNearestNeighborsAndAxisIdentity",
+            "TestSMTArithmeticBoundAxiomProofParametersAndScopeOwnership"
+          ]
+        },
+        {
+          "name": "Retained inf_ext tableau value foundation: concrete rational infinity/main/epsilon components, owned construction/copy, coordinate arithmetic and lexicographic comparisons; exact feasibility/pivots/minimization and arithmetic max_min transport, non-rational integer predicates, full -1 sentinel recognition and rational floor assignment clearing infinity. Existing finite mpz/mpq paths have zero infinity; no additional C++ simplex template instantiation is claimed.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/math/simplex/simplex.go",
+            "pkg/math/simplex/arith_optimize.go",
+            "pkg/math/simplex/arith_freedom.go",
+            "pkg/math/simplex/arith_integer_patch.go",
+            "pkg/math/simplex/arith_gcd.go",
+            "pkg/math/simplex/arith_gomory.go",
+            "pkg/math/simplex/infinite_value_test.go",
+            "pkg/smtcore/theory_arith_objective_bound_test.go"
+          ],
+          "tests": [
+            "TestInfiniteValueLexicographicOrderAndOwnedCopies",
+            "TestInfiniteValueCoordinateArithmeticOracle",
+            "TestInfiniteTableauFeasibilityPivotAndMinimize",
+            "TestInfiniteTableauArithmeticMaxMinPreservesCoefficientAndSentinel",
+            "TestInfiniteTableauBoundsAndBasicSeed",
+            "TestInfiniteTableauRationalIntegerGuards",
+            "TestSMTFiniteObjectiveBoundRejectsInfinityCoordinate"
+          ]
+        },
+        {
+          "name": "Retained inf_ext integration through the existing concrete mixed arithmetic tableau: mode5 setup and fresh-plugin copy selection; owned nonstandard lower-bound construction/name/complement; full infinity/rational/epsilon bound normalization, row transport, shared-value equality keys and rational-only polynomial guards; native model projection and refine_epsilon infinity skip. Scope-limited transport credit, not complete arithmetic or higher optimizer coverage.",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/theory_arith_linear.go",
+            "pkg/smtcore/theory_arith_objective_bound.go",
+            "pkg/smtcore/theory_arith_assume_eq.go",
+            "pkg/smtcore/theory_arith_mutation.go",
+            "pkg/smtcore/theory_arith_fixed_bounds.go",
+            "pkg/smtcore/theory_arith_max_min.go",
+            "pkg/smtcore/theory_arith_grobner.go",
+            "pkg/smtcore/theory_arith_nonlinear.go",
+            "pkg/smtcore/theory_arith_epsilon.go",
+            "pkg/smtcore/smt_arithmetic_lifecycle.go",
+            "pkg/smtcore/smt_setup_basic_arithmetic.go",
+            "pkg/smtcore/theory_arith_infinite_test.go",
+            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestSMTInfiniteArithmeticConfiguredSolverModelAndPop",
+            "TestSMTInfiniteArithmeticThresholdNameComplementAndCopies",
+            "TestSMTInfiniteArithmeticMaximizeKeepsAllCoordinatesAndPop",
+            "TestSMTInfiniteArithmeticEqualityDoesNotProjectInfinity",
+            "TestSMTInfiniteArithmeticCompoundBoundAndRationalRounding",
+            "TestSMTInfiniteArithmeticSharedModelDeltaSkipsInfinity",
+            "TestSMTArithmeticTranslationRetainsConcreteBackendsAndModels",
+            "TestSMTLibRunnerScripts/basic_infinite_arithmetic.smt2",
+            "TestSMTLibRunnerCPPReference/basic_infinite_arithmetic.smt2"
+          ]
+        }
       ],
       "ownership": [
         "Scoped native equality bounds borrow context enodes. Simplex retains opaque premise identifiers and deep-owned coefficients; pop removes child bounds before parent replay. Context justifications own their proof parameters.",
@@ -152140,7 +152452,7 @@
         },
         {
           "name": "affine arithmetic term internalization, constant column, scoped definition rows, and equivalent-row equality propagation",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "tests": [
             "TestSMTLinearArithmeticStandaloneTermDefinition",
@@ -152190,7 +152502,7 @@
         },
         {
           "name": "propagate_bounds: retained affine definition rows carry nonlinear interval bounds through preprocessor aliases before and after monomial propagation; every eligible small tableau row derives strict/rational/integer endpoints and publishes implied unassigned Boolean bounds with source left-to-right stronger-lemma premise relaxation, proof coefficients, small-lemma or external justification ownership, propagation-mode and conflict-threshold gates, big-coefficient skipping, statistics, and scope restoration; the Go replay scans all rows instead of maintaining the source incremental marked-row worklist, with equivalent retained consequences",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_fixed_bounds.go",
           "go_targets": [
             "pkg/smtcore/theory_arith_nonlinear.go",
@@ -152209,7 +152521,7 @@
         },
         {
           "name": "propagate_core flushes pending bound axioms and equalities, installs scoped asserted and derived bounds, retains fixed-factor linearized monomial equations even when nonlinear search is disabled, repairs feasibility with exact conflict premises, and publishes post-feasibility row-bound consequences",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_linear.go",
           "go_targets": [
             "pkg/smtcore/theory_arith_nonlinear.go",
@@ -152229,7 +152541,7 @@
         },
         {
           "name": "small-row interval bounds and fixed shared-variable equality propagation: unconditional replay fixes arithmetic inputs of UF applications and propagates congruence with scoped premises",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_fixed_bounds.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -152242,7 +152554,7 @@
         },
         {
           "name": "small canonical-row interval bound propagation into nonlinear strategy replay, including equality aliases and comparison rows with scoped unconditional premises",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_fixed_bounds.go",
           "tests": [
             "TestSMTNonlinearMaxMinBoundsMovementAndScopedProofs"
@@ -152258,7 +152570,7 @@
         },
         {
           "name": "final_check shared arithmetic model-equality case splitting before SAT, and preferred-phase inheritance by InternalizeEquality auxiliary bound atoms",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_assume_eq.go",
           "go_targets": [
             "pkg/cmd/g3/main_test.go"
@@ -152297,7 +152609,7 @@
         },
         {
           "name": "collect_fixed_var_justifications and extended GCD endpoint provenance: preserve normalized signed row coefficients and lower/upper endpoint order, omit unrelated assertions, and recursively expand flattened plain-derived endpoint explanations with source caller coefficients",
-      "status": "ported",
+          "status": "ported",
           "go_target": "pkg/smtcore/theory_arith_gcd.go",
           "go_targets": [
             "pkg/math/simplex/bound_dependency.go",
@@ -152567,7 +152879,8 @@
             "pkg/smtcore/smt_arithmetic_lifecycle.go",
             "pkg/smtcore/smt_setup_basic_arithmetic.go",
             "pkg/smtcore/theory_arith_infinite_test.go",
-            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2"
+            "pkg/cmd/g3/test_vectors/basic_infinite_arithmetic.smt2",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestSMTInfiniteArithmeticConfiguredSolverModelAndPop",
