@@ -1,3 +1,5 @@
+SAT goal inventory evidence (2026-10-31 UTC): replaced three test prefixes with runnable borrowed-map, translation and model-converter test declarations. The focused SAT tactic tests pass; inventory validation continues.
+
 Inventory evidence repair, ninth batch (2026-10-31 UTC): linked ten SMT entries to existing cross-package tests and replaced nonlinear QE test prefixes with runnable declarations. The focused QE tests pass; inventory validation continues.
 
 SMT-LIB inventory evidence (2026-10-31 UTC): replaced obsolete fixedpoint query test names with current unknown-parameter and query-local engine tests. Both focused parser tests pass; inventory validation continues.

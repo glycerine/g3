@@ -124637,7 +124637,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/sat/tactic/sat_goal_to_sat.go", "pkg/sat/tactic/sat_goal_incremental.go", "pkg/sat/tactic/sat_goal_recovery.go", "pkg/sat/tactic/sat_model_converter.go", "pkg/sat/tactic/sat_tactic.go"],
-      "tests": ["TestSATGoalBorrowedAtomMap", "TestSATGoalTranslator", "TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic", "TestSATModelConverter", "TestSATConfigCurrentModuleSnapshotAndLocalPrecedenceThroughTactic"],
+      "tests": ["TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership", "TestSATGoalTranslatorNestedBooleanTruthTableAndModel", "TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic", "TestSATModelConverterReconstructionAndAuxiliaryFiltering", "TestSATConfigCurrentModuleSnapshotAndLocalPrecedenceThroughTactic"],
       "conditionals": [
         {
           "line": 29,
@@ -124651,7 +124651,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "goal2sat and sat2goal public translator state, shared atom mapping, inverse recovery and SAT model-converter boundary", "status": "ported", "go_target": "pkg/sat/tactic/sat_goal_to_sat.go", "go_targets": ["pkg/sat/tactic/sat_goal_incremental.go", "pkg/sat/tactic/sat_goal_recovery.go", "pkg/sat/tactic/sat_model_converter.go", "pkg/sat/tactic/sat_tactic.go"], "tests": ["TestSATGoalBorrowedAtomMap", "TestSATGoalTranslator", "TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic", "TestSATModelConverter", "TestSATConfigCurrentModuleSnapshotAndLocalPrecedenceThroughTactic"]},
+        {"name": "goal2sat and sat2goal public translator state, shared atom mapping, inverse recovery and SAT model-converter boundary", "status": "ported", "go_target": "pkg/sat/tactic/sat_goal_to_sat.go", "go_targets": ["pkg/sat/tactic/sat_goal_incremental.go", "pkg/sat/tactic/sat_goal_recovery.go", "pkg/sat/tactic/sat_model_converter.go", "pkg/sat/tactic/sat_tactic.go"], "tests": ["TestSATGoalBorrowedAtomMapIncrementalScopesAndOwnership", "TestSATGoalTranslatorNestedBooleanTruthTableAndModel", "TestSATGoalTranslatorStandaloneUnsupportedSMT2Diagnostic", "TestSATModelConverterReconstructionAndAuxiliaryFiltering", "TestSATConfigCurrentModuleSnapshotAndLocalPrecedenceThroughTactic"]},
         {"name": "goal2sat::has_unsupported_bool declaration", "status": "reference_only", "reason": "The implementation is uncalled in this fork; unsupported operators are rejected during retained translation.", "evidence": "Whole-src caller search finds only the header declaration and C++ definition."}
       ],
       "ownership": ["GoalTranslator borrows shared Atom2BoolVar state for incremental consumers and owns private atom references otherwise; SAT tactic destruction closes the owning map after its translator."],
