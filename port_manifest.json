@@ -199393,9 +199393,9 @@
       "path": "src/test/arith_rewriter.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/arith_rewriter_cpp_driver_test.go"],
+      "tests": ["TestArithmeticRewriterSourceExamples"],
       "assertions": [
         {
           "line": 29,
@@ -199410,7 +199410,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The source zero product and both theory-rewritten formulas are checked on exact rational assignments. The separate PDR normalize_arithmetic helper has no other live source consumer and remains unported."]
     },
     {
       "path": "src/test/arith_simplifier_plugin.cpp",
