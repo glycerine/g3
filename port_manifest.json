@@ -97648,9 +97648,9 @@
       "path": "src/muz/tab/tab_context.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/tab/matcher.go", "pkg/muz/tab/matcher_test.go"],
+      "tests": ["TestSemanticMatcherRepeatedVariablesAndConditions", "TestSemanticMatcherDatatypeConstructors"],
       "assertions": [
         {
           "line": 384,
@@ -97717,7 +97717,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The concrete semantic matcher is started; clause state, proof search, fixedpoint registration and other tabulation context behavior remain unfinished."]
     },
     {
       "path": "src/muz/tab/tab_context.h",
