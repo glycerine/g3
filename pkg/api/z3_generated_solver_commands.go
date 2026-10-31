@@ -47,7 +47,7 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		command ReplayCommand
 	}{
 		{408, "Z3_mk_solver", replayMkSolver}, {409, "Z3_mk_simple_solver", replayMkSimpleSolver}, {410, "Z3_mk_solver_for_logic", replayMkSolverForLogic},
-		{415, "Z3_solver_set_params", replaySolverSetParams}, {416, "Z3_solver_inc_ref", replaySolverIncRef}, {417, "Z3_solver_dec_ref", replaySolverDecRef},
+		{414, "Z3_solver_get_param_descrs", replaySolverDescriptions}, {415, "Z3_solver_set_params", replaySolverSetParams}, {416, "Z3_solver_inc_ref", replaySolverIncRef}, {417, "Z3_solver_dec_ref", replaySolverDecRef},
 		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {420, "Z3_solver_reset", replaySolverReset}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
 		{426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},

@@ -1,3 +1,5 @@
+Generated parameter-description replay (2026-10-31 UTC): added solver descriptor creation, reference counts, exact-symbol lookup, names, documentation, display and parameter validation. Focused normal and checked API/CLI tests and the full API package pass.
+
 Generated solver reset replay (2026-10-31 UTC): replayed default, simple and logic-specific solvers now reset their assertions and scopes while preserving snapshots of applied parameters. Normal and checked focused API/CLI tests and the full API package pass; the source uses lazy recreation while this Go replay recreates immediately.
 
 Parameterized bit-vector replay (2026-10-31 UTC): added extract, extensions, repeat, fixed rotations and integer/bit-vector conversions. Normal and checked focused tests verify widths and concrete values through QF_BV solving, plus signed versus unsigned conversion shapes.

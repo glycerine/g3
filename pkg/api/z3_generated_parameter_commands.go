@@ -31,6 +31,10 @@ func RegisterZ3GeneratedParameterCommands(r *Z3Replayer) error {
 		{15, "Z3_params_dec_ref", replayDecParameters}, {16, "Z3_params_set_bool", replaySetParameterBool},
 		{17, "Z3_params_set_uint", replaySetParameterUInt}, {18, "Z3_params_set_double", replaySetParameterDouble},
 		{19, "Z3_params_set_symbol", replaySetParameterSymbol}, {20, "Z3_params_to_string", replayParametersString},
+		{21, "Z3_params_validate", replayValidateParameters}, {22, "Z3_param_descrs_inc_ref", replayDescriptionsIncRef},
+		{23, "Z3_param_descrs_dec_ref", replayDescriptionsDecRef}, {24, "Z3_param_descrs_get_kind", replayDescriptionsKind},
+		{25, "Z3_param_descrs_size", replayDescriptionsSize}, {26, "Z3_param_descrs_get_name", replayDescriptionsName},
+		{27, "Z3_param_descrs_get_documentation", replayDescriptionsDocumentation}, {28, "Z3_param_descrs_to_string", replayDescriptionsString},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
