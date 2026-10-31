@@ -101,6 +101,7 @@ type Context struct {
 	optimizationBoxReasonUnknown     string
 	optimizationParetoActive         bool
 	optimizationParetoBackend        *smtcore.SMTSolver
+	optimizationParetoPurification   *paretoPurification
 	scopes                           []scope
 	PrintSuccess, GlobalDeclarations bool
 	InteractiveMode                  bool

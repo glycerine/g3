@@ -191,14 +191,19 @@ func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, md *model.Mode
 
 func (c *Context) closeParetoBackend() error {
 	c.optimizationParetoActive = false
-	if c.optimizationParetoBackend == nil {
-		return nil
-	}
-	err := c.optimizationParetoBackend.Close()
-	if err == nil {
+	if c.optimizationParetoBackend != nil {
+		if err := c.optimizationParetoBackend.Close(); err != nil {
+			return err
+		}
 		c.optimizationParetoBackend = nil
 	}
-	return err
+	if state := c.optimizationParetoPurification; state != nil {
+		if err := state.purifier.Close(); err != nil {
+			return err
+		}
+		c.optimizationParetoPurification = nil
+	}
+	return nil
 }
 
 func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcore.SMTSolver, resultErr error) {
@@ -207,9 +212,10 @@ func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcor
 		return nil, err
 	}
 	published := false
+	ownedBackend := backend
 	defer func() {
 		if !published {
-			resultErr = errors.Join(resultErr, backend.Close())
+			resultErr = errors.Join(resultErr, ownedBackend.Close())
 		}
 	}()
 	if err = backend.SetProduceModels(true); err != nil {
@@ -223,8 +229,15 @@ func (c *Context) newParetoBackend(assumptions []ast.ASTHandle) (backend *smtcor
 			break
 		}
 	}
-	for _, assertion := range c.assertions {
-		if err = backend.Assert(assertion.expression); err != nil {
+	hard := make([]ast.ASTHandle, len(c.assertions))
+	for i := range c.assertions {
+		hard[i] = c.assertions[i].expression
+	}
+	if state := c.optimizationParetoPurification; state != nil {
+		hard = state.hard
+	}
+	for _, assertion := range hard {
+		if err = backend.Assert(assertion); err != nil {
 			return nil, err
 		}
 	}
@@ -242,12 +255,18 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		if err := c.closeParetoBackend(); err != nil {
 			return nil, err
 		}
+		if err := c.prepareParetoPurification(); err != nil {
+			return nil, err
+		}
 		backend, err := c.newParetoBackend(assumptions)
 		if err != nil {
-			return nil, err
+			return nil, errors.Join(err, c.closeParetoBackend())
 		}
 		c.optimizationParetoBackend = backend
 	}
+	original := c.objectives
+	c.objectives = c.optimizationParetoPurification.objectives
+	defer func() { c.objectives = original }()
 	c.optimizationParetoActive = true
 	backend := c.optimizationParetoBackend
 	status, err := backend.CheckSat(nil)
@@ -355,6 +374,14 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	}
 	pushed = false
 	if status != lbool.False {
+		fixed, err := c.filterParetoModel(best)
+		if err != nil {
+			return nil, err
+		}
+		if err = best.DecRef(); err != nil {
+			return nil, errors.Join(err, fixed.DecRef())
+		}
+		best = fixed
 		if closeErr := c.closeParetoBackend(); closeErr != nil {
 			return nil, closeErr
 		}
@@ -370,6 +397,14 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		return nil, err
 	}
 
+	fixed, err := c.filterParetoModel(best)
+	if err != nil {
+		return nil, err
+	}
+	if err = best.DecRef(); err != nil {
+		return nil, errors.Join(err, fixed.DecRef())
+	}
+	best = fixed
 	result = &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Labels: labels, Optimal: true}
 	best = nil
 	for i := range values {

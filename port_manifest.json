@@ -101438,7 +101438,10 @@
         "pkg/opt/arithmetic_solver.go",
         "pkg/opt/objective_purifier_definition.go",
         "pkg/opt/objective_purifier_prefix.go",
-        "pkg/opt/objective_purifier_definition_test.go"
+        "pkg/opt/objective_purifier_definition_test.go",
+        "pkg/cmd_context/context.go",
+        "pkg/cmd_context/optimization_pareto_purification.go",
+        "pkg/cmd_context/optimization_pareto_purification_test.go"
       ],
       "tests": [
         "pkg/cmd/g3/optimization_normalization_test.go",
@@ -101471,7 +101474,11 @@
         "TestObjectivePurifierPrintedDefinitionNames",
         "TestObjectivePurifierDefinitionPublishesEqualityBeforeFilter",
         "TestObjectivePurifierPrefixReleasesFormatDocuments",
-        "TestObjectivePurifierPrefixFailureDoesNotConsumeFreshName"
+        "TestObjectivePurifierPrefixFailureDoesNotConsumeFreshName",
+        "TestParetoLivePurificationPersistsAndFiltersFrontierModels",
+        "TestParetoLiveSoftPurificationAndMutationCleanup",
+        "TestParetoPurificationPreparationFailureCleanup",
+        "TestParetoBackendConstructionRefusalClosesUnpublishedSolver"
       ],
       "conditionals": [
         {
@@ -101738,6 +101745,22 @@
             "TestObjectivePurifierDefinitionPublishesEqualityBeforeFilter",
             "TestObjectivePurifierPrefixReleasesFormatDocuments",
             "TestObjectivePurifierPrefixFailureDoesNotConsumeFreshName"
+          ]
+        },
+        {
+          "name": "from_fmls purify/mk_atomic and fix_model filtering connected to live command Pareto execution with persistent definitions across continuation calls; broader formula simplification/model-converter normalization remains open (opt_context.cpp:336-343,950-997,1062-1137)",
+          "status": "partial",
+          "go_targets": [
+            "pkg/cmd_context/context.go",
+            "pkg/cmd_context/optimization_pareto.go",
+            "pkg/cmd_context/optimization_pareto_purification.go",
+            "pkg/cmd_context/optimization_pareto_purification_test.go"
+          ],
+          "tests": [
+            "TestParetoLivePurificationPersistsAndFiltersFrontierModels",
+            "TestParetoLiveSoftPurificationAndMutationCleanup",
+            "TestParetoPurificationPreparationFailureCleanup",
+            "TestParetoBackendConstructionRefusalClosesUnpublishedSolver"
           ]
         }
       ],
