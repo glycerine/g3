@@ -71,3 +71,30 @@ func TestAPIFixedpointObjectLoadQueriesIsolatedAndTransfersRules(t *testing.T) {
 		t.Fatal("loaded fact query", status)
 	}
 }
+
+func TestAPIFixedpointObjectLoadQueriesSurviveParserReset(t *testing.T) {
+	f := newAPIFixedpointFixture(t)
+	v, err := f.fp.LoadSMT2WithQueries(strings.NewReader(`(declare-rel R ()) (rule R first) (query R) (reset) (declare-rel S ()) (rule S second) (query S)`))
+	astTestMust(t, err)
+	defer func() { astTestMust(t, v.Close()) }()
+	values, err := v.Values()
+	astTestMust(t, err)
+	if len(values) != 2 {
+		t.Fatal("queries", len(values))
+	}
+	rules, names, err := f.fp.command.FixedpointNamedRules()
+	astTestMust(t, err)
+	releaseAPIRefs(t, f.m, rules)
+	if len(names) != 2 || names[0] != "first" || names[1] != "second" {
+		t.Fatal("rule names", names)
+	}
+	for _, value := range values {
+		decl, e := f.m.GetDecl(value)
+		astTestMust(t, e)
+		status, e := f.fp.Query(decl)
+		astTestMust(t, e)
+		if status != lbool.True {
+			t.Fatal("reset query", status)
+		}
+	}
+}

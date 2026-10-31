@@ -132,6 +132,11 @@ func TestFixedpointProgramCollectsBoundRulesAndScopes(t *testing.T) {
 				t.Error(e)
 			}
 		}
+		for i := range p.Relations {
+			if e := m.DelRef(&p.Relations[i]); e != nil {
+				t.Error(e)
+			}
+		}
 		for i := range p.Rules {
 			if e := m.DelRef(&p.Rules[i]); e != nil {
 				t.Error(e)

@@ -512,6 +512,11 @@ func (p *commandParser) command() (bool, error) {
 		if err = p.context.SetFixedpointPredicateRepresentation(declaration, representations); err != nil {
 			return false, err
 		}
+		if p.queryCollector != nil {
+			if err = p.queryCollector.addRelation(p, declaration); err != nil {
+				return false, err
+			}
+		}
 	case "declare-var":
 		variable, err := p.symbol()
 		if err != nil {
@@ -1118,7 +1123,7 @@ func (p *commandParser) command() (bool, error) {
 			}
 			return false, fmt.Errorf("invalid command, too many arguments")
 		}
-		if p.queryCollector != nil && (name == "reset" || !p.context.GlobalDeclarations) {
+		if p.queryCollector != nil && !p.context.BorrowsManager() && (name == "reset" || !p.context.GlobalDeclarations) {
 			return false, fmt.Errorf("reset while collecting fixedpoint queries is not supported")
 		}
 		// Release parser-owned roots and its manager-bound shifter before

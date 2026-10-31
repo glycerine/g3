@@ -6509,7 +6509,8 @@
         "pkg/api/api_fixedpoint_object_load_queries_test.go",
         "pkg/cmd_context/fixedpoint_named_rules.go",
         "pkg/cmd_context/fixedpoint_bind_rule.go",
-        "pkg/muz/fp/rule_bind.go"
+        "pkg/muz/fp/rule_bind.go",
+        "pkg/cmd_context/parser_manager_ownership.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6529,7 +6530,8 @@
         "TestAPIFixedpointParametersValidateCatalog",
         "TestGeneratedFixedpointReplayParameterUpdate",
         "TestAPIFixedpointObjectLoadSMT2Queries",
-        "TestAPIFixedpointObjectLoadQueriesIsolatedAndTransfersRules"
+        "TestAPIFixedpointObjectLoadQueriesIsolatedAndTransfersRules",
+        "TestAPIFixedpointObjectLoadQueriesSurviveParserReset"
       ],
       "assertions": [
         {
@@ -6580,7 +6582,7 @@
       ],
       "deviations": [
         "The additive public Go surface reuses SMTContext instead of exposing the native opaque reference-counted fixedpoint object or C ABI. Fixedpoint parsing accepts an io.Reader instead of reproducing separate native string/file entry points. Cover operations are available after a retained PDR/Spacer query and operate on direct predicates; native slice/model-converter remapping remains outside this path. Unlisted api_datalog operations remain unported.",
-        "Query loading parses in a temporary context and transfers bound original rules after parsing succeeds. Manager-destroying resets are explicitly rejected during query collection."
+        "Query loading collects and transfers bound original rules after parsing succeeds. Standalone parser contexts that own their AST manager reject manager-destroying resets during query collection; API loading borrows its manager and supports reset."
       ]
     },
     {
@@ -87287,7 +87289,8 @@
         "pkg/parsers/smt2/fixedpoint_query_collector_test.go",
         "pkg/cmd_context/fixedpoint_named_rules.go",
         "pkg/cmd_context/fixedpoint_bind_rule.go",
-        "pkg/muz/fp/rule_bind.go"
+        "pkg/muz/fp/rule_bind.go",
+        "pkg/cmd_context/parser_manager_ownership.go"
       ],
       "tests": [
         "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",

@@ -50,10 +50,11 @@ func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector,
 			resultErr = errors.Join(resultErr, manager.DelRef(&program.Rules[i]))
 		}
 	}()
-	predicates, err := parser.FixedpointPredicates()
-	if err != nil {
-		return nil, err
-	}
+	defer func() {
+		for i := range program.Relations {
+			resultErr = errors.Join(resultErr, manager.DelRef(&program.Relations[i]))
+		}
+	}()
 	assertions, err := parser.Assertions()
 	if err != nil {
 		return nil, err
@@ -69,7 +70,11 @@ func (f *APIFixedpoint) LoadSMT2WithQueries(input io.Reader) (vector *ASTVector,
 	if err != nil {
 		return nil, err
 	}
-	for _, predicate := range predicates {
+	for _, relation := range program.Relations {
+		predicate, e := manager.RefGet(relation)
+		if e != nil {
+			return vector, e
+		}
 		if err = f.command.RegisterFixedpointRelation(predicate); err != nil {
 			return vector, err
 		}

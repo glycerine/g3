@@ -29,16 +29,20 @@ func ParseAssertionsWithFixedpointQueries(context *cmd_context.Context, input io
 	for i := range program.Rules {
 		resultErr = errors.Join(resultErr, program.manager.DelRef(&program.Rules[i]))
 	}
+	for i := range program.Relations {
+		resultErr = errors.Join(resultErr, program.manager.DelRef(&program.Relations[i]))
+	}
 	return program.Queries, resultErr
 }
 
 // FixedpointProgram holds owned query and bound rule references. Callers must
 // release all references through the parser context's manager.
 type FixedpointProgram struct {
-	Queries []ast.ASTRef
-	Rules   []ast.ASTRef
-	Names   []string
-	manager *ast.ASTManager
+	Queries   []ast.ASTRef
+	Rules     []ast.ASTRef
+	Relations []ast.ASTRef
+	Names     []string
+	manager   *ast.ASTManager
 }
 
 // ParseFixedpointProgram collects fixedpoint commands without executing checks
@@ -53,16 +57,31 @@ func ParseFixedpointProgram(context *cmd_context.Context, input io.Reader) (prog
 	if err := parseCommands(context, input, io.Discard, true, c); err != nil {
 		return program, err
 	}
-	return FixedpointProgram{Queries: c.queries, Rules: c.rules, Names: c.names, manager: c.manager}, nil
+	return FixedpointProgram{Queries: c.queries, Rules: c.rules, Relations: c.relations, Names: c.names, manager: c.manager}, nil
 }
 
-type fixedpointCollectorScope struct{ queries, rules int }
+type fixedpointCollectorScope struct{ queries, rules, relations int }
 type fixedpointQueryCollector struct {
-	manager *ast.ASTManager
-	queries []ast.ASTRef
-	rules   []ast.ASTRef
-	names   []string
-	scopes  []fixedpointCollectorScope
+	manager   *ast.ASTManager
+	queries   []ast.ASTRef
+	rules     []ast.ASTRef
+	relations []ast.ASTRef
+	names     []string
+	scopes    []fixedpointCollectorScope
+}
+
+func (c *fixedpointQueryCollector) addRelation(p *commandParser, declaration ast.ASTHandle) error {
+	m, err := p.astManager()
+	if err != nil {
+		return err
+	}
+	c.manager = m
+	ref, err := m.NewRef(declaration)
+	if err != nil {
+		return err
+	}
+	c.relations = append(c.relations, ref)
+	return nil
 }
 
 func (c *fixedpointQueryCollector) addRule(p *commandParser, formula ast.ASTHandle, name string) error {
@@ -114,7 +133,7 @@ func (c *fixedpointQueryCollector) add(p *commandParser, declaration ast.ASTHand
 }
 func (c *fixedpointQueryCollector) push(n uint32) {
 	for i := uint32(0); i < n; i++ {
-		c.scopes = append(c.scopes, fixedpointCollectorScope{len(c.queries), len(c.rules)})
+		c.scopes = append(c.scopes, fixedpointCollectorScope{len(c.queries), len(c.rules), len(c.relations)})
 	}
 }
 func (c *fixedpointQueryCollector) truncate(scope fixedpointCollectorScope) (result error) {
@@ -124,6 +143,10 @@ func (c *fixedpointQueryCollector) truncate(scope fixedpointCollectorScope) (res
 	for i := len(c.rules) - 1; i >= scope.rules; i-- {
 		result = errors.Join(result, c.manager.DelRef(&c.rules[i]))
 	}
+	for i := len(c.relations) - 1; i >= scope.relations; i-- {
+		result = errors.Join(result, c.manager.DelRef(&c.relations[i]))
+	}
+	c.relations = c.relations[:scope.relations]
 	c.queries = c.queries[:scope.queries]
 	c.rules = c.rules[:scope.rules]
 	c.names = c.names[:scope.rules]
