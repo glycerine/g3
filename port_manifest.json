@@ -90463,11 +90463,14 @@
         "pkg/muz/rel/similarity_compare_test.go",
         "pkg/muz/rel/similarity_fixtures_test.go",
         "pkg/muz/rel/similarity_constants.go",
-        "pkg/muz/rel/similarity_constants_test.go"
+        "pkg/muz/rel/similarity_constants_test.go",
+        "pkg/muz/rel/similarity_classes.go",
+        "pkg/muz/rel/similarity_classes_test.go"
       ],
       "tests": [
         "TestSimilarityRuleComparisons",
-        "TestSimilarityVaryingConstantsAndEqualParents"
+        "TestSimilarityVaryingConstantsAndEqualParents",
+        "TestSimilarityClassesThresholdDuplicatesAndOutputs"
       ],
       "conditionals": [
         {
@@ -90579,13 +90582,21 @@
           "tests": [
             "TestSimilarityVaryingConstantsAndEqualParents"
           ]
+        },
+        {
+          "name": "initial_comparator/operator/process_class: source rule ordering, rough-class partitioning, duplicate removal and strict merge eligibility",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/similarity_classes.go",
+          "tests": [
+            "TestSimilarityClassesThresholdDuplicatesAndOutputs"
+          ]
         }
       ],
       "ownership": [
         "Comparisons borrow rule and AST handles and return no expression owners."
       ],
       "deviations": [
-        "Pending: rule grouping and compression, constant table generation, auxiliary predicate construction, rule-set lifecycle, plugin registration, diagnostics and allocation audit."
+        "Pending: auxiliary predicate/fact construction, generated rule replacement, result rule-set lifecycle, plugin registration, diagnostics and allocation audit. The class-selection phase does not mutate the source."
       ]
     },
     {
