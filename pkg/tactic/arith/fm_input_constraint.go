@@ -7,6 +7,10 @@ func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependenc
 	if err := p.open(); err != nil {
 		return nil, FMRegistrationDeferred, false, err
 	}
+	occ, err := p.isOCC(formula)
+	if err != nil || !occ {
+		return nil, FMRegistrationDeferred, false, err
+	}
 	args := []ast.ASTHandle{formula}
 	if p.AllowClauses {
 		kind, err := p.manager.GetKind(formula)
@@ -45,9 +49,8 @@ func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependenc
 		} else if literal {
 			continue
 		}
-		_, _, _, _, matched, err := p.inequality(arg, false)
-		if err != nil || !matched || inequalityIndex >= 0 {
-			return nil, FMRegistrationDeferred, false, err
+		if inequalityIndex >= 0 {
+			return nil, FMRegistrationDeferred, false, ast.ErrASTDomain
 		}
 		inequalityIndex = i
 	}
@@ -80,9 +83,19 @@ func (p *FMInputParser) Parse(formula ast.ASTHandle, dependency ast.ASTDependenc
 	if err != nil {
 		return nil, FMRegistrationDeferred, false, err
 	}
+	if err = p.store.diagnostics.inputVariables(xs); err != nil {
+		return nil, FMRegistrationDeferred, false, err
+	}
 	c, err := FMBuildConstraint(p.store, p.Variables, literals, xs, coefficients, &constant, strict, dependency)
 	if err != nil {
 		return nil, FMRegistrationDeferred, false, err
 	}
-	return c, p.Variables.Register(c), true, nil
+	if err = p.store.diagnostics.inputConstraint(c); err != nil {
+		return c, FMRegistrationDeferred, true, err
+	}
+	registration := p.Variables.Register(c)
+	if registration == FMRegistrationDeferred {
+		err = p.store.diagnostics.deferred(c)
+	}
+	return c, registration, true, err
 }

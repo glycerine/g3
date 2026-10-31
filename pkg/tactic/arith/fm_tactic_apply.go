@@ -191,7 +191,7 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 				return err
 			}
 		case FMRegistrationDeferred:
-			if err = r.copyConstraint(constraint); err != nil {
+			if err = r.copyConstraint(constraint, false); err != nil {
 				return err
 			}
 			if err = r.store.Delete(constraint); err != nil {
@@ -276,7 +276,7 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 					for _, c := range cs {
 						if !c.Dead {
 							c.Dead = true
-							if err = r.copyConstraint(c); err != nil {
+							if err = r.copyConstraint(c, true); err != nil {
 								return err
 							}
 						}
@@ -304,10 +304,15 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 	}
 	return fmAssertGoalSort(published)
 }
-func (r *fmTacticRun) copyConstraint(c *FMConstraint) error {
+func (r *fmTacticRun) copyConstraint(c *FMConstraint, remaining bool) error {
 	formula, err := r.parser.Expressions.ConstraintExpression(c)
 	if err != nil {
 		return err
+	}
+	if remaining {
+		if err = r.diagnostics.copied(formula, c.Dependency); err != nil {
+			return err
+		}
 	}
 	return r.goal.AssertWithProof(formula, ast.ASTHandle{}, c.Dependency)
 }

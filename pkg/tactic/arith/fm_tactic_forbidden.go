@@ -9,6 +9,7 @@ import (
 
 func (p *FMInputParser) isOCC(formula ast.ASTHandle) (bool, error) {
 	args := []ast.ASTHandle{formula}
+	clause := false
 	if p.AllowClauses {
 		kind, err := p.manager.GetKind(formula)
 		if err != nil {
@@ -28,6 +29,7 @@ func (p *FMInputParser) isOCC(formula ast.ASTHandle) (bool, error) {
 				if err != nil {
 					return false, err
 				}
+				clause = true
 				args = nil
 				for i := uint32(0); i < n; i++ {
 					arg, err := p.manager.GetArg(formula, i)
@@ -38,6 +40,10 @@ func (p *FMInputParser) isOCC(formula ast.ASTHandle) (bool, error) {
 				}
 			}
 		}
+	}
+	if !clause {
+		_, _, _, _, matched, err := p.inequality(formula, false)
+		return matched, err
 	}
 	found := false
 	for _, arg := range args {
@@ -77,6 +83,9 @@ func (p *FMInputParser) collectForbidden(goal *tactic.Goal) error {
 		}
 		if occ {
 			continue
+		}
+		if err = p.store.diagnostics.notOCC(formula); err != nil {
+			return err
 		}
 		stack := []ast.ASTHandle{formula}
 		for len(stack) != 0 {

@@ -2,6 +2,7 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:285-372,496-543.
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"math/big"
@@ -74,6 +75,9 @@ func (s *FMConstraintStore) New(lits []int32, vars []uint32, coeffs []big.Rat, c
 	c := &FMConstraint{ID: s.next(), Literals: append([]int32(nil), lits...), Variables: append([]uint32(nil), vars...), Constant: *new(big.Rat).Set(constant), Strict: strict, Dependency: dep, bytes: bytes}
 	c.Coefficients = make([]big.Rat, len(coeffs))
 	for i := range coeffs {
+		if err := s.diagnostics.allocatedVariable(i, vars[i]); err != nil {
+			return nil, errors.Join(err, s.Delete(c))
+		}
 		c.Coefficients[i].Set(&coeffs[i])
 	}
 	s.constraints = append(s.constraints, c)

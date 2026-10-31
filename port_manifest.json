@@ -169845,7 +169845,9 @@
         "pkg/arena/small_bytes_address_test.go",
         "pkg/ast/ast_dependency_address.go",
         "pkg/ast/ast_dependency_address_test.go",
-        "pkg/tactic/arith/fm_model_mixed_test.go"
+        "pkg/tactic/arith/fm_model_mixed_test.go",
+        "pkg/tactic/arith/fm_input_trace.go",
+        "pkg/tactic/arith/fm_input_trace_test.go"
       ],
       "tests": [
         "TestAPIFMTacticRegistrationApplyAndModel",
@@ -169937,7 +169939,12 @@
         "TestASTDependencyDiagnosticAddressAndOwnership",
         "TestFMModelToRealEliminatedIntegerBounds",
         "TestFMTacticOneSidedMixedIntegerModel",
-        "TestSMTLibRunnerCPPReference"
+        "TestSMTLibRunnerCPPReference",
+        "TestFMInputTraceSourceRecognitionCreationAndCopyOrder",
+        "TestFMInputTracePureBooleanClauseRecognitionModes",
+        "TestFMInputTraceNegationAndDeferredRegistration",
+        "TestFMInputTraceAllocationFrontiersAndStreamFailure",
+        "TestFMInputTracePlainLiteralStillVisitsInequalityRecognizer"
       ],
       "conditionals": [
         {
@@ -170272,6 +170279,32 @@
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
           ]
+        },
+        {
+          "name": "FM inequality/OCC recognition, forbidden-set, variable lookup/allocation, input construction, deferred registration and remaining-formula source diagnostics (fm_tactic.cpp:481,557,820,971,1070,1081,1117,1530)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_input_trace.go",
+          "go_targets": [
+            "pkg/tactic/arith/fm_input_recognize.go",
+            "pkg/tactic/arith/fm_tactic_forbidden.go",
+            "pkg/tactic/arith/fm_input_constraint.go",
+            "pkg/tactic/arith/fm_input_atoms.go",
+            "pkg/tactic/arith/fm_constraint.go",
+            "pkg/tactic/arith/fm_tactic_apply.go",
+            "pkg/tactic/arith/fm_eliminate.go"
+          ],
+          "tests": [
+            "TestFMInputTraceSourceRecognitionCreationAndCopyOrder",
+            "TestFMInputTracePureBooleanClauseRecognitionModes",
+            "TestFMInputTraceNegationAndDeferredRegistration",
+            "TestFMInputTraceAllocationFrontiersAndStreamFailure",
+            "TestFMInputTracePlainLiteralStillVisitsInequalityRecognizer"
+          ]
+        },
+        {
+          "name": "register_constraint false-branch diagnostic after del_constraint(c) (fm_tactic.cpp:1094)",
+          "status": "reference_only",
+          "evidence": "The TRACE dereferences c after del_constraint(c) destroys and frees it. No defined operand is reproducible. Source input recognition requires a nonempty useful polynomial, and resolve handles a variable/literal-free contradiction before registration; the defined Go false guard remains available without the freed-storage diagnostic."
         }
       ],
       "ownership": [
@@ -170281,7 +170314,8 @@
         "The FM run embeds diagnostics borrowing the live expression table and explicit parameter/evaluator services. Constraint printing allocates no replacement constraints. Source dependency ostream operands use the actual stable arena payload address through checked typed allocator/AST bridges; null prints 0, and foreign/dead handles are rejected. Diagnostic errors propagate through backward subsumption and resolution without losing tracked constraint cleanup. The output goal is transferred before the final diagnostic, preserving the source result prefix on operand failure. Goal sort/configuration assertions run under source debug mode."
       ],
       "deviations": [
-        "Whole-unit closure remains pending for source diagnostic/assertion coverage and the remaining concrete component audit. Cross-owner raw tactic translation copies the seven concrete FM policy values; unrelated caller parameters are not observed by this source tactic and do not require a universal adapter. Target managers must supply compatible parameter services or share the original owners; model reconstruction requires the source arithmetic/BV declaration-plugin setup."
+        "Whole-unit closure remains pending for source diagnostic/assertion coverage and the remaining concrete component audit. Cross-owner raw tactic translation copies the seven concrete FM policy values; unrelated caller parameters are not observed by this source tactic and do not require a universal adapter. Target managers must supply compatible parameter services or share the original owners; model reconstruction requires the source arithmetic/BV declaration-plugin setup.",
+        "The false-registration TRACE at C++ line 1094 dereferences freed storage after del_constraint(c). It has no defined value and is not reproduced; all 27 defined FM TRACE sites are implemented. Plain non-clause literals still execute is_linear_ineq in both initialization passes, while pure Boolean OCC clauses skip that recognizer exactly as the source does."
       ]
     },
     {

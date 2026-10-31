@@ -62,7 +62,7 @@ func (p *FMInputParser) internVariable(term ast.ASTHandle) (uint32, error) {
 		return 0, ast.ErrASTDomain
 	}
 	if v, found := p.variableIDs[base]; found {
-		return v, nil
+		return v, p.store.diagnostics.toVariable(base, v)
 	}
 	integer, err := p.integerVariable(base)
 	if err != nil {
@@ -82,7 +82,7 @@ func (p *FMInputParser) internVariable(term ast.ASTHandle) (uint32, error) {
 		return 0, err
 	}
 	p.variableIDs[base] = v
-	return v, nil
+	return v, p.store.diagnostics.toVariable(base, v)
 }
 
 func (p *FMInputParser) internBoolean(term ast.ASTHandle) (uint32, error) {

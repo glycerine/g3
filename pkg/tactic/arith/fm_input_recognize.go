@@ -27,6 +27,11 @@ func (p *FMInputParser) inequality(term ast.ASTHandle, intern bool) (xs []uint32
 	if not {
 		term = child
 	}
+	if !intern {
+		if err = p.store.diagnostics.recognition(term); err != nil {
+			return nil, nil, big.Rat{}, false, false, err
+		}
+	}
 	kind, err := p.manager.GetKind(term)
 	if err != nil || kind != ast.ASTApp {
 		return nil, nil, big.Rat{}, false, false, err

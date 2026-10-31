@@ -82,6 +82,9 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 				return false, err
 			}
 		case FMRegistrationDeferred:
+			if err := e.Store.diagnostics.deferred(c); err != nil {
+				return false, err
+			}
 			if e.Output != nil {
 				formula, err := e.Expressions.ConstraintExpression(c)
 				if err != nil {
