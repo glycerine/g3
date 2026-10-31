@@ -1,3 +1,5 @@
+Generated quantifier binder inspection (2026-10-31 UTC): added bound-count, bound-name, bound-sort and body replay commands. Normal and checked API/CLI tests verify borrowed result identity and unchanged AST-trail ownership.
+
 Generated quantifier inspection replay (2026-10-31 UTC): added ten pattern, bound-variable and quantifier inspection commands. Normal and checked API/CLI tests verify returned AST identity and confirm inspection does not add owning trail references. Other generated commands remain unfinished.
 
 Generated constant-quantifier replay (2026-10-31 UTC): added forall, exists, quantifier and extended constant-bound constructors. Normal and checked API tests cover numeric names, body and pattern abstraction, extended identifiers and empty-bound rejection; CLI replay is also exercised. Other generated commands remain unfinished.

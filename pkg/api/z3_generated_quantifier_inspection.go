@@ -13,6 +13,8 @@ func registerZ3GeneratedQuantifierInspection(r *Z3Replayer) error {
 		{276, "Z3_get_index_value"}, {277, "Z3_is_quantifier_forall"}, {278, "Z3_get_quantifier_weight"},
 		{279, "Z3_get_quantifier_num_patterns"}, {280, "Z3_get_quantifier_pattern_ast"},
 		{281, "Z3_get_quantifier_num_no_patterns"}, {282, "Z3_get_quantifier_no_pattern_ast"},
+		{283, "Z3_get_quantifier_num_bound"}, {284, "Z3_get_quantifier_bound_name"},
+		{285, "Z3_get_quantifier_bound_sort"}, {286, "Z3_get_quantifier_body"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -32,7 +34,7 @@ func replayQuantifierInspection(r *Z3Replayer, id uint32) error {
 		return err
 	}
 	var index uint32
-	if id == 275 || id == 280 || id == 282 {
+	if id == 275 || id == 280 || id == 282 || id == 284 || id == 285 {
 		index, err = r.Uint(2)
 		if err != nil {
 			return err
@@ -60,11 +62,19 @@ func replayQuantifierInspection(r *Z3Replayer, id uint32) error {
 		_, err = owner.context.QuantifierNoPatternCount(value.handle)
 	case 282:
 		h, err = owner.context.QuantifierNoPattern(value.handle, index)
+	case 283:
+		_, err = owner.context.QuantifierBoundCount(value.handle)
+	case 284:
+		_, err = owner.context.QuantifierBoundName(value.handle, index)
+	case 285:
+		h, err = owner.context.QuantifierBoundSort(value.handle, index)
+	case 286:
+		h, err = owner.context.QuantifierBody(value.handle)
 	}
 	if err != nil {
 		return err
 	}
-	if id == 273 || id == 275 || id == 280 || id == 282 {
+	if id == 273 || id == 275 || id == 280 || id == 282 || id == 285 || id == 286 {
 		return r.storeBorrowedAST(owner, h)
 	}
 	return nil

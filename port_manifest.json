@@ -5996,7 +5996,7 @@
           ]
         },
         {
-          "name": "generated replay of pattern and quantifier inspection with borrowed AST results",
+          "name": "generated replay of pattern, binder and quantifier inspection with borrowed AST results",
           "status": "partial",
           "go_target": "pkg/api/z3_generated_quantifier_inspection.go",
           "go_targets": [
