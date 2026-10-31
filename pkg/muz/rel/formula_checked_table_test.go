@@ -48,9 +48,24 @@ func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
 	if empty, err := checked.Empty(); err != nil || empty {
 		t.Fatal("populated relation", empty, err)
 	}
+	if found, err := checked.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("checked membership", found, err)
+	}
+	if found, err := checked.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || found {
+		t.Fatal("checked non-membership", found, err)
+	}
+	clone, err := checked.Clone()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, clone.Close()) }()
 	// An underlying mutation without the wrapper makes its recorded formula
 	// disagree with emptiness; the solver must find that counterexample.
 	astTestMust(t, table.Reset())
+	if _, err = checked.ContainsFact([]ast.ASTHandle{f.truth}); !errors.Is(err, ErrRelationVerification) {
+		t.Fatal("missed inconsistent membership", err)
+	}
+	if found, err := clone.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("clone changed with source", found, err)
+	}
 	if _, err = checked.Empty(); !errors.Is(err, ErrRelationVerification) {
 		t.Fatal("missed inconsistent empty relation", err)
 	}

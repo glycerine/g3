@@ -248,6 +248,85 @@ func (r *FormulaCheckedTable) AddFact(values []ast.ASTHandle) (added bool, resul
 	return added, r.manager.SetRef(r.formula, actualHandle)
 }
 
+func (r *FormulaCheckedTable) ContainsFact(values []ast.ASTHandle) (found bool, resultErr error) {
+	if err := r.open(); err != nil {
+		return false, err
+	}
+	found, err := r.table.ContainsFact(values)
+	if err != nil {
+		return false, err
+	}
+	formula, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return false, err
+	}
+	if !found && r.manager.IsFalse(formula) {
+		return false, nil
+	}
+	fact, err := r.factFormula(values)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&fact)) }()
+	factHandle, err := r.manager.RefGet(fact)
+	if err != nil {
+		return false, err
+	}
+	intersection, err := r.manager.MkAndArgs([]ast.ASTHandle{formula, factHandle})
+	if err != nil {
+		return false, err
+	}
+	intersectionRef, err := r.manager.NewRef(intersection)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&intersectionRef)) }()
+	left, right := intersection, factHandle
+	if !found {
+		right, err = r.manager.MkFalse()
+		if err != nil {
+			return false, err
+		}
+	}
+	if err = r.verifyGrounded(left, right, false); err != nil {
+		return found, fmt.Errorf("contains fact: %w", err)
+	}
+	return found, nil
+}
+
+func (r *FormulaCheckedTable) Clone() (_ *FormulaCheckedTable, resultErr error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	table, err := r.table.Clone()
+	if err != nil {
+		return nil, err
+	}
+	result, err := NewFormulaCheckedTable(table, r.config)
+	if err != nil {
+		return nil, errors.Join(err, table.Close())
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	left, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return nil, err
+	}
+	right, err := r.manager.RefGet(result.formula)
+	if err != nil {
+		return nil, err
+	}
+	if left != right {
+		if err = r.verifyGrounded(left, right, false); err != nil {
+			return nil, fmt.Errorf("clone: %w", err)
+		}
+	}
+	return result, nil
+}
+
 func (r *FormulaCheckedTable) Empty() (empty bool, resultErr error) {
 	if err := r.open(); err != nil {
 		return false, err

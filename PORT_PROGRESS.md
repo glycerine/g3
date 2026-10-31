@@ -1,3 +1,5 @@
+Formula-checking membership and clone (2026-10-31 UTC): added source membership verification and independent table cloning with formula equivalence checks. Tests cover present and absent facts, clone isolation and a solver-detected membership inconsistency.
+
 Formula-checking relation filters (2026-10-31 UTC): added source SMT verification for equal-column, identical-column and interpreted filters, including source numeric and named grounding conventions. Tests check successful filtering and a deliberately corrupted relation that produces a counterexample.
 
 Formula-checking relation start (2026-10-31 UTC): began check_relation.cpp/.h with a concrete table wrapper that grounds source formulas and uses a fresh SMT solver to verify fact insertion and emptiness, plus reset. Tests exercise successful and duplicate insertions and a deliberately inconsistent empty table; other checked operations and registration remain pending.

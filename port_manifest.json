@@ -89245,6 +89245,14 @@
           "tests": [
             "TestFormulaCheckedTableFilters"
           ]
+        },
+        {
+          "name": "SMT-verified fact membership and clone",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table.go",
+          "tests": [
+            "TestFormulaCheckedTableFactsAndReset"
+          ]
         }
       ],
       "ownership": [
@@ -89296,6 +89304,14 @@
           "go_target": "pkg/muz/rel/formula_checked_table_filter.go",
           "tests": [
             "TestFormulaCheckedTableFilters"
+          ]
+        },
+        {
+          "name": "SMT-verified fact membership and clone",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table.go",
+          "tests": [
+            "TestFormulaCheckedTableFactsAndReset"
           ]
         }
       ],
