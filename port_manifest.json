@@ -6314,9 +6314,53 @@
       "path": "src/api/api_datatype.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_datatype_definitions.go", "pkg/api/api_datatype_tuple.go", "pkg/api/api_datatype_enumeration.go", "pkg/api/api_datatype_list.go", "pkg/api/api_datatype_queries.go", "pkg/api/api_datatype_tuple_queries.go", "pkg/api/api_datatype_update.go", "pkg/api/api_datatype_tuple_test.go", "pkg/api/api_datatype_enumeration_test.go", "pkg/api/api_datatype_list_test.go", "pkg/api/api_datatype_recursive_test.go", "pkg/api/api_datatype_update_test.go"],
-      "tests": ["TestSMTContextListDatatypeConstruction", "TestSMTContextEnumerationDatatypeConstruction", "TestSMTContextTupleDatatypeConstructionAndQueries", "TestSMTContextMutuallyRecursiveDatatypeDefinitions", "TestSMTContextDatatypeFieldUpdate", "TestSMTContextAssertSMT2ParametricDatatypeIntegration"],
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_datatype_constructor_build.go",
+        "pkg/api/api_datatype_constructor_guards_test.go",
+        "pkg/api/api_datatype_constructor_list_object.go",
+        "pkg/api/api_datatype_constructor_list_test.go",
+        "pkg/api/api_datatype_constructor_object.go",
+        "pkg/api/api_datatype_constructor_object_test.go",
+        "pkg/api/api_datatype_constructor_query.go",
+        "pkg/api/api_datatype_constructor_query_test.go",
+        "pkg/api/api_datatype_constructor_recursive_test.go",
+        "pkg/api/api_datatype_constructor_validation.go",
+        "pkg/api/api_datatype_definitions.go",
+        "pkg/api/api_datatype_enumeration.go",
+        "pkg/api/api_datatype_enumeration_test.go",
+        "pkg/api/api_datatype_list.go",
+        "pkg/api/api_datatype_list_test.go",
+        "pkg/api/api_datatype_queries.go",
+        "pkg/api/api_datatype_recursive_test.go",
+        "pkg/api/api_datatype_source_test.go",
+        "pkg/api/api_datatype_tuple.go",
+        "pkg/api/api_datatype_tuple_queries.go",
+        "pkg/api/api_datatype_tuple_test.go",
+        "pkg/api/api_datatype_update.go",
+        "pkg/api/api_datatype_update_test.go"
+      ],
+      "tests": [
+        "TestAPIDatatypeConstructorBuildAndQuery",
+        "TestAPIDatatypeConstructorFailureReleasesEarlierFieldRoots",
+        "TestAPIDatatypeConstructorListIsNonOwning",
+        "TestAPIDatatypeConstructorListsBuildMutualRecursion",
+        "TestAPIDatatypeConstructorListsPublishLastAliasAndBorrowObjects",
+        "TestAPIDatatypeConstructorObjectOwnsSortsAndLifecycle",
+        "TestAPIDatatypeConstructorOwnershipAndRecursiveGuards",
+        "TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes",
+        "TestAPIDatatypeEmptyNamesAndZeroFieldTuple",
+        "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices",
+        "TestAPIDatatypeSymbolNamesAndGeneratedRecognizers",
+        "TestAPIDatatypeTypedNamesRejectForeignSymbols",
+        "TestAPITupleQueriesUseSourceStructuralPredicate",
+        "TestSMTContextAssertSMT2ParametricDatatypeIntegration",
+        "TestSMTContextDatatypeFieldUpdate",
+        "TestSMTContextEnumerationDatatypeConstruction",
+        "TestSMTContextListDatatypeConstruction",
+        "TestSMTContextMutuallyRecursiveDatatypeDefinitions",
+        "TestSMTContextTupleDatatypeConstructionAndQueries"
+      ],
       "assertions": [
         {
           "line": 65,
@@ -6371,11 +6415,191 @@
           "text": "SASSERT(accs.size() == decl->get_arity());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "Z3_mk_tuple_sort => SMTContext.TupleSortWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_tuple.go",
+          "tests": [
+            "TestAPIDatatypeSymbolNamesAndGeneratedRecognizers"
+          ]
+        },
+        {
+          "name": "Z3_mk_enumeration_sort => SMTContext.EnumerationSortWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_enumeration.go",
+          "tests": [
+            "TestAPIDatatypeSymbolNamesAndGeneratedRecognizers"
+          ]
+        },
+        {
+          "name": "Z3_mk_list_sort => SMTContext.ListSortWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_list.go",
+          "tests": [
+            "TestSMTContextListDatatypeConstruction"
+          ]
+        },
+        {
+          "name": "Z3_mk_constructor => SMTContext.NewDatatypeConstructorObjectWithSymbols",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_object.go",
+          "tests": [
+            "TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes"
+          ]
+        },
+        {
+          "name": "Z3_query_constructor => APIDatatypeConstructorObject.QueryFields",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_query.go",
+          "tests": [
+            "TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes"
+          ]
+        },
+        {
+          "name": "Z3_del_constructor => APIDatatypeConstructorObject.Close",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_object.go",
+          "tests": [
+            "TestAPIDatatypeConstructorObjectOwnsSortsAndLifecycle"
+          ]
+        },
+        {
+          "name": "Z3_mk_datatype => SMTContext.DatatypeSortFromConstructorsWithSymbol",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_build.go",
+          "tests": [
+            "TestAPIDatatypeConstructorBuildAndQuery"
+          ]
+        },
+        {
+          "name": "Z3_mk_constructor_list => SMTContext.NewDatatypeConstructorList",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_list_object.go",
+          "tests": [
+            "TestAPIDatatypeConstructorListsPublishLastAliasAndBorrowObjects"
+          ]
+        },
+        {
+          "name": "Z3_del_constructor_list => APIDatatypeConstructorList.Close",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_list_object.go",
+          "tests": [
+            "TestAPIDatatypeConstructorListIsNonOwning"
+          ]
+        },
+        {
+          "name": "Z3_mk_datatypes => SMTContext.DatatypeSortsFromConstructorListsWithSymbols",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_build.go",
+          "tests": [
+            "TestAPIDatatypeConstructorListsBuildMutualRecursion"
+          ]
+        },
+        {
+          "name": "Z3_get_datatype_sort_num_constructors => SMTContext.DatatypeConstructorCount",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_queries.go",
+          "tests": [
+            "TestSMTContextEnumerationDatatypeConstruction"
+          ]
+        },
+        {
+          "name": "Z3_get_datatype_sort_constructor => SMTContext.DatatypeConstructor",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_queries.go",
+          "tests": [
+            "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+          ]
+        },
+        {
+          "name": "Z3_get_datatype_sort_recognizer => SMTContext.DatatypeRecognizer",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_queries.go",
+          "tests": [
+            "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+          ]
+        },
+        {
+          "name": "Z3_get_datatype_sort_constructor_accessor => SMTContext.DatatypeAccessor",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_queries.go",
+          "tests": [
+            "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+          ]
+        },
+        {
+          "name": "Z3_get_tuple_sort_mk_decl => SMTContext.TupleConstructor",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_tuple_queries.go",
+          "tests": [
+            "TestAPITupleQueriesUseSourceStructuralPredicate"
+          ]
+        },
+        {
+          "name": "Z3_get_tuple_sort_num_fields => SMTContext.TupleFieldCount",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_tuple_queries.go",
+          "tests": [
+            "TestAPITupleQueriesUseSourceStructuralPredicate"
+          ]
+        },
+        {
+          "name": "Z3_get_tuple_sort_field_decl => SMTContext.TupleField",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_tuple_queries.go",
+          "tests": [
+            "TestSMTContextTupleDatatypeConstructionAndQueries"
+          ]
+        },
+        {
+          "name": "Z3_datatype_update_field => SMTContext.DatatypeUpdateField",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_update.go",
+          "tests": [
+            "TestSMTContextDatatypeFieldUpdate"
+          ]
+        },
+        {
+          "name": "constructor::constructor and metadata snapshot: independently owning concrete field sort references and published constructor reference",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_object.go",
+          "tests": [
+            "TestAPIDatatypeConstructorFailureReleasesEarlierFieldRoots",
+            "TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes"
+          ]
+        },
+        {
+          "name": "static mk_datatype_decl: source-ordered constructor/field definitions and recursive sort indices",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_constructor_validation.go",
+          "tests": [
+            "TestAPIDatatypeConstructorListsBuildMutualRecursion",
+            "TestAPIDatatypeConstructorOwnershipAndRecursiveGuards"
+          ]
+        },
+        {
+          "name": "get_datatype_sort_constructor_core: datatype-only guard, ordered constructor lookup and index refusal",
+          "status": "ported",
+          "go_target": "pkg/api/api_datatype_queries.go",
+          "tests": [
+            "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+          ]
+        }
+      ],
+      "ownership": [
+        "Constructor objects own snapshots of symbol identities/field metadata, one ASTRef per concrete field sort and the latest published constructor ASTRef. Symbols borrow the context symbol manager. Failed construction releases earlier field roots even when named return values have become nil. Object Close releases its constructor before field-sort roots; copied owning structs are refused.",
+        "Constructor lists copy and own only their native pointer slice; constructor objects are borrowed and remain independently owned. Closing a list does not destroy its constructors. A constructor pointer reused across lists receives the last source-ordered declaration publication, with incoming references acquired before the old declaration is released.",
+        "Datatype definitions and factory outputs borrow their context AST manager. Callers pin persistent returned handles with ASTRef; explicit constructor owners pin their own published declaration. QueryFields returns a defensive copy of the requested accessor prefix. Closed/foreign/null/wrong-kind handles and out-of-range indices are checked before datatype-only source assertions or indexing."
+      ],
+      "deviations": [
+        "The Go API uses explicit ASTRef ownership instead of hidden save_ast_trail/save_multiple_ast_trail calls. Native opaque constructor/list pointers become concrete owning Go objects with checked shared context identity; native error-code/sentinel and undefined-index cases become typed errors. Metadata slices are snapshots, and empty convenience string names become null source symbols.",
+        "WithSymbol/WithSymbols factories preserve numerical, null and textual sort/constructor/recognizer/accessor names. Generated tuple/enumeration recognizers use source symbol::str spelling, including k!N and <null>. The slice-definition convenience API additionally supports explicit parametric definitions through the same AST plugin; the source constructor-object route remains nonparametric.",
+        "The fork Z3_datatype_update_field dispatches OP_DT_UPDATE_FIELD (4) through get_array_fid(), selecting OP_ARRAY_DEFAULT and failing its two-domain arity check. Go now preserves this source refusal rather than silently dispatching through the datatype family. The actual datatype update operator remains implemented independently in the AST datatype plugin.",
+        "Source internal SASSERT shape checks follow successful typed datatype construction; API queries now perform the source datatype-family check before entering assertion-bearing datatype utilities. Stronger Go provenance, recursive-field-shape and copied-owner guards replace invalid C pointer inputs without introducing a foreign ABI."
+      ]
     },
     {
       "path": "src/api/api_fpa.cpp",
@@ -271775,8 +271999,11 @@
       "sources": [
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextDatatypeFieldUpdate"
+      ],
+      "go_target": "pkg/api/api_datatype_update.go"
     },
     {
       "name": "Z3_dec_ref",
@@ -271802,8 +272029,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorObjectOwnsSortsAndLifecycle"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_object.go"
     },
     {
       "name": "Z3_del_constructor_list",
@@ -271811,8 +272041,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorListIsNonOwning"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_list_object.go"
     },
     {
       "name": "Z3_del_context",
@@ -272663,8 +272896,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+      ],
+      "go_target": "pkg/api/api_datatype_queries.go"
     },
     {
       "name": "Z3_get_datatype_sort_constructor_accessor",
@@ -272672,8 +272908,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+      ],
+      "go_target": "pkg/api/api_datatype_queries.go"
     },
     {
       "name": "Z3_get_datatype_sort_num_constructors",
@@ -272681,8 +272920,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextEnumerationDatatypeConstruction"
+      ],
+      "go_target": "pkg/api/api_datatype_queries.go"
     },
     {
       "name": "Z3_get_datatype_sort_recognizer",
@@ -272690,8 +272932,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeQueriesRejectInvalidSortsAndIndices"
+      ],
+      "go_target": "pkg/api/api_datatype_queries.go"
     },
     {
       "name": "Z3_get_decl_ast_parameter",
@@ -273350,8 +273595,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextTupleDatatypeConstructionAndQueries"
+      ],
+      "go_target": "pkg/api/api_datatype_tuple_queries.go"
     },
     {
       "name": "Z3_get_tuple_sort_mk_decl",
@@ -273359,8 +273607,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITupleQueriesUseSourceStructuralPredicate"
+      ],
+      "go_target": "pkg/api/api_datatype_tuple_queries.go"
     },
     {
       "name": "Z3_get_tuple_sort_num_fields",
@@ -273368,8 +273619,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPITupleQueriesUseSourceStructuralPredicate"
+      ],
+      "go_target": "pkg/api/api_datatype_tuple_queries.go"
     },
     {
       "name": "Z3_get_version",
@@ -274223,8 +274477,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_object.go"
     },
     {
       "name": "Z3_mk_constructor_list",
@@ -274232,8 +274489,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorListsPublishLastAliasAndBorrowObjects"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_list_object.go"
     },
     {
       "name": "Z3_mk_context",
@@ -274259,8 +274519,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorBuildAndQuery"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_build.go"
     },
     {
       "name": "Z3_mk_datatypes",
@@ -274268,8 +274531,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorListsBuildMutualRecursion"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_build.go"
     },
     {
       "name": "Z3_mk_distinct",
@@ -274307,8 +274573,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeSymbolNamesAndGeneratedRecognizers"
+      ],
+      "go_target": "pkg/api/api_datatype_enumeration.go"
     },
     {
       "name": "Z3_mk_eq",
@@ -275196,8 +275465,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestSMTContextListDatatypeConstruction"
+      ],
+      "go_target": "pkg/api/api_datatype_list.go"
     },
     {
       "name": "Z3_mk_lt",
@@ -275877,8 +276149,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeSymbolNamesAndGeneratedRecognizers"
+      ],
+      "go_target": "pkg/api/api_datatype_tuple.go"
     },
     {
       "name": "Z3_mk_unary_minus",
@@ -276636,8 +276911,11 @@
         "src/api/api_datatype.cpp",
         "src/api/z3_api.h"
       ],
-      "status": "unported",
-      "tests": []
+      "status": "ported",
+      "tests": [
+        "TestAPIDatatypeConstructorSymbolSnapshotAndQueryPrefixes"
+      ],
+      "go_target": "pkg/api/api_datatype_constructor_query.go"
     },
     {
       "name": "Z3_rcf_add",

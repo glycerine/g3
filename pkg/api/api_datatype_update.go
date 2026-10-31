@@ -1,6 +1,6 @@
 package api
 
-// Source: src/api/api_datatype.cpp:617-635.
+// Source: src/api/api_datatype.cpp:600-617.
 
 import (
 	"errors"
@@ -26,7 +26,10 @@ func (c *SMTContext) DatatypeUpdateField(accessor, value, replacement ast.ASTHan
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, m.DelParameter(&parameter)) }()
-	family, err := m.DatatypeFamilyID()
+	// The source dispatches OP_DT_UPDATE_FIELD through the array family.
+	// Its numeric kind is OP_ARRAY_DEFAULT there, so the two-element domain
+	// is rejected. Preserve this fork behavior rather than silently repairing it.
+	family, err := m.RegisterArrayPlugin()
 	if err != nil {
 		return result, err
 	}

@@ -4,20 +4,20 @@ package api
 
 import "github.com/glycerine/g3/pkg/ast"
 
-func (o *APIDatatypeConstructorObject) apiDefinition(owner *smtContextState, sortCount uint32) (APIDatatypeConstructor, error) {
+func (o *APIDatatypeConstructorObject) apiDefinition(owner *smtContextState, sortCount uint32) (ast.DatatypeConstructorDefinition, error) {
 	if err := o.open(); err != nil {
-		return APIDatatypeConstructor{}, err
+		return ast.DatatypeConstructorDefinition{}, err
 	}
 	if o.owner != owner {
-		return APIDatatypeConstructor{}, ErrSMTContextOwner
+		return ast.DatatypeConstructorDefinition{}, ErrSMTContextOwner
 	}
 	for _, accessor := range o.definition.Accessors {
 		if accessor.Recursive && accessor.RecursiveIndex >= sortCount {
-			return APIDatatypeConstructor{}, ast.ErrASTDomain
+			return ast.DatatypeConstructorDefinition{}, ast.ErrASTDomain
 		}
 	}
 	result := o.definition
-	result.Accessors = append([]APIDatatypeAccessor(nil), o.definition.Accessors...)
+	result.Accessors = append([]ast.DatatypeAccessorDefinition(nil), o.definition.Accessors...)
 	return result, nil
 }
 

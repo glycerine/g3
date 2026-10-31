@@ -2,7 +2,10 @@ package api
 
 // Source: src/api/api_datatype.cpp:314-370,397-437.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+)
 
 func (c *SMTContext) DatatypeSortFromConstructors(name string, constructors ...*APIDatatypeConstructorObject) (ast.ASTHandle, error) {
 	list, err := c.NewDatatypeConstructorList(constructors...)
@@ -21,13 +24,38 @@ func (c *SMTContext) DatatypeSortFromConstructors(name string, constructors ...*
 }
 
 func (c *SMTContext) DatatypeSortsFromConstructorLists(names []string, lists []*APIDatatypeConstructorList) ([]ast.ASTHandle, error) {
+	converted := make([]usymbol.Symbol, len(names))
+	for i, name := range names {
+		var err error
+		converted[i], err = c.StringSymbol(name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return c.DatatypeSortsFromConstructorListsWithSymbols(converted, lists)
+}
+
+func (c *SMTContext) DatatypeSortFromConstructorsWithSymbol(name usymbol.Symbol, constructors ...*APIDatatypeConstructorObject) (ast.ASTHandle, error) {
+	list, err := c.NewDatatypeConstructorList(constructors...)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer list.Close()
+	sorts, err := c.DatatypeSortsFromConstructorListsWithSymbols([]usymbol.Symbol{name}, []*APIDatatypeConstructorList{list})
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	return sorts[0], nil
+}
+
+func (c *SMTContext) DatatypeSortsFromConstructorListsWithSymbols(names []usymbol.Symbol, lists []*APIDatatypeConstructorList) ([]ast.ASTHandle, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	if len(names) == 0 || len(names) != len(lists) {
+	if len(names) != len(lists) {
 		return nil, ast.ErrASTDomain
 	}
-	definitions := make([]APIDatatypeDefinition, len(names))
+	definitions := make([]ast.DatatypeDefinition, len(names))
 	for i, list := range lists {
 		if list == nil || list.owner != c.smtContextState {
 			return nil, ErrSMTContextOwner
@@ -35,7 +63,7 @@ func (c *SMTContext) DatatypeSortsFromConstructorLists(names []string, lists []*
 		if err := list.open(); err != nil {
 			return nil, err
 		}
-		if names[i] == "" || len(list.constructors) == 0 {
+		if len(list.constructors) == 0 {
 			return nil, ast.ErrASTDomain
 		}
 		definitions[i].Name = names[i]
@@ -47,7 +75,7 @@ func (c *SMTContext) DatatypeSortsFromConstructorLists(names []string, lists []*
 			definitions[i].Constructors = append(definitions[i].Constructors, definition)
 		}
 	}
-	sorts, err := c.DatatypeSorts(definitions)
+	sorts, err := c.DatatypeSortsWithSymbols(definitions)
 	if err != nil {
 		return nil, err
 	}

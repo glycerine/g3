@@ -4,8 +4,36 @@ package api
 
 import "github.com/glycerine/g3/pkg/ast"
 
-func (c *SMTContext) DatatypeIsRecursive(sort ast.ASTHandle) (bool, error) {
+// Source queries reject other theories before entering datatype_util, whose
+// constructor-table lookup has a datatype-only source assertion.
+func (c *SMTContext) datatypeSortManager(sort ast.ASTHandle) (*ast.ASTManager, error) {
 	m, err := c.datatypeManager()
+	if err != nil {
+		return nil, err
+	}
+	kind, err := m.GetKind(sort)
+	if err != nil {
+		return nil, err
+	}
+	if kind != ast.ASTSort {
+		return nil, ast.ErrASTDomain
+	}
+	family, err := m.GetFamilyID(sort)
+	if err != nil {
+		return nil, err
+	}
+	datatype, err := m.DatatypeFamilyID()
+	if err != nil {
+		return nil, err
+	}
+	if family != datatype {
+		return nil, ast.ErrASTDomain
+	}
+	return m, nil
+}
+
+func (c *SMTContext) DatatypeIsRecursive(sort ast.ASTHandle) (bool, error) {
+	m, err := c.datatypeSortManager(sort)
 	if err != nil {
 		return false, err
 	}
@@ -13,7 +41,7 @@ func (c *SMTContext) DatatypeIsRecursive(sort ast.ASTHandle) (bool, error) {
 }
 
 func (c *SMTContext) DatatypeConstructorCount(sort ast.ASTHandle) (uint32, error) {
-	m, err := c.datatypeManager()
+	m, err := c.datatypeSortManager(sort)
 	if err != nil {
 		return 0, err
 	}
@@ -21,7 +49,7 @@ func (c *SMTContext) DatatypeConstructorCount(sort ast.ASTHandle) (uint32, error
 }
 
 func (c *SMTContext) DatatypeConstructor(sort ast.ASTHandle, index uint32) (ast.ASTHandle, error) {
-	m, err := c.datatypeManager()
+	m, err := c.datatypeSortManager(sort)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}

@@ -2,15 +2,26 @@ package api
 
 // Source: src/api/api_datatype.cpp:157-218.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+)
 
 type APIListSort struct {
 	Sort, Nil, IsNil, Cons, IsCons, Head, Tail ast.ASTHandle
 }
 
 func (c *SMTContext) ListSort(name string, elementSort ast.ASTHandle) (APIListSort, error) {
-	sort, err := c.DatatypeSort(APIDatatypeDefinition{
-		Name: name,
+	symbol, err := c.StringSymbol(name)
+	if err != nil {
+		return APIListSort{}, err
+	}
+	return c.ListSortWithSymbol(symbol, elementSort)
+}
+
+func (c *SMTContext) ListSortWithSymbol(name usymbol.Symbol, elementSort ast.ASTHandle) (APIListSort, error) {
+	definition := APIDatatypeDefinition{
+
 		Constructors: []APIDatatypeConstructor{
 			{Name: "nil", Recognizer: "is_nil"},
 			{Name: "cons", Recognizer: "is_cons", Accessors: []APIDatatypeAccessor{
@@ -18,7 +29,16 @@ func (c *SMTContext) ListSort(name string, elementSort ast.ASTHandle) (APIListSo
 				{Name: "tail", Recursive: true},
 			}},
 		},
-	})
+	}
+	converted := ast.DatatypeDefinition{Name: name}
+	for _, constructor := range definition.Constructors {
+		native, err := c.datatypeConstructorSymbols(constructor)
+		if err != nil {
+			return APIListSort{}, err
+		}
+		converted.Constructors = append(converted.Constructors, native)
+	}
+	sort, err := c.DatatypeSortWithSymbols(converted)
 	if err != nil {
 		return APIListSort{}, err
 	}

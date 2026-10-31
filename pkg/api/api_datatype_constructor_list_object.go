@@ -3,6 +3,7 @@ package api
 // Source: src/api/api_datatype.cpp:373-394.
 
 type APIDatatypeConstructorList struct {
+	self         *APIDatatypeConstructorList
 	owner        *smtContextState
 	constructors []*APIDatatypeConstructorObject
 	closed       bool
@@ -13,6 +14,7 @@ func (c *SMTContext) NewDatatypeConstructorList(constructors ...*APIDatatypeCons
 		return nil, err
 	}
 	result := &APIDatatypeConstructorList{owner: c.smtContextState, constructors: append([]*APIDatatypeConstructorObject(nil), constructors...)}
+	result.self = result
 	for _, constructor := range result.constructors {
 		if constructor == nil || constructor.owner != c.smtContextState {
 			return nil, ErrSMTContextOwner
@@ -25,7 +27,7 @@ func (c *SMTContext) NewDatatypeConstructorList(constructors ...*APIDatatypeCons
 }
 
 func (l *APIDatatypeConstructorList) open() error {
-	if l == nil || l.owner == nil || l.closed || l.owner.closed || l.owner.command == nil {
+	if l == nil || l.self != l || l.owner == nil || l.closed || l.owner.closed || l.owner.command == nil {
 		return ErrSMTContextOwner
 	}
 	return nil
@@ -36,6 +38,9 @@ func (l *APIDatatypeConstructorList) open() error {
 func (l *APIDatatypeConstructorList) Close() error {
 	if l == nil || l.closed {
 		return nil
+	}
+	if l.self != l {
+		return ErrSMTContextOwner
 	}
 	l.owner = nil
 	l.constructors = nil

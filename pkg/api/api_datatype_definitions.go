@@ -36,30 +36,27 @@ func (c *SMTContext) datatypeManager() (*ast.ASTManager, error) {
 }
 
 func (c *SMTContext) DatatypeSorts(definitions []APIDatatypeDefinition) ([]ast.ASTHandle, error) {
-	m, err := c.datatypeManager()
-	if err != nil {
-		return nil, err
-	}
+	var err error
 	converted := make([]ast.DatatypeDefinition, len(definitions))
 	for i := range definitions {
-		converted[i].Name, err = m.Symbols.Intern(definitions[i].Name)
+		converted[i].Name, err = c.StringSymbol(definitions[i].Name)
 		if err != nil {
 			return nil, err
 		}
 		converted[i].Parameters = append(converted[i].Parameters, definitions[i].Parameters...)
 		for _, sourceConstructor := range definitions[i].Constructors {
 			constructor := ast.DatatypeConstructorDefinition{}
-			constructor.Name, err = m.Symbols.Intern(sourceConstructor.Name)
+			constructor.Name, err = c.StringSymbol(sourceConstructor.Name)
 			if err != nil {
 				return nil, err
 			}
-			constructor.Recognizer, err = m.Symbols.Intern(sourceConstructor.Recognizer)
+			constructor.Recognizer, err = c.StringSymbol(sourceConstructor.Recognizer)
 			if err != nil {
 				return nil, err
 			}
 			for _, sourceAccessor := range sourceConstructor.Accessors {
 				accessor := ast.DatatypeAccessorDefinition{Range: sourceAccessor.Sort, Recursive: sourceAccessor.Recursive, RecursiveIndex: sourceAccessor.RecursiveIndex}
-				accessor.Name, err = m.Symbols.Intern(sourceAccessor.Name)
+				accessor.Name, err = c.StringSymbol(sourceAccessor.Name)
 				if err != nil {
 					return nil, err
 				}
@@ -68,7 +65,7 @@ func (c *SMTContext) DatatypeSorts(definitions []APIDatatypeDefinition) ([]ast.A
 			converted[i].Constructors = append(converted[i].Constructors, constructor)
 		}
 	}
-	return m.MkDatatypes(converted)
+	return c.DatatypeSortsWithSymbols(converted)
 }
 
 func (c *SMTContext) DatatypeSort(definition APIDatatypeDefinition) (ast.ASTHandle, error) {
@@ -78,6 +75,26 @@ func (c *SMTContext) DatatypeSort(definition APIDatatypeDefinition) (ast.ASTHand
 	}
 	if len(sorts) != 1 {
 		return ast.ASTHandle{}, ast.ErrASTDomain
+	}
+	return sorts[0], nil
+}
+
+// DatatypeSortsWithSymbols preserves the source numerical, null and text names.
+func (c *SMTContext) DatatypeSortsWithSymbols(definitions []ast.DatatypeDefinition) ([]ast.ASTHandle, error) {
+	m, err := c.datatypeManager()
+	if err != nil {
+		return nil, err
+	}
+	if len(definitions) == 0 {
+		return nil, nil
+	}
+	return m.MkDatatypes(definitions)
+}
+
+func (c *SMTContext) DatatypeSortWithSymbols(definition ast.DatatypeDefinition) (ast.ASTHandle, error) {
+	sorts, err := c.DatatypeSortsWithSymbols([]ast.DatatypeDefinition{definition})
+	if err != nil {
+		return ast.ASTHandle{}, err
 	}
 	return sorts[0], nil
 }
