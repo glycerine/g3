@@ -18,6 +18,7 @@ type APIFixedpoint struct {
 	lastQuery         ast.ASTHandle
 	hasLastQuery      bool
 	hasLastExpression bool
+	hasLastRelations  bool
 	closed            bool
 }
 

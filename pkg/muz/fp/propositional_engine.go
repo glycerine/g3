@@ -113,6 +113,8 @@ type PropositionalEngine struct {
 	queryReady          bool
 	queryClone          *PropositionalEngine
 	queryClonePredicate ast.ASTHandle
+	queryRelations      []ast.ASTHandle
+	queryRelationsSet   bool
 	queryRevision       uint64
 	queryEngine         EngineKind
 	lastResult          lbool.LBool
@@ -1600,7 +1602,7 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := e.clearExpressionQuery(); err != nil {
+	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
@@ -1645,10 +1647,16 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := e.clearExpressionQuery(); err != nil {
+	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
+	defer func() {
+		if resultErr == nil && e.backend == "datalog" {
+			e.queryRelations = append([]ast.ASTHandle(nil), declarations...)
+			e.queryRelationsSet = true
+		}
+	}()
 	for _, declaration := range declarations {
 		if e.predicates[declaration] == nil {
 			return lbool.Undef, ErrPropositionalHorn
@@ -1736,7 +1744,7 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := e.clearExpressionQuery(); err != nil {
+	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
@@ -2108,7 +2116,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		}
 		return result
 	}
-	result = errors.Join(result, e.clearExpressionQuery())
+	result = errors.Join(result, e.clearQueryResources())
 	if e.queryParamsReady {
 		result = errors.Join(result, e.params.Del(&e.queryParams))
 		e.queryParamsReady = false

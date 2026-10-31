@@ -6003,7 +6003,8 @@
         "pkg/api/z3_generated_datatype_constructor_commands_test.go",
         "pkg/api/z3_generated_fixedpoint_load_test.go",
         "pkg/cmd/g3/z3_log_fixedpoint_load_test.go",
-        "pkg/api/z3_generated_fixedpoint_expression_answer_test.go"
+        "pkg/api/z3_generated_fixedpoint_expression_answer_test.go",
+        "pkg/api/z3_generated_fixedpoint_relations_answer_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6136,7 +6137,8 @@
         "TestZ3LogFrontendReplaysFixedpointProgramLoading",
         "TestGeneratedFloatingPointReplayInfinityExponentBitVector",
         "TestGeneratedFixedpointReplayExpressionAnswer",
-        "TestGeneratedFixedpointReplaySpacerExpressionGroundAndTrace"
+        "TestGeneratedFixedpointReplaySpacerExpressionGroundAndTrace",
+        "TestGeneratedFixedpointReplayMultipleRelationAnswer"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6192,7 +6194,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
-        "Fixedpoint answer replay supports single relations and expression queries, including Spacer ground answers; multiple-relation answers remain unsupported."
+        "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported."
       ]
     },
     {
@@ -6518,7 +6520,10 @@
         "pkg/cmd_context/parser_manager_ownership.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
         "pkg/cmd_context/fixedpoint_expression_answer.go",
-        "pkg/muz/fp/engine_result_routing_test.go"
+        "pkg/muz/fp/engine_result_routing_test.go",
+        "pkg/muz/fp/relation_query_answer.go",
+        "pkg/muz/fp/relation_query_answer_test.go",
+        "pkg/api/api_fixedpoint_relations_answer_test.go"
       ],
       "tests": [
         "TestSMTContextFixedpointPDRLifecycle",
@@ -6543,7 +6548,10 @@
         "TestAPIFixedpointExpressionAnswerBackends",
         "TestAPIFixedpointExpressionAnswerUnreachableBackends",
         "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
-        "TestExpressionQueryLastResultAndSpacerTraceInvalidation"
+        "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
+        "TestDatalogRelationsAnswerConjoinsRequestedRelations",
+        "TestDatalogRelationsAnswerPreservesTupleFormulas",
+        "TestAPIFixedpointDatalogMultipleRelationAnswers"
       ],
       "assertions": [
         {
@@ -84698,7 +84706,10 @@
         "pkg/muz/fp/query_expression_answer_test.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
         "pkg/cmd_context/fixedpoint_expression_answer.go",
-        "pkg/muz/fp/engine_result_routing_test.go"
+        "pkg/muz/fp/engine_result_routing_test.go",
+        "pkg/muz/fp/relation_query_answer.go",
+        "pkg/muz/fp/relation_query_answer_test.go",
+        "pkg/api/api_fixedpoint_relations_answer_test.go"
       ],
       "tests": [
         "TestDatalogModelMaterializesFiniteRelationTables",
@@ -84722,7 +84733,10 @@
         "TestAPIFixedpointExpressionAnswerBackends",
         "TestAPIFixedpointExpressionAnswerUnreachableBackends",
         "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
-        "TestExpressionQueryLastResultAndSpacerTraceInvalidation"
+        "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
+        "TestDatalogRelationsAnswerConjoinsRequestedRelations",
+        "TestDatalogRelationsAnswerPreservesTupleFormulas",
+        "TestAPIFixedpointDatalogMultipleRelationAnswers"
       ],
       "assertions": [
         {
@@ -95726,7 +95740,10 @@
         "pkg/muz/fp/datalog_similarity_test.go",
         "pkg/muz/rel/similarity_plugin.go",
         "pkg/muz/rel/similarity_merge_finite.go",
-        "pkg/muz/fp/query_expression_answer_test.go"
+        "pkg/muz/fp/query_expression_answer_test.go",
+        "pkg/muz/fp/relation_query_answer.go",
+        "pkg/muz/fp/relation_query_answer_test.go",
+        "pkg/api/api_fixedpoint_relations_answer_test.go"
       ],
       "tests": [
         "TestQueryMagicSetsRunsForSyntheticQueryPredicate",
@@ -95736,7 +95753,10 @@
         "TestDatalogSimilarityQueryParameterControls",
         "TestDatalogSimilarityKeepsQueriedOutputUnmerged",
         "TestFixedpointExpressionAnswerSurvivesQueryAndInvalidates",
-        "TestFixedpointExpressionAnswerForEmptyRelation"
+        "TestFixedpointExpressionAnswerForEmptyRelation",
+        "TestDatalogRelationsAnswerConjoinsRequestedRelations",
+        "TestDatalogRelationsAnswerPreservesTupleFormulas",
+        "TestAPIFixedpointDatalogMultipleRelationAnswers"
       ],
       "conditionals": [
         {

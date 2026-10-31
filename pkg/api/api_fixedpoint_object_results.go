@@ -95,6 +95,9 @@ func (f *APIFixedpoint) LastAnswer() (ast.ASTRef, error) {
 	if f.hasLastExpression {
 		return f.command.FixedpointExpressionAnswer()
 	}
+	if f.hasLastRelations {
+		return f.command.FixedpointRelationsAnswer()
+	}
 	return ast.ASTRef{}, fmt.Errorf("fixedpoint: answer requires a completed query")
 }
 

@@ -16,7 +16,7 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
-	if err := e.clearExpressionQuery(); err != nil {
+	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
 	e.queried = true
@@ -97,9 +97,11 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 	return result, err
 }
 
-// clearExpressionQuery releases the backend state used to answer the previous
+// clearQueryResources releases the backend state used to answer the previous
 // expression query. It is also called when the engine itself is closed.
-func (e *PropositionalEngine) clearExpressionQuery() error {
+func (e *PropositionalEngine) clearQueryResources() error {
+	e.queryRelations = nil
+	e.queryRelationsSet = false
 	if e.queryClone == nil {
 		return nil
 	}

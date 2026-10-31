@@ -6,7 +6,7 @@ import "fmt"
 
 func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 	if e.backend != kind.String() {
-		if err := e.clearExpressionQuery(); err != nil {
+		if err := e.clearQueryResources(); err != nil {
 			return err
 		}
 		e.queryReady = false

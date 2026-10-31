@@ -1,3 +1,5 @@
+Datalog relation-array queries now return the source conjunction of relation formulas, including empty and mixed-result cases; public API and generated replay tests exercise the result and stale-query guards. Other backends still do not expose multiple-relation answers.
+
 Spacer expression queries now expose their ground answer and rule trace through the preserved query backend, with stale snapshot guards and generated replay coverage. Preprocessing may collapse named facts into an unnamed synthetic trace rule; source trace-name reconstruction remains open.
 
 Fixedpoint expression queries now keep their isolated backend until the next query or close, allowing an owned answer to be retrieved without changing the original rules. Datalog tuple and empty answers, stale result rejection, and answer reference lifetime are covered by normal and checked tests. The public fixedpoint object and generated replay expose expression answers; tests cover reachable and unreachable Datalog, PDR, and Spacer queries.

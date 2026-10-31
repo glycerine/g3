@@ -23,3 +23,13 @@ func (c *Context) FixedpointExpressionGroundSatAnswer() (ast.ASTRef, error) {
 	}
 	return engine.ExpressionGroundSatAnswer()
 }
+
+// FixedpointRelationsAnswer returns an owning formula for the latest Datalog
+// relation-array query.
+func (c *Context) FixedpointRelationsAnswer() (ast.ASTRef, error) {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	return engine.RelationsAnswer()
+}
