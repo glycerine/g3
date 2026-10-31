@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -38,7 +39,10 @@ func TestNLPurifyEnforcesModelEqualitiesInBothSolvers(t *testing.T) {
 	nonlinear, err := tactic.NewGoal(m, false, true, false)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, nonlinear.Close()) }()
-	state, err := newNLEqualityState(m)
+	filter, err := tactic.NewFilterModel(m)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, filter.Close()) }()
+	state, err := newNLEqualityState(m, filter)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, state.Close()) }()
 	changed, err := state.enforce(ev, []ast.ASTHandle{x, y, z}, nonlinear, smt)
@@ -66,5 +70,21 @@ func TestNLPurifyEnforcesModelEqualitiesInBothSolvers(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("predicate did not enforce equality", status)
+	}
+	filteredModel, err := model.NewModel(m)
+	astTestMust(t, err)
+	var ref tactic.ModelRef
+	astTestMust(t, ref.Set(filteredModel.Core()))
+	defer func() { astTestMust(t, ref.Close()) }()
+	decl, err := m.GetDecl(state.predicates[0])
+	astTestMust(t, err)
+	truth, err := m.MkTrue()
+	astTestMust(t, err)
+	astTestMust(t, filteredModel.Core().RegisterConstant(decl, truth))
+	astTestMust(t, filter.ApplyUnindexed(&ref))
+	filtered, err := ref.Get()
+	astTestMust(t, err)
+	if value, err := filtered.ConstantInterpretation(decl); err != nil || !value.IsNull() {
+		t.Fatal("equality predicate remained in model", value, err)
 	}
 }

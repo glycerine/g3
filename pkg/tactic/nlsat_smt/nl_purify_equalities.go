@@ -20,13 +20,14 @@ type nlEqualityState struct {
 	predicates []ast.ASTHandle
 	values     []lbool.LBool
 	refs       []ast.ASTRef
+	filter     *tactic.FilterModelConverter
 }
 
-func newNLEqualityState(m *ast.ASTManager) (*nlEqualityState, error) {
-	if m == nil {
+func newNLEqualityState(m *ast.ASTManager, filter *tactic.FilterModelConverter) (*nlEqualityState, error) {
+	if m == nil || filter == nil {
 		return nil, ast.ErrASTHandle
 	}
-	return &nlEqualityState{manager: m, pairs: make(map[nlEqualityPair]ast.ASTHandle)}, nil
+	return &nlEqualityState{manager: m, filter: filter, pairs: make(map[nlEqualityPair]ast.ASTHandle)}, nil
 }
 
 func (s *nlEqualityState) hold(h ast.ASTHandle) error {
@@ -82,6 +83,13 @@ func (s *nlEqualityState) enforce(evaluator *model.ModelEvaluator, interfaces []
 			return false, err
 		}
 		if err = s.hold(pred); err != nil {
+			return false, err
+		}
+		decl, err := m.GetDecl(pred)
+		if err != nil {
+			return false, err
+		}
+		if err = s.filter.Insert(decl); err != nil {
 			return false, err
 		}
 		equality, err := m.MkEq(w, v)
@@ -150,5 +158,6 @@ func (s *nlEqualityState) Close() (result error) {
 	s.manager = nil
 	s.refs = nil
 	s.pairs = nil
+	s.filter = nil
 	return result
 }

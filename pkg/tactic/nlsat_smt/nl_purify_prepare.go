@@ -17,6 +17,7 @@ type nlPurification struct {
 	interfaces *nlInterfaceRewriter
 	predicates *nlPredicateRewriter
 	extraction *solver.ClauseExtraction
+	filter     *tactic.FilterModelConverter
 }
 
 func prepareNLPurification(g *tactic.Goal) (result *nlPurification, resultErr error) {
@@ -43,6 +44,10 @@ func prepareNLPurification(g *tactic.Goal) (result *nlPurification, resultErr er
 	}()
 	m := g.Manager()
 	result.nonlinear, err = tactic.NewGoal(m, false, true, false)
+	if err != nil {
+		return nil, err
+	}
+	result.filter, err = tactic.NewFilterModel(m)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +93,29 @@ func prepareNLPurification(g *tactic.Goal) (result *nlPurification, resultErr er
 	if err != nil {
 		return nil, err
 	}
+	for _, values := range [][]ast.ASTHandle{result.interfaces.newReals, result.predicates.newPredicates} {
+		for _, value := range values {
+			decl, e := m.GetDecl(value)
+			if e != nil {
+				return nil, e
+			}
+			if e = result.filter.Insert(decl); e != nil {
+				return nil, e
+			}
+		}
+	}
+	for key, dependency := range result.extraction.BoolToDependency {
+		if key == dependency {
+			continue
+		}
+		decl, e := m.GetDecl(key)
+		if e != nil {
+			return nil, e
+		}
+		if e = result.filter.Insert(decl); e != nil {
+			return nil, e
+		}
+	}
 	if err = g.IncDepth(); err != nil {
 		return nil, err
 	}
@@ -101,6 +129,10 @@ func (p *nlPurification) Close() (result error) {
 	if p.extraction != nil {
 		result = errors.Join(result, p.extraction.Close())
 		p.extraction = nil
+	}
+	if p.filter != nil {
+		result = errors.Join(result, p.filter.Close())
+		p.filter = nil
 	}
 	if p.predicates != nil {
 		result = errors.Join(result, p.predicates.Close())

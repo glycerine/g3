@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -67,6 +68,42 @@ func TestNLPurificationPreparesGoalsAndClauses(t *testing.T) {
 			}
 			if depth, err := goal.Depth(); err != nil || depth != 1 {
 				t.Fatal("goal depth", depth, err)
+			}
+			md, err := model.NewModel(m)
+			astTestMust(t, err)
+			var ref tactic.ModelRef
+			astTestMust(t, ref.Set(md.Core()))
+			defer func() { astTestMust(t, ref.Close()) }()
+			truth, err := m.MkTrue()
+			astTestMust(t, err)
+			userDecl, err := m.GetDecl(p)
+			astTestMust(t, err)
+			astTestMust(t, md.Core().RegisterConstant(userDecl, truth))
+			var introduced []ast.ASTHandle
+			for _, group := range [][]ast.ASTHandle{prep.interfaces.newReals, prep.predicates.newPredicates} {
+				for _, term := range group {
+					decl, err := m.GetDecl(term)
+					astTestMust(t, err)
+					introduced = append(introduced, decl)
+					value := truth
+					sort, err := m.GetSort(term)
+					astTestMust(t, err)
+					if sort == real {
+						value = zero
+					}
+					astTestMust(t, md.Core().RegisterConstant(decl, value))
+				}
+			}
+			astTestMust(t, prep.filter.ApplyUnindexed(&ref))
+			filtered, err := ref.Get()
+			astTestMust(t, err)
+			if value, err := filtered.ConstantInterpretation(userDecl); err != nil || value != truth {
+				t.Fatal("user model binding", value, err)
+			}
+			for _, decl := range introduced {
+				if value, err := filtered.ConstantInterpretation(decl); err != nil || !value.IsNull() {
+					t.Fatal("introduced binding remained", value, err)
+				}
 			}
 		})
 	}
