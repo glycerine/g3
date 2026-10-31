@@ -13,8 +13,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-// searchExprQEBoolTree explores model-selected Boolean assignments. Recursive
-// independent partitions and unsupported plugin branches report incomplete.
+// searchExprQEBoolTree explores model-selected Boolean assignments and
+// independent partitions. Unsupported plugin branches report incomplete.
 func searchExprQEBoolTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (result ast.ASTRef, complete bool, err error) {
 	if root == nil || root.manager == nil || root.formula == (ast.ASTRef{}) || solver == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
@@ -63,8 +63,20 @@ func searchExprQEBoolTree(root *exprQETree, variables *exprQEBranchVariables, co
 		current, step, e := advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
 		if e == nil && step == exprQEChooseVariable {
 			var outcome exprQEPopStatus
-			_, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, &free, false)
-			if e == nil && (outcome == exprQEPopNeedsPartition || outcome == exprQEPopNoBranch) {
+			current, outcome, e = popExprQEBoolTree(current, variables, context, plugin, partitioner, solver, eval, md, config, rw, nnf, &free, false)
+			if e == nil && outcome == exprQEPopNeedsPartition {
+				part, cause := partitionExprQETree(current, variables, partitioner)
+				if cause == nil {
+					var done bool
+					done, cause = processExprQEBoolPartition(current, part, solver, config)
+					cause = errors.Join(cause, part.Close())
+					if cause == nil && !done {
+						outcome = exprQEPopNoBranch
+					}
+				}
+				e = cause
+			}
+			if e == nil && outcome == exprQEPopNoBranch {
 				e = errors.Join(eval.Close(), md.DecRef())
 				return result, false, e
 			}
