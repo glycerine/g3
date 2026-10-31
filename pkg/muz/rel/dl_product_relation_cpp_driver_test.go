@@ -56,3 +56,23 @@ func TestProductRelationSourceSuggestEnsure(t *testing.T) {
 		}
 	}
 }
+
+func TestProductRelationSourceFunctionalColumnJoin(t *testing.T) {
+	table := newSparseFunctionalFixture(t, []uint64{2, 2}, 1, Fact{0, 1})
+	joined, err := table.Join(table, []int{1}, []int{1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer joined.Close()
+	if n, err := joined.FunctionalColumns(); err != nil || n != 2 {
+		t.Fatal("functional columns", n, err)
+	}
+	for _, tc := range []struct {
+		fact Fact
+		want bool
+	}{{Fact{0, 0, 1, 1}, true}, {Fact{0, 1, 1, 1}, false}} {
+		if got, err := joined.Contains(tc.fact); err != nil || got != tc.want {
+			t.Fatal("join fact", tc.fact, got, err)
+		}
+	}
+}

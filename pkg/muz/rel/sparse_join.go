@@ -44,6 +44,42 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 	if e := validateColumns(a.signature, b.signature, left, right); e != nil {
 		return nil, e
 	}
+	if a.functional != 0 || b.functional != 0 {
+		if !sparseJoinInvolvesFunctional(a, b, left, right) {
+			return a.JoinFunctional(b, left, right)
+		}
+		// The sparse plugin declines functional-column indexes. The source
+		// relation manager then uses its generic nested-loop table join.
+		sig, functional, err := sparseJoinFunctionalSignature(a, b)
+		if err != nil {
+			return nil, err
+		}
+		out, err := NewSparseTable(sig, functional)
+		if err != nil {
+			return nil, err
+		}
+		af, _ := a.Facts()
+		bf, _ := b.Facts()
+		for _, x := range af {
+			for _, y := range bf {
+				match := true
+				for i := range left {
+					if x[left[i]] != y[right[i]] {
+						match = false
+						break
+					}
+				}
+				if match {
+					_, err = out.Add(sparseFunctionalJoinFact(x, y, a.signature.Len()-a.functional, b.signature.Len()-b.functional))
+					if err != nil {
+						_ = out.Close()
+						return nil, err
+					}
+				}
+			}
+		}
+		return out, nil
+	}
 	domains := append(a.signature.Domains(), b.signature.Domains()...)
 	sig, e := NewSignature(domains)
 	if e != nil {
