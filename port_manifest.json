@@ -107430,7 +107430,8 @@
         "TestDatatypeSolverPluginNonRecursiveBranches",
         "TestDatatypeSolverPluginBranchAssignment",
         "TestDatatypeSolverPluginSubstitutesAndReusesConstructor",
-        "TestDatatypeSolverPluginSubstitutesRecognizedConstructor"
+        "TestDatatypeSolverPluginSubstitutesRecognizedConstructor",
+        "TestDatatypeSolverPluginRecursiveSubstitution"
       ],
       "assertions": [
         {
@@ -107556,6 +107557,14 @@
           "tests": [
             "TestDatatypeSolverPluginSubstitutesAndReusesConstructor",
             "TestDatatypeSolverPluginSubstitutesRecognizedConstructor"
+          ]
+        },
+        {
+          "name": "recursive constructor selection and selector substitution",
+          "status": "partial",
+          "go_target": "pkg/qe/qe_datatype_plugin_substitute.go",
+          "tests": [
+            "TestDatatypeSolverPluginRecursiveSubstitution"
           ]
         }
       ],

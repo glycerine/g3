@@ -164,3 +164,125 @@ func (p *DatatypeSolverPlugin) SubstituteNonRecursive(variable *ast.ContainsApp,
 	}
 	return true, nil
 }
+
+// SubstituteRecursive covers the source constructor-selection and matching
+// selector paths. Recognized variables without a matching selector require
+// the pending equality/disequality branch implementation.
+func (p *DatatypeSolverPlugin) SubstituteRecursive(variable *ast.ContainsApp, value *numeral.OwnedRational, formula ast.ASTRef, definition *ast.ASTRef) (supported bool, err error) {
+	if err = p.open(); err != nil {
+		return false, err
+	}
+	if variable == nil || value == nil {
+		return false, ast.ErrASTHandle
+	}
+	target, err := variable.Target()
+	if err != nil {
+		return false, err
+	}
+	current, err := p.manager.RefGet(formula)
+	if err != nil {
+		return false, err
+	}
+	sort, err := p.manager.GetSort(target)
+	if err != nil {
+		return false, err
+	}
+	recursive, err := p.manager.DatatypeIsRecursive(sort)
+	if err != nil || !recursive {
+		return false, err
+	}
+	unsigned, err := p.manager.NumeralService().IsUnsigned(value)
+	if err != nil {
+		return false, err
+	}
+	if !unsigned {
+		return false, ast.ErrASTDomain
+	}
+	branch, err := p.manager.NumeralService().Unsigned(value)
+	if err != nil {
+		return false, err
+	}
+	constructor, found, err := p.findRecognizer(target, current)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		selector, e := p.hasSelector(target, current, constructor)
+		if e != nil || !selector {
+			return false, e
+		}
+		if branch != 0 {
+			return false, ast.ErrASTDomain
+		}
+		entry, e := p.substitution(target, constructor)
+		if e != nil {
+			return false, e
+		}
+		if definition != nil {
+			if e = p.manager.SetRef(*definition, entry.term); e != nil {
+				return false, e
+			}
+		}
+		replace, e := rewriter.NewExprSafeReplace(p.manager)
+		if e != nil {
+			return false, e
+		}
+		defer func() { err = errors.Join(err, replace.Close()) }()
+		if e = replace.ApplySubstitution(target, entry.term, formula); e != nil {
+			return false, e
+		}
+		return true, nil
+	}
+	constructors, err := p.manager.DatatypeConstructors(sort)
+	if err != nil {
+		return false, err
+	}
+	if uint64(branch) >= uint64(len(constructors)) {
+		return false, ast.ErrASTDomain
+	}
+	recognizer, err := p.manager.DatatypeConstructorRecognizer(constructors[branch])
+	if err != nil {
+		return false, err
+	}
+	condition, err := p.manager.MkApp(recognizer, []ast.ASTHandle{target})
+	if err != nil {
+		return false, err
+	}
+	conditionRef, err := p.manager.NewRef(condition)
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, p.manager.DelRef(&conditionRef)) }()
+	conjunction, err := p.manager.MkAnd(condition, current)
+	if err != nil {
+		return false, err
+	}
+	if err = p.manager.SetRef(formula, conjunction); err != nil {
+		return false, err
+	}
+	fresh, err := p.manager.MkFreshConst("x", sort)
+	if err != nil {
+		return false, err
+	}
+	owner, err := p.manager.NewRef(fresh)
+	if err != nil {
+		return false, err
+	}
+	if err = p.context.adoptVariable(fresh, &owner); err != nil {
+		return false, errors.Join(err, p.manager.DelRef(&owner))
+	}
+	replace, err := rewriter.NewExprSafeReplace(p.manager)
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Join(err, replace.Close()) }()
+	if err = replace.ApplySubstitution(target, fresh, formula); err != nil {
+		return false, err
+	}
+	if definition != nil {
+		if err = p.manager.SetRef(*definition, fresh); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}

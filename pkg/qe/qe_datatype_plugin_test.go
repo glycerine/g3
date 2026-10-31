@@ -293,3 +293,89 @@ func TestDatatypeSolverPluginSubstitutesRecognizedConstructor(t *testing.T) {
 		t.Fatal("recognizer did not select its constructor")
 	}
 }
+
+func TestDatatypeSolverPluginRecursiveSubstitution(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	m, f := d.f.r.manager, d.f
+	x, y := f.constant("qe-recursive-subst-x", d.list), f.constant("qe-recursive-subst-y", d.list)
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	p, err := NewDatatypeSolverPlugin(ctx)
+	fmMust(t, err)
+	fmMust(t, ctx.AddPlugin(p))
+	defer func() { fmMust(t, ctx.Close()) }()
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&branch)) }()
+	fmMust(t, m.NumeralService().SetUnsigned(&branch, 1))
+	original := f.own(m.MkEq(x, y))
+	formula, err := m.NewRef(original)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formula)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	ok, err := p.SubstituteRecursive(contains, &branch, formula, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("unrecognized recursive branch unsupported")
+	}
+	fresh, err := m.RefGet(definition)
+	fmMust(t, err)
+	variables, err := ctx.Variables()
+	fmMust(t, err)
+	if len(variables) != 2 || variables[1] != fresh || fresh == x {
+		t.Fatal("fresh recursive variable", variables)
+	}
+	want := f.own(m.MkAnd(d.app(d.consTest, fresh), f.own(m.MkEq(fresh, y))))
+	got, err := m.RefGet(formula)
+	fmMust(t, err)
+	if got != want {
+		t.Fatal("recursive recognizer substitution")
+	}
+
+	recognized := d.app(d.consTest, x)
+	head := d.app(d.listFields[0], x)
+	headEq := f.own(m.MkEq(head, f.number("1")))
+	source := f.own(m.MkAnd(recognized, headEq))
+	fmMust(t, m.SetRef(formula, source))
+	fmMust(t, m.NumeralService().SetUnsigned(&branch, 0))
+	ok, err = p.SubstituteRecursive(contains, &branch, formula, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("recognized selector unsupported")
+	}
+	term, err := m.RefGet(definition)
+	fmMust(t, err)
+	decl, err := m.GetDecl(term)
+	fmMust(t, err)
+	if decl != d.consCtor {
+		t.Fatal("recursive selector chose wrong constructor")
+	}
+	variables, err = ctx.Variables()
+	fmMust(t, err)
+	if len(variables) != 4 {
+		t.Fatal("recursive constructor fields", len(variables))
+	}
+	got, err = m.RefGet(formula)
+	fmMust(t, err)
+	rewrittenHead := d.app(d.listFields[0], term)
+	want = f.own(m.MkAnd(d.app(d.consTest, term), f.own(m.MkEq(rewrittenHead, f.number("1")))))
+	if got != want {
+		t.Fatal("recursive selector substitution")
+	}
+	fmMust(t, m.SetRef(formula, recognized))
+	ok, err = p.SubstituteRecursive(contains, &branch, formula, &definition)
+	fmMust(t, err)
+	if ok {
+		t.Fatal("recursive equality branch is not yet supported")
+	}
+	got, err = m.RefGet(formula)
+	fmMust(t, err)
+	if got != recognized {
+		t.Fatal("unsupported branch changed formula")
+	}
+}
