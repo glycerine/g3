@@ -168,3 +168,28 @@ func TestFMContextTranslationCopiesTargetServicesAndPolicy(t *testing.T) {
 		t.Fatalf("fm lost target services or policy: %T", translated)
 	}
 }
+
+func TestPurifierContextTranslationCopiesTargetServicesAndPolicy(t *testing.T) {
+	source, manager := fixDLFixture(t, false)
+	p, err := source.context.NewValue()
+	equationMust(t, err)
+	for _, key := range []string{"complete", "elim_root_objects", "elim_inverses"} {
+		equationMust(t, source.context.SetBoolName(&p, &key, false))
+	}
+	original, err := NewQFNRAPurifyTactic(manager, source.context, source.globals, &p, source.services)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, original.Close()) })
+	equationMust(t, source.context.Del(&p))
+	target, targetManager := fixDLFixture(t, false)
+	translated, matched, err := TranslateContextLeaf(original, targetManager, target.context, target.globals, target.services)
+	equationMust(t, err)
+	if !matched {
+		t.Fatal("purifier was not translated")
+	}
+	equationMust(t, translated.IncRef())
+	t.Cleanup(func() { equationMust(t, translated.DecRef()) })
+	copy, ok := translated.(*QFNRAPurifyTactic)
+	if !ok || copy.context != target.context || copy.services.Cooperation != target.services.Cooperation || copy.complete || copy.elimRoot || copy.elimInverse {
+		t.Fatalf("purifier lost target services or policy: %T", translated)
+	}
+}

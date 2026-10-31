@@ -182059,6 +182059,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/tactic/arith/context_translation_arithmetic_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/qfnra_purify_failure_test.go",
         "pkg/tactic/arith/qfnra_purify_forward_trig.go",
         "pkg/tactic/arith/qfnra_purify_forward_trig_test.go",
@@ -182083,6 +182086,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
+        "TestPurifierContextTranslationCopiesTargetServicesAndPolicy",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestGeneralPurifierAllocationFrontiers",
         "TestGeneralPurifierConstructorAllocationFrontiers",
         "TestGeneralPurifierForwardTrigMixedModelAndProof",
@@ -191575,6 +191581,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/nlsat_smt/nl_purify_context_translation.go",
+        "pkg/tactic/nlsat_smt/nl_purify_context_translation_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
         "pkg/cmd_context/tactic_descriptions.go",
@@ -191603,6 +191612,9 @@
         "pkg/tactic/nlsat_smt/doc.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
+        "TestNLPurifyContextTranslationOwnsTargetServices",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestAPIMoreRegisteredTacticFactories",
         "TestNLPurifyPolaritiesUpgradeSharedSubexpressions",
         "TestNLPurifyRejectsQuantifiersAndFreeBoundVariables",
@@ -197189,6 +197201,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/cmd/g3/test_vectors/qfufnra_forward_trig.smt2",
         "pkg/tactic/smtlogics/qfufnra_algebraic_test.go",
@@ -197200,6 +197213,8 @@
         "pkg/parsers/smt2/qfufnra_tactic_test.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestSMTLibRunnerScripts/qfufnra_forward_trig.smt2",
         "TestQFUFNRATacticWithAlgebraicRoot",
         "TestSMT2QFUFNRATacticMixedArithmetic",

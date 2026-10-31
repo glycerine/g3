@@ -1013,6 +1013,7 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 		{"elim01", "QF_LIA", "(declare-const x Int) (assert (>= x 0)) (assert (<= x 1)) (assert (= (* 2 x) 2))", 3},
 		{"propagate-ineqs", "QF_LIA", "(declare-const x Int) (declare-const y Int) (assert (>= x 0)) (assert (>= y 0)) (assert (>= (+ x y) 3)) (assert (<= x 5))", 4},
 		{"fm", "QF_LRA", "(declare-const x Real) (declare-const y Real) (assert (> x 1)) (assert (< x 3)) (assert (= y (+ x 1)))", 3},
+		{"qfufnra", "QF_UFNRA", "(declare-const x Real) (declare-fun f (Real) Real) (assert (= x 2)) (assert (= (f x) (/ 1 x))) (assert (> (f x) 0))", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source, err := NewSMTContext()
@@ -1067,5 +1068,30 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 				astTestMust(t, manager.DelRef(&value))
 			}
 		})
+	}
+}
+
+func TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_UFNRA"))
+	strategy, err := source.Tactic("qfufnra")
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(strategy)
+	astTestMust(t, err)
+	astTestMust(t, strategy.Close())
+	astTestMust(t, solver.LoadSMT2String("(declare-const x Real) (declare-fun f (Real) Real) (assert (> (f x) 0)) (assert (<= (f x) 0))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated unsatisfiable solver", status)
 	}
 }

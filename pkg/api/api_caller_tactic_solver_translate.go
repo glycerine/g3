@@ -16,6 +16,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic/arith"
 	"github.com/glycerine/g3/pkg/tactic/bv"
 	"github.com/glycerine/g3/pkg/tactic/core"
+	nlsatsmt "github.com/glycerine/g3/pkg/tactic/nlsat_smt"
 	"github.com/glycerine/g3/pkg/tactic/smtlogics"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -41,6 +42,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(config.Params, config.ModelEvaluator.Cooperation)
 		case *bv.BitBlasterTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
+		case *nlsatsmt.NLPurifyTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		default:
 			if value, matched, err := arith.TranslateContextLeaf(leaf, manager, config.Params, config.Globals, config.ModelEvaluator); matched {
 				return value, err
@@ -49,7 +52,7 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			if matched {
 				return value, err
 			}
-			return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
+			return nil, fmt.Errorf("api: cross-context translation of tactic %T is not yet supported", leaf)
 		}
 	}, func(probe tactic.ProbeEvaluator) (tactic.ProbeEvaluator, error) {
 		if err := probe.Check(); err != nil {

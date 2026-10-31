@@ -13,6 +13,7 @@ import (
 
 func nlModelEvaluatorFixture(t *testing.T, m *ast.ASTManager) (*model.Model, *model.ModelEvaluator, model.ModelEvaluatorConfig) {
 	t.Helper()
+	astTestMust(t, m.RegisterDeclarationPlugins())
 	context, err := params.NewParamsContext(m.Symbols, m.NumeralService(), params.ParamsConfig{Budget: m.Budget()})
 	astTestMust(t, err)
 	catalog, err := params.NewGlobalParamsCatalog(m.Symbols, params.GlobalParamsCatalogConfig{Budget: m.Budget()})

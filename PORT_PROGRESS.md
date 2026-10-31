@@ -52402,3 +52402,9 @@ General purifier forward trigonometric integration: sine and cosine now share th
 Forward-trigonometric safety correction: scan the original goal before rewriting any formula when sine or cosine occurs. A regression exercises an angle used in an earlier division; the source lazy scan can otherwise miss that use after the division is moved into a pending constraint and incorrectly reconstruct the angle.
 
 Arithmetic purifier allocation-refusal correction: partial traversal construction is now closed on failure. Focused campaigns inject each owner-budget reservation through successful construction and representative forward trig, integer division, inverse trig, algebraic root and quantified applications; after every refusal they retry using a fresh goal and verify final owner-budget cleanup. Ordinary and debug/checked checks cover proof and no-proof paths; these fixtures do not establish a complete cross-product of all failure frontiers.
+
+QF_UFNRA cross-context integration: arithmetic and nonlinear purification leaves now copy parameter snapshots into the target context and construct independent target-owned services and cooperating solvers. Direct tests cover updated parameters and target ownership; an API test translates the composed strategy, closes its source context, and validates the resulting model against the original assertions.
+
+Nonlinear purification test fixture correction: install declaration plugins before constructing the model evaluator. The existing fixture failed its source precondition in debug builds; the complete nonlinear tactic package now passes in ordinary and combined debug/checked modes.
+
+QF_UFNRA translated-solver coverage also checks an unsatisfiable mixed-theory formula after the original solver and context are closed.
