@@ -52224,3 +52224,7 @@ Overflow source driver started: ported every addition boundary case for widths 1
 Overflow subtraction driver: added all original signed and unsigned subtraction cases for widths 1, 16, 32 and 42, testing both polarities of each applicable predicate. The attempted multiplication matrix exposed source-level constant-folding discrepancies: src/ast/rewriter/bv_rewriter.cpp treats bit-vector value one as safe even at signed width one and multiplies other signed encodings as unsigned for overflow. The Go rewriter follows those source branches, so the inconsistent multiplication expectations are not marked ported; this does not affect the passing addition and subtraction matrices.
 
 Overflow negation and division driver: ported the original signed boundary cases at all four source widths, including checking both truth values and the source's result-agnostic division-by-zero checks. Multiplication and the symbolic equivalence proofs remain open.
+
+NLSAT source driver started: ported tst3's interval-union cases, including positive and negative square-root endpoints, open/closed and infinite boundaries, source reason-sensitive interval counts, subset and commutativity checks. The later randomized, evaluator and solver driver cases remain open.
+
+Full native checkpoint: the complete Go suite passed on clean committed snapshot 061d110b2 with CGO disabled. This checkpoint predates the separately tested NLSAT interval driver increment.

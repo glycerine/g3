@@ -206126,9 +206126,9 @@
       "path": "src/test/nlsat.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/nlsat/nlsat_interval_driver_cpp_test.go"],
+      "tests": ["TestNLSATSourceIntervalUnionCases"],
       "conditionals": [
         {
           "line": 592,
@@ -206219,9 +206219,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 through tst10", "status": "unported"}],
+      "ownership": ["The interval fixture owns its algebraic manager; each generated interval and union holds a reference until test cleanup."],
+      "deviations": ["Source diagnostic output is omitted. Randomized interval generation, evaluator and nonlinear solver scenarios remain separate work."]
     },
     {
       "path": "src/test/no_overflow.cpp",
