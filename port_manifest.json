@@ -89271,11 +89271,15 @@
       "go_targets": [
         "pkg/muz/rel/bound_relation.go",
         "pkg/muz/rel/bound_relation_test.go",
-        "pkg/muz/rel/interval_relation.go"
+        "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/bound_relation_filter.go",
+        "pkg/muz/rel/bound_relation_filter_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
-        "TestBoundRelationUnionInterval"
+        "TestBoundRelationUnionInterval",
+        "TestBoundRelationInterpretedVariableComparisons",
+        "TestBoundRelationInterpretedPositiveOffsetEquality"
       ],
       "assertions": [
         {
@@ -89345,6 +89349,15 @@
           "tests": [
             "TestBoundRelationUnionInterval"
           ]
+        },
+        {
+          "name": "interpreted variable comparisons and positive-offset equalities",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_filter.go",
+          "tests": [
+            "TestBoundRelationInterpretedVariableComparisons",
+            "TestBoundRelationInterpretedPositiveOffsetEquality"
+          ]
         }
       ],
       "ownership": [
@@ -89362,11 +89375,15 @@
       "go_targets": [
         "pkg/muz/rel/bound_relation.go",
         "pkg/muz/rel/bound_relation_test.go",
-        "pkg/muz/rel/interval_relation.go"
+        "pkg/muz/rel/interval_relation.go",
+        "pkg/muz/rel/bound_relation_filter.go",
+        "pkg/muz/rel/bound_relation_filter_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
-        "TestBoundRelationUnionInterval"
+        "TestBoundRelationUnionInterval",
+        "TestBoundRelationInterpretedVariableComparisons",
+        "TestBoundRelationInterpretedPositiveOffsetEquality"
       ],
       "conditionals": [
         {
@@ -89403,6 +89420,15 @@
           "go_target": "pkg/muz/rel/bound_relation.go",
           "tests": [
             "TestBoundRelationUnionInterval"
+          ]
+        },
+        {
+          "name": "interpreted variable comparisons and positive-offset equalities",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation_filter.go",
+          "tests": [
+            "TestBoundRelationInterpretedVariableComparisons",
+            "TestBoundRelationInterpretedPositiveOffsetEquality"
           ]
         }
       ],

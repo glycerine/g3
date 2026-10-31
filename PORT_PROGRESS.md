@@ -1,3 +1,5 @@
+Bound relation interpreted filters (2026-10-31 UTC): added source comparisons between column variables, negated forms, false-filter reset and positive-offset equality recognition. Equality classes, remaining filters and live relation registration remain pending.
+
 Bound relation source start (2026-10-31 UTC): added concrete strict and weak column-bound propagation and interval-union pruning, with tests for transitivity, strict and weak cycles, finite and infinite endpoints. Equality classes, vector operations, filters and live plugin registration remain pending.
 
 Datatype QE nested constructor equalities (2026-10-31 UTC): added source constructor-path equality solving with accessor terms and recognizer guards, including reversed equalities and guard propagation through substitution. The remaining atom, failure and ownership audits and complete strategy integration are pending.
