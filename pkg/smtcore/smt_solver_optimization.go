@@ -25,7 +25,23 @@ func NewOptimizationSMTSolver(m *ast.ASTManager, p *uparams.ParamsRef, logic str
 		return nil, err
 	}
 	s.optimization = &smtOptimizationSolverState{first: true}
+	if s.kernel.smtParams.state.CaseSplitStrategy == 1 { // CS_ACTIVITY_DELAY_NEW
+		s.setOptimizationRelevancy(0)
+	}
 	return s, nil
+}
+
+// The C++ kernel borrows this fparams field. Keep its Go snapshots and the
+// actual relevance service synchronized, without changing caller parameters.
+func (s *SMTSolver) setOptimizationRelevancy(level uint32) {
+	k := s.kernel
+	k.smtParams.state.RelevancyLvl = level
+	k.smtState.RelevancyLvl = level
+	if !k.relevancy.enabled && level > 0 {
+		k.repairRelevancy = true
+	}
+	k.relevancy.enabled = level > 0
+	k.internalizer.relevancyLevel = level
 }
 
 func (s *SMTSolver) adjustOptimizationResult(status lbool.LBool) lbool.LBool {

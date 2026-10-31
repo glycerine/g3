@@ -483,6 +483,15 @@ func (s *SMTSolver) AssertFormula(formula ast.ASTHandle) error {
 	if err := s.open(); err != nil {
 		return err
 	}
+	if s.optimization != nil {
+		quantified, err := s.manager.HasQuantifiers(formula)
+		if err != nil {
+			return err
+		}
+		if quantified {
+			s.setOptimizationRelevancy(2)
+		}
+	}
 	if err := s.kernel.Assert(formula, ast.ASTHandle{}); err != nil {
 		return err
 	}

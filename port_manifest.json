@@ -102232,7 +102232,8 @@
         "pkg/smtcore/smt_solver.go",
         "pkg/smtcore/smt_solver_optimization.go",
         "pkg/smtcore/smt_solver_optimization_test.go",
-        "pkg/opt/arithmetic_solver_quantifier_external_test.go"
+        "pkg/opt/arithmetic_solver_quantifier_external_test.go",
+        "pkg/smtcore/smt_solver_optimization_relevancy_test.go"
       ],
       "tests": [
         "TestSMTSolverArithmeticObjectiveFacade",
@@ -102247,7 +102248,11 @@
         "TestOptimizationSolverModelFallbackAndCacheReplacement",
         "TestOptimizationSolverCancellationDoesNotBecomeSatisfiable",
         "TestArithmeticSolverQuantifierCandidateRemainsUnknown",
-        "TestOptimizationSolverFirstCheckHonorsAssumptionsAndScope"
+        "TestOptimizationSolverFirstCheckHonorsAssumptionsAndScope",
+        "TestOptimizationSolverConstructorRelevanceFollowsCaseSplit",
+        "TestOptimizationSolverQuantifiedAssertionEnablesRelevanceBeforeSimplification",
+        "TestOptimizationSolverParameterUpdateDoesNotReapplyConstructorRule",
+        "TestOptimizationSolverQuantifiedRelevancePrecedesAssertionRefusal"
       ],
       "assertions": [
         {
@@ -102336,11 +102341,27 @@
             "TestArithmeticSolverQuantifierCandidateRemainsUnknown",
             "TestOptimizationSolverFirstCheckHonorsAssumptionsAndScope"
           ]
+        },
+        {
+          "name": "opt_solver constructor disables relevancy only for CS_ACTIVITY_DELAY_NEW; quantified assertion enables level two before kernel assertion, including later refusal (opt_solver.cpp:49-53,83-88)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/smtcore/smt_solver.go",
+            "pkg/smtcore/smt_solver_optimization.go",
+            "pkg/smtcore/smt_solver_optimization_relevancy_test.go"
+          ],
+          "tests": [
+            "TestOptimizationSolverConstructorRelevanceFollowsCaseSplit",
+            "TestOptimizationSolverQuantifiedAssertionEnablesRelevanceBeforeSimplification",
+            "TestOptimizationSolverParameterUpdateDoesNotReapplyConstructorRule",
+            "TestOptimizationSolverQuantifiedRelevancePrecedesAssertionRefusal"
+          ]
         }
       ],
       "ownership": [
         "Optimizer fallback initializes and publishes a concrete mixed arithmetic plugin before pushing it to each existing context scope, matching context::register_plugin. Existing plugins retain identity and current live arithmetic parameters configure only the newly installed plugin. Ordinary cold RegisterTheory restrictions remain separate; no generic late-plugin adapter is added.",
-        "The optimization-specific solver state owns an independent cached model reference. Successful nonempty get_model replaces that reference; empty current results acquire the previous cache without changing it. Caller references survive replacement and solver teardown. Ordinary SMT construction retains its existing result/status policy. The arithmetic optimizer uses the concrete optimization constructor and restores sticky quantifier uncertainty at the result boundary."
+        "The optimization-specific solver state owns an independent cached model reference. Successful nonempty get_model replaces that reference; empty current results acquire the previous cache without changing it. Caller references survive replacement and solver teardown. Ordinary SMT construction retains its existing result/status policy. The arithmetic optimizer uses the concrete optimization constructor and restores sticky quantifier uncertainty at the result boundary.",
+        "Source relevance writes update the internal fparams state plus the kernel/internalizer/service snapshots. Caller params remain unchanged; the relevance change is outside assertion scopes and survives kernel assertion refusal. A zero-to-enabled transition schedules root relevance repair for previously internalized assertions."
       ],
       "deviations": [
         "The standalone SMTIntegerDiffTheory Go type is an embedded syntax/graph helper for the live real/mixed/dense difference implementations, with no direct setup constructor consumer; it does not receive unused public objective wrappers. Other opt_solver check/result/model-cache, benchmark, maximization and diagnostic bodies remain under audit.",
