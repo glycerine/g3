@@ -1,3 +1,5 @@
+Formula-checking relation operations (2026-10-31 UTC): added checked join, join-project, interpreted-filter-project, negation filter and complement, with SMT equivalence checks and focused relation tests. Fixed a solver regression in Boolean bound-variable macro candidate collection; direct CLI reproduction now returns unsat. The wrapper remains concrete to tables; generic plugin integration and fixedpoint registration are pending.
+
 Formula-checking projection (2026-10-31 UTC): added source existential projection and grounding followed by SMT equivalence checks. Tests cover multiple removed columns, zero-column output and a deliberately false projected formula that the solver rejects.
 
 Formula-checking rename (2026-10-31 UTC): added table cycle renaming and source variable-permutation equivalence checks using SMT. Tests cover a three-column cycle, unchanged source and invalid duplicate columns.

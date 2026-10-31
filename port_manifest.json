@@ -89209,14 +89209,19 @@
         "pkg/muz/rel/table_relation.go",
         "pkg/muz/rel/formula_checked_table_filter.go",
         "pkg/muz/rel/formula_checked_table_union.go",
-        "pkg/muz/rel/formula_checked_table_transform.go"
+        "pkg/muz/rel/formula_checked_table_transform.go",
+        "pkg/muz/rel/formula_checked_table_join.go",
+        "pkg/muz/rel/formula_checked_table_negation.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
         "TestFormulaCheckedTableUnionAndDelta",
         "TestFormulaCheckedTableRename",
-        "TestFormulaCheckedTableProjection"
+        "TestFormulaCheckedTableProjection",
+        "TestFormulaCheckedTableJoin",
+        "TestFormulaCheckedTableFilterByNegation",
+        "TestFormulaCheckedTableComplement"
       ],
       "assertions": [
         {
@@ -89288,7 +89293,7 @@
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Generic relation plugins, fixedpoint registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
@@ -89302,14 +89307,19 @@
         "pkg/muz/rel/table_relation.go",
         "pkg/muz/rel/formula_checked_table_filter.go",
         "pkg/muz/rel/formula_checked_table_union.go",
-        "pkg/muz/rel/formula_checked_table_transform.go"
+        "pkg/muz/rel/formula_checked_table_transform.go",
+        "pkg/muz/rel/formula_checked_table_join.go",
+        "pkg/muz/rel/formula_checked_table_negation.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
         "TestFormulaCheckedTableUnionAndDelta",
         "TestFormulaCheckedTableRename",
-        "TestFormulaCheckedTableProjection"
+        "TestFormulaCheckedTableProjection",
+        "TestFormulaCheckedTableJoin",
+        "TestFormulaCheckedTableFilterByNegation",
+        "TestFormulaCheckedTableComplement"
       ],
       "conditionals": [
         {
@@ -89377,7 +89387,7 @@
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Generic relation plugins, fixedpoint registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
