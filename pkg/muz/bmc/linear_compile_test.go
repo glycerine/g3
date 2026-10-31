@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -151,6 +152,28 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 			if len(trace) != 2 {
 				t.Fatal("linear trace length", len(trace))
 			}
+			bindings, err := compiler.LinearModelBindings(trace[0], 0, level, md)
+			must(err)
+			if len(bindings) != 1 {
+				t.Fatal("linear model binding count", len(bindings))
+			}
+			bound, err := m.RefGet(bindings[0])
+			must(err)
+			if bound != one {
+				t.Fatal("linear model binding", bound, one)
+			}
+			must(m.DelRef(&bindings[0]))
+			empty, err := model.NewModelCore(m)
+			must(err)
+			bindings, err = compiler.LinearModelBindings(trace[0], 0, level, empty)
+			must(err)
+			bound, err = m.RefGet(bindings[0])
+			must(err)
+			if bound != x {
+				t.Fatal("uninterpreted linear binding", bound, x)
+			}
+			must(m.DelRef(&bindings[0]))
+			must(empty.Close())
 			for i := len(trace) - 1; i >= 0; i-- {
 				must(trace[i].Close())
 			}

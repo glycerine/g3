@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
@@ -96,6 +97,72 @@ func (c *Compiler) linearRuleBindings(rule *base.Rule, predicate ast.ASTHandle, 
 			return result, err
 		}
 		fresh++
+	}
+	return result, nil
+}
+
+// LinearModelBindings extracts the source rule-variable substitution from a
+// winning linear BMC model. Uninterpreted constants are left as bound
+// variables. The caller owns each nonempty returned reference.
+func (c *Compiler) LinearModelBindings(rule *base.Rule, ruleIndex, level uint32, md *model.ModelCore) (result []ast.ASTRef, resultErr error) {
+	if c == nil || c.manager == nil || rule == nil || md == nil || md.Manager() != c.manager {
+		return nil, ast.ErrASTHandle
+	}
+	m := c.manager
+	predicate, err := rule.HeadDeclaration()
+	if err != nil {
+		return nil, err
+	}
+	bindings, err := c.linearRuleBindings(rule, predicate, ruleIndex, level)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		for i := len(bindings) - 1; i >= 0; i-- {
+			if bindings[i] != (ast.ASTRef{}) {
+				resultErr = errors.Join(resultErr, m.DelRef(&bindings[i]))
+			}
+		}
+		if resultErr != nil {
+			for i := len(result) - 1; i >= 0; i-- {
+				if result[i] != (ast.ASTRef{}) {
+					resultErr = errors.Join(resultErr, m.DelRef(&result[i]))
+				}
+			}
+			result = nil
+		}
+	}()
+	result = make([]ast.ASTRef, len(bindings))
+	for i, binding := range bindings {
+		if binding == (ast.ASTRef{}) {
+			continue
+		}
+		constant, err := m.RefGet(binding)
+		if err != nil {
+			return result, err
+		}
+		decl, err := m.GetDecl(constant)
+		if err != nil {
+			return result, err
+		}
+		value, err := md.ConstantInterpretation(decl)
+		if err != nil {
+			return result, err
+		}
+		if value.IsNull() {
+			sort, err := m.GetSort(constant)
+			if err != nil {
+				return result, err
+			}
+			value, err = m.MkVar(uint32(i), sort)
+			if err != nil {
+				return result, err
+			}
+		}
+		result[i], err = m.NewRef(value)
+		if err != nil {
+			return result, err
+		}
 	}
 	return result, nil
 }
