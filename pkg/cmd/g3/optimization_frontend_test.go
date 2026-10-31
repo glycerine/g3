@@ -46,3 +46,14 @@ func TestOptimizationFrontendFileTypeDetection(t *testing.T) {
 		})
 	}
 }
+
+func TestOptimizationFrontendWCNFSortMax(t *testing.T) {
+	input := "p wcnf 2 3 10\n10 -1 -2 0\n5 1 0\n3 2 0\n"
+	var output bytes.Buffer
+	if err := runArguments([]string{"opt.maxsat_engine=sortmax", "-wcnf", "-in"}, strings.NewReader(input), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if output.String() != "sat\n   3\n" {
+		t.Fatalf("sortmax output: %q", output.String())
+	}
+}

@@ -103047,9 +103047,15 @@
       "path": "src/opt/opt_solver.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/smtcore/smt_solver_objective.go",
+        "pkg/smtcore/smt_solver_objective_test.go",
+        "pkg/opt/arithmetic_solver.go"
+      ],
+      "tests": [
+        "TestSMTSolverArithmeticObjectiveFacade"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -103062,9 +103068,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "objective facade: add, maximize, query and reset",
+          "status": "partial",
+          "go_target": "pkg/smtcore/smt_solver_objective.go",
+          "tests": [
+            "TestSMTSolverArithmeticObjectiveFacade"
+          ]
+        }
+      ],
+      "ownership": [
+        "The SMT solver owns the registered objective state and model update lifetime."
+      ],
+      "deviations": [
+        "Pending complete source interface, lifecycle and ownership audit alongside the partial implementation."
+      ]
     },
     {
       "path": "src/opt/optsmt.cpp",
@@ -103128,9 +103147,15 @@
       "path": "src/opt/optsmt.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/opt/arithmetic_solver.go",
+        "pkg/opt/arithmetic_solver_shared_repair_external_test.go",
+        "pkg/cmd_context/optimization_bounds.go"
+      ],
+      "tests": [
+        "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -103143,9 +103168,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "arithmetic objective optimization and model bounds",
+          "status": "partial",
+          "go_target": "pkg/opt/arithmetic_solver.go",
+          "tests": [
+            "TestArithmeticSolverSharedObjectiveRepairsStrictSupremum"
+          ]
+        }
+      ],
+      "ownership": [
+        "The arithmetic solver owns objective and model state and borrows its AST manager."
+      ],
+      "deviations": [
+        "Pending the full optsmt interface and engine algorithms, including box, geometric and Symba paths, and ownership audit."
+      ]
     },
     {
       "path": "src/opt/pb_sls.cpp",
@@ -103299,9 +103337,17 @@
       "path": "src/opt/wmax.h",
       "component": "opt",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/opt/maxsmt_sort_engine.go",
+        "pkg/opt/maxsmt_engine_select.go",
+        "pkg/opt/maxsmt_sort_engine_external_test.go",
+        "pkg/cmd/g3/optimization_frontend_test.go"
+      ],
+      "tests": [
+        "TestArithmeticSolverUsesSortMaxForWeightedMutex",
+        "TestOptimizationFrontendWCNFSortMax"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -103314,9 +103360,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "mk_sortmax concrete engine construction and selection",
+          "status": "partial",
+          "go_target": "pkg/opt/maxsmt_sort_engine.go",
+          "tests": [
+            "TestArithmeticSolverUsesSortMaxForWeightedMutex"
+          ]
+        }
+      ],
+      "ownership": [
+        "SortMax owns its generated AST references and borrows the arithmetic solver."
+      ],
+      "deviations": [
+        "Pending mk_wmax theory-based engine and complete header/source ownership audit."
+      ]
     },
     {
       "path": "src/parsers/smt2/CMakeLists.txt",

@@ -1,3 +1,5 @@
+Optimization header source coverage (2026-10-31 UTC): recorded existing objective solver and SortMax concrete implementations against optsmt.h, opt_solver.h and wmax.h, and tested SortMax through WCNF command dispatch. WMax and remaining optimization engines and header audits are pending.
+
 Optimization frontend output and OPB fix (2026-10-31 UTC): available OPB and WCNF objective bounds now use the native shell format and follow statistics output. Single-term OPB constraints are reduced to equivalent Boolean conditions, avoiding an optimizer AST precondition failure; unsat/unknown bounds, signal/timeout and statistics parity remain pending.
 
 Shell frontend source coverage (2026-10-31 UTC): recorded the existing DIMACS solver, model and tracked-core frontend and SMT-LIB2 file frontend against three previously unstarted C++ units. Added a file-extension DIMACS integration test; native signal/timeout and SMT-LIB version-one entry points remain pending.
