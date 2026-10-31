@@ -52270,3 +52270,5 @@ Arithmetic projection source driver started: translated the original integer mod
 Arithmetic projection source driver completion: added the source's disequality, distinct and both negated-distinct examples, along with the function interpretation that prevents projection. All active test_project examples now check their results in the original model; the remaining source calls follow an unconditional return.
 
 Windows API source driver: translated the five nested uninterpreted function applications, incremental 30-, 31- and 32-bit negative numeral examples, and mismatched-sort distinct error. Solver statuses and the Go error replace the source's printed results and C error callback.
+
+Overflow multiplication driver increment: added all unsigned multiplication boundary cases at widths 1, 16, 32 and 42, checking each predicate and its negation. Signed multiplication remains open because its source test expectations conflict with the source rewriter's constant folding.

@@ -206232,7 +206232,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/api/api_no_overflow_cpp_test.go", "pkg/api/api_no_overflow_unary_cpp_test.go", "pkg/api/api_no_overflow_equiv_cpp_test.go"],
-      "tests": ["TestNoOverflowSourceAdditionBounds", "TestNoOverflowSourceSubtractionBounds", "TestNoOverflowSourceNegationAndDivisionBounds", "TestNoOverflowSourceSymbolicEquivalences"],
+      "tests": ["TestNoOverflowSourceAdditionBounds", "TestNoOverflowSourceSubtractionBounds", "TestNoOverflowSourceUnsignedMultiplicationBounds", "TestNoOverflowSourceNegationAndDivisionBounds", "TestNoOverflowSourceSymbolicEquivalences"],
       "conditionals": [
         {
           "line": 19,
@@ -206263,9 +206263,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "test_add boundary cases and TEST macros", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceAdditionBounds"]}, {"name": "test_sub boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceSubtractionBounds"]}, {"name": "test_neg and test_div boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_unary_cpp_test.go", "tests": ["TestNoOverflowSourceNegationAndDivisionBounds"]}, {"name": "test_equiv symbolic overflow equivalences", "status": "partial", "go_target": "pkg/api/api_no_overflow_equiv_cpp_test.go", "tests": ["TestNoOverflowSourceSymbolicEquivalences"]}, {"name": "test_mul boundary cases", "status": "unported"}],
+      "methods": [{"name": "test_add boundary cases and TEST macros", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceAdditionBounds"]}, {"name": "test_sub boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceSubtractionBounds"]}, {"name": "test_neg and test_div boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_unary_cpp_test.go", "tests": ["TestNoOverflowSourceNegationAndDivisionBounds"]}, {"name": "test_equiv symbolic overflow equivalences", "status": "partial", "go_target": "pkg/api/api_no_overflow_equiv_cpp_test.go", "tests": ["TestNoOverflowSourceSymbolicEquivalences"]}, {"name": "test_mul boundary cases", "status": "partial", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceUnsignedMultiplicationBounds"]}],
       "ownership": ["Each width and signedness case closes its solver and fixture after all scoped assertions are popped."],
-      "deviations": ["The original implementation is enabled only on Windows; the Go test runs the same addition cases on supported Go hosts. Multiplication boundary cases and 16-bit symbolic multiplication equivalence proofs remain open; the signed 16-bit proof exceeded a four-minute focused run. Signed multiplication source boundary expectations disagree with the source bit-vector constant-folder for one-bit 1*1 and negative operands; the Go solver mirrors that source fold."]
+      "deviations": ["The original implementation is enabled only on Windows; the Go tests run on supported Go hosts. Signed multiplication boundary cases and 16-bit symbolic multiplication equivalence proofs remain open; the signed 16-bit proof exceeded a four-minute focused run. Signed multiplication source boundary expectations disagree with the source bit-vector constant-folder for one-bit 1*1 and negative operands; the Go solver mirrors that source fold."]
     },
     {
       "path": "src/test/object_allocator.cpp",
