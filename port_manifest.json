@@ -88747,12 +88747,13 @@
         "pkg/muz/pdr/pdr_closure.go",
         "pkg/muz/pdr/predicate_rules.go",
         "pkg/muz/pdr/context_solve.go",
-        "pkg/muz/fp/pdr_engine.go"
+        "pkg/muz/fp/pdr_engine.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestPredicateTransformerCheckInductiveReturnsSubsetCore",
         "TestConvexGeneralizerRestoresPropSolverModes",
-        "TestContextSolveFindsReachablePredicate",
+        "TestContextBoundedQueryTraversesTaggedHornChain",
         "TestContextSolveFindsInductiveUnreachablePredicate",
         "TestSMTLibRunnerScripts/fixedpoint_pdr_arithmetic_invariant.smt2",
         "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_invariant.smt2",
@@ -88807,13 +88808,25 @@
           "name": "core_bool_inductive_generalizer literal dropping with source failure-limit and processed-literal restart behavior",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizers.go",
-          "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore", "TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_invariant.smt2"]
+          "tests": [
+            "TestPredicateTransformerCheckInductiveReturnsSubsetCore",
+            "TestContextSolveFindsInductiveUnreachablePredicate",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_invariant.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "core_convex_hull_generalizer live multi-core method1 for closed hulls and interiors",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizers.go",
-          "go_targets": ["pkg/muz/pdr/pdr_closure.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/fp/pdr_engine.go"],
+          "go_targets": [
+            "pkg/muz/pdr/pdr_closure.go",
+            "pkg/muz/pdr/context_solve.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
           "tests": [
             "TestConvexClosureAndInteriorOwnExpectedEndpointRegions",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2",
@@ -88824,22 +88837,52 @@
           "name": "core_arith_inductive_generalizer bound pairing, alias extrapolation, integer lattice candidate and all-or-nothing inductiveness check",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizer_arithmetic.go",
-          "go_targets": ["pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/context.go", "pkg/muz/fp/pdr_engine.go"],
-          "tests": ["TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid", "TestArithmeticInductiveCandidateNormalizesNegationAndOverwritesMagnitude", "TestArithmeticInductiveCandidateRealAliasOmitsIntegerGrid", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2"]
+          "go_targets": [
+            "pkg/muz/pdr/generalizers.go",
+            "pkg/muz/pdr/context.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid",
+            "TestArithmeticInductiveCandidateNormalizesNegationAndOverwritesMagnitude",
+            "TestArithmeticInductiveCandidateRealAliasOmitsIntegerGrid",
+            "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2"
+          ]
         },
         {
           "name": "core_induction_generalizer bounded staged transition/property induction goal and parent-obligation replacement",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizer_induction.go",
-          "go_targets": ["pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/context.go", "pkg/muz/fp/pdr_engine.go"],
-          "tests": ["TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerRecursiveRuleLevelZeroAndQueueOrdering", "TestInductionGeneralizerLevelOnePreservesUnsignedUnderflowBoundary", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt", "TestInductionGeneralizerRootFallsBackWithIndependentOwnership", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"]
+          "go_targets": [
+            "pkg/muz/pdr/generalizers.go",
+            "pkg/muz/pdr/context.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape",
+            "TestInductionGeneralizerRecursiveRuleLevelZeroAndQueueOrdering",
+            "TestInductionGeneralizerLevelOnePreservesUnsignedUnderflowBoundary",
+            "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt",
+            "TestInductionGeneralizerRootFallsBackWithIndependentOwnership",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"
+          ]
         },
         {
           "name": "core_multi_generalizer reached first-core minimization and parameter dispatch; the source additional-core loop observes its never-populated old_core vector",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizers.go",
-          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/fp/pdr_engine.go"],
-          "tests": ["TestContextActivatesFarkasBeforeArithmeticSolvers", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_multicore.smt2"]
+          "go_targets": [
+            "pkg/muz/pdr/context.go",
+            "pkg/muz/fp/pdr_engine.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestContextActivatesFarkasBeforeArithmeticSolvers",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_multicore.smt2"
+          ]
         },
         {
           "name": "core_farkas_generalizer and consequence-driven convex-hull method3",
@@ -88863,8 +88906,25 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/pdr/generalizers.go", "pkg/muz/pdr/generalizer_arithmetic.go", "pkg/muz/pdr/generalizer_induction.go", "pkg/muz/pdr/pdr_closure.go"],
-      "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore", "TestConvexClosureAndInteriorOwnExpectedEndpointRegions", "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset", "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"],
+      "go_targets": [
+        "pkg/muz/pdr/generalizers.go",
+        "pkg/muz/pdr/generalizer_arithmetic.go",
+        "pkg/muz/pdr/generalizer_induction.go",
+        "pkg/muz/pdr/pdr_closure.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestPredicateTransformerCheckInductiveReturnsSubsetCore",
+        "TestConvexClosureAndInteriorOwnExpectedEndpointRegions",
+        "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid",
+        "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset",
+        "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape",
+        "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt",
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_closure.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_convex_interior.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_arithmetic_inductive.smt2",
+        "TestSMTLibRunnerCPPReference/fixedpoint_pdr_inductive_reachability.smt2"
+      ],
       "conditionals": [
         {
           "line": 20,
@@ -88882,31 +88942,47 @@
           "name": "core_bool_inductive_generalizer retained concrete surface",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizers.go",
-          "tests": ["TestPredicateTransformerCheckInductiveReturnsSubsetCore"]
+          "tests": [
+            "TestPredicateTransformerCheckInductiveReturnsSubsetCore"
+          ]
         },
         {
           "name": "core_convex_hull_generalizer retained multi-core declaration and live method1 dispatch",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizers.go",
-          "tests": ["TestConvexClosureAndInteriorOwnExpectedEndpointRegions"]
+          "tests": [
+            "TestConvexClosureAndInteriorOwnExpectedEndpointRegions"
+          ]
         },
         {
           "name": "core_arith_inductive_generalizer retained concrete declaration",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizer_arithmetic.go",
-          "tests": ["TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid", "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset"]
+          "tests": [
+            "TestArithmeticInductiveCandidateRewritesAliasesAndIntegerGrid",
+            "TestArithmeticInductiveCoreOwnsFallbackAndAdoptedSubset"
+          ]
         },
         {
           "name": "core_induction_generalizer retained concrete declaration",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizer_induction.go",
-          "tests": ["TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape", "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt"]
+          "tests": [
+            "TestInductionGeneralizerTransitionRuleLevelZeroAndQuantifierShape",
+            "TestInductionGeneralizerUnsatAdoptsBlockedTransitionAndOwnsIt"
+          ]
         },
         {
           "name": "optional core_multi generalizer declaration and reached first-core behavior",
           "status": "ported",
           "go_target": "pkg/muz/pdr/generalizers.go",
-          "tests": ["TestContextActivatesFarkasBeforeArithmeticSolvers", "TestSMTLibRunnerCPPReference/fixedpoint_pdr_multicore.smt2"]
+          "tests": [
+            "TestContextActivatesFarkasBeforeArithmeticSolvers",
+            "TestSMTLibRunnerCPPReference/fixedpoint_pdr_multicore.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "core_farkas_generalizer declaration",
@@ -88972,21 +89048,38 @@
           "name": "inductive_property direct-predicate universally quantified expression construction (pdr_manager.cpp:57-76,85-122)",
           "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "go_targets": ["pkg/muz/fp/propositional_engine.go"],
-          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTContextFixedpointPDRLifecycle", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/api/api_fixedpoint_test.go"
+          ],
+          "tests": [
+            "TestContextSolveFindsInductiveUnreachablePredicate",
+            "TestSMTContextFixedpointPDRLifecycle",
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+          ]
         },
         {
           "name": "inductive_property direct-predicate model materialization (pdr_manager.cpp:85-122)",
           "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+          "tests": [
+            "TestSMTContextFixedpointPDRLifecycle"
+          ],
+          "go_targets": [
+            "pkg/api/api_fixedpoint_test.go"
+          ]
         },
         {
           "name": "inductive_property model-converter application and model string certificate display (pdr_manager.cpp:76-84,85-122)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/parsers/smt2/commands.go"],
-          "tests": ["TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestSMT2FixedpointPDRPrintCertificate"]
+          "go_targets": [
+            "pkg/parsers/smt2/commands.go"
+          ],
+          "tests": [
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestSMT2FixedpointPDRPrintCertificate"
+          ]
         },
         {
           "name": "inductive_property rule-manager diagnostic display (pdr_manager.cpp:123-156)",
@@ -89055,21 +89148,37 @@
           "name": "direct-predicate inductive_property expression surface",
           "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "go_targets": ["pkg/muz/fp/propositional_engine.go"],
-          "tests": ["TestContextSolveFindsInductiveUnreachablePredicate", "TestSMTContextFixedpointPDRLifecycle"]
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine.go",
+            "pkg/api/api_fixedpoint_test.go"
+          ],
+          "tests": [
+            "TestContextSolveFindsInductiveUnreachablePredicate",
+            "TestSMTContextFixedpointPDRLifecycle"
+          ]
         },
         {
           "name": "direct-predicate inductive_property model surface",
           "status": "ported",
           "go_target": "pkg/muz/pdr/answer.go",
-          "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+          "tests": [
+            "TestSMTContextFixedpointPDRLifecycle"
+          ],
+          "go_targets": [
+            "pkg/api/api_fixedpoint_test.go"
+          ]
         },
         {
           "name": "inductive_property converter and model-string certificate surface",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
-          "go_targets": ["pkg/parsers/smt2/commands.go"],
-          "tests": ["TestPDREngineCertificateHidesSimpleJoinAuxiliaries", "TestSMT2FixedpointPDRPrintCertificate"]
+          "go_targets": [
+            "pkg/parsers/smt2/commands.go"
+          ],
+          "tests": [
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries",
+            "TestSMT2FixedpointPDRPrintCertificate"
+          ]
         },
         {
           "name": "inductive_property rule-manager diagnostic display declaration",
@@ -89182,6 +89291,9 @@
             "TestPropSolverFarkasCoreRestoresSafeProxy",
             "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment",
             "TestArithmeticBoundsKeepStrongestBounds"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/arith_bounds_test.go"
           ]
         },
         {
@@ -90787,8 +90899,27 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/compiler.go", "pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP", "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2"],
+      "go_targets": [
+        "pkg/muz/rel/compiler.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
+        "TestFiniteCompilerJoinsTwoPositiveTails",
+        "TestFiniteCompilerOrdersFactsAndIdentityRules",
+        "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution",
+        "TestFiniteCompilerSaturatesRecursiveRules",
+        "TestFiniteCompilerStratumTrace",
+        "TestPropositionalEngineExecutesStratifiedNegation",
+        "TestPropositionalEngineMatchesCPPFixedpointQueries",
+        "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP",
+        "TestSMT2FixedpointPropositionalQueriesMatchCPP",
+        "TestSMT2FixedpointRecursiveClosureMatchesCPP",
+        "TestSMT2FixedpointTwoTailJoinMatchesCPP",
+        "TestSMTLibRunnerScripts/fixedpoint_propositional.smt2"
+      ],
       "conditionals": [
         {
           "line": 742,
@@ -91032,43 +91163,90 @@
           "name": "Finite predicate register allocation, load-once behavior, fresh signature tracking, and termination stores (dl_compiler.cpp:35-167,1295-1335)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerOrdersFactsAndIdentityRules"]
+          "tests": [
+            "TestFiniteCompilerOrdersFactsAndIdentityRules"
+          ]
         },
         {
           "name": "Complete structural finite head assembly for constants, bound/unbound and repeated variables using cached singleton/total registers, projection, correlated duplication, cycle renaming, joins, union, and temporary deallocation (dl_compiler.cpp:169-400,813-864)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules"]
+          "tests": [
+            "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
+            "TestFiniteCompilerOrdersFactsAndIdentityRules"
+          ]
         },
         {
           "name": "Single-tail constant selection, repeated-variable identity filtering, unused-variable projection, and handoff to complete head assembly (dl_compiler.cpp:518-598,813-863)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerOrdersFactsAndIdentityRules"]
+          "tests": [
+            "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
+            "TestFiniteCompilerOrdersFactsAndIdentityRules"
+          ]
         },
         {
           "name": "Two-positive-tail preprocessing and equality/Cartesian join construction with shared-variable column matching and temporary deallocation (dl_compiler.cpp:401-517)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerJoinsTwoPositiveTails", "TestSMT2FixedpointTwoTailJoinMatchesCPP"]
+          "tests": [
+            "TestFiniteCompilerJoinsTwoPositiveTails",
+            "TestSMT2FixedpointTwoTailJoinMatchesCPP"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         },
         {
           "name": "Recursive finite least-fixpoint bytecode using per-predicate current/next control deltas, semi-naive one-tail-at-a-time delta substitution, loop termination on empty deltas, and temporary ownership transfer (dl_compiler.cpp:902-1188)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestSMT2FixedpointRecursiveClosureMatchesCPP"]
+          "tests": [
+            "TestFiniteCompilerSaturatesRecursiveRules",
+            "TestFiniteCompilerStratumTrace",
+            "TestSMT2FixedpointRecursiveClosureMatchesCPP"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         },
         {
           "name": "Stratified negative-predicate anti-joins, including constant selection, repeated variables, finite expansion of unbound variables, lower-stratum ordering, and mutable-target ownership (dl_compiler.cpp:634-683,1189-1275)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestPropositionalEngineExecutesStratifiedNegation", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP"]
+          "tests": [
+            "TestPropositionalEngineExecutesStratifiedNegation",
+            "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         },
         {
           "name": "Dependency-first acyclic compilation and source cycle-breaker ordering before recursive fallback-loop compilation for positive zero-, one-, and two-tail rules with explicit pre-execution refusal for unsupported rules (dl_compiler.cpp:1002-1018,1196-1245)",
           "status": "ported",
           "go_target": "pkg/muz/rel/compiler.go",
-          "tests": ["TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads", "TestFiniteCompilerJoinsTwoPositiveTails", "TestFiniteCompilerOrdersFactsAndIdentityRules", "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution", "TestFiniteCompilerSaturatesRecursiveRules", "TestFiniteCompilerStratumTrace", "TestSourceDependencyOrderAcyclicChain", "TestSourceDependencyOrderRestrictsExternalDependencies", "TestSourceDependencyOrderBreaksAndAppendsCycleVertex", "TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles", "TestSourceDependencyOrderExhaustiveFourNodeGraphInvariants", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestSMT2FixedpointRecursiveClosureMatchesCPP", "TestSMT2FixedpointTwoTailJoinMatchesCPP"]
+          "tests": [
+            "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
+            "TestFiniteCompilerJoinsTwoPositiveTails",
+            "TestFiniteCompilerOrdersFactsAndIdentityRules",
+            "TestFiniteCompilerRejectsRicherRulesWithoutPartialExecution",
+            "TestFiniteCompilerSaturatesRecursiveRules",
+            "TestFiniteCompilerStratumTrace",
+            "TestSourceDependencyOrderAcyclicChain",
+            "TestSourceDependencyOrderRestrictsExternalDependencies",
+            "TestSourceDependencyOrderBreaksAndAppendsCycleVertex",
+            "TestSourceDependencyOrderBreaksIndependentSelfAndMultiNodeCycles",
+            "TestSourceDependencyOrderExhaustiveFourNodeGraphInvariants",
+            "TestPropositionalEngineMatchesCPPFixedpointQueries",
+            "TestSMT2FixedpointRecursiveClosureMatchesCPP",
+            "TestSMT2FixedpointTwoTailJoinMatchesCPP"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         }
       ],
       "ownership": [
@@ -93063,8 +93241,24 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/simple_joins.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go", "pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/base/rule_display.go", "pkg/muz/fp/propositional_engine.go"],
-      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestRuleManagerWriteSourceRuleDisplay", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"],
+      "go_targets": [
+        "pkg/muz/transforms/simple_joins.go",
+        "pkg/muz/transforms/simple_joins_global.go",
+        "pkg/muz/transforms/simple_joins_pair.go",
+        "pkg/muz/transforms/simple_joins_cost.go",
+        "pkg/muz/base/rule_display.go",
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+      ],
+      "tests": [
+        "TestPropositionalEngineCompilesSimpleJoinNormalization",
+        "TestSimpleJoinsUsesSourceSplitPredicateNames",
+        "TestSimpleJoinPairCostCountsRepeatedVariablePositions",
+        "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder",
+        "TestRuleManagerWriteSourceRuleDisplay",
+        "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP",
+        "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+      ],
       "assertions": [
         {
           "line": 64,
@@ -93178,20 +93372,50 @@
           "name": "Global cost-based simple-join planner, normalized pair sharing, strata and output accounting, source-style binary rule rewriting, and result publication (dl_mk_simple_joins.cpp:38-745)",
           "status": "ported",
           "go_target": "pkg/muz/transforms/simple_joins.go",
-          "supporting_go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_global.go", "pkg/muz/transforms/simple_joins_pair.go"],
-          "tests": ["TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSimpleJoinsSelectsLowestEstimatedPair", "TestSimpleJoinPairCostCountsRepeatedVariablePositions", "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder", "TestRuleManagerWriteSourceRuleDisplay", "TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP", "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"]
+          "supporting_go_targets": [
+            "pkg/muz/transforms/simple_joins_cost.go",
+            "pkg/muz/transforms/simple_joins_global.go",
+            "pkg/muz/transforms/simple_joins_pair.go"
+          ],
+          "tests": [
+            "TestSimpleJoinsUsesSourceSplitPredicateNames",
+            "TestSimpleJoinsSelectsLowestEstimatedPair",
+            "TestSimpleJoinPairCostCountsRepeatedVariablePositions",
+            "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder",
+            "TestRuleManagerWriteSourceRuleDisplay",
+            "TestPropositionalEngineCompilesSimpleJoinNormalization",
+            "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP",
+            "TestPDREngineCertificateHidesSimpleJoinAuxiliaries"
+          ],
+          "go_targets": [
+            "pkg/muz/base/rule_formula_display_test.go",
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ]
         }
       ],
-      "ownership": ["SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules."],
-      "deviations": ["The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, ordered registration history, and one-time registration trace state. Regressions cover dynamic registration append/removal order and trace de-duplication across rebuilds. Both report_costs and dl TRACE paths are implemented with source-shaped predicate/rule text and amortized cost output; trace stream refusal is ignored by the planner as in the C++ TRACE calls. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression. The optional context-controlled output_profile suffix on rule::display is not exposed by retained Go trace callers; those callers use the source default profile setting (false)."]
+      "ownership": [
+        "SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules."
+      ],
+      "deviations": [
+        "The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, ordered registration history, and one-time registration trace state. Regressions cover dynamic registration append/removal order and trace de-duplication across rebuilds. Both report_costs and dl TRACE paths are implemented with source-shaped predicate/rule text and amortized cost output; trace stream refusal is ignored by the planner as in the C++ TRACE calls. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression. The optional context-controlled output_profile suffix on rule::display is not exposed by retained Go trace callers; those callers use the source default profile setting (false)."
+      ]
     },
     {
       "path": "src/muz/rel/dl_mk_simple_joins.h",
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/simple_joins.go"],
-      "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames", "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP"],
+      "go_targets": [
+        "pkg/muz/transforms/simple_joins.go",
+        "pkg/muz/fp/propositional_engine_test.go",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+      ],
+      "tests": [
+        "TestPropositionalEngineCompilesSimpleJoinNormalization",
+        "TestSimpleJoinsUsesSourceSplitPredicateNames",
+        "TestSMT2FixedpointSimpleJoinNormalizationMatchesCPP"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -93204,9 +93428,26 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "Owned priority-1000 simple-join transformer plugin surface (dl_mk_simple_joins.h:38-59)", "status": "ported", "go_target": "pkg/muz/transforms/simple_joins.go", "tests": ["TestPropositionalEngineCompilesSimpleJoinNormalization", "TestSimpleJoinsUsesSourceSplitPredicateNames"]}],
-      "ownership": ["RuleTransformer owns and closes SimpleJoinsPlugin after applying its returned RuleSet."],
-      "deviations": ["Planner-specific private C++ containers are replaced by concrete Go slices and maps for the retained deterministic normalization path."]
+      "methods": [
+        {
+          "name": "Owned priority-1000 simple-join transformer plugin surface (dl_mk_simple_joins.h:38-59)",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/simple_joins.go",
+          "tests": [
+            "TestPropositionalEngineCompilesSimpleJoinNormalization",
+            "TestSimpleJoinsUsesSourceSplitPredicateNames"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go"
+          ]
+        }
+      ],
+      "ownership": [
+        "RuleTransformer owns and closes SimpleJoinsPlugin after applying its returned RuleSet."
+      ],
+      "deviations": [
+        "Planner-specific private C++ containers are replaced by concrete Go slices and maps for the retained deterministic normalization path."
+      ]
     },
     {
       "path": "src/muz/rel/dl_product_relation.cpp",
@@ -93457,8 +93698,20 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/rel/relation_manager.go", "pkg/muz/rel/table.go", "pkg/muz/rel/table_join_project.go", "pkg/muz/rel/table_join_project_test.go"],
-      "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerOwnsStoredPredicateRelations", "TestRelationManagerRejectsInfiniteAndWrongSortValues", "TestHashTableFiniteFiltersValidateAndMutate", "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature", "TestRelationInstructionsLoadCloneAndStoreOwnership"],
+      "go_targets": [
+        "pkg/muz/rel/relation_manager.go",
+        "pkg/muz/rel/table.go",
+        "pkg/muz/rel/table_join_project.go",
+        "pkg/muz/rel/table_join_project_test.go"
+      ],
+      "tests": [
+        "TestRelationManagerFiniteSignatureAndFactRoundTrip",
+        "TestRelationManagerOwnsStoredPredicateRelations",
+        "TestRelationManagerRejectsInfiniteAndWrongSortValues",
+        "TestHashTableFiniteFiltersValidateAndMutate",
+        "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature",
+        "TestRelationInstructionsLoadCloneAndStoreOwnership"
+      ],
       "assertions": [
         {
           "line": 71,
@@ -93600,31 +93853,47 @@
           "name": "Owned predicate relation store, lazy empty relation creation, replacement, reset, and retained declaration lifetime (dl_relation_manager.cpp:31-121)",
           "status": "ported",
           "go_target": "pkg/muz/rel/relation_manager.go",
-          "tests": ["TestRelationManagerOwnsStoredPredicateRelations", "TestRelationInstructionsLoadCloneAndStoreOwnership"]
+          "tests": [
+            "TestRelationManagerOwnsStoredPredicateRelations",
+            "TestRelationInstructionsLoadCloneAndStoreOwnership"
+          ]
         },
         {
           "name": "Predicate saturation state publication, lookup, and reset for completed finite strata (dl_relation_manager.cpp:121-139)",
           "status": "ported",
           "go_target": "pkg/muz/rel/relation_manager.go",
-          "tests": ["TestFiniteCompilerSaturatesRecursiveRules", "TestPropositionalEngineMatchesCPPFixedpointQueries"]
+          "tests": [
+            "TestFiniteCompilerSaturatesRecursiveRules",
+            "TestPropositionalEngineMatchesCPPFixedpointQueries"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go"
+          ]
         },
         {
           "name": "Finite predicate-domain to table signature conversion and Bool/bit-vector/Datalog finite numeral fact conversion in both directions (dl_relation_manager.cpp:373-451)",
           "status": "ported",
           "go_target": "pkg/muz/rel/relation_manager.go",
-          "tests": ["TestRelationManagerFiniteSignatureAndFactRoundTrip", "TestRelationManagerRejectsInfiniteAndWrongSortValues"]
+          "tests": [
+            "TestRelationManagerFiniteSignatureAndFactRoundTrip",
+            "TestRelationManagerRejectsInfiniteAndWrongSortValues"
+          ]
         },
         {
           "name": "Concrete default finite-table equality and identical-column mutators (dl_relation_manager.cpp:1276-1310,1350-1380)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
-          "tests": ["TestHashTableFiniteFiltersValidateAndMutate"]
+          "tests": [
+            "TestHashTableFiniteFiltersValidateAndMutate"
+          ]
         },
         {
           "name": "Default finite-table join/project fallback owns a temporary joined table through projection (dl_relation_manager.cpp:1084-1140)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
-          "tests": ["TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature"]
+          "tests": [
+            "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature"
+          ]
         }
       ],
       "ownership": [
@@ -95426,7 +95695,10 @@
         "pkg/cmd/g3/test_vectors/fp_spacer_skip_propagate.smt2",
         "pkg/cmd/g3/test_vectors/fp_spacer_arith_inv.smt2",
         "pkg/cmd/g3/test_vectors/fp_spacer_linear_inv.smt2",
-        "pkg/cmd/g3/test_vectors/fp_spacer_mutual_inv.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_mutual_inv.smt2",
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/api/api_fixedpoint_test.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestContextCertificateAndProofPresentationSurface",
@@ -95721,36 +95993,376 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "pred_transformer::add_cover substitutes variable expressions with local constants using expr_substitution/default_expr_replacer including beneath quantifiers (spacer_context.cpp:583-605)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_cover.go", "pkg/muz/spacer/predicate_cover_substitution_test.go"], "tests": ["TestSpacerCoverUsesSourceExpressionSubstitution"]},
-        {"name": "pred_transformer::get_formulas and get_cover_delta use manager Boolean conjunction reduction and owning expr_ref lifetimes through caller renaming, model construction and transformer teardown (spacer_context.cpp:300-309,501-520)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/predicate_cover.go", "pkg/muz/spacer/context.go", "pkg/muz/spacer/predicate_rule_queries.go", "pkg/muz/spacer/predicate_reach.go", "pkg/muz/spacer/predicate_cover_substitution_test.go"], "tests": ["TestSpacerCoverUsesSourceExpressionSubstitution", "TestSpacerPredicateTransformerConnectsFramesAndSolver", "TestSpacerRulePredicateTransformerBuildsSourceStateSignature"]},
-        {"name": "pred_transformer::ground_free_vars uses expr_free_vars over quantifier bodies, excludes annotation-only free variables and introduces auxiliaries only for body variables without atom representatives (spacer_context.cpp:1019-1037)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_rules.go", "pkg/muz/spacer/predicate_ground_variables_test.go"], "tests": ["TestSpacerRuleGroundingUsesBodyFreeVariables"]},
-        {"name": "context::get_ground_sat_answer asserts the full tagged predicate transition plus the selected rule tag in each incremental local counterexample scope (spacer_context.cpp:2516-2517)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_answer.go", "pkg/muz/spacer/context_ground_answer_test.go"], "tests": ["TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments"]},
-        {"name": "pred_transformer::initialize theory-rewrites completed transition and initial formulas after init_rules and before storing/asserting them (spacer_context.cpp:845-854)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_rules.go", "pkg/muz/spacer/predicate_tagged_system_test.go"], "tests": ["TestSpacerTaggedSystemRewritesImplicationsAndPreservesTagOrder"]},
-        {"name": "pred_transformer::init_reach_facts iterates only live tagged rules, excluding transitions normalized to false by init_rule (spacer_context.cpp:868-877,993-1002)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_reach.go", "pkg/muz/spacer/predicate_initial_facts_test.go"], "tests": ["TestSpacerInitialReachFactsExcludeFalseRules"]},
-        {"name": "context::stats live query, reach-query, reuse, level, unknown expansion, lemma and restart accounting; collect_statistics/reset_statistics; restart thresholds count only successful search-generated lemma additions and counters survive reset/update_rules (spacer_context.h:675-686; spacer_context.cpp:2593-2607,2678,2881,2970,2993,3171,3305-3352)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_statistics.go", "pkg/muz/spacer/context.go", "pkg/muz/spacer/predicate_expand.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/predicate_reach_projection.go", "pkg/muz/spacer/search.go", "pkg/muz/spacer/context_statistics_test.go", "pkg/muz/spacer/context_ground_answer_test.go", "pkg/muz/spacer/search_restart_test.go"], "tests": ["TestSpacerContextCountsGeneratedLemmasAcrossRuleUpdates", "TestSpacerContextRecordsAttemptedQueryLevel", "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments", "TestSpacerRestartKeepsObligationsBehindRoot"]},
-        {"name": "context::expand_node flexible-trace frame-blocking fast path skips lemma generation and does not lower the expanded level; check_reachability still increments and requeues the obligation (spacer_context.cpp:2859-2867,2707-2723)", "status": "ported", "go_targets": ["pkg/muz/spacer/search.go", "pkg/muz/spacer/search_flexible_test.go"], "tests": ["TestSpacerFlexibleTraceSkipsExpansionOfFrameBlockedRoot", "TestSpacerFlexibleTraceStillExpandsReachableRoot"]},
-        {"name": "context::expand_node advances attached derivations after concrete reach-summary success even when no rule tag was selected (spacer_context.cpp:2887-2930)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_expand.go", "pkg/muz/spacer/search_confirmation_test.go"], "tests": ["TestSpacerReachFactExpansionAdvancesSiblingDerivation"]},
-        {"name": "context::get_cex_depth traverses derivation frontiers excluding the query wrapper; solve records successful depth and reset_statistics clears it; get_rules_along_trace stops at query wrappers without exactly one premise (spacer_context.cpp:2234-2236,2255-2323,2363-2374,3317,3351)", "status": "ported", "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/context_depth_test.go"], "tests": ["TestSpacerCounterexampleDepth"]},
-        {"name": "context::add_cover creates a transformer for a previously absent predicate; get_num_levels returns zero for absent predicates; initial rule installation inherits supplied cover frames (spacer_context.cpp:2002-2012,2022-2035)", "status": "ported", "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_cover_creation_test.go"], "tests": ["TestSpacerCoverCreatesMissingPredicateAndSurvivesRuleUpdate"]},
-        {"name": "pred_transformer::init_rules builds intermediate guarded implications, uses the manager-owned bool_rewriter only for top-level conjunction construction, and orders the dummy tag before extension in the single-rule branch (spacer_context.cpp:879-934)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_rules.go", "pkg/muz/spacer/manager.go", "pkg/muz/spacer/predicate_tagged_system_test.go"], "tests": ["TestSpacerTaggedSystemRewritesImplicationsAndPreservesTagOrder"]},
-        {"name": "context::check_reachability restart pops only entries preceding the root, preserves later obligations and expands the root in the same iteration (spacer_context.cpp:2676-2691)", "status": "ported", "go_targets": ["pkg/muz/spacer/search.go", "pkg/muz/spacer/search_restart_test.go"], "tests": ["TestSpacerRestartKeepsObligationsBehindRoot"]},
-        {"name": "context::checkpoint and live solve/search/propagate/expand/generalizer call sites detect AST cancellation and resource exhaustion with source spacer canceled error; dirty cleanup and restart continuations share their search-cycle checkpoint", "status": "ported", "go_targets": ["pkg/muz/spacer/context_checkpoint.go", "pkg/muz/spacer/context.go", "pkg/muz/spacer/search.go", "pkg/muz/spacer/predicate_expand.go", "pkg/muz/spacer/context_cancellation_test.go"], "tests": ["TestSpacerQueueCancellationPrecedesClosedRootSuccess", "TestSpacerPropagationCancellationPrecedesEmptyFrameConvergence"]},
-        {"name": "context::is_reachable enqueues each next derivation child and removes the closed current top before recursive confirmation, preserving unconfirmed siblings for normal search (spacer_context.cpp:2794-2816)", "status": "ported", "go_targets": ["pkg/muz/spacer/search.go", "pkg/muz/spacer/search_confirmation_test.go"], "tests": ["TestSpacerConcreteConfirmationQueuesSuccessiveSiblings"]},
-        {"name": "context::propagate records the actual convergence level and runs configured post-simplification after convergence above the query bound; solve_core preserves the recorded level (spacer_context.cpp:3060-3096)", "status": "ported", "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_propagation_test.go"], "tests": ["TestSpacerPropagationRecordsActualConvergenceLevel", "TestSpacerPropagationSimplifiesAfterConvergenceAboveQueryBound"]},
-        {"name": "context::reset preserves manager and selected query ownership while destroying transformers and old search/answer state; set_axioms updates manager background before replacement rule initialization", "status": "ported", "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/spacer_rule_lifecycle_test.go"], "tests": ["TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules", "TestSpacerUpdateRulesCopiesFramesAndClearsSearchState"]},
-        {"name": "context::update_rules and frames::inherit_frames construct new transformers/reach facts, normalize independent lemma copies with levels/bindings, clear old search state and preserve the selected query declaration for solve_core lookup (spacer_context.cpp:1981-2000; spacer_context.h:214-224)", "status": "ported", "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_frames.go", "pkg/muz/spacer/context_update_test.go"], "tests": ["TestSpacerUpdateRulesCopiesFramesAndClearsSearchState", "TestSpacerUpdateRulesReplacesPredicateSetAndInitialReachFacts"]},
-        {"name": "lemma::mk_expr_core abstracts and quantifies obligation skolems only when the normalized clause contains a sk! constant, copying bindings only in that branch (spacer_context.cpp:1145-1165)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_lemma.go", "pkg/muz/spacer/proof_obligation_test.go"], "tests": ["TestSpacerProofObligationBindingsDirtyStateAndQueue"]},
-        {"name": "context::get_ground_sat_answer uses one incremental counterexample solver with per-node push/pop scopes and queue-ordered branching reconstruction (spacer_context.cpp:2490-2533)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_answer.go", "pkg/muz/spacer/context_ground_answer_test.go"], "tests": ["TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments", "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP"]},
-        {"name": "context::get_ground_sat_answer inserts the nullary root predicate before traversal and completes model values for unconstrained predicate arguments (spacer_context.cpp:2485-2487,2540)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_answer.go", "pkg/muz/spacer/context_ground_answer_test.go"], "tests": ["TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments"]},
-        {"name": "lemma::is_ground top-level quantifier classification used by add_lemma_core/add_lemma_from_child, with valid clause assertion-policy coverage (spacer_context.h:140; spacer_context.cpp:317-391)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_lemma.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/predicate_rules.go", "pkg/muz/spacer/quantified_lemma_assertion_test.go"], "tests": ["TestSpacerQuantifiedLemmaAssertionPolicies"]},
-        {"name": "pred_transformer::get_reachable uses simplifying substitution on each reach fact before combining the disjunction, handles the empty set and preserves the unsupported auxiliary-variable case (spacer_context.cpp:457-492)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_reachable.go", "pkg/muz/spacer/predicate_reachable_test.go"], "tests": ["TestSpacerReachableSimplifiesEachRenamedFactBeforeDisjunction"]},
-        {"name": "frames::add_lemma and propagate_to_next_level promotion uses immediate adjacent percolation, preserves unsorted append order and checks shifted lemmas at the current position (spacer_context.cpp:1254-1291,1313-1352)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_frames.go", "pkg/muz/spacer/context_lemma_frames_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestSpacerDuplicateLemmaPromotionPreservesSourceUnsortedOrder", "TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder"]},
-        {"name": "lemma_lt_proc and frames::sort order lemmas by level then source AST ID, preserving propagation query order (spacer_context.h:151-157; spacer_context.cpp:1305-1311)", "status": "ported", "go_targets": ["pkg/muz/spacer/context_frames.go", "pkg/muz/spacer/context_lemma_frames_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder"]},
-        {"name": "context::create_children weak abstraction recovery: drop child derivation when T or phi is not model-true, without model completion, preserving the child and honoring spacer.weak_abs (spacer_context.cpp:3288-3297)", "status": "ported", "go_targets": ["pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/predicate_derivation_test.go"], "tests": ["TestSpacerPredicateCreatesAndAttachesProjectedDerivation"]},
-        {"name": "qe_project call-site guards and policies: create_children always projects, derivation stages guard empty variables, mk_reach_fact substitutes remaining auxiliaries with reduce_all_selects=false (spacer_context.cpp:1613-1744,3154,3231)", "status": "ported", "go_targets": ["pkg/muz/spacer/derivation.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/predicate_reach_projection.go", "pkg/muz/spacer/derivation_test.go"], "tests": ["TestSpacerDerivationSkipsProjectionWithoutVariables"]},
-        {"name": "derivation::create_next_child projection guards: skip qe_project when no variables need elimination, preserving symbolic array transitions and posts (spacer_context.cpp:1613-1647,1733-1738)", "status": "ported", "go_targets": ["pkg/muz/spacer/derivation.go", "pkg/muz/spacer/derivation_test.go"], "tests": ["TestSpacerDerivationSkipsProjectionWithoutVariables"]},
-        {"name": "pob::inherit copies normalized-post-compatible state and binding owners, then clears/destroys the previous scoped derivation on obligation-store reuse (spacer_context.cpp:1800-1819)", "status": "ported", "go_targets": ["pkg/muz/spacer/proof_obligation.go", "pkg/muz/spacer/proof_obligation_store.go", "pkg/muz/spacer/derivation_test.go"], "tests": ["TestSpacerDerivationOwnsPremisesAndAttachesToObligation"]},
-        {"name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)", "status": "ported", "go_targets": ["pkg/muz/spacer/normalize.go", "pkg/muz/spacer/normalize_test.go", "pkg/muz/spacer/spacer_ast_order_test.go"], "tests": ["TestNormalizeFormulaSortsConjunctsBySourceASTID", "TestSpacerCubeAndBindingsUseSourceASTIDOrder"]},
+        {
+          "name": "pred_transformer::add_cover substitutes variable expressions with local constants using expr_substitution/default_expr_replacer including beneath quantifiers (spacer_context.cpp:583-605)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_cover.go",
+            "pkg/muz/spacer/predicate_cover_substitution_test.go"
+          ],
+          "tests": [
+            "TestSpacerCoverUsesSourceExpressionSubstitution"
+          ]
+        },
+        {
+          "name": "pred_transformer::get_formulas and get_cover_delta use manager Boolean conjunction reduction and owning expr_ref lifetimes through caller renaming, model construction and transformer teardown (spacer_context.cpp:300-309,501-520)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_transformer.go",
+            "pkg/muz/spacer/predicate_cover.go",
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/predicate_rule_queries.go",
+            "pkg/muz/spacer/predicate_reach.go",
+            "pkg/muz/spacer/predicate_cover_substitution_test.go"
+          ],
+          "tests": [
+            "TestSpacerCoverUsesSourceExpressionSubstitution",
+            "TestSpacerPredicateTransformerConnectsFramesAndSolver",
+            "TestSpacerRulePredicateTransformerBuildsSourceStateSignature"
+          ]
+        },
+        {
+          "name": "pred_transformer::ground_free_vars uses expr_free_vars over quantifier bodies, excludes annotation-only free variables and introduces auxiliaries only for body variables without atom representatives (spacer_context.cpp:1019-1037)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_rules.go",
+            "pkg/muz/spacer/predicate_ground_variables_test.go"
+          ],
+          "tests": [
+            "TestSpacerRuleGroundingUsesBodyFreeVariables"
+          ]
+        },
+        {
+          "name": "context::get_ground_sat_answer asserts the full tagged predicate transition plus the selected rule tag in each incremental local counterexample scope (spacer_context.cpp:2516-2517)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_answer.go",
+            "pkg/muz/spacer/context_ground_answer_test.go"
+          ],
+          "tests": [
+            "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments"
+          ]
+        },
+        {
+          "name": "pred_transformer::initialize theory-rewrites completed transition and initial formulas after init_rules and before storing/asserting them (spacer_context.cpp:845-854)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_rules.go",
+            "pkg/muz/spacer/predicate_tagged_system_test.go"
+          ],
+          "tests": [
+            "TestSpacerTaggedSystemRewritesImplicationsAndPreservesTagOrder"
+          ]
+        },
+        {
+          "name": "pred_transformer::init_reach_facts iterates only live tagged rules, excluding transitions normalized to false by init_rule (spacer_context.cpp:868-877,993-1002)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_reach.go",
+            "pkg/muz/spacer/predicate_initial_facts_test.go"
+          ],
+          "tests": [
+            "TestSpacerInitialReachFactsExcludeFalseRules"
+          ]
+        },
+        {
+          "name": "context::stats live query, reach-query, reuse, level, unknown expansion, lemma and restart accounting; collect_statistics/reset_statistics; restart thresholds count only successful search-generated lemma additions and counters survive reset/update_rules (spacer_context.h:675-686; spacer_context.cpp:2593-2607,2678,2881,2970,2993,3171,3305-3352)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_statistics.go",
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/predicate_expand.go",
+            "pkg/muz/spacer/predicate_derivation.go",
+            "pkg/muz/spacer/predicate_reach_projection.go",
+            "pkg/muz/spacer/search.go",
+            "pkg/muz/spacer/context_statistics_test.go",
+            "pkg/muz/spacer/context_ground_answer_test.go",
+            "pkg/muz/spacer/search_restart_test.go"
+          ],
+          "tests": [
+            "TestSpacerContextCountsGeneratedLemmasAcrossRuleUpdates",
+            "TestSpacerContextRecordsAttemptedQueryLevel",
+            "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments",
+            "TestSpacerRestartKeepsObligationsBehindRoot"
+          ]
+        },
+        {
+          "name": "context::expand_node flexible-trace frame-blocking fast path skips lemma generation and does not lower the expanded level; check_reachability still increments and requeues the obligation (spacer_context.cpp:2859-2867,2707-2723)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/search.go",
+            "pkg/muz/spacer/search_flexible_test.go"
+          ],
+          "tests": [
+            "TestSpacerFlexibleTraceSkipsExpansionOfFrameBlockedRoot",
+            "TestSpacerFlexibleTraceStillExpandsReachableRoot"
+          ]
+        },
+        {
+          "name": "context::expand_node advances attached derivations after concrete reach-summary success even when no rule tag was selected (spacer_context.cpp:2887-2930)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_expand.go",
+            "pkg/muz/spacer/search_confirmation_test.go"
+          ],
+          "tests": [
+            "TestSpacerReachFactExpansionAdvancesSiblingDerivation"
+          ]
+        },
+        {
+          "name": "context::get_cex_depth traverses derivation frontiers excluding the query wrapper; solve records successful depth and reset_statistics clears it; get_rules_along_trace stops at query wrappers without exactly one premise (spacer_context.cpp:2234-2236,2255-2323,2363-2374,3317,3351)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/context_trace.go",
+            "pkg/muz/spacer/context_depth_test.go"
+          ],
+          "tests": [
+            "TestSpacerCounterexampleDepth"
+          ]
+        },
+        {
+          "name": "context::add_cover creates a transformer for a previously absent predicate; get_num_levels returns zero for absent predicates; initial rule installation inherits supplied cover frames (spacer_context.cpp:2002-2012,2022-2035)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/context_cover_creation_test.go"
+          ],
+          "tests": [
+            "TestSpacerCoverCreatesMissingPredicateAndSurvivesRuleUpdate"
+          ]
+        },
+        {
+          "name": "pred_transformer::init_rules builds intermediate guarded implications, uses the manager-owned bool_rewriter only for top-level conjunction construction, and orders the dummy tag before extension in the single-rule branch (spacer_context.cpp:879-934)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_rules.go",
+            "pkg/muz/spacer/manager.go",
+            "pkg/muz/spacer/predicate_tagged_system_test.go"
+          ],
+          "tests": [
+            "TestSpacerTaggedSystemRewritesImplicationsAndPreservesTagOrder"
+          ]
+        },
+        {
+          "name": "context::check_reachability restart pops only entries preceding the root, preserves later obligations and expands the root in the same iteration (spacer_context.cpp:2676-2691)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/search.go",
+            "pkg/muz/spacer/search_restart_test.go"
+          ],
+          "tests": [
+            "TestSpacerRestartKeepsObligationsBehindRoot"
+          ]
+        },
+        {
+          "name": "context::checkpoint and live solve/search/propagate/expand/generalizer call sites detect AST cancellation and resource exhaustion with source spacer canceled error; dirty cleanup and restart continuations share their search-cycle checkpoint",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_checkpoint.go",
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/search.go",
+            "pkg/muz/spacer/predicate_expand.go",
+            "pkg/muz/spacer/context_cancellation_test.go"
+          ],
+          "tests": [
+            "TestSpacerQueueCancellationPrecedesClosedRootSuccess",
+            "TestSpacerPropagationCancellationPrecedesEmptyFrameConvergence"
+          ]
+        },
+        {
+          "name": "context::is_reachable enqueues each next derivation child and removes the closed current top before recursive confirmation, preserving unconfirmed siblings for normal search (spacer_context.cpp:2794-2816)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/search.go",
+            "pkg/muz/spacer/search_confirmation_test.go"
+          ],
+          "tests": [
+            "TestSpacerConcreteConfirmationQueuesSuccessiveSiblings"
+          ]
+        },
+        {
+          "name": "context::propagate records the actual convergence level and runs configured post-simplification after convergence above the query bound; solve_core preserves the recorded level (spacer_context.cpp:3060-3096)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/context_propagation_test.go"
+          ],
+          "tests": [
+            "TestSpacerPropagationRecordsActualConvergenceLevel",
+            "TestSpacerPropagationSimplifiesAfterConvergenceAboveQueryBound"
+          ]
+        },
+        {
+          "name": "context::reset preserves manager and selected query ownership while destroying transformers and old search/answer state; set_axioms updates manager background before replacement rule initialization",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/fp/spacer_engine.go",
+            "pkg/muz/fp/spacer_rule_lifecycle_test.go"
+          ],
+          "tests": [
+            "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules",
+            "TestSpacerUpdateRulesCopiesFramesAndClearsSearchState"
+          ]
+        },
+        {
+          "name": "context::update_rules and frames::inherit_frames construct new transformers/reach facts, normalize independent lemma copies with levels/bindings, clear old search state and preserve the selected query declaration for solve_core lookup (spacer_context.cpp:1981-2000; spacer_context.h:214-224)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context.go",
+            "pkg/muz/spacer/context_frames.go",
+            "pkg/muz/spacer/context_update_test.go"
+          ],
+          "tests": [
+            "TestSpacerUpdateRulesCopiesFramesAndClearsSearchState",
+            "TestSpacerUpdateRulesReplacesPredicateSetAndInitialReachFacts"
+          ]
+        },
+        {
+          "name": "lemma::mk_expr_core abstracts and quantifies obligation skolems only when the normalized clause contains a sk! constant, copying bindings only in that branch (spacer_context.cpp:1145-1165)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_lemma.go",
+            "pkg/muz/spacer/proof_obligation_test.go"
+          ],
+          "tests": [
+            "TestSpacerProofObligationBindingsDirtyStateAndQueue"
+          ]
+        },
+        {
+          "name": "context::get_ground_sat_answer uses one incremental counterexample solver with per-node push/pop scopes and queue-ordered branching reconstruction (spacer_context.cpp:2490-2533)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_answer.go",
+            "pkg/muz/spacer/context_ground_answer_test.go",
+            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+          ],
+          "tests": [
+            "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments",
+            "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP"
+          ]
+        },
+        {
+          "name": "context::get_ground_sat_answer inserts the nullary root predicate before traversal and completes model values for unconstrained predicate arguments (spacer_context.cpp:2485-2487,2540)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_answer.go",
+            "pkg/muz/spacer/context_ground_answer_test.go"
+          ],
+          "tests": [
+            "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments"
+          ]
+        },
+        {
+          "name": "lemma::is_ground top-level quantifier classification used by add_lemma_core/add_lemma_from_child, with valid clause assertion-policy coverage (spacer_context.h:140; spacer_context.cpp:317-391)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_lemma.go",
+            "pkg/muz/spacer/predicate_transformer.go",
+            "pkg/muz/spacer/predicate_rules.go",
+            "pkg/muz/spacer/quantified_lemma_assertion_test.go"
+          ],
+          "tests": [
+            "TestSpacerQuantifiedLemmaAssertionPolicies"
+          ]
+        },
+        {
+          "name": "pred_transformer::get_reachable uses simplifying substitution on each reach fact before combining the disjunction, handles the empty set and preserves the unsupported auxiliary-variable case (spacer_context.cpp:457-492)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_reachable.go",
+            "pkg/muz/spacer/predicate_reachable_test.go"
+          ],
+          "tests": [
+            "TestSpacerReachableSimplifiesEachRenamedFactBeforeDisjunction"
+          ]
+        },
+        {
+          "name": "frames::add_lemma and propagate_to_next_level promotion uses immediate adjacent percolation, preserves unsorted append order and checks shifted lemmas at the current position (spacer_context.cpp:1254-1291,1313-1352)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_frames.go",
+            "pkg/muz/spacer/context_lemma_frames_test.go",
+            "pkg/muz/spacer/spacer_ast_order_test.go"
+          ],
+          "tests": [
+            "TestSpacerDuplicateLemmaPromotionPreservesSourceUnsortedOrder",
+            "TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder"
+          ]
+        },
+        {
+          "name": "lemma_lt_proc and frames::sort order lemmas by level then source AST ID, preserving propagation query order (spacer_context.h:151-157; spacer_context.cpp:1305-1311)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/context_frames.go",
+            "pkg/muz/spacer/context_lemma_frames_test.go",
+            "pkg/muz/spacer/spacer_ast_order_test.go"
+          ],
+          "tests": [
+            "TestSpacerFramePropagationUsesLevelThenSourceASTIDOrder"
+          ]
+        },
+        {
+          "name": "context::create_children weak abstraction recovery: drop child derivation when T or phi is not model-true, without model completion, preserving the child and honoring spacer.weak_abs (spacer_context.cpp:3288-3297)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_derivation.go",
+            "pkg/muz/spacer/predicate_derivation_test.go"
+          ],
+          "tests": [
+            "TestSpacerPredicateCreatesAndAttachesProjectedDerivation"
+          ]
+        },
+        {
+          "name": "qe_project call-site guards and policies: create_children always projects, derivation stages guard empty variables, mk_reach_fact substitutes remaining auxiliaries with reduce_all_selects=false (spacer_context.cpp:1613-1744,3154,3231)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/predicate_derivation.go",
+            "pkg/muz/spacer/predicate_reach_projection.go",
+            "pkg/muz/spacer/derivation_test.go"
+          ],
+          "tests": [
+            "TestSpacerDerivationSkipsProjectionWithoutVariables"
+          ]
+        },
+        {
+          "name": "derivation::create_next_child projection guards: skip qe_project when no variables need elimination, preserving symbolic array transitions and posts (spacer_context.cpp:1613-1647,1733-1738)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/derivation_test.go"
+          ],
+          "tests": [
+            "TestSpacerDerivationSkipsProjectionWithoutVariables"
+          ]
+        },
+        {
+          "name": "pob::inherit copies normalized-post-compatible state and binding owners, then clears/destroys the previous scoped derivation on obligation-store reuse (spacer_context.cpp:1800-1819)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/proof_obligation.go",
+            "pkg/muz/spacer/proof_obligation_store.go",
+            "pkg/muz/spacer/derivation_test.go"
+          ],
+          "tests": [
+            "TestSpacerDerivationOwnsPremisesAndAttachesToObligation"
+          ]
+        },
+        {
+          "name": "ast_lt_proc source AST-ID sorting for normalized conjunctions, lemma cubes and proof-obligation bindings; standard stable sorting replaces structural insertion order (spacer_util.cpp:1064; spacer_context.cpp:1197,1783)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/normalize.go",
+            "pkg/muz/spacer/normalize_test.go",
+            "pkg/muz/spacer/spacer_ast_order_test.go"
+          ],
+          "tests": [
+            "TestNormalizeFormulaSortsConjunctsBySourceASTID",
+            "TestSpacerCubeAndBindingsUseSourceASTIDOrder"
+          ]
+        },
         {
           "name": "bounded proof-obligation search with Luby lemma restarts, configurable ground-CTI derivation projection, parameterized concrete reach-fact projection, and preorder ground satisfying-answer reconstruction",
           "status": "partial",
@@ -95765,43 +96377,84 @@
             "TestContextConsumesGroundCTIPolicy",
             "TestSMTLibRunnerScripts/fixedpoint_spacer_recursive_trace.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_recursive_trace.smt2"
+          ],
+          "go_targets": [
+            "pkg/parsers/smt2/fixedpoint_commands_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
           "name": "init_lemma_generalizers SMT random-seed, MBQI, and disabled equality/bound-propagation backend policy",
           "status": "ported",
           "go_target": "pkg/muz/spacer/manager.go",
-          "tests": ["TestContextMapsSpacerSMTBackendParameters", "TestSMTLibRunnerScripts/fp_spacer_flexible_trace.smt2"]
+          "tests": [
+            "TestContextMapsSpacerSMTBackendParameters",
+            "TestSMTLibRunnerScripts/fp_spacer_flexible_trace.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "expand_node scoped weak arithmetic and array abstraction by proof-obligation weakness",
           "status": "ported",
           "go_target": "pkg/muz/spacer/prop_solver.go",
-          "tests": ["TestContextConsumesWeakAbstractionPolicy", "TestPropSolverScopesWeakAbstractionParameters", "TestSMTLibRunnerScripts/fp_spacer_arith_inv.smt2"]
+          "tests": [
+            "TestContextConsumesWeakAbstractionPolicy",
+            "TestPropSolverScopesWeakAbstractionParameters",
+            "TestSMTLibRunnerScripts/fp_spacer_arith_inv.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
+          ]
         },
         {
           "name": "expand_node inconclusive candidate-model child construction and bounded weakness retry",
           "status": "ported",
           "go_target": "pkg/muz/spacer/predicate_expand.go",
-          "tests": ["TestPropSolverPublishesIncompleteCandidateModel", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"]
+          "tests": [
+            "TestPropSolverPublishesIncompleteCandidateModel",
+            "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms"
+          ]
         },
         {
           "name": "predicate cover insertion and exact-frame bound-variable export (spacer_context.cpp:501-532,583-605,2011-2035)",
           "status": "ported",
           "go_target": "pkg/muz/spacer/predicate_cover.go",
-          "tests": ["TestSpacerRulePredicateTransformerBuildsSourceStateSignature", "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSMTContextFixedpointSpacerInductiveExports"]
+          "tests": [
+            "TestSpacerRulePredicateTransformerBuildsSourceStateSignature",
+            "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms",
+            "TestSMTContextFixedpointSpacerInductiveExports"
+          ],
+          "go_targets": [
+            "pkg/api/api_fixedpoint_test.go"
+          ]
         },
         {
           "name": "concrete reachable-summary export with predicate-column variables (spacer_context.cpp:457-485,2037-2043)",
           "status": "ported",
           "go_target": "pkg/muz/spacer/predicate_reachable.go",
-          "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSMTContextFixedpointSpacerInductiveExports"]
+          "tests": [
+            "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms",
+            "TestSMTContextFixedpointSpacerInductiveExports"
+          ],
+          "go_targets": [
+            "pkg/api/api_fixedpoint_test.go"
+          ]
         },
         {
           "name": "successful reach-fact rule trace preorder export (spacer_context.cpp:2330-2384)",
           "status": "ported",
           "go_target": "pkg/muz/spacer/context_trace.go",
-          "tests": ["TestSpacerContextSolvesFactAndRecursiveNoBasePrograms", "TestSpacerEngineRunsReachableAndInductiveHornQueries", "TestSMTContextFixedpointSpacerInductiveExports"]
+          "tests": [
+            "TestSpacerContextSolvesFactAndRecursiveNoBasePrograms",
+            "TestSpacerEngineRunsReachableAndInductiveHornQueries",
+            "TestSMTContextFixedpointSpacerInductiveExports"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/propositional_engine_test.go",
+            "pkg/api/api_fixedpoint_test.go"
+          ]
         }
       ],
       "ownership": [

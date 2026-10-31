@@ -1,3 +1,5 @@
+Inventory evidence repair, third batch (2026-10-31 UTC): repaired cross-package links in ten PDR, relational and Spacer entries and replaced an obsolete reachable-query test name. The validator now reaches a separately stale hash-table size test name; the broader evidence audit remains incomplete.
+
 Inventory evidence repair, second batch (2026-10-31 UTC): added cross-package test-file links to ten Horn and PDR entries and replaced a directory target with a concrete Go file. The validator now reaches a stale PDR generalizer test name; remaining evidence still needs review.
 
 Inventory evidence repair (2026-10-31 UTC): fixed cross-package links and obsolete generic test names in ten source entries. The validator now advances to a separate Horn-tactic cross-package link; a complete evidence audit is still pending.
