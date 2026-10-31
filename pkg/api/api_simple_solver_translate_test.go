@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("max-bv-sharing")
+	simplify, err := source.Tactic("reduce-bv-size")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1015,6 +1015,7 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 		{"fm", "QF_LRA", "(declare-const x Real) (declare-const y Real) (assert (> x 1)) (assert (< x 3)) (assert (= y (+ x 1)))", 3},
 		{"bv1-blast", "QF_BV", "(declare-const x (_ BitVec 8)) (assert (= ((_ extract 7 4) x) #b1010)) (assert (= ((_ extract 3 0) x) #b0101))", 2},
 		{"dt2bv", "ALL", "(declare-datatypes () ((E red amber green))) (declare-const x E) (assert (= x green))", 1},
+		{"max-bv-sharing", "QF_BV", "(declare-const x (_ BitVec 8)) (declare-const y (_ BitVec 8)) (declare-const z (_ BitVec 8)) (assert (= (bvadd x y) #x03)) (assert (= (bvadd y z x) #x06)) (assert (= x #x01)) (assert (= y #x02))", 4},
 		{"qfufnra", "QF_UFNRA", "(declare-const x Real) (declare-fun f (Real) Real) (assert (= x 2)) (assert (= (f x) (/ 1 x))) (assert (> (f x) 0))", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1127,6 +1128,37 @@ func TestAPITacticSolverTranslateBV1UnsatAfterSourceClose(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("translated unsatisfiable bit-vector solver", status)
+	}
+}
+
+func TestAPITacticSolverTranslateMaxBVSharingUnsatAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_BV"))
+	sharing, err := source.Tactic("max-bv-sharing")
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := sharing.AndThen(smt)
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	for _, owner := range []*APITactic{combined, smt, sharing} {
+		astTestMust(t, owner.Close())
+	}
+	astTestMust(t, solver.LoadSMT2String("(declare-const x (_ BitVec 8)) (declare-const y (_ BitVec 8)) (assert (= (bvadd x y) #x01)) (assert (= (bvadd y x) #x02))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated unsatisfiable sharing solver", status)
 	}
 }
 

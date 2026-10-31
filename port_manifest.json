@@ -184998,6 +184998,10 @@
         "pkg/tactic/bv/max_bv_sharing_goal.go",
         "pkg/tactic/bv/max_bv_sharing_traversal.go",
         "pkg/tactic/bv/max_bv_sharing_tactic.go",
+        "pkg/tactic/bv/max_bv_sharing_context_translation.go",
+        "pkg/tactic/bv/max_bv_sharing_context_translation_test.go",
+        "pkg/api/api_caller_tactic_solver_translate.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/bv/max_bv_sharing_reduce_test.go",
         "pkg/tactic/bv/max_bv_sharing_tactic_test.go",
         "pkg/cmd/g3/main_test.go"
@@ -185014,6 +185018,9 @@
         "TestSharingGoalPassReadsSharedProcessMemory",
         "TestMaxBVSharingCPPGoalShapes",
         "TestMaxBVSharingLifecycleAndTrace",
+        "TestMaxBVSharingContextTranslationPreservesPolicy",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
+        "TestAPITacticSolverTranslateMaxBVSharingUnsatAfterSourceClose",
         "TestMaxBVSharingAllocationFrontiers",
         "TestSMTLibRunnerMaxBVSharingStepFrontiers"
       ],
