@@ -106831,9 +106831,14 @@
       "path": "src/qe/qe_dl_plugin.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/qe/datalog_atoms.go",
+        "pkg/qe/datalog_atoms_test.go"
+      ],
+      "tests": [
+        "TestDatalogQEAtomCollectionAndBranches"
+      ],
       "assertions": [
         {
           "line": 84,
@@ -106870,9 +106875,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "update_eqs atom analysis and get_num_branches/is_small_domain arithmetic over collected atom counts",
+          "status": "ported",
+          "go_target": "pkg/qe/datalog_atoms.go",
+          "tests": [
+            "TestDatalogQEAtomCollectionAndBranches"
+          ]
+        }
+      ],
+      "ownership": [
+        "Atom analysis borrows expression handles and preserves supplied context order."
+      ],
+      "deviations": [
+        "Initial phase only: plugin cache, Datalog domain-size discovery, solver assignment, substitution, lifecycle, source diagnostics and live plugin integration remain pending. Datalog less-than reports an explicit unimplemented error as in source."
+      ]
     },
     {
       "path": "src/qe/qe_lite.cpp",
