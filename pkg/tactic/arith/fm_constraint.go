@@ -19,6 +19,7 @@ type FMConstraint struct {
 	bytes                uint64
 }
 type FMConstraintStore struct {
+	diagnostics *fmConstraintDiagnostics
 	self        *FMConstraintStore
 	manager     *ast.ASTManager
 	budget      *arena.Budget

@@ -11,6 +11,7 @@ import (
 )
 
 type fmTacticRun struct {
+	diagnostics         fmConstraintDiagnostics
 	manager             *ast.ASTManager
 	bytes               uint64
 	store               *FMConstraintStore
@@ -79,6 +80,7 @@ func (r *fmTacticRun) clear() error {
 		r.model = nil
 	}
 	r.counter, r.eliminated, r.modelCleanup = 0, 0, false
+	r.diagnostics = fmConstraintDiagnostics{}
 	return nil
 }
 
@@ -88,6 +90,9 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 	}
 	if input == nil || result == nil || input.Manager() != t.manager {
 		return ast.ErrASTHandle
+	}
+	if err = fmAssertGoalSort(input); err != nil {
+		return err
 	}
 	if err = result.Prepare(t.manager); err != nil {
 		return err
@@ -116,12 +121,36 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 	if err != nil {
 		return err
 	}
+	r.diagnostics = fmConstraintDiagnostics{manager: t.manager, services: t.services, expressions: r.parser.Expressions}
+	r.store.diagnostics = &r.diagnostics
+	r.parser.Variables.Index.diagnostics = &r.diagnostics
 	if err = r.parser.collectForbidden(input); err != nil {
 		return err
 	}
 	r.goal, err = tactic.NewGoalConfigCopy(input)
 	if err != nil {
 		return err
+	}
+	if ast.ASTSourceDebug {
+		inDepth, e := input.Depth()
+		if e != nil {
+			return e
+		}
+		outDepth, e := r.goal.Depth()
+		if e != nil {
+			return e
+		}
+		inPrecision, e := input.Precision()
+		if e != nil {
+			return e
+		}
+		outPrecision, e := r.goal.Precision()
+		if e != nil {
+			return e
+		}
+		if inDepth != outDepth || inPrecision != outPrecision {
+			return ast.ErrASTDomain
+		}
 	}
 	if err = r.goal.IncDepth(); err != nil {
 		return err
@@ -175,8 +204,16 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 			return err
 		}
 	} else {
-		r.parser.Variables.Index.Subsume()
+		if err = r.diagnostics.state(); err != nil {
+			return err
+		}
+		if err = r.parser.Variables.Index.Subsume(); err != nil {
+			return err
+		}
 		candidates := r.parser.Variables.Candidates()
+		if err = r.diagnostics.candidates(candidates); err != nil {
+			return err
+		}
 		models, e := input.ModelsEnabled()
 		if e != nil {
 			return e
@@ -257,11 +294,15 @@ func (t *FMTactic) Apply(input *tactic.Goal, result *tactic.TacticResult) (err e
 		return err
 	}
 	r.store = nil
+	published := r.goal
 	if err = result.TakeGoal(r.goal); err != nil {
 		return err
 	}
 	r.goal = nil
-	return nil
+	if err = r.diagnostics.goal(published); err != nil {
+		return err
+	}
+	return fmAssertGoalSort(published)
 }
 func (r *fmTacticRun) copyConstraint(c *FMConstraint) error {
 	formula, err := r.parser.Expressions.ConstraintExpression(c)
@@ -279,4 +320,18 @@ func (r *fmTacticRun) setFalse(m *ast.ASTManager) error {
 		return err
 	}
 	return r.goal.AssertWithProof(value, ast.ASTHandle{}, r.eliminator.InconsistentDependency)
+}
+
+func fmAssertGoalSort(goal *tactic.Goal) error {
+	if !ast.ASTSourceDebug {
+		return nil
+	}
+	good, err := goal.IsWellSorted()
+	if err != nil {
+		return err
+	}
+	if !good {
+		return ast.ErrASTDomain
+	}
+	return nil
 }

@@ -23,7 +23,10 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 	lowers := e.Variables.Index.Lower[x]
 	uppers := e.Variables.Index.Upper[x]
 	if len(lowers) == 0 || len(uppers) == 0 {
-		return true, e.markDead(x)
+		if err := e.markDead(x); err != nil {
+			return false, err
+		}
+		return true, e.Store.diagnostics.eliminationEnd(0, 0, true, false)
 	}
 	if !e.Config.permits(len(lowers), len(uppers)) || !e.Variables.CanEliminate(x) {
 		return false, nil
@@ -32,11 +35,15 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 	if e.Counter != nil {
 		*e.Counter += uint32(len(lowers)) * uint32(len(uppers))
 	}
+	if err := e.Store.diagnostics.elimination(x, lowers, uppers); err != nil {
+		return false, err
+	}
 	created := make([]*FMConstraint, 0)
 	for _, lower := range lowers {
 		for _, upper := range uppers {
 			if e.Inconsistent || uint32(len(created)) > limit {
-				return false, e.discard(created)
+				err := e.Store.diagnostics.eliminationEnd(0, uint32(len(created)), false, true)
+				return false, errors.Join(err, e.discard(created))
 			}
 			if e.Counter != nil {
 				*e.Counter += uint32(len(lower.Variables) + len(upper.Variables) + len(lower.Literals) + len(upper.Literals))
@@ -65,7 +72,9 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 		*e.Counter += uint32(len(created))
 	}
 	for _, c := range created {
-		e.Variables.Index.Backward(c)
+		if err := e.Variables.Index.Backward(c); err != nil {
+			return false, err
+		}
 		switch e.Variables.Register(c) {
 		case FMRegistrationFalse:
 			e.Inconsistent = true
@@ -87,5 +96,5 @@ func (e *FMEliminator) Try(x uint32) (bool, error) {
 			}
 		}
 	}
-	return true, nil
+	return true, e.Store.diagnostics.eliminationEnd(uint32(len(lowers))+uint32(len(uppers)), uint32(len(created)), false, false)
 }

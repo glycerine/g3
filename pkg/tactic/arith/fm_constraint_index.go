@@ -2,6 +2,7 @@ package arith
 
 // Source: src/tactic/arith/fm_tactic.cpp:720-775.
 type FMConstraintIndex struct {
+	diagnostics  *fmConstraintDiagnostics
 	Counter      *uint32
 	Lower, Upper map[uint32][]*FMConstraint
 	Forbidden    map[uint32]bool
@@ -24,7 +25,7 @@ func (i *FMConstraintIndex) Add(c *FMConstraint) {
 	}
 	i.Todo.Insert(c)
 }
-func (i *FMConstraintIndex) Backward(c *FMConstraint) {
+func (i *FMConstraintIndex) Backward(c *FMConstraint) error {
 	var candidates []*FMConstraint
 	var bestVariable uint32
 	bestLower := false
@@ -50,6 +51,9 @@ func (i *FMConstraintIndex) Backward(c *FMConstraint) {
 	}
 	for _, other := range candidates {
 		if !other.Dead && fmConstraintSubsumes(c, other, i.Counter) {
+			if err := i.diagnostics.subsumed(c, other); err != nil {
+				return err
+			}
 			other.Dead = true
 		}
 		if !other.Dead {
@@ -63,12 +67,16 @@ func (i *FMConstraintIndex) Backward(c *FMConstraint) {
 			i.Upper[bestVariable] = kept
 		}
 	}
+	return nil
 }
-func (i *FMConstraintIndex) Subsume() {
+func (i *FMConstraintIndex) Subsume() error {
 	for i.Todo.Len() != 0 {
 		c := i.Todo.Pop()
 		if !c.Dead {
-			i.Backward(c)
+			if err := i.Backward(c); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }

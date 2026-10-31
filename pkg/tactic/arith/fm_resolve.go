@@ -21,22 +21,22 @@ func FMResolve(store *FMConstraintStore, variables *FMVariableTable, lower, uppe
 		return FMResolution{}, err
 	}
 	if len(xs) == 0 && (constant.Sign() > 0 || !strict && constant.Sign() == 0) {
-		return FMResolution{Tautology: true}, nil
+		return FMResolution{Tautology: true}, store.diagnostics.resolution(x, lower, upper, nil, " consequent literal is always true: ", 1366)
 	}
 	literals, tautology := fmMergeLiterals(lower.Literals, upper.Literals)
 	if tautology {
-		return FMResolution{Tautology: true}, nil
+		return FMResolution{Tautology: true}, store.diagnostics.resolution(x, lower, upper, nil, " tautology: ", 1410)
 	}
 	dependency, err := store.manager.DependencyJoin(lower.Dependency, upper.Dependency)
 	if err != nil {
 		return FMResolution{}, err
 	}
 	if len(literals) == 0 && len(xs) == 0 && (constant.Sign() < 0 || strict && constant.Sign() == 0) {
-		return FMResolution{Dependency: dependency, Inconsistent: true}, nil
+		return FMResolution{Dependency: dependency, Inconsistent: true}, store.diagnostics.resolution(x, lower, upper, nil, " inconsistent: ", 1420)
 	}
 	c, err := store.New(literals, xs, coefficients, &constant, strict, dependency)
 	if err != nil {
 		return FMResolution{}, err
 	}
-	return FMResolution{Constraint: c, Dependency: dependency}, nil
+	return FMResolution{Constraint: c, Dependency: dependency}, store.diagnostics.resolution(x, lower, upper, c, "", 1438)
 }
