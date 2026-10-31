@@ -521,23 +521,8 @@ func (c *nla2BVInvocation) collectVars(g *tactic.Goal) (bool, error) {
 			}
 			supported = false
 		}
-		text, integer, numeral, err := m.ArithmeticNumeralText(h)
-		if err != nil {
+		if err = c.updateNumBits(h); err != nil {
 			return false, err
-		}
-		if numeral && integer {
-			n, ok := new(big.Rat).SetString(text)
-			if !ok {
-				return false, ast.ErrASTDomain
-			}
-			n.Abs(n)
-			bits := c.log2Rat(n)
-			if c.local.err != nil {
-				return false, c.local.err
-			}
-			if c.numBits <= bits {
-				c.numBits = bits + 1
-			}
 		}
 	}
 	// Source builds substitutions even when the completed traversal discovered
