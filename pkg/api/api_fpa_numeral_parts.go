@@ -8,33 +8,27 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func (c *SMTContext) bitVectorNumeralUint64(value ast.ASTHandle) (uint64, error) {
-	text, err := c.NumeralString(value)
+func (c *SMTContext) FloatingPointNumeralSign(value ast.ASTHandle) (int, error) {
+	parts, err := c.floatingPointRawNumeralParts(value)
 	if err != nil {
 		return 0, err
 	}
-	n, ok := new(big.Int).SetString(text, 10)
+	if parts.Sign {
+		return 1, nil
+	}
+	return 0, nil
+}
+
+func (c *SMTContext) FloatingPointNumeralSignificandUint64(value ast.ASTHandle) (uint64, error) {
+	parts, err := c.floatingPointRawNumeralParts(value)
+	if err != nil {
+		return 0, err
+	}
+	n, ok := new(big.Int).SetString(parts.Significand, 10)
 	if !ok || n.Sign() < 0 || !n.IsUint64() {
 		return 0, ast.ErrASTDomain
 	}
 	return n.Uint64(), nil
-}
-
-func (c *SMTContext) FloatingPointNumeralSign(value ast.ASTHandle) (int, error) {
-	parts, err := c.floatingPointNumeralBits(value)
-	if err != nil {
-		return 0, err
-	}
-	bit, err := c.bitVectorNumeralUint64(parts.sign)
-	return int(bit), err
-}
-
-func (c *SMTContext) FloatingPointNumeralSignificandUint64(value ast.ASTHandle) (uint64, error) {
-	parts, err := c.floatingPointNumeralBits(value)
-	if err != nil {
-		return 0, err
-	}
-	return c.bitVectorNumeralUint64(parts.significand)
 }
 
 func (c *SMTContext) FloatingPointNumeralExponentInt64(value ast.ASTHandle, biased bool) (int64, error) {

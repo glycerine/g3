@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -41,4 +42,16 @@ func (f *fpaNumeralPartsFixture) uint(t *testing.T, value ast.ASTHandle) uint64 
 	n, err := f.context.bitVectorNumeralUint64(value)
 	astTestMust(t, err)
 	return n
+}
+
+func (c *SMTContext) bitVectorNumeralUint64(value ast.ASTHandle) (uint64, error) {
+	text, err := c.NumeralString(value)
+	if err != nil {
+		return 0, err
+	}
+	n, ok := new(big.Int).SetString(text, 10)
+	if !ok || n.Sign() < 0 || !n.IsUint64() {
+		return 0, ast.ErrASTDomain
+	}
+	return n.Uint64(), nil
 }

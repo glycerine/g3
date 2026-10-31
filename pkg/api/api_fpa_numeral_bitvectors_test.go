@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"math"
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -87,5 +89,29 @@ func TestFloatingPointNumeralExponentNormalValues(t *testing.T) {
 				t.Fatalf("%g biased %v: bitvector %d", tc.value, row.biased, encoded)
 			}
 		}
+	}
+}
+
+func TestFloatingPointNumeralWideSignificandInspection(t *testing.T) {
+	f := newFPANumeralPartsFixture(t)
+	sort, err := f.context.FloatingPointQuadrupleSort()
+	sort = f.pin(t, sort, err)
+	value, err := f.context.FloatingPointNumeralFloat64(-1.5, sort)
+	value = f.pin(t, value, err)
+	sign, err := f.context.FloatingPointNumeralSignBit(value)
+	sign = f.pin(t, sign, err)
+	if got := f.uint(t, sign); got != 1 {
+		t.Fatal("sign", got)
+	}
+	sig, err := f.context.FloatingPointNumeralSignificandBitVector(value)
+	sig = f.pin(t, sig, err)
+	text, err := f.context.NumeralString(sig)
+	astTestMust(t, err)
+	want := new(big.Int).Lsh(big.NewInt(1), 111).String()
+	if text != want {
+		t.Fatalf("significand %s, want %s", text, want)
+	}
+	if _, err = f.context.FloatingPointNumeralSignificandUint64(value); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("wide significand", err)
 	}
 }
