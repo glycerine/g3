@@ -15,40 +15,42 @@ type replayCommandEntry struct {
 }
 
 type Z3Replayer struct {
-	scanner         *z3ReplayScanner
-	output          io.Writer
-	args            []z3ReplayValue
-	result          uint64
-	heap            map[uint64]uint64
-	commands        map[uint32]replayCommandEntry
-	objectArrays    [][]uint64
-	symbolArrays    [][]z3ReplayValue
-	uintArrays      [][]uint32
-	intArrays       [][]int32
-	configs         map[uint64]*Config
-	configOrder     []uint64
-	contexts        map[uint64]*replayContextOwner
-	contextOrder    []uint64
-	asts            map[uint64]*replayASTOwner
-	astIDs          map[replayASTKey]uint64
-	parameterSets   map[uint64]*replayParameterSet
-	descriptions    map[uint64]*replayParameterDescriptions
-	solvers         map[uint64]*replaySolver
-	models          map[uint64]*replayModel
-	goals           map[uint64]*replayGoal
-	vectors         map[uint64]*replayASTVector
-	functions       map[uint64]*replayFunctionInterpretation
-	functionEntries map[uint64]*replayFunctionEntry
-	tactics         map[uint64]*replayTactic
-	tacticResults   map[uint64]*replayTacticResult
-	probes          map[uint64]*replayProbe
-	statistics      map[uint64]*replayStatistics
-	maps            map[uint64]*replayASTMap
-	fixedpoints     map[uint64]*replayFixedpoint
-	optimizers      map[uint64]*replayOptimize
-	rcfNumbers      map[uint64]*replayRCFNumber
-	nextObjectID    uint64
-	closed          bool
+	scanner              *z3ReplayScanner
+	output               io.Writer
+	args                 []z3ReplayValue
+	result               uint64
+	heap                 map[uint64]uint64
+	commands             map[uint32]replayCommandEntry
+	objectArrays         [][]uint64
+	symbolArrays         [][]z3ReplayValue
+	uintArrays           [][]uint32
+	intArrays            [][]int32
+	configs              map[uint64]*Config
+	configOrder          []uint64
+	contexts             map[uint64]*replayContextOwner
+	contextOrder         []uint64
+	asts                 map[uint64]*replayASTOwner
+	astIDs               map[replayASTKey]uint64
+	parameterSets        map[uint64]*replayParameterSet
+	descriptions         map[uint64]*replayParameterDescriptions
+	solvers              map[uint64]*replaySolver
+	models               map[uint64]*replayModel
+	goals                map[uint64]*replayGoal
+	vectors              map[uint64]*replayASTVector
+	functions            map[uint64]*replayFunctionInterpretation
+	functionEntries      map[uint64]*replayFunctionEntry
+	tactics              map[uint64]*replayTactic
+	tacticResults        map[uint64]*replayTacticResult
+	probes               map[uint64]*replayProbe
+	statistics           map[uint64]*replayStatistics
+	maps                 map[uint64]*replayASTMap
+	fixedpoints          map[uint64]*replayFixedpoint
+	optimizers           map[uint64]*replayOptimize
+	rcfNumbers           map[uint64]*replayRCFNumber
+	datatypeConstructors map[uint64]*replayDatatypeConstructor
+	datatypeLists        map[uint64]*replayDatatypeList
+	nextObjectID         uint64
+	closed               bool
 }
 
 func NewZ3Replayer(input io.Reader, output io.Writer) (*Z3Replayer, error) {
@@ -111,5 +113,7 @@ func (r *Z3Replayer) Close() error {
 	r.fixedpoints = nil
 	r.optimizers = nil
 	r.rcfNumbers = nil
+	r.datatypeConstructors = nil
+	r.datatypeLists = nil
 	return nil
 }

@@ -1,3 +1,5 @@
+Generated datatype constructor replay lifecycle (2026-10-31 UTC): connected typed constructor and non-owning list creation and deletion. Normal and checked tests verify ownership, incomplete-log cleanup and array bounds; datatype building and constructor query replay remain unfinished.
+
 Rational real-closed-field frontend integration (2026-10-31 UTC): normal and checked command-line tests replay arithmetic and powers through the log frontend. Non-rational extensions remain unfinished.
 
 Generated rational powers and components replay (2026-10-31 UTC): connected powers and numerator/denominator outputs, preserving shared-one and integer-numerator identities. Normal and checked tests exercise alias lifetimes and values; roots and non-rational extensions remain unfinished.

@@ -170,6 +170,24 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		}
 	}
 	owner.rcfNumberIDs = nil
+	for _, id := range owner.datatypeListIDs {
+		if value := r.datatypeLists[id]; value != nil {
+			if err := value.close(); err != nil {
+				return err
+			}
+			delete(r.datatypeLists, id)
+		}
+	}
+	owner.datatypeListIDs = nil
+	for _, id := range owner.datatypeConstructorIDs {
+		if value := r.datatypeConstructors[id]; value != nil {
+			if err := value.close(); err != nil {
+				return err
+			}
+			delete(r.datatypeConstructors, id)
+		}
+	}
+	owner.datatypeConstructorIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err
