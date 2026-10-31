@@ -98,6 +98,10 @@ func (owner *replayContextOwner) close(r *Z3Replayer) error {
 		delete(r.parameterSets, id)
 	}
 	owner.parameterIDs = nil
+	for _, id := range owner.solverIDs {
+		delete(r.solvers, id)
+	}
+	owner.solverIDs = nil
 	if owner.context != nil {
 		if err := owner.context.Close(); err != nil {
 			return err

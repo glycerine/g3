@@ -32,6 +32,7 @@ type Z3Replayer struct {
 	asts          map[uint64]*replayASTOwner
 	astIDs        map[replayASTKey]uint64
 	parameterSets map[uint64]*replayParameterSet
+	solvers       map[uint64]*replaySolver
 	nextObjectID  uint64
 	closed        bool
 }
@@ -81,5 +82,6 @@ func (r *Z3Replayer) Close() error {
 	r.heap, r.commands, r.scanner, r.output, r.configs, r.contexts = nil, nil, nil, nil, nil, nil
 	r.asts, r.astIDs = nil, nil
 	r.parameterSets = nil
+	r.solvers = nil
 	return nil
 }
