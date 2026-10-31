@@ -16,11 +16,12 @@ type recover01Boolean struct {
 }
 
 type recover01Definitions struct {
-	manager  *ast.ASTManager
-	goal     *tactic.Goal
-	sub      ast.ASTExprSubstitution
-	booleans []recover01Boolean
-	lookup   map[ast.ASTHandle]int
+	manager   *ast.ASTManager
+	goal      *tactic.Goal
+	sub       ast.ASTExprSubstitution
+	booleans  []recover01Boolean
+	variables []ast.ASTHandle
+	lookup    map[ast.ASTHandle]int
 }
 
 func (d *recover01Definitions) Close() (err error) {
@@ -178,5 +179,9 @@ func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTH
 			return err
 		}
 	}
-	return m.ExprSubstitutionInsert(d.sub, variable, definition, ast.ASTHandle{}, ast.ASTDependency{})
+	if err = m.ExprSubstitutionInsert(d.sub, variable, definition, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
+		return err
+	}
+	d.variables = append(d.variables, variable)
+	return nil
 }
