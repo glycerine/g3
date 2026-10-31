@@ -55,6 +55,12 @@ func GlobalParamSet(id, value string) error {
 	if err != nil {
 		return err
 	}
+	var logErr error
+	if processZ3Log != nil && !processZ3LogInAPI {
+		processZ3LogInAPI = true
+		defer func() { processZ3LogInAPI = false }()
+		logErr = processZ3Log.globalParamSet(id, value)
+	}
 	if err = g.SourceSetName(id, value); err == nil {
 		manager, e := g.Manager()
 		if e != nil {
@@ -64,9 +70,9 @@ func GlobalParamSet(id, value string) error {
 		}
 	}
 	if err != nil {
-		return globalParamCaughtWarning(err)
+		return errors.Join(logErr, globalParamCaughtWarning(err))
 	}
-	return nil
+	return logErr
 }
 
 func globalParamCaughtWarning(err error) error {
@@ -84,14 +90,20 @@ func GlobalParamResetAll() error {
 	if err != nil {
 		return err
 	}
+	var logErr error
+	if processZ3Log != nil && !processZ3LogInAPI {
+		processZ3LogInAPI = true
+		defer func() { processZ3LogInAPI = false }()
+		logErr = processZ3Log.globalParamReset()
+	}
 	if err = g.SourceReset(); err != nil {
-		return err
+		return errors.Join(logErr, err)
 	}
 	manager, err := g.Manager()
 	if err != nil {
-		return err
+		return errors.Join(logErr, err)
 	}
-	return params.UpdateProcessEnvParams(manager)
+	return errors.Join(logErr, params.UpdateProcessEnvParams(manager))
 }
 
 // GlobalParamGet owns its Go string. A failed source lookup returns false
@@ -101,12 +113,18 @@ func GlobalParamGet(id string) (value string, ok bool, err error) {
 	if err != nil {
 		return "", false, err
 	}
+	var logErr error
+	if processZ3Log != nil && !processZ3LogInAPI {
+		processZ3LogInAPI = true
+		defer func() { processZ3LogInAPI = false }()
+		logErr = processZ3Log.globalParamGet(id)
+	}
 	value, err = g.SourceGetValueName(id)
 	if err != nil {
 		if warning := globalParamCaughtWarning(err); warning != nil {
-			return "", false, warning
+			return "", false, errors.Join(logErr, warning)
 		}
-		return "", false, nil
+		return "", false, logErr
 	}
-	return value, true, nil
+	return value, true, logErr
 }

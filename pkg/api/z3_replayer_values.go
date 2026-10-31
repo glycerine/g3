@@ -19,12 +19,13 @@ const (
 )
 
 type z3ReplayValue struct {
-	kind z3ReplayKind
-	i    int64
-	u    uint64
-	d    float64
-	f    float32
-	s    string
+	kind       z3ReplayKind
+	i          int64
+	u          uint64
+	d          float64
+	f          float32
+	s          string
+	nullString bool
 }
 
 func (r *Z3Replayer) value(position uint32, kind z3ReplayKind) (z3ReplayValue, error) {
@@ -91,5 +92,30 @@ func (r *Z3Replayer) SetObject(p uint32, value uint64) error {
 		return err
 	}
 	r.args[p].u = value
+	return nil
+}
+
+// SetString updates a string output argument as get_str_addr does in C++.
+func (r *Z3Replayer) SetString(p uint32, value string) error {
+	if _, err := r.value(p, replayString); err != nil {
+		return err
+	}
+	r.args[p].s = value
+	r.args[p].nullString = false
+	return nil
+}
+
+// StringIsNull distinguishes a null string output from an empty string.
+func (r *Z3Replayer) StringIsNull(p uint32) (bool, error) {
+	value, err := r.value(p, replayString)
+	return value.nullString, err
+}
+
+func (r *Z3Replayer) setStringNull(p uint32) error {
+	if _, err := r.value(p, replayString); err != nil {
+		return err
+	}
+	r.args[p].s = ""
+	r.args[p].nullString = true
 	return nil
 }

@@ -5915,14 +5915,14 @@
       "path": "src/api/api_commands.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The first three generated global-parameter log and replay commands are connected, including nested-log suppression and null outputs. The remaining generated commands and general API logging integration remain unfinished."]
     },
     {
       "path": "src/api/api_config_params.cpp",
@@ -6896,22 +6896,22 @@
       "path": "src/api/api_log_macros.cpp",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The first three generated global-parameter log and replay commands are connected, including nested-log suppression and null outputs. The remaining generated commands and general API logging integration remain unfinished."]
     },
     {
       "path": "src/api/api_log_macros.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/api/z3_generated_global_commands.go", "pkg/api/z3_generated_global_log.go", "pkg/api/z3_generated_global_commands_test.go", "pkg/api/api_global_params.go"],
+      "tests": ["TestGeneratedGlobalReplayCommands", "TestGeneratedGlobalLogAndReplay", "TestGeneratedGlobalReplayMissingValueIsNull", "TestGeneratedGlobalLogFailureDoesNotSkipUpdate", "TestGeneratedGlobalLogSuppressesNestedAPICalls"],
       "conditionals": [
         {
           "line": 3,
@@ -6930,7 +6930,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The first three generated global-parameter log and replay commands are connected, including nested-log suppression and null outputs. The remaining generated commands and general API logging integration remain unfinished."]
     },
     {
       "path": "src/api/api_model.cpp",

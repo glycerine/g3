@@ -5,6 +5,7 @@ package api
 // synchronization layer.
 
 var processZ3Log *Z3LogWriter
+var processZ3LogInAPI bool
 
 func Z3OpenLog(filename string) (bool, error) {
 	return Z3OpenLogWithBuildDate(filename, "")
