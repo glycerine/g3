@@ -185666,6 +185666,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/nlsat_smt/nl_purify_prepare.go",
+        "pkg/tactic/nlsat_smt/nl_purify_prepare_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_predicates.go",
         "pkg/tactic/nlsat_smt/nl_purify_predicates_test.go",
         "pkg/tactic/nlsat_smt/nl_purify_interfaces.go",
@@ -185683,7 +185685,9 @@
         "TestNLPurifyInterfaceRewriteSeparatesAndSharesDefinitions",
         "TestNLPurifyInterfaceGoalRewritePublishesDefinitions",
         "TestNLPurifyPredicateRewriteRespectsPolarity",
-        "TestNLPurifyInterfaceAndPredicateGoalRewrites"
+        "TestNLPurifyInterfaceAndPredicateGoalRewrites",
+        "TestNLPurificationPreparesGoalsAndClauses",
+        "TestNLPurificationRejectsQuantifierAndCleansUp"
       ],
       "assertions": [
         {

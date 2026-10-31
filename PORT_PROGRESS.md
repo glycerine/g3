@@ -1,3 +1,5 @@
+Mixed nonlinear preparation pipeline (2026-10-31 UTC): connected interface rewriting, optional pure-arithmetic transfer, polarity analysis, Boolean abstraction and solver clause/dependency extraction in source order. Tests cover both unsat-core modes and cleanup after rejected quantifiers; the solver cooperation loop remains pending.
+
 Mixed nonlinear predicate rewriting (2026-10-31 UTC): added polarity-directed arithmetic atom abstraction and nonlinear implication clauses, with shared predicate caching. Tests cover positive, negative and dual polarity and run both interface and predicate rewrites on a mixed goal; cooperating solver search and registration remain pending.
 
 Mixed nonlinear interface rewriting (2026-10-31 UTC): implemented the first source rewrite phase, including shared interface constants, arithmetic versus SMT definitions and rewriting goal roots while preserving dependencies. Focused tests verify shared terms, solver-side definition routing and goal ownership; predicate rewriting, cooperating solvers and tactic registration remain pending.
