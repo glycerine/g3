@@ -209612,20 +209612,20 @@
       "path": "src/test/simplex.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/math/simplex/simplex_cpp_driver_test.go", "pkg/math/simplex/simplex_test.go"],
+      "tests": ["TestSimplexSourceInitialEmptyAndFixedVariable", "TestSimplexRetainedSourceFeasibilityCases"],
       "assertions": [
         {
           "line": 87,
           "text": "ENSURE(vars.size() == coeffs.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_simplex and test1 through test4", "status": "ported", "go_target": "pkg/math/simplex/simplex_cpp_driver_test.go", "go_targets": ["pkg/math/simplex/simplex_test.go"], "tests": ["TestSimplexSourceInitialEmptyAndFixedVariable", "TestSimplexRetainedSourceFeasibilityCases"]}],
+      "ownership": ["Each test case owns its Go simplex solver and numeric values; the solver uses Go-managed storage."],
+      "deviations": ["The source prints feasibility results; the Go tests assert the expected outcomes and fixed value."]
     },
     {
       "path": "src/test/simplifier.cpp",

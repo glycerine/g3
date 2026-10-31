@@ -52246,3 +52246,5 @@ DOC source driver started: translated tst_doc1 at widths 5, 10 and 70, including
 DOC randomized projection driver: translated test_project1 and all 200 source-seeded four-variable projection rounds. Each result is checked against an exhaustive existential truth table, and source and destination documents are released per round; randomized merge, intersection and subtraction remain open.
 
 DOC source driver completion: added the concrete subtraction example, 10,000 seeded union intersections, 1,000 seeded union subtractions and 200 seeded equality-class merges. All four-variable results are compared with exhaustive truth tables; the test advances the source PRNG through the preceding projection rounds so the generated union and merge cases follow the original sequence. The DOC source driver is marked ported.
+
+Simplex source driver: connected the existing four source row cases to the manifest and added the missing empty, unconstrained and fixed-variable checks from tst_simplex. The source prints feasibility; the Go tests assert the expected statuses and value.
