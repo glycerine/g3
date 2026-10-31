@@ -2,9 +2,15 @@ package smt2
 
 // Source: src/cmd_context/extra_cmds/dbg_cmds.cpp, expression storage and size.
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
 
-func (p *commandParser) debugCommand(name string) error {
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+)
+
+func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
 	case "dbg-set", "dbg-get-qbody":
 		key, err := p.symbol()
@@ -46,7 +52,45 @@ func (p *commandParser) debugCommand(name string) error {
 		}
 		_, err = fmt.Fprintln(p.out)
 		return err
-	case "dbg-size":
+	case "dbg-shift-vars":
+		key, err := p.symbol()
+		if err != nil {
+			return err
+		}
+		shift, err := p.unsigned()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		expression, err := p.context.DebugExpression(key)
+		if err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		shifter, err := rewriter.NewVarShifter(m)
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, shifter.Close()) }()
+		result, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, m.DelRef(&result)) }()
+		if err = shifter.ShiftBy(expression, shift, result); err != nil {
+			return err
+		}
+		expression, err = m.RefGet(result)
+		if err != nil {
+			return err
+		}
+		return p.context.StoreDebugExpression(key, expression)
+	case "dbg-size", "dbg-num-shared":
 		expression, _, err := p.expression()
 		if err != nil {
 			return err
@@ -58,7 +102,19 @@ func (p *commandParser) debugCommand(name string) error {
 		if err != nil {
 			return err
 		}
-		count, err := m.GetNumExprs(expression)
+		var count uint32
+		if name == "dbg-size" {
+			count, err = m.GetNumExprs(expression)
+		} else {
+			shared, e := ast.NewASTSharedOccurrences(m)
+			if e != nil {
+				return e
+			}
+			defer func() { resultErr = errors.Join(resultErr, shared.Close()) }()
+			if err = shared.Collect(expression); err == nil {
+				count = shared.NumShared()
+			}
+		}
 		if err != nil {
 			return err
 		}

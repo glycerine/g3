@@ -32,3 +32,19 @@ func TestDebugExpressionResetAndErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestDebugShiftAndSharedExpressions(t *testing.T) {
+	script := `(declare-const x Int)
+(dbg-get-qbody body (forall ((y Int)) (> y 0)))
+(dbg-shift-vars body 2)
+(dbg-pp-var body)
+(dbg-num-shared (+ (* x x) (* x x)))
+(dbg-num-shared (+ x x))`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "(> (:var 2) 0)\n1\n0\n"; out != want {
+		t.Fatalf("debug output %q, want %q", out, want)
+	}
+}

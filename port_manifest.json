@@ -45825,7 +45825,8 @@
       ],
       "tests": [
         "TestDebugExpressionCommands",
-        "TestDebugExpressionResetAndErrors"
+        "TestDebugExpressionResetAndErrors",
+        "TestDebugShiftAndSharedExpressions"
       ],
       "assertions": [
         {
@@ -45837,12 +45838,13 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
-            "TestDebugExpressionResetAndErrors"
+            "TestDebugExpressionResetAndErrors",
+            "TestDebugShiftAndSharedExpressions"
           ]
         }
       ],
@@ -45867,7 +45869,8 @@
       ],
       "tests": [
         "TestDebugExpressionCommands",
-        "TestDebugExpressionResetAndErrors"
+        "TestDebugExpressionResetAndErrors",
+        "TestDebugShiftAndSharedExpressions"
       ],
       "conditionals": [
         {
@@ -45883,12 +45886,13 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
-            "TestDebugExpressionResetAndErrors"
+            "TestDebugExpressionResetAndErrors",
+            "TestDebugShiftAndSharedExpressions"
           ]
         }
       ],
@@ -46292,7 +46296,8 @@
       ],
       "tests": [
         "TestDebugExpressionCommands",
-        "TestDebugExpressionResetAndErrors"
+        "TestDebugExpressionResetAndErrors",
+        "TestDebugShiftAndSharedExpressions"
       ],
       "assertions": [
         {
@@ -46332,12 +46337,13 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
-            "TestDebugExpressionResetAndErrors"
+            "TestDebugExpressionResetAndErrors",
+            "TestDebugShiftAndSharedExpressions"
           ]
         }
       ],
@@ -46362,7 +46368,8 @@
       ],
       "tests": [
         "TestDebugExpressionCommands",
-        "TestDebugExpressionResetAndErrors"
+        "TestDebugExpressionResetAndErrors",
+        "TestDebugShiftAndSharedExpressions"
       ],
       "conditionals": [
         {
@@ -46378,12 +46385,13 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "name": "named expression storage and debug set, quantifier body, print, shift, shared count and size commands",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugExpressionCommands",
-            "TestDebugExpressionResetAndErrors"
+            "TestDebugExpressionResetAndErrors",
+            "TestDebugShiftAndSharedExpressions"
           ]
         }
       ],
