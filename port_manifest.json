@@ -173174,7 +173174,7 @@
         }
       ],
       "ownership": [
-        "Replacement plans own fresh AST references, converted bounds own formula references, and the model converter owns mapped declarations. Input roots and bound dependencies are borrowed from the goal and bound manager."
+        "Replacement plans own fresh AST references, converted bounds own formula references, and the model converter owns mapped declarations. Input roots are borrowed; converted bounds own their dependencies while the goal changes."
       ],
       "deviations": [
         "The public tactic is registered and exercised through the QF_BV pipeline. Source debug assertions, failure/teardown fidelity, optimizer integration and full source audit remain incomplete."

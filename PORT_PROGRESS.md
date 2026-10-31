@@ -1,3 +1,5 @@
+Finite-domain dependency lifetime fix (2026-10-31 UTC): converted bounds now own their dependencies while original goal bounds are replaced. Normal and checked regressions cover the case where the goal is the sole previous owner of an explanation.
+
 Finite-domain tactic registration (2026-10-31 UTC): exposed eq2bv through the builtin tactic registry and exercised it from SMT-LIB with qfbv. SAT, reconstructed integer model and UNSAT results match the installed C++ Z3 for the test; normal and checked focused tests plus the full arithmetic-tactic, command-context and API packages pass. The source and ownership audit and optimizer-pipeline integration remain partial.
 
 Finite-domain goal transformation (2026-10-31 UTC): connected eq2bv candidate analysis, equality rewriting, bound constraints, proof facts and the model converter to an internal goal transformation. Normal and checked tests cover transformed goals, model reconstruction, no-op goals and bounds belonging to non-candidates. The public tactic factory and registry integration remain unfinished.

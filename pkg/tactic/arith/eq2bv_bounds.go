@@ -24,8 +24,23 @@ func (b *eq2bvBounds) Close() error {
 	}
 	for len(b.entries) != 0 {
 		i := len(b.entries) - 1
-		if err := b.manager.DelRef(&b.entries[i].formula); err != nil {
-			return err
+		entry := &b.entries[i]
+		if entry.formula != (ast.ASTRef{}) {
+			if err := b.manager.DelRef(&entry.formula); err != nil {
+				return err
+			}
+		}
+		if !entry.dependency.IsNull() {
+			consumed, err := b.manager.DependencyDecConsumed(entry.dependency)
+			if consumed {
+				entry.dependency = ast.ASTDependency{}
+			}
+			if err != nil {
+				return err
+			}
+			if !consumed {
+				return ast.ErrASTPending
+			}
 		}
 		b.entries = b.entries[:i]
 	}
@@ -102,6 +117,11 @@ func eq2bvMakeBounds(plan *eq2bvReplacements, source *BoundManager) (result *eq2
 			ref, e := m.NewRef(formula)
 			if e != nil {
 				return result, e
+			}
+			if !dep.IsNull() {
+				if e = m.DependencyInc(dep); e != nil {
+					return result, errors.Join(e, m.DelRef(&ref))
+				}
 			}
 			result.entries = append(result.entries, eq2bvBound{formula: ref, dependency: dep})
 		}

@@ -133,3 +133,49 @@ func TestEq2BVApplyPreservesBoundsOfNonCandidates(t *testing.T) {
 		t.Fatal("non-candidate bound was removed")
 	}
 }
+
+func TestEq2BVApplyOwnsDependenciesDuringBoundReplacement(t *testing.T) {
+	bounds, m := boundManagerFixture(t)
+	x := fixDLConst(t, m, true, "core-x")
+	num := func(s string) ast.ASTHandle { return fixDLNumber(t, m, true, s) }
+	lower := fixDLApp(t, m, 3, x, num("0"))
+	upper := fixDLApp(t, m, 2, x, num("7"))
+	one := collectorEq(t, m, x, num("1"))
+	three := collectorEq(t, m, x, num("3"))
+	disj, e := m.MkOrArgs([]ast.ASTHandle{one, three})
+	equationMust(t, e)
+	fixDLPin(t, m, disj)
+	boolSort, e := m.MkBoolSort()
+	equationMust(t, e)
+	name, e := m.Symbols.Intern("only-goal-owns-dependency")
+	equationMust(t, e)
+	label, e := m.MkConst(name, boolSort)
+	equationMust(t, e)
+	fixDLPin(t, m, label)
+	dep, e := m.DependencyLeaf(label)
+	equationMust(t, e)
+	goal, e := tactic.NewGoal(m, false, true, true)
+	equationMust(t, e)
+	t.Cleanup(func() { equationMust(t, goal.Close()) })
+	equationMust(t, goal.AssertWithProof(lower, ast.ASTHandle{}, dep))
+	equationMust(t, goal.Assert(upper))
+	equationMust(t, goal.Assert(disj))
+	var result tactic.TacticResult
+	defer func() { equationMust(t, result.Close()) }()
+	equationMust(t, eq2bvApply(goal, bounds, &result))
+	size, e := goal.Size()
+	equationMust(t, e)
+	found := false
+	for i := uint32(0); i < size; i++ {
+		d, e := goal.Dependency(i)
+		equationMust(t, e)
+		leaves, e := m.DependencyLinearize(d, nil)
+		equationMust(t, e)
+		if len(leaves) == 1 && leaves[0] == label {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("bound dependency disappeared")
+	}
+}
