@@ -187,3 +187,109 @@ func TestDatatypeSolverPluginBranchAssignment(t *testing.T) {
 	}
 	fmMust(t, m.DelRef(&constraints[0].Formula))
 }
+
+func TestDatatypeSolverPluginSubstitutesAndReusesConstructor(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	m, f := d.f.r.manager, d.f
+	x, y := f.constant("qe-subst-pair-x", d.pair), f.constant("qe-subst-pair-y", d.pair)
+	original := f.own(m.MkEq(x, y))
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	p, err := NewDatatypeSolverPlugin(ctx)
+	fmMust(t, err)
+	fmMust(t, ctx.AddPlugin(p))
+	defer func() { fmMust(t, ctx.Close()) }()
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&branch)) }()
+	formula, err := m.NewRef(original)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formula)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	ok, err := p.SubstituteNonRecursive(contains, &branch, formula, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("non-recursive datatype not supported")
+	}
+	term, err := m.RefGet(definition)
+	fmMust(t, err)
+	decl, err := m.GetDecl(term)
+	fmMust(t, err)
+	if decl != d.pairCtor {
+		t.Fatal("wrong replacement constructor")
+	}
+	variables, err := ctx.Variables()
+	fmMust(t, err)
+	if len(variables) != 3 {
+		t.Fatal("fresh constructor fields", len(variables))
+	}
+	for i := uint32(0); i < 2; i++ {
+		arg, e := m.GetArg(term, i)
+		fmMust(t, e)
+		if arg != variables[i+1] {
+			t.Fatal("fresh field order", i)
+		}
+	}
+	rewritten, err := m.RefGet(formula)
+	fmMust(t, err)
+	if rewritten != f.own(m.MkEq(term, y)) {
+		t.Fatal("formula was not substituted")
+	}
+	fmMust(t, m.SetRef(formula, original))
+	ok, err = p.SubstituteNonRecursive(contains, &branch, formula, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("cached substitution unavailable")
+	}
+	second, err := m.RefGet(definition)
+	fmMust(t, err)
+	variables, err = ctx.Variables()
+	fmMust(t, err)
+	if second != term || len(variables) != 5 || variables[3] != variables[1] || variables[4] != variables[2] {
+		t.Fatal("cached fresh variable reuse", variables)
+	}
+}
+
+func TestDatatypeSolverPluginSubstitutesRecognizedConstructor(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	m, f := d.f.r.manager, d.f
+	x := f.constant("qe-subst-color", d.color)
+	blueTest, err := m.DatatypeConstructorRecognizer(d.blue)
+	fmMust(t, err)
+	recognized := d.app(blueTest, x)
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	p, err := NewDatatypeSolverPlugin(ctx)
+	fmMust(t, err)
+	fmMust(t, ctx.AddPlugin(p))
+	defer func() { fmMust(t, ctx.Close()) }()
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&branch)) }()
+	formula, err := m.NewRef(recognized)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formula)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	ok, err := p.SubstituteNonRecursive(contains, &branch, formula, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("recognized constructor not supported")
+	}
+	term, err := m.RefGet(definition)
+	fmMust(t, err)
+	decl, err := m.GetDecl(term)
+	fmMust(t, err)
+	if decl != d.blue {
+		t.Fatal("recognizer did not select its constructor")
+	}
+}

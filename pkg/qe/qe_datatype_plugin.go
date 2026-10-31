@@ -14,12 +14,13 @@ import (
 // DatatypeSolverPlugin implements the non-recursive datatype branch of the
 // QE solver plugin. Recursive branching and substitution are still pending.
 type DatatypeSolverPlugin struct {
-	self        *DatatypeSolverPlugin
-	context     *SolverContext
-	manager     *ast.ASTManager
-	family      ast.FamilyID
-	constraints []ArithmeticConstraint
-	closed      bool
+	self          *DatatypeSolverPlugin
+	context       *SolverContext
+	manager       *ast.ASTManager
+	family        ast.FamilyID
+	constraints   []ArithmeticConstraint
+	substitutions map[datatypeSubstitutionKey]*datatypeSubstitution
+	closed        bool
 }
 
 func NewDatatypeSolverPlugin(context *SolverContext) (*DatatypeSolverPlugin, error) {
@@ -34,7 +35,7 @@ func NewDatatypeSolverPlugin(context *SolverContext) (*DatatypeSolverPlugin, err
 	if err != nil {
 		return nil, err
 	}
-	p := &DatatypeSolverPlugin{context: context, manager: m, family: family}
+	p := &DatatypeSolverPlugin{context: context, manager: m, family: family, substitutions: make(map[datatypeSubstitutionKey]*datatypeSubstitution)}
 	p.self = p
 	return p, nil
 }
@@ -83,6 +84,12 @@ func (p *DatatypeSolverPlugin) Close() error {
 			return err
 		}
 		p.constraints = p.constraints[:i]
+	}
+	for key, entry := range p.substitutions {
+		if err := entry.close(p.manager); err != nil {
+			return err
+		}
+		delete(p.substitutions, key)
 	}
 	p.closed = true
 	return nil

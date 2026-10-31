@@ -107423,11 +107423,14 @@
       "status": "partial",
       "go_targets": [
         "pkg/qe/qe_datatype_plugin.go",
-        "pkg/qe/qe_datatype_plugin_test.go"
+        "pkg/qe/qe_datatype_plugin_test.go",
+        "pkg/qe/qe_datatype_plugin_substitute.go"
       ],
       "tests": [
         "TestDatatypeSolverPluginNonRecursiveBranches",
-        "TestDatatypeSolverPluginBranchAssignment"
+        "TestDatatypeSolverPluginBranchAssignment",
+        "TestDatatypeSolverPluginSubstitutesAndReusesConstructor",
+        "TestDatatypeSolverPluginSubstitutesRecognizedConstructor"
       ],
       "assertions": [
         {
@@ -107545,13 +107548,22 @@
           "tests": [
             "TestDatatypeSolverPluginBranchAssignment"
           ]
+        },
+        {
+          "name": "non-recursive constructor substitution and cached fresh fields",
+          "status": "partial",
+          "go_target": "pkg/qe/qe_datatype_plugin_substitute.go",
+          "tests": [
+            "TestDatatypeSolverPluginSubstitutesAndReusesConstructor",
+            "TestDatatypeSolverPluginSubstitutesRecognizedConstructor"
+          ]
         }
       ],
       "ownership": [
-        "The plugin borrows its solver context and AST manager, owns queued constraint references and transfers them to callers via TakeConstraints."
+        "The plugin owns queued constraints and cached constructor substitutions; its solver context owns fresh variable references. TakeConstraints transfers formula references to the caller."
       ],
       "deviations": [
-        "Pending recursive equality/disequality branching, constructor substitution, foreign-variable lifting and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
+        "Pending recursive equality/disequality branching and substitution, foreign-variable lifting, complete failure/lifetime audit and integration with a complete QE strategy. The concrete plugin is registerable with SolverContext but is not yet installed automatically."
       ]
     },
     {

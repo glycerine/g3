@@ -1,3 +1,5 @@
+Datatype QE constructor substitution (2026-10-31 UTC): added non-recursive constructor substitution with owned fresh fields and source-style cache reuse; tests cover constructor recognition, formula replacement and variable reuse. Recursive substitution, complete failure audit and automatic strategy integration remain pending.
+
 Datatype QE recursive branch increment (2026-10-31 UTC): added solver-style branch counting and owned assignment constraints for unrecognized recursive constructors, plus the existing-recognizer matching-selector case. Recursive equality branching, constructor substitution and automatic strategy integration remain pending.
 
 Datatype QE solver plugin source start (2026-10-31 UTC): implemented source non-recursive constructor branch counts, recognizer scanning and branch constraint construction in a concrete SolverContext plugin. Recursive datatype branching, substitution and strategy integration remain pending.
