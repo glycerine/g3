@@ -177034,14 +177034,30 @@
       "status": "partial",
       "go_targets": [
         "pkg/tactic/arith/recover_01_collect.go",
-        "pkg/tactic/arith/unstarted_collectors_test.go",
-        "pkg/tactic/arith/eq2bv_collect.go",
         "pkg/tactic/arith/recover_01_coeff.go",
-        "pkg/tactic/arith/recover_01_coeff_test.go"
+        "pkg/tactic/arith/recover_01_definitions.go",
+        "pkg/tactic/arith/recover_01_model.go",
+        "pkg/tactic/arith/recover_01_apply.go",
+        "pkg/tactic/arith/recover_01_tactic.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go",
+        "pkg/tactic/arith/recover_01_coeff_test.go",
+        "pkg/tactic/arith/recover_01_definitions_test.go",
+        "pkg/tactic/arith/recover_01_model_test.go",
+        "pkg/tactic/arith/recover_01_apply_test.go",
+        "pkg/tactic/arith/recover_01_tactic_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/recover_01_integration_test.go"
       ],
       "tests": [
         "TestRecover01ClauseShapeSizeAndFirstArity",
-        "TestRecover01CoefficientsTruthTables"
+        "TestRecover01CoefficientsTruthTables",
+        "TestRecover01DefinitionsShareBooleansAndHandleSigns",
+        "TestRecover01ModelReconstruction",
+        "TestRecover01GoalTransformation",
+        "TestRecover01IncompleteTableLeavesOriginalGoal",
+        "TestRecover01RejectsProofAndCoreGoals",
+        "TestRecover01TacticParametersAndReuse",
+        "TestSMTLibRunnerRecover01Tactic"
       ],
       "assertions": [
         {
@@ -177087,24 +177103,61 @@
           "tests": [
             "TestRecover01CoefficientsTruthTables"
           ]
+        },
+        {
+          "name": "mk_ivar/process/operator(): build substitutions and bounds, rewrite goals, reconstruct models and expose tactic",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/recover_01_apply.go",
+          "tests": [
+            "TestRecover01DefinitionsShareBooleansAndHandleSigns",
+            "TestRecover01ModelReconstruction",
+            "TestRecover01GoalTransformation",
+            "TestRecover01IncompleteTableLeavesOriginalGoal",
+            "TestRecover01RejectsProofAndCoreGoals",
+            "TestRecover01TacticParametersAndReuse",
+            "TestSMTLibRunnerRecover01Tactic"
+          ]
         }
       ],
       "ownership": [
-        "Collectors borrow input expressions; returned handles remain valid only while caller-owned roots are alive. Numeral GCD values use independent Go big.Int owners."
+        "Clause analysis borrows roots; substitutions and fresh-bit references are owned for the duration of the invocation, and the output owns the new goal and model converter."
       ],
       "deviations": [
-        "Pending: substitutions, model/proof conversion, lifecycle and public tactic integration.",
-        "New source start only; not registered as an executable tactic and not claimed source-complete.",
-        "Truth-table analysis supports clause sizes through 31 and borrows clause handles; fresh variables, substitutions and model conversion remain unimplemented."
+        "Clause truth-table analysis caps clause size at 31; source progress reporting and full source/ownership audits remain unfinished."
       ]
     },
     {
       "path": "src/tactic/arith/recover_01_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/tactic/arith/recover_01_collect.go",
+        "pkg/tactic/arith/recover_01_coeff.go",
+        "pkg/tactic/arith/recover_01_definitions.go",
+        "pkg/tactic/arith/recover_01_model.go",
+        "pkg/tactic/arith/recover_01_apply.go",
+        "pkg/tactic/arith/recover_01_tactic.go",
+        "pkg/tactic/arith/unstarted_collectors_test.go",
+        "pkg/tactic/arith/recover_01_coeff_test.go",
+        "pkg/tactic/arith/recover_01_definitions_test.go",
+        "pkg/tactic/arith/recover_01_model_test.go",
+        "pkg/tactic/arith/recover_01_apply_test.go",
+        "pkg/tactic/arith/recover_01_tactic_test.go",
+        "pkg/cmd_context/tactic_commands.go",
+        "pkg/cmd/g3/recover_01_integration_test.go"
+      ],
+      "tests": [
+        "TestRecover01ClauseShapeSizeAndFirstArity",
+        "TestRecover01CoefficientsTruthTables",
+        "TestRecover01DefinitionsShareBooleansAndHandleSigns",
+        "TestRecover01ModelReconstruction",
+        "TestRecover01GoalTransformation",
+        "TestRecover01IncompleteTableLeavesOriginalGoal",
+        "TestRecover01RejectsProofAndCoreGoals",
+        "TestRecover01TacticParametersAndReuse",
+        "TestSMTLibRunnerRecover01Tactic"
+      ],
       "conditionals": [
         {
           "line": 33,
@@ -177117,9 +177170,21 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "mk_recover_01_tactic: registered clean tactic factory",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/recover_01_tactic.go",
+          "tests": [
+            "TestRecover01TacticParametersAndReuse",
+            "TestSMTLibRunnerRecover01Tactic"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "Clause truth-table analysis caps clause size at 31; source progress reporting and full source/ownership audits remain unfinished."
+      ]
     },
     {
       "path": "src/tactic/bv/CMakeLists.txt",

@@ -74,6 +74,7 @@ var builtinTacticDescriptions = map[string]string{
 	"qsat":                    "apply a QSAT solver.",
 	"quasi-macros":            "Identifies and applies quasi-macros.",
 	"reduce-args":             "reduce the number of arguments of function applications, when for all occurrences of a function f the i-th is a value.",
+	"recover-01":              "recover 0-1 variables hidden as Boolean variables.",
 	"reduce-bv-size":          "try to reduce bit-vector sizes using inequalities.",
 	"sat":                     "(try to) solve goal using a SAT solver.",
 	"sat-preprocess":          "Apply SAT solver preprocessing procedures (bounded resolution, Boolean constant propagation, 2-SAT, subsumption, subsumption resolution).",
