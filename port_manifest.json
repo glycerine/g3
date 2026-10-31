@@ -91939,8 +91939,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/explanation_relation_display.go", "pkg/muz/rel/explanation_relation_display_test.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
-      "tests": ["TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter", "TestExplanationRelationFormulaDisplayAndForeignUnion"],
+      "go_targets": ["pkg/muz/rel/explanation_relation.go", "pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/explanation_transform_test.go", "pkg/muz/rel/explanation_relation_display.go", "pkg/muz/rel/explanation_relation_display_test.go", "pkg/muz/rel/explanation_relation_filter.go", "pkg/muz/rel/explanation_relation_filter_test.go", "pkg/muz/rel/explanation_relation_operations.go", "pkg/muz/rel/explanation_relation_operations_test.go", "pkg/muz/rel/explanation_relation_test.go"],
+      "tests": ["TestExplanationRelationOwnsRowsAcrossResetAndClone", "TestExplanationRelationComplementAndValidation", "TestExplanationRelationJoinProjectAndRename", "TestExplanationRelationFactAndRelationLevelUnion", "TestExplanationRelationAssignmentAndIntersectionFilters", "TestExplanationRelationNegationFilter", "TestExplanationRelationFormulaDisplayAndForeignUnion", "TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay"],
       "assertions": [
         {
           "line": 145,
@@ -92051,15 +92051,15 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Join, projection, rename and fact/relation-level union are ported; assignment, intersection and negation filters are ported. Formula/display and foreign union are ported. Plugin registration, rule transformation and Datalog integration remain unfinished."]
+      "deviations": ["The concrete one-row explanation relation storage, clone, complement and ownership paths are started. Join, projection, rename and fact/relation-level union are ported; assignment, intersection and negation filters are ported. Formula/display and foreign union are ported. Explanation predicates and individual rule translation are ported; relation-kind assignment, rule-set/fact transformation and Datalog integration remain unfinished."]
     },
     {
       "path": "src/muz/rel/dl_mk_explanations.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/explanation_transform.go", "pkg/muz/rel/explanation_transform_test.go"],
+      "tests": ["TestExplanationTransformerAddsRuleRecords", "TestExplanationTransformerUsesUnnamedRuleDisplay"],
       "conditionals": [
         {
           "line": 20,
@@ -92074,7 +92074,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Explanation predicate declarations and individual rule translation are started; relation-kind assignment, rule-set/fact transformation and Datalog integration remain unfinished."]
     },
     {
       "path": "src/muz/rel/dl_mk_similarity_compressor.cpp",
