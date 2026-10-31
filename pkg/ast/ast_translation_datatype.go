@@ -4,6 +4,7 @@ package ast
 // lines 54-112.
 
 import (
+	"fmt"
 	"sort"
 
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -137,9 +138,89 @@ func (t *ASTTranslation) copyDatatypeDefinitions() error {
 			}
 			definitions[i] = definition
 		}
+		reused, err := t.to.matchTranslatedDatatypeDefinitions(definitions)
+		if err != nil {
+			return err
+		}
+		if reused {
+			continue
+		}
 		if _, err = t.to.MkDatatypes(definitions); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// matchTranslatedDatatypeDefinitions prevents translation from replacing an
+// existing target definition. Identical blocks can safely use the target's
+// canonical sorts and constructors.
+func (m *ASTManager) matchTranslatedDatatypeDefinitions(definitions []DatatypeDefinition) (bool, error) {
+	if err := m.lock(); err != nil {
+		return false, err
+	}
+	defer m.mu.Unlock()
+	if m.datatypePlugin == nil {
+		return false, ErrASTDomain
+	}
+	existing := make([]*astDatatypeDefinition, len(definitions))
+	present := 0
+	for i, definition := range definitions {
+		existing[i] = m.datatypePlugin.definitionNames[definition.Name]
+		if existing[i] != nil {
+			present++
+		}
+	}
+	if present == 0 {
+		return false, nil
+	}
+	conflict := func() (bool, error) {
+		return false, fmt.Errorf("%w: incompatible target datatype definition", ErrASTDomain)
+	}
+	if present != len(definitions) {
+		return conflict()
+	}
+	for i, definition := range definitions {
+		current := existing[i]
+		if current.classID != existing[0].classID || len(current.parameters) != len(definition.Parameters) || len(current.constructors) != len(definition.Constructors) {
+			return conflict()
+		}
+		for j, parameter := range definition.Parameters {
+			value, err := m.internal(parameter)
+			if err != nil {
+				return false, err
+			}
+			if current.parameters[j] != value {
+				return conflict()
+			}
+		}
+		for j, constructor := range definition.Constructors {
+			old := current.constructors[j]
+			if old.name != constructor.Name || old.recognizer != constructor.Recognizer || len(old.ranges) != len(constructor.Accessors) {
+				return conflict()
+			}
+			for k, accessor := range constructor.Accessors {
+				if old.accessors[k] != accessor.Name {
+					return conflict()
+				}
+				var expected astNodeRef
+				if accessor.Recursive {
+					if int(accessor.RecursiveIndex) >= len(existing) {
+						return conflict()
+					}
+					expected = existing[accessor.RecursiveIndex].sort
+				} else {
+					var err error
+					expected, err = m.internal(accessor.Range)
+					if err != nil {
+						return false, err
+					}
+				}
+				if old.ranges[k] != expected {
+					return conflict()
+				}
+			}
+		}
+	}
+	return true, nil
 }

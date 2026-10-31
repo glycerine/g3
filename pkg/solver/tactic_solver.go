@@ -614,7 +614,7 @@ func (s *TacticSolver) translateWithTactic(m *ast.ASTManager, p *uparams.ParamsR
 		}
 		return next, nil
 	}
-	tr, err := ast.NewASTTranslation(s.manager, m, false)
+	tr, err := ast.NewASTTranslation(s.manager, m, true)
 	if err != nil {
 		_ = next.Close()
 		return nil, err

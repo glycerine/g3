@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("dt2bv")
+	simplify, err := source.Tactic("max-bv-sharing")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1014,6 +1014,7 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 		{"propagate-ineqs", "QF_LIA", "(declare-const x Int) (declare-const y Int) (assert (>= x 0)) (assert (>= y 0)) (assert (>= (+ x y) 3)) (assert (<= x 5))", 4},
 		{"fm", "QF_LRA", "(declare-const x Real) (declare-const y Real) (assert (> x 1)) (assert (< x 3)) (assert (= y (+ x 1)))", 3},
 		{"bv1-blast", "QF_BV", "(declare-const x (_ BitVec 8)) (assert (= ((_ extract 7 4) x) #b1010)) (assert (= ((_ extract 3 0) x) #b0101))", 2},
+		{"dt2bv", "ALL", "(declare-datatypes () ((E red amber green))) (declare-const x E) (assert (= x green))", 1},
 		{"qfufnra", "QF_UFNRA", "(declare-const x Real) (declare-fun f (Real) Real) (assert (= x 2)) (assert (= (f x) (/ 1 x))) (assert (> (f x) 0))", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1043,7 +1044,8 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 			status, err := translated.Check()
 			astTestMust(t, err)
 			if status != lbool.True {
-				t.Fatal("translated solver", status)
+				reason, _ := translated.ReasonUnknown()
+				t.Fatal("translated solver", status, reason)
 			}
 			model, err := translated.Model()
 			astTestMust(t, err)
@@ -1125,5 +1127,67 @@ func TestAPITacticSolverTranslateBV1UnsatAfterSourceClose(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("translated unsatisfiable bit-vector solver", status)
+	}
+}
+
+func TestAPITacticSolverTranslateRejectsConflictingDatatype(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	existing, err := target.NewSimpleSolver()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, existing.Close()) }()
+	astTestMust(t, existing.LoadSMT2String("(declare-datatypes () ((E old-a old-b))) (declare-const x E) (assert (= x old-b))"))
+	strategy, err := source.Tactic("dt2bv")
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(strategy)
+	astTestMust(t, err)
+	astTestMust(t, strategy.Close())
+	defer func() { astTestMust(t, solver.Close()) }()
+	astTestMust(t, solver.LoadSMT2String("(declare-datatypes () ((E new-a new-b new-c))) (declare-const y E) (assert (= y new-c))"))
+	translated, err := solver.Translate(target)
+	if translated != nil {
+		astTestMust(t, translated.Close())
+	}
+	if !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatalf("expected conflicting datatype error, got %v", err)
+	}
+	status, err := existing.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("target solver changed after rejected translation", status)
+	}
+}
+
+func TestAPITacticSolverTranslateDT2BVUnsatAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	strategy, err := source.Tactic("dt2bv")
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := strategy.AndThen(smt)
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	for _, value := range []*APITactic{combined, smt, strategy} {
+		astTestMust(t, value.Close())
+	}
+	astTestMust(t, solver.LoadSMT2String("(declare-datatypes () ((E red amber green))) (declare-const x E) (assert (= x red)) (assert (= x green))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated unsatisfiable datatype solver", status)
 	}
 }

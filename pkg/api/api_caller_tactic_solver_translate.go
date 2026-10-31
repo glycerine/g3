@@ -44,6 +44,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
 		case *bv.BV1BlasterTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
+		case *bv.DT2BVTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.ModelEvaluator)
 		case *nlsatsmt.NLPurifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		default:

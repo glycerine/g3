@@ -19503,6 +19503,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/ast/ast_translation_datatype_collision_test.go",
         "pkg/ast/ast_builtin_plugins_values.go",
         "pkg/ast/ast_datatype_fully_interpreted_source_test.go",
         "pkg/ast/ast_datatype_decl.go",
@@ -19536,6 +19538,11 @@
         "pkg/ast/rewriter/enum2bv_source_owners_test.go"
       ],
       "tests": [
+        "TestASTTranslationRejectsConflictingRecursiveField",
+        "TestASTTranslationRejectsConflictingDatatypeWithoutReplacingTarget",
+        "TestASTTranslationReusesIdenticalDatatypeDefinitions",
+        "TestASTTranslationReusesIdenticalRecursiveDatatype",
+        "TestAPITacticSolverTranslateRejectsConflictingDatatype",
         "TestDatatypeFullyInterpretedPreservesRetainedEarlyReturn",
         "TestASTDatatypeSortAndOriginalDeclarations",
         "TestASTDatatypeDeclarationRefusals",
@@ -19912,6 +19919,7 @@
         "An enum predicate utility owns its constructor-list sort/declarations and one additional sort pin after result publication. False results are cached independently. Non-datatype predicates acquire nothing. Result-pin refusal preserves prior constructor owners and the published boolean; warm lookup does not retroactively pin. Independent source enum2bv imp/rw_cfg instances use separate utilities."
       ],
       "deviations": [
+        "Datatype translation reuses matching target definition blocks and rejects incompatible same-name definitions instead of replacing existing target metadata.",
         "Private utility memoization maps are omitted because concrete Go queries reconstruct hash-consed declarations and compute recursion/enum properties directly. The unused plugin remove entry point and undeclared get_datatype_size declaration are not ported. Size functions are evaluated directly into the existing pointer-free SortSize representation instead of retaining a polymorphic C++ expression tree. Definition metadata uses concrete Go structs, maps, and slices; native container allocation ABI is not claimed.",
         "Forward m_asts release and cache-before-reference Reset order now match the retained source. Explicit Go owning retries retain unconsumed tokens, skip already consumed tokens, and advance the reset preference once after completion. Guarded FPA construction supplies an actual public ErrASTPending regression; interrupted Reset rejects constructor queries and Close may supersede it without a Reset increment. DatatypeFactory member cleanup now stops before its structured base on utility failure. Whole-unit completion remains withdrawn: remaining utility/plugin assertion and publication prefixes, other cache/owner paths and the broader datatype plugin ownership audit remain open. The plugin-owned utility consumed-NUM finalizer is now verified; other member cleanup paths remain open.",
         "The next source review corrects eager constructor materialization, literal uint32 candidate-index overflow, ordered forbidden-stack search, reached utility assertions, constructor family registration and first-pin retention before a second preference acquisition failure. Declaration AST-ID ordering and a cold node-page allocation refusal verify the counter frontier; a valid recursive sort exposes the native unsigned-overflow no-result/SASSERT(r) behavior. The subsequent concrete utility increment restores get_datatype_constructors cache pins and ordered owner prefixes. The manager-plugin utility now shares the concrete cache representation with independent ownership; util_bug trace statements and normal pretty-printer temporary ownership are now implemented; physical cleanup-failure paths and other utility methods remain open. These are retained source obligations, not dead code, and prevent whole-unit completion.",
@@ -174408,6 +174416,8 @@
         "pkg/tactic/tactic_context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateDT2BVUnsatAfterSourceClose",
+        "TestAPITacticSolverTranslateRejectsConflictingDatatype",
         "TestTacticSolverSATUnknownScopesAndFailureReason",
         "TestTacticSolverTrackedCoreProofFactoriesAndTranslation",
         "TestTacticSolverBaseLevelTranslation",
@@ -184784,6 +184794,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/tactic/bv/dt2bv_context_translation_test.go",
+        "pkg/tactic/bv/dt2bv_context_translation.go",
         "pkg/tactic/bv/dt2bv_tactic.go",
         "pkg/tactic/bv/dt2bv_tactic_test.go",
         "pkg/tactic/bv/dt2bv_cpp_test.go",
@@ -184792,6 +184805,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestDT2BVContextTranslationPreservesParametersAndModel",
+        "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
+        "TestAPITacticSolverTranslateDT2BVUnsatAfterSourceClose",
         "TestDT2BVGoalsCPP",
         "TestDT2BVSMTLIBModelsAndCoresCPP",
         "TestDT2BVModelReconstructionProofsAndDependencies",
