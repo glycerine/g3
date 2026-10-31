@@ -99261,11 +99261,15 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go",
+        "pkg/muz/transforms/rule_unifier.go",
+        "pkg/muz/transforms/rule_unifier_test.go",
         "pkg/muz/fp/spacer_engine.go"
       ],
       "tests": [
         "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
         "TestRuleInlinerUsesDisjointVariableBanks",
+        "TestRuleUnifierModelProofSubstitutionsAndReset",
+        "TestRuleInlinerVariableProofSubstitutionsOwnReferencesOnce",
         "TestRuleInlinerPreservesRecursivePredicate",
         "TestRuleInlinerContractsUniqueLinearGroundChain",
         "TestRuleInlinerHonorsDisabledModes",
@@ -99454,11 +99458,15 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/rule_inliner.go"
+        "pkg/muz/transforms/rule_inliner.go",
+        "pkg/muz/transforms/rule_unifier.go",
+        "pkg/muz/transforms/rule_unifier_test.go"
       ],
       "tests": [
         "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
         "TestRuleInlinerUsesDisjointVariableBanks",
+        "TestRuleUnifierModelProofSubstitutionsAndReset",
+        "TestRuleInlinerVariableProofSubstitutionsOwnReferencesOnce",
         "TestRuleInlinerPreservesRecursivePredicate",
     "TestRuleInlinerContractsUniqueLinearGroundChain",
     "TestRuleInlinerHonorsDisabledModes",

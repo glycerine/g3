@@ -169,8 +169,8 @@ func ruleVariableCount(manager *ast.ASTManager, rule *base.Rule) (uint32, error)
 
 // ruleProofSubstitution mirrors rule_unifier::get_rule_subst: enumerate the
 // rule's normalized variables in index order, then apply the selected bank.
-func (p *RuleInlinerPlugin) ruleProofSubstitution(rule *base.Rule, offset uint32, variables uint32, subst *substitution.Substitution) ([]ast.ASTHandle, []ast.ASTRef, error) {
-	used, err := ast.NewASTUsedVars(p.manager)
+func ruleProofSubstitution(manager *ast.ASTManager, rule *base.Rule, offset uint32, variables uint32, subst *substitution.Substitution) ([]ast.ASTHandle, []ast.ASTRef, error) {
+	used, err := ast.NewASTUsedVars(manager)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -200,27 +200,27 @@ func (p *RuleInlinerPlugin) ruleProofSubstitution(rule *base.Rule, offset uint32
 	for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
 		sort := used.Contains(i)
 		if sort.IsNull() {
-			_ = releaseTransformRefs(p.manager, refs)
+			_ = releaseTransformRefs(manager, refs)
 			return nil, nil, ast.ErrASTDomain
 		}
-		variable, mkErr := p.manager.MkVar(i, sort)
+		variable, mkErr := manager.MkVar(i, sort)
 		if mkErr != nil {
-			_ = releaseTransformRefs(p.manager, refs)
+			_ = releaseTransformRefs(manager, refs)
 			return nil, nil, mkErr
 		}
-		ref, mkErr := p.manager.NewRef(ast.ASTHandle{})
+		ref, mkErr := manager.NewRef(ast.ASTHandle{})
 		if mkErr != nil {
-			_ = releaseTransformRefs(p.manager, refs)
+			_ = releaseTransformRefs(manager, refs)
 			return nil, nil, mkErr
 		}
 		refs = append(refs, ref)
 		if mkErr = subst.Apply(2, deltas, substitution.NewExprOffset(variable, offset), ref); mkErr != nil {
-			_ = releaseTransformRefs(p.manager, refs)
+			_ = releaseTransformRefs(manager, refs)
 			return nil, nil, mkErr
 		}
-		value, mkErr := p.manager.RefGet(ref)
+		value, mkErr := manager.RefGet(ref)
 		if mkErr != nil {
-			_ = releaseTransformRefs(p.manager, refs)
+			_ = releaseTransformRefs(manager, refs)
 			return nil, nil, mkErr
 		}
 		result = append(result, value)
@@ -346,11 +346,11 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 		if getErr != nil || !sourceHasProof {
 			return nil, errors.Join(fmt.Errorf("muz/transforms: target rule proof requires source rule proof"), getErr, resolved.Close())
 		}
-		firstSubst, firstRefs, subErr := p.ruleProofSubstitution(target, 0, variables, subst)
+		firstSubst, firstRefs, subErr := ruleProofSubstitution(p.manager, target, 0, variables, subst)
 		if subErr != nil {
 			return nil, errors.Join(subErr, resolved.Close())
 		}
-		secondSubst, secondRefs, subErr := p.ruleProofSubstitution(source, 1, variables, subst)
+		secondSubst, secondRefs, subErr := ruleProofSubstitution(p.manager, source, 1, variables, subst)
 		if subErr != nil {
 			return nil, errors.Join(subErr, releaseTransformRefs(p.manager, firstRefs), resolved.Close())
 		}
