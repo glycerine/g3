@@ -1,3 +1,5 @@
+Optimization inventory evidence (2026-10-31 UTC): refreshed four MaxRes test names and three moved decomposition and mutex-preprocessing paths. Focused MaxRes tests pass; inventory validation continues.
+
 Sequence replay integration (2026-10-31 UTC): normal and checked CLI tests replay a string through regex construction, an unbounded loop and membership. Other generated commands remain unfinished.
 
 Generated regex replay (2026-10-31 UTC): added plus, star, option, union, concatenation, range, loops, intersection, complement and empty/full constructors. Normal and checked tests cover result sorts and bounded versus unbounded loop parameters; other generated commands remain unfinished.

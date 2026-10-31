@@ -105864,10 +105864,10 @@
         "pkg/solver/mus.go"
       ],
       "tests": [
-        "TestMaxResBase",
-        "TestMaxResBoundaries",
-        "TestMaxResMutexOrder",
-        "TestMaxResMutexTransform",
+        "TestMaxResBaseAggregatesSortsAndRemovesAssumptions",
+        "TestMaxResWeightBoundariesKeepEqualWeightsTogether",
+        "TestMaxResMutexOrderIsDescendingAndStable",
+        "TestMaxResMutexTransformPreservesTotalWithExactLowerOffset",
         "TestMaxResCoreMinimizationMatchesSourceForMoreThanThirtyTwoLiterals"
       ],
       "assertions": [
@@ -105915,10 +105915,10 @@
             "pkg/opt/maxres_stats.go"
           ],
           "tests": [
-            "TestMaxResBase",
-            "TestMaxResBoundaries",
-            "TestMaxResMutexOrder",
-            "TestMaxResMutexTransform"
+            "TestMaxResBaseAggregatesSortsAndRemovesAssumptions",
+            "TestMaxResWeightBoundariesKeepEqualWeightsTogether",
+            "TestMaxResMutexOrderIsDescendingAndStable",
+            "TestMaxResMutexTransformPreservesTotalWithExactLowerOffset"
           ]
         },
         {
@@ -106247,8 +106247,8 @@
         "pkg/opt/bound_expression_test.go",
         "pkg/opt/arithmetic_value_expression.go",
         "pkg/opt/objective_decomposition_types.go",
-        "pkg/opt/objective_decomposition.go",
-        "pkg/opt/objective_decomposition_restore.go",
+        "pkg/opt/objective_decomposition_batch.go",
+        "pkg/opt/objective_decomposition_values.go",
         "pkg/opt/objective_purifier.go",
         "pkg/opt/objective_pipeline.go",
         "pkg/opt/objective_pipeline_check.go",
@@ -107715,7 +107715,7 @@
       "component": "opt",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/opt/maxsmt_sort_engine.go", "pkg/opt/maxsmt_sort_search.go", "pkg/opt/maxsmt_sort_model.go", "pkg/opt/maxsmt_sort_stats.go", "pkg/opt/maxsmt_sort_mutex_preprocess.go", "pkg/opt/sortmax_encoder.go", "pkg/opt/sortmax_encoded_network.go", "pkg/opt/sortmax_network_cost.go", "pkg/opt/sortmax_encoded_comparator.go", "pkg/opt/sortmax_fresh.go", "pkg/opt/sortmax_clause.go", "pkg/opt/sortmax_literal.go"],
+      "go_targets": ["pkg/opt/maxsmt_sort_engine.go", "pkg/opt/maxsmt_sort_search.go", "pkg/opt/maxsmt_sort_model.go", "pkg/opt/maxsmt_sort_stats.go", "pkg/opt/maxsmt_mutex_preprocess.go", "pkg/opt/sortmax_encoder.go", "pkg/opt/sortmax_encoded_network.go", "pkg/opt/sortmax_network_cost.go", "pkg/opt/sortmax_encoded_comparator.go", "pkg/opt/sortmax_fresh.go", "pkg/opt/sortmax_clause.go", "pkg/opt/sortmax_literal.go"],
       "tests": ["TestSortMaxPacketUsesDirectCardinalityNetworkAndFiltersWires", "TestArithmeticSolverUsesSortMaxForWeightedMutex", "TestSortMaxPacketOptimizesWeightedMutex"],
       "methods_audited": true,
       "ownership_audited": true,
