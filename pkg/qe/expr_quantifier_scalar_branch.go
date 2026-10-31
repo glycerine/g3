@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/qe.cpp update_current, concrete Boolean branch path.
+// Source: src/qe/qe.cpp update_current, Boolean and bit-vector branch paths.
 
 import (
 	"errors"
@@ -10,11 +10,16 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// stepExprQEBoolBranch first records a new assignment, then on a subsequent
-// visit substitutes its Boolean value and normalizes the resulting child.
-func stepExprQEBoolBranch(parent *exprQETree, variables *exprQEBranchVariables, plugin *BoolPlugin, branch *big.Rat, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, withDefinitions bool) (child *exprQETree, status exprQETreeStatus, err error) {
+// stepExprQEScalarBranch first records an assignment, then substitutes its
+// concrete Boolean or bit-vector value on the next visit.
+func stepExprQEScalarBranch(parent *exprQETree, variables *exprQEBranchVariables, plugin SolverPlugin, branch *big.Rat, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer, withDefinitions bool) (child *exprQETree, status exprQETreeStatus, err error) {
 	if parent == nil || parent.manager == nil || variables == nil || variables.manager != parent.manager || plugin == nil || branch == nil || rw == nil || nnf == nil || parent.selected == (ast.ASTRef{}) {
 		return nil, status, ast.ErrASTHandle
+	}
+	switch plugin.(type) {
+	case *BoolPlugin, *BitVectorPlugin:
+	default:
+		return nil, status, ast.ErrASTDomain
 	}
 	m := parent.manager
 	variable, err := m.RefGet(parent.selected)
@@ -52,7 +57,13 @@ func stepExprQEBoolBranch(parent *exprQETree, variables *exprQEBranchVariables, 
 		if e != nil {
 			return nil, status, e
 		}
-		if e = plugin.Assign(variables.entries[entry].contains, formula, &n); e != nil {
+		switch p := plugin.(type) {
+		case *BoolPlugin:
+			e = p.Assign(variables.entries[entry].contains, formula, &n)
+		case *BitVectorPlugin:
+			e = p.Assign(variables.entries[entry].contains, formula, &n)
+		}
+		if e != nil {
 			return nil, status, e
 		}
 		if e = variables.consume(child); e != nil {
@@ -79,7 +90,13 @@ func stepExprQEBoolBranch(parent *exprQETree, variables *exprQEBranchVariables, 
 		defer func() { err = errors.Join(err, m.DelRef(&definition)) }()
 		definitionArg = &definition
 	}
-	if err = plugin.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg); err != nil {
+	switch p := plugin.(type) {
+	case *BoolPlugin:
+		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
+	case *BitVectorPlugin:
+		err = p.Substitute(variables.entries[entry].contains, &n, tmp, definitionArg)
+	}
+	if err != nil {
 		return nil, status, err
 	}
 	if err = variables.consume(child); err != nil {
