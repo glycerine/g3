@@ -5947,7 +5947,9 @@
         "pkg/api/z3_generated_inspection_commands.go",
         "pkg/api/z3_generated_inspection_commands_test.go",
         "pkg/api/z3_generated_sequence_commands.go",
-        "pkg/api/z3_generated_sequence_commands_test.go"
+        "pkg/api/z3_generated_sequence_commands_test.go",
+        "pkg/api/z3_generated_pseudo_boolean_commands.go",
+        "pkg/api/z3_generated_pseudo_boolean_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -5988,7 +5990,9 @@
         "TestGeneratedSequenceAndStringReplay",
         "TestGeneratedSequenceOperationReplay",
         "TestGeneratedRegexReplayAndLoopBounds",
-        "TestZ3LogFrontendReplaysSequencesAndRegex"
+        "TestZ3LogFrontendReplaysSequencesAndRegex",
+        "TestGeneratedPseudoBooleanReplaySignedCoefficients",
+        "TestGeneratedPseudoBooleanReplayRejectsShortCoefficients"
       ],
       "methods_audited": false,
       "ownership_audited": false,
