@@ -52228,3 +52228,7 @@ Overflow negation and division driver: ported the original signed boundary cases
 NLSAT source driver started: ported tst3's interval-union cases, including positive and negative square-root endpoints, open/closed and infinite boundaries, source reason-sensitive interval counts, subset and commutativity checks. The later randomized, evaluator and solver driver cases remain open.
 
 Full native checkpoint: the complete Go suite passed on clean committed snapshot 061d110b2 with CGO disabled. This checkpoint predates the separately tested NLSAT interval driver increment.
+
+NLSAT randomized interval driver: ported the original 200 seeded generated pairs, with both source ranges and interval counts. It checks union containment and commutativity, full-set consistency, and that each result interval is contained in the source interval set named by its justification.
+
+Overflow symbolic equivalences started: the source's widened-arithmetic equivalence checks pass for all operations at widths 1, 2 and 7, and for non-multiplication operations at width 16. The signed 16-bit multiplication overflow proof exceeded a four-minute focused run; 16-bit multiplication equivalences are left out of the routine test and remain open, alongside the source constant-folding discrepancy already recorded.

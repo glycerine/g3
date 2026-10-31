@@ -206128,7 +206128,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/nlsat/nlsat_interval_driver_cpp_test.go"],
-      "tests": ["TestNLSATSourceIntervalUnionCases"],
+      "tests": ["TestNLSATSourceIntervalUnionCases", "TestNLSATSourceRandomIntervalJustifications"],
       "conditionals": [
         {
           "line": 592,
@@ -206219,17 +206219,17 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 through tst10", "status": "unported"}],
+      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 through tst10", "status": "unported"}],
       "ownership": ["The interval fixture owns its algebraic manager; each generated interval and union holds a reference until test cleanup."],
-      "deviations": ["Source diagnostic output is omitted. Randomized interval generation, evaluator and nonlinear solver scenarios remain separate work."]
+      "deviations": ["Source diagnostic output is omitted. Evaluator and nonlinear solver scenarios remain separate work."]
     },
     {
       "path": "src/test/no_overflow.cpp",
       "component": "test",
       "role": "test",
       "status": "partial",
-      "go_targets": ["pkg/api/api_no_overflow_cpp_test.go", "pkg/api/api_no_overflow_unary_cpp_test.go"],
-      "tests": ["TestNoOverflowSourceAdditionBounds", "TestNoOverflowSourceSubtractionBounds", "TestNoOverflowSourceNegationAndDivisionBounds"],
+      "go_targets": ["pkg/api/api_no_overflow_cpp_test.go", "pkg/api/api_no_overflow_unary_cpp_test.go", "pkg/api/api_no_overflow_equiv_cpp_test.go"],
+      "tests": ["TestNoOverflowSourceAdditionBounds", "TestNoOverflowSourceSubtractionBounds", "TestNoOverflowSourceNegationAndDivisionBounds", "TestNoOverflowSourceSymbolicEquivalences"],
       "conditionals": [
         {
           "line": 19,
@@ -206260,9 +206260,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "test_add boundary cases and TEST macros", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceAdditionBounds"]}, {"name": "test_sub boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceSubtractionBounds"]}, {"name": "test_neg and test_div boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_unary_cpp_test.go", "tests": ["TestNoOverflowSourceNegationAndDivisionBounds"]}, {"name": "test_mul and test_equiv", "status": "unported"}],
+      "methods": [{"name": "test_add boundary cases and TEST macros", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceAdditionBounds"]}, {"name": "test_sub boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceSubtractionBounds"]}, {"name": "test_neg and test_div boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_unary_cpp_test.go", "tests": ["TestNoOverflowSourceNegationAndDivisionBounds"]}, {"name": "test_equiv symbolic overflow equivalences", "status": "partial", "go_target": "pkg/api/api_no_overflow_equiv_cpp_test.go", "tests": ["TestNoOverflowSourceSymbolicEquivalences"]}, {"name": "test_mul boundary cases", "status": "unported"}],
       "ownership": ["Each width and signedness case closes its solver and fixture after all scoped assertions are popped."],
-      "deviations": ["The original implementation is enabled only on Windows; the Go test runs the same addition cases on supported Go hosts. Multiplication and equivalence proofs are separate work. Signed multiplication source boundary expectations disagree with the source bit-vector constant-folder for one-bit 1*1 and negative operands; the Go solver mirrors that source fold."]
+      "deviations": ["The original implementation is enabled only on Windows; the Go test runs the same addition cases on supported Go hosts. Multiplication boundary cases and 16-bit symbolic multiplication equivalence proofs remain open; the signed 16-bit proof exceeded a four-minute focused run. Signed multiplication source boundary expectations disagree with the source bit-vector constant-folder for one-bit 1*1 and negative operands; the Go solver mirrors that source fold."]
     },
     {
       "path": "src/test/object_allocator.cpp",
