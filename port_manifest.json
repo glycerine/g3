@@ -199522,7 +199522,7 @@
       "path": "src/test/bit_blaster.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -199543,7 +199543,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The registered test calls helpers whose bit-blasting bodies are entirely commented out. Actual Go bit-blaster behavior is tested separately."]
     },
     {
       "path": "src/test/bit_vector.cpp",
@@ -200233,7 +200233,7 @@
       "path": "src/test/diff_logic.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -200348,13 +200348,13 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Windows test entry point comments out every test call and the other platform entry is empty; its unreachable examples remain reference material."]
     },
     {
       "path": "src/test/dl_context.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -200409,7 +200409,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The registered test returns immediately; its later examples are disabled, and no behavior is reached."]
     },
     {
       "path": "src/test/dl_product_relation.cpp",
@@ -200668,7 +200668,7 @@
       "path": "src/test/dl_query.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "assertions": [
@@ -200705,7 +200705,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The registered test returns before any query workload, and its helper functions have no source callers outside this unreachable test code."]
     },
     {
       "path": "src/test/dl_relation.cpp",
@@ -208455,7 +208455,7 @@
       "path": "src/test/quant_elim.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -208504,7 +208504,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The test_formula helper does not parse or check its formula because its implementation is disabled; the remaining process-finalization and exit behavior is not a Go test adapter."]
     },
     {
       "path": "src/test/quant_solve.cpp",
@@ -209544,14 +209544,14 @@
       "path": "src/test/region.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The registered driver calls a TODO-only empty helper; there is no allocator behavior in this test to port."]
     },
     {
       "path": "src/test/sat_user_scope.cpp",
@@ -210674,7 +210674,7 @@
       "path": "src/test/timeout.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
+      "status": "reference_only",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -210695,7 +210695,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Both platform branches define an empty test entry point; there is no timeout behavior to port from this driver."]
     },
     {
       "path": "src/test/total_order.cpp",
