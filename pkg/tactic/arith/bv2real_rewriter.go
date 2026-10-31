@@ -117,7 +117,7 @@ func (r *BV2RealRewriter) MkAppCore(decl ast.ASTHandle, args ast.AppArguments, o
 		return rewriter.RewriteFailed, err
 	}
 	u := r.utility
-	c := &bv2RealCall{u: u}
+	c := &bv2RealCall{u: u, output: out}
 	defer u.finish(c, &err)
 	values := make([]ast.ASTHandle, args.Count())
 	for i := range values {
@@ -158,7 +158,7 @@ func (r *BV2RealRewriter) MkAppCore(decl ast.ASTHandle, args ast.AppArguments, o
 	if c.err != nil {
 		return status, c.err
 	}
-	if !h.IsNull() {
+	if !h.IsNull() && !c.outputAssigned {
 		err = u.manager.SetRef(out, h)
 		if err == nil && c.traceLine != 0 {
 			err = u.traceLE(c.traceLine, "\n")
@@ -365,21 +365,7 @@ func (c *bv2RealCall) reduce(decl ast.ASTHandle, a []ast.ASTHandle) (h ast.ASTHa
 				return c.basic(ast.ASTOpNot, c.arith(2, a[0], a[1])), rewriter.Rewrite2
 			}
 		case 6, 7, 9:
-			if len(a) == 0 {
-				c.err = ast.ErrASTDomain
-				return
-			}
-			foldScope := c.checkpoint()
-			h = a[0]
-			ok = true
-			for i := 1; i < len(a) && ok; i++ {
-				var next ast.ASTHandle
-				next, ok = c.binary(kind, h, a[i])
-				if ok {
-					h = next
-				}
-				c.endExpressionScope(foldScope, &h)
-			}
+			return c.fold(kind, a)
 		case 8:
 			if len(a) != 1 {
 				c.err = ast.ErrASTDomain

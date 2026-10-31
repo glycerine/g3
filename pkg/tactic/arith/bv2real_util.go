@@ -290,11 +290,13 @@ func (u *BV2RealUtil) Close() error {
 }
 
 type bv2RealCall struct {
-	u         *BV2RealUtil
-	refs      []ast.ASTRef
-	numbers   []*unumeral.OwnedRational
-	err       error
-	traceLine int
+	u              *BV2RealUtil
+	refs           []ast.ASTRef
+	numbers        []*unumeral.OwnedRational
+	err            error
+	traceLine      int
+	output         ast.ASTRef
+	outputAssigned bool
 }
 
 type bv2RealCallCheckpoint struct {

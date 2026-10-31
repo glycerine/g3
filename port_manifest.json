@@ -168344,7 +168344,9 @@
         "pkg/util/diagnostic/util_debug_macro_source_test.go",
         "pkg/tactic/arith/bv2real_numeric_scope_test.go",
         "pkg/tactic/arith/bv2real_expression_scope.go",
-        "pkg/tactic/arith/bv2real_expression_scope_test.go"
+        "pkg/tactic/arith/bv2real_expression_scope_test.go",
+        "pkg/tactic/arith/bv2real_fold.go",
+        "pkg/tactic/arith/bv2real_fold_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168359,7 +168361,11 @@
         "TestBV2RealExpressionHelperSourceReferenceCounts",
         "TestBV2RealExpressionScopeFailureFrontiers",
         "TestBV2RealReducerHelperSourceReferenceCounts",
-        "TestBV2RealVariadicFoldReleasesPreviousEncoding"
+        "TestBV2RealVariadicFoldReleasesPreviousEncoding",
+        "TestBV2RealVariadicFailurePublishesCompletedPrefixes",
+        "TestBV2RealVariadicRefusalAndUnaryPublication",
+        "TestBV2RealVariadicInitialAssignmentBeforeAllocation",
+        "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment"
       ],
       "assertions": [
         {
@@ -168560,13 +168566,28 @@
             "TestBV2RealReducerHelperSourceReferenceCounts",
             "TestBV2RealVariadicFoldReleasesPreviousEncoding"
           ]
+        },
+        {
+          "name": "n-ary add/sub/mul caller result assignment before the first binary step and after each completed prefix, including allocation/refusal and preceding trace errors",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_fold.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_rewriter.go"
+          ],
+          "tests": [
+            "TestBV2RealVariadicFailurePublishesCompletedPrefixes",
+            "TestBV2RealVariadicRefusalAndUnaryPublication",
+            "TestBV2RealVariadicInitialAssignmentBeforeAllocation",
+            "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment"
+          ]
         }
       ],
       "ownership": [
         "Utility owns auxiliary declarations, comparison declaration member refs, side conditions, three default project numerals, and independent rational pairs for both signature caches. Reset clears side conditions while preserving declaration/numeral cache owners. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls hold generated AST references and local numeral owners through their helper handoffs; stopped cleanup stays attached for Close retries. Copied and closed owners are rejected. The broader exact source lexical replacement and container growth audit remains open.",
         "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish.",
         "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup.",
-        "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried."
+        "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried.",
+        "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path."
       ],
       "deviations": [
         "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
@@ -168590,7 +168611,9 @@
         "pkg/util/diagnostic/util_debug_macro_source_test.go",
         "pkg/tactic/arith/bv2real_numeric_scope_test.go",
         "pkg/tactic/arith/bv2real_expression_scope.go",
-        "pkg/tactic/arith/bv2real_expression_scope_test.go"
+        "pkg/tactic/arith/bv2real_expression_scope_test.go",
+        "pkg/tactic/arith/bv2real_fold.go",
+        "pkg/tactic/arith/bv2real_fold_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168605,7 +168628,11 @@
         "TestBV2RealExpressionHelperSourceReferenceCounts",
         "TestBV2RealExpressionScopeFailureFrontiers",
         "TestBV2RealReducerHelperSourceReferenceCounts",
-        "TestBV2RealVariadicFoldReleasesPreviousEncoding"
+        "TestBV2RealVariadicFoldReleasesPreviousEncoding",
+        "TestBV2RealVariadicFailurePublishesCompletedPrefixes",
+        "TestBV2RealVariadicRefusalAndUnaryPublication",
+        "TestBV2RealVariadicInitialAssignmentBeforeAllocation",
+        "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment"
       ],
       "conditionals": [
         {
@@ -168705,13 +168732,28 @@
             "TestBV2RealReducerHelperSourceReferenceCounts",
             "TestBV2RealVariadicFoldReleasesPreviousEncoding"
           ]
+        },
+        {
+          "name": "n-ary add/sub/mul caller result assignment before the first binary step and after each completed prefix, including allocation/refusal and preceding trace errors",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_fold.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_rewriter.go"
+          ],
+          "tests": [
+            "TestBV2RealVariadicFailurePublishesCompletedPrefixes",
+            "TestBV2RealVariadicRefusalAndUnaryPublication",
+            "TestBV2RealVariadicInitialAssignmentBeforeAllocation",
+            "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment"
+          ]
         }
       ],
       "ownership": [
         "Utility owns auxiliary declarations, comparison declaration member refs, side conditions, three default project numerals, and independent rational pairs for both signature caches. Reset clears side conditions while preserving declaration/numeral cache owners. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls hold generated AST references and local numeral owners through their helper handoffs; stopped cleanup stays attached for Close retries. Copied and closed owners are rejected. The broader exact source lexical replacement and container growth audit remains open.",
         "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish.",
         "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup.",
-        "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried."
+        "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried.",
+        "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path."
       ],
       "deviations": [
         "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
