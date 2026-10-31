@@ -36,6 +36,7 @@ func (c *Context) clearOptimizationBoxModels() error {
 	if err == nil {
 		c.optimizationBoxModels = nil
 		c.optimizationBoxValues = nil
+		c.optimizationBoxLabels = nil
 		c.optimizationBoxReasonUnknown = ""
 	}
 	return err
@@ -388,6 +389,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 				return &opt.ArithmeticResult{
 					Status:        lbool.Undef,
 					ReasonUnknown: c.optimizationBoxReasonUnknown,
+					Labels:        append([]usymbol.Symbol(nil), c.optimizationBoxLabels...),
 					Values:        make([]opt.ObjectiveValue, len(c.objectives)),
 				}, nil
 			}
@@ -402,7 +404,7 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 		}
 		selected := c.optimizationBoxNext
 		c.optimizationBoxNext++
-		optimized = &opt.ArithmeticResult{Status: lbool.True, Values: cloneOptimizationBoxValues(c.optimizationBoxValues), Optimal: true}
+		optimized = &opt.ArithmeticResult{Status: lbool.True, Values: cloneOptimizationBoxValues(c.optimizationBoxValues), Labels: append([]usymbol.Symbol(nil), c.optimizationBoxLabels...), Optimal: true}
 		if selected < len(c.optimizationBoxModels) && c.optimizationBoxModels[selected] != nil {
 			if err := c.optimizationBoxModels[selected].IncRef(); err != nil {
 				return nil, err
@@ -441,6 +443,16 @@ func (c *Context) checkOptimizeBox(assumptions []ast.ASTHandle, continuation boo
 			}
 			return nil, err
 		}
+		// context::optimize captures labels on its initial satisfiable check.
+		// execute_box changes them only when a MaxSMT group supplies a model;
+		// selecting another cached arithmetic box model preserves those labels.
+		if i == 0 {
+			combined.Labels = append([]usymbol.Symbol(nil), one.InitialLabels...)
+		}
+		if c.objectives[i].soft && one.Model != nil {
+			combined.Labels = append(combined.Labels[:0], one.Labels...)
+		}
+		c.optimizationBoxLabels = append(c.optimizationBoxLabels[:0], combined.Labels...)
 		if one.Status != lbool.True || !one.Optimal || len(one.Values) != 1 {
 			combined.Status, combined.Optimal = one.Status, one.Optimal
 			combined.ReasonUnknown = one.ReasonUnknown
@@ -525,6 +537,9 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 		}
 	}
 	if err = result.SetModel(optimized.Model); err != nil {
+		return lbool.Undef, err
+	}
+	if err = result.SetLabels(optimized.Labels); err != nil {
 		return lbool.Undef, err
 	}
 	if optimized.Status == lbool.True && len(c.objectives) == len(optimized.Values) {

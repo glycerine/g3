@@ -45,7 +45,11 @@ type ArithmeticResult struct {
 	Optimal       bool
 	MaxSMT        []MaxSMTStatistics
 	Labels        []usymbol.Symbol
-	ModelFiltered bool
+	// InitialLabels captures the initial satisfiable check before improvement;
+	// opt_context::execute_box preserves these across arithmetic box models.
+	InitialLabels  []usymbol.Symbol
+	labelsCaptured bool
+	ModelFiltered  bool
 }
 
 func (r *ArithmeticResult) Close() error {

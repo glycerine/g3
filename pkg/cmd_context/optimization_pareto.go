@@ -290,6 +290,11 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 	if best == nil {
 		return nil, ast.ErrASTHandle
 	}
+	labels, err := backend.Labels()
+	if err != nil {
+		return nil, err
+	}
+
 	if err = backend.Push(); err != nil {
 		return nil, err
 	}
@@ -317,10 +322,15 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 			if candidate == nil {
 				return nil, ast.ErrASTHandle
 			}
+			candidateLabels, labelsErr := backend.Labels()
+			if labelsErr != nil {
+				return nil, errors.Join(labelsErr, candidate.DecRef())
+			}
+
 			if err = best.DecRef(); err != nil {
 				return nil, errors.Join(err, candidate.DecRef())
 			}
-			best = candidate
+			best, labels = candidate, candidateLabels
 		}
 		firstIteration = false
 		if err = c.assertParetoFormula(backend, best, true); err != nil {
@@ -345,7 +355,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		if closeErr := c.closeParetoBackend(); closeErr != nil {
 			return nil, closeErr
 		}
-		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best}
+		result = &opt.ArithmeticResult{Status: status, ReasonUnknown: unknownReason, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Labels: labels}
 		best = nil
 		return result, nil
 	}
@@ -357,7 +367,7 @@ func (c *Context) checkOptimizePareto(assumptions []ast.ASTHandle, continuation 
 		return nil, err
 	}
 
-	result = &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Optimal: true}
+	result = &opt.ArithmeticResult{Status: lbool.True, Values: make([]opt.ObjectiveValue, len(c.objectives)), Model: best, Labels: labels, Optimal: true}
 	best = nil
 	for i := range values {
 		if c.objectives[i].soft {

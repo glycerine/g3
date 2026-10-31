@@ -8,5 +8,9 @@ func (s *ArithmeticSolver) captureResultLabels(result *ArithmeticResult) error {
 		return err
 	}
 	result.Labels = cloneLabels(labels)
+	if !result.labelsCaptured {
+		result.InitialLabels = cloneLabels(labels)
+		result.labelsCaptured = true
+	}
 	return nil
 }

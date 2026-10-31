@@ -99304,7 +99304,10 @@
         "pkg/cmd_context/optimization_diagnostics.go",
         "pkg/cmd_context/optimization_diagnostics_test.go",
         "pkg/cmd_context/optimization_model_comparison.go",
-        "pkg/cmd_context/optimization_model_comparison_test.go"
+        "pkg/cmd_context/optimization_model_comparison_test.go",
+        "pkg/cmd_context/optimization_labels_test.go",
+        "pkg/opt/maxsmt_labels.go",
+        "pkg/opt/arithmetic_solver.go"
       ],
       "tests": [
         "pkg/cmd/g3/optimization_normalization_test.go",
@@ -99331,7 +99334,9 @@
         "TestSMTLibRunnerCPPReference",
         "TestOptimizationModelComparisonsPreserveIncompleteModels",
         "TestOptimizationSoftModelComparisonDoesNotCompleteNegatedTerm",
-        "TestOptimizationComparisonCatchesSourceEvaluatorStepFailure"
+        "TestOptimizationComparisonCatchesSourceEvaluatorStepFailure",
+        "TestOptimizationPublishesRelevantLabels",
+        "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
       ],
       "conditionals": [
         {
@@ -99575,6 +99580,15 @@
             "TestActiveParetoEnumerationSurvivesParameterUpdate",
             "TestActiveBoxEnumerationSurvivesPriorityUpdate"
           ]
+        },
+        {
+          "name": "Optimization label publication and model/label snapshots: Pareto captures each satisfiable model before solver result clearing; box preserves initial arithmetic labels and latest MaxSMT labels across cached model selection",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/optimization.go",
+          "tests": [
+            "TestOptimizationPublishesRelevantLabels",
+            "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
+          ]
         }
       ],
       "ownership": [],
@@ -99698,7 +99712,11 @@
       "status": "partial",
       "go_targets": [
         "pkg/cmd_context/optimization_pareto.go",
-        "pkg/cmd_context/optimization_pareto_source_test.go"
+        "pkg/cmd_context/optimization_pareto_source_test.go",
+        "pkg/cmd_context/optimization.go",
+        "pkg/cmd_context/optimization_labels_test.go",
+        "pkg/opt/maxsmt_labels.go",
+        "pkg/opt/arithmetic_solver.go"
       ],
       "tests": [
         "TestSMT2ParetoOptimizationEndToEnd",
@@ -99712,7 +99730,9 @@
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",
         "TestParetoDominanceFormulaKeepsSourceArgumentOrder",
-        "TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch"
+        "TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch",
+        "TestOptimizationPublishesRelevantLabels",
+        "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
       ],
       "assertions": [
         {
@@ -99751,6 +99771,15 @@
             "TestOptimizationUnknownReasonPreservesCancellation",
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference"
+          ]
+        },
+        {
+          "name": "Optimization label publication and model/label snapshots: Pareto captures each satisfiable model before solver result clearing; box preserves initial arithmetic labels and latest MaxSMT labels across cached model selection",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/optimization.go",
+          "tests": [
+            "TestOptimizationPublishesRelevantLabels",
+            "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
           ]
         }
       ],
