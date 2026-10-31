@@ -1,3 +1,5 @@
+Generated fixedpoint rule replay (2026-10-31 UTC): connected unnamed and nonempty string-named rule insertion and updates. Normal and checked tests cover rule snapshots and explicitly reject numeric or empty-string symbols until their identities are supported.
+
 Nonlinear variable extraction under quantifiers (2026-10-31 UTC): traversal now follows quantified bodies while finding free nonlinear real constants. Normal and checked tests verify source discovery order; the remaining whole-unit lifetime audit is still pending.
 
 Nonlinear branch target guard (2026-10-31 UTC): non-real targets are declined without error, matching the source utility. Normal and checked tests cover Boolean and integer targets; source search found no external consumers of the separate sign-branch API, while full lifetime audit remains pending.

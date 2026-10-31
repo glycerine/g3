@@ -4,6 +4,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -21,9 +22,9 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		id   uint32
 		name string
 	}{
-		{511, "Z3_mk_fixedpoint"}, {512, "Z3_fixedpoint_inc_ref"}, {513, "Z3_fixedpoint_dec_ref"},
+		{511, "Z3_mk_fixedpoint"}, {512, "Z3_fixedpoint_inc_ref"}, {513, "Z3_fixedpoint_dec_ref"}, {514, "Z3_fixedpoint_add_rule"},
 		{515, "Z3_fixedpoint_add_fact"}, {516, "Z3_fixedpoint_assert"}, {517, "Z3_fixedpoint_query"}, {518, "Z3_fixedpoint_query_relations"},
-		{520, "Z3_fixedpoint_get_reason_unknown"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
+		{520, "Z3_fixedpoint_get_reason_unknown"}, {521, "Z3_fixedpoint_update_rule"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 		{533, "Z3_fixedpoint_to_string"},
@@ -108,6 +109,22 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		return f.object.incRef()
 	case 513:
 		return f.object.decRef()
+	case 514, 521:
+		value, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		name, e := r.value(3, replaySymbol)
+		if e != nil {
+			return e
+		}
+		if name.numericSymbol || (!name.nullSymbol && name.s == "") {
+			return fmt.Errorf("fixedpoint replay: numeric and empty-string rule names are not supported")
+		}
+		if id == 514 {
+			return f.value.AddRule(value.handle, name.s)
+		}
+		return f.value.UpdateRule(value.handle, name.s)
 	case 515:
 		decl, e := r.astObject(owner, 2)
 		if e != nil {
