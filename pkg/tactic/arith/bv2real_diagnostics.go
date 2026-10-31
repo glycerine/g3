@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	utext "github.com/glycerine/g3/pkg/util/text"
 )
@@ -300,7 +301,7 @@ func (u *BV2RealUtil) traceApp(decl ast.ASTHandle, args []ast.ASTHandle) error {
 	return errors.Join(err, cleanup)
 }
 
-func (u *BV2RealUtil) traceDivisible(h ast.ASTHandle, overflow *big.Int, line int) error {
+func (u *BV2RealUtil) traceDivisible(h ast.ASTHandle, overflow *unumeral.OwnedRational, line int) error {
 	tags := u.traceTags()
 	if !tags.ShouldTrace("bv2real_rewriter") {
 		return nil
@@ -311,7 +312,12 @@ func (u *BV2RealUtil) traceDivisible(h ast.ASTHandle, overflow *big.Int, line in
 		if err := w.writeAST(h); err != nil {
 			return err
 		}
-		w.text(" " + overflow.String() + "\n")
+		w.text(" ")
+		value, err := u.manager.NumeralService().String(overflow)
+		if err != nil {
+			return err
+		}
+		w.text(value + "\n")
 		return nil
 	})
 	if tags.IsStreamFailure(err) {

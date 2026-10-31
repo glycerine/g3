@@ -168348,7 +168348,9 @@
         "pkg/tactic/arith/bv2real_fold.go",
         "pkg/tactic/arith/bv2real_fold_test.go",
         "pkg/tactic/arith/bv2real_rational.go",
-        "pkg/tactic/arith/bv2real_rational_test.go"
+        "pkg/tactic/arith/bv2real_rational_test.go",
+        "pkg/tactic/arith/bv2real_divisibility.go",
+        "pkg/tactic/arith/bv2real_divisibility_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168371,7 +168373,11 @@
         "TestBV2RealDivisorAlignmentProjectArithmeticAndScope",
         "TestBV2RealDivisorAlignmentFailureAssignmentOrder",
         "TestBV2RealDivisorAlignmentAllocationFrontiers",
-        "TestBV2RealEqualDivisorsSkipProjectArithmetic"
+        "TestBV2RealEqualDivisorsSkipProjectArithmetic",
+        "TestBV2RealDivisibilityProjectLoopIndependentOracle",
+        "TestBV2RealDivisibilityWideAllocationPrecedesSideConditions",
+        "TestBV2RealDivisorCapStopsAfterCoefficientTraceFailure",
+        "TestBV2RealDivisibilityProjectAllocationFrontiers"
       ],
       "assertions": [
         {
@@ -168597,6 +168603,20 @@
             "TestBV2RealDivisorAlignmentAllocationFrontiers",
             "TestBV2RealEqualDivisorsSkipProjectArithmetic"
           ]
+        },
+        {
+          "name": "align_divisor and mk_is_divisible_by project division/remainder/integer-division/copy loop, lexical numeric owners and source coefficient/side-condition/divisor failure prefixes (bv2real_rewriter.cpp:298-343)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_divisibility.go",
+          "tests": [
+            "TestBV2RealDivisibilityProjectLoopIndependentOracle",
+            "TestBV2RealDivisibilityWideAllocationPrecedesSideConditions",
+            "TestBV2RealDivisorCapStopsAfterCoefficientTraceFailure",
+            "TestBV2RealDivisibilityProjectAllocationFrontiers"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_diagnostics.go"
+          ]
         }
       ],
       "ownership": [
@@ -168605,13 +168625,14 @@
         "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup.",
         "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried.",
         "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path.",
-        "Divisor alignment imports caller-facing values into owned project operands, computes GCD/LCM/quotients through the project RationalService, publishes four completed coefficient assignments in source order, then copies the two common divisors in order. Failed scaling preserves the unfinished coefficient and does not publish later divisors. GCD/LCM/quotient and operand facade owners close at helper return without destroying an enclosing numeric owner."
+        "Divisor alignment imports caller-facing values into owned project operands, computes GCD/LCM/quotients through the project RationalService, publishes four completed coefficient assignments in source order, then copies the two common divisors in order. Failed scaling preserves the unfinished coefficient and does not publish later divisors. GCD/LCM/quotient and operand facade owners close at helper return without destroying an enclosing numeric owner.",
+        "Divisor capping owns the imported input and project overflow quotient. Divisibility owns a local copy and destroys each remainder and integer-division result at its source loop boundary. Completed side conditions survive odd-factor refusal or a later error; unfinished coefficient replacements keep their prior valid handle. A trace error after either completed coefficient stops before further coefficient processing or final divisor assignment. Numeric locals close without destroying enclosing owners. The live cap passes its owned overflow directly as the source const rational& input; each helper owns only its local project copy. Numeric trace operands are evaluated only after the source trace gate."
       ],
       "deviations": [
         "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
         "Source sqrt(2) comparisons are under-approximations, not equivalences. Tests check both side-condition feasibility and exclusion of incorrect polarity against the prebuilt C++ executable for 72 closed comparisons, plus 18 arithmetic/elimination and 18 signed real interpretation equivalences. No whole-source completion claim follows from these bounded checks.",
         "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Bound interactive assertion action transport is verified by a real BV2Real source-location notification, prompt, C continuation, and consumed input byte. The general action-bound T exception path remains covered separately by diagnostic action tests. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
-        "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Per-expression source printer/local allocation lifetime and project-numeral lexical ownership outside the completed signature-cache paths remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion.",
+        "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Per-expression source printer/local allocation lifetime and project-numeral lexical ownership outside the completed signature-cache paths remain open; divisibility trace numerals use the actual project rational owner after the AST operand. No whole-unit audit promotion.",
         "Symbolic tests now verify exact intermediate reference counts for six primitive helpers, eight reducer paths and all three n-ary folds, including the four persistent sqrt(2) approximation clauses. Broader project-rational arithmetic temporaries, constructor/output failure prefixes, vector ownership and remaining quantified/refusal campaigns still require audit; this increment does not promote either source unit."
       ]
     },
@@ -168634,7 +168655,9 @@
         "pkg/tactic/arith/bv2real_fold_test.go",
         "pkg/tactic/arith/bv2real_header_test.go",
         "pkg/tactic/arith/bv2real_rational.go",
-        "pkg/tactic/arith/bv2real_rational_test.go"
+        "pkg/tactic/arith/bv2real_rational_test.go",
+        "pkg/tactic/arith/bv2real_divisibility.go",
+        "pkg/tactic/arith/bv2real_divisibility_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168660,7 +168683,11 @@
         "TestBV2RealDivisorAlignmentProjectArithmeticAndScope",
         "TestBV2RealDivisorAlignmentFailureAssignmentOrder",
         "TestBV2RealDivisorAlignmentAllocationFrontiers",
-        "TestBV2RealEqualDivisorsSkipProjectArithmetic"
+        "TestBV2RealEqualDivisorsSkipProjectArithmetic",
+        "TestBV2RealDivisibilityProjectLoopIndependentOracle",
+        "TestBV2RealDivisibilityWideAllocationPrecedesSideConditions",
+        "TestBV2RealDivisorCapStopsAfterCoefficientTraceFailure",
+        "TestBV2RealDivisibilityProjectAllocationFrontiers"
       ],
       "conditionals": [
         {
@@ -168806,6 +168833,20 @@
             "TestBV2RealDivisorAlignmentAllocationFrontiers",
             "TestBV2RealEqualDivisorsSkipProjectArithmetic"
           ]
+        },
+        {
+          "name": "align_divisor and mk_is_divisible_by project division/remainder/integer-division/copy loop, lexical numeric owners and source coefficient/side-condition/divisor failure prefixes (bv2real_rewriter.cpp:298-343)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_divisibility.go",
+          "tests": [
+            "TestBV2RealDivisibilityProjectLoopIndependentOracle",
+            "TestBV2RealDivisibilityWideAllocationPrecedesSideConditions",
+            "TestBV2RealDivisorCapStopsAfterCoefficientTraceFailure",
+            "TestBV2RealDivisibilityProjectAllocationFrontiers"
+          ],
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_diagnostics.go"
+          ]
         }
       ],
       "ownership": [
@@ -168814,7 +168855,8 @@
         "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup.",
         "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried.",
         "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path.",
-        "Divisor alignment imports caller-facing values into owned project operands, computes GCD/LCM/quotients through the project RationalService, publishes four completed coefficient assignments in source order, then copies the two common divisors in order. Failed scaling preserves the unfinished coefficient and does not publish later divisors. GCD/LCM/quotient and operand facade owners close at helper return without destroying an enclosing numeric owner."
+        "Divisor alignment imports caller-facing values into owned project operands, computes GCD/LCM/quotients through the project RationalService, publishes four completed coefficient assignments in source order, then copies the two common divisors in order. Failed scaling preserves the unfinished coefficient and does not publish later divisors. GCD/LCM/quotient and operand facade owners close at helper return without destroying an enclosing numeric owner.",
+        "Divisor capping owns the imported input and project overflow quotient. Divisibility owns a local copy and destroys each remainder and integer-division result at its source loop boundary. Completed side conditions survive odd-factor refusal or a later error; unfinished coefficient replacements keep their prior valid handle. A trace error after either completed coefficient stops before further coefficient processing or final divisor assignment. Numeric locals close without destroying enclosing owners. The live cap passes its owned overflow directly as the source const rational& input; each helper owns only its local project copy. Numeric trace operands are evaluated only after the source trace gate."
       ],
       "deviations": [
         "Header interface/member audit only: implementation algorithms and their remaining exceptional numeric/vector ownership paths are tracked separately in bv2real_rewriter.cpp, which remains partial. Canonical concrete Go map keys implement signature equality; no STL/hash-table internals or unused template adapters are ported.",
