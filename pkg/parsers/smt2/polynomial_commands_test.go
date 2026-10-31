@@ -45,3 +45,42 @@ func TestSMT2ToPolynomialRejectsNonArithmetic(t *testing.T) {
 		t.Fatal("non-arithmetic expression accepted", err)
 	}
 }
+
+func TestSMT2PolynomialFactorCommand(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	var output bytes.Buffer
+	script := `(declare-const x Real)
+(poly/factor (- (* x x) 1))
+(poly/factor (* (+ x 1) (+ x 1)) :num-primes 2)`
+	if err := ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	want := "(factors\n1\n(+ x 1.0)\n(+ x (- 1.0)))\n(factors\n1\n(^ (+ x 1.0) 2))\n"
+	if got := output.String(); got != want {
+		t.Fatalf("factor output = %q, want %q", got, want)
+	}
+}
+
+func TestSMT2PolynomialFactorRejectsBadParameters(t *testing.T) {
+	for _, script := range []string{"(poly/factor 1 :num-primes -1)", "(poly/factor 1 :unknown 1)"} {
+		context, err := cmd_context.NewStandaloneContext()
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = ParseCommands(context, strings.NewReader(script), &bytes.Buffer{})
+		if closeErr := context.Close(); closeErr != nil {
+			t.Fatal(closeErr)
+		}
+		if err == nil {
+			t.Fatalf("accepted %q", script)
+		}
+	}
+}

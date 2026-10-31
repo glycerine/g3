@@ -46592,7 +46592,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/cmd_context/polynomial_commands.go", "pkg/cmd_context/polynomial_commands_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/polynomial_commands_test.go"],
-      "tests": ["TestWritePolynomialDisplaysSourceDenominator", "TestSMT2ToPolynomialCommand", "TestSMT2ToPolynomialRejectsNonArithmetic"],
+      "tests": ["TestWritePolynomialDisplaysSourceDenominator", "TestSMT2ToPolynomialCommand", "TestSMT2ToPolynomialRejectsNonArithmetic", "TestSMT2PolynomialFactorCommand", "TestSMT2PolynomialFactorRejectsBadParameters"],
       "conditionals": [
         {
           "line": 239,
@@ -46607,7 +46607,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The non-external to-poly path is registered in the Go parser. The source poly/factor and poly/isolate-roots commands and their installation remain unfinished."]
+      "deviations": ["The non-external to-poly path is registered in the Go parser. The source poly/factor path and its parameters are also registered. The poly/isolate-roots command and its installation remain unfinished."]
     },
     {
       "path": "src/cmd_context/extra_cmds/polynomial_cmds.h",
@@ -46615,7 +46615,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/cmd_context/polynomial_commands.go", "pkg/cmd_context/polynomial_commands_test.go", "pkg/parsers/smt2/commands.go", "pkg/parsers/smt2/polynomial_commands_test.go"],
-      "tests": ["TestWritePolynomialDisplaysSourceDenominator", "TestSMT2ToPolynomialCommand", "TestSMT2ToPolynomialRejectsNonArithmetic"],
+      "tests": ["TestWritePolynomialDisplaysSourceDenominator", "TestSMT2ToPolynomialCommand", "TestSMT2ToPolynomialRejectsNonArithmetic", "TestSMT2PolynomialFactorCommand", "TestSMT2PolynomialFactorRejectsBadParameters"],
       "conditionals": [
         {
           "line": 18,
@@ -46630,7 +46630,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The non-external to-poly path is registered in the Go parser. The source poly/factor and poly/isolate-roots commands and their installation remain unfinished."]
+      "deviations": ["The non-external to-poly path is registered in the Go parser. The source poly/factor path and its parameters are also registered. The poly/isolate-roots command and its installation remain unfinished."]
     },
     {
       "path": "src/cmd_context/extra_cmds/subpaving_cmds.cpp",

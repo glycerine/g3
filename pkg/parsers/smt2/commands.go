@@ -14,6 +14,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -985,6 +986,47 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		if err = p.context.WritePolynomial(p.out, expression); err != nil {
+			return false, err
+		}
+		success = false
+	case "poly/factor":
+		expression, _, err := p.expression()
+		if err != nil {
+			return false, err
+		}
+		params := polynomial.DefaultUPolynomialFactorParams()
+		for p.token == KeywordToken {
+			rawKey := p.scanner.ID()
+			key := uparams.NormParamName(&rawKey)
+			if err = p.advance(); err != nil {
+				return false, err
+			}
+			if p.token != IntegerToken && p.token != DecimalToken {
+				return false, fmt.Errorf("invalid parameter value, unsigned integer expected")
+			}
+			number := p.scanner.Number()
+			if !number.IsInt() || number.Sign() < 0 || !number.Num().IsUint64() || number.Num().Uint64() > uint64(^uint32(0)) {
+				return false, fmt.Errorf("invalid parameter value, unsigned integer expected")
+			}
+			value := uint32(number.Num().Uint64())
+			switch key {
+			case "max_prime":
+				params.MaxPrime = value
+			case "num_primes":
+				params.PrimeTrials = value
+			case "max_search_size":
+				params.MaxSearchSize = value
+			default:
+				return false, fmt.Errorf("unknown polynomial factor parameter %s", key)
+			}
+			if err = p.advance(); err != nil {
+				return false, err
+			}
+		}
+		if err = p.requireEnd(); err != nil {
+			return false, err
+		}
+		if err = p.context.WritePolynomialFactors(p.out, expression, params); err != nil {
 			return false, err
 		}
 		success = false

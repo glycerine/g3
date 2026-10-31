@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/math/polynomial"
 )
 
 func TestWritePolynomialDisplaysSourceDenominator(t *testing.T) {
@@ -57,5 +58,12 @@ func TestWritePolynomialDisplaysSourceDenominator(t *testing.T) {
 	}
 	if got, want := output.String(), "(* 4 (+ (* 4.0 (^ x 2.0)) (- 1.0)))\n"; got != want {
 		t.Fatalf("polynomial output = %q, want %q", got, want)
+	}
+	output.Reset()
+	if err = context.WritePolynomialFactors(&output, expression, polynomial.DefaultUPolynomialFactorParams()); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "(factors\n1/4\n(+ (* 2.0 x) (- 1.0))\n(+ (* 2.0 x) 1.0))\n"; got != want {
+		t.Fatalf("factor output = %q, want %q", got, want)
 	}
 }
