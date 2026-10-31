@@ -12,6 +12,9 @@ func registerZ3GeneratedInspectionCommands(r *Z3Replayer) error {
 		{203, "Z3_get_sort_name"}, {204, "Z3_get_sort_id"}, {205, "Z3_sort_to_ast"},
 		{206, "Z3_is_eq_sort"}, {207, "Z3_get_sort_kind"}, {208, "Z3_get_bv_sort_size"},
 		{210, "Z3_get_array_sort_domain"}, {211, "Z3_get_array_sort_range"},
+		{227, "Z3_func_decl_to_ast"}, {228, "Z3_is_eq_func_decl"}, {229, "Z3_get_func_decl_id"},
+		{230, "Z3_get_decl_name"}, {231, "Z3_get_decl_kind"}, {232, "Z3_get_domain_size"},
+		{233, "Z3_get_arity"}, {234, "Z3_get_domain"}, {235, "Z3_get_range"},
 		{245, "Z3_app_to_ast"}, {246, "Z3_get_app_decl"}, {247, "Z3_get_app_num_args"},
 		{248, "Z3_get_app_arg"}, {249, "Z3_is_eq_ast"}, {250, "Z3_get_ast_id"},
 		{252, "Z3_get_sort"}, {253, "Z3_is_well_sorted"}, {254, "Z3_get_bool_value"},
@@ -56,6 +59,32 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		result, err = owner.context.ArrayDomain(value.handle, 0)
 	case 211:
 		result, err = owner.context.ArrayRange(value.handle)
+	case 227:
+		result, err = owner.context.FunctionDeclarationToAST(value.handle)
+	case 228:
+		var other *replayASTOwner
+		other, err = r.astObject(owner, 2)
+		if err == nil {
+			_, err = owner.context.FunctionEqual(value.handle, other.handle)
+		}
+	case 229:
+		_, err = owner.context.FunctionDeclarationID(value.handle)
+	case 230:
+		_, err = owner.context.DeclarationSymbol(value.handle)
+	case 231:
+		_, err = owner.context.PublicDeclarationKind(value.handle)
+	case 232:
+		_, err = owner.context.DeclarationDomainSize(value.handle)
+	case 233:
+		_, err = owner.context.DeclarationArity(value.handle)
+	case 234:
+		var index uint32
+		index, err = r.Uint(2)
+		if err == nil {
+			result, err = owner.context.DeclarationDomain(value.handle, index)
+		}
+	case 235:
+		result, err = owner.context.DeclarationRange(value.handle)
 	case 245:
 		result, err = owner.context.ApplicationToAST(value.handle)
 	case 246:
@@ -95,7 +124,7 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		return err
 	}
 	switch id {
-	case 205, 210, 211, 245, 246, 248, 252, 259, 260:
+	case 205, 210, 211, 227, 234, 235, 245, 246, 248, 252, 259, 260:
 		return r.storeBorrowedAST(owner, result)
 	}
 	return nil

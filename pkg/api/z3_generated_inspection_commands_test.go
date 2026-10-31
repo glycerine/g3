@@ -145,3 +145,72 @@ func TestGeneratedSortInspectionReplayBorrowedResults(t *testing.T) {
 		t.Fatal("sort inspection was not checked")
 	}
 }
+
+func TestGeneratedDeclarationInspectionReplayBorrowedResults(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\nC 33\n= 0x43\n" +
+		"R\nP 0x41\n# 7\nU 1\nP 0x42\np 1\nP 0x43\nC 49\n= 0x44\nR\nP 0x41\nC 900\n" +
+		"R\nP 0x41\nP 0x44\nC 227\n= 0x45\nR\nP 0x41\nP 0x44\nP 0x45\nC 228\n" +
+		"R\nP 0x41\nP 0x44\nC 229\nR\nP 0x41\nP 0x44\nC 230\nR\nP 0x41\nP 0x44\nC 231\n" +
+		"R\nP 0x41\nP 0x44\nC 232\nR\nP 0x41\nP 0x44\nC 233\n" +
+		"R\nP 0x41\nP 0x44\nU 0\nC 234\n= 0x46\nR\nP 0x41\nP 0x44\nC 235\n= 0x47\n" +
+		"R\nP 0x41\nP 0x44\nP 0x45\nP 0x42\nP 0x46\nP 0x43\nP 0x47\nC 901\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	var trail int
+	if err = r.RegisterCommand(900, "capture-decl-trail", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		trail = len(owner.results.astTrail)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(901, "check-decl-results", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		if len(owner.results.astTrail) != trail {
+			t.Fatal("declaration inspection changed AST trail")
+		}
+		for pos := uint32(1); pos <= 6; pos += 2 {
+			a, e := r.astObject(owner, pos)
+			if e != nil {
+				return e
+			}
+			b, e := r.astObject(owner, pos+1)
+			if e != nil {
+				return e
+			}
+			if a.handle != b.handle {
+				t.Fatal("wrong declaration result", pos, a.handle, b.handle)
+			}
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("declaration inspection was not checked")
+	}
+}
