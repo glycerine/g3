@@ -204428,14 +204428,31 @@
       "path": "src/test/model_retrieval.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/api/api_model_retrieval_cpp_test.go"
+      ],
+      "tests": [
+        "TestAPIArrayModelRetrievalCPP"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst_model_retrieval",
+          "status": "ported",
+          "go_target": "pkg/api/api_model_retrieval_cpp_test.go",
+          "tests": [
+            "TestAPIArrayModelRetrievalCPP"
+          ]
+        }
+      ],
+      "ownership": [
+        "The test pins the model array value across the second check and releases the solver, model and AST references."
+      ],
+      "deviations": [
+        "The test uses the direct Go solver API with ALL logic and replaces status/model printing with assertions. Its generated as-array value triggers the native direct array theory incompleteness guard, confirmed with the native smt tactic."
+      ]
     },
     {
       "path": "src/test/mpbq.cpp",
