@@ -53,6 +53,7 @@ var builtinTacticDescriptions = map[string]string{
 	"propagate-bv-bounds-new": "propagate bit-vector bounds by simplifying implied or contradictory bounds.",
 	"propagate-ineqs":         "propagate ineqs/bounds, remove subsumed inequalities.",
 	"propagate-values":        "propagate constants.",
+	"qe":                      "apply quantifier elimination.",
 	"qe-light":                "apply light-weight quantifier elimination.",
 	"qe2":                     "apply a QSAT based quantifier elimination.",
 	"qe_rec":                  "apply a QSAT based quantifier elimination recursively.",
