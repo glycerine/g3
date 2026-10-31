@@ -154,3 +154,48 @@ func TestQuantifierTacticBooleanPredicateBranches(t *testing.T) {
 		t.Fatal("QE result differs from the two Boolean predicate branches")
 	}
 }
+
+func TestQuantifierTacticUniversalIndependentPredicates(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	x := f.own(m.MkVar(0, f.boolean))
+	y := f.own(m.MkVar(1, f.boolean))
+	left := f.predicate("qe-forall-left", x)
+	right := f.predicate("qe-forall-right", y)
+	body := f.own(m.MkOr(left, right))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean, f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(quantifier))
+	fmMust(t, port.Apply(goal, f.result()))
+	count, err := goal.Size()
+	fmMust(t, err)
+	forms := make([]ast.ASTHandle, count)
+	for i := range forms {
+		forms[i], err = goal.Form(uint32(i))
+		fmMust(t, err)
+	}
+	value := f.own(m.MkAndArray(forms))
+	truth := f.own(m.MkTrue())
+	falsity := f.own(m.MkFalse())
+	leftTrue := f.predicate("qe-forall-left", truth)
+	leftFalse := f.predicate("qe-forall-left", falsity)
+	rightTrue := f.predicate("qe-forall-right", truth)
+	rightFalse := f.predicate("qe-forall-right", falsity)
+	leftBoth := f.own(m.MkAnd(leftTrue, leftFalse))
+	rightBoth := f.own(m.MkAnd(rightTrue, rightFalse))
+	expected := f.own(m.MkOr(leftBoth, rightBoth))
+	iff := f.own(m.MkIff(value, expected))
+	different := f.own(m.MkNot(iff))
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(different))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("universal partition result differs from Boolean expansion")
+	}
+}
