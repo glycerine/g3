@@ -19,6 +19,10 @@ type Clause struct {
 	numVars          uint32
 	index            uint32
 	sequence         uint32
+	nextRule         uint32
+	predicateIndex   uint32
+	parentIndex      uint32
+	parentRule       uint32
 	closed           bool
 }
 
@@ -28,7 +32,7 @@ func NewClause(m *ast.ASTManager, rw *rewriter.TheoryRewriter, head ast.ASTHandl
 	if m == nil || rw == nil || rw.Manager() != m {
 		return nil, ast.ErrASTHandle
 	}
-	c := &Clause{manager: m}
+	c := &Clause{manager: m, nextRule: ^uint32(0)}
 	defer func() {
 		if result != nil {
 			result = errors.Join(result, c.Close())
