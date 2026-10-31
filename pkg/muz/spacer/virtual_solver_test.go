@@ -106,3 +106,36 @@ func TestVirtualSolverSharesBackendAndIsolatesGuardedViews(t *testing.T) {
 	spacerMust(t, factory.Close())
 	spacerMust(t, command.Close())
 }
+
+func TestVirtualSolverCloseAfterResourceExhaustion(t *testing.T) {
+	command, err := cmd_context.NewStandaloneContext()
+	spacerMust(t, err)
+	manager, err := command.Manager()
+	spacerMust(t, err)
+	globals, err := command.GlobalParameters()
+	spacerMust(t, err)
+	backend, err := smtcore.NewSMTSolver(manager, nil, "QF_UF", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	spacerMust(t, err)
+	factory, err := spacer.NewVirtualSolverFactory(backend)
+	spacerMust(t, err)
+	first, err := factory.Fresh()
+	spacerMust(t, err)
+	second, err := factory.Fresh()
+	spacerMust(t, err)
+	limit := manager.ResourceLimit()
+	spacerMust(t, limit.Push(1))
+	limit.IncOffset(2)
+	limit.IncCancel()
+	spacerMust(t, first.Close())
+	if limit.CancelCount() != 1 {
+		t.Fatal("solver cleanup changed independent cancellation", limit.CancelCount())
+	}
+	limit.DecCancel()
+	limit.Pop()
+	if status, e := second.CheckSat(nil); e != nil || status != lbool.True {
+		t.Fatal("surviving virtual solver", status, e)
+	}
+	spacerMust(t, second.Close())
+	spacerMust(t, factory.Close())
+	spacerMust(t, command.Close())
+}

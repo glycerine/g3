@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
@@ -482,6 +483,10 @@ func (s *VirtualSolver) Close() (result error) {
 	if s.closed {
 		return nil
 	}
+	// Closing publishes the disabled guard to the shared solver. Let that
+	// teardown finish even when the query exhausted its resource budget.
+	suspend := control.NewSuspendLimit(s.factory.manager.ResourceLimit())
+	defer suspend.Close()
 	if s.pushed {
 		result = errors.Join(result, s.Solver.Pop(s.scopeLevel))
 	}

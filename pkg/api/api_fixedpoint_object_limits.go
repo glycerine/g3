@@ -40,26 +40,30 @@ func (f *APIFixedpoint) executeQuery(limited bool, run func(*uparams.ParamsRef) 
 		return lbool.Undef, err
 	}
 	if limited {
-		text, found, e := f.owner.command.GetOption("rlimit")
-		if e != nil {
-			return lbool.Undef, e
-		}
-		if !found {
-			return lbool.Undef, ErrSMTContextOwner
-		}
-		limit, e := strconv.ParseUint(text, 10, 32)
-		if e != nil {
-			return lbool.Undef, e
-		}
-		manager, e := f.command.Manager()
-		if e != nil {
-			return lbool.Undef, e
-		}
-		scope, e := control.NewLimitScope(manager.ResourceLimit(), uint32(limit))
+		scope, e := context.beginFixedpointResourceLimit()
 		if e != nil {
 			return lbool.Undef, e
 		}
 		defer scope.Close()
 	}
 	return run(&queryParams.value)
+}
+
+func (c *SMTContext) beginFixedpointResourceLimit() (control.LimitScope, error) {
+	text, found, err := c.command.GetOption("rlimit")
+	if err != nil {
+		return control.LimitScope{}, err
+	}
+	if !found {
+		return control.LimitScope{}, ErrSMTContextOwner
+	}
+	limit, err := strconv.ParseUint(text, 10, 32)
+	if err != nil {
+		return control.LimitScope{}, err
+	}
+	manager, err := c.Manager()
+	if err != nil {
+		return control.LimitScope{}, err
+	}
+	return control.NewLimitScope(manager.ResourceLimit(), uint32(limit))
 }

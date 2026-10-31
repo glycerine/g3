@@ -6501,7 +6501,7 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/api/api_fixedpoint_object_limits.go", "pkg/api/api_fixedpoint_object_limits_test.go",
+      "go_targets": ["pkg/api/api_fixedpoint_context_limits_test.go","pkg/api/api_fixedpoint_object_limits.go", "pkg/api/api_fixedpoint_object_limits_test.go",
         "pkg/cmd_context/fixedpoint_timeout.go",
         "pkg/cmd_context/fixedpoint_timeout_test.go",
         "pkg/api/api_fixedpoint.go",
@@ -6540,7 +6540,7 @@
         "pkg/api/api_fixedpoint_relations_answer_test.go",
         "pkg/muz/fp/query_expression.go"
       ],
-      "tests": ["TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry",
+      "tests": ["TestSMTContextFixedpointLevelResourceLimitAndRetry","TestSMTContextFixedpointResourceLimitAndRetry","TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry",
         "TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation",
         "TestSMTContextFixedpointPDRLifecycle",
         "TestSMTContextFixedpointParameterDescriptors",
@@ -6669,8 +6669,8 @@
       "component": "api",
       "role": "reference_support",
       "status": "ported",
-      "go_targets": ["pkg/api/api_fixedpoint_object_limits.go", "pkg/api/api_fixedpoint_object_limits_test.go", "pkg/api/api_fixedpoint.go", "pkg/cmd_context/fixedpoint.go", "pkg/muz/fp/pdr_engine.go"],
-      "tests": ["TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry", "TestSMTContextFixedpointSpacerInductiveExports"],
+      "go_targets": ["pkg/api/api_fixedpoint_context_limits_test.go","pkg/api/api_fixedpoint_object_limits.go", "pkg/api/api_fixedpoint_object_limits_test.go", "pkg/api/api_fixedpoint.go", "pkg/cmd_context/fixedpoint.go", "pkg/muz/fp/pdr_engine.go"],
+      "tests": ["TestSMTContextFixedpointLevelResourceLimitAndRetry","TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry", "TestSMTContextFixedpointSpacerInductiveExports"],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
@@ -100299,7 +100299,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/muz/spacer/virtual_solver.go", "pkg/muz/spacer/virtual_solver_test.go", "pkg/muz/spacer/virtual_solver_dump.go", "pkg/muz/spacer/virtual_solver_dump_test.go", "pkg/muz/spacer/smt_context_manager.go"],
-      "tests": ["TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix", "TestVirtualSolverRecheckRestoresProofMode"],
+      "tests": ["TestVirtualSolverCloseAfterResourceExhaustion","TestVirtualSolverSharesBackendAndIsolatesGuardedViews", "TestVirtualSolverTimedBenchmarkDumpAndRecheck", "TestVirtualSolverDumpThresholdParamsAndFailurePrefix", "TestVirtualSolverRecheckRestoresProofMode"],
       "assertions": [
         {
           "line": 58,

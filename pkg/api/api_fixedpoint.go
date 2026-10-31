@@ -244,6 +244,11 @@ func (c *SMTContext) QueryFixedpoint(declaration ast.ASTHandle) (lbool.LBool, er
 	if err := c.open(); err != nil {
 		return lbool.Undef, err
 	}
+	scope, err := c.beginFixedpointResourceLimit()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer scope.Close()
 	return c.command.QueryFixedpoint(declaration)
 }
 
@@ -254,13 +259,18 @@ func (c *SMTContext) QueryFixedpointWithOptions(declaration ast.ASTHandle, optio
 		return lbool.Undef, err
 	}
 	if options == nil {
-		return c.command.QueryFixedpoint(declaration)
+		return c.QueryFixedpoint(declaration)
 	}
 	parameters, context, err := c.fixedpointQueryParameters(options)
 	if err != nil {
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, context.Del(&parameters)) }()
+	scope, err := c.beginFixedpointResourceLimit()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer scope.Close()
 	return c.command.QueryFixedpointWithParams(declaration, &parameters)
 }
 
@@ -279,6 +289,11 @@ func (c *SMTContext) QueryFixedpointFromLevel(declaration ast.ASTHandle, level u
 	if err := c.open(); err != nil {
 		return lbool.Undef, err
 	}
+	scope, err := c.beginFixedpointResourceLimit()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer scope.Close()
 	return c.command.QueryFixedpointFromLevel(declaration, level)
 }
 

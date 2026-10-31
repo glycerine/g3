@@ -49,3 +49,23 @@ func TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation(t
 	}
 	limit.DecCancel()
 }
+
+func TestFixedpointTimeoutFallsBackToContext(t *testing.T) {
+	c := contextFixture(t)
+	contextMust(t, c.SetUIntOption("timeout", 37))
+	value, err := c.fixedpointTimeout(nil)
+	contextMust(t, err)
+	if value != 37 {
+		t.Fatal("fixedpoint did not use context timeout", value)
+	}
+	params, err := c.config.Params.NewValue()
+	contextMust(t, err)
+	defer func() { contextMust(t, c.config.Params.Del(&params)) }()
+	name := "timeout"
+	contextMust(t, c.config.Params.SetUIntName(&params, &name, 0))
+	value, err = c.fixedpointTimeout(&params)
+	contextMust(t, err)
+	if value != 0 {
+		t.Fatal("explicit timeout did not override context", value)
+	}
+}

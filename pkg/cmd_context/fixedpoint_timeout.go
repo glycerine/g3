@@ -22,10 +22,14 @@ func (c *Context) fixedpointTimeout(params *uparams.ParamsRef) (value uint32, re
 	}
 	defer func() { resultErr = errors.Join(resultErr, c.config.Params.Del(&module)) }()
 	name := "timeout"
-	if params == nil {
-		return c.config.Params.GetUIntName(&module, &name, math.MaxUint32)
+	defaultTimeout, err := c.config.Params.GetUIntName(&c.params, &name, math.MaxUint32)
+	if err != nil {
+		return 0, err
 	}
-	return c.config.Params.GetUIntFallbackName(params, &name, &module, math.MaxUint32)
+	if params == nil {
+		return c.config.Params.GetUIntName(&module, &name, defaultTimeout)
+	}
+	return c.config.Params.GetUIntFallbackName(params, &name, &module, defaultTimeout)
 }
 
 func (c *Context) beginFixedpointTimeout(params *uparams.ParamsRef) (*fixedpointTimeoutScope, error) {
