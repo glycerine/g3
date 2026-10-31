@@ -5969,7 +5969,8 @@
         "TestGeneratedQuantifierInspectionReplayBorrowedASTs",
         "TestGeneratedSimplificationReplayAndDescriptions",
         "TestZ3LogFrontendReplaysSimplification",
-        "TestGeneratedUpdateAndSubstitutionReplay"
+        "TestGeneratedUpdateAndSubstitutionReplay",
+        "TestGeneratedTranslateASTReplayOwnsTargetResult"
       ],
       "methods_audited": false,
       "ownership_audited": false,

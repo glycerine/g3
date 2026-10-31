@@ -17,6 +17,7 @@ func registerZ3GeneratedSubstitutionCommands(r *Z3Replayer) error {
 		{291, "Z3_update_term", func(r *Z3Replayer) error { return replayTermRewrite(r, 291) }},
 		{292, "Z3_substitute", func(r *Z3Replayer) error { return replayTermRewrite(r, 292) }},
 		{293, "Z3_substitute_vars", func(r *Z3Replayer) error { return replayTermRewrite(r, 293) }},
+		{294, "Z3_translate", replayTranslateAST},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
@@ -62,4 +63,29 @@ func replayTermRewrite(r *Z3Replayer, command uint32) (err error) {
 		return err
 	}
 	return r.storeAST(owner, value)
+}
+
+func replayTranslateAST(r *Z3Replayer) (err error) {
+	source, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	term, err := r.astObject(source, 1)
+	if err != nil {
+		return err
+	}
+	target, err := replayContext(r, 2)
+	if err != nil {
+		return err
+	}
+	result, err := source.context.TranslateAST(term.handle, target.context)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, target.results.manager.DelRef(&result)) }()
+	value, err := target.results.manager.RefGet(result)
+	if err != nil {
+		return err
+	}
+	return r.storeAST(target, value)
 }
