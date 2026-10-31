@@ -7,20 +7,19 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/solver"
 )
 
-// Translate copies a direct SMT solver into target. The returned solver owns
-// its translated state and must be closed before target is closed.
+// Translate copies solver state into target. Cross-context translation currently
+// supports direct SMT solvers; same-context translation supports all solver
+// implementations that expose a tactic translation. Close the returned solver
+// before closing target.
 func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver, resultErr error) {
 	if err := s.open(); err != nil {
 		return nil, err
 	}
 	if err := target.open(); err != nil {
 		return nil, err
-	}
-	direct, ok := s.solver.(*smtcore.SMTSolver)
-	if !ok {
-		return nil, fmt.Errorf("api: translation of this solver implementation is not yet supported")
 	}
 	manager, err := target.Manager()
 	if err != nil {
@@ -49,7 +48,18 @@ func (s *APISimpleSolver) Translate(target *SMTContext) (result *APISimpleSolver
 			result = nil
 		}
 	}()
-	translated, err := direct.TranslateWithConfig(manager, &translatedParams, config)
+	sourceManager, err := s.solver.Manager()
+	if err != nil {
+		return nil, err
+	}
+	var translated solver.Solver
+	if sourceManager == manager {
+		translated, err = s.solver.Translate(manager, &translatedParams)
+	} else if direct, ok := s.solver.(*smtcore.SMTSolver); ok {
+		translated, err = direct.TranslateWithConfig(manager, &translatedParams, config)
+	} else {
+		return nil, fmt.Errorf("api: cross-context translation of this solver implementation is not yet supported")
+	}
 	if err != nil {
 		return nil, err
 	}

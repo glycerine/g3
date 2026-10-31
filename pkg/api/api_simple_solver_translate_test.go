@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -168,5 +169,65 @@ func TestAPISimpleSolverTranslateConfiguredTheoriesAfterSourceClose(t *testing.T
 				t.Fatal("after pop", status)
 			}
 		})
+	}
+}
+
+func TestAPISolverTranslateWithinContextFactories(t *testing.T) {
+	for _, kind := range []string{"default", "logic", "tactic"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newSMTAPIFixture(t, "QF_UF", nil)
+			var s *APISimpleSolver
+			var err error
+			switch kind {
+			case "default":
+				s, err = f.c.NewSolver()
+			case "logic":
+				s, err = f.c.NewSolverForLogic("QF_UF")
+			case "tactic":
+				var tac *APITactic
+				tac, err = f.c.Tactic("smt")
+				astTestMust(t, err)
+				s, err = f.c.NewSolverFromTactic(tac)
+				astTestMust(t, tac.Close())
+			}
+			astTestMust(t, err)
+			defer func() { astTestMust(t, s.Close()) }()
+			b := f.pin(f.c.BoolSort())
+			p := f.pin(f.c.Constant("factory-translate-p", b))
+			astTestMust(t, s.Assert(p))
+			copy, err := s.Translate(f.c)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, copy.Close()) }()
+			notP := f.pin(f.m.MkNot(p))
+			astTestMust(t, copy.Assert(notP))
+			status, err := copy.Check()
+			astTestMust(t, err)
+			if status != lbool.False {
+				t.Fatal("translated solver", status)
+			}
+			status, err = s.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("original solver", status)
+			}
+		})
+	}
+}
+
+func TestAPIStrategicSolverCrossContextTranslationIsExplicitlyUnsupported(t *testing.T) {
+	f := newSMTAPIFixture(t, "QF_UF", nil)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	s, err := f.c.NewSolver()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, s.Close()) }()
+	if _, err = s.Translate(target); err == nil || !strings.Contains(err.Error(), "cross-context") {
+		t.Fatal("translation diagnostic", err)
+	}
+	status, err := s.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("source solver after rejection", status)
 	}
 }

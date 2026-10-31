@@ -6142,7 +6142,8 @@
         "TestGeneratedFixedpointReplayMultipleRelationAnswer",
         "TestGeneratedFixedpointReplaySpacerExpressionFromLevel",
         "TestZ3LogFrontendReplaysMultipleFixedpointRelationAnswer",
-        "TestGeneratedDirectSolverTranslationAcrossContexts"
+        "TestGeneratedDirectSolverTranslationAcrossContexts",
+        "TestGeneratedStrategicSolverTranslationWithinContext"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6198,7 +6199,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
-        "Generated solver translation replay currently handles direct SMT solvers; tactic-backed and combined solver translation remains unsupported."
+        "Generated solver translation replay handles direct SMT solvers across contexts and tactical or combined solvers within one context; cross-context tactical and combined solver translation remains unsupported."
       ]
     },
     {
@@ -7814,7 +7815,9 @@
         "TestAPISimpleSolverTranslateIndependentContext",
         "TestAPISimpleSolverTranslateRejectsActiveScope",
         "TestAPISimpleSolverTranslateWithinContext",
-        "TestAPISimpleSolverTranslateConfiguredTheoriesAfterSourceClose"
+        "TestAPISimpleSolverTranslateConfiguredTheoriesAfterSourceClose",
+        "TestAPISolverTranslateWithinContextFactories",
+        "TestAPIStrategicSolverCrossContextTranslationIsExplicitlyUnsupported"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -7847,7 +7850,7 @@
       ],
       "deviations": [
         "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Source C-ABI-only solver translation, opaque tactic construction, DIMACS file loading, help/descriptor wrappers and reference-count entry points have no retained Go consumers; replayable SMT2/WriteSMT2 supersedes the retained string-display use case.",
-        "Solver translation currently handles direct SMT solvers and rejects tactic-backed and combined solvers. A complete cross-context translation and ownership audit remains open."
+        "Solver translation handles direct SMT solvers across contexts and tactical or combined solvers within one context. Cross-context tactical and combined solver translation and a complete ownership audit remain open."
       ]
     },
     {

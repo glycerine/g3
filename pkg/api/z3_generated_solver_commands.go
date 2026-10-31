@@ -192,7 +192,21 @@ func replaySolverTranslate(r *Z3Replayer) error {
 		}
 		parameters = &ParameterSet{owner: target.context.smtContextState, params: globals.Context, value: value}
 	}
-	return replayStoreSolver(r, target, translated, 1, "", nil, parameters)
+	kind, logic := uint8(1), ""
+	var tacticValue *APITactic
+	if target == source.owner {
+		kind, logic = source.kind, source.logic
+		if source.tactic != nil {
+			tacticValue, err = source.tactic.Retain()
+			if err != nil {
+				if parameters != nil {
+					err = errors.Join(err, parameters.Close())
+				}
+				return errors.Join(err, translated.Close())
+			}
+		}
+	}
+	return replayStoreSolver(r, target, translated, kind, logic, tacticValue, parameters)
 }
 func replayGetSolver(r *Z3Replayer) (*replaySolver, error) {
 	owner, err := replayContext(r, 0)
