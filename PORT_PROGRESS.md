@@ -1,3 +1,5 @@
+Mixed nonlinear model merge (2026-10-31 UTC): translated real-dependent SMT function entries and else values from SMT to nonlinear model values, then copied nonlinear constant interpretations. A focused test checks graph arguments, results, defaults and an untouched integer-only graph.
+
 Mixed nonlinear unsat-core feedback (2026-10-31 UTC): split SMT cores into context and interface assumptions, add source-order blocking clauses to the nonlinear goal, and join accumulated context dependencies for a final false goal. A focused test checks the swap-and-pop ordering and dependency preservation.
 
 Mixed nonlinear SMT preparation (2026-10-31 UTC): the prepared interface definitions and extracted clauses can now be asserted in a concrete SMT solver before advancing goal depth. A regression checks both core settings by refuting a conflicting pair of assumptions.
