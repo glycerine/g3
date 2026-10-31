@@ -78887,35 +78887,33 @@
       "path": "src/math/subpaving/tactic/expr2subpaving.cpp",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/tactic/expr_converter.go",
-        "pkg/math/subpaving/tactic/expr_converter_test.go",
         "pkg/math/subpaving/tactic/arbitrary_expr_converter.go",
-        "pkg/math/subpaving/tactic/arbitrary_expr_converter_test.go",
         "pkg/math/subpaving/tactic/fast_expr_converter.go",
-        "pkg/math/subpaving/tactic/fast_goal_internalize.go",
-        "pkg/math/subpaving/tactic/fast_expr_converter_test.go",
         "pkg/math/subpaving/tactic/fixed_expr_converter.go",
-        "pkg/math/subpaving/tactic/fixed_goal_internalize.go",
-        "pkg/math/subpaving/tactic/fixed_expr_converter_test.go",
         "pkg/math/subpaving/tactic/rational_expr_converter.go",
         "pkg/math/subpaving/tactic/rational_expr_arith.go",
-        "pkg/math/subpaving/tactic/rational_expr_converter_test.go",
-        "pkg/math/subpaving/tactic/hardware_core_tactic_test.go",
-        "pkg/math/subpaving/tactic/arbitrary_core_tactic_test.go",
-        "pkg/math/subpaving/tactic/expr_coefficient.go"
+        "pkg/math/subpaving/tactic/expr_coefficient.go",
+        "pkg/math/subpaving/tactic/expr_mapping.go",
+        "pkg/math/subpaving/tactic/hardware_variable_display.go",
+        "pkg/math/subpaving/tactic/arbitrary_variable_display.go",
+        "pkg/math/subpaving/tactic/fast_variable_display.go",
+        "pkg/math/subpaving/tactic/fixed_variable_display.go",
+        "pkg/math/subpaving/tactic/rational_variable_display.go",
+        "pkg/math/subpaving/tactic/expr_converter_test.go",
+        "pkg/math/subpaving/tactic/arbitrary_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/fast_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/fixed_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/rational_expr_converter_test.go"
       ],
       "tests": [
         "TestHardwareExprConverterTerms",
         "TestArbitraryExprConverterTermsAndClause",
-        "TestArbitraryExprConverterSearchSimpleGoal",
         "TestFastExprConverterTermsAndClause",
         "TestFixedExprConverterTermsAndClause",
-        "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats",
-        "TestRationalExprConverterExactLeafGoalAndCleanup",
-        "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
-        "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
+        "TestRationalExprConverterExactLeafGoalAndCleanup"
       ],
       "assertions": [
         {
@@ -78955,44 +78953,131 @@
           "text": "SASSERT(!is_quantifier(t));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "Concrete config_mpq process_add/process_mul/integral process_power with exact integer coefficients and concrete polynomial/monomial definitions, including zero exponents and unsigned degree wrap",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/tactic/rational_expr_arith.go",
-          "tests": [
-            "TestRationalExprConverterExactLeafGoalAndCleanup"
-          ]
-        },
-        {
-          "name": "Concrete config_mpq numeral and variable leaves, to_real, ref-counted term cache, cancellation checkpoint and source arithmetic refusal categories, including zero-exponent monomials",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/tactic/rational_expr_converter.go",
-          "tests": [
-            "TestRationalExprConverterExactLeafGoalAndCleanup"
-          ]
-        },
-        {
-          "name": "Concrete config_mpfx numeral and variable leaves, sums, products, powers, ref-counted term cache and source arithmetic refusal categories (expr2subpaving.cpp:99-363)",
-          "status": "partial",
-          "go_target": "pkg/math/subpaving/tactic/fixed_expr_converter.go",
-          "tests": [
-            "TestFixedExprConverterTermsAndClause"
-          ]
-        },
-        {
-          "name": "HWF and MPF expression checkpoints cooperate after AST cancellation; selected core tactics forward the borrowed process owner to conversion and search and rebind after cleanup",
+          "name": "imp constructor/destructor and public construction/destruction: private or supplied expr2var; cache and reverse-map references",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
           "tests": [
-            "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
-            "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
           ]
         },
         {
-          "name": "process_mul leading coefficient copies numerator and denominator directly without recursive AST cancellation or cooperation checkpoints (lines 173-178), for all five concrete engines",
+          "name": "m(), s() and qm(): borrowed AST manager, concrete subpaving engine and exact rational manager bindings",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_mapping.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "reset_cache: release AST cache keys and exact numerator/denominator copies; literal cache has no insertion consumer in source",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "checkpoint: charge/check AST cancellation before source cooperate call",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "mk_var_for: reuse supplied map; otherwise create typed variable, insert into expr2var, then own a distinct reverse-map reference",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "found_non_simplified: source simplifier-required exception",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "is_cached and cache_result: AST reference threshold, exact scalar copies and owning AST cache keys",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "is_int_real and process: arithmetic-sort validation, cached result dispatch and uninterpreted/variable fallback",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "process_num: copy exact numerator and denominator, returning null_var",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "as_power: unsigned uint32 integral exponents including zero; unsupported exponent remains an opaque variable",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "process_mul: source leading coefficient guard and direct extraction, nested product factors, exact scalar powers and typed monomial creation",
           "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/expr_coefficient.go",
           "tests": [
@@ -79002,39 +79087,98 @@
             "TestFixedExprConverterTermsAndClause",
             "TestRationalExprConverterExactLeafGoalAndCleanup"
           ]
+        },
+        {
+          "name": "process_add: sum constants, accumulate variable coefficients, LCM denominators and create typed sum in source order",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "process_power: variable fallback for unsupported exponents, typed monomial publication before scalar powers and caching",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "process_arith_app: numeral/add/mul/power/to_real dispatch and source simplify/purify/transcendental refusals",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "is_var and internalize_term: shared-map membership and source process entry",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "Each typed converter borrows its AST manager, concrete engine and numeral managers. It owns a private Expr2Var when no map is supplied and otherwise borrows the supplied owner; Close never closes a supplied mapping.",
+        "Expr2Var owns one AST reference per current mapping. Newly registered variables additionally append distinct owning reverse-map references, including repeated expressions after supplied-map reset. Cached shared expressions own their AST keys and exact integer numerator/denominator copies. Cleanup closes caches, then any private Expr2Var, then reverse-map references.",
+        "VariableDisplay pins inverse-map expressions independently of mutable supplied-map entries; those pins remain owned by the converter until cleanup, when its engine/display callbacks are also discarded. Cached literal storage is never populated by this C++ translator, so no unused literal adapter is introduced."
+      ],
       "deviations": [
-        "Concrete HWF and MPF context specializations now implement numeral and variable leaves, to_real, process_add, process_mul, positive integral power, ref-counted integer cache, AST cancellation checkpoint and source arithmetic refusal categories. MPF formatted zero is rejected by the source f2n wrapper, including a zero sum constant. Zero-degree monomials and full tactic ownership/integration remain open.",
-        "The concrete MPFF instantiation now internalizes AST numerals, variables, sums, products, powers, inequalities and clauses through the selected FastEngine and owning FastShellCoefficients. Ref-counted AST cache and native integer buffer lifetimes are exercised. MPFF search and enclosing tactic result ownership remain open.",
-        "The concrete MPFX instantiation now internalizes AST numerals, variables, sums, products, powers, inequalities and clauses through the selected FixedEngine and owning FixedShellCoefficients. Its exact integer cache, temporary inequality cleanup and selected search route are exercised; enclosing tactic result ownership remains open."
+        "The five actual MPQ/HWF/MPF/MPFF/MPFX source consumers use concrete typed Go converters and engines; Engine() represents the source s() binding without a universal erased-type context adapter. Manager() represents m().",
+        "Go enforces handle, sort and owner validity with explicit errors and makes Close repeatable. Interrupted cache-copy construction rolls back unpublished copies instead of exposing partially constructed cache arrays. Generic context algorithms and numeral-manager assertions remain independently tracked in their own source units.",
+        "Inverse-display snapshots share the converter cleanup lifetime in Go; their expressions remain explicitly pinned even after a supplied Expr2Var is reset. Source frame and literal-cache helper types with no live consumers are not separately ported."
       ]
     },
     {
       "path": "src/math/subpaving/tactic/expr2subpaving.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/tactic/expr_converter.go",
-        "pkg/math/subpaving/tactic/expr_converter_test.go",
         "pkg/math/subpaving/tactic/arbitrary_expr_converter.go",
-        "pkg/math/subpaving/tactic/arbitrary_expr_converter_test.go",
         "pkg/math/subpaving/tactic/fast_expr_converter.go",
-        "pkg/math/subpaving/tactic/fast_goal_internalize.go",
-        "pkg/math/subpaving/tactic/fast_expr_converter_test.go",
         "pkg/math/subpaving/tactic/fixed_expr_converter.go",
-        "pkg/math/subpaving/tactic/fixed_goal_internalize.go",
-        "pkg/math/subpaving/tactic/fixed_expr_converter_test.go"
+        "pkg/math/subpaving/tactic/rational_expr_converter.go",
+        "pkg/math/subpaving/tactic/rational_expr_arith.go",
+        "pkg/math/subpaving/tactic/expr_coefficient.go",
+        "pkg/math/subpaving/tactic/expr_mapping.go",
+        "pkg/math/subpaving/tactic/hardware_variable_display.go",
+        "pkg/math/subpaving/tactic/arbitrary_variable_display.go",
+        "pkg/math/subpaving/tactic/fast_variable_display.go",
+        "pkg/math/subpaving/tactic/fixed_variable_display.go",
+        "pkg/math/subpaving/tactic/rational_variable_display.go",
+        "pkg/math/subpaving/tactic/expr_converter_test.go",
+        "pkg/math/subpaving/tactic/arbitrary_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/fast_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/fixed_expr_converter_test.go",
+        "pkg/math/subpaving/tactic/rational_expr_converter_test.go"
       ],
       "tests": [
         "TestHardwareExprConverterTerms",
         "TestArbitraryExprConverterTermsAndClause",
-        "TestArbitraryExprConverterSearchSimpleGoal",
         "TestFastExprConverterTermsAndClause",
         "TestFixedExprConverterTermsAndClause",
-        "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats"
+        "TestRationalExprConverterExactLeafGoalAndCleanup"
       ],
       "conditionals": [
         {
@@ -79046,13 +79190,55 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "imp constructor/destructor and public construction/destruction: private or supplied expr2var; cache and reverse-map references",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "m(), s() and qm(): borrowed AST manager, concrete subpaving engine and exact rational manager bindings",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_mapping.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        },
+        {
+          "name": "is_var and internalize_term: shared-map membership and source process entry",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_converter.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
+          ]
+        }
+      ],
+      "ownership": [
+        "Each typed converter borrows its AST manager, concrete engine and numeral managers. It owns a private Expr2Var when no map is supplied and otherwise borrows the supplied owner; Close never closes a supplied mapping.",
+        "Expr2Var owns one AST reference per current mapping. Newly registered variables additionally append distinct owning reverse-map references, including repeated expressions after supplied-map reset. Cached shared expressions own their AST keys and exact integer numerator/denominator copies. Cleanup closes caches, then any private Expr2Var, then reverse-map references.",
+        "VariableDisplay pins inverse-map expressions independently of mutable supplied-map entries; those pins remain owned by the converter until cleanup, when its engine/display callbacks are also discarded. Cached literal storage is never populated by this C++ translator, so no unused literal adapter is introduced."
+      ],
       "deviations": [
-        "Concrete HWF and MPF context specializations now implement numeral and variable leaves, to_real, process_add, process_mul, positive integral power, ref-counted integer cache, AST cancellation checkpoint and source arithmetic refusal categories. MPF formatted zero is rejected by the source f2n wrapper, including a zero sum constant. Zero-degree monomials and full tactic ownership/integration remain open.",
-        "The concrete MPFF instantiation now internalizes AST numerals, variables, sums, products, powers, inequalities and clauses through the selected FastEngine and owning FastShellCoefficients. Ref-counted AST cache and native integer buffer lifetimes are exercised. MPFF search and enclosing tactic result ownership remain open."
+        "The five actual MPQ/HWF/MPF/MPFF/MPFX source consumers use concrete typed Go converters and engines; Engine() represents the source s() binding without a universal erased-type context adapter. Manager() represents m().",
+        "Go enforces handle, sort and owner validity with explicit errors and makes Close repeatable. Interrupted cache-copy construction rolls back unpublished copies instead of exposing partially constructed cache arrays. Generic context algorithms and numeral-manager assertions remain independently tracked in their own source units.",
+        "Inverse-display snapshots share the converter cleanup lifetime in Go; their expressions remain explicitly pinned even after a supplied Expr2Var is reset. Source frame and literal-cache helper types with no live consumers are not separately ported."
       ]
     },
     {

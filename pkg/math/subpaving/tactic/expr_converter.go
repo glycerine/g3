@@ -32,7 +32,8 @@ type HardwareExprConverter struct {
 	trace                                *diagnostic.TraceTags
 	cooperation                          *cooperate.Cooperation
 	family                               ast.FamilyID
-	vars                                 map[ast.ASTHandle]uint32
+	mapping                              *ast.Expr2Var
+	ownsMapping                          bool
 	order                                []ast.ASTHandle
 	cache                                map[ast.ASTHandle]cachedTerm
 	cachedOrder                          []ast.ASTHandle
@@ -46,6 +47,12 @@ type cachedTerm struct {
 }
 
 func NewHardwareExprConverter(m *ast.ASTManager, engine *HardwareEngine) (*HardwareExprConverter, error) {
+	return NewHardwareExprConverterWithMapping(m, engine, nil)
+}
+
+// NewHardwareExprConverterWithMapping borrows a supplied expr2var owner.
+// A nil mapping creates a private mapping that the converter closes.
+func NewHardwareExprConverterWithMapping(m *ast.ASTManager, engine *HardwareEngine, mapping *ast.Expr2Var) (*HardwareExprConverter, error) {
 	if m == nil || engine == nil {
 		return nil, arena.ErrInvalidSlot
 	}
@@ -65,7 +72,21 @@ func NewHardwareExprConverter(m *ast.ASTManager, engine *HardwareEngine) (*Hardw
 		_ = ns.Close()
 		return nil, err
 	}
-	c := &HardwareExprConverter{ast: m, engine: engine, family: family, vars: make(map[ast.ASTHandle]uint32), cache: make(map[ast.ASTHandle]cachedTerm), cachedNumerators: ns, cachedDenominators: ds}
+	c := &HardwareExprConverter{ast: m, engine: engine, family: family, cache: make(map[ast.ASTHandle]cachedTerm), cachedNumerators: ns, cachedDenominators: ds}
+	c.ownsMapping = mapping == nil
+	if mapping == nil {
+		mapping, err = ast.NewExpr2Var(m)
+	} else {
+		var owner *ast.ASTManager
+		owner, err = mapping.Manager()
+		if err == nil && owner != m {
+			err = ast.ErrASTHandle
+		}
+	}
+	if err != nil {
+		return nil, errors.Join(err, ds.Close(), ns.Close())
+	}
+	c.mapping = mapping
 	c.self = c
 	return c, nil
 }
@@ -256,31 +277,33 @@ func (c *HardwareExprConverter) cacheResult(t ast.ASTHandle, variable uint32, n,
 }
 
 func (c *HardwareExprConverter) mkVarFor(t ast.ASTHandle, integer bool, numerator, denominator *numeral.Int) (uint32, error) {
-	if variable, ok := c.vars[t]; ok {
-		if err := c.engine.qm.Z.SetInt32(numerator, 1); err != nil {
-			return 0, err
-		}
-		return variable, c.engine.qm.Z.SetInt32(denominator, 1)
-	}
-	if err := c.ast.IncRef(t); err != nil {
-		return 0, err
-	}
-	shell, err := c.engine.Shell()
-	if err != nil {
-		c.ast.DecRef(t)
-		return 0, err
-	}
-	variable, err := shell.MkVar(integer)
-	if err != nil {
-		c.ast.DecRef(t)
-		return 0, err
-	}
-	c.vars[t] = variable
-	c.order = append(c.order, t)
 	if err := c.engine.qm.Z.SetInt32(numerator, 1); err != nil {
 		return 0, err
 	}
-	return variable, c.engine.qm.Z.SetInt32(denominator, 1)
+	if err := c.engine.qm.Z.SetInt32(denominator, 1); err != nil {
+		return 0, err
+	}
+	variable, err := c.mapping.ToVar(t)
+	if err != nil || variable != math.MaxUint32 {
+		return variable, err
+	}
+	shell, err := c.engine.Shell()
+	if err != nil {
+		return 0, err
+	}
+	variable, err = shell.MkVar(integer)
+	if err != nil {
+		return 0, err
+	}
+	if err := c.mapping.Insert(t, variable); err != nil {
+		return 0, err
+	}
+	// m_var2expr owns a second reference, independently of expr2var.
+	if err := c.ast.IncRef(t); err != nil {
+		return 0, err
+	}
+	c.order = append(c.order, t)
+	return variable, nil
 }
 
 // unsignedExponent follows rational::is_unsigned and get_unsigned, including
@@ -597,8 +620,7 @@ func (c *HardwareExprConverter) IsVar(t ast.ASTHandle) (bool, error) {
 	if err := c.check(); err != nil {
 		return false, err
 	}
-	_, ok := c.vars[t]
-	return ok, nil
+	return c.mapping.IsVar(t)
 }
 
 func (c *HardwareExprConverter) Close() error {
@@ -626,13 +648,18 @@ func (c *HardwareExprConverter) Close() error {
 	if err := c.cachedDenominators.Close(); err != nil {
 		return err
 	}
-	for _, h := range c.order {
-		if _, ok := c.vars[h]; !ok {
+	if c.ownsMapping {
+		if err := c.mapping.Close(); err != nil {
+			return err
+		}
+	}
+	for i, h := range c.order {
+		if h.IsNull() {
 			continue
 		}
 		consumed, err := c.ast.DecRefConsumed(h)
 		if consumed {
-			delete(c.vars, h)
+			c.order[i] = ast.ASTHandle{}
 		}
 		if err != nil {
 			return err

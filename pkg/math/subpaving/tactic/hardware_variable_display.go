@@ -146,9 +146,18 @@ func (c *HardwareExprConverter) VariableDisplay(symbols *symbol.Manager) (subpav
 	if symbols == nil {
 		return nil, arena.ErrInvalidSlot
 	}
-	inverse := make(map[uint32]ast.ASTHandle, len(c.vars))
-	for h, variable := range c.vars {
-		inverse[variable] = h
+	entries, err := c.mapping.Entries()
+	if err != nil {
+		return nil, err
+	}
+	inverse := make(map[uint32]ast.ASTHandle, len(entries))
+	pins, err := pinExprMapping(c.ast, entries)
+	if err != nil {
+		return nil, err
+	}
+	c.order = append(c.order, pins...)
+	for _, entry := range entries {
+		inverse[entry.Variable] = entry.Expr
 	}
 	return func(w io.Writer, variable uint32) error {
 		if err := c.check(); err != nil {

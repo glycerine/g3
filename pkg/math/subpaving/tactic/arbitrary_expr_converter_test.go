@@ -118,6 +118,107 @@ func TestArbitraryExprConverterTermsAndClause(t *testing.T) {
 	if err != nil || first == math.MaxUint32 {
 		t.Fatal("variable", first, err)
 	}
+	t.Run("borrowed mapping", func(t *testing.T) {
+		engine, err := NewArbitraryEngine(&control.Reslimit{Limit: 1000}, numbers, pc, &p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := engine.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		shell, err := engine.Shell()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := shell.MkVar(true); err != nil {
+			t.Fatal(err)
+		}
+		baseline, err := m.GetRefCount(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if baseline != 2 {
+			t.Fatal("private expr2var and reverse map must each own a reference", baseline)
+		}
+		mapping, err := ast.NewExpr2Var(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := mapping.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		if err := mapping.Insert(x, first); err != nil {
+			t.Fatal(err)
+		}
+		borrower, err := NewArbitraryExprConverterWithMapping(m, engine, qm, mapping)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := borrower.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		if got, err := borrower.InternalizeTerm(x, &n, &d); err != nil || got != first {
+			t.Fatal("must reuse supplied mapping", got, err)
+		}
+		if yes, err := borrower.IsVar(x); err != nil || !yes {
+			t.Fatal("supplied is_var", yes, err)
+		}
+		if refs, err := m.GetRefCount(x); err != nil || refs != baseline+1 {
+			t.Fatal("reusing a mapping must not add a reverse entry", refs, baseline, err)
+		}
+		if err := mapping.Reset(); err != nil {
+			t.Fatal(err)
+		}
+		if yes, err := borrower.IsVar(x); err != nil || yes {
+			t.Fatal("reset supplied is_var", yes, err)
+		}
+		for i := 0; i < 2; i++ {
+			if got, err := borrower.InternalizeTerm(x, &n, &d); err != nil || got == first {
+				t.Fatal("new variable after supplied map reset", got, err)
+			}
+			if refs, err := m.GetRefCount(x); err != nil || refs != baseline+uint32(i)+2 {
+				t.Fatal("mapping and reverse entries must own separate references", refs, baseline, err)
+			}
+			if err := mapping.Reset(); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if manager, err := borrower.Manager(); err != nil || manager != m {
+			t.Fatal("borrowed manager", manager, err)
+		}
+		if got, err := borrower.Engine(); err != nil || got != engine {
+			t.Fatal("borrowed engine", got, err)
+		}
+		if err := mapping.Insert(x, 0); err != nil {
+			t.Fatal(err)
+		}
+		display, err := borrower.VariableDisplay(sy)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := mapping.Reset(); err != nil {
+			t.Fatal(err)
+		}
+		var shown bytes.Buffer
+		if err := display(&shown, 0); err != nil || shown.String() != "x" {
+			t.Fatal("inverse display must own its supplied expressions", shown.String(), err)
+		}
+		if err := borrower.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := mapping.Manager(); err != nil {
+			t.Fatal("borrower closed supplied map", err)
+		}
+		if refs, err := m.GetRefCount(x); err != nil || refs != baseline {
+			t.Fatal("reverse entries survived converter close", refs, baseline, err)
+		}
+	})
 	if err := q.SetString(&value, "1"); err != nil {
 		t.Fatal(err)
 	}
