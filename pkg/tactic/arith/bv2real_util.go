@@ -411,6 +411,10 @@ func (c *bv2RealCall) basic(k int32, args ...ast.ASTHandle) ast.ASTHandle {
 	return c.app(c.u.manager.BasicFamilyID(), k, args...)
 }
 func (c *bv2RealCall) bvNumeral(h ast.ASTHandle) (*big.Rat, bool) {
+	// is_zero/mk_extend borrow a numeral only for their local recognition.
+	// The returned Go value is independent of that project rational owner.
+	count := len(c.numbers)
+	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
 	q := c.number()
 	if q == nil {
 		return nil, false
@@ -436,6 +440,9 @@ func (c *bv2RealCall) bvNumeral(h ast.ASTHandle) (*big.Rat, bool) {
 	return value, ok
 }
 func (c *bv2RealCall) numeral(q *big.Rat, width uint32) ast.ASTHandle {
+	// The AST parameter copies the numeral; its construction argument ends here.
+	count := len(c.numbers)
+	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
 	n := c.number()
 	if n == nil {
 		return ast.ASTHandle{}

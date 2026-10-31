@@ -168341,7 +168341,8 @@
         "pkg/tactic/arith/bv2real_diagnostics.go",
         "pkg/tactic/arith/bv2real_cache.go",
         "pkg/tactic/arith/bv2real_cache_test.go",
-        "pkg/util/diagnostic/util_debug_macro_source_test.go"
+        "pkg/util/diagnostic/util_debug_macro_source_test.go",
+        "pkg/tactic/arith/bv2real_numeric_scope_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168350,7 +168351,9 @@
         "TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset",
         "TestBV2RealCacheInsertionFailurePublicationPrefixes",
         "TestBV2RealCacheHitEndsSignatureNumericScope",
-        "TestBV2RealCacheLookupReadsOwnedReverseValues"
+        "TestBV2RealCacheLookupReadsOwnedReverseValues",
+        "TestBV2RealNumericHelpersReleaseWidePayloadsBeforeCallerReturns",
+        "TestBV2RealNumericHelperFailureScopes"
       ],
       "assertions": [
         {
@@ -168527,11 +168530,21 @@
             "TestBV2RealCacheHitEndsSignatureNumericScope",
             "TestBV2RealCacheLookupReadsOwnedReverseValues"
           ]
+        },
+        {
+          "name": "bit-vector numeral constructor/recognizer temporary rational payloads end at helper return without sweeping caller numeric owners",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_util.go",
+          "tests": [
+            "TestBV2RealNumericHelpersReleaseWidePayloadsBeforeCallerReturns",
+            "TestBV2RealNumericHelperFailureScopes"
+          ]
         }
       ],
       "ownership": [
         "Utility owns auxiliary declarations, comparison declaration member refs, side conditions, three default project numerals, and independent rational pairs for both signature caches. Reset clears side conditions while preserving declaration/numeral cache owners. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls hold generated AST references and local numeral owners through their helper handoffs; stopped cleanup stays attached for Close retries. Copied and closed owners are rejected. The broader exact source lexical replacement and container growth audit remains open.",
-        "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish."
+        "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish.",
+        "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup."
       ],
       "deviations": [
         "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
@@ -168551,7 +168564,8 @@
         "pkg/tactic/arith/bv2real_diagnostics.go",
         "pkg/tactic/arith/bv2real_cache.go",
         "pkg/tactic/arith/bv2real_cache_test.go",
-        "pkg/util/diagnostic/util_debug_macro_source_test.go"
+        "pkg/util/diagnostic/util_debug_macro_source_test.go",
+        "pkg/tactic/arith/bv2real_numeric_scope_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168560,7 +168574,9 @@
         "TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset",
         "TestBV2RealCacheInsertionFailurePublicationPrefixes",
         "TestBV2RealCacheHitEndsSignatureNumericScope",
-        "TestBV2RealCacheLookupReadsOwnedReverseValues"
+        "TestBV2RealCacheLookupReadsOwnedReverseValues",
+        "TestBV2RealNumericHelpersReleaseWidePayloadsBeforeCallerReturns",
+        "TestBV2RealNumericHelperFailureScopes"
       ],
       "conditionals": [
         {
@@ -168636,11 +168652,21 @@
             "TestBV2RealCacheHitEndsSignatureNumericScope",
             "TestBV2RealCacheLookupReadsOwnedReverseValues"
           ]
+        },
+        {
+          "name": "bit-vector numeral constructor/recognizer temporary rational payloads end at helper return without sweeping caller numeric owners",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_util.go",
+          "tests": [
+            "TestBV2RealNumericHelpersReleaseWidePayloadsBeforeCallerReturns",
+            "TestBV2RealNumericHelperFailureScopes"
+          ]
         }
       ],
       "ownership": [
         "Utility owns auxiliary declarations, comparison declaration member refs, side conditions, three default project numerals, and independent rational pairs for both signature caches. Reset clears side conditions while preserving declaration/numeral cache owners. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls hold generated AST references and local numeral owners through their helper handoffs; stopped cleanup stays attached for Close retries. Copied and closed owners are rejected. The broader exact source lexical replacement and container growth audit remains open.",
-        "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish."
+        "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish.",
+        "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup."
       ],
       "deviations": [
         "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
