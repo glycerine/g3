@@ -4,6 +4,7 @@ package arith
 // src/tactic/arith/bv2real_rewriter.h:144-231.
 
 import (
+	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	"math/big"
 	"reflect"
 
@@ -166,24 +167,30 @@ func (r *BV2RealRewriter) MkAppCore(decl ast.ASTHandle, args ast.AppArguments, o
 	}
 	return status, err
 }
-func (c *bv2RealCall) pair(s, t ast.ASTHandle) (s1, s2, t1, t2 ast.ASTHandle, d1, d2, r big.Rat, ok bool) {
-	s1, s2, d1, r, ok = c.match(s)
-	if !ok {
+func (c *bv2RealCall) pair(s, t ast.ASTHandle) (s1, s2, t1, t2 ast.ASTHandle, d1, d2, r *unumeral.OwnedRational, ok bool) {
+	left, ok := c.matchTerm(s)
+	if !ok || c.err != nil {
 		return
 	}
-	var r2 big.Rat
-	t1, t2, d2, r2, ok = c.match(t)
-	ok = ok && r.Cmp(&r2) == 0
-	return
+	right, ok := c.matchTerm(t)
+	if !ok || c.err != nil {
+		return
+	}
+	same, err := c.u.manager.NumeralService().Equal(left.root, right.root)
+	if err != nil {
+		c.err = err
+		return s1, s2, t1, t2, d1, d2, r, false
+	}
+	return left.first, left.second, right.first, right.second, left.divisor, right.divisor, left.root, same
 }
-func (c *bv2RealCall) wrap(a, b ast.ASTHandle, d, r *big.Rat) (result ast.ASTHandle, matched bool) {
+func (c *bv2RealCall) wrap(a, b ast.ASTHandle, d, r *unumeral.OwnedRational) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
-	a, b, ok := c.alignDivisor(a, b, d)
+	a, b, ok := c.alignDivisorOwned(a, b, d)
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
-	return c.encoding(a, b, d, r), true
+	return c.encodingOwned(a, b, d, r), true
 }
 func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
@@ -193,17 +200,23 @@ func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (result ast.ASTHandle
 		return ast.ASTHandle{}, false
 	}
 	if op == 9 {
-		first := c.add(c.mul(a, x), c.multiplyScalar(&r, c.mul(y, b)))
+		first := c.add(c.mul(a, x), c.multiplyScalarOwned(r, c.mul(y, b)))
 		second := c.add(c.mul(a, y), c.mul(b, x))
-		d1.Mul(&d1, &d2)
-		return c.wrap(first, second, &d1, &r)
+		if c.err != nil {
+			return ast.ASTHandle{}, false
+		}
+		product := c.takeRational(c.u.manager.NumeralService().Mul(d1, d2))
+		if c.err != nil {
+			return ast.ASTHandle{}, false
+		}
+		return c.wrap(first, second, product, r)
 	}
-	a, b, x, y = c.alignDivisors(a, b, x, y, &d1, &d2)
+	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	switch op {
 	case 6:
-		return c.wrap(c.add(a, x), c.add(y, b), &d1, &r)
+		return c.wrap(c.add(a, x), c.add(y, b), d1, r)
 	case 7:
-		return c.wrap(c.sub(a, x), c.sub(b, y), &d1, &r)
+		return c.wrap(c.sub(a, x), c.sub(b, y), d1, r)
 	}
 	return ast.ASTHandle{}, false
 }
@@ -214,7 +227,7 @@ func (c *bv2RealCall) equal(s, t ast.ASTHandle) (result ast.ASTHandle, matched b
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisors(a, b, x, y, &d1, &d2)
+	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	a, x = c.align(a, x)
 	b, y = c.align(b, y)
 	return c.basic(ast.ASTOpAnd, c.basic(ast.ASTOpEq, a, x), c.basic(ast.ASTOpEq, b, y)), true
@@ -226,21 +239,21 @@ func (c *bv2RealCall) ite(cond, s, t ast.ASTHandle) (result ast.ASTHandle, match
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisors(a, b, x, y, &d1, &d2)
+	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	a, x = c.align(a, x)
 	b, y = c.align(b, y)
-	return c.wrap(c.basic(ast.ASTOpIte, cond, a, x), c.basic(ast.ASTOpIte, cond, b, y), &d1, &r)
+	return c.wrap(c.basic(ast.ASTOpIte, cond, a, x), c.basic(ast.ASTOpIte, cond, b, y), d1, r)
 }
 func (c *bv2RealCall) negate(s ast.ASTHandle) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
-	a, b, d, r, ok := c.match(s)
-	if !ok {
+	term, ok := c.matchTerm(s)
+	if !ok || c.err != nil {
 		return ast.ASTHandle{}, false
 	}
-	a = c.extend(1, a)
-	b = c.extend(1, b)
-	return c.wrap(c.bv(3, a), c.bv(3, b), &d, &r)
+	a := c.extend(1, term.first)
+	b := c.extend(1, term.second)
+	return c.wrap(c.bv(3, a), c.bv(3, b), term.divisor, term.root)
 }
 func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (result ast.ASTHandle, matched bool) {
 	mark := c.checkpoint()
@@ -252,10 +265,18 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 		return ast.ASTHandle{}, false
 	}
 	a, b, x, y, d1, d2, r, ok := c.pair(s, t)
-	if !ok || r.Cmp(big.NewRat(2, 1)) != 0 {
+	if !ok || c.err != nil {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisors(a, b, x, y, &d1, &d2)
+	isTwo, err := c.u.manager.NumeralService().EqualInt(r, 2)
+	if err != nil {
+		c.err = err
+		return ast.ASTHandle{}, false
+	}
+	if !isTwo {
+		return ast.ASTHandle{}, false
+	}
+	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	a = c.sub(a, x)
 	b = c.sub(b, y)
 	width := c.width(b)
@@ -282,10 +303,10 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (res
 	}
 	gt := c.basic(ast.ASTOpNot, le)
 	nonpos := c.bv(23, b, c.numeral(big.NewRat(0, 1), width))
-	under := c.add(c.multiplyScalar(big.NewRat(4, 1), a), c.multiplyScalar(big.NewRat(5, 1), b))
+	under := c.add(c.multiplyScalarLiteral(4, a), c.multiplyScalarLiteral(5, b))
 	z1 := c.numeral(big.NewRat(0, 1), c.width(under))
 	leUnder := c.bv(23, under, z1)
-	over := c.add(c.multiplyScalar(big.NewRat(2, 1), a), c.multiplyScalar(big.NewRat(3, 1), b))
+	over := c.add(c.multiplyScalarLiteral(2, a), c.multiplyScalarLiteral(3, b))
 	z2 := c.numeral(big.NewRat(0, 1), c.width(over))
 	leOver := c.bv(23, over, z2)
 	if positive {
@@ -314,14 +335,14 @@ func (c *bv2RealCall) le(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
-	a, b, x, y = c.alignDivisors(a, b, x, y, &d1, &d2)
+	a, b, x, y = c.alignDivisorsOwned(a, b, x, y, d1, d2)
 	x = c.sub(x, a)
 	y = c.sub(y, b)
 	z1, z2 := c.numeral(big.NewRat(0, 1), c.width(x)), c.numeral(big.NewRat(0, 1), c.width(y))
 	gz1, lz1 := c.bv(23, z1, x), c.bv(23, x, z1)
 	gz2, lz2 := c.bv(23, z2, y), c.bv(23, y, z2)
 	xx := c.mul(x, x)
-	yy := c.multiplyScalar(&r, c.mul(y, y))
+	yy := c.multiplyScalarOwned(r, c.mul(y, y))
 	xx, yy = c.align(xx, yy)
 	ge, le := c.bv(23, yy, xx), c.bv(23, xx, yy)
 	e1 := c.basic(ast.ASTOpOr, gz1, gz2)

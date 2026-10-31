@@ -449,7 +449,7 @@ func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	encoded := c.local.encoding(s, t, &c.real.defaultDivisor, &c.real.defaultRoot)
+	encoded := c.local.encodingOwned(s, t, &c.real.defaults[1], &c.real.defaults[0])
 	if err = c.appendOwned(&c.trail, encoded); err != nil {
 		return err
 	}
@@ -463,7 +463,7 @@ func (c *nla2BVInvocation) addReal(variable ast.ASTHandle) (resultErr error) {
 	if err = c.appendOwned(&c.vars, decl); err != nil {
 		return err
 	}
-	reduced := c.local.reduced(s, t, &c.real.defaultDivisor, &c.real.defaultRoot)
+	reduced := c.local.reducedOwned(s, t, &c.real.defaults[1], &c.real.defaults[0])
 	return c.appendOwned(&c.defs, reduced)
 }
 

@@ -148,10 +148,14 @@ func (c *bv2RealCall) alignDivisor(a, b ast.ASTHandle, d *big.Rat) (ast.ASTHandl
 	if c.err != nil {
 		return a, b, false
 	}
-	if d.Cmp(&c.u.maxDivisor) <= 0 {
+	maximum := c.rationalValue(&c.u.defaults[2])
+	if c.err != nil {
+		return a, b, false
+	}
+	if d.Cmp(maximum) <= 0 {
 		return a, b, true
 	}
-	if c.u.maxDivisor.Sign() == 0 {
+	if maximum.Sign() == 0 {
 		c.err = ast.ErrASTDomain
 		return a, b, false
 	}

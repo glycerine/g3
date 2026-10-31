@@ -39,18 +39,32 @@ func (c *bv2RealCall) signedNumeral(q *big.Rat) (result ast.ASTHandle) {
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	if c.err = bv2RealSourceAssert(245, "n.is_int()", q.IsInt()); c.err != nil {
-		return ast.ASTHandle{}
-	}
-	if !q.IsInt() {
-		c.err = ast.ErrASTDomain
-		return ast.ASTHandle{}
-	}
-	s := c.u.manager.NumeralService()
 	value := c.rational(q)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
+	return c.signedNumeralOwned(value)
+}
+
+func (c *bv2RealCall) signedNumeralOwned(value *unumeral.OwnedRational) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	integer, err := c.u.manager.NumeralService().IsInt(value)
+	if err != nil {
+		c.err = err
+		return ast.ASTHandle{}
+	}
+	if c.err = bv2RealSourceAssert(245, "n.is_int()", integer); c.err != nil {
+		return ast.ASTHandle{}
+	}
+	if !integer {
+		c.err = ast.ErrASTDomain
+		return ast.ASTHandle{}
+	}
+	s := c.u.manager.NumeralService()
 	negative, err := s.IsNeg(value)
 	if err != nil {
 		c.err = err

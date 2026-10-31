@@ -55,6 +55,10 @@ func (c *bv2RealCall) checkSignature(a, b ast.ASTHandle, sig *bv2RealSignature, 
 	if err := bv2RealSourceAssert(61, "sig.m_r.is_int() && sig.m_r.is_pos()", r.IsInt() && r.Sign() > 0); err != nil {
 		return err
 	}
+	return c.checkSignatureWidths(a, b, sig)
+}
+
+func (c *bv2RealCall) checkSignatureWidths(a, b ast.ASTHandle, sig *bv2RealSignature) error {
 	enabled, err := diagnostic.SourceAssertionsEnabled(diagnostic.BorrowProcessDebugContext())
 	if err != nil || !enabled {
 		return err

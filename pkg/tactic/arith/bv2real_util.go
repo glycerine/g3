@@ -26,25 +26,24 @@ type bv2RealSignature struct {
 // NLA-to-BV consumer. Its defaults come from that consumer's uint parameters.
 // Reset clears side conditions; it deliberately preserves declaration caches.
 type BV2RealUtil struct {
-	cacheOwners                             []*bv2RealCacheOwner
-	cacheRetiring                           bool
-	self                                    *BV2RealUtil
-	manager                                 *ast.ASTManager
-	arith, bv                               ast.FamilyID
-	defaultRoot, defaultDivisor, maxDivisor big.Rat
-	defaults                                [3]unumeral.OwnedRational
-	posLT, posLE                            ast.ASTRef
-	decls, side                             []ast.ASTHandle
-	forward                                 map[bv2RealKey]ast.ASTHandle
-	reverse                                 map[ast.ASTHandle]bv2RealSignature
-	pending                                 []*bv2RealCall
-	trace                                   *diagnostic.TraceTags
-	tracePending                            []*bv2RealTrace
-	maxBits                                 uint32
-	header                                  uint64
-	borrowers                               uint32
-	resetting, closing, closed              bool
-	ready                                   bool
+	cacheOwners                []*bv2RealCacheOwner
+	cacheRetiring              bool
+	self                       *BV2RealUtil
+	manager                    *ast.ASTManager
+	arith, bv                  ast.FamilyID
+	defaults                   [3]unumeral.OwnedRational
+	posLT, posLE               ast.ASTRef
+	decls, side                []ast.ASTHandle
+	forward                    map[bv2RealKey]ast.ASTHandle
+	reverse                    map[ast.ASTHandle]bv2RealSignature
+	pending                    []*bv2RealCall
+	trace                      *diagnostic.TraceTags
+	tracePending               []*bv2RealTrace
+	maxBits                    uint32
+	header                     uint64
+	borrowers                  uint32
+	resetting, closing, closed bool
+	ready                      bool
 }
 
 // A nonnil owner returned with an error must be closed.
@@ -66,17 +65,8 @@ func NewBV2RealUtil(m *ast.ASTManager, root, divisor, maxBits uint32) (*BV2RealU
 	}
 	u := &BV2RealUtil{manager: m, arith: a, bv: b, maxBits: maxBits, header: bytes, forward: make(map[bv2RealKey]ast.ASTHandle), reverse: make(map[ast.ASTHandle]bv2RealSignature)}
 	u.self = u
-	u.defaultRoot.SetInt64(int64(root))
-	u.defaultDivisor.SetInt64(int64(divisor))
-	u.maxDivisor.SetInt64(2 * int64(divisor))
-	for i, value := range []*big.Rat{&u.defaultRoot, &u.defaultDivisor, &u.maxDivisor} {
-		u.defaults[i], err = m.NumeralService().NewValue()
-		if err != nil {
-			return u, err
-		}
-		if err = m.NumeralService().SetString(&u.defaults[i], value.RatString()); err != nil {
-			return u, err
-		}
+	if err = u.initializeDefaults(root, divisor); err != nil {
+		return u, err
 	}
 	real, err := m.MkFamilySort(a, 0, nil)
 	if err != nil {
@@ -175,9 +165,17 @@ func (u *BV2RealUtil) Defaults() (root, divisor, maxDivisor big.Rat, err error) 
 	if err = u.open(); err != nil {
 		return
 	}
-	root.Set(&u.defaultRoot)
-	divisor.Set(&u.defaultDivisor)
-	maxDivisor.Set(&u.maxDivisor)
+	for i, out := range []*big.Rat{&root, &divisor, &maxDivisor} {
+		text, e := u.manager.NumeralService().String(&u.defaults[i])
+		if e != nil {
+			err = e
+			return
+		}
+		if _, ok := out.SetString(text); !ok {
+			err = ast.ErrASTDomain
+			return
+		}
+	}
 	return
 }
 func (u *BV2RealUtil) MaxNumBits() (uint32, error) {
@@ -297,6 +295,7 @@ type bv2RealCall struct {
 	traceLine      int
 	output         ast.ASTRef
 	outputAssigned bool
+	readPending    []*bv2RealArithmeticRead
 }
 
 type bv2RealCallCheckpoint struct {
@@ -341,6 +340,12 @@ func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
 }
 
 func (c *bv2RealCall) close() error {
+	for len(c.readPending) > 0 {
+		if err := c.readPending[0].close(); err != nil {
+			return err
+		}
+		c.readPending = c.readPending[1:]
+	}
 	return c.releaseTo(bv2RealCallCheckpoint{})
 }
 func (u *BV2RealUtil) finish(c *bv2RealCall, err *error) {
@@ -453,9 +458,15 @@ func (c *bv2RealCall) realNumeral(q *big.Rat) ast.ASTHandle {
 func (c *bv2RealCall) align(a, b ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
 	wa, wb := c.width(a), c.width(b)
 	if wa > wb {
-		b = c.extend(wa-wb, b)
+		next := c.extend(wa-wb, b)
+		if c.err == nil {
+			b = next
+		}
 	} else if wa < wb {
-		a = c.extend(wb-wa, a)
+		next := c.extend(wb-wa, a)
+		if c.err == nil {
+			a = next
+		}
 	}
 	return a, b
 }
@@ -467,10 +478,10 @@ func (c *bv2RealCall) add(a, b ast.ASTHandle) (result ast.ASTHandle) {
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	if q, ok := c.bvNumeral(a); ok && q.Sign() == 0 {
+	if c.isZero(a) {
 		return b
 	}
-	if q, ok := c.bvNumeral(b); ok && q.Sign() == 0 {
+	if c.isZero(b) {
 		return a
 	}
 	a, b = c.align(a, b)
@@ -495,10 +506,10 @@ func (c *bv2RealCall) mul(a, b ast.ASTHandle) (result ast.ASTHandle) {
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	if q, ok := c.bvNumeral(a); ok && q.Sign() == 0 {
+	if c.isZero(a) {
 		return a
 	}
-	if q, ok := c.bvNumeral(b); ok && q.Sign() == 0 {
+	if c.isZero(b) {
 		return b
 	}
 	a, b = c.align(a, b)
@@ -535,6 +546,15 @@ func (c *bv2RealCall) extract(high, low uint32, h ast.ASTHandle) ast.ASTHandle {
 	return c.hold(c.u.manager.MkBitVectorExtract(high, low, h))
 }
 func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle {
+	count := len(c.numbers)
+	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
+	divisor, root := c.rational(d), c.rational(r)
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	return c.encodingOwned(a, b, divisor, root)
+}
+func (c *bv2RealCall) encodingOwned(a, b ast.ASTHandle, d, r *unumeral.OwnedRational) ast.ASTHandle {
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
@@ -548,9 +568,9 @@ func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle 
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	c.err = c.u.manager.NumeralService().SetString(sourceD, d.RatString())
+	c.err = c.u.manager.NumeralService().Copy(sourceD, d)
 	if c.err == nil {
-		c.err = c.u.manager.NumeralService().SetString(sourceR, r.RatString())
+		c.err = c.u.manager.NumeralService().Copy(sourceR, r)
 	}
 	if c.err != nil {
 		return ast.ASTHandle{}
@@ -612,12 +632,11 @@ func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle 
 func (c *bv2RealCall) reduced(a, b ast.ASTHandle, d, r *big.Rat) (result ast.ASTHandle) {
 	mark := c.checkpoint()
 	defer c.endExpressionScope(mark, &result)
-	x, y := c.signedReal(a), c.signedReal(b)
-	x = c.arith(10, x, c.realNumeral(d))
-	y = c.arith(10, y, c.realNumeral(d))
-	root := c.arith(18, c.realNumeral(r), c.realNumeral(big.NewRat(1, 2)))
-	y = c.arith(9, y, root)
-	return c.arith(6, x, y)
+	divisor, root := c.rational(d), c.rational(r)
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	return c.reducedOwned(a, b, divisor, root)
 }
 func (u *BV2RealUtil) IsEncodingDecl(decl ast.ASTHandle) (bool, error) {
 	if err := u.open(); err != nil {
@@ -676,83 +695,44 @@ func (u *BV2RealUtil) MkReduced(a, b ast.ASTHandle, d, r *big.Rat, out ast.ASTRe
 	return u.manager.SetRef(out, h)
 }
 
-func (u *BV2RealUtil) MkDefault(a, b ast.ASTHandle, out ast.ASTRef) error {
-	if err := u.open(); err != nil {
+func (u *BV2RealUtil) MkDefault(a, b ast.ASTHandle, out ast.ASTRef) (err error) {
+	if err = u.open(); err != nil {
 		return err
 	}
-	return u.MkBV2RealC(a, b, &u.defaultDivisor, &u.defaultRoot, out)
+	c := &bv2RealCall{u: u}
+	defer u.finish(c, &err)
+	h := c.encodingOwned(a, b, &u.defaults[1], &u.defaults[0])
+	if c.err != nil {
+		return c.err
+	}
+	return u.manager.SetRef(out, h)
 }
-func (u *BV2RealUtil) MkReducedDefault(a, b ast.ASTHandle, out ast.ASTRef) error {
-	if err := u.open(); err != nil {
+func (u *BV2RealUtil) MkReducedDefault(a, b ast.ASTHandle, out ast.ASTRef) (err error) {
+	if err = u.open(); err != nil {
 		return err
 	}
-	return u.MkReduced(a, b, &u.defaultDivisor, &u.defaultRoot, out)
+	c := &bv2RealCall{u: u}
+	defer u.finish(c, &err)
+	h := c.reducedOwned(a, b, &u.defaults[1], &u.defaults[0])
+	if c.err != nil {
+		return c.err
+	}
+	return u.manager.SetRef(out, h)
 }
 func (c *bv2RealCall) match(h ast.ASTHandle) (a, b ast.ASTHandle, d, r big.Rat, found bool) {
+	count := len(c.numbers)
+	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(count)) }()
+	term, found := c.matchTerm(h)
+	if !found || c.err != nil {
+		return
+	}
+	divisor, root := c.rationalValue(term.divisor), c.rationalValue(term.root)
 	if c.err != nil {
-		return
+		return ast.ASTHandle{}, ast.ASTHandle{}, d, r, false
 	}
-	m := c.u.manager
-	kind, err := m.GetKind(h)
-	if err != nil {
-		c.err = err
-		return
-	}
-	if kind == ast.ASTApp {
-		decl, err := m.GetDecl(h)
-		if err != nil {
-			c.err = err
-			return
-		}
-		if sig, ok := c.u.reverse[decl]; ok {
-			d, r = c.signatureValues(&sig)
-			if c.err != nil {
-				return
-			}
-			count, err := m.GetNumArgs(h)
-			if err != nil {
-				c.err = err
-				return
-			}
-			if c.err = bv2RealSourceAssert(55, "num_args == 2", count == 2); c.err != nil {
-				return
-			}
-			a, err = m.GetArg(h, 0)
-			if err != nil {
-				c.err = err
-				return
-			}
-			b, err = m.GetArg(h, 1)
-			if err != nil {
-				c.err = err
-				return
-			}
-			if c.err = c.checkSignature(a, b, &sig, &d, &r); c.err != nil {
-				return
-			}
-			found = true
-			return
-		}
-	}
-	text, integer, yes, err := m.ArithmeticNumeralText(h)
-	if err != nil {
-		c.err = err
-		return
-	}
-	if !yes || integer {
-		return
-	}
-	q, valid := new(big.Rat).SetString(text)
-	if !valid {
-		c.err = ast.ErrASTDomain
-		return
-	}
-	d.SetInt(q.Denom())
-	r.Set(&c.u.defaultRoot)
-	a = c.signedNumeral(new(big.Rat).SetInt(q.Num()))
-	b = c.signedNumeral(big.NewRat(0, 1))
-	found = true
-	return
+	d.Set(divisor)
+	r.Set(root)
+	return term.first, term.second, d, r, true
 }
 func (u *BV2RealUtil) Match(h ast.ASTHandle, aout, bout ast.ASTRef, d, r *big.Rat) (found bool, err error) {
 	if err = u.open(); err != nil {
