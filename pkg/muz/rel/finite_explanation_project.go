@@ -1,7 +1,7 @@
 package rel
 
 // Source: src/muz/rel/dl_finite_product_relation.cpp project_fn and its
-// project_reducer, specialized to finite columns and one explanation column.
+// project_reducer, specialized to finite columns and rule-sort explanation columns.
 
 import (
 	"errors"
@@ -25,7 +25,7 @@ func (p *FiniteExplanationProduct) Project(removed []int) (_ *FiniteExplanationP
 			sorts = append(sorts, sort)
 		}
 	}
-	result, err := NewFiniteExplanationProduct(p.manager, sorts)
+	result, err := newFiniteExplanationProduct(p.manager, sorts, p.explanationColumns)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (p *FiniteExplanationProduct) Project(removed []int) (_ *FiniteExplanationP
 		if e != nil {
 			return nil, e
 		}
-		if len(data) != 1 {
+		if len(data) != p.explanationColumns {
 			return nil, ErrTableRelation
 		}
 		projected := make(Fact, 0, len(sorts)+1)
@@ -62,7 +62,7 @@ func (p *FiniteExplanationProduct) Project(removed []int) (_ *FiniteExplanationP
 			return nil, e
 		}
 		if !found {
-			if e = result.addEncoded(projected, data[0]); e != nil {
+			if e = result.addEncodedRow(projected, data); e != nil {
 				return nil, e
 			}
 		}

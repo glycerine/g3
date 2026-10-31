@@ -15,13 +15,21 @@ import (
 // It borrows the relation manager and finite sort handles and owns the sparse
 // table and explanation relations.
 type FiniteExplanationProduct struct {
-	manager     *RelationManager
-	finiteSorts []ast.ASTHandle
-	table       *SparseTable
-	inner       []*ExplanationRelation
+	manager            *RelationManager
+	finiteSorts        []ast.ASTHandle
+	explanationColumns int
+	table              *SparseTable
+	inner              []*ExplanationRelation
 }
 
 func NewFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.ASTHandle) (*FiniteExplanationProduct, error) {
+	return newFiniteExplanationProduct(manager, finiteSorts, 1)
+}
+
+func newFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.ASTHandle, explanationColumns int) (*FiniteExplanationProduct, error) {
+	if explanationColumns < 1 {
+		return nil, ast.ErrASTDomain
+	}
 	if manager == nil || manager.open() != nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -42,7 +50,7 @@ func NewFiniteExplanationProduct(manager *RelationManager, finiteSorts []ast.AST
 	if err != nil {
 		return nil, err
 	}
-	return &FiniteExplanationProduct{manager: manager, finiteSorts: append([]ast.ASTHandle(nil), finiteSorts...), table: table}, nil
+	return &FiniteExplanationProduct{manager: manager, finiteSorts: append([]ast.ASTHandle(nil), finiteSorts...), explanationColumns: explanationColumns, table: table}, nil
 }
 
 func (p *FiniteExplanationProduct) open() error {
@@ -80,11 +88,15 @@ func (p *FiniteExplanationProduct) AddFact(values []ast.ASTHandle, explanation a
 	return p.addEncoded(key, explanation)
 }
 
-func (p *FiniteExplanationProduct) addEncoded(key Fact, explanation ast.ASTHandle) (resultErr error) {
+func (p *FiniteExplanationProduct) addEncoded(key Fact, explanation ast.ASTHandle) error {
+	return p.addEncodedRow(key, []ast.ASTHandle{explanation})
+}
+
+func (p *FiniteExplanationProduct) addEncodedRow(key Fact, explanation []ast.ASTHandle) (resultErr error) {
 	if err := p.open(); err != nil {
 		return err
 	}
-	if len(key) != len(p.finiteSorts)+1 {
+	if len(key) != len(p.finiteSorts)+1 || len(explanation) != p.explanationColumns {
 		return ast.ErrASTDomain
 	}
 	found, err := p.table.FetchFact(key)
@@ -98,7 +110,11 @@ func (p *FiniteExplanationProduct) addEncoded(key Fact, explanation ast.ASTHandl
 	if err != nil {
 		return err
 	}
-	inner, err := NewExplanationRelation(p.manager.manager, []ast.ASTHandle{sort})
+	sorts := make([]ast.ASTHandle, p.explanationColumns)
+	for i := range sorts {
+		sorts[i] = sort
+	}
+	inner, err := NewExplanationRelation(p.manager.manager, sorts)
 	if err != nil {
 		return err
 	}
@@ -108,7 +124,7 @@ func (p *FiniteExplanationProduct) addEncoded(key Fact, explanation ast.ASTHandl
 			resultErr = errors.Join(resultErr, inner.Close())
 		}
 	}()
-	if err = inner.AddFact([]ast.ASTHandle{explanation}); err != nil {
+	if err = inner.AddFact(explanation); err != nil {
 		return err
 	}
 	key[len(key)-1] = Element(len(p.inner))
@@ -120,28 +136,40 @@ func (p *FiniteExplanationProduct) addEncoded(key Fact, explanation ast.ASTHandl
 	return nil
 }
 
-// Explanation returns a borrowed explanation for a finite tuple.
+// Explanation returns a borrowed explanation for a single-column product.
 func (p *FiniteExplanationProduct) Explanation(values []ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	row, found, err := p.ExplanationRow(values)
+	if err != nil || !found {
+		return ast.ASTHandle{}, found, err
+	}
+	if len(row) != 1 {
+		return ast.ASTHandle{}, false, ast.ErrASTDomain
+	}
+	return row[0], true, nil
+}
+
+// ExplanationRow returns the borrowed explanation tuple for a finite key.
+func (p *FiniteExplanationProduct) ExplanationRow(values []ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
 	key, err := p.encode(values)
 	if err != nil {
-		return ast.ASTHandle{}, false, err
+		return nil, false, err
 	}
 	found, err := p.table.FetchFact(key)
 	if err != nil || !found {
-		return ast.ASTHandle{}, false, err
+		return nil, false, err
 	}
 	index := uint64(key[len(key)-1])
 	if index >= uint64(len(p.inner)) || p.inner[index] == nil {
-		return ast.ASTHandle{}, false, ErrTableRelation
+		return nil, false, ErrTableRelation
 	}
 	data, err := p.inner[index].Data()
 	if err != nil {
-		return ast.ASTHandle{}, false, err
+		return nil, false, err
 	}
-	if len(data) != 1 {
-		return ast.ASTHandle{}, false, ErrTableRelation
+	if len(data) != p.explanationColumns {
+		return nil, false, ErrTableRelation
 	}
-	return data[0], true, nil
+	return data, true, nil
 }
 
 func (p *FiniteExplanationProduct) Len() (int, error) {

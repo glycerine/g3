@@ -1,7 +1,7 @@
 package rel
 
 // Source: src/muz/rel/dl_finite_product_relation.cpp union_fn, specialized to
-// the one-column fact-level explanation relation.
+// the fact-level explanation relation.
 
 import "github.com/glycerine/g3/pkg/ast"
 
@@ -12,7 +12,7 @@ func (p *FiniteExplanationProduct) compatible(other *FiniteExplanationProduct) e
 	if err := other.open(); err != nil {
 		return err
 	}
-	if p.manager != other.manager || len(p.finiteSorts) != len(other.finiteSorts) {
+	if p.manager != other.manager || p.explanationColumns != other.explanationColumns || len(p.finiteSorts) != len(other.finiteSorts) {
 		return ast.ErrASTDomain
 	}
 	for i := range p.finiteSorts {
@@ -51,7 +51,7 @@ func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct
 		if e != nil {
 			return e
 		}
-		if len(data) != 1 {
+		if len(data) != p.explanationColumns {
 			return ErrTableRelation
 		}
 		key := append(Fact(nil), fact...)
@@ -62,7 +62,7 @@ func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct
 		if found {
 			continue
 		}
-		if e = p.addEncoded(key, data[0]); e != nil {
+		if e = p.addEncodedRow(key, data); e != nil {
 			return e
 		}
 		if delta != nil {
@@ -72,7 +72,7 @@ func (p *FiniteExplanationProduct) Union(source, delta *FiniteExplanationProduct
 				return e
 			}
 			if !deltaFound {
-				if e = delta.addEncoded(deltaKey, data[0]); e != nil {
+				if e = delta.addEncodedRow(deltaKey, data); e != nil {
 					return e
 				}
 			}

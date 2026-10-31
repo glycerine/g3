@@ -1,3 +1,5 @@
+Fact explanation joins (2026-10-31 UTC): finite-key joins now carry concatenated explanation rows; projection and union preserve the multi-column rows. Normal and checked tests cover equality joins, missing matches, subsequent projection and union; column interleaving, assignment and Datalog registration remain unfinished.
+
 Fact explanation projection (2026-10-31 UTC): remove finite columns and merge colliding tuples using the source fact-level first-explanation policy. Focused normal and checked tests cover collision, distinct keys and invalid columns; mixed joins and Datalog registration remain unfinished.
 
 Fact explanation union (2026-10-31 UTC): added concrete finite/explanation product union and delta accumulation, preserving the first explanation on overlap. Focused normal and checked tests cover new, overlapping and pre-existing delta facts; other product operations and Datalog registration remain unfinished.

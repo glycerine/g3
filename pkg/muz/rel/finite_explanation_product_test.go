@@ -156,3 +156,69 @@ func TestFiniteExplanationProductProjectCollisions(t *testing.T) {
 		t.Fatal("removed explanation column accepted")
 	}
 }
+
+func TestFiniteExplanationProductJoinRows(t *testing.T) {
+	f := newTableRelationFixture(t)
+	sort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	makeExplanation := func(name string) ast.ASTHandle {
+		sym, e := f.ast.Symbols.Intern(name)
+		astTestMust(t, e)
+		h, e := f.ast.MkConst(sym, sort)
+		astTestMust(t, e)
+		return h
+	}
+	leftFact := makeExplanation("finite-join-left")
+	rightFact := makeExplanation("finite-join-right")
+	left, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, left.Close()) }()
+	right, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, right.Close()) }()
+	astTestMust(t, left.AddFact([]ast.ASTHandle{f.truth}, leftFact))
+	astTestMust(t, left.AddFact([]ast.ASTHandle{f.falsehood}, leftFact))
+	astTestMust(t, right.AddFact([]ast.ASTHandle{f.truth}, rightFact))
+	astTestMust(t, right.AddFact([]ast.ASTHandle{f.falsehood}, rightFact))
+	joined, err := left.Join(right, []int{0}, []int{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, joined.Close()) }()
+	count, err := joined.Len()
+	astTestMust(t, err)
+	if count != 2 {
+		t.Fatal("joined count", count)
+	}
+	row, found, err := joined.ExplanationRow([]ast.ASTHandle{f.truth, f.truth})
+	astTestMust(t, err)
+	if !found || len(row) != 2 || row[0] != leftFact || row[1] != rightFact {
+		t.Fatal("joined explanation row", row, found)
+	}
+	_, found, err = joined.ExplanationRow([]ast.ASTHandle{f.truth, f.falsehood})
+	astTestMust(t, err)
+	if found {
+		t.Fatal("unequal join keys matched")
+	}
+	if _, _, err = joined.Explanation([]ast.ASTHandle{f.truth, f.truth}); err == nil {
+		t.Fatal("accepted multiple explanations as one")
+	}
+	projected, err := joined.Project([]int{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	row, found, err = projected.ExplanationRow([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	if !found || len(row) != 2 || row[0] != leftFact || row[1] != rightFact {
+		t.Fatal("projected joined row", row, found)
+	}
+	empty, err := newFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean, f.boolean}, 2)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, empty.Close()) }()
+	astTestMust(t, empty.Union(joined, nil))
+	row, found, err = empty.ExplanationRow([]ast.ASTHandle{f.truth, f.truth})
+	astTestMust(t, err)
+	if !found || len(row) != 2 || row[0] != leftFact || row[1] != rightFact {
+		t.Fatal("union joined row", row, found)
+	}
+	if _, err = left.Join(right, []int{1}, []int{0}); err == nil {
+		t.Fatal("accepted invalid join column")
+	}
+}
