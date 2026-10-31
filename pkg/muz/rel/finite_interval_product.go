@@ -698,6 +698,17 @@ func (p *FiniteIntervalProduct) Empty() (bool, error) {
 	return n == 0, err
 }
 
+// Reset clears the table and collects every no-longer-referenced interval.
+func (p *FiniteIntervalProduct) Reset() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := p.table.Reset(); err != nil {
+		return err
+	}
+	return p.garbageCollect(false)
+}
+
 func (p *FiniteIntervalProduct) Clone() (*FiniteIntervalProduct, error) {
 	if err := p.open(); err != nil {
 		return nil, err

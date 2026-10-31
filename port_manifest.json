@@ -90385,7 +90385,8 @@
         "TestFiniteIntervalProductTableInterpretedFilter",
         "TestFiniteIntervalProductMixedInterpretedFilter",
         "TestFiniteIntervalProductCloneUsesSourceVectorCopy",
-        "TestFiniteIntervalProductFull"
+        "TestFiniteIntervalProductFull",
+        "TestFiniteIntervalProductResetAndReuse"
       ],
       "conditionals": [
         {
@@ -90850,6 +90851,14 @@
           "tests": [
             "TestFiniteIntervalProductFull"
           ]
+        },
+        {
+          "name": "reset and reuse",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductResetAndReuse"
+          ]
         }
       ],
       "ownership": [
@@ -90896,7 +90905,8 @@
         "TestFiniteIntervalProductTableInterpretedFilter",
         "TestFiniteIntervalProductMixedInterpretedFilter",
         "TestFiniteIntervalProductCloneUsesSourceVectorCopy",
-        "TestFiniteIntervalProductFull"
+        "TestFiniteIntervalProductFull",
+        "TestFiniteIntervalProductResetAndReuse"
       ],
       "conditionals": [
         {
@@ -91048,6 +91058,14 @@
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFull"
+          ]
+        },
+        {
+          "name": "reset and reuse",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductResetAndReuse"
           ]
         }
       ],

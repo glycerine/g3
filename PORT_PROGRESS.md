@@ -1,3 +1,5 @@
+Finite/interval reset (2026-10-31 UTC): reset the functional table and collect its unreferenced intervals, then verified reuse after clearing a full product.
+
 Full finite/interval product construction (2026-10-31 UTC): implemented source mk_full through complementing an empty sparse functional table and sharing a full inner interval relation. Tests cover zero and one finite columns; the source table complement accepts at most one finite data column.
 
 Finite/interval clone correction (2026-10-31 UTC): aligned interval cloning with vector_relation::copy, which copies representative bounds but splits equivalence classes in the new relation. The regression checks both the original equality and the cloned relation behavior.

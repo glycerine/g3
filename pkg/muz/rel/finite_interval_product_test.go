@@ -380,3 +380,21 @@ func TestFiniteIntervalProductFull(t *testing.T) {
 		t.Fatal("unsupported wide source table complement accepted")
 	}
 }
+
+func TestFiniteIntervalProductResetAndReuse(t *testing.T) {
+	f := newTableRelationFixture(t)
+	p, err := NewFullFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	astTestMust(t, p.Reset())
+	if empty, err := p.Empty(); err != nil || !empty || len(p.intervals) != 0 {
+		t.Fatal("reset did not release rows and intervals", empty, err)
+	}
+	astTestMust(t, p.AddFact([]ast.ASTHandle{f.truth}))
+	if found, err := p.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("reset product could not be reused", found, err)
+	}
+	if found, err := p.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || found {
+		t.Fatal("reset left old full row", found, err)
+	}
+}
