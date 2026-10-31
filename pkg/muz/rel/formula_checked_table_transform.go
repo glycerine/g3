@@ -233,3 +233,68 @@ func (r *FormulaCheckedTable) RenameCycle(cycle []int) (_ *FormulaCheckedTable, 
 	}
 	return result, nil
 }
+
+// FilterInterpretedAndProject checks the source's fused filter and projection.
+func (r *FormulaCheckedTable) FilterInterpretedAndProject(theory *rewriter.TheoryRewriter, condition ast.ASTHandle, removed []int) (_ *FormulaCheckedTable, resultErr error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	if len(removed) == 0 {
+		return nil, ast.ErrASTDomain
+	}
+	if _, err := tableRelationRemovedColumns(len(r.table.sorts), removed); err != nil {
+		return nil, err
+	}
+	columns, sorts, err := r.interpretedVariables(condition)
+	if err != nil {
+		return nil, err
+	}
+	table, err := r.table.FilterInterpretedAndProject(theory, []ast.ASTHandle{condition}, columns, sorts, removed)
+	if err != nil {
+		return nil, err
+	}
+	result, err := NewFormulaCheckedTable(table, r.config)
+	if err != nil {
+		return nil, errors.Join(err, table.Close())
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	source, err := r.table.ToFormula()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&source)) }()
+	sourceHandle, err := r.manager.RefGet(source)
+	if err != nil {
+		return nil, err
+	}
+	filtered, err := r.manager.MkAndArgs([]ast.ASTHandle{condition, sourceHandle})
+	if err != nil {
+		return nil, err
+	}
+	filteredRef, err := r.manager.NewRef(filtered)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&filteredRef)) }()
+	projected, err := r.projectFormula(filtered, removed)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&projected)) }()
+	expected, err := r.manager.RefGet(projected)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := r.manager.RefGet(result.formula)
+	if err != nil {
+		return nil, err
+	}
+	if err = result.verifyGrounded(expected, actual, false); err != nil {
+		return nil, fmt.Errorf("filter_project: %w", err)
+	}
+	return result, nil
+}

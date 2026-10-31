@@ -187,27 +187,35 @@ func (r *FormulaCheckedTable) FilterInterpreted(theory *rewriter.TheoryRewriter,
 	if err := r.open(); err != nil {
 		return err
 	}
-	used, err := ast.NewASTUsedVars(r.manager)
+	columns, sorts, err := r.interpretedVariables(condition)
 	if err != nil {
 		return err
-	}
-	if err = used.Collect(condition); err != nil {
-		return err
-	}
-	if uint64(used.MaxFoundVarIndexPlusOne()) > uint64(len(r.table.sorts)) {
-		return ast.ErrASTDomain
-	}
-	columns, sorts := make(map[uint32]int), make(map[uint32]ast.ASTHandle)
-	for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
-		if sort := used.Contains(i); sort != (ast.ASTHandle{}) {
-			if sort != r.table.sorts[i] {
-				return ast.ErrASTDomain
-			}
-			columns[i], sorts[i] = int(i), sort
-		}
 	}
 	if err = r.table.FilterInterpreted(theory, []ast.ASTHandle{condition}, columns, sorts); err != nil {
 		return err
 	}
 	return r.verifyFilter(condition)
+}
+
+func (r *FormulaCheckedTable) interpretedVariables(condition ast.ASTHandle) (map[uint32]int, map[uint32]ast.ASTHandle, error) {
+	used, err := ast.NewASTUsedVars(r.manager)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = used.Collect(condition); err != nil {
+		return nil, nil, err
+	}
+	if uint64(used.MaxFoundVarIndexPlusOne()) > uint64(len(r.table.sorts)) {
+		return nil, nil, ast.ErrASTDomain
+	}
+	columns, sorts := make(map[uint32]int), make(map[uint32]ast.ASTHandle)
+	for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
+		if sort := used.Contains(i); sort != (ast.ASTHandle{}) {
+			if sort != r.table.sorts[i] {
+				return nil, nil, ast.ErrASTDomain
+			}
+			columns[i], sorts[i] = int(i), sort
+		}
+	}
+	return columns, sorts, nil
 }

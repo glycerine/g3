@@ -104,6 +104,15 @@ func TestFormulaCheckedTableFilters(t *testing.T) {
 	astTestMust(t, err)
 	astTestPin(t, f.ast, condition)
 	theory := tableRelationTheoryRewriter(t, f.ast)
+	fused, err := checked.FilterInterpretedAndProject(theory, condition, []int{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, fused.Close()) }()
+	if found, err := fused.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("interpreted filter and projection", found, err)
+	}
+	if found, err := fused.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || found {
+		t.Fatal("interpreted filter and projection excluded tuple", found, err)
+	}
 	astTestMust(t, checked.FilterInterpreted(theory, condition))
 	if table.NumRows() != 1 {
 		t.Fatal("interpreted filter", table.NumRows())
