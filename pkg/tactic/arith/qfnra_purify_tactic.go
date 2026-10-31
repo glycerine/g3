@@ -450,11 +450,23 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 	}
 	temps := qfnraPurifyTemps{manager: m}
 	defer func() { err = errors.Join(err, temps.close()) }()
-	zero, err := m.ArithmeticRealNumeralText("0")
+	baseSort, err := m.GetSort(x)
 	if err != nil {
 		return err
 	}
-	one, err := m.ArithmeticRealNumeralText("1")
+	intSort, err := m.MkFamilySort(i.owner.arithmetic, 1, nil)
+	if err != nil {
+		return err
+	}
+	numeral := m.ArithmeticRealNumeralText
+	if baseSort == intSort {
+		numeral = m.ArithmeticIntegerNumeralText
+	}
+	zero, err := numeral("0")
+	if err != nil {
+		return err
+	}
+	one, err := numeral("1")
 	if err != nil {
 		return err
 	}

@@ -182071,7 +182071,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic_test.go",
         "pkg/tactic/arith/context_translation.go",
         "pkg/tactic/arith/context_translation_arithmetic_test.go",
         "pkg/api/api_simple_solver_translate_test.go",
@@ -182098,7 +182098,7 @@
         "pkg/tactic/arith/qfnra_purify_tactic.go",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": [
+      "tests": ["TestQFNRAPurifyIntegerZeroPower",
         "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
         "TestPurifierContextTranslationCopiesTargetServicesAndPolicy",
         "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
@@ -182263,8 +182263,8 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic.go"],
-      "tests": ["TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
+      "go_targets": ["pkg/tactic/arith/qfnra_purify_tactic_test.go","pkg/tactic/arith/qfnra_purify_tactic.go"],
+      "tests": ["TestQFNRAPurifyIntegerZeroPower","TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
       "conditionals": [
         {
           "line": 48,

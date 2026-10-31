@@ -160,3 +160,75 @@ func TestQFNRAPurifyLeavesPositiveIntegerPower(t *testing.T) {
 		t.Fatal("positive integer power was purified")
 	}
 }
+
+func TestQFNRAPurifyIntegerZeroPower(t *testing.T) {
+	for _, proofs := range []bool{false, true} {
+		t.Run(map[bool]string{false: "without proofs", true: "with proofs"}[proofs], func(t *testing.T) {
+			runner, m := qfnraPurifier(t, proofs, false)
+			x := fixDLConst(t, m, true, "purify-integer-power-x")
+			zero := fixDLNumber(t, m, true, "0")
+			one := fixDLNumber(t, m, true, "1")
+			power := fixDLApp(t, m, qfnraPurifyPower, x, zero)
+			formula, err := m.MkEq(power, one)
+			equationMust(t, err)
+			fixDLPin(t, m, formula)
+			goal, err := tactic.NewGoal(m, proofs, false, false)
+			equationMust(t, err)
+			t.Cleanup(func() { equationMust(t, goal.Close()) })
+			if proofs {
+				proof, e := m.MkProofAsserted(formula)
+				equationMust(t, e)
+				equationMust(t, goal.AssertWithProof(formula, proof, ast.ASTDependency{}))
+			} else {
+				equationMust(t, goal.Assert(formula))
+			}
+			var result tactic.TacticResult
+			t.Cleanup(func() { equationMust(t, result.Close()) })
+			equationMust(t, runner.Apply(goal, &result))
+			size, err := goal.Size()
+			equationMust(t, err)
+			if size != 3 {
+				t.Fatal("zero power constraints", size)
+			}
+			wellSorted, err := goal.IsWellSorted()
+			equationMust(t, err)
+			if !wellSorted {
+				t.Fatal("integer power purification produced ill-sorted constraints")
+			}
+			first, err := goal.Form(1)
+			equationMust(t, err)
+			guard, err := m.GetArg(first, 0)
+			equationMust(t, err)
+			guardBase, err := m.GetArg(guard, 0)
+			equationMust(t, err)
+			if guardBase != x {
+				t.Fatal("integer zero-power guard coerced its base to real")
+			}
+			guardZero, err := m.GetArg(guard, 1)
+			equationMust(t, err)
+			if guardZero != zero {
+				t.Fatal("integer zero-power guard did not use integer zero")
+			}
+			oneEquality, err := m.GetArg(first, 1)
+			equationMust(t, err)
+			oneValue, err := m.GetArg(oneEquality, 1)
+			equationMust(t, err)
+			if oneValue != one {
+				t.Fatal("integer zero-power constraint did not use integer one")
+			}
+			if proofs {
+				for index := uint32(0); index < size; index++ {
+					proof, e := goal.Proof(index)
+					equationMust(t, e)
+					fact, e := m.GetProofFact(proof)
+					equationMust(t, e)
+					form, e := goal.Form(index)
+					equationMust(t, e)
+					if fact != form {
+						t.Fatal("integer power proof conclusion", index)
+					}
+				}
+			}
+		})
+	}
+}
