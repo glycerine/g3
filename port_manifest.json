@@ -110749,8 +110749,23 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/sat_solver_context.go", "pkg/qe/sat_alternation.go", "pkg/qe/sat_alternation_test.go", "pkg/qe/sat_solver_context_test.go"],
-      "tests": ["TestSATSolverContextNNFAndConstraints", "TestSATAlternationSkolemPrefixAndPolarity"],
+      "go_targets": [
+        "pkg/qe/sat_solver_context.go",
+        "pkg/qe/sat_alternation.go",
+        "pkg/qe/sat_alternation_test.go",
+        "pkg/qe/sat_solver_context_test.go",
+        "pkg/qe/sat_options.go",
+        "pkg/qe/sat_options_test.go",
+        "pkg/qe/sat_strengthen.go",
+        "pkg/qe/sat_strengthen_test.go"
+      ],
+      "tests": [
+        "TestSATSolverContextNNFAndConstraints",
+        "TestSATAlternationSkolemPrefixAndPolarity",
+        "TestSATTacticOptionsDefaultsAndUpdates",
+        "TestSATSolverNNFStrengtheningAndScope",
+        "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure"
+      ],
       "assertions": [
         {
           "line": 363,
@@ -110779,9 +110794,24 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished."]
+      "methods": [
+        {
+          "name": "updt_params/collect_param_descrs and nnf_strengthening_extrapolate: option updates, atom selection, solver scopes and substitutions",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_strengthen.go",
+          "tests": [
+            "TestSATTacticOptionsDefaultsAndUpdates",
+            "TestSATSolverNNFStrengtheningAndScope",
+            "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure"
+          ]
+        }
+      ],
+      "ownership": [
+        "NNF strengthening owns its formula and substitutions and pops solver scopes on success or failure."
+      ],
+      "deviations": [
+        "Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished."
+      ]
     },
     {
       "path": "src/qe/qe_sat_tactic.h",

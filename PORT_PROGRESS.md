@@ -1,4 +1,4 @@
-QE-SAT context and options (2026-10-31 UTC): added source parameter defaults, incremental updates and descriptions, plus indexed and membership lookup for solver-context variables. Focused normal and checked tests pass; the QE-SAT search and public factory remain unfinished.
+QE-SAT strengthening (2026-10-31 UTC): added source parameter defaults and updates, indexed solver-context variable lookup, and NNF strengthening with scoped SMT checks and substitutions. Focused normal and checked tests cover mixed polarity, scope cleanup and checkpoint failures; the QE-SAT search and public factory remain unfinished.
 
 Recover-01 tactic integration (2026-10-31 UTC): registered the configurable tactic, which converts complete Boolean clause tables to bounded integer substitutions and reconstructs models. Focused normal and checked tests, full arithmetic and command-context packages, and SMT-LIB regressions pass; a CLI model and unsatisfiable case agree with installed C++ Z3. Clause analysis caps clause size at 31; progress reporting and the full source/ownership audits remain unfinished.
 
