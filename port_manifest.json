@@ -209631,9 +209631,9 @@
       "path": "src/test/simplifier.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_simplifier_cpp_test.go"],
+      "tests": ["TestSimplifierSourceBitVectorConstants", "TestSimplifierSourceBooleanConstants", "TestSimplifierSourceListDatatype", "TestSimplifierSourceArraysAndQuantifier"],
       "conditionals": [
         {
           "line": 7,
@@ -209686,11 +209686,11 @@
           "text": "ENSURE(Z3_mk_true(ctx) == b);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "test_bv, test_bool, test_datatypes, test_array and test_skolemize_bug", "status": "ported", "go_target": "pkg/api/api_simplifier_cpp_test.go", "tests": ["TestSimplifierSourceBitVectorConstants", "TestSimplifierSourceBooleanConstants", "TestSimplifierSourceListDatatype", "TestSimplifierSourceArraysAndQuantifier"]}],
+      "ownership": ["The API fixtures own their AST references, and each simplifier result reference is released after inspection."],
+      "deviations": ["The C++ test body is Windows-conditional; the Go tests run on supported hosts. Source diagnostic printing is omitted, and array selections are checked directly."]
     },
     {
       "path": "src/test/small_object_allocator.cpp",

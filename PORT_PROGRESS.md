@@ -52252,3 +52252,5 @@ Simplex source driver: connected the existing four source row cases to the manif
 Extended-numeral source driver started: ported the original rational addition, subtraction, multiplication, inverse and 142 comparison cases, including the source symmetric-operation checks, against the concrete interval implementation. Standalone negation and predicate/display driver cases remain open.
 
 Extended-numeral predicate driver: added the source zero, sign and display cases for finite values and both infinities. The standalone scalar negation helper is reached only by the C++ test driver and has no separate Go production consumer, so that source test unit stays partial under the live-consumer rule.
+
+Simplifier source driver: ported the original 72-bit constant bit-vector operations, one-bit sign extension, Boolean equalities, list recognizers/accessors, array simplifications and quantified skolemization regression through the API. Source diagnostic output is omitted; the Go tests also check array selections and all source assertions.
