@@ -168338,12 +168338,19 @@
       "go_targets": [
         "pkg/tactic/arith/bv2real_util.go",
         "pkg/tactic/arith/bv2real_rewriter.go",
-        "pkg/tactic/arith/bv2real_diagnostics.go"
+        "pkg/tactic/arith/bv2real_diagnostics.go",
+        "pkg/tactic/arith/bv2real_cache.go",
+        "pkg/tactic/arith/bv2real_cache_test.go",
+        "pkg/util/diagnostic/util_debug_macro_source_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
         "pkg/tactic/arith/bv2real_rewriter_test.go",
-        "pkg/tactic/arith/bv2real_diagnostics_test.go"
+        "pkg/tactic/arith/bv2real_diagnostics_test.go",
+        "TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset",
+        "TestBV2RealCacheInsertionFailurePublicationPrefixes",
+        "TestBV2RealCacheHitEndsSignatureNumericScope",
+        "TestBV2RealCacheLookupReadsOwnedReverseValues"
       ],
       "assertions": [
         {
@@ -168500,17 +168507,37 @@
             "TestBV2RealTraceStreamFailureStillEvaluatesOperands",
             "TestBV2RealTraceFormattingAllocationFrontiers",
             "TestDebugAssertionFailureUsesBoundInteractiveAction"
+          ],
+          "go_targets": [
+            "pkg/util/diagnostic/util_debug_macro_source_test.go"
+          ]
+        },
+        {
+          "name": "bvr_sig project numeral ownership for local encoding/lookup copies, forward-key and reverse-value caches, forward-before-reverse insertion failure prefixes, reset persistence and reverse-before-forward destruction (bv2real_rewriter.cpp:48-65,110-129; bv2real_rewriter.h:35-39,61-62)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_cache.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_util.go",
+            "pkg/tactic/arith/bv2real_rewriter.go",
+            "pkg/tactic/arith/bv2real_diagnostics.go"
+          ],
+          "tests": [
+            "TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset",
+            "TestBV2RealCacheInsertionFailurePublicationPrefixes",
+            "TestBV2RealCacheHitEndsSignatureNumericScope",
+            "TestBV2RealCacheLookupReadsOwnedReverseValues"
           ]
         }
       ],
       "ownership": [
-        "Utility owns auxiliary declarations, comparison declaration member refs, side conditions and three default project numeral values. Reset clears side conditions while retaining declaration caches. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls retain generated AST references and numeral owners through output handoff; failed local cleanup remains attached for Close retries. Copied and closed owners are rejected. This does not establish exact source lexical expr_ref/rational replacement order or physical cache/vector allocation fidelity."
+        "Utility owns auxiliary declarations, comparison declaration member refs, side conditions, three default project numerals, and independent rational pairs for both signature caches. Reset clears side conditions while preserving declaration/numeral cache owners. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls hold generated AST references and local numeral owners through their helper handoffs; stopped cleanup stays attached for Close retries. Copied and closed owners are rejected. The broader exact source lexical replacement and container growth audit remains open.",
+        "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish."
       ],
       "deviations": [
-        "Only the actual retained nla2bv uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps and slices implement signature caches and traversal. Exact big.Rat metadata is used in both caches without duplicating source project-numeral owners for each signature copy; cache ownership/allocation audit remains open.",
+        "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
         "Source sqrt(2) comparisons are under-approximations, not equivalences. Tests check both side-condition feasibility and exclusion of incorrect polarity against the prebuilt C++ executable for 72 closed comparisons, plus 18 arithmetic/elimination and 18 signed real interpretation equivalences. No whole-source completion claim follows from these bounded checks.",
         "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Bound interactive assertion action transport is verified by a real BV2Real source-location notification, prompt, C continuation, and consumed input byte. The general action-bound T exception path remains covered separately by diagnostic action tests. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
-        "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Exact per-expression source printer/local allocation lifetime and project-numeral rational insertion audits remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion."
+        "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Per-expression source printer/local allocation lifetime and project-numeral lexical ownership outside the completed signature-cache paths remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion."
       ]
     },
     {
@@ -168521,12 +168548,19 @@
       "go_targets": [
         "pkg/tactic/arith/bv2real_util.go",
         "pkg/tactic/arith/bv2real_rewriter.go",
-        "pkg/tactic/arith/bv2real_diagnostics.go"
+        "pkg/tactic/arith/bv2real_diagnostics.go",
+        "pkg/tactic/arith/bv2real_cache.go",
+        "pkg/tactic/arith/bv2real_cache_test.go",
+        "pkg/util/diagnostic/util_debug_macro_source_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
         "pkg/tactic/arith/bv2real_rewriter_test.go",
-        "pkg/tactic/arith/bv2real_diagnostics_test.go"
+        "pkg/tactic/arith/bv2real_diagnostics_test.go",
+        "TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset",
+        "TestBV2RealCacheInsertionFailurePublicationPrefixes",
+        "TestBV2RealCacheHitEndsSignatureNumericScope",
+        "TestBV2RealCacheLookupReadsOwnedReverseValues"
       ],
       "conditionals": [
         {
@@ -168582,17 +168616,37 @@
             "TestBV2RealTraceStreamFailureStillEvaluatesOperands",
             "TestBV2RealTraceFormattingAllocationFrontiers",
             "TestDebugAssertionFailureUsesBoundInteractiveAction"
+          ],
+          "go_targets": [
+            "pkg/util/diagnostic/util_debug_macro_source_test.go"
+          ]
+        },
+        {
+          "name": "bvr_sig project numeral ownership for local encoding/lookup copies, forward-key and reverse-value caches, forward-before-reverse insertion failure prefixes, reset persistence and reverse-before-forward destruction (bv2real_rewriter.cpp:48-65,110-129; bv2real_rewriter.h:35-39,61-62)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_cache.go",
+          "go_targets": [
+            "pkg/tactic/arith/bv2real_util.go",
+            "pkg/tactic/arith/bv2real_rewriter.go",
+            "pkg/tactic/arith/bv2real_diagnostics.go"
+          ],
+          "tests": [
+            "TestBV2RealCacheOwnsProjectRationalCopiesAcrossReset",
+            "TestBV2RealCacheInsertionFailurePublicationPrefixes",
+            "TestBV2RealCacheHitEndsSignatureNumericScope",
+            "TestBV2RealCacheLookupReadsOwnedReverseValues"
           ]
         }
       ],
       "ownership": [
-        "Utility owns auxiliary declarations, comparison declaration member refs, side conditions and three default project numeral values. Reset clears side conditions while retaining declaration caches. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls retain generated AST references and numeral owners through output handoff; failed local cleanup remains attached for Close retries. Copied and closed owners are rejected. This does not establish exact source lexical expr_ref/rational replacement order or physical cache/vector allocation fidelity."
+        "Utility owns auxiliary declarations, comparison declaration member refs, side conditions, three default project numerals, and independent rational pairs for both signature caches. Reset clears side conditions while preserving declaration/numeral cache owners. Rewriters borrow the utility and own concrete no-proof traversals. Reduction calls hold generated AST references and local numeral owners through their helper handoffs; stopped cleanup stays attached for Close retries. Copied and closed owners are rejected. The broader exact source lexical replacement and container growth audit remains open.",
+        "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish."
       ],
       "deviations": [
-        "Only the actual retained nla2bv uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps and slices implement signature caches and traversal. Exact big.Rat metadata is used in both caches without duplicating source project-numeral owners for each signature copy; cache ownership/allocation audit remains open.",
+        "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
         "Source sqrt(2) comparisons are under-approximations, not equivalences. Tests check both side-condition feasibility and exclusion of incorrect polarity against the prebuilt C++ executable for 72 closed comparisons, plus 18 arithmetic/elimination and 18 signed real interpretation equivalences. No whole-source completion claim follows from these bounded checks.",
         "Source assertion and TRACE sites are connected through actual source-profile gates and retained formatting services. Bound interactive assertion action transport is verified by a real BV2Real source-location notification, prompt, C continuation, and consumed input byte. The general action-bound T exception path remains covered separately by diagnostic action tests. The retained NLA2BV consumer is now integrated with concrete model/precision behavior; its full audit, symbolic/quantified reducer campaigns and full source lexical ownership/refusal audit remain open. Whole-unit methods_audited and ownership_audited stay false.",
-        "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Exact per-expression source printer/local allocation lifetime and project-numeral rational insertion audits remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion."
+        "Trace formatting uses project module-parameter helpers, owned format documents and numeric streams; stopped cleanup is attached to the utility and blocks reset/new operations until Close. Source ast pointers are additionally pinned during each trace record by the Go owner. Per-expression source printer/local allocation lifetime and project-numeral lexical ownership outside the completed signature-cache paths remain open; native integer spelling currently formats divisibility overflow. No whole-unit audit promotion."
       ]
     },
     {
@@ -171131,7 +171185,8 @@
         "pkg/cmd_context/tactic_commands.go",
         "pkg/tactic/arith/nla2bv_goal_visit.go",
         "pkg/tactic/arith/nla2bv_tactic_test.go",
-        "pkg/tactic/arith/nla2bv_cpp_test.go"
+        "pkg/tactic/arith/nla2bv_cpp_test.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171199,6 +171254,9 @@
             "TestSMTLibRunnerScripts",
             "TestSMTLibRunnerCPPReference",
             "TestNLA2BVModelConverterSurvivesInvocationAndTacticClose"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],

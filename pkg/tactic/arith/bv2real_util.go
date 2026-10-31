@@ -19,13 +19,15 @@ type bv2RealKey struct {
 }
 type bv2RealSignature struct {
 	first, second uint32
-	divisor, root big.Rat
+	divisor, root *unumeral.OwnedRational
 }
 
 // BV2RealUtil owns encoding declarations and side conditions for the retained
 // NLA-to-BV consumer. Its defaults come from that consumer's uint parameters.
 // Reset clears side conditions; it deliberately preserves declaration caches.
 type BV2RealUtil struct {
+	cacheOwners                             []*bv2RealCacheOwner
+	cacheRetiring                           bool
 	self                                    *BV2RealUtil
 	manager                                 *ast.ASTManager
 	arith, bv                               ast.FamilyID
@@ -129,7 +131,7 @@ func (u *BV2RealUtil) open() error {
 	if err := u.owner(); err != nil {
 		return err
 	}
-	if !u.ready || u.closing || u.resetting || len(u.pending) > 0 || len(u.tracePending) > 0 {
+	if !u.ready || u.closing || u.resetting || u.cacheRetiring || len(u.pending) > 0 || len(u.tracePending) > 0 {
 		return ast.ErrASTPending
 	}
 	return nil
@@ -219,7 +221,7 @@ func (u *BV2RealUtil) Reset() error {
 	if err := u.owner(); err != nil {
 		return err
 	}
-	if u.closing || len(u.pending) > 0 || len(u.tracePending) > 0 {
+	if u.closing || u.cacheRetiring || len(u.pending) > 0 || len(u.tracePending) > 0 {
 		return ast.ErrASTPending
 	}
 	u.resetting = true
@@ -240,6 +242,9 @@ func (u *BV2RealUtil) Close() error {
 		return ast.ErrASTPending
 	}
 	u.closing = true
+	if err := u.cleanupCacheFailures(); err != nil {
+		return err
+	}
 	for len(u.tracePending) > 0 {
 		if err := u.tracePending[0].close(); err != nil {
 			return err
@@ -259,6 +264,9 @@ func (u *BV2RealUtil) Close() error {
 				return err
 			}
 		}
+	}
+	if err := u.closeCacheOwners(); err != nil {
+		return err
 	}
 	clear(u.reverse)
 	clear(u.forward)
@@ -297,10 +305,10 @@ func (c *bv2RealCall) checkpoint() bv2RealCallCheckpoint {
 	return bv2RealCallCheckpoint{refs: len(c.refs), numbers: len(c.numbers)}
 }
 
-// releaseTo ends a source lexical expr_ref/rational scope. Failed releases
-// remain attached to the call so the enclosing owner can retry cleanup.
-func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
-	for len(c.numbers) > mark.numbers {
+// releaseNumbersTo ends only the rational portion of a lexical scope.
+// A stopped release stays attached to the call for owner cleanup.
+func (c *bv2RealCall) releaseNumbersTo(numberCount int) error {
+	for len(c.numbers) > numberCount {
 		index := len(c.numbers) - 1
 		if c.numbers[index] != nil {
 			if err := c.u.manager.NumeralService().Del(c.numbers[index]); err != nil {
@@ -309,6 +317,14 @@ func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
 			c.numbers[index] = nil
 		}
 		c.numbers = c.numbers[:index]
+	}
+	return nil
+}
+
+// releaseTo ends a complete source expr_ref/rational scope.
+func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
+	if err := c.releaseNumbersTo(mark.numbers); err != nil {
+		return err
 	}
 	for len(c.refs) > mark.refs {
 		index := len(c.refs) - 1
@@ -655,7 +671,30 @@ func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle 
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
-	key := bv2RealKey{wa, wb, d.RatString(), r.RatString()}
+	numberCount := len(c.numbers)
+	defer func() { c.err = errors.Join(c.err, c.releaseNumbersTo(numberCount)) }()
+	sourceD, sourceR := c.number(), c.number()
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	c.err = c.u.manager.NumeralService().SetString(sourceD, d.RatString())
+	if c.err == nil {
+		c.err = c.u.manager.NumeralService().SetString(sourceR, r.RatString())
+	}
+	if c.err != nil {
+		return ast.ASTHandle{}
+	}
+	keyD, err := c.u.manager.NumeralService().String(sourceD)
+	if err != nil {
+		c.err = err
+		return ast.ASTHandle{}
+	}
+	keyR, err := c.u.manager.NumeralService().String(sourceR)
+	if err != nil {
+		c.err = err
+		return ast.ASTHandle{}
+	}
+	key := bv2RealKey{wa, wb, keyD, keyR}
 	decl, ok := c.u.forward[key]
 	if !ok {
 		m := c.u.manager
@@ -693,11 +732,9 @@ func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle 
 			c.err = err
 			return ast.ASTHandle{}
 		}
-		c.u.forward[key] = decl
-		sig := bv2RealSignature{first: wa, second: wb}
-		sig.divisor.Set(d)
-		sig.root.Set(r)
-		c.u.reverse[decl] = sig
+		if c.err = c.u.publishEncoding(key, decl, wa, wb, sourceD, sourceR); c.err != nil {
+			return ast.ASTHandle{}
+		}
 	}
 	return c.hold(c.u.manager.MkApp(decl, []ast.ASTHandle{a, b}))
 }
@@ -807,6 +844,10 @@ func (c *bv2RealCall) match(h ast.ASTHandle) (a, b ast.ASTHandle, d, r big.Rat, 
 			return
 		}
 		if sig, ok := c.u.reverse[decl]; ok {
+			d, r = c.signatureValues(&sig)
+			if c.err != nil {
+				return
+			}
 			count, err := m.GetNumArgs(h)
 			if err != nil {
 				c.err = err
@@ -825,9 +866,7 @@ func (c *bv2RealCall) match(h ast.ASTHandle) (a, b ast.ASTHandle, d, r big.Rat, 
 				c.err = err
 				return
 			}
-			d.Set(&sig.divisor)
-			r.Set(&sig.root)
-			if c.err = c.checkSignature(a, b, &sig); c.err != nil {
+			if c.err = c.checkSignature(a, b, &sig, &d, &r); c.err != nil {
 				return
 			}
 			found = true

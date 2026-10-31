@@ -87,9 +87,9 @@ func TestBV2RealSourceCachedSignatureAssertions(t *testing.T) {
 			sig := u.reverse[decl]
 			switch field {
 			case "divisor":
-				sig.divisor.SetInt64(-1)
+				equationMust(t, f.m.NumeralService().SetInt64(sig.divisor, -1))
 			case "root":
-				sig.root.SetFrac64(3, 2)
+				equationMust(t, f.m.NumeralService().SetString(sig.root, "3/2"))
 			case "first-width":
 				sig.first++
 			case "second-width":

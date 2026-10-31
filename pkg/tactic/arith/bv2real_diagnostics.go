@@ -47,11 +47,11 @@ func (c *bv2RealCall) assertBV(h ast.ASTHandle, line int32, condition string) {
 	}
 }
 
-func (c *bv2RealCall) checkSignature(a, b ast.ASTHandle, sig *bv2RealSignature) error {
-	if err := bv2RealSourceAssert(60, "sig.m_d.is_int() && sig.m_d.is_pos()", sig.divisor.IsInt() && sig.divisor.Sign() > 0); err != nil {
+func (c *bv2RealCall) checkSignature(a, b ast.ASTHandle, sig *bv2RealSignature, d, r *big.Rat) error {
+	if err := bv2RealSourceAssert(60, "sig.m_d.is_int() && sig.m_d.is_pos()", d.IsInt() && d.Sign() > 0); err != nil {
 		return err
 	}
-	if err := bv2RealSourceAssert(61, "sig.m_r.is_int() && sig.m_r.is_pos()", sig.root.IsInt() && sig.root.Sign() > 0); err != nil {
+	if err := bv2RealSourceAssert(61, "sig.m_r.is_int() && sig.m_r.is_pos()", r.IsInt() && r.Sign() > 0); err != nil {
 		return err
 	}
 	enabled, err := diagnostic.SourceAssertionsEnabled(diagnostic.BorrowProcessDebugContext())

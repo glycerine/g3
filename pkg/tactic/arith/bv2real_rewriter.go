@@ -134,16 +134,20 @@ func (r *BV2RealRewriter) MkAppCore(decl ast.ASTHandle, args ast.AppArguments, o
 	}
 	if r.eliminate {
 		if sig, ok := u.reverse[decl]; ok {
+			divisor, root := c.signatureValues(&sig)
+			if c.err != nil {
+				return rewriter.RewriteFailed, c.err
+			}
 			if err = bv2RealSourceAssert(55, "num_args == 2", len(values) == 2); err != nil {
 				return rewriter.RewriteFailed, err
 			}
 			if len(values) != 2 {
 				return rewriter.RewriteFailed, ast.ErrASTDomain
 			}
-			if err = c.checkSignature(values[0], values[1], &sig); err != nil {
+			if err = c.checkSignature(values[0], values[1], &sig, &divisor, &root); err != nil {
 				return rewriter.RewriteFailed, err
 			}
-			h = c.reduced(values[0], values[1], &sig.divisor, &sig.root)
+			h = c.reduced(values[0], values[1], &divisor, &root)
 			status = rewriter.RewriteFull
 		} else {
 			status = rewriter.RewriteFailed
