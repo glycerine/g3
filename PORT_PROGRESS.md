@@ -1,3 +1,5 @@
+Finite/interval mixed interpreted filter (2026-10-31 UTC): added source condition dispatch and mixed filtering by grouping finite-column values with the old inner relation, substituting values, and rebuilding the table. Tests cover mixed, inner-only and table-only dispatch, conservative unsupported interval expressions and empty inner removal.
+
 Finite/interval table interpreted filter (2026-10-31 UTC): added the table-only and ground-condition paths using concrete row substitution and the existing theory rewriter. Tests verify interleaved variable numbering, row removal, ground false, and rejection of interval conditions.
 
 Finite/interval inner interpreted filter (2026-10-31 UTC): implemented source variable renaming and application of inner-only conditions to all live interval relations. Tests cover interleaved signatures, interval refinement and rejection of conditions requiring the pending table or mixed paths.
