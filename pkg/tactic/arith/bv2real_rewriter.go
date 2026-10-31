@@ -176,14 +176,18 @@ func (c *bv2RealCall) pair(s, t ast.ASTHandle) (s1, s2, t1, t2 ast.ASTHandle, d1
 	ok = ok && r.Cmp(&r2) == 0
 	return
 }
-func (c *bv2RealCall) wrap(a, b ast.ASTHandle, d, r *big.Rat) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) wrap(a, b ast.ASTHandle, d, r *big.Rat) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	a, b, ok := c.alignDivisor(a, b, d)
 	if !ok {
 		return ast.ASTHandle{}, false
 	}
 	return c.encoding(a, b, d, r), true
 }
-func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	a, b, x, y, d1, d2, r, ok := c.pair(s, t)
 	if !ok {
 		return ast.ASTHandle{}, false
@@ -203,7 +207,9 @@ func (c *bv2RealCall) binary(op int32, s, t ast.ASTHandle) (ast.ASTHandle, bool)
 	}
 	return ast.ASTHandle{}, false
 }
-func (c *bv2RealCall) equal(s, t ast.ASTHandle) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) equal(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	a, b, x, y, d1, d2, _, ok := c.pair(s, t)
 	if !ok {
 		return ast.ASTHandle{}, false
@@ -213,7 +219,9 @@ func (c *bv2RealCall) equal(s, t ast.ASTHandle) (ast.ASTHandle, bool) {
 	b, y = c.align(b, y)
 	return c.basic(ast.ASTOpAnd, c.basic(ast.ASTOpEq, a, x), c.basic(ast.ASTOpEq, b, y)), true
 }
-func (c *bv2RealCall) ite(cond, s, t ast.ASTHandle) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) ite(cond, s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	a, b, x, y, d1, d2, r, ok := c.pair(s, t)
 	if !ok {
 		return ast.ASTHandle{}, false
@@ -223,7 +231,9 @@ func (c *bv2RealCall) ite(cond, s, t ast.ASTHandle) (ast.ASTHandle, bool) {
 	b, y = c.align(b, y)
 	return c.wrap(c.basic(ast.ASTOpIte, cond, a, x), c.basic(ast.ASTOpIte, cond, b, y), &d1, &r)
 }
-func (c *bv2RealCall) negate(s ast.ASTHandle) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) negate(s ast.ASTHandle) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	a, b, d, r, ok := c.match(s)
 	if !ok {
 		return ast.ASTHandle{}, false
@@ -232,7 +242,9 @@ func (c *bv2RealCall) negate(s ast.ASTHandle) (ast.ASTHandle, bool) {
 	b = c.extend(1, b)
 	return c.wrap(c.bv(3, a), c.bv(3, b), &d, &r)
 }
-func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	if c.err == nil {
 		c.err = bv2RealSourceAssert(408, "is_pos || is_neg", positive || negative)
 	}
@@ -292,7 +304,9 @@ func (c *bv2RealCall) approxLE(s, t ast.ASTHandle, positive, negative bool) (ast
 	}
 	return gt, true
 }
-func (c *bv2RealCall) le(s, t ast.ASTHandle) (ast.ASTHandle, bool) {
+func (c *bv2RealCall) le(s, t ast.ASTHandle) (result ast.ASTHandle, matched bool) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	if h, ok := c.approxLE(s, t, true, true); ok {
 		return h, true
 	}
@@ -355,6 +369,7 @@ func (c *bv2RealCall) reduce(decl ast.ASTHandle, a []ast.ASTHandle) (h ast.ASTHa
 				c.err = ast.ErrASTDomain
 				return
 			}
+			foldScope := c.checkpoint()
 			h = a[0]
 			ok = true
 			for i := 1; i < len(a) && ok; i++ {
@@ -363,6 +378,7 @@ func (c *bv2RealCall) reduce(decl ast.ASTHandle, a []ast.ASTHandle) (h ast.ASTHa
 				if ok {
 					h = next
 				}
+				c.endExpressionScope(foldScope, &h)
 			}
 		case 8:
 			if len(a) != 1 {

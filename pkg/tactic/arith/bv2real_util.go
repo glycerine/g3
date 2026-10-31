@@ -328,8 +328,10 @@ func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
 	}
 	for len(c.refs) > mark.refs {
 		index := len(c.refs) - 1
-		if err := c.u.manager.DelRef(&c.refs[index]); err != nil {
-			return err
+		if c.refs[index] != (ast.ASTRef{}) {
+			if err := c.u.manager.DelRef(&c.refs[index]); err != nil {
+				return err
+			}
 		}
 		c.refs = c.refs[:index]
 	}
@@ -337,20 +339,7 @@ func (c *bv2RealCall) releaseTo(mark bv2RealCallCheckpoint) error {
 }
 
 func (c *bv2RealCall) close() error {
-	for i := len(c.numbers) - 1; i >= 0; i-- {
-		if c.numbers[i] != nil {
-			if err := c.u.manager.NumeralService().Del(c.numbers[i]); err != nil {
-				return err
-			}
-			c.numbers[i] = nil
-		}
-	}
-	for i := len(c.refs) - 1; i >= 0; i-- {
-		if err := c.u.manager.DelRef(&c.refs[i]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return c.releaseTo(bv2RealCallCheckpoint{})
 }
 func (u *BV2RealUtil) finish(c *bv2RealCall, err *error) {
 	if cleanup := c.close(); cleanup != nil {
@@ -459,7 +448,9 @@ func (c *bv2RealCall) realNumeral(q *big.Rat) ast.ASTHandle {
 	}
 	return c.hold(c.u.manager.ArithmeticNumeralRat(q, false))
 }
-func (c *bv2RealCall) signedNumeral(q *big.Rat) ast.ASTHandle {
+func (c *bv2RealCall) signedNumeral(q *big.Rat) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
@@ -481,7 +472,9 @@ func (c *bv2RealCall) signedNumeral(q *big.Rat) ast.ASTHandle {
 	}
 	return h
 }
-func (c *bv2RealCall) extend(n uint32, h ast.ASTHandle) ast.ASTHandle {
+func (c *bv2RealCall) extend(n uint32, h ast.ASTHandle) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	if c.err != nil {
 		return ast.ASTHandle{}
 	}
@@ -512,7 +505,9 @@ func (c *bv2RealCall) align(a, b ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle) {
 	}
 	return a, b
 }
-func (c *bv2RealCall) add(a, b ast.ASTHandle) ast.ASTHandle {
+func (c *bv2RealCall) add(a, b ast.ASTHandle) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	c.assertBV(a, 217, "m_bv.is_bv(s)")
 	c.assertBV(b, 218, "m_bv.is_bv(t)")
 	if c.err != nil {
@@ -527,7 +522,9 @@ func (c *bv2RealCall) add(a, b ast.ASTHandle) ast.ASTHandle {
 	a, b = c.align(a, b)
 	return c.bv(4, c.extend(1, a), c.extend(1, b))
 }
-func (c *bv2RealCall) sub(a, b ast.ASTHandle) ast.ASTHandle {
+func (c *bv2RealCall) sub(a, b ast.ASTHandle) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	a, b = c.align(a, b)
 	return c.bv(5, c.extend(1, a), c.extend(1, b))
 }
@@ -536,7 +533,9 @@ func (c *bv2RealCall) side(h ast.ASTHandle) {
 		c.err = c.u.AddSideCondition(h)
 	}
 }
-func (c *bv2RealCall) mul(a, b ast.ASTHandle) ast.ASTHandle {
+func (c *bv2RealCall) mul(a, b ast.ASTHandle) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	c.assertBV(a, 179, "m_bv.is_bv(s)")
 	c.assertBV(b, 180, "m_bv.is_bv(t)")
 	if c.err != nil {
@@ -567,7 +566,9 @@ func (c *bv2RealCall) mul(a, b ast.ASTHandle) ast.ASTHandle {
 	}
 	return c.bv(6, a, b)
 }
-func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) ast.ASTHandle {
+func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	if q.Cmp(big.NewRat(1, 1)) == 0 {
 		return b
 	}
@@ -745,7 +746,9 @@ func (c *bv2RealCall) encoding(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle 
 	}
 	return c.hold(c.u.manager.MkApp(decl, []ast.ASTHandle{a, b}))
 }
-func (c *bv2RealCall) signedReal(h ast.ASTHandle) ast.ASTHandle {
+func (c *bv2RealCall) signedReal(h ast.ASTHandle) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	width := c.width(h)
 	if c.err != nil {
 		return ast.ASTHandle{}
@@ -757,7 +760,9 @@ func (c *bv2RealCall) signedReal(h ast.ASTHandle) ast.ASTHandle {
 	negative := c.arith(7, v, c.realNumeral(new(big.Rat).SetInt(power)))
 	return c.basic(ast.ASTOpIte, nonnegative, v, negative)
 }
-func (c *bv2RealCall) reduced(a, b ast.ASTHandle, d, r *big.Rat) ast.ASTHandle {
+func (c *bv2RealCall) reduced(a, b ast.ASTHandle, d, r *big.Rat) (result ast.ASTHandle) {
+	mark := c.checkpoint()
+	defer c.endExpressionScope(mark, &result)
 	x, y := c.signedReal(a), c.signedReal(b)
 	x = c.arith(10, x, c.realNumeral(d))
 	y = c.arith(10, y, c.realNumeral(d))
