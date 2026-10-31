@@ -78,12 +78,11 @@ func TestSATPartialProjectionArithmetic(t *testing.T) {
 	fmMust(t, c.addVariable(f.x))
 	equality := f.own(m.MkEq(f.x, f.number("5")))
 	fmMust(t, c.initializeFormula(equality))
-	if err = c.projectPartial(0, f.model, rw, f.r.config); err == nil {
-		t.Fatal("unsupported equality should fail arithmetic bound preparation")
+	fmMust(t, c.projectPartial(0, f.model, rw, f.r.config))
+	if len(c.variables) != 0 {
+		t.Fatal("equality projection did not remove variable")
 	}
-	if len(c.variables) != 1 {
-		t.Fatal("failed projection removed variable")
-	}
+	fmMust(t, c.addVariable(f.x))
 	fmMust(t, c.initializeFormula(formula))
 	fmMust(t, c.projectPartial(0, f.model, rw, f.r.config))
 	if len(c.variables) != 0 {

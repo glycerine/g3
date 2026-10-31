@@ -110906,7 +110906,7 @@
       ],
       "deviations": [
         "Default NNF normalization, SMT constraint assertion and ordered variable bookkeeping are started; variable projection, search and tactic registration remain unfinished.",
-        "Full projection, recursive search and public registration remain unfinished; partial arithmetic projection follows the existing bounds-based plugin and rejects unsupported equalities."
+        "Full projection, strong contextual simplification and public registration remain unfinished; partial arithmetic projection normalizes comparison and equality atoms before bounds analysis."
       ]
     },
     {

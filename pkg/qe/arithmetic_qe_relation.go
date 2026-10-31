@@ -54,6 +54,13 @@ func (u *ArithmeticQETermUtil) comparisonPolynomial(expression ast.ASTHandle, wa
 		return result, false, err
 	}
 	result, err = u.manager.NewRef(difference)
+	if err == nil && u.theory != nil {
+		err = u.theory.Rewrite(difference, result)
+		if err != nil {
+			_ = u.manager.DelRef(&result)
+			return ast.ASTRef{}, false, err
+		}
+	}
 	return result, err == nil, err
 }
 
@@ -102,6 +109,13 @@ func (u *ArithmeticQETermUtil) MatchLT(expression ast.ASTHandle) (result ast.AST
 		return result, false, err
 	}
 	result, err = u.manager.NewRef(difference)
+	if err == nil && u.theory != nil {
+		err = u.theory.Rewrite(difference, result)
+		if err != nil {
+			_ = u.manager.DelRef(&result)
+			return ast.ASTRef{}, false, err
+		}
+	}
 	return result, err == nil, err
 }
 

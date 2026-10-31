@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
 // ArithmeticQETermUtil is the dependency-closed arithmetic term and bound
@@ -16,6 +17,7 @@ type ArithmeticQETermUtil struct {
 	self    *ArithmeticQETermUtil
 	manager *ast.ASTManager
 	family  ast.FamilyID
+	theory  *rewriter.TheoryRewriter
 	closed  bool
 }
 

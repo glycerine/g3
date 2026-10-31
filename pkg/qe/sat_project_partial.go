@@ -66,7 +66,34 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 		if e != nil {
 			return e
 		}
-		defer func() { err = errors.Join(err, plugin.Close()) }()
+		if e = context.AddPlugin(plugin); e != nil {
+			return errors.Join(e, plugin.Close())
+		}
+		plugin.util.theory = rw
+		adapter, e := NewSolverNNFAdapter(context)
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, adapter.Close()) }()
+		normalizer, e := NewQENNFNormalizer(c.manager, adapter, adapter, config)
+		if e != nil {
+			return e
+		}
+		defer func() { err = errors.Join(err, normalizer.Close()) }()
+		atoms, e := normalizer.Normalize(c.formula)
+		if e != nil {
+			return e
+		}
+		if e = atoms.Close(); e != nil {
+			return e
+		}
+		root, e := c.manager.RefGet(c.formula)
+		if e != nil {
+			return e
+		}
+		if e = rw.Rewrite(root, c.formula); e != nil {
+			return e
+		}
 		projected, err = plugin.ProjectModelFormulaNNF(c.contains[index], source, c.formula, config)
 		if err == nil && projected {
 			err = c.takePartialArithmeticOutputs(plugin)
