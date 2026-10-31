@@ -52314,3 +52314,5 @@ Full native checkpoint on committed snapshot 5eb265140: every package except tac
 Arithmetic rewriter source driver started: checked its zero multiplication and both real-arithmetic formulas after theory rewriting on exact rational assignments. The separate PDR normalization helper has no other live source consumer and remains unported under the live-consumer rule.
 
 CNF backbone source driver started: the ordinary DIMACS consequence mode now checks three forced variables and one free variable. The source test's separate chunking algorithm emits backbone literals, whereas the existing SAT solver chunking helper emits conflict-core literals; the driver chunking, clause tracking and command-line paths remain open.
+
+CNF backbone chunking increment: translated the test driver's separate core-based algorithm in the source test, preserving backbone rather than conflict-core output. The source chunk size and a single-literal chunk are checked, and all 16 two-variable binary CNFs are compared with exhaustive truth tables. Clause tracking and command-line paths remain open.
