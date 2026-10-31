@@ -16,7 +16,7 @@ func TestZ3LogFrontendCLIInputAndFile(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	log := "R\nS \"timeout\"\nS \"19\"\nC 0\nM \"replayed\"\nR\nC 1\n"
+	log := "R\nC 3\n= 0x42\nR\nP 0x42\nS \"proof\"\nS \"true\"\nC 5\nR\nP 0x42\nC 4\nR\nS \"timeout\"\nS \"19\"\nC 0\nM \"replayed\"\nR\nC 1\n"
 	for _, file := range []bool{false, true} {
 		var args []string
 		if file {
@@ -40,7 +40,7 @@ func TestZ3LogFrontendCLIInputAndFile(t *testing.T) {
 
 func TestZ3LogFrontendReportsUnavailableCommands(t *testing.T) {
 	var out, diagnostics bytes.Buffer
-	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 3\n"), &out, &diagnostics); err != nil {
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader("R\nC 6\n"), &out, &diagnostics); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(diagnostics.String(), "invalid command") || !strings.Contains(out.String(), "max. heap size:") {

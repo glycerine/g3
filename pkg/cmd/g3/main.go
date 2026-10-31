@@ -90,6 +90,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		if err = api.RegisterZ3GeneratedGlobalCommands(replayer); err != nil {
 			return err
 		}
+		if err = api.RegisterZ3GeneratedConfigCommands(replayer); err != nil {
+			return err
+		}
 		if err = engine.InitializeDefaultProcess(); err != nil {
 			return err
 		}

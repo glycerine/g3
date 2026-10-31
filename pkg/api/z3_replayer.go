@@ -25,6 +25,9 @@ type Z3Replayer struct {
 	symbolArrays [][]string
 	uintArrays   [][]uint32
 	intArrays    [][]int32
+	configs      map[uint64]*Config
+	configOrder  []uint64
+	nextObjectID uint64
 	closed       bool
 }
 
@@ -46,8 +49,19 @@ func (r *Z3Replayer) Close() error {
 	if r == nil || r.closed {
 		return nil
 	}
+	for len(r.configOrder) != 0 {
+		i := len(r.configOrder) - 1
+		id := r.configOrder[i]
+		if config := r.configs[id]; config != nil {
+			if err := config.Close(); err != nil {
+				return err
+			}
+			delete(r.configs, id)
+		}
+		r.configOrder = r.configOrder[:i]
+	}
 	r.closed = true
 	r.resetArguments()
-	r.heap, r.commands, r.scanner, r.output = nil, nil, nil, nil
+	r.heap, r.commands, r.scanner, r.output, r.configs = nil, nil, nil, nil, nil
 	return nil
 }
