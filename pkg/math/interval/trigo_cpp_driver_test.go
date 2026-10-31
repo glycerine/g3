@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	z3rand "github.com/glycerine/g3/pkg/util/random"
+	"github.com/glycerine/g3/pkg/clibrand"
 )
 
 func TestTranscendentalSourceEPrecisions(t *testing.T) {
@@ -49,12 +49,17 @@ func TestTranscendentalSourceSineCosineSamples(t *testing.T) {
 	defer f.close()
 	input, lower, upper := f.rational("0"), f.rational("0"), f.rational("0")
 	refLower, refUpper := f.rational("0"), f.rational("0")
-	rng := z3rand.New(0)
+	// The source runs two 100-sample floating sine passes before the
+	// rational cases; each sample consumes two C rand values.
+	var rng clibrand.GLibc31
+	for i := 0; i < 400; i++ {
+		rng.Next()
+	}
 	for _, cosine := range []bool{false, true} {
 		for _, precision := range []uint32{3, 5, 9} {
 			for sample := 0; sample < 40; sample++ {
-				n := int64(4 * (((rng.Next() << 15) | rng.Next()) % 100000))
-				if rng.Bounded(2) == 0 {
+				n := int64(4 * (rng.Next() % 100000))
+				if rng.Next()%2 == 0 {
 					n = -n
 				}
 				x := new(big.Rat).SetFrac(big.NewInt(n), big.NewInt(100000))
@@ -116,6 +121,10 @@ func TestTranscendentalSourceSineCosineSamples(t *testing.T) {
 				if lo > 0 || hi > 0 {
 					t.Fatalf("cosine=%t k=%d x=%s bounds exclude independent Taylor enclosure", cosine, precision, x)
 				}
+			}
+			// Advance past the remaining 160 samples in this source pass.
+			for i := 0; i < 320; i++ {
+				rng.Next()
 			}
 		}
 	}
