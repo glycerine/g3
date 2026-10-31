@@ -1,3 +1,5 @@
+Finite/interval equality filtering (2026-10-31 UTC): implemented source table-column and inner-interval equality paths, collecting stale relations before inner mutation. Tests cover interleaved signature columns, incompatible values and removal of empty rows.
+
 Finite/interval product collection (2026-10-31 UTC): added removal of unreferenced and empty inner relations, source-style recycled index reuse, and collection on emptiness checks. Tests exercise repeated key replacement, slot reuse and removal of rows referencing empty inner relations.
 
 Finite/interval product start (2026-10-31 UTC): began the finite-product C++ source and header with a concrete sparse functional table mapping finite tuples to interval relations, including source signature splitting, fact insertion, lookup, empty state and independent cloning. Tests cover per-key interval hulls, clone isolation, mixed signatures and zero-column facts; joins, filters, union, formula conversion, garbage collection and manager registration remain pending.

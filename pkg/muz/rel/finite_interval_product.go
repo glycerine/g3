@@ -200,6 +200,73 @@ func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, erro
 	return p.intervals[index].ContainsFact(numbers), nil
 }
 
+// FilterEqual restricts a finite column in the table or an arithmetic column
+// in each live interval, following the two source filter paths.
+func (p *FiniteIntervalProduct) FilterEqual(column uint32, value ast.ASTHandle) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if uint64(column) >= uint64(len(p.sorts)) {
+		return ast.ErrASTDomain
+	}
+	for local, global := range p.tableColumns {
+		if global != int(column) {
+			continue
+		}
+		encoded, err := p.manager.EncodeValue(p.sorts[column], value)
+		if err != nil {
+			return err
+		}
+		rows, err := p.table.Facts()
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			if row[local] != encoded {
+				if _, err = p.table.Remove(row); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	for local, global := range p.intervalColumns {
+		if global != int(column) {
+			continue
+		}
+		sort, err := p.manager.manager.GetSort(value)
+		if err != nil {
+			return err
+		}
+		if sort != p.sorts[column] {
+			return ast.ErrASTDomain
+		}
+		text, _, matched, err := p.manager.manager.ArithmeticNumeralText(value)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return ast.ErrASTDomain
+		}
+		number, ok := new(big.Rat).SetString(text)
+		if !ok {
+			return ast.ErrASTDomain
+		}
+		if err = p.garbageCollect(false); err != nil {
+			return err
+		}
+		for _, inner := range p.intervals {
+			if inner != nil {
+				if err = inner.FilterEqual(uint32(local), number); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	return ErrTableRelation
+}
+
 // garbageCollect drops inner relations no longer referenced by the table and,
 // when requested, removes rows referring to empty inner relations.
 func (p *FiniteIntervalProduct) garbageCollect(removeEmpty bool) error {

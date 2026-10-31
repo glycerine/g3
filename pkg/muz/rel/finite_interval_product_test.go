@@ -115,3 +115,38 @@ func TestFiniteIntervalProductGarbageCollectionAndReuse(t *testing.T) {
 		t.Fatalf("empty inner relations survived collection: empty=%v, err=%v", empty, err)
 	}
 }
+
+func TestFiniteIntervalProductFilterEqual(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	num := func(text string) ast.ASTHandle {
+		value, e := f.ast.ArithmeticIntegerNumeralText(text)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, value)
+		return value
+	}
+	one, two, three := num("1"), num("2"), num("3")
+	product, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{integer, f.boolean}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{one, f.truth}, {three, f.truth}, {three, f.falsehood}} {
+		astTestMust(t, product.AddFact(fact))
+	}
+	astTestMust(t, product.FilterEqual(0, two))
+	if found, err := product.ContainsFact([]ast.ASTHandle{two, f.truth}); err != nil || !found {
+		t.Fatal("interval equality", found, err)
+	}
+	if found, err := product.ContainsFact([]ast.ASTHandle{three, f.falsehood}); err != nil || found {
+		t.Fatal("interval equality left incompatible fact", found, err)
+	}
+	astTestMust(t, product.FilterEqual(1, f.falsehood))
+	if empty, err := product.Empty(); err != nil || !empty {
+		t.Fatal("finite equality failed to remove other key", empty, err)
+	}
+	if err = product.FilterEqual(2, two); err == nil {
+		t.Fatal("invalid column accepted")
+	}
+}

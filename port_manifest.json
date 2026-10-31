@@ -90365,7 +90365,8 @@
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
         "TestFiniteIntervalProductColumnSelection",
-        "TestFiniteIntervalProductGarbageCollectionAndReuse"
+        "TestFiniteIntervalProductGarbageCollectionAndReuse",
+        "TestFiniteIntervalProductFilterEqual"
       ],
       "conditionals": [
         {
@@ -90734,6 +90735,14 @@
           "tests": [
             "TestFiniteIntervalProductGarbageCollectionAndReuse"
           ]
+        },
+        {
+          "name": "finite and interval column equality filters",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductFilterEqual"
+          ]
         }
       ],
       "ownership": [
@@ -90757,7 +90766,8 @@
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
         "TestFiniteIntervalProductColumnSelection",
-        "TestFiniteIntervalProductGarbageCollectionAndReuse"
+        "TestFiniteIntervalProductGarbageCollectionAndReuse",
+        "TestFiniteIntervalProductFilterEqual"
       ],
       "conditionals": [
         {
@@ -90813,6 +90823,14 @@
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductGarbageCollectionAndReuse"
+          ]
+        },
+        {
+          "name": "finite and interval column equality filters",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductFilterEqual"
           ]
         }
       ],
