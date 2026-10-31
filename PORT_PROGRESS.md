@@ -52290,3 +52290,5 @@ Polynomial normalization driver completion: ported the active source decompositi
 Datalog relation source driver started: translated the interval example's full/empty construction, interpreted and equality filters, joined projection, rename and source membership checks. The separate bound-relation source example remains open.
 
 Datalog relation source driver completion: added the bound-relation join, equality, rename, projection and both union examples. The union checks verify the common strict order modulo equality classes, filling in the source's TODO assertions.
+
+DDNF source driver started: translated tst_ddnf1's two-bit insertion sequence and checked all four vectors, the node count and the DAG invariant. The separate input-file forwarding and refinement command remains open.

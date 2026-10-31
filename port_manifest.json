@@ -200220,14 +200220,14 @@
       "path": "src/test/ddnf.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/ddnf/ddnf_cpp_driver_test.go"],
+      "tests": ["TestDDNFSourceTwoBitInsertion"],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The tst_ddnf1 source example is covered; the separate file-driven tst_ddnf command and forwarding/refinement workflow remain open."]
     },
     {
       "path": "src/test/diff_logic.cpp",
