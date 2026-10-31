@@ -46609,7 +46609,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "non-external to-poly, poly/factor and poly/isolate-roots commands", "status": "ported", "tests": ["TestSMT2ToPolynomialCommand", "TestSMT2PolynomialFactorCommand", "TestSMT2PolynomialRootIsolation", "TestWritePolynomialRootsWithAlgebraicAssignment"]}],
+      "methods": [{"name": "non-external to-poly, poly/factor and poly/isolate-roots commands", "status": "ported", "go_targets": ["pkg/cmd_context/polynomial_commands.go", "pkg/cmd_context/polynomial_roots_command.go", "pkg/parsers/smt2/commands.go"], "tests": ["TestSMT2ToPolynomialCommand", "TestSMT2PolynomialFactorCommand", "TestSMT2PolynomialRootIsolation", "TestWritePolynomialRootsWithAlgebraicAssignment"]}],
       "ownership": ["Each command scopes its polynomial and numeral managers and expression translator; root isolation additionally scopes its algebraic manager, assignments and root vector. AST expressions and output streams are borrowed."],
       "deviations": ["The non-external to-poly path is registered in the Go parser. The source poly/factor path and its parameters are also registered. The poly/isolate-roots command is also installed. Go propagates output errors while the source writes to an ostream."]
     },
@@ -46632,7 +46632,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "non-external to-poly, poly/factor and poly/isolate-roots commands", "status": "ported", "tests": ["TestSMT2ToPolynomialCommand", "TestSMT2PolynomialFactorCommand", "TestSMT2PolynomialRootIsolation", "TestWritePolynomialRootsWithAlgebraicAssignment"]}],
+      "methods": [{"name": "non-external to-poly, poly/factor and poly/isolate-roots commands", "status": "ported", "go_targets": ["pkg/cmd_context/polynomial_commands.go", "pkg/cmd_context/polynomial_roots_command.go", "pkg/parsers/smt2/commands.go"], "tests": ["TestSMT2ToPolynomialCommand", "TestSMT2PolynomialFactorCommand", "TestSMT2PolynomialRootIsolation", "TestWritePolynomialRootsWithAlgebraicAssignment"]}],
       "ownership": ["Each command scopes its polynomial and numeral managers and expression translator; root isolation additionally scopes its algebraic manager, assignments and root vector. AST expressions and output streams are borrowed."],
       "deviations": ["The non-external to-poly path is registered in the Go parser. The source poly/factor path and its parameters are also registered. The poly/isolate-roots command is also installed. Go propagates output errors while the source writes to an ostream."]
     },
@@ -46655,7 +46655,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "non-external unary command, rational term translation and display", "status": "ported", "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"]}],
+      "methods": [{"name": "non-external unary command, rational term translation and display", "status": "ported", "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/parsers/smt2/commands.go"], "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"]}],
       "ownership": ["The command scopes and closes its parameter, numeral, subpaving, expression-mapping and rewriter owners; the input expression and output writer are borrowed."],
       "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Go propagates writer errors and uses the existing package-specific cleanup services."]
     },
@@ -46668,7 +46668,7 @@
       "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "non-external unary command, rational term translation and display", "status": "ported", "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"]}],
+      "methods": [{"name": "non-external unary command, rational term translation and display", "status": "ported", "go_targets": ["pkg/cmd_context/subpaving_commands.go", "pkg/parsers/smt2/commands.go"], "tests": ["TestSMT2ToSubpavingCommand", "TestWriteSubpavingWriterFailureAndRetry"]}],
       "ownership": ["The command scopes and closes its parameter, numeral, subpaving, expression-mapping and rewriter owners; the input expression and output writer are borrowed."],
       "deviations": ["The non-external to-subpaving command uses the concrete rational converter and stable variable-number order for the source hash-map display. Go propagates writer errors and uses the existing package-specific cleanup services."]
     },
@@ -85042,6 +85042,7 @@
           "name": "Owned plugin reset/cancel/register lifecycle, descending priority ordering, no-op and changed-stage composition, destratification rejection, finalized intermediate ownership, and final rule replacement (dl_rule_transformer.cpp:29-128)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",
+          "go_targets": ["pkg/muz/transforms/coi_plugin.go"],
           "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsPluginWhenManagerIsCanceled", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
         },
         {
@@ -85082,6 +85083,7 @@
           "name": "rule_transformer and plugin runtime surface: owned registration/reset, cancellation, priority, destratification metadata, transformation invocation, and close (dl_rule_transformer.h:31-107)",
           "status": "ported",
           "go_target": "pkg/muz/base/rule_transformer.go",
+          "go_targets": ["pkg/muz/transforms/coi_plugin.go"],
           "tests": ["TestRuleTransformerOrdersOwnsAndCancelsPlugins", "TestRuleTransformerSkipsPluginWhenManagerIsCanceled", "TestRuleTransformerSkipsAllowedDestratification", "TestRuleTransformerAppliesConePlugin"]
         }
       ],
@@ -107449,7 +107451,41 @@
         "pkg/qe/solver_context_owned_variable_test.go",
         "pkg/qe/qe_array_plugin_select_test.go",
         "pkg/qe/expr_quantifier_free_vars.go",
-        "pkg/qe/expr_quantifier_free_vars_test.go"
+        "pkg/qe/expr_quantifier_free_vars_test.go",
+        "pkg/qe/expr_quantifier_extract.go",
+        "pkg/qe/expr_quantifier_extract_test.go",
+        "pkg/qe/expr_quantifier_bind.go",
+        "pkg/qe/expr_quantifier_bind_test.go",
+        "pkg/qe/expr_quantifier_tree.go",
+        "pkg/qe/expr_quantifier_tree_test.go",
+        "pkg/qe/expr_quantifier_tree_definitions.go",
+        "pkg/qe/expr_quantifier_tree_definitions_test.go",
+        "pkg/qe/expr_quantifier_tree_constraints.go",
+        "pkg/qe/expr_quantifier_tree_constraints_test.go",
+        "pkg/qe/expr_quantifier_relevance.go",
+        "pkg/qe/expr_quantifier_relevance_test.go",
+        "pkg/qe/expr_quantifier_branch_vars.go",
+        "pkg/qe/expr_quantifier_branch_vars_test.go",
+        "pkg/qe/expr_quantifier_branch_value.go",
+        "pkg/qe/expr_quantifier_branch_value_test.go",
+        "pkg/qe/expr_quantifier_branch_limit.go",
+        "pkg/qe/expr_quantifier_branch_limit_test.go",
+        "pkg/qe/expr_quantifier_tree_seek.go",
+        "pkg/qe/expr_quantifier_tree_seek_test.go",
+        "pkg/qe/expr_quantifier_tree_normalize.go",
+        "pkg/qe/expr_quantifier_tree_normalize_test.go",
+        "pkg/qe/expr_quantifier_tree_eliminate.go",
+        "pkg/qe/expr_quantifier_tree_eliminate_test.go",
+        "pkg/qe/expr_quantifier_scalar_branch.go",
+        "pkg/qe/expr_quantifier_arith_outputs.go",
+        "pkg/qe/expr_quantifier_arith_branch_test.go",
+        "pkg/qe/expr_quantifier_bool_branch_test.go",
+        "pkg/qe/expr_quantifier_bool_solve.go",
+        "pkg/qe/expr_quantifier_bool_solve_test.go",
+        "pkg/qe/expr_quantifier_arith_solve.go",
+        "pkg/qe/expr_quantifier_arith_solve_test.go",
+        "pkg/qe/expr_quantifier_select.go",
+        "pkg/qe/expr_quantifier_select_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107466,7 +107502,26 @@
         "TestArrayPluginSolveSkipsQuantifiedConjunct",
         "TestSolverContextOwnedVariableTransferAndSwap",
         "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula",
-        "TestExprQuantifierInstantiationAndAbstraction"
+        "TestExprQuantifierInstantiationAndAbstraction",
+        "TestExtractExprQuantifierVariableOrderAndFreeShift",
+        "TestBindExprQuantifierVariablesOnlyWhenUsed",
+        "TestExprQETreeBranchesPurityAndLeaves",
+        "TestExprQETreeGuardedLeavesComposeDefinitions",
+        "TestExprQETreeConstraintUsesSelectedAncestry",
+        "TestExprQEMaxRelevantGroupingAndNestedDescent",
+        "TestExprQEBranchVariablesAndPendingOrder",
+        "TestExprQEBranchValuesAndEquality",
+        "TestExprQEBranchLimitRestrictsArithmeticProxy",
+        "TestExprQETreeSeekUsesModelAndUnitBranches",
+        "TestExprQETreeNormalizeRefreshesAtoms",
+        "TestExprQETreeEliminationCreatesNormalizedUnitBranch",
+        "TestExprQEBoolBranchPropagatesThenSubstitutes",
+        "TestExprQEBVBranchPropagatesThenSubstitutes",
+        "TestExprQEArithmeticBranchTransfersConstraintsAndDefinition",
+        "TestExprQEArithmeticBranchTransfersFreshVariables",
+        "TestExprQEBoolSolveCreatesUnitBranch",
+        "TestExprQEArithmeticSolvePublishesFreshVariable",
+        "TestExprQEVariableSelectionSourceOrderAndUnsupported"
       ],
       "conditionals": [
         {
@@ -107749,13 +107804,40 @@
           "tests": [
             "TestExprQuantifierInstantiationAndAbstraction"
           ]
+        },
+        {
+          "name": "quant_elim_plugin and search_tree: branch state, variable selection, constraints, model traversal, Boolean solving and arithmetic result publication",
+          "status": "partial",
+          "go_target": "pkg/qe/expr_quantifier_tree.go",
+          "tests": [
+            "TestExtractExprQuantifierVariableOrderAndFreeShift",
+            "TestBindExprQuantifierVariablesOnlyWhenUsed",
+            "TestExprQETreeBranchesPurityAndLeaves",
+            "TestExprQETreeGuardedLeavesComposeDefinitions",
+            "TestExprQETreeConstraintUsesSelectedAncestry",
+            "TestExprQEMaxRelevantGroupingAndNestedDescent",
+            "TestExprQEBranchVariablesAndPendingOrder",
+            "TestExprQEBranchValuesAndEquality",
+            "TestExprQEBranchLimitRestrictsArithmeticProxy",
+            "TestExprQETreeSeekUsesModelAndUnitBranches",
+            "TestExprQETreeNormalizeRefreshesAtoms",
+            "TestExprQETreeEliminationCreatesNormalizedUnitBranch",
+            "TestExprQEBoolBranchPropagatesThenSubstitutes",
+            "TestExprQEBVBranchPropagatesThenSubstitutes",
+            "TestExprQEArithmeticBranchTransfersConstraintsAndDefinition",
+            "TestExprQEArithmeticBranchTransfersFreshVariables",
+            "TestExprQEBoolSolveCreatesUnitBranch",
+            "TestExprQEArithmeticSolvePublishesFreshVariable",
+            "TestExprQEVariableSelectionSourceOrderAndUnsupported"
+          ]
         }
       ],
       "ownership": [
         "The actual qsatSearchCall retains extracted constants, mutable binder vectors, substituted temporary/body ASTRefs, concrete substitution and inverse-shifter owners until cleanup succeeds; no generic callback/template adapter is introduced."
       ],
       "deviations": [
-        "Only extract_vars reached by retained QSAT recursive elimination is ported. The complete multitheory expr_quant_elim manager/algorithms and other retained declarations in qe.cpp/.h remain unfinished. Existing native AST substitution, inverse shifting and expression abstraction implement the concrete reached types."
+        "Only extract_vars reached by retained QSAT recursive elimination is ported. The complete multitheory expr_quant_elim manager/algorithms and other retained declarations in qe.cpp/.h remain unfinished. Existing native AST substitution, inverse shifting and expression abstraction implement the concrete reached types.",
+        "General elimination search orchestration, additional plugin branches and full tactic integration remain unfinished."
       ]
     },
     {
