@@ -576,28 +576,6 @@ func (c *bv2RealCall) multiplyScalar(q *big.Rat, b ast.ASTHandle) (result ast.AS
 	}
 	return c.mul(c.signedNumeral(q), b)
 }
-func (c *bv2RealCall) alignDivisors(a, b, x, y ast.ASTHandle, d1, d2 *big.Rat) (ast.ASTHandle, ast.ASTHandle, ast.ASTHandle, ast.ASTHandle) {
-	if c.err != nil || d1.Cmp(d2) == 0 {
-		return a, b, x, y
-	}
-	if !d1.IsInt() || !d2.IsInt() {
-		c.err = ast.ErrASTDomain
-		return a, b, x, y
-	}
-	g := new(big.Int).GCD(nil, nil, d1.Num(), d2.Num())
-	l := new(big.Int).Mul(d1.Num(), d2.Num())
-	l.Abs(l)
-	l.Quo(l, g)
-	d1g := new(big.Rat).Quo(d1, new(big.Rat).SetInt(g))
-	d2g := new(big.Rat).Quo(d2, new(big.Rat).SetInt(g))
-	a = c.multiplyScalar(d2g, a)
-	b = c.multiplyScalar(d2g, b)
-	x = c.multiplyScalar(d1g, x)
-	y = c.multiplyScalar(d1g, y)
-	d1.SetInt(l)
-	d2.SetInt(l)
-	return a, b, x, y
-}
 func (c *bv2RealCall) extract(high, low uint32, h ast.ASTHandle) ast.ASTHandle {
 	if c.err != nil {
 		return ast.ASTHandle{}

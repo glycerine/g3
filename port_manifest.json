@@ -168346,7 +168346,9 @@
         "pkg/tactic/arith/bv2real_expression_scope.go",
         "pkg/tactic/arith/bv2real_expression_scope_test.go",
         "pkg/tactic/arith/bv2real_fold.go",
-        "pkg/tactic/arith/bv2real_fold_test.go"
+        "pkg/tactic/arith/bv2real_fold_test.go",
+        "pkg/tactic/arith/bv2real_rational.go",
+        "pkg/tactic/arith/bv2real_rational_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168365,7 +168367,11 @@
         "TestBV2RealVariadicFailurePublishesCompletedPrefixes",
         "TestBV2RealVariadicRefusalAndUnaryPublication",
         "TestBV2RealVariadicInitialAssignmentBeforeAllocation",
-        "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment"
+        "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment",
+        "TestBV2RealDivisorAlignmentProjectArithmeticAndScope",
+        "TestBV2RealDivisorAlignmentFailureAssignmentOrder",
+        "TestBV2RealDivisorAlignmentAllocationFrontiers",
+        "TestBV2RealEqualDivisorsSkipProjectArithmetic"
       ],
       "assertions": [
         {
@@ -168580,6 +168586,17 @@
             "TestBV2RealVariadicInitialAssignmentBeforeAllocation",
             "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment"
           ]
+        },
+        {
+          "name": "align_divisors uses project GCD/LCM/quotient/copy owners, lexical numeric cleanup, ordered coefficient replacement and final divisor assignment prefixes (bv2real_rewriter.cpp:159-176)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_rational.go",
+          "tests": [
+            "TestBV2RealDivisorAlignmentProjectArithmeticAndScope",
+            "TestBV2RealDivisorAlignmentFailureAssignmentOrder",
+            "TestBV2RealDivisorAlignmentAllocationFrontiers",
+            "TestBV2RealEqualDivisorsSkipProjectArithmetic"
+          ]
         }
       ],
       "ownership": [
@@ -168587,7 +168604,8 @@
         "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish.",
         "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup.",
         "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried.",
-        "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path."
+        "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path.",
+        "Divisor alignment imports caller-facing values into owned project operands, computes GCD/LCM/quotients through the project RationalService, publishes four completed coefficient assignments in source order, then copies the two common divisors in order. Failed scaling preserves the unfinished coefficient and does not publish later divisors. GCD/LCM/quotient and operand facade owners close at helper return without destroying an enclosing numeric owner."
       ],
       "deviations": [
         "Only the actual NLA2BV uint default-root/divisor instantiation is exposed; no unused generic adapters or STL are ported. Native Go maps implement canonical signature lookup, while both source cache signatures own project rational values. Source map layout/hash implementation is replaced by concrete Go storage; exact container-growth allocation behavior and the broader lexical ownership audit remain open.",
@@ -168614,7 +168632,9 @@
         "pkg/tactic/arith/bv2real_expression_scope_test.go",
         "pkg/tactic/arith/bv2real_fold.go",
         "pkg/tactic/arith/bv2real_fold_test.go",
-        "pkg/tactic/arith/bv2real_header_test.go"
+        "pkg/tactic/arith/bv2real_header_test.go",
+        "pkg/tactic/arith/bv2real_rational.go",
+        "pkg/tactic/arith/bv2real_rational_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/bv2real_util_test.go",
@@ -168636,7 +168656,11 @@
         "TestBV2RealVariadicTraceFailurePrecedesInitialAssignment",
         "TestBV2RealConfigurationProofResetAndSourcePolicies",
         "TestBV2RealTraversalProofDisabledAndUtilityBorrowed",
-        "TestBV2RealHeaderSignatureFieldsAndCanonicalEquality"
+        "TestBV2RealHeaderSignatureFieldsAndCanonicalEquality",
+        "TestBV2RealDivisorAlignmentProjectArithmeticAndScope",
+        "TestBV2RealDivisorAlignmentFailureAssignmentOrder",
+        "TestBV2RealDivisorAlignmentAllocationFrontiers",
+        "TestBV2RealEqualDivisorsSkipProjectArithmetic"
       ],
       "conditionals": [
         {
@@ -168771,6 +168795,17 @@
             "TestNLA2BVSourceNoBoundsAndUnsupportedTraces",
             "TestBV2RealUtilDefaultsDeclarationsCacheAndReset"
           ]
+        },
+        {
+          "name": "align_divisors uses project GCD/LCM/quotient/copy owners, lexical numeric cleanup, ordered coefficient replacement and final divisor assignment prefixes (bv2real_rewriter.cpp:159-176)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/bv2real_rational.go",
+          "tests": [
+            "TestBV2RealDivisorAlignmentProjectArithmeticAndScope",
+            "TestBV2RealDivisorAlignmentFailureAssignmentOrder",
+            "TestBV2RealDivisorAlignmentAllocationFrontiers",
+            "TestBV2RealEqualDivisorsSkipProjectArithmetic"
+          ]
         }
       ],
       "ownership": [
@@ -168778,7 +168813,8 @@
         "Each cache signature now owns four actual project rational values: separate forward-key d/r and reverse-value d/r. Reverse cache lookup and elimination read pointers to the owned reverse values; canonical forward keys are produced from the local project signature. Lookup and encoding locals close their project rational pair before helper handoff. Separate storage reservations preserve completed forward insertion if reverse insertion fails; a later forward hit does not repair that source partial state. Cache owners survive Reset and are destroyed reverse-map first, then forward-map, with r before d. Failed retirement remains attached and blocks reuse until Close can finish.",
         "BV numeral construction and recognition release their local project rational before returning to the enclosing algebra operation. Wide output values remain owned by AST parameters or detached caller copies, while pre-existing caller rationals survive the inner scope; failed helper cleanup stays attached to the call for final cleanup.",
         "Primitive signed numeral/extension/add/subtract/multiply/signed-real/reduced helpers and binary/equality/ITE/negation/comparison reducers move the result reference out of the local owner list before releasing helper temporaries. Identity results borrow pre-existing caller ownership. N-ary folds retire obsolete encoding applications after each binary step while keeping their coefficient subtrees reachable from later results. Side-condition and auxiliary declaration owners survive helper destruction; call cleanup consumes successful releases, skips consumed reference slots and can be retried.",
-        "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path."
+        "The live n-ary dispatcher borrows the caller output reference and assigns args[0] before the first binary reduction. Each completed prefix transfers to that reference before the next step; failed later operations preserve the published prefix through temporary cleanup. The initial mk_app_core trace and arity guard still precede every fold output assignment. Other branches keep their existing final-publication path.",
+        "Divisor alignment imports caller-facing values into owned project operands, computes GCD/LCM/quotients through the project RationalService, publishes four completed coefficient assignments in source order, then copies the two common divisors in order. Failed scaling preserves the unfinished coefficient and does not publish later divisors. GCD/LCM/quotient and operand facade owners close at helper return without destroying an enclosing numeric owner."
       ],
       "deviations": [
         "Header interface/member audit only: implementation algorithms and their remaining exceptional numeric/vector ownership paths are tracked separately in bv2real_rewriter.cpp, which remains partial. Canonical concrete Go map keys implement signature equality; no STL/hash-table internals or unused template adapters are ported.",
