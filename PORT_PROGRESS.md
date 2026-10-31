@@ -52272,3 +52272,5 @@ Arithmetic projection source driver completion: added the source's disequality, 
 Windows API source driver: translated the five nested uninterpreted function applications, incremental 30-, 31- and 32-bit negative numeral examples, and mismatched-sort distinct error. Solver statuses and the Go error replace the source's printed results and C error callback.
 
 Overflow multiplication driver increment: added all unsigned multiplication boundary cases at widths 1, 16, 32 and 42, checking each predicate and its negation. Signed multiplication remains open because its source test expectations conflict with the source rewriter's constant folding.
+
+Signed multiplication overflow correction: the source rewriter interprets signed constants as unsigned for overflow and treats the one-bit pattern 1 as positive one. Go now decodes signed operands before folding and avoids that invalid one-bit identity shortcut. The complete original signed and unsigned boundary matrix passes, along with exhaustive constant-fold checks for widths 1 through 4; the 16-bit symbolic multiplication equivalence proof remains open because it exceeded a four-minute run.

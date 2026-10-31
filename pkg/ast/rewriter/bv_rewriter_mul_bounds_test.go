@@ -52,6 +52,58 @@ func TestBVRewriterMultiplyBoundsOriginalBranches(t *testing.T) {
 	}
 }
 
+func TestBVRewriterSignedMultiplyBoundNumerals(t *testing.T) {
+	c, g, _ := bvPolynomialParamsFixture(t)
+	m, _ := bvAddFixture(t)
+	p, err := NewBVRewriter(m, c, g, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	out, err := m.NewRef(ast.ASTHandle{})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, m.DelRef(&out)) }()
+	for width := uint32(1); width <= 4; width++ {
+		limit := uint32(1) << width
+		sign := int64(limit / 2)
+		for a := uint32(0); a < limit; a++ {
+			for b := uint32(0); b < limit; b++ {
+				left, right := int64(a), int64(b)
+				if left >= sign {
+					left -= int64(limit)
+				}
+				if right >= sign {
+					right -= int64(limit)
+				}
+				for _, tc := range []struct {
+					mode BVMultiplyBound
+					want bool
+				}{
+					{BVSignedNoOverflow, left*right < sign},
+					{BVSignedNoUnderflow, left*right >= -sign},
+				} {
+					st, err := p.RewriteMultiplyBound(ast.SliceArguments([]ast.ASTHandle{bvAddNum(t, m, a, width), bvAddNum(t, m, b, width)}), out, tc.mode)
+					astTestMust(t, err)
+					got, err := m.RefGet(out)
+					astTestMust(t, err)
+					if st != RewriteDone || m.IsTrue(got) != tc.want {
+						t.Fatalf("width %d: %d * %d mode %d: got %v want %v", width, left, right, tc.mode, got, tc.want)
+					}
+				}
+			}
+		}
+	}
+	sort, err := m.BitVectorSort(1)
+	astTestMust(t, err)
+	x, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	for _, mode := range []BVMultiplyBound{BVSignedNoOverflow, BVSignedNoUnderflow} {
+		st, err := p.RewriteMultiplyBound(ast.SliceArguments([]ast.ASTHandle{bvAddNum(t, m, 1, 1), x}), out, mode)
+		astTestMust(t, err)
+		if st != RewriteFailed {
+			t.Fatal("one-bit -1 with unknown operand must not fold", mode, st)
+		}
+	}
+}
+
 func TestBVRewriterMultiplyBoundsStoredWidthAndColdPublication(t *testing.T) {
 	for _, mode := range []BVMultiplyBound{BVSignedNoOverflow, BVUnsignedNoOverflow, BVSignedNoUnderflow} {
 		complete, published := false, false

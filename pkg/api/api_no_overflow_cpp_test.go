@@ -16,16 +16,13 @@ type overflowSourceCase struct {
 
 func TestNoOverflowSourceAdditionBounds(t *testing.T)    { testNoOverflowSourceBinaryBounds(t, "add") }
 func TestNoOverflowSourceSubtractionBounds(t *testing.T) { testNoOverflowSourceBinaryBounds(t, "sub") }
-func TestNoOverflowSourceUnsignedMultiplicationBounds(t *testing.T) {
-	testNoOverflowSourceBinaryBounds(t, "unsigned-mul")
+func TestNoOverflowSourceMultiplicationBounds(t *testing.T) {
+	testNoOverflowSourceBinaryBounds(t, "mul")
 }
 
 func testNoOverflowSourceBinaryBounds(t *testing.T, operation string) {
 	for _, width := range []uint32{1, 16, 32, 42} {
 		for _, signed := range []bool{true, false} {
-			if operation == "unsigned-mul" && signed {
-				continue
-			}
 			t.Run(fmt.Sprintf("%d/signed=%t", width, signed), func(t *testing.T) {
 				f := newSMTAPIFixture(t, "ALL", nil)
 				s, err := f.c.NewSolver()
@@ -64,9 +61,15 @@ func testNoOverflowSourceBinaryBounds(t *testing.T, operation string) {
 					if signed {
 						cases = append(cases, overflowSourceCase{minusOne, min, true, true}, overflowSourceCase{min, minusOne, true, true})
 					}
-				case "unsigned-mul":
-					overflow = f.pin(f.c.BitVectorMulNoOverflow(x, y, false))
-					cases = []overflowSourceCase{{one, one, true, true}, {zero, max, true, true}, {min, zero, true, true}, {max, one, true, true}, {one, min, true, true}, {min, min, true, true}, {min, max, true, true}, {max, max, width == 1, true}}
+				case "mul":
+					overflow = f.pin(f.c.BitVectorMulNoOverflow(x, y, signed))
+					if signed {
+						underflow = f.pin(f.c.BitVectorMulNoUnderflow(x, y))
+					}
+					cases = []overflowSourceCase{{one, one, !(width == 1 && signed), true}, {zero, max, true, true}, {min, zero, true, true}, {max, one, true, true}, {one, min, !(width == 1 && signed), true}, {min, min, !signed, true}, {min, max, true, !(width != 1 && signed)}, {max, max, width == 1, true}}
+					if signed {
+						cases = append(cases, overflowSourceCase{minusOne, min, false, true}, overflowSourceCase{min, minusOne, false, true}, overflowSourceCase{minusOne, max, true, true})
+					}
 				}
 				check := func(t *testing.T, predicate ast.ASTHandle, want bool) {
 					t.Helper()

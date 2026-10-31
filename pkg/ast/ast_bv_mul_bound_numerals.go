@@ -113,6 +113,14 @@ func (n *BitVectorMultiplyBoundNumerals) ZeroOrOne(i int) (bool, error) {
 	yes, e = n.manager.numerals.IsOne(&n.values[i])
 	return yes, n.fail(e)
 }
+
+func (n *BitVectorMultiplyBoundNumerals) IsZero(i int) (bool, error) {
+	if e := n.slot(i); e != nil {
+		return false, e
+	}
+	yes, e := n.manager.numerals.IsZero(&n.values[i])
+	return yes, n.fail(e)
+}
 func (n *BitVectorMultiplyBoundNumerals) Power(i int, width uint32) error {
 	if e := n.open(); e != nil {
 		return e
