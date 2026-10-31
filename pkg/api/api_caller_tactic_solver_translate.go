@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/glycerine/g3/pkg/ackermannization"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/tactic/arith"
+	"github.com/glycerine/g3/pkg/tactic/bv"
 	"github.com/glycerine/g3/pkg/tactic/core"
+	"github.com/glycerine/g3/pkg/tactic/smtlogics"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -35,6 +38,18 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
 		}
 	}, func(probe tactic.ProbeEvaluator) (tactic.ProbeEvaluator, error) {
+		if err := probe.Check(); err != nil {
+			return nil, err
+		}
+		switch probe.(type) {
+		case *ackermannization.BoundProbe:
+			return ackermannization.NewBoundProbe(manager.Budget())
+		case *bv.IsQFBVEqualityProbe:
+			return bv.NewIsQFBVEqualityProbe(manager.Budget(), config.Params, config.Globals)
+		}
+		if translated, matched, err := smtlogics.TranslateContextProbe(probe, manager.Budget()); matched {
+			return translated, err
+		}
 		return arith.TranslateContextProbe(probe, manager.Budget(), config.Params, config.Globals)
 	})
 	if err != nil {

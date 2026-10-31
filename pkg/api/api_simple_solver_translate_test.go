@@ -769,8 +769,8 @@ func TestAPIConditionalTacticCrossContextTranslation(t *testing.T) {
 	}
 }
 
-func TestAPIArithmeticProbeTacticCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"is-qflia", "arith-max-deg", "is-unbounded", "is-pb", "is-quasi-pb"} {
+func TestAPISubsystemProbeTacticCrossContextTranslation(t *testing.T) {
+	for _, name := range []string{"is-qflia", "arith-max-deg", "is-unbounded", "is-pb", "is-quasi-pb", "ackr-bound-probe", "is-qfbv-eq", "is-qffp", "is-qffpbv", "is-qffplra"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
