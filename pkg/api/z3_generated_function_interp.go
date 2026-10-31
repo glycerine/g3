@@ -22,8 +22,10 @@ func registerZ3GeneratedFunctionInterpretation(r *Z3Replayer) error {
 		name string
 	}{
 		{301, "Z3_model_get_func_interp"}, {312, "Z3_add_func_interp"}, {314, "Z3_func_interp_inc_ref"}, {315, "Z3_func_interp_dec_ref"},
-		{316, "Z3_func_interp_get_num_entries"}, {318, "Z3_func_interp_get_else"}, {319, "Z3_func_interp_set_else"},
+		{316, "Z3_func_interp_get_num_entries"}, {317, "Z3_func_interp_get_entry"}, {318, "Z3_func_interp_get_else"}, {319, "Z3_func_interp_set_else"},
 		{320, "Z3_func_interp_get_arity"}, {321, "Z3_func_interp_add_entry"},
+		{322, "Z3_func_entry_inc_ref"}, {323, "Z3_func_entry_dec_ref"}, {324, "Z3_func_entry_get_value"},
+		{325, "Z3_func_entry_get_num_args"}, {326, "Z3_func_entry_get_arg"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -78,6 +80,9 @@ func replayGetFunctionInterpretation(r *Z3Replayer) (*replayFunctionInterpretati
 	return f, nil
 }
 func replayFunctionInterpretationCommand(r *Z3Replayer, id uint32) error {
+	if id >= 322 {
+		return replayFunctionEntryCommand(r, id)
+	}
 	if id == 301 || id == 312 {
 		m, err := replayGetModel(r)
 		if err != nil {
@@ -121,6 +126,16 @@ func replayFunctionInterpretationCommand(r *Z3Replayer, id uint32) error {
 		return f.object.decRef()
 	case 316:
 		_, err = f.value.NumEntries()
+	case 317:
+		index, e := r.Uint(2)
+		if e != nil {
+			return e
+		}
+		entry, e := f.value.Entry(index)
+		if e != nil {
+			return e
+		}
+		return replayStoreFunctionEntry(r, f.owner, entry)
 	case 318:
 		value, e := f.value.Else()
 		if e != nil {
@@ -154,6 +169,85 @@ func replayFunctionInterpretationCommand(r *Z3Replayer, id uint32) error {
 		if err == nil {
 			err = f.value.AddEntry(values, value.handle)
 		}
+	}
+	return err
+}
+
+type replayFunctionEntry struct {
+	object apiObject
+	owner  *replayContextOwner
+	value  *APIFunctionEntry
+}
+
+func (e *replayFunctionEntry) apiDestroy() error { return e.value.Close() }
+func replayStoreFunctionEntry(r *Z3Replayer, owner *replayContextOwner, value *APIFunctionEntry) error {
+	if r.nextObjectID == ^uint64(0) {
+		return errors.Join(ErrZ3ReplayState, value.Close())
+	}
+	n := uint64(reflect.TypeOf(replayFunctionEntry{}).Size())
+	if err := owner.results.manager.Budget().Reserve(n); err != nil {
+		return errors.Join(err, value.Close())
+	}
+	e := &replayFunctionEntry{owner: owner, value: value}
+	e.object = apiObject{context: owner.results, destructor: e, ownerBytes: n}
+	e.object.self = &e.object
+	id, err := owner.results.addObject(&e.object)
+	if err != nil {
+		owner.results.manager.Budget().Release(n)
+		return errors.Join(err, value.Close())
+	}
+	e.object.id = id
+	if err = owner.results.saveObject(&e.object); err != nil {
+		return err
+	}
+	if r.functionEntries == nil {
+		r.functionEntries = make(map[uint64]*replayFunctionEntry)
+	}
+	r.nextObjectID++
+	replayID := r.nextObjectID
+	r.functionEntries[replayID] = e
+	owner.functionEntryIDs = append(owner.functionEntryIDs, replayID)
+	return r.StoreResult(replayID)
+}
+func replayFunctionEntryCommand(r *Z3Replayer, id uint32) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	object, err := r.Object(1)
+	if err != nil {
+		return err
+	}
+	if object == 0 && (id == 322 || id == 323) {
+		return nil
+	}
+	entry := r.functionEntries[object]
+	if entry == nil || entry.owner != owner || entry.object.open() != nil {
+		return ErrZ3ReplayReference
+	}
+	switch id {
+	case 322:
+		return entry.object.incRef()
+	case 323:
+		return entry.object.decRef()
+	case 324:
+		value, e := entry.value.Value()
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, value)
+	case 325:
+		_, err = entry.value.NumArguments()
+	case 326:
+		index, e := r.Uint(2)
+		if e != nil {
+			return e
+		}
+		value, e := entry.value.Argument(index)
+		if e != nil {
+			return e
+		}
+		return r.storeBorrowedAST(owner, value)
 	}
 	return err
 }

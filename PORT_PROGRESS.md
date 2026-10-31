@@ -1,3 +1,5 @@
+Generated function entry replay (2026-10-31 UTC): added entry creation, reference management, argument and value queries. Normal and checked tests verify entries survive model and interpretation release; other generated commands remain unfinished.
+
 Generated function interpretation replay (2026-10-31 UTC): added model function creation/lookup, reference management, entries and else-value operations. Normal and checked tests cover model-independent lifetime and incomplete-log cleanup; entry inspection and other generated commands remain unfinished.
 
 Generated solver file and proof replay (2026-10-31 UTC): added file loading and proof-result commands. Normal and checked tests verify loaded assertions and proof ownership after solver release; other generated commands remain unfinished.

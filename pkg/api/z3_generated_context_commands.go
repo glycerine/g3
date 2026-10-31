@@ -6,18 +6,19 @@ package api
 import "errors"
 
 type replayContextOwner struct {
-	context        *SMTContext
-	userRefCount   bool
-	printMode      uint32
-	results        *apiContextResults
-	astIDs         []uint64
-	parameterIDs   []uint64
-	descriptionIDs []uint64
-	solverIDs      []uint64
-	modelIDs       []uint64
-	goalIDs        []uint64
-	vectorIDs      []uint64
-	functionIDs    []uint64
+	context          *SMTContext
+	userRefCount     bool
+	printMode        uint32
+	results          *apiContextResults
+	astIDs           []uint64
+	parameterIDs     []uint64
+	descriptionIDs   []uint64
+	solverIDs        []uint64
+	modelIDs         []uint64
+	goalIDs          []uint64
+	vectorIDs        []uint64
+	functionIDs      []uint64
+	functionEntryIDs []uint64
 }
 
 // RegisterZ3GeneratedContextCommands installs the implemented context replay

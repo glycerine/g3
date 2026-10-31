@@ -6028,7 +6028,8 @@
         "TestGeneratedSolverProofReplayOwnsResult",
         "TestGeneratedSolverReplayLoadsFile",
         "TestGeneratedFunctionInterpretationReplay",
-        "TestGeneratedFunctionInterpretationReplayClosesIncompleteLog"
+        "TestGeneratedFunctionInterpretationReplayClosesIncompleteLog",
+        "TestGeneratedFunctionEntryReplaySurvivesModelRelease"
       ],
       "methods_audited": false,
       "ownership_audited": false,
