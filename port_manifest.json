@@ -5961,7 +5961,8 @@
         "pkg/api/z3_generated_vector_commands.go",
         "pkg/api/z3_generated_vector_commands_test.go",
         "pkg/api/z3_generated_vector_consumers_test.go",
-        "pkg/api/z3_generated_solver_commands.go"
+        "pkg/api/z3_generated_solver_commands.go",
+        "pkg/api/z3_generated_solver_extra_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6021,7 +6022,9 @@
         "TestGeneratedModelUniverseVectorReplay",
         "TestGeneratedSolverAssertionAndCoreVectorsReplay",
         "TestGeneratedSolverConsequencesReplayAppendsOutput",
-        "TestGeneratedImpliedEqualitiesReplayWritesClasses"
+        "TestGeneratedImpliedEqualitiesReplayWritesClasses",
+        "TestGeneratedSolverProofReplayOwnsResult",
+        "TestGeneratedSolverReplayLoadsFile"
       ],
       "methods_audited": false,
       "ownership_audited": false,

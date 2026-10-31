@@ -53,10 +53,11 @@ func RegisterZ3GeneratedSolverCommands(r *Z3Replayer) error {
 		{418, "Z3_solver_push", replaySolverPush}, {419, "Z3_solver_pop", replaySolverPop}, {420, "Z3_solver_reset", replaySolverReset}, {421, "Z3_solver_get_num_scopes", replaySolverScopes},
 		{422, "Z3_solver_assert", replaySolverAssert}, {423, "Z3_solver_assert_and_track", replaySolverAssertTracked},
 		{424, "Z3_solver_get_assertions", func(r *Z3Replayer) error { return replaySolverVector(r, false) }},
+		{432, "Z3_solver_get_proof", replaySolverProof},
 		{433, "Z3_solver_get_unsat_core", func(r *Z3Replayer) error { return replaySolverVector(r, true) }},
 		{429, "Z3_get_implied_equalities", replaySolverImpliedEqualities},
 		{430, "Z3_solver_get_consequences", replaySolverConsequences},
-		{426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},
+		{425, "Z3_solver_from_file", replaySolverFromFile}, {426, "Z3_solver_from_string", replaySolverFromString}, {427, "Z3_solver_check", replaySolverCheck},
 		{428, "Z3_solver_check_assumptions", replaySolverCheckAssumptions}, {434, "Z3_solver_get_reason_unknown", replaySolverReasonUnknown},
 		{436, "Z3_solver_to_string", replaySolverString},
 	}
@@ -373,4 +374,32 @@ func replaySolverImpliedEqualities(r *Z3Replayer) error {
 	}
 	copy(output, classes)
 	return nil
+}
+
+func replaySolverFromFile(r *Z3Replayer) error {
+	s, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	path, err := r.String(2)
+	if err != nil {
+		return err
+	}
+	return s.value.LoadFile(path)
+}
+func replaySolverProof(r *Z3Replayer) (err error) {
+	s, err := replayGetSolver(r)
+	if err != nil {
+		return err
+	}
+	ref, err := s.value.Proof()
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, s.owner.results.manager.DelRef(&ref)) }()
+	value, err := s.owner.results.manager.RefGet(ref)
+	if err != nil {
+		return err
+	}
+	return r.storeAST(s.owner, value)
 }

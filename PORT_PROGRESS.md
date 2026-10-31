@@ -1,3 +1,5 @@
+Generated solver file and proof replay (2026-10-31 UTC): added file loading and proof-result commands. Normal and checked tests verify loaded assertions and proof ownership after solver release; other generated commands remain unfinished.
+
 Generated implied-equalities replay (2026-10-31 UTC): added output class-array handling. Normal and checked tests verify equal and distinct classes and restored solver scope; other generated commands remain unfinished.
 
 Generated consequence replay (2026-10-31 UTC): connected solver consequences to replayed input and output AST vectors. Normal and checked tests verify append behavior and result ownership after solver release; other generated commands remain unfinished.
