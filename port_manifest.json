@@ -204569,8 +204569,8 @@
       "component": "test",
       "role": "test",
       "status": "partial",
-      "go_targets": ["pkg/util/memory/memory_cpp_driver_test.go"],
-      "tests": ["TestMemorySourceLimitSequence"],
+      "go_targets": ["pkg/util/memory/memory_cpp_driver_test.go", "pkg/api/api_memory_cpp_driver_test.go"],
+      "tests": ["TestMemorySourceLimitSequence", "TestMemorySourceGrowingBitVectorSortsRecoverAfterFailure"],
       "conditionals": [
         {
           "line": 7,
@@ -204589,7 +204589,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["The 10/20/30 MiB limits and actual allocation failures are checked with separate local runtime owners. The source Windows-only API loop that creates successive bit-vector sorts and resets process-global memory remains open."]
+      "deviations": ["The 10/20/30 MiB limits and actual allocation failures are checked with separate local runtime owners. The API loop creates successive bit-vector sorts until an injected arena reservation fails, checks previously owned sort widths, and verifies recovery; this is distinct from the source's process-global memory limit and reset sequence, which remains open."]
     },
     {
       "path": "src/test/model2expr.cpp",
