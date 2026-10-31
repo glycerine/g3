@@ -7,8 +7,11 @@ import (
 	"github.com/glycerine/g3/pkg/math/polynomial"
 )
 
-func (i *rootObjectInvocation) process(value *polynomial.Algebraic, k ast.ASTHandle, entry *rootObjectEntry) (err error) {
-	m := i.owner.manager
+func (i *rootObjectInvocation) process(value *polynomial.Algebraic, k ast.ASTHandle, entry *rootObjectEntry) error {
+	return processRootObjectConstraints(i.owner.manager, i.owner.arithmetic, value, k, func(h ast.ASTHandle) error { return i.add(h, entry) })
+}
+
+func processRootObjectConstraints(m *ast.ASTManager, arithmetic ast.FamilyID, value *polynomial.Algebraic, k ast.ASTHandle, add func(ast.ASTHandle) error) (err error) {
 	am, e := m.ArithmeticAlgebraicManager()
 	if e != nil {
 		return e
@@ -35,6 +38,9 @@ func (i *rootObjectInvocation) process(value *polynomial.Algebraic, k ast.ASTHan
 		if e != nil {
 			return e
 		}
+		if _, e = t.hold(coefficient); e != nil {
+			return e
+		}
 		term := coefficient
 		if degree > 0 {
 			power := k
@@ -43,57 +49,75 @@ func (i *rootObjectInvocation) process(value *polynomial.Algebraic, k ast.ASTHan
 				if e != nil {
 					return e
 				}
+				if _, e = t.hold(exponent); e != nil {
+					return e
+				}
 				power, e = m.MkArithmeticPower(k, exponent)
 				if e != nil {
 					return e
 				}
-				t.hold(power)
+				if _, e = t.hold(power); e != nil {
+					return e
+				}
 			}
 			term, e = m.MkArithmeticMul(coefficient, power)
 			if e != nil {
 				return e
 			}
-			t.hold(term)
+			if _, e = t.hold(term); e != nil {
+				return e
+			}
 		}
 		terms = append(terms, term)
 	}
 	if len(terms) < 2 {
 		return ast.ErrASTDomain
 	}
-	sum, e := m.MkFamilyApp(i.owner.arithmetic, 6, nil, terms)
+	sum, e := m.MkFamilyApp(arithmetic, 6, nil, terms)
 	if e != nil {
 		return e
 	}
-	t.hold(sum)
+	if _, e = t.hold(sum); e != nil {
+		return e
+	}
 	zero, e := m.ArithmeticRealNumeralText("0")
 	if e != nil {
+		return e
+	}
+	if _, e = t.hold(zero); e != nil {
 		return e
 	}
 	eq, e := m.MkEq(sum, zero)
 	if e != nil {
 		return e
 	}
-	if e = i.add(eq, entry); e != nil {
+	if e = add(eq); e != nil {
 		return e
 	}
 	lo, e := m.ArithmeticRealNumeralText(lower)
 	if e != nil {
 		return e
 	}
+	if _, e = t.hold(lo); e != nil {
+		return e
+	}
 	lowerBound, e := m.MkArithmeticLT(lo, k)
 	if e != nil {
 		return e
 	}
-	if e = i.add(lowerBound, entry); e != nil {
+	if e = add(lowerBound); e != nil {
 		return e
 	}
 	hi, e := m.ArithmeticRealNumeralText(upper)
 	if e != nil {
 		return e
 	}
+	if _, e = t.hold(hi); e != nil {
+		return e
+	}
 	upperBound, e := m.MkArithmeticLT(k, hi)
 	if e != nil {
 		return e
 	}
-	return i.add(upperBound, entry)
+	return add(upperBound)
 }

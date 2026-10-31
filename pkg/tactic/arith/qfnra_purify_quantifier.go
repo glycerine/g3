@@ -12,11 +12,17 @@ import (
 
 func (c *qfnraPurifyConfig) GetSubst(term ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
 	kind, err := c.invocation.owner.manager.GetKind(term)
-	if err != nil || kind != ast.ASTQuantifier {
+	if err != nil {
 		return ast.ASTHandle{}, ast.ASTHandle{}, false, err
 	}
-	result, proof, err := c.invocation.processQuantifier(term)
-	return result, proof, true, err
+	if kind == ast.ASTQuantifier {
+		result, proof, err := c.invocation.processQuantifier(term)
+		return result, proof, true, err
+	}
+	if kind == ast.ASTApp && c.invocation.owner.elimRoot {
+		return c.invocation.processRootObject(term)
+	}
+	return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 }
 
 func (i *qfnraPurifyInvocation) holdQuantifierResult(value ast.ASTHandle) error {

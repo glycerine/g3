@@ -182059,6 +182059,10 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_root_object.go",
+        "pkg/tactic/arith/qfnra_purify_root_object_test.go",
+        "pkg/tactic/arith/root_object_purify_process.go",
+        "pkg/tactic/smtlogics/qfufnra_algebraic_test.go",
         "pkg/tactic/arith/qfnra_purify_quantifier.go",
         "pkg/tactic/arith/qfnra_purify_quantifier_test.go",
         "pkg/tactic/arith/qfnra_purify_integer_division.go",
@@ -182071,6 +182075,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestGeneralPurifierRootCachePolicyAndModel",
+        "TestGeneralPurifierQuantifiedRootStaysScoped",
+        "TestQFUFNRATacticWithAlgebraicRoot",
         "TestPurifyQuantifierScopesFreshVariablesAndProof",
         "TestPurifyNestedQuantifiersShiftOuterVariables",
         "TestPurifyUnchangedQuantifierWithProof",
@@ -182139,6 +182146,13 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "root-object replacement in the general purifier, with shared polynomial and bound construction",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/qfnra_purify_root_object.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_root_object_test.go", "pkg/tactic/arith/root_object_purify_process.go", "pkg/tactic/smtlogics/qfufnra_algebraic_test.go"],
+          "tests": ["TestGeneralPurifierRootCachePolicyAndModel", "TestGeneralPurifierQuantifiedRootStaysScoped", "TestQFUFNRATacticWithAlgebraicRoot"]
+        },
+        {
           "name": "quantifier-local arithmetic purification, variable shifting, existential abstraction and proof reconstruction",
           "status": "partial",
           "go_target": "pkg/tactic/arith/qfnra_purify_quantifier.go",
@@ -182180,7 +182194,7 @@
       "deviations": [
         "Quantified proof reconstruction uses the actual rewritten body proof as a premise; the source process_quantifier instead passes an uninitialized result proof in those sites.",
         "When modulus occurs before division, the source builds its quotient proof using the modulus declaration and overwrites its cache entry. Go instead defines the quotient using integer division, shares both entries, and filters both fresh declarations, correcting the source proof premise and auxiliary-model leak.",
-        "The QF_UFNRA consumer also reaches the general purifier. Other general purification branches and quantified ownership/failure-frontier audits remain open; root-object and forward-trigonometric work has separate concrete implementations."
+        "The QF_UFNRA consumer also reaches the general purifier. Other general purification branches and quantified ownership/failure-frontier audits remain open; root-object elimination now also reaches the general purifier; forward-trigonometric work has a separate concrete implementation."
       ]
     },
     {
@@ -197133,6 +197147,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/smtlogics/qfufnra_algebraic_test.go",
         "pkg/tactic/smtlogics/qfufnra_tactic.go",
         "pkg/tactic/nlsat_smt/nl_purify_tactic.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -197141,6 +197156,7 @@
         "pkg/parsers/smt2/qfufnra_tactic_test.go"
       ],
       "tests": [
+        "TestQFUFNRATacticWithAlgebraicRoot",
         "TestSMT2QFUFNRATacticMixedArithmetic",
         "TestSMT2QFUFNRATacticUnsatCore",
         "TestNLPurifyCooperatingSolversMixedSatisfiability",
@@ -197165,7 +197181,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Arithmetic purification uses the existing real-arithmetic specialization; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."
+        "Arithmetic purification now includes root objects, integer division, modulus, to_int and quantified scope; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."
       ]
     },
     {

@@ -587,6 +587,7 @@ type QFNRAPurifyTactic struct {
 	params     uparams.ParamsRef
 	arithmetic ast.FamilyID
 	complete   bool
+	elimRoot   bool
 	refs       uint32
 	ownerBytes uint64
 	closed     bool
@@ -639,6 +640,10 @@ func (t *QFNRAPurifyTactic) open() error {
 func (t *QFNRAPurifyTactic) readPolicy(p *uparams.ParamsRef) (err error) {
 	name := "complete"
 	t.complete, err = t.context.GetBoolName(p, &name, true)
+	if err == nil {
+		name = "elim_root_objects"
+		t.elimRoot, err = t.context.GetBoolName(p, &name, true)
+	}
 	return err
 }
 
@@ -679,7 +684,11 @@ func (t *QFNRAPurifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		return err
 	}
 	description := "(default: true) constrain interpretations of underspecified arithmetic operators as functions."
-	return out.InsertName("complete", uparams.ParamBool, &description, nil, nil)
+	if err := out.InsertName("complete", uparams.ParamBool, &description, nil, nil); err != nil {
+		return err
+	}
+	description = "(default: true) eliminate root objects."
+	return out.InsertName("elim_root_objects", uparams.ParamBool, &description, nil, nil)
 }
 
 func (t *QFNRAPurifyTactic) CollectStatistics() map[string]float64  { return nil }
