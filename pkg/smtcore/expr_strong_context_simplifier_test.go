@@ -5,6 +5,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -49,6 +50,10 @@ func TestExprStrongContextSimplifierScopedForcedChecks(t *testing.T) {
 	if forced {
 		t.Fatal("popped context still constrained p")
 	}
+	stats := statistics.New()
+	astTestMust(t, s.CollectStatistics(stats))
+	astTestMust(t, s.ResetStatistics())
+	astTestMust(t, s.CollectStatistics(statistics.New()))
 	copy := *s
 	if err = copy.Push(); err != ast.ErrASTHandle {
 		t.Fatal("copied owner was accepted", err)

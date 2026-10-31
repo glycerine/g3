@@ -125946,20 +125946,24 @@
       "path": "src/smt/expr_context_simplifier.cpp",
       "component": "smt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/smtcore/expr_strong_context_simplifier.go",
         "pkg/smtcore/expr_strong_context_simplifier_test.go",
         "pkg/smtcore/expr_strong_context_assignments.go",
         "pkg/smtcore/expr_strong_context_assignments_test.go",
         "pkg/smtcore/expr_strong_context_traversal.go",
-        "pkg/smtcore/expr_strong_context_traversal_test.go"
+        "pkg/smtcore/expr_strong_context_traversal_test.go",
+        "pkg/qe/sat_partial_search.go",
+        "pkg/qe/sat_partial_search_test.go"
       ],
       "tests": [
         "TestExprStrongContextSimplifierScopedForcedChecks",
         "TestStrongContextAssignmentPropagation",
         "TestExprStrongContextSimplifierModelBased",
-        "TestExprStrongContextSimplifierPreservesEquivalence"
+        "TestExprStrongContextSimplifierPreservesEquivalence",
+        "TestExprStrongContextSimplifierAllocationFailureCanRetry",
+        "TestSATPartialSearchStrongContextModes"
       ],
       "conditionals": [
         {
@@ -125981,8 +125985,8 @@
           "text": "VERIFY(cache.find(fml, path_r));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "expr_context_simplifier local Boolean context reduction and fixed-point traversal",
@@ -125991,7 +125995,7 @@
         },
         {
           "name": "strong context simplifier lifecycle, scoped assertions, forced-value checks, and statistics",
-          "status": "partial",
+          "status": "ported",
           "tests": [
             "TestExprStrongContextSimplifierScopedForcedChecks"
           ],
@@ -126004,40 +126008,49 @@
         },
         {
           "name": "strong context simplifier model-based traversal and path-sensitive cache",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/smtcore/expr_strong_context_traversal.go",
           "tests": [
             "TestExprStrongContextSimplifierModelBased",
             "TestExprStrongContextSimplifierPreservesEquivalence"
           ]
+        },
+        {
+          "name": "simplify_basic traversal has no caller; simplify dispatches to simplify_model_based",
+          "status": "reference_only",
+          "tests": []
         }
       ],
       "ownership": [
-        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed.",
-        "Assignment snapshots and temporary naming expressions own AST references; traversal restores solver scopes and returns an owned result reference."
+        "The simplifier owns its SMT solver, naming declaration, assignment snapshots and temporary expression references; its AST manager and configuration are borrowed.",
+        "The traversal restores temporary solver scopes and returns an owned result reference. Failure-injection checks cover recovery and caller scope preservation."
       ],
       "deviations": [
-        "Strong model-based traversal is connected to the live QE-SAT partial-projection consumer. Source and ownership audits remain incomplete; the separate local Boolean simplifier and unused basic traversal have no live source consumer."
+        "The separate local Boolean simplifier and simplify_basic have no live source consumer. QE-SAT uses the model-based strong simplifier."
       ]
     },
     {
       "path": "src/smt/expr_context_simplifier.h",
       "component": "smt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/smtcore/expr_strong_context_simplifier.go",
         "pkg/smtcore/expr_strong_context_simplifier_test.go",
         "pkg/smtcore/expr_strong_context_assignments.go",
         "pkg/smtcore/expr_strong_context_assignments_test.go",
         "pkg/smtcore/expr_strong_context_traversal.go",
-        "pkg/smtcore/expr_strong_context_traversal_test.go"
+        "pkg/smtcore/expr_strong_context_traversal_test.go",
+        "pkg/qe/sat_partial_search.go",
+        "pkg/qe/sat_partial_search_test.go"
       ],
       "tests": [
         "TestExprStrongContextSimplifierScopedForcedChecks",
         "TestStrongContextAssignmentPropagation",
         "TestExprStrongContextSimplifierModelBased",
-        "TestExprStrongContextSimplifierPreservesEquivalence"
+        "TestExprStrongContextSimplifierPreservesEquivalence",
+        "TestExprStrongContextSimplifierAllocationFailureCanRetry",
+        "TestSATPartialSearchStrongContextModes"
       ],
       "conditionals": [
         {
@@ -126049,12 +126062,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "strong context simplifier declarations and scoped solver ownership",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/smtcore/expr_strong_context_simplifier.go",
           "tests": [
             "TestExprStrongContextSimplifierScopedForcedChecks"
@@ -126062,20 +126075,30 @@
         },
         {
           "name": "strong context simplifier model-based traversal and path-sensitive cache",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/smtcore/expr_strong_context_traversal.go",
           "tests": [
             "TestExprStrongContextSimplifierModelBased",
             "TestExprStrongContextSimplifierPreservesEquivalence"
           ]
+        },
+        {
+          "name": "simplify_basic traversal has no caller; simplify dispatches to simplify_model_based",
+          "status": "reference_only",
+          "tests": []
+        },
+        {
+          "name": "expr_context_simplifier local Boolean context reduction has no live source consumer",
+          "status": "reference_only",
+          "tests": []
         }
       ],
       "ownership": [
-        "The strong simplifier owns its SMT solver and naming declaration; manager and configuration are borrowed.",
-        "Assignment snapshots and temporary naming expressions own AST references; traversal restores solver scopes and returns an owned result reference."
+        "The simplifier owns its SMT solver, naming declaration, assignment snapshots and temporary expression references; its AST manager and configuration are borrowed.",
+        "The traversal restores temporary solver scopes and returns an owned result reference. Failure-injection checks cover recovery and caller scope preservation."
       ],
       "deviations": [
-        "Strong model-based traversal is connected to the live QE-SAT partial-projection consumer. Source and ownership audits remain incomplete; the separate local Boolean simplifier and unused basic traversal have no live source consumer."
+        "The separate local Boolean simplifier and simplify_basic have no live source consumer. QE-SAT uses the model-based strong simplifier."
       ]
     },
     {
