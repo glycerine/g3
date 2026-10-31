@@ -3,6 +3,7 @@ package shell
 import (
 	"fmt"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"math/big"
 )
 
 func (f *WCNFFrontend) WriteResult() error {
@@ -25,6 +26,17 @@ func (f *WCNFFrontend) WriteResult() error {
 	}
 	if f.status == lbool.True && f.summary.SoftClauses > 0 {
 		if e := f.context.WriteOptimizationFrontendValues(f.output); e != nil {
+			return e
+		}
+	}
+	if f.status == lbool.False && f.summary.SoftClauses > 0 {
+		var upper big.Int
+		for _, clause := range f.document.Clauses {
+			if clause.Weight < f.document.TopWeight {
+				upper.Add(&upper, new(big.Int).SetUint64(clause.Weight))
+			}
+		}
+		if _, e := fmt.Fprintf(f.output, "  [0:%s]\n", upper.String()); e != nil {
 			return e
 		}
 	}

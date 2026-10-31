@@ -61,6 +61,20 @@ func TestOPBFrontendHardUnsat(t *testing.T) {
 	}
 }
 
+func TestOPBFrontendUnsatObjectiveBounds(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewOPBFrontend(opbFrontendContext(t), &output, OPBFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Run(strings.NewReader("min: 2 x1; 1 x1 >= 1; 1 ~x1 >= 1;")); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "unsat\n  [(* (- 1) oo):oo]\n" {
+		t.Fatalf("unsat bounds: %q", output.String())
+	}
+}
+
 func TestOPBFrontendStatisticsPrecedeObjective(t *testing.T) {
 	var output bytes.Buffer
 	f, err := NewOPBFrontend(opbFrontendContext(t), &output, OPBFrontendOptions{DisplayStatistics: true})

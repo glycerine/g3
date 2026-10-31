@@ -120713,7 +120713,9 @@
         "TestRunnerDispatchesOPB",
         "TestRunnerDispatchesWCNF",
         "TestOptimizationFrontendArguments",
-        "TestOptimizationFrontendFileTypeDetection"
+        "TestOptimizationFrontendFileTypeDetection",
+        "TestOPBFrontendUnsatObjectiveBounds",
+        "TestWCNFFrontendUnsatObjectiveBounds"
       ],
       "assertions": [
         {
@@ -120746,7 +120748,7 @@
         "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
       ],
       "deviations": [
-        "Pending native optimization frontend behavior for unavailable bounds on unsat/unknown, signal/timeout and statistics formatting, and full source/ownership audit. Available objective bounds now use the native shell format."
+        "Pending native optimization frontend behavior for unknown bounds, signal/timeout and statistics formatting, and full source/ownership audit. Successful and initially unsatisfiable objective bounds use the native shell format."
       ]
     },
     {
@@ -120778,7 +120780,9 @@
         "TestRunnerDispatchesOPB",
         "TestRunnerDispatchesWCNF",
         "TestOptimizationFrontendArguments",
-        "TestOptimizationFrontendFileTypeDetection"
+        "TestOptimizationFrontendFileTypeDetection",
+        "TestOPBFrontendUnsatObjectiveBounds",
+        "TestWCNFFrontendUnsatObjectiveBounds"
       ],
       "conditionals": [
         {
@@ -120815,7 +120819,7 @@
         "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
       ],
       "deviations": [
-        "Pending native optimization frontend behavior for unavailable bounds on unsat/unknown, signal/timeout and statistics formatting, and full source/ownership audit. Available objective bounds now use the native shell format."
+        "Pending native optimization frontend behavior for unknown bounds, signal/timeout and statistics formatting, and full source/ownership audit. Successful and initially unsatisfiable objective bounds use the native shell format."
       ]
     },
     {

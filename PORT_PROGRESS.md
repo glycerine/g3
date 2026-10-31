@@ -1,3 +1,5 @@
+Optimization frontend unsatisfiable bounds (2026-10-31 UTC): added the native default objective-bound display for hard-unsatisfiable OPB and WCNF input, with representative reference comparisons. Unknown-result bounds and signal/timeout behavior remain pending.
+
 Optimization header source coverage (2026-10-31 UTC): recorded existing objective solver and SortMax concrete implementations against optsmt.h, opt_solver.h and wmax.h, and tested SortMax through WCNF command dispatch. WMax and remaining optimization engines and header audits are pending.
 
 Optimization frontend output and OPB fix (2026-10-31 UTC): available OPB and WCNF objective bounds now use the native shell format and follow statistics output. Single-term OPB constraints are reduced to equivalent Boolean conditions, avoiding an optimizer AST precondition failure; unsat/unknown bounds, signal/timeout and statistics parity remain pending.

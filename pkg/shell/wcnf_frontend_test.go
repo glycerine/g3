@@ -67,3 +67,18 @@ func TestWCNFFrontendHardUnsatAndLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestWCNFFrontendUnsatObjectiveBounds(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewWCNFFrontend(wcnfFrontendContext(t), &output, WCNFFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := "p wcnf 1 4 10\n10 1 0\n10 -1 0\n2 1 0\n3 -1 0\n"
+	if err = f.Run(strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "unsat\n  [0:5]\n" {
+		t.Fatalf("unsat bounds: %q", output.String())
+	}
+}

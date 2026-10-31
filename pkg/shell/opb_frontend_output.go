@@ -29,5 +29,12 @@ func (f *OPBFrontend) WriteResult() error {
 			return err
 		}
 	}
+	if f.status == lbool.False {
+		for i := 0; i < f.summary.Objectives; i++ {
+			if _, err := fmt.Fprintln(f.output, "  [(* (- 1) oo):oo]"); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
