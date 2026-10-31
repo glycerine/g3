@@ -93,3 +93,34 @@ func TestDegreeShiftCancellationAndReuse(t *testing.T) {
 		t.Fatalf("after reset got %d formulas, want 2", size)
 	}
 }
+
+func TestDegreeShiftContextTranslationUsesTargetServices(t *testing.T) {
+	source, sourceManager := fixDLFixture(t, false)
+	shift, err := NewDegreeShiftTactic(sourceManager, source.services)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, shift.Close()) })
+	target, targetManager := fixDLFixture(t, false)
+	translated, matched, err := TranslateContextLeaf(shift, targetManager, target.context, target.globals, target.services)
+	equationMust(t, err)
+	if !matched {
+		t.Fatal("degree-shift was not translated")
+	}
+	copy := translated.(*DegreeShiftTactic)
+	t.Cleanup(func() { equationMust(t, copy.Close()) })
+	if copy.services.Context != target.context || copy.services.Cooperation != target.services.Cooperation {
+		t.Fatal("translation kept source evaluator services")
+	}
+	equationMust(t, shift.Close())
+	x := fixDLConst(t, targetManager, false, "translated-degree-x")
+	power := fixDLApp(t, targetManager, 18, x, fixDLNumber(t, targetManager, false, "2"))
+	form, err := targetManager.MkEq(power, fixDLNumber(t, targetManager, false, "4"))
+	equationMust(t, err)
+	fixDLPin(t, targetManager, form)
+	goal := fixDLGoal(t, targetManager, false, true, false, form)
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	equationMust(t, copy.Apply(goal, &result))
+	if result.ModelConverter == nil {
+		t.Fatal("translated degree shift did not create model converter")
+	}
+}

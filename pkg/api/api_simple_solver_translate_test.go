@@ -946,3 +946,57 @@ func TestAPITacticSolverTranslateSplitClauseAfterSourceClose(t *testing.T) {
 		t.Fatal("translated solver", status)
 	}
 }
+
+func TestAPITacticSolverTranslateDegreeShiftAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_NRA"))
+	shift, err := source.Tactic("degree-shift")
+	astTestMust(t, err)
+	smt, err := source.Tactic("smt")
+	astTestMust(t, err)
+	combined, err := shift.AndThen(smt)
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(combined)
+	astTestMust(t, err)
+	for _, owner := range []*APITactic{combined, smt, shift} {
+		astTestMust(t, owner.Close())
+	}
+	astTestMust(t, solver.LoadSMT2String("(declare-const x Real) (assert (= (* x x) 4)) (assert (> x 0))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("translated solver", status)
+	}
+	model, err := translated.Model()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, model.Close()) }()
+	manager, err := target.Manager()
+	astTestMust(t, err)
+	assertions, err := translated.Assertions()
+	astTestMust(t, err)
+	defer releaseAPIRefs(t, manager, assertions)
+	if len(assertions) != 2 {
+		t.Fatalf("translated assertion count = %d, want 2", len(assertions))
+	}
+	for _, assertion := range assertions {
+		h, err := manager.RefGet(assertion)
+		astTestMust(t, err)
+		value, err := model.Evaluate(h, true)
+		astTestMust(t, err)
+		actual, err := manager.RefGet(value)
+		astTestMust(t, err)
+		if !manager.IsTrue(actual) {
+			t.Fatal("translated model violates original assertion")
+		}
+		astTestMust(t, manager.DelRef(&value))
+	}
+}

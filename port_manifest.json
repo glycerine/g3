@@ -177758,6 +177758,8 @@
         "pkg/tactic/arith/degree_shift_bounds_test.go",
         "pkg/tactic/arith/degree_shift_model_test.go",
         "pkg/tactic/arith/degree_shift_tactic_test.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/unstarted_collectors_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/degree_shift_integration_test.go"
@@ -177771,6 +177773,8 @@
         "TestDegreeShiftModelReconstruction",
         "TestDegreeShiftTacticApply",
         "TestDegreeShiftFactorySimplifiesMultiplication",
+        "TestDegreeShiftContextTranslationUsesTargetServices",
+        "TestAPITacticSolverTranslateDegreeShiftAfterSourceClose",
         "TestSMTLibRunnerDegreeShiftTactic"
       ],
       "assertions": [
@@ -177883,6 +177887,8 @@
         "pkg/tactic/arith/degree_shift_bounds_test.go",
         "pkg/tactic/arith/degree_shift_model_test.go",
         "pkg/tactic/arith/degree_shift_tactic_test.go",
+        "pkg/tactic/arith/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/unstarted_collectors_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/degree_shift_integration_test.go"
@@ -177896,6 +177902,8 @@
         "TestDegreeShiftModelReconstruction",
         "TestDegreeShiftTacticApply",
         "TestDegreeShiftFactorySimplifiesMultiplication",
+        "TestDegreeShiftContextTranslationUsesTargetServices",
+        "TestAPITacticSolverTranslateDegreeShiftAfterSourceClose",
         "TestSMTLibRunnerDegreeShiftTactic"
       ],
       "conditionals": [

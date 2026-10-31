@@ -11,6 +11,13 @@ import (
 )
 
 func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.ParamsContext, g *uparams.GlobalParamsService, services model.ModelEvaluatorConfig) (result tactic.Tactic, matched bool, resultErr error) {
+	if t, ok := value.(*DegreeShiftTactic); ok {
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		next, err := NewDegreeShiftTactic(m, services)
+		return next, true, err
+	}
 	if t, ok := value.(*Eq2BVTactic); ok {
 		if err := t.open(); err != nil {
 			return nil, true, err
