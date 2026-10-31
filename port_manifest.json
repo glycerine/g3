@@ -100930,7 +100930,8 @@
       "go_targets": [
         "pkg/muz/transforms/interp_tail_simplifier.go",
         "pkg/muz/transforms/boolean_normalizer.go",
-        "pkg/muz/fp/spacer_engine.go"
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth",
@@ -101019,13 +101020,17 @@
           "name": "normalizer_cfg sorted AND/OR duplicate normalization and paired-clause equivalence recognition",
           "status": "ported",
           "go_target": "pkg/muz/transforms/boolean_normalizer.go",
-          "tests": ["TestInterpTailSimplifierRecognizesPairedClauseEquivalence"]
+          "tests": [
+            "TestInterpTailSimplifierRecognizesPairedClauseEquivalence"
+          ]
         },
         {
           "name": "propagate_variable_equivalences nested and negated IFF polarity cases",
           "status": "ported",
           "go_target": "pkg/muz/transforms/interp_tail_simplifier.go",
-          "tests": ["TestInterpTailSimplifierPropagatesIffPolarity"]
+          "tests": [
+            "TestInterpTailSimplifierPropagatesIffPolarity"
+          ]
         },
         {
           "name": "paired arithmetic inequality recognition guarded by the literal source condition if (false)",
@@ -101093,8 +101098,22 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/karr_invariants.go", "pkg/muz/transforms/karr_invariants_test.go", "pkg/muz/fp/spacer_karr_results.go", "pkg/muz/fp/spacer_karr_results_test.go", "pkg/muz/fp/spacer_engine.go"],
-      "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsStopsAfterCanceledForwardAnalysis", "TestKarrInvariantsSkipsNegatedPrograms", "TestSpacerKarrConjoinsInvariantWithPredicateModel", "TestSMTLibRunnerScripts/fp_spacer_karr.smt2", "TestSMTLibRunnerCPPReference/fp_spacer_karr.smt2"],
+      "go_targets": [
+        "pkg/muz/transforms/karr_invariants.go",
+        "pkg/muz/transforms/karr_invariants_test.go",
+        "pkg/muz/fp/spacer_karr_results.go",
+        "pkg/muz/fp/spacer_karr_results_test.go",
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
+      ],
+      "tests": [
+        "TestKarrInvariantsAnnotatesAffineRecurrence",
+        "TestKarrInvariantsStopsAfterCanceledForwardAnalysis",
+        "TestKarrInvariantsSkipsNegatedPrograms",
+        "TestSpacerKarrConjoinsInvariantWithPredicateModel",
+        "TestSMTLibRunnerScripts/fp_spacer_karr.smt2",
+        "TestSMTLibRunnerCPPReference/fp_spacer_karr.smt2"
+      ],
       "assertions": [
         {
           "line": 129,
@@ -101112,12 +101131,24 @@
           "name": "forward and backward invariant saturation, rule annotation, loop-counter reversion and model repair",
           "status": "ported",
           "go_target": "pkg/muz/transforms/karr_invariants.go",
-          "go_targets": ["pkg/muz/fp/spacer_karr_results.go", "pkg/muz/fp/spacer_engine.go"],
-          "tests": ["TestKarrInvariantsAnnotatesAffineRecurrence", "TestKarrInvariantsStopsAfterCanceledForwardAnalysis", "TestKarrInvariantsSkipsNegatedPrograms", "TestSpacerKarrConjoinsInvariantWithPredicateModel"]
+          "go_targets": [
+            "pkg/muz/fp/spacer_karr_results.go",
+            "pkg/muz/fp/spacer_engine.go"
+          ],
+          "tests": [
+            "TestKarrInvariantsAnnotatesAffineRecurrence",
+            "TestKarrInvariantsStopsAfterCanceledForwardAnalysis",
+            "TestKarrInvariantsSkipsNegatedPrograms",
+            "TestSpacerKarrConjoinsInvariantWithPredicateModel"
+          ]
         }
       ],
-      "ownership": ["The transformation owns transient loop/backward rule sets and concrete Karr relations. Exported model matrices are deep copies; the Spacer engine owns them until reset and conjoins them into model interpretations."],
-      "deviations": ["The inner generic datalog context is replaced by a concrete typed Horn saturation loop over KarrRelation. This preserves retained rule semantics without adding unused relation callback adapters. The old 4.7.1 reference rejects non-empty Karr programs after loop-counter insertion as infinite-sort datalog rules, so exact runner coverage uses the empty-rule integration boundary while the affine algorithm is covered directly."]
+      "ownership": [
+        "The transformation owns transient loop/backward rule sets and concrete Karr relations. Exported model matrices are deep copies; the Spacer engine owns them until reset and conjoins them into model interpretations."
+      ],
+      "deviations": [
+        "The inner generic datalog context is replaced by a concrete typed Horn saturation loop over KarrRelation. This preserves retained rule semantics without adding unused relation callback adapters. The old 4.7.1 reference rejects non-empty Karr programs after loop-counter insertion as infinite-sort datalog rules, so exact runner coverage uses the empty-rule integration boundary while the affine algorithm is covered directly."
+      ]
     },
     {
       "path": "src/muz/transforms/dl_mk_karr_invariants.h",
@@ -101373,7 +101404,8 @@
       "go_targets": [
         "pkg/muz/transforms/magic_symbolic.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_magic.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_magic.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestMagicSymbolicBuildsAnswerAndPrefixQueryRules",
@@ -101392,6 +101424,9 @@
             "TestMagicSymbolicBuildsAnswerAndPrefixQueryRules",
             "TestMagicSymbolicReusesTypedDerivedPredicates",
             "TestSMTLibRunnerCPPReference/fp_spacer_magic.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -101443,7 +101478,8 @@
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/spacer_quantifier_results.go",
         "pkg/muz/fp/spacer_quantifier_results_test.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_quantifier_abstraction.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_quantifier_abstraction.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestQuantifierAbstractionExpandsInternalArrayPredicate",
@@ -101483,7 +101519,8 @@
           "go_targets": [
             "pkg/muz/transforms/quantifier_abstraction.go",
             "pkg/muz/fp/spacer_quantifier_results.go",
-            "pkg/muz/fp/spacer_engine.go"
+            "pkg/muz/fp/spacer_engine.go",
+            "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
             "TestQuantifierAbstractionExpandsInternalArrayPredicate",
@@ -101560,7 +101597,8 @@
         "pkg/muz/transforms/quantifier_instantiation.go",
         "pkg/muz/transforms/quantifier_instantiation_test.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_quantifier_instantiation.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_quantifier_instantiation.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph",
@@ -101588,6 +101626,9 @@
             "TestQuantifierInstantiationMatchesPatternAgainstHornEGraph",
             "TestQuantifierInstantiationRefusesNegatedRulesAndNoQuantifiers",
             "TestSMTLibRunnerCPPReference"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -101645,7 +101686,8 @@
         "pkg/muz/transforms/rule_inliner.go",
         "pkg/muz/transforms/rule_unifier.go",
         "pkg/muz/transforms/rule_unifier_test.go",
-        "pkg/muz/fp/spacer_engine.go"
+        "pkg/muz/fp/spacer_engine.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
@@ -101758,6 +101800,9 @@
             "TestRuleInlinerPreservesRecursivePredicate",
             "TestRuleInlinerBreaksMutualCycleAtOnePredicate",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_acyclic_inlining.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -101767,18 +101812,21 @@
           "tests": [
             "TestRuleInlinerContractsUniqueLinearGroundChain",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_nonlinear_inlining.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
-      "name": "xform.inline_eager/xform.inline_linear gating and whole-plugin refusal when any interpreted rule tail contains a quantifier",
-      "status": "ported",
-      "go_target": "pkg/muz/transforms/rule_inliner.go",
-      "tests": [
-        "TestRuleInlinerHonorsDisabledModes",
-        "TestRuleInlinerRefusesMixedQuantifiedProgram"
-      ]
-    },
-    {
+          "name": "xform.inline_eager/xform.inline_linear gating and whole-plugin refusal when any interpreted rule tail contains a quantifier",
+          "status": "ported",
+          "go_target": "pkg/muz/transforms/rule_inliner.go",
+          "tests": [
+            "TestRuleInlinerHonorsDisabledModes",
+            "TestRuleInlinerRefusesMixedQuantifiedProgram"
+          ]
+        },
+        {
           "name": "multi-definition multiplier planning that prevents combinatorial eager expansion",
           "status": "ported",
           "go_target": "pkg/muz/transforms/rule_inliner.go",
@@ -101794,6 +101842,9 @@
             "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
             "TestRuleInlinerUsesDisjointVariableBanks",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_acyclic_inlining.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -101803,6 +101854,9 @@
           "tests": [
             "TestRuleInlinerOrientedEagerUsesUniqueUnifyingDefinition",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_inliner_resolution.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -101812,13 +101866,19 @@
           "tests": [
             "TestRuleInlinerDropsResolvedFalseInterpretedTail",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_inliner_resolution.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
           "name": "ordered removed-clause model capture, normalization, reverse evaluation, default-false completion, and disjunctive interpretation reconstruction",
           "status": "ported",
           "go_target": "pkg/muz/fp/horn_inline_results.go",
-          "tests": ["TestHornModelConversionsReplayInReverseApplicationOrder", "TestPDREngineExpandsSlicedModelsAndCovers"]
+          "tests": [
+            "TestHornModelConversionsReplayInReverseApplicationOrder",
+            "TestPDREngineExpandsSlicedModelsAndCovers"
+          ]
         },
         {
           "name": "standalone proof-object conversion",
@@ -101842,7 +101902,8 @@
       "go_targets": [
         "pkg/muz/transforms/rule_inliner.go",
         "pkg/muz/transforms/rule_unifier.go",
-        "pkg/muz/transforms/rule_unifier_test.go"
+        "pkg/muz/transforms/rule_unifier_test.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput",
@@ -101850,14 +101911,14 @@
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestRuleInlinerVariableProofSubstitutionsOwnReferencesOnce",
         "TestRuleInlinerPreservesRecursivePredicate",
-    "TestRuleInlinerContractsUniqueLinearGroundChain",
-    "TestRuleInlinerHonorsDisabledModes",
-    "TestRuleInlinerRefusesMixedQuantifiedProgram",
-    "TestRuleInlinerBreaksMutualCycleAtOnePredicate",
-    "TestRuleInlinerForbidsSecondRuleMultiplier",
-    "TestRuleInlinerOrientedEagerUsesUniqueUnifyingDefinition",
-    "TestRuleInlinerDropsResolvedFalseInterpretedTail",
-    "TestSMTLibRunnerCPPReference/fixedpoint_spacer_inliner_resolution.smt2"
+        "TestRuleInlinerContractsUniqueLinearGroundChain",
+        "TestRuleInlinerHonorsDisabledModes",
+        "TestRuleInlinerRefusesMixedQuantifiedProgram",
+        "TestRuleInlinerBreaksMutualCycleAtOnePredicate",
+        "TestRuleInlinerForbidsSecondRuleMultiplier",
+        "TestRuleInlinerOrientedEagerUsesUniqueUnifyingDefinition",
+        "TestRuleInlinerDropsResolvedFalseInterpretedTail",
+        "TestSMTLibRunnerCPPReference/fixedpoint_spacer_inliner_resolution.smt2"
       ],
       "conditionals": [
         {
@@ -101897,7 +101958,8 @@
         "pkg/muz/transforms/scale.go",
         "pkg/muz/fp/spacer_scale_results.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/cmd/g3/test_vectors/fp_spacer_scale.smt2"
+        "pkg/cmd/g3/test_vectors/fp_spacer_scale.smt2",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestScaleAddsHomogeneousPredicateArgumentAndGuards",
@@ -101926,6 +101988,10 @@
             "TestScaleAddsHomogeneousPredicateArgumentAndGuards",
             "TestSpacerScaleReconstructsOriginalPredicateModel",
             "TestSMTLibRunnerCPPReference/fp_spacer_scale.smt2"
+          ],
+          "go_targets": [
+            "pkg/muz/fp/spacer_scale_results_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
@@ -101940,8 +102006,12 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/muz/transforms/scale.go"],
-      "tests": ["TestScaleAddsHomogeneousPredicateArgumentAndGuards"],
+      "go_targets": [
+        "pkg/muz/transforms/scale.go"
+      ],
+      "tests": [
+        "TestScaleAddsHomogeneousPredicateArgumentAndGuards"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -101959,8 +102029,16 @@
           "name": "scale_model_converter declaration plus mk_scale construction/destruction, linearize/mk_pred/mk_constraint, and transform surface",
           "status": "ported",
           "go_target": "pkg/muz/transforms/scale.go",
-          "go_targets": ["pkg/muz/fp/spacer_scale_results.go", "pkg/muz/fp/spacer_engine.go"],
-          "tests": ["TestScaleAddsHomogeneousPredicateArgumentAndGuards", "TestSpacerScaleReconstructsOriginalPredicateModel", "TestSMTLibRunnerCPPReference/fp_spacer_scale.smt2"]
+          "go_targets": [
+            "pkg/muz/fp/spacer_scale_results.go",
+            "pkg/muz/fp/spacer_engine.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestScaleAddsHomogeneousPredicateArgumentAndGuards",
+            "TestSpacerScaleReconstructsOriginalPredicateModel",
+            "TestSMTLibRunnerCPPReference/fp_spacer_scale.smt2"
+          ]
         }
       ],
       "ownership": [
@@ -102019,7 +102097,8 @@
         "pkg/muz/transforms/rule_slice.go",
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/spacer_engine.go",
-        "pkg/muz/fp/spacer_slice_results.go"
+        "pkg/muz/fp/spacer_slice_results.go",
+        "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
@@ -102081,6 +102160,9 @@
             "TestRuleSliceRetainsConstantConstrainedColumn",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_tail.smt2",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_sliced_compound_head.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -102090,6 +102172,9 @@
           "tests": [
             "TestRuleSliceRemovesUnconstrainedPredicateColumns",
             "TestSMTLibRunnerCPPReference/fixedpoint_spacer_slice_columns.smt2"
+          ],
+          "go_targets": [
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
