@@ -12071,9 +12071,19 @@
       "path": "src/api/z3_api.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_solver.go",
+        "pkg/api/api_numerals.go",
+        "pkg/api/api_solver_test.go",
+        "pkg/api/api_numerals_test.go",
+        "pkg/api/api_private_numeral_test.go"
+      ],
+      "tests": [
+        "TestSMTContextEndToEndModelScopesAndAssumptions",
+        "TestSMTContextNumeralConstructionAndQueries",
+        "TestNumeralRationalSourceFamiliesAndOwnership"
+      ],
       "conditionals": [
         {
           "line": 5,
@@ -12110,9 +12120,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "context-level solver scopes, assertions and checks",
+          "status": "partial",
+          "go_target": "pkg/api/api_solver.go",
+          "tests": [
+            "TestSMTContextEndToEndModelScopesAndAssumptions"
+          ]
+        },
+        {
+          "name": "arithmetic, bit-vector and finite-domain numerals",
+          "status": "partial",
+          "go_target": "pkg/api/api_numerals.go",
+          "tests": [
+            "TestNumeralRationalSourceFamiliesAndOwnership"
+          ]
+        }
+      ],
+      "ownership": [
+        "Go context and AST lifetime are represented by explicit context and reference ownership."
+      ],
+      "deviations": [
+        "The large header remains substantially unaudited and numerous declarations may be unported; Go APIs do not supply a C ABI."
+      ]
     },
     {
       "path": "src/api/z3_ast_containers.h",
@@ -12555,9 +12586,14 @@
       "path": "src/api/z3_private.h",
       "component": "api",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/api/api_numerals.go",
+        "pkg/api/api_private_numeral_test.go"
+      ],
+      "tests": [
+        "TestNumeralRationalSourceFamiliesAndOwnership"
+      ],
       "conditionals": [
         {
           "line": 25,
@@ -12586,9 +12622,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "get_numeral_rational concrete arithmetic, bit-vector and datalog values",
+          "status": "partial",
+          "go_target": "pkg/api/api_numerals.go",
+          "tests": [
+            "TestNumeralRationalSourceFamiliesAndOwnership"
+          ]
+        }
+      ],
+      "ownership": [
+        "Returned Go rational values are independent copies."
+      ],
+      "deviations": [
+        "Pending private header and ownership audit; the Go method does not provide the C++ rational-reference ABI."
+      ]
     },
     {
       "path": "src/api/z3_rcf.h",

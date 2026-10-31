@@ -1,3 +1,5 @@
+Core API header source start (2026-10-31 UTC): recorded existing Go context, solver and numeral functionality against z3_api.h and z3_private.h. Added tests for copied rational results from arithmetic, bit-vector and finite-domain numerals; the large API header and ABI remain unaudited.
+
 Numeric public API header coverage (2026-10-31 UTC): recorded existing Go floating-point, algebraic, rational RCF and polynomial subresultant implementations against four previously unstarted headers. A new cross-component test passes an RCF rational result into algebraic arithmetic; the non-rational RCF operations and full header audits remain pending.
 
 Public API header coverage (2026-10-31 UTC): recorded existing concrete AST container, optimization, fixedpoint and Spacer Go APIs against four previously unstarted headers. A new cross-component test verifies an optimization bound remains owned by both an AST map and vector; full declaration and lifetime audits remain pending.
