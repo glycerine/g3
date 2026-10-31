@@ -52322,3 +52322,5 @@ Source-driver audit: classified seven test units as reference-only after verifyi
 Source-consumer audit: classified six additional standalone drivers as reference-only. Their specific template instantiations or test-only entry points have no retained Go production consumer, or exercise C++ string/trace formatting that the Go port intentionally replaces; the manifest records each reason without crediting a port.
 
 Test-tool source audit: classified the unused delta reducer and Windows-only file walker, the standalone expression-file generator, the generated test tactic installer and the C++ test dispatcher as reference-only. Source searches found no retained Go production consumers for these test tools; Go package tests and tactic registration use their existing native harnesses.
+
+Real-closure source driver started: translated both integer solve cases, all three independent-row examples and the source tensor/column-selection example. The real-closure numeral and denominator-cleaning examples remain open; the printed matrix row permutation is used only by this source driver.

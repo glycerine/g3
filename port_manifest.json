@@ -209495,9 +209495,9 @@
       "path": "src/test/rcf.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/math/realclosure/rcf_cpp_driver_test.go"],
+      "tests": ["TestRealClosureSourceMatrixExamples"],
       "conditionals": [
         {
           "line": 28,
@@ -209538,7 +209538,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The source integer solves, tensor column selection and independent-row examples are covered. The separately printed matrix permutation is used only by this source driver; real-closure arithmetic and denominator-cleaning examples remain open."]
     },
     {
       "path": "src/test/region.cpp",
