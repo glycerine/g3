@@ -8,6 +8,7 @@ import (
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/bmc"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -123,5 +124,30 @@ func TestBMCLinearCompilationSharesRuleVariables(t *testing.T) {
 		if status != tc.want {
 			t.Fatal("linear query", tc.value, status, tc.want)
 		}
+	}
+	for _, tc := range []struct {
+		depth uint32
+		want  lbool.LBool
+	}{{1, lbool.Undef}, {2, lbool.True}} {
+		raw, err := context.NewSimpleSolver()
+		must(err)
+		backend, ok := raw.(*smtcore.SMTSolver)
+		if !ok {
+			t.Fatal("simple solver is not native SMT")
+		}
+		status, level, err := compiler.SearchLinear(set, b, backend, tc.depth)
+		must(err)
+		if status != tc.want || level != 1 {
+			t.Fatal("bounded linear search", tc.depth, status, level)
+		}
+		if status == lbool.True {
+			md, err := backend.AcquireModel()
+			must(err)
+			if md == nil {
+				t.Fatal("missing linear model")
+			}
+			must(md.DecRef())
+		}
+		must(raw.Close())
 	}
 }
