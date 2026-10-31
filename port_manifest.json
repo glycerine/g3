@@ -91208,7 +91208,8 @@
         "pkg/muz/rel/bound_relation_transform.go",
         "pkg/muz/rel/bound_relation_transform_test.go",
         "pkg/muz/rel/bound_relation_formula.go",
-        "pkg/muz/rel/bound_relation_formula_test.go"
+        "pkg/muz/rel/bound_relation_formula_test.go",
+        "pkg/muz/rel/empty_relation_formula_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -91226,6 +91227,7 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
+        "TestEmptyRelationsExportFalse",
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionDelta"
       ],
@@ -91362,7 +91364,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative. Go also offsets right-hand bound indices during join; the source vector join copies them unchanged into the concatenated signature.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative. Go also offsets right-hand bound indices during join; the source vector join copies them unchanged into the concatenated signature. Empty bound relations export false, while the source formula builder ignores the empty flag.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },
@@ -91382,7 +91384,8 @@
         "pkg/muz/rel/bound_relation_transform.go",
         "pkg/muz/rel/bound_relation_transform_test.go",
         "pkg/muz/rel/bound_relation_formula.go",
-        "pkg/muz/rel/bound_relation_formula_test.go"
+        "pkg/muz/rel/bound_relation_formula_test.go",
+        "pkg/muz/rel/empty_relation_formula_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -91396,6 +91399,7 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
+        "TestEmptyRelationsExportFalse",
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionDelta"
       ],
@@ -91500,7 +91504,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative. Go also offsets right-hand bound indices during join; the source vector join copies them unchanged into the concatenated signature.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative. Go also offsets right-hand bound indices during join; the source vector join copies them unchanged into the concatenated signature. Empty bound relations export false, while the source formula builder ignores the empty flag.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },
@@ -93124,7 +93128,8 @@
         "pkg/muz/rel/interval_relation.go",
         "pkg/muz/rel/interval_relation_test.go",
         "pkg/muz/rel/interval_relation_formula.go",
-        "pkg/muz/rel/interval_relation_formula_test.go"
+        "pkg/muz/rel/interval_relation_formula_test.go",
+        "pkg/muz/rel/empty_relation_formula_test.go"
       ],
       "tests": [
         "TestIntervalRelationLinearComparisonRecognition",
@@ -93137,7 +93142,8 @@
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalVectorRenameEquivalences",
-        "TestIntervalRelationToFormula"
+        "TestIntervalRelationToFormula",
+        "TestEmptyRelationsExportFalse"
       ],
       "assertions": [
         {
@@ -93215,7 +93221,8 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/interval_relation_formula.go",
           "tests": [
-            "TestIntervalRelationToFormula"
+            "TestIntervalRelationToFormula",
+            "TestEmptyRelationsExportFalse"
           ]
         }
       ],
@@ -93224,7 +93231,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin. Empty interval relations export false, while the source formula builder ignores the empty flag."
       ]
     },
     {
@@ -93243,7 +93250,8 @@
         "pkg/muz/rel/interval_relation.go",
         "pkg/muz/rel/interval_relation_test.go",
         "pkg/muz/rel/interval_relation_formula.go",
-        "pkg/muz/rel/interval_relation_formula_test.go"
+        "pkg/muz/rel/interval_relation_formula_test.go",
+        "pkg/muz/rel/empty_relation_formula_test.go"
       ],
       "tests": [
         "TestIntervalRelationLinearComparisonRecognition",
@@ -93256,7 +93264,8 @@
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalVectorRenameEquivalences",
-        "TestIntervalRelationToFormula"
+        "TestIntervalRelationToFormula",
+        "TestEmptyRelationsExportFalse"
       ],
       "conditionals": [
         {
@@ -93318,7 +93327,8 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/interval_relation_formula.go",
           "tests": [
-            "TestIntervalRelationToFormula"
+            "TestIntervalRelationToFormula",
+            "TestEmptyRelationsExportFalse"
           ]
         }
       ],
@@ -93327,7 +93337,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin. Empty interval relations export false, while the source formula builder ignores the empty flag."
       ]
     },
     {
@@ -95436,7 +95446,8 @@
         "pkg/muz/rel/bound_relation_transform.go",
         "pkg/muz/rel/bound_relation_transform_test.go",
         "pkg/muz/rel/bound_relation_formula.go",
-        "pkg/muz/rel/bound_relation_formula_test.go"
+        "pkg/muz/rel/bound_relation_formula_test.go",
+        "pkg/muz/rel/empty_relation_formula_test.go"
       ],
       "tests": [
         "TestIntervalVectorColumnEquivalences",
@@ -95453,6 +95464,7 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
+        "TestEmptyRelationsExportFalse",
         "TestBoundRelationUnionDelta"
       ],
       "conditionals": [
