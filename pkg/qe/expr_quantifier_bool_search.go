@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/qe.cpp, quant_elim_plugin::check/final_check Boolean subset.
+// Source: src/qe/qe.cpp, quant_elim_plugin::check/final_check scalar subset.
 
 import (
 	"errors"
@@ -13,9 +13,9 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-// searchExprQEBoolTree explores model-selected Boolean assignments and
-// independent partitions. Unsupported plugin branches report incomplete.
-func searchExprQEBoolTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (result ast.ASTRef, complete bool, err error) {
+// searchExprQEScalarTree explores model-selected scalar assignments and
+// Boolean partitions. Unsupported plugin branches report incomplete.
+func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (result ast.ASTRef, complete bool, err error) {
 	if root == nil || root.manager == nil || root.formula == (ast.ASTRef{}) || variables == nil || context == nil || plugin == nil || partitioner == nil || solver == nil || rw == nil || nnf == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}

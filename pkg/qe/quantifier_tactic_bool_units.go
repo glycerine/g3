@@ -163,7 +163,7 @@ func eliminateQuantifierBoolUnits(m *ast.ASTManager, quantifier ast.ASTHandle, c
 		if e = solver.AssertFormula(initial); e != nil {
 			return result, false, e
 		}
-		searched, complete, e := searchExprQEBoolTree(root, variables, context, plugin, partitioner, solver, config, rw, nnf)
+		searched, complete, e := searchExprQEScalarTree(root, variables, context, plugin, partitioner, solver, config, rw, nnf)
 		if e != nil || !complete {
 			return result, false, e
 		}

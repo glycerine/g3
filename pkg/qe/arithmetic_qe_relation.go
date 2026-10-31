@@ -3,6 +3,7 @@ package qe
 // Source: src/qe/qe_arith_plugin.cpp arith_qe_util relation matching.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -47,6 +48,12 @@ func (u *ArithmeticQETermUtil) comparisonPolynomial(expression ast.ASTHandle, wa
 		return result, false, cause
 	} else if numeral && value.Sign() == 0 {
 		result, cause = u.manager.NewRef(polynomial)
+		if cause == nil && u.theory != nil {
+			cause = u.theory.Rewrite(polynomial, result)
+			if cause != nil {
+				cause = errors.Join(cause, u.manager.DelRef(&result))
+			}
+		}
 		return result, cause == nil, cause
 	}
 	difference, err := u.manager.MkArithmeticSub(polynomial, other)
@@ -102,6 +109,12 @@ func (u *ArithmeticQETermUtil) MatchLT(expression ast.ASTHandle) (result ast.AST
 		return result, false, cause
 	} else if numeral && value.Sign() == 0 {
 		result, cause = u.manager.NewRef(left)
+		if cause == nil && u.theory != nil {
+			cause = u.theory.Rewrite(left, result)
+			if cause != nil {
+				cause = errors.Join(cause, u.manager.DelRef(&result))
+			}
+		}
 		return result, cause == nil, cause
 	}
 	difference, err := u.manager.MkArithmeticSub(left, right)

@@ -1,0 +1,193 @@
+package qe
+
+// Source: src/qe/qe.cpp, solver-guided search for one arithmetic variable.
+
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/smtcore"
+)
+
+// eliminateQuantifierArithmeticSearch handles one arithmetic declaration when
+// scalar branch propagation finishes without introducing fresh variables.
+func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
+	if m == nil || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
+		return result, false, ast.ErrASTHandle
+	}
+	defer func() {
+		if err != nil && result != (ast.ASTRef{}) {
+			err = errors.Join(err, m.DelRef(&result))
+		}
+	}()
+	kind, err := m.GetKind(quantifier)
+	if err != nil || kind != ast.ASTQuantifier {
+		return result, false, err
+	}
+	free, err := rewriter.NewExprFreeVars(m)
+	if err != nil {
+		return result, false, err
+	}
+	if err = free.Collect(quantifier); err != nil || !free.Empty() {
+		return result, false, err
+	}
+	body, err := m.GetQuantifierBody(quantifier)
+	if err != nil {
+		return result, false, err
+	}
+	nested, err := m.HasQuantifiers(body)
+	if err != nil || nested {
+		return result, false, err
+	}
+	count, err := m.GetNumDeclarations(quantifier)
+	if err != nil || count != 1 {
+		return result, false, err
+	}
+	sort, err := m.GetDeclarationSort(quantifier, 0)
+	if err != nil {
+		return result, false, err
+	}
+	family, err := m.GetFamilyID(sort)
+	if err != nil {
+		return result, false, err
+	}
+	arithmetic, err := m.ArithmeticFamilyID()
+	if err != nil || family != arithmetic {
+		return result, false, err
+	}
+	extracted, err := extractExprQuantifier(m, quantifier)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, extracted.Close()) }()
+	variable, err := m.RefGet(extracted.variables[0])
+	if err != nil {
+		return result, false, err
+	}
+	body, err = m.RefGet(extracted.body)
+	if err != nil {
+		return result, false, err
+	}
+	forall, err := m.IsForall(quantifier)
+	if err != nil {
+		return result, false, err
+	}
+	if forall {
+		body, err = m.MkNot(body)
+		if err != nil {
+			return result, false, err
+		}
+	}
+	bodyRef, err := m.NewRef(body)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&bodyRef)) }()
+	context, err := NewSolverContext(m, []ast.ASTHandle{variable})
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, context.Close()) }()
+	boolPlugin, err := NewBoolPlugin(context)
+	if err != nil {
+		return result, false, err
+	}
+	if err = context.AddPlugin(boolPlugin); err != nil {
+		return result, false, errors.Join(err, boolPlugin.Close())
+	}
+	arithPlugin, err := NewArithmeticPlugin(context)
+	if err != nil {
+		return result, false, err
+	}
+	if err = context.AddPlugin(arithPlugin); err != nil {
+		return result, false, errors.Join(err, arithPlugin.Close())
+	}
+	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, rw.Close()) }()
+	arithPlugin.util.theory = rw
+	adapter, err := NewSolverNNFAdapter(context)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, adapter.Close()) }()
+	nnf, err := NewQENNFNormalizer(m, adapter, adapter, config)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, nnf.Close()) }()
+	partitioner, err := NewConjunctionPartitioner(m)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, partitioner.Close()) }()
+	if err = partitioner.AddPlugin(boolPlugin); err != nil {
+		return result, false, err
+	}
+	if err = partitioner.AddPlugin(arithPlugin); err != nil {
+		return result, false, err
+	}
+	variables, err := newExprQEBranchVariables(m)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, variables.Close()) }()
+	if err = variables.add(variable); err != nil {
+		return result, false, err
+	}
+	truth, err := m.MkTrue()
+	if err != nil {
+		return result, false, err
+	}
+	root, err := newExprQETree(m, config, nil, truth)
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, root.Close()) }()
+	if err = root.initialize(body); err != nil {
+		return result, false, err
+	}
+	if err = variables.consume(root); err != nil {
+		return result, false, err
+	}
+	if err = normalizeExprQETree(root, rw, nnf); err != nil {
+		return result, false, err
+	}
+	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace}})
+	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, solver.Close()) }()
+	if err = solver.SetProduceModels(true); err != nil {
+		return result, false, err
+	}
+	initial, err := m.RefGet(root.formula)
+	if err != nil {
+		return result, false, err
+	}
+	if err = solver.AssertFormula(initial); err != nil {
+		return result, false, err
+	}
+	result, complete, err = searchExprQEScalarTree(root, variables, context, boolPlugin, partitioner, solver, config, rw, nnf)
+	if err != nil || !complete {
+		return result, false, err
+	}
+	if forall {
+		value, e := m.RefGet(result)
+		if e != nil {
+			return result, false, e
+		}
+		negated, e := m.MkNot(value)
+		if e != nil {
+			return result, false, e
+		}
+		if e = rw.Rewrite(negated, result); e != nil {
+			return result, false, e
+		}
+	}
+	return result, true, nil
+}
