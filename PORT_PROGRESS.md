@@ -1,3 +1,5 @@
+Quantifier-elimination tactic start (2026-10-31 UTC): ported the nonlinear option update and parameter descriptor. Normal and checked tests cover snapshots, default reset and descriptor type; the general QE engine and tactic registration remain unfinished.
+
 Weighted MaxSAT start (2026-10-31 UTC): ported source model evaluation and soft assignment without model completion. Normal and checked tests distinguish unresolved values from completed models; the specialized SMT theory, search and engine registration remain unfinished.
 
 QE-SAT alternation (2026-10-31 UTC): ported existential-prefix skolemization and alternating quantifier extraction, including final negation after an odd number of blocks. Normal and checked tests cover nested existential/universal formulas; search and tactic registration remain unfinished.

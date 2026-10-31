@@ -110706,9 +110706,9 @@
       "path": "src/qe/qe_tactic.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/qe/quantifier_tactic_options.go", "pkg/qe/quantifier_tactic_options_test.go"],
+      "tests": ["TestQuantifierTacticNonlinearOptionSnapshot"],
       "assertions": [
         {
           "line": 58,
@@ -110723,7 +110723,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The nonlinear parameter update and descriptor are started; quantifier elimination, tactic execution, statistics and registration remain unfinished."]
     },
     {
       "path": "src/qe/qe_tactic.h",
