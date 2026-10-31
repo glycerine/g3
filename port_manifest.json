@@ -107504,7 +107504,9 @@
         "pkg/qe/expr_quantifier_bool_search_test.go",
         "pkg/qe/expr_quantifier_bool_partition.go",
         "pkg/qe/quantifier_tactic_bool_recursive.go",
-        "pkg/qe/quantifier_tactic_bool_recursive_test.go"
+        "pkg/qe/quantifier_tactic_bool_recursive_test.go",
+        "pkg/qe/quantifier_tactic_arith_equations.go",
+        "pkg/qe/quantifier_tactic_arith_equations_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107552,7 +107554,9 @@
         "TestExprQEBoolSearchMatchesBranchExpansion",
         "TestQuantifierBoolIndependentPredicatePartitions",
         "TestRewriteQuantifierBoolPreservesOuterBindings",
-        "TestRewriteQuantifierBoolInsideApplication"
+        "TestRewriteQuantifierBoolInsideApplication",
+        "TestQuantifierArithmeticUnitEquationElimination",
+        "TestQuantifierArithmeticRealEquationElimination"
       ],
       "conditionals": [
         {
@@ -107871,7 +107875,9 @@
             "TestExprQEBoolSearchMatchesBranchExpansion",
             "TestQuantifierBoolIndependentPredicatePartitions",
             "TestRewriteQuantifierBoolPreservesOuterBindings",
-            "TestRewriteQuantifierBoolInsideApplication"
+            "TestRewriteQuantifierBoolInsideApplication",
+            "TestQuantifierArithmeticUnitEquationElimination",
+            "TestQuantifierArithmeticRealEquationElimination"
           ]
         }
       ],
@@ -111114,6 +111120,8 @@
         "pkg/qe/quantifier_tactic_bool_units_test.go",
         "pkg/qe/quantifier_tactic_bool_recursive.go",
         "pkg/qe/quantifier_tactic_bool_recursive_test.go",
+        "pkg/qe/quantifier_tactic_arith_equations.go",
+        "pkg/qe/quantifier_tactic_arith_equations_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
@@ -111125,6 +111133,8 @@
         "TestQuantifierTacticUniversalIndependentPredicates",
         "TestQuantifierTacticAlternatingBooleanQuantifiers",
         "TestSMTLibRunnerBooleanQETactic",
+        "TestQuantifierTacticArithmeticEquation",
+        "TestSMTLibRunnerArithmeticEquationQETactic",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "assertions": [
@@ -111154,13 +111164,15 @@
             "TestQuantifierTacticUniversalIndependentPredicates",
             "TestQuantifierTacticAlternatingBooleanQuantifiers",
             "TestSMTLibRunnerBooleanQETactic",
+            "TestQuantifierTacticArithmeticEquation",
+            "TestSMTLibRunnerArithmeticEquationQETactic",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; arithmetic equations without fresh variables are also supported. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
@@ -111176,6 +111188,8 @@
         "pkg/qe/quantifier_tactic_bool_units_test.go",
         "pkg/qe/quantifier_tactic_bool_recursive.go",
         "pkg/qe/quantifier_tactic_bool_recursive_test.go",
+        "pkg/qe/quantifier_tactic_arith_equations.go",
+        "pkg/qe/quantifier_tactic_arith_equations_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
@@ -111186,6 +111200,8 @@
         "TestQuantifierTacticUniversalIndependentPredicates",
         "TestQuantifierTacticAlternatingBooleanQuantifiers",
         "TestSMTLibRunnerBooleanQETactic",
+        "TestQuantifierTacticArithmeticEquation",
+        "TestSMTLibRunnerArithmeticEquationQETactic",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
@@ -111215,13 +111231,15 @@
             "TestQuantifierTacticUniversalIndependentPredicates",
             "TestQuantifierTacticAlternatingBooleanQuantifiers",
             "TestSMTLibRunnerBooleanQETactic",
+            "TestQuantifierTacticArithmeticEquation",
+            "TestSMTLibRunnerArithmeticEquationQETactic",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; arithmetic equations without fresh variables are also supported. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
