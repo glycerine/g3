@@ -199416,9 +199416,9 @@
       "path": "src/test/arith_simplifier_plugin.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/smtcore/arith_simplifier_plugin_cpp_driver_test.go"],
+      "tests": ["TestArithmeticSimplifierSourceIntegerEquations"],
       "conditionals": [
         {
           "line": 54,
@@ -199429,11 +199429,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_arith_simplifier_plugin and test_solve_integer_equations", "status": "ported", "go_target": "pkg/smtcore/arith_simplifier_plugin_cpp_driver_test.go", "tests": ["TestArithmeticSimplifierSourceIntegerEquations"]}],
+      "ownership": ["The test owns the integer rows and solver using Go-managed storage."],
+      "deviations": ["The source prints the result; the Go test asserts infeasibility and verifies the GCD contradiction witness. Disabled #if 0 examples are excluded."]
     },
     {
       "path": "src/test/ast.cpp",

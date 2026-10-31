@@ -52280,3 +52280,5 @@ Product-relation source driver started: translated the functional sparse-table i
 Sparse functional-column join integration: when the sparse indexed plugin declines a join on functional columns, SparseTable.Join now performs the source relation-manager nested-loop fallback, keeping the source key/functional column order and metadata. The original product-relation join example passes alongside existing sparse join and projection checks.
 
 Sparse projection integration: route functional sparse tables through the existing source-aware projection path, including projections after the newly integrated functional-column join. Tests check that functional metadata and the projected row survive the combined operation.
+
+Arithmetic simplifier source driver: translated its active pair of integer equation rows and checked the returned contradiction witness with the integer GCD test. The source's earlier two examples are disabled by #if 0.
