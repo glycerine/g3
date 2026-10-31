@@ -103748,7 +103748,7 @@
       "path": "src/nlsat/nlsat_explain.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/nlsat/explain_minimize.go",
         "pkg/nlsat/search_state.go",
@@ -104269,7 +104269,7 @@
         },
         {
           "name": "Public signed projection with literal splitting, dependent-polynomial collection, temporary maximal-variable reorder/restoration and final result polarity (cpp1465-1529)",
-          "status": "ported",
+          "status": "partial",
           "go_target": "pkg/nlsat/solver_projection.go",
           "tests": [
             "TestSolverProjectOwnsResultAndRestoresVariableOrder"
@@ -104300,6 +104300,7 @@
         "The public projection operation borrows model-true input literals, owns dependent polynomials through a local reference vector, and copies final complements into a caller-owned LiteralVector before resetting the internal explanation output. Temporary reorder restoration precedes publication so returned atoms are observed in external variable order."
       ],
       "deviations": [
+        "Public Project currently always takes signed projection; the source defaults to general projection and exposes set_signed_project. General projection can generate root atoms that the Go reorder path refuses to restore, and the source restore leaves their root variable unchanged. These paths require further integration and source-behavior reconciliation.",
         "Only the retained core-minimization routines are ported here; public explain constructor/operator, normalization, vanishing-coefficient elimination, projection, simplification, result display/TRACE and solver resolution/main-search integration remain unported or unaudited. Native charged component storage and Go slices replace C++ object/vector layouts; no identical std::vector growth or allocation-prefix claim is made. The source empty-todo assertion at1373 remains observable for the qualified redundant order tested by TestExplanationMinimizeSourceEmptyTodoGuard; release still terminates by reconstructing the already-full core. No source progress or reference repair suppresses that difference. Thirty-six prebuilt C++ qfnra-nlsat queries verify unsatisfiability and deletion-minimality of nine reduced cores; these prove core properties rather than identical C++ internal selection order or whole-backend completeness. Source preconditions remain caller obligations.",
         "This implements only the actual retained projection worklist prerequisite. Vanishing-coefficient elimination, normalization, projection algorithms, complete explain construction/interface and solver resolution/main-search integration remain unported or unaudited. Native charged component/vector headers and Go slices differ from C++ field/std::vector allocation layouts; no identical vector allocation frontier is claimed. Five worklist tests include a 100-step independent membership/order/reference model, actual canonical duplicates, reset/reinsert behavior, source constant guard and both constructor reservations. Existing C++ NLSAT oracles remain enabled in package profiles; there is no new claim of arithmetic/projection theorem completeness from ownership-only worklist checks.",
         "This is the retained assumption-generation prerequisite, not complete explanation construction or normalization. Vanishing-coefficient elimination, normalization, projection and public explanation/solver wiring remain pending. Four profiles, 36 prebuilt C++ disagreement queries, a native consecutive allocation sweep through success36 and callback/older-owner tests pass. Actual source polynomial display emits diagnostic monomial notation, so the C++ oracle independently serializes real polynomial terms to SMT-LIB instead of changing that diagnostic printer. Native slice/header allocations do not claim C++ vector-layout/frontier equivalence; full TRACE and whole-unit ownership audits remain incomplete.",
@@ -206128,7 +206129,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/nlsat/nlsat_interval_driver_cpp_test.go", "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "pkg/nlsat/nlsat_solver_driver_cpp_test.go"],
-      "tests": ["TestNLSATSourceIntervalUnionCases", "TestNLSATSourceRandomIntervalJustifications", "TestNLSATSourceEvaluatorCircleInfeasibleIntervals", "TestNLSATSourceAssumptionsConflictAndModel"],
+      "tests": ["TestNLSATSourceIntervalUnionCases", "TestNLSATSourceRandomIntervalJustifications", "TestNLSATSourceEvaluatorCircleInfeasibleIntervals", "TestNLSATSourceAssumptionsConflictAndModel", "TestNLSATSourceProjectionDriver"],
       "conditionals": [
         {
           "line": 592,
@@ -206219,9 +206220,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 circle infeasible intervals", "status": "ported", "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "tests": ["TestNLSATSourceEvaluatorCircleInfeasibleIntervals"]}, {"name": "tst7 assumptions and satisfiable prefix", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceAssumptionsConflictAndModel"]}, {"name": "tst6 and tst8 through tst10 projections and root literals", "status": "unported"}],
+      "methods": [{"name": "tst3 and tst_interval source interval union cases", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceIntervalUnionCases"]}, {"name": "tst4 randomized interval unions and justifications", "status": "ported", "go_target": "pkg/nlsat/nlsat_interval_driver_cpp_test.go", "tests": ["TestNLSATSourceRandomIntervalJustifications"]}, {"name": "tst5 circle infeasible intervals", "status": "ported", "go_target": "pkg/nlsat/nlsat_evaluator_driver_cpp_test.go", "tests": ["TestNLSATSourceEvaluatorCircleInfeasibleIntervals"]}, {"name": "tst7 assumptions and satisfiable prefix", "status": "ported", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceAssumptionsConflictAndModel"]}, {"name": "tst6 and tst8 projection inputs", "status": "partial", "go_target": "pkg/nlsat/nlsat_solver_driver_cpp_test.go", "tests": ["TestNLSATSourceProjectionDriver"]}, {"name": "tst9 and tst10 projection modes and root literals", "status": "unported"}],
       "ownership": ["The interval fixture owns its algebraic manager; each generated interval and union holds a reference until test cleanup."],
-      "deviations": ["Source diagnostic output is omitted. Projection and root-literal driver scenarios remain separate work."]
+      "deviations": ["Source diagnostic output is omitted. The tst6 and tst8 inputs currently use signed projection; the source defaults to general projection. Projection-mode and root-literal scenarios remain separate work."]
     },
     {
       "path": "src/test/no_overflow.cpp",
