@@ -170,6 +170,15 @@ func (t *QESATTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err er
 		return err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&ref)) }()
+	preprocessed, err := simplifyQEExpression(m, conjunction)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, m.DelRef(&preprocessed)) }()
+	conjunction, err = m.RefGet(preprocessed)
+	if err != nil {
+		return err
+	}
 	alt, err := extractSATAlternation(m, t.config, conjunction)
 	if err != nil {
 		return err

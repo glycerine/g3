@@ -107422,6 +107422,10 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/simplify_quantifier_rewriter_test.go",
+        "pkg/qe/simplify_quantifier_rewriter.go",
+        "pkg/qe/simplify_solver_context_test.go",
+        "pkg/qe/simplify_solver_context.go",
         "pkg/qe/qsat_recursive.go",
         "pkg/qe/qsat_recursive_test.go",
         "pkg/qe/qsat_search.go",
@@ -107518,6 +107522,10 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestSimplifyQEQuantifierSkipsPatterns",
+        "TestSimplifyQEQuantifierPreservesOuterBindings",
+        "TestSimplifyExistsOwnsFreshArithmeticVariables",
+        "TestSimplifyExistsBooleanArithmeticFixedPoint",
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
         "TestQSATRecursiveAllocationFrontiers",
@@ -107907,7 +107915,7 @@
         "The actual qsatSearchCall retains extracted constants, mutable binder vectors, substituted temporary/body ASTRefs, concrete substitution and inverse-shifter owners until cleanup succeeds; no generic callback/template adapter is introduced."
       ],
       "deviations": [
-        "Only extract_vars reached by retained QSAT recursive elimination is ported. The complete multitheory expr_quant_elim manager/algorithms and other retained declarations in qe.cpp/.h remain unfinished. Existing native AST substitution, inverse shifting and expression abstraction implement the concrete reached types.",
+        "Quantifier extraction, supported elimination paths and Boolean/arithmetic fixed-point preprocessing are implemented. General multitheory elimination, preprocessing parameter/statistics handling and full source/ownership audits remain incomplete.",
         "General elimination search orchestration, additional plugin branches and full tactic integration remain unfinished."
       ]
     },
@@ -107916,8 +107924,16 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/qsat_recursive.go", "pkg/qe/qsat_recursive_test.go", "pkg/qe/qsat_search.go", "pkg/qe/qsat_search_loop.go", "pkg/ast/rewriter/var_shifter_export.go", "pkg/ast/rewriter/var_substitution.go", "pkg/ast/rewriter/var_shifter.go", "pkg/ast/ast_expr_abstract.go", "pkg/qe/solver_context.go", "pkg/qe/conjunction_enum.go", "pkg/qe/solver_context_test.go", "pkg/qe/conjunction_partition.go", "pkg/qe/definition_vector.go", "pkg/qe/qe_core_contract_test.go", "pkg/qe/solver_context_contains.go", "pkg/qe/solver_context_variables.go", "pkg/qe/solver_context_formula.go", "pkg/qe/solver_context_mutation_close.go", "pkg/qe/solver_context_eliminate.go", "pkg/qe/solver_context_contains_mutation_test.go", "pkg/qe/solver_context_add_variable_test.go", "pkg/qe/solver_context_eliminate_mutation_test.go", "pkg/qe/solver_context_formula_mutation_test.go", "pkg/qe/solver_context_mutation_validation_test.go"],
+      "go_targets": [
+        "pkg/qe/simplify_quantifier_rewriter_test.go",
+        "pkg/qe/simplify_quantifier_rewriter.go",
+        "pkg/qe/simplify_solver_context_test.go",
+        "pkg/qe/simplify_solver_context.go","pkg/qe/qsat_recursive.go", "pkg/qe/qsat_recursive_test.go", "pkg/qe/qsat_search.go", "pkg/qe/qsat_search_loop.go", "pkg/ast/rewriter/var_shifter_export.go", "pkg/ast/rewriter/var_substitution.go", "pkg/ast/rewriter/var_shifter.go", "pkg/ast/ast_expr_abstract.go", "pkg/qe/solver_context.go", "pkg/qe/conjunction_enum.go", "pkg/qe/solver_context_test.go", "pkg/qe/conjunction_partition.go", "pkg/qe/definition_vector.go", "pkg/qe/qe_core_contract_test.go", "pkg/qe/solver_context_contains.go", "pkg/qe/solver_context_variables.go", "pkg/qe/solver_context_formula.go", "pkg/qe/solver_context_mutation_close.go", "pkg/qe/solver_context_eliminate.go", "pkg/qe/solver_context_contains_mutation_test.go", "pkg/qe/solver_context_add_variable_test.go", "pkg/qe/solver_context_eliminate_mutation_test.go", "pkg/qe/solver_context_formula_mutation_test.go", "pkg/qe/solver_context_mutation_validation_test.go"],
       "tests": [
+        "TestSimplifyQEQuantifierSkipsPatterns",
+        "TestSimplifyQEQuantifierPreservesOuterBindings",
+        "TestSimplifyExistsOwnsFreshArithmeticVariables",
+        "TestSimplifyExistsBooleanArithmeticFixedPoint",
         "TestQSATRecursiveCPPFormulaEquivalence",
         "TestQSATRecursiveSharedDAGAndExtractionShift",
         "TestQSATRecursiveAllocationFrontiers",
@@ -107971,7 +107987,7 @@
         "The actual qsatSearchCall retains extracted constants, mutable binder vectors, substituted temporary/body ASTRefs, concrete substitution and inverse-shifter owners until cleanup succeeds; no generic callback/template adapter is introduced."
       ],
       "deviations": [
-        "Only extract_vars reached by retained QSAT recursive elimination is ported. The complete multitheory expr_quant_elim manager/algorithms and other retained declarations in qe.cpp/.h remain unfinished. Existing native AST substitution, inverse shifting and expression abstraction implement the concrete reached types."
+        "Quantifier extraction, supported elimination paths and Boolean/arithmetic fixed-point preprocessing are implemented. General multitheory elimination, preprocessing parameter/statistics handling and full source/ownership audits remain incomplete."
       ]
     },
     {
@@ -110955,6 +110971,10 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/simplify_quantifier_rewriter_test.go",
+        "pkg/qe/simplify_quantifier_rewriter.go",
+        "pkg/qe/simplify_solver_context_test.go",
+        "pkg/qe/simplify_solver_context.go",
         "pkg/qe/sat_solver_context.go",
         "pkg/qe/sat_alternation.go",
         "pkg/qe/sat_alternation_test.go",
@@ -110984,6 +111004,10 @@
         "pkg/cmd/g3/qe_sat_integration_test.go"
       ],
       "tests": [
+        "TestSimplifyQEQuantifierSkipsPatterns",
+        "TestSimplifyQEQuantifierPreservesOuterBindings",
+        "TestSimplifyExistsOwnsFreshArithmeticVariables",
+        "TestSimplifyExistsBooleanArithmeticFixedPoint",
         "TestSATSolverContextNNFAndConstraints",
         "TestSATAlternationSkolemPrefixAndPolarity",
         "TestSATTacticOptionsDefaultsAndUpdates",
@@ -111103,7 +111127,7 @@
         "NNF strengthening owns its formula and substitutions and pops solver scopes on success or failure."
       ],
       "deviations": [
-        "The tactic is registered for SMT-LIB and supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. General full projection, source QE preprocessing, proof/core modes and statistics remain unfinished."
+        "The tactic is registered for SMT-LIB and supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. Boolean/arithmetic quantifier preprocessing is connected; general full projection, preprocessing parameter/statistics handling and proof/core modes remain unfinished."
       ]
     },
     {
@@ -111112,6 +111136,10 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/simplify_quantifier_rewriter_test.go",
+        "pkg/qe/simplify_quantifier_rewriter.go",
+        "pkg/qe/simplify_solver_context_test.go",
+        "pkg/qe/simplify_solver_context.go",
         "pkg/qe/sat_partial_search.go",
         "pkg/qe/sat_partial_search_test.go",
         "pkg/qe/sat_project_level.go",
@@ -111124,6 +111152,10 @@
         "pkg/cmd/g3/qe_sat_integration_test.go"
       ],
       "tests": [
+        "TestSimplifyQEQuantifierSkipsPatterns",
+        "TestSimplifyQEQuantifierPreservesOuterBindings",
+        "TestSimplifyExistsOwnsFreshArithmeticVariables",
+        "TestSimplifyExistsBooleanArithmeticFixedPoint",
         "TestSATPartialSearchBooleanQuantifiers",
         "TestSATPartialSearchAlternatingQuantifiers",
         "TestSATPartialSearchBitVectorAndArithmetic",
@@ -111159,7 +111191,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "The tactic is registered for SMT-LIB and supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. General full projection, source QE preprocessing, proof/core modes and statistics remain unfinished."
+        "The tactic is registered for SMT-LIB and supports partial projection and selected Boolean, arithmetic and bit-vector full projections, with both strong context simplification modes. Boolean/arithmetic quantifier preprocessing is connected; general full projection, preprocessing parameter/statistics handling and proof/core modes remain unfinished."
       ]
     },
     {
