@@ -185632,6 +185632,7 @@
         "TestCollectStatisticsOutputIsSourceMapOrdered",
         "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
         "TestCollectStatisticsCopiesAndTranslatesParameters",
+        "TestCollectStatisticsTranslationAcrossManagers",
         "TestCollectStatisticsRejectsForeignParameterOwner",
         "TestCollectStatisticsBuiltinTactic",
         "TestSMTLibRunnerCollectStatistics"
@@ -185704,6 +185705,7 @@
         "TestCollectStatisticsOutputIsSourceMapOrdered",
         "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
         "TestCollectStatisticsCopiesAndTranslatesParameters",
+        "TestCollectStatisticsTranslationAcrossManagers",
         "TestCollectStatisticsRejectsForeignParameterOwner",
         "TestCollectStatisticsBuiltinTactic",
         "TestSMTLibRunnerCollectStatistics"

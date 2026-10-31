@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
@@ -91,5 +92,39 @@ func TestCollectStatisticsCopiesAndTranslatesParameters(t *testing.T) {
 	simplifyMust(t, runner.Close())
 	if value, err := context.GetBoolName(&copy.params, &key, true); err != nil || value {
 		t.Fatal("translation did not own source parameter", value, err)
+	}
+}
+
+func TestCollectStatisticsTranslationAcrossManagers(t *testing.T) {
+	source, context, _ := simplifyFixture(t)
+	params, err := context.NewValue()
+	simplifyMust(t, err)
+	key := "translation-parameter"
+	simplifyMust(t, context.SetBoolName(&params, &key, true))
+	var output bytes.Buffer
+	runner, err := NewCollectStatisticsTacticWithServices(source, context, &params, &output)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, runner.Close()) })
+	simplifyMust(t, context.Del(&params))
+	target, _, _ := simplifyFixture(t)
+	translated, err := runner.Translate(target)
+	simplifyMust(t, err)
+	copy := translated.(*CollectStatisticsTactic)
+	t.Cleanup(func() { simplifyMust(t, copy.Close()) })
+	simplifyMust(t, runner.Close())
+	if value, err := context.GetBoolName(&copy.params, &key, false); err != nil || !value {
+		t.Fatal("translated tactic lost its parameter", value, err)
+	}
+	goal, err := tactic.NewGoal(target, false, false, false)
+	simplifyMust(t, err)
+	t.Cleanup(func() { simplifyMust(t, goal.Close()) })
+	truth, err := target.MkTrue()
+	simplifyMust(t, err)
+	simplifyMust(t, goal.Assert(truth))
+	result := &tactic.TacticResult{}
+	t.Cleanup(func() { simplifyMust(t, result.Close()) })
+	simplifyMust(t, copy.Apply(goal, result))
+	if output.Len() == 0 {
+		t.Fatal("translated tactic did not write output")
 	}
 }
