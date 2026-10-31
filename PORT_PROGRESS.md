@@ -1,3 +1,5 @@
+Generated quantifier-elimination replay (2026-10-31 UTC): connected model and Skolem projection, model extrapolation and QE-lite vector updates. Normal and checked tests verify formulas, map contents and vector mutation after model release; other generated commands remain unfinished.
+
 Generated Spacer invariant and reachable replay (2026-10-31 UTC): connected invariant updates and reachable summaries. Normal and checked tests cover PDR invariants and Spacer result ownership; other generated commands remain unfinished.
 
 Generated floating-point exponent/significand replay (2026-10-31 UTC): connected the integer-exponent and real-significand conversion overload. Normal and checked API/CLI tests verify conversion and frontend execution; other generated commands remain unfinished.

@@ -5984,7 +5984,9 @@
         "pkg/api/z3_generated_optimize_commands.go",
         "pkg/api/z3_generated_optimize_commands_test.go",
         "pkg/api/z3_generated_floating_point_commands.go",
-        "pkg/api/z3_generated_floating_point_commands_test.go"
+        "pkg/api/z3_generated_floating_point_commands_test.go",
+        "pkg/api/z3_generated_qe_commands.go",
+        "pkg/api/z3_generated_qe_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -6082,7 +6084,8 @@
         "TestGeneratedFloatingPointReplayInspectionOutputs",
         "TestGeneratedFloatingPointReplayExponentSignificand",
         "TestZ3LogFrontendReplaysFloatingPoint",
-        "TestGeneratedFixedpointReplaySpacerReachable"
+        "TestGeneratedFixedpointReplaySpacerReachable",
+        "TestGeneratedQEReplayProjectionAndVectorMutation"
       ],
       "methods_audited": false,
       "ownership_audited": false,
