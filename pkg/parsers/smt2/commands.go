@@ -262,6 +262,13 @@ func (p *commandParser) command() (bool, error) {
 	}
 	success := true
 	switch name {
+	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size":
+		if err = p.debugCommand(name); err != nil {
+			return false, err
+		}
+		if name == "dbg-pp-var" || name == "dbg-size" {
+			success = false
+		}
 	case "set-logic":
 		logic, err := p.symbol()
 		if err != nil {

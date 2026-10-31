@@ -74,6 +74,7 @@ type Context struct {
 	params                           uparams.ParamsRef
 	paramsReady                      bool
 	manager                          *ast.ASTManager
+	debugExpressions                 map[string]ast.ASTRef
 	borrowedManager                  bool
 	fixedpoint                       *muzfp.PropositionalEngine
 	solver                           solver.Solver
@@ -1067,6 +1068,9 @@ func (c *Context) resetManagerState() error {
 		c.solver = nil
 	}
 	if c.manager != nil {
+		if err := c.clearDebugExpressions(); err != nil {
+			return err
+		}
 		c.logicChecker.Reset()
 		if err := c.restoreMacros(0); err != nil {
 			return err

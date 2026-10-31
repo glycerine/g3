@@ -45815,9 +45815,18 @@
       "path": "src/cmd_context/cmd_util.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/cmd_context/debug_expressions.go",
+        "pkg/cmd_context/context.go",
+        "pkg/parsers/smt2/debug_commands.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/debug_commands_test.go"
+      ],
+      "tests": [
+        "TestDebugExpressionCommands",
+        "TestDebugExpressionResetAndErrors"
+      ],
       "assertions": [
         {
           "line": 22,
@@ -45826,17 +45835,40 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugExpressionCommands",
+            "TestDebugExpressionResetAndErrors"
+          ]
+        }
+      ],
+      "ownership": [
+        "Context owns stored AST references through replacement, reset and close."
+      ],
+      "deviations": [
+        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+      ]
     },
     {
       "path": "src/cmd_context/cmd_util.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/cmd_context/debug_expressions.go",
+        "pkg/cmd_context/context.go",
+        "pkg/parsers/smt2/debug_commands.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/debug_commands_test.go"
+      ],
+      "tests": [
+        "TestDebugExpressionCommands",
+        "TestDebugExpressionResetAndErrors"
+      ],
       "conditionals": [
         {
           "line": 18,
@@ -45849,9 +45881,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugExpressionCommands",
+            "TestDebugExpressionResetAndErrors"
+          ]
+        }
+      ],
+      "ownership": [
+        "Context owns stored AST references through replacement, reset and close."
+      ],
+      "deviations": [
+        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+      ]
     },
     {
       "path": "src/cmd_context/context_params.cpp",
@@ -46236,9 +46282,18 @@
       "path": "src/cmd_context/extra_cmds/dbg_cmds.cpp",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/cmd_context/debug_expressions.go",
+        "pkg/cmd_context/context.go",
+        "pkg/parsers/smt2/debug_commands.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/debug_commands_test.go"
+      ],
+      "tests": [
+        "TestDebugExpressionCommands",
+        "TestDebugExpressionResetAndErrors"
+      ],
       "assertions": [
         {
           "line": 58,
@@ -46275,17 +46330,40 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugExpressionCommands",
+            "TestDebugExpressionResetAndErrors"
+          ]
+        }
+      ],
+      "ownership": [
+        "Context owns stored AST references through replacement, reset and close."
+      ],
+      "deviations": [
+        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+      ]
     },
     {
       "path": "src/cmd_context/extra_cmds/dbg_cmds.h",
       "component": "cmd_context",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/cmd_context/debug_expressions.go",
+        "pkg/cmd_context/context.go",
+        "pkg/parsers/smt2/debug_commands.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/debug_commands_test.go"
+      ],
+      "tests": [
+        "TestDebugExpressionCommands",
+        "TestDebugExpressionResetAndErrors"
+      ],
       "conditionals": [
         {
           "line": 18,
@@ -46298,9 +46376,23 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "named expression storage and debug set, quantifier body, print and size commands",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugExpressionCommands",
+            "TestDebugExpressionResetAndErrors"
+          ]
+        }
+      ],
+      "ownership": [
+        "Context owns stored AST references through replacement, reset and close."
+      ],
+      "deviations": [
+        "Other debug commands and generic object reference kinds are pending; failure-frontier audit is incomplete."
+      ]
     },
     {
       "path": "src/cmd_context/extra_cmds/polynomial_cmds.cpp",
