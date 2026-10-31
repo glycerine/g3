@@ -4,12 +4,52 @@ package model_test
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 )
+
+func TestModelPrintersReleaseTemporaryFormatTrees(t *testing.T) {
+	m, md, _, context, _, config := evaluatorFixture(t)
+	_, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	value, err := m.ArithmeticIntegerNumeralText("0")
+	astTestMust(t, err)
+	sort, err := m.GetSort(value)
+	astTestMust(t, err)
+	constant, err := m.MkConst(astTestSymbol(t, m, "owned-printer-document"), sort)
+	astTestMust(t, err)
+	astTestPin(t, m, constant)
+	decl, err := m.GetDecl(constant)
+	astTestMust(t, err)
+	astTestMust(t, md.Core().RegisterConstant(decl, value))
+	// Initialize the persistent format-manager declarations before measuring
+	// lexical documents. Distinct numeral values below force distinct documents.
+	var warm bytes.Buffer
+	astTestMust(t, md.Core().WriteSMT2(&warm, context, config.Globals, 0))
+	astTestMust(t, md.Core().WriteDebug(&warm, context, config.Globals))
+	formats, err := m.GetFormatManager()
+	astTestMust(t, err)
+	before := formats.Stats()
+	for i := 1; i <= 3; i++ {
+		value, err = m.ArithmeticIntegerNumeralText(fmt.Sprint(i))
+		astTestMust(t, err)
+		astTestMust(t, md.Core().RegisterConstant(decl, value))
+		var output bytes.Buffer
+		astTestMust(t, md.Core().WriteSMT2(&output, context, config.Globals, 0))
+		astTestMust(t, md.Core().WriteDebug(&output, context, config.Globals))
+		after := formats.Stats()
+		if after.LiveNodes != before.LiveNodes || after.LiveReferences != before.LiveReferences {
+			t.Fatal("model printer kept temporary format trees", before, after)
+		}
+		if !strings.Contains(output.String(), "owned-printer-document") {
+			t.Fatal("printer output missing after document cleanup")
+		}
+	}
+}
 
 func TestModelDebugPrinterSourceOrderAndFunctionGraph(t *testing.T) {
 	m, md, _, context, _, config := evaluatorFixture(t)

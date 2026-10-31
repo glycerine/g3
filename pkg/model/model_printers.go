@@ -36,6 +36,15 @@ func (p *modelPrinter) render(h ast.ASTHandle, names []usymbol.Symbol) (text str
 	if err != nil {
 		return "", err
 	}
+	formats, err := p.model.manager.GetFormatManager()
+	if err != nil {
+		return "", err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.model.manager.Budget()})
 	if err != nil {
 		return "", err
@@ -53,6 +62,15 @@ func (p *modelPrinter) renderSort(h ast.ASTHandle) (text string, result error) {
 	if err != nil {
 		return "", err
 	}
+	formats, err := p.model.manager.GetFormatManager()
+	if err != nil {
+		return "", err
+	}
+	ref, err := formats.NewRef(format)
+	if err != nil {
+		return "", err
+	}
+	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
 	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.model.manager.Budget()})
 	if err != nil {
 		return "", err

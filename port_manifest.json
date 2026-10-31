@@ -83239,13 +83239,44 @@
       "component": "model",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/model/model_printers.go"],
-      "tests": ["TestModelDebugPrinterSourceOrderAndFunctionGraph"],
+      "go_targets": [
+        "pkg/model/model_printers.go",
+        "pkg/model/model_printers_test.go"
+      ],
+      "tests": [
+        "TestModelDebugPrinterSourceOrderAndFunctionGraph",
+        "TestModelPrintersReleaseTemporaryFormatTrees"
+      ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "model_pp ordered uninterpreted sorts, constants and nested function-entry conditionals", "status": "ported", "go_target": "pkg/model/model_printers.go", "tests": ["TestModelDebugPrinterSourceOrderAndFunctionGraph"]}],
-      "ownership": ["The printer borrows the model and parameter services. Each temporary format stream is closed before return; io.Writer errors are returned to the caller."],
-      "deviations": ["Go io.Writer and the ported SMT2 format renderer replace std::ostream and C++ format temporaries while retaining source declaration and entry order."]
+      "methods": [
+        {
+          "name": "model_pp ordered uninterpreted sorts, constants and nested function-entry conditionals",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "tests": [
+            "TestModelDebugPrinterSourceOrderAndFunctionGraph"
+          ]
+        },
+        {
+          "name": "model printer lexical expression/sort format document references",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "go_targets": [
+            "pkg/model/model_printers_test.go"
+          ],
+          "tests": [
+            "TestModelPrintersReleaseTemporaryFormatTrees"
+          ]
+        }
+      ],
+      "ownership": [
+        "The printer borrows the model and parameter services. Each temporary format stream is closed before return; io.Writer errors are returned to the caller.",
+        "Diagnostic formatting owns and releases its temporary format document and numeric text stream. Pareto formula records run before solver assertion, retain source trace gates and verbosity ten, include the raw dominance model and preserve operand evaluation after ostream failure. Model debug/SMT2 printers now hold concrete expression/sort document references across formatting and release them at each render return. No Pareto implementation closure is claimed; level-one fixed-model verbosity and the remaining owner audit are separate work."
+      ],
+      "deviations": [
+        "Go io.Writer and the ported SMT2 format renderer replace std::ostream and C++ format temporaries while retaining source declaration and entry order."
+      ]
     },
     {
       "path": "src/model/model_pp.h",
@@ -83275,8 +83306,14 @@
       "component": "model",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/model/model_printers.go"],
-      "tests": ["TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"],
+      "go_targets": [
+        "pkg/model/model_printers.go",
+        "pkg/model/model_printers_test.go"
+      ],
+      "tests": [
+        "TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder",
+        "TestModelPrintersReleaseTemporaryFormatTrees"
+      ],
       "assertions": [
         {
           "line": 66,
@@ -83302,14 +83339,65 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "pp_indent and SMT2 symbol quoting", "status": "ported", "go_target": "pkg/model/model_printers.go", "tests": ["TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"]},
-        {"name": "uninterpreted-universe comments, element declarations and finite cardinality constraint", "status": "ported", "go_target": "pkg/model/model_printers.go", "tests": ["TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"]},
-        {"name": "constant define-fun rendering", "status": "ported", "go_target": "pkg/model/model_printers.go", "tests": ["TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"]},
-        {"name": "sort_fun_decls dependency-before-dependent traversal", "status": "ported", "go_target": "pkg/model/model_printers.go", "tests": ["TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"]},
-        {"name": "function signatures, bound-variable rendering, ordered entry ITEs and partial fallback", "status": "ported", "go_target": "pkg/model/model_printers.go", "tests": ["TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"]}
+        {
+          "name": "pp_indent and SMT2 symbol quoting",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "tests": [
+            "TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"
+          ]
+        },
+        {
+          "name": "uninterpreted-universe comments, element declarations and finite cardinality constraint",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "tests": [
+            "TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"
+          ]
+        },
+        {
+          "name": "constant define-fun rendering",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "tests": [
+            "TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"
+          ]
+        },
+        {
+          "name": "sort_fun_decls dependency-before-dependent traversal",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "tests": [
+            "TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"
+          ]
+        },
+        {
+          "name": "function signatures, bound-variable rendering, ordered entry ITEs and partial fallback",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "tests": [
+            "TestModelSMT2PrinterUniversesQuotedNamesAndDependencyOrder"
+          ]
+        },
+        {
+          "name": "model printer lexical expression/sort format document references",
+          "status": "ported",
+          "go_target": "pkg/model/model_printers.go",
+          "go_targets": [
+            "pkg/model/model_printers_test.go"
+          ],
+          "tests": [
+            "TestModelPrintersReleaseTemporaryFormatTrees"
+          ]
+        }
       ],
-      "ownership": ["The printer borrows model graphs and services. Function dependency sets contain borrowed handles; temporary Go slices and maps require no explicit release, and every temporary numeric stream is closed."],
-      "deviations": ["Native Go strings and io.Writer replace C++ format trees at the model layout layer. Nested AST expressions and sorts still use the ported source SMT2 renderer. Dependency-set iteration is stabilized by model registration order because Go map iteration is intentionally unspecified."]
+      "ownership": [
+        "The printer borrows model graphs and services. Function dependency sets contain borrowed handles; temporary Go slices and maps require no explicit release, and every temporary numeric stream is closed.",
+        "Diagnostic formatting owns and releases its temporary format document and numeric text stream. Pareto formula records run before solver assertion, retain source trace gates and verbosity ten, include the raw dominance model and preserve operand evaluation after ostream failure. Model debug/SMT2 printers now hold concrete expression/sort document references across formatting and release them at each render return. No Pareto implementation closure is claimed; level-one fixed-model verbosity and the remaining owner audit are separate work."
+      ],
+      "deviations": [
+        "Native Go strings and io.Writer replace C++ format trees at the model layout layer. Nested AST expressions and sorts still use the ported source SMT2 renderer. Dependency-set iteration is stabilized by model registration order because Go map iteration is intentionally unspecified."
+      ]
     },
     {
       "path": "src/model/model_smt2_pp.h",
@@ -101756,7 +101844,9 @@
         "pkg/cmd_context/optimization.go",
         "pkg/cmd_context/optimization_labels_test.go",
         "pkg/opt/maxsmt_labels.go",
-        "pkg/opt/arithmetic_solver.go"
+        "pkg/opt/arithmetic_solver.go",
+        "pkg/cmd_context/optimization_pareto_trace.go",
+        "pkg/cmd_context/optimization_pareto_trace_test.go"
       ],
       "tests": [
         "TestSMT2ParetoOptimizationEndToEnd",
@@ -101772,7 +101862,10 @@
         "TestParetoDominanceFormulaKeepsSourceArgumentOrder",
         "TestParetoCanceledImprovementDropsBackendAndAllowsFreshSearch",
         "TestOptimizationPublishesRelevantLabels",
-        "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
+        "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop",
+        "TestParetoFormulaTraceBeforeAssertionAndStreamRefusal",
+        "TestParetoFormulaTraceOperandErrorAfterStreamFailure",
+        "TestParetoFormulaVerbosityThreshold"
       ],
       "assertions": [
         {
@@ -101821,10 +101914,24 @@
             "TestOptimizationPublishesRelevantLabels",
             "TestParetoCapturesLastSatisfiableModelLabelsBeforeSolverPop"
           ]
+        },
+        {
+          "name": "Pareto formula verbose/trace records before assertion",
+          "status": "ported",
+          "go_target": "pkg/cmd_context/optimization_pareto_trace.go",
+          "go_targets": [
+            "pkg/cmd_context/optimization_pareto_trace_test.go"
+          ],
+          "tests": [
+            "TestParetoFormulaTraceBeforeAssertionAndStreamRefusal",
+            "TestParetoFormulaTraceOperandErrorAfterStreamFailure",
+            "TestParetoFormulaVerbosityThreshold"
+          ]
         }
       ],
       "ownership": [
-        "The initial model is snapshotted before Push clears the Go solver result. Later models are acquired after the source cancellation check. Objective callbacks and constructed Pareto formulas own temporary AST references; returned formulas have independent references. Completed optimum values are evaluated at result publication."
+        "The initial model is snapshotted before Push clears the Go solver result. Later models are acquired after the source cancellation check. Objective callbacks and constructed Pareto formulas own temporary AST references; returned formulas have independent references. Completed optimum values are evaluated at result publication.",
+        "Diagnostic formatting owns and releases its temporary format document and numeric text stream. Pareto formula records run before solver assertion, retain source trace gates and verbosity ten, include the raw dominance model and preserve operand evaluation after ostream failure. Model debug/SMT2 printers now hold concrete expression/sort document references across formatting and release them at each render return. No Pareto implementation closure is claimed; level-one fixed-model verbosity and the remaining owner audit are separate work."
       ],
       "deviations": [
         "The GIA control flow and formula callbacks are implemented; full diagnostic/verbose, label and ownership closure remains under audit. The OIA class has no source constructor consumer: opt_context.cpp:556 instantiates gia_pareto exclusively, so the uncalled alternative is not an implementation target under AGENTS.md."

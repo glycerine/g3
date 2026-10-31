@@ -183,6 +183,9 @@ func (c *Context) assertParetoFormula(backend *smtcore.SMTSolver, md *model.Mode
 	if err != nil {
 		return err
 	}
+	if err = c.paretoFormulaDiagnostics(formula, md, dominates); err != nil {
+		return err
+	}
 	return backend.Assert(formula)
 }
 
