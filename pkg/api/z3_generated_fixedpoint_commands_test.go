@@ -102,11 +102,14 @@ func TestGeneratedFixedpointReplayClosesIncompleteLog(t *testing.T) {
 
 func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
-		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
+		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\nR\nP 0x41\nP 0x44\nP 0x43\nC 526\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\nR\nP 0x41\nC 54\n= 0x45\nR\nP 0x41\nP 0x44\nP 0x45\nC 516\n" +
 		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\n" +
-		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x46\nR\nP 0x41\nP 0x44\nP 0x46\nC 517\n" +
-		"R\nP 0x41\nP 0x44\nP 0x43\nP 0x46\nC 900\nR\nP 0x41\nP 0x44\nC 513\n"
+		"R\nP 0x41\nP 0x44\nP 0x43\nC 522\nR\nP 0x41\nP 0x44\nI -1\nP 0x43\nP 0x45\nC 524\n" +
+		"R\nP 0x41\nP 0x44\nI -1\nP 0x43\nC 523\n= 0x47\n" +
+		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x46\nR\nP 0x41\nP 0x44\nU 1\nP 0x46\np 1\nC 533\n" +
+		"R\nP 0x41\nP 0x44\nP 0x46\nC 517\n" +
+		"R\nP 0x41\nP 0x44\nP 0x43\nP 0x46\nP 0x47\nC 900\nR\nP 0x41\nP 0x44\nC 513\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
 		t.Fatal(err)
@@ -120,6 +123,15 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.RegisterCommand(901, "set-pdr-engine", func(r *Z3Replayer) error {
+		f, e := replayGetFixedpoint(r)
+		if e != nil {
+			return e
+		}
+		return f.owner.context.SetFixedpointEngine("pdr")
+	}); err != nil {
 		t.Fatal(err)
 	}
 	checked := false
@@ -142,6 +154,20 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 		query, e := r.astObject(f.owner, 3)
 		if e != nil {
 			return e
+		}
+		cover, e := r.astObject(f.owner, 4)
+		if e != nil {
+			return e
+		}
+		if !f.owner.results.manager.IsTrue(cover.handle) {
+			t.Fatal("cover is not true")
+		}
+		printed, e := f.value.SMT2(query.handle)
+		if e != nil {
+			return e
+		}
+		if !strings.Contains(printed, "(query") {
+			t.Fatal("missing query in fixedpoint display", printed)
 		}
 		status, e = f.value.QueryExpression(query.handle)
 		if e != nil {

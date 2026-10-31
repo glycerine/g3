@@ -1,3 +1,5 @@
+Generated fixedpoint frame and display replay (2026-10-31 UTC): connected PDR frame counts, cover updates and snapshots, and fixedpoint query formatting. Normal and checked tests exercise covers and display under PDR; other generated fixedpoint commands remain unfinished.
+
 Generated fixedpoint expression-query replay (2026-10-31 UTC): connected Boolean query replay to the existing query engine with configured timeout handling. Normal and checked tests cover expression and relation queries; other generated fixedpoint commands remain unfinished.
 
 Generated fixedpoint fact and relation-query replay (2026-10-31 UTC): added table fact insertion, background assertions and relation queries. Normal and checked tests register a relation, add a fact and query it; expression queries and other generated commands remain unfinished.

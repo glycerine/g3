@@ -7,6 +7,30 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 )
 
+// NumLevels reports the number of PDR or Spacer frames for a relation.
+func (f *APIFixedpoint) NumLevels(declaration ast.ASTHandle) (uint32, error) {
+	if err := f.open(); err != nil {
+		return 0, err
+	}
+	return f.command.FixedpointNumLevels(declaration)
+}
+
+// CoverDelta returns an owning reference to a PDR or Spacer frame.
+func (f *APIFixedpoint) CoverDelta(level int, declaration ast.ASTHandle) (ast.ASTRef, error) {
+	if err := f.open(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	return f.command.FixedpointCoverDelta(level, declaration)
+}
+
+// AddCover adds a property to a PDR or Spacer frame.
+func (f *APIFixedpoint) AddCover(level int, declaration, property ast.ASTHandle) error {
+	if err := f.open(); err != nil {
+		return err
+	}
+	return f.command.AddFixedpointCover(level, declaration, property)
+}
+
 func (f *APIFixedpoint) ReasonUnknown() (string, error) {
 	if err := f.open(); err != nil {
 		return "", err

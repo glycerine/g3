@@ -23,8 +23,10 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 	}{
 		{511, "Z3_mk_fixedpoint"}, {512, "Z3_fixedpoint_inc_ref"}, {513, "Z3_fixedpoint_dec_ref"},
 		{515, "Z3_fixedpoint_add_fact"}, {516, "Z3_fixedpoint_assert"}, {517, "Z3_fixedpoint_query"}, {518, "Z3_fixedpoint_query_relations"},
-		{520, "Z3_fixedpoint_get_reason_unknown"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"},
+		{520, "Z3_fixedpoint_get_reason_unknown"}, {522, "Z3_fixedpoint_get_num_levels"}, {523, "Z3_fixedpoint_get_cover_delta"},
+		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
+		{533, "Z3_fixedpoint_to_string"},
 	}
 	for _, entry := range entries {
 		id := entry.id
@@ -142,6 +144,39 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		_, err = f.value.QueryRelations(decls)
 	case 520:
 		_, err = f.value.ReasonUnknown()
+	case 522:
+		decl, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		_, err = f.value.NumLevels(decl.handle)
+	case 523, 524:
+		level, e := r.Int(2)
+		if e != nil {
+			return e
+		}
+		decl, e := r.astObject(owner, 3)
+		if e != nil {
+			return e
+		}
+		if id == 524 {
+			property, e := r.astObject(owner, 4)
+			if e != nil {
+				return e
+			}
+			return f.value.AddCover(int(level), decl.handle, property.handle)
+		}
+		ref, e := f.value.CoverDelta(int(level), decl.handle)
+		if e != nil {
+			return e
+		}
+		manager := owner.results.manager
+		defer func() { err = errors.Join(err, manager.DelRef(&ref)) }()
+		handle, e := manager.RefGet(ref)
+		if e != nil {
+			return e
+		}
+		return r.storeAST(owner, handle)
 	case 525:
 		value, e := f.value.StatisticsObject()
 		if e != nil {
@@ -186,6 +221,12 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 		err = f.value.Push()
 	case 537:
 		err = f.value.Pop()
+	case 533:
+		queries, e := replayASTArray(r, owner, 2, 3)
+		if e != nil {
+			return e
+		}
+		_, err = f.value.SMT2(queries...)
 	}
 	return err
 }
