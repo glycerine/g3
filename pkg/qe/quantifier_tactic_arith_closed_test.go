@@ -47,6 +47,24 @@ func TestQuantifierArithmeticClosedInequality(t *testing.T) {
 	if !m.IsFalse(falseValue) {
 		t.Fatal("not every integer is nonnegative")
 	}
+	dependentUniversal := f.own(m.MkArithmeticGT(x, y))
+	forallDependent := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: dependentUniversal}))
+	equationResult, equationDone, err := eliminateQuantifierArithmeticEquations(m, forallDependent, f.r.config)
+	fmMust(t, err)
+	if equationDone || equationResult != (ast.ASTRef{}) {
+		if equationResult != (ast.ASTRef{}) {
+			fmMust(t, m.DelRef(&equationResult))
+		}
+		t.Fatal("dependent inequality was reported as an equation")
+	}
+	unexpectedUniversal, done, err := eliminateQuantifierArithmeticClosed(m, forallDependent, f.r.config)
+	fmMust(t, err)
+	if done || unexpectedUniversal != (ast.ASTRef{}) {
+		if unexpectedUniversal != (ast.ASTRef{}) {
+			fmMust(t, m.DelRef(&unexpectedUniversal))
+		}
+		t.Fatal("universal inequality depending on a free symbol was prematurely eliminated")
+	}
 	dependent := f.own(m.MkArithmeticGT(x, y))
 	unsupported := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: dependent}))
 	unexpected, complete, err := eliminateQuantifierArithmeticClosed(m, unsupported, f.r.config)

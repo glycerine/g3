@@ -127,6 +127,9 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			eliminated, done, e = eliminateQuantifierBoolUnits(m, q, config)
 		} else {
 			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
+			if e == nil && !done {
+				eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
+			}
 		}
 		if e != nil || !done {
 			return result, false, errors.Join(e, m.DelRef(&bound))

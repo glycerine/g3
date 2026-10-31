@@ -39,6 +39,19 @@ func TestQuantifierMixedBooleanArithmeticGroups(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("mixed result differs from the free arithmetic condition")
 	}
+	independentBody := f.own(m.MkAnd(b, positive))
+	independent := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: independentBody}))
+	independentResult, complete, err := eliminateQuantifierMixed(m, independent, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("independent mixed inequality was not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&independentResult)) }()
+	independentValue, err := m.RefGet(independentResult)
+	fmMust(t, err)
+	if !m.IsTrue(independentValue) {
+		t.Fatal("mixed Boolean and positive integer witnesses should exist")
+	}
 	notEq := f.own(m.MkNot(equality))
 	implies := f.own(m.MkImplies(b, notEq))
 	forall := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean, f.integer}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: implies}))

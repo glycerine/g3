@@ -82,3 +82,35 @@ func TestSMTLibRunnerFreshIntegerEquationQETactic(t *testing.T) {
 		t.Fatalf("fresh integer QE tactic result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerArithmeticInequalityQETactic(t *testing.T) {
+	script := `(set-logic LIA)
+(push)
+(assert (exists ((x Int)) (> x 0)))
+(check-sat-using (then qe smt))
+(pop)
+(assert (forall ((x Int)) (>= x 0)))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "sat unsat" {
+		t.Fatalf("arithmetic inequality QE tactic result: %s", got)
+	}
+}
+
+func TestSMTLibRunnerQEInequalityIsNotEquality(t *testing.T) {
+	script := `(set-logic LIA)
+(assert (exists ((x Int)) (and (<= x 2) (< x 2))))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "sat" {
+		t.Fatalf("inequality QE tactic result: %s", got)
+	}
+}
