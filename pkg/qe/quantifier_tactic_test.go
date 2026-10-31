@@ -1,7 +1,7 @@
 package qe
 
 import (
-	"strings"
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -258,26 +258,43 @@ func TestQuantifierTacticArithmeticEquation(t *testing.T) {
 	}
 }
 
-func TestQuantifierTacticUnsupportedDivisibilityIsExplicit(t *testing.T) {
+func TestQuantifierTacticSymbolicDivisibility(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
 	port, err := NewQuantifierTactic(m, nil, f.r.config)
 	fmMust(t, err)
 	defer func() { fmMust(t, port.Close()) }()
 	x := f.own(m.MkVar(0, f.integer))
-	y := f.constant("qe-unsupported-divisibility", f.integer)
-	twoX := f.own(m.MkArithmeticMul(f.number("4"), x))
-	body := f.own(m.MkEq(twoX, y))
+	y := f.constant("qe-divisibility-y", f.integer)
+	four := f.number("4")
+	product := f.own(m.MkArithmeticMul(four, x))
+	body := f.own(m.MkEq(product, y))
 	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
 	goal := f.goal(false, false)
 	fmMust(t, goal.Assert(quantifier))
-	err = port.Apply(goal, f.result())
-	if err == nil || !strings.Contains(err.Error(), "arithmetic branch resolution is not implemented") {
-		t.Fatal("unsupported branch did not report its limitation", err)
-	}
-	unchanged, err := goal.Form(0)
+	fmMust(t, port.Apply(goal, f.result()))
+	value, err := goal.Form(0)
 	fmMust(t, err)
-	if unchanged != quantifier {
-		t.Fatal("unsupported branch changed the goal")
+	mod := f.own(m.MkFamilyApp(f.r.arithmetic, 13, nil, []ast.ASTHandle{y, four}))
+	expected := f.own(m.MkEq(mod, f.number("0")))
+	iff := f.own(m.MkIff(value, expected))
+	different := f.own(m.MkNot(iff))
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(different))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("tactic result differs from divisibility by four")
+	}
+}
+
+func TestOnlyArithmeticBranchUnsupportedPreservesOtherErrors(t *testing.T) {
+	if !onlyArithmeticBranchUnsupported(errors.Join(errArithmeticBranchUnsupported)) {
+		t.Fatal("unsupported branch was not recognized")
+	}
+	if onlyArithmeticBranchUnsupported(errors.Join(errArithmeticBranchUnsupported, errors.New("cleanup failed"))) {
+		t.Fatal("cleanup failure was hidden")
 	}
 }

@@ -148,6 +148,7 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	defer func() { err = errors.Join(err, rw.Close()) }()
 	if arithPlugin != nil {
 		arithPlugin.util.theory = rw
+		arithPlugin.util.qeConfig = &config
 	}
 	adapter, err := NewSolverNNFAdapter(context)
 	if err != nil {

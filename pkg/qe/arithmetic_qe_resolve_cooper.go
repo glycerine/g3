@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/qe_arith_plugin.cpp, mk_resolve and mk_big_or_blast.
+// Source: src/qe/qe_arith_plugin.cpp, mk_resolve and mk_big_or.
 
 import (
 	"errors"
@@ -10,10 +10,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// resolveSmallCooper handles the source's explicit enumeration for the
-// smaller absolute coefficient two or three. Larger values use the separate
-// symbolic expansion path and are reported as unhandled.
-func (u *ArithmeticQETermUtil) resolveSmallCooper(variable ast.ASTHandle, a *big.Rat, t ast.ASTHandle, b *big.Rat, s ast.ASTHandle) (result ast.ASTRef, handled bool, err error) {
+// resolveCooper handles the source's explicit small enumeration and,
+// when a QE context is available, its symbolic bit-vector expansion.
+func (u *ArithmeticQETermUtil) resolveCooper(variable ast.ASTHandle, a *big.Rat, t ast.ASTHandle, b *big.Rat, s ast.ASTHandle) (result ast.ASTRef, handled bool, err error) {
 	absA := new(big.Rat).Abs(a)
 	absB := new(big.Rat).Abs(b)
 	if !absA.IsInt() || !absB.IsInt() {
@@ -24,7 +23,7 @@ func (u *ArithmeticQETermUtil) resolveSmallCooper(variable ast.ASTHandle, a *big
 		a, b = b, a
 		t, s = s, t
 	}
-	if absB.Cmp(big.NewRat(3, 1)) > 0 {
+	if absB.Cmp(big.NewRat(3, 1)) > 0 && u.qeConfig == nil {
 		return result, false, nil
 	}
 	m := u.manager
@@ -118,28 +117,88 @@ func (u *ArithmeticQETermUtil) resolveSmallCooper(variable ast.ASTHandle, a *big
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, replacer.Close()) }()
-	var alternatives []ast.ASTHandle
-	limit := absB.Num().Int64() - 2
-	for i := int64(0); i <= limit; i++ {
-		numeral, e := hold(m.ArithmeticNumeralRat(big.NewRat(i, 1), true))
+	var cases ast.ASTHandle
+	if absB.Cmp(big.NewRat(3, 1)) <= 0 {
+		var alternatives []ast.ASTHandle
+		limit := absB.Num().Int64() - 2
+		for i := int64(0); i <= limit; i++ {
+			numeral, e := hold(m.ArithmeticNumeralRat(big.NewRat(i, 1), true))
+			if e != nil {
+				return result, false, e
+			}
+			ref, e := m.NewRef(conjunction)
+			if e != nil {
+				return result, false, e
+			}
+			refs = append(refs, ref)
+			if e = replacer.ApplySubstitution(variable, numeral, ref); e != nil {
+				return result, false, e
+			}
+			alternative, e := m.RefGet(ref)
+			if e != nil {
+				return result, false, e
+			}
+			alternatives = append(alternatives, alternative)
+		}
+		cases, err = hold(m.MkOrArgs(alternatives))
+	} else {
+		upper := new(big.Rat).Sub(absB, big.NewRat(2, 1))
+		upperValue, e := hold(m.ArithmeticNumeralRat(upper, true))
 		if e != nil {
 			return result, false, e
 		}
-		ref, e := m.NewRef(conjunction)
+		bound, e := hold(m.MkArithmeticLE(variable, upperValue))
 		if e != nil {
 			return result, false, e
 		}
-		refs = append(refs, ref)
-		if e = replacer.ApplySubstitution(variable, numeral, ref); e != nil {
-			return result, false, e
-		}
-		alternative, e := m.RefGet(ref)
+		body, e := hold(m.MkAnd(bound, conjunction))
 		if e != nil {
 			return result, false, e
 		}
-		alternatives = append(alternatives, alternative)
+		width := uint32(upper.Num().BitLen())
+		if width == 0 {
+			width = 1
+		}
+		sort, e := hold(m.BitVectorSort(width))
+		if e != nil {
+			return result, false, e
+		}
+		bits, e := hold(m.MkFreshConst("z", sort))
+		if e != nil {
+			return result, false, e
+		}
+		residue, e := hold(m.MkBitVectorToInt(bits))
+		if e != nil {
+			return result, false, e
+		}
+		rewritten, e := m.NewRef(body)
+		if e != nil {
+			return result, false, e
+		}
+		refs = append(refs, rewritten)
+		if e = replacer.ApplySubstitution(variable, residue, rewritten); e != nil {
+			return result, false, e
+		}
+		body, e = m.RefGet(rewritten)
+		if e != nil {
+			return result, false, e
+		}
+		quantifier, e := bindExprQuantifierVariables(m, []ast.ASTHandle{bits}, body)
+		if e != nil {
+			return result, false, e
+		}
+		refs = append(refs, quantifier)
+		q, e := m.RefGet(quantifier)
+		if e != nil {
+			return result, false, e
+		}
+		blasted, complete, e := eliminateQuantifierBitVectorSearch(m, q, *u.qeConfig)
+		if e != nil || !complete {
+			return result, false, e
+		}
+		refs = append(refs, blasted)
+		cases, err = m.RefGet(blasted)
 	}
-	cases, err := hold(m.MkOrArgs(alternatives))
 	if err != nil {
 		return result, false, err
 	}

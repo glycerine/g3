@@ -14,11 +14,12 @@ import (
 // ArithmeticQETermUtil is the dependency-closed arithmetic term and bound
 // foundation used by the retained arithmetic QE plugin.
 type ArithmeticQETermUtil struct {
-	self    *ArithmeticQETermUtil
-	manager *ast.ASTManager
-	family  ast.FamilyID
-	theory  *rewriter.TheoryRewriter
-	closed  bool
+	self     *ArithmeticQETermUtil
+	manager  *ast.ASTManager
+	family   ast.FamilyID
+	theory   *rewriter.TheoryRewriter
+	qeConfig *Config
+	closed   bool
 }
 
 func NewArithmeticQETermUtil(manager *ast.ASTManager) (*ArithmeticQETermUtil, error) {
@@ -51,6 +52,8 @@ func (u *ArithmeticQETermUtil) Close() error {
 	if u.closed {
 		return nil
 	}
+	u.theory = nil
+	u.qeConfig = nil
 	u.closed = true
 	return nil
 }

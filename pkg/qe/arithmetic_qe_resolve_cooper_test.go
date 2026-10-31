@@ -8,8 +8,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestArithmeticQESmallCooperResolutionMatchesSolver(t *testing.T) {
-	for _, coefficients := range [][2]int64{{2, -3}, {3, -2}, {-2, 3}, {-3, 2}} {
+func TestArithmeticQECooperResolutionMatchesSolver(t *testing.T) {
+	for _, coefficients := range [][2]int64{{2, -3}, {3, -2}, {-2, 3}, {-3, 2}, {4, -5}, {5, -4}, {-4, 5}, {-5, 4}} {
 		t.Run(strconv.FormatInt(coefficients[0], 10), func(t *testing.T) {
 			f := qsatKernelFixture(t)
 			m := f.r.manager
@@ -19,10 +19,11 @@ func TestArithmeticQESmallCooperResolutionMatchesSolver(t *testing.T) {
 			u, err := NewArithmeticQETermUtil(m)
 			fmMust(t, err)
 			defer func() { fmMust(t, u.Close()) }()
+			u.qeConfig = &f.r.config
 			result, handled, err := u.ResolveUnitOrReal(x, false, big.NewRat(coefficients[0], 1), left, big.NewRat(coefficients[1], 1), right)
 			fmMust(t, err)
 			if !handled {
-				t.Fatal("small Cooper resolution was not handled")
+				t.Fatal("Cooper resolution was not handled")
 			}
 			defer func() { fmMust(t, m.DelRef(&result)) }()
 			value, err := m.RefGet(result)
