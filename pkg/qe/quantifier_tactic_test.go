@@ -1,6 +1,7 @@
 package qe
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -254,5 +255,29 @@ func TestQuantifierTacticArithmeticEquation(t *testing.T) {
 	fmMust(t, err)
 	if status != lbool.False {
 		t.Fatal("arithmetic QE result differs from substitution")
+	}
+}
+
+func TestQuantifierTacticUnsupportedDivisibilityIsExplicit(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	x := f.own(m.MkVar(0, f.integer))
+	y := f.constant("qe-unsupported-divisibility", f.integer)
+	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	body := f.own(m.MkEq(twoX, y))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	goal := f.goal(false, false)
+	fmMust(t, goal.Assert(quantifier))
+	err = port.Apply(goal, f.result())
+	if err == nil || !strings.Contains(err.Error(), "arithmetic branch resolution is not implemented") {
+		t.Fatal("unsupported branch did not report its limitation", err)
+	}
+	unchanged, err := goal.Form(0)
+	fmMust(t, err)
+	if unchanged != quantifier {
+		t.Fatal("unsupported branch changed the goal")
 	}
 }

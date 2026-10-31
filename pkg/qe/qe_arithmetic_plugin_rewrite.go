@@ -1,10 +1,15 @@
 package qe
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
+
+// errArithmeticBranchUnsupported reports an arithmetic branch whose bound
+// resolution is not yet implemented by the concrete plugin.
+var errArithmeticBranchUnsupported = errors.New("qe: arithmetic branch resolution is not implemented")
 
 func (p *ArithmeticPlugin) replaceAtom(result ast.ASTRef, atom ast.ASTRef, replacement ast.ASTHandle) error {
 	a, err := p.manager.RefGet(atom)
@@ -149,7 +154,7 @@ func (p *ArithmeticPlugin) rewriteFinite(entry *arithmeticPluginBounds, target a
 				return cause
 			}
 			if !handled {
-				return ast.ErrASTDomain
+				return errArithmeticBranchUnsupported
 			}
 			h, cause := p.manager.RefGet(replacement)
 			if cause == nil {

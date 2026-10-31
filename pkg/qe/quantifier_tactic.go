@@ -133,6 +133,31 @@ func (t *QuantifierTactic) CollectStatistics() map[string]float64  { return nil 
 func (t *QuantifierTactic) ResetStatistics() error                 { return t.open() }
 func (t *QuantifierTactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *QuantifierTactic) SetProgressCallback(func(uint32)) error { return t.open() }
+
+// onlyArithmeticBranchUnsupported leaves cleanup or ownership failures visible
+// even when they accompany an unsupported branch.
+func onlyArithmeticBranchUnsupported(err error) bool {
+	if err == errArithmeticBranchUnsupported {
+		return true
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		if len(causes) == 0 {
+			return false
+		}
+		for _, cause := range causes {
+			if !onlyArithmeticBranchUnsupported(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
+		return onlyArithmeticBranchUnsupported(wrapped.Unwrap())
+	}
+	return false
+}
+
 func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
@@ -192,6 +217,9 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 			var complete bool
 			updates[i], complete, e = rewriteQuantifierBool(t.manager, form, t.config)
 			if e != nil {
+				if onlyArithmeticBranchUnsupported(e) {
+					return tactic.NewTacticException(errArithmeticBranchUnsupported.Error())
+				}
 				return e
 			}
 			if !complete {
