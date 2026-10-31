@@ -147,3 +147,66 @@ func TestExternalRelationProjectAndRename(t *testing.T) {
 		t.Fatal("accepted duplicate cycle")
 	}
 }
+
+func TestExternalRelationJoinUnionAndWiden(t *testing.T) {
+	f := newTableRelationFixture(t)
+	type call struct {
+		op            int32
+		args, outputs []ast.ASTHandle
+	}
+	var calls []call
+	callbacks := ExternalRelationCallbacks{
+		ReduceAssign: func(decl ast.ASTHandle, args, outputs []ast.ASTHandle) error {
+			op, err := f.ast.GetDeclKind(decl)
+			if err != nil {
+				return err
+			}
+			calls = append(calls, call{op, append([]ast.ASTHandle(nil), args...), append([]ast.ASTHandle(nil), outputs...)})
+			return nil
+		},
+	}
+	plugin, err := NewExternalRelationPlugin(f.relations, callbacks)
+	astTestMust(t, err)
+	create := func() *ExternalRelation {
+		r, e := plugin.NewEmpty([]ast.ASTHandle{f.boolean})
+		astTestMust(t, e)
+		t.Cleanup(func() { astTestMust(t, r.Close()) })
+		return r
+	}
+	left, right, delta := create(), create(), create()
+	l, err := left.Relation()
+	astTestMust(t, err)
+	r, err := right.Relation()
+	astTestMust(t, err)
+	d, err := delta.Relation()
+	astTestMust(t, err)
+	joined, err := JoinExternalRelations(left, right, []uint32{0}, []uint32{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, joined.Close()) }()
+	joinedExpr, err := joined.Relation()
+	astTestMust(t, err)
+	kind, err := f.ast.GetDeclKind(joinedExpr)
+	if err != nil || kind != ast.DatalogOpJoin {
+		t.Fatal("join fallback", kind, err)
+	}
+	astTestMust(t, left.Union(right, delta, false))
+	astTestMust(t, left.Union(right, nil, true))
+	if len(calls) != 5 {
+		t.Fatal("callback count", len(calls))
+	}
+	if c := calls[3]; c.op != ast.DatalogOpUnion || len(c.args) != 2 || c.args[0] != l || c.args[1] != r || len(c.outputs) != 2 || c.outputs[0] != l || c.outputs[1] != d {
+		t.Fatal("union callback", c)
+	}
+	if c := calls[4]; c.op != ast.DatalogOpWiden || len(c.outputs) != 1 || c.outputs[0] != l {
+		t.Fatal("widen callback", c)
+	}
+	other, err := NewExternalRelation(f.relations, []ast.ASTHandle{f.boolean}, callbacks)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, other.Close()) }()
+	if _, err = JoinExternalRelations(left, other, nil, nil); err == nil {
+		t.Fatal("joined different callback plugins")
+	}
+	if err = left.Union(other, nil, false); err == nil {
+		t.Fatal("unioned different callback plugins")
+	}
+}

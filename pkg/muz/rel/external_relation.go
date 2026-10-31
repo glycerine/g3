@@ -17,9 +17,24 @@ type ExternalRelationCallbacks struct {
 	ReduceAssign func(declaration ast.ASTHandle, arguments, outputs []ast.ASTHandle) error
 }
 
+// ExternalRelationPlugin owns the shared callback configuration for relations
+// created by one source external relation plugin.
+type ExternalRelationPlugin struct {
+	manager   *RelationManager
+	callbacks ExternalRelationCallbacks
+}
+
+func NewExternalRelationPlugin(manager *RelationManager, callbacks ExternalRelationCallbacks) (*ExternalRelationPlugin, error) {
+	if manager == nil || manager.open() != nil {
+		return nil, ErrTableRelation
+	}
+	return &ExternalRelationPlugin{manager: manager, callbacks: callbacks}, nil
+}
+
 // ExternalRelation owns its relation expression and cached accessor declarations.
 // The relation manager and callback functions are borrowed.
 type ExternalRelation struct {
+	plugin                           *ExternalRelationPlugin
 	manager                          *RelationManager
 	ast                              *ast.ASTManager
 	sorts                            []ast.ASTHandle
@@ -32,9 +47,19 @@ type ExternalRelation struct {
 // NewExternalRelation creates a fresh external relation and invokes the empty
 // relation assignment callback, if present.
 func NewExternalRelation(manager *RelationManager, sorts []ast.ASTHandle, callbacks ExternalRelationCallbacks) (_ *ExternalRelation, resultErr error) {
-	if manager == nil || manager.open() != nil {
+	plugin, err := NewExternalRelationPlugin(manager, callbacks)
+	if err != nil {
+		return nil, err
+	}
+	return plugin.NewEmpty(sorts)
+}
+
+// NewEmpty creates a relation belonging to this callback plugin.
+func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (_ *ExternalRelation, resultErr error) {
+	if plugin == nil || plugin.manager == nil || plugin.manager.open() != nil {
 		return nil, ErrTableRelation
 	}
+	manager, callbacks := plugin.manager, plugin.callbacks
 	m := manager.manager
 	relationSort, err := m.MkDatalogRelationSort(sorts)
 	if err != nil {
@@ -53,7 +78,7 @@ func NewExternalRelation(manager *RelationManager, sorts []ast.ASTHandle, callba
 	if err != nil {
 		return nil, err
 	}
-	r := &ExternalRelation{manager: manager, ast: m, sorts: append([]ast.ASTHandle(nil), sorts...), callbacks: callbacks, relation: ref}
+	r := &ExternalRelation{plugin: plugin, manager: manager, ast: m, sorts: append([]ast.ASTHandle(nil), sorts...), callbacks: callbacks, relation: ref}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, r.Close())
@@ -250,7 +275,7 @@ func (r *ExternalRelation) Clone() (_ *ExternalRelation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &ExternalRelation{manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), callbacks: r.callbacks, relation: freshRef}
+	result := &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), callbacks: r.callbacks, relation: freshRef}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, result.Close())
@@ -304,7 +329,7 @@ func (r *ExternalRelation) Complement() (_ *ExternalRelation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &ExternalRelation{manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), callbacks: r.callbacks, relation: ref}
+	result := &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), callbacks: r.callbacks, relation: ref}
 	defer func() {
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, result.Close())
@@ -323,7 +348,7 @@ func (r *ExternalRelation) Close() (result error) {
 		}
 	}
 	if r.emptyDecl == (ast.ASTRef{}) && r.storeDecl == (ast.ASTRef{}) && r.selectDecl == (ast.ASTRef{}) && r.relation == (ast.ASTRef{}) {
-		r.closed, r.manager, r.ast, r.sorts = true, nil, nil, nil
+		r.closed, r.plugin, r.manager, r.ast, r.sorts = true, nil, nil, nil, nil
 	}
 	return result
 }

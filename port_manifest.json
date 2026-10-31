@@ -90303,7 +90303,8 @@
       "tests": [
         "TestExternalRelationCallbacksAndClone",
         "TestExternalRelationFallbackAndFormula",
-        "TestExternalRelationProjectAndRename"
+        "TestExternalRelationProjectAndRename",
+        "TestExternalRelationJoinUnionAndWiden"
       ],
       "assertions": [
         {
@@ -90350,13 +90351,21 @@
           "tests": [
             "TestExternalRelationProjectAndRename"
           ]
+        },
+        {
+          "name": "plugin identity, join, union and widening callback operations",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation_transform.go",
+          "tests": [
+            "TestExternalRelationJoinUnionAndWiden"
+          ]
         }
       ],
       "ownership": [
         "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
       ],
       "deviations": [
-        "Join, union, filters, fixedpoint callback registration and callback trail lifetime remain pending.",
+        "Filters, fixedpoint callback registration and callback trail lifetime remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
         "Full ownership and failure-frontier audits remain pending."
       ]
@@ -90375,7 +90384,8 @@
       "tests": [
         "TestExternalRelationCallbacksAndClone",
         "TestExternalRelationFallbackAndFormula",
-        "TestExternalRelationProjectAndRename"
+        "TestExternalRelationProjectAndRename",
+        "TestExternalRelationJoinUnionAndWiden"
       ],
       "conditionals": [
         {
@@ -90406,13 +90416,21 @@
           "tests": [
             "TestExternalRelationProjectAndRename"
           ]
+        },
+        {
+          "name": "plugin identity, join, union and widening callback operations",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/external_relation_transform.go",
+          "tests": [
+            "TestExternalRelationJoinUnionAndWiden"
+          ]
         }
       ],
       "ownership": [
         "The external relation owns its AST relation reference and accessor declarations; callback arguments are borrowed during invocation."
       ],
       "deviations": [
-        "Join, union, filters, fixedpoint callback registration and callback trail lifetime remain pending.",
+        "Filters, fixedpoint callback registration and callback trail lifetime remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
         "Full ownership and failure-frontier audits remain pending."
       ]
