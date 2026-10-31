@@ -119,7 +119,8 @@ func TestPseudoBooleanTheorySourceNestedFuzz(t *testing.T) {
 			if !isGE {
 				continue
 			}
-			astTestMust(t, solver.Assert(formula))
+			// The source asserts the twice-rewritten expression selected above.
+			astTestMust(t, solver.Assert(second))
 			var allowed uint8
 			for assignment := 0; assignment < 8; assignment++ {
 				var total int32
