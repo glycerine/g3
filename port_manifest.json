@@ -110645,8 +110645,8 @@
       "component": "qe",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/qe/sat_solver_context.go", "pkg/qe/sat_solver_context_test.go"],
-      "tests": ["TestSATSolverContextNNFAndConstraints"],
+      "go_targets": ["pkg/qe/sat_solver_context.go", "pkg/qe/sat_alternation.go", "pkg/qe/sat_alternation_test.go", "pkg/qe/sat_solver_context_test.go"],
+      "tests": ["TestSATSolverContextNNFAndConstraints", "TestSATAlternationSkolemPrefixAndPolarity"],
       "assertions": [
         {
           "line": 363,
