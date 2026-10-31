@@ -631,7 +631,7 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -665,7 +665,7 @@ func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)

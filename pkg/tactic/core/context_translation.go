@@ -15,6 +15,21 @@ import (
 // TranslateContextLeaf translates the supported concrete core tactics. The
 // Boolean reports whether the tactic belongs to this set.
 func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService, services model.ModelEvaluatorConfig) (result tactic.Tactic, matched bool, resultErr error) {
+	switch t := value.(type) {
+	case *DERTactic:
+		r, err := t.Translate(m)
+		return r, true, err
+	case *SymmetryReduceTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		r, err := NewSymmetryReduceTactic(m, context, globals)
+		if err != nil {
+			return nil, true, err
+		}
+		r.trace = t.trace
+		return r, true, nil
+	}
 	var source *uparams.ParamsContext
 	var sourceParams *uparams.ParamsRef
 	switch t := value.(type) {
@@ -49,6 +64,11 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 		}
 		if _, ok := t.current.simp.(*contextAssertions); !ok {
 			return nil, false, nil
+		}
+		source, sourceParams = t.context, &t.params
+	case *NNFTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
 		}
 		source, sourceParams = t.context, &t.params
 	default:
@@ -109,6 +129,12 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 		next, err = NewContextSimplifyTactic(m, context, globals, &p, services)
 		if err == nil {
 			next.trace = t.trace
+			result = next
+		}
+	case *NNFTactic:
+		var next *NNFTactic
+		next, err = newNNFTactic(m, context, globals, &p, t.full)
+		if err == nil {
 			result = next
 		}
 	}
