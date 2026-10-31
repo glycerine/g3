@@ -5956,7 +5956,10 @@
         "TestGeneratedQuantifierReplayRejectsInvalidPattern",
         "TestGeneratedQuantifierReplayZeroBindersReturnsBody",
         "TestGeneratedPatternReplayRejectsBoundVariableTerm",
-        "TestZ3LogFrontendReplaysQuantifier"
+        "TestZ3LogFrontendReplaysQuantifier",
+        "TestGeneratedConstantQuantifierReplay",
+        "TestGeneratedConstantQuantifierReplayRejectsEmptyBounds",
+        "TestZ3LogFrontendReplaysConstantQuantifier"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -5974,6 +5977,19 @@
             "TestGeneratedQuantifierReplayZeroBindersReturnsBody",
             "TestGeneratedPatternReplayRejectsBoundVariableTerm",
             "TestZ3LogFrontendReplaysQuantifier"
+          ]
+        },
+        {
+          "name": "generated replay of constant-bound forall, exists and extended quantifier constructors",
+          "status": "partial",
+          "go_target": "pkg/api/z3_generated_quantifier_commands.go",
+          "go_targets": [
+            "pkg/cmd/g3/z3_log_frontend_test.go"
+          ],
+          "tests": [
+            "TestGeneratedConstantQuantifierReplay",
+            "TestGeneratedConstantQuantifierReplayRejectsEmptyBounds",
+            "TestZ3LogFrontendReplaysConstantQuantifier"
           ]
         }
       ],

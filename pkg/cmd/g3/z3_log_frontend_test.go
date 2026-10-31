@@ -61,3 +61,17 @@ func TestZ3LogFrontendReplaysQuantifier(t *testing.T) {
 		t.Fatal(out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysConstantQuantifier(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
+		"R\nP 0x41\n# 37\nP 0x42\nC 51\n= 0x43\n" +
+		"R\nP 0x41\nU 1\nU 1\nP 0x43\np 1\nU 0\np 0\nP 0x43\nC 196\n= 0x44\n" +
+		"M \"constant-quantifier-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "constant-quantifier-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}

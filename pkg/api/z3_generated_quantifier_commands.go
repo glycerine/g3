@@ -18,6 +18,10 @@ func registerZ3GeneratedQuantifierCommands(r *Z3Replayer) error {
 		{193, "Z3_mk_exists", func(r *Z3Replayer) error { return replayQuantifier(r, 193) }},
 		{194, "Z3_mk_quantifier", func(r *Z3Replayer) error { return replayQuantifier(r, 194) }},
 		{195, "Z3_mk_quantifier_ex", func(r *Z3Replayer) error { return replayQuantifier(r, 195) }},
+		{196, "Z3_mk_forall_const", func(r *Z3Replayer) error { return replayConstantQuantifier(r, 196) }},
+		{197, "Z3_mk_exists_const", func(r *Z3Replayer) error { return replayConstantQuantifier(r, 197) }},
+		{198, "Z3_mk_quantifier_const", func(r *Z3Replayer) error { return replayConstantQuantifier(r, 198) }},
+		{199, "Z3_mk_quantifier_const_ex", func(r *Z3Replayer) error { return replayConstantQuantifier(r, 199) }},
 	}
 	for _, entry := range entries {
 		if err := r.RegisterCommand(entry.id, entry.name, entry.command); err != nil {
@@ -135,6 +139,61 @@ func replayQuantifier(r *Z3Replayer, id uint32) error {
 		if err != nil {
 			return err
 		}
+	}
+	return r.storeAST(owner, h)
+}
+
+// replayConstantQuantifier abstracts named constants in both body and patterns.
+func replayConstantQuantifier(r *Z3Replayer, id uint32) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	forall := id == 196
+	weightPos, boundCount, boundArray, patternCount, patternArray, bodyPos := uint32(1), uint32(2), uint32(3), uint32(4), uint32(5), uint32(6)
+	if id == 198 || id == 199 {
+		forall, err = r.Bool(1)
+		if err != nil {
+			return err
+		}
+		weightPos, boundCount, boundArray, patternCount, patternArray, bodyPos = 2, 3, 4, 5, 6, 7
+	}
+	var qid, skid usymbol.Symbol
+	var noPatterns []ast.ASTHandle
+	if id == 199 {
+		qid, err = replayTypedSymbol(r, owner, 3)
+		if err != nil {
+			return err
+		}
+		skid, err = replayTypedSymbol(r, owner, 4)
+		if err != nil {
+			return err
+		}
+		boundCount, boundArray, patternCount, patternArray, bodyPos = 5, 6, 7, 8, 11
+		noPatterns, err = replayASTArray(r, owner, 9, 10)
+		if err != nil {
+			return err
+		}
+	}
+	weight, err := r.Uint(weightPos)
+	if err != nil {
+		return err
+	}
+	bound, err := replayASTArray(r, owner, boundCount, boundArray)
+	if err != nil {
+		return err
+	}
+	patterns, err := replayASTArray(r, owner, patternCount, patternArray)
+	if err != nil {
+		return err
+	}
+	body, err := r.astObject(owner, bodyPos)
+	if err != nil {
+		return err
+	}
+	h, err := owner.context.constantQuantifierSymbols(ConstantQuantifierSpec{Forall: forall, Bound: bound, Body: body.handle, Weight: int32(weight), Patterns: patterns, NoPatterns: noPatterns}, qid, skid)
+	if err != nil {
+		return err
 	}
 	return r.storeAST(owner, h)
 }

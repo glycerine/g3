@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -194,5 +195,141 @@ func TestGeneratedPatternReplayRejectsBoundVariableTerm(t *testing.T) {
 	}
 	if err = r.Parse(); err == nil {
 		t.Fatal("pattern containing a bare variable was accepted")
+	}
+}
+
+func TestGeneratedConstantQuantifierReplay(t *testing.T) {
+	cases := []struct {
+		id             uint32
+		forall         bool
+		prefix, suffix string
+	}{
+		{196, true, "U 5\n", ""},
+		{197, false, "U 5\n", ""},
+		{198, true, "I 1\nU 5\n", ""},
+		{199, false, "I 0\nU 5\n# 22\n$ |skid|\n", "U 0\np 0\n"},
+	}
+	for _, tc := range cases {
+		t.Run(fmt.Sprint(tc.id), func(t *testing.T) {
+			log := "R\nP 0\nC 6\n= 0x41\n" +
+				"R\nP 0x41\nC 32\n= 0x42\n" +
+				"R\nP 0x41\n# 37\nP 0x42\nC 51\n= 0x43\n" +
+				"R\nP 0x41\n$ |f|\nU 1\nP 0x42\np 1\nP 0x42\nC 49\n= 0x44\n" +
+				"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 50\n= 0x45\n" +
+				"R\nP 0x41\nU 1\nP 0x45\np 1\nC 190\n= 0x46\n" +
+				"R\nP 0x41\n" + tc.prefix + "U 1\nP 0x43\np 1\nU 1\nP 0x46\np 1\n" + tc.suffix + "P 0x45\n" + fmt.Sprintf("C %d\n= 0x47\n", tc.id) +
+				"R\nP 0x41\nP 0x47\nC 900\n"
+			r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if e := r.Close(); e != nil {
+					t.Error(e)
+				}
+			}()
+			if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+				t.Fatal(err)
+			}
+			if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+				t.Fatal(err)
+			}
+			if err = r.RegisterCommand(900, "check-constant-quantifier", func(r *Z3Replayer) error {
+				owner, e := replayContext(r, 0)
+				if e != nil {
+					return e
+				}
+				q, e := r.astObject(owner, 1)
+				if e != nil {
+					return e
+				}
+				m := owner.results.manager
+				forall, e := m.IsForall(q.handle)
+				if e != nil {
+					return e
+				}
+				weight, e := m.GetQuantifierWeight(q.handle)
+				if e != nil {
+					return e
+				}
+				name, e := m.GetDeclarationName(q.handle, 0)
+				if e != nil {
+					return e
+				}
+				if forall != tc.forall || weight != 5 || !name.IsNumerical() || name.Value != 37 {
+					t.Fatalf("forall=%t weight=%d name=%v", forall, weight, name)
+				}
+				body, e := m.GetQuantifierBody(q.handle)
+				if e != nil {
+					return e
+				}
+				arg, e := m.GetArg(body, 0)
+				if e != nil {
+					return e
+				}
+				index, e := m.GetVarIndex(arg)
+				if e != nil || index != 0 {
+					t.Fatalf("abstracted body index %d: %v", index, e)
+				}
+				pattern, e := m.GetPattern(q.handle, 0)
+				if e != nil {
+					return e
+				}
+				term, e := m.GetArg(pattern, 0)
+				if e != nil {
+					return e
+				}
+				arg, e = m.GetArg(term, 0)
+				if e != nil {
+					return e
+				}
+				index, e = m.GetVarIndex(arg)
+				if e != nil || index != 0 {
+					t.Fatalf("abstracted pattern index %d: %v", index, e)
+				}
+				if tc.id == 199 {
+					qid, skid, e := m.GetQuantifierIDs(q.handle)
+					if e != nil {
+						return e
+					}
+					text, e := m.Symbols.String(skid)
+					if e != nil {
+						return e
+					}
+					if !qid.IsNumerical() || qid.Value != 22 || text != "skid" {
+						t.Fatal("extended ids", qid, text)
+					}
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err = r.Parse(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestGeneratedConstantQuantifierReplayRejectsEmptyBounds(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\n" +
+		"R\nP 0x41\nU 1\nU 0\np 0\nU 0\np 0\nP 0x42\nC 196\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err == nil {
+		t.Fatal("constant quantifier accepted an empty bound list")
 	}
 }
