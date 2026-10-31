@@ -47,6 +47,14 @@ func (f *APIFixedpoint) Reachable(declaration ast.ASTHandle) (ast.ASTRef, error)
 	return f.command.FixedpointReachable(declaration)
 }
 
+// RulesAlongTrace returns owned rule formulas and copied names for the latest trace.
+func (f *APIFixedpoint) RulesAlongTrace() ([]ast.ASTRef, []string, error) {
+	if err := f.open(); err != nil {
+		return nil, nil, err
+	}
+	return f.command.FixedpointRulesAlongTrace()
+}
+
 func (f *APIFixedpoint) ReasonUnknown() (string, error) {
 	if err := f.open(); err != nil {
 		return "", err

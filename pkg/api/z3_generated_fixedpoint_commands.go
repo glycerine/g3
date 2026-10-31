@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
@@ -28,6 +29,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 		{530, "Z3_fixedpoint_set_params"}, {531, "Z3_fixedpoint_get_help"}, {532, "Z3_fixedpoint_get_param_descrs"}, {533, "Z3_fixedpoint_to_string"},
+		{653, "Z3_fixedpoint_get_rules_along_trace"}, {654, "Z3_fixedpoint_get_rule_names_along_trace"},
 		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
 	}
 	for _, entry := range entries {
@@ -224,12 +226,15 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 			return ErrZ3ReplayReference
 		}
 		return f.value.SetPredicateRepresentation(decl.handle, kinds[:count]...)
-	case 528, 529:
+	case 528, 529, 653, 654:
 		var refs []ast.ASTRef
+		var names []string
 		if id == 528 {
 			refs, err = f.value.Rules()
-		} else {
+		} else if id == 529 {
 			refs, err = f.value.Assertions()
+		} else {
+			refs, names, err = f.value.RulesAlongTrace()
 		}
 		if err != nil {
 			return err
@@ -240,6 +245,19 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 				err = errors.Join(err, manager.DelRef(&refs[i]))
 			}
 		}()
+		if id == 654 {
+			if _, e := owner.context.StringSymbol(strings.Join(names, ";")); e != nil {
+				return e
+			}
+			vector, e := owner.context.NewASTVector()
+			if e != nil {
+				return e
+			}
+			if e = replayStoreVector(r, owner, vector); e != nil {
+				return e
+			}
+			return r.StoreResult(0)
+		}
 		values := make([]ast.ASTHandle, len(refs))
 		for i := range refs {
 			values[i], err = manager.RefGet(refs[i])

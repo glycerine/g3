@@ -194,8 +194,9 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
 		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nC 526\nR\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\n" +
-		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nP 0x43\nC 656\n= 0x45\n" +
-		"R\nP 0x41\nP 0x44\nC 513\nR\nP 0x41\nP 0x45\nC 900\n"
+		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nC 653\n= 0x46\nR\nP 0x41\nP 0x46\nC 448\n" +
+		"R\nP 0x41\nP 0x44\nC 654\nR\nP 0x41\nP 0x44\nP 0x43\nC 656\n= 0x45\n" +
+		"R\nP 0x41\nP 0x44\nC 513\nR\nP 0x41\nP 0x45\nP 0x46\nC 900\nR\nP 0x41\nP 0x46\nC 449\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
 		t.Fatal(err)
@@ -232,6 +233,17 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 		}
 		if !owner.results.manager.IsTrue(value.handle) {
 			t.Fatal("reachable nullary fact should be true")
+		}
+		trace, e := replayVectorAt(r, owner, 2)
+		if e != nil {
+			return e
+		}
+		n, e := trace.value.Len()
+		if e != nil {
+			return e
+		}
+		if n != 1 {
+			t.Fatal("trace rule count", n)
 		}
 		checked = true
 		return nil
