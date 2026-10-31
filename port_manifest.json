@@ -6203,7 +6203,7 @@
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
         "Real-closed-field replay currently supports rational construction, deletion, arithmetic, comparisons and display. Roots, non-rational values and remaining operations are unfinished; exponents that do not terminate in the source are rejected.",
         "Fixedpoint answer replay supports expression queries, single relations, and Datalog relation arrays, including Spacer expression ground answers. Multiple-relation answers for non-Datalog backends remain unsupported.",
-        "Generated solver translation replay supports direct, strategic, finite-domain and compositions of SMT and selected core tactics across contexts. Built-in probe conditionals are supported; other tactic leaves and subsystem probes remain unsupported."
+        "Generated solver translation replay supports direct, strategic, finite-domain and compositions of SMT and selected core tactics across contexts. Built-in and arithmetic probe conditionals are supported; other tactic leaves and subsystem probes remain unsupported."
       ]
     },
     {
@@ -7871,7 +7871,7 @@
       ],
       "deviations": [
         "The retained surface is idiomatic Go over concrete AST handles, not opaque C handles. Consequence expressions return concrete owning ASTRefs instead of an opaque AST-vector wrapper. Implied equalities return a Go slice of class identifiers. AssertSMT2 streams are parsed transactionally in an isolated Go command context, translated into the target manager, and publish only the final assertion set; check commands are syntax-checked and ignored as in solver_from_stream. ExecuteSMT2 instead runs the complete command stream against the live API context and exposes its results to later typed API calls. The additive SMTBoolParameter, SMTUIntParameter, SMTDoubleParameter and SMTSymbolParameter key types publish the complete retained SMT tuning catalog without Go generics; explicit conversion permits forward-compatible Z3-style keys while the source catalog still validates names and value types. Go exposes solver translation, tactic construction, DIMACS loading and help through typed APIs; opaque C reference-count entry points have no Go equivalent.",
-        "Solver translation supports direct, strategic, finite-domain and compositions of SMT and selected core tactics across contexts. Built-in probe conditionals are supported; other tactic leaves, subsystem probes, and a complete ownership audit remain open."
+        "Solver translation supports direct, strategic, finite-domain and compositions of SMT and selected core tactics across contexts. Built-in and arithmetic probe conditionals are supported; other tactic leaves, subsystem probes, and a complete ownership audit remain open."
       ]
     },
     {
@@ -175358,6 +175358,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_probe_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/add_bounds_tactic.go",
         "pkg/tactic/arith/unbounded_probe.go",
         "pkg/tactic/arith/probe_arith.go",
@@ -175374,6 +175376,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPIArithmeticProbeTacticCrossContextTranslation",
         "TestAddBoundsExactGoalsAndUnboundedProbeCPP",
         "TestAddBoundsConstructorAllocationFrontiers",
         "TestAddBoundsPrecisionTraceAndCleanupRefusal",
@@ -180751,6 +180754,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_probe_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/pb2bv_tactic.go",
         "pkg/tactic/arith/pb2bv_check.go",
         "pkg/tactic/arith/pb2bv_convert.go",
@@ -180767,6 +180772,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPIArithmeticProbeTacticCrossContextTranslation",
         "TestPB2BVEncodingTruthTables",
         "TestPB2BVCoefficientNormalization",
         "TestPB2BVTacticAllocationFrontiers",
@@ -181209,6 +181215,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_probe_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/arith/add_bounds_tactic.go",
         "pkg/tactic/arith/unbounded_probe.go",
         "pkg/tactic/arith/probe_arith.go",
@@ -181229,6 +181237,7 @@
         "pkg/cmd/g3/test_vectors/add_bounds_proof_under.smt2"
       ],
       "tests": [
+        "TestAPIArithmeticProbeTacticCrossContextTranslation",
         "TestAddBoundsExactGoalsAndUnboundedProbeCPP",
         "TestAddBoundsConstructorAllocationFrontiers",
         "TestAddBoundsPrecisionTraceAndCleanupRefusal",
@@ -195081,6 +195090,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/arith/context_probe_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/smtlogics/qflia_tactic.go",
         "pkg/tactic/smtlogics/qflia_tactic_test.go",
         "pkg/tactic/arith/quasi_pb_probe.go",
@@ -195102,6 +195113,7 @@
         "pkg/cmd/g3/test_vectors/qflia_solver_unbounded_ilp.smt2"
       ],
       "tests": [
+        "TestAPIArithmeticProbeTacticCrossContextTranslation",
         "TestQFLIATacticModelSurvivesStrategyClose",
         "TestQFLIATacticTranslatedProofAndCoreRoutes",
         "TestQFLIATacticConstructorAllocationFrontiers",

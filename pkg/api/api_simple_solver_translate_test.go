@@ -768,3 +768,44 @@ func TestAPIConditionalTacticCrossContextTranslation(t *testing.T) {
 		})
 	}
 }
+
+func TestAPIArithmeticProbeTacticCrossContextTranslation(t *testing.T) {
+	for _, name := range []string{"is-qflia", "arith-max-deg", "is-unbounded", "is-pb", "is-quasi-pb"} {
+		t.Run(name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			p, err := source.NamedProbe(name)
+			astTestMust(t, err)
+			one, err := source.ConstantProbe(1)
+			astTestMust(t, err)
+			combined, err := p.And(one)
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			condition, err := combined.Conditional(smt, smt)
+			astTestMust(t, err)
+			s, err := source.NewSolverFromTactic(condition)
+			astTestMust(t, err)
+			for _, v := range []*APITactic{condition, smt} {
+				astTestMust(t, v.Close())
+			}
+			for _, v := range []*APIProbe{combined, one, p} {
+				astTestMust(t, v.Close())
+			}
+			astTestMust(t, s.LoadSMT2String(`(declare-const x Int) (assert (> x 1))`))
+			translated, err := s.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, s.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("translated arithmetic probe", status)
+			}
+		})
+	}
+}

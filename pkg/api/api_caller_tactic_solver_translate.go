@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/tactic/arith"
 	"github.com/glycerine/g3/pkg/tactic/core"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -33,6 +34,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			}
 			return nil, fmt.Errorf("api: cross-context translation of this tactic is not yet supported")
 		}
+	}, func(probe tactic.ProbeEvaluator) (tactic.ProbeEvaluator, error) {
+		return arith.TranslateContextProbe(probe, manager.Budget(), config.Params, config.Globals)
 	})
 	if err != nil {
 		return nil, err

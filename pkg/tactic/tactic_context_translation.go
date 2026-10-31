@@ -6,7 +6,6 @@ package tactic
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
@@ -15,10 +14,10 @@ import (
 
 // translateContextProbe copies the built-in probe tree into the target budget.
 // Subsystem probes need their own target services and are rejected for now.
-func translateContextProbe(value ProbeEvaluator, budget *arena.Budget) (result ProbeEvaluator, resultErr error) {
+func translateContextProbe(value ProbeEvaluator, budget *arena.Budget, translateLeaf func(ProbeEvaluator) (ProbeEvaluator, error)) (result ProbeEvaluator, resultErr error) {
 	p, ok := value.(*Probe)
 	if !ok {
-		return nil, fmt.Errorf("tactic: cross-context translation of this probe is not yet supported")
+		return translateLeaf(value)
 	}
 	if err := p.Check(); err != nil {
 		return nil, err
@@ -26,7 +25,7 @@ func translateContextProbe(value ProbeEvaluator, budget *arena.Budget) (result P
 	if p.left == nil {
 		return NewProbe(budget, p.kind, p.constant)
 	}
-	left, err := translateContextProbe(p.left, budget)
+	left, err := translateContextProbe(p.left, budget, translateLeaf)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +36,7 @@ func translateContextProbe(value ProbeEvaluator, budget *arena.Budget) (result P
 	if p.right == nil {
 		return NewNotProbe(budget, left)
 	}
-	right, err := translateContextProbe(p.right, budget)
+	right, err := translateContextProbe(p.right, budget, translateLeaf)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +50,8 @@ func translateContextProbe(value ProbeEvaluator, budget *arena.Budget) (result P
 // TranslateWithContext rebuilds supported tactic compositions for a target
 // parameter service. translateLeaf handles the concrete subsystem tactics;
 // the caller owns the returned uncounted tactic in the usual tactic protocol.
-func TranslateWithContext(value Tactic, m *ast.ASTManager, params *uparams.ParamsContext, translateLeaf func(Tactic) (Tactic, error)) (result Tactic, resultErr error) {
-	if value == nil || m == nil || params == nil || translateLeaf == nil {
+func TranslateWithContext(value Tactic, m *ast.ASTManager, params *uparams.ParamsContext, translateLeaf func(Tactic) (Tactic, error), translateProbe func(ProbeEvaluator) (ProbeEvaluator, error)) (result Tactic, resultErr error) {
+	if value == nil || m == nil || params == nil || translateLeaf == nil || translateProbe == nil {
 		return nil, ast.ErrASTHandle
 	}
 	owned := make([]Tactic, 0, 2)
@@ -70,7 +69,7 @@ func TranslateWithContext(value Tactic, m *ast.ASTManager, params *uparams.Param
 		}
 	}()
 	child := func(v Tactic) (Tactic, error) {
-		translated, err := TranslateWithContext(v, m, params, translateLeaf)
+		translated, err := TranslateWithContext(v, m, params, translateLeaf, translateProbe)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +147,7 @@ func TranslateWithContext(value Tactic, m *ast.ASTManager, params *uparams.Param
 		var probe ProbeEvaluator
 		if t.probe != nil {
 			var err error
-			probe, err = translateContextProbe(t.probe, m.Budget())
+			probe, err = translateContextProbe(t.probe, m.Budget(), translateProbe)
 			if err != nil {
 				return nil, err
 			}
