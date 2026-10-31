@@ -106002,14 +106002,19 @@
         "pkg/qe/qe_array_plugin_select.go",
         "pkg/qe/qe_array_plugin_select_test.go",
         "pkg/qe/qe_array_plugin_store.go",
-        "pkg/qe/qe_array_plugin_store_test.go"
+        "pkg/qe/qe_array_plugin_store_test.go",
+        "pkg/qe/qe_array_plugin_solve.go",
+        "pkg/qe/qe_array_plugin_solve_test.go"
       ],
       "tests": [
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
         "TestArrayPluginEliminatesDirectEqualityInEitherOrientation",
         "TestArrayPluginSelectEqualityIntroducesFreshArray",
         "TestArrayPluginSelectFreshVariableSurvivesAbsentFormula",
-        "TestArrayPluginNestedStoreElimination"
+        "TestArrayPluginNestedStoreElimination",
+        "TestArrayPluginExplicitSolveUsesSourceSidePrecedence",
+        "TestArrayPluginExplicitSolveSkipsNonEqualities",
+        "TestArrayPluginExplicitSolveSelectInEitherOrientation"
       ],
       "assertions": [
         {
@@ -106052,6 +106057,16 @@
           "tests": [
             "TestArrayPluginNestedStoreElimination"
           ]
+        },
+        {
+          "name": "solve explicit-equality pass: source conjunct order and direct/store/select dispatch precedence for each orientation",
+          "status": "ported",
+          "go_target": "pkg/qe/qe_array_plugin_solve.go",
+          "tests": [
+            "TestArrayPluginExplicitSolveUsesSourceSidePrecedence",
+            "TestArrayPluginExplicitSolveSkipsNonEqualities",
+            "TestArrayPluginExplicitSolveSelectInEitherOrientation"
+          ]
         }
       ],
       "ownership": [
@@ -106059,7 +106074,7 @@
         "The context-owned array plugin independently pins fresh variables while the context variable list borrows them, including when the rewritten formula does not mention the fresh variable."
       ],
       "deviations": [
-        "Pending: arithmetic zero-equation handling, top-level solve orchestration, diagnostics, allocation-failure audit and live QE solver registration."
+        "Pending: arithmetic zero-equation handling, arithmetic-zero fallback orchestration, diagnostics, allocation-failure audit and live QE solver registration."
       ]
     },
     {

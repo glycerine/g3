@@ -8,84 +8,85 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// TryDirectEquality eliminates a context variable equated to an expression
-// that does not contain it. Store and select equation solving are separate
-// source branches and are not attempted here.
-func (p *ArrayPlugin) TryDirectEquality(eq, formula ast.ASTHandle) (solved bool, err error) {
-	if err = p.open(); err != nil {
-		return false, err
+func (p *ArrayPlugin) tryDirectSide(left, right, formula ast.ASTHandle) (solved bool, err error) {
+	k, e := p.manager.GetKind(left)
+	if e != nil {
+		return false, e
 	}
-	kind, err := p.manager.GetKind(eq)
-	if err != nil {
-		return false, err
-	}
-	if kind != ast.ASTApp {
+	if k != ast.ASTApp {
 		return false, nil
 	}
-	family, err := p.manager.GetFamilyID(eq)
-	if err != nil {
-		return false, err
+	idx, found, e := p.context.IsVariable(left)
+	if e != nil || !found {
+		return false, e
 	}
-	op, err := p.manager.GetDeclKind(eq)
-	if err != nil {
-		return false, err
+	contains, e := p.context.Contains(idx)
+	if e != nil {
+		return false, e
+	}
+	has, e := contains.Check(right)
+	if e != nil || has {
+		return false, e
+	}
+	result, e := p.manager.NewRef(formula)
+	if e != nil {
+		return false, e
+	}
+	defer func() { err = errors.Join(err, p.manager.DelRef(&result)) }()
+	rw, e := rewriter.NewExprSafeReplace(p.manager)
+	if e != nil {
+		return false, e
+	}
+	defer func() { err = errors.Join(err, rw.Close()) }()
+	if e = rw.ApplySubstitution(left, right, result); e != nil {
+		return false, e
+	}
+	rewritten, e := p.manager.RefGet(result)
+	if e != nil {
+		return false, e
+	}
+	if e = p.context.EliminateVariable(idx, rewritten, right); e != nil {
+		return false, e
+	}
+	return true, nil
+}
+
+func (p *ArrayPlugin) equalitySides(eq ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, bool, error) {
+	kind, e := p.manager.GetKind(eq)
+	if e != nil || kind != ast.ASTApp {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, e
+	}
+	family, e := p.manager.GetFamilyID(eq)
+	if e != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, e
+	}
+	op, e := p.manager.GetDeclKind(eq)
+	if e != nil {
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, e
 	}
 	if family != p.manager.BasicFamilyID() || op != ast.ASTOpEq {
-		return false, nil
+		return ast.ASTHandle{}, ast.ASTHandle{}, false, nil
 	}
-	left, err := p.manager.GetArg(eq, 0)
-	if err != nil {
-		return false, err
+	left, e := p.manager.GetArg(eq, 0)
+	if e != nil {
+		return left, ast.ASTHandle{}, false, e
 	}
-	right, err := p.manager.GetArg(eq, 1)
-	if err != nil {
-		return false, err
+	right, e := p.manager.GetArg(eq, 1)
+	return left, right, e == nil, e
+}
+
+// TryDirectEquality eliminates a directly equated variable in either orientation.
+func (p *ArrayPlugin) TryDirectEquality(eq, formula ast.ASTHandle) (bool, error) {
+	if e := p.open(); e != nil {
+		return false, e
 	}
-	for side := 0; side < 2; side++ {
-		k, e := p.manager.GetKind(left)
-		if e != nil {
-			return false, e
-		}
-		if k == ast.ASTApp {
-			idx, found, e := p.context.IsVariable(left)
-			if e != nil {
-				return false, e
-			}
-			if found {
-				contains, e := p.context.Contains(idx)
-				if e != nil {
-					return false, e
-				}
-				has, e := contains.Check(right)
-				if e != nil {
-					return false, e
-				}
-				if !has {
-					result, e := p.manager.NewRef(formula)
-					if e != nil {
-						return false, e
-					}
-					defer func() { err = errors.Join(err, p.manager.DelRef(&result)) }()
-					rw, e := rewriter.NewExprSafeReplace(p.manager)
-					if e != nil {
-						return false, e
-					}
-					defer func() { err = errors.Join(err, rw.Close()) }()
-					if e = rw.ApplySubstitution(left, right, result); e != nil {
-						return false, e
-					}
-					rewritten, e := p.manager.RefGet(result)
-					if e != nil {
-						return false, e
-					}
-					if e = p.context.EliminateVariable(idx, rewritten, right); e != nil {
-						return false, e
-					}
-					return true, nil
-				}
-			}
-		}
-		left, right = right, left
+	left, right, ok, e := p.equalitySides(eq)
+	if e != nil || !ok {
+		return false, e
 	}
-	return false, nil
+	solved, e := p.tryDirectSide(left, right, formula)
+	if e != nil || solved {
+		return solved, e
+	}
+	return p.tryDirectSide(right, left, formula)
 }
