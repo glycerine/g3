@@ -206229,7 +206229,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/api/api_no_overflow_cpp_test.go"],
-      "tests": ["TestNoOverflowSourceAdditionBounds"],
+      "tests": ["TestNoOverflowSourceAdditionBounds", "TestNoOverflowSourceSubtractionBounds"],
       "conditionals": [
         {
           "line": 19,
@@ -206260,9 +206260,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "test_add boundary cases and TEST macros", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceAdditionBounds"]}, {"name": "test_sub, test_neg, test_mul, test_div and test_equiv", "status": "unported"}],
+      "methods": [{"name": "test_add boundary cases and TEST macros", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceAdditionBounds"]}, {"name": "test_sub boundary cases", "status": "ported", "go_target": "pkg/api/api_no_overflow_cpp_test.go", "tests": ["TestNoOverflowSourceSubtractionBounds"]}, {"name": "test_neg, test_mul, test_div and test_equiv", "status": "unported"}],
       "ownership": ["Each width and signedness case closes its solver and fixture after all scoped assertions are popped."],
-      "deviations": ["The original implementation is enabled only on Windows; the Go test runs the same addition cases on supported Go hosts. Remaining arithmetic operations and equivalence proofs are separate work."]
+      "deviations": ["The original implementation is enabled only on Windows; the Go test runs the same addition cases on supported Go hosts. Negation, multiplication, division and equivalence proofs are separate work. Signed multiplication source boundary expectations disagree with the source bit-vector constant-folder for one-bit 1*1 and negative operands; the Go solver mirrors that source fold."]
     },
     {
       "path": "src/test/object_allocator.cpp",
