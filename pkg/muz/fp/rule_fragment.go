@@ -54,6 +54,8 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		if err == nil && kind != EngineCLP {
 			err = properties.CheckUninterpretedFree()
 		}
+	case EngineBMC:
+		err = properties.CheckNegativePredicates()
 	}
 	if err != nil {
 		var property *base.RulePropertyError

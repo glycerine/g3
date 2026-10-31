@@ -94,6 +94,8 @@ type PropositionalEngine struct {
 	pdrKarr            map[ast.ASTHandle]rel.KarrMatrix
 	pdrConversions     []hornModelConversion
 	pdrStatistics      statistics.Statistics
+	bmcStatistics      statistics.Statistics
+	bmcTrace           []*base.Rule
 	spacer             *muzspacer.Context
 	scopes             []*base.RuleSet
 	assertions         []ast.ASTRef
@@ -1485,6 +1487,10 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 	if e.backend == "spacer" && e.spacer != nil {
 		return e.spacer.CollectStatistics(destination)
 	}
+	if e.backend == "bmc" {
+		destination.Copy(e.bmcStatistics)
+		return nil
+	}
 	if e.backend == "datalog" {
 		destination.UpdateDouble("saturation time", e.datalogElapsed)
 		destination.Copy(e.datalogStats)
@@ -1505,6 +1511,10 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	}
 	if e.backend == "spacer" && e.spacer != nil {
 		return e.spacer.ResetStatistics()
+	}
+	if e.backend == "bmc" {
+		e.bmcStatistics.Reset()
+		return nil
 	}
 	return nil
 }
@@ -1594,6 +1604,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	if e.backend == "clp" {
 		e.compiled = false
 		return e.queryCLPPredicate(declaration)
+	}
+	if e.backend == "bmc" {
+		e.compiled = false
+		return e.queryBMCPredicate(declaration)
 	}
 	return e.queryDatalogPredicates([]ast.ASTHandle{declaration})
 }
@@ -1769,6 +1783,10 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 			return answer, err
 		}
 		return e.manager.NewRef(value)
+	}
+	if kind == EngineBMC {
+		// Hyper-resolution answer reconstruction is not available yet.
+		return answer, ErrPropositionalEngine
 	}
 	if e.backend == "pdr" {
 		status, err := e.pdr.LastResult()
@@ -2022,6 +2040,7 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.params.Del(&e.queryParams))
 		e.queryParamsReady = false
 	}
+	result = errors.Join(result, e.clearBMCTrace())
 	if e.pdr != nil {
 		result = errors.Join(result, e.pdr.Close())
 		e.pdr = nil

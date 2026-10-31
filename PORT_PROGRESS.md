@@ -1,3 +1,5 @@
+BMC fixedpoint integration (2026-10-31 UTC): registered the BMC branch, selected linear or nonlinear search and exposed owned rule traces, including across expression-query clones. SMT-LIB tests cover linear, nonlinear, empty and bounded-unknown queries; source default transformations and hyper-resolution proof answers remain pending.
+
 BMC linear rule traces (2026-10-31 UTC): follow model-selected level-rule constants down to a fact, returning owning rule references. The linear search regression verifies the model-selected path; proof reconstruction remains pending.
 
 BMC linear search (2026-10-31 UTC): added the source bounded level loop with model production and unknown on exhausted depth. The SMT-backed linear regression checks depth-one exhaustion and a depth-two model.

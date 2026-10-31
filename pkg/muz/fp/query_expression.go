@@ -22,6 +22,16 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 		return lbool.Undef, err
 	}
 	defer func() {
+		if e.backend == "bmc" && resultErr == nil {
+			if err := e.clearBMCTrace(); err != nil {
+				resultErr = errors.Join(resultErr, err)
+			} else {
+				e.bmcTrace = clone.bmcTrace
+				clone.bmcTrace = nil
+				e.bmcStatistics.Reset()
+				e.bmcStatistics.Copy(clone.bmcStatistics)
+			}
+		}
 		if e.backend == "ddnf" && e.ddnf.registry == nil && clone.ddnf.registry != nil {
 			e.ddnf.registry = clone.ddnf.registry
 			clone.ddnf.registry = nil
@@ -31,6 +41,9 @@ func (e *PropositionalEngine) QueryExpression(query ast.ASTHandle) (result lbool
 			clone.ddnf.transferTrail(&e.ddnf)
 		}
 		resultErr = errors.Join(resultErr, clone.Close())
+		if resultErr != nil {
+			e.recordQueryStatus(result, resultErr)
+		}
 	}()
 	declaration, head, err := clone.makeQueryHead(query)
 	if err != nil {
