@@ -537,8 +537,9 @@ func TestBV2IntSignedOverflowConstraintsAndRefusalFrontier(t *testing.T) {
 						t.Fatal("signed constraint order", i, op)
 					}
 				}
-				// C++ numeral simplification compares the unsigned product for no-overflow.
-				f.wantBool(t, side[0], false)
+				// In three bits 5 encodes -3, so -3 * 2 underflows but
+				// does not exceed the signed maximum.
+				f.wantBool(t, side[0], true)
 				f.wantBool(t, side[1], false)
 			}
 			equationMust(t, f.r.Close())
