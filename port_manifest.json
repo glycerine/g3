@@ -5940,7 +5940,10 @@
         "pkg/api/z3_generated_simplification_commands.go",
         "pkg/api/z3_generated_simplification_commands_test.go",
         "pkg/api/z3_generated_substitution_commands.go",
-        "pkg/api/z3_generated_substitution_commands_test.go"
+        "pkg/api/z3_generated_substitution_commands_test.go",
+        "pkg/api/z3_generated_model_commands.go",
+        "pkg/api/z3_generated_model_commands_test.go",
+        "pkg/api/z3_generated_array_commands.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -5970,7 +5973,8 @@
         "TestGeneratedSimplificationReplayAndDescriptions",
         "TestZ3LogFrontendReplaysSimplification",
         "TestGeneratedUpdateAndSubstitutionReplay",
-        "TestGeneratedTranslateASTReplayOwnsTargetResult"
+        "TestGeneratedTranslateASTReplayOwnsTargetResult",
+        "TestGeneratedModelTranslationAndArrayQueries"
       ],
       "methods_audited": false,
       "ownership_audited": false,

@@ -1,3 +1,5 @@
+Generated model replay (2026-10-31 UTC): added sort inspection, model translation, constant interpretations and array-function construction and inspection. Normal and checked model tests cover target ownership after source closure and returned AST identity; other generated commands remain unfinished.
+
 Generated AST translation replay (2026-10-31 UTC): translated expressions are saved in the target context. Normal and checked tests close the source context before inspecting the result; other generated commands remain unfinished.
 
 Generated term rewrite replay (2026-10-31 UTC): added term update, simultaneous substitution and bound-variable substitution. Normal and checked tests compare replay results against expected expressions; other generated commands remain unfinished.

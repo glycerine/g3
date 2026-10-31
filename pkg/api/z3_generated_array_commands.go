@@ -165,3 +165,19 @@ func replayArrayDefault(r *Z3Replayer) error {
 	}
 	return r.storeAST(owner, h)
 }
+
+func replayAsArray(r *Z3Replayer) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	declaration, err := r.astObject(owner, 1)
+	if err != nil {
+		return err
+	}
+	value, err := owner.context.AsArray(declaration.handle)
+	if err != nil {
+		return err
+	}
+	return r.storeAST(owner, value)
+}

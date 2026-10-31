@@ -28,7 +28,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 		{77, "Z3_mk_int2real", replayIntToReal}, {78, "Z3_mk_real2int", replayRealToInt}, {79, "Z3_mk_is_int", replayIsInt},
 		{148, "Z3_mk_numeral", replayNumeral}, {149, "Z3_mk_real", replayReal}, {150, "Z3_mk_int", replayIntNumeral},
 		{128, "Z3_mk_select", replaySelect}, {129, "Z3_mk_select_n", replaySelectN}, {130, "Z3_mk_store", replayStore},
-		{131, "Z3_mk_store_n", replayStoreN}, {132, "Z3_mk_const_array", replayConstArray}, {133, "Z3_mk_map", replayArrayMap}, {134, "Z3_mk_array_default", replayArrayDefault},
+		{131, "Z3_mk_store_n", replayStoreN}, {132, "Z3_mk_const_array", replayConstArray}, {133, "Z3_mk_map", replayArrayMap}, {134, "Z3_mk_array_default", replayArrayDefault}, {135, "Z3_mk_as_array", replayAsArray},
 		{151, "Z3_mk_unsigned_int", replayUIntNumeral}, {152, "Z3_mk_int64", replayInt64Numeral}, {153, "Z3_mk_unsigned_int64", replayUInt64Numeral},
 	}
 	for _, entry := range entries {

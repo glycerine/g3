@@ -28,6 +28,9 @@ func RegisterZ3GeneratedModelCommands(r *Z3Replayer) error {
 		{298, "Z3_model_eval", replayModelEval}, {299, "Z3_model_get_const_interp", replayModelConstInterp}, {300, "Z3_model_has_interp", replayModelHasInterp},
 		{302, "Z3_model_get_num_consts", replayModelNumConsts}, {303, "Z3_model_get_const_decl", replayModelConstDecl},
 		{304, "Z3_model_get_num_funcs", replayModelNumFuncs}, {305, "Z3_model_get_func_decl", replayModelFuncDecl},
+		{306, "Z3_model_get_num_sorts", replayModelNumSorts}, {307, "Z3_model_get_sort", replayModelSort},
+		{309, "Z3_model_translate", replayModelTranslate}, {310, "Z3_is_as_array", replayIsAsArray},
+		{311, "Z3_get_as_array_func_decl", replayAsArrayFunction}, {313, "Z3_add_const_interp", replayModelAddConst},
 		{333, "Z3_model_to_string", replayModelString}, {431, "Z3_solver_get_model", replaySolverGetModel},
 	}
 	for _, entry := range entries {
@@ -236,4 +239,85 @@ func replayModelString(r *Z3Replayer) error {
 	}
 	_, e = m.value.String()
 	return e
+}
+
+func replayModelNumSorts(r *Z3Replayer) error {
+	m, err := replayGetModel(r)
+	if err != nil {
+		return err
+	}
+	_, err = m.value.NumSorts()
+	return err
+}
+func replayModelSort(r *Z3Replayer) error {
+	m, err := replayGetModel(r)
+	if err != nil {
+		return err
+	}
+	index, err := r.Uint(2)
+	if err != nil {
+		return err
+	}
+	sort, err := m.value.Sort(index)
+	if err != nil {
+		return err
+	}
+	return r.storeBorrowedAST(m.owner, sort)
+}
+func replayModelTranslate(r *Z3Replayer) error {
+	m, err := replayGetModel(r)
+	if err != nil {
+		return err
+	}
+	target, err := replayContext(r, 2)
+	if err != nil {
+		return err
+	}
+	translated, err := m.value.Translate(target.context)
+	if err != nil {
+		return err
+	}
+	return replayStoreModel(r, target, translated)
+}
+func replayIsAsArray(r *Z3Replayer) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	value, err := r.astObject(owner, 1)
+	if err != nil {
+		return err
+	}
+	_, err = owner.context.IsAsArray(value.handle)
+	return err
+}
+func replayAsArrayFunction(r *Z3Replayer) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	value, err := r.astObject(owner, 1)
+	if err != nil {
+		return err
+	}
+	declaration, err := owner.context.AsArrayFunction(value.handle)
+	if err != nil {
+		return err
+	}
+	return r.storeBorrowedAST(owner, declaration)
+}
+func replayModelAddConst(r *Z3Replayer) error {
+	m, err := replayGetModel(r)
+	if err != nil {
+		return err
+	}
+	declaration, err := r.astObject(m.owner, 2)
+	if err != nil {
+		return err
+	}
+	value, err := r.astObject(m.owner, 3)
+	if err != nil {
+		return err
+	}
+	return m.value.RegisterConstant(declaration.handle, value.handle)
 }
