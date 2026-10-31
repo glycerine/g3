@@ -138,7 +138,7 @@ func (t *ExplanationTransformer) explanationLiteral(literal ast.ASTHandle, index
 
 // ExplanationRule adds an explanation variable to the head and positive
 // predicate tails and appends the source rule-record equality.
-func (t *ExplanationTransformer) ExplanationRule(rule *base.Rule) (_ *base.Rule, resultErr error) {
+func (t *ExplanationTransformer) ExplanationRule(rule *base.Rule) (result *base.Rule, resultErr error) {
 	if err := t.open(); err != nil {
 		return nil, err
 	}
@@ -154,6 +154,10 @@ func (t *ExplanationTransformer) ExplanationRule(rule *base.Rule) (_ *base.Rule,
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
 			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
+		}
+		if resultErr != nil && result != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
 		}
 	}()
 	hold := func(ref ast.ASTRef, err error) (ast.ASTHandle, error) {

@@ -189,3 +189,99 @@ func TestExplanationTransformerUsesUnnamedRuleDisplay(t *testing.T) {
 		t.Fatal("fact record arity", arity)
 	}
 }
+
+func TestExplanationTransformerRuleSetAndOutputBridge(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	context, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(context.Close()) }()
+	m, err := context.Manager()
+	must(err)
+	rm, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rm.Close()) }()
+	set, err := base.NewRuleSet(rm)
+	must(err)
+	defer func() { must(set.Close()) }()
+	boolean, err := m.MkBoolSort()
+	must(err)
+	declare := func(name string) ast.ASTHandle {
+		symbol, e := m.Symbols.Intern(name)
+		must(e)
+		d, e := m.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{})
+		must(e)
+		must(rm.RegisterPredicate(d))
+		return d
+	}
+	a, goal := declare("bridge-a"), declare("bridge-goal")
+	app := func(d ast.ASTHandle) ast.ASTHandle { h, e := m.MkApp(d, nil); must(e); return h }
+	fact, err := rm.NewRule(app(a), nil, nil, "fact")
+	must(err)
+	must(set.Add(fact))
+	must(fact.Close())
+	step, err := rm.NewRule(app(goal), []ast.ASTHandle{app(a)}, nil, "step")
+	must(err)
+	must(set.Add(step))
+	must(step.Close())
+	must(set.SetOutputPredicate(goal))
+	transformer, err := rel.NewExplanationTransformer(m, rm)
+	must(err)
+	defer func() { must(transformer.Close()) }()
+	empty, err := base.NewRuleSet(rm)
+	must(err)
+	noResult, err := transformer.TransformRulesOnly(empty)
+	must(err)
+	must(empty.Close())
+	if noResult != nil {
+		must(noResult.Close())
+		t.Fatal("empty source produced a transformed rule set")
+	}
+	result, err := transformer.TransformRulesOnly(set)
+	must(err)
+	if result == nil {
+		t.Fatal("missing transformed rule set")
+	}
+	defer func() { must(result.Close()) }()
+	count, err := result.Len()
+	must(err)
+	if count != 3 {
+		t.Fatal("translated rules and bridge", count)
+	}
+	explainedGoal, err := transformer.ExplanationDeclaration(goal)
+	must(err)
+	output, err := result.OutputPredicate()
+	must(err)
+	if output != explainedGoal {
+		t.Fatal("explained output", output, explainedGoal)
+	}
+	derived, err := result.DerivedPredicate(goal)
+	must(err)
+	if derived != explainedGoal {
+		t.Fatal("derived predicate", derived, explainedGoal)
+	}
+	bridge, err := result.Rule(2)
+	must(err)
+	defer func() { must(bridge.Close()) }()
+	head, err := bridge.HeadDeclaration()
+	must(err)
+	tail, err := bridge.TailDeclaration(0)
+	must(err)
+	if head != goal || tail != explainedGoal {
+		t.Fatal("output bridge", head, tail)
+	}
+	originalCount, err := set.Len()
+	must(err)
+	if originalCount != 2 {
+		t.Fatal("source rule set changed", originalCount)
+	}
+	valid, err := result.Finalize()
+	must(err)
+	if !valid {
+		t.Fatal("translated rules are not stratified")
+	}
+}
