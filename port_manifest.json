@@ -5938,7 +5938,9 @@
         "pkg/api/z3_generated_quantifier_inspection.go",
         "pkg/api/z3_generated_quantifier_inspection_test.go",
         "pkg/api/z3_generated_simplification_commands.go",
-        "pkg/api/z3_generated_simplification_commands_test.go"
+        "pkg/api/z3_generated_simplification_commands_test.go",
+        "pkg/api/z3_generated_substitution_commands.go",
+        "pkg/api/z3_generated_substitution_commands_test.go"
       ],
       "tests": [
         "TestGeneratedGlobalReplayCommands",
@@ -5966,7 +5968,8 @@
         "TestZ3LogFrontendReplaysConstantQuantifier",
         "TestGeneratedQuantifierInspectionReplayBorrowedASTs",
         "TestGeneratedSimplificationReplayAndDescriptions",
-        "TestZ3LogFrontendReplaysSimplification"
+        "TestZ3LogFrontendReplaysSimplification",
+        "TestGeneratedUpdateAndSubstitutionReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,

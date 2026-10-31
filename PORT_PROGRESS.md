@@ -1,3 +1,5 @@
+Generated term rewrite replay (2026-10-31 UTC): added term update, simultaneous substitution and bound-variable substitution. Normal and checked tests compare replay results against expected expressions; other generated commands remain unfinished.
+
 Generated simplification replay (2026-10-31 UTC): added default and configured simplification, help and parameter-description commands. Normal and checked API/CLI tests exercise rewrites and result ownership; other generated commands remain unfinished.
 
 Generated quantifier binder inspection (2026-10-31 UTC): added bound-count, bound-name, bound-sort and body replay commands. Normal and checked API/CLI tests verify borrowed result identity and unchanged AST-trail ownership.
