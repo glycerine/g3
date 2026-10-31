@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/tab"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -163,5 +164,95 @@ func TestClauseDoesNotSubstituteUninterpretedTerms(t *testing.T) {
 	must(err)
 	if m.IsTrue(constraint) {
 		t.Fatal("lost symbolic equality")
+	}
+}
+
+func TestClauseFromRuleInterpretedTailAndGroundCount(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	session, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(session.Close()) }()
+	m, err := session.Manager()
+	must(err)
+	params, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
+	must(err)
+	defer func() { must(params.Close()) }()
+	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
+	must(err)
+	defer func() { must(catalog.Close()) }()
+	globals, err := uparams.NewGlobalParamsService(m.Symbols, params, uparams.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
+	must(err)
+	defer func() { must(globals.Close()) }()
+	must(globals.InitializeSource())
+	rw, err := rewriter.NewTheoryRewriter(m, params, globals, nil)
+	must(err)
+	defer func() { must(rw.Close()) }()
+	rules, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rules.Close()) }()
+	seven, err := m.ArithmeticIntegerNumeralText("7")
+	must(err)
+	integer, err := m.GetSort(seven)
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	symbol, err := m.Symbols.Intern("tab-rule-p")
+	must(err)
+	p, err := m.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(rules.RegisterPredicate(p))
+	symbol, err = m.Symbols.Intern("tab-rule-q")
+	must(err)
+	q, err := m.MkFuncDecl(symbol, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(rules.RegisterPredicate(q))
+	x, err := m.MkVar(0, integer)
+	must(err)
+	head, err := m.MkApp(p, []ast.ASTHandle{x})
+	must(err)
+	tail, err := m.MkApp(q, []ast.ASTHandle{x})
+	must(err)
+	eq, err := m.MkEq(x, seven)
+	must(err)
+	rule, err := rules.NewRule(head, []ast.ASTHandle{tail, eq}, nil, "tab-rule")
+	must(err)
+	defer func() { must(rule.Close()) }()
+	c, err := tab.NewClauseFromRule(rule, rw)
+	must(err)
+	got, err := c.Head()
+	must(err)
+	want, err := m.MkApp(p, []ast.ASTHandle{seven})
+	must(err)
+	if got != want {
+		t.Fatal("rule head reduction", got, want)
+	}
+	predicates, err := c.Predicates()
+	must(err)
+	expected, err := m.MkApp(q, []ast.ASTHandle{seven})
+	must(err)
+	if len(predicates) != 1 || predicates[0] != expected {
+		t.Fatal("rule tail reduction", predicates, expected)
+	}
+	condition, err := c.Constraint()
+	must(err)
+	if !m.IsTrue(condition) || c.NumVars() != 1 {
+		t.Fatal("rule constraint", condition, c.NumVars())
+	}
+	ground, err := rules.NewRule(want, nil, nil, "tab-ground")
+	must(err)
+	must(c.Close())
+	defer func() { must(ground.Close()) }()
+	c, err = tab.NewClauseFromRule(ground, rw)
+	must(err)
+	defer func() { must(c.Close()) }()
+	condition, err = c.Constraint()
+	must(err)
+	if !m.IsTrue(condition) || c.NumVars() != 1 {
+		t.Fatal("source ground rule count", condition, c.NumVars())
 	}
 }

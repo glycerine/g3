@@ -97649,8 +97649,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/tab/matcher.go", "pkg/muz/tab/matcher_test.go", "pkg/muz/tab/clause.go", "pkg/muz/tab/clause_test.go"],
-      "tests": ["TestSemanticMatcherRepeatedVariablesAndConditions", "TestSemanticMatcherDatatypeConstructors", "TestClauseEqualityReduction", "TestClauseDoesNotSubstituteUninterpretedTerms"],
+      "go_targets": ["pkg/muz/tab/matcher.go", "pkg/muz/tab/matcher_test.go", "pkg/muz/tab/clause.go", "pkg/muz/tab/clause_rule.go", "pkg/muz/tab/clause_test.go"],
+      "tests": ["TestSemanticMatcherRepeatedVariablesAndConditions", "TestSemanticMatcherDatatypeConstructors", "TestClauseEqualityReduction", "TestClauseDoesNotSubstituteUninterpretedTerms", "TestClauseFromRuleInterpretedTailAndGroundCount"],
       "assertions": [
         {
           "line": 384,
