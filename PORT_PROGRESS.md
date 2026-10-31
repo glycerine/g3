@@ -1,3 +1,5 @@
+The previously unstarted src/test/f2n.cpp regression now exercises positive, negative and integral floor/ceiling cases for both concrete floating-point numeral managers.
+
 The previously unstarted src/test/mpfx.cpp regression now checks the source power-of-two cases and fixed-point arithmetic and directed rounding in Go.
 
 The previously unstarted src/test/hwf.cpp regression is ported: Go tests cover finite values, exact rational conversions and the source integer-classification bit pattern.

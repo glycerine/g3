@@ -201047,14 +201047,31 @@
       "path": "src/test/f2n.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "status": "ported",
+      "go_targets": [
+        "pkg/util/numeral/f2n_cpp_regression_test.go"
+      ],
+      "tests": [
+        "TestFloatNumeralCPPFloorCeilRegression"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst1, tst2 and tst_f2n",
+          "status": "ported",
+          "go_target": "pkg/util/numeral/f2n_cpp_regression_test.go",
+          "tests": [
+            "TestFloatNumeralCPPFloorCeilRegression"
+          ]
+        }
+      ],
+      "ownership": [
+        "The arbitrary-float test releases both numerals and closes its borrowed manager wrapper."
+      ],
+      "deviations": [
+        "The source prints floor and ceiling results; the Go test asserts the expected values."
+      ]
     },
     {
       "path": "src/test/factor_rewriter.cpp",
