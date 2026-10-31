@@ -245,3 +245,42 @@ func TestFiniteIntervalProductProjection(t *testing.T) {
 		t.Fatal("duplicate projected columns accepted")
 	}
 }
+
+func TestFiniteIntervalProductFilterIdentical(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	num := func(text string) ast.ASTHandle {
+		value, e := f.ast.ArithmeticIntegerNumeralText(text)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, value)
+		return value
+	}
+	one, two, three := num("1"), num("2"), num("3")
+	product, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer, f.boolean, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{
+		{f.truth, one, f.truth, two},
+		{f.truth, three, f.truth, two},
+		{f.truth, two, f.falsehood, two},
+	} {
+		astTestMust(t, product.AddFact(fact))
+	}
+	astTestMust(t, product.FilterIdentical([]uint32{0, 2}))
+	astTestMust(t, product.FilterIdentical([]uint32{1, 3}))
+	if found, err := product.ContainsFact([]ast.ASTHandle{f.truth, two, f.truth, two}); err != nil || !found {
+		t.Fatal("identical filters omitted matching tuple", found, err)
+	}
+	if found, err := product.ContainsFact([]ast.ASTHandle{f.truth, one, f.truth, two}); err != nil || found {
+		t.Fatal("interval equality did not enforce identical values", found, err)
+	}
+	if found, err := product.ContainsFact([]ast.ASTHandle{f.truth, two, f.falsehood, two}); err != nil || found {
+		t.Fatal("table equality did not remove mismatched key", found, err)
+	}
+	if err := product.FilterIdentical([]uint32{0, 1}); err == nil {
+		t.Fatal("mismatched sorts accepted")
+	}
+}

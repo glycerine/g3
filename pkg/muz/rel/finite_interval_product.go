@@ -272,6 +272,63 @@ func (p *FiniteIntervalProduct) FilterEqual(column uint32, value ast.ASTHandle) 
 	return ErrTableRelation
 }
 
+// FilterIdentical enforces equality across columns of the same sort.
+func (p *FiniteIntervalProduct) FilterIdentical(columns []uint32) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	var tableCols, innerCols []uint32
+	for i, column := range columns {
+		if uint64(column) >= uint64(len(p.sorts)) || i > 0 && p.sorts[column] != p.sorts[columns[0]] {
+			return ast.ErrASTDomain
+		}
+		for local, global := range p.tableColumns {
+			if global == int(column) {
+				tableCols = append(tableCols, uint32(local))
+			}
+		}
+		for local, global := range p.intervalColumns {
+			if global == int(column) {
+				innerCols = append(innerCols, uint32(local))
+			}
+		}
+	}
+	if len(tableCols) != 0 && len(innerCols) != 0 {
+		return ErrTableRelation
+	}
+	if len(tableCols) > 1 {
+		rows, err := p.table.Facts()
+		if err != nil {
+			return err
+		}
+		for _, row := range rows {
+			for _, column := range tableCols[1:] {
+				if row[column] != row[tableCols[0]] {
+					if _, err = p.table.Remove(row); err != nil {
+						return err
+					}
+					break
+				}
+			}
+		}
+	}
+	if len(innerCols) > 1 {
+		if err := p.garbageCollect(true); err != nil {
+			return err
+		}
+		for _, inner := range p.intervals {
+			if inner != nil {
+				for _, column := range innerCols[1:] {
+					if err := inner.FilterIdentical(innerCols[0], column); err != nil {
+						return err
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (p *FiniteIntervalProduct) sameSpecification(other *FiniteIntervalProduct) bool {
 	if other == nil || p.manager != other.manager || len(p.sorts) != len(other.sorts) || len(p.tableColumns) != len(other.tableColumns) {
 		return false
