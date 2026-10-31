@@ -48688,9 +48688,9 @@
       "path": "src/duality/duality_solver.cpp",
       "component": "duality",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/duality/solver_options.go", "pkg/duality/solver_options_test.go"],
+      "tests": ["TestDualitySolverOptionsSourceDefaultsAndParsing"],
       "conditionals": [
         {
           "line": 22,
@@ -49449,7 +49449,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Solver option defaults and setters are started; graph expansion, interpolation, solving and reporting remain unfinished. The source leaves EnableRestarts uninitialized, while Go initializes it to false before the fixedpoint interface sets it."]
     },
     {
       "path": "src/duality/duality_wrapper.cpp",

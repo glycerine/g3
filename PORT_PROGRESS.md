@@ -1,3 +1,5 @@
+Duality solver start (2026-10-31 UTC): ported source option defaults and setters, including the conjecture-file return behavior and decimal recursion-bound parsing. Normal and checked tests pass; graph expansion, interpolation and solving remain unfinished.
+
 Duality transformer combinations (2026-10-31 UTC): ported source parameter substitution, including quantified bodies and patterns, and connected union and intersection. Normal and checked tests cover parameter replacement, source ownership and the source binder behavior; RPFP graph and solver remain unfinished.
 
 Duality transformer start (2026-10-31 UTC): ported concrete parameter and formula ownership, copying, full/empty state and complement. Normal and checked tests cover independent copies and lifecycle; graph operations, substitution and solver integration remain unfinished.
