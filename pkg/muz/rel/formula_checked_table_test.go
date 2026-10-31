@@ -282,3 +282,32 @@ func TestFormulaCheckedTableJoin(t *testing.T) {
 		t.Fatal("invalid join column accepted")
 	}
 }
+
+func TestFormulaCheckedTableFilterByNegation(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	create := func(sorts []ast.ASTHandle) *FormulaCheckedTable {
+		table, err := NewTableRelation(f.relations, sorts)
+		astTestMust(t, err)
+		checked, err := NewFormulaCheckedTable(table, config)
+		astTestMust(t, err)
+		return checked
+	}
+	target := create([]ast.ASTHandle{f.boolean})
+	defer func() { astTestMust(t, target.Close()) }()
+	negative := create([]ast.ASTHandle{f.boolean, f.boolean})
+	defer func() { astTestMust(t, negative.Close()) }()
+	_, err := target.AddFact([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	_, err = target.AddFact([]ast.ASTHandle{f.falsehood})
+	astTestMust(t, err)
+	_, err = negative.AddFact([]ast.ASTHandle{f.falsehood, f.truth})
+	astTestMust(t, err)
+	astTestMust(t, target.FilterByNegation(negative, []int{0}, []int{0}))
+	if found, err := target.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("unmatched target row", found, err)
+	}
+	if found, err := target.ContainsFact([]ast.ASTHandle{f.falsehood}); err != nil || found {
+		t.Fatal("removed target row", found, err)
+	}
+}
