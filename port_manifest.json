@@ -210774,9 +210774,9 @@
       "path": "src/test/trigo.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/math/interval/trigo_cpp_driver_test.go"],
+      "tests": ["TestTranscendentalSourceEPrecisions"],
       "conditionals": [
         {
           "line": 120,
@@ -210791,7 +210791,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["All 64 rational e precisions are checked against independent rational bounds. Floating-point e and the sine/cosine source workloads remain open."]
     },
     {
       "path": "src/test/udoc_relation.cpp",
