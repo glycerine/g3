@@ -211339,9 +211339,13 @@
       "path": "src/test/var_subst.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/ast/rewriter/var_substitution_test.go"
+      ],
+      "tests": [
+        "TestVarSubstitutionOriginalRegisteredIdentities"
+      ],
       "assertions": [
         {
           "line": 90,
@@ -211352,11 +211356,30 @@
           "text": "ENSURE(e3.get() == t2.get());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "tst_subst and tst_var_subst",
+          "status": "ported",
+          "go_target": "pkg/ast/rewriter/var_substitution_test.go",
+          "tests": [
+            "TestVarSubstitutionOriginalRegisteredIdentities"
+          ]
+        },
+        {
+          "name": "find_quantifier and tst_instantiate are not called by the registered source driver",
+          "status": "reference_only",
+          "go_target": "",
+          "tests": []
+        }
+      ],
+      "ownership": [
+        "The Go fixture pins the source ASTs and closes the substitution owner and manager."
+      ],
+      "deviations": [
+        "Diagnostic pretty-print output is omitted; both source pointer identity assertions are checked."
+      ]
     },
     {
       "path": "src/test/vector.cpp",
