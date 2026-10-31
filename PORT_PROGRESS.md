@@ -52254,3 +52254,5 @@ Extended-numeral source driver started: ported the original rational addition, s
 Extended-numeral predicate driver: added the source zero, sign and display cases for finite values and both infinities. The standalone scalar negation helper is reached only by the C++ test driver and has no separate Go production consumer, so that source test unit stays partial under the live-consumer rule.
 
 Simplifier source driver: ported the original 72-bit constant bit-vector operations, one-bit sign extension, Boolean equalities, list recognizers/accessors, array simplifications and quantified skolemization regression through the API. Source diagnostic output is omitted; the Go tests also check array selections and all source assertions.
+
+Model-based optimization source driver: connected the existing test10 fixture to its source entry and checked the selected model and eliminated variables after each of the two source projections. The source entry point returns immediately after test10; its later examples are unreachable.

@@ -196,19 +196,23 @@ func TestModelBasedOptProjectIntegerNonUnitBounds(t *testing.T) {
 	addOptConstraint(t, opt, []LinearTerm{optTerm(y, 3), optTerm(u, -4)}, 0, LessEqual)
 	addOptConstraint(t, opt, []LinearTerm{optTerm(y, 3), optTerm(z, -5)}, 1, LessEqual)
 	addOptConstraint(t, opt, []LinearTerm{optTerm(y, 3), optTerm(v, -6)}, 1, LessEqual)
-	if err := opt.Project(y, x0); err != nil {
-		t.Fatal(err)
-	}
-	for id := range opt.rows {
-		if !opt.rows[id].Alive {
-			continue
+	for _, eliminated := range [][]uint32{{y}, {y, x0}} {
+		if err := opt.Project(eliminated[len(eliminated)-1]); err != nil {
+			t.Fatal(err)
 		}
-		if err := opt.checkRow(uint32(id)); err != nil {
-			t.Fatalf("row %d violates the selected model: %v", id, err)
-		}
-		for _, term := range opt.rows[id].Terms {
-			if term.Variable == y || term.Variable == x0 {
-				t.Fatalf("projection retained variable in row %d: %+v", id, opt.rows[id])
+		for id := range opt.rows {
+			if !opt.rows[id].Alive {
+				continue
+			}
+			if err := opt.checkRow(uint32(id)); err != nil {
+				t.Fatalf("row %d violates the selected model: %v", id, err)
+			}
+			for _, term := range opt.rows[id].Terms {
+				for _, variable := range eliminated {
+					if term.Variable == variable {
+						t.Fatalf("projection left variable in row %d: %+v", id, opt.rows[id])
+					}
+				}
 			}
 		}
 	}

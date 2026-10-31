@@ -204605,9 +204605,9 @@
       "path": "src/test/model_based_opt.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/math/simplex/model_based_opt_test.go"],
+      "tests": ["TestModelBasedOptProjectIntegerNonUnitBounds"],
       "conditionals": [
         {
           "line": 23,
@@ -204618,11 +204618,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_model_based_opt and test10", "status": "ported", "go_target": "pkg/math/simplex/model_based_opt_test.go", "tests": ["TestModelBasedOptProjectIntegerNonUnitBounds"]}],
+      "ownership": ["The test owns its optimizer, variables and rational values using Go-managed storage."],
+      "deviations": ["The active source driver runs test10 and returns; unreachable examples after the return are excluded. Display output is replaced with model and elimination checks after each projection."]
     },
     {
       "path": "src/test/model_evaluator.cpp",
