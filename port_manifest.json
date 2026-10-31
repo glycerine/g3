@@ -46302,7 +46302,8 @@
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
         "TestDebugShiftAndSharedExpressions",
-        "TestDebugSubstitutionBindingOrderAndReplacement"
+        "TestDebugSubstitutionBindingOrderAndReplacement",
+        "TestDebugInstantiateQuantifiers"
       ],
       "assertions": [
         {
@@ -46351,6 +46352,14 @@
             "TestDebugShiftAndSharedExpressions",
             "TestDebugSubstitutionBindingOrderAndReplacement"
           ]
+        },
+        {
+          "name": "quantifier and nested quantifier instantiation",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugInstantiateQuantifiers"
+          ]
         }
       ],
       "ownership": [
@@ -46376,7 +46385,8 @@
         "TestDebugExpressionCommands",
         "TestDebugExpressionResetAndErrors",
         "TestDebugShiftAndSharedExpressions",
-        "TestDebugSubstitutionBindingOrderAndReplacement"
+        "TestDebugSubstitutionBindingOrderAndReplacement",
+        "TestDebugInstantiateQuantifiers"
       ],
       "conditionals": [
         {
@@ -46400,6 +46410,14 @@
             "TestDebugExpressionResetAndErrors",
             "TestDebugShiftAndSharedExpressions",
             "TestDebugSubstitutionBindingOrderAndReplacement"
+          ]
+        },
+        {
+          "name": "quantifier and nested quantifier instantiation",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugInstantiateQuantifiers"
           ]
         }
       ],

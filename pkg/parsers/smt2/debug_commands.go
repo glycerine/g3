@@ -12,6 +12,83 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-instantiate", "dbg-instantiate-nested":
+		quantifier, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		kind, err := m.GetKind(quantifier)
+		if err != nil || kind != ast.ASTQuantifier {
+			return fmt.Errorf("invalid command, quantifier expected")
+		}
+		if name == "dbg-instantiate-nested" {
+			quantifier, err = m.GetQuantifierBody(quantifier)
+			if err != nil {
+				return err
+			}
+			kind, err = m.GetKind(quantifier)
+			if err != nil || kind != ast.ASTQuantifier {
+				return fmt.Errorf("invalid command, nested quantifier expected")
+			}
+		}
+		if err = p.expect(LeftParenToken); err != nil {
+			return err
+		}
+		var args []ast.ASTHandle
+		for p.token != RightParenToken {
+			value, _, err := p.expression()
+			if err != nil {
+				return err
+			}
+			args = append(args, value)
+		}
+		if err = p.advance(); err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		num, err := m.GetNumDeclarations(quantifier)
+		if err != nil {
+			return err
+		}
+		if uint64(len(args)) != uint64(num) {
+			return fmt.Errorf("invalid command, mismatch between the number of quantified variables and the number of arguments")
+		}
+		for i := range args {
+			actual, err := m.GetSort(args[i])
+			if err != nil {
+				return err
+			}
+			expected, err := m.GetDeclarationSort(quantifier, uint32(i))
+			if err != nil {
+				return err
+			}
+			if actual != expected {
+				return fmt.Errorf("invalid command, sort mismatch at position %d", i)
+			}
+		}
+		result, err := m.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, m.DelRef(&result)) }()
+		if err = rewriter.InstantiateQuantifier(m, quantifier, args, result); err != nil {
+			return err
+		}
+		value, err := m.RefGet(result)
+		if err != nil {
+			return err
+		}
+		if err = p.context.WriteExpression(p.out, value); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(p.out)
+		return err
 	case "dbg-subst":
 		source, err := p.symbol()
 		if err != nil {

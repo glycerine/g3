@@ -63,3 +63,25 @@ func TestDebugSubstitutionBindingOrderAndReplacement(t *testing.T) {
 		t.Fatalf("debug substitution %q, want %q", out, want)
 	}
 }
+
+func TestDebugInstantiateQuantifiers(t *testing.T) {
+	script := `(dbg-instantiate (forall ((x Int) (y Int)) (> x y)) (3 5))
+(dbg-instantiate-nested (forall ((x Int)) (exists ((y Int)) (> x y))) (3))`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "(> 3 5)\n(> (:var 0) 3)\n"; out != want {
+		t.Fatalf("debug instantiation %q, want %q", out, want)
+	}
+	for _, input := range []string{
+		`(dbg-instantiate true ())`,
+		`(dbg-instantiate (forall ((x Int)) (> x 0)) ())`,
+		`(dbg-instantiate (forall ((x Int)) (> x 0)) (true))`,
+		`(dbg-instantiate-nested (forall ((x Int)) (> x 0)) (1))`,
+	} {
+		if out, err := runApplyTacticScript(t, input); err == nil {
+			t.Fatalf("accepted invalid debug instantiation %q: %s", input, out)
+		}
+	}
+}
