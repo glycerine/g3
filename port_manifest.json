@@ -178357,8 +178357,14 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/arith/factor_tactic.go"],
-      "tests": ["TestFactorTacticSplitsPolynomialEqualityWithProofAndCore", "TestFactorTacticStrictEvenPowerAndParameterUpdate"],
+      "go_targets": [
+        "pkg/tactic/arith/factor_context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go","pkg/tactic/arith/factor_tactic.go"],
+      "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts","TestFactorTacticSplitsPolynomialEqualityWithProofAndCore", "TestFactorTacticStrictEvenPowerAndParameterUpdate"],
       "assertions": [
         {
           "line": 48,

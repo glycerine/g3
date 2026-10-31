@@ -31,6 +31,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithConfig(manager, config)
 		case *core.SimplifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
+		case *arith.FactorTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *arith.AddBoundsTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		case *aig.Tactic:

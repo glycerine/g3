@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("factor")
+	simplify, err := source.Tactic("lia2pb")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -631,7 +631,7 @@ func TestAPISimplifySMTTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -665,7 +665,7 @@ func TestAPICoreTacticSolversCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
-	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args"} {
+	for _, name := range []string{"propagate-values", "solve-eqs", "elim-uncnstr", "elim-term-ite", "tseitin-cnf-core", "ctx-simplify", "bit-blast", "nnf", "snf", "der", "symmetry-reduce", "aig", "injectivity", "add-bounds", "occf", "distribute-forall", "reduce-args", "factor"} {
 		t.Run(name, func(t *testing.T) {
 			source, err := NewSMTContext()
 			astTestMust(t, err)
@@ -690,6 +690,8 @@ func TestAPICoreTacticTranslatedModelsUseTargetServices(t *testing.T) {
 				formula = `(declare-const x Int) (assert (and (>= x 2) (<= x 8)))`
 			} else if name == "reduce-args" {
 				formula = `(declare-fun f ((_ BitVec 8)) Int) (assert (= (f #x01) 3))`
+			} else if name == "factor" {
+				formula = `(declare-const x Real) (assert (= (* (- x 1) (+ x 1)) 0))`
 			}
 			astTestMust(t, s.LoadSMT2String(formula))
 			translated, err := s.Translate(target)
