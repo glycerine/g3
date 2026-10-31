@@ -6075,7 +6075,8 @@
         "TestGeneratedOptimizeReplayClosesIncompleteLog",
         "TestZ3LogFrontendReplaysOptimize",
         "TestGeneratedOptimizeReplayBoundsAndMetadata",
-        "TestGeneratedFloatingPointReplayConstructors"
+        "TestGeneratedFloatingPointReplayConstructors",
+        "TestGeneratedFloatingPointReplayOperations"
       ],
       "methods_audited": false,
       "ownership_audited": false,

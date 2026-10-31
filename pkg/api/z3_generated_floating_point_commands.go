@@ -17,7 +17,52 @@ func registerZ3GeneratedFloatingPointCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
+	ops := []string{"abs", "neg", "add", "sub", "mul", "div", "fma", "sqrt", "rem", "round_to_integral", "min", "max", "leq", "lt", "geq", "gt", "eq", "is_normal", "is_subnormal", "is_zero", "is_infinite", "is_nan", "is_negative", "is_positive"}
+	for i, name := range ops {
+		id := uint32(600 + i)
+		if err := r.RegisterCommand(id, "Z3_mk_fpa_"+name, func(r *Z3Replayer) error { return replayFloatingPointOperation(r, id) }); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func replayFloatingPointOperation(r *Z3Replayer, id uint32) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	type operation struct {
+		kind  int32
+		arity uint32
+	}
+	ops := [...]operation{
+		{ast.FPAOpAbs, 1}, {ast.FPAOpNeg, 1}, {ast.FPAOpAdd, 3}, {ast.FPAOpSub, 3},
+		{ast.FPAOpMul, 3}, {ast.FPAOpDiv, 3}, {ast.FPAOpFMA, 4}, {ast.FPAOpSqrt, 2},
+		{ast.FPAOpRem, 2}, {ast.FPAOpRoundToIntegral, 2}, {ast.FPAOpMin, 2}, {ast.FPAOpMax, 2},
+		{ast.FPAOpLe, 2}, {ast.FPAOpLt, 2}, {ast.FPAOpGe, 2}, {ast.FPAOpGt, 2}, {ast.FPAOpEq, 2},
+		{int32(ast.FPAIsNormal), 1}, {int32(ast.FPAIsSubnormal), 1}, {int32(ast.FPAIsZero), 1},
+		{int32(ast.FPAIsInfinite), 1}, {int32(ast.FPAIsNaN), 1}, {int32(ast.FPAIsNegative), 1}, {int32(ast.FPAIsPositive), 1},
+	}
+	op := ops[id-600]
+	args := make([]ast.ASTHandle, op.arity)
+	for i := range args {
+		value, e := r.astObject(owner, uint32(i+1))
+		if e != nil {
+			return e
+		}
+		args[i] = value.handle
+	}
+	manager := owner.results.manager
+	family, err := manager.RegisterFloatingPointPlugin()
+	if err != nil {
+		return err
+	}
+	value, err := manager.MkFamilyApp(family, op.kind, nil, args)
+	if err != nil {
+		return err
+	}
+	return r.storeAST(owner, value)
 }
 
 func replayFloatingPointConstructor(r *Z3Replayer, id uint32) error {

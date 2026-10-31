@@ -115,3 +115,87 @@ func TestGeneratedFloatingPointReplayConstructors(t *testing.T) {
 		t.Fatal("floating-point constructors not checked")
 	}
 }
+
+func TestGeneratedFloatingPointReplayOperations(t *testing.T) {
+	var log strings.Builder
+	log.WriteString("R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 585\n= 0x42\nR\nP 0x41\nC 572\n= 0x43\n")
+	log.WriteString("R\nP 0x41\nI 1\nP 0x42\nC 597\n= 0x44\nR\nP 0x41\nI 2\nP 0x42\nC 597\n= 0x45\n")
+	for id := 600; id <= 623; id++ {
+		log.WriteString("R\nP 0x41\n")
+		if id >= 602 && id <= 607 || id == 609 {
+			log.WriteString("P 0x43\n")
+		}
+		log.WriteString("P 0x44\n")
+		if id >= 602 && id <= 606 || id == 608 || id >= 610 && id <= 616 {
+			log.WriteString("P 0x45\n")
+		}
+		if id == 606 {
+			log.WriteString("P 0x44\n")
+		}
+		fmt.Fprintf(&log, "C %d\n= 0x%x\n", id, id)
+	}
+	log.WriteString("R\nP 0x41\nP 0x25a\nC 287\n= 0x501\nR\nP 0x41\nI 3\nP 0x42\nC 597\n= 0x502\n")
+	log.WriteString("R\nP 0x41\n")
+	for id := 600; id <= 623; id++ {
+		fmt.Fprintf(&log, "P 0x%x\n", id)
+	}
+	log.WriteString("P 0x501\nP 0x502\n")
+	log.WriteString("C 900\n")
+	r, err := NewZ3Replayer(strings.NewReader(log.String()), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-floating-point-operations", func(r *Z3Replayer) error {
+		owner, e := replayContext(r, 0)
+		if e != nil {
+			return e
+		}
+		kinds := []int32{ast.FPAOpAbs, ast.FPAOpNeg, ast.FPAOpAdd, ast.FPAOpSub, ast.FPAOpMul, ast.FPAOpDiv, ast.FPAOpFMA, ast.FPAOpSqrt, ast.FPAOpRem, ast.FPAOpRoundToIntegral, ast.FPAOpMin, ast.FPAOpMax, ast.FPAOpLe, ast.FPAOpLt, ast.FPAOpGe, ast.FPAOpGt, ast.FPAOpEq, int32(ast.FPAIsNormal), int32(ast.FPAIsSubnormal), int32(ast.FPAIsZero), int32(ast.FPAIsInfinite), int32(ast.FPAIsNaN), int32(ast.FPAIsNegative), int32(ast.FPAIsPositive)}
+		for i, want := range kinds {
+			value, e := r.astObject(owner, uint32(i+1))
+			if e != nil {
+				return e
+			}
+			got, e := owner.results.manager.GetDeclKind(value.handle)
+			if e != nil {
+				return e
+			}
+			if got != want {
+				t.Fatalf("operation %d: got %d, want %d", 600+i, got, want)
+			}
+		}
+		sum, e := r.astObject(owner, 25)
+		if e != nil {
+			return e
+		}
+		three, e := r.astObject(owner, 26)
+		if e != nil {
+			return e
+		}
+		if sum.handle != three.handle {
+			t.Fatal("floating-point addition did not simplify to three")
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("floating-point operations not checked")
+	}
+}
