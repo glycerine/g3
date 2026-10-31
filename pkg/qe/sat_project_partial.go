@@ -68,6 +68,9 @@ func (c *satSolverContext) projectPartial(index uint32, source *model.Model, rw 
 		}
 		defer func() { err = errors.Join(err, plugin.Close()) }()
 		projected, err = plugin.ProjectModelFormulaNNF(c.contains[index], source, c.formula, config)
+		if err == nil && projected {
+			err = c.takePartialArithmeticOutputs(plugin)
+		}
 	case bv:
 		plugin, e := NewBitVectorPlugin(context)
 		if e != nil {
