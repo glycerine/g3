@@ -59,11 +59,13 @@ func TestSMT2PolynomialFactorCommand(t *testing.T) {
 	var output bytes.Buffer
 	script := `(declare-const x Real)
 (poly/factor (- (* x x) 1))
-(poly/factor (* (+ x 1) (+ x 1)) :num-primes 2)`
+(poly/factor (* (+ x 1) (+ x 1)) :num-primes 2)
+(poly/factor 0)
+(poly/factor 7 :max-prime 31 :max-search-size 8)`
 	if err := ParseCommands(context, strings.NewReader(script), &output); err != nil {
 		t.Fatal(err)
 	}
-	want := "(factors\n1\n(+ x 1.0)\n(+ x (- 1.0)))\n(factors\n1\n(^ (+ x 1.0) 2))\n"
+	want := "(factors\n1\n(+ x 1.0)\n(+ x (- 1.0)))\n(factors\n1\n(^ (+ x 1.0) 2))\n(factors\n0)\n(factors\n7)\n"
 	if got := output.String(); got != want {
 		t.Fatalf("factor output = %q, want %q", got, want)
 	}
@@ -143,6 +145,7 @@ func TestSMT2PolynomialRootIsolationDecimalOutput(t *testing.T) {
 		}
 	}()
 	script := `(set-option :pp.decimal true)
+(set-option :pp.decimal-precision 2)
 (declare-const x Real)
 (poly/isolate-roots (- (* x x) 2))`
 	var output bytes.Buffer
