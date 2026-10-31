@@ -21,6 +21,7 @@ type FiniteIntervalProduct struct {
 	tableColumns, intervalColumns []int
 	table                         *SparseTable
 	intervals                     []*IntervalRelation
+	available                     []int
 }
 
 // NewFiniteIntervalProduct selects every table-compatible sort when columns is
@@ -148,7 +149,7 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 	if err != nil {
 		return err
 	}
-	if uint64(len(p.intervals)) >= math.MaxInt32 {
+	if len(p.available) == 0 && uint64(len(p.intervals)) >= math.MaxInt32 {
 		return ErrTableRelation
 	}
 	found, err := p.table.FetchFact(key)
@@ -166,11 +167,20 @@ func (p *FiniteIntervalProduct) AddFact(values []ast.ASTHandle) error {
 	if err = inner.AddFact(numbers); err != nil {
 		return err
 	}
-	key[len(key)-1] = Element(len(p.intervals))
+	index := len(p.intervals)
+	if len(p.available) != 0 {
+		index = p.available[len(p.available)-1]
+	}
+	key[len(key)-1] = Element(index)
 	if err = p.table.EnsureFact(key); err != nil {
 		return err
 	}
-	p.intervals = append(p.intervals, inner)
+	if index == len(p.intervals) {
+		p.intervals = append(p.intervals, inner)
+	} else {
+		p.available = p.available[:len(p.available)-1]
+		p.intervals[index] = inner
+	}
 	return nil
 }
 
@@ -190,8 +200,45 @@ func (p *FiniteIntervalProduct) ContainsFact(values []ast.ASTHandle) (bool, erro
 	return p.intervals[index].ContainsFact(numbers), nil
 }
 
+// garbageCollect drops inner relations no longer referenced by the table and,
+// when requested, removes rows referring to empty inner relations.
+func (p *FiniteIntervalProduct) garbageCollect(removeEmpty bool) error {
+	rows, err := p.table.Facts()
+	if err != nil {
+		return err
+	}
+	live := make([]bool, len(p.intervals))
+	for _, row := range rows {
+		index := uint64(row[len(row)-1])
+		if index >= uint64(len(p.intervals)) || p.intervals[index] == nil {
+			return ErrTableRelation
+		}
+		if removeEmpty && p.intervals[index].Empty() {
+			if _, err = p.table.Remove(row); err != nil {
+				return err
+			}
+		} else {
+			live[index] = true
+		}
+	}
+	for i, interval := range p.intervals {
+		if interval != nil && !live[i] {
+			p.intervals[i] = nil
+			p.available = append(p.available, i)
+		}
+	}
+	if len(p.available) == len(p.intervals) {
+		p.available = nil
+		p.intervals = nil
+	}
+	return nil
+}
+
 func (p *FiniteIntervalProduct) Empty() (bool, error) {
 	if err := p.open(); err != nil {
+		return false, err
+	}
+	if err := p.garbageCollect(true); err != nil {
 		return false, err
 	}
 	n, err := p.table.Len()
@@ -206,7 +253,7 @@ func (p *FiniteIntervalProduct) Clone() (*FiniteIntervalProduct, error) {
 	if err != nil {
 		return nil, err
 	}
-	copy := &FiniteIntervalProduct{manager: p.manager, sorts: append([]ast.ASTHandle(nil), p.sorts...), tableColumns: append([]int(nil), p.tableColumns...), intervalColumns: append([]int(nil), p.intervalColumns...), table: table, intervals: make([]*IntervalRelation, len(p.intervals))}
+	copy := &FiniteIntervalProduct{manager: p.manager, sorts: append([]ast.ASTHandle(nil), p.sorts...), tableColumns: append([]int(nil), p.tableColumns...), intervalColumns: append([]int(nil), p.intervalColumns...), table: table, intervals: make([]*IntervalRelation, len(p.intervals)), available: append([]int(nil), p.available...)}
 	for i, inner := range p.intervals {
 		if inner != nil {
 			copy.intervals[i] = cloneIntervalRelation(inner)
@@ -220,6 +267,6 @@ func (p *FiniteIntervalProduct) Close() error {
 		return nil
 	}
 	err := p.table.Close()
-	p.table, p.manager, p.sorts, p.intervals = nil, nil, nil, nil
+	p.table, p.manager, p.sorts, p.intervals, p.available = nil, nil, nil, nil, nil
 	return err
 }

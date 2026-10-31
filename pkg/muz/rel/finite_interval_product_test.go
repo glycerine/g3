@@ -83,3 +83,35 @@ func TestFiniteIntervalProductColumnSelection(t *testing.T) {
 		t.Fatal("zero-column fact missing")
 	}
 }
+
+func TestFiniteIntervalProductGarbageCollectionAndReuse(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	value, err := f.ast.ArithmeticIntegerNumeralText("1")
+	astTestMust(t, err)
+	astTestPin(t, f.ast, value)
+	product, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	for i := 0; i < 3; i++ {
+		astTestMust(t, product.AddFact([]ast.ASTHandle{f.truth, value}))
+	}
+	if empty, err := product.Empty(); err != nil || empty || len(product.available) != 2 {
+		t.Fatalf("collect stale inner relations: empty=%v, free=%v, err=%v", empty, product.available, err)
+	}
+	astTestMust(t, product.AddFact([]ast.ASTHandle{f.falsehood, value}))
+	if len(product.intervals) != 3 || len(product.available) != 1 {
+		t.Fatal("available inner index was not reused")
+	}
+	rows, err := product.table.Facts()
+	astTestMust(t, err)
+	for _, row := range rows {
+		product.intervals[row[len(row)-1]].values.setEmpty()
+	}
+	if empty, err := product.Empty(); err != nil || !empty || len(product.intervals) != 0 {
+		t.Fatalf("empty inner relations survived collection: empty=%v, err=%v", empty, err)
+	}
+}

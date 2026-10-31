@@ -90364,7 +90364,8 @@
       ],
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
-        "TestFiniteIntervalProductColumnSelection"
+        "TestFiniteIntervalProductColumnSelection",
+        "TestFiniteIntervalProductGarbageCollectionAndReuse"
       ],
       "conditionals": [
         {
@@ -90725,13 +90726,21 @@
             "TestFiniteIntervalProductFactsAndClone",
             "TestFiniteIntervalProductColumnSelection"
           ]
+        },
+        {
+          "name": "collect unreferenced and empty inner relations and reuse indexes",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductGarbageCollectionAndReuse"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Join, projection, union, filters, formula generation, garbage collection, full/complement, manager registration and failure-frontier audit remain pending."
+        "Join, projection, union, filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
       ]
     },
     {
@@ -90747,7 +90756,8 @@
       ],
       "tests": [
         "TestFiniteIntervalProductFactsAndClone",
-        "TestFiniteIntervalProductColumnSelection"
+        "TestFiniteIntervalProductColumnSelection",
+        "TestFiniteIntervalProductGarbageCollectionAndReuse"
       ],
       "conditionals": [
         {
@@ -90796,13 +90806,21 @@
             "TestFiniteIntervalProductFactsAndClone",
             "TestFiniteIntervalProductColumnSelection"
           ]
+        },
+        {
+          "name": "collect unreferenced and empty inner relations and reuse indexes",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/finite_interval_product.go",
+          "tests": [
+            "TestFiniteIntervalProductGarbageCollectionAndReuse"
+          ]
         }
       ],
       "ownership": [
         "The product owns its sparse table and interval relations, and borrows its manager and sort handles."
       ],
       "deviations": [
-        "Join, projection, union, filters, formula generation, garbage collection, full/complement, manager registration and failure-frontier audit remain pending."
+        "Join, projection, union, filters, formula generation, full/complement, manager registration and failure-frontier audit remain pending."
       ]
     },
     {
