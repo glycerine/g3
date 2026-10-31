@@ -37,6 +37,24 @@ func TestExprQETreePartitionSeparatesIndependentVariables(t *testing.T) {
 	if closed != r || !m.IsTrue(mixed) || !part.split || len(part.groups) != 2 || len(part.groups[0]) != 1 || len(part.groups[1]) != 1 || part.groups[0][0] == part.groups[1][0] {
 		t.Fatal("independent open variables were not partitioned")
 	}
+	lastIndex := part.groups[len(part.groups)-1][0]
+	want, err := m.RefGet(root.variables[lastIndex])
+	fmMust(t, err)
+	group, ok, err := part.popVariables(root)
+	fmMust(t, err)
+	if !ok || len(group) != 1 || group[0] != want {
+		t.Fatal("partition extraction did not start with the last group")
+	}
+	group, ok, err = part.popVariables(root)
+	fmMust(t, err)
+	if !ok || len(group) != 1 || group[0] == want {
+		t.Fatal("second partition group was not extracted")
+	}
+	_, ok, err = part.popVariables(root)
+	fmMust(t, err)
+	if ok {
+		t.Fatal("exhausted partition returned another group")
+	}
 	open, err := m.RefGet(part.open)
 	fmMust(t, err)
 	for _, variable := range []ast.ASTHandle{p, q} {

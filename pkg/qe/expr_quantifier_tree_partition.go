@@ -97,3 +97,28 @@ func (p *exprQETreePartition) Close() error {
 	p.manager = nil
 	return nil
 }
+
+// popVariables returns borrowed variable handles from the last group. The
+// tree must stay alive and its variable list must not change during extraction.
+func (p *exprQETreePartition) popVariables(node *exprQETree) ([]ast.ASTHandle, bool, error) {
+	if p == nil || p.manager == nil || node == nil || node.manager != p.manager {
+		return nil, false, ast.ErrASTHandle
+	}
+	if len(p.groups) == 0 {
+		return nil, false, nil
+	}
+	group := p.groups[len(p.groups)-1]
+	result := make([]ast.ASTHandle, len(group))
+	for i, index := range group {
+		if index >= uint32(len(node.variables)) {
+			return nil, false, ast.ErrASTDomain
+		}
+		var err error
+		result[i], err = p.manager.RefGet(node.variables[index])
+		if err != nil {
+			return nil, false, err
+		}
+	}
+	p.groups = p.groups[:len(p.groups)-1]
+	return result, true, nil
+}
