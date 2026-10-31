@@ -171654,7 +171654,8 @@
         "pkg/tactic/arith/bv2int_power_map.go",
         "pkg/tactic/arith/bv2int_power_map_test.go",
         "pkg/tactic/arith/nla2bv_numeric.go",
-        "pkg/tactic/arith/nla2bv_numeric_test.go"
+        "pkg/tactic/arith/nla2bv_numeric_test.go",
+        "pkg/tactic/arith/nla2bv_numeric_checked_test.go"
       ],
       "tests": [
         "pkg/tactic/arith/nla2bv_tactic_test.go",
@@ -171678,7 +171679,8 @@
         "TestNLA2BVPowerSubstitutionUsesSourceBucketOrder",
         "TestNLA2BVProjectLog2WideBoundariesAndLocalOwnership",
         "TestNLA2BVProjectLog2CompoundFailureFrontiers",
-        "TestNLA2BVLog2SourceBoundaries"
+        "TestNLA2BVLog2SourceBoundaries",
+        "TestNLA2BVProjectLog2CheckedMultiplicationReservation"
       ],
       "assertions": [
         {
@@ -171805,12 +171807,14 @@
           "go_target": "pkg/tactic/arith/nla2bv_numeric.go",
           "go_targets": [
             "pkg/tactic/arith/nla2bv_numeric_test.go",
-            "pkg/tactic/arith/nla2bv_tactic_test.go"
+            "pkg/tactic/arith/nla2bv_tactic_test.go",
+            "pkg/tactic/arith/nla2bv_numeric_checked_test.go"
           ],
           "tests": [
             "TestNLA2BVProjectLog2WideBoundariesAndLocalOwnership",
             "TestNLA2BVProjectLog2CompoundFailureFrontiers",
-            "TestNLA2BVLog2SourceBoundaries"
+            "TestNLA2BVLog2SourceBoundaries",
+            "TestNLA2BVProjectLog2CheckedMultiplicationReservation"
           ]
         }
       ],
