@@ -12,6 +12,30 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+func satExclusiveAtoms(m *ast.ASTManager, set, other map[ast.ASTHandle]ast.ASTRef) ([]ast.ASTHandle, error) {
+	type item struct {
+		h  ast.ASTHandle
+		id uint32
+	}
+	items := make([]item, 0, len(set))
+	for h := range set {
+		if _, both := other[h]; both {
+			continue
+		}
+		id, err := m.GetASTID(h)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item{h, id})
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].id < items[j].id })
+	out := make([]ast.ASTHandle, len(items))
+	for i := range items {
+		out[i] = items[i].h
+	}
+	return out, nil
+}
+
 // satStrengthen expects B to be asserted in solver, as in the source tactic.
 // The returned expression is owned; all temporary solver scopes are popped.
 func satStrengthen(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtcore.SMTSolver, rw *rewriter.TheoryRewriter, a, b ast.ASTHandle, checkpoint func() error) (result ast.ASTRef, err error) {
@@ -39,34 +63,11 @@ func satStrengthen(m *ast.ASTManager, normalizer *QENNFNormalizer, solver *smtco
 	}
 	defer func() { err = errors.Join(err, m.DelExprSubstitution(&sub)) }()
 	positive, negative := atoms.positiveAtoms(), atoms.negativeAtoms()
-	ordered := func(set, other map[ast.ASTHandle]ast.ASTRef) ([]ast.ASTHandle, error) {
-		type item struct {
-			h  ast.ASTHandle
-			id uint32
-		}
-		items := make([]item, 0, len(set))
-		for h := range set {
-			if _, both := other[h]; both {
-				continue
-			}
-			id, e := m.GetASTID(h)
-			if e != nil {
-				return nil, e
-			}
-			items = append(items, item{h, id})
-		}
-		sort.Slice(items, func(i, j int) bool { return items[i].id < items[j].id })
-		out := make([]ast.ASTHandle, len(items))
-		for i := range items {
-			out[i] = items[i].h
-		}
-		return out, nil
-	}
-	pos, err := ordered(positive, negative)
+	pos, err := satExclusiveAtoms(m, positive, negative)
 	if err != nil {
 		return result, err
 	}
-	neg, err := ordered(negative, positive)
+	neg, err := satExclusiveAtoms(m, negative, positive)
 	if err != nil {
 		return result, err
 	}

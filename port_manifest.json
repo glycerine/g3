@@ -110757,14 +110757,17 @@
         "pkg/qe/sat_options.go",
         "pkg/qe/sat_options_test.go",
         "pkg/qe/sat_strengthen.go",
-        "pkg/qe/sat_strengthen_test.go"
+        "pkg/qe/sat_strengthen_test.go",
+        "pkg/qe/sat_weaken.go",
+        "pkg/qe/sat_weaken_test.go"
       ],
       "tests": [
         "TestSATSolverContextNNFAndConstraints",
         "TestSATAlternationSkolemPrefixAndPolarity",
         "TestSATTacticOptionsDefaultsAndUpdates",
         "TestSATSolverNNFStrengtheningAndScope",
-        "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure"
+        "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure",
+        "TestSATSolverNNFWeakeningAndScope"
       ],
       "assertions": [
         {
@@ -110803,6 +110806,14 @@
             "TestSATTacticOptionsDefaultsAndUpdates",
             "TestSATSolverNNFStrengtheningAndScope",
             "TestSATSolverNNFStrengtheningSkipsMixedPolarityAndCleansFailure"
+          ]
+        },
+        {
+          "name": "nnf_weakening_extrapolate: scoped implication checks, literal replacement and simplification",
+          "status": "partial",
+          "go_target": "pkg/qe/sat_weaken.go",
+          "tests": [
+            "TestSATSolverNNFWeakeningAndScope"
           ]
         }
       ],
