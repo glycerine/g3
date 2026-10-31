@@ -89267,9 +89267,16 @@
       "path": "src/muz/rel/dl_bound_relation.cpp",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/bound_relation.go",
+        "pkg/muz/rel/bound_relation_test.go",
+        "pkg/muz/rel/interval_relation.go"
+      ],
+      "tests": [
+        "TestBoundRelationOrderPropagationAndCycles",
+        "TestBoundRelationUnionInterval"
+      ],
       "assertions": [
         {
           "line": 58,
@@ -89322,17 +89329,45 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "strict and non-strict bound propagation",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "tests": [
+            "TestBoundRelationOrderPropagationAndCycles"
+          ]
+        },
+        {
+          "name": "union with interval bounds",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "tests": [
+            "TestBoundRelationUnionInterval"
+          ]
+        }
+      ],
+      "ownership": [
+        "The concrete Go relation owns its column sets and borrows the interval relation during union."
+      ],
+      "deviations": [
+        "Pending equality classes, vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Traversal tracks visited bound/strictness pairs to terminate weak cycles."
+      ]
     },
     {
       "path": "src/muz/rel/dl_bound_relation.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/rel/bound_relation.go",
+        "pkg/muz/rel/bound_relation_test.go",
+        "pkg/muz/rel/interval_relation.go"
+      ],
+      "tests": [
+        "TestBoundRelationOrderPropagationAndCycles",
+        "TestBoundRelationUnionInterval"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -89353,9 +89388,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "strict and non-strict bound propagation",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "tests": [
+            "TestBoundRelationOrderPropagationAndCycles"
+          ]
+        },
+        {
+          "name": "union with interval bounds",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "tests": [
+            "TestBoundRelationUnionInterval"
+          ]
+        }
+      ],
+      "ownership": [
+        "The concrete Go relation owns its column sets and borrows the interval relation during union."
+      ],
+      "deviations": [
+        "Pending equality classes, vector operations, remaining filters, formulas, relation plugin registration and ownership/failure audit. Traversal tracks visited bound/strictness pairs to terminate weak cycles."
+      ]
     },
     {
       "path": "src/muz/rel/dl_check_table.cpp",
