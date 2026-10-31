@@ -9,6 +9,9 @@ import (
 func TestExprQETreePartitionSeparatesIndependentVariables(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
 	p := f.constant("partition-p", f.boolean)
 	q := f.constant("partition-q", f.boolean)
 	r := f.constant("partition-free", f.boolean)
@@ -36,6 +39,11 @@ func TestExprQETreePartitionSeparatesIndependentVariables(t *testing.T) {
 	fmMust(t, err)
 	if closed != r || !m.IsTrue(mixed) || !part.split || len(part.groups) != 2 || len(part.groups[0]) != 1 || len(part.groups[1]) != 1 || part.groups[0][0] == part.groups[1][0] {
 		t.Fatal("independent open variables were not partitioned")
+	}
+	child, handled, err := closeExprQETreePartition(root, part, solver, nil, nil, f.r.config, false)
+	fmMust(t, err)
+	if handled || child != nil || len(root.children) != 0 {
+		t.Fatal("split partition was prematurely closed")
 	}
 	lastIndex := part.groups[len(part.groups)-1][0]
 	want, err := m.RefGet(root.variables[lastIndex])
