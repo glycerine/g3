@@ -29,6 +29,8 @@ type Z3Replayer struct {
 	configOrder  []uint64
 	contexts     map[uint64]*replayContextOwner
 	contextOrder []uint64
+	asts         map[uint64]*replayASTOwner
+	astIDs       map[replayASTKey]uint64
 	nextObjectID uint64
 	closed       bool
 }
@@ -55,7 +57,7 @@ func (r *Z3Replayer) Close() error {
 		i := len(r.contextOrder) - 1
 		id := r.contextOrder[i]
 		if context := r.contexts[id]; context != nil {
-			if err := context.context.Close(); err != nil {
+			if err := context.close(r); err != nil {
 				return err
 			}
 			delete(r.contexts, id)
@@ -76,5 +78,6 @@ func (r *Z3Replayer) Close() error {
 	r.closed = true
 	r.resetArguments()
 	r.heap, r.commands, r.scanner, r.output, r.configs, r.contexts = nil, nil, nil, nil, nil, nil
+	r.asts, r.astIDs = nil, nil
 	return nil
 }

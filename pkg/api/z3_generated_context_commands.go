@@ -8,6 +8,8 @@ import "errors"
 type replayContextOwner struct {
 	context      *SMTContext
 	userRefCount bool
+	results      *apiContextResults
+	astIDs       []uint64
 }
 
 // RegisterZ3GeneratedContextCommands installs the implemented context replay
@@ -52,7 +54,12 @@ func replayCreateContext(r *Z3Replayer, userRef bool) error {
 	if err != nil {
 		return err
 	}
-	if _, err = context.Manager(); err != nil {
+	manager, err := context.Manager()
+	if err != nil {
+		return errors.Join(err, context.Close())
+	}
+	results, err := newAPIContextResults(manager, userRef)
+	if err != nil {
 		return errors.Join(err, context.Close())
 	}
 	if r.contexts == nil {
@@ -60,7 +67,7 @@ func replayCreateContext(r *Z3Replayer, userRef bool) error {
 	}
 	r.nextObjectID++
 	contextID := r.nextObjectID
-	r.contexts[contextID] = &replayContextOwner{context: context, userRefCount: userRef}
+	r.contexts[contextID] = &replayContextOwner{context: context, userRefCount: userRef, results: results}
 	r.contextOrder = append(r.contextOrder, contextID)
 	return r.StoreResult(contextID)
 }
@@ -84,7 +91,7 @@ func replayDelContext(r *Z3Replayer) error {
 	if context == nil {
 		return ErrZ3ReplayReference
 	}
-	if err = context.context.Close(); err != nil {
+	if err = context.close(r); err != nil {
 		return err
 	}
 	delete(r.contexts, id)

@@ -1,3 +1,5 @@
+Generated basic AST replay (2026-10-31 UTC): integrated the existing API result owner with generated reference-count, Boolean and basic-sort handlers. Normal and checked tests cover explicit references, unreferenced-result expiry, incomplete-log cleanup and CLI replay; broader AST handlers and source error-handler fidelity remain unfinished.
+
 Generated symbol replay (2026-10-31 UTC): added integer and string symbol creation handlers and connected them to g3 log replay. Normal and checked tests cover context-local interning and CLI replay; AST objects and other generated commands remain unfinished.
 
 Generated context replay (2026-10-31 UTC): added configured and reference-counted context creation, deletion, parameter updates and interruption, with cleanup of contexts left open by a log. Normal and checked tests cover copied config, mode, cancellation, stale IDs and CLI replay; reference-counted AST behavior, context error-handler fidelity and other generated commands remain unfinished.
