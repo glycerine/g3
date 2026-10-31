@@ -107493,7 +107493,13 @@
         "pkg/qe/expr_quantifier_tree_block.go",
         "pkg/qe/expr_quantifier_tree_block_test.go",
         "pkg/qe/expr_quantifier_tree_partition.go",
-        "pkg/qe/expr_quantifier_tree_partition_test.go"
+        "pkg/qe/expr_quantifier_tree_partition_test.go",
+        "pkg/qe/expr_quantifier_tree_closed.go",
+        "pkg/qe/expr_quantifier_tree_closed_test.go",
+        "pkg/qe/expr_quantifier_tree_pop_bool.go",
+        "pkg/qe/expr_quantifier_tree_pop_bool_test.go",
+        "pkg/qe/quantifier_tactic_bool_units.go",
+        "pkg/qe/quantifier_tactic_bool_units_test.go"
       ],
       "tests": [
         "TestQSATRecursiveCPPFormulaEquivalence",
@@ -107534,7 +107540,10 @@
         "TestExprQETreeAdvanceAppliesModelBranch",
         "TestExprQETreeChooseBranchSelectsAndPublishes",
         "TestExprQETreeBlocksOnlySolvedPath",
-        "TestExprQETreePartitionSeparatesIndependentVariables"
+        "TestExprQETreePartitionSeparatesIndependentVariables",
+        "TestExprQETreeClosedPartitionCompletesModelAndBlocks",
+        "TestExprQEBoolPopSolvesAndBlocksPath",
+        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
         {
@@ -107846,7 +107855,10 @@
             "TestExprQETreeAdvanceAppliesModelBranch",
             "TestExprQETreeChooseBranchSelectsAndPublishes",
             "TestExprQETreeBlocksOnlySolvedPath",
-            "TestExprQETreePartitionSeparatesIndependentVariables"
+            "TestExprQETreePartitionSeparatesIndependentVariables",
+            "TestExprQETreeClosedPartitionCompletesModelAndBlocks",
+            "TestExprQEBoolPopSolvesAndBlocksPath",
+            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
@@ -111084,11 +111096,15 @@
         "pkg/qe/quantifier_tactic_options.go",
         "pkg/qe/quantifier_tactic_options_test.go",
         "pkg/qe/quantifier_tactic.go",
-        "pkg/qe/quantifier_tactic_test.go"
+        "pkg/qe/quantifier_tactic_test.go",
+        "pkg/qe/quantifier_tactic_bool_units.go",
+        "pkg/qe/quantifier_tactic_bool_units_test.go"
       ],
       "tests": [
         "TestQuantifierTacticNonlinearOptionSnapshot",
-        "TestQuantifierTacticQuantifierFreeGoalAndRefusal"
+        "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
+        "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "assertions": [
         {
@@ -111104,17 +111120,19 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "quantifier tactic lifecycle and quantifier-free goal path",
+          "name": "quantifier tactic lifecycle, quantifier-free goals, and Boolean unit elimination",
           "status": "partial",
           "go_target": "pkg/qe/quantifier_tactic.go",
           "tests": [
-            "TestQuantifierTacticQuantifierFreeGoalAndRefusal"
+            "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
+            "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Quantified goals are explicitly refused until the general expression elimination traversal is connected; statistics and SMT-LIB registration remain unfinished."
+        "Single Boolean quantifiers solved by unit and polarity rules are supported; branching, nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
       ]
     },
     {
@@ -111125,10 +111143,14 @@
       "go_targets": [
         "pkg/qe/quantifier_tactic.go",
         "pkg/qe/quantifier_tactic_test.go",
-        "pkg/qe/quantifier_tactic_options.go"
+        "pkg/qe/quantifier_tactic_options.go",
+        "pkg/qe/quantifier_tactic_bool_units.go",
+        "pkg/qe/quantifier_tactic_bool_units_test.go"
       ],
       "tests": [
-        "TestQuantifierTacticQuantifierFreeGoalAndRefusal"
+        "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
+        "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
       ],
       "conditionals": [
         {
@@ -111144,17 +111166,19 @@
       "ownership_audited": false,
       "methods": [
         {
-          "name": "quantifier tactic lifecycle and quantifier-free goal path",
+          "name": "quantifier tactic lifecycle, quantifier-free goals, and Boolean unit elimination",
           "status": "partial",
           "go_target": "pkg/qe/quantifier_tactic.go",
           "tests": [
-            "TestQuantifierTacticQuantifierFreeGoalAndRefusal"
+            "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
+            "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",
+            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Quantified goals are explicitly refused until the general expression elimination traversal is connected; statistics and SMT-LIB registration remain unfinished."
+        "Single Boolean quantifiers solved by unit and polarity rules are supported; branching, nested and non-Boolean quantifiers, proof generation, statistics and SMT-LIB registration remain unfinished."
       ]
     },
     {
