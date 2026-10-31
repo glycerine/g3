@@ -91,6 +91,34 @@ func TestBMCNonlinearSearchFindsFirstReachableLevel(t *testing.T) {
 	if len(trace) != 4 {
 		t.Fatal("branching rule trace", len(trace))
 	}
+	scope, err := ast.NewScopedProof(m)
+	must(err)
+	for _, rule := range trace {
+		formula, err := rule.ToFormula()
+		must(err)
+		value, err := m.RefGet(formula)
+		must(err)
+		proof, err := m.MkProofAsserted(value)
+		must(err)
+		must(rule.SetProof(proof))
+		must(m.DelRef(&formula))
+	}
+	must(scope.Close())
+	proofRef, err := compiler.NonlinearProof(set, goal, level, md, config)
+	must(err)
+	proof, err := m.RefGet(proofRef)
+	must(err)
+	fact, err := m.GetProofFact(proof)
+	must(err)
+	queryRef, err := compiler.CompileQuery(goal, level)
+	must(err)
+	query, err := m.RefGet(queryRef)
+	must(err)
+	if fact != query {
+		t.Fatal("variable nonlinear proof conclusion", fact, query)
+	}
+	must(m.DelRef(&queryRef))
+	must(m.DelRef(&proofRef))
 	for i := len(trace) - 1; i >= 0; i-- {
 		must(trace[i].Close())
 	}

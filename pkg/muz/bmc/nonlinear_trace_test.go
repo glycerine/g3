@@ -97,4 +97,38 @@ func TestBMCNonlinearTraceVisitsModelSelectedRules(t *testing.T) {
 			t.Fatal("trace rule", i, name, want[i])
 		}
 	}
+	if proof, err := compiler.NonlinearProof(set, goal, level, md, config); err == nil {
+		if proof != (ast.ASTRef{}) {
+			must(m.DelRef(&proof))
+		}
+		t.Fatal("nonlinear proof accepted rules without proofs")
+	}
+	scope, err := ast.NewScopedProof(m)
+	must(err)
+	for _, rule := range trace {
+		formula, err := rule.ToFormula()
+		must(err)
+		value, err := m.RefGet(formula)
+		must(err)
+		proof, err := m.MkProofAsserted(value)
+		must(err)
+		must(rule.SetProof(proof))
+		must(m.DelRef(&formula))
+	}
+	must(scope.Close())
+	proofRef, err := compiler.NonlinearProof(set, goal, level, md, config)
+	must(err)
+	proof, err := m.RefGet(proofRef)
+	must(err)
+	fact, err := m.GetProofFact(proof)
+	must(err)
+	queryRef, err := compiler.CompileQuery(goal, level)
+	must(err)
+	query, err := m.RefGet(queryRef)
+	must(err)
+	if fact != query {
+		t.Fatal("nonlinear proof conclusion", fact, query)
+	}
+	must(m.DelRef(&queryRef))
+	must(m.DelRef(&proofRef))
 }

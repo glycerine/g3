@@ -1,7 +1,6 @@
 package bmc
 
-// Source: src/muz/bmc/dl_bmc_engine.cpp, nonlinear::get_proof rule selection
-// and traversal. Hyper-resolution proof assembly is a separate port step.
+// Source: src/muz/bmc/dl_bmc_engine.cpp, nonlinear::get_proof.
 
 import (
 	"errors"
@@ -41,14 +40,20 @@ func (c *Compiler) NonlinearTrace(rules *base.RuleSet, query ast.ASTHandle, leve
 	if err != nil {
 		return nil, err
 	}
-	if err = c.traceNonlinearRule(rules, evaluator, query, application, level, &result); err != nil {
+	if err = c.traceNonlinearRule(rules, evaluator, query, application, level, &result, nil); err != nil {
 		return result, err
 	}
 	return result, nil
 }
 
-func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.ModelEvaluator, predicate, application ast.ASTHandle, level uint32, trace *[]*base.Rule) (resultErr error) {
+func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.ModelEvaluator, predicate, application ast.ASTHandle, level uint32, trace *[]*base.Rule, proofResult *ast.ASTRef) (resultErr error) {
 	m := c.manager
+	defer func() {
+		if resultErr != nil && proofResult != nil && *proofResult != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, m.DelRef(proofResult))
+			*proofResult = ast.ASTRef{}
+		}
+	}()
 	canceled, err := m.Canceled()
 	if err != nil {
 		return err
@@ -127,15 +132,30 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 	if err != nil {
 		return err
 	}
-	if tails == 0 {
+	if tails == 0 && proofResult == nil {
 		return nil
 	}
-	if level == 0 {
+	if tails > 0 && level == 0 {
 		return ast.ErrASTDomain
 	}
 	variableSorts, err := selected.VariableSorts()
 	if err != nil {
 		return err
+	}
+	var premises []ast.ASTHandle
+	if proofResult != nil {
+		proof, found, err := selected.Proof()
+		if err != nil {
+			return err
+		}
+		if !found {
+			return fmt.Errorf("bmc: nonlinear rule has no proof")
+		}
+		if len(variableSorts) == 0 && tails == 0 {
+			*proofResult, err = m.NewRef(proof)
+			return err
+		}
+		premises = append(premises, proof)
 	}
 	name, err := m.GetASTName(predicate)
 	if err != nil {
@@ -224,6 +244,9 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
+	positions := make([]ast.ASTProofPosition, 0, tails)
+	substitutions := make([][]ast.ASTHandle, 1, tails+1)
+	substitutions[0] = bindings
 	for i := 0; i < tails; i++ {
 		tail, _, err := selected.Tail(i)
 		if err != nil {
@@ -245,9 +268,32 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		if err != nil {
 			return err
 		}
-		if err = c.traceNonlinearRule(rules, evaluator, decl, body, level-1, trace); err != nil {
+		var child ast.ASTRef
+		var childResult *ast.ASTRef
+		if proofResult != nil {
+			childResult = &child
+		}
+		if err = c.traceNonlinearRule(rules, evaluator, decl, body, level-1, trace, childResult); err != nil {
 			return err
 		}
+		if proofResult != nil {
+			refs = append(refs, child)
+			childProof, err := m.RefGet(child)
+			if err != nil {
+				return err
+			}
+			premises = append(premises, childProof)
+			positions = append(positions, ast.ASTProofPosition{First: uint32(i + 1)})
+			substitutions = append(substitutions, nil)
+		}
+	}
+	if proofResult != nil {
+		proof, err := m.MkProofHyperResolve(premises, application, positions, substitutions)
+		if err != nil {
+			return err
+		}
+		*proofResult, err = m.NewRef(proof)
+		return err
 	}
 	return nil
 }
