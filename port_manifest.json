@@ -187978,6 +187978,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/core/context_translation.go",
+        "pkg/api/api_simple_solver_translate_test.go",
+        "pkg/api/z3_generated_solver_translation_test.go",
         "pkg/tactic/core/reduce_args_analysis.go",
         "pkg/tactic/core/reduce_args_cpp_test.go",
         "pkg/tactic/core/reduce_args_model.go",
@@ -187995,6 +187998,9 @@
         "pkg/cmd/g3/test_vectors/reduce_args_values_models_scopes.smt2"
       ],
       "tests": [
+        "TestAPICoreTacticSolversCrossContextTranslation",
+        "TestAPICoreTacticTranslatedModelsUseTargetServices",
+        "TestGeneratedComposedTacticSolverTranslationAcrossContexts",
         "TestReduceArgsExactGoalsCPP",
         "TestReduceArgsModelLifetimeFilteringAndVariables",
         "TestReduceArgsGuardsCancellationParametersTranslationAndTrace",

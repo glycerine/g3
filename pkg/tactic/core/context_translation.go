@@ -31,6 +31,15 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, context *upara
 			return nil, true, err
 		}
 		return r, true, nil
+	case *ReduceArgsTactic:
+		if err := t.open(); err != nil {
+			return nil, true, err
+		}
+		r, err := NewReduceArgsTactic(m, context, globals, services)
+		if err != nil {
+			return nil, true, err
+		}
+		return r, true, nil
 	case *SymmetryReduceTactic:
 		if err := t.open(); err != nil {
 			return nil, true, err
