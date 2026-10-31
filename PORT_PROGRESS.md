@@ -1,3 +1,5 @@
+Generated finite-domain size replay (2026-10-31 UTC): added the output-parameter query and verified a size above 32 bits in normal and checked tests. Other generated commands remain unfinished.
+
 Generated symbol inspection replay (2026-10-31 UTC): added symbol kind, integer and string queries. Normal and checked tests cover numeric and string symbols; other generated commands remain unfinished.
 
 Generated declaration parameter replay (2026-10-31 UTC): added parameter count, kind and typed value queries. Normal and checked tests exercise integer, double, rational, symbol, sort, expression and function parameters; other generated commands remain unfinished.

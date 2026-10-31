@@ -333,3 +333,47 @@ func TestGeneratedDeclarationParameterInspection(t *testing.T) {
 		t.Fatal("parameter inspection was not checked")
 	}
 }
+
+func TestGeneratedFiniteDomainSizeReplayOutput(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\n$ |finite|\nU 4294967301\nC 36\n= 0x42\n" +
+		"R\nP 0x41\nP 0x42\nU 0\nC 209\n" +
+		"R\nP 0x41\nP 0x42\nU 0\nC 900\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	checked := false
+	if err = r.RegisterCommand(900, "check-finite-size", func(r *Z3Replayer) error {
+		if e := replayASTInspection(r, 209); e != nil {
+			return e
+		}
+		size, e := r.Uint64(2)
+		if e != nil {
+			return e
+		}
+		if size != 4294967301 {
+			t.Fatal("finite sort size", size)
+		}
+		checked = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err != nil {
+		t.Fatal(err)
+	}
+	if !checked {
+		t.Fatal("finite size was not checked")
+	}
+}

@@ -11,7 +11,7 @@ func registerZ3GeneratedInspectionCommands(r *Z3Replayer) error {
 	}{
 		{203, "Z3_get_sort_name"}, {204, "Z3_get_sort_id"}, {205, "Z3_sort_to_ast"},
 		{206, "Z3_is_eq_sort"}, {207, "Z3_get_sort_kind"}, {208, "Z3_get_bv_sort_size"},
-		{210, "Z3_get_array_sort_domain"}, {211, "Z3_get_array_sort_range"},
+		{209, "Z3_get_finite_domain_sort_size"}, {210, "Z3_get_array_sort_domain"}, {211, "Z3_get_array_sort_range"},
 		{227, "Z3_func_decl_to_ast"}, {228, "Z3_is_eq_func_decl"}, {229, "Z3_get_func_decl_id"},
 		{230, "Z3_get_decl_name"}, {231, "Z3_get_decl_kind"}, {232, "Z3_get_domain_size"},
 		{233, "Z3_get_arity"}, {234, "Z3_get_domain"}, {235, "Z3_get_range"},
@@ -60,6 +60,15 @@ func replayASTInspection(r *Z3Replayer, id uint32) error {
 		_, err = owner.context.SortKind(value.handle)
 	case 208:
 		_, err = owner.context.BitVectorSortSize(value.handle)
+	case 209:
+		if _, err = r.Uint64(2); err != nil {
+			return err
+		}
+		var size uint64
+		size, err = owner.context.FiniteDomainSortSize(value.handle)
+		if err == nil {
+			err = r.SetUint64(2, size)
+		}
 	case 210:
 		result, err = owner.context.ArrayDomain(value.handle, 0)
 	case 211:
