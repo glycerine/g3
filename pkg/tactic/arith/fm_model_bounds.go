@@ -138,6 +138,18 @@ func (c *FMModelConverter) processBound(variable, clause ast.ASTHandle, ev *mode
 					v = second
 				}
 			}
+			// Source strips to_real for declaration identity, while evaluating the
+			// original monomial for variables already interpreted in the model.
+			vf, vop, vn, e := c.appInfo(v)
+			if e != nil {
+				return fmNoBound, nil, e
+			}
+			if vf == arith && vop == 14 && vn == 1 {
+				v, e = m.GetArg(v, 0)
+				if e != nil {
+					return fmNoBound, nil, e
+				}
+			}
 			if yes, _ := c.isVariable(v, variable); yes {
 				coefficient.Set(coef)
 				if directionNeg {

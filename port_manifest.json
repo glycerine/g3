@@ -169844,7 +169844,8 @@
         "pkg/arena/small_bytes_address.go",
         "pkg/arena/small_bytes_address_test.go",
         "pkg/ast/ast_dependency_address.go",
-        "pkg/ast/ast_dependency_address_test.go"
+        "pkg/ast/ast_dependency_address_test.go",
+        "pkg/tactic/arith/fm_model_mixed_test.go"
       ],
       "tests": [
         "TestAPIFMTacticRegistrationApplyAndModel",
@@ -169933,7 +169934,10 @@
         "TestFMConstraintTraceGrowthAbortAndRefusedStream",
         "TestFMConstraintTraceAllocationFrontiers",
         "TestSmallBytesDiagnosticAddressIdentityAndLifetime",
-        "TestASTDependencyDiagnosticAddressAndOwnership"
+        "TestASTDependencyDiagnosticAddressAndOwnership",
+        "TestFMModelToRealEliminatedIntegerBounds",
+        "TestFMTacticOneSidedMixedIntegerModel",
+        "TestSMTLibRunnerCPPReference"
       ],
       "conditionals": [
         {
@@ -170160,6 +170164,12 @@
             "TestFMTacticFactorySimplifiesBeforeElimination",
             "TestAPIFMTacticRegistrationApplyAndModel",
             "TestSMTLibRunnerScripts"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd_context/tactic_registry.go",
+            "pkg/api/api_fm_tactic_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         },
         {
@@ -170247,6 +170257,21 @@
             "TestSmallBytesDiagnosticAddressIdentityAndLifetime",
             "TestASTDependencyDiagnosticAddressAndOwnership"
           ]
+        },
+        {
+          "name": "fm_model_converter::process strips to_real before comparing the eliminated declaration, preserves original monomial evaluation and rounds integer bounds (fm_tactic.cpp:124-154)",
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/fm_model_bounds.go",
+          "go_targets": [
+            "pkg/tactic/arith/fm_model_mixed_test.go",
+            "pkg/cmd/g3/main_test.go"
+          ],
+          "tests": [
+            "TestFMModelToRealEliminatedIntegerBounds",
+            "TestFMTacticOneSidedMixedIntegerModel",
+            "TestSMTLibRunnerScripts",
+            "TestSMTLibRunnerCPPReference"
+          ]
         }
       ],
       "ownership": [
@@ -170300,6 +170325,12 @@
             "TestFMTacticFactorySimplifiesBeforeElimination",
             "TestAPIFMTacticRegistrationApplyAndModel",
             "TestSMTLibRunnerScripts"
+          ],
+          "go_targets": [
+            "pkg/cmd_context/tactic_commands.go",
+            "pkg/cmd_context/tactic_registry.go",
+            "pkg/api/api_fm_tactic_test.go",
+            "pkg/cmd/g3/main_test.go"
           ]
         }
       ],
