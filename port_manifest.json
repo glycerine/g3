@@ -201632,9 +201632,9 @@
       "path": "src/test/get_consequences.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": ["pkg/api/api_consequences_cpp_test.go"],
-      "tests": ["TestConsequencesSourceBooleanAndBitVectors", "TestConsequencesSourceFiniteDomain"],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_consequences_cpp_test.go", "pkg/sat/sat_solver/consequences_cpp_driver_test.go"],
+      "tests": ["TestConsequencesSourceBooleanAndBitVectors", "TestConsequencesSourceFiniteDomain", "TestIncrementalConsequencesSourceDriver"],
       "assertions": [
         {
           "line": 69,
@@ -201661,11 +201661,11 @@
           "text": "ENSURE(mr.get());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "test1 Boolean/bit-vector consequence scenario", "status": "partial", "go_target": "pkg/api/api_consequences_cpp_test.go", "tests": ["TestConsequencesSourceBooleanAndBitVectors"]}, {"name": "test2 finite-domain consequences and scoped models", "status": "ported", "go_target": "pkg/api/api_consequences_cpp_test.go", "tests": ["TestConsequencesSourceFiniteDomain"]}],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "test1 incremental SAT Boolean/bit-vector consequence scenario", "status": "ported", "go_target": "pkg/sat/sat_solver/consequences_cpp_driver_test.go", "tests": ["TestIncrementalConsequencesSourceDriver"]}, {"name": "test2 finite-domain consequences and scoped models", "status": "ported", "go_target": "pkg/api/api_consequences_cpp_test.go", "tests": ["TestConsequencesSourceFiniteDomain"]}],
       "ownership": ["The Go fixture owns the constructed AST references; both tests close their solvers and release returned consequence references and models."],
-      "deviations": ["The first source scenario uses the incremental SAT solver directly; this initial test runs the same formulas through the finite-domain solver. The source prints consequences and models, while Go verifies status, count and model availability."]
+      "deviations": ["The source prints consequences and models; Go verifies status, count and model availability. An additional API test runs the first case through the finite-domain wrapper."]
     },
     {
       "path": "src/test/get_implied_equalities.cpp",

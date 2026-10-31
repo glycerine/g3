@@ -52206,3 +52206,5 @@ Implied-equalities source driver: ported both original API cases, including cong
 Nonlinear arithmetic utility source driver: translated the two original quadratic literals and branch-generation call, and added checks that each generated branch supplies substitutions free of the eliminated variable. The source's local vectors used only for printing are empty and do not represent the populated branch conditions.
 
 Consequences source driver started: both source scenarios now exercise Boolean and bit-vector consequences, finite-domain datatype consequences, a scoped contradiction and model availability. The first scenario currently uses the finite-domain wrapper rather than the source's direct incremental SAT constructor, so the source test unit remains partial.
+
+Consequences driver completion: the Boolean and bit-vector case now also runs on the source's direct incremental SAT solver; the finite-domain datatype case uses the source finite-domain solver stack. The source driver is marked ported, and the additional finite-domain wrapper case remains as integration coverage.
