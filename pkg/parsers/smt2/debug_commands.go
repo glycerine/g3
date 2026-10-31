@@ -12,6 +12,49 @@ import (
 
 func (p *commandParser) debugCommand(name string) (resultErr error) {
 	switch name {
+	case "dbg-elim-unused-vars":
+		expression, _, err := p.expression()
+		if err != nil {
+			return err
+		}
+		if err = p.requireEnd(); err != nil {
+			return err
+		}
+		m, err := p.astManager()
+		if err != nil {
+			return err
+		}
+		kind, err := m.GetKind(expression)
+		if err != nil {
+			return err
+		}
+		if kind != ast.ASTQuantifier {
+			return p.context.WriteExpression(p.out, expression)
+		}
+		globals, err := p.context.GlobalParameters()
+		if err != nil {
+			return err
+		}
+		params, err := globals.SourceGetRef()
+		if err != nil {
+			return err
+		}
+		result, err := rewriter.ElimUnusedVarsWithParams(m, expression, globals.Context, params)
+		if result != (ast.ASTRef{}) {
+			defer func() { resultErr = errors.Join(resultErr, m.DelRef(&result)) }()
+		}
+		if err != nil {
+			return err
+		}
+		value, err := m.RefGet(result)
+		if err != nil {
+			return err
+		}
+		if err = p.context.WriteExpression(p.out, value); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintln(p.out)
+		return err
 	case "dbg-instantiate", "dbg-instantiate-nested":
 		quantifier, _, err := p.expression()
 		if err != nil {

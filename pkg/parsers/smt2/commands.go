@@ -262,11 +262,11 @@ func (p *commandParser) command() (bool, error) {
 	}
 	success := true
 	switch name {
-	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-subst", "dbg-instantiate", "dbg-instantiate-nested":
+	case "dbg-set", "dbg-get-qbody", "dbg-pp-var", "dbg-size", "dbg-shift-vars", "dbg-num-shared", "dbg-subst", "dbg-instantiate", "dbg-instantiate-nested", "dbg-elim-unused-vars":
 		if err = p.debugCommand(name); err != nil {
 			return false, err
 		}
-		if name == "dbg-pp-var" || name == "dbg-size" || name == "dbg-num-shared" || name == "dbg-instantiate" || name == "dbg-instantiate-nested" {
+		if name == "dbg-pp-var" || name == "dbg-size" || name == "dbg-num-shared" || name == "dbg-instantiate" || name == "dbg-instantiate-nested" || name == "dbg-elim-unused-vars" {
 			success = false
 		}
 	case "set-logic":

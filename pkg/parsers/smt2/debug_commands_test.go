@@ -85,3 +85,16 @@ func TestDebugInstantiateQuantifiers(t *testing.T) {
 		}
 	}
 }
+
+func TestDebugEliminateUnusedVariables(t *testing.T) {
+	script := `(dbg-elim-unused-vars (forall ((x Int) (y Int)) (> x 0)))
+(dbg-elim-unused-vars true)
+(echo "after")`
+	out, err := runApplyTacticScript(t, script)
+	if err != nil {
+		t.Fatal(err, out)
+	}
+	if want := "(forall ((x Int)) (> x 0))\ntrueafter\n"; out != want {
+		t.Fatalf("debug elimination %q, want %q", out, want)
+	}
+}

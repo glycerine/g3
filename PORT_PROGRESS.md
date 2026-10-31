@@ -1,3 +1,5 @@
+Debug unused-variable elimination (2026-10-31 UTC): connected dbg-elim-unused-vars to the existing quantifier eliminator with the source global parameter snapshot. Native-comparison tests cover both quantifiers and the non-quantifier output path.
+
 Debug quantifier instantiation (2026-10-31 UTC): implemented dbg-instantiate and dbg-instantiate-nested using the existing binder-aware instantiator, with arity and sort validation. Tests match native Z3 on ordinary and nested quantified expressions and cover invalid input.
 
 Debug expression substitution (2026-10-31 UTC): connected dbg-subst to the concrete beta-based variable substitution, preserving source binding order and allowing the destination to replace the source. The combined SMT-LIB test matches native Z3 output; remaining debug commands and failure audits are pending.

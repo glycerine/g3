@@ -46303,7 +46303,8 @@
         "TestDebugExpressionResetAndErrors",
         "TestDebugShiftAndSharedExpressions",
         "TestDebugSubstitutionBindingOrderAndReplacement",
-        "TestDebugInstantiateQuantifiers"
+        "TestDebugInstantiateQuantifiers",
+        "TestDebugEliminateUnusedVariables"
       ],
       "assertions": [
         {
@@ -46360,6 +46361,14 @@
           "tests": [
             "TestDebugInstantiateQuantifiers"
           ]
+        },
+        {
+          "name": "eliminate unused quantifier variables",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugEliminateUnusedVariables"
+          ]
         }
       ],
       "ownership": [
@@ -46386,7 +46395,8 @@
         "TestDebugExpressionResetAndErrors",
         "TestDebugShiftAndSharedExpressions",
         "TestDebugSubstitutionBindingOrderAndReplacement",
-        "TestDebugInstantiateQuantifiers"
+        "TestDebugInstantiateQuantifiers",
+        "TestDebugEliminateUnusedVariables"
       ],
       "conditionals": [
         {
@@ -46418,6 +46428,14 @@
           "go_target": "pkg/parsers/smt2/debug_commands.go",
           "tests": [
             "TestDebugInstantiateQuantifiers"
+          ]
+        },
+        {
+          "name": "eliminate unused quantifier variables",
+          "status": "partial",
+          "go_target": "pkg/parsers/smt2/debug_commands.go",
+          "tests": [
+            "TestDebugEliminateUnusedVariables"
           ]
         }
       ],
