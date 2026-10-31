@@ -169,3 +169,26 @@ func TestSMTLibRunnerQESymbolicRealBounds(t *testing.T) {
 		t.Fatalf("symbolic real QE result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerQEMixedCoefficientBounds(t *testing.T) {
+	script := `(set-logic LIA)
+(declare-const y Int)
+(declare-const z Int)
+(assert (exists ((x Int)) (and (<= (* 2 x) y) (>= x z))))
+(push)
+(assert (= y 1))
+(assert (= z 1))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= y 3))
+(assert (= z 1))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("mixed coefficient QE result: %s", got)
+	}
+}

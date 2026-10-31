@@ -181,3 +181,38 @@ func TestQuantifierArithmeticSearchUnsupportedDivisibility(t *testing.T) {
 		t.Fatalf("unsupported divisibility returned complete=%v, err=%v", complete, err)
 	}
 }
+
+func TestQuantifierArithmeticSearchOneUnitCoefficient(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	x := f.own(m.MkVar(0, f.integer))
+	y := f.constant("arith-unit-upper", f.integer)
+	z := f.constant("arith-unit-lower", f.integer)
+	two := f.number("2")
+	twoX := f.own(m.MkArithmeticMul(two, x))
+	upper := f.own(m.MkArithmeticLE(twoX, y))
+	lower := f.own(m.MkArithmeticGE(x, z))
+	body := f.own(m.MkAnd(upper, lower))
+	quantifier := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("integer bounds with one unit coefficient were not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	twoZ := f.own(m.MkArithmeticMul(two, z))
+	expected := f.own(m.MkArithmeticLE(twoZ, y))
+	iff := f.own(m.MkIff(value, expected))
+	different := f.own(m.MkNot(iff))
+	k := qsatKernelOwner(t, f)
+	solver, err := k.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(different))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("integer QE result differs from 2*z <= y")
+	}
+}
