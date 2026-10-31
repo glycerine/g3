@@ -21,7 +21,8 @@ func registerZ3GeneratedTacticCommands(r *Z3Replayer) error {
 	}{
 		{363, "Z3_mk_tactic"}, {364, "Z3_tactic_inc_ref"}, {365, "Z3_tactic_dec_ref"},
 		{369, "Z3_tactic_and_then"}, {370, "Z3_tactic_or_else"}, {371, "Z3_tactic_par_or"},
-		{372, "Z3_tactic_par_and_then"}, {373, "Z3_tactic_try_for"}, {376, "Z3_tactic_repeat"}, {381, "Z3_tactic_using_params"},
+		{372, "Z3_tactic_par_and_then"}, {373, "Z3_tactic_try_for"}, {374, "Z3_tactic_when"},
+		{375, "Z3_tactic_cond"}, {376, "Z3_tactic_repeat"}, {379, "Z3_tactic_fail_if"}, {381, "Z3_tactic_using_params"},
 		{377, "Z3_tactic_skip"}, {378, "Z3_tactic_fail"}, {380, "Z3_tactic_fail_if_not_decided"},
 	}
 	for _, entry := range entries {
@@ -95,6 +96,36 @@ func replayTacticCommand(r *Z3Replayer, id uint32) error {
 		return t.object.decRef()
 	}
 	var value *APITactic
+	if id == 374 || id == 375 || id == 379 {
+		probe, e := replayProbeAt(r, owner, 1)
+		if e != nil {
+			return e
+		}
+		switch id {
+		case 374:
+			child, e := replayTacticAt(r, owner, 2)
+			if e != nil {
+				return e
+			}
+			value, err = child.value.When(probe.value)
+		case 375:
+			yes, e := replayTacticAt(r, owner, 2)
+			if e != nil {
+				return e
+			}
+			no, e := replayTacticAt(r, owner, 3)
+			if e != nil {
+				return e
+			}
+			value, err = probe.value.Conditional(yes.value, no.value)
+		case 379:
+			value, err = probe.value.FailIf()
+		}
+		if err != nil {
+			return err
+		}
+		return replayStoreTactic(r, owner, value)
+	}
 	if id == 371 {
 		n, e := r.Uint(1)
 		if e != nil {

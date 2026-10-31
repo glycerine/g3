@@ -6043,7 +6043,8 @@
         "TestZ3LogFrontendReplaysTacticApplication",
         "TestGeneratedProbeReplayLifecycleAndApplication",
         "TestGeneratedProbeReplayClosesIncompleteLog",
-        "TestGeneratedProbeCompositionReplay"
+        "TestGeneratedProbeCompositionReplay",
+        "TestGeneratedProbeControlledTacticsReplay"
       ],
       "methods_audited": false,
       "ownership_audited": false,
