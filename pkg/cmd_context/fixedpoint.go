@@ -235,20 +235,20 @@ func (c *Context) FixedpointPredicates() ([]ast.ASTHandle, error) {
 // QueryFixedpointWithParams applies query-local fixedpoint settings before
 // module settings and bounds the query with the effective fixedpoint timeout.
 func (c *Context) QueryFixedpointWithParams(declaration ast.ASTHandle, params *uparams.ParamsRef) (result lbool.LBool, resultErr error) {
-	return c.queryFixedpoint(declaration, params, false)
+	return c.queryFixedpoint(declaration, params, false, nil)
 }
 
 // QueryFixedpointExpression evaluates a Boolean query with the configured timeout.
 func (c *Context) QueryFixedpointExpression(query ast.ASTHandle) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, nil, true)
+	return c.queryFixedpoint(query, nil, true, nil)
 }
 
 // QueryFixedpointExpressionWithParams applies fixedpoint-local settings to a Boolean query.
 func (c *Context) QueryFixedpointExpressionWithParams(query ast.ASTHandle, params *uparams.ParamsRef) (lbool.LBool, error) {
-	return c.queryFixedpoint(query, params, true)
+	return c.queryFixedpoint(query, params, true, nil)
 }
 
-func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool) (result lbool.LBool, resultErr error) {
+func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef, expression bool, level *uint32) (result lbool.LBool, resultErr error) {
 	engine, err := c.prepareFixedpointQuery(params)
 	if err != nil {
 		return lbool.Undef, err
@@ -284,6 +284,9 @@ func (c *Context) queryFixedpoint(query ast.ASTHandle, params *uparams.ParamsRef
 	if expression {
 		return engine.Query(query)
 	}
+	if level != nil {
+		return engine.QueryPredicateFromLevel(query, *level)
+	}
 	return engine.QueryPredicate(query)
 }
 
@@ -306,11 +309,12 @@ func (c *Context) QueryFixedpointRelationsWithParams(declarations []ast.ASTHandl
 // QueryFixedpointFromLevel runs a Spacer query beginning at the requested
 // proof level.
 func (c *Context) QueryFixedpointFromLevel(declaration ast.ASTHandle, level uint32) (lbool.LBool, error) {
-	engine, err := c.prepareFixedpointQuery(nil)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	return engine.QueryPredicateFromLevel(declaration, level)
+	return c.QueryFixedpointFromLevelWithParams(declaration, level, nil)
+}
+
+// QueryFixedpointFromLevelWithParams runs a bounded Spacer query with local settings.
+func (c *Context) QueryFixedpointFromLevelWithParams(declaration ast.ASTHandle, level uint32, params *uparams.ParamsRef) (lbool.LBool, error) {
+	return c.queryFixedpoint(declaration, params, false, &level)
 }
 
 // FixedpointReasonUnknown returns the execution status of the latest

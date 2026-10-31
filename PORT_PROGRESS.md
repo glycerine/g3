@@ -1,3 +1,5 @@
+Generated Spacer level-query replay (2026-10-31 UTC): connected nullary relation queries at a requested level, including local parameters and timeout handling. Normal and checked tests verify reachable answers and explicitly reject unsupported complex expressions.
+
 Generated fixedpoint answer replay (2026-10-31 UTC): connected answer and Spacer ground-answer retrieval for single-relation queries, including nullary relation expressions. Normal and checked tests verify result ownership and explicitly reject unsupported answer shapes.
 
 Generated Spacer trace replay (2026-10-31 UTC): connected rule-vector and rule-name trace queries. Normal and checked tests verify trace snapshots after fixedpoint release; other generated commands remain unfinished.

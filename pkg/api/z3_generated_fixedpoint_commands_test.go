@@ -208,7 +208,8 @@ func TestGeneratedFixedpointReplaySpacerReachable(t *testing.T) {
 	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\nR\nP 0x41\n$ |R|\nU 0\np 0\nP 0x42\nC 49\n= 0x43\n" +
 		"R\nP 0x41\nC 511\n= 0x44\nR\nP 0x41\nP 0x44\nC 512\nR\nP 0x41\nP 0x44\nC 901\n" +
 		"R\nP 0x41\nP 0x44\nP 0x43\nC 526\nR\nP 0x41\nP 0x44\nP 0x43\nU 0\nu 0\nC 515\n" +
-		"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 518\nR\nP 0x41\nP 0x44\nC 652\n= 0x47\nR\nP 0x41\nP 0x44\nC 653\n= 0x46\nR\nP 0x41\nP 0x46\nC 448\n" +
+		"R\nP 0x41\nP 0x43\nU 0\np 0\nC 50\n= 0x48\nR\nP 0x41\nP 0x44\nP 0x48\nU 0\nC 651\n" +
+		"R\nP 0x41\nP 0x44\nC 652\n= 0x47\nR\nP 0x41\nP 0x44\nC 653\n= 0x46\nR\nP 0x41\nP 0x46\nC 448\n" +
 		"R\nP 0x41\nP 0x44\nC 654\nR\nP 0x41\nP 0x44\nP 0x43\nC 656\n= 0x45\n" +
 		"R\nP 0x41\nP 0x44\nC 513\nR\nP 0x41\nP 0x45\nP 0x46\nP 0x47\nC 900\nR\nP 0x41\nP 0x46\nC 449\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
@@ -524,5 +525,28 @@ func TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation(t *testing.
 	}
 	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "answer requires a single relation query") {
 		t.Fatal("unsupported answer", err)
+	}
+}
+
+func TestGeneratedFixedpointReplayRejectsComplexLevelQuery(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 54\n= 0x42\nR\nP 0x41\nC 511\n= 0x43\nR\nP 0x41\nP 0x43\nC 512\n" +
+		"R\nP 0x41\nP 0x43\nP 0x42\nU 0\nC 651\n"
+	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if e := r.Close(); e != nil {
+			t.Error(e)
+		}
+	}()
+	if err = RegisterZ3GeneratedContextCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = RegisterZ3GeneratedASTCommands(r); err != nil {
+		t.Fatal(err)
+	}
+	if err = r.Parse(); err == nil || !strings.Contains(err.Error(), "level query requires a nullary relation") {
+		t.Fatal("complex level query", err)
 	}
 }

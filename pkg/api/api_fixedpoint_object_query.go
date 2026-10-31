@@ -3,6 +3,7 @@ package api
 // Source: src/api/api_datalog.cpp:277-327.
 
 import (
+	"fmt"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -37,36 +38,66 @@ func (f *APIFixedpoint) QueryExpression(query ast.ASTHandle) (lbool.LBool, error
 	if err != nil {
 		return status, err
 	}
-	manager, err := f.command.Manager()
+	decl, found, err := f.nullaryRelation(query)
 	if err != nil {
 		return status, err
+	}
+	if found {
+		f.lastQuery, f.hasLastQuery = decl, true
+	}
+	return status, nil
+}
+
+func (f *APIFixedpoint) nullaryRelation(query ast.ASTHandle) (ast.ASTHandle, bool, error) {
+	manager, err := f.command.Manager()
+	if err != nil {
+		return ast.ASTHandle{}, false, err
 	}
 	kind, err := manager.GetKind(query)
 	if err != nil {
-		return status, err
+		return ast.ASTHandle{}, false, err
 	}
 	if kind != ast.ASTApp {
-		return status, nil
+		return ast.ASTHandle{}, false, nil
 	}
 	arity, err := manager.GetNumArgs(query)
 	if err != nil || arity != 0 {
-		return status, err
+		return ast.ASTHandle{}, false, err
 	}
 	decl, err := manager.GetDecl(query)
 	if err != nil {
-		return status, err
+		return ast.ASTHandle{}, false, err
 	}
 	predicates, err := f.command.FixedpointPredicates()
 	if err != nil {
-		return status, err
+		return ast.ASTHandle{}, false, err
 	}
 	for _, predicate := range predicates {
 		if predicate == decl {
-			f.lastQuery, f.hasLastQuery = decl, true
-			break
+			return decl, true, nil
 		}
 	}
-	return status, nil
+	return ast.ASTHandle{}, false, nil
+}
+
+// QueryExpressionFromLevel handles a nullary relation query at a Spacer level.
+func (f *APIFixedpoint) QueryExpressionFromLevel(query ast.ASTHandle, level uint32) (lbool.LBool, error) {
+	if err := f.open(); err != nil {
+		return lbool.Undef, err
+	}
+	f.hasLastQuery = false
+	declaration, found, err := f.nullaryRelation(query)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if !found {
+		return lbool.Undef, fmt.Errorf("fixedpoint: level query requires a nullary relation")
+	}
+	status, err := f.command.QueryFixedpointFromLevelWithParams(declaration, level, f.queryParameters())
+	if err == nil {
+		f.lastQuery, f.hasLastQuery = declaration, true
+	}
+	return status, err
 }
 
 func (f *APIFixedpoint) QueryRelations(declarations []ast.ASTHandle) (lbool.LBool, error) {

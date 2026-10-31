@@ -24,6 +24,7 @@ func TestAPIFixedpointParametersAreOwnedAndLocal(t *testing.T) {
 		func() (lbool.LBool, error) { return f.fp.Query(f.p) },
 		func() (lbool.LBool, error) { return f.fp.QueryExpression(f.pAtom) },
 		func() (lbool.LBool, error) { return f.fp.QueryRelations([]ast.ASTHandle{f.p}) },
+		func() (lbool.LBool, error) { return f.fp.QueryExpressionFromLevel(f.pAtom, 0) },
 	} {
 		if _, err = query(); err == nil || !strings.Contains(err.Error(), "duality is not ported") {
 			t.Fatal("local engine not applied", err)

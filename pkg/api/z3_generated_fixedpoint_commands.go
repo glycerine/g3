@@ -29,7 +29,7 @@ func registerZ3GeneratedFixedpointCommands(r *Z3Replayer) error {
 		{524, "Z3_fixedpoint_add_cover"}, {525, "Z3_fixedpoint_get_statistics"}, {526, "Z3_fixedpoint_register_relation"}, {527, "Z3_fixedpoint_set_predicate_representation"},
 		{528, "Z3_fixedpoint_get_rules"}, {529, "Z3_fixedpoint_get_assertions"}, {536, "Z3_fixedpoint_push"}, {537, "Z3_fixedpoint_pop"},
 		{530, "Z3_fixedpoint_set_params"}, {531, "Z3_fixedpoint_get_help"}, {532, "Z3_fixedpoint_get_param_descrs"}, {533, "Z3_fixedpoint_to_string"},
-		{652, "Z3_fixedpoint_get_ground_sat_answer"}, {653, "Z3_fixedpoint_get_rules_along_trace"}, {654, "Z3_fixedpoint_get_rule_names_along_trace"},
+		{651, "Z3_fixedpoint_query_from_lvl"}, {652, "Z3_fixedpoint_get_ground_sat_answer"}, {653, "Z3_fixedpoint_get_rules_along_trace"}, {654, "Z3_fixedpoint_get_rule_names_along_trace"},
 		{655, "Z3_fixedpoint_add_invariant"}, {656, "Z3_fixedpoint_get_reachable"},
 	}
 	for _, entry := range entries {
@@ -162,6 +162,16 @@ func replayFixedpointCommand(r *Z3Replayer, id uint32) (err error) {
 			return e
 		}
 		_, err = f.value.QueryRelations(decls)
+	case 651:
+		query, e := r.astObject(owner, 2)
+		if e != nil {
+			return e
+		}
+		level, e := r.Uint(3)
+		if e != nil {
+			return e
+		}
+		_, err = f.value.QueryExpressionFromLevel(query.handle, level)
 	case 519, 652:
 		if !f.value.hasLastQuery {
 			return fmt.Errorf("fixedpoint replay: answer requires a single relation query")

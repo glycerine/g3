@@ -6114,7 +6114,8 @@
         "TestAPIFixedpointParametersAreOwnedAndLocal",
         "TestAPIFixedpointParametersValidateCatalog",
         "TestGeneratedFixedpointReplayParameterUpdate",
-        "TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation"
+        "TestGeneratedFixedpointReplayRejectsAnswerWithoutSingleRelation",
+        "TestGeneratedFixedpointReplayRejectsComplexLevelQuery"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -6168,7 +6169,8 @@
         "Bit-vector Boolean-array replay follows the source replayer native-byte interpretation of unsigned-array storage; malformed arrays are rejected rather than read out of bounds.",
         "SMT-LIB evaluation replay records parser errors and supports explicit error-code operations; complete source error-handler and diagnostic fidelity remains unfinished.",
         "SMT-LIB parser replay supports string bindings; numeric and null binding symbols are explicitly unsupported, and complete parser diagnostic fidelity remains pending.",
-        "Fixedpoint answer replay currently supports single-relation queries, including nullary relation expressions; other expression and multi-relation answer shapes are explicitly unsupported."
+        "Fixedpoint answer replay currently supports single-relation queries, including nullary relation expressions; other expression and multi-relation answer shapes are explicitly unsupported.",
+        "Level-based fixedpoint replay currently supports nullary registered relation expressions; arbitrary Boolean query expressions remain unsupported."
       ]
     },
     {
