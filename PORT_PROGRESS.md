@@ -52300,3 +52300,5 @@ DDNF forwarding driver: added the source's two-pass population and first-match a
 Pseudo-Boolean nested fuzzer increment: translated seeded coefficient generation, nested solver scopes, recursive rounds and rollback for 100 outer rounds. Every solver result is checked against all eight Boolean assignments. The routine workload is bounded below the source's 100,000 rounds, and its trivial-constraint rejection does not yet reproduce every source rewriting decision.
 
 Trigonometric source driver started: checked the source's 64 rational e precision levels against independently derived exact factorial-series bounds. Floating-point e and the sine/cosine workloads remain open.
+
+Rational trigonometric driver increment: checked sine and cosine at all three source precision levels on 40 deterministic samples each, using independent consecutive alternating Taylor sums as exact rational enclosures. The source uses 200 C rand samples per level; its exact random sequence and floating-point workloads remain open.

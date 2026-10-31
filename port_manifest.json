@@ -210776,7 +210776,7 @@
       "role": "test",
       "status": "partial",
       "go_targets": ["pkg/math/interval/trigo_cpp_driver_test.go"],
-      "tests": ["TestTranscendentalSourceEPrecisions"],
+      "tests": ["TestTranscendentalSourceEPrecisions", "TestTranscendentalSourceSineCosineSamples"],
       "conditionals": [
         {
           "line": 120,
@@ -210791,7 +210791,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": ["All 64 rational e precisions are checked against independent rational bounds. Floating-point e and the sine/cosine source workloads remain open."]
+      "deviations": ["All 64 rational e precisions and sampled sine/cosine cases at the source precision levels use independent exact rational bounds. Sine/cosine sample counts and the random sequence differ from the C rand source; floating-point e and sine workloads remain open."]
     },
     {
       "path": "src/test/udoc_relation.cpp",
