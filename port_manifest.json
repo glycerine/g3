@@ -85749,8 +85749,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go"],
-      "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts"],
+      "go_targets": ["pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go"],
+      "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers"],
       "assertions": [
         {
           "line": 138,
@@ -85853,15 +85853,15 @@
       "ownership_audited": false,
       "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": ["Linear selection and nonlinear query naming are ported; BMC rule compilation, solving, trace and fixedpoint registration remain pending."]
+      "deviations": ["Linear selection, nonlinear query naming and level predicate replacement are ported; BMC rule compilation, solving, trace and fixedpoint registration remain pending."]
     },
     {
       "path": "src/muz/bmc/dl_bmc_engine.h",
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go"],
-      "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts"],
+      "go_targets": ["pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go"],
+      "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers"],
       "conditionals": [
         {
           "line": 20,
@@ -85876,7 +85876,7 @@
       "ownership_audited": false,
       "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": ["Linear selection and nonlinear query naming are ported; BMC rule compilation, solving, trace and fixedpoint registration remain pending."]
+      "deviations": ["Linear selection, nonlinear query naming and level predicate replacement are ported; BMC rule compilation, solving, trace and fixedpoint registration remain pending."]
     },
     {
       "path": "src/muz/clp/CMakeLists.txt",

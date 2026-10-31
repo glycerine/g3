@@ -1,3 +1,5 @@
+BMC level predicate rewriting (2026-10-31 UTC): registered predicate applications now become the previous level or false at level zero, with source quantifier no-pattern handling. Focused tests cover bound variables and quantified bodies.
+
 BMC nonlinear query construction (2026-10-31 UTC): added source level-predicate and rule naming plus compile_query with correctly typed named arguments. Tests cover zero-arity, mixed sorts and numerical predicate names; rule compilation and solver integration remain pending.
 
 BMC source start (2026-10-31 UTC): ported the source linear/nonlinear compiler selection based on predicate-tail arity and quantified interpreted tails. The actual BMC compilers, solver loop and fixedpoint registration remain pending.
