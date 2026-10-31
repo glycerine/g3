@@ -1,3 +1,5 @@
+The named default tactic now constructs the source simplify-first conditional strategy with the original probe order. Named API tests cover multiple fragments and models, and SMT-LIB results match native Z3.
+
 Registered horn-simplify and the source ufbv-rewriter registration. The latter intentionally invokes the quasi-macro factory specified in the C++ registration.
 
 Registered sine-filter, elim01, bvarray2uf, nl-purify and the lra/lia/lira strategies. Fixed reentrant arithmetic-atom installation caused by term ITEs; SAT, UNSAT and reconstructed-model regressions exercise the integration.

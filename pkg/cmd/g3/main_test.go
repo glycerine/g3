@@ -338,6 +338,7 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"default_named_tactic.smt2":                    "sat\nunsat\nsat\n",
 	"more_tactic_factories.smt2":                   "sat\nsat\nsat\nsat\n",
 	"core_new_factories.smt2":                      "sat\nsat\nsat\n",
 	"fm_one_sided_mixed_integer_model.smt2":        "sat\n((x 3)\n (y (/ 1.0 2.0)))\n",
