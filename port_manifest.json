@@ -86185,8 +86185,19 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/duality/query_clause.go", "pkg/muz/duality/query_clause_test.go", "pkg/muz/duality/missing_heads.go", "pkg/muz/duality/missing_heads_test.go"],
-      "tests": ["TestQueryClauseSparseAndGroundVariables", "TestMissingHeadClausesQuantifiedAndGround"],
+      "go_targets": [
+        "pkg/muz/duality/query_clause.go",
+        "pkg/muz/duality/query_clause_test.go",
+        "pkg/muz/duality/missing_heads.go",
+        "pkg/muz/duality/missing_heads_test.go",
+        "pkg/muz/duality/prepare_query.go",
+        "pkg/muz/duality/prepare_query_test.go"
+      ],
+      "tests": [
+        "TestQueryClauseSparseAndGroundVariables",
+        "TestMissingHeadClausesQuantifiedAndGround",
+        "TestPrepareQueryRulesMissingHeadsAndBounds"
+      ],
       "conditionals": [
         {
           "line": 44,
@@ -86269,17 +86280,36 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "query preparation: ordered rule/query clauses, missing predicate heads and recursion bounds",
+          "status": "partial",
+          "go_target": "pkg/muz/duality/prepare_query.go",
+          "tests": [
+            "TestPrepareQueryRulesMissingHeadsAndBounds"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": ["Source query-clause closure is started; rule translation, RPFP solver dispatch, answers and fixedpoint registration remain unfinished."]
+      "deviations": [
+        "Source query-clause closure is started; rule translation, RPFP solver dispatch, answers and fixedpoint registration remain unfinished.",
+        "RPFP construction, solver execution, results and fixedpoint engine registration remain unfinished."
+      ]
     },
     {
       "path": "src/muz/duality/duality_dl_interface.h",
       "component": "muz",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/muz/duality/prepare_query.go",
+        "pkg/muz/duality/prepare_query_test.go",
+        "pkg/muz/duality/query_clause.go",
+        "pkg/muz/duality/missing_heads.go"
+      ],
+      "tests": [
+        "TestPrepareQueryRulesMissingHeadsAndBounds"
+      ],
       "conditionals": [
         {
           "line": 21,
@@ -86292,9 +86322,20 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [
+        {
+          "name": "query preparation: ordered rule/query clauses, missing predicate heads and recursion bounds",
+          "status": "partial",
+          "go_target": "pkg/muz/duality/prepare_query.go",
+          "tests": [
+            "TestPrepareQueryRulesMissingHeadsAndBounds"
+          ]
+        }
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": [
+        "RPFP construction, solver execution, results and fixedpoint engine registration remain unfinished."
+      ]
     },
     {
       "path": "src/muz/fp/CMakeLists.txt",
