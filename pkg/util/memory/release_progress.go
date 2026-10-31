@@ -158,6 +158,9 @@ func (a *SmallAllocator) resumeRelease(r ObjectRef, loc *smallObjectLocation) (R
 		if h == (Block{}) {
 			loc.live = false
 			p.active = false
+			if !loc.free && !loc.retired && loc.generation < math.MaxUint32 {
+				a.noteReusableLocation(r.slot - 1)
+			}
 		}
 		return a.releaseSnapshot(r, p), e
 	}

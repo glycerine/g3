@@ -15,3 +15,15 @@ func BenchmarkSmallAllocatorReserveExistingLocation(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkSmallAllocatorInstallAfterLiveLocations(b *testing.B) {
+	a := &SmallAllocator{locations: make([]smallObjectLocation, 8192, 8193)}
+	for i := range a.locations {
+		a.locations[i].live = true
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.installLocation(smallObjectLocation{live: true})
+		a.locations = a.locations[:8192]
+	}
+}

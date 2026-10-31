@@ -52364,3 +52364,5 @@ Memory API source-driver increment: created successive bit-vector sorts until an
 Interval dependency implication coverage: for 100 seeded intervals per operation, an independent half-integer grid checks that the reported dependency bounds imply each finite result bound for addition, subtraction, multiplication, negation, powers, inverse and division. This sampling does not replace a proof of the source-generated SMT-LIB implications.
 
 NLSAT projection checkpoint: the four-inequality general projection still exceeded a 75-second bounded run after the context and allocator scan optimizations. It remains excluded from the focused driver pending further work.
+
+Small allocator location installation: maintain a scan cursor and move it back when direct or chunk locations become reusable, preserving lowest-slot reuse and generation checks. A synthetic ledger with 8,192 live slots fell from about 7,246 ns/op to 9 ns/op for installation; this is not an end-to-end solver benchmark. New tests cover direct releases, reclaimed chunks, reuse order and stale references.

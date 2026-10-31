@@ -67,6 +67,7 @@ type SmallAllocator struct {
 	config                              SmallAllocatorConfig
 	origin, header, allocSize, sequence uint64
 	locations                           []smallObjectLocation
+	locationScan                        uint32
 	chunks, free                        [64]uint32
 	pending                             Block
 	pendingPartial                      bool
@@ -195,17 +196,27 @@ func (a *SmallAllocator) reserveLocations(extra uint32) error {
 	return nil
 }
 func (a *SmallAllocator) installLocation(r smallObjectLocation) uint32 {
-	for i := range a.locations {
+	for i := int(a.locationScan); i < len(a.locations); i++ {
 		old := &a.locations[i]
 		if !old.live && !old.free && !old.retired && old.raw == (Block{}) && old.generation < math.MaxUint32 {
 			r.generation = old.generation + 1
 			*old = r
+			a.locationScan = uint32(i + 1)
 			return uint32(i + 1)
 		}
 	}
 	r.generation = 1
 	a.locations = append(a.locations, r)
+	a.locationScan = uint32(len(a.locations))
 	return uint32(len(a.locations))
+}
+
+// noteReusableLocation moves the scan back when a physical location becomes
+// reusable, preserving the allocator's lowest-index reuse order.
+func (a *SmallAllocator) noteReusableLocation(index uint32) {
+	if index < a.locationScan {
+		a.locationScan = index
+	}
 }
 func (a *SmallAllocator) location(id uint32) (*smallObjectLocation, error) {
 	if id == 0 || uint64(id) > uint64(len(a.locations)) {
@@ -513,6 +524,8 @@ func (a *SmallAllocator) invalidateChunk(id uint32) {
 			r.raw = Block{}
 			if r.generation == math.MaxUint32 {
 				r.retired = true
+			} else if !r.retired {
+				a.noteReusableLocation(uint32(i))
 			}
 		}
 	}
