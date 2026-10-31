@@ -43,6 +43,18 @@ func (f *APIFixedpoint) SetParameters(parameters *ParameterSet) (resultErr error
 	if err = descriptions.Close(); err != nil {
 		return err
 	}
+	name := "timeout"
+	hasTimeout, err := parameters.params.ContainsName(&parameters.value, &name)
+	if err != nil {
+		return err
+	}
+	var timeout uint32
+	if hasTimeout {
+		timeout, err = parameters.params.GetUIntName(&parameters.value, &name, 0)
+		if err != nil {
+			return err
+		}
+	}
 	next, err := (&SMTContext{smtContextState: f.owner}).NewParameterSet()
 	if err != nil {
 		return err
@@ -63,6 +75,7 @@ func (f *APIFixedpoint) SetParameters(parameters *ParameterSet) (resultErr error
 	}
 	old := f.params
 	f.params, published = next, true
+	f.timeout, f.hasTimeout = timeout, hasTimeout
 	if old != nil {
 		if err = old.Close(); err != nil {
 			f.retiredParams = append(f.retiredParams, old)

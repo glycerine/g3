@@ -15,6 +15,8 @@ type APIFixedpoint struct {
 	command           *cmd_context.Context
 	params            *ParameterSet
 	retiredParams     []*ParameterSet
+	timeout           uint32
+	hasTimeout        bool
 	lastQuery         ast.ASTHandle
 	hasLastQuery      bool
 	hasLastExpression bool

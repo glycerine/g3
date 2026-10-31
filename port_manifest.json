@@ -6501,7 +6501,7 @@
       "component": "api",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/api/api_fixedpoint_object_limits.go", "pkg/api/api_fixedpoint_object_limits_test.go",
         "pkg/cmd_context/fixedpoint_timeout.go",
         "pkg/cmd_context/fixedpoint_timeout_test.go",
         "pkg/api/api_fixedpoint.go",
@@ -6540,7 +6540,7 @@
         "pkg/api/api_fixedpoint_relations_answer_test.go",
         "pkg/muz/fp/query_expression.go"
       ],
-      "tests": [
+      "tests": ["TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry",
         "TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation",
         "TestSMTContextFixedpointPDRLifecycle",
         "TestSMTContextFixedpointParameterDescriptors",
@@ -6655,22 +6655,22 @@
           "tests": ["TestAPIFixedpointCloseAndParentLifetime", "TestAPIFixedpointObjectsHaveIndependentState"]
         },
         {
-          "name": "remaining object-local fixedpoint parameter and external-relation callback declaration surface",
+          "name": "remaining external-relation callback declaration surface",
           "status": "unported",
           "go_target": null,
           "tests": []
         }
       ],
       "ownership": ["SMTContext owns shared services; each APIFixedpoint owns an independent child command/fixedpoint state and closes it explicitly. Returned AST and model snapshots transfer independent references to callers."],
-      "deviations": ["Go methods and explicit Close/ASTRef ownership replace native opaque reference counting. Object-local parameter mutation is intentionally deferred instead of mutating shared global parameters."]
+      "deviations": ["Go methods and explicit Close/ASTRef ownership replace native opaque reference counting. Object-local parameter updates are copied into the independent fixedpoint state."]
     },
     {
       "path": "src/api/api_datalog_spacer.inc",
       "component": "api",
       "role": "reference_support",
       "status": "ported",
-      "go_targets": ["pkg/api/api_fixedpoint.go", "pkg/cmd_context/fixedpoint.go", "pkg/muz/fp/pdr_engine.go"],
-      "tests": ["TestSMTContextFixedpointSpacerInductiveExports"],
+      "go_targets": ["pkg/api/api_fixedpoint_object_limits.go", "pkg/api/api_fixedpoint_object_limits_test.go", "pkg/api/api_fixedpoint.go", "pkg/cmd_context/fixedpoint.go", "pkg/muz/fp/pdr_engine.go"],
+      "tests": ["TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry", "TestSMTContextFixedpointSpacerInductiveExports"],
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
@@ -204719,7 +204719,7 @@
       "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": ["The char-pointer-to-int map specialization occurs only in this test. Go string maps serve live consumers without recreating an unused C++ template instantiation.", 
+      "deviations": ["The char-pointer-to-int map specialization occurs only in this test. Go string maps serve live consumers without recreating an unused C++ template instantiation.",
         "Intentionally not ported: this test-only source exercises a CString-to-int template specialization that has no retained production consumer in the Go port."
       ]
     },
@@ -207724,7 +207724,7 @@
         }
       ],
       "ownership": [],
-      "deviations": ["The source million-update expression snapshot workload is exercised through the live Goal owning slice, using Boolean constants in place of bound variables and checking both snapshots. The standalone integer parray instantiations and source-specific heap display are excluded.", 
+      "deviations": ["The source million-update expression snapshot workload is exercised through the live Goal owning slice, using Boolean constants in place of bound variables and checking both snapshots. The standalone integer parray instantiations and source-specific heap display are excluded.",
         "No Go persistent-array implementation remains. Retained goal consumers use native owning slices with independent copies; generic parray algorithms and their standalone stress workload are not ported or credited. The source subpaving specialization remains unported in its consumer. This source is not classified as dead."
       ]
     },
@@ -210520,7 +210520,7 @@
       "ownership": [
         "All retained Go consumers now use standard bytes.Buffer or strings.Builder directly. Deleted the unused util/text.Buffer wrapper and its tests, along with the uncalled formatted-CString insertion adapter. No C++ container or template implementation is retained."
       ],
-      "deviations": ["The driver exercises C++ string-buffer formatting; the Go port uses standard-library string handling and does not introduce a buffer adapter for this standalone test.", 
+      "deviations": ["The driver exercises C++ string-buffer formatting; the Go port uses standard-library string handling and does not introduce a buffer adapter for this standalone test.",
         "C++ string_buffer implementation and standalone container-driver completion credit are retired. Native caller behavior is checked in actual AST, SMT context, parameter-display, SMT2 quoting and numeric-stream tests. The upstream source files still exist; this is not a source dead-code claim."
       ]
     },
