@@ -9,13 +9,13 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
-	f := newTableRelationFixture(t)
-	context, err := uparams.NewParamsContext(f.ast.Symbols, f.ast.NumeralService(), uparams.ParamsConfig{Budget: f.ast.Budget()})
+func formulaCheckerConfig(t *testing.T, m *ast.ASTManager) smtcore.SMTSolverConfig {
+	t.Helper()
+	context, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
 	astTestMust(t, err)
-	catalog, err := uparams.NewGlobalParamsCatalog(f.ast.Symbols, uparams.GlobalParamsCatalogConfig{Budget: f.ast.Budget()})
+	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
 	astTestMust(t, err)
-	globals, err := uparams.NewGlobalParamsService(f.ast.Symbols, context, uparams.GlobalParamsConfig{Budget: f.ast.Budget(), Catalog: catalog})
+	globals, err := uparams.NewGlobalParamsService(m.Symbols, context, uparams.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
 	astTestMust(t, err)
 	astTestMust(t, globals.InitializeSource())
 	t.Cleanup(func() {
@@ -23,9 +23,15 @@ func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
 		astTestMust(t, catalog.Close())
 		astTestMust(t, context.Close())
 	})
+	return smtcore.SMTSolverConfig{Params: context, Globals: globals}
+}
+
+func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
 	table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean})
 	astTestMust(t, err)
-	checked, err := NewFormulaCheckedTable(table, smtcore.SMTSolverConfig{Params: context, Globals: globals})
+	checked, err := NewFormulaCheckedTable(table, config)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, checked.Close()) }()
 	if empty, err := checked.Empty(); err != nil || !empty {
@@ -51,5 +57,44 @@ func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
 	astTestMust(t, checked.Reset())
 	if empty, err := checked.Empty(); err != nil || !empty {
 		t.Fatal("reset", empty, err)
+	}
+}
+
+func TestFormulaCheckedTableFilters(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean, f.boolean})
+	astTestMust(t, err)
+	checked, err := NewFormulaCheckedTable(table, config)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, checked.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{
+		{f.truth, f.truth}, {f.truth, f.falsehood}, {f.falsehood, f.falsehood},
+	} {
+		_, err := checked.AddFact(fact)
+		astTestMust(t, err)
+	}
+	astTestMust(t, checked.FilterIdentical([]int{0, 1}))
+	if table.NumRows() != 2 {
+		t.Fatal("identical filter", table.NumRows())
+	}
+	astTestMust(t, checked.FilterEqual(f.truth, 0))
+	if table.NumRows() != 1 {
+		t.Fatal("equal filter", table.NumRows())
+	}
+	variable, err := f.ast.MkVar(1, f.boolean)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, variable)
+	condition, err := f.ast.MkEq(variable, f.truth)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, condition)
+	theory := tableRelationTheoryRewriter(t, f.ast)
+	astTestMust(t, checked.FilterInterpreted(theory, condition))
+	if table.NumRows() != 1 {
+		t.Fatal("interpreted filter", table.NumRows())
+	}
+	astTestMust(t, table.Reset())
+	if err = checked.FilterIdentical([]int{0, 1}); !errors.Is(err, ErrRelationVerification) {
+		t.Fatal("missed filter counterexample", err)
 	}
 }

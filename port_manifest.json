@@ -89206,10 +89206,12 @@
       "go_targets": [
         "pkg/muz/rel/formula_checked_table.go",
         "pkg/muz/rel/formula_checked_table_test.go",
-        "pkg/muz/rel/table_relation.go"
+        "pkg/muz/rel/table_relation.go",
+        "pkg/muz/rel/formula_checked_table_filter.go"
       ],
       "tests": [
-        "TestFormulaCheckedTableFactsAndReset"
+        "TestFormulaCheckedTableFactsAndReset",
+        "TestFormulaCheckedTableFilters"
       ],
       "assertions": [
         {
@@ -89235,13 +89237,21 @@
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
           ]
+        },
+        {
+          "name": "SMT-verified equal, identical and interpreted filters",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_filter.go",
+          "tests": [
+            "TestFormulaCheckedTableFilters"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, union, rename, filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, projection, union, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
@@ -89252,10 +89262,12 @@
       "go_targets": [
         "pkg/muz/rel/formula_checked_table.go",
         "pkg/muz/rel/formula_checked_table_test.go",
-        "pkg/muz/rel/table_relation.go"
+        "pkg/muz/rel/table_relation.go",
+        "pkg/muz/rel/formula_checked_table_filter.go"
       ],
       "tests": [
-        "TestFormulaCheckedTableFactsAndReset"
+        "TestFormulaCheckedTableFactsAndReset",
+        "TestFormulaCheckedTableFilters"
       ],
       "conditionals": [
         {
@@ -89277,13 +89289,21 @@
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
           ]
+        },
+        {
+          "name": "SMT-verified equal, identical and interpreted filters",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_filter.go",
+          "tests": [
+            "TestFormulaCheckedTableFilters"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, union, rename, filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, projection, union, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {

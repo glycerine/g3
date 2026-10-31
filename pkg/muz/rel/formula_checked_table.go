@@ -51,6 +51,10 @@ func (r *FormulaCheckedTable) open() error {
 
 // ground replaces each column variable with the source numeric-symbol constant.
 func (r *FormulaCheckedTable) ground(formula ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	return r.groundWithNames(formula, false)
+}
+
+func (r *FormulaCheckedTable) groundWithNames(formula ast.ASTHandle, named bool) (result ast.ASTRef, resultErr error) {
 	var refs []ast.ASTRef
 	owned := false
 	defer func() {
@@ -64,7 +68,15 @@ func (r *FormulaCheckedTable) ground(formula ast.ASTHandle) (result ast.ASTRef, 
 	}()
 	vars := make([]ast.ASTHandle, len(r.table.sorts))
 	for i, sort := range r.table.sorts {
-		value, err := r.manager.MkConst(symbol.Numerical(uint32(i)), sort)
+		name := symbol.Numerical(uint32(i))
+		if named {
+			var err error
+			name, err = r.manager.Symbols.Intern(fmt.Sprintf("x%d", i))
+			if err != nil {
+				return result, err
+			}
+		}
+		value, err := r.manager.MkConst(name, sort)
 		if err != nil {
 			return result, err
 		}
