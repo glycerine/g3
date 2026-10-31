@@ -200415,9 +200415,9 @@
       "path": "src/test/dl_product_relation.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/muz/rel/dl_product_relation_cpp_driver_test.go"],
+      "tests": ["TestProductRelationSourceFunctionalRows", "TestProductRelationSourceSuggestEnsure"],
       "conditionals": [
         {
           "line": 7,
@@ -200662,7 +200662,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Functional-row insertion, ordinary projections, suggest and ensure are covered. Projection with reduction, the functional-column join via the relation-manager fallback, and the finite product relation examples remain open."]
     },
     {
       "path": "src/test/dl_query.cpp",
