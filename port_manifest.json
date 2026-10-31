@@ -119948,22 +119948,81 @@
       "path": "src/shell/dimacs_frontend.cpp",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/shell/dimacs_frontend.go",
+        "pkg/shell/dimacs_core.go",
+        "pkg/shell/dimacs_model.go",
+        "pkg/shell/dimacs_params.go",
+        "pkg/shell/dimacs_statistics.go",
+        "pkg/shell/runner_dimacs_test.go",
+        "pkg/cmd/g3/dimacs_frontend_sat_test.go",
+        "pkg/cmd/g3/dimacs_frontend_unsat_test.go",
+        "pkg/cmd/g3/dimacs_frontend_core_test.go",
+        "pkg/cmd/g3/dimacs_frontend_error_statistics_test.go",
+        "pkg/cmd/g3/dimacs_frontend_file_test.go"
+      ],
+      "tests": [
+        "TestRunnerDispatchesDIMACSStdin",
+        "TestDIMACSFrontendSATModelSourceNumbering",
+        "TestDIMACSFrontendUNSATWithoutCore",
+        "TestDIMACSFrontendTrackedClauseCore",
+        "TestDIMACSFrontendMalformedPrefixAndStatistics",
+        "TestDIMACSFrontendDetectsCNFFile"
+      ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "read_dimacs frontend solver, result and tracked cores",
+          "status": "partial",
+          "go_target": "pkg/shell/dimacs_frontend.go",
+          "tests": [
+            "TestRunnerDispatchesDIMACSStdin"
+          ]
+        },
+        {
+          "name": "DIMACS tracked core construction",
+          "status": "partial",
+          "go_target": "pkg/shell/dimacs_core.go",
+          "tests": [
+            "TestRunnerDispatchesDIMACSStdin"
+          ]
+        }
+      ],
+      "ownership": [
+        "The frontend owns its SAT solver, resource limit, runtime and copied parameter value; it borrows the input and output streams."
+      ],
+      "deviations": [
+        "Pending source/ownership audit and native SIGINT/timeout callback integration. File and standard-input dispatch are integrated."
+      ]
     },
     {
       "path": "src/shell/dimacs_frontend.h",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/shell/dimacs_frontend.go",
+        "pkg/shell/dimacs_core.go",
+        "pkg/shell/dimacs_model.go",
+        "pkg/shell/dimacs_params.go",
+        "pkg/shell/dimacs_statistics.go",
+        "pkg/shell/runner_dimacs_test.go",
+        "pkg/cmd/g3/dimacs_frontend_sat_test.go",
+        "pkg/cmd/g3/dimacs_frontend_unsat_test.go",
+        "pkg/cmd/g3/dimacs_frontend_core_test.go",
+        "pkg/cmd/g3/dimacs_frontend_error_statistics_test.go",
+        "pkg/cmd/g3/dimacs_frontend_file_test.go"
+      ],
+      "tests": [
+        "TestRunnerDispatchesDIMACSStdin",
+        "TestDIMACSFrontendSATModelSourceNumbering",
+        "TestDIMACSFrontendUNSATWithoutCore",
+        "TestDIMACSFrontendTrackedClauseCore",
+        "TestDIMACSFrontendMalformedPrefixAndStatistics",
+        "TestDIMACSFrontendDetectsCNFFile"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -119976,9 +120035,30 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "read_dimacs frontend solver, result and tracked cores",
+          "status": "partial",
+          "go_target": "pkg/shell/dimacs_frontend.go",
+          "tests": [
+            "TestRunnerDispatchesDIMACSStdin"
+          ]
+        },
+        {
+          "name": "DIMACS tracked core construction",
+          "status": "partial",
+          "go_target": "pkg/shell/dimacs_core.go",
+          "tests": [
+            "TestRunnerDispatchesDIMACSStdin"
+          ]
+        }
+      ],
+      "ownership": [
+        "The frontend owns its SAT solver, resource limit, runtime and copied parameter value; it borrows the input and output streams."
+      ],
+      "deviations": [
+        "Pending source/ownership audit and native SIGINT/timeout callback integration. File and standard-input dispatch are integrated."
+      ]
     },
     {
       "path": "src/shell/gparams_register_modules.cpp",
@@ -120726,9 +120806,18 @@
       "path": "src/shell/smtlib_frontend.h",
       "component": "shell",
       "role": "production",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": [
+        "pkg/shell/smtlib_frontend.go",
+        "pkg/shell/smtlib_frontend_file.go",
+        "pkg/shell/smtlib_frontend_run.go",
+        "pkg/shell/smtlib_frontend_file_test.go",
+        "pkg/shell/smtlib_frontend_commands_test.go"
+      ],
+      "tests": [
+        "TestOpenSMTLIBFrontendRunsAndOwnsFile",
+        "TestSMTLIBFrontendExecutesScopedCommandStream"
+      ],
       "conditionals": [
         {
           "line": 19,
@@ -120741,9 +120830,22 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods": [
+        {
+          "name": "read_smtlib2_commands",
+          "status": "partial",
+          "go_target": "pkg/shell/smtlib_frontend_file.go",
+          "tests": [
+            "TestOpenSMTLIBFrontendRunsAndOwnsFile"
+          ]
+        }
+      ],
+      "ownership": [
+        "The file frontend owns the opened file and borrows its configured context and output."
+      ],
+      "deviations": [
+        "Pending native SMT-LIB version-one read_smtlib_file entry and full source/ownership audit."
+      ]
     },
     {
       "path": "src/shell/z3_log_frontend.cpp",

@@ -1,3 +1,5 @@
+Shell frontend source coverage (2026-10-31 UTC): recorded the existing DIMACS solver, model and tracked-core frontend and SMT-LIB2 file frontend against three previously unstarted C++ units. Added a file-extension DIMACS integration test; native signal/timeout and SMT-LIB version-one entry points remain pending.
+
 Optimization frontend integration (2026-10-31 UTC): connected the existing OPB frontend to shell dispatch and enabled both OPB and WCNF in the g3 executable, including explicit flags and filename detection. Recorded three previously unstarted source units as partial; source-format objective output, signal and timeout parity remain pending.
 
 Interval vector rename and delta (2026-10-31 UTC): added concrete interval column rotation with equality classes and union delta behavior, with direct relation tests. Also recorded the already implemented and registered subpaving tactic header factory; the implementation and ownership audit remain partial.
