@@ -9,10 +9,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/glycerine/g3/pkg/api"
 	"github.com/glycerine/g3/pkg/cmd_context"
-	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/parsers/smt2"
 	"github.com/glycerine/g3/pkg/shell"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
@@ -25,7 +27,11 @@ func run(input io.Reader, output io.Writer) (result error) {
 	return smt2.ParseCommands(context, input, output)
 }
 
-func runArguments(args []string, input io.Reader, output io.Writer) (result error) {
+func runArguments(args []string, input io.Reader, output io.Writer) error {
+	return runArgumentsWithDiagnostics(args, input, output, io.Discard)
+}
+
+func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnostics io.Writer) (result error) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {
 		return err
@@ -40,7 +46,7 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 		return err
 	}
 	if command.Action == shell.CommandHelp {
-		_, err = fmt.Fprintln(output, "g3 Go SMT and optimization runner\nUsage: g3 [-smt2|-dimacs|-bpo|-wcnf] <file> | g3 [-smt2|-dimacs|-bpo|-wcnf] -in\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
+		_, err = fmt.Fprintln(output, "g3 Go SMT and optimization runner\nUsage: g3 [-smt2|-dimacs|-bpo|-wcnf|-log] <file> | g3 [-smt2|-dimacs|-bpo|-wcnf|-log] -in\nGlobal parameter options: name=value; -p, -pd, -pm, -pp:name")
 		return err
 	}
 	if command.Action == shell.CommandVersion {
@@ -61,7 +67,7 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 	if err != nil {
 		return err
 	}
-	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF {
+	if kind != shell.InputSMT2 && kind != shell.InputDIMACS && kind != shell.InputOPB && kind != shell.InputWCNF && kind != shell.InputZ3Log {
 		return fmt.Errorf("selected input frontend is not ported yet")
 	}
 	if selected {
@@ -74,6 +80,25 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 	}
 	if err = context.RefreshGlobalParameters(); err != nil {
 		return err
+	}
+	if kind == shell.InputZ3Log {
+		replayer, err := api.NewZ3Replayer(input, output)
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, replayer.Close()) }()
+		if err = api.RegisterZ3GeneratedGlobalCommands(replayer); err != nil {
+			return err
+		}
+		if err = engine.InitializeDefaultProcess(); err != nil {
+			return err
+		}
+		processGlobals := uparams.BorrowProcessGlobalParamsService()
+		if processGlobals == nil || processGlobals.Context == nil {
+			return api.ErrZ3ReplayState
+		}
+		process := processGlobals.Context.Numerals().RuntimeOwner().ProcessOwner()
+		return api.ReplayZ3LogStream(replayer, output, diagnostics, process, nil)
 	}
 	if kind == shell.InputOPB {
 		frontend, err := shell.NewOPBFrontend(context, output, shell.OPBFrontendOptions{DisplayStatistics: command.DisplayStatistics})
@@ -116,7 +141,7 @@ func runArguments(args []string, input io.Reader, output io.Writer) (result erro
 }
 
 func main() {
-	if err := runArguments(os.Args[1:], os.Stdin, os.Stdout); err != nil {
+	if err := runArgumentsWithDiagnostics(os.Args[1:], os.Stdin, os.Stdout, os.Stderr); err != nil {
 		fmt.Fprintf(os.Stdout, "(error \"%s\")\n", strings.ReplaceAll(err.Error(), "\"", "\"\""))
 		os.Exit(1)
 	}

@@ -1,3 +1,5 @@
+Z3 log CLI integration (2026-10-31 UTC): g3 now selects stdin or .log files and replays the implemented global-parameter commands, with diagnostics and process accounting. Focused checked tests cover both input paths and unsupported commands; the reusable shell Runner, file-open diagnostics and other generated commands remain unfinished.
+
 Concrete matcher pool (2026-10-31 UTC): the live Go E-matcher now reuses typed enode slices in LIFO order, clearing borrowed pointers on return. Normal and checked matcher and quantifier-manager tests pass; the source instruction-tree owner has no direct Go counterpart. The documentation-only shell options header is reference-only.
 
 API header reachability audit (2026-10-31 UTC): classified the unused C++ facade, Z3 1.x compatibility and OCaml export stubs as reference-only, and the C ABI macros as platform-specific. The API umbrella header is partial because its Go package exists while individual APIs and generated command coverage remain incomplete.
