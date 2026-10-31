@@ -108750,20 +108750,20 @@
       "path": "src/qe/qe_cmd.cpp",
       "component": "qe",
       "role": "production",
-      "status": "unported",
+      "status": "dead_deleted",
       "go_targets": [],
       "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The command installer has no callers in source or scripts; the sole header include is its own implementation. The CMake compilation entry does not make the uninstalled command reachable."]
     },
     {
       "path": "src/qe/qe_cmd.h",
       "component": "qe",
       "role": "production",
-      "status": "unported",
+      "status": "dead_deleted",
       "go_targets": [],
       "tests": [],
       "conditionals": [
@@ -108776,11 +108776,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The command installer has no callers in source or scripts; the sole header include is its own implementation. The CMake compilation entry does not make the uninstalled command reachable."]
     },
     {
       "path": "src/qe/qe_datatype_plugin.cpp",
