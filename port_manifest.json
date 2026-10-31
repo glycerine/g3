@@ -199304,9 +199304,9 @@
       "path": "src/test/api.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/api/api_cpp_driver_test.go"],
+      "tests": ["TestAPISourceApplicationsAndBitVectors", "TestAPISourceDistinctRejectsMismatchedSorts"],
       "conditionals": [
         {
           "line": 7,
@@ -199327,11 +199327,11 @@
           "text": "ENSURE(cb_called);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst_api, test_apps, test_bvneg and test_mk_distinct", "status": "ported", "go_target": "pkg/api/api_cpp_driver_test.go", "tests": ["TestAPISourceApplicationsAndBitVectors", "TestAPISourceDistinctRejectsMismatchedSorts"]}],
+      "ownership": ["The fixture owns expressions and the tests close their solvers."],
+      "deviations": ["Printed solver statuses are asserted; incompatible sorts return a Go error instead of calling a C error handler."]
     },
     {
       "path": "src/test/api_bug.cpp",

@@ -52268,3 +52268,5 @@ Set-union API regression driver: translated the source's pushed solver, integer-
 Arithmetic projection source driver started: translated the original integer modulus/equality, two-variable inequalities and non-unit equality examples. Each checks that projection eliminates the requested variables and that every result holds in the source model; the other test_project examples remain open.
 
 Arithmetic projection source driver completion: added the source's disequality, distinct and both negated-distinct examples, along with the function interpretation that prevents projection. All active test_project examples now check their results in the original model; the remaining source calls follow an unconditional return.
+
+Windows API source driver: translated the five nested uninterpreted function applications, incremental 30-, 31- and 32-bit negative numeral examples, and mismatched-sort distinct error. Solver statuses and the Go error replace the source's printed results and C error callback.
