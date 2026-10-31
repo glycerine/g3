@@ -152,14 +152,17 @@ func (a *SmallAllocator) counter(n uint64) uint64 {
 }
 func (a *SmallAllocator) reserveLocations(extra uint32) error {
 	available := uint64(cap(a.locations) - len(a.locations))
+	if available >= uint64(extra) {
+		return nil
+	}
 	for i := range a.locations {
 		r := &a.locations[i]
 		if !r.live && !r.free && !r.retired && r.raw == (Block{}) && r.generation < math.MaxUint32 {
 			available++
+			if available >= uint64(extra) {
+				return nil
+			}
 		}
-	}
-	if available >= uint64(extra) {
-		return nil
 	}
 	missing := uint64(extra) - available
 	needed := uint64(cap(a.locations)) + missing
