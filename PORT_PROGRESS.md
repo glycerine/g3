@@ -1,4 +1,6 @@
-SAT shared unit exchange (2026-10-31 UTC): completed the live `sat_par.cpp` and header audit. Normal and checked tests cover source ordering, both literal polarities, deduplication, limits, detached snapshots and solver import/export. The production inventory has 257 partial entries and no entries classified unstarted.
+SAT clause-set source audit (2026-10-31 UTC): completed the live clause-set implementation and corrected conditional invariant diagnostics to scan IDs in source order. Normal and checked tests cover mutation, assertion actions, iterator and allocator ownership. The production inventory has 255 partial entries and no entries classified unstarted.
+
+SAT shared unit exchange (2026-10-31 UTC): completed the live `sat_par.cpp` and header audit. Normal and checked tests cover source ordering, both literal polarities, deduplication, limits, detached snapshots and solver import/export. At that audit the production inventory had 257 partial entries and no entries classified unstarted.
 
 Datalog unbound-variable preprocessing (2026-10-31 UTC): connected the source QE simplifier after residual interpreted variables are quantified. Normal and checked tests cover a two-variable integer equation that QE-lite leaves unchanged and the simplifier reduces to one quantified fresh variable.
 

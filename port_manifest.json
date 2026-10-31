@@ -113186,7 +113186,7 @@
       "path": "src/sat/sat_clause_set.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_clause_set.go",
         "pkg/sat/sat_clause_set_test.go"
@@ -113196,7 +113196,8 @@
         "TestSATClauseSetCopyMoveAndHeaderFailure",
         "TestSATClauseSetConditionalInvariantActionsPreserveMutation",
         "TestSATClauseSetPopAssertionPrefixesAndContinuation",
-        "TestSATClauseSetConditionalInvariantExtentAndReverseBounds"
+        "TestSATClauseSetConditionalInvariantExtentAndReverseBounds",
+        "TestSATClauseSetConditionalInvariantUsesSourceIDOrder"
       ],
       "assertions": [
         {
@@ -113236,8 +113237,8 @@
           "text": "SASSERT(m_set[pos]->id() == id);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "clause set swap-erase, native ID map and slice, copy and move behavior",
@@ -113249,23 +113250,27 @@
           ]
         },
         {
-          "name": "whole runtime conditional debug-tag/TRACE policy and remaining consumer integration",
-          "status": "unported",
-          "tests": []
+          "name": "conditional invariant tag, assertion actions and source-order diagnostics",
+          "status": "ported",
+          "tests": [
+            "TestSATClauseSetConditionalInvariantActionsPreserveMutation",
+            "TestSATClauseSetConditionalInvariantUsesSourceIDOrder"
+          ],
+          "go_target": "pkg/sat/sat_clause_set.go"
         }
       ],
       "ownership": [
-        "Concrete scalar clause locators are distinct from source IDs. Retained physical clause storage and its actual cold headers/directories/backing remain budgeted. Live clause, wrapper, binary-clause and activity consumers now use native Go slices; clause vectors retain borrowed allocator bindings in a native map. Only their actual cold owner headers are charged. The unused standalone watched-vector adapter and its template-only operations, iterator factories and slot metadata were removed. Solver watch-store backing now also uses native slices with checked iterator borrows."
+        "The set owns its Go ID map and clause sequence while borrowing the clause allocator and its clause references. Reset, finalization, copies and iterator invalidation are covered by focused tests."
       ],
       "deviations": [
-        "Pointer ABI becomes owner/kind/slot/generation locators and explicit typed invalid-domain guards. No fake address ordering, global OOM service, external extension callback, solver result or propagation/search algorithm is provided by this storage packet. Source OutOfMemory callback is borrowed; source global policy, conditional CASSERT tag control and TRACE/printer runtime remain open. Concrete vector aliases/invalid source instantiations and self-append/Fill nontermination adapters are recorded explicitly. No Go generics are used."
+        "Source pointers are represented by checked clause locators; native Go collections replace the source vector storage. Invalid locator and iterator domains return explicit errors."
       ]
     },
     {
       "path": "src/sat/sat_clause_set.h",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_clause_set.go",
         "pkg/sat/sat_clause_set_test.go"
@@ -113275,7 +113280,8 @@
         "TestSATClauseSetCopyMoveAndHeaderFailure",
         "TestSATClauseSetConditionalInvariantActionsPreserveMutation",
         "TestSATClauseSetPopAssertionPrefixesAndContinuation",
-        "TestSATClauseSetConditionalInvariantExtentAndReverseBounds"
+        "TestSATClauseSetConditionalInvariantExtentAndReverseBounds",
+        "TestSATClauseSetConditionalInvariantUsesSourceIDOrder"
       ],
       "conditionals": [
         {
@@ -113287,8 +113293,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "concrete clause set insert/erase/pop/reset/iteration on native Go collections",
@@ -113300,16 +113306,20 @@
           ]
         },
         {
-          "name": "whole runtime conditional debug-tag/TRACE policy and remaining consumer integration",
-          "status": "unported",
-          "tests": []
+          "name": "conditional invariant tag, assertion actions and source-order diagnostics",
+          "status": "ported",
+          "tests": [
+            "TestSATClauseSetConditionalInvariantActionsPreserveMutation",
+            "TestSATClauseSetConditionalInvariantUsesSourceIDOrder"
+          ],
+          "go_target": "pkg/sat/sat_clause_set.go"
         }
       ],
       "ownership": [
-        "Concrete scalar clause locators are distinct from source IDs. Retained physical clause storage and its actual cold headers/directories/backing remain budgeted. Live clause, wrapper, binary-clause and activity consumers now use native Go slices; clause vectors retain borrowed allocator bindings in a native map. Only their actual cold owner headers are charged. The unused standalone watched-vector adapter and its template-only operations, iterator factories and slot metadata were removed. Solver watch-store backing now also uses native slices with checked iterator borrows."
+        "The set owns its Go ID map and clause sequence while borrowing the clause allocator and its clause references. Reset, finalization, copies and iterator invalidation are covered by focused tests."
       ],
       "deviations": [
-        "Pointer ABI becomes owner/kind/slot/generation locators and explicit typed invalid-domain guards. No fake address ordering, global OOM service, external extension callback, solver result or propagation/search algorithm is provided by this storage packet. Source OutOfMemory callback is borrowed; source global policy, conditional CASSERT tag control and TRACE/printer runtime remain open. Concrete vector aliases/invalid source instantiations and self-append/Fill nontermination adapters are recorded explicitly. No Go generics are used."
+        "Source pointers are represented by checked clause locators; native Go collections replace the source vector storage. Invalid locator and iterator domains return explicit errors."
       ]
     },
     {

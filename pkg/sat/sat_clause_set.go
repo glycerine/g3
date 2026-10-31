@@ -2,6 +2,7 @@ package sat
 
 import (
 	"reflect"
+	"sort"
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -246,7 +247,13 @@ func (s *satClauseSet) checkInvariant(actions bool) (bool, error) {
 			}
 		}
 	}
-	for id, pos := range s.positions {
+	ids := make([]uint32, 0, len(s.positions))
+	for id := range s.positions {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	for _, id := range ids {
+		pos := s.positions[id]
 		if uint64(pos) >= uint64(len(s.refs)) {
 			if !actions {
 				return false, ErrSATAssertion

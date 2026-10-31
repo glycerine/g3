@@ -247,3 +247,32 @@ func TestSATClauseSetCopyMoveAndHeaderFailure(t *testing.T) {
 		t.Fatal("copy must not dereference a dead borrowed clause", got, e)
 	}
 }
+
+func TestSATClauseSetConditionalInvariantUsesSourceIDOrder(t *testing.T) {
+	a := satStore(t, nil)
+	s, err := NewSATClauseSet(a, arena.NewBudget(1<<20))
+	satOK(t, err)
+	defer func() { satOK(t, s.Close()) }()
+	r := satMk(t, a, satLs(0, 2), false)
+	satOK(t, s.Insert(r))
+	id, err := a.ID(r)
+	satOK(t, err)
+	debug, input, outputFile := satIntegrityActionFixture(t, "CC")
+	satOK(t, debug.EnableDebug("clause_set"))
+	s.idExtent = uint64(id) + 3
+	s.positions[id+1] = 99
+	s.positions[id+2] = 0
+	satOK(t, s.cassertInvariant())
+	state, err := input.State()
+	satOK(t, err)
+	contents, err := os.ReadFile(outputFile.Name())
+	satOK(t, err)
+	if satStorageSourceDebug {
+		want := clauseSetAssertionRecord("84", "pos < m_set.size()") + clauseSetAssertionRecord("85", "m_set[pos]->id() == id")
+		if state.Position != 2 || string(contents) != want {
+			t.Fatalf("source order: position=%d output=%q", state.Position, contents)
+		}
+	} else if state.Position != 0 || len(contents) != 0 {
+		t.Fatalf("release output: position=%d output=%q", state.Position, contents)
+	}
+}
