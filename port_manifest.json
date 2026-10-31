@@ -89207,11 +89207,13 @@
         "pkg/muz/rel/formula_checked_table.go",
         "pkg/muz/rel/formula_checked_table_test.go",
         "pkg/muz/rel/table_relation.go",
-        "pkg/muz/rel/formula_checked_table_filter.go"
+        "pkg/muz/rel/formula_checked_table_filter.go",
+        "pkg/muz/rel/formula_checked_table_union.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
-        "TestFormulaCheckedTableFilters"
+        "TestFormulaCheckedTableFilters",
+        "TestFormulaCheckedTableUnionAndDelta"
       ],
       "assertions": [
         {
@@ -89253,13 +89255,21 @@
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
           ]
+        },
+        {
+          "name": "SMT-verified union and delta bounds",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_union.go",
+          "tests": [
+            "TestFormulaCheckedTableUnionAndDelta"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, union, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, projection, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {
@@ -89271,11 +89281,13 @@
         "pkg/muz/rel/formula_checked_table.go",
         "pkg/muz/rel/formula_checked_table_test.go",
         "pkg/muz/rel/table_relation.go",
-        "pkg/muz/rel/formula_checked_table_filter.go"
+        "pkg/muz/rel/formula_checked_table_filter.go",
+        "pkg/muz/rel/formula_checked_table_union.go"
       ],
       "tests": [
         "TestFormulaCheckedTableFactsAndReset",
-        "TestFormulaCheckedTableFilters"
+        "TestFormulaCheckedTableFilters",
+        "TestFormulaCheckedTableUnionAndDelta"
       ],
       "conditionals": [
         {
@@ -89313,13 +89325,21 @@
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
           ]
+        },
+        {
+          "name": "SMT-verified union and delta bounds",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/formula_checked_table_union.go",
+          "tests": [
+            "TestFormulaCheckedTableUnionAndDelta"
+          ]
         }
       ],
       "ownership": [
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Join, projection, union, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
+        "Join, projection, rename, negation filter verification, generic relation plugins, registration and ownership/failure-frontier audits remain pending."
       ]
     },
     {

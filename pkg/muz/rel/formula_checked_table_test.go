@@ -113,3 +113,39 @@ func TestFormulaCheckedTableFilters(t *testing.T) {
 		t.Fatal("missed filter counterexample", err)
 	}
 }
+
+func TestFormulaCheckedTableUnionAndDelta(t *testing.T) {
+	f := newTableRelationFixture(t)
+	config := formulaCheckerConfig(t, f.ast)
+	create := func() *FormulaCheckedTable {
+		table, err := NewTableRelation(f.relations, []ast.ASTHandle{f.boolean})
+		astTestMust(t, err)
+		r, err := NewFormulaCheckedTable(table, config)
+		astTestMust(t, err)
+		t.Cleanup(func() { astTestMust(t, r.Close()) })
+		return r
+	}
+	target, source, delta := create(), create(), create()
+	_, err := target.AddFact([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	_, err = source.AddFact([]ast.ASTHandle{f.falsehood})
+	astTestMust(t, err)
+	_, err = delta.AddFact([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	astTestMust(t, target.UnionFrom(source, delta))
+	for _, r := range []*FormulaCheckedTable{target, delta} {
+		for _, value := range []ast.ASTHandle{f.falsehood, f.truth} {
+			found, err := r.ContainsFact([]ast.ASTHandle{value})
+			if err != nil || !found {
+				t.Fatal("union or delta omitted fact", found, err)
+			}
+		}
+	}
+	astTestMust(t, target.UnionFrom(source, nil))
+	if err = target.UnionFrom(source, target); err == nil {
+		t.Fatal("aliased delta accepted")
+	}
+	if err = target.verifyUnion(f.falsehood, f.truth, f.truth, f.falsehood, f.falsehood, true); !errors.Is(err, ErrRelationVerification) {
+		t.Fatal("missed incomplete delta", err)
+	}
+}

@@ -1,3 +1,5 @@
+Formula-checking union (2026-10-31 UTC): added source SMT checks for table union and the three delta bounds, then update both stored formulas after verification. Tests cover accumulated delta, repeated union, alias rejection and a deliberately incomplete delta.
+
 Formula-checking membership and clone (2026-10-31 UTC): added source membership verification and independent table cloning with formula equivalence checks. Tests cover present and absent facts, clone isolation and a solver-detected membership inconsistency.
 
 Formula-checking relation filters (2026-10-31 UTC): added source SMT verification for equal-column, identical-column and interpreted filters, including source numeric and named grounding conventions. Tests check successful filtering and a deliberately corrupted relation that produces a counterexample.
