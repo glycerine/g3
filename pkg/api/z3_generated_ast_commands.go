@@ -36,7 +36,7 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 			return err
 		}
 	}
-	return nil
+	return registerZ3GeneratedBitVectorCommands(r)
 }
 func replayIncAST(r *Z3Replayer) error {
 	owner, err := replayContext(r, 0)

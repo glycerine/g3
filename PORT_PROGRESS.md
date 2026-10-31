@@ -1,3 +1,7 @@
+Native snapshot check (2026-10-31 UTC): the complete native suite passed on clean snapshot f9da8103f: 108 packages passed and three had no test files. Later tabulation statistics, query validation and replay additions have focused verification but are outside this checkpoint. Log: /tmp/g3-native-tab-f9da8103f.log.
+
+Generated bit-vector replay (2026-10-31 UTC): added basic bit-vector operations, comparisons, concatenation, shifts and extended rotations to the log frontend. Normal and checked tests verify arithmetic, logical and signed/unsigned semantics through a QF_BV solver and CLI replay.
+
 Generated datatype replay (2026-10-31 UTC): added tuple, enumeration and list constructors, including typed symbol arrays, multi-result AST trails, output-pointer mapping and temporary-object reset. Focused normal and checked API/CLI tests and the full API package pass; other generated datatype and API commands remain unfinished.
 
 Tabulation direct-query validation (2026-10-31 UTC): direct rule-set queries now apply the source existential-tail and negative-predicate checks before indexing. Focused normal and checked tests include a rejected negated predicate.
