@@ -202752,9 +202752,9 @@
       "path": "src/test/interval.cpp",
       "component": "test",
       "role": "test",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
+      "status": "partial",
+      "go_targets": ["pkg/math/interval/interval_cpp_driver_test.go"],
+      "tests": ["TestIntervalSourceSeededArithmetic"],
       "conditionals": [
         {
           "line": 95,
@@ -202803,7 +202803,7 @@
       "ownership_audited": false,
       "methods": [],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The source-seeded 1,000-case division, inverse, power, negation, subtraction, multiplication and addition passes check exact values at representative and boundary-adjacent points. Root interval passes and the source's generated SMT-LIB implication files remain open."]
     },
     {
       "path": "src/test/karr.cpp",

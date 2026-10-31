@@ -52306,3 +52306,5 @@ Rational trigonometric driver increment: checked sine and cosine at all three so
 Pseudo-Boolean fuzzer source alignment: replaced the approximate trivial-bound filter with the original two theory-rewriter passes and the source PB-greater-or-equal acceptance condition. Repeated negations are represented by their Boolean parity; the routine test still limits the original 100,000 outer rounds to 100.
 
 Trigonometric sampling alignment: use the existing selected glibc C-rand recurrence and advance over the original floating and unsampled iterations, so each rational case covers the first 40 inputs of its source pass under the default seed.
+
+Interval source driver started: reproduced the glibc-seeded source interval generator and all 1,000 cases in each division, inverse, square, cube, negation, subtraction, multiplication and addition pass. Exact rational arithmetic checks representative and boundary-adjacent points in every output; interval-root and generated SMT-LIB implication checks remain open.
