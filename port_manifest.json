@@ -5964,6 +5964,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/smtcore/context_params_copy.go",
+        "pkg/cmd_context/context_initial_params.go",
+        "pkg/api/api_config_context_test.go",
         "pkg/api/api_algebraic_eval.go",
         "pkg/api/api_algebraic_polynomial.go",
         "pkg/api/api_algebraic_polynomial_copy.go",
@@ -5985,6 +5988,7 @@
         "pkg/cmd_context/result_access.go"
       ],
       "tests": [
+        "TestSMTContextCopiesInitialConfig",
         "TestAPIASTMapSourceMemoryWrapperReleaseSites",
         "TestAPIContextGoalRootSurvivesExplicitResultResetAndDrains",
         "TestAPIContextInterruptCancelsBothLimitsAfterHandler",

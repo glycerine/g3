@@ -1,3 +1,5 @@
+API context configuration copy (2026-10-31 UTC): added a concrete context constructor that copies configuration values before initializing its independent manager. Tests verify proof settings survive later configuration changes and deletion; normal API and context/SMT focused tests and checked configuration tests pass. Reference-counted API-object integration remains unfinished.
+
 Generated process-command logging (2026-10-31 UTC): warning, version and trace APIs now emit their source records with nested-call suppression. Normal and checked round-trip tests cover those process operations; other generated commands remain unfinished.
 
 Generated process-command replay (2026-10-31 UTC): added version output, warning toggle and trace enable/disable handlers, and registered them in the g3 log frontend. Focused normal and checked API/CLI tests cover output values and process state; the remaining generated commands remain unfinished.

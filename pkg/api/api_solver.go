@@ -51,6 +51,25 @@ func NewSMTContext() (*SMTContext, error) {
 	return &SMTContext{smtContextState: &smtContextState{command: command}}, nil
 }
 
+// NewSMTContextWithConfig copies the source configuration before constructing
+// the AST manager. A nil configuration selects the source defaults.
+func NewSMTContextWithConfig(config *Config) (*SMTContext, error) {
+	if config == nil {
+		return NewSMTContext()
+	}
+	if config.params == nil {
+		return nil, ErrConfigOwner
+	}
+	context, err := NewSMTContext()
+	if err != nil {
+		return nil, err
+	}
+	if err = context.command.SetInitialContextParams(config.params); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	return context, nil
+}
+
 func (c *SMTContext) open() error {
 	if c == nil || c.smtContextState == nil || c.closed || c.command == nil {
 		return ErrSMTContextOwner
