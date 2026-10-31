@@ -1,0 +1,79 @@
+package api
+
+// Source: generated api_commands.cpp, application and AST inspection.
+
+import "github.com/glycerine/g3/pkg/ast"
+
+func registerZ3GeneratedInspectionCommands(r *Z3Replayer) error {
+	entries := []struct {
+		id   uint32
+		name string
+	}{
+		{245, "Z3_app_to_ast"}, {246, "Z3_get_app_decl"}, {247, "Z3_get_app_num_args"},
+		{248, "Z3_get_app_arg"}, {249, "Z3_is_eq_ast"}, {250, "Z3_get_ast_id"},
+		{252, "Z3_get_sort"}, {253, "Z3_is_well_sorted"}, {254, "Z3_get_bool_value"},
+		{255, "Z3_get_ast_kind"}, {256, "Z3_is_app"}, {259, "Z3_to_app"}, {260, "Z3_to_func_decl"},
+	}
+	for _, entry := range entries {
+		id := entry.id
+		if err := r.RegisterCommand(id, entry.name, func(r *Z3Replayer) error { return replayASTInspection(r, id) }); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func replayASTInspection(r *Z3Replayer, id uint32) error {
+	owner, err := replayContext(r, 0)
+	if err != nil {
+		return err
+	}
+	value, err := r.astObject(owner, 1)
+	if err != nil {
+		return err
+	}
+	var result ast.ASTHandle
+	switch id {
+	case 245:
+		result, err = owner.context.ApplicationToAST(value.handle)
+	case 246:
+		result, err = owner.context.ApplicationDeclaration(value.handle)
+	case 247:
+		_, err = owner.context.ApplicationArgumentCount(value.handle)
+	case 248:
+		var index uint32
+		index, err = r.Uint(2)
+		if err == nil {
+			result, err = owner.context.ApplicationArgument(value.handle, index)
+		}
+	case 249:
+		var other *replayASTOwner
+		other, err = r.astObject(owner, 2)
+		if err == nil {
+			_, err = owner.context.ASTEqual(value.handle, other.handle)
+		}
+	case 250:
+		_, err = owner.context.ASTID(value.handle)
+	case 252:
+		result, err = owner.context.SortOf(value.handle)
+	case 253:
+		_, err = owner.context.IsWellSorted(value.handle)
+	case 254:
+		_, err = owner.context.BooleanValue(value.handle)
+	case 255:
+		_, err = owner.context.APIKind(value.handle)
+	case 256:
+		_, err = owner.context.IsApplication(value.handle)
+	case 259:
+		result, err = owner.context.ToApplication(value.handle)
+	case 260:
+		result, err = owner.context.ToFunctionDeclaration(value.handle)
+	}
+	if err != nil {
+		return err
+	}
+	switch id {
+	case 245, 246, 248, 252, 259, 260:
+		return r.storeBorrowedAST(owner, result)
+	}
+	return nil
+}

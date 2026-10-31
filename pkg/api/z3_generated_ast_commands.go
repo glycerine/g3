@@ -48,7 +48,10 @@ func RegisterZ3GeneratedASTCommands(r *Z3Replayer) error {
 	if err := registerZ3GeneratedSimplificationCommands(r); err != nil {
 		return err
 	}
-	return registerZ3GeneratedSubstitutionCommands(r)
+	if err := registerZ3GeneratedSubstitutionCommands(r); err != nil {
+		return err
+	}
+	return registerZ3GeneratedInspectionCommands(r)
 }
 func replayIncAST(r *Z3Replayer) error {
 	owner, err := replayContext(r, 0)
