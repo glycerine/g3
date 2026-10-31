@@ -8,13 +8,13 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// integerPurifyBuilder roots intermediate ASTs until all constraints own them.
-type integerPurifyBuilder struct {
+// qfnraPurifyBuilder roots intermediate ASTs until all constraints own them.
+type qfnraPurifyBuilder struct {
 	temps qfnraPurifyTemps
 	err   error
 }
 
-func (b *integerPurifyBuilder) hold(build func() (ast.ASTHandle, error)) ast.ASTHandle {
+func (b *qfnraPurifyBuilder) hold(build func() (ast.ASTHandle, error)) ast.ASTHandle {
 	if b.err != nil {
 		return ast.ASTHandle{}
 	}
@@ -29,7 +29,7 @@ func (b *integerPurifyBuilder) hold(build func() (ast.ASTHandle, error)) ast.AST
 
 func (i *qfnraPurifyInvocation) processIntegerDivision(x, y ast.ASTHandle, quotient *qfnraPurifyEntry) (err error) {
 	m := i.owner.manager
-	b := integerPurifyBuilder{temps: qfnraPurifyTemps{manager: m}}
+	b := qfnraPurifyBuilder{temps: qfnraPurifyTemps{manager: m}}
 	defer func() { err = errors.Join(err, b.temps.close()) }()
 	mod := b.hold(func() (ast.ASTHandle, error) {
 		return m.MkFamilyApp(i.owner.arithmetic, qfnraPurifyMod, nil, []ast.ASTHandle{x, y})

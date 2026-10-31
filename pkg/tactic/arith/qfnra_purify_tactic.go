@@ -24,6 +24,9 @@ const (
 	qfnraPurifyMod     int32 = 13
 	qfnraPurifyToInt   int32 = 15
 	qfnraPurifyPower   int32 = 18
+	qfnraPurifyASin    int32 = 22
+	qfnraPurifyACos    int32 = 23
+	qfnraPurifyATan    int32 = 24
 	qfnraPurifyNegRoot int32 = 33
 )
 
@@ -102,8 +105,12 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 	if err != nil {
 		return rewriter.RewriteFailed, err
 	}
-	if (op == qfnraPurifyToInt && arguments.Count() != 1) ||
-		(op != qfnraPurifyToInt && (arguments.Count() != 2 || (op != qfnraPurifyDiv && op != qfnraPurifyIDiv && op != qfnraPurifyMod && op != qfnraPurifyPower))) {
+	unary := op == qfnraPurifyToInt || op == qfnraPurifyASin || op == qfnraPurifyACos || op == qfnraPurifyATan
+	if (unary && arguments.Count() != 1) ||
+		(!unary && (arguments.Count() != 2 || (op != qfnraPurifyDiv && op != qfnraPurifyIDiv && op != qfnraPurifyMod && op != qfnraPurifyPower))) {
+		return rewriter.RewriteFailed, nil
+	}
+	if op != qfnraPurifyToInt && unary && !i.owner.elimInverse {
 		return rewriter.RewriteFailed, nil
 	}
 	args := make([]ast.ASTHandle, arguments.Count())
@@ -184,6 +191,8 @@ func (c *qfnraPurifyConfig) ReduceApp(decl ast.ASTHandle, arguments ast.AppArgum
 		return rewriter.RewriteDone, nil
 	} else if op == qfnraPurifyToInt {
 		err = i.processToInt(args[0], fresh, entry)
+	} else if unary {
+		err = i.processInverseTrig(op, args[0], fresh, entry)
 	} else if op == qfnraPurifyDiv {
 		err = i.processDivision(args[0], args[1], fresh, entry)
 	} else {
@@ -579,18 +588,19 @@ func (i *qfnraPurifyInvocation) processPower(x, exponent, fresh ast.ASTHandle, e
 }
 
 type QFNRAPurifyTactic struct {
-	self       *QFNRAPurifyTactic
-	manager    *ast.ASTManager
-	context    *uparams.ParamsContext
-	globals    *uparams.GlobalParamsService
-	services   model.ModelEvaluatorConfig
-	params     uparams.ParamsRef
-	arithmetic ast.FamilyID
-	complete   bool
-	elimRoot   bool
-	refs       uint32
-	ownerBytes uint64
-	closed     bool
+	self        *QFNRAPurifyTactic
+	manager     *ast.ASTManager
+	context     *uparams.ParamsContext
+	globals     *uparams.GlobalParamsService
+	services    model.ModelEvaluatorConfig
+	params      uparams.ParamsRef
+	arithmetic  ast.FamilyID
+	complete    bool
+	elimRoot    bool
+	elimInverse bool
+	refs        uint32
+	ownerBytes  uint64
+	closed      bool
 }
 
 var _ tactic.Tactic = (*QFNRAPurifyTactic)(nil)
@@ -644,6 +654,10 @@ func (t *QFNRAPurifyTactic) readPolicy(p *uparams.ParamsRef) (err error) {
 		name = "elim_root_objects"
 		t.elimRoot, err = t.context.GetBoolName(p, &name, true)
 	}
+	if err == nil {
+		name = "elim_inverses"
+		t.elimInverse, err = t.context.GetBoolName(p, &name, true)
+	}
 	return err
 }
 
@@ -688,7 +702,11 @@ func (t *QFNRAPurifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 		return err
 	}
 	description = "(default: true) eliminate root objects."
-	return out.InsertName("elim_root_objects", uparams.ParamBool, &description, nil, nil)
+	if err := out.InsertName("elim_root_objects", uparams.ParamBool, &description, nil, nil); err != nil {
+		return err
+	}
+	description = "(default: true) eliminate inverse trigonometric functions."
+	return out.InsertName("elim_inverses", uparams.ParamBool, &description, nil, nil)
 }
 
 func (t *QFNRAPurifyTactic) CollectStatistics() map[string]float64  { return nil }

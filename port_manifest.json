@@ -182059,6 +182059,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/arith/qfnra_purify_inverse_trig.go",
+        "pkg/tactic/arith/qfnra_purify_inverse_trig_test.go",
+        "pkg/cmd/g3/test_vectors/qfufnra_inverse_trig.smt2",
         "pkg/tactic/arith/qfnra_purify_root_object.go",
         "pkg/tactic/arith/qfnra_purify_root_object_test.go",
         "pkg/tactic/arith/root_object_purify_process.go",
@@ -182075,6 +182078,9 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestPurifyInverseTrigRangesProofAndModel",
+        "TestPurifyInverseTrigDisabledAndQuantified",
+        "TestSMTLibRunnerScripts/qfufnra_inverse_trig.smt2",
         "TestGeneralPurifierRootCachePolicyAndModel",
         "TestGeneralPurifierQuantifiedRootStaysScoped",
         "TestQFUFNRATacticWithAlgebraicRoot",
@@ -182145,6 +182151,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "inverse sine, cosine and tangent purification, range constraints and undefined-function guards",
+          "status": "partial",
+          "go_target": "pkg/tactic/arith/qfnra_purify_inverse_trig.go",
+          "go_targets": ["pkg/tactic/arith/qfnra_purify_inverse_trig_test.go", "pkg/cmd/g3/main_test.go"],
+          "tests": ["TestPurifyInverseTrigRangesProofAndModel", "TestPurifyInverseTrigDisabledAndQuantified", "TestSMTLibRunnerScripts/qfufnra_inverse_trig.smt2"]
+        },
         {
           "name": "root-object replacement in the general purifier, with shared polynomial and bound construction",
           "status": "partial",
