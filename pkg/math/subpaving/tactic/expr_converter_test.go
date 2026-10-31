@@ -270,8 +270,12 @@ func TestHardwareExprConverterTerms(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	beforeCoefficient := m.ResourceLimit().Count()
 	if v, err := converter.InternalizeTerm(scaled, &n, &d); err != nil || v == math.MaxUint32 {
 		t.Fatalf("2*x^2: %d, %v", v, err)
+	}
+	if charged := m.ResourceLimit().Count() - beforeCoefficient; charged != 2 {
+		t.Fatal("coefficient must not consume a process checkpoint", charged)
 	}
 	gotN, err = qm.Z.String(&n)
 	if err != nil {

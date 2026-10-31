@@ -74,7 +74,7 @@ func (c *RationalExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) (
 		if count != 2 {
 			return 0, ErrExprConverterNonSimplified
 		}
-		if _, err = c.InternalizeTerm(first, n, d); err != nil {
+		if err = copyExprCoefficient(c.qm, coefficientText, n, d); err != nil {
 			return 0, err
 		}
 		m, err = c.ast.GetArg(t, 1)

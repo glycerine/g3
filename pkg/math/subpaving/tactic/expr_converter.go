@@ -346,7 +346,7 @@ func (c *HardwareExprConverter) processMul(t ast.ASTHandle, n, d *numeral.Int) (
 		if count != 2 {
 			return 0, ErrExprConverterNonSimplified
 		}
-		if _, err = c.process(first, n, d); err != nil {
+		if err = copyExprCoefficient(c.engine.qm, coefficientText, n, d); err != nil {
 			return 0, err
 		}
 		m, err = c.ast.GetArg(t, 1)

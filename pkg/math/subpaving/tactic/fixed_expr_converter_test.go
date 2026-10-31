@@ -196,8 +196,12 @@ func TestFixedExprConverterTermsAndClause(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	beforeCoefficient := m.ResourceLimit().Count()
 	if got, err := converter.InternalizeTerm(zeroProduct, &n, &d); err != nil || got != first {
 		t.Fatal("binary zero scalar product", got, err)
+	}
+	if charged := m.ResourceLimit().Count() - beforeCoefficient; charged != 2 {
+		t.Fatal("coefficient must not consume a process checkpoint", charged)
 	}
 	if got, err := qm.Z.String(&n); err != nil || got != "0" {
 		t.Fatal("binary zero scalar product numerator", got, err)

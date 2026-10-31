@@ -78903,7 +78903,8 @@
         "pkg/math/subpaving/tactic/rational_expr_arith.go",
         "pkg/math/subpaving/tactic/rational_expr_converter_test.go",
         "pkg/math/subpaving/tactic/hardware_core_tactic_test.go",
-        "pkg/math/subpaving/tactic/arbitrary_core_tactic_test.go"
+        "pkg/math/subpaving/tactic/arbitrary_core_tactic_test.go",
+        "pkg/math/subpaving/tactic/expr_coefficient.go"
       ],
       "tests": [
         "TestHardwareExprConverterTerms",
@@ -78988,6 +78989,18 @@
           "tests": [
             "TestHardwareCoreTacticBorrowedGoalStatisticsAndFreshCleanup",
             "TestArbitraryCoreTacticBorrowedGoalStatisticsAndFreshCleanup"
+          ]
+        },
+        {
+          "name": "process_mul leading coefficient copies numerator and denominator directly without recursive AST cancellation or cooperation checkpoints (lines 173-178), for all five concrete engines",
+          "status": "ported",
+          "go_target": "pkg/math/subpaving/tactic/expr_coefficient.go",
+          "tests": [
+            "TestHardwareExprConverterTerms",
+            "TestArbitraryExprConverterTermsAndClause",
+            "TestFastExprConverterTermsAndClause",
+            "TestFixedExprConverterTermsAndClause",
+            "TestRationalExprConverterExactLeafGoalAndCleanup"
           ]
         }
       ],
