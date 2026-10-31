@@ -47,3 +47,17 @@ func TestZ3LogFrontendReportsUnavailableCommands(t *testing.T) {
 		t.Fatal("missing command report", out.String(), diagnostics.String())
 	}
 }
+
+func TestZ3LogFrontendReplaysQuantifier(t *testing.T) {
+	log := "R\nP 0\nC 6\n= 0x41\nR\nP 0x41\nC 32\n= 0x42\n" +
+		"R\nP 0x41\nU 0\nP 0x42\nC 191\n= 0x43\n" +
+		"R\nP 0x41\nU 1\nU 0\np 0\nU 1\nP 0x42\np 1\n$ |b|\ns 1\nP 0x43\nC 192\n= 0x44\n" +
+		"M \"quantifier-replayed\"\n"
+	var out, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-log", "-in"}, strings.NewReader(log), &out, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if diagnostics.Len() != 0 || !strings.HasPrefix(out.String(), "quantifier-replayed\nmax. heap size:") {
+		t.Fatal(out.String(), diagnostics.String())
+	}
+}

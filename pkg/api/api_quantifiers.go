@@ -100,6 +100,15 @@ func (c *SMTContext) Pattern(terms ...ast.ASTHandle) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
+	for _, term := range terms {
+		kind, e := m.GetKind(term)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if kind != ast.ASTApp {
+			return ast.ASTHandle{}, ast.ErrASTDomain
+		}
+	}
 	return m.MkPattern(terms)
 }
 func (c *SMTContext) IsQuantifier(value ast.ASTHandle) (bool, error) {

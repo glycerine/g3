@@ -101,6 +101,10 @@ func TestSMTContextQuantifierAPIErrors(t *testing.T) {
 	if _, err := f.c.Pattern(); err != ast.ErrASTDomain {
 		t.Fatal("empty pattern", err)
 	}
+	variable := f.pin(f.c.BoundVariable(0, boolean))
+	if _, err := f.c.Pattern(variable); !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("bare bound variable accepted as a pattern term", err)
+	}
 	text := f.pin(f.c.String("not-bool"))
 	if _, err := f.c.Forall(nil, nil, text); err != ast.ErrASTDomain {
 		t.Fatal("non-boolean body", err)
