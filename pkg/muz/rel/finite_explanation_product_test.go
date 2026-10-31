@@ -114,3 +114,45 @@ func TestFiniteExplanationProductUnionAndDelta(t *testing.T) {
 		t.Fatal("accepted aliased delta")
 	}
 }
+
+func TestFiniteExplanationProductProjectCollisions(t *testing.T) {
+	f := newTableRelationFixture(t)
+	sort, err := f.ast.MkDatalogRuleSort()
+	astTestMust(t, err)
+	makeExplanation := func(name string) ast.ASTHandle {
+		sym, e := f.ast.Symbols.Intern(name)
+		astTestMust(t, e)
+		h, e := f.ast.MkConst(sym, sort)
+		astTestMust(t, e)
+		return h
+	}
+	first := makeExplanation("finite-project-first")
+	second := makeExplanation("finite-project-second")
+	source, err := NewFiniteExplanationProduct(f.relations, []ast.ASTHandle{f.boolean, f.boolean})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.truth, f.falsehood}, first))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.truth, f.truth}, second))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{f.falsehood, f.truth}, second))
+	projected, err := source.Project([]int{1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	got, found, err := projected.Explanation([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	if !found || got != first {
+		t.Fatal("colliding explanation", got, found, first)
+	}
+	got, found, err = projected.Explanation([]ast.ASTHandle{f.falsehood})
+	astTestMust(t, err)
+	if !found || got != second {
+		t.Fatal("distinct explanation", got, found, second)
+	}
+	count, err := projected.Len()
+	astTestMust(t, err)
+	if count != 2 {
+		t.Fatal("projected count", count)
+	}
+	if _, err = source.Project([]int{2}); err == nil {
+		t.Fatal("removed explanation column accepted")
+	}
+}

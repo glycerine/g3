@@ -1,3 +1,5 @@
+Fact explanation projection (2026-10-31 UTC): remove finite columns and merge colliding tuples using the source fact-level first-explanation policy. Focused normal and checked tests cover collision, distinct keys and invalid columns; mixed joins and Datalog registration remain unfinished.
+
 Fact explanation union (2026-10-31 UTC): added concrete finite/explanation product union and delta accumulation, preserving the first explanation on overlap. Focused normal and checked tests cover new, overlapping and pre-existing delta facts; other product operations and Datalog registration remain unfinished.
 
 Duality missing heads (2026-10-31 UTC): scan nested quantifier and implication heads and add the source false-body clauses for missing pinned predicates, with fresh, universally bound arguments. Normal and checked tests cover existing, quantified and ground heads.
