@@ -73,6 +73,11 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	case qeScalarArithmetic:
 		expectedFamily, err = m.ArithmeticFamilyID()
 	case qeScalarBitVector:
+		var bitVector bool
+		bitVector, err = m.IsBitVectorSort(sort)
+		if err != nil || !bitVector {
+			return result, false, err
+		}
 		expectedFamily, err = m.BitVectorUtilityFamilyID()
 	default:
 		return result, false, ast.ErrASTDomain

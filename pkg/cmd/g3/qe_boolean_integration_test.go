@@ -212,3 +212,22 @@ func TestSMTLibRunnerQESmallDivisibility(t *testing.T) {
 		t.Fatalf("small divisibility QE result: %s", got)
 	}
 }
+
+func TestSMTLibRunnerQEBitVectorQuantifier(t *testing.T) {
+	script := `(set-logic BV)
+(declare-const y (_ BitVec 2))
+(push)
+(assert (exists ((x (_ BitVec 2))) (= (bvadd x y) (_ bv1 2))))
+(check-sat-using (then qe smt))
+(pop)
+(assert (forall ((x (_ BitVec 2))) (= (bvadd x y) (_ bv1 2))))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "sat unsat" {
+		t.Fatalf("bit-vector QE tactic result: %s", got)
+	}
+}

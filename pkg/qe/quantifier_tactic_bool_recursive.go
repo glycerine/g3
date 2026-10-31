@@ -9,11 +9,11 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
-// rewriteQuantifierBool recursively eliminates supported Boolean quantifiers
-// and arithmetic quantifiers solved by the equation plugin.
+// rewriteQuantifierScalar recursively eliminates supported Boolean, arithmetic
+// and bit-vector quantifiers.
 // Free de Bruijn variables are temporarily represented by fresh constants while
 // eliminating each quantifier, then abstracted back into their original scope.
-func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
+func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}
@@ -42,7 +42,7 @@ func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config C
 		if e != nil {
 			return result, false, e
 		}
-		rewritten, done, e := rewriteQuantifierBool(m, body, config)
+		rewritten, done, e := rewriteQuantifierScalar(m, body, config)
 		if e != nil || !done {
 			return result, false, e
 		}
@@ -80,6 +80,9 @@ func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config C
 			eliminated, done, e = eliminateQuantifierArithmeticSearch(m, q, config)
 		}
 		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierBitVectorSearch(m, q, config)
+		}
+		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierMixed(m, q, config)
 		}
 		if e != nil || !done {
@@ -110,7 +113,7 @@ func rewriteQuantifierBool(m *ast.ASTManager, expression ast.ASTHandle, config C
 			if x != nil {
 				return result, false, x
 			}
-			ref, done, x := rewriteQuantifierBool(m, old, config)
+			ref, done, x := rewriteQuantifierScalar(m, old, config)
 			if x != nil || !done {
 				return result, false, x
 			}

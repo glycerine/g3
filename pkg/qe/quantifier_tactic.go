@@ -13,9 +13,9 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
-// QuantifierTactic handles quantifier-free goals, supported Boolean quantifiers,
-// and selected arithmetic quantifiers. General expression elimination remains
-// under construction.
+// QuantifierTactic handles quantifier-free goals and selected Boolean,
+// arithmetic, and bit-vector quantifiers. General elimination remains under
+// construction.
 type QuantifierTactic struct {
 	self                *QuantifierTactic
 	manager             *ast.ASTManager
@@ -215,7 +215,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 				return tactic.NewTacticException("quantifier elimination proofs are not implemented")
 			}
 			var complete bool
-			updates[i], complete, e = rewriteQuantifierBool(t.manager, form, t.config)
+			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, t.config)
 			if e != nil {
 				if onlyArithmeticBranchUnsupported(e) {
 					return tactic.NewTacticException(errArithmeticBranchUnsupported.Error())

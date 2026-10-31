@@ -21,7 +21,7 @@ func TestRewriteQuantifierBoolPreservesOuterBindings(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			inner := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.innerForall, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(1)}, Body: eq}))
 			outer := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: tc.outerForall, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: inner}))
-			result, complete, err := rewriteQuantifierBool(m, outer, f.r.config)
+			result, complete, err := rewriteQuantifierScalar(m, outer, f.r.config)
 			fmMust(t, err)
 			if !complete {
 				t.Fatal("alternating Boolean quantifiers were not eliminated")
@@ -42,7 +42,7 @@ func TestRewriteQuantifierBoolInsideApplication(t *testing.T) {
 	v := f.own(m.MkVar(0, f.boolean))
 	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: v}))
 	formula := f.predicate("qe-recursive-predicate", q)
-	result, complete, err := rewriteQuantifierBool(m, formula, f.r.config)
+	result, complete, err := rewriteQuantifierScalar(m, formula, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("quantifier inside an application was not eliminated")
@@ -76,7 +76,7 @@ func TestRewriteQuantifierBoolPreservesMultipleOuterVariableOrder(t *testing.T) 
 	inner := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(2)}, Body: body}))
 	middle := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(1)}, Body: inner}))
 	outer := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: middle}))
-	result, complete, err := rewriteQuantifierBool(m, outer, f.r.config)
+	result, complete, err := rewriteQuantifierScalar(m, outer, f.r.config)
 	fmMust(t, err)
 	if !complete {
 		t.Fatal("three nested Boolean binders were not eliminated")
