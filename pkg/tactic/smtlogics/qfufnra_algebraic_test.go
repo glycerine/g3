@@ -1,14 +1,49 @@
 package smtlogics_test
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
+
+func TestQFUFNRATacticConstructorAllocationFrontiers(t *testing.T) {
+	success := false
+	for stop := int64(0); stop < 8192 && !success; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			c := qfliaContext(t, "(set-logic ALL)")
+			m, err := c.Manager()
+			qfaufliaMust(t, err)
+			m.Budget().FailAfter(stop)
+			strategy, err := c.NewBuiltinTactic("qfufnra")
+			m.Budget().FailAfter(-1)
+			if strategy != nil {
+				qfaufliaMust(t, strategy.IncRef())
+				qfaufliaMust(t, strategy.DecRef())
+			}
+			var failure memory.ConstructionFailure
+			if errors.As(err, &failure) {
+				qfaufliaMust(t, failure.Cleanup())
+			}
+			var memout memory.Failure
+			if err == nil {
+				success = true
+			} else if !errors.Is(err, arena.ErrInjectedFailure) && !(errors.As(err, &memout) && memout.Kind == memory.FailureMemout) {
+				t.Fatal(err)
+			}
+		})
+	}
+	if !success {
+		t.Fatal("no successful factory reservation frontier")
+	}
+}
 
 func TestQFUFNRATacticWithAlgebraicRoot(t *testing.T) {
 	c := qfliaContext(t, "(set-logic ALL)(declare-const x Real)")

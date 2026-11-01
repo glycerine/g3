@@ -26,7 +26,9 @@ func NewQFUFNRATactic(m *ast.ASTManager, p *params.ParamsRef, config smtcore.SMT
 	}
 	b := qfliaConstruction{c: c, m: m}
 	defer func() {
-		resultErr = errors.Join(resultErr, b.close())
+		if cleanup := b.close(); cleanup != nil {
+			resultErr = &QFLIAConstructionFailure{owner: &b, cause: resultErr, cleanup: cleanup}
+		}
 		if resultErr != nil && result != nil {
 			if err := result.IncRef(); err != nil {
 				resultErr = errors.Join(resultErr, err)
