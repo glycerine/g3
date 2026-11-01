@@ -125135,16 +125135,18 @@
           "text": "bool_var next_var() { SASSERT(!empty()); return m_queue.erase_min(); }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "actual mutable activity queue heap, constructor/mk_var/activity/unassign/delete/next/reset with native Go heap/index slices",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/sat/sat_var_queue.go",
           "tests": [
             "TestSATVarQueueIndependentMutableActivityModel",
             "TestSATSolverQueuesBorrowHeapDebugAndStopBeforeReset",
+            "TestSATCaseSplitHeapIndependentFiniteActivityOracle",
+            "TestSATCaseSplitHeapWarmPhysicalPlateauAndOwnerGuards",
             "TestSATNativeCaseSplitQueueGrowthIndependentPriorityAndColdBudget",
             "TestSATNativeCaseSplitQueueOwnerBudgetAndIndexGuards"
           ]
@@ -125155,11 +125157,6 @@
           "go_target": "pkg/sat/sat_var_queue.go",
           "go_targets": ["pkg/sat/sat_solver.go", "pkg/sat/sat_simplifier_blocked_queue.go"],
           "tests": ["TestSATSolverQueuesBorrowHeapDebugAndStopBeforeReset"]
-        },
-        {
-          "name": "remaining TRACE policy and consumer integration",
-          "status": "unported",
-          "tests": []
         },
         {
           "name": "Selected native []uint32 activity and []Literal assignment trail; source uint32 increment/decay/rescale and current native activity borrowing across queue growth/copy/move; broader solver storage remains open",
