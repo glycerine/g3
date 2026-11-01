@@ -23,6 +23,10 @@ func (i *ModelImplicant) traceArrayExtraction(line int, prefix string, terms ...
 		func() bool { return true }, func(out io.Writer) error {
 			_, _ = io.WriteString(out, prefix)
 			for _, term := range terms {
+				if term.IsNull() {
+					_, _ = io.WriteString(out, "null\n")
+					continue
+				}
 				if err := i.evaluator.writeSMT2(out, term); err != nil {
 					operandErr = err
 					return err

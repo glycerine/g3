@@ -31,12 +31,16 @@ func (i *ModelImplicant) evaluateModelWithoutCompletion(expression ast.ASTHandle
 	}
 	// model::eval catches the typed exception. Its fresh evaluator is closed
 	// before the next fallback, so interrupted traversal state cannot escape.
+	i.traceModelEvaluationFailure(err)
+	return nil
+}
+
+func (i *ModelImplicant) traceModelEvaluationFailure(failure error) {
 	tags := i.services.Trace
 	if tags == nil {
 		tags = diagnostic.BorrowProcessTraceTags()
 	}
-	_ = tags.EmitConditional("model_evaluator", "eval", "src/model/model.cpp", 88, func() bool { return true }, func(w io.Writer) error { _, e := io.WriteString(w, err.Error()+"\n"); return e })
-	return nil
+	_ = tags.EmitConditional("model_evaluator", "eval", "src/model/model.cpp", 88, func() bool { return true }, func(w io.Writer) error { _, err := io.WriteString(w, failure.Error()+"\n"); return err })
 }
 
 func (i *ModelImplicant) traceUnknownEquality(value ast.ASTHandle) error {

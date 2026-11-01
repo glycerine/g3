@@ -6,6 +6,8 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (i *ModelImplicant) isArray(h ast.ASTHandle) (bool, error) {
@@ -29,6 +31,9 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 	f.elseCase, err = i.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return f, false, err
+	}
+	if h.IsNull() {
+		return f, false, i.traceArrayExtraction(529, "no translation: ", h)
 	}
 	// Source model_implicant extraction normalizes as-array components in
 	// both explicit store rows and function graph rows.
@@ -468,6 +473,11 @@ func (i *ModelImplicant) evalCompletedExpression(expression ast.ASTHandle) (resu
 			result = ast.ASTRef{}
 		}
 	}()
+	result, err = i.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	succeeded := false
 	err = func() (evalErr error) {
 		evaluator, e := NewModelEvaluator(i.model.Core(), i.services)
 		if evaluator != nil {
@@ -479,12 +489,24 @@ func (i *ModelImplicant) evalCompletedExpression(expression ast.ASTHandle) (resu
 		if e = evaluator.SetModelCompletion(true); e != nil {
 			return e
 		}
-		result, e = evaluator.EvaluateValue(expression)
+		e = evaluator.Evaluate(expression, result)
+		if rewriter.IsRewriterException(e) {
+			i.traceModelEvaluationFailure(e)
+			return nil
+		}
+		succeeded = e == nil
 		return e
 	}()
-	if err == nil {
-		err = i.normalizeArrayValue(expression, result)
+	if err != nil {
+		return result, err
 	}
+	if !succeeded {
+		err = diagnostic.BorrowProcessDebugContext().VerifyFailure("src/model/model_implicant.cpp", 892, "m_model->eval(e, result, true)")
+		if err != nil {
+			return result, err
+		}
+	}
+	err = i.normalizeArrayValue(expression, result)
 	return result, err
 }
 
