@@ -97529,6 +97529,18 @@
           ]
         },
         {
+          "name": "derivation::create_next_child active may-summary uses model_evaluator_util::is_true without completion, treats typed evaluator exceptions as non-true and emits the source level-1 diagnostic (spacer_context.cpp:1622-1625)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/model_evaluator.go",
+            "pkg/muz/spacer/derivation_summary_policy_test.go"
+          ],
+          "tests": [
+            "TestSpacerDerivationSummaryUsesSourceBooleanProbePolicy"
+          ]
+        },
+        {
           "name": "derivation::create_next_child projection guards: skip qe_project when no variables need elimination, preserving symbolic array transitions and posts (spacer_context.cpp:1613-1647,1733-1738)",
           "status": "ported",
           "go_targets": [
@@ -97977,6 +97989,18 @@
           ],
           "tests": [
             "TestSpacerDerivationSkipsProjectionWithoutVariables"
+          ]
+        },
+        {
+          "name": "derivation::create_next_child active may-summary uses model_evaluator_util::is_true without completion, treats typed evaluator exceptions as non-true and emits the source level-1 diagnostic (spacer_context.cpp:1622-1625)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/derivation.go",
+            "pkg/muz/spacer/model_evaluator.go",
+            "pkg/muz/spacer/derivation_summary_policy_test.go"
+          ],
+          "tests": [
+            "TestSpacerDerivationSummaryUsesSourceBooleanProbePolicy"
           ]
         },
         {
@@ -100487,7 +100511,7 @@
           "status": "partial",
           "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/weak_derivation_evaluator_test.go"],
           "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset", "TestSpacerWeakDerivationUsesSourceBooleanProbePolicy"],
-          "reason": "The implicant and weak-derivation Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
+          "reason": "The implicant, weak-derivation and next-child summary Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
         },
         {
           "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",
@@ -100698,7 +100722,7 @@
           "status": "partial",
           "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/weak_derivation_evaluator_test.go"],
           "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset", "TestSpacerWeakDerivationUsesSourceBooleanProbePolicy"],
-          "reason": "The implicant and weak-derivation Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
+          "reason": "The implicant, weak-derivation and next-child summary Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
         },
         {
           "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",

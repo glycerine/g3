@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type DerivationPremise struct {
@@ -375,17 +376,24 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-	evaluated, err := evaluator.EvaluateValue(activeSummary)
-	if err != nil {
-		return nil, err
-	}
-	value, err := manager.RefGet(evaluated)
-	isTrue := err == nil && manager.IsTrue(value)
-	err = errors.Join(err, manager.DelRef(&evaluated))
+	isTrue, _, err := evaluateSpacerModelBoolean(manager, evaluator, config, activeSummary)
 	if err != nil {
 		return nil, err
 	}
 	if !isTrue {
+		enabled, err := diagnostic.ProcessVerboseEnabled(1)
+		if err != nil {
+			return nil, err
+		}
+		if enabled {
+			stream, err := diagnostic.BorrowProcessVerboseStream()
+			if err != nil {
+				return nil, err
+			}
+			if err = stream.AppendCString("Summary unexpectendly not true\n"); err != nil {
+				return nil, err
+			}
+		}
 		return nil, nil
 	}
 	summaries = summaries[:0]
