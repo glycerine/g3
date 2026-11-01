@@ -367,6 +367,103 @@ func (p *FiniteSparseProduct) flatten() (*SparseTable, error) {
 	return flat, nil
 }
 
+// FilterEqual keeps only rows whose selected column equals value.
+func (p *FiniteSparseProduct) FilterEqual(column int, value ast.ASTHandle) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if column < 0 || column >= len(p.sorts) {
+		return ErrTableRelation
+	}
+	wanted, err := p.manager.EncodeValue(p.sorts[column], value)
+	if err != nil {
+		return err
+	}
+	flat, err := p.flatten()
+	if err != nil {
+		return err
+	}
+	defer flat.Close()
+	facts, err := flat.Facts()
+	if err != nil {
+		return err
+	}
+	kept := make([]Fact, 0, len(facts))
+	for _, fact := range facts {
+		if fact[column] == wanted {
+			kept = append(kept, fact)
+		}
+	}
+	return p.replaceFacts(kept)
+}
+
+// FilterIdentical keeps rows where all selected columns have equal values.
+func (p *FiniteSparseProduct) FilterIdentical(columns []int) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	for _, column := range columns {
+		if column < 0 || column >= len(p.sorts) {
+			return ErrTableRelation
+		}
+	}
+	sameSort := true
+	for i := 1; i < len(columns); i++ {
+		if p.sorts[columns[i]] != p.sorts[columns[0]] {
+			sameSort = false
+			break
+		}
+	}
+	flat, err := p.flatten()
+	if err != nil {
+		return err
+	}
+	defer flat.Close()
+	facts, err := flat.Facts()
+	if err != nil {
+		return err
+	}
+	kept := make([]Fact, 0, len(facts))
+	for _, fact := range facts {
+		match := sameSort
+		for i := 1; i < len(columns); i++ {
+			if fact[columns[i]] != fact[columns[0]] {
+				match = false
+				break
+			}
+		}
+		if match {
+			kept = append(kept, fact)
+		}
+	}
+	return p.replaceFacts(kept)
+}
+
+func (p *FiniteSparseProduct) replaceFacts(facts []Fact) error {
+	replacement, err := NewFiniteSparseProduct(p.manager, p.sorts, p.tableColumnMask())
+	if err != nil {
+		return err
+	}
+	for _, fact := range facts {
+		key, inner := replacement.splitEncoded(fact)
+		if err = replacement.addEncodedFact(key, inner); err != nil {
+			return errors.Join(err, replacement.Close())
+		}
+	}
+	p.table, replacement.table = replacement.table, p.table
+	p.inner, replacement.inner = replacement.inner, p.inner
+	p.available, replacement.available = replacement.available, p.available
+	return replacement.Close()
+}
+
+func (p *FiniteSparseProduct) tableColumnMask() []bool {
+	mask := make([]bool, len(p.sorts))
+	for _, column := range p.tableColumns {
+		mask[column] = true
+	}
+	return mask
+}
+
 func (p *FiniteSparseProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {
 	key, innerFact, err := p.split(values)
 	if err != nil {

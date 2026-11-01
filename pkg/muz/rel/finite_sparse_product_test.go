@@ -183,3 +183,60 @@ func TestFiniteSparseProductJoinAcrossPartitions(t *testing.T) {
 		t.Fatalf("join produced a mismatched pair: %v (%v)", found, e)
 	}
 }
+
+func TestFiniteSparseProductEqualityFilters(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-filter-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two, three := value(0), value(1), value(2), value(3)
+	product, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort, sort}, []bool{true, false, true})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{zero, zero, one}, {one, two, three}, {two, two, three}} {
+		astTestMust(t, product.AddFact(fact))
+	}
+	if err = product.FilterIdentical([]int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err = product.FilterEqual(2, three); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]ast.ASTHandle{{two, two, three}} {
+		if found, e := product.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("equality filters removed matching row %v: %v (%v)", fact, found, e)
+		}
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, zero, one}, {one, two, three}} {
+		if found, e := product.ContainsFact(fact); e != nil || found {
+			t.Fatalf("equality filters kept rejected row %v: %v (%v)", fact, found, e)
+		}
+	}
+	otherName, err := f.ast.Symbols.Intern("finite-sparse-product-filter-other-domain")
+	astTestMust(t, err)
+	otherSort, err := f.ast.MkDatalogFiniteSort(otherName, 4)
+	astTestMust(t, err)
+	wrongSortValue, err := f.ast.MkDatalogNumeral(3, otherSort)
+	astTestMust(t, err)
+	astTestPin(t, f.ast, wrongSortValue)
+	if err = product.FilterEqual(0, wrongSortValue); err == nil {
+		t.Fatal("sort-mismatched value accepted")
+	}
+	crossSort, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, otherSort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, crossSort.Close()) }()
+	astTestMust(t, crossSort.AddFact([]ast.ASTHandle{one, wrongSortValue}))
+	if err = crossSort.FilterIdentical([]int{0, 1}); err != nil {
+		t.Fatal(err)
+	}
+	if empty, e := crossSort.Empty(); e != nil || !empty {
+		t.Fatalf("different-sort columns treated as identical: empty=%v err=%v", empty, e)
+	}
+}

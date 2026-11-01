@@ -92895,7 +92895,8 @@
         "TestFiniteSparseProductRejectsInvalidConstructionAndFacts",
         "TestFiniteSparseProductUnionFrom",
         "TestFiniteSparseProductProjectMergesRows",
-        "TestFiniteSparseProductJoinAcrossPartitions"
+        "TestFiniteSparseProductJoinAcrossPartitions",
+        "TestFiniteSparseProductEqualityFilters"
       ],
       "conditionals": [
         {
