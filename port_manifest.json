@@ -86118,12 +86118,31 @@
       "path": "src/muz/base/fixedpoint_params.pyg",
       "component": "muz",
       "role": "generated_input",
-      "status": "unported",
-      "go_targets": [],
-      "tests": [],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "status": "ported",
+      "go_targets": [
+        "pkg/muz/base/gparams_catalog_collectors.go",
+        "pkg/util/params/gparams_collector_source_fixtures_test.go",
+        "pkg/util/params/util_gparams_catalog_test.go",
+        "pkg/util/params/util_gparams_catalog_fixture_test.go"
+      ],
+      "tests": [
+        "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+      ],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "fixedpoint parameter names, kinds, defaults, descriptions, and module metadata",
+          "status": "ported",
+          "go_target": "pkg/muz/base/gparams_catalog_collectors.go",
+          "go_targets": [
+            "pkg/util/params/util_gparams_catalog_test.go"
+          ],
+          "tests": [
+            "TestGlobalParamsCatalogCompleteMetadataAndExactDispatcher"
+          ]
+        }
+      ],
       "ownership": [],
       "deviations": []
     },
