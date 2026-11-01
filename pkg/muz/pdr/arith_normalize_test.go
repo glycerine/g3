@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T) {
@@ -54,6 +55,30 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	closureMust(t, err)
 	if child != normalized {
 		t.Fatal("nested comparison did not receive the same normalization")
+	}
+	quantified, err := manager.MkQuantifier(ast.ASTQuantifierSpec{
+		Forall: true, Sorts: []ast.ASTHandle{realSort}, Names: []usymbol.Symbol{xName},
+		Body: formula, Weight: 7, QID: xName, SkolemID: yName, NoPatterns: []ast.ASTHandle{formula},
+	})
+	closureMust(t, err)
+	quantified, err = NormalizeArithmetic(manager, quantified)
+	closureMust(t, err)
+	body, err := manager.GetQuantifierBody(quantified)
+	closureMust(t, err)
+	if body != normalized {
+		t.Fatal("quantifier body was not normalized")
+	}
+	annotation, err := manager.GetNoPattern(quantified, 0)
+	closureMust(t, err)
+	if annotation != formula {
+		t.Fatal("normalizer rewrote the no-pattern annotation")
+	}
+	weight, err := manager.GetQuantifierWeight(quantified)
+	closureMust(t, err)
+	qid, skid, err := manager.GetQuantifierIDs(quantified)
+	closureMust(t, err)
+	if weight != 7 || qid != xName || skid != yName {
+		t.Fatal("normalizer changed quantifier metadata", weight, qid, skid)
 	}
 	left, err = manager.GetArg(normalized, 0)
 	closureMust(t, err)
