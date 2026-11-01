@@ -439,6 +439,51 @@ func (p *FiniteSparseProduct) FilterIdentical(columns []int) error {
 	return p.replaceFacts(kept)
 }
 
+// FilterNegation removes each row in p that matches a row in negative on the
+// selected column pairs, and reports the number of removed rows.
+func (p *FiniteSparseProduct) FilterNegation(negative *FiniteSparseProduct, targetColumns, negativeColumns []int) (int, error) {
+	if err := p.open(); err != nil {
+		return 0, err
+	}
+	if err := negative.open(); err != nil {
+		return 0, err
+	}
+	if p.manager != negative.manager || len(targetColumns) != len(negativeColumns) {
+		return 0, ErrTableRelation
+	}
+	for i, targetColumn := range targetColumns {
+		negativeColumn := negativeColumns[i]
+		if targetColumn < 0 || targetColumn >= len(p.sorts) || negativeColumn < 0 || negativeColumn >= len(negative.sorts) || p.sorts[targetColumn] != negative.sorts[negativeColumn] {
+			return 0, ErrTableRelation
+		}
+	}
+	target, err := p.flatten()
+	if err != nil {
+		return 0, err
+	}
+	defer target.Close()
+	negated, err := negative.flatten()
+	if err != nil {
+		return 0, err
+	}
+	defer negated.Close()
+	before, err := target.Len()
+	if err != nil {
+		return 0, err
+	}
+	if err = target.FilterNegation(negated, targetColumns, negativeColumns); err != nil {
+		return 0, err
+	}
+	afterFacts, err := target.Facts()
+	if err != nil {
+		return 0, err
+	}
+	if err = p.replaceFacts(afterFacts); err != nil {
+		return 0, err
+	}
+	return before - len(afterFacts), nil
+}
+
 func (p *FiniteSparseProduct) replaceFacts(facts []Fact) error {
 	replacement, err := NewFiniteSparseProduct(p.manager, p.sorts, p.tableColumnMask())
 	if err != nil {

@@ -240,3 +240,43 @@ func TestFiniteSparseProductEqualityFilters(t *testing.T) {
 		t.Fatalf("different-sort columns treated as identical: empty=%v err=%v", empty, e)
 	}
 }
+
+func TestFiniteSparseProductNegationFilterAcrossPartitions(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-negation-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two, three := value(0), value(1), value(2), value(3)
+	target, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	negative, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{false, true})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, negative.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {one, two}, {one, three}} {
+		astTestMust(t, target.AddFact(fact))
+	}
+	astTestMust(t, negative.AddFact([]ast.ASTHandle{one, three}))
+	removed, err := target.FilterNegation(negative, []int{0, 1}, []int{0, 1})
+	if err != nil || removed != 1 {
+		t.Fatalf("negation removed %d rows, want 1 (%v)", removed, err)
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {one, two}} {
+		if found, e := target.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("negation removed unrelated fact %v: %v (%v)", fact, found, e)
+		}
+	}
+	if found, e := target.ContainsFact([]ast.ASTHandle{one, three}); e != nil || found {
+		t.Fatalf("negation kept excluded fact: %v (%v)", found, e)
+	}
+	if _, err = target.FilterNegation(negative, []int{0}, []int{2}); err == nil {
+		t.Fatal("out-of-range negation column accepted")
+	}
+}
