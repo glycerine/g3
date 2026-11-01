@@ -283330,7 +283330,11 @@
         "pkg/sat/sat_solver_unsat_core_verbose.go",
         "pkg/sat/sat_solver_consequences.go",
         "pkg/sat/sat_solver_consequence_verbose.go",
-        "pkg/sat/sat_solver_mus_verbose.go"
+        "pkg/sat/sat_solver_mus_verbose.go",
+        "pkg/util/bitutil/next_power_of_two.go",
+        "pkg/util/bitutil/next_power_of_two_test.go",
+        "pkg/tactic/arith/eq2bv_prepare.go",
+        "pkg/tactic/arith/eq2bv_prepare_test.go"
       ],
       "tests": [
         "TestSourceProductIteratorOrderCarryAndWrap",
@@ -283371,7 +283375,9 @@
         "TestSATSolverBoundedConsequencesSourceAbortVerbose",
         "TestSATSolverActualConsequenceProgressSourceVerbose",
         "TestSATSolverActualMUSSourceVerboseLevels",
-        "TestSATSolverActualMUSQXSourceFinalCoreVerbose"
+        "TestSATSolverActualMUSQXSourceFinalCoreVerbose",
+        "TestNextPowerOfTwo32SourceBoundaries",
+        "TestEq2BVWidthSourceUnsignedBoundaries"
       ],
       "methods_audited": true,
       "ownership_audited": true,
@@ -284034,8 +284040,17 @@
           "tests": ["TestSourceMegabytesToBytesNativeAndNarrowSizeT", "TestSATSolverProbingSourceDefaultsAndTypo", "TestModelEvaluatorResourceLimitsAndReset", "TestSharingGoalPassSourceParamsAndResourceLimits", "TestAIGPassParamsBindMemoryEncodingAndWholeGoalBranch", "TestSATGoalTranslatorSourceMaxMemorySizeTSentinel", "TestArbitraryContextNamedParamsSourceOrderAndDescriptions", "TestFixedContextNamedParamsSourceOrderAndStoppedOwner", "TestFastContextNamedParamsSinglePassAndStoppedPrefix", "TestRationalContextNamedParamsSinglePassAndDefaults", "TestSubpavingHardwareContextReadsParamsRefInSourceOrder"]
         },
         {
-          "name": "next_power_of_two retained eq2bv and MUZ sparse-table/PDR uses await their concrete owning ports (util.h:92-100)",
-          "status": "unported"
+          "name": "next_power_of_two concrete uint32 helper for the retained eq2bv width path (util.h:92-100)",
+          "status": "ported",
+          "go_target": "pkg/util/bitutil/next_power_of_two.go",
+          "go_targets": [
+            "pkg/tactic/arith/eq2bv_prepare.go"
+          ],
+          "tests": [
+            "TestNextPowerOfTwo32SourceBoundaries",
+            "TestEq2BVWidthSourceUnsignedBoundaries"
+          ],
+          "deviation": "The source hash-table capacity uses are STL allocation policy and are not carried into the Go map-backed sparse table; PDR ceil_log2 currently has no retained caller."
         },
         {
           "name": "compare_arrays concrete AST declaration domain, application argument, and quantifier sort/name/pattern/no-pattern identity/order (util.h:307-315; ast.cpp:451-490)",

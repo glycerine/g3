@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/bitutil"
 )
 
 type eq2bvReplacement struct {
@@ -44,13 +45,7 @@ func eq2bvWidth(maximum uint32, bounded bool) (uint32, uint32) {
 	if !bounded {
 		maximum++
 	}
-	v := maximum - 1
-	v |= v >> 1
-	v |= v >> 2
-	v |= v >> 4
-	v |= v >> 8
-	v |= v >> 16
-	v++
+	v := bitutil.NextPowerOfTwo32(maximum)
 	if v <= 1 {
 		v = 2
 	}
