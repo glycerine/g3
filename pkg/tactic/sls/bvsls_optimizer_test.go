@@ -54,6 +54,10 @@ func TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel(t *testing.T) {
 	if err != nil || value != three {
 		t.Fatal("saved hard/objective model", value, err)
 	}
+	repeated, err := optimizer.Optimize(x, nil, true)
+	if err != nil || repeated.Status != lbool.True || !repeated.Optimum.IsNull() {
+		t.Fatal("a pass without a new best score must not publish an optimum", repeated, err)
+	}
 }
 
 func TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective(t *testing.T) {

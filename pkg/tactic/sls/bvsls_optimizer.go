@@ -169,11 +169,23 @@ func (o *BVOptimizer) Optimize(objective ast.ASTHandle, initial *model.Model, ma
 	if err = o.evaluator.UpdateAll(o.search); err != nil {
 		return result, err
 	}
+	oldBest := numeral.NewInt(0)
+	defer o.hard.numbers.Del(&oldBest)
+	if err = o.hard.numbers.Copy(&oldBest, &o.bestScore); err != nil {
+		return result, err
+	}
 	optimum, err := o.maximizeObjective()
 	if err != nil {
 		return result, err
 	}
-	result.Status, result.Optimum = lbool.True, optimum
+	result.Status = lbool.True
+	improved, err := o.hard.numbers.Greater(&o.bestScore, &oldBest)
+	if err != nil {
+		return result, err
+	}
+	if improved {
+		result.Optimum = optimum
+	}
 	return result, nil
 }
 
