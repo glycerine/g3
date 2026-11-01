@@ -183,7 +183,7 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 	defer func() {
 		err = errors.Join(err, i.reset())
 		if err != nil {
-			err = errors.Join(err, closeImplicantResults(i.manager, &pending))
+			err = errors.Join(err, i.closeUnpublishedResults(&pending))
 			result = nil
 		}
 	}()
@@ -293,7 +293,7 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 	defer func() {
 		err = errors.Join(err, i.reset())
 		if err != nil {
-			err = errors.Join(err, closeImplicantResults(i.manager, &pending))
+			err = errors.Join(err, i.closeUnpublishedResults(&pending))
 			result = nil
 		}
 	}()
@@ -392,4 +392,21 @@ func CloseImplicantResults(m *ast.ASTManager, values *[]ast.ASTRef) error {
 		return ast.ErrASTHandle
 	}
 	return closeImplicantResults(m, values)
+}
+
+// Failed local result vectors remain owned until their unfinished releases
+// complete; a caller must never receive their partially cleaned references.
+func (i *ModelImplicant) closeUnpublishedResults(values *[]ast.ASTRef) error {
+	err := closeImplicantResults(i.manager, values)
+	if err != nil {
+		tail := *values
+		for len(tail) != 0 && tail[0] == (ast.ASTRef{}) {
+			tail = tail[1:]
+		}
+		if len(tail) != 0 {
+			i.pendingResults = append(i.pendingResults, tail)
+		}
+		*values = nil
+	}
+	return err
 }

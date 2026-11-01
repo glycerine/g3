@@ -37,6 +37,7 @@ type ModelImplicant struct {
 	refs              []ast.ASTRef
 	pendingArrays     []*arrayExpansion
 	pendingEvaluators []*ModelEvaluator
+	pendingResults    [][]ast.ASTRef
 	drain             int
 	closed            bool
 }
@@ -106,6 +107,14 @@ func (i *ModelImplicant) reset() error {
 		}
 		i.evaluator = nil
 	}
+	for len(i.pendingResults) != 0 {
+		if err := closeImplicantResults(i.manager, &i.pendingResults[0]); err != nil {
+			return err
+		}
+		i.pendingResults[0] = nil
+		i.pendingResults = i.pendingResults[1:]
+	}
+	i.pendingResults = nil
 	i.model = nil
 	i.states = nil
 	i.numbers = nil
@@ -132,7 +141,7 @@ func (i *ModelImplicant) setupModel(md *Model) error {
 	if err := i.open(); err != nil {
 		return err
 	}
-	if i.model != nil || i.evaluator != nil || len(i.refs) != 0 || len(i.pendingArrays) != 0 || len(i.pendingEvaluators) != 0 {
+	if i.model != nil || i.evaluator != nil || len(i.refs) != 0 || len(i.pendingArrays) != 0 || len(i.pendingEvaluators) != 0 || len(i.pendingResults) != 0 {
 		return ast.ErrASTPending
 	}
 	if err := md.open(); err != nil {
