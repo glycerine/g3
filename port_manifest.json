@@ -100547,10 +100547,12 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/lemma_generalizer.go",
-            "pkg/muz/spacer/lemma_generalizer_test.go"
+            "pkg/muz/spacer/lemma_generalizer_test.go",
+            "pkg/muz/spacer/lemma_datatype_expansion_test.go"
           ],
           "tests": [
-            "TestExpandInductiveDatatypeAndBitVectorEqualities"
+            "TestExpandInductiveDatatypeAndBitVectorEqualities",
+            "TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation"
           ]
         },
         {
@@ -100739,14 +100741,16 @@
           ]
         },
         {
-          "name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order (spacer_util.cpp:667-733); diagnostic TRACE remains open",
+          "name": "expand_literals live inductive-generalizer traversal processes appended datatype fields and preserves arithmetic bound insertion order with source begin/end TRACE records (spacer_util.cpp:667-727); exceptional ownership remains under audit",
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/lemma_generalizer.go",
-            "pkg/muz/spacer/lemma_generalizer_test.go"
+            "pkg/muz/spacer/lemma_generalizer_test.go",
+            "pkg/muz/spacer/lemma_datatype_expansion_test.go"
           ],
           "tests": [
-            "TestExpandInductiveDatatypeAndBitVectorEqualities"
+            "TestExpandInductiveDatatypeAndBitVectorEqualities",
+            "TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation"
           ]
         },
         {
