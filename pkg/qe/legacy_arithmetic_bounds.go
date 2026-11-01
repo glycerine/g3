@@ -37,7 +37,7 @@ func (p *legacyArithmeticProjection) findMax(md *model.ModelCore, variable ast.A
 	if p == nil || p.syntax == nil || md == nil || md.Manager() != p.syntax.manager {
 		return -1, ast.ErrASTHandle
 	}
-	evaluator, err := model.NewModelEvaluator(md, model.ModelEvaluatorConfig{
+	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{
 		Context:     p.syntax.config.Context,
 		Globals:     p.syntax.config.Globals,
 		Memory:      p.syntax.manager.NumeralService().RuntimeOwner(),

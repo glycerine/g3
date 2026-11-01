@@ -121,7 +121,7 @@ func (p *LegacyProjection) modelProjectionTerms(root, variable ast.ASTHandle) ([
 }
 
 func (p *LegacyProjection) projectModelTerms(md *model.ModelCore, current ast.ASTRef, variables []ast.ASTHandle) (remaining []ast.ASTHandle, resultErr error) {
-	evaluator, err := model.NewModelEvaluator(md, model.ModelEvaluatorConfig{Context: p.config.Context, Globals: p.config.Globals, Memory: p.manager.NumeralService().RuntimeOwner(), Cooperation: p.config.Cooperation, Trace: p.config.Trace})
+	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{Context: p.config.Context, Globals: p.config.Globals, Memory: p.manager.NumeralService().RuntimeOwner(), Cooperation: p.config.Cooperation, Trace: p.config.Trace})
 	if err != nil {
 		return nil, err
 	}

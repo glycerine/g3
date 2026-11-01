@@ -11,7 +11,7 @@ import (
 )
 
 func (p *LegacyProjection) substituteSkolemBooleans(md *model.ModelCore, formula ast.ASTRef, variables []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
-	evaluator, err := model.NewModelEvaluator(md, model.ModelEvaluatorConfig{
+	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{
 		Context: p.config.Context, Globals: p.config.Globals, Memory: p.manager.NumeralService().RuntimeOwner(), Cooperation: p.config.Cooperation, Trace: p.config.Trace,
 	})
 	if err != nil {

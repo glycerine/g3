@@ -27,7 +27,7 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 		return nil, false, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, equalities.Close()) }()
-	evaluator, err := model.NewModelEvaluator(md, model.ModelEvaluatorConfig{
+	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{
 		Context: p.syntax.config.Context, Globals: p.syntax.config.Globals,
 		Memory: p.syntax.manager.NumeralService().RuntimeOwner(), Cooperation: p.syntax.config.Cooperation, Trace: p.syntax.config.Trace,
 	})

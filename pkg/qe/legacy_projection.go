@@ -24,6 +24,17 @@ type LegacyProjectionResult struct {
 	variables []ast.ASTRef
 }
 
+// newLegacyModelEvaluator releases a partially constructed evaluator before
+// returning a construction error to legacy projection callers.
+func newLegacyModelEvaluator(md *model.ModelCore, config model.ModelEvaluatorConfig) (*model.ModelEvaluator, error) {
+	evaluator, err := model.NewModelEvaluator(md, config)
+	if err != nil && evaluator != nil {
+		err = errors.Join(err, evaluator.Close())
+		return nil, err
+	}
+	return evaluator, err
+}
+
 func NewLegacyProjection(manager *ast.ASTManager, config Config) (_ *LegacyProjection, resultErr error) {
 	arithmetic, err := newLegacyArithmeticProjection(manager, config)
 	if err != nil {
@@ -95,7 +106,7 @@ func (p *LegacyProjection) substituteModelValues(md *model.ModelCore, formula as
 	if len(variables) == 0 {
 		return p.manager.NewRef(formula)
 	}
-	evaluator, err := model.NewModelEvaluator(md, model.ModelEvaluatorConfig{
+	evaluator, err := newLegacyModelEvaluator(md, model.ModelEvaluatorConfig{
 		Context: p.config.Context, Globals: p.config.Globals, Memory: p.manager.NumeralService().RuntimeOwner(), Cooperation: p.config.Cooperation, Trace: p.config.Trace,
 	})
 	if err != nil {
