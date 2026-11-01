@@ -8,6 +8,21 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 )
 
+func (p *LegacyProjection) projectArithmeticRound(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle) (result *legacyFormulaProjection, resultErr error) {
+	scope, err := ast.NewScopedNoProof(p.manager)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, scope.Close())
+		if resultErr != nil && result != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
+		}
+	}()
+	return p.arithmetic.projectFormula(md, variables, formula)
+}
+
 // qe_project constructs its array projection and following theory rewrite
 // inside scoped_no_proof, then restores the caller's proof-generation mode.
 func (p *LegacyProjection) projectArrayRound(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects bool) (result *legacyArrayProjectionResult, resultErr error) {

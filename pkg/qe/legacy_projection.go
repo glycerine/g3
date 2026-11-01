@@ -319,7 +319,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 		} else {
-			projected, err := p.arithmetic.projectFormula(md, arithmetic, handle)
+			projected, err := p.projectArithmeticRound(md, arithmetic, handle)
 			if err != nil {
 				return nil, err
 			}

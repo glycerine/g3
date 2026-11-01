@@ -13,6 +13,7 @@ import (
 func TestLegacyProjectionCombinesBooleanArrayAndArithmetic(t *testing.T) {
 	f := newFMFixture(t)
 	m := f.r.manager
+	fmMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
 	p, err := NewLegacyProjection(m, f.r.config)
 	fmMust(t, err)
 	defer func() { fmMust(t, p.Close()) }()
@@ -40,6 +41,15 @@ func TestLegacyProjectionCombinesBooleanArrayAndArithmetic(t *testing.T) {
 	}
 	result, err := p.Project(md.Core(), []ast.ASTHandle{b, a, x}, formula, false, true)
 	fmMust(t, err)
+	if mode, err := m.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("combined projection changed proof mode", mode, err)
+	}
+	if _, err := p.projectArithmeticRound(nil, []ast.ASTHandle{x}, formula); err == nil {
+		t.Fatal("arithmetic projection accepted a missing model")
+	}
+	if mode, err := m.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("failed arithmetic projection changed proof mode", mode, err)
+	}
 	defer func() { fmMust(t, result.Close()) }()
 	remaining, err := result.Variables()
 	fmMust(t, err)

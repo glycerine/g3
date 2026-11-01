@@ -1,3 +1,5 @@
+Spacer arithmetic-projection proof scope: matched the non-native qe_project branch's scoped_no_proof lifetime around arithmetic projection. The mixed Boolean/array/arithmetic regression now runs with proofs enabled, checks complete elimination and proof-mode restoration, and verifies restoration after a rejected missing-model call; normal and checked legacy projection tests pass.
+
 Spacer array-projection proof scope: aligned qe_project's array round with the source scoped_no_proof lifetime, including its following theory rewrite. The Boolean-array auxiliary integration regression now runs with proofs enabled and verifies restoration after success and model-rejection errors; legacy projection tests pass normally and checked, and full Spacer/fixedpoint consumer suites pass.
 
 Spacer literal-expansion traces: ported source begin/end records around the live inductive-generalizer expansion, rendering literals in traversal order. The debug regression verifies equality input and adjacent arithmetic-bound output; full normal and checked Spacer package tests pass. The broader utility unit remains partial.
