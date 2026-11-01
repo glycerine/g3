@@ -21,6 +21,16 @@ func NewIntervalFull(arity uint32) *IntervalRelation {
 }
 func (r *IntervalRelation) Empty() bool { return r == nil || r.values == nil || r.values.empty }
 
+// Clone copies the relation using vector_relation::copy semantics. The source
+// copy operation copies each representative's interval and does not recreate
+// the equality classes, so the clone has independent columns.
+func (r *IntervalRelation) Clone() (*IntervalRelation, error) {
+	if r == nil || r.values == nil {
+		return nil, ast.ErrASTDomain
+	}
+	return cloneIntervalRelation(r), nil
+}
+
 // Bounds returns copies of the column's endpoints; nil denotes infinity.
 func (r *IntervalRelation) Bounds(column uint32) (*big.Rat, bool, *big.Rat, bool, error) {
 	if r == nil || r.values == nil || uint64(column) >= uint64(len(r.values.columns)) {

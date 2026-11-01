@@ -114,3 +114,36 @@ func TestIntervalRelationUnionDelta(t *testing.T) {
 		t.Fatal("aliased delta accepted")
 	}
 }
+
+func TestIntervalRelationCloneMatchesSourceCopy(t *testing.T) {
+	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
+	source := rel.NewIntervalEmpty(2)
+	for _, value := range []int64{0, 10} {
+		if err := source.AddFact([]*big.Rat{n(value), n(value)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := source.FilterIdentical(0, 1); err != nil {
+		t.Fatal(err)
+	}
+	clone, err := source.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := clone.FilterEqual(0, n(5)); err != nil {
+		t.Fatal(err)
+	}
+	if !clone.ContainsFact([]*big.Rat{n(5), n(4)}) {
+		t.Fatal("source vector_relation::copy separates equality classes in the destination")
+	}
+	if !source.ContainsFact([]*big.Rat{n(6), n(6)}) {
+		t.Fatal("clone mutation changed source relation")
+	}
+	empty, err := rel.NewIntervalEmpty(2).Clone()
+	if err != nil || !empty.Empty() {
+		t.Fatal("clone must preserve empty state", err)
+	}
+	if _, err := (*rel.IntervalRelation)(nil).Clone(); err == nil {
+		t.Fatal("nil relation clone accepted")
+	}
+}

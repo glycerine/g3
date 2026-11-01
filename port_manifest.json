@@ -93233,6 +93233,7 @@
         "TestIntervalRelationFactAndJoin",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
+        "TestIntervalRelationCloneMatchesSourceCopy",
         "TestIntervalVectorRenameEquivalences",
         "TestIntervalRelationToFormula",
         "TestEmptyRelationsExportFalse"
@@ -93316,6 +93317,12 @@
             "TestIntervalRelationToFormula",
             "TestEmptyRelationsExportFalse"
           ]
+        },
+        {
+          "name": "interval relation clone and source vector-copy equality-class behavior",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": ["TestIntervalRelationCloneMatchesSourceCopy"]
         }
       ],
       "ownership": [
