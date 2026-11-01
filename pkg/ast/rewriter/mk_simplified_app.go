@@ -132,6 +132,8 @@ func (r *SimplifiedApp) MkCore(decl ast.ASTHandle, args ast.AppArguments, out as
 				status, err = r.datatype.RewriteEquality(left, right, out)
 			case r.floating.family:
 				status, err = r.floating.MkEqCore(left, right, out)
+			case r.array.family:
+				status, err = r.array.MkEqCore(left, right, out)
 			}
 			if err != nil || status != RewriteFailed {
 				return status, err

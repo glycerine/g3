@@ -413,6 +413,8 @@ func (c *theoryRewriterConfiguration) reduceAppCore(decl ast.ASTHandle, args ast
 				status, err = c.datatype.RewriteEquality(left, right, out)
 			case c.floating.family:
 				status, err = c.floating.MkEqCore(left, right, out)
+			case c.array.family:
+				status, err = c.array.MkEqCore(left, right, out)
 			case c.sequence.family:
 				status, err = c.sequence.RewriteEquality(left, right, out)
 			}

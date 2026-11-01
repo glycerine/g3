@@ -98,6 +98,9 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 	if err != nil {
 		return result, false, err
 	}
+	// The source store-chain transformation assumes writes do not overlap.
+	// Do not publish its constraints when symbolic indices may coincide.
+	plugin.simpleStoresOnly = true
 	if err = context.AddPlugin(plugin); err != nil {
 		return result, false, errors.Join(err, plugin.Close())
 	}
@@ -107,6 +110,10 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 	}
 	defer func() { err = errors.Join(err, config.Context.Del(&params)) }()
 	key := "expand_select_store"
+	if err = config.Context.SetBoolName(&params, &key, true); err != nil {
+		return result, false, err
+	}
+	key = "expand_store_eq"
 	if err = config.Context.SetBoolName(&params, &key, true); err != nil {
 		return result, false, err
 	}

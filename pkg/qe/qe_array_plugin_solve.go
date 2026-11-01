@@ -10,9 +10,19 @@ func (p *ArrayPlugin) solveArraySide(lhs, rhs, formula ast.ASTHandle) (bool, err
 	if e != nil || solved {
 		return solved, e
 	}
-	solved, e = p.TryStoreEquality(lhs, rhs, formula)
-	if e != nil || solved {
-		return solved, e
+	allowStore := true
+	if p.simpleStoresOnly {
+		_, levels, matched, cause := p.arrayChain(lhs, rhs, ast.ASTArrayOpStore)
+		if cause != nil {
+			return false, cause
+		}
+		allowStore = !matched || len(levels) <= 1
+	}
+	if allowStore {
+		solved, e = p.TryStoreEquality(lhs, rhs, formula)
+		if e != nil || solved {
+			return solved, e
+		}
 	}
 	return p.TrySelectEquality(lhs, rhs, formula)
 }

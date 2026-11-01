@@ -38232,9 +38232,11 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/ast/rewriter/array_equality_dispatch_test.go",
         "pkg/ast/rewriter/mk_simplified_app.go"
       ],
       "tests": [
+        "TestArrayEqualityDispatchInTheoryAndSimplifiedApp",
         "TestSimplifiedAppTheoryApplicationAndEqualityDispatch",
         "TestSimplifiedAppMakeClearsOutputAndFallsBack",
         "TestSimplifiedAppBooleanFallbackAndCloseGuards"
@@ -41567,7 +41569,7 @@
       "component": "ast",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/arith/purify_arith_factory_test.go",
+      "go_targets": ["pkg/ast/rewriter/array_equality_dispatch_test.go", "pkg/tactic/arith/purify_arith_factory_test.go",
         "pkg/ast/rewriter/th_rewriter.go",
         "pkg/ast/rewriter/th_rewriter_test.go",
         "pkg/ast/ast_rewriter_access.go",
@@ -41577,7 +41579,7 @@
         "pkg/smtcore/theory_str_library_extract_test.go",
         "pkg/ast/rewriter/th_rewriter_fresh_default_test.go"
       ],
-      "tests": ["TestTheoryRewriterQuantifierProofChecker","TestTheoryRewriterQuantifierMergeAndUnusedProof",
+      "tests": ["TestArrayEqualityDispatchInTheoryAndSimplifiedApp", "TestTheoryRewriterQuantifierProofChecker","TestTheoryRewriterQuantifierMergeAndUnusedProof",
         "TestTheoryRewriterCoreTraversalAcrossFamilies",
         "TestTheoryRewriterTamagotchiAndRawMakeApp",
         "TestTheoryRewriterPullCheapITE",
