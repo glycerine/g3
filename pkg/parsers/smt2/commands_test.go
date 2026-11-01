@@ -53,7 +53,7 @@ func TestSMT2ParseAssertionsIgnoresCheckCommands(t *testing.T) {
 func TestSMT2EvalCommandMatchesCPP(t *testing.T) {
 	script := `(set-logic QF_UF)(declare-const p Bool)(check-sat)
 (eval p)(eval p :completion true)(eval p)
-(eval p :cache false :array_equalities false :max_memory 4294967295 :max_steps 4294967295 :timeout 4294967295)
+(eval p :cache false :array_equalities false :max_memory 4294967295 :max_steps 4294967295 :timeout 4294967295 :rlimit 4294967295)
 (eval (not p) :max_steps 0)`
 	c, err := cmd_context.NewStandaloneContext()
 	if err != nil {

@@ -47294,7 +47294,8 @@
       ],
       "tests": [
         "TestParametricCommandsResetAndNormalizeOptions",
-        "TestParametricCommandRejectsInvalidKeywordAndValue"
+        "TestParametricCommandRejectsInvalidKeywordAndValue",
+        "TestSMT2EvalCommandMatchesCPP"
       ],
       "methods_audited": false,
       "ownership_audited": false,
@@ -47305,7 +47306,8 @@
           "go_target": "pkg/parsers/smt2/tactics.go",
           "tests": [
             "TestParametricCommandsResetAndNormalizeOptions",
-            "TestParametricCommandRejectsInvalidKeywordAndValue"
+            "TestParametricCommandRejectsInvalidKeywordAndValue",
+            "TestSMT2EvalCommandMatchesCPP"
           ]
         }
       ],
@@ -47313,7 +47315,7 @@
         "Parser owns each command parameter set and releases it after execution."
       ],
       "deviations": [
-        "Parametric command description caching and unified keyword/argument state remain pending; source command implementations use their own parser paths."
+        "SMT-LIB eval now accepts the source rlimit option. Parametric command description caching and a shared keyword/argument state object remain omitted because the Go parser dispatches directly to command handlers."
       ]
     },
     {
@@ -47330,7 +47332,8 @@
       ],
       "tests": [
         "TestParametricCommandsResetAndNormalizeOptions",
-        "TestParametricCommandRejectsInvalidKeywordAndValue"
+        "TestParametricCommandRejectsInvalidKeywordAndValue",
+        "TestSMT2EvalCommandMatchesCPP"
       ],
       "conditionals": [
         {
@@ -47351,7 +47354,8 @@
           "go_target": "pkg/parsers/smt2/tactics.go",
           "tests": [
             "TestParametricCommandsResetAndNormalizeOptions",
-            "TestParametricCommandRejectsInvalidKeywordAndValue"
+            "TestParametricCommandRejectsInvalidKeywordAndValue",
+            "TestSMT2EvalCommandMatchesCPP"
           ]
         }
       ],
@@ -47359,7 +47363,7 @@
         "Parser owns each command parameter set and releases it after execution."
       ],
       "deviations": [
-        "Parametric command description caching and unified keyword/argument state remain pending; source command implementations use their own parser paths."
+        "SMT-LIB eval now accepts the source rlimit option. Parametric command description caching and a shared keyword/argument state object remain omitted because the Go parser dispatches directly to command handlers."
       ]
     },
     {

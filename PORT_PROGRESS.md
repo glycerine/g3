@@ -52754,3 +52754,5 @@ Datalog QE plugin lifecycle closure: expanded the cache and context test to veri
 Sparse functional-table method closure: exact source-boundary, fact, row-order, projection, join, join-project, union/delta, select-project, negation, complement and mismatched-metadata regressions pass with the full relation package in normal and `g3checked` builds. The method is marked ported; remaining sparse-table algorithms stay partial.
 
 Duality query-preparation closure: added a malformed pinned-predicate regression that fails after the rule and query clauses have been acquired, then verifies their original AST reference counts are restored. Full `pkg/muz/duality` tests pass in normal and `g3checked` builds; solver dispatch and result publication remain unported.
+
+SMT-LIB eval resource-limit parity: the source eval command reads `rlimit` from its command-local parameters, and `EvaluationOptions` already scopes that value around evaluation. The parser now accepts `:rlimit`; the differential eval integration script covers it, and focused normal and `g3checked` tests pass.

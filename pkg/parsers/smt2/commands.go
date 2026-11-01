@@ -910,7 +910,7 @@ func (p *commandParser) command() (bool, error) {
 				if err = p.advance(); err != nil {
 					return false, err
 				}
-			case ":max_memory", ":max-memory", ":max_steps", ":max-steps", ":timeout", ":model_index", ":model-index":
+			case ":max_memory", ":max-memory", ":max_steps", ":max-steps", ":timeout", ":rlimit", ":model_index", ":model-index":
 				value, e := p.unsigned()
 				if e != nil {
 					return false, e
@@ -922,6 +922,8 @@ func (p *commandParser) command() (bool, error) {
 					options.MaxSteps = &value
 				case ":timeout":
 					options.Timeout = value
+				case ":rlimit":
+					options.RLimit = value
 				default:
 					options.ModelIndex = value
 				}
