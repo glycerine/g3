@@ -23,6 +23,9 @@ func (i *ModelImplicant) isArray(h ast.ASTHandle) (bool, error) {
 
 func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, ok bool, err error) {
 	f := &arrayExpansion{active: true}
+	if err = i.traceArrayExtraction(480, "", h); err != nil {
+		return f, false, err
+	}
 	f.elseCase, err = i.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return f, false, err
@@ -70,8 +73,11 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 		return f, err == nil, err
 	}
 	backed, err := i.evaluator.cfg.arrayOp(h, ast.ASTArrayOpAsArray)
-	if err != nil || !backed {
+	if err != nil {
 		return f, false, err
+	}
+	if !backed {
+		return f, false, i.traceArrayExtraction(529, "no translation: ", h)
 	}
 	declaration, err := i.manager.AsArrayFunction(h)
 	if err != nil {
@@ -94,8 +100,11 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 		}
 		for _, term := range f.row {
 			ground, err := i.manager.IsGround(term)
-			if err != nil || !ground {
+			if err != nil {
 				return f, false, err
+			}
+			if !ground {
+				return f, false, i.traceArrayExtraction(506, "could not extract array interpretation: ", h, term)
 			}
 		}
 		if err = i.normalizeArrayRow(f.row); err != nil {
@@ -104,12 +113,18 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 		f.publishRow()
 	}
 	fallback, err := graph.Else()
-	if err != nil || fallback.IsNull() {
+	if err != nil {
 		return f, false, err
 	}
+	if fallback.IsNull() {
+		return f, false, i.traceArrayExtraction(515, "no else case ", h)
+	}
 	ground, err := i.manager.IsGround(fallback)
-	if err != nil || !ground {
+	if err != nil {
 		return f, false, err
+	}
+	if !ground {
+		return f, false, i.traceArrayExtraction(519, "non-ground else case ", h, fallback)
 	}
 	if err = i.manager.SetRef(f.elseCase, fallback); err != nil {
 		return f, false, err
@@ -132,7 +147,11 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 			return f, false, err
 		}
 	}
-	return f, true, nil
+	fallback, err = i.manager.RefGet(f.elseCase)
+	if err == nil {
+		err = i.traceArrayExtraction(526, "else case: ", fallback)
+	}
+	return f, err == nil, err
 }
 
 func (i *ModelImplicant) evaluateRef(h ast.ASTHandle) (ast.ASTRef, error) {
