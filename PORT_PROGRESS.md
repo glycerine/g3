@@ -16,6 +16,8 @@ Sparse singleton select fallback: added coverage for the source's one-column cas
 
 Checked short-suite repair (2026-11-01): moved the incomplete 2019 SAT search snapshot from `attic/sat_prob` to Go's ignored `attic/_sat_prob` path, preserving the archive while excluding it from package discovery. `go test ./... -tags g3checked -timeout=0 -short` now passes across all discovered packages.
 
+Sparse table header audit: mapped the packed layout/storage invariants, general and full-signature key indexes, table lifecycle, and public table operations to concrete Go implementations and regressions. Explicitly recorded Go-managed collection and storage choices; JSON validation and portcheck pass.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
