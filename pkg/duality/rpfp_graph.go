@@ -34,6 +34,8 @@ type Node struct {
 }
 
 type Edge struct {
+	relMap   map[ast.ASTHandle]int
+	varMap   map[ast.ASTHandle]ast.ASTRef
 	F        *Transformer
 	Parent   *Node
 	Children []*Node
@@ -247,6 +249,9 @@ func (g *RPFP) DeleteEdge(edge *Edge) error {
 	}
 	if edge == nil || edge.Owner != g || edge.closed {
 		return ErrWrapperOwner
+	}
+	if err := edge.clearMaps(); err != nil {
+		return err
 	}
 	if err := edge.F.Close(); err != nil {
 		return err
