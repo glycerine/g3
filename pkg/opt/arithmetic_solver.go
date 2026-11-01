@@ -72,13 +72,15 @@ func (r *ArithmeticResult) Close() error {
 // owns a dedicated SMT backend, as native optimization does, so temporary
 // blockers cannot mutate the command context's ordinary incremental solver.
 type ArithmeticSolver struct {
-	backend        *smtcore.SMTSolver
-	manager        *ast.ASTManager
-	config         smtcore.SMTSolverConfig
-	objectives     []arithmeticObjective
-	filter         *tactic.FilterModelConverter
-	satCoreEnabled bool
-	prepared       bool
+	backend             *smtcore.SMTSolver
+	manager             *ast.ASTManager
+	config              smtcore.SMTSolverConfig
+	objectives          []arithmeticObjective
+	filter              *tactic.FilterModelConverter
+	preprocessor        tactic.ModelConverter
+	preprocessorCleanup bool
+	satCoreEnabled      bool
+	prepared            bool
 }
 
 type arithmeticObjective struct {
@@ -124,6 +126,33 @@ func (s *ArithmeticSolver) SetSATCoreEnabled(enabled bool) error {
 		return ast.ErrASTHandle
 	}
 	s.satCoreEnabled = enabled
+	return nil
+}
+
+// SetPreprocessingConverter attaches the converter produced while optimizing
+// normalized formulas so returned models are translated back to source terms.
+func (s *ArithmeticSolver) SetPreprocessingConverter(converter tactic.ModelConverter) error {
+	if s == nil || s.backend == nil {
+		return ast.ErrASTHandle
+	}
+	if converter != nil {
+		if err := converter.IncRef(); err != nil {
+			return err
+		}
+	}
+	if s.preprocessor != nil {
+		consumed, err := s.preprocessor.DecRefConsumed()
+		if err != nil || !consumed {
+			if converter != nil {
+				_ = converter.DecRef()
+			}
+			if err != nil {
+				return err
+			}
+			return tactic.ErrModelConverterOwner
+		}
+	}
+	s.preprocessor = converter
 	return nil
 }
 
@@ -177,6 +206,12 @@ func (s *ArithmeticSolver) AddObjective(term ast.ASTHandle, maximize bool) error
 // normalized by complementing the term and retaining the constant offset,
 // exactly as opt_context::is_maxsat does before invoking MaxSMT.
 func (s *ArithmeticSolver) AddSoftObjective(terms []ast.ASTHandle, weights []*big.Rat) (resultErr error) {
+	return s.AddSoftObjectiveWithOffset(terms, weights, nil)
+}
+
+// AddSoftObjectiveWithOffset registers a source MaxSMT group after formula
+// simplification has folded weighted Boolean constants into an exact offset.
+func (s *ArithmeticSolver) AddSoftObjectiveWithOffset(terms []ast.ASTHandle, weights []*big.Rat, sourceOffset *big.Rat) (resultErr error) {
 	if s == nil || s.backend == nil || len(terms) != len(weights) {
 		return ast.ErrASTHandle
 	}
@@ -193,6 +228,9 @@ func (s *ArithmeticSolver) AddSoftObjective(terms []ast.ASTHandle, weights []*bi
 	refs, normalizedWeights, offset, err := set.Release()
 	if err != nil {
 		return err
+	}
+	if sourceOffset != nil {
+		offset.Add(&offset, sourceOffset)
 	}
 	objective := arithmeticObjective{soft: true, softTerms: refs, softWeights: normalizedWeights, softOffset: offset}
 	s.objectives = append(s.objectives, objective)
@@ -820,6 +858,23 @@ func (s *ArithmeticSolver) Close() error {
 		err = s.filter.Close()
 		if err == nil {
 			s.filter = nil
+		}
+	}
+	if s.preprocessor != nil {
+		var consumed bool
+		var closeErr error
+		if s.preprocessorCleanup {
+			closeErr = s.preprocessor.Close()
+		} else {
+			consumed, closeErr = s.preprocessor.DecRefConsumed()
+			if consumed && closeErr != nil {
+				s.preprocessorCleanup = true
+			}
+		}
+		err = errors.Join(err, closeErr)
+		if closeErr == nil && (consumed || s.preprocessorCleanup) {
+			s.preprocessor = nil
+			s.preprocessorCleanup = false
 		}
 	}
 	err = errors.Join(err, s.backend.Close())

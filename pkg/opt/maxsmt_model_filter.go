@@ -10,7 +10,10 @@ import (
 )
 
 func (s *ArithmeticSolver) filterResultModel(result *ArithmeticResult) (resultErr error) {
-	if result == nil || result.Model == nil || s.filter == nil || result.ModelFiltered {
+	if result == nil || result.Model == nil || result.ModelFiltered {
+		return nil
+	}
+	if s.filter == nil && s.preprocessor == nil {
 		return nil
 	}
 	var ref tactic.ModelRef
@@ -18,8 +21,15 @@ func (s *ArithmeticSolver) filterResultModel(result *ArithmeticResult) (resultEr
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, ref.Close()) }()
-	if err := s.filter.ApplyUnindexed(&ref); err != nil {
-		return err
+	if s.preprocessor != nil {
+		if err := s.preprocessor.ApplyModel(&ref, 0); err != nil {
+			return err
+		}
+	}
+	if s.filter != nil {
+		if err := s.filter.ApplyUnindexed(&ref); err != nil {
+			return err
+		}
 	}
 	filtered, err := ref.Get()
 	if err != nil || filtered == nil {

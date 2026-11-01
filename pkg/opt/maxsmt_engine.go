@@ -14,6 +14,12 @@ type maxSMTEngine interface {
 }
 
 func newMaxSMTEngine(s *ArithmeticSolver, objective *arithmeticObjective, index int) (maxSMTEngine, error) {
+	// A formula normalization pass can reduce every soft term to a Boolean
+	// constant. The weighted set then contains only its exact offset, so no
+	// MaxSMT search engine should be constructed.
+	if objective == nil || len(objective.softTerms) == 0 {
+		return nil, nil
+	}
 	config, err := loadMaxSMTConfig(s)
 	if err != nil {
 		return nil, err

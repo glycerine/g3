@@ -15,28 +15,76 @@ import (
 
 func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continuation bool, priority string, paretoContinuation, boxContinuation bool) (optimized *opt.ArithmeticResult, resultErr error) {
 	original := c.objectives
-	source := opt.DecodedFormulaSet{Objectives: make([]opt.DecodedFormulaObjective, len(original))}
-	for i, objective := range original {
-		kind := opt.FormulaMinimize
-		if objective.maximize {
-			kind = opt.FormulaMaximize
+	originalHardOverride := c.optimizationHardOverride
+	originalHardOverrideActive := c.optimizationHardOverrideActive
+	originalPreprocessor := c.optimizationPreprocessor
+	// Lexicographic execution owns one ArithmeticSolver and can carry the
+	// tactic converter through its model publication path. Pareto and box
+	// maintain separate long-lived model paths and keep their existing input
+	// preparation until those paths accept the same converter contract.
+	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
+	for i := range original {
+		if original[i].soft && len(original[i].softTerms) == 0 {
+			useSimplifier = false
+			break
 		}
-		source.Objectives[i] = opt.DecodedFormulaObjective{Kind: kind, Term: objective.expression, OriginalTerm: objective.expression}
-		if objective.soft {
-			source.Objectives[i].Kind = opt.FormulaMaxSAT
-			for _, term := range objective.softTerms {
-				source.Objectives[i].SoftTerms = append(source.Objectives[i].SoftTerms, term.expression)
-				source.Objectives[i].Weights = append(source.Objectives[i].Weights, *new(big.Rat).Set(&term.weight))
+	}
+	var formulaSet *opt.ObjectiveFormulaSet
+	var simplified *optimizationSimplifiedFormulas
+	var source opt.DecodedFormulaSet
+	var err error
+	if useSimplifier {
+		formulaSet, err = c.EncodeOptimizationFormulas()
+		if err != nil {
+			return nil, err
+		}
+		simplified, err = c.simplifyOptimizationFormulas(formulaSet)
+		if err != nil {
+			return nil, errors.Join(err, formulaSet.Close())
+		}
+		source = simplified.decoded
+		if len(source.Objectives) != len(original) {
+			return nil, errors.Join(ast.ErrASTDomain, simplified.Close(), formulaSet.Close())
+		}
+	} else {
+		source.Objectives = make([]opt.DecodedFormulaObjective, len(original))
+		for i, objective := range original {
+			kind := opt.FormulaMinimize
+			if objective.maximize {
+				kind = opt.FormulaMaximize
+			}
+			source.Objectives[i] = opt.DecodedFormulaObjective{Kind: kind, Term: objective.expression, OriginalTerm: objective.expression}
+			if objective.soft {
+				source.Objectives[i].Kind = opt.FormulaMaxSAT
+				for _, term := range objective.softTerms {
+					source.Objectives[i].SoftTerms = append(source.Objectives[i].SoftTerms, term.expression)
+					source.Objectives[i].Weights = append(source.Objectives[i].Weights, *new(big.Rat).Set(&term.weight))
+				}
 			}
 		}
 	}
 	decomposer, err := opt.NewObjectiveDecomposer(c.manager, nil)
 	if err != nil {
+		if simplified != nil {
+			err = errors.Join(err, simplified.Close())
+		}
+		if formulaSet != nil {
+			err = errors.Join(err, formulaSet.Close())
+		}
 		return nil, err
 	}
 	defer func() {
 		c.objectives = original
+		c.optimizationHardOverride = originalHardOverride
+		c.optimizationHardOverrideActive = originalHardOverrideActive
+		c.optimizationPreprocessor = originalPreprocessor
 		resultErr = errors.Join(resultErr, decomposer.Close())
+		if simplified != nil {
+			resultErr = errors.Join(resultErr, simplified.Close())
+		}
+		if formulaSet != nil {
+			resultErr = errors.Join(resultErr, formulaSet.Close())
+		}
 		if resultErr != nil && optimized != nil {
 			resultErr = errors.Join(resultErr, optimized.Close())
 			optimized = nil
@@ -48,6 +96,20 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	}
 	normalized := append([]optimizationObjective(nil), original...)
 	for i, d := range decomposed {
+		if i < len(source.Objectives) {
+			objective := source.Objectives[i]
+			if objective.Kind == opt.FormulaMaxSAT {
+				normalized[i].softTerms = make([]optimizationSoftTerm, len(objective.SoftTerms))
+				for j, term := range objective.SoftTerms {
+					normalized[i].softTerms[j].expression = term
+					normalized[i].softTerms[j].weight.Set(&objective.Weights[j])
+				}
+				normalized[i].softOffset.Set(&objective.Offset)
+			} else {
+				normalized[i].expression = objective.Term
+				normalized[i].maximize = objective.Kind == opt.FormulaMaximize
+			}
+		}
 		if original[i].soft || !d.Converted {
 			continue
 		}
@@ -59,6 +121,11 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 	}
 	c.objectives = normalized
+	if simplified != nil {
+		c.optimizationHardOverride = source.Hard
+		c.optimizationHardOverrideActive = true
+		c.optimizationPreprocessor = simplified.model
+	}
 	if paretoContinuation {
 		optimized, err = c.checkOptimizePareto(assumptions, true)
 	} else if boxContinuation {

@@ -107353,6 +107353,9 @@
         "pkg/tactic/arith/lia2card_sum_test.go",
         "pkg/opt/objective_decomposition_pb.go",
         "pkg/opt/objective_decomposition_pb_test.go",
+    "pkg/cmd_context/optimization_simplify_formulas.go",
+    "pkg/opt/maxsmt_model_filter.go",
+    "pkg/opt/maxsmt_engine.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
@@ -107712,6 +107715,24 @@
           ],
           "tests": [
             "TestParetoQuantifierUnknownInitialAdjustmentAndDirectContinuation"
+          ]
+        },
+        {
+          "name": "normalize/simplify_fmls tactic chain on lexicographic execution, objective-marker decoding, exact soft-constant offsets, and indexed model-converter application (opt_context.cpp:292-306)",
+          "status": "partial",
+          "go_targets": [
+            "pkg/cmd_context/optimization_simplify_formulas.go",
+            "pkg/cmd_context/optimization_normalized_execution.go",
+            "pkg/opt/arithmetic_solver.go",
+            "pkg/opt/maxsmt_model_filter.go",
+            "pkg/opt/maxsmt_engine.go"
+          ],
+          "tests": [
+            "TestSMTLibRunnerScripts",
+            "TestMaxResSearchRespectsHardConstraint",
+            "TestMaxResPrimalDualSearchRespectsHardFormula",
+            "TestMaxResPrimalDualSearchNormalizesNegativeWeight",
+            "TestMaxSMTDuplicateAndNegativeWeightsEndToEnd"
           ]
         },
         {

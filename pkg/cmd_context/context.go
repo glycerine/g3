@@ -18,6 +18,7 @@ import (
 	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/tactic/portfolio"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -46,6 +47,7 @@ type optimizationObjective struct {
 	modelValue  smtcore.SMTArithmeticObjectiveValue
 	softTerms   []optimizationSoftTerm
 	softValue   big.Rat
+	softOffset  big.Rat
 	boundLower  big.Rat
 	boundUpper  big.Rat
 	id          string
@@ -98,6 +100,9 @@ type Context struct {
 	userTactics                      *insdict.Dict[string, string]
 	assertions                       []assertion
 	objectives                       []optimizationObjective
+	optimizationHardOverride         []ast.ASTHandle
+	optimizationHardOverrideActive   bool
+	optimizationPreprocessor         tactic.ModelConverter
 	softObjectiveIndex               map[string]int
 	softObjectiveTrail               []int
 	optimizationBoxNext              int

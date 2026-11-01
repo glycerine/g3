@@ -327,9 +327,22 @@ func (c *Context) newOptimizer(assumptions []ast.ASTHandle) (optimizer *opt.Arit
 			resultErr = errors.Join(resultErr, optimizer.Close())
 		}
 	}()
-	for _, assertion := range c.assertions {
-		if err = optimizer.Assert(assertion.expression); err != nil {
+	if c.optimizationPreprocessor != nil {
+		if err = optimizer.SetPreprocessingConverter(c.optimizationPreprocessor); err != nil {
 			return nil, err
+		}
+	}
+	if c.optimizationHardOverrideActive {
+		for _, formula := range c.optimizationHardOverride {
+			if err = optimizer.Assert(formula); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		for _, assertion := range c.assertions {
+			if err = optimizer.Assert(assertion.expression); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for _, assumption := range assumptions {
@@ -353,7 +366,7 @@ func (c *Context) addOptimizerObjective(optimizer *opt.ArithmeticSolver, index i
 			terms[i] = objective.softTerms[i].expression
 			weights[i] = &objective.softTerms[i].weight
 		}
-		return optimizer.AddSoftObjective(terms, weights)
+		return optimizer.AddSoftObjectiveWithOffset(terms, weights, &objective.softOffset)
 	}
 	if objective.bitVector {
 		return c.addBitVectorObjective(optimizer, objective)
