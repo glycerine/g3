@@ -3,6 +3,7 @@ package pdr
 // Source: src/muz/pdr/pdr_util.cpp arith_normalizer and normalize_arithmetic.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -29,10 +30,15 @@ func NormalizeArithmeticRef(manager *ast.ASTManager, formula ast.ASTRef) error {
 // NormalizeArithmetic divides both sides of a real comparison by the smallest
 // absolute monomial coefficient, following the source's zero-reset rule.
 // The returned AST is borrowed from the manager.
-func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (ast.ASTHandle, error) {
+func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (result ast.ASTHandle, resultErr error) {
 	if manager == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
+	scope, err := ast.NewScopedNoProof(manager)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
 	return normalizeArithmeticTree(manager, formula, make(map[ast.ASTHandle]ast.ASTHandle))
 }
 

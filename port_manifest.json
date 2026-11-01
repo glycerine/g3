@@ -90697,7 +90697,7 @@
         {
           "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
           "status": "reference_only",
-          "reason": "ceil_log2 has no source caller and pp_cube is used only by the dormant farkas_learner::test self-test; the normalizer's broader generic traversal beyond the retained driver's root comparisons remains partial"
+          "reason": "ceil_log2 has no source caller and pp_cube is used only by the dormant farkas_learner::test self-test; normalization now traverses application children and quantifier bodies, preserves annotations and restores scoped proof mode, while exceptional intermediate AST ownership remains under audit"
         }
       ],
       "ownership": [

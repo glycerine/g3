@@ -135,6 +135,18 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 		t.Fatal("owning normalizer did not publish the rewritten formula")
 	}
 	closureMust(t, manager.DelRef(&owned))
+	closureMust(t, manager.ToggleProofMode(ast.ASTProofEnabled))
+	_, err = NormalizeArithmetic(manager, formula)
+	closureMust(t, err)
+	if mode, err := manager.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("normalization did not restore proof mode", mode, err)
+	}
+	if _, err := NormalizeArithmetic(manager, ast.ASTHandle{}); err == nil {
+		t.Fatal("invalid input was accepted")
+	}
+	if mode, err := manager.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("failed normalization did not restore proof mode", mode, err)
+	}
 }
 
 func mustArithmeticFamily(t *testing.T, manager *ast.ASTManager) ast.FamilyID {
