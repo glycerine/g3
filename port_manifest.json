@@ -106910,6 +106910,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd_context/optimization_resource_bounds_integration_test.go",
         "pkg/cmd_context/optimization_normalized_bounds_test.go",
         "pkg/cmd_context/optimization_soft_bounds_test.go",
         "pkg/cmd_context/optimization_soft_bounds.go",
@@ -106953,6 +106954,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestOptimizationResourceLimitedSoftBoundsEndToEnd",
         "TestInterruptedNormalizedObjectiveBoundsRestoreSourceOrder",
         "TestOptimizationUnknownPublishesSoftSearchBounds",
         "pkg/cmd/g3/optimization_normalization_test.go",
@@ -126711,6 +126713,7 @@
         "pkg/cmd_context/opb_loader_test.go"
       ],
       "tests": [
+        "TestOptimizationFrontendResourceLimitedOPBBounds",
         "TestOPBFrontendOptimizesAndWritesResult",
         "TestWCNFFrontendOptimizesWeightedSoftClauses",
         "TestRunnerDispatchesOPB",
