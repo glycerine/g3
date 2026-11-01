@@ -68,6 +68,67 @@ func TestBoundRelationStrictCycleThroughMergedColumn(t *testing.T) {
 	}
 }
 
+func TestBoundRelationStrictCyclesAgainstGraphOracle(t *testing.T) {
+	const n = 3
+	// Each directed edge is absent, weak, or strict. Exhausting all 3^6
+	// simple graphs checks transitive propagation and strict-cycle detection.
+	edges := make([][2]int, 0, n*(n-1))
+	for from := 0; from < n; from++ {
+		for to := 0; to < n; to++ {
+			if from != to {
+				edges = append(edges, [2]int{from, to})
+			}
+		}
+	}
+	configs := 1
+	for range edges {
+		configs *= 3
+	}
+	for config := 0; config < configs; config++ {
+		state := config
+		closure := [n][n]uint8{}
+		r := NewBoundRelation(n, false)
+		for _, edge := range edges {
+			kind := state % 3
+			state /= 3
+			if kind == 0 {
+				continue
+			}
+			closure[edge[0]][edge[1]] = uint8(kind)
+			var err error
+			if kind == 1 {
+				err = r.AddLessEqual(uint32(edge[0]), uint32(edge[1]))
+			} else {
+				err = r.AddLess(uint32(edge[0]), uint32(edge[1]))
+			}
+			astTestMust(t, err)
+		}
+		for via := 0; via < n; via++ {
+			for from := 0; from < n; from++ {
+				for to := 0; to < n; to++ {
+					if closure[from][via] == 0 || closure[via][to] == 0 {
+						continue
+					}
+					path := closure[from][via]
+					if closure[via][to] > path {
+						path = closure[via][to]
+					}
+					if path > closure[from][to] {
+						closure[from][to] = path
+					}
+				}
+			}
+		}
+		wantEmpty := false
+		for i := 0; i < n; i++ {
+			wantEmpty = wantEmpty || closure[i][i] == 2
+		}
+		if r.Empty() != wantEmpty {
+			t.Fatalf("config %d: empty=%t want %t", config, r.Empty(), wantEmpty)
+		}
+	}
+}
+
 func TestIntervalBoundProductJoinCopiesRightBoundIndicesUnchanged(t *testing.T) {
 	left, right := NewIntervalBoundProduct(1, false), NewIntervalBoundProduct(2, false)
 	astTestMust(t, right.bound.AddLess(0, 1))

@@ -91360,6 +91360,7 @@
         "TestBoundRelationOrderPropagationAndCycles",
         "TestBoundRelationEqualityMatchesSourceRepresentativeCheck",
         "TestBoundRelationStrictCycleThroughMergedColumn",
+        "TestBoundRelationStrictCyclesAgainstGraphOracle",
         "TestIntervalBoundProductIdenticalColumnsWithWeakOrder",
         "TestIntervalBoundProductJoinCopiesRightBoundIndicesUnchanged",
         "TestBoundRelationUnionInterval",
