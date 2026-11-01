@@ -1,3 +1,5 @@
+The Ackermann bit-vector tactic now translates with target-owned services and its constructor parameter snapshot. Tests cover allocation failures, SAT/UNSAT after source closure, generated congruence constraints and reconstructed models.
+
 The quantified UFBV strategy now translates its rewriter leaf with target-owned services, completing translation of the composed strategy. Constructor and translation failure sweeps and SAT/UNSAT model tests cover target use after source closure.
 
 Macro-finder and quasi-macro tactics now translate with independent target services and parameter snapshots, including the registered ufbv-rewriter alias. Tests cover both source kinds, allocation failures and translated SAT/UNSAT model behavior after source closure.

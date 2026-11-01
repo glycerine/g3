@@ -3148,6 +3148,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/ackermannization/context_translation_test.go",
+        "pkg/ackermannization/context_translation.go",
         "pkg/ackermannization/tactic.go",
         "pkg/ackermannization/eager.go",
         "pkg/ackermannization/trace.go",
@@ -3167,6 +3169,7 @@
         "pkg/cmd/g3/test_vectors/ackermann_usort_models.smt2"
       ],
       "tests": [
+        "TestAckermannContextTranslationUsesConstructorSnapshot",
         "TestAckermannizationExactGoalsCPP",
         "TestAckermannBoundProbeCPP",
         "TestAckermannModelCompletionAndDuplicateEntries",
@@ -7814,6 +7817,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateAckermannAfterSourceClose",
         "TestAPITacticSolverTranslateUFBVAfterSourceClose",
         "TestAPITacticSolverTranslateMacroTacticsAfterSourceClose",
         "TestAPITacticSolverTranslateFPA2BVAfterSourceClose",

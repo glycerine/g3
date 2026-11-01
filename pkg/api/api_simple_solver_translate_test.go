@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("ackermannize_bv")
+	simplify, err := source.Tactic("qfbv-sls")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1506,6 +1506,86 @@ func TestAPITacticSolverTranslateUFBVAfterSourceClose(t *testing.T) {
 				t.Fatal("translated model violates the original UFBV assertion")
 			}
 			astTestMust(t, manager.DelRef(&value))
+		})
+	}
+}
+
+func TestAPITacticSolverTranslateAckermannAfterSourceClose(t *testing.T) {
+	for _, test := range []struct {
+		name, value string
+		want        lbool.LBool
+	}{{"sat", "#b011", lbool.True}, {"unsat", "#b100", lbool.False}} {
+		t.Run(test.name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			astTestMust(t, source.SetLogic("QF_UFBV"))
+			transform, err := source.Tactic("ackermannize_bv")
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			combined, err := transform.AndThen(smt)
+			astTestMust(t, err)
+			solver, err := source.NewSolverFromTactic(combined)
+			astTestMust(t, err)
+			for _, owner := range []*APITactic{combined, smt, transform} {
+				astTestMust(t, owner.Close())
+			}
+			script := `(declare-const x (_ BitVec 3)) (declare-const y (_ BitVec 3)) (declare-fun f ((_ BitVec 3)) (_ BitVec 3)) (assert (= x y)) (assert (= (f x) #b011)) (assert (= (f y) ` + test.value + `))`
+			astTestMust(t, solver.LoadSMT2String(script))
+			translated, err := solver.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, solver.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != test.want {
+				t.Fatal("translated Ackermann solver", status, "want", test.want)
+			}
+			stats, err := translated.Statistics()
+			astTestMust(t, err)
+			size, err := stats.Size()
+			astTestMust(t, err)
+			found := false
+			for i := uint32(0); i < size; i++ {
+				key, err := stats.Key(i)
+				astTestMust(t, err)
+				if key == "ackr-constraints" {
+					count, err := stats.DoubleValue(i)
+					astTestMust(t, err)
+					found = count > 0
+				}
+			}
+			astTestMust(t, stats.Close())
+			if !found {
+				t.Fatal("translated tactic did not generate Ackermann constraints")
+			}
+			if status != lbool.True {
+				return
+			}
+			model, err := translated.Model()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, model.Close()) }()
+			manager, err := target.Manager()
+			astTestMust(t, err)
+			assertions, err := translated.Assertions()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, manager, assertions)
+			for _, ref := range assertions {
+				formula, err := manager.RefGet(ref)
+				astTestMust(t, err)
+				value, err := model.Evaluate(formula, true)
+				astTestMust(t, err)
+				actual, err := manager.RefGet(value)
+				astTestMust(t, err)
+				if !manager.IsTrue(actual) {
+					t.Fatal("translated model violates original Ackermann assertion")
+				}
+				astTestMust(t, manager.DelRef(&value))
+			}
 		})
 	}
 }
