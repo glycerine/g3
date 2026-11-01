@@ -47,6 +47,12 @@ func (t *Transformer) substituteParams(source *Transformer) (out ast.ASTRef, res
 	if !changed {
 		return m.NewRef(root)
 	}
+	return substituteExpression(t.context, root, memo)
+}
+
+// substituteExpression follows source SubstRec without shifting bound variables.
+func substituteExpression(context *Context, root ast.ASTHandle, memo map[ast.ASTHandle]ast.ASTHandle) (out ast.ASTRef, resultErr error) {
+	m := context.manager
 	var pins []ast.ASTRef
 	defer func() {
 		for i := len(pins) - 1; i >= 0; i-- {
