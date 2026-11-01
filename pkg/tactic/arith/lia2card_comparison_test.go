@@ -19,7 +19,7 @@ func TestLIA2CardComparisonMatchesArithmeticTruthTables(t *testing.T) {
 	left := fixDLApp(t, m, 6, twox, choice)
 	right := fixDLApp(t, m, 6, y, n("1"))
 	for _, tc := range []struct{ equality, compile bool }{{false, false}, {true, false}, {true, true}} {
-		converted, ok, err := lia2cardComparison(m, left, right, map[ast.ASTHandle]bool{x: true, y: true}, tc.equality, tc.compile)
+		converted, ok, err := lia2cardComparison(m, left, right, map[ast.ASTHandle]bool{x: true, y: true}, tc.equality, tc.compile, nil)
 		equationMust(t, err)
 		if !ok {
 			t.Fatal("supported comparison rejected", tc)
@@ -79,7 +79,7 @@ func TestLIA2CardComparisonTrivialAndUnsupported(t *testing.T) {
 	two := fixDLNumber(t, m, true, "2")
 	x := fixDLConst(t, m, true, "unbounded-comparison-x")
 	for _, tc := range []struct{ equality, compile, want bool }{{false, false, true}, {true, false, false}, {true, true, false}} {
-		ref, ok, err := lia2cardComparison(m, one, two, nil, tc.equality, tc.compile)
+		ref, ok, err := lia2cardComparison(m, one, two, nil, tc.equality, tc.compile, nil)
 		equationMust(t, err)
 		if !ok {
 			t.Fatal("constant comparison rejected")
@@ -91,7 +91,7 @@ func TestLIA2CardComparisonTrivialAndUnsupported(t *testing.T) {
 		}
 		equationMust(t, m.DelRef(&ref))
 	}
-	ref, ok, err := lia2cardComparison(m, x, one, nil, false, false)
+	ref, ok, err := lia2cardComparison(m, x, one, nil, false, false, nil)
 	equationMust(t, err)
 	if ok || ref != (ast.ASTRef{}) {
 		t.Fatal("unbounded variable accepted")

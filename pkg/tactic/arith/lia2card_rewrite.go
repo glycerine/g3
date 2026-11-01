@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type lia2cardRewriteConfig struct {
@@ -15,6 +16,8 @@ type lia2cardRewriteConfig struct {
 	arithmetic      ast.FamilyID
 	zeroOne         map[ast.ASTHandle]bool
 	compileEquality bool
+	trace           *diagnostic.TraceTags
+	owner           *LIA2CardTactic
 }
 
 func (*lia2cardRewriteConfig) RewritePatterns() bool                 { return false }
@@ -68,13 +71,16 @@ func (c *lia2cardRewriteConfig) ReduceApp(decl ast.ASTHandle, args ast.AppArgume
 		}
 		negate = op == 4 || op == 5
 	}
-	converted, matched, err := lia2cardComparison(m, left, right, c.zeroOne, equality, c.compileEquality)
+	converted, matched, err := lia2cardComparison(m, left, right, c.zeroOne, equality, c.compileEquality, c.trace)
 	if err != nil || !matched {
 		return rewriter.RewriteFailed, err
 	}
 	value, err := m.RefGet(converted)
 	if err == nil && negate {
 		value, err = m.MkNot(value)
+	}
+	if err == nil && c.owner != nil {
+		err = c.owner.traceComparison(decl, args, value)
 	}
 	if err == nil {
 		err = m.SetRef(out, value)

@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func TestLIA2CardGoalPreservesBoundedArithmeticSemantics(t *testing.T) {
@@ -123,6 +124,8 @@ func TestLIA2CardContextTranslationCopiesParameterSnapshot(t *testing.T) {
 	equationMust(t, source.context.SetBoolName(&params, &key, true))
 	strategy, err := NewLIA2CardTactic(m, source.context, source.globals, &params)
 	equationMust(t, err)
+	tags := diagnostic.NewTraceTags()
+	equationMust(t, strategy.BindTrace(tags))
 	equationMust(t, source.context.SetBoolName(&params, &key, false))
 	equationMust(t, source.context.Del(&params))
 	target, targetManager := fixDLFixture(t, false)
@@ -132,7 +135,7 @@ func TestLIA2CardContextTranslationCopiesParameterSnapshot(t *testing.T) {
 		t.Fatal("lia2card translation was not dispatched")
 	}
 	copy := translated.(*LIA2CardTactic)
-	if !copy.compileEquality || copy.context != target.context {
+	if !copy.compileEquality || copy.context != target.context || copy.trace != tags || copy.bounds.trace != tags {
 		t.Fatal("translation lost parameter snapshot or target services")
 	}
 	equationMust(t, strategy.Close())

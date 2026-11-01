@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -22,6 +23,7 @@ type LIA2CardTactic struct {
 	globals                              *uparams.GlobalParamsService
 	params                               uparams.ParamsRef
 	bounds                               *BoundManager
+	trace                                *diagnostic.TraceTags
 	ownerBytes                           uint64
 	refs                                 uint32
 	compileEquality, paramsReady, closed bool
@@ -162,7 +164,12 @@ func (t *LIA2CardTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return NewLIA2CardTactic(m, t.context, t.globals, &t.params)
+	next, err := NewLIA2CardTactic(m, t.context, t.globals, &t.params)
+	if err != nil {
+		return nil, err
+	}
+	next.trace, next.bounds.trace = t.trace, t.trace
+	return next, nil
 }
 
 func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
@@ -221,13 +228,16 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}
 		if hasLower && hasUpper && !strictLower && !strictUpper && lower.Sign() == 0 && upper.Cmp(big.NewRat(1, 1)) == 0 {
 			zeroOne[variable] = true
+			if e = t.traceBound(variable); e != nil {
+				return e
+			}
 		}
 	}
 	arith, err := t.manager.RegisterArithmeticPlugin()
 	if err != nil {
 		return err
 	}
-	walk, err := rewriter.NewTraversal(t.manager, &lia2cardRewriteConfig{manager: t.manager, arithmetic: arith, zeroOne: zeroOne, compileEquality: t.compileEquality})
+	walk, err := rewriter.NewTraversal(t.manager, &lia2cardRewriteConfig{manager: t.manager, arithmetic: arith, zeroOne: zeroOne, compileEquality: t.compileEquality, trace: t.trace, owner: t})
 	if err != nil {
 		if walk != nil {
 			err = errors.Join(err, walk.Close())
@@ -359,5 +369,8 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 	if err = goal.IncDepth(); err != nil {
 		return err
 	}
-	return result.AddGoal(goal)
+	if err = result.AddGoal(goal); err != nil {
+		return err
+	}
+	return t.traceGoal(goal)
 }

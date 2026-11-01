@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // PBSum represents constant + sum(coefficients[i] * indicator(args[i])).
@@ -89,6 +90,10 @@ func lia2cardNumeral(m *ast.ASTManager, h ast.ASTHandle, family ast.FamilyID) (*
 // preserves source traversal order and duplicate weighted conditions. Failed
 // extraction releases all temporary AST owners before returning.
 func ExtractPBSum(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHandle]bool) (*PBSum, bool, error) {
+	return extractPBSumWithTrace(m, term, zeroOne, nil)
+}
+
+func extractPBSumWithTrace(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, tags *diagnostic.TraceTags) (*PBSum, bool, error) {
 	family, err := m.RegisterArithmeticPlugin()
 	if err != nil {
 		return nil, false, err
@@ -252,6 +257,9 @@ func ExtractPBSum(m *ast.ASTManager, term ast.ASTHandle, zeroOne map[ast.ASTHand
 		}
 		r, ok, err := lia2cardNumeral(m, h, family)
 		if err != nil || !ok {
+			if err == nil {
+				err = lia2cardTraceUnsupported(m, tags, h)
+			}
 			return ok, err
 		}
 		truth, err := m.MkTrue()

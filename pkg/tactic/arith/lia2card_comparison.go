@@ -7,12 +7,13 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 )
 
 // lia2cardComparison returns an owning Boolean result for left <= right, or
 // left = right when equality is true. Unsupported sums return matched=false.
-func lia2cardComparison(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, equality, compileEquality bool) (result ast.ASTRef, matched bool, err error) {
+func lia2cardComparison(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne map[ast.ASTHandle]bool, equality, compileEquality bool, tags *diagnostic.TraceTags) (result ast.ASTRef, matched bool, err error) {
 	if m == nil {
 		return result, false, ast.ErrASTHandle
 	}
@@ -31,7 +32,7 @@ func lia2cardComparison(m *ast.ASTManager, left, right ast.ASTHandle, zeroOne ma
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&differenceRef)) }()
-	sum, matched, err := ExtractPBSum(m, difference, zeroOne)
+	sum, matched, err := extractPBSumWithTrace(m, difference, zeroOne, tags)
 	if err != nil || !matched {
 		return result, matched, err
 	}

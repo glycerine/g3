@@ -111,7 +111,13 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 	}()
 	switch t := value.(type) {
 	case *LIA2CardTactic:
-		result, err = NewLIA2CardTactic(m, c, g, &p)
+		next, e := NewLIA2CardTactic(m, c, g, &p)
+		err = e
+		if err == nil {
+			next.trace = t.trace
+			next.bounds.trace = t.trace
+			result = next
+		}
 	case *LIA2PBTactic:
 		next, e := NewLIA2PBTactic(m, c, g, &p, services)
 		err = e
