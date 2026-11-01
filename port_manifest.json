@@ -88537,6 +88537,7 @@
           ],
           "tests": [
             "TestPDRDifferenceAndUTVPIFragmentClassification",
+            "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity",
             "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup",
             "TestSMTSolverArithmeticStateOverrideSelectsBackendAndFreezesAtSetup",
             "TestSMTLibRunnerCPPReference/fixedpoint_pdr_utvpi_fragment.smt2",
@@ -90613,7 +90614,7 @@
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_repeated_disequalities.smt2",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
+      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
       "assertions": [
         {
           "line": 133,
@@ -90683,10 +90684,10 @@
           "tests": ["TestSMTLibRunnerScripts"]
         },
         {
-          "name": "difference-logic and UTVPI expression traversal/classification used by default PDR arithmetic backend selection and Farkas fallback",
+          "name": "difference-logic and UTVPI source postorder expression traversal/classification with ordered formula roots and verbosity-level-1 first-rejection output, used by default PDR arithmetic backend selection and Farkas fallback",
           "status": "ported",
           "go_target": "pkg/muz/pdr/fragment.go",
-          "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
+          "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
         },
         {
           "name": "real comparison coefficient normalization, shared application and quantifier-body traversal, owning reference publication, scoped no-proof mode and cancellation retry exercised by the arithmetic-rewriter source driver",
@@ -90713,7 +90714,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/muz/pdr/pdr_util.go", "pkg/muz/pdr/fragment.go", "pkg/cmd/g3/main_test.go"],
-      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
+      "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"],
       "conditionals": [
         {
           "line": 20,
@@ -90738,7 +90739,7 @@
           "name": "retained difference-logic and UTVPI classifier declarations",
           "status": "ported",
           "go_target": "pkg/muz/pdr/fragment.go",
-          "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
+          "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
         },
         {
           "name": "remaining utility declarations without retained consumers",

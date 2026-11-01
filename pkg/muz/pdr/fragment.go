@@ -402,19 +402,35 @@ func classifyArithmeticFragment(manager *ast.ASTManager, formulas []ast.ASTHandl
 		return false, err
 	}
 	seen := make(map[ast.ASTHandle]bool)
-	stack := append([]ast.ASTHandle(nil), formulas...)
+	type frame struct {
+		expression ast.ASTHandle
+		ready      bool
+	}
+	stack := make([]frame, 0, len(formulas))
+	for i := len(formulas) - 1; i >= 0; i-- {
+		stack = append(stack, frame{expression: formulas[i]})
+	}
 	for len(stack) != 0 {
 		last := len(stack) - 1
-		expression := stack[last]
+		current := stack[last]
 		stack = stack[:last]
+		expression := current.expression
+		if current.ready {
+			accepted, err := classifier.visit(expression)
+			if err != nil {
+				return false, err
+			}
+			if !accepted {
+				return false, classifier.verboseRejection(expression)
+			}
+			continue
+		}
 		if seen[expression] {
 			continue
 		}
 		seen[expression] = true
-		accepted, err := classifier.visit(expression)
-		if err != nil || !accepted {
-			return false, err
-		}
+		stack = append(stack, frame{expression: expression, ready: true})
+		var children []ast.ASTHandle
 		kind, err := manager.GetKind(expression)
 		if err != nil {
 			return false, err
@@ -430,14 +446,14 @@ func classifyArithmeticFragment(manager *ast.ASTManager, formulas []ast.ASTHandl
 				if err != nil {
 					return false, err
 				}
-				stack = append(stack, argument)
+				children = append(children, argument)
 			}
 		case ast.ASTQuantifier:
 			body, err := manager.GetQuantifierBody(expression)
 			if err != nil {
 				return false, err
 			}
-			stack = append(stack, body)
+			children = append(children, body)
 			patterns, err := manager.GetNumPatterns(expression)
 			if err != nil {
 				return false, err
@@ -447,7 +463,7 @@ func classifyArithmeticFragment(manager *ast.ASTManager, formulas []ast.ASTHandl
 				if err != nil {
 					return false, err
 				}
-				stack = append(stack, pattern)
+				children = append(children, pattern)
 			}
 			noPatterns, err := manager.GetNumNoPatterns(expression)
 			if err != nil {
@@ -458,8 +474,11 @@ func classifyArithmeticFragment(manager *ast.ASTManager, formulas []ast.ASTHandl
 				if err != nil {
 					return false, err
 				}
-				stack = append(stack, pattern)
+				children = append(children, pattern)
 			}
+		}
+		for i := len(children) - 1; i >= 0; i-- {
+			stack = append(stack, frame{expression: children[i]})
 		}
 	}
 	return true, nil
