@@ -52847,4 +52847,6 @@ Finite product construction and fact operations (2026-11-01 UTC): audited the co
 
 Finite product mixed interpreted filter closure (2026-11-01 UTC): added a source-derived `ite` case where each finite Boolean row selects a distinct arithmetic comparison, verifying table-value substitution refines the matching interval and removes the rejected row. Existing unsupported `ite` and empty-row collection cases remain covered. All finite product interpreted-filter tests pass normally and with `g3checked`; marked the mixed path ported in both source records.
 
+QF_UFNRA tactic source closure (2026-11-01 UTC): verified the composed preprocessing/solver sequence, owning factory lifecycle, command registration, mixed-arithmetic SMT-LIB behavior and unsat-core integration. Focused tactic, parser and cooperating-solver tests pass normally and with `g3checked`; marked the tactic implementation and declaration ported. Arithmetic purification implementation units remain tracked independently.
+
 Finite product interpreted filters (2026-11-01 UTC): closed the inner-only variable-renaming path and the finite-table-only path, including wrong-column dispatch and ground false behavior. All three focused filter regressions pass normally and with `g3checked`; the genuinely mixed table/interval condition path remains partial and is not promoted.
