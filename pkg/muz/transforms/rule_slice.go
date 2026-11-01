@@ -10,14 +10,15 @@ import (
 )
 
 type RuleSlicePlugin struct {
-	manager    *ast.ASTManager
-	rules      *base.RuleManager
-	priority   uint32
-	sliceable  map[ast.ASTHandle][]bool
-	order      []ast.ASTHandle
-	predicates map[ast.ASTHandle]ast.ASTHandle
-	proofTrace bool
-	closed     bool
+	manager        *ast.ASTManager
+	rules          *base.RuleManager
+	priority       uint32
+	sliceable      map[ast.ASTHandle][]bool
+	order          []ast.ASTHandle
+	predicates     map[ast.ASTHandle]ast.ASTHandle
+	proofTrace     bool
+	proofConverter *SliceProofConverter
+	closed         bool
 }
 
 // SetGenerateProofTrace requests asserted proofs for rewritten rules. These
@@ -513,6 +514,12 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	if p == nil || p.closed || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
+	if p.proofConverter != nil {
+		if err := p.proofConverter.Close(); err != nil {
+			return nil, err
+		}
+		p.proofConverter = nil
+	}
 	count, err := source.Len()
 	if err != nil {
 		return nil, err
@@ -632,12 +639,24 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	if len(p.predicates) == 0 {
 		return nil, nil
 	}
+	var converter *SliceProofConverter
+	if p.proofTrace {
+		converter = newSliceProofConverter(p.manager)
+		defer func() {
+			if converter != nil {
+				resultErr = errors.Join(resultErr, converter.Close())
+			}
+		}()
+	}
 	for index := 0; index < count; index++ {
 		rule, getErr := source.Rule(index)
 		if getErr != nil {
 			return nil, getErr
 		}
 		updated, updateErr := p.updateRule(rule)
+		if updateErr == nil && converter != nil {
+			updateErr = converter.insert(rule, updated)
+		}
 		updateErr = errors.Join(updateErr, rule.Close())
 		if updateErr == nil {
 			updateErr = result.Add(updated)
@@ -647,8 +666,20 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 			return nil, updateErr
 		}
 	}
+	p.proofConverter = converter
+	converter = nil
 	keep = true
 	return result, nil
+}
+
+// TakeProofConverter transfers the mapping produced by the latest transform.
+func (p *RuleSlicePlugin) TakeProofConverter() *SliceProofConverter {
+	if p == nil || p.closed {
+		return nil
+	}
+	converter := p.proofConverter
+	p.proofConverter = nil
+	return converter
 }
 
 func (p *RuleSlicePlugin) DerivedPredicate(original ast.ASTHandle) (ast.ASTHandle, bool) {
@@ -680,11 +711,16 @@ func (p *RuleSlicePlugin) Close() error {
 	if p == nil || p.closed {
 		return base.ErrRuleTransformerOwner
 	}
+	var result error
+	if p.proofConverter != nil {
+		result = p.proofConverter.Close()
+		p.proofConverter = nil
+	}
 	p.closed = true
 	p.manager = nil
 	p.rules = nil
 	p.sliceable = nil
 	p.order = nil
 	p.predicates = nil
-	return nil
+	return result
 }

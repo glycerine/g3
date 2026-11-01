@@ -406,12 +406,24 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 			coneMust(t, err)
 			goalApp, err := f.manager.MkApp(goal, nil)
 			coneMust(t, err)
+			originalProofs := make(map[ast.ASTHandle]ast.ASTHandle)
 			for _, spec := range []struct {
 				head  ast.ASTHandle
 				tails []ast.ASTHandle
 			}{{pApp, nil}, {goalApp, []ast.ASTHandle{pApp}}} {
 				rule, e := f.rules.NewRule(spec.head, spec.tails, nil, "")
 				coneMust(t, e)
+				if enabled {
+					coneMust(t, f.rules.MkRuleAssertedProof(rule))
+					proof, found, e := rule.Proof()
+					coneMust(t, e)
+					if !found {
+						t.Fatal("original proof missing")
+					}
+					decl, e := rule.HeadDeclaration()
+					coneMust(t, e)
+					originalProofs[decl] = proof
+				}
 				coneMust(t, f.set.Add(rule))
 				coneMust(t, rule.Close())
 			}
@@ -424,12 +436,28 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 			plugin := transforms.NewRuleSlicePlugin(f.manager, f.rules, 1)
 			plugin.SetGenerateProofTrace(enabled)
 			transformer := base.NewRuleTransformer()
-			defer func() { coneMust(t, transformer.Close()) }()
 			coneMust(t, transformer.Register(plugin))
 			modified, err := transformer.Apply(f.set)
 			coneMust(t, err)
 			if !modified {
 				t.Fatal("expected sliced rules")
+			}
+			derived, found := plugin.DerivedPredicate(p)
+			if !found {
+				t.Fatal("missing sliced predicate")
+			}
+			converter := plugin.TakeProofConverter()
+			if (converter != nil) != enabled {
+				t.Fatal("unexpected proof converter")
+			}
+			coneMust(t, transformer.Close())
+			if converter != nil {
+				defer func() { coneMust(t, converter.Close()) }()
+				_, matched, e := converter.ConvertAsserted(originalProofs[p])
+				coneMust(t, e)
+				if matched {
+					t.Fatal("unmapped original proof unexpectedly matched")
+				}
 			}
 			count, err := f.set.Len()
 			coneMust(t, err)
@@ -445,6 +473,23 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 					t.Fatalf("proof present = %v, want %v", found, enabled)
 				}
 				if found {
+					converted, matched, e := converter.ConvertAsserted(proof)
+					coneMust(t, e)
+					if !matched {
+						t.Fatal("sliced rule was not mapped")
+					}
+					decl, e := rule.HeadDeclaration()
+					coneMust(t, e)
+					if decl == derived {
+						decl = p
+					}
+					want := originalProofs[decl]
+					got, e := f.manager.RefGet(converted)
+					coneMust(t, e)
+					if got != want {
+						t.Fatal("converter returned the wrong original proof")
+					}
+					coneMust(t, f.manager.DelRef(&converted))
 					formula, e := rule.ToFormula()
 					coneMust(t, e)
 					fact, e := f.manager.RefGet(formula)

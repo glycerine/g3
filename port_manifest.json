@@ -102674,6 +102674,7 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_slice.go",
+        "pkg/muz/transforms/rule_slice_proof.go",
         "pkg/muz/transforms/rule_slice_test.go",
         "pkg/muz/fp/horn_preprocess_proof_test.go",
         "pkg/muz/fp/pdr_engine.go",
@@ -102780,7 +102781,11 @@
         },
         {
           "name": "slice proof conversion",
-          "status": "unported"
+          "status": "partial",
+          "go_target": "pkg/muz/transforms/rule_slice_proof.go",
+          "tests": [
+            "TestRuleSliceGeneratesProofsForRewrittenRules"
+          ]
         }
       ],
       "ownership": [
