@@ -104,6 +104,10 @@ func TestRPFPNativeSolverScopesAndConstraintReplay(t *testing.T) {
 }
 
 func dualityNativeSolverFixture(t *testing.T) (*Context, *ast.ASTManager, solver.Solver) {
+	ctx, m, s, _ := dualityNativeSolverServicesFixture(t)
+	return ctx, m, s
+}
+func dualityNativeSolverServicesFixture(t *testing.T) (*Context, *ast.ASTManager, solver.Solver, *uparams.GlobalParamsService) {
 	t.Helper()
 	ctx, config, m := dualityContextFixture(t)
 	must := func(err error) {
@@ -112,6 +116,7 @@ func dualityNativeSolverFixture(t *testing.T) (*Context, *ast.ASTManager, solver
 			t.Fatal(err)
 		}
 	}
+	must(m.ToggleProofMode(ast.ASTProofEnabled))
 	must(m.RegisterDeclarationPlugins())
 	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
 	must(err)
@@ -123,9 +128,9 @@ func dualityNativeSolverFixture(t *testing.T) (*Context, *ast.ASTManager, solver
 	factory, err := smtcore.NewSMTSolverFactory(smtcore.SMTSolverConfig{Params: config.params, Globals: globals})
 	must(err)
 	t.Cleanup(func() { must(factory.Close()) })
-	s, err := factory.New(m, nil, false, true, true, "")
+	s, err := factory.New(m, nil, true, true, true, "")
 	must(err)
 	t.Cleanup(func() { must(s.Close()) })
 
-	return ctx, m, s
+	return ctx, m, s, globals
 }
