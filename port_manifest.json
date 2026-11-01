@@ -151020,6 +151020,9 @@
       "status": "partial",
       "go_targets": [
         "pkg/smtcore/unit_subsumption_tactic.go",
+        "pkg/smtcore/unit_subsumption_trace.go",
+        "pkg/smtcore/unit_subsumption_trace_test.go",
+        "pkg/smtcore/unit_subsumption_tactic_proof_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
         "pkg/api/api_unit_subsumption_tactic_test.go",
@@ -151034,6 +151037,8 @@
         "TestAPICoreTacticSolversCrossContextTranslation",
         "TestSMTLibRunnerScripts",
         "TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder",
+        "TestUnitSubsumptionSourceTrace",
+        "TestUnitSubsumptionTacticPreservesSurvivingProofAndDependency",
         "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"
       ],
       "assertions": [
@@ -151045,6 +151050,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "source removal and final-goal trace records", "status": "ported", "go_targets": ["pkg/smtcore/unit_subsumption_trace.go", "pkg/smtcore/unit_subsumption_trace_test.go"], "tests": ["TestUnitSubsumptionSourceTrace"]},
         {
           "name": "clause proxy creation, contextual subsumption checks and goal reconstruction",
           "status": "ported",
@@ -151070,7 +151076,7 @@
         "UnitSubsumptionKeep owns one temporary SMT solver and borrows input formulas; fresh proxy nodes are manager-owned and the returned formula handles remain borrowed."
       ],
       "deviations": [
-        "The Spacer consumer uses the typed helper; the named tactic owns a persistent solver and reusable proxies. Proof/core behavior, diagnostic fidelity and exceptional construction and cleanup still need a full audit."
+        "The Spacer consumer uses the typed helper; the named tactic owns a persistent solver and reusable proxies. Proof/core behavior and exceptional construction and cleanup still need a full audit."
       ]
     },
     {

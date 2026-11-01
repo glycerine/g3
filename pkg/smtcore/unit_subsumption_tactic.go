@@ -208,6 +208,11 @@ func (t *UnitSubsumptionTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) 
 		if err = t.solver.Pop(2); err != nil {
 			return err
 		}
+		if deleted[i] {
+			if err = t.traceRemoval(i); err != nil {
+				return err
+			}
+		}
 	}
 	truth, err := t.manager.MkTrue()
 	if err != nil {
@@ -226,7 +231,10 @@ func (t *UnitSubsumptionTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) 
 	if err = out.AddGoal(g); err != nil {
 		return err
 	}
-	return t.solver.Pop(2)
+	if err = t.solver.Pop(2); err != nil {
+		return err
+	}
+	return t.traceResult(g)
 }
 func (t *UnitSubsumptionTactic) UpdateParams(p *uparams.ParamsRef) error {
 	if e := t.open(); e != nil {
