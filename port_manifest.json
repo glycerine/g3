@@ -194102,7 +194102,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_owner.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_core_tactic_test.go"],
-      "tests": ["TestSLSCoreCancellationUsesSourceException", "TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
+      "tests": ["TestSLSCoreParameterUpdateKeepsTrackerSnapshotUntilCleanup", "TestSLSCoreCancellationUsesSourceException", "TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
         {
           "line": 174,
@@ -194123,7 +194123,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "checkpoint raises the source tactic cancellation exception before cooperation", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCancellationUsesSourceException"]}],
+      "methods": [{"name": "engine updates leave tracker parameters unchanged until reconstruction", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreParameterUpdateKeepsTrackerSnapshotUntilCleanup"]}, {"name": "checkpoint raises the source tactic cancellation exception before cooperation", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCancellationUsesSourceException"]}],
       "ownership": [],
       "deviations": []
     },

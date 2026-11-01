@@ -52640,3 +52640,5 @@ Unit-subsumption direct translation: target manager service resolution now works
 SLS cleanup replacement: construct the new search engine before closing the active one, matching the source allocation order. Tests exercise all observed replacement allocation refusals, preserve the old engine and statistics after failure, solve a goal with it, and verify successful cleanup and retry; other SLS source paths remain partial.
 
 SLS cancellation: checkpoints now return the source tactic exception and resource-limit cancellation message instead of a generic search-state error. The core-tactic regression checks cancellation before cooperation, unchanged goal depth, and a successful retry after cleanup.
+
+SLS tracker parameter snapshot: initialize tracker settings once during engine construction, as in the source, rather than reapplying them on every engine parameter update. A regression checks that an updated restart setting takes effect immediately while the tracker UCB setting changes when cleanup constructs the next engine.

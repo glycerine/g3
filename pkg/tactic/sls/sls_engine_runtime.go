@@ -64,6 +64,9 @@ func NewEngine(manager *ast.ASTManager, tracker *Tracker, search *SearchTracker,
 	if err := e.UpdateParams(local); err != nil {
 		return nil, err
 	}
+	if err := e.tracker.UpdateParams(local); err != nil {
+		return nil, err
+	}
 	return e, nil
 }
 
@@ -133,9 +136,6 @@ func (e *Engine) UpdateParams(local *uparams.ParamsRef) (result error) {
 	}
 	if e.walksatRepick && !e.walksat || e.vnsRepick && !e.walksat {
 		return ErrEvaluatorUnsupported
-	}
-	if err = e.tracker.UpdateParams(local); err != nil {
-		return err
 	}
 	e.local = local
 	return nil

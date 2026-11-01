@@ -243,3 +243,43 @@ func TestSLSCoreTacticParamsStatisticsAndReferenceLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSLSCoreParameterUpdateKeepsTrackerSnapshotUntilCleanup(t *testing.T) {
+	_, manager, _, _, context, globals, local, _ := slsTrackerFixture(t)
+	core, err := NewCoreTactic(manager, context, globals, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := core.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	if !core.owner.tracker.ucb {
+		t.Fatal("source tracker default should enable UCB")
+	}
+	updated, err := context.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer context.Del(&updated)
+	ucb, restart := "walksat_ucb", "restart_base"
+	if err = context.SetBoolName(&updated, &ucb, false); err != nil {
+		t.Fatal(err)
+	}
+	if err = context.SetUIntName(&updated, &restart, 17); err != nil {
+		t.Fatal(err)
+	}
+	if err = core.UpdateParams(&updated); err != nil {
+		t.Fatal(err)
+	}
+	if !core.owner.tracker.ucb || core.owner.engine.restartBase != 17 {
+		t.Fatal("source engine update changed the tracker snapshot", core.owner.tracker.ucb, core.owner.engine.restartBase)
+	}
+	if err = core.Cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if core.owner.tracker.ucb || core.owner.engine.restartBase != 17 {
+		t.Fatal("fresh engine did not use the updated parameters", core.owner.tracker.ucb, core.owner.engine.restartBase)
+	}
+}
