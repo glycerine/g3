@@ -19,6 +19,13 @@ func (plan *SparseNegatedJoinPlan) Apply(target, first, second *SparseTable) (Sp
 	}
 	stats.TargetRows, stats.FirstRows, stats.SecondRows = len(targetFacts), len(firstFacts), len(secondFacts)
 	remove := make([]Fact, 0)
+	if sparseNegatedJoinIndexable(plan) {
+		if err = plan.collectIndexedRemovals(targetFacts, first, second, &remove, &stats); err != nil {
+			return stats, err
+		}
+		stats.Removed, err = target.RemoveFacts(remove)
+		return stats, err
+	}
 	for _, targetFact := range targetFacts {
 		matched := false
 		for _, firstFact := range firstFacts {

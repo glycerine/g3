@@ -52974,3 +52974,5 @@ Sparse table generic filters (2026-11-01 UTC): ported the relation manager's fal
 Sparse table interpreted fallback (2026-11-01 UTC): ported the relation manager's default per-row substitution and rewrite path for sparse tables. False results remove rows, symbolic Boolean results remain, and sort/arity mismatches fail before mutation; full relation-package tests pass in normal and `g3checked` builds.
 
 Sparse interpreted filter-and-project (2026-11-01 UTC): ported the default manager composition that clones a sparse table, filters the clone, projects it, and closes the temporary. A regression checks the projected rows and confirms the source rows are unchanged.
+
+Sparse negated-join key indexing (2026-11-01 UTC): ported the source partitioned key lookup for sparse negated joins, probing indexed first and second sources for each target row. Functional-key cases keep the typed fallback; an independent exhaustive oracle checks all source subsets over the two-by-two domain.
