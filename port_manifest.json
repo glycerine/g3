@@ -92802,6 +92802,14 @@
           ]
         },
         {
+          "name": "finite sparse product table-conversion capability query",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/finite_sparse_product_conversion.go",
+          "tests": [
+            "TestFiniteSparseProductTableRelationRoundTrip"
+          ]
+        },
+        {
           "name": "finite sparse product converting joins with inner relations",
           "status": "ported",
           "go_target": "pkg/muz/rel/finite_sparse_product.go",

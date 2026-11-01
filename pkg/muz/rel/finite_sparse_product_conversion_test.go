@@ -30,6 +30,9 @@ func TestFiniteSparseProductTableRelationRoundTrip(t *testing.T) {
 	product, err := NewFiniteSparseProductFromTableRelation(source)
 	astTestMust(t, err)
 	defer func() { astTestMust(t, product.Close()) }()
+	if canConvert, e := product.CanConvertToTableRelation(); e != nil || !canConvert {
+		t.Fatalf("table conversion capability=%v err=%v", canConvert, e)
+	}
 	for _, fact := range [][]ast.ASTHandle{{zero, one}, {two, zero}} {
 		if found, e := product.ContainsFact(fact); e != nil || !found {
 			t.Fatalf("converted product lost %v: %v (%v)", fact, found, e)
@@ -50,8 +53,15 @@ func TestFiniteSparseProductTableRelationRoundTrip(t *testing.T) {
 	withInner, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, withInner.Close()) }()
+	if canConvert, e := withInner.CanConvertToTableRelation(); e != nil || canConvert {
+		t.Fatalf("inner-column conversion capability=%v err=%v", canConvert, e)
+	}
 	if _, err = withInner.ToTableRelation(); err == nil {
 		t.Fatal("product with inner columns converted to table relation")
+	}
+	astTestMust(t, withInner.Close())
+	if _, err = withInner.CanConvertToTableRelation(); err == nil {
+		t.Fatal("closed product reported conversion capability")
 	}
 }
 

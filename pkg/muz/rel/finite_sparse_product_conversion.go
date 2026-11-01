@@ -6,6 +6,15 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// CanConvertToTableRelation reports whether this product has no inner columns,
+// matching finite_product_relation_plugin::can_convert_to_table_relation.
+func (p *FiniteSparseProduct) CanConvertToTableRelation() (bool, error) {
+	if err := p.open(); err != nil {
+		return false, err
+	}
+	return len(p.innerCols) == 0, nil
+}
+
 // NewFiniteSparseProductFromTableRelation embeds every table row under an
 // empty inner relation, matching the source conversion for empty inner
 // signatures.
@@ -77,7 +86,11 @@ func (p *FiniteSparseProduct) ToTableRelation() (*TableRelation, error) {
 	if err := p.open(); err != nil {
 		return nil, err
 	}
-	if len(p.innerCols) != 0 {
+	canConvert, err := p.CanConvertToTableRelation()
+	if err != nil {
+		return nil, err
+	}
+	if !canConvert {
 		return nil, ErrTableRelation
 	}
 	result, err := NewTableRelation(p.manager, p.sorts)
