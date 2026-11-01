@@ -104,6 +104,24 @@ func TestRuleUnifierModelProofSubstitutionsAndReset(t *testing.T) {
 	if l != r {
 		t.Fatal("variable banks disagree", l, r)
 	}
+	index, err := f.manager.GetVarIndex(l)
+	coneMust(t, err)
+	resolved, renaming, err := u.ResolveRawWithRenaming(f.rules, target, 0, variableSource)
+	coneMust(t, err)
+	if int(index) >= len(renaming) || renaming[index] == (ast.ASTRef{}) {
+		t.Fatal("missing variable renaming", index, renaming)
+	}
+	normalized, err := f.manager.RefGet(renaming[index])
+	coneMust(t, err)
+	if normalized != x {
+		t.Fatal("unifier renaming does not match normalized result", normalized, x)
+	}
+	for i := range renaming {
+		if renaming[i] != (ast.ASTRef{}) {
+			coneMust(t, f.manager.DelRef(&renaming[i]))
+		}
+	}
+	coneMust(t, resolved.Close())
 	coneMust(t, f.manager.DelRef(&left[0]))
 	coneMust(t, f.manager.DelRef(&right[0]))
 	ok, err = u.UnifyRules(target, 0, target)

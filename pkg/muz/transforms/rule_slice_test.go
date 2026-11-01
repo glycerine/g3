@@ -694,15 +694,6 @@ func testRuleSliceNestedHyperResolution(t *testing.T, generalize bool) {
 	defer func() { coneMust(t, m.DelRef(&outerRef)) }()
 	coneMust(t, scope.Close())
 	result, err := converter.Convert(outer)
-	if generalize {
-		if err == nil {
-			if result != (ast.ASTRef{}) {
-				coneMust(t, m.DelRef(&result))
-			}
-			t.Fatal("converter accepted an unproved quantified generalization")
-		}
-		return
-	}
 	coneMust(t, err)
 	defer func() { coneMust(t, m.DelRef(&result)) }()
 	proof, err := m.RefGet(result)

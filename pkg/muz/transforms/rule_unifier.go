@@ -100,9 +100,33 @@ func (u *RuleUnifier) RuleSubstitution(rule *base.Rule, isTarget bool) ([]ast.AS
 // normalizes variables. Unbound-variable processing and interpreted-tail
 // simplification are separate.
 func (u *RuleUnifier) ResolveRaw(rules *base.RuleManager, target *base.Rule, tailIndex int, source *base.Rule) (_ *base.Rule, resultErr error) {
-	if u == nil || u.manager == nil || !u.ready || rules == nil || target == nil || source == nil {
-		return nil, ast.ErrASTHandle
+	rule, renaming, err := u.resolveRaw(rules, target, tailIndex, source, false)
+	if len(renaming) != 0 {
+		err = errors.Join(err, releaseTransformRefs(u.manager, renaming))
 	}
+	return rule, err
+}
+
+// ResolveRawWithRenaming also returns the variable-index compression used
+// when constructing the result. Each nonempty reference belongs to the caller.
+func (u *RuleUnifier) ResolveRawWithRenaming(rules *base.RuleManager, target *base.Rule, tailIndex int, source *base.Rule) (*base.Rule, []ast.ASTRef, error) {
+	return u.resolveRaw(rules, target, tailIndex, source, true)
+}
+
+func (u *RuleUnifier) resolveRaw(rules *base.RuleManager, target *base.Rule, tailIndex int, source *base.Rule, wantRenaming bool) (result *base.Rule, renaming []ast.ASTRef, resultErr error) {
+	if u == nil || u.manager == nil || !u.ready || rules == nil || target == nil || source == nil {
+		return nil, nil, ast.ErrASTHandle
+	}
+	defer func() {
+		if resultErr != nil {
+			if result != nil {
+				resultErr = errors.Join(resultErr, result.Close())
+				result = nil
+			}
+			resultErr = errors.Join(resultErr, releaseTransformRefs(u.manager, renaming))
+			renaming = nil
+		}
+	}()
 	deltas := []uint32{0, u.variables}
 	var references []ast.ASTRef
 	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(u.manager, references)) }()
@@ -119,11 +143,11 @@ func (u *RuleUnifier) ResolveRaw(rules *base.RuleManager, target *base.Rule, tai
 	}
 	targetHead, err := target.Head()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	newHead, err := apply(targetHead, 0)
 	if err != nil {
-		return nil, fmt.Errorf("muz/transforms: apply inline target head: %w", err)
+		return nil, nil, fmt.Errorf("muz/transforms: apply inline target head: %w", err)
 	}
 	var tails []ast.ASTHandle
 	var negatives []bool
@@ -150,28 +174,59 @@ func (u *RuleUnifier) ResolveRaw(rules *base.RuleManager, target *base.Rule, tai
 		return nil
 	}
 	if err = appendRule(target, 0, tailIndex); err != nil {
-		return nil, fmt.Errorf("muz/transforms: apply inline target tail: %w", err)
+		return nil, nil, fmt.Errorf("muz/transforms: apply inline target tail: %w", err)
 	}
 	if err = appendRule(source, 1, -1); err != nil {
-		return nil, fmt.Errorf("muz/transforms: apply inline source tail: %w", err)
+		return nil, nil, fmt.Errorf("muz/transforms: apply inline source tail: %w", err)
 	}
 	tails, negatives, err = base.RemoveDuplicateRuleTails(tails, negatives)
 	if err != nil {
-		return nil, fmt.Errorf("muz/transforms: remove duplicate inline tails: %w", err)
+		return nil, nil, fmt.Errorf("muz/transforms: remove duplicate inline tails: %w", err)
+	}
+	if wantRenaming {
+		used, e := ast.NewASTUsedVars(u.manager)
+		if e != nil {
+			return nil, nil, e
+		}
+		if e = used.Process(newHead); e != nil {
+			return nil, nil, e
+		}
+		for _, tail := range tails {
+			if e = used.Process(tail); e != nil {
+				return nil, nil, e
+			}
+		}
+		renaming = make([]ast.ASTRef, used.MaxFoundVarIndexPlusOne())
+		var next uint32
+		for i := range renaming {
+			sort := used.Contains(uint32(i))
+			if sort.IsNull() {
+				continue
+			}
+			variable, e := u.manager.MkVar(next, sort)
+			if e != nil {
+				return nil, renaming, e
+			}
+			renaming[i], e = u.manager.NewRef(variable)
+			if e != nil {
+				return nil, renaming, e
+			}
+			next++
+		}
 	}
 	targetName, err := target.Name()
 	if err != nil {
-		return nil, err
+		return nil, renaming, err
 	}
 	sourceName, err := source.Name()
 	if err != nil {
-		return nil, err
+		return nil, renaming, err
 	}
 	resolved, err := rules.NewRule(newHead, tails, negatives, targetName+";"+sourceName)
 	if err != nil {
-		return nil, fmt.Errorf("muz/transforms: construct resolved rule: %w", err)
+		return nil, renaming, fmt.Errorf("muz/transforms: construct resolved rule: %w", err)
 	}
-	return resolved, nil
+	return resolved, renaming, nil
 }
 
 func (u *RuleUnifier) Close() error {

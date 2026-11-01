@@ -11,8 +11,8 @@ import (
 )
 
 // SliceProofConverter owns the rule and formula mappings created by slicing.
-// ConvertAsserted handles assertion leaves; Convert also handles resolution
-// nodes whose reconstructed conclusions need no quantified generalization.
+// ConvertAsserted handles assertion leaves; Convert also handles supported
+// hyper-resolution nodes, including quantified conclusions.
 type SliceProofConverter struct {
 	manager   *ast.ASTManager
 	rules     *base.RuleManager

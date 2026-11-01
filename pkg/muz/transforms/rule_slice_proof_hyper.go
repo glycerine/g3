@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
@@ -19,8 +20,8 @@ type slicedProofResult struct {
 // Convert translates asserted leaves and supported hyper-resolution nodes to
 // proofs over original rules. It returns an owned proof. As in the source
 // converter, resolution chooses the first remaining body predicate. Input
-// substitutions, other resolution positions, and nodes that would require
-// quantified generalization are rejected until those conversions are ported.
+// substitutions and other resolution positions are rejected until those
+// conversions are ported.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || c.rules == nil {
 		return result, ast.ErrASTHandle
@@ -208,17 +209,47 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 			}
 		}
 	}
-	rule, err = u.ResolveRaw(c.rules, first, 0, second)
+	var renaming []ast.ASTRef
+	rule, renaming, err = u.ResolveRawWithRenaming(c.rules, first, 0, second)
 	if err != nil {
 		return nil, proof, err
 	}
-	sorts, err := rule.VariableSorts()
-	if err != nil {
-		return rule, proof, err
-	}
-	for _, sort := range sorts {
-		if !sort.IsNull() {
-			return rule, proof, fmt.Errorf("slice proof: resolution requires quantified generalization")
+	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(m, renaming)) }()
+	if len(renaming) != 0 {
+		mapping := make([]ast.ASTHandle, len(renaming))
+		for i, ref := range renaming {
+			if ref != (ast.ASTRef{}) {
+				mapping[i], err = m.RefGet(ref)
+				if err != nil {
+					return rule, proof, err
+				}
+			}
+		}
+		sub, e := rewriter.NewVarSubstitution(m, false)
+		if e != nil {
+			if sub != nil {
+				e = errors.Join(e, sub.Close())
+			}
+			return rule, proof, e
+		}
+		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
+		var rewritten []ast.ASTRef
+		defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(m, rewritten)) }()
+		for i := range substitutions {
+			for j, term := range substitutions[i] {
+				ref, e := m.NewRef(ast.ASTHandle{})
+				if e != nil {
+					return rule, proof, e
+				}
+				rewritten = append(rewritten, ref)
+				if e = sub.Substitute(term, mapping, ref); e != nil {
+					return rule, proof, e
+				}
+				substitutions[i][j], e = m.RefGet(ref)
+				if e != nil {
+					return rule, proof, e
+				}
+			}
 		}
 	}
 	formula, err := rule.ToFormula()

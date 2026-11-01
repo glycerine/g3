@@ -365,7 +365,9 @@ func (p *RuleInlinerPlugin) normalizeResolvedRule(resolved *base.Rule) (_ *base.
 
 func releaseTransformRefs(manager *ast.ASTManager, refs []ast.ASTRef) (result error) {
 	for i := len(refs) - 1; i >= 0; i-- {
-		result = errors.Join(result, manager.DelRef(&refs[i]))
+		if refs[i] != (ast.ASTRef{}) {
+			result = errors.Join(result, manager.DelRef(&refs[i]))
+		}
 	}
 	return result
 }
