@@ -9,7 +9,7 @@ import (
 )
 
 // LocalEdgeChecker owns the cloned RPFP, dedicated solvers and background
-// axiom copies used by cached eager checks. The source graph/factory are borrowed.
+// axiom copies used by cached local inference. The source graph/factory are borrowed.
 type LocalEdgeChecker struct {
 	graph  *RPFP
 	clones *RPFPCloneMap
