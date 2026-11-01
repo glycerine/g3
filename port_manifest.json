@@ -110753,6 +110753,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
         "pkg/qe/quantifier_tactic_array_equations_test.go",
         "pkg/qe/qe_nnf_adapter_mutation_test.go",
@@ -111920,6 +111921,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
         "pkg/qe/quantifier_tactic_array_equations_test.go",
         "pkg/cmd/g3/qe_boolean_integration_test.go",
@@ -111941,6 +111943,7 @@
         "pkg/qe/solver_context_owned_variable_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerQEArrayTwoSelects",
         "TestQuantifierArrayEquationsProjection",
         "TestSMTLibRunnerQEArrayEquations",
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
@@ -114584,6 +114587,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
         "pkg/qe/quantifier_tactic_array_equations_test.go",
         "pkg/qe/quantifier_context_translation.go",
@@ -114611,6 +114615,7 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerQEArrayTwoSelects",
         "TestQuantifierArrayEquationsProjection",
         "TestSMTLibRunnerQEArrayEquations",
         "TestQuantifierContextTranslationCopiesParametersAndOptions",

@@ -101,8 +101,20 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 	if err = context.AddPlugin(plugin); err != nil {
 		return result, false, errors.Join(err, plugin.Close())
 	}
-	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
+	params, err := config.Context.NewValue()
 	if err != nil {
+		return result, false, err
+	}
+	defer func() { err = errors.Join(err, config.Context.Del(&params)) }()
+	key := "expand_select_store"
+	if err = config.Context.SetBoolName(&params, &key, true); err != nil {
+		return result, false, err
+	}
+	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, &params)
+	if err != nil {
+		if rw != nil {
+			err = errors.Join(err, rw.Close())
+		}
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, rw.Close()) }()
@@ -156,8 +168,23 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 		}
 		solved, e := plugin.Solve(conjs, body)
 		e = errors.Join(e, conjs.Close())
-		if e != nil || !solved {
+		if e != nil {
 			return result, false, e
+		}
+		if !solved {
+			projected, done, cause := projectArrayConditional(m, body, context, config)
+			if cause != nil || !done {
+				return result, false, cause
+			}
+			value, cause := m.RefGet(projected)
+			if cause == nil {
+				cause = m.SetRef(formula, value)
+			}
+			cause = errors.Join(cause, m.DelRef(&projected))
+			if cause != nil {
+				return result, false, cause
+			}
+			break
 		}
 		next, found, e := context.CurrentFormula()
 		if e != nil {

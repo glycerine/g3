@@ -41,12 +41,6 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 			fmMust(t, err)
 			result, complete, err := eliminateQuantifierArrayEquations(m, quantifier, f.r.config)
 			fmMust(t, err)
-			if name == "two-selects" {
-				if complete || result != (ast.ASTRef{}) {
-					t.Fatal("unhandled conditional projection reported complete")
-				}
-				return
-			}
 			if !complete {
 				t.Fatal("array equations were not eliminated")
 			}
