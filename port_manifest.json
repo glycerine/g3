@@ -93493,7 +93493,7 @@
         },
         {
           "name": "source formula for interval bounds and equal columns",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation_formula.go",
           "tests": [
             "TestIntervalRelationToFormula",
