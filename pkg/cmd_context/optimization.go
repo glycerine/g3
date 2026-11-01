@@ -513,7 +513,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	}
 	optimized, err = c.runNormalizedOptimization(assumptions, continuation, priority, paretoContinuation, boxContinuation)
 	if err != nil {
-		return lbool.Undef, err
+		return c.handleOptimizationFailure(err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, optimized.Close()) }()
 	completed := optimized.Status == lbool.True

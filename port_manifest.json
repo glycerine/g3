@@ -106954,6 +106954,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestOptimizationResourceLimitDuringMaxResCoreIsUnknown",
         "TestOptimizationResourceLimitedSoftBoundsEndToEnd",
         "TestInterruptedNormalizedObjectiveBoundsRestoreSourceOrder",
         "TestOptimizationUnknownPublishesSoftSearchBounds",
@@ -126713,6 +126714,7 @@
         "pkg/cmd_context/opb_loader_test.go"
       ],
       "tests": [
+        "TestOptimizationFrontendResourceLimitDuringMaxResCore",
         "TestOptimizationFrontendResourceLimitedOPBBounds",
         "TestOPBFrontendOptimizesAndWritesResult",
         "TestWCNFFrontendOptimizesWeightedSoftClauses",

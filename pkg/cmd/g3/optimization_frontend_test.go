@@ -72,3 +72,15 @@ func TestOptimizationFrontendResourceLimitedOPBBounds(t *testing.T) {
 		t.Fatalf("resource-limited OPB output = %q, want %q", got, want)
 	}
 }
+
+func TestOptimizationFrontendResourceLimitDuringMaxResCore(t *testing.T) {
+	input := "min: 1 ~x1 +2 ~x2 +3 ~x3 +4 ~x4 +5 ~x5 +6 ~x6;\n" +
+		"1 x1 +1 x2 +1 x3 +1 x4 +1 x5 +1 x6 <= 5;\n"
+	var output bytes.Buffer
+	if err := runArguments([]string{"rlimit=320", "-bpo", "-in"}, strings.NewReader(input), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if got, want := output.String(), "unknown\n  [(* (- 1) oo):oo]\n"; got != want {
+		t.Fatalf("resource-limited OPB output = %q, want %q", got, want)
+	}
+}

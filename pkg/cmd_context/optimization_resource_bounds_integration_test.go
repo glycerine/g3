@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -51,5 +52,26 @@ func TestOptimizationResourceLimitedSoftBoundsEndToEnd(t *testing.T) {
 	contextMust(t, c.WriteOptimizationFrontendValues(&output))
 	if got := output.String(); !strings.HasPrefix(got, "  [") || !strings.HasSuffix(got, "]\n") {
 		t.Fatalf("partial bounds output = %q", got)
+	}
+}
+
+func TestOptimizationResourceLimitDuringMaxResCoreIsUnknown(t *testing.T) {
+	c := contextFixture(t)
+	input := "min: 1 ~x1 +2 ~x2 +3 ~x3 +4 ~x4 +5 ~x5 +6 ~x6;\n" +
+		"1 x1 +1 x2 +1 x3 +1 x4 +1 x5 +1 x6 <= 5;\n"
+	document, err := opt.ParseOPB(strings.NewReader(input))
+	contextMust(t, err)
+	_, err = c.LoadOPB(document)
+	contextMust(t, err)
+	contextMust(t, c.SetUIntOption("rlimit", 320))
+	status, err := c.CheckSat(nil)
+	contextMust(t, err)
+	if status != lbool.Undef {
+		t.Fatalf("limited optimization status = %v, want unknown", status)
+	}
+	reason, err := c.ReasonUnknown()
+	contextMust(t, err)
+	if reason != "max. resource limit exceeded" {
+		t.Fatalf("unknown reason = %q", reason)
 	}
 }
