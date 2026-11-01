@@ -17,6 +17,15 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 	if goal == nil || rw == nil || out == nil {
 		return ast.ErrASTHandle
 	}
+	if ast.ASTSourceDebug {
+		wellSorted, e := goal.IsWellSorted()
+		if e != nil {
+			return e
+		}
+		if !wellSorted {
+			return ast.ErrASTDomain
+		}
+	}
 	if err = tactic.FailIfProofGeneration("recover-01", goal); err != nil {
 		return err
 	}
@@ -168,5 +177,14 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 		return err
 	}
 	taken = true
+	if ast.ASTSourceDebug {
+		wellSorted, e := newGoal.IsWellSorted()
+		if e != nil {
+			return e
+		}
+		if !wellSorted {
+			return ast.ErrASTDomain
+		}
+	}
 	return emitRecover01Goal(newGoal, trace, services.Trace)
 }

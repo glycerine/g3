@@ -52790,3 +52790,5 @@ Lia2card goal invariant (2026-11-01 UTC): check the transformed goal's well-sort
 Purify-arith goal invariant (2026-11-01 UTC): check the transformed goal's well-sortedness after purification and constraint publication, matching the source's final debug assertion. Focused normal and checked purification tests pass.
 
 NLSAT goal invariants (2026-11-01 UTC): check input and output goal well-sortedness, matching the source tactic's entry and exit assertions, including the already-decided input path. The complete focused normal and checked NLSAT tactic suites pass.
+
+Recover-01 goal invariants (2026-11-01 UTC): check the input goal and the recovered output goal for well-sortedness, matching the source assertions around clause collection and rewriting. Focused normal and checked recover-01 tests pass.
