@@ -125,3 +125,40 @@ func TestFiniteIntervalProductMixedInterpretedFilter(t *testing.T) {
 		t.Fatal("table dispatch lost tuple", found, err)
 	}
 }
+
+func TestFiniteIntervalProductMixedFilterSubstitutesEachTableRow(t *testing.T) {
+	f := newTableRelationFixture(t)
+	family, err := f.ast.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := f.ast.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, f.ast, h); return h }
+	one := own(f.ast.ArithmeticIntegerNumeralText("1"))
+	two := own(f.ast.ArithmeticIntegerNumeralText("2"))
+	three := own(f.ast.ArithmeticIntegerNumeralText("3"))
+	p, err := NewFiniteIntervalProduct(f.relations, []ast.ASTHandle{f.boolean, integer}, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, p.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{f.truth, one}, {f.truth, three}, {f.falsehood, three}} {
+		astTestMust(t, p.AddFact(fact))
+	}
+	b := own(f.ast.MkVar(0, f.boolean))
+	x := own(f.ast.MkVar(1, integer))
+	belowTwo := own(f.ast.MkArithmeticLE(x, two))
+	aboveTwo := own(f.ast.MkArithmeticLE(two, x))
+	condition := own(f.ast.MkIte(b, belowTwo, aboveTwo))
+	astTestMust(t, p.FilterInterpreted(condition, nil))
+	for _, tc := range []struct {
+		fact []ast.ASTHandle
+		want bool
+	}{
+		{[]ast.ASTHandle{f.truth, one}, true},
+		{[]ast.ASTHandle{f.truth, three}, false},
+		{[]ast.ASTHandle{f.falsehood, three}, true},
+	} {
+		found, err := p.ContainsFact(tc.fact)
+		if err != nil || found != tc.want {
+			t.Fatalf("mixed row substitution for %v: got %v, want %v (%v)", tc.fact, found, tc.want, err)
+		}
+	}
+}

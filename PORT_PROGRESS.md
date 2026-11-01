@@ -52845,4 +52845,6 @@ Finite product aligned union and delta (2026-11-01 UTC): matched shared-key inte
 
 Finite product construction and fact operations (2026-11-01 UTC): audited the concrete table/interval specialization's signature selection, fresh and existing-key fact insertion, lookup, and clone independence against source behavior. Constructor, clone, non-numeral lookup and symbolic-insertion regressions pass normally and with `g3checked`; marked this bounded method ported in both records.
 
+Finite product mixed interpreted filter closure (2026-11-01 UTC): added a source-derived `ite` case where each finite Boolean row selects a distinct arithmetic comparison, verifying table-value substitution refines the matching interval and removes the rejected row. Existing unsupported `ite` and empty-row collection cases remain covered. All finite product interpreted-filter tests pass normally and with `g3checked`; marked the mixed path ported in both source records.
+
 Finite product interpreted filters (2026-11-01 UTC): closed the inner-only variable-renaming path and the finite-table-only path, including wrong-column dispatch and ground false behavior. All three focused filter regressions pass normally and with `g3checked`; the genuinely mixed table/interval condition path remains partial and is not promoted.

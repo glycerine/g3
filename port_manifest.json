@@ -92773,10 +92773,11 @@
         },
         {
           "name": "mixed interpreted filter and source path dispatch",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_mixed_filter.go",
           "tests": [
-            "TestFiniteIntervalProductMixedInterpretedFilter"
+            "TestFiniteIntervalProductMixedInterpretedFilter",
+            "TestFiniteIntervalProductMixedFilterSubstitutesEachTableRow"
           ]
         },
         {
@@ -93019,10 +93020,11 @@
         },
         {
           "name": "mixed interpreted filter and source path dispatch",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_mixed_filter.go",
           "tests": [
-            "TestFiniteIntervalProductMixedInterpretedFilter"
+            "TestFiniteIntervalProductMixedInterpretedFilter",
+            "TestFiniteIntervalProductMixedFilterSubstitutesEachTableRow"
           ]
         },
         {
