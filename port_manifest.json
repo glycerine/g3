@@ -91409,7 +91409,9 @@
         "pkg/muz/rel/bound_relation_formula_test.go",
         "pkg/muz/rel/empty_relation_formula_test.go",
         "pkg/muz/rel/bound_relation_filter_identical_test.go",
-        "pkg/muz/rel/bound_relation_clone_test.go"
+        "pkg/muz/rel/bound_relation_clone_test.go",
+        "pkg/muz/rel/bound_relation_display.go",
+        "pkg/muz/rel/bound_relation_display_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -91437,7 +91439,9 @@
         "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases",
         "TestBoundRelationFilterEqualPreservesCoarseBounds",
         "TestBoundRelationCloneUsesSourceVectorCopySemantics",
-        "TestBoundRelationClonePreservesEmptyState"
+        "TestBoundRelationClonePreservesEmptyState",
+        "TestBoundRelationDisplayMatchesSourceLayout",
+        "TestBoundRelationDisplayPropagatesWriterFailure"
       ],
       "assertions": [
         {
@@ -91594,6 +91598,18 @@
           "tests": [
             "TestBoundRelationCloneUsesSourceVectorCopySemantics",
             "TestBoundRelationClonePreservesEmptyState"
+          ]
+        },
+        {
+          "name": "bound_relation display_index and vector_relation display source formatting",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/bound_relation_display.go",
+          "go_targets": [
+            "pkg/muz/rel/bound_relation_display_test.go"
+          ],
+          "tests": [
+            "TestBoundRelationDisplayMatchesSourceLayout",
+            "TestBoundRelationDisplayPropagatesWriterFailure"
           ]
         }
       ],
