@@ -1035,17 +1035,87 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 			coneMust(t, e)
 			compoundHead, e := m.MkArithmeticAdd(x, one)
 			coneMust(t, e)
-			unsupported, e := m.MkProofHyperResolve([]ast.ASTHandle{proof}, body, nil, [][]ast.ASTHandle{{compoundHead}})
+			compoundConclusion, e := m.NewRef(ast.ASTHandle{})
 			coneMust(t, e)
-			unsupportedRef, e := m.NewRef(unsupported)
+			defer func() { coneMust(t, m.DelRef(&compoundConclusion)) }()
+			coneMust(t, sub.Substitute(body, []ast.ASTHandle{compoundHead}, compoundConclusion))
+			compoundFact, e := m.RefGet(compoundConclusion)
 			coneMust(t, e)
-			unsupportedResult, e := converter.Convert(unsupported)
-			if unsupportedResult != (ast.ASTRef{}) {
-				coneMust(t, m.DelRef(&unsupportedResult))
+			compoundStep, e := m.MkProofHyperResolve([]ast.ASTHandle{proof}, compoundFact, nil, [][]ast.ASTHandle{{compoundHead}})
+			coneMust(t, e)
+			compoundPin, e := m.NewRef(compoundStep)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&compoundPin)) }()
+			compoundConverted, e := converter.Convert(compoundStep)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&compoundConverted)) }()
+			compoundHandle, e := m.RefGet(compoundConverted)
+			coneMust(t, e)
+			compoundChecker, e := proofs.NewChecker(m)
+			coneMust(t, e)
+			compoundValid, compoundSide, e := compoundChecker.Check(compoundHandle)
+			coneMust(t, e)
+			defer func() {
+				for _, condition := range compoundSide {
+					coneMust(t, m.DecRef(condition))
+				}
+			}()
+			if !compoundValid {
+				t.Fatal("compound head proof is invalid")
 			}
-			coneMust(t, m.DelRef(&unsupportedRef))
-			if e == nil {
-				t.Fatal("accepted a compound predicate-head term")
+			compoundSolver, e := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+			coneMust(t, e)
+			defer func() { coneMust(t, compoundSolver.Close()) }()
+			for _, condition := range compoundSide {
+				coneMust(t, compoundSolver.Push())
+				negated, e := m.MkNot(condition)
+				coneMust(t, e)
+				coneMust(t, compoundSolver.AssertFormula(negated))
+				status, e := compoundSolver.CheckSat(nil)
+				coneMust(t, e)
+				coneMust(t, compoundSolver.Pop(1))
+				if status != lbool.False {
+					t.Fatal("invalid compound head proof side condition", status)
+				}
+			}
+			compoundGoal, e := m.MkApp(goal, []ast.ASTHandle{compoundHead})
+			coneMust(t, e)
+			compoundGuard, e := m.MkEq(compoundHead, zero)
+			coneMust(t, e)
+			compoundConclusionFact, e := m.MkImplies(compoundGuard, compoundGoal)
+			coneMust(t, e)
+			compoundResolve, e := m.MkProofHyperResolve([]ast.ASTHandle{slicedProofs[goal], proof}, compoundConclusionFact,
+				[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{{compoundHead}, {compoundHead}})
+			coneMust(t, e)
+			compoundResolvePin, e := m.NewRef(compoundResolve)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&compoundResolvePin)) }()
+			compoundResolved, e := converter.Convert(compoundResolve)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&compoundResolved)) }()
+			compoundResolvedHandle, e := m.RefGet(compoundResolved)
+			coneMust(t, e)
+			resolvedValid, resolvedSide, e := compoundChecker.Check(compoundResolvedHandle)
+			coneMust(t, e)
+			defer func() {
+				for _, condition := range resolvedSide {
+					coneMust(t, m.DecRef(condition))
+				}
+			}()
+			if !resolvedValid {
+				t.Fatal("compound resolution proof is invalid")
+			}
+			for _, condition := range resolvedSide {
+				coneMust(t, compoundSolver.Push())
+				negated, e := m.MkNot(condition)
+				coneMust(t, e)
+				coneMust(t, compoundSolver.AssertFormula(negated))
+				status, e := compoundSolver.CheckSat(nil)
+				coneMust(t, e)
+				coneMust(t, compoundSolver.Pop(1))
+				if status != lbool.False {
+					t.Fatal("invalid compound resolution side condition", status)
+				}
 			}
 			identity, e := m.MkProofHyperResolve([]ast.ASTHandle{proof}, body, nil, [][]ast.ASTHandle{{x}})
 			coneMust(t, e)

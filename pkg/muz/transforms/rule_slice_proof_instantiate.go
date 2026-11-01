@@ -111,6 +111,76 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		}
 		bindings[variables[i]] = term
 	}
+	needsHeadCheck := false
+	for _, binding := range bindings {
+		if binding.IsNull() {
+			continue
+		}
+		kind, e := m.GetKind(binding)
+		if e != nil {
+			return nil, proof, e
+		}
+		if kind == ast.ASTVar {
+			continue
+		}
+		value, e := m.IsValue(binding)
+		if e != nil {
+			return nil, proof, e
+		}
+		needsHeadCheck = needsHeadCheck || !value
+	}
+	if needsHeadCheck {
+		if sub == nil {
+			sub, err = rewriter.NewVarSubstitution(m, false)
+			if err != nil {
+				if sub != nil {
+					err = errors.Join(err, sub.Close())
+				}
+				return nil, proof, err
+			}
+			defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
+		}
+		head, e := original.Head()
+		if e != nil {
+			return nil, proof, e
+		}
+		ref, e := m.NewRef(ast.ASTHandle{})
+		if e != nil {
+			return nil, proof, e
+		}
+		refs = append(refs, ref)
+		if e = sub.Substitute(head, bindings, ref); e != nil {
+			return nil, proof, e
+		}
+		head, e = m.RefGet(ref)
+		if e != nil {
+			return nil, proof, e
+		}
+		count, e := m.GetNumArgs(head)
+		if e != nil {
+			return nil, proof, e
+		}
+		for i := uint32(0); i < count; i++ {
+			arg, e := m.GetArg(head, i)
+			if e != nil {
+				return nil, proof, e
+			}
+			kind, e := m.GetKind(arg)
+			if e != nil {
+				return nil, proof, e
+			}
+			if kind == ast.ASTVar {
+				continue
+			}
+			value, e := m.IsValue(arg)
+			if e != nil {
+				return nil, proof, e
+			}
+			if !value {
+				return c.instantiateCompoundHead(original, originalProof, bindings)
+			}
+		}
+	}
 	temporary, err := c.rules.SubstituteRule(original, bindings)
 	if err != nil {
 		return nil, proof, err
