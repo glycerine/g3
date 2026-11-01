@@ -465,6 +465,20 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 				if matched {
 					t.Fatal("unmapped original proof unexpectedly matched")
 				}
+				// Source translate_proof preserves unrecognized nodes exactly;
+				// an asserted original rule is not a sliced-formula map key.
+				before := f.manager.Stats().LiveReferences
+				converted, e := converter.Convert(originalProofs[p])
+				coneMust(t, e)
+				unchanged, e := f.manager.RefGet(converted)
+				coneMust(t, e)
+				if unchanged != originalProofs[p] {
+					t.Fatal("unmapped assertion changed")
+				}
+				coneMust(t, f.manager.DelRef(&converted))
+				if got := f.manager.Stats().LiveReferences; got != before {
+					t.Fatal("pass-through leaked references", got, before)
+				}
 			}
 			count, err := f.set.Len()
 			coneMust(t, err)
@@ -515,6 +529,40 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 			if enabled {
 				scope, e := ast.NewScopedProof(f.manager)
 				coneMust(t, e)
+				for _, makeProof := range []func() (ast.ASTHandle, error){
+					func() (ast.ASTHandle, error) { return f.manager.MkProofHypothesis(goalApp) },
+					func() (ast.ASTHandle, error) { return f.manager.MkProofReflexivity(goalApp) },
+				} {
+					node, e := makeProof()
+					coneMust(t, e)
+					pin, e := f.manager.NewRef(node)
+					coneMust(t, e)
+					converted, e := converter.Convert(node)
+					coneMust(t, e)
+					// The converted reference outlives the input reference.
+					coneMust(t, f.manager.DelRef(&pin))
+					unchanged, e := f.manager.RefGet(converted)
+					coneMust(t, e)
+					if unchanged != node {
+						t.Fatal("unrecognized proof node was rebuilt")
+					}
+					coneMust(t, f.manager.DelRef(&converted))
+				}
+				unmapped, e := f.manager.MkProofHyperResolve(
+					[]ast.ASTHandle{originalProofs[goal], originalProofs[p]}, goalApp,
+					[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{nil, nil})
+				coneMust(t, e)
+				unmappedPin, e := f.manager.NewRef(unmapped)
+				coneMust(t, e)
+				unchangedRef, e := converter.Convert(unmapped)
+				coneMust(t, e)
+				coneMust(t, f.manager.DelRef(&unmappedPin))
+				unchanged, e := f.manager.RefGet(unchangedRef)
+				coneMust(t, e)
+				if unchanged != unmapped {
+					t.Fatal("hyper-resolution without mapped premises changed")
+				}
+				coneMust(t, f.manager.DelRef(&unchangedRef))
 				sliced, e := f.manager.MkProofHyperResolve(
 					[]ast.ASTHandle{slicedProofs[goal], slicedProofs[p]}, goalApp,
 					[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{nil, nil})

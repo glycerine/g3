@@ -23,6 +23,8 @@ type slicedProofResult struct {
 // use Horn conversion for compound predicate heads. Derived substitutions
 // require an unambiguous predicate-based variable correspondence; resolution
 // against a premise other than a positive rule head remains unsupported.
+// Unrecognized nodes and hyper-resolution without mapped premise rules pass
+// through unchanged, matching translate_proof's source fallback.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || c.rules == nil {
 		return result, ast.ErrASTHandle
@@ -87,7 +89,14 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			return value, e
 		}
 		if !isHyper {
-			return value, fmt.Errorf("%w: unrecognized proof node", ErrSliceProofUnsupported)
+			valid, cause := m.IsProof(node)
+			if cause != nil || !valid {
+				return value, errors.Join(ast.ErrASTDomain, cause)
+			}
+			// Source translate_proof preserves unhandled terms without
+			// descending into their parents, including unmapped assertions.
+			value.proof, e = m.NewRef(node)
+			return value, e
 		}
 		conclusion, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
@@ -108,6 +117,18 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 		matched, e := m.MatchProofHyperResolve(node, &premises, conclusion, output)
 		if e != nil || !matched || len(premises) == 0 {
 			return value, errors.Join(ast.ErrASTDomain, e)
+		}
+		// translate_hyper_res declines conversion when any premise has no
+		// original rule, and translate_proof then keeps the whole node intact.
+		for _, premise := range premises {
+			original, cause := translate(premise)
+			if cause != nil {
+				return value, cause
+			}
+			if original.rule == nil {
+				value.proof, e = m.NewRef(node)
+				return value, e
+			}
 		}
 		var instantiated []slicedProofResult
 		defer func() {
