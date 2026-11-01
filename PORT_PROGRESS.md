@@ -53008,3 +53008,5 @@ Sparse table interpreted fallback (2026-11-01 UTC): ported the relation manager'
 Sparse interpreted filter-and-project (2026-11-01 UTC): ported the default manager composition that clones a sparse table, filters the clone, projects it, and closes the temporary. A regression checks the projected rows and confirms the source rows are unchanged.
 
 Sparse negated-join key indexing (2026-11-01 UTC): ported the source partitioned key lookup for sparse negated joins, probing indexed first and second sources for each target row. Functional-key cases keep the typed fallback; an independent exhaustive oracle checks all source subsets over the two-by-two domain.
+
+Bound-relation method audit (2026-11-01 UTC): confirmed the concrete Go relation implements comparison propagation, interval union, interpreted filters, equivalence classes, union/delta, transforms, formulas, facts, clone and display. Focused relation and fixedpoint package suites pass normally and under `g3checked`; the manifest records those methods as ported while keeping the C++ relation-plugin factory and dispatch layer partial.

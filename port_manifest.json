@@ -91493,12 +91493,12 @@
           "text": "SASSERT(sz == new_eqs.get_num_vars());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "strict and non-strict bound propagation",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation.go",
           "tests": [
             "TestBoundRelationOrderPropagationAndCycles"
@@ -91506,7 +91506,7 @@
         },
         {
           "name": "union with interval bounds",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation.go",
           "tests": [
             "TestBoundRelationUnionInterval"
@@ -91514,7 +91514,7 @@
         },
         {
           "name": "interpreted variable comparisons and positive-offset equalities",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation_filter.go",
           "tests": [
             "TestBoundRelationInterpretedVariableComparisons",
@@ -91524,7 +91524,7 @@
         },
         {
           "name": "bound-vector column equivalence and variable equality filter",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation_filter.go",
           "tests": [
             "TestBoundRelationFilterIdenticalBuildsSourceEqualityClass",
@@ -91536,7 +91536,7 @@
         },
         {
           "name": "bound-vector union, widening and equality remapping",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
             "TestBoundRelationUnionAndWiden",
@@ -91545,7 +91545,7 @@
         },
         {
           "name": "bound-vector join and projection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation_transform.go",
           "tests": [
             "TestBoundRelationJoinAndProjection",
@@ -91554,7 +91554,7 @@
         },
         {
           "name": "bound-vector rename and source formula",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation_transform.go",
           "tests": [
             "TestBoundRelationRename"
@@ -91562,7 +91562,7 @@
         },
         {
           "name": "fact addition and coarse membership",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation.go",
           "tests": [
             "TestBoundRelationFactAbstraction"
@@ -91570,7 +91570,7 @@
         },
         {
           "name": "bound-vector union and widening delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
             "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
@@ -91613,13 +91613,20 @@
             "TestBoundRelationDisplayPropagatesWriterFailure"
           ]
         }
+        ,{
+          "name": "bound_relation_plugin capability and operation-factory dispatch through relation_manager",
+          "status": "partial",
+          "go_target": "pkg/muz/rel/relation_manager.go",
+          "tests": []
+        }
       ],
       "ownership": [
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Empty bound relations export false, while the source formula builder ignores the empty flag.",
-        "The Go union delta requires a destination distinct from both operands."
+        "Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Empty bound relations export false, while the source formula builder ignores the empty flag.",
+        "The Go union delta requires a destination distinct from both operands.",
+        "Go currently exposes these bound operations through concrete relation values; the C++ relation plugin capability and operation-factory dispatch layer is not represented in relation_manager."
       ]
     },
     {
