@@ -182803,7 +182803,7 @@
       "path": "src/tactic/arith/recover_01_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/arith/recover_01_collect.go",
         "pkg/tactic/arith/recover_01_coeff.go",
@@ -182848,12 +182848,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_recover_01_tactic: registered clean tactic factory",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/recover_01_tactic.go",
           "tests": [
             "TestRecover01TacticParametersAndReuse",
@@ -182865,9 +182865,7 @@
         }
       ],
       "ownership": [],
-      "deviations": [
-        "Clause truth-table analysis caps clause size at 31; full source and ownership audits remain unfinished."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/bv/CMakeLists.txt",
