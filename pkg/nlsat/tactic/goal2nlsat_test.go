@@ -148,6 +148,27 @@ func TestGoalCompilerRealQuadraticSat(t *testing.T) {
 	}
 }
 
+func TestGoalCompilerKeepsOutOfRangePowerAsOneAtomicTerm(t *testing.T) {
+	fixture := newGoalCompilerFixture(t)
+	zero, err := fixture.manager.ArithmeticRealNumeralText("0")
+	compilerMust(t, err)
+	integerExponent, err := fixture.manager.ArithmeticIntegerNumeralText("4294967296")
+	compilerMust(t, err)
+	sort, err := fixture.manager.GetSort(zero)
+	compilerMust(t, err)
+	x := compilerConst(t, fixture.manager, "large-power-x", sort)
+	power, err := fixture.manager.MkArithmeticPower(x, integerExponent)
+	compilerMust(t, err)
+	formula, err := fixture.manager.MkEq(power, zero)
+	compilerMust(t, err)
+	compilerMust(t, fixture.compiler.Compile(compilerGoal(t, fixture.manager, formula)))
+	entries, err := fixture.compiler.TermMapping().Entries()
+	compilerMust(t, err)
+	if len(entries) != 1 || entries[0].Expr != power {
+		t.Fatalf("NLSAT atom mapping for out-of-range power = %#v", entries)
+	}
+}
+
 func TestGoalCompilerIntegerLinearUnsat(t *testing.T) {
 	fixture := newGoalCompilerFixture(t)
 	one, err := fixture.manager.ArithmeticIntegerNumeralText("1")
