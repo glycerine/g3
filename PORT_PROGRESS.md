@@ -1,3 +1,5 @@
+NLSAT public projection polarity regression: extended the source public-project path test to carry an independent negative literal through dependent-polynomial projection and temporary variable reordering. The projected clause preserves that literal's polarity and restores the original variable order; the full `pkg/nlsat` suite passes normally and under `g3checked`.
+
 Injectivity tactic source-unit closure: audited axiom recognition, relation ownership, unary equality rewriting, proof/core refusal, parameter handling, cleanup, translation and lifecycle; the manifest now marks the C++ unit and header ported. Focused tactic and SMT-LIB tests, cross-context API translation tests, `pkg/portcheck`, and `git diff --check` pass.
 
 SAT clause source unit closure: completed the native clause allocator, temporary clause, wrapper, debug-tag, trace, and solver display integration audit; focused normal, checked, and g3debug clause tests pass.

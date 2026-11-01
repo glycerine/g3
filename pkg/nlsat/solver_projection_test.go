@@ -15,16 +15,19 @@ func TestSolverProjectOwnsResultAndRestoresVariableOrder(t *testing.T) {
 		_, err := s.MkVar(false)
 		assignmentMust(t, err)
 	}
-	// x1 - x0 > 0 is eliminated; x1 > 0 is independent of x0 and must
-	// survive. Eliminating x0 also exercises the temporary x0/x1 reorder.
+	// x1 - x0 > 0 is eliminated; x1 < 0 is independent of x0 and its
+	// negated literal must survive. The x1 > 0 guard makes that polarity true.
+	// Eliminating x0 also exercises the temporary x0/x1 reorder.
 	dependent := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{-1, 1, 0}, evaluatorTerm{1, 0, 1})
 	independent := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 1})
 	p, err := s.MkInequality(AtomGT, []polynomial.Polynomial{dependent}, []bool{false}, false)
 	assignmentMust(t, err)
-	q, err := s.MkInequality(AtomGT, []polynomial.Polynomial{independent}, []bool{false}, false)
+	q, err := s.MkInequality(AtomLT, []polynomial.Polynomial{independent}, []bool{false}, false)
+	assignmentMust(t, err)
+	guard, err := s.MkInequality(AtomGT, []polynomial.Polynomial{independent}, []bool{false}, false)
 	assignmentMust(t, err)
 	assignmentMust(t, s.AddClause([]sat.Literal{p}, Assumption{}))
-	assignmentMust(t, s.AddClause([]sat.Literal{q}, Assumption{}))
+	assignmentMust(t, s.AddClause([]sat.Literal{guard}, Assumption{}))
 	value, err := s.Check()
 	assignmentMust(t, err)
 	if value != lbool.True {
@@ -34,11 +37,11 @@ func TestSolverProjectOwnsResultAndRestoresVariableOrder(t *testing.T) {
 	result, err := NewLiteralVector(s)
 	assignmentMust(t, err)
 	t.Cleanup(func() { assignmentMust(t, result.Close()) })
-	assignmentMust(t, s.Project(0, []sat.Literal{p, q}, result))
+	assignmentMust(t, s.Project(0, []sat.Literal{p, q.Negated()}, result))
 	var literals []sat.Literal
 	assignmentMust(t, result.Literals(&literals))
-	if len(literals) != 1 || literals[0] != q {
-		t.Fatal("wrong projected clause", literals, q)
+	if len(literals) != 1 || literals[0] != q.Negated() {
+		t.Fatal("wrong projected clause polarity", literals, q.Negated())
 	}
 	for variable := range s.clauses.vars.perm {
 		if s.clauses.vars.perm[variable] != uint32(variable) || s.clauses.vars.inv[variable] != uint32(variable) {
