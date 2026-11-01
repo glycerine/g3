@@ -63,6 +63,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		case *ufbv.MacroTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
+		case *ufbv.RewriterTacticAdapter:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		case *nlsatsmt.NLPurifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *nlsattactic.NLSATTactic:

@@ -1455,6 +1455,61 @@ func TestAPITacticSolverTranslateMacroTacticsAfterSourceClose(t *testing.T) {
 	}
 }
 
+func TestAPITacticSolverTranslateUFBVAfterSourceClose(t *testing.T) {
+	for _, test := range []struct {
+		name, value string
+		want        lbool.LBool
+	}{{"sat", "#b1111", lbool.True}, {"unsat", "#b0000", lbool.False}} {
+		t.Run(test.name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			astTestMust(t, source.SetLogic("UFBV"))
+			strategy, err := source.Tactic("ufbv")
+			astTestMust(t, err)
+			solver, err := source.NewSolverFromTactic(strategy)
+			astTestMust(t, err)
+			astTestMust(t, strategy.Close())
+			script := `(declare-fun f ((_ BitVec 4)) (_ BitVec 4)) (assert (forall ((x (_ BitVec 4))) (= (f x) (bvnot x)))) (assert (= (f #b0000) ` + test.value + `))`
+			astTestMust(t, solver.LoadSMT2String(script))
+			translated, err := solver.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, solver.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != test.want {
+				reason, _ := translated.ReasonUnknown()
+				t.Fatal("translated UFBV solver", status, "want", test.want, reason)
+			}
+			if status != lbool.True {
+				return
+			}
+			model, err := translated.Model()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, model.Close()) }()
+			manager, err := target.Manager()
+			astTestMust(t, err)
+			assertions, err := translated.Assertions()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, manager, assertions)
+			ground, err := manager.RefGet(assertions[1])
+			astTestMust(t, err)
+			value, err := model.Evaluate(ground, true)
+			astTestMust(t, err)
+			actual, err := manager.RefGet(value)
+			astTestMust(t, err)
+			if !manager.IsTrue(actual) {
+				t.Fatal("translated model violates the original UFBV assertion")
+			}
+			astTestMust(t, manager.DelRef(&value))
+		})
+	}
+}
+
 func TestAPITacticSolverTranslateRejectsConflictingDatatype(t *testing.T) {
 	source, err := NewSMTContext()
 	astTestMust(t, err)

@@ -8,6 +8,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -25,14 +26,62 @@ type RewriterTacticAdapter struct {
 
 var _ tactic.Tactic = (*RewriterTacticAdapter)(nil)
 
+// RewriterConstructionFailure owns a partially built rewriter when its first
+// cleanup attempt cannot complete.
+type RewriterConstructionFailure struct {
+	owner          *RewriterTactic
+	cause, cleanup error
+}
+
+func (e *RewriterConstructionFailure) Error() string        { return e.Unwrap().Error() }
+func (e *RewriterConstructionFailure) Unwrap() error        { return errors.Join(e.cause, e.cleanup) }
+func (e *RewriterConstructionFailure) OriginalCause() error { return e.cause }
+func (e *RewriterConstructionFailure) CleanupCause() error  { return e.cleanup }
+func (e *RewriterConstructionFailure) RuntimeOwner() *memory.Runtime {
+	return e.owner.manager.NumeralService().RuntimeOwner()
+}
+func (e *RewriterConstructionFailure) Cleanup() error { return e.owner.Close() }
+
+func releaseFailedRewriter(child *RewriterTactic, cause error) error {
+	if child == nil {
+		return cause
+	}
+	if cleanup := child.Close(); cleanup != nil {
+		return &RewriterConstructionFailure{owner: child, cause: cause, cleanup: cleanup}
+	}
+	return cause
+}
+
 func NewRewriterTacticAdapter(m *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (*RewriterTacticAdapter, error) {
 	child, err := NewRewriterTactic(m, context, globals)
 	if err != nil {
-		return nil, err
+		return nil, releaseFailedRewriter(child, err)
 	}
 	t := &RewriterTacticAdapter{child: child, context: context, globals: globals}
 	t.self = t
 	return t, nil
+}
+
+// TranslateWithServices creates the source's translated rewriter and binds it
+// to the target context's parameter owners.
+func (t *RewriterTacticAdapter) TranslateWithServices(m *ast.ASTManager, context *uparams.ParamsContext, globals *uparams.GlobalParamsService) (tactic.Tactic, error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
+	if m == nil || context == nil || globals == nil || globals.Context != context {
+		return nil, uparams.ErrParamsOwner
+	}
+	if err := context.CheckServices(m.Symbols, m.NumeralService()); err != nil {
+		return nil, err
+	}
+	child, err := t.child.Translate(m, context, globals)
+	if err != nil {
+		return nil, releaseFailedRewriter(child, err)
+	}
+	child.trace = t.child.trace
+	next := &RewriterTacticAdapter{child: child, context: context, globals: globals}
+	next.self = next
+	return next, nil
 }
 
 func (t *RewriterTacticAdapter) open() error {

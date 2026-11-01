@@ -7814,6 +7814,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateUFBVAfterSourceClose",
         "TestAPITacticSolverTranslateMacroTacticsAfterSourceClose",
         "TestAPITacticSolverTranslateFPA2BVAfterSourceClose",
         "TestAPITacticSolverTranslateBVEliminationAfterSourceClose",
@@ -199137,6 +199138,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/ufbv/rewrite_context_translation_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
         "pkg/cmd_context/tactic_descriptions.go",
@@ -199147,6 +199149,7 @@
         "pkg/tactic/ufbv/rewrite_tactic_adapter.go"
       ],
       "tests": [
+        "TestUFBVRewriterAdapterContextTranslationUsesTargetState",
         "TestAPIHornSimplifyNamedFactory",
         "TestAPIUFBVRewriterSourceFactoryAlias",
         "TestUFBVRewriterTranslateOwnsDestinationImplementation",
@@ -199270,6 +199273,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/tactic/ufbv/ufbv_tactic.go",
         "pkg/tactic/portfolio/smt_strategic_solver.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -199277,6 +199281,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateUFBVAfterSourceClose",
         "TestSMTLibRunnerScripts/ufbv_tactic.smt2",
         "TestSMTLibRunnerCPPReference/ufbv_tactic.smt2",
         "TestSMTLibRunnerScripts/ufbv_solver.smt2",

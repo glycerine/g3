@@ -1,3 +1,5 @@
+The quantified UFBV strategy now translates its rewriter leaf with target-owned services, completing translation of the composed strategy. Constructor and translation failure sweeps and SAT/UNSAT model tests cover target use after source closure.
+
 Macro-finder and quasi-macro tactics now translate with independent target services and parameter snapshots, including the registered ufbv-rewriter alias. Tests cover both source kinds, allocation failures and translated SAT/UNSAT model behavior after source closure.
 
 Floating-point-to-bit-vector tactics now translate with target-owned parameter and conversion state. Construction cleanup handles partially initialized rewriters; tests cover allocation frontiers, independent parameter snapshots and translated SAT/UNSAT model validity after source closure.
