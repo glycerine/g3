@@ -86,6 +86,9 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 		}
 		eval, e := model.NewModelEvaluator(md, model.ModelEvaluatorConfig{Context: config.Context, Globals: config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: config.Cooperation, Trace: config.Trace})
 		if e != nil {
+			if eval != nil {
+				e = errors.Join(e, eval.Close())
+			}
 			return result, false, errors.Join(e, md.DecRef())
 		}
 		variableCount := len(variables.entries)
@@ -121,6 +124,9 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 						e = errors.Join(eval.Close(), md.DecRef())
 						eval, md = nextEval, refreshed
 					} else {
+						if nextEval != nil {
+							e = errors.Join(e, nextEval.Close())
+						}
 						e = errors.Join(e, refreshed.DecRef())
 					}
 				}

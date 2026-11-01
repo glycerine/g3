@@ -62,6 +62,9 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 	defer func() { err = errors.Join(err, m.DelRef(&tmp)) }()
 	sub, err := rewriter.NewVarSubstitution(m, true)
 	if err != nil {
+		if sub != nil {
+			err = errors.Join(err, sub.Close())
+		}
 		return result, err
 	}
 	defer func() { err = errors.Join(err, sub.Close()) }()
@@ -70,6 +73,9 @@ func extractExprQuantifier(m *ast.ASTManager, quantifier ast.ASTHandle) (result 
 	}
 	shift, err := rewriter.NewInverseVarShifter(m)
 	if err != nil {
+		if shift != nil {
+			err = errors.Join(err, shift.Close())
+		}
 		return result, err
 	}
 	defer func() { err = errors.Join(err, shift.Close()) }()

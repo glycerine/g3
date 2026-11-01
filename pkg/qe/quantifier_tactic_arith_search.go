@@ -167,6 +167,9 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	}
 	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
 	if err != nil {
+		if rw != nil {
+			err = errors.Join(err, rw.Close())
+		}
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, rw.Close()) }()

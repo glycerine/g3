@@ -99031,8 +99031,8 @@
       "component": "muz",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/qe/legacy_arithmetic_linear.go", "pkg/qe/legacy_arithmetic_bounds.go", "pkg/qe/legacy_arithmetic_compare.go", "pkg/qe/legacy_arithmetic_real.go", "pkg/qe/legacy_arithmetic_integer.go", "pkg/qe/legacy_arithmetic_integer_project.go", "pkg/qe/legacy_arithmetic_mod.go", "pkg/qe/legacy_arithmetic_factor_mod.go", "pkg/qe/legacy_arithmetic_formula.go", "pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_array_select_reducer.go", "pkg/qe/legacy_array_ackermann.go", "pkg/qe/legacy_array_direct_equality.go", "pkg/qe/legacy_array_partial_equality.go", "pkg/qe/legacy_array_store_equality.go", "pkg/qe/legacy_array_partial_selects.go", "pkg/qe/legacy_array_polarity.go", "pkg/qe/legacy_array_formula.go", "pkg/qe/legacy_projection.go"],
-      "tests": ["TestLegacyArithmeticProjectionClassifiesLinearLiterals", "TestLegacyArithmeticProjectionClassifiesEqualities", "TestLegacyArithmeticProjectionSelectsModelBounds", "TestLegacyArithmeticProjectionBuildsBoundComparisons", "TestLegacyArithmeticProjectionProjectsRealBounds", "TestLegacyArithmeticProjectionNormalizesIntegerCoefficients", "TestLegacyArithmeticProjectionProjectsIntegerPaths", "TestLegacyArithmeticProjectionRewritesModEquality", "TestLegacyArithmeticProjectionFactorsSharedModTerms", "TestLegacyArithmeticProjectionCoordinatesFormula", "TestLegacyArrayProjectionFindsStoreEqualitiesButBlocksSelects", "TestLegacyArrayProjectionReducesModelSelectedStore", "TestLegacyArrayProjectionAckermannizesEqualModelIndices", "TestLegacyArrayProjectionSubstitutesDirectEquality", "TestLegacyPartialEqualityApplicationAndExpansion", "TestLegacyArrayProjectionSubstitutesStoreEquality", "TestLegacyArrayProjectionFactorsSelectInsidePartialEquality", "TestLegacyArrayProjectionReplacesUnsolvedEqualityPolarity", "TestLegacyArrayProjectionCoordinatesEqualityAndSelects", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"],
+      "go_targets": ["pkg/qe/legacy_projection_constructor_test.go", "pkg/qe/legacy_arithmetic_linear.go", "pkg/qe/legacy_arithmetic_bounds.go", "pkg/qe/legacy_arithmetic_compare.go", "pkg/qe/legacy_arithmetic_real.go", "pkg/qe/legacy_arithmetic_integer.go", "pkg/qe/legacy_arithmetic_integer_project.go", "pkg/qe/legacy_arithmetic_mod.go", "pkg/qe/legacy_arithmetic_factor_mod.go", "pkg/qe/legacy_arithmetic_formula.go", "pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_array_select_reducer.go", "pkg/qe/legacy_array_ackermann.go", "pkg/qe/legacy_array_direct_equality.go", "pkg/qe/legacy_array_partial_equality.go", "pkg/qe/legacy_array_store_equality.go", "pkg/qe/legacy_array_partial_selects.go", "pkg/qe/legacy_array_polarity.go", "pkg/qe/legacy_array_formula.go", "pkg/qe/legacy_projection.go"],
+      "tests": ["TestLegacyProjectionConstructorAllocationFrontiers", "TestLegacyArithmeticProjectionClassifiesLinearLiterals", "TestLegacyArithmeticProjectionClassifiesEqualities", "TestLegacyArithmeticProjectionSelectsModelBounds", "TestLegacyArithmeticProjectionBuildsBoundComparisons", "TestLegacyArithmeticProjectionProjectsRealBounds", "TestLegacyArithmeticProjectionNormalizesIntegerCoefficients", "TestLegacyArithmeticProjectionProjectsIntegerPaths", "TestLegacyArithmeticProjectionRewritesModEquality", "TestLegacyArithmeticProjectionFactorsSharedModTerms", "TestLegacyArithmeticProjectionCoordinatesFormula", "TestLegacyArrayProjectionFindsStoreEqualitiesButBlocksSelects", "TestLegacyArrayProjectionReducesModelSelectedStore", "TestLegacyArrayProjectionAckermannizesEqualModelIndices", "TestLegacyArrayProjectionSubstitutesDirectEquality", "TestLegacyPartialEqualityApplicationAndExpansion", "TestLegacyArrayProjectionSubstitutesStoreEquality", "TestLegacyArrayProjectionFactorsSelectInsidePartialEquality", "TestLegacyArrayProjectionReplacesUnsolvedEqualityPolarity", "TestLegacyArrayProjectionCoordinatesEqualityAndSelects", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"],
       "assertions": [
         {
           "line": 101,
@@ -110755,6 +110755,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_allocation_test.go",
         "pkg/qe/quantifier_tactic_array_auxiliary.go",
         "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
@@ -110866,6 +110867,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestQuantifierScalarAllocationFrontiers",
         "TestQuantifierDatatypeBlockUniversal",
         "TestQuantifierDatatypeBlocks",
         "TestQuantifierBitVectorBlockSearch",

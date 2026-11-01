@@ -66,6 +66,9 @@ func instantiateExprFreeVars(m *ast.ASTManager, formula ast.ASTHandle) (result *
 	}
 	sub, err := rewriter.NewVarSubstitution(m, true)
 	if err != nil {
+		if sub != nil {
+			err = errors.Join(err, sub.Close())
+		}
 		return result, err
 	}
 	defer func() { err = errors.Join(err, sub.Close()) }()

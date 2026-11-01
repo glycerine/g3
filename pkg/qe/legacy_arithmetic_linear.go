@@ -33,6 +33,9 @@ func newLegacyArithmeticProjection(manager *ast.ASTManager, config Config) (*leg
 	}
 	theory, err := rewriter.NewTheoryRewriter(manager, config.Context, config.Globals, nil)
 	if err != nil {
+		if theory != nil {
+			err = errors.Join(err, theory.Close())
+		}
 		return nil, errors.Join(err, syntax.Close())
 	}
 	return &legacyArithmeticProjection{syntax: syntax, theory: theory}, nil

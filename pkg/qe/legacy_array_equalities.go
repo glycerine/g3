@@ -31,6 +31,9 @@ func newLegacyArrayProjection(manager *ast.ASTManager, config Config) (*legacyAr
 	}
 	theory, err := rewriter.NewTheoryRewriter(manager, config.Context, config.Globals, nil)
 	if err != nil {
+		if theory != nil {
+			err = errors.Join(err, theory.Close())
+		}
 		return nil, errors.Join(err, syntax.Close())
 	}
 	return &legacyArrayProjection{syntax: syntax, theory: theory}, nil

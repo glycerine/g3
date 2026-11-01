@@ -88,6 +88,9 @@ func eliminateQuantifierBoolUnits(m *ast.ASTManager, quantifier ast.ASTHandle, c
 	defer func() { err = errors.Join(err, nnf.Close()) }()
 	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
 	if err != nil {
+		if rw != nil {
+			err = errors.Join(err, rw.Close())
+		}
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, rw.Close()) }()
