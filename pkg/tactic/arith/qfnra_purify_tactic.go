@@ -903,5 +903,14 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	if err = result.AddGoal(goal); err != nil {
 		return err
 	}
+	if ast.ASTSourceDebug {
+		wellSorted, e := goal.IsWellSorted()
+		if e != nil {
+			return e
+		}
+		if !wellSorted {
+			return ast.ErrASTDomain
+		}
+	}
 	return t.traceGoal(goal, 847)
 }
