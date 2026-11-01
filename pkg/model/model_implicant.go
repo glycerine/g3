@@ -657,17 +657,26 @@ func (i *ModelImplicant) checkModel(formulas []ast.ASTHandle) (bool, error) {
 	return !hasX, nil
 }
 
-// EvalExpr preserves model::eval's model-completion=true compatibility path.
-// Array normalization is completed by the companion array increment.
+// EvalExpr evaluates with completion and normalizes array store tails using
+// the source model_implicant::eval reconstruction policy.
 func (i *ModelImplicant) EvalExpr(md *Model, expression ast.ASTHandle) (result ast.ASTRef, err error) {
 	if err = i.setupModel(md); err != nil {
 		return result, errors.Join(err, i.reset())
 	}
-	defer func() { err = errors.Join(err, i.reset()) }()
+	defer func() {
+		err = errors.Join(err, i.reset())
+		if err != nil && result != (ast.ASTRef{}) {
+			err = errors.Join(err, i.manager.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
 	if err = i.evaluator.SetModelCompletion(true); err != nil {
 		return result, err
 	}
 	result, err = i.evaluator.EvaluateValue(expression)
+	if err == nil {
+		err = i.normalizeArrayValue(expression, result)
+	}
 	return result, err
 }
 

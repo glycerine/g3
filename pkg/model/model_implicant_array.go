@@ -220,3 +220,68 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 	}
 	return i.setState(h, implicantTrue)
 }
+
+// Source: model_implicant::eval(model_ref&, expr*), model_implicant.cpp:893-909.
+func (i *ModelImplicant) normalizeArrayValue(expression ast.ASTHandle, result ast.ASTRef) (err error) {
+	array, err := i.isArray(expression)
+	if err != nil || !array {
+		return err
+	}
+	value, err := i.manager.RefGet(result)
+	if err != nil {
+		return err
+	}
+	frame, ok, err := i.extractArray(value)
+	if frame != nil {
+		defer func() { err = errors.Join(err, frame.close(i.manager)) }()
+	}
+	if err != nil || !ok {
+		return err
+	}
+	fallback, err := i.manager.RefGet(frame.elseCase)
+	if err != nil {
+		return err
+	}
+	// Only the innermost suffix is redundant. Default-valued stores above
+	// a non-default row can override it and must keep their source order.
+	for len(frame.stores) != 0 {
+		last := len(frame.stores) - 1
+		row := frame.stores[last]
+		if row[len(row)-1] != fallback {
+			break
+		}
+		if err = frame.removeRow(i.manager, last); err != nil {
+			return err
+		}
+	}
+	sort, err := i.manager.GetSort(expression)
+	if err != nil {
+		return err
+	}
+	base, err := i.manager.MkConstArray(sort, fallback)
+	if err != nil {
+		return err
+	}
+	if err = i.manager.SetRef(result, base); err != nil {
+		return err
+	}
+	family, err := i.manager.ArrayFamilyID()
+	if err != nil {
+		return err
+	}
+	for n := len(frame.stores) - 1; n >= 0; n-- {
+		current, err := i.manager.RefGet(result)
+		if err != nil {
+			return err
+		}
+		args := append([]ast.ASTHandle{current}, frame.stores[n]...)
+		stored, err := i.manager.MkFamilyApp(family, ast.ASTArrayOpStore, nil, args)
+		if err != nil {
+			return err
+		}
+		if err = i.manager.SetRef(result, stored); err != nil {
+			return err
+		}
+	}
+	return nil
+}
