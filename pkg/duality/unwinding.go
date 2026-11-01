@@ -6,6 +6,8 @@ import "sort"
 // Unwinding owns outer-search bookkeeping over a borrowed graph and covering
 // relation. Node and edge AST ownership belongs to the graph.
 type Unwinding struct {
+	topological        map[*Node]int
+	sortedEdges        []*Edge
 	FeasibleEdges      bool
 	RecursionBound     int
 	backEdges          map[*Node]map[*Node]int
