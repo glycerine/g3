@@ -10,10 +10,36 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/bmc"
+	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
+
+var errRetryUnslicedProof = errors.New("muz/fp: retry proof without slicing")
+
+// onlyErrorKind ensures cleanup errors are not hidden by a retry signal.
+func onlyErrorKind(err, target error) bool {
+	if err == nil {
+		return false
+	}
+	if many, ok := err.(interface{ Unwrap() []error }); ok {
+		children := many.Unwrap()
+		if len(children) == 0 {
+			return false
+		}
+		for _, child := range children {
+			if !onlyErrorKind(child, target) {
+				return false
+			}
+		}
+		return true
+	}
+	if one, ok := err.(interface{ Unwrap() error }); ok {
+		return onlyErrorKind(one.Unwrap(), target)
+	}
+	return err == target
+}
 
 // queryBMCRelation constructs the same synthetic query rule used for an
 // expression query, preserving the source query predicate in proof answers.
@@ -62,6 +88,14 @@ func (e *PropositionalEngine) clearBMCTrace() (result error) {
 }
 
 func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	status, resultErr = e.queryBMCPredicateWithSliceProof(declaration, true)
+	if onlyErrorKind(resultErr, errRetryUnslicedProof) {
+		return e.queryBMCPredicateWithSliceProof(declaration, false)
+	}
+	return status, resultErr
+}
+
+func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.ASTHandle, allowSliceProof bool) (status lbool.LBool, resultErr error) {
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, ErrPropositionalEngine
 	}
@@ -87,7 +121,7 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	}
 	// BMC uses the same default Horn transformations and optional slicing as
 	// Spacer before it selects the linear or nonlinear compiler.
-	preprocessed, err := e.preprocessHornRules(declaration, true, true)
+	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, allowSliceProof && e.backend == "qbmc")
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -113,6 +147,9 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	linear, err := bmc.IsLinear(rules)
 	if err != nil {
 		return lbool.Undef, err
+	}
+	if preprocessed.sliceProof != nil && !linear {
+		return lbool.Undef, errRetryUnslicedProof
 	}
 	view, err := e.fixedpointParamView()
 	if err != nil {
@@ -215,6 +252,37 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	}
 	if err != nil {
 		return lbool.Undef, err
+	}
+	if preprocessed.sliceProof != nil && e.bmcProof != (ast.ASTRef{}) {
+		original, cause := e.manager.RefGet(e.bmcProof)
+		if cause != nil {
+			return lbool.Undef, cause
+		}
+		converted, cause := preprocessed.sliceProof.Convert(original)
+		if cause != nil {
+			if onlyErrorKind(cause, transforms.ErrSliceProofUnsupported) {
+				return lbool.Undef, errRetryUnslicedProof
+			}
+			return lbool.Undef, cause
+		}
+		newProof, cause := e.manager.RefGet(converted)
+		if cause == nil {
+			var before, after ast.ASTHandle
+			before, cause = e.manager.GetProofFact(original)
+			if cause == nil {
+				after, cause = e.manager.GetProofFact(newProof)
+			}
+			if cause == nil && before != after {
+				cause = errRetryUnslicedProof
+			}
+		}
+		if cause != nil {
+			return lbool.Undef, errors.Join(cause, e.manager.DelRef(&converted))
+		}
+		if cause = e.manager.DelRef(&e.bmcProof); cause != nil {
+			return lbool.Undef, errors.Join(cause, e.manager.DelRef(&converted))
+		}
+		e.bmcProof = converted
 	}
 	return status, nil
 }

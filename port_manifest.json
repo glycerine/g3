@@ -101508,12 +101508,15 @@
       "status": "ported",
       "go_targets": ["pkg/muz/bmc/quantified_linear_bind_test.go",
         "pkg/muz/transforms/interp_tail_simplifier.go",
+        "pkg/muz/transforms/interp_tail_simplifier_test.go",
         "pkg/muz/transforms/boolean_normalizer.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": ["TestBMCQuantifiedLinearProofWithRuleVariables",
         "TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth",
+        "TestInterpTailSimplifierPreservesRewriteProof",
+        "TestSMTLibRunnerScripts/fixedpoint_spacer_nonlinear_inlining.smt2",
         "TestInterpTailSimplifierDropsFalseRule",
         "TestInterpTailSimplifierPropagatesIffPolarity",
         "TestInterpTailSimplifierRecognizesPairedClauseEquivalence",
@@ -102683,6 +102686,9 @@
         "pkg/muz/transforms/rule_unifier_test.go",
         "pkg/muz/transforms/rule_slice_test.go",
         "pkg/muz/fp/horn_preprocess_proof_test.go",
+        "pkg/muz/fp/bmc_engine.go",
+        "pkg/muz/fp/horn_preprocess.go",
+        "pkg/parsers/smt2/qbmc_engine_test.go",
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
@@ -102699,6 +102705,9 @@
         "TestRuleSliceProofSubstitutesDerivedPremise",
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
+        "TestQBMCConvertsSlicedProofToOriginalRules",
+        "TestQBMCFallsBackFromUnsupportedSlicedProof",
+        "TestSMT2QBMCProofConvertsSlicedPredicate",
         "TestRuleSliceRetainsConstantConstrainedColumn",
         "TestRuleSliceRetainsNegatedPredicateColumns",
         "TestRuleSlicePropagatesInterpretedEqualityMasks",
@@ -102811,7 +102820,7 @@
         "The replacement RuleSet owns sliced rules and original/derived declaration mappings; temporary source rules and rewritten rules are closed after transfer."
       ],
       "deviations": [
-        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. Proof conversion remains unported, so fixedpoint preprocessing skips slicing when proof tracing is requested."
+        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. Linear QBMC uses the partial proof converter and retries unsliced for unsupported proof shapes or changed conclusions; PDR and Spacer keep proof-traced rules unsliced."
       ]
     },
     {

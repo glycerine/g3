@@ -87,8 +87,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			return value, e
 		}
 		if !isHyper {
-			value.proof, e = m.NewRef(node)
-			return value, e
+			return value, fmt.Errorf("%w: unrecognized proof node", ErrSliceProofUnsupported)
 		}
 		conclusion, e := m.NewRef(ast.ASTHandle{})
 		if e != nil {
@@ -132,7 +131,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 				return slicedProofResult{}, cause
 			}
 			if original.rule == nil {
-				return slicedProofResult{}, fmt.Errorf("slice proof: substituted premise has no original rule")
+				return slicedProofResult{}, fmt.Errorf("%w: substituted premise has no original rule", ErrSliceProofUnsupported)
 			}
 			if !found {
 				variables, found, cause = c.derivedVariables(premises[index], original.rule)
@@ -141,7 +140,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 				}
 			}
 			if !found {
-				return slicedProofResult{}, fmt.Errorf("slice proof: cannot map derived premise variables")
+				return slicedProofResult{}, fmt.Errorf("%w: cannot map derived premise variables", ErrSliceProofUnsupported)
 			}
 			rule, ref, cause := c.instantiateAsserted(original.rule, original.proof, variables, substitution)
 			if cause != nil {
@@ -156,7 +155,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			return value, e
 		}
 		if first.rule == nil {
-			return value, fmt.Errorf("slice proof: first premise has no original rule")
+			return value, fmt.Errorf("%w: first premise has no original rule", ErrSliceProofUnsupported)
 		}
 		value.proof, e = m.CopyRef(first.proof)
 		if e != nil {
@@ -177,18 +176,18 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 				return value, cause
 			}
 			if other.rule == nil {
-				return value, fmt.Errorf("slice proof: premise %d has no original rule", i)
+				return value, fmt.Errorf("%w: premise %d has no original rule", ErrSliceProofUnsupported, i)
 			}
 			position, cause := output.Position(uint32(i - 1))
 			if cause != nil {
 				return value, cause
 			}
 			if position.First == 0 || position.Second != 0 {
-				return value, fmt.Errorf("slice proof: unsupported resolution positions")
+				return value, fmt.Errorf("%w: resolution positions", ErrSliceProofUnsupported)
 			}
 			originalIndex := position.First - 1
 			if originalIndex >= uint32(originalPositive) || removed[originalIndex] {
-				return value, fmt.Errorf("slice proof: invalid or repeated body position")
+				return value, fmt.Errorf("%w: invalid or repeated body position", ErrSliceProofUnsupported)
 			}
 			index := originalIndex
 			for prior := range removed {
@@ -211,7 +210,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			}
 			after, cause := next.PositiveTailSize()
 			if cause != nil || after != before-1+added {
-				cause = errors.Join(cause, fmt.Errorf("slice proof: resolution merged body predicates"), next.Close(), m.DelRef(&nextProof))
+				cause = errors.Join(cause, fmt.Errorf("%w: resolution merged body predicates", ErrSliceProofUnsupported), next.Close(), m.DelRef(&nextProof))
 				return value, cause
 			}
 			cause = errors.Join(value.rule.Close(), m.DelRef(&value.proof))
@@ -248,8 +247,11 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 	}
 	defer func() { resultErr = errors.Join(resultErr, u.Close()) }()
 	ok, err := u.UnifyRules(first, tailIndex, second)
-	if err != nil || !ok {
-		return nil, proof, errors.Join(ast.ErrASTDomain, err)
+	if err != nil {
+		return nil, proof, err
+	}
+	if !ok {
+		return nil, proof, fmt.Errorf("%w: rules do not unify", ErrSliceProofUnsupported)
 	}
 	a, err := u.RuleSubstitution(first, true)
 	if err != nil {

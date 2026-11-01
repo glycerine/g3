@@ -28,6 +28,7 @@ type hornPreprocessResult struct {
 	magicPredicates        map[ast.ASTHandle]ast.ASTHandle
 	karrInvariants         map[ast.ASTHandle]rel.KarrMatrix
 	modelConversions       []hornModelConversion
+	sliceProof             *transforms.SliceProofConverter
 
 	closed bool
 }
@@ -42,6 +43,9 @@ func (r *hornPreprocessResult) Close() (result error) {
 	if r.rules != nil {
 		result = errors.Join(result, r.rules.Close())
 	}
+	if r.sliceProof != nil {
+		result = errors.Join(result, r.sliceProof.Close())
+	}
 	result = errors.Join(result, closeHornModelConversions(r.modelConversions))
 	r.rules = nil
 	r.slicedPredicates = nil
@@ -53,6 +57,7 @@ func (r *hornPreprocessResult) Close() (result error) {
 	r.magicPredicates = nil
 	r.karrInvariants = nil
 	r.modelConversions = nil
+	r.sliceProof = nil
 	r.closed = true
 	return result
 }

@@ -10,6 +10,10 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
+// ErrSliceProofUnsupported indicates a proof shape the converter cannot yet
+// translate, allowing a caller to retry with unsliced rules.
+var ErrSliceProofUnsupported = errors.New("slice proof conversion unsupported")
+
 // SliceProofConverter owns the rule and formula mappings created by slicing.
 // ConvertAsserted handles assertion leaves; Convert also handles supported
 // hyper-resolution nodes, including quantified conclusions.

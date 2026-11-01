@@ -29,7 +29,7 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		return nil, proof, err
 	}
 	if len(input) > len(variables) {
-		return nil, proof, fmt.Errorf("slice proof: substitution exceeds sliced variables")
+		return nil, proof, fmt.Errorf("%w: substitution exceeds sliced variables", ErrSliceProofUnsupported)
 	}
 	bindings := make([]ast.ASTHandle, len(sorts))
 	var refs []ast.ASTRef
@@ -222,7 +222,7 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 	for i := range bindings {
 		if bindings[i].IsNull() {
 			if i >= len(renaming) || renaming[i].IsNull() {
-				return nil, proof, fmt.Errorf("slice proof: missing substituted variable")
+				return nil, proof, fmt.Errorf("%w: missing substituted variable", ErrSliceProofUnsupported)
 			}
 			bindings[i] = renaming[i]
 		} else if sub != nil {

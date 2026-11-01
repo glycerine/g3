@@ -136,3 +136,38 @@ func TestSMT2QBMCProofWithUnconstrainedRuleVariable(t *testing.T) {
 		t.Fatalf("QBMC proof over original predicates: %s", text)
 	}
 }
+
+func TestSMT2QBMCProofConvertsSlicedPredicate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	script := `(set-option :fixedpoint.engine qbmc)
+(set-option :fixedpoint.generate_proof_trace true)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.xform.subsumption_checker false)
+(declare-rel P (Int Int))
+(declare-rel Q (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(declare-var y Int)
+(rule (P x y))
+(rule (=> (P x y) (Q y)))
+(rule (=> (Q 0) Goal))
+(query Goal :print-certificate true)
+`
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	text := output.String()
+	if !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "hyper-res") || !strings.Contains(text, "(P ") || strings.Contains(text, "!slice!") {
+		t.Fatal("expected certificate using original predicates", text)
+	}
+}

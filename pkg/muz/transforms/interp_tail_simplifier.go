@@ -462,6 +462,9 @@ func (p *InterpTailSimplifierPlugin) transformRule(source *base.Rule) (_ *base.R
 			if !owned {
 				return nil, false, changed, nil
 			}
+			if err = p.rules.MkRuleRewriteProof(source, current); err != nil {
+				return nil, false, changed, err
+			}
 			owned = false
 			return current, false, changed, nil
 		}

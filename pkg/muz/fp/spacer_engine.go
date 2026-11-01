@@ -14,8 +14,13 @@ import (
 )
 
 func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubsumptionResultTransforms, allowInlineResultTransforms bool) (_ *hornPreprocessResult, resultErr error) {
+	return e.preprocessHornRulesWithSliceProof(query, allowSubsumptionResultTransforms, allowInlineResultTransforms, false)
+}
+
+func (e *PropositionalEngine) preprocessHornRulesWithSliceProof(query ast.ASTHandle, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof bool) (_ *hornPreprocessResult, resultErr error) {
 	var slicedPredicates map[ast.ASTHandle]ast.ASTHandle
 	var slicedColumns map[ast.ASTHandle][]bool
+	var sliceProof *transforms.SliceProofConverter
 	prepared, err := base.NewRuleSet(e.rules)
 	if err != nil {
 		return nil, err
@@ -24,6 +29,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	defer func() {
 		if !keep {
 			resultErr = errors.Join(resultErr, prepared.Close())
+			if sliceProof != nil {
+				resultErr = errors.Join(resultErr, sliceProof.Close())
+			}
 		}
 	}()
 	if err = prepared.AddRules(e.set); err != nil {
@@ -404,10 +412,8 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	if err != nil {
 		return nil, fmt.Errorf("muz/fp: Spacer rule preprocessing: %w", err)
 	}
-	// Sliced-rule proofs require the source slice proof converter before they
-	// can be returned as proofs of the original program. Until it is ported,
-	// preserve the original predicates whenever proof tracing is requested.
-	if sliceRules && !generateProofTrace {
+	// Proof-producing backends opt in only when they apply the converter.
+	if sliceRules && (!generateProofTrace || allowSliceProof) {
 		slicer := base.NewRuleTransformer()
 		plugin := transforms.NewRuleSlicePlugin(e.manager, e.rules, 1)
 		plugin.SetGenerateProofTrace(generateProofTrace)
@@ -417,6 +423,9 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 		_, err = slicer.Apply(prepared)
 		if err == nil {
 			slicedPredicates, slicedColumns = plugin.PredicateSlices()
+			if generateProofTrace {
+				sliceProof = plugin.TakeProofConverter()
+			}
 		}
 		err = errors.Join(err, slicer.Close())
 		if err != nil {
@@ -507,6 +516,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 		magicPredicates:        magicPredicates,
 		karrInvariants:         karrInvariants,
 		modelConversions:       modelConversions,
+		sliceProof:             sliceProof,
 	}, nil
 }
 
