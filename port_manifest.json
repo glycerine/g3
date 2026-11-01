@@ -182098,7 +182098,7 @@
         "pkg/tactic/arith/qfnra_purify_tactic.go",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": ["TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower",
+      "tests": ["TestPurifyArithFactoryApplyAllocationFrontiers","TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower",
         "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
         "TestPurifierContextTranslationCopiesTargetServicesAndPolicy",
         "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
@@ -182264,7 +182264,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/api/api_simple_solver_translate_test.go", "pkg/tactic/arith/purify_arith_factory.go", "pkg/tactic/arith/purify_arith_factory_test.go", "pkg/cmd/g3/purify_arith_factory_test.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_descriptions.go", "pkg/tactic/arith/qfnra_purify_tactic_test.go","pkg/tactic/arith/qfnra_purify_tactic.go"],
-      "tests": ["TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower","TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
+      "tests": ["TestPurifyArithFactoryApplyAllocationFrontiers","TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower","TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
       "conditionals": [
         {
           "line": 48,
@@ -188839,7 +188839,7 @@
         "pkg/api/api_simple_solver_translate_test.go",
         "pkg/api/api_caller_tactic_solver_translate.go"
       ],
-      "tests": [
+      "tests": ["TestSimplifyCleanupReconstructionCanRetry",
         "TestSimplifyTacticProofDependenciesDepthAndCleanup",
         "TestSimplifyTacticConvertsRewriteExceptionAndRecovers",
         "TestEliminateAndFactoryStickyParamsAndTranslation",

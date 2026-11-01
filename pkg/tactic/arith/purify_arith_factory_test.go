@@ -8,7 +8,49 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
+
+func TestPurifyArithFactoryApplyAllocationFrontiers(t *testing.T) {
+	for _, proofs := range []bool{false, true} {
+		success := false
+		for stop := int64(0); stop < 1024 && !success; stop++ {
+			t.Run(fmt.Sprintf("proofs=%v/%d", proofs, stop), func(t *testing.T) {
+				base, m := fixDLFixture(t, proofs)
+				formula := generalPurifierFailureFormula(t, m, "integer")
+				goal := fixDLGoal(t, m, proofs, true, false, formula)
+				strategy, err := MakePurifyArithTactic(m, base.context, base.globals, nil, base.services)
+				equationMust(t, err)
+				equationMust(t, strategy.IncRef())
+				t.Cleanup(func() { equationMust(t, strategy.DecRef()) })
+				var result tactic.TacticResult
+				t.Cleanup(func() { equationMust(t, result.Close()) })
+				m.Budget().FailAfter(stop)
+				err = strategy.Apply(goal, &result)
+				m.Budget().FailAfter(-1)
+				if err == nil {
+					success = true
+				} else {
+					var failure memory.Failure
+					if !errors.Is(err, arena.ErrInjectedFailure) && !(errors.As(err, &failure) && failure.Kind == memory.FailureMemout && m.NumeralService().RuntimeOwner().State().OutOfMemory) {
+						t.Fatal(err)
+					}
+					goal = fixDLGoal(t, m, proofs, true, false, formula)
+					var retry tactic.TacticResult
+					t.Cleanup(func() { equationMust(t, retry.Close()) })
+					equationMust(t, strategy.Cleanup())
+					equationMust(t, strategy.Apply(goal, &retry))
+					if len(retry.Goals) != 1 || retry.ModelConverter == nil {
+						t.Fatal("retry lost goal or model conversion")
+					}
+				}
+			})
+		}
+		if !success {
+			t.Fatalf("no successful application frontier for proofs=%v", proofs)
+		}
+	}
+}
 
 func TestPurifyArithFactoryConstructorAllocationFrontiers(t *testing.T) {
 	success := false

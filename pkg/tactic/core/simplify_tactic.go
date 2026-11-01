@@ -306,13 +306,24 @@ func (t *SimplifyTactic) SetLogic(usymbol.Symbol) error          { return t.open
 func (t *SimplifyTactic) SetProgressCallback(func(uint32)) error { return t.open() }
 
 func (t *SimplifyTactic) Cleanup() error {
-	if err := t.open(); err != nil {
+	if t == nil || t.self != t {
+		return ast.ErrASTHandle
+	}
+	if t.closed || !t.paramsReady {
+		return arena.ErrClosed
+	}
+	if err := t.context.Check(&t.params); err != nil {
 		return err
 	}
-	if err := t.rewriter.Close(); err != nil {
-		return err
+	// A previous reconstruction can fail after retiring the old rewriter.
+	// Its partial replacement is still owned here and must be released before
+	// another reconstruction can restore this tactic.
+	if t.rewriter != nil {
+		if err := t.rewriter.Close(); err != nil {
+			return err
+		}
+		t.rewriter = nil
 	}
-	t.rewriter = nil
 	var err error
 	t.rewriter, err = rewriter.NewTheoryRewriter(t.manager, t.context, t.globals, &t.params)
 	t.steps = 0
