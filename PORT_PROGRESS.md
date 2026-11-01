@@ -52612,3 +52612,7 @@ Spacer synthetic query proofs: when proof tracing is enabled, the temporary rela
 CLP query preprocessing: relation queries now create the source synthetic query rule and run the default Horn transformations before bounded search. Native comparisons cover the 20-level boundary, default inlining, and CLP's omission of the separate unfold/coalesce stages. Tests also check repeated queries and persistent-program isolation; the broader CLP source and ownership audit remains partial.
 
 CLP certificate presentation now prints its source `true` answer for reachable and unreachable queries. Tests compare the complete SMT-LIB output with native Z3 and check result guards and output-error propagation.
+
+Checked short suite checkpoint: `GOCACHE=/tmp/g3-go-build-cache CGO_ENABLED=0 go test ./... -tags g3checked -timeout=0 -short -count=1` passed on the run started at commit `681c2be5e`; the reported Spacer regression also passed separately on later commits. The `util/lp` package took approximately 704 seconds in that run.
+
+CLP grounding cleanup: interrupted variable-substitution construction now closes its partial owner, and failed cleanup cannot leave an output reference behind. Allocation-frontier tests cover nullary and variable-bearing queries, solver-scope balance, complete owner cleanup, and recovery after an injected failure.

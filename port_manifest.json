@@ -86735,6 +86735,8 @@
       ],
       "tests": [
         "TestCLPBoundedRecursiveQuery",
+        "TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure",
+        "TestCLPQueryAllocationFrontiers",
         "TestCLPLifecycleAndStatistics",
         "TestCLPRuleVariablesShareGroundingAcrossHeadAndBody",
         "TestSMT2CLPEngineConstrainedRules",
@@ -86747,6 +86749,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "grounding closes partial variable substitutions and balances query allocations on failure", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/engine_failure_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPQueryAllocationFrontiers"]},
         {"name": "query constructs a synthetic rule, runs default transformations, and starts bounded search from the transformed output rule head", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules"]},
         {"name": "display_certificate prints the true answer for both reachable and unreachable queries", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]},
         {

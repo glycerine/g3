@@ -69,22 +69,36 @@ func (g *groundEnvironment) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr e
 		g.values[i], g.refs[i] = value, ref
 	}
 	sub, err := rewriter.NewVarSubstitution(g.manager, false)
+	defer func() {
+		if sub != nil {
+			resultErr = errors.Join(resultErr, sub.Close())
+		}
+		if resultErr != nil && out != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, g.manager.DelRef(&out))
+			out = ast.ASTRef{}
+		}
+	}()
 	if err != nil {
 		return out, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
 	out, err = g.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return out, err
 	}
 	if err = sub.Substitute(h, g.values, out); err != nil {
-		resultErr = errors.Join(err, g.manager.DelRef(&out))
+		return out, err
 	}
-	return out, resultErr
+	return out, nil
 }
 
 func (e *Engine) ground(h ast.ASTHandle) (out ast.ASTRef, resultErr error) {
 	environment := &groundEnvironment{manager: e.manager}
-	defer func() { resultErr = errors.Join(resultErr, environment.close()) }()
+	defer func() {
+		resultErr = errors.Join(resultErr, environment.close())
+		if resultErr != nil && out != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&out))
+			out = ast.ASTRef{}
+		}
+	}()
 	return environment.ground(h)
 }
