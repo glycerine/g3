@@ -98144,7 +98144,7 @@
       ],
       "deviations": [
         "Go reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Coalesce/unfold source hyper-resolution proof construction is implemented and verified through combined preprocessing with original asserted leaves; slice proof conversion is partial.",
-        "Expression-query preprocessing can collapse named fact rules into an unnamed synthetic trace rule; original trace-name reconstruction remains incomplete."
+        "Expression-query trace names follow transformed rules as in the source: rule_unifier concatenates target and source names with semicolons, while subsumption checking can collapse a total named chain into the unnamed synthetic query fact. No reconstruction of original names is performed by the source get_rules_along_trace forwarding path."
       ]
     },
     {
