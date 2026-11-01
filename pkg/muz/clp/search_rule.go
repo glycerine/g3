@@ -14,6 +14,9 @@ func (e *Engine) tryRule(rule *base.Rule, goals []ast.ASTHandle, depth uint32, i
 	if err != nil {
 		return lbool.Undef, err
 	}
+	if err = e.verboseRule(index, head); err != nil {
+		return lbool.Undef, err
+	}
 	ground, err := environment.ground(head)
 	if err != nil {
 		return lbool.Undef, err

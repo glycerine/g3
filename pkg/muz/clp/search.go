@@ -13,6 +13,9 @@ func (e *Engine) search(goals []ast.ASTHandle, depth uint32, index int) (status 
 	if depth == 0 {
 		return lbool.Undef, nil
 	}
+	if err := e.verboseSearch(depth, index); err != nil {
+		return lbool.Undef, err
+	}
 	decl, err := e.manager.GetDecl(goals[index])
 	if err != nil {
 		return lbool.Undef, err

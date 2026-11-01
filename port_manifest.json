@@ -86718,6 +86718,7 @@
         "pkg/muz/clp/rules.go",
         "pkg/muz/clp/search.go",
         "pkg/muz/clp/search_rule.go",
+        "pkg/muz/clp/verbose.go",
         "pkg/muz/clp/query.go",
         "pkg/muz/clp/lifecycle.go",
         "pkg/muz/clp/engine_test_helpers_test.go",
@@ -86726,6 +86727,7 @@
         "pkg/muz/clp/engine_failure_test.go",
         "pkg/muz/clp/engine_lifecycle_test.go",
         "pkg/muz/clp/engine_grounding_integration_test.go",
+        "pkg/muz/clp/engine_verbose_test.go",
         "pkg/muz/fp/clp_engine.go",
         "pkg/muz/fp/bmc_engine.go",
         "pkg/muz/fp/spacer_engine.go",
@@ -86745,11 +86747,13 @@
         "TestSMT2CLPCertificateForReachableAndUnreachable",
         "TestCLPQueryWrapperDoesNotMutateProgram",
         "TestCLPEngineResultSnapshotAndAnswer",
-        "TestCLPSolverUnknownRaisesSourceErrorAndRestoresScope"
+        "TestCLPSolverUnknownRaisesSourceErrorAndRestoresScope",
+        "TestCLPSearchVerboseLevels"
       ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "search verbosity levels and rule-head diagnostics", "status": "partial", "go_targets": ["pkg/muz/clp/verbose.go", "pkg/muz/clp/engine_verbose_test.go"], "tests": ["TestCLPSearchVerboseLevels"]},
         {"name": "CLP search leaves its statistics counters unchanged and reset clears them", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPDepthFrontierUnknown", "TestCLPStatisticsRemainZeroAfterRejectedRule"]},
         {"name": "grounding closes partial variable substitutions and balances query allocations on failure", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/engine_failure_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPQueryAllocationFrontiers"]},
         {"name": "query constructs a synthetic rule, runs default transformations, and starts bounded search from the transformed output rule head", "status": "ported", "go_targets": ["pkg/muz/fp/clp_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPQueryWrapperDoesNotMutateProgram", "TestSMT2CLPQueryDepthIncludesSyntheticRule", "TestSMT2CLPEngineConstrainedRules"]},
@@ -86766,7 +86770,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Bounded search and fixedpoint integration are implemented; a full source and ownership audit remains incomplete. Go restores solver scopes on errors and successful branches, while the source can exit through an exception or successful branch without a local pop."
+        "Bounded search and fixedpoint integration are implemented; a full source and ownership audit remains incomplete. Go restores solver scopes on errors and successful branches, while the source can exit through an exception or successful branch without a local pop. CLP rule diagnostics use the format manager's default layout settings."
       ]
     },
     {

@@ -52620,3 +52620,5 @@ CLP grounding cleanup: interrupted variable-substitution construction now closes
 CLP source audit: search no longer increments the three dormant source statistics counters; successful, depth-limited and rejected searches confirm they stay zero. A grounding integration case also checks a free variable with omitted lower indices.
 
 Checked relation lifecycle: closing the Go wrapper now closes both owned backing tables, and filter-and-project validates its source before dereferencing it. A lifecycle regression covers backing-table closure and operations after close; normal and g3checked relation package suites pass.
+
+CLP search diagnostics: the source search-depth and rule-head messages now use the process verbosity stream at levels one and two. A focused regression checks the disabled and enabled levels; the CLP and fixedpoint package suites pass in normal and g3checked builds. Rule-head layout currently uses the format manager's defaults; the broader CLP source audit remains partial.
