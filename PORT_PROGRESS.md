@@ -52618,3 +52618,5 @@ Checked short suite checkpoint: `GOCACHE=/tmp/g3-go-build-cache CGO_ENABLED=0 go
 CLP grounding cleanup: interrupted variable-substitution construction now closes its partial owner, and failed cleanup cannot leave an output reference behind. Allocation-frontier tests cover nullary and variable-bearing queries, solver-scope balance, complete owner cleanup, and recovery after an injected failure.
 
 CLP source audit: search no longer increments the three dormant source statistics counters; successful, depth-limited and rejected searches confirm they stay zero. A grounding integration case also checks a free variable with omitted lower indices.
+
+Checked relation lifecycle: closing the Go wrapper now closes both owned backing tables, and filter-and-project validates its source before dereferencing it. A lifecycle regression covers backing-table closure and operations after close; normal and g3checked relation package suites pass.

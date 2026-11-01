@@ -39,6 +39,9 @@ func (r *CheckedRelation) Rename(cycle []int) (*CheckedRelation, error) {
 	return out, out.verify("permutation")
 }
 func (r *CheckedRelation) SelectEqualAndProject(value Element, column int) (*CheckedRelation, error) {
+	if e := r.verify("filter project source"); e != nil {
+		return nil, e
+	}
 	p, e := r.primary.SelectEqualAndProject(value, column)
 	if e != nil {
 		return nil, e

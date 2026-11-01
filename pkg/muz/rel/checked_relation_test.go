@@ -31,4 +31,15 @@ func TestCheckedRelationMutationCloneAndLifecycle(t *testing.T) {
 	if _, e = c.Len(); e == nil {
 		t.Fatal("closed")
 	}
+	primary, checker := r.primary, r.checker
+	must(t, r.Close())
+	if _, e = primary.Len(); e == nil {
+		t.Fatal("primary table remains open after closing its relation")
+	}
+	if _, e = checker.Len(); e == nil {
+		t.Fatal("checker table remains open after closing its relation")
+	}
+	if _, e = r.SelectEqualAndProject(0, 0); e == nil {
+		t.Fatal("filter-project accepted a closed relation")
+	}
 }

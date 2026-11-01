@@ -1,6 +1,9 @@
 package rel
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type CheckedRelation struct {
 	signature Signature
@@ -30,7 +33,7 @@ func (r *CheckedRelation) Close() error {
 	if r.closed {
 		return nil
 	}
-	e := r.checker.Close()
+	e := errors.Join(r.primary.Close(), r.checker.Close())
 	r.primary = nil
 	r.checker = nil
 	r.closed = true
