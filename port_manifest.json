@@ -106152,11 +106152,11 @@
       "component": "nlsat",
       "role": "production",
       "status": "ported",
-      "go_targets": [
+      "go_targets": ["pkg/api/api_simple_solver_translate_test.go", "pkg/api/api_caller_tactic_solver_translate.go", "pkg/nlsat/tactic/nlsat_tactic_test.go", "pkg/nlsat/tactic/context_translation.go",
         "pkg/nlsat/tactic/nlsat_tactic.go",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": [
+      "tests": ["TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestAPITacticSolverTranslateQFNRANLSATUnsatAfterSourceClose", "TestNLSATContextTranslationCopiesTargetServicesAndParameters",
         "TestNLSATTacticPublishesSatModel",
         "TestNLSATTacticPublishesUnsatCore",
         "TestNLSATTacticRejectsProofGoal",
@@ -106242,7 +106242,7 @@
       "component": "nlsat",
       "role": "production",
       "status": "ported",
-      "go_targets": [
+      "go_targets": ["pkg/api/api_simple_solver_translate_test.go", "pkg/tactic/arith/purify_arith_factory.go",
         "pkg/tactic/smtlogics/qfnra_nlsat_tactic.go",
         "pkg/api/api_qfnra_nlsat_named_test.go",
         "pkg/cmd/g3/test_vectors/qfnra_nlsat_named.smt2",
@@ -106251,7 +106251,7 @@
         "pkg/tactic/core/tseitin_cnf_encode.go",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": [
+      "tests": ["TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestAPITacticSolverTranslateQFNRANLSATUnsatAfterSourceClose",
         "TestAPIQFNRANLSATNamedTacticModelAndScopes",
         "TestSMTLibRunnerScripts/qfnra_nlsat_named.smt2",
         "TestTseitinCNFNestedIffAndITEChain",
@@ -197235,7 +197235,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/tactic/arith/purify_arith_factory.go",
         "pkg/api/api_simple_solver_translate_test.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/cmd/g3/test_vectors/qfufnra_forward_trig.smt2",

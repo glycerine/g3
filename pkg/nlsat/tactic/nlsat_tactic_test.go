@@ -85,6 +85,38 @@ func TestNLSATTacticRetainsParametersAcrossTranslation(t *testing.T) {
 	compilerMust(t, value.Cleanup())
 }
 
+func TestNLSATContextTranslationCopiesTargetServicesAndParameters(t *testing.T) {
+	source := newGoalCompilerFixture(t)
+	target := newGoalCompilerFixture(t)
+	params, err := source.context.NewValue()
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, source.context.Del(&params)) })
+	name := "seed"
+	compilerMust(t, source.context.SetUIntName(&params, &name, 23))
+	value, err := NewNLSATTactic(source.manager, source.context, source.globals, &params, source.services)
+	compilerMust(t, err)
+	t.Cleanup(func() { compilerMust(t, value.Close()) })
+	translated, err := value.TranslateWithServices(target.manager, target.context, target.globals, target.services)
+	compilerMust(t, err)
+	copy, ok := translated.(*NLSATTactic)
+	if !ok {
+		t.Fatal("translated NLSAT tactic type")
+	}
+	t.Cleanup(func() { compilerMust(t, copy.Close()) })
+	if copy.manager != target.manager || copy.context != target.context || copy.globals != target.globals || copy.services.Cooperation != target.services.Cooperation || copy.services.Memory != target.services.Memory {
+		t.Fatal("translated tactic did not use target services")
+	}
+	compilerMust(t, source.context.SetUIntName(&params, &name, 42))
+	compilerMust(t, value.UpdateParams(&params))
+	got, err := target.context.GetUIntName(&copy.params, &name, 0)
+	compilerMust(t, err)
+	if got != 23 {
+		t.Fatal("translated seed", got)
+	}
+	compilerMust(t, value.Close())
+	compilerMust(t, copy.Cleanup())
+}
+
 func TestNLSATTacticPublishesSatModel(t *testing.T) {
 	fixture := newGoalCompilerFixture(t)
 	tacticValue, err := NewNLSATTactic(fixture.manager, fixture.context, fixture.globals, nil, fixture.services)

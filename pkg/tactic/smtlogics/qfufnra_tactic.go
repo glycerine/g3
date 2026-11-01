@@ -15,8 +15,7 @@ import (
 )
 
 // NewQFUFNRATactic constructs the source preprocessing sequence and mixed
-// nonlinear/SMT backend. Arithmetic purification currently uses the concrete
-// real arithmetic implementation shared with the QF_NRA strategy.
+// nonlinear/SMT backend.
 func NewQFUFNRATactic(m *ast.ASTManager, p *params.ParamsRef, config smtcore.SMTSolverConfig) (result tactic.Tactic, resultErr error) {
 	c, g := config.Params, config.Globals
 	if m == nil || c == nil || g == nil || g.Context != c {
@@ -47,22 +46,13 @@ func NewQFUFNRATactic(m *ast.ASTManager, p *params.ParamsRef, config smtcore.SMT
 	main := copyParams()
 	b.boolean(main, "elim_and", true)
 	b.boolean(main, "blast_distinct", true)
-	elimRem := copyParams()
-	b.boolean(elimRem, "elim_rem", true)
-	skolem := b.params()
-	b.boolean(skolem, "skolemize", false)
 	if b.err != nil {
 		return nil, b.err
 	}
 	simplify := func(local *params.ParamsRef) tactic.Tactic {
 		return b.using(b.clean(b.keep(core.NewSimplifyTactic(m, c, g, p))), local)
 	}
-	purify := b.then(
-		b.using(b.keep(core.NewSNFTactic(m, c, g, skolem)), skolem),
-		simplify(elimRem),
-		b.clean(b.keep(arith.NewQFNRAPurifyTactic(m, c, g, p, config.ModelEvaluator))),
-		b.clean(b.keep(core.NewSimplifyTactic(m, c, g, p))),
-	)
+	purify := b.keep(arith.MakePurifyArithTactic(m, c, g, p, config.ModelEvaluator))
 	first := b.then(
 		simplify(main),
 		purify,

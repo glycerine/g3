@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ackermannization"
 	"github.com/glycerine/g3/pkg/ast"
+	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -49,6 +50,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 		case *bv.MaxBVSharingTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.ModelEvaluator.Cooperation)
 		case *nlsatsmt.NLPurifyTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
+		case *nlsattactic.NLSATTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		default:
 			if value, matched, err := arith.TranslateContextLeaf(leaf, manager, config.Params, config.Globals, config.ModelEvaluator); matched {

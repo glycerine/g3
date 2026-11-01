@@ -58,16 +58,7 @@ func NewQFNRANLSATTactic(m *ast.ASTManager, p *uparams.ParamsRef, config smtcore
 	}
 	simplify := func() tactic.Tactic { return b.using(b.clean(b.keep(core.NewSimplifyTactic(m, c, g, source))), main) }
 	purification := func() tactic.Tactic {
-		elimRem := copyParams()
-		b.boolean(elimRem, "elim_rem", true)
-		skolem := b.params()
-		b.boolean(skolem, "skolemize", false)
-		return b.using(b.then(
-			b.using(b.keep(core.NewSNFTactic(m, c, g, skolem)), skolem),
-			b.using(b.clean(b.keep(core.NewSimplifyTactic(m, c, g, elimRem))), elimRem),
-			b.keep(arith.NewQFNRAPurifyTactic(m, c, g, source, config.ModelEvaluator)),
-			b.clean(b.keep(core.NewSimplifyTactic(m, c, g, source))),
-		), purify)
+		return b.using(b.keep(arith.MakePurifyArithTactic(m, c, g, source, config.ModelEvaluator)), purify)
 	}
 	var factor tactic.Tactic
 	if factorEnabled {

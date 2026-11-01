@@ -1019,6 +1019,7 @@ func TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose(t *testing
 		{"dt2bv", "ALL", "(declare-datatypes () ((E red amber green))) (declare-const x E) (assert (= x green))", 1},
 		{"max-bv-sharing", "QF_BV", "(declare-const x (_ BitVec 8)) (declare-const y (_ BitVec 8)) (declare-const z (_ BitVec 8)) (assert (= (bvadd x y) #x03)) (assert (= (bvadd y z x) #x06)) (assert (= x #x01)) (assert (= y #x02))", 4},
 		{"qfufnra", "QF_UFNRA", "(declare-const x Real) (declare-fun f (Real) Real) (assert (= x 2)) (assert (= (f x) (/ 1 x))) (assert (> (f x) 0))", 3},
+		{"qfnra-nlsat", "QF_NRA", "(declare-const x Real) (assert (= x 2)) (assert (= (/ 1 x) (/ 1 2)))", 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			source, err := NewSMTContext()
@@ -1099,6 +1100,31 @@ func TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose(t *testing.T) {
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("translated unsatisfiable solver", status)
+	}
+}
+
+func TestAPITacticSolverTranslateQFNRANLSATUnsatAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_NRA"))
+	strategy, err := source.Tactic("qfnra-nlsat")
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(strategy)
+	astTestMust(t, err)
+	astTestMust(t, strategy.Close())
+	astTestMust(t, solver.LoadSMT2String("(declare-const x Real) (assert (= (* x x) 2)) (assert (> x 2))"))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.False {
+		t.Fatal("translated unsatisfiable nonlinear solver", status)
 	}
 }
 

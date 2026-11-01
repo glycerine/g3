@@ -52442,3 +52442,5 @@ LIA-to-cardinality proof correction: indicator rewrites and reasserted bounds no
 Arithmetic purifier public factory: register purify-arith and compose SNF with skolemization disabled, remainder-eliminating simplification, purification, and final simplification. Focused tests cover forced parameter overrides, proof conclusions, model conversion, SMT-LIB SAT and UNSAT, and translated solver use after the source context closes. The source units remain partial pending broader audits.
 
 Arithmetic purifier factory allocation coverage: constructor tests inject each observed AST allocation refusal through success, close any constructed tactic, and retry after every failure. Normal and checked builds pass; this does not cover every possible allocation source or application failure.
+
+Nonlinear tactic integration: QF_NRA and QF_UFNRA now call the shared arithmetic purification factory, as their C++ counterparts do. NLSAT context translation copies parameters into target services, enabling QF_NRA tactic solvers to run after the original context closes; tests cover parameter independence and translated SAT models and UNSAT results.
