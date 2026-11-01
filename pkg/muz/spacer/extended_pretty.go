@@ -151,20 +151,46 @@ func (p *PredicateTransformer) traceExtendedLemma(body ast.ASTHandle, level uint
 			levelText = "oo"
 		}
 		_, _ = io.WriteString(out, "add-lemma: "+levelText+" "+p.name+" ")
-		ref, err := rewriteExtendedPretty(p.manager, body)
+		if err := p.writeExtendedPretty(out, body); err != nil {
+			return err
+		}
+		_, err := io.WriteString(out, "\n\n")
+		return err
+	})
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
+}
+
+func (p *PredicateTransformer) writeExtendedPretty(out io.Writer, body ast.ASTHandle) (resultErr error) {
+	ref, err := rewriteExtendedPretty(p.manager, body)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&ref)) }()
+	h, err := p.manager.RefGet(ref)
+	if err != nil {
+		return err
+	}
+	printer, err := ast.NewSimpleASTPrinterContext(p.manager, out, out)
+	if err != nil {
+		return err
+	}
+	return printer.DisplayExpr(out, h, 0)
+}
+
+func (p *PredicateTransformer) traceExtendedNode(node *ProofObligation, minimumDepth uint32) error {
+	tags := p.manager.BorrowSourceTraceTags()
+	err := tags.EmitShort("spacer.expand-add", func(out io.Writer) error {
+		body, err := p.manager.RefGet(node.post)
 		if err != nil {
 			return err
 		}
-		defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&ref)) }()
-		h, err := p.manager.RefGet(ref)
-		if err != nil {
-			return err
-		}
-		printer, err := ast.NewSimpleASTPrinterContext(p.manager, out, out)
-		if err != nil {
-			return err
-		}
-		if err = printer.DisplayExpr(out, h, 0); err != nil {
+		// The source streams n.level() as an unsigned value, unlike pp_level
+		// in add_lemma_core, and subtracts the queue's minimum depth unsigned.
+		_, _ = io.WriteString(out, "expand-node: "+p.name+" level: "+strconv.FormatUint(uint64(node.level), 10)+" depth: "+strconv.FormatUint(uint64(node.depth-minimumDepth), 10)+"\n")
+		if err := p.writeExtendedPretty(out, body); err != nil {
 			return err
 		}
 		_, err = io.WriteString(out, "\n\n")

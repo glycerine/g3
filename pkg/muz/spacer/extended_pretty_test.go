@@ -110,9 +110,16 @@ func TestSpacerExtendedPrettySourceRewritesAndTrace(t *testing.T) {
 	must(m.DelRef(&ref))
 	p := &PredicateTransformer{manager: m, name: "pretty-predicate"}
 	must(p.traceExtendedLemma(input, InfinityLevel))
+	post, err := m.NewRef(input)
+	must(err)
+	must(p.traceExtendedNode(&ProofObligation{post: post, level: InfinityLevel, depth: 7}, 3))
+	must(m.DelRef(&post))
 	if tags.ShouldTrace("spacer.expand-add") {
 		if !strings.Contains(output.String(), "add-lemma: oo pretty-predicate (= pretty-x pretty-y)\n\n") {
 			t.Fatal("source short trace", output.String())
+		}
+		if !strings.Contains(output.String(), "expand-node: pretty-predicate level: 4294967295 depth: 4\n(= pretty-x pretty-y)\n\n") {
+			t.Fatal("source expansion short trace", output.String())
 		}
 	} else if output.Len() != 0 {
 		t.Fatal("disabled short trace emitted output")

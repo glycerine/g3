@@ -220,6 +220,9 @@ func (q *ProofObligationQueue) checkReachability(reset, flexible bool, flexibleD
 		}
 		// context::expand_node returns immediately for a frame-blocked
 		// flexible obligation, without generating a lemma or lowering expanded.
+		if err = node.transformer.traceExtendedNode(node, q.MinimumDepth()); err != nil {
+			return false, err
+		}
 		frameBlocked := false
 		if flexible {
 			frameBlocked, _, err = node.transformer.IsBlocked(node)
