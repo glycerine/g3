@@ -93335,12 +93335,13 @@
         },
         {
           "name": "filter_interpreted: independent column bounds and recognized comparisons",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_columns.go",
           "tests": [
             "TestIntervalColumnsInterpretedFilters",
             "TestIntervalColumnsBinaryPropagation",
-            "TestIntervalColumnsIntegerStrictBounds"
+            "TestIntervalColumnsIntegerStrictBounds",
+            "TestIntervalColumnsUnknownInterpretedConditionIsConservative"
           ]
         },
         {
@@ -93460,12 +93461,13 @@
         },
         {
           "name": "filter_interpreted: independent column bounds and recognized comparisons",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_columns.go",
           "tests": [
             "TestIntervalColumnsInterpretedFilters",
             "TestIntervalColumnsBinaryPropagation",
-            "TestIntervalColumnsIntegerStrictBounds"
+            "TestIntervalColumnsIntegerStrictBounds",
+            "TestIntervalColumnsUnknownInterpretedConditionIsConservative"
           ]
         },
         {

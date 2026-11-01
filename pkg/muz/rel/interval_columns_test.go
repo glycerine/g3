@@ -38,6 +38,29 @@ func TestIntervalColumnsInterpretedFilters(t *testing.T) {
 	}
 }
 
+func TestIntervalColumnsUnknownInterpretedConditionIsConservative(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	real, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle { astTestMust(t, err); astTestPin(t, m, h); return h }
+	x := own(m.MkVar(0, real))
+	two := own(m.ArithmeticRealNumeralText("2"))
+	four := own(m.ArithmeticRealNumeralText("4"))
+	belowTwo := own(m.MkArithmeticLE(x, two))
+	aboveFour := own(m.MkArithmeticGE(x, four))
+	condition := own(m.MkAndArgs([]ast.ASTHandle{belowTwo, aboveFour}))
+	relation := newIntervalColumns(1, false)
+	astTestMust(t, relation.filterInterpreted(m, condition))
+	// The source recognizes one comparison at a time; an unsupported
+	// conjunction is ignored instead of combining its child predicates.
+	lower, _, upper, _ := relation.columns[0].Bounds()
+	if relation.empty || lower != nil || upper != nil {
+		t.Fatalf("unsupported condition changed the full interval: %v %v", lower, upper)
+	}
+}
+
 func TestIntervalVectorColumnEquivalences(t *testing.T) {
 	r := newIntervalColumns(3, false)
 	point := func(n int64) smtcore.RelationInterval {
