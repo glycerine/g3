@@ -65,6 +65,9 @@ func (a *SolverNNFAdapter) IsRelevant(expression ast.ASTHandle) (bool, error) {
 	if err := a.open(); err != nil {
 		return false, err
 	}
+	if err := a.syncVariables(); err != nil {
+		return false, err
+	}
 	for _, contains := range a.contains {
 		found, err := contains.Check(expression)
 		if err != nil || found {
@@ -72,6 +75,44 @@ func (a *SolverNNFAdapter) IsRelevant(expression ast.ASTHandle) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// syncVariables follows additions and swap-removals made by the solver context.
+func (a *SolverNNFAdapter) syncVariables() error {
+	variables, err := a.context.Variables()
+	if err != nil {
+		return err
+	}
+	common := len(a.contains)
+	if len(variables) < common {
+		common = len(variables)
+	}
+	firstChanged := common
+	for i := 0; i < common; i++ {
+		target, cause := a.contains[i].Target()
+		if cause != nil {
+			return cause
+		}
+		if target != variables[i] {
+			firstChanged = i
+			break
+		}
+	}
+	for len(a.contains) > firstChanged {
+		i := len(a.contains) - 1
+		if err = a.contains[i].Close(); err != nil {
+			return err
+		}
+		a.contains = a.contains[:i]
+	}
+	for len(a.contains) < len(variables) {
+		contains, cause := ast.NewContainsApp(a.context.manager, variables[len(a.contains)])
+		if cause != nil {
+			return cause
+		}
+		a.contains = append(a.contains, contains)
+	}
+	return nil
 }
 
 func (a *SolverNNFAdapter) NormalizeAtom(expression ast.ASTHandle, positive bool) (ast.ASTHandle, error) {

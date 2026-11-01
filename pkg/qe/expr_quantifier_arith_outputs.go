@@ -32,10 +32,19 @@ func drainExprQEArithmeticOutputs(plugin *ArithmeticPlugin, node *exprQETree, va
 			}
 		}
 	}()
-	for _, ref := range fresh {
-		h, e := m.RefGet(ref)
+	for i := range fresh {
+		h, e := m.RefGet(fresh[i])
 		if e != nil {
 			return e
+		}
+		_, found, e := plugin.context.IsVariable(h)
+		if e != nil {
+			return e
+		}
+		if !found {
+			if e = plugin.context.adoptVariable(h, &fresh[i]); e != nil {
+				return e
+			}
 		}
 		if e = variables.add(h); e != nil {
 			return e

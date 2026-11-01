@@ -110745,6 +110745,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/qe_nnf_adapter_mutation_test.go",
         "pkg/qe/expr_quantifier_datatype_branch_test.go",
         "pkg/qe/expr_quantifier_datalog_branch_test.go",
         "pkg/muz/base/rule_unbound_test.go",
@@ -110849,6 +110850,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestSolverNNFAdapterTracksAddedAndRemovedVariables",
         "TestExprQEDatatypeBranchPropagatesAndSubstitutes",
         "TestExprQEDatalogBranchPropagatesAndSubstitutes",
         "TestExprQEDatatypeSearchEliminatesRecognizedEquality",

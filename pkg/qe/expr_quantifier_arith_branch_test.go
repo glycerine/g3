@@ -130,6 +130,19 @@ func TestExprQEArithmeticBranchTransfersFreshVariables(t *testing.T) {
 	if fresh == f.x || fresh == y {
 		t.Fatal("expected a fresh variable")
 	}
+	_, registered, err := f.plugin.context.IsVariable(fresh)
+	fmMust(t, err)
+	if !registered {
+		t.Fatal("fresh variable was not registered in the plugin context")
+	}
+	updated, err := NewSolverNNFAdapter(f.plugin.context)
+	fmMust(t, err)
+	defer func() { fmMust(t, updated.Close()) }()
+	relevant, err := updated.IsRelevant(fresh)
+	fmMust(t, err)
+	if !relevant {
+		t.Fatal("fresh variable was not relevant to normalization")
+	}
 	assertions, err := solver.NumAssertions()
 	fmMust(t, err)
 	if assertions < 4 {

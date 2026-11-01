@@ -62,8 +62,8 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 		}
 		variableCount := len(variables.entries)
 		current, step, e := advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
-		// The normalizer is built from the initial variable set. Arithmetic
-		// branches that introduce fresh variables need a refreshed context.
+		// The SMT backtracking path must support theory updates made after
+		// equality merges before searches with new variables can continue.
 		if e == nil && len(variables.entries) != variableCount {
 			e = errors.Join(eval.Close(), md.DecRef())
 			return result, false, e
