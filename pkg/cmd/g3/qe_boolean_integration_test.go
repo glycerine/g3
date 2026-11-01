@@ -181,6 +181,38 @@ func TestSMTLibRunnerQEArrayTwoSelects(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEArrayStores(t *testing.T) {
+	for _, tc := range []struct {
+		name, array, value string
+	}{
+		{"single", "(store A i v)", "v"},
+		{"overwritten", "(store (store A i v) i w)", "w"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			script := `(set-logic ALL)
+(declare-const B (Array Int Int))
+(declare-const i Int)
+(declare-const v Int)
+(declare-const w Int)
+(assert (exists ((A (Array Int Int))) (= ` + tc.array + ` B)))
+(push)
+(assert (not (= (select B i) ` + tc.value + `)))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= (select B i) ` + tc.value + `))
+(check-sat-using (then qe smt))
+`
+			var out bytes.Buffer
+			if err := run(strings.NewReader(script), &out); err != nil {
+				t.Fatal(err, out.String())
+			}
+			if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+				t.Fatalf("array store QE result: %s", got)
+			}
+		})
+	}
+}
+
 func TestSMTLibRunnerQEArrayDisjunction(t *testing.T) {
 	script := `(set-logic ALL)
 (declare-const B (Array Int Int))

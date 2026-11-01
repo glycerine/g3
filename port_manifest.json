@@ -114641,6 +114641,7 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerQEArrayStores",
         "TestQuantifierDatatypeBlockUniversal",
         "TestQuantifierDatatypeBlocks",
         "TestSMTLibRunnerQEDatatypeBlocks",
