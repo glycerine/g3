@@ -48771,8 +48771,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go"],
-      "tests": ["TestRPFPTransformerOwnershipAndBooleanState", "TestRPFPTransformerParameterSubstitution"],
+      "go_targets": ["pkg/duality/rpfp_transformer.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go", "pkg/duality/rpfp_graph.go", "pkg/duality/rpfp_graph_test.go"],
+      "tests": ["TestRPFPTransformerOwnershipAndBooleanState", "TestRPFPTransformerParameterSubstitution", "TestRPFPGraphOwnershipCloningAndRepeatedChildren", "TestRPFPGraphParameterizedNodeAndForeignOwners"],
       "conditionals": [
         {
           "line": 259,
@@ -48849,9 +48849,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name":"CreateNode, CloneNode, DeleteNode, CreateEdge, DeleteEdge and CreateLowerBoundEdge graph primitives (duality.h:481-616)","status":"ported","go_target":"pkg/duality/rpfp_graph.go","tests":["TestRPFPGraphOwnershipCloningAndRepeatedChildren","TestRPFPGraphParameterizedNodeAndForeignOwners"]}],
       "ownership": [],
-      "deviations": ["Concrete transformer ownership and Boolean state are started; graph nodes, edges, substitution, interpolation and solver integration remain unfinished."]
+      "deviations": ["Concrete transformer operations and graph node/edge lifecycle primitives are implemented; graph constraints, dual formulas, interpolation, lazy annotation search and solver integration remain unfinished."]
     },
     {
       "path": "src/duality/duality_profiling.cpp",
