@@ -186188,6 +186188,7 @@
       "tests": [
         "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
         "TestCollectStatisticsQuantifierVariablesPatternsAndDepth",
+        "TestCollectStatisticsNestedQuantifierCountsAndSourceDepth",
         "TestCollectStatisticsOutputIsSourceMapOrdered",
         "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
         "TestCollectStatisticsCopiesAndTranslatesParameters",
@@ -186218,7 +186219,7 @@
         },
         {
           "name": "collect_proc expression and declaration statistics",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/collect_statistics_traversal.go",
           "tests": [
             "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
@@ -186266,6 +186267,7 @@
       "tests": [
         "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",
         "TestCollectStatisticsQuantifierVariablesPatternsAndDepth",
+        "TestCollectStatisticsNestedQuantifierCountsAndSourceDepth",
         "TestCollectStatisticsOutputIsSourceMapOrdered",
         "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
         "TestCollectStatisticsCopiesAndTranslatesParameters",
@@ -186300,7 +186302,7 @@
         },
         {
           "name": "collect_proc expression and declaration statistics",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/collect_statistics_traversal.go",
           "tests": [
             "TestCollectStatisticsUninterpretedCountsAndSharedTraversal",

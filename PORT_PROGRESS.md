@@ -52734,3 +52734,5 @@ SLS core tactic closure: the source before/after goal traces, tactic report, cle
 Extended-numeral ledger evidence: linked the already passing scalar-negation cases in `TestExtendedNumeralSourceArithmeticAndRelations` to the standalone `tst1` method record, resolving portcheck's missing method evidence without adding duplicate tests.
 
 Portcheck method evidence closure: linked the extended-numeral standalone negation check and injectivity SMT-LIB integration test through their method-level Go targets, so the checker can verify declarations across packages. `go run ./pkg/cmd/portcheck -manifest port_manifest.json` passes with 2,103 units and 677 API operations (1,282 ported, 279 partial, 377 unported, 29 dead/deleted).
+
+Collect-statistics traversal closure: the post-order expression/declaration collector now has explicit coverage for nested forall/exists quantifiers, patterns and no-patterns, including the source's depth counter result. The collector method record is marked ported after normal and `g3checked` focused tests pass; tactic construction and ownership remain separately partial.
