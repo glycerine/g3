@@ -123,7 +123,7 @@ func dualityNativeSolverFixture(t *testing.T) (*Context, *ast.ASTManager, solver
 	factory, err := smtcore.NewSMTSolverFactory(smtcore.SMTSolverConfig{Params: config.params, Globals: globals})
 	must(err)
 	t.Cleanup(func() { must(factory.Close()) })
-	s, err := factory.New(m, nil, false, true, false, "")
+	s, err := factory.New(m, nil, false, true, true, "")
 	must(err)
 	t.Cleanup(func() { must(s.Close()) })
 

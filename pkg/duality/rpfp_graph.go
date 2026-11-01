@@ -4,6 +4,7 @@ package duality
 
 import (
 	"errors"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/solver"
 	"math"
 
@@ -14,6 +15,8 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
+	proofCore            map[ast.ASTHandle]ast.ASTRef
+	dualModel            *model.ModelCore
 	solver               solver.Solver
 	scopes               []graphScope
 	HornClauses          bool
@@ -323,6 +326,12 @@ func (g *RPFP) Close() error {
 		}
 	}
 	g.underapproxFlags = nil
+	if err := g.ClearProofCore(); err != nil {
+		return err
+	}
+	if err := g.replaceDualModel(nil, false); err != nil {
+		return err
+	}
 	if err := g.closeScopeRefs(); err != nil {
 		return err
 	}
