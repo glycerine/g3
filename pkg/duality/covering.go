@@ -7,6 +7,7 @@ import "github.com/glycerine/g3/pkg/solver"
 // search registers new instances and underapproximation-node associations.
 // Reporter callbacks and outer search lifecycle wiring remain unfinished.
 type Covering struct {
+	simpleLoops map[*Node]bool
 	dominated   map[*Node]bool
 	graph       *RPFP
 	aux         solver.Solver
@@ -32,7 +33,7 @@ func NewCovering(graph *RPFP, aux solver.Solver) (*Covering, error) {
 	if m != graph.context.manager {
 		return nil, ErrContextMismatch
 	}
-	c := &Covering{dominated: make(map[*Node]bool), instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
+	c := &Covering{simpleLoops: make(map[*Node]bool), dominated: make(map[*Node]bool), instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
 	for _, node := range graph.nodes {
 		if err = c.RegisterInstance(node); err != nil {
 			return nil, err
@@ -45,6 +46,21 @@ func (c *Covering) RegisterInstance(node *Node) error {
 		return ErrWrapperOwner
 	}
 	group := node.Map
+	if group != nil {
+		count := 0
+		loop := false
+		for _, edge := range group.Owner.edges {
+			if edge.Parent == group {
+				count++
+				if len(edge.Children) == 1 && edge.Children[0] == group {
+					loop = true
+				}
+			}
+		}
+		if count == 2 && loop {
+			c.simpleLoops[group] = true
+		}
+	}
 	for _, other := range c.allOfNode[group] {
 		if other == node {
 			return nil
