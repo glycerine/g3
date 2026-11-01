@@ -48912,8 +48912,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/rpfp_expression.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go", "pkg/duality/rpfp_expression_test.go", "pkg/duality/rpfp_reduced.go", "pkg/duality/rpfp_reduced_test.go", "pkg/duality/rpfp_edge_maps.go", "pkg/duality/rpfp_edge_maps_test.go", "pkg/duality/rpfp_background.go", "pkg/duality/rpfp_localize.go", "pkg/duality/rpfp_localize_test.go", "pkg/duality/rpfp_annotation.go", "pkg/duality/rpfp_annotation_test.go"],
-      "tests": ["TestRPFPExpressionComplexityAndNames", "TestRPFPTransformerParameterSubstitution", "TestRPFPReducedVariablesAndChildRelation", "TestRPFPEdgeMapsRefreshAndDuplicateParameters", "TestRPFPLocalizationAndReducedEdge", "TestRPFPAnnotationDecodeAndUpperBound"],
+      "go_targets": ["pkg/duality/rpfp_tree.go", "pkg/duality/rpfp_tree_test.go", "pkg/duality/rpfp_expression.go", "pkg/duality/rpfp_substitution.go", "pkg/duality/rpfp_transformer_test.go", "pkg/duality/rpfp_expression_test.go", "pkg/duality/rpfp_reduced.go", "pkg/duality/rpfp_reduced_test.go", "pkg/duality/rpfp_edge_maps.go", "pkg/duality/rpfp_edge_maps_test.go", "pkg/duality/rpfp_background.go", "pkg/duality/rpfp_localize.go", "pkg/duality/rpfp_localize_test.go", "pkg/duality/rpfp_annotation.go", "pkg/duality/rpfp_annotation_test.go"],
+      "tests": ["TestRPFPGoalTreeAndInterpolationDecode", "TestRPFPExpressionComplexityAndNames", "TestRPFPTransformerParameterSubstitution", "TestRPFPReducedVariablesAndChildRelation", "TestRPFPEdgeMapsRefreshAndDuplicateParameters", "TestRPFPLocalizationAndReducedEdge", "TestRPFPAnnotationDecodeAndUpperBound"],
       "conditionals": [
         {
           "line": 24,
@@ -49260,7 +49260,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name":"SetAnnotation, GetAnnotation and GetUpperBound: decode indexed learned facts and encode node constraints","status":"ported","go_target":"pkg/duality/rpfp_annotation.go","tests":["TestRPFPAnnotationDecodeAndUpperBound"]},{"name":"LocalizeRec, Localize, ReducedDualEdge and DeclareConstant with shared background vocabulary, DAG memoization and quantified pattern traversal","status":"ported","go_target":"pkg/duality/rpfp_localize.go","tests":["TestRPFPLocalizationAndReducedEdge"]},{"name":"SetEdgeMaps relational child positions and owned indexed parent-variable substitution maps","status":"ported","go_target":"pkg/duality/rpfp_edge_maps.go","tests":["TestRPFPEdgeMapsRefreshAndDuplicateParameters"]},{"name":"RedVars and RedDualRela: indexed node parameters, Horn activation and child argument equalities","status":"ported","go_target":"pkg/duality/rpfp_reduced.go","tests":["TestRPFPReducedVariablesAndChildRelation"]},],
+      "methods": [{"name": "ToGoalTree, GetGoalTree and DecodeTree indexed goals and postorder annotation updates", "status": "ported", "go_target": "pkg/duality/rpfp_tree.go", "tests": ["TestRPFPGoalTreeAndInterpolationDecode"]},{"name":"SetAnnotation, GetAnnotation and GetUpperBound: decode indexed learned facts and encode node constraints","status":"ported","go_target":"pkg/duality/rpfp_annotation.go","tests":["TestRPFPAnnotationDecodeAndUpperBound"]},{"name":"LocalizeRec, Localize, ReducedDualEdge and DeclareConstant with shared background vocabulary, DAG memoization and quantified pattern traversal","status":"ported","go_target":"pkg/duality/rpfp_localize.go","tests":["TestRPFPLocalizationAndReducedEdge"]},{"name":"SetEdgeMaps relational child positions and owned indexed parent-variable substitution maps","status":"ported","go_target":"pkg/duality/rpfp_edge_maps.go","tests":["TestRPFPEdgeMapsRefreshAndDuplicateParameters"]},{"name":"RedVars and RedDualRela: indexed node parameters, Horn activation and child argument equalities","status":"ported","go_target":"pkg/duality/rpfp_reduced.go","tests":["TestRPFPReducedVariablesAndChildRelation"]},],
       "ownership": [],
       "deviations": ["The source expression complexity and indexed variable naming are started; RPFP nodes, edges and fixedpoint operations remain unfinished."]
     },
@@ -50087,8 +50087,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go", "pkg/ast/ast_family_public.go", "pkg/ast/ast_family_public_test.go", "pkg/duality/wrapper_owner.go", "pkg/duality/wrapper_owner_test.go", "pkg/duality/wrapper_ast.go", "pkg/duality/wrapper_expr.go", "pkg/duality/wrapper_ast_test.go"],
-      "tests": ["TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals", "TestASTEnsureFamilyIDSourceSemantics", "TestASTEnsureFamilyIDCStringAndLifetime", "TestContextFamilyOrderAndConfigCopy", "TestContextConstructorFailureReleasesConfigCopy", "TestContextBorrowsManagerAndRejectsShallowCopy", "TestObjectCopyAndContextChecks", "TestSymbolNamesSignedNumbersAndAssignment", "TestSymbolWriterFailureForeignOwnerAndClosedContext", "TestWrapperASTReferenceCopyAssignmentAndClose", "TestWrapperASTNullAndCrossContextAssignment", "TestWrapperBooleanSortDeclarationAndExpression", "TestWrapperBooleanOperatorsAndContextGuards"],
+      "go_targets": ["pkg/duality/term_tree.go", "pkg/duality/rpfp_tree_test.go", "pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go", "pkg/ast/ast_family_public.go", "pkg/ast/ast_family_public_test.go", "pkg/duality/wrapper_owner.go", "pkg/duality/wrapper_owner_test.go", "pkg/duality/wrapper_ast.go", "pkg/duality/wrapper_expr.go", "pkg/duality/wrapper_ast_test.go"],
+      "tests": ["TestRPFPGoalTreeAndInterpolationDecode", "TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals", "TestASTEnsureFamilyIDSourceSemantics", "TestASTEnsureFamilyIDCStringAndLifetime", "TestContextFamilyOrderAndConfigCopy", "TestContextConstructorFailureReleasesConfigCopy", "TestContextBorrowsManagerAndRejectsShallowCopy", "TestObjectCopyAndContextChecks", "TestSymbolNamesSignedNumbersAndAssignment", "TestSymbolWriterFailureForeignOwnerAndClosedContext", "TestWrapperASTReferenceCopyAssignmentAndClose", "TestWrapperASTNullAndCrossContextAssignment", "TestWrapperBooleanSortDeclarationAndExpression", "TestWrapperBooleanOperatorsAndContextGuards"],
       "conditionals": [
         {
           "line": 20,
@@ -50163,7 +50163,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "TermTree owning terms and children with postorder numbering", "status": "ported", "go_target": "pkg/duality/term_tree.go", "tests": ["TestRPFPGoalTreeAndInterpolationDecode"]}],
       "ownership": [],
       "deviations": []
     },
