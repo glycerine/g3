@@ -36,6 +36,15 @@ func TestExpandInductiveBitVectorEqualityFiniteOracle(t *testing.T) {
 				}
 				equality, err := m.MkEq(left, right)
 				must(err)
+				literalsInput, err := p.manager.NewRef(equality)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if err := p.manager.DelRef(&literalsInput); err != nil {
+						t.Error(err)
+					}
+				}()
 				literalsOwner, err := p.expandInductiveLiteral(equality)
 				if err != nil {
 					t.Fatal(err)

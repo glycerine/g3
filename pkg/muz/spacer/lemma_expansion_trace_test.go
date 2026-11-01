@@ -36,6 +36,15 @@ func TestExpandInductiveLiteralSourceTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &PredicateTransformer{manager: m}
+	resultInput, err := p.manager.NewRef(equality)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := p.manager.DelRef(&resultInput); err != nil {
+			t.Error(err)
+		}
+	}()
 	resultOwner, err := p.expandInductiveLiteral(equality)
 	if err != nil {
 		t.Fatal(err)

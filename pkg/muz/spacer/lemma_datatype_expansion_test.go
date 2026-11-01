@@ -61,6 +61,8 @@ func TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation(t *testing.T) {
 					left, right = right, left
 				}
 				input := own(m.MkEq(left, right))
+				beforeInput, err := m.GetRefCount(input)
+				depthMust(t, err)
 				expandedOwner, err := p.expandInductiveLiteral(input)
 				if err != nil {
 					t.Fatal(err)
@@ -71,6 +73,11 @@ func TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation(t *testing.T) {
 					}
 				}()
 				expanded := expandedOwner.literals
+				afterInput, err := m.GetRefCount(input)
+				depthMust(t, err)
+				if afterInput != beforeInput {
+					t.Fatal("published expansion still owns replaced input", afterInput, beforeInput)
+				}
 				for _, h := range expanded {
 					own(h, nil)
 				}

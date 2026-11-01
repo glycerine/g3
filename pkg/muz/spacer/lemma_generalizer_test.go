@@ -69,6 +69,15 @@ func TestExpandInductiveArithmeticEquality(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	expandedInput, err := transformer.manager.NewRef(equality)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := transformer.manager.DelRef(&expandedInput); err != nil {
+			t.Error(err)
+		}
+	}()
 	expandedOwner, err := transformer.expandInductiveLiteral(equality)
 	if err != nil {
 		t.Fatal(err)
@@ -214,6 +223,15 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	datatypeExpandedInput, err := transformer.manager.NewRef(boxEquality)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := transformer.manager.DelRef(&datatypeExpandedInput); err != nil {
+			t.Error(err)
+		}
+	}()
 	datatypeExpandedOwner, err := transformer.expandInductiveLiteral(boxEquality)
 	if err != nil {
 		t.Fatal(err)
@@ -271,6 +289,15 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	bvExpandedInput, err := transformer.manager.NewRef(bvEquality)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := transformer.manager.DelRef(&bvExpandedInput); err != nil {
+			t.Error(err)
+		}
+	}()
 	bvExpandedOwner, err := transformer.expandInductiveLiteral(bvEquality)
 	if err != nil {
 		t.Fatal(err)

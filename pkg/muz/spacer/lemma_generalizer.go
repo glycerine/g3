@@ -129,10 +129,12 @@ func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) (re
 			conjs = append(conjs, expanded[1:]...)
 		}
 	}
+	if err := owner.finish(conjs); err != nil {
+		return nil, err
+	}
 	if err := p.traceLiteralExpansion(conjs, false); err != nil {
 		return nil, err
 	}
-	owner.literals = conjs
 	return owner, nil
 }
 

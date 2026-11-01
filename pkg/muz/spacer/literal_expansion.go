@@ -7,8 +7,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
-// literalExpansion owns the source extra_lits vector and construction
-// intermediates until the candidate checks or an interrupted expansion finish.
+// literalExpansion owns the source extra_lits vector. Construction pins are
+// released when finish publishes its roots, before candidate checks begin.
 type literalExpansion struct {
 	manager           *ast.ASTManager
 	literals          []ast.ASTHandle
@@ -25,6 +25,26 @@ func (e *literalExpansion) keep(h ast.ASTHandle, err error) (ast.ASTHandle, erro
 	}
 	e.refs = append(e.refs, h)
 	return h, nil
+}
+
+// finish transfers the construction scope to the source conjunction vector.
+// Pin its roots before releasing replaced literals and temporary child pins.
+func (e *literalExpansion) finish(literals []ast.ASTHandle) error {
+	construction := literalExpansion{manager: e.manager, refs: e.refs}
+	e.refs = nil
+	for _, literal := range literals {
+		if _, err := e.keep(literal, nil); err != nil {
+			e.refs = append(e.refs, construction.refs...)
+			return err
+		}
+	}
+	err := construction.Close()
+	e.refs = append(e.refs, construction.refs...)
+	if err != nil {
+		return err
+	}
+	e.literals = literals
+	return nil
 }
 
 func (e *literalExpansion) Close() (result error) {
