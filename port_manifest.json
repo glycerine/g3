@@ -47304,6 +47304,12 @@
           "name": "command-local typed parameter parsing and normalization",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/tactics.go",
+          "go_targets": [
+            "pkg/parsers/smt2/tactics.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/parsers/smt2/simplify.go",
+            "pkg/parsers/smt2/apply_tactic.go"
+          ],
           "tests": [
             "TestParametricCommandsResetAndNormalizeOptions",
             "TestParametricCommandRejectsInvalidKeywordAndValue",
@@ -47352,6 +47358,12 @@
           "name": "command-local typed parameter parsing and normalization",
           "status": "partial",
           "go_target": "pkg/parsers/smt2/tactics.go",
+          "go_targets": [
+            "pkg/parsers/smt2/tactics.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/parsers/smt2/simplify.go",
+            "pkg/parsers/smt2/apply_tactic.go"
+          ],
           "tests": [
             "TestParametricCommandsResetAndNormalizeOptions",
             "TestParametricCommandRejectsInvalidKeywordAndValue",
