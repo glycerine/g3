@@ -194276,7 +194276,7 @@
       "path": "src/tactic/sls/sls_engine.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_engine_owner.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_core_tactic_test.go"],
       "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "conditionals": [
@@ -194289,10 +194289,16 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"engine state, statistics, configuration, assertion storage, and lifecycle API","status":"ported","go_target":"pkg/tactic/sls/sls_engine_runtime.go","go_targets":["pkg/tactic/sls/sls_engine_owner.go","pkg/tactic/sls/sls_engine_statistics.go"],"tests":["TestSLSEngineWholeSourceParamsRestartAndStatistics","TestSLSCoreTacticParamsStatisticsAndReferenceLifecycle"]},
+        {"name":"full evaluation, top score, rescore, serious and incremental scoring","status":"ported","go_target":"pkg/tactic/sls/sls_engine_runtime.go","tests":["TestSLSEngineScoreCounterFailureOrder","TestSLSEngineRestorationUsesUnprunedScore","TestSLSEngineSolvesRetainedBooleanConstantEndToEnd"]},
+        {"name":"bit-vector move arithmetic and random/best/Monte Carlo selection","status":"ported","go_target":"pkg/tactic/sls/sls_engine_runtime.go","tests":["TestSLSEngineMoveArithmeticWrapsAtBitWidth","TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips","TestSLSSearchTrackerRandomStreamAndUnsatSelection"]},
+        {"name":"search, restart scheduling, direct solve, and goal application","status":"ported","go_target":"pkg/tactic/sls/sls_engine_runtime.go","go_targets":["pkg/tactic/sls/sls_goal_orchestration.go"],"tests":["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd","TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"]},
+        {"name":"cancellation checkpoint and borrowed manager access","status":"ported","go_target":"pkg/tactic/sls/sls_engine_runtime.go","tests":["TestSLSCoreCancellationUsesSourceException","TestSLSCoreTacticParamsStatisticsAndReferenceLifecycle"]}
+      ],
+      "ownership": ["Engine borrows the tracker, search tracker, evaluator, numeral manager, and powers supplied by EngineOwner. Goal model publication transfers an owned model through the stored model converter."],
       "deviations": []
     },
     {
