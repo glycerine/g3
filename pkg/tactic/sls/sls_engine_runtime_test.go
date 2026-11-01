@@ -268,6 +268,153 @@ func TestSLSSearchSolvesViaRandomWalk(t *testing.T) {
 	}
 }
 
+func TestSLSSearchRandomizesRepickedAssertionAfterNoImprovement(t *testing.T) {
+	engine, search, _, tracker, manager, numbers := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "repick-p")
+	q := slsBoolConst(t, manager, "repick-q")
+	notP, err := manager.MkNot(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notQ, err := manager.MkNot(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := []ast.ASTHandle{p, notP, q, notQ}
+	slsPin(t, manager, roots...)
+	for _, root := range roots {
+		if err = engine.AssertExpression(root); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err = search.Initialize(roots); err != nil {
+		t.Fatal(err)
+	}
+	if err = search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	tracker.walksat, tracker.ucb = true, false
+	engine.vnsRepick, engine.walksatRepick, engine.earlyPrune = true, false, false
+	engine.paws, engine.vnsMC, engine.wp = false, 0, 0
+	engine.restartNext = 0 // One search move before the next restart.
+	if _, err = engine.Rescore(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Find a deterministic stream that picks q, repicks p, then assigns p true.
+	var seed uint32
+	for ; seed < 1000; seed++ {
+		if err = search.SetRandomSeed(seed); err != nil {
+			t.Fatal(err)
+		}
+		search.randomBitsCount = 0
+		first, found, e := search.UnsatAssertion(roots)
+		if e != nil || !found || first != q {
+			t.Fatal("initial selection", first, found, e)
+		}
+		second, found, e := search.NewUnsatAssertion(roots)
+		if e != nil || !found || second != p {
+			t.Fatal("repicked assertion", second, found, e)
+		}
+		if _, e = search.RandomUint(16); e != nil {
+			t.Fatal(e)
+		}
+		bit, e := search.RandomBool()
+		if e != nil {
+			t.Fatal(e)
+		}
+		one, e := numbers.IsOne(bit)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if one {
+			break
+		}
+	}
+	if seed == 1000 {
+		t.Fatal("no suitable random stream")
+	}
+	if err = search.SetRandomSeed(seed); err != nil {
+		t.Fatal(err)
+	}
+	search.randomBitsCount = 0
+	status, err := engine.Search()
+	if err != nil || status != lbool.Undef {
+		t.Fatal("one-move search", status, err)
+	}
+	pValue, err := tracker.GetValue(p)
+	if err != nil || slsIntText(t, numbers, pValue) != "1" {
+		t.Fatal("repicked p was not randomized", pValue, err)
+	}
+	qValue, err := tracker.GetValue(q)
+	if err != nil || slsIntText(t, numbers, qValue) != "0" {
+		t.Fatal("initial q was unexpectedly randomized", qValue, err)
+	}
+}
+
+func TestSLSSearchKeepsSingleAssertionCandidatesWhenRepickIsImpossible(t *testing.T) {
+	engine, search, _, tracker, manager, numbers := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "repick-single-p")
+	notP, err := manager.MkNot(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := manager.MkAnd(p, notP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slsPin(t, manager, root)
+	if err = engine.AssertExpression(root); err != nil {
+		t.Fatal(err)
+	}
+	if err = search.Initialize([]ast.ASTHandle{root}); err != nil {
+		t.Fatal(err)
+	}
+	if err = search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	tracker.walksat = true
+	engine.vnsRepick, engine.walksatRepick, engine.earlyPrune = true, false, false
+	engine.paws, engine.vnsMC, engine.wp = false, 0, 0
+	engine.restartNext = 0
+	var seed uint32
+	for ; seed < 1000; seed++ {
+		if err = search.SetRandomSeed(seed); err != nil {
+			t.Fatal(err)
+		}
+		search.randomBitsCount = 0
+		if _, err = search.RandomUint(16); err != nil {
+			t.Fatal(err)
+		}
+		bit, e := search.RandomBool()
+		if e != nil {
+			t.Fatal(e)
+		}
+		one, e := numbers.IsOne(bit)
+		if e != nil {
+			t.Fatal(e)
+		}
+		if one {
+			break
+		}
+	}
+	if seed == 1000 {
+		t.Fatal("no suitable random stream")
+	}
+	if err = search.SetRandomSeed(seed); err != nil {
+		t.Fatal(err)
+	}
+	search.randomBitsCount = 0
+	status, err := engine.Search()
+	if err != nil || status != lbool.Undef {
+		t.Fatal("one-move search", status, err)
+	}
+	value, err := tracker.GetValue(p)
+	if err != nil || slsIntText(t, numbers, value) != "1" {
+		t.Fatal("single assertion candidate was not randomized", value, err)
+	}
+}
+
 func TestSLSSearchTrackerRandomStreamAndUnsatSelection(t *testing.T) {
 	_, search, _, tracker, manager, _ := slsEngineFixture(t)
 	p := slsBoolConst(t, manager, "sls-random-p")

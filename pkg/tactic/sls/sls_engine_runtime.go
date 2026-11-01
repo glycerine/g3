@@ -672,11 +672,19 @@ func (e *Engine) Search() (status lbool.LBool, result error) {
 			if x != nil {
 				return lbool.Undef, x
 			}
+			// For multiple assertions the source repick clears the shared
+			// temporary candidate vector, even if no alternate is found.
+			if len(e.assertions) > 1 {
+				declarations = nil
+			}
 			if selected {
 				alternatives, x := e.search.ConstantsForRoot(root)
 				if x != nil {
 					return lbool.Undef, x
 				}
+				// Both source candidate references name the same temporary
+				// vector, so the fallback sees the repicked constants too.
+				declarations = alternatives
 				score, index, _, _, found, x = e.FindBestMove(alternatives, score, &bestValue)
 				if x != nil {
 					return lbool.Undef, x

@@ -52662,3 +52662,5 @@ SLS progress and search summary: the engine now emits the source's verbosity-gat
 SLS tactic reporting: the core wrapper now emits the source before-and-after goal traces and the verbosity-gated tactic report. Tests cover enabled and disabled tracing, a refusing trace stream and the successful goal transition; additional engine trace sites remain partial.
 
 SLS random-walk correction: select bit-vector moves from the two source Boolean draws, including inversion's replacement by a flip, and perform the serious update without incrementing the incremental-evaluation statistic. Tests cover all four bit pairs, Boolean flips, propagated assertion values and a successful random-walk search in normal and checked builds.
+
+SLS repick fallback: when the alternate assertion has no improving move, randomization now uses its constants, reflecting the source's shared temporary candidate vector. A failed multi-assertion repick clears that vector, while a single assertion leaves it intact; focused search regressions cover the repicked and single-assertion cases in normal and checked builds.
