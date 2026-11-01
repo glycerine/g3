@@ -186167,7 +186167,7 @@
       "path": "src/tactic/core/collect_statistics_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/collect_statistics_tactic.go",
         "pkg/tactic/core/collect_statistics_traversal.go",
@@ -186206,15 +186206,21 @@
           "text": "SASSERT(is_app(q->get_expr()));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "tactic construction, traversal, output and lifecycle",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/collect_statistics_tactic.go",
           "tests": [
-            "TestCollectStatisticsAccumulatesAcrossApplyAndReset"
+            "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
+            "TestCollectStatisticsOutputIsSourceMapOrdered",
+            "TestCollectStatisticsCopiesAndTranslatesParameters",
+            "TestCollectStatisticsTranslationAcrossManagers",
+            "TestCollectStatisticsContextTranslationUsesTargetParameters",
+            "TestCollectStatisticsContextTranslationWithoutSourceParameterOwner",
+            "TestCollectStatisticsRejectsForeignParameterOwner"
           ]
         },
         {
@@ -186238,15 +186244,13 @@
       "ownership": [
         "The tactic owns accumulated counters and a parameter reference, and borrows the AST manager, parameter context and selected output writer."
       ],
-      "deviations": [
-        "Constructor, update and translation preserve the source parameter reference. Full source-method and interrupted ownership/failure audits remain pending; command registration and SMT-LIB invocation are integrated."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/core/collect_statistics_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/collect_statistics_tactic.go",
         "pkg/tactic/core/collect_statistics_traversal.go",
@@ -186289,15 +186293,21 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "tactic construction, traversal, output and lifecycle",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/collect_statistics_tactic.go",
           "tests": [
-            "TestCollectStatisticsAccumulatesAcrossApplyAndReset"
+            "TestCollectStatisticsAccumulatesAcrossApplyAndReset",
+            "TestCollectStatisticsOutputIsSourceMapOrdered",
+            "TestCollectStatisticsCopiesAndTranslatesParameters",
+            "TestCollectStatisticsTranslationAcrossManagers",
+            "TestCollectStatisticsContextTranslationUsesTargetParameters",
+            "TestCollectStatisticsContextTranslationWithoutSourceParameterOwner",
+            "TestCollectStatisticsRejectsForeignParameterOwner"
           ]
         },
         {
@@ -186321,9 +186331,7 @@
       "ownership": [
         "The tactic owns accumulated counters and a parameter reference, and borrows the AST manager, parameter context and selected output writer."
       ],
-      "deviations": [
-        "Constructor, update and translation preserve the source parameter reference. Full source-method and interrupted ownership/failure audits remain pending; command registration and SMT-LIB invocation are integrated."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/core/ctx_simplify_tactic.cpp",
