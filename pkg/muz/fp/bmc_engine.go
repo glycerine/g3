@@ -148,9 +148,6 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err != nil {
 		return lbool.Undef, err
 	}
-	if preprocessed.sliceProof != nil && !linear {
-		return lbool.Undef, errRetryUnslicedProof
-	}
 	view, err := e.fixedpointParamView()
 	if err != nil {
 		return lbool.Undef, err

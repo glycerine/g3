@@ -237,7 +237,7 @@ func TestQBMCConvertsSlicedProofToOriginalRules(t *testing.T) {
 	}
 }
 
-func TestQBMCFallsBackFromUnsupportedSlicedProof(t *testing.T) {
+func TestQBMCConvertsNonlinearSlicedProof(t *testing.T) {
 	manager, globals := newPDRLifecycleServices(t)
 	for _, setting := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear", "fixedpoint.xform.subsumption_checker"} {
 		fragmentMust(t, globals.SourceSetName(setting, "false"))
@@ -288,28 +288,28 @@ func TestQBMCFallsBackFromUnsupportedSlicedProof(t *testing.T) {
 		fragmentMust(t, engine.set.Add(r))
 		fragmentMust(t, r.Close())
 	}
-	_, err = engine.queryBMCPredicateWithSliceProof(goal, true)
-	if !onlyErrorKind(err, errRetryUnslicedProof) {
-		t.Fatal("expected unsliced retry", err)
-	}
-	status, err := engine.queryBMCPredicate(goal)
+	status, err := engine.queryBMCPredicateWithSliceProof(goal, true)
 	fragmentMust(t, err)
 	if status != lbool.True {
-		t.Fatal("fallback status", status)
+		t.Fatal("nonlinear sliced status", status)
 	}
+	foundSliced := false
 	for _, r := range engine.bmcTrace {
 		decl, e := r.HeadDeclaration()
 		fragmentMust(t, e)
 		if decl != p && decl != q && decl != goal {
-			t.Fatal("fallback trace contains a sliced predicate")
+			foundSliced = true
 		}
+	}
+	if !foundSliced {
+		t.Fatal("nonlinear search did not use sliced predicates")
 	}
 	proof, err := manager.RefGet(engine.bmcProof)
 	fragmentMust(t, err)
 	fact, err := manager.GetProofFact(proof)
 	fragmentMust(t, err)
 	if fact != goalApp {
-		t.Fatal("nonlinear fallback proof has the wrong conclusion")
+		t.Fatal("nonlinear converted proof has the wrong conclusion")
 	}
 	checker, err := proofs.NewChecker(manager)
 	fragmentMust(t, err)
@@ -321,7 +321,7 @@ func TestQBMCFallsBackFromUnsupportedSlicedProof(t *testing.T) {
 		}
 	}()
 	if !valid {
-		t.Fatal("nonlinear fallback proof is invalid")
+		t.Fatal("nonlinear converted proof is invalid")
 	}
 	solver, err := smtcore.NewSMTSolver(manager, nil, "", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
 	fragmentMust(t, err)
@@ -335,7 +335,7 @@ func TestQBMCFallsBackFromUnsupportedSlicedProof(t *testing.T) {
 		fragmentMust(t, e)
 		fragmentMust(t, solver.Pop(1))
 		if checked != lbool.False {
-			t.Fatal("invalid nonlinear fallback side condition", checked)
+			t.Fatal("invalid nonlinear converted side condition", checked)
 		}
 	}
 	if !onlyErrorKind(errors.Join(errRetryUnslicedProof, errRetryUnslicedProof), errRetryUnslicedProof) {
@@ -343,5 +343,109 @@ func TestQBMCFallsBackFromUnsupportedSlicedProof(t *testing.T) {
 	}
 	if onlyErrorKind(errors.Join(errRetryUnslicedProof, errors.New("cleanup failed")), errRetryUnslicedProof) {
 		t.Fatal("retry would hide a cleanup error")
+	}
+}
+
+func TestQBMCRetriesWhenSliceResolutionMergesTails(t *testing.T) {
+	manager, globals := newPDRLifecycleServices(t)
+	for _, setting := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear", "fixedpoint.xform.subsumption_checker"} {
+		fragmentMust(t, globals.SourceSetName(setting, "false"))
+	}
+	fragmentMust(t, globals.SourceSetName("fixedpoint.generate_proof_trace", "true"))
+	engine, err := NewPropositionalEngineWithServices(manager, globals.Context, globals)
+	fragmentMust(t, err)
+	defer func() { fragmentMust(t, engine.Close()) }()
+	fragmentMust(t, engine.SelectEngine("qbmc"))
+	boolean, err := manager.MkBoolSort()
+	fragmentMust(t, err)
+	zero, err := manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	fragmentMust(t, err)
+	integer, err := manager.GetSort(zero)
+	fragmentMust(t, err)
+	declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		s, e := manager.Symbols.Intern(name)
+		fragmentMust(t, e)
+		d, e := manager.MkFuncDecl(s, domain, boolean, ast.ASTFuncDeclInfo{})
+		fragmentMust(t, e)
+		fragmentMust(t, engine.RegisterPredicate(d))
+		return d
+	}
+	p := declare("qbmc-merge-P", []ast.ASTHandle{integer})
+	q := declare("qbmc-merge-Q", []ast.ASTHandle{integer})
+	r := declare("qbmc-merge-R", []ast.ASTHandle{integer})
+	goal := declare("qbmc-merge-goal", nil)
+	x, err := manager.MkVar(0, integer)
+	fragmentMust(t, err)
+	y, err := manager.MkVar(1, integer)
+	fragmentMust(t, err)
+	app := func(decl ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+		h, e := manager.MkApp(decl, args)
+		fragmentMust(t, e)
+		ref, e := manager.NewRef(h)
+		fragmentMust(t, e)
+		deferFn := ref
+		t.Cleanup(func() { fragmentMust(t, manager.DelRef(&deferFn)) })
+		return h
+	}
+	p0, q0, ry, goalApp := app(p, zero), app(q, zero), app(r, y), app(goal)
+	px, qx := app(p, x), app(q, x)
+	for _, spec := range []struct {
+		head  ast.ASTHandle
+		tails []ast.ASTHandle
+	}{{p0, nil}, {q0, nil}, {ry, nil}, {goalApp, []ast.ASTHandle{px, qx, q0, ry}}} {
+		rule, e := engine.rules.NewRule(spec.head, spec.tails, nil, "")
+		fragmentMust(t, e)
+		fragmentMust(t, engine.set.Add(rule))
+		fragmentMust(t, rule.Close())
+	}
+	_, err = engine.queryBMCPredicateWithSliceProof(goal, true)
+	if !onlyErrorKind(err, errRetryUnslicedProof) {
+		t.Fatal("expected retry after merged tails", err)
+	}
+	status, err := engine.queryBMCPredicate(goal)
+	fragmentMust(t, err)
+	if status != lbool.True {
+		t.Fatal("unsliced retry status", status)
+	}
+	proof, err := manager.RefGet(engine.bmcProof)
+	fragmentMust(t, err)
+	fact, err := manager.GetProofFact(proof)
+	fragmentMust(t, err)
+	if fact != goalApp {
+		t.Fatal("retry proof conclusion differs")
+	}
+	checker, err := proofs.NewChecker(manager)
+	fragmentMust(t, err)
+	valid, side, err := checker.Check(proof)
+	fragmentMust(t, err)
+	defer func() {
+		for _, condition := range side {
+			fragmentMust(t, manager.DecRef(condition))
+		}
+	}()
+	if !valid {
+		t.Fatal("retry proof is invalid")
+	}
+	solver, err := smtcore.NewSMTSolver(manager, nil, "", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	fragmentMust(t, err)
+	defer func() { fragmentMust(t, solver.Close()) }()
+	for _, condition := range side {
+		fragmentMust(t, solver.Push())
+		negated, e := manager.MkNot(condition)
+		fragmentMust(t, e)
+		fragmentMust(t, solver.AssertFormula(negated))
+		checked, e := solver.CheckSat(nil)
+		fragmentMust(t, e)
+		fragmentMust(t, solver.Pop(1))
+		if checked != lbool.False {
+			t.Fatal("invalid retry proof side condition", checked)
+		}
+	}
+	for _, rule := range engine.bmcTrace {
+		decl, e := rule.HeadDeclaration()
+		fragmentMust(t, e)
+		if decl != p && decl != q && decl != r && decl != goal {
+			t.Fatal("retry retained a sliced predicate")
+		}
 	}
 }
