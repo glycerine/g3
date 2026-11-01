@@ -246,8 +246,16 @@ func (p *PredicateTransformer) generalizeArrayEqualityLemma(obligation *ProofObl
 		}
 	}
 	core, usesLevel, inductive, err := p.checkInductiveCube(handles, level)
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, core)) }()
 	if err != nil || !inductive {
 		return lemma, err
 	}
-	return NewLemmaFromProofObligation(obligation, core, usesLevel)
+	handles = make([]ast.ASTHandle, len(core))
+	for i, ref := range core {
+		handles[i], err = p.manager.RefGet(ref)
+		if err != nil {
+			return lemma, err
+		}
+	}
+	return NewLemmaFromProofObligation(obligation, handles, usesLevel)
 }

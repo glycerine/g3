@@ -16,7 +16,13 @@ import (
 
 var ErrLemmaSanity = errors.New("muz/spacer: generalized lemma is not inductive")
 
-func (p *PredicateTransformer) checkInductiveCube(cube []ast.ASTHandle, level uint32) (_ []ast.ASTHandle, usesLevel uint32, inductive bool, resultErr error) {
+func (p *PredicateTransformer) checkInductiveCube(cube []ast.ASTHandle, level uint32) (core []ast.ASTRef, usesLevel uint32, inductive bool, resultErr error) {
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, core))
+			core = nil
+		}
+	}()
 	conjunction, err := p.manager.MkAndArray(cube)
 	if err != nil {
 		return nil, 0, false, err
@@ -57,13 +63,10 @@ func (p *PredicateTransformer) checkInductiveCube(cube []ast.ASTHandle, level ui
 	if check.Status != lbool.False {
 		return nil, check.UsesLevel, false, nil
 	}
-	core := make([]ast.ASTHandle, len(check.Core))
-	for i := range check.Core {
-		core[i], err = p.manager.RefGet(check.Core[i])
-		if err != nil {
-			return nil, 0, false, err
-		}
-	}
+	// Move the owning core out before closing the solver check. Its formulas
+	// may be needed across subsequent checks and result-lemma construction.
+	core = check.Core
+	check.Core = nil
 	return core, check.UsesLevel, true, nil
 }
 
@@ -289,10 +292,29 @@ func (p *PredicateTransformer) expandInductiveBitVectorEquality(term, value ast.
 	return result, true, nil
 }
 
-func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligation, lemma *Lemma) (*Lemma, error) {
+func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligation, lemma *Lemma) (_ *Lemma, resultErr error) {
 	cube, err := lemma.Cube()
 	if err != nil || len(cube) == 0 {
 		return lemma, err
+	}
+	// Source cube and extra_lits are owning vectors. Keep all solver cores
+	// and speculative expansion candidates until the final lemma owns its cube.
+	var held []ast.ASTRef
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, held)) }()
+	checkCube := func(cube []ast.ASTHandle, level uint32) ([]ast.ASTHandle, uint32, bool, error) {
+		refs, used, inductive, err := p.checkInductiveCube(cube, level)
+		held = append(held, refs...)
+		if err != nil {
+			return nil, used, inductive, err
+		}
+		handles := make([]ast.ASTHandle, len(refs))
+		for i, ref := range refs {
+			handles[i], err = p.manager.RefGet(ref)
+			if err != nil {
+				return nil, used, false, err
+			}
+		}
+		return handles, used, inductive, nil
 	}
 	p.boolGeneralizations++
 	started := time.Now()
@@ -315,7 +337,7 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 		var used uint32
 		var inductive bool
 		if len(cube) > 1 {
-			core, used, inductive, err = p.checkInductiveCube(cube, level)
+			core, used, inductive, err = checkCube(cube, level)
 			if err != nil {
 				return lemma, err
 			}
@@ -334,11 +356,18 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 		if expandErr != nil {
 			return lemma, expandErr
 		}
+		for _, candidate := range expanded {
+			ref, err := p.manager.NewRef(candidate)
+			if err != nil {
+				return lemma, err
+			}
+			held = append(held, ref)
+		}
 		found := false
 		if len(expanded) > 1 || expanded[0] != literal {
 			for _, replacement := range expanded {
 				cube[index] = replacement
-				core, used, inductive, err = p.checkInductiveCube(cube, level)
+				core, used, inductive, err = checkCube(cube, level)
 				if err != nil {
 					return lemma, err
 				}
@@ -370,7 +399,7 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 	return NewLemmaFromProofObligation(obligation, cube, usesLevel)
 }
 
-func (p *PredicateTransformer) checkLemmaSanity(lemma *Lemma) error {
+func (p *PredicateTransformer) checkLemmaSanity(lemma *Lemma) (resultErr error) {
 	cube, err := lemma.Cube()
 	if err != nil {
 		return err
@@ -379,7 +408,8 @@ func (p *PredicateTransformer) checkLemmaSanity(lemma *Lemma) error {
 	if err != nil {
 		return err
 	}
-	_, _, inductive, err := p.checkInductiveCube(cube, level)
+	core, _, inductive, err := p.checkInductiveCube(cube, level)
+	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, core)) }()
 	if err != nil {
 		return err
 	}

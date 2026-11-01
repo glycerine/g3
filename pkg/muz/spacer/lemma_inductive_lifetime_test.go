@@ -74,6 +74,31 @@ func TestSpacerInductiveGeneralizerOwnsExpandedArithmeticBounds(t *testing.T) {
 			if len(cube) != 1 || cube[0] != expected {
 				t.Fatal("wrong generalized bound", cube, expected)
 			}
+			before := m.Stats().LiveReferences
+			core, _, inductive, err := p.checkInductiveCube(cube, 1)
+			depthMust(t, err)
+			if !inductive || len(core) != 1 {
+				t.Fatal("expected owning singleton inductive core", inductive, len(core))
+			}
+			// The check has already closed its temporary result. Its core
+			// reference must remain live across another solver invocation.
+			for attempt := 0; attempt < 3; attempt++ {
+				next, _, valid, err := p.checkInductiveCube(cube, 1)
+				depthMust(t, err)
+				if !valid {
+					t.Fatal("repeated core check changed inductiveness")
+				}
+				depthMust(t, releaseNormalizeRefs(m, next))
+				h, err := m.RefGet(core[0])
+				depthMust(t, err)
+				if h != expected {
+					t.Fatal("owning core changed across repeated check")
+				}
+			}
+			depthMust(t, releaseNormalizeRefs(m, core))
+			if got := m.Stats().LiveReferences; got != before {
+				t.Fatalf("core cleanup references = %d, want %d", got, before)
+			}
 			_, err = m.GetDeclKind(cube[0])
 			depthMust(t, err)
 		})
