@@ -50,3 +50,25 @@ func TestAPIRCFRationalZeroPowerAndInputOwnership(t *testing.T) {
 	}
 	f.close()
 }
+
+func TestAPIRCFRationalBinaryResultOutlivesItsOperands(t *testing.T) {
+	f := newRCFFixture(t)
+	a, b := f.rational("3/2"), f.rational("2/3")
+	sum := f.keep(f.context.RCFAdd(a, b))
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.Close(); err != nil {
+		t.Fatal(err)
+	}
+	f.values = f.values[2:]
+	if got := f.text(sum); got != "13/6" {
+		t.Fatalf("sum after releasing operands = %q, want 13/6", got)
+	}
+	factor := f.rational("6/13")
+	product := f.keep(f.context.RCFMul(sum, factor))
+	if got := f.text(product); got != "1" {
+		t.Fatalf("product after releasing operands = %q, want 1", got)
+	}
+	f.close()
+}

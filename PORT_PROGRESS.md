@@ -52671,6 +52671,8 @@ Extended rational negation now mirrors the source helper for finite values and b
 
 Rational RCF relation coverage now checks all six public comparisons for less-than, equal, and reversed operand pairs. Focused API tests pass in normal and checked builds, and generated replay plus SMT-log frontend integration tests pass.
 
+Rational RCF arithmetic now also checks that a binary result remains valid and usable after both input values are released. The lifetime regression passes in normal and checked builds.
+
 Arithmetic purifier cancellation: the tactic boundary now converts a rewriter exception into the source tactic exception. A cancellation regression checks the exception type and message, then retries the same tactic successfully; the arithmetic package and checked purifier and QF_UFNRA checks pass.
 
 Mixed nonlinear checkpoint cancellation: the cooperation loop now reports the source's fixed canceled message for both explicit cancellation and resource exhaustion. Focused normal and checked package suites pass. Rechecking application allocation stop 108 still exposes pending algebraic and search state on retry, so the established 0–107 passing prefix and the remaining ownership gap are unchanged.
