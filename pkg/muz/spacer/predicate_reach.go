@@ -369,7 +369,7 @@ func (p *PredicateTransformer) UsedReachFact(md *model.ModelCore, all bool) (res
 	if md == nil {
 		return nil, false, ast.ErrASTHandle
 	}
-	evaluator, err := model.NewModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
+	evaluator, err := newSpacerModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
 	if err != nil {
 		return nil, false, err
 	}
@@ -393,7 +393,7 @@ func (p *PredicateTransformer) UsedOriginReachFact(md *model.ModelCore, oldIndex
 	if md == nil {
 		return nil, false, ast.ErrASTHandle
 	}
-	evaluator, err := model.NewModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
+	evaluator, err := newSpacerModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
 	if err != nil {
 		return nil, false, err
 	}

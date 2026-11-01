@@ -112,7 +112,7 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 		return RuleSelection{}, ast.ErrASTHandle
 	}
 	config := p.owner.contexts[0].config.ModelEvaluator
-	evaluator, err := model.NewModelEvaluator(md, config)
+	evaluator, err := newSpacerModelEvaluator(md, config)
 	if err != nil {
 		return RuleSelection{}, err
 	}

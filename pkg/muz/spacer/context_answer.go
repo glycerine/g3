@@ -188,7 +188,7 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 			return ast.ASTRef{}, localErr
 		}
 
-		evaluator, evalErr := model.NewModelEvaluator(localModel, c.owner.contexts[0].config.ModelEvaluator)
+		evaluator, evalErr := newSpacerModelEvaluator(localModel, c.owner.contexts[0].config.ModelEvaluator)
 		if evalErr != nil {
 			return ast.ASTRef{}, errors.Join(evalErr, localModel.DecRef())
 		}

@@ -133,7 +133,7 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 	// Source create_children drops the optimization when a weak model does
 	// not satisfy the original T && phi, even if its selected implicant does.
 	if p.weakAbstraction {
-		evaluator, err := model.NewModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
+		evaluator, err := newSpacerModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
 		if err != nil {
 			return nil, err
 		}

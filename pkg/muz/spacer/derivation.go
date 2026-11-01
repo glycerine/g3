@@ -370,7 +370,7 @@ func (d *Derivation) createProjectedChild(md *model.ModelCore) (_ *ProofObligati
 		return nil, err
 	}
 	config := d.parent.transformer.owner.contexts[0].config.ModelEvaluator
-	evaluator, err := model.NewModelEvaluator(md, config)
+	evaluator, err := newSpacerModelEvaluator(md, config)
 	if err != nil {
 		return nil, err
 	}

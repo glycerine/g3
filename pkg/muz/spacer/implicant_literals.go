@@ -17,11 +17,8 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	if manager == nil || md == nil || md.DerivedModel() == nil {
 		return nil, ast.ErrASTHandle
 	}
-	evaluator, err := model.NewModelEvaluator(md.DerivedModel().Core(), config)
+	evaluator, err := newSpacerModelEvaluator(md.DerivedModel().Core(), config)
 	if err != nil {
-		if evaluator != nil {
-			err = errors.Join(err, evaluator.Close())
-		}
 		return nil, err
 	}
 	if err = evaluator.SetModelCompletion(false); err != nil {

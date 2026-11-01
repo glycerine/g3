@@ -43,7 +43,7 @@ func (c *Context) validateInductiveModel() (resultErr error) {
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.Close()) }()
-	evaluator, err := model.NewModelEvaluator(md.Core(), c.owner.contexts[0].config.ModelEvaluator)
+	evaluator, err := newSpacerModelEvaluator(md.Core(), c.owner.contexts[0].config.ModelEvaluator)
 	if err != nil {
 		return err
 	}
