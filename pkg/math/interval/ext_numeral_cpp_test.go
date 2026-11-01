@@ -336,6 +336,29 @@ func TestExtendedNumeralSourceArithmeticAndRelations(t *testing.T) {
 			t.Fatal("inverse", tc, kind, text)
 		}
 	}
+	for _, tc := range []struct {
+		value int32
+		kind  ExtendedKind
+		want  int32
+		wk    ExtendedKind
+	}{
+		{0, MinusInfinity, 0, PlusInfinity}, {30, MinusInfinity, 30, PlusInfinity},
+		{0, Finite, 0, Finite}, {10, Finite, -10, Finite}, {-7, Finite, 7, Finite},
+		{0, PlusInfinity, 0, MinusInfinity}, {30, PlusInfinity, 30, MinusInfinity},
+		{-7, PlusInfinity, -7, MinusInfinity},
+	} {
+		if err = m.SetInt32(&a, tc.value); err != nil {
+			t.Fatal(err)
+		}
+		kind, err := e.Neg(&a, tc.kind)
+		if err != nil {
+			t.Fatal(err)
+		}
+		text, err := m.String(&a)
+		if err != nil || kind != tc.wk || text != fmt.Sprint(tc.want) {
+			t.Fatalf("neg(%d, %v) = (%s, %v), want (%d, %v): %v", tc.value, tc.kind, text, kind, tc.want, tc.wk, err)
+		}
+	}
 }
 
 // Source: src/test/ext_numeral.cpp tst3.

@@ -201848,7 +201848,7 @@
       "ownership_audited": false,
       "methods": [{"name": "tst1 arithmetic/inverse and tst2 comparisons", "status": "partial", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst3 predicates and display", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourcePredicatesAndDisplay"]}, {"name": "tst1 standalone scalar negation", "status": "unported"}],
       "ownership": ["The test owns and releases its three rational values and their manager, checking the allocation budget at teardown."],
-      "deviations": ["The concrete rational implementation is exercised without introducing a generic adapter; standalone scalar negation is reached only by the test driver and has no separate Go production consumer."]
+      "deviations": ["The scalar negation helper is reached only by this test driver; its source semantics are covered by the concrete rational specialization without a generic manager adapter."]
     },
     {
       "path": "src/test/f2n.cpp",

@@ -102,6 +102,19 @@ func (e RationalExtended) Greater(a *numeral.Rational, ak ExtendedKind, b *numer
 	return e.Less(b, bk, a, ak)
 }
 
+// Neg follows ext_numeral::neg: infinite values only change their kind, while
+// finite values negate the owned rational in place.
+func (e RationalExtended) Neg(a *numeral.Rational, k ExtendedKind) (ExtendedKind, error) {
+	switch k {
+	case MinusInfinity:
+		return PlusInfinity, nil
+	case PlusInfinity:
+		return MinusInfinity, nil
+	default:
+		return k, e.Numbers.Neg(a)
+	}
+}
+
 func (e RationalExtended) Add(a *numeral.Rational, ak ExtendedKind, b *numeral.Rational, bk ExtendedKind, out *numeral.Rational) (ExtendedKind, error) {
 	if ak != Finite && bk != Finite && ak != bk {
 		return Finite, ErrExtendedDomain
