@@ -168,6 +168,9 @@ func (p *PredicateTransformer) traceExtendedLemma(body ast.ASTHandle, level uint
 func (p *PredicateTransformer) writeExtendedPretty(out io.Writer, body ast.ASTHandle) (resultErr error) {
 	ref, err := rewriteExtendedPretty(p.manager, body)
 	if err != nil {
+		if ref != (ast.ASTRef{}) {
+			err = errors.Join(err, p.manager.DelRef(&ref))
+		}
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&ref)) }()
