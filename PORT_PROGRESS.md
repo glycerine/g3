@@ -8,6 +8,8 @@ Sparse union dispatch: validate open tables and matching signatures, including t
 
 Sparse join-project materialization: route eligible joins through the existing indexed plan so rows are projected as they are inserted, with smaller-side traversal preserving left/right output column order. A skewed-operand regression checks result facts and order; full `muz/rel` tests pass in normal and `g3checked` builds.
 
+Sparse join-project oracle: exhaustively compare dispatched join-project results against an independent finite relation oracle for all 256 pairs of binary two-column relations and all 15 projections that leave at least one column. The oracle passes in normal and `g3checked` builds.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
