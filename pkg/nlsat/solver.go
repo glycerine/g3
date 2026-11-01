@@ -492,7 +492,10 @@ func (s *Solver) Value(variable uint32, out *polynomial.Algebraic) error {
 		return err
 	}
 	if !assigned {
-		return arena.ErrBounds
+		// The source returns the solver's zero numeral for unassigned
+		// variables, including indices outside the assignment vector.
+		var zero polynomial.Algebraic
+		return s.config.Algebraic.Copy(out, &zero)
 	}
 	value, err := s.assignment.Value(variable)
 	if err != nil {

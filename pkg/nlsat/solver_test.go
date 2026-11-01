@@ -55,6 +55,30 @@ func TestSolverStatisticsAfterInterruptedSearch(t *testing.T) {
 	}
 }
 
+func TestSolverValueReturnsZeroForUnassignedVariables(t *testing.T) {
+	s := solverFixture(t)
+	variable, err := s.MkVar(false)
+	assignmentMust(t, err)
+	var result polynomial.Algebraic
+	t.Cleanup(func() { assignmentMust(t, s.config.Algebraic.Del(&result)) })
+	evaluatorSetFraction(t, s.evaluator, variable, 7, 1)
+	assignmentMust(t, s.Value(variable, &result))
+	zero, err := s.config.Algebraic.IsZero(&result)
+	assignmentMust(t, err)
+	if zero {
+		t.Fatal("assigned value was replaced by zero")
+	}
+	assignmentMust(t, s.assignment.ResetVar(variable))
+	for _, index := range []uint32{variable, variable + 100} {
+		assignmentMust(t, s.Value(index, &result))
+		zero, err = s.config.Algebraic.IsZero(&result)
+		assignmentMust(t, err)
+		if !zero {
+			t.Fatal("unassigned variable did not return zero", index)
+		}
+	}
+}
+
 func solverFixture(t *testing.T) *Solver {
 	return solverFixtureConfig(t, SolverConfig{SimplifyCore: true})
 }
