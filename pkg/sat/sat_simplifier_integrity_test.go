@@ -17,7 +17,8 @@ func TestSATSimplifierActualEnabledIntegritySites(t *testing.T) {
 	satOK(t, p.config.context.Del(&params))
 	t.Cleanup(func() { satOK(t, s.Close()) })
 	satOK(t, l.bindIntegrity(g))
-	s.debugInvariant = true
+	debug, _, _ := satIntegrityActionFixture(t, "")
+	satOK(t, debug.EnableDebug("sat_solver"))
 	before := p.limit.Count()
 	satOK(t, s.Run(false))
 	want := uint64(1) // subsume unconditionally checkpoints before its empty-todo exit.

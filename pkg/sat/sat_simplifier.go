@@ -48,7 +48,7 @@ type satSimplifier struct {
 	constructed                                                                  bool
 	destructorFinalized                                                          bool
 	finalizeStage                                                                uint32
-	running, closing, closed, scopeActive, debugInvariant                        bool
+	running, closing, closed, scopeActive                                        bool
 	bodyCause, cleanupCause                                                      error
 	// Actual stopped owning ranges belong here, never inferred from allocator
 	// occupancy. Their concrete cursor semantics are implemented by cleanup body.
@@ -157,10 +157,15 @@ func (s *satSimplifier) open() error {
 	return s.decision.open()
 }
 func (s *satSimplifier) invariant() error {
-	if satStorageSourceDebug && s.debugInvariant {
-		return s.lifecycle.checkInvariant()
+	if !satStorageSourceDebug {
+		return nil
 	}
-	return nil
+	d := diagnostic.BorrowProcessDebugContext()
+	enabled, err := d.ConditionalAssertionEnabled("sat_solver")
+	if err != nil || !enabled {
+		return err
+	}
+	return s.lifecycle.checkInvariantWithActions(true)
 }
 func (s *satSimplifier) Update(p *uparams.ParamsRef) (err error) {
 	if e := s.constructionBorrow(); e != nil {

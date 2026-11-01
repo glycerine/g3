@@ -97,7 +97,8 @@ func TestSATSimplifierLateFinalizeGuardDoesNotReplayOuterPhases(t *testing.T) {
 	satOK(t, s.initialize())
 	s.scopeActive = true
 	s.running = false
-	s.debugInvariant = true
+	debug, _, _ := satIntegrityActionFixture(t, "")
+	satOK(t, debug.EnableDebug("sat_solver"))
 	l.simplifierContinuation = s
 	satOK(t, s.literalStore.Free(s.bsLS))
 	before := l.propagation.limit.Count()
