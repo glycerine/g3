@@ -5,7 +5,29 @@ package qe
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 )
+
+// qe_project constructs its array projection and following theory rewrite
+// inside scoped_no_proof, then restores the caller's proof-generation mode.
+func (p *LegacyProjection) projectArrayRound(md *model.ModelCore, variables []ast.ASTHandle, formula ast.ASTHandle, reduceAllSelects bool) (result *legacyArrayProjectionResult, resultErr error) {
+	scope, err := ast.NewScopedNoProof(p.manager)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, scope.Close())
+		if resultErr != nil && result != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
+		}
+	}()
+	result, resultErr = p.array.projectFormula(md, variables, formula, reduceAllSelects)
+	if resultErr == nil {
+		resultErr = p.rewriteProjectionCurrent(result.formula)
+	}
+	return result, resultErr
+}
 
 func (p *LegacyProjection) rewriteProjectionCurrent(current ast.ASTRef) (resultErr error) {
 	root, err := p.manager.RefGet(current)

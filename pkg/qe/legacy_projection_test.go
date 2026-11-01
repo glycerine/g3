@@ -96,6 +96,7 @@ func TestLegacyProjectionRunsLiteBeforeTheoryDispatch(t *testing.T) {
 func TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically(t *testing.T) {
 	f := newFMFixture(t)
 	m := f.r.manager
+	fmMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
 	p, err := NewLegacyProjection(m, f.r.config)
 	fmMust(t, err)
 	defer func() { fmMust(t, p.Close()) }()
@@ -119,6 +120,15 @@ func TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically(t *testing.
 	}
 	result, err := p.Project(md.Core(), []ast.ASTHandle{a}, formula, false, true)
 	fmMust(t, err)
+	if mode, err := m.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("array projection did not restore proof mode", mode, err)
+	}
+	if _, err := p.projectArrayRound(nil, nil, formula, false); err == nil {
+		t.Fatal("array projection accepted a missing model")
+	}
+	if mode, err := m.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("failed array projection did not restore proof mode", mode, err)
+	}
 	defer func() { fmMust(t, result.Close()) }()
 	root, err := result.Formula()
 	fmMust(t, err)

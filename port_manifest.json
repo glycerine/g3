@@ -100516,7 +100516,7 @@
           ]
         },
         {
-          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial",
+          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution and scoped no-proof array projection/rewrite with restoration on errors (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial",
           "status": "partial",
           "go_targets": [
             "pkg/qe/legacy_projection.go",
@@ -100706,7 +100706,7 @@
           ]
         },
         {
-          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial",
+          "name": "qe_project repeats qe_lite and theory rewriting for array auxiliaries, including Boolean equality elimination before model substitution and scoped no-proof array projection/rewrite with restoration on errors (spacer_util.cpp:507-581); remaining driver diagnostics and coverage stay partial",
           "status": "partial",
           "go_targets": [
             "pkg/qe/legacy_projection.go",

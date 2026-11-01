@@ -1,3 +1,5 @@
+Spacer array-projection proof scope: aligned qe_project's array round with the source scoped_no_proof lifetime, including its following theory rewrite. The Boolean-array auxiliary integration regression now runs with proofs enabled and verifies restoration after success and model-rejection errors; legacy projection tests pass normally and checked, and full Spacer/fixedpoint consumer suites pass.
+
 Spacer literal-expansion traces: ported source begin/end records around the live inductive-generalizer expansion, rendering literals in traversal order. The debug regression verifies equality input and adjacent arithmetic-bound output; full normal and checked Spacer package tests pass. The broader utility unit remains partial.
 
 Spacer bit-vector literal-expansion finite oracle: checked all 126 values at widths one through six in both equality orientations against independent bit masks and composed extract positions. The oracle accounts for source growing-vector traversal revisiting appended positive literals and adding redundant one-bit extracts; normal and checked focused runs pass.

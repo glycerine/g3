@@ -274,7 +274,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		if err != nil {
 			return nil, err
 		}
-		projected, err := p.array.projectFormula(md, arrays, handle, reduceAllSelects)
+		projected, err := p.projectArrayRound(md, arrays, handle, reduceAllSelects)
 		if err != nil {
 			return nil, fmt.Errorf("array projection: %w", err)
 		}
@@ -302,9 +302,6 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		}
 		err = errors.Join(err, projected.Close())
 		if err != nil {
-			return nil, err
-		}
-		if err = p.rewriteProjectionCurrent(current); err != nil {
 			return nil, err
 		}
 		if len(pending) == 0 {
