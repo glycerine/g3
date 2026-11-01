@@ -384,7 +384,7 @@ func (i *ModelImplicant) evalBasic(h ast.ASTHandle, op int32, args []ast.ASTHand
 	}
 }
 
-func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) error {
+func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) (resultErr error) {
 	if left == right {
 		return i.setState(h, implicantTrue)
 	}
@@ -396,16 +396,24 @@ func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) error {
 		return i.evalArrayEq(h, left, right)
 	}
 	if i.isX(left) || i.isX(right) {
+		eqRef, err := i.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		defer func() { resultErr = errors.Join(resultErr, i.manager.DelRef(&eqRef)) }()
 		eq, err := i.manager.MkEq(left, right)
 		if err != nil {
+			return err
+		}
+		if err = i.manager.SetRef(eqRef, eq); err != nil {
 			return err
 		}
 		out, err := i.manager.NewRef(ast.ASTHandle{})
 		if err != nil {
 			return err
 		}
-		defer func() { _ = i.manager.DelRef(&out) }()
-		if err = i.evaluator.Evaluate(eq, out); err != nil {
+		defer func() { resultErr = errors.Join(resultErr, i.manager.DelRef(&out)) }()
+		if err = i.evaluateEqualityFallback(eq, out); err != nil {
 			return err
 		}
 		value, err := i.manager.RefGet(out)
@@ -417,6 +425,9 @@ func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) error {
 		}
 		if i.manager.IsFalse(value) {
 			return i.setState(h, implicantFalse)
+		}
+		if err = i.traceUnknownEquality(value); err != nil {
+			return err
 		}
 		return i.setState(h, implicantX)
 	}
