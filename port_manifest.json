@@ -100522,11 +100522,11 @@
           "go_targets": [
             "pkg/qe/legacy_projection.go",
             "pkg/qe/legacy_projection_round.go",
-            "pkg/qe/legacy_projection_test.go"
+            "pkg/qe/legacy_projection_test.go", "pkg/qe/legacy_projection_substitute_failure_test.go"
           ],
           "tests": [
             "TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically",
-            "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"
+            "TestLegacyProjectionCombinesBooleanArrayAndArithmetic", "TestLegacyModelSubstitutionConstructionFailureOwnershipAndRetry", "TestLegacyModelSubstitutionCompletesOnlyProjectedBoolean"
           ]
         },
         {
@@ -100726,11 +100726,11 @@
           "go_targets": [
             "pkg/qe/legacy_projection.go",
             "pkg/qe/legacy_projection_round.go",
-            "pkg/qe/legacy_projection_test.go"
+            "pkg/qe/legacy_projection_test.go", "pkg/qe/legacy_projection_substitute_failure_test.go"
           ],
           "tests": [
             "TestLegacyProjectionEliminatesBooleanArrayAuxiliarySymbolically",
-            "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"
+            "TestLegacyProjectionCombinesBooleanArrayAndArithmetic", "TestLegacyModelSubstitutionConstructionFailureOwnershipAndRetry", "TestLegacyModelSubstitutionCompletesOnlyProjectedBoolean"
           ]
         },
         {
