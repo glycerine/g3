@@ -113156,7 +113156,8 @@
         "TestDatalogQEAtomCollectionAndBranches",
         "TestDatalogQEContainsIgnoresQuantifierAnnotations",
         "TestDatalogPluginPrepareCacheAndContextOwnership",
-        "TestDatalogPluginAssignAndSubstituteBranches"
+        "TestDatalogPluginAssignAndSubstituteBranches",
+        "TestDatalogPluginOtherBranchPreservesNegativeEquality"
       ],
       "assertions": [
         {

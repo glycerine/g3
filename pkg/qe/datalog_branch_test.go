@@ -103,3 +103,57 @@ func TestDatalogPluginAssignAndSubstituteBranches(t *testing.T) {
 		})
 	}
 }
+
+func TestDatalogPluginOtherBranchPreservesNegativeEquality(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	name, err := m.Symbols.Intern("negative-only-domain")
+	fmMust(t, err)
+	sort := f.own(m.MkDatalogFiniteSort(name, 4))
+	x, value := f.constant("negative-only-x", sort), f.constant("negative-only-value", sort)
+	equality := f.own(m.MkEq(x, value))
+	disequality := f.own(m.MkNot(equality))
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	ctx, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	defer func() { fmMust(t, ctx.Close()) }()
+	plugin, err := NewDatalogPlugin(ctx)
+	fmMust(t, err)
+	fmMust(t, ctx.AddPlugin(plugin))
+	prepared, err := plugin.Prepare(contains, disequality, nil, []ast.ASTHandle{equality})
+	fmMust(t, err)
+	if !prepared {
+		t.Fatal("negative equality was not prepared")
+	}
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().Del(&branch)) }()
+	fmMust(t, m.NumeralService().SetUnsigned(&branch, 0))
+	if err = plugin.Assign(contains, disequality, &branch); err != nil {
+		t.Fatal(err)
+	}
+	constraints, err := plugin.TakeConstraints()
+	fmMust(t, err)
+	if len(constraints) != 1 {
+		t.Fatalf("branch constraints=%d, want one", len(constraints))
+	}
+	constraint, err := m.RefGet(constraints[0].Formula)
+	fmMust(t, err)
+	if !constraints[0].UseVariable || constraint != disequality {
+		t.Fatalf("other branch constraint=%v, want %v", constraint, disequality)
+	}
+	fmMust(t, m.DelRef(&constraints[0].Formula))
+	formula, err := m.NewRef(disequality)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formula)) }()
+	fmMust(t, plugin.Substitute(contains, &branch, formula, nil))
+	result, err := m.RefGet(formula)
+	fmMust(t, err)
+	isNot, arg, err := m.IsNot(result)
+	fmMust(t, err)
+	if !isNot || !m.IsFalse(arg) {
+		t.Fatalf("other branch substituted disequality as %v (negated=%v, argument=%v); want not(false)", result, isNot, arg)
+	}
+}
