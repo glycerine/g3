@@ -83,11 +83,11 @@ func TestFiniteSparseProductResetRecyclesIndexes(t *testing.T) {
 	if empty, e := product.Empty(); e != nil || !empty {
 		t.Fatalf("reset relation not empty: %v (%v)", empty, e)
 	}
-	if len(product.available) != 2 {
-		t.Fatalf("reset made %d relation indexes available, want 2", len(product.available))
+	if len(product.inner) != 0 || len(product.available) != 0 {
+		t.Fatalf("reset kept dead relation indexes: inner=%d available=%d", len(product.inner), len(product.available))
 	}
 	astTestMust(t, product.AddFact([]ast.ASTHandle{zero, two}))
-	if len(product.inner) != 2 || len(product.available) != 1 {
-		t.Fatalf("reset did not reuse an index: inner=%d available=%d", len(product.inner), len(product.available))
+	if len(product.inner) != 1 || len(product.available) != 0 {
+		t.Fatalf("reset did not rebuild relation indexes: inner=%d available=%d", len(product.inner), len(product.available))
 	}
 }

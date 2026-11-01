@@ -572,3 +572,40 @@ func TestFiniteSparseProductSizeEstimatesUseOuterTable(t *testing.T) {
 		t.Fatalf("outer byte estimate = %d, want %d (%v)", bytes, wantBytes, e)
 	}
 }
+
+func TestFiniteSparseProductEmptyCollectsSharedInnerIndexes(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-gc-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 3)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one := value(0), value(1)
+	product, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	astTestMust(t, product.AddFact([]ast.ASTHandle{zero, one}))
+	astTestMust(t, product.AddFact([]ast.ASTHandle{one, one}))
+	keys, err := product.table.Facts()
+	astTestMust(t, err)
+	keys[1][len(keys[1])-1] = keys[0][len(keys[0])-1]
+	astTestMust(t, product.table.Reset())
+	for _, key := range keys {
+		astTestMust(t, product.table.EnsureFact(key))
+	}
+	astTestMust(t, product.inner[0].Reset())
+	if empty, err := product.Empty(); err != nil || !empty {
+		t.Fatalf("empty collection result = %v (%v)", empty, err)
+	}
+	if rows, err := product.table.Len(); err != nil || rows != 0 {
+		t.Fatalf("empty collection left %d outer keys (%v)", rows, err)
+	}
+	if len(product.inner) != 0 || len(product.available) != 0 {
+		t.Fatalf("garbage collection kept inner indexes: inner=%d available=%d", len(product.inner), len(product.available))
+	}
+}

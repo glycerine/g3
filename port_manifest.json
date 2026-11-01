@@ -92312,7 +92312,10 @@
         "pkg/muz/rel/finite_sparse_product_formula.go",
         "pkg/muz/rel/finite_sparse_product_formula_test.go",
         "pkg/muz/rel/finite_sparse_product_conversion.go",
-        "pkg/muz/rel/finite_sparse_product_conversion_test.go"
+        "pkg/muz/rel/finite_sparse_product_conversion_test.go",
+        "pkg/muz/rel/finite_sparse_product_display.go",
+        "pkg/muz/rel/finite_sparse_product_display_test.go",
+        "pkg/muz/rel/sparse_table_display.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductUnionAndDelta", "TestFiniteExplanationProductProjectCollisions", "TestFiniteExplanationProductJoinRows", "TestFiniteExplanationProductRenameFinite", "TestFiniteExplanationProductFiniteFilters", "TestFiniteExplanationProductNegationFilter",
@@ -92880,7 +92883,10 @@
         "pkg/muz/rel/finite_sparse_product_formula.go",
         "pkg/muz/rel/finite_sparse_product_formula_test.go",
         "pkg/muz/rel/finite_sparse_product_conversion.go",
-        "pkg/muz/rel/finite_sparse_product_conversion_test.go"
+        "pkg/muz/rel/finite_sparse_product_conversion_test.go",
+        "pkg/muz/rel/finite_sparse_product_display.go",
+        "pkg/muz/rel/finite_sparse_product_display_test.go",
+        "pkg/muz/rel/sparse_table_display.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership",
@@ -92922,7 +92928,9 @@
         "TestFiniteSparseProductTableRelationRoundTrip",
         "TestFiniteSparseProductIdenticalPairs",
         "TestFiniteSparseProductUnionUnifiesTableSpecification",
-        "TestFiniteSparseProductSizeEstimatesUseOuterTable"
+        "TestFiniteSparseProductSizeEstimatesUseOuterTable",
+        "TestFiniteSparseProductEmptyCollectsSharedInnerIndexes",
+        "TestFiniteSparseProductDisplayAndTuples"
       ],
       "conditionals": [
         {

@@ -92,16 +92,7 @@ func (p *FiniteSparseProduct) Reset() error {
 	if err := p.table.Reset(); err != nil {
 		return err
 	}
-	var resultErr error
-	for index, inner := range p.inner {
-		if inner == nil {
-			continue
-		}
-		resultErr = errors.Join(resultErr, inner.Close())
-		p.inner[index] = nil
-		p.available = append(p.available, index)
-	}
-	return resultErr
+	return p.collectGarbage(false)
 }
 
 // SizeEstimateRows reports the source's outer-table row estimate; each row
@@ -667,33 +658,59 @@ func (p *FiniteSparseProduct) Empty() (bool, error) {
 	if err := p.open(); err != nil {
 		return false, err
 	}
-	keys, err := p.table.Facts()
-	if err != nil {
+	if err := p.collectGarbage(true); err != nil {
 		return false, err
 	}
+	n, err := p.table.Len()
+	return n == 0, err
+}
+
+func (p *FiniteSparseProduct) collectGarbage(removeEmpty bool) error {
+	keys, err := p.table.Facts()
+	if err != nil {
+		return err
+	}
+	live := make(map[int][]Fact, len(keys))
 	for _, key := range keys {
 		index := int(key[len(key)-1])
 		if index < 0 || index >= len(p.inner) || p.inner[index] == nil {
-			return false, ErrTableRelation
+			return ErrTableRelation
 		}
-		n, err := p.inner[index].Len()
-		if err != nil {
-			return false, err
-		}
-		if n != 0 {
+		live[index] = append(live[index], key)
+	}
+	for index, inner := range p.inner {
+		if inner == nil {
 			continue
 		}
-		if _, err = p.table.Remove(key); err != nil {
-			return false, err
+		referencingKeys, referenced := live[index]
+		if referenced && removeEmpty {
+			n, err := p.inner[index].Len()
+			if err != nil {
+				return err
+			}
+			if n != 0 {
+				continue
+			}
+			for _, key := range referencingKeys {
+				if _, err = p.table.Remove(key); err != nil {
+					return err
+				}
+			}
 		}
-		if err = p.inner[index].Close(); err != nil {
-			return false, err
+		if referenced && !removeEmpty {
+			continue
+		}
+		if err = inner.Close(); err != nil {
+			return err
 		}
 		p.inner[index] = nil
 		p.available = append(p.available, index)
 	}
-	n, err := p.table.Len()
-	return n == 0, err
+	if len(p.inner) != 0 && len(p.available) == len(p.inner) {
+		p.inner = nil
+		p.available = nil
+	}
+	return nil
 }
 
 // UnionFrom adds source rows into p. The source and destination must have the
