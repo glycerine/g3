@@ -9,9 +9,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// eliminateQuantifierMixed separates array, Boolean, arithmetic, and bit-vector
-// declarations of one quantifier. Every group must be fully eliminated by its
-// concrete solver; unsupported declarations report incomplete.
+// eliminateQuantifierMixed separates array, datatype, Boolean, arithmetic, and
+// bit-vector declarations of one quantifier. Every group must be fully
+// eliminated by its concrete solver; unsupported declarations report incomplete.
 func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
@@ -57,7 +57,11 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	if err != nil {
 		return result, false, err
 	}
-	var arrayVars, boolVars, arithmeticVars, bitVectorVars []ast.ASTHandle
+	datatype, err := m.RegisterDatatypePlugin()
+	if err != nil {
+		return result, false, err
+	}
+	var arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars []ast.ASTHandle
 	for _, ref := range extracted.variables {
 		variable, e := m.RefGet(ref)
 		if e != nil {
@@ -86,13 +90,15 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 		switch family {
 		case array:
 			arrayVars = append(arrayVars, variable)
+		case datatype:
+			datatypeVars = append(datatypeVars, variable)
 		case arithmetic:
 			arithmeticVars = append(arithmeticVars, variable)
 		default:
 			return result, false, nil
 		}
 	}
-	groups := [][]ast.ASTHandle{arrayVars, boolVars, arithmeticVars, bitVectorVars}
+	groups := [][]ast.ASTHandle{arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars}
 	nonempty := 0
 	for _, group := range groups {
 		if len(group) > 0 {
@@ -150,8 +156,10 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 		case 0:
 			eliminated, done, e = eliminateQuantifierArrayEquations(m, q, config)
 		case 1:
-			eliminated, done, e = eliminateQuantifierBoolUnits(m, q, config)
+			eliminated, done, e = eliminateQuantifierDatatypeBlock(m, q, config)
 		case 2:
+			eliminated, done, e = eliminateQuantifierBoolUnits(m, q, config)
+		case 3:
 			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
 			if e == nil && !done {
 				eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
@@ -159,7 +167,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			if e == nil && !done {
 				eliminated, done, e = eliminateQuantifierArithmeticSearch(m, q, config)
 			}
-		case 3:
+		case 4:
 			eliminated, done, e = eliminateQuantifierBitVectorBlock(m, q, config)
 		}
 		if e != nil || !done {

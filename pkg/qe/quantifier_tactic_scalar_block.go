@@ -12,8 +12,19 @@ import (
 // eliminateQuantifierBitVectorBlock eliminates each declaration in one
 // quantifier block using the existing bit-vector search.
 func eliminateQuantifierBitVectorBlock(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
+	return eliminateQuantifierScalarBlock(m, quantifier, config, qeScalarBitVector)
+}
+
+func eliminateQuantifierDatatypeBlock(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
+	return eliminateQuantifierScalarBlock(m, quantifier, config, qeScalarDatatype)
+}
+
+func eliminateQuantifierScalarBlock(m *ast.ASTManager, quantifier ast.ASTHandle, config Config, searchKind qeScalarSearchKind) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
+	}
+	if searchKind != qeScalarBitVector && searchKind != qeScalarDatatype {
+		return result, false, ast.ErrASTDomain
 	}
 	defer func() {
 		if err != nil && result != (ast.ASTRef{}) {
@@ -43,14 +54,28 @@ func eliminateQuantifierBitVectorBlock(m *ast.ASTManager, quantifier ast.ASTHand
 	if err != nil {
 		return result, false, err
 	}
+	var datatypeFamily ast.FamilyID
+	if searchKind == qeScalarDatatype {
+		datatypeFamily, err = m.RegisterDatatypePlugin()
+		if err != nil {
+			return result, false, err
+		}
+	}
 	for i := uint32(0); i < count; i++ {
 		sort, cause := m.GetDeclarationSort(quantifier, i)
 		if cause != nil {
 			return result, false, cause
 		}
-		isBV, cause := m.IsBitVectorSort(sort)
-		if cause != nil || !isBV {
-			return result, false, cause
+		if searchKind == qeScalarBitVector {
+			isBV, cause := m.IsBitVectorSort(sort)
+			if cause != nil || !isBV {
+				return result, false, cause
+			}
+		} else {
+			family, cause := m.GetFamilyID(sort)
+			if cause != nil || family != datatypeFamily {
+				return result, false, cause
+			}
 		}
 	}
 	extracted, err := extractExprQuantifier(m, quantifier)
@@ -104,7 +129,7 @@ func eliminateQuantifierBitVectorBlock(m *ast.ASTManager, quantifier ast.ASTHand
 			}
 			continue
 		}
-		part, done, e := eliminateQuantifierBitVectorSearch(m, q, config)
+		part, done, e := eliminateQuantifierScalarSearch(m, q, config, searchKind)
 		e = errors.Join(e, m.DelRef(&bound))
 		if e != nil || !done {
 			if part != (ast.ASTRef{}) {

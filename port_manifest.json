@@ -110753,7 +110753,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/qe/quantifier_tactic_bv_block.go",
+        "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
         "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
@@ -110863,6 +110863,8 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestQuantifierDatatypeBlockUniversal",
+        "TestQuantifierDatatypeBlocks",
         "TestQuantifierBitVectorBlockSearch",
         "TestQuantifierMixedArrayAndBitVectorGroups",
         "TestQuantifierArrayDisjunctionUnderNegationIsNotDistributed",
@@ -112414,7 +112416,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/qe/quantifier_tactic_bv_block.go",
+        "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_bv_search_test.go",
         "pkg/qe/qe_bv_plugin.go",
         "pkg/qe/qe_bv_plugin_classify.go",
@@ -112513,6 +112515,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_scalar_block.go",
+        "pkg/cmd/g3/qe_boolean_integration_test.go",
         "pkg/qe/expr_quantifier_datatype_branch_test.go",
         "pkg/qe/qe_datatype_plugin.go",
         "pkg/qe/qe_datatype_plugin_test.go",
@@ -112523,6 +112527,9 @@
         "pkg/qe/qe_datatype_plugin_solve_eq.go"
       ],
       "tests": [
+        "TestQuantifierDatatypeBlockUniversal",
+        "TestQuantifierDatatypeBlocks",
+        "TestSMTLibRunnerQEDatatypeBlocks",
         "TestDatatypeSolverPluginCollectsBothAtomPolarities",
         "TestExprQEDatatypeSearchWithBothEqualityPolarities",
         "TestExprQEDatatypeBranchPropagatesAndSubstitutes",
@@ -114602,7 +114609,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
-        "pkg/qe/quantifier_tactic_bv_block.go",
+        "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
         "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
@@ -114632,6 +114639,9 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestQuantifierDatatypeBlockUniversal",
+        "TestQuantifierDatatypeBlocks",
+        "TestSMTLibRunnerQEDatatypeBlocks",
         "TestQuantifierBitVectorBlockSearch",
         "TestSMTLibRunnerQEMultipleBitVectors",
         "TestQuantifierMixedArrayAndBitVectorGroups",

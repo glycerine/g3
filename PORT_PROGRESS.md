@@ -1,3 +1,5 @@
+QE now eliminates multiple datatype variables and mixed datatype/Boolean blocks using the existing scalar search. Solver-equivalence and SMT-LIB tests cover recursive datatype SAT, UNSAT and universal cases.
+
 QE now eliminates bit-vector blocks one variable at a time, including blocks mixed with Boolean declarations. Existential, universal and SMT-LIB tests cover multiple bit-vector variables.
 
 Mixed QE blocks now combine array, Boolean, arithmetic and bit-vector groups, eliminating array equations before other groups. Solver-equivalence and SMT-LIB tests cover mixed array blocks and bit-vector/Boolean blocks.

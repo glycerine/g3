@@ -7,6 +7,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestExprQEDatatypeSearchEliminatesRecognizedEquality(t *testing.T) {
@@ -110,6 +111,85 @@ func TestExprQEDatatypeSearchWithBothEqualityPolarities(t *testing.T) {
 	fmMust(t, err)
 	if status != lbool.False {
 		t.Fatal("datatype projection differs from expected result", status)
+	}
+}
+
+func TestQuantifierDatatypeBlocks(t *testing.T) {
+	for _, mixed := range []bool{false, true} {
+		name := "datatype"
+		if mixed {
+			name = "datatype-boolean"
+		}
+		t.Run(name, func(t *testing.T) {
+			d := newDatatypeProjectionFixture(t)
+			f, m := d.f, d.f.r.manager
+			x := f.constant("block-datatype-x", d.list)
+			y := f.constant("block-datatype-y", d.list)
+			z := f.constant("block-datatype-z", d.list)
+			body := f.own(m.MkAndArray([]ast.ASTHandle{d.app(d.consTest, x), f.own(m.MkEq(x, y)), f.own(m.MkEq(y, z))}))
+			variables := []ast.ASTHandle{x, y}
+			if mixed {
+				b := f.constant("block-datatype-b", f.boolean)
+				body = f.own(m.MkAnd(b, body))
+				variables = append(variables, b)
+			}
+			bound, err := bindExprQuantifierVariables(m, variables, body)
+			fmMust(t, err)
+			defer func() { fmMust(t, m.DelRef(&bound)) }()
+			q, err := m.RefGet(bound)
+			fmMust(t, err)
+			var result ast.ASTRef
+			var complete bool
+			if mixed {
+				result, complete, err = eliminateQuantifierMixed(m, q, f.r.config)
+			} else {
+				result, complete, err = eliminateQuantifierDatatypeBlock(m, q, f.r.config)
+			}
+			fmMust(t, err)
+			if !complete {
+				t.Fatal("datatype block was not eliminated")
+			}
+			defer func() { fmMust(t, m.DelRef(&result)) }()
+			value, err := m.RefGet(result)
+			fmMust(t, err)
+			want := d.app(d.consTest, z)
+			difference := f.own(m.MkNot(f.own(m.MkEq(value, want))))
+			kernel := qsatKernelOwner(t, f)
+			solver, err := kernel.solver()
+			fmMust(t, err)
+			fmMust(t, solver.AssertFormula(difference))
+			status, err := solver.CheckSat(nil)
+			fmMust(t, err)
+			if status != lbool.False {
+				t.Fatal("datatype block projection differs from expected", status)
+			}
+		})
+	}
+}
+
+func TestQuantifierDatatypeBlockUniversal(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	f, m := d.f, d.f.r.manager
+	x := f.own(m.MkVar(1, d.list))
+	y := f.own(m.MkVar(0, d.list))
+	body := f.own(m.MkEq(x, y))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{d.list, d.list}, Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body}))
+	result, complete, err := eliminateQuantifierDatatypeBlock(m, q, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("universal datatype block was not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	kernel := qsatKernelOwner(t, f)
+	solver, err := kernel.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(value))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("all lists cannot be equal", status)
 	}
 }
 

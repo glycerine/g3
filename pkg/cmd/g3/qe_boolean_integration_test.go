@@ -71,6 +71,34 @@ func TestSMTLibRunnerDatatypeQEBothEqualityPolarities(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEDatatypeBlocks(t *testing.T) {
+	for _, test := range []struct{ name, declarations, body string }{
+		{"datatype", `(x List) (y List)`, `(and ((_ is cons) x) (= x y) (= y z))`},
+		{"mixed", `(x List) (y List) (b Bool)`, `(and b ((_ is cons) x) (= x y) (= y z))`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			script := `(set-logic ALL)
+(declare-datatypes ((List 0)) (((nil) (cons (head Int) (tail List)))))
+(declare-const z List)
+(assert (exists (` + test.declarations + `) ` + test.body + `))
+(push)
+(assert (= z nil))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= z (cons 1 nil)))
+(check-sat-using (then qe smt))
+`
+			var out bytes.Buffer
+			if err := run(strings.NewReader(script), &out); err != nil {
+				t.Fatal(err, out.String())
+			}
+			if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+				t.Fatalf("datatype QE block result: %s", got)
+			}
+		})
+	}
+}
+
 func TestSMTLibRunnerQEBoundedCooperResidue(t *testing.T) {
 	script := `(set-logic LIA)
 (declare-const y Int)
