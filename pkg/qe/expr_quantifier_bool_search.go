@@ -145,7 +145,7 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 				part, cause := partitionExprQETree(current, variables, partitioner)
 				if cause == nil {
 					var done bool
-					done, cause = processExprQEBoolPartition(current, part, solver, config)
+					done, cause = processExprQEScalarPartition(current, part, solver, config)
 					cause = errors.Join(cause, part.Close())
 					if cause == nil && !done {
 						outcome = exprQEPopNoBranch

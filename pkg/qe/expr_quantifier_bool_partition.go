@@ -1,6 +1,6 @@
 package qe
 
-// Source: src/qe/qe.cpp, process_partition for Boolean variables.
+// Source: src/qe/qe.cpp, process_partition for scalar variables.
 
 import (
 	"errors"
@@ -9,9 +9,9 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 )
 
-// processExprQEBoolPartition eliminates each independent group in source
+// processExprQEScalarPartition eliminates each independent group in source
 // reverse order, then installs and blocks the resulting unit branch.
-func processExprQEBoolPartition(node *exprQETree, partition *exprQETreePartition, solver *smtcore.SMTSolver, config Config) (complete bool, err error) {
+func processExprQEScalarPartition(node *exprQETree, partition *exprQETreePartition, solver *smtcore.SMTSolver, config Config) (complete bool, err error) {
 	if node == nil || node.manager == nil || partition == nil || partition.manager != node.manager || !partition.split || solver == nil {
 		return false, ast.ErrASTHandle
 	}
@@ -50,7 +50,7 @@ func processExprQEBoolPartition(node *exprQETree, partition *exprQETreePartition
 			return false, errors.Join(e, m.DelRef(&bound))
 		}
 		if kind == ast.ASTQuantifier {
-			eliminated, done, cause := eliminateQuantifierBoolUnits(m, boundValue, config)
+			eliminated, done, cause := rewriteQuantifierScalar(m, boundValue, config)
 			if cause != nil || !done {
 				return false, errors.Join(cause, m.DelRef(&bound))
 			}

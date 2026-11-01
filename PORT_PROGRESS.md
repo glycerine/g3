@@ -1,3 +1,5 @@
+QE partition processing now invokes scalar elimination for independent bit-vector and arithmetic groups. Nested modulo projection is tested against its parity condition and through SMT-LIB SAT/UNSAT checks.
+
 Cooper elimination now uses bounded bit-vector residues and converts them to integers for arithmetic constraints, matching the source representation. Arithmetic QE can follow the new bit-vector variables; direct, solver-equivalence and SMT-LIB tests cover modular elimination.
 
 SMT rollback now undoes interleaved theory attachments in order with equality snapshots. QE search can continue with fresh datatype variables, covered by nested rollback, solver-equivalence and SMT-LIB tests.

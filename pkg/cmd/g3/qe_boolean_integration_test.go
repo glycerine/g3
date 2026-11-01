@@ -64,6 +64,26 @@ func TestSMTLibRunnerQEBoundedCooperResidue(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQENestedModuloProjection(t *testing.T) {
+	script := `(set-logic LIA)
+(declare-const y Int)
+(assert (exists ((x Int)) (= (mod (+ (* 2 x) y) 4) 1)))
+(push)
+(assert (= y 2))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= y 1))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("nested modulo QE result: %s", got)
+	}
+}
+
 func TestSMTLibRunnerBooleanQETactic(t *testing.T) {
 	script := `(set-option :produce-models true)
 (declare-const r Bool)
