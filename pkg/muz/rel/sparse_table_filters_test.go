@@ -104,4 +104,24 @@ func TestSparseTableSelectEqualAndProjectFiltersBeforeProjection(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(facts, []Fact{{0, 1}, {2, 2}}) {
 		t.Fatalf("functional-column fallback facts = %v, err=%v", facts, err)
 	}
+
+	singletonSignature, err := NewSignature([]uint64{3})
+	must(t, err)
+	singleton, err := NewSparseTable(singletonSignature, 0)
+	must(t, err)
+	defer singleton.Close()
+	for _, value := range []Element{0, 2} {
+		if _, err = singleton.Add(Fact{value}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	zeroColumn, err := singleton.SelectEqualAndProject(2, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer zeroColumn.Close()
+	facts, err = zeroColumn.Facts()
+	if err != nil || !reflect.DeepEqual(facts, []Fact{{}}) {
+		t.Fatalf("singleton selection result = %v, err=%v", facts, err)
+	}
 }

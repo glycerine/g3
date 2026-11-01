@@ -12,6 +12,8 @@ Sparse join-project oracle: exhaustively compare dispatched join-project results
 
 Sparse relation integration gate: the `muz/fp` Datalog and Spacer package suites pass in both normal and `g3checked` builds after the sparse select, union, and join-project changes.
 
+Sparse singleton select fallback: added coverage for the source's one-column case, which declines the plugin specialization and returns the zero-column unit fact after a matching selection; focused normal and `g3checked` tests pass.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
