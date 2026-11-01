@@ -111504,6 +111504,7 @@
         "TestConjunctionPartitionSourceClassification",
         "TestConjunctionPartitionMajorityAndUnionOrdering",
         "TestDefinitionVectorNormalizeProjectAndOwnership",
+        "TestDefinitionVectorNormalizeColdFailureCleanupAndRetry",
         "TestGuardedDefinitionsOwnsNormalizedCopies",
         "TestArrayPluginSolveExtractionFallbackRejectsSubtraction",
         "TestArrayPluginSolveDispatchesExplicitEquality",
@@ -111917,6 +111918,7 @@
         "TestConjunctionPartitionSourceClassification",
         "TestConjunctionPartitionMajorityAndUnionOrdering",
         "TestDefinitionVectorNormalizeProjectAndOwnership",
+        "TestDefinitionVectorNormalizeColdFailureCleanupAndRetry",
         "TestGuardedDefinitionsOwnsNormalizedCopies"
       ],
       "conditionals": [

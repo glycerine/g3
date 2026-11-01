@@ -200,6 +200,9 @@ func (d *DefinitionVector) Normalize() (result error) {
 	}
 	replacer, err := astrewriter.NewSimplifyingExprReplacer(d.manager, d.config.Context, d.config.Globals, nil)
 	if err != nil {
+		if replacer != nil {
+			err = errors.Join(err, replacer.Close())
+		}
 		return errors.Join(err, d.manager.DelExprSubstitution(&substitution))
 	}
 	defer func() {
