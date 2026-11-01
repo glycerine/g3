@@ -234,6 +234,10 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 			pending = append(pending, handle)
 		}
 
+		if err = p.traceProjectionStage(515, "After qe_lite:", current, "Vars:", pending, nil); err != nil {
+			return nil, err
+		}
+
 		booleans := make([]ast.ASTHandle, 0)
 		arrays := make([]ast.ASTHandle, 0)
 		for _, variable := range pending {
@@ -273,6 +277,14 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 		}
+		if len(booleans) != 0 {
+			if err = p.traceProjectionStage(548, "Projected Booleans:", current, "", nil, nil); err != nil {
+				return nil, err
+			}
+		}
+		if err = p.traceProjectionStage(554, "", ast.ASTRef{}, "Array vars:", arrays, nil); err != nil {
+			return nil, err
+		}
 		handle, err := p.manager.RefGet(current)
 		if err != nil {
 			return nil, err
@@ -307,11 +319,17 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		if err != nil {
 			return nil, err
 		}
+		if err = p.traceProjectionStage(574, "", ast.ASTRef{}, "Auxiliary variables of index and value sorts:", pending, md); err != nil {
+			return nil, err
+		}
 		if len(pending) == 0 {
 			break
 		}
 	}
 	if len(arithmetic) != 0 {
+		if err = p.traceProjectionStage(588, "", ast.ASTRef{}, "Arith vars:", arithmetic, nil); err != nil {
+			return nil, err
+		}
 		handle, err := p.manager.RefGet(current)
 		if err != nil {
 			return nil, err
@@ -346,6 +364,9 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 		}
+		if err = p.traceProjectionStage(615, "Projected arith vars:", current, "Remaining arith vars:", remaining, nil); err != nil {
+			return nil, err
+		}
 		if len(remaining) != 0 {
 			remaining, err = p.projectModelTerms(md, current, remaining)
 			if err != nil {
@@ -366,6 +387,9 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 			current = next
+			if err = p.traceProjectionStage(632, "After substituting remaining arith vars:", current, "", nil, nil); err != nil {
+				return nil, err
+			}
 			if err = p.rewriteProjectionCurrent(current); err != nil {
 				return nil, fmt.Errorf("projection substitution rewrite: %w", err)
 			}

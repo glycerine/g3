@@ -139,7 +139,12 @@ func TestLegacyModelTermProjectionRejectsSelfOccurrence(t *testing.T) {
 func TestLegacyProjectionRemainingArithmeticSubstitutionPolicy(t *testing.T) {
 	f := newFMFixture(t)
 	m := f.r.manager
-	p, err := NewLegacyProjection(m, f.r.config)
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("spacer_mbp")
+	config := f.r.config
+	config.Trace = tags
+	p, err := NewLegacyProjection(m, config)
 	fmMust(t, err)
 	defer func() { fmMust(t, p.Close()) }()
 	x := f.constant("remaining-policy-x", f.integer)
@@ -154,6 +159,7 @@ func TestLegacyProjectionRemainingArithmeticSubstitutionPolicy(t *testing.T) {
 	fmMust(t, err)
 	fmMust(t, md.Core().RegisterConstant(decl, two))
 	for _, retain := range []bool{true, false} {
+		output.Reset()
 		result, err := p.Project(md.Core(), []ast.ASTHandle{x}, formula, false, retain)
 		fmMust(t, err)
 		root, err := result.Formula()
@@ -168,6 +174,25 @@ func TestLegacyProjectionRemainingArithmeticSubstitutionPolicy(t *testing.T) {
 			}
 		} else if len(remaining) != 0 || occurs || !m.IsTrue(root) {
 			t.Fatal("model substitution did not simplify the nonlinear witness", remaining, root)
+		}
+		if tags.ShouldTrace("spacer_mbp") {
+			text := output.String()
+			previous := -1
+			for _, marker := range []string{"After qe_lite:\n", "Vars:\nremaining-policy-x\n", "Array vars:\n", "extended model:\n", "Auxiliary variables of index and value sorts:\n", "Arith vars:\nremaining-policy-x\n", "Projected arith vars:\n", "Remaining arith vars:\nremaining-policy-x\n"} {
+				offset := strings.Index(text[previous+1:], marker)
+				if offset < 0 {
+					t.Fatalf("missing ordered marker %q in %s", marker, text)
+				}
+				previous += offset + 1
+			}
+			marker := "After substituting remaining arith vars:\n"
+			at := strings.Index(text, marker)
+			if retain && at >= 0 {
+				t.Fatal("dont_sub emitted substitution record", text)
+			}
+			if !retain && (at <= previous || !strings.Contains(text[at:], "(* 2 2)")) {
+				t.Fatal("substitution trace must precede final arithmetic rewrite", text)
+			}
 		}
 		fmMust(t, result.Close())
 	}
