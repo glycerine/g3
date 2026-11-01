@@ -2,6 +2,8 @@ package rel
 
 import (
 	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 // NewFiniteSparseProductFromTableRelation embeds every table row under an
@@ -25,6 +27,47 @@ func NewFiniteSparseProductFromTableRelation(source *TableRelation) (*FiniteSpar
 			return nil, errors.Join(err, result.Close())
 		}
 	}
+	return result, nil
+}
+
+// NewFiniteSparseProductFromInnerSparseTable wraps an inner relation under
+// the source singleton outer key and owns a clone of the supplied relation.
+func NewFiniteSparseProductFromInnerSparseTable(manager *RelationManager, sorts []ast.ASTHandle, source *SparseTable) (_ *FiniteSparseProduct, resultErr error) {
+	if source == nil || source.open() != nil || source.functional != 0 || manager == nil || manager.open() != nil {
+		return nil, ErrTableRelation
+	}
+	if len(sorts) != source.signature.Len() {
+		return nil, ErrTableRelation
+	}
+	for column, sort := range sorts {
+		domain, err := manager.sortDomain(sort)
+		if err != nil {
+			return nil, err
+		}
+		if source.signature.domains[column] != domain {
+			return nil, ErrTableRelation
+		}
+	}
+	tableColumns := make([]bool, len(sorts))
+	result, err := NewFiniteSparseProduct(manager, sorts, tableColumns)
+	if err != nil {
+		return nil, err
+	}
+	keep := false
+	defer func() {
+		if !keep {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	inner, err := source.Clone()
+	if err != nil {
+		return nil, err
+	}
+	result.inner = append(result.inner, inner)
+	if _, err = result.table.Add(Fact{0}); err != nil {
+		return nil, err
+	}
+	keep = true
 	return result, nil
 }
 

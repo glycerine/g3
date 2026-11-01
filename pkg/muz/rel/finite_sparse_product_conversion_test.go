@@ -106,3 +106,41 @@ func TestFiniteSparseProductJoinTableRelationConversion(t *testing.T) {
 		astTestMust(t, result.Close())
 	}
 }
+
+func TestFiniteSparseProductFromInnerSparseTableClonesInput(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-inner-conversion")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 3)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two := value(0), value(1), value(2)
+	signature, err := NewSignature([]uint64{3, 3})
+	astTestMust(t, err)
+	source, err := NewSparseTable(signature, 0)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	if _, err = source.Add(Fact{1, 2}); err != nil {
+		t.Fatal(err)
+	}
+	product, err := NewFiniteSparseProductFromInnerSparseTable(f.relations, []ast.ASTHandle{sort, sort}, source)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	if found, e := product.ContainsFact([]ast.ASTHandle{one, two}); e != nil || !found {
+		t.Fatalf("converted product lost source row: %v (%v)", found, e)
+	}
+	if _, err = source.Add(Fact{0, 0}); err != nil {
+		t.Fatal(err)
+	}
+	if found, e := product.ContainsFact([]ast.ASTHandle{zero, zero}); e != nil || found {
+		t.Fatalf("converted product aliases source rows: %v (%v)", found, e)
+	}
+	if _, err = NewFiniteSparseProductFromInnerSparseTable(f.relations, []ast.ASTHandle{sort}, source); err == nil {
+		t.Fatal("accepted source signature with the wrong arity")
+	}
+}

@@ -92343,7 +92343,8 @@
         "TestFiniteSparseProductComplementAndFull",
         "TestFiniteSparseProductJoinTableRelationConversion",
         "TestFiniteSparseProductJoinAcrossPartitions",
-        "TestFiniteSparseProductSourceDriver"
+        "TestFiniteSparseProductSourceDriver",
+        "TestFiniteSparseProductFromInnerSparseTableClonesInput"
       ],
       "conditionals": [
         {
@@ -92778,6 +92779,14 @@
           "tests": [
             "TestFiniteSparseProductJoinAcrossPartitions",
             "TestFiniteSparseProductSourceDriver"
+          ]
+        },
+        {
+          "name": "finite sparse product conversion from an inner sparse relation",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/finite_sparse_product_conversion.go",
+          "tests": [
+            "TestFiniteSparseProductFromInnerSparseTableClonesInput"
           ]
         },
         {
