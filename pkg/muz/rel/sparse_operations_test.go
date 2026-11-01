@@ -1,6 +1,9 @@
 package rel
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 func TestSparseRenameRejectsClosedTable(t *testing.T) {
 	signature, err := NewSignature([]uint64{2, 2})
@@ -40,6 +43,39 @@ func TestSparseJoinProjectRenameFilterUnion(t *testing.T) {
 	must(t, a.Union(b, delta))
 	if n, _ := delta.Len(); n != 2 {
 		t.Fatal(n)
+	}
+}
+
+func TestSparseUnionRejectsIncompatibleTablesBeforeMutation(t *testing.T) {
+	targetSignature, err := NewSignature([]uint64{4})
+	must(t, err)
+	otherSignature, err := NewSignature([]uint64{8})
+	must(t, err)
+	target, err := NewSparseTable(targetSignature, 0)
+	must(t, err)
+	defer target.Close()
+	source, err := NewSparseTable(targetSignature, 0)
+	must(t, err)
+	defer source.Close()
+	delta, err := NewSparseTable(otherSignature, 0)
+	must(t, err)
+	defer delta.Close()
+	if _, err = target.Add(Fact{0}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = source.Add(Fact{1}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err = target.Union(source, delta); !errors.Is(err, ErrTable) {
+		t.Fatalf("incompatible delta union error = %v", err)
+	}
+	facts, err := target.Facts()
+	if err != nil || len(facts) != 1 || facts[0][0] != 0 {
+		t.Fatalf("rejected union mutated target: facts=%v err=%v", facts, err)
+	}
+	if err = target.Union(nil, nil); !errors.Is(err, ErrTable) {
+		t.Fatalf("nil source union error = %v", err)
 	}
 }
 

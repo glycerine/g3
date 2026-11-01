@@ -1,7 +1,18 @@
 package rel
 
 func (t *SparseTable) Union(source, delta *SparseTable) error {
-	if !t.signature.equal(source.signature) {
+	if err := t.open(); err != nil {
+		return err
+	}
+	if err := source.open(); err != nil {
+		return err
+	}
+	if delta != nil {
+		if err := delta.open(); err != nil {
+			return err
+		}
+	}
+	if !sparseSameFunctionalSignature(t, source) || (delta != nil && !sparseSameFunctionalSignature(t, delta)) {
 		return ErrTable
 	}
 	facts, e := source.Facts()
@@ -14,9 +25,6 @@ func (t *SparseTable) Union(source, delta *SparseTable) error {
 			return e
 		}
 		if added && delta != nil {
-			if !delta.signature.equal(t.signature) {
-				return ErrTable
-			}
 			if _, e = delta.Add(f); e != nil {
 				return e
 			}

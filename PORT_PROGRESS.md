@@ -4,6 +4,8 @@ Sparse relation ownership audit: verified that added facts and returned rows are
 
 Sparse select-equal projection: added the source indexed path for eligible nonfunctional columns and relation-manager filter-then-project fallback for singleton or functional columns. Regressions cover output facts, functional metadata, fallback behavior, and source-table immutability; full `muz/rel` tests pass in normal and `g3checked` builds.
 
+Sparse union dispatch: validate open tables and matching signatures, including the delta table, before copying any source rows. A malformed-delta regression confirms rejected unions leave the target unchanged; full `muz/rel` tests pass in normal and `g3checked` builds.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
