@@ -7,6 +7,55 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
+func TestNormalizeArithmeticRefCancellationPreservesInputAndRetry(t *testing.T) {
+	m, owner, transformer, _, closeBase := closureFixture(t)
+	defer func() {
+		closureMust(t, transformer.Close())
+		closureMust(t, owner.Close())
+		closeBase()
+	}()
+	two, err := m.ArithmeticRealNumeralText("2")
+	closureMust(t, err)
+	sort, err := m.GetSort(two)
+	closureMust(t, err)
+	name, err := m.Symbols.Intern("normalization-failure-variable")
+	closureMust(t, err)
+	x, err := m.MkConst(name, sort)
+	closureMust(t, err)
+	product, err := m.MkArithmeticMul(two, x)
+	closureMust(t, err)
+	six, err := m.ArithmeticRealNumeralText("6")
+	closureMust(t, err)
+	input, err := m.MkArithmeticLE(product, six)
+	closureMust(t, err)
+	ref, err := m.NewRef(input)
+	closureMust(t, err)
+	defer func() { closureMust(t, m.DelRef(&ref)) }()
+	closureMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	m.ResourceLimit().IncCancel()
+	err = NormalizeArithmeticRef(m, ref)
+	m.ResourceLimit().DecCancel()
+	if err == nil {
+		t.Fatalf("normalization failure = %v, want cancellation", err)
+	}
+	got, err := m.RefGet(ref)
+	closureMust(t, err)
+	if got != input {
+		t.Fatal("interrupted rewrite replaced the caller's input")
+	}
+	if mode, err := m.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
+		t.Fatal("interrupted rewrite changed proof mode", mode, err)
+	}
+	closureMust(t, NormalizeArithmeticRef(m, ref))
+	got, err = m.RefGet(ref)
+	closureMust(t, err)
+	left, err := m.GetArg(got, 0)
+	closureMust(t, err)
+	if left != x {
+		t.Fatal("retry did not publish the normalized variable")
+	}
+}
+
 func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T) {
 	manager, owner, transformer, _, closeBase := closureFixture(t)
 	defer func() {

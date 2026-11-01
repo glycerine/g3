@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
 // NormalizeArithmeticRef matches normalize_arithmetic(expr_ref&): publish the
@@ -46,6 +47,13 @@ func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (result
 // leaving patterns unchanged. Rebuild with the original declaration so that
 // parameters and uninterpreted symbols keep their identities.
 func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cache map[ast.ASTHandle]ast.ASTHandle) (ast.ASTHandle, error) {
+	canceled, err := manager.Canceled()
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	if canceled {
+		return ast.ASTHandle{}, rewriter.NewRewriterException(manager.ResourceLimit().CancelMessage())
+	}
 	if result, found := cache[formula]; found {
 		return result, nil
 	}
