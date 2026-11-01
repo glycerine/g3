@@ -1,0 +1,129 @@
+package duality
+
+// Source: duality_solver.cpp:2144-2154,2425-2447,2490-2513,2555-2566.
+import "errors"
+
+var ErrUnmapNode = errors.New("can't unmap node")
+var ErrUpdatedExpansionChild = errors.New("help!")
+
+type derivationLevel struct {
+	level      int
+	expansions []*Node
+}
+
+// BacktrackingDerivation tracks the source slow-search expansion levels over
+// a borrowed derivation tree. Solver scopes are pushed by its search caller.
+type BacktrackingDerivation struct {
+	*DerivationTree
+	stack        []derivationLevel
+	nodeMap      map[*Node][]*Node
+	updatedNodes []*Node
+}
+
+func NewBacktrackingDerivation(tree *DerivationTree) (*BacktrackingDerivation, error) {
+	if tree == nil || tree.tree == nil {
+		return nil, ErrWrapperOwner
+	}
+	if err := tree.tree.open(); err != nil {
+		return nil, err
+	}
+	return &BacktrackingDerivation{DerivationTree: tree, stack: []derivationLevel{{}}, nodeMap: make(map[*Node][]*Node)}, nil
+}
+func (d *DerivationTree) RemoveLeaves(remove map[*Node]bool) {
+	previous := d.leaves
+	d.leaves = nil
+	for _, node := range previous {
+		if !remove[node] {
+			d.leaves = append(d.leaves, node)
+		}
+	}
+}
+func (d *DerivationTree) RemoveExpansion(node *Node) error {
+	if node == nil || node.Owner != d.tree || node.Outgoing == nil {
+		return ErrWrapperOwner
+	}
+	edge := node.Outgoing
+	parent := edge.Parent
+	children := append([]*Node(nil), edge.Children...)
+	if err := d.tree.DeleteEdge(edge); err != nil {
+		return err
+	}
+	for _, child := range children {
+		if err := d.tree.DeleteNode(child); err != nil {
+			return err
+		}
+	}
+	d.leaves = append(d.leaves, parent)
+	return nil
+}
+
+// ExpandMaterializedNode records the level before invoking the base expansion.
+// As in source ExpandSomeNodes, the caller consumes the selected leaf first.
+func (d *BacktrackingDerivation) ExpandMaterializedNode(node *Node) error {
+	if d == nil || d.DerivationTree == nil {
+		return ErrWrapperOwner
+	}
+	if err := d.tree.solverReady(); err != nil {
+		return err
+	}
+	level, err := d.tree.solver.ScopeLevel()
+	if err != nil {
+		return err
+	}
+	d.stack = append(d.stack, derivationLevel{level: int(level), expansions: []*Node{node}})
+	if err = d.DerivationTree.ExpandMaterializedNode(node); err != nil {
+		return err
+	}
+	for _, child := range node.Outgoing.Children {
+		d.nodeMap[child.Map] = append(d.nodeMap[child.Map], child)
+	}
+	return nil
+}
+func (d *BacktrackingDerivation) UnmapNode(node *Node) error {
+	if d == nil || node == nil {
+		return ErrWrapperOwner
+	}
+	instances := d.nodeMap[node.Map]
+	for n, candidate := range instances {
+		if candidate == node {
+			instances[n] = instances[len(instances)-1]
+			d.nodeMap[node.Map] = instances[:len(instances)-1]
+			return nil
+		}
+	}
+	return ErrUnmapNode
+}
+func (d *BacktrackingDerivation) PopLevel() error {
+	if d == nil || len(d.stack) < 2 {
+		return ErrWrapperOwner
+	}
+	expansions := d.stack[len(d.stack)-1].expansions
+	if err := d.tree.Pop(1); err != nil {
+		return err
+	}
+	remove := make(map[*Node]bool)
+	for _, node := range expansions {
+		if node.Outgoing == nil {
+			return ErrWrapperOwner
+		}
+		for _, child := range node.Outgoing.Children {
+			remove[child] = true
+			if err := d.UnmapNode(child); err != nil {
+				return err
+			}
+			for _, updated := range d.updatedNodes {
+				if updated == child {
+					return ErrUpdatedExpansionChild
+				}
+			}
+		}
+	}
+	d.RemoveLeaves(remove)
+	for _, node := range expansions {
+		if err := d.RemoveExpansion(node); err != nil {
+			return err
+		}
+	}
+	d.stack = d.stack[:len(d.stack)-1]
+	return nil
+}
