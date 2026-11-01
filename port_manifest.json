@@ -106688,6 +106688,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestSoftCandidateUpdatePreservesPublishedBounds",
         "TestSMT2WeightedSoftOptimizationEndToEnd",
         "TestSMT2BitVectorOptimizationEndToEnd",
         "TestSMTLibRunnerScripts",
@@ -126714,6 +126715,7 @@
         "pkg/cmd_context/opb_loader_test.go"
       ],
       "tests": [
+        "TestOptimizationFrontendResourceLimitedSortMaxBounds",
         "TestOptimizationFrontendResourceLimitDuringMaxResCore",
         "TestOptimizationFrontendResourceLimitedOPBBounds",
         "TestOPBFrontendOptimizesAndWritesResult",

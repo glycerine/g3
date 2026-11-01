@@ -84,3 +84,16 @@ func TestOptimizationFrontendResourceLimitDuringMaxResCore(t *testing.T) {
 		t.Fatalf("resource-limited OPB output = %q, want %q", got, want)
 	}
 }
+
+func TestOptimizationFrontendResourceLimitedSortMaxBounds(t *testing.T) {
+	input := "p wcnf 6 7 100\n100 -1 -2 -3 -4 -5 -6 0\n" +
+		"1 1 0\n1 2 0\n1 3 0\n1 4 0\n1 5 0\n1 6 0\n"
+	var output bytes.Buffer
+	args := []string{"rlimit=2200", "opt.maxsat_engine=sortmax", "-wcnf", "-in"}
+	if err := runArguments(args, strings.NewReader(input), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if got, want := output.String(), "unknown\n  [0:4]\n"; got != want {
+		t.Fatalf("resource-limited SortMax output = %q, want %q", got, want)
+	}
+}

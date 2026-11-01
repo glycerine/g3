@@ -5,8 +5,9 @@ package opt
 import "math/big"
 
 func setSoftObjectiveValue(result *ArithmeticResult, index int, cost, satisfied big.Rat, assignment []bool) {
-	result.Values[index] = ObjectiveValue{
-		SoftCost: cost, SoftSatisfied: satisfied,
-		SoftAssignment: append([]bool(nil), assignment...), Soft: true,
-	}
+	value := &result.Values[index]
+	value.SoftCost.Set(&cost)
+	value.SoftSatisfied.Set(&satisfied)
+	value.SoftAssignment = append([]bool(nil), assignment...)
+	value.Soft = true
 }
