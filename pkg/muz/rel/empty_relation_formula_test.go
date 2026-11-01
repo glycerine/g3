@@ -21,19 +21,20 @@ func TestEmptyRelationFormulaSourceSemantics(t *testing.T) {
 	if !product.Empty() {
 		t.Fatal("strict cycle must make product empty")
 	}
-	for name, makeFormula := range map[string]func() (ast.ASTRef, error){
-		"bound":   func() (ast.ASTRef, error) { return bound.ToFormula(m, sorts) },
-		"product": func() (ast.ASTRef, error) { return product.ToFormula(m, sorts) },
-		"empty-product": func() (ast.ASTRef, error) {
-			return NewIntervalBoundProduct(2, true).ToFormula(m, sorts)
-		},
+	for name, test := range map[string]struct {
+		makeFormula func() (ast.ASTRef, error)
+		wantTrue    bool
+	}{
+		"bound":         {func() (ast.ASTRef, error) { return bound.ToFormula(m, sorts) }, true},
+		"product-cycle": {func() (ast.ASTRef, error) { return product.ToFormula(m, sorts) }, false},
+		"empty-product": {func() (ast.ASTRef, error) { return NewIntervalBoundProduct(2, true).ToFormula(m, sorts) }, true},
 	} {
-		ref, err := makeFormula()
+		ref, err := test.makeFormula()
 		astTestMust(t, err)
 		h, err := m.RefGet(ref)
 		astTestMust(t, err)
-		if !m.IsFalse(h) {
-			t.Errorf("%s empty relation exported a non-false formula", name)
+		if m.IsTrue(h) != test.wantTrue {
+			t.Errorf("%s formula is %v, want true=%v", name, h, test.wantTrue)
 		}
 		astTestMust(t, m.DelRef(&ref))
 	}

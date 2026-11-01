@@ -91624,7 +91624,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Empty bound relations export false, while the source formula builder ignores the empty flag.",
+        "Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Formula export follows stored source constraints regardless of the empty flag; an unconstrained empty relation therefore exports true, while a stored strict cycle remains contradictory.",
         "The Go union delta requires a destination distinct from both operands.",
         "Go currently exposes these bound operations through concrete relation values; the C++ relation plugin capability and operation-factory dispatch layer is not represented in relation_manager."
       ]
@@ -91769,7 +91769,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Empty bound relations export false, while the source formula builder ignores the empty flag.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Formula export follows stored source constraints regardless of the empty flag.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },

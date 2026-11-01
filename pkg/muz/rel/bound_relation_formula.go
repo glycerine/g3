@@ -39,15 +39,6 @@ func (r *BoundRelation) ToFormula(m *ast.ASTManager, sorts []ast.ASTHandle) (res
 		roots = append(roots, ref)
 		variables[i] = variable
 	}
-	if r.Empty() {
-		falsity, err := m.MkFalse()
-		if err != nil {
-			return result, err
-		}
-		result, resultErr = m.NewRef(falsity)
-		owned = resultErr == nil
-		return result, resultErr
-	}
 	var conjuncts []ast.ASTHandle
 	add := func(h ast.ASTHandle, err error) error {
 		if err != nil {

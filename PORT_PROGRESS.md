@@ -52461,7 +52461,7 @@ Bound-relation equality now follows the source vector relation check: after inte
 
 Bound-relation join correction: right-hand bounds now use the concatenated signature offset. The source vector join copies the old indices unchanged, which can constrain unrelated left columns or introduce a strict self-bound; the Go product regression checks the corrected target column.
 
-Empty relation formula correction: empty bound and interval relations now export false, so their product also exports false when either component is contradictory. The source formula builders ignore the empty flag; the Go integration regression covers a strict-cycle product and both standalone components.
+Bound relation formula source parity: formula export now builds the source conjunction from stored bounds regardless of the empty flag. Regressions distinguish an unconstrained empty relation's true empty conjunction from a strict cycle's false formula and verify the product behavior in normal and g3checked builds.
 
 Small allocator location reservation: stop scanning once enough reusable slots are found. A synthetic 8,192-entry ledger benchmark with the first slot reusable fell from about 6,983 ns/op to 3 ns/op; this measures the lookup only, not end-to-end projection time. The regression checks reuse, retired-slot exclusion, injected growth failure and successful retry.
 
