@@ -72,3 +72,93 @@ func TestExprQEVariableSelectionSourceOrderAndUnsupported(t *testing.T) {
 		t.Fatal("wrong free variable")
 	}
 }
+
+func TestExprQEDatatypeBranchesPrepareSolverAtoms(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	f, m := d.f, d.f.r.manager
+	x := f.constant("qe-selected-list", d.list)
+	y := f.constant("qe-selected-other", d.list)
+	recognizer := d.app(d.consTest, x)
+	equality := f.own(m.MkEq(x, y))
+	formula := f.own(m.MkAnd(recognizer, equality))
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	context, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	plugin, err := NewDatatypeSolverPlugin(context)
+	fmMust(t, err)
+	fmMust(t, context.AddPlugin(plugin))
+	defer func() { fmMust(t, context.Close()) }()
+	variables, err := newExprQEBranchVariables(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, variables.Close()) }()
+	fmMust(t, variables.add(x))
+	root, err := newExprQETree(m, f.r.config, nil, formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, root.Close()) }()
+	fmMust(t, root.initialize(formula))
+	fmMust(t, variables.consume(root))
+	atoms, err := NewBoolAtomIndex(m, []ast.ASTHandle{recognizer, equality}, nil)
+	fmMust(t, err)
+	defer func() { fmMust(t, atoms.Close()) }()
+	var free []ast.ASTRef
+	defer func() {
+		for i := range free {
+			fmMust(t, m.DelRef(&free[i]))
+		}
+	}()
+	selected, branchCount, found, err := selectExprQEVariable(root, variables, context, atoms, &free)
+	fmMust(t, err)
+	if !found || selected != x || branchCount.RatString() != "2" || len(free) != 0 {
+		t.Fatal("recursive variable was not selected", found, branchCount.RatString(), len(free))
+	}
+	count, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&count)) }()
+	ok, err := exprQEPluginBranches(plugin, contains, formula, []ast.ASTHandle{recognizer, equality}, nil, &count)
+	fmMust(t, err)
+	n, err := m.NumeralService().Unsigned(&count)
+	fmMust(t, err)
+	if !ok || n != 2 {
+		t.Fatal("recursive equality branches", ok, n)
+	}
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&branch)) }()
+	fmMust(t, plugin.Assign(contains, formula, &branch))
+	constraints, err := plugin.TakeConstraints()
+	fmMust(t, err)
+	if len(constraints) != 1 {
+		t.Fatal("equality constraint count", len(constraints))
+	}
+	h, err := m.RefGet(constraints[0].Formula)
+	fmMust(t, err)
+	if h != equality {
+		t.Fatal("wrong equality constraint")
+	}
+	fmMust(t, m.DelRef(&constraints[0].Formula))
+	formulaRef, err := m.NewRef(formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&formulaRef)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	ok, err = plugin.SubstituteRecursive(contains, &branch, formulaRef, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("prepared equality branch could not substitute")
+	}
+	h, err = m.RefGet(definition)
+	fmMust(t, err)
+	if h != y {
+		t.Fatal("wrong branch definition")
+	}
+	unsupported := f.predicate("qe-opaque-datatype", x)
+	unsupportedFormula := f.own(m.MkAnd(recognizer, unsupported))
+	ok, err = exprQEPluginBranches(plugin, contains, unsupportedFormula, []ast.ASTHandle{recognizer, unsupported}, nil, &count)
+	fmMust(t, err)
+	if ok {
+		t.Fatal("opaque occurrence was accepted for equality branching")
+	}
+}

@@ -1,3 +1,5 @@
+Recursive datatype QE selection now prepares equality atoms from the solver before counting branches. A selection-to-substitution test also checks that opaque datatype occurrences remain unsupported.
+
 Lightweight quantifier elimination now translates into target-owned services and rewriter state. Tests cover variable elimination, allocation failures, and translated SAT/UNSAT solvers after source closure.
 
 The QF_BV local-search strategy now translates its engine and parameter snapshot into the target context. Direct tests exercise the translated engine and allocation failures; an API test checks a translated strategy and reconstructed model after source closure.

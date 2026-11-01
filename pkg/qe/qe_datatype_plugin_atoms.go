@@ -73,14 +73,6 @@ func (p *DatatypeSolverPlugin) PrepareAtoms(variable *ast.ContainsApp, formula a
 	if variable == nil || atoms == nil || atoms.manager != p.manager {
 		return false, ast.ErrASTHandle
 	}
-	target, err := variable.Target()
-	if err != nil {
-		return false, err
-	}
-	key := arithmeticPluginKey{variable: target, formula: formula}
-	if p.equalities[key] != nil {
-		return true, nil
-	}
 	positive, err := atoms.Positive()
 	if err != nil {
 		return false, err
@@ -88,6 +80,25 @@ func (p *DatatypeSolverPlugin) PrepareAtoms(variable *ast.ContainsApp, formula a
 	negative, err := atoms.Negative()
 	if err != nil {
 		return false, err
+	}
+	return p.Prepare(variable, formula, positive, negative)
+}
+
+// Prepare collects the current solver atom sets for recursive equality branches.
+func (p *DatatypeSolverPlugin) Prepare(variable *ast.ContainsApp, formula ast.ASTHandle, positive, negative []ast.ASTHandle) (supported bool, err error) {
+	if err = p.open(); err != nil {
+		return false, err
+	}
+	if variable == nil {
+		return false, ast.ErrASTHandle
+	}
+	target, err := variable.Target()
+	if err != nil {
+		return false, err
+	}
+	key := arithmeticPluginKey{variable: target, formula: formula}
+	if p.equalities[key] != nil {
+		return true, nil
 	}
 	entry := &datatypeEqualityAtoms{}
 	defer func() {

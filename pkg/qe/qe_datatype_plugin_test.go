@@ -129,7 +129,7 @@ func TestDatatypeSolverPluginBranchAssignment(t *testing.T) {
 	ok, err = p.GetNumBranches(contains, recognized, &count)
 	fmMust(t, err)
 	if ok {
-		t.Fatal("recursive recognized equality path is not yet implemented")
+		t.Fatal("unprepared recursive equality path was accepted")
 	}
 	if err = p.Assign(contains, recognized, &branch); !errors.Is(err, ast.ErrASTDomain) {
 		t.Fatal("unsupported recursive assignment", err)
@@ -371,7 +371,7 @@ func TestDatatypeSolverPluginRecursiveSubstitution(t *testing.T) {
 	ok, err = p.SubstituteRecursive(contains, &branch, formula, &definition)
 	fmMust(t, err)
 	if ok {
-		t.Fatal("recursive equality branch is not yet supported")
+		t.Fatal("unprepared recursive equality branch was accepted")
 	}
 	got, err = m.RefGet(formula)
 	fmMust(t, err)

@@ -55,6 +55,14 @@ func exprQEPluginBranches(plugin SolverPlugin, variable *ast.ContainsApp, formul
 	case *BitVectorPlugin:
 		return p.GetNumBranches(variable, formula, out)
 	case *DatatypeSolverPlugin:
+		ok, err := p.GetNumBranches(variable, formula, out)
+		if err != nil || ok {
+			return ok, err
+		}
+		ok, err = p.Prepare(variable, formula, positive, negative)
+		if err != nil || !ok {
+			return false, err
+		}
 		return p.GetNumBranches(variable, formula, out)
 	case *ArithmeticPlugin:
 		ok, err := p.Prepare(variable, formula, positive, negative)

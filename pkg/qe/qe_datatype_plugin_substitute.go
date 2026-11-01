@@ -165,9 +165,8 @@ func (p *DatatypeSolverPlugin) SubstituteNonRecursive(variable *ast.ContainsApp,
 	return true, nil
 }
 
-// SubstituteRecursive covers the source constructor-selection and matching
-// selector paths. Recognized variables without a matching selector require
-// the pending equality/disequality branch implementation.
+// SubstituteRecursive covers constructor selection, matching selectors, and
+// prepared equality and disequality branches.
 func (p *DatatypeSolverPlugin) SubstituteRecursive(variable *ast.ContainsApp, value *numeral.OwnedRational, formula ast.ASTRef, definition *ast.ASTRef) (supported bool, err error) {
 	if err = p.open(); err != nil {
 		return false, err

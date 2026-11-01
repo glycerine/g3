@@ -110847,6 +110847,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestExprQEDatatypeBranchesPrepareSolverAtoms",
         "TestRuleManagerFixUnboundSimplifiesIntegerEquation",
         "TestSimplifyQEQuantifierSkipsPatterns",
         "TestSimplifyQEQuantifierPreservesOuterBindings",
@@ -112467,6 +112468,7 @@
         "pkg/qe/qe_datatype_plugin_solve_eq.go"
       ],
       "tests": [
+        "TestExprQEDatatypeBranchesPrepareSolverAtoms",
         "TestDatatypeSolverPluginNonRecursiveBranches",
         "TestDatatypeSolverPluginBranchAssignment",
         "TestDatatypeSolverPluginSubstitutesAndReusesConstructor",

@@ -11,8 +11,8 @@ import (
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-// DatatypeSolverPlugin implements the non-recursive datatype branch of the
-// QE solver plugin. Recursive branching and substitution are still pending.
+// DatatypeSolverPlugin implements constructor and equality branches for the
+// QE solver plugin's datatype variables.
 type DatatypeSolverPlugin struct {
 	self          *DatatypeSolverPlugin
 	context       *SolverContext
@@ -103,7 +103,7 @@ func (p *DatatypeSolverPlugin) Close() error {
 }
 
 // GetNumBranches follows the source constructor cases. Recursive variables
-// with a recognizer but no matching selector require the pending equality path.
+// with a recognizer but no matching selector use prepared equality atoms.
 func (p *DatatypeSolverPlugin) GetNumBranches(variable *ast.ContainsApp, formula ast.ASTHandle, out *numeral.OwnedRational) (bool, error) {
 	if err := p.open(); err != nil {
 		return false, err
