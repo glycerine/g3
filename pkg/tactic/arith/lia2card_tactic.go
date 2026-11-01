@@ -262,6 +262,18 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 	if err != nil {
 		return err
 	}
+	var originalProofs []ast.ASTRef
+	if proofs {
+		originalProofs, err = lia2cardOriginalProofs(t.manager, goal, size)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			for i := len(originalProofs) - 1; i >= 0; i-- {
+				err = errors.Join(err, t.manager.DelRef(&originalProofs[i]))
+			}
+		}()
+	}
 	used := make(map[ast.ASTHandle]bool)
 	for index := uint32(0); index < size; index++ {
 		original, e := goal.Form(index)
@@ -277,13 +289,10 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}
 		var proof ast.ASTHandle
 		if proofs {
-			proof, e = t.manager.MkProofRewrite(original, value)
-			if e == nil {
-				var previous ast.ASTHandle
-				previous, e = goal.Proof(index)
-				if e == nil {
-					proof, e = t.manager.MkProofModusPonens(previous, proof)
-				}
+			if original == value {
+				proof, e = goal.Proof(index)
+			} else {
+				proof, e = lia2cardGoalLemma(t.manager, arith, value, originalProofs)
 			}
 			if e != nil {
 				return e
@@ -343,7 +352,7 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}
 		var upperProof ast.ASTHandle
 		if proofs {
-			upperProof, e = t.manager.MkProofAsserted(upper)
+			upperProof, e = lia2cardGoalLemma(t.manager, arith, upper, originalProofs)
 			if e != nil {
 				return e
 			}
@@ -357,7 +366,7 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		}
 		var lowerProof ast.ASTHandle
 		if proofs {
-			lowerProof, e = t.manager.MkProofAsserted(lower)
+			lowerProof, e = lia2cardGoalLemma(t.manager, arith, lower, originalProofs)
 			if e != nil {
 				return e
 			}

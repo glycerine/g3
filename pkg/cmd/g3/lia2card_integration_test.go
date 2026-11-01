@@ -50,3 +50,22 @@ func TestSMTLibRunnerLIA2CardUnsatCoreIncludesBounds(t *testing.T) {
 		t.Fatal("unsat core omitted required assumptions", got)
 	}
 }
+
+func TestSMTLibRunnerLIA2CardProof(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(declare-const x Int)
+(assert (>= x 0))
+(assert (<= x 1))
+(assert (= (+ x 1) 3))
+(check-sat-using (then lia2card smt))
+(get-proof)
+`
+	var out bytes.Buffer
+	if err := runArguments([]string{"proof=true", "-in"}, strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	got := strings.TrimSpace(out.String())
+	if !strings.HasPrefix(got, "unsat\n") || len(got) <= len("unsat") {
+		t.Fatal("missing proof", got)
+	}
+}
