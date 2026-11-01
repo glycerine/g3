@@ -213,6 +213,33 @@ func TestSMTLibRunnerQEArrayStores(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEArrayOverlappingStores(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-const B (Array Int Int))
+(declare-const i Int)
+(declare-const j Int)
+(declare-const v Int)
+(declare-const w Int)
+(assert (exists ((A (Array Int Int))) (= (store (store A i v) j w) B)))
+(assert (distinct v w))
+(assert (= (select B j) w))
+(push)
+(assert (= i j))
+(check-sat-using (then qe smt))
+(pop)
+(assert (distinct i j))
+(assert (= (select B i) w))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "sat unsat" {
+		t.Fatalf("overlapping array stores QE result: %s", got)
+	}
+}
+
 func TestSMTLibRunnerQEArrayDisjunction(t *testing.T) {
 	script := `(set-logic ALL)
 (declare-const B (Array Int Int))

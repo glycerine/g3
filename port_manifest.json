@@ -111955,6 +111955,8 @@
         "pkg/qe/solver_context_owned_variable_test.go"
       ],
       "tests": [
+        "TestQuantifierArrayMultidimensionalStoreProjection",
+        "TestSMTLibRunnerQEArrayOverlappingStores",
         "TestQuantifierMixedArrayAndBitVectorGroups",
         "TestSMTLibRunnerQEMixedArrayBlocks",
         "TestQuantifierArrayDisjunctionUnderNegationIsNotDistributed",
@@ -114641,6 +114643,8 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestQuantifierArrayMultidimensionalStoreProjection",
+        "TestSMTLibRunnerQEArrayOverlappingStores",
         "TestSMTLibRunnerQEArrayStores",
         "TestQuantifierDatatypeBlockUniversal",
         "TestQuantifierDatatypeBlocks",

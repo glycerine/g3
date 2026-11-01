@@ -9,12 +9,12 @@ import (
 
 // ArrayPlugin borrows its context and recognizes source store/select chains.
 type ArrayPlugin struct {
-	self             *ArrayPlugin
-	context          *SolverContext
-	manager          *ast.ASTManager
-	family           ast.FamilyID
-	simpleStoresOnly bool
-	closed           bool
+	self                 *ArrayPlugin
+	context              *SolverContext
+	manager              *ast.ASTManager
+	family               ast.FamilyID
+	soundStoreProjection bool
+	closed               bool
 }
 
 func NewArrayPlugin(context *SolverContext) (*ArrayPlugin, error) {

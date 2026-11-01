@@ -8,7 +8,7 @@ import (
 )
 
 func TestQuantifierArrayEquationsProjection(t *testing.T) {
-	for _, name := range []string{"array-equality", "single-select", "two-selects", "store", "nested-stores", "same-index-stores", "disjunction", "guarded-disjunction"} {
+	for _, name := range []string{"array-equality", "single-select", "two-selects", "store", "nested-stores", "three-stores", "same-index-stores", "disjunction", "guarded-disjunction"} {
 		t.Run(name, func(t *testing.T) {
 			f := newFMFixture(t)
 			m := f.r.manager
@@ -20,6 +20,7 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 			c := f.constant("qe-array-c", sort)
 			i, j := f.constant("qe-array-i", f.integer), f.constant("qe-array-j", f.integer)
 			v, w := f.constant("qe-array-v", f.integer), f.constant("qe-array-w", f.integer)
+			k, x := f.constant("qe-array-k", f.integer), f.constant("qe-array-x", f.integer)
 			selectAt := func(array, index ast.ASTHandle) ast.ASTHandle {
 				return f.own(m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, index}))
 			}
@@ -44,6 +45,11 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 				body = f.own(m.MkEq(storeAt(storeAt(a, i, v), j, w), b))
 				firstCondition := f.own(m.MkOr(f.own(m.MkEq(i, j)), f.own(m.MkEq(selectAt(b, i), v))))
 				expected = f.own(m.MkAnd(firstCondition, f.own(m.MkEq(selectAt(b, j), w))))
+			} else if name == "three-stores" {
+				body = f.own(m.MkEq(storeAt(storeAt(storeAt(a, i, v), j, w), k, x), b))
+				first := f.own(m.MkOr(f.own(m.MkEq(i, j)), f.own(m.MkOr(f.own(m.MkEq(i, k)), f.own(m.MkEq(selectAt(b, i), v))))))
+				second := f.own(m.MkOr(f.own(m.MkEq(j, k)), f.own(m.MkEq(selectAt(b, j), w))))
+				expected = f.own(m.MkAnd(f.own(m.MkAnd(first, second)), f.own(m.MkEq(selectAt(b, k), x))))
 			} else if name == "same-index-stores" {
 				body = f.own(m.MkEq(storeAt(storeAt(a, i, v), i, w), b))
 				expected = f.own(m.MkEq(selectAt(b, i), w))
@@ -65,12 +71,6 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 			fmMust(t, err)
 			result, complete, err := eliminateQuantifierArrayEquations(m, quantifier, f.r.config)
 			fmMust(t, err)
-			if name == "nested-stores" {
-				if complete || result != (ast.ASTRef{}) {
-					t.Fatal("ambiguous nested store projection reported complete")
-				}
-				return
-			}
 			if !complete {
 				t.Fatal("array equations were not eliminated")
 			}
@@ -88,6 +88,51 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 				t.Fatal("projected array formula differs from expected", status)
 			}
 		})
+	}
+}
+
+func TestQuantifierArrayMultidimensionalStoreProjection(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	family, err := m.RegisterArrayPlugin()
+	fmMust(t, err)
+	sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer, f.integer}), f.integer))
+	a, b := f.constant("multi-a", sort), f.constant("multi-b", sort)
+	i, j := f.constant("multi-i", f.integer), f.constant("multi-j", f.integer)
+	k, l := f.constant("multi-k", f.integer), f.constant("multi-l", f.integer)
+	v, w := f.constant("multi-v", f.integer), f.constant("multi-w", f.integer)
+	store := func(base, x, y, value ast.ASTHandle) ast.ASTHandle {
+		return f.own(m.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{base, x, y, value}))
+	}
+	selectAt := func(base, x, y ast.ASTHandle) ast.ASTHandle {
+		return f.own(m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{base, x, y}))
+	}
+	body := f.own(m.MkEq(store(store(a, i, j, v), k, l, w), b))
+	same := f.own(m.MkAnd(f.own(m.MkEq(i, k)), f.own(m.MkEq(j, l))))
+	first := f.own(m.MkOr(same, f.own(m.MkEq(selectAt(b, i, j), v))))
+	expected := f.own(m.MkAnd(first, f.own(m.MkEq(selectAt(b, k, l), w))))
+	bound, err := bindExprQuantifierVariables(m, []ast.ASTHandle{a}, body)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&bound)) }()
+	quantifier, err := m.RefGet(bound)
+	fmMust(t, err)
+	result, complete, err := eliminateQuantifierArrayEquations(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("multidimensional array equation was not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	value, err := m.RefGet(result)
+	fmMust(t, err)
+	difference := f.own(m.MkNot(f.own(m.MkEq(value, expected))))
+	kernel := qsatKernelOwner(t, f)
+	solver, err := kernel.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(difference))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("multidimensional store projection differs from expected", status)
 	}
 }
 

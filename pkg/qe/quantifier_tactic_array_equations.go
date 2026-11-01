@@ -98,9 +98,8 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 	if err != nil {
 		return result, false, err
 	}
-	// The source store-chain transformation assumes writes do not overlap.
-	// Do not publish its constraints when symbolic indices may coincide.
-	plugin.simpleStoresOnly = true
+	// Account for overwritten writes when symbolic indices may coincide.
+	plugin.soundStoreProjection = true
 	if err = context.AddPlugin(plugin); err != nil {
 		return result, false, errors.Join(err, plugin.Close())
 	}
