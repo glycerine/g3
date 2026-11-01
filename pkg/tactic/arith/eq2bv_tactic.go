@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -16,6 +17,7 @@ import (
 type Eq2BVTactic struct {
 	self       *Eq2BVTactic
 	manager    *ast.ASTManager
+	trace      *diagnostic.TraceTags
 	context    *uparams.ParamsContext
 	globals    *uparams.GlobalParamsService
 	bounds     *BoundManager
@@ -117,6 +119,13 @@ func (t *Eq2BVTactic) CollectStatistics() map[string]float64         { return ni
 func (t *Eq2BVTactic) ResetStatistics() error                        { return t.open() }
 func (t *Eq2BVTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *Eq2BVTactic) SetProgressCallback(func(uint32)) error        { return t.open() }
+func (t *Eq2BVTactic) BindTrace(tags *diagnostic.TraceTags) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	t.trace = tags
+	return nil
+}
 func (t *Eq2BVTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err
@@ -146,5 +155,5 @@ func (t *Eq2BVTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err
 	if report != nil {
 		defer func() { err = errors.Join(err, report.Close()) }()
 	}
-	return eq2bvApply(goal, t.bounds, result)
+	return eq2bvApply(goal, t.bounds, result, t.trace)
 }

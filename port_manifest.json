@@ -178689,6 +178689,7 @@
         "pkg/tactic/arith/eq2bv_rewrite.go",
         "pkg/tactic/arith/eq2bv_bounds.go",
         "pkg/tactic/arith/eq2bv_apply.go",
+        "pkg/tactic/arith/eq2bv_trace_test.go",
         "pkg/tactic/arith/eq2bv_tactic.go",
         "pkg/tactic/eq2bv_model_converter.go",
         "pkg/tactic/arith/eq2bv_apply_test.go",
@@ -178704,6 +178705,7 @@
         "TestEq2BVBoundConstraintsPreserveDirectionAndDependencies",
         "TestEq2BVModelConverterRestoresIntegerAndCopiesBindings",
         "TestEq2BVApplyRewritesGoalAndRestoresModel",
+        "TestEq2BVSourceTraceAndRefusedStream",
         "TestSMTLibRunnerEq2BVTactic"
       ],
       "assertions": [
@@ -178758,6 +178760,7 @@
           "go_target": "pkg/tactic/arith/eq2bv_apply.go",
           "tests": [
             "TestEq2BVApplyRewritesGoalAndRestoresModel",
+            "TestEq2BVSourceTraceAndRefusedStream",
             "TestSMTLibRunnerEq2BVTactic"
           ],
           "go_targets": [

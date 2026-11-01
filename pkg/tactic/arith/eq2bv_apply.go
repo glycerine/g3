@@ -4,10 +4,12 @@ package arith
 
 import (
 	"errors"
+	"io"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func eq2bvIsBound(plan *eq2bvReplacements, form ast.ASTHandle) (bool, error) {
@@ -75,7 +77,7 @@ func eq2bvIsBound(plan *eq2bvReplacements, form ast.ASTHandle) (bool, error) {
 	return false, nil
 }
 
-func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticResult) (err error) {
+func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticResult, trace ...*diagnostic.TraceTags) (err error) {
 	if goal == nil || bounds == nil || result == nil || bounds.Manager() != goal.Manager() {
 		return ast.ErrASTHandle
 	}
@@ -217,5 +219,22 @@ func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticRe
 		return err
 	}
 	published = true
-	return result.AddGoal(goal)
+	if err = result.AddGoal(goal); err != nil {
+		return err
+	}
+	tags := m.BorrowSourceTraceTags()
+	if len(trace) != 0 && trace[0] != nil {
+		tags = trace[0]
+	}
+	if !tags.ShouldTrace("pb") {
+		return nil
+	}
+	err = tags.EmitConditional("pb", "operator()", "src/tactic/arith/eq2bv_tactic.cpp", 210,
+		func() bool { return true }, func(out io.Writer) error {
+			return goal.Display(fmTraceOstream{out})
+		})
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
 }
