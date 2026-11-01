@@ -105,6 +105,7 @@ func TestTabEngineCompoundExpressionQuery(t *testing.T) {
 	fpMust(t, engine.SelectEngine("tab"))
 	pDecl, p := routingPredicate(t, engine, m, "tab-compound-p")
 	_, q := routingPredicate(t, engine, m, "tab-compound-q")
+	_, missing := routingPredicate(t, engine, m, "tab-compound-missing")
 	fpMust(t, engine.AddRule(p, "p"))
 	fpMust(t, engine.AddRule(q, "q"))
 	query, err := m.MkAnd(p, q)
@@ -122,6 +123,21 @@ func TestTabEngineCompoundExpressionQuery(t *testing.T) {
 	fpMust(t, err)
 	if !m.IsFalse(fact) {
 		t.Fatal("compound proof conclusion")
+	}
+	fpMust(t, m.DelRef(&answer))
+	query, err = m.MkAnd(p, missing)
+	fpMust(t, err)
+	status, err = engine.QueryExpression(query)
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal("unreachable compound query", status)
+	}
+	answer, err = engine.ExpressionAnswer()
+	fpMust(t, err)
+	answerFormula, err := m.RefGet(answer)
+	fpMust(t, err)
+	if !m.IsTrue(answerFormula) {
+		t.Fatal("unreachable compound query answer", answerFormula)
 	}
 	fpMust(t, m.DelRef(&answer))
 }
