@@ -416,7 +416,7 @@ func (i *ModelImplicant) evalEq(h, left, right ast.ASTHandle) (resultErr error) 
 			return err
 		}
 		defer func() { resultErr = errors.Join(resultErr, i.manager.DelRef(&out)) }()
-		if err = i.evaluateEqualityFallback(eq, out); err != nil {
+		if err = i.evaluateModelWithoutCompletion(eq, out); err != nil {
 			return err
 		}
 		value, err := i.manager.RefGet(out)

@@ -1,6 +1,7 @@
 package model
 
 // Source: model_implicant::eval_eq, model_implicant.cpp:625-637;
+// model_implicant::eval_array_eq, model_implicant.cpp:540-541,591-592;
 // model::eval, model.cpp:79-90.
 
 import (
@@ -12,7 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
-func (i *ModelImplicant) evaluateEqualityFallback(expression ast.ASTHandle, out ast.ASTRef) (resultErr error) {
+func (i *ModelImplicant) evaluateModelWithoutCompletion(expression ast.ASTHandle, out ast.ASTRef) (resultErr error) {
 	evaluator, err := NewModelEvaluator(i.model.Core(), i.services)
 	if evaluator != nil {
 		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()

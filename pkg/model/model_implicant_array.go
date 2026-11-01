@@ -154,8 +154,18 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 	return f, err == nil, err
 }
 
-func (i *ModelImplicant) evaluateRef(h ast.ASTHandle) (ast.ASTRef, error) {
-	return i.evaluator.EvaluateValue(h)
+// Source array equality calls model::eval with its default completion=false
+// and keeps the local result reference even when the typed exception is caught.
+func (i *ModelImplicant) evaluateRef(h ast.ASTHandle) (result ast.ASTRef, err error) {
+	result, err = i.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
+	if err = i.evaluateModelWithoutCompletion(h, result); err != nil {
+		err = errors.Join(err, i.manager.DelRef(&result))
+		result = ast.ASTRef{}
+	}
+	return result, err
 }
 
 func (i *ModelImplicant) valuesDiffer(left, right ast.ASTHandle) (bool, error) {
