@@ -1,3 +1,5 @@
+Muz priority integration checkpoint: full PDR, Spacer, and fixedpoint package suites pass normally and with `g3checked`; the arithmetic-rewriter API source driver and portcheck also pass. The normalizer method record now includes nested traversal, owning publication, scoped proof restoration and cancellation retry. Work priority is PDR/Spacer completion, including remaining Spacer utilities, unfold/coalesce proof conversion and expression-query trace-name reconstruction; these remain incomplete.
+
 PDR arithmetic normalizer owning publication: added the concrete `expr_ref&` counterpart and switched the arithmetic source driver to update its owning AST reference. The result is acquired before the old formula is released; direct publication and API source-driver regressions pass in normal and checked profiles.
 
 PDR arithmetic normalization zero parity: matched `update_coeff`'s source zero-reset rule, including a final zero right-hand side suppressing coefficient division. The regression distinguishes source structure from an equivalent scaled comparison; focused PDR and arithmetic-driver tests pass normally and under checked builds.

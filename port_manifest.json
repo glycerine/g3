@@ -90689,10 +90689,10 @@
           "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
         },
         {
-          "name": "real comparison coefficient normalization exercised by the retained arithmetic-rewriter source driver",
+          "name": "real comparison coefficient normalization, shared application and quantifier-body traversal, owning reference publication, scoped no-proof mode and cancellation retry exercised by the arithmetic-rewriter source driver",
           "status": "ported",
           "go_target": "pkg/muz/pdr/arith_normalize.go",
-          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestArithmeticRewriterSourceExamples"]
+          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestNormalizeArithmeticRefCancellationPreservesInputAndRetry", "TestArithmeticRewriterSourceExamples"]
         },
         {
           "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
@@ -90704,7 +90704,7 @@
         "The reducer owns model-evaluated values, defining equalities and rewritten conjunct references until the returned conjunction reference is acquired."
       ],
       "deviations": [
-        "The default pdr.utvpi path uses the source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. The real-comparison normalizer returns borrowed manager-owned AST nodes; diagnostic cube formatting and ceil_log2 remain outside live consumers."
+        "The default pdr.utvpi path uses the source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. NormalizeArithmeticRef publishes into the caller's owning reference, while its handle-level helper returns borrowed manager-owned AST nodes; diagnostic cube formatting and ceil_log2 remain outside live consumers."
       ]
     },
     {
