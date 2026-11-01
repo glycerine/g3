@@ -100531,16 +100531,19 @@
         },
         {
           "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal with input/candidate/model-value and decision TRACE records (spacer_util.cpp:1191-1279)",
-          "status": "partial",
+          "status": "ported",
           "go_targets": [
             "pkg/qe/legacy_projection.go",
             "pkg/qe/legacy_projection_model_terms.go",
-            "pkg/qe/legacy_projection_model_terms_test.go"
+            "pkg/qe/legacy_projection_model_terms_test.go",
+            "pkg/qe/legacy_projection_model_order_test.go"
           ],
           "tests": [
             "TestLegacyModelTermProjectionUsesFirstEquivalentIndex",
             "TestLegacyModelTermProjectionRejectsSelfOccurrence",
-            "TestLegacyModelTermProjectionEqualityDirections"
+            "TestLegacyModelTermProjectionEqualityDirections",
+            "TestLegacyModelProjectionCandidatesIncludeAnnotationsInSourceOrder",
+            "TestLegacyModelTermProjectionUsesUpdatedFormulaAfterSwapRemoval"
           ]
         },
         {
@@ -100728,17 +100731,20 @@
           ]
         },
         {
-          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); replacement/failure decision TRACE implemented, verbose evaluator/term diagnostics remain open",
-          "status": "partial",
+          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal with input/candidate/model-value and decision TRACE records (spacer_util.cpp:1191-1279)",
+          "status": "ported",
           "go_targets": [
             "pkg/qe/legacy_projection.go",
             "pkg/qe/legacy_projection_model_terms.go",
-            "pkg/qe/legacy_projection_model_terms_test.go"
+            "pkg/qe/legacy_projection_model_terms_test.go",
+            "pkg/qe/legacy_projection_model_order_test.go"
           ],
           "tests": [
             "TestLegacyModelTermProjectionUsesFirstEquivalentIndex",
             "TestLegacyModelTermProjectionRejectsSelfOccurrence",
-            "TestLegacyModelTermProjectionEqualityDirections"
+            "TestLegacyModelTermProjectionEqualityDirections",
+            "TestLegacyModelProjectionCandidatesIncludeAnnotationsInSourceOrder",
+            "TestLegacyModelTermProjectionUsesUpdatedFormulaAfterSwapRemoval"
           ]
         },
         {
