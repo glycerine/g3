@@ -52860,3 +52860,5 @@ Concrete interval relation operations (2026-11-01 UTC): verified finite-rational
 Interval formula interface closure (2026-11-01 UTC): confirmed the header's `to_formula` declaration maps to the concrete implementation, including the source's empty-interval conjunction identity, and added it to the tested interface record. Formula and empty-formula regressions pass normally and with `g3checked`.
 
 Sparse table functional metadata and key lookup (2026-11-01 UTC): verified the functional suffix boundary, exact fetch behavior, suggest/ensure preservation of physical row order, and rejection of mismatched metadata by consumers. Four focused regressions pass normally and with `g3checked`; marked the bounded header method ported.
+
+Interval/bound aligned union (2026-11-01 UTC): matched source union and widening for the two registered components, which do not offer mutual cross-component unions and therefore skip side intersections. Tests cover accumulated deltas, empty source, widening, arity mismatch and alias rejection; focused normal and `g3checked` tests pass.

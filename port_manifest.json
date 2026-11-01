@@ -94469,7 +94469,7 @@
         },
         {
           "name": "aligned interval/bound union and widening with accumulated delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_bound_product.go",
           "tests": [
             "TestIntervalBoundProductUnionAndDelta",
@@ -94525,7 +94525,7 @@
         },
         {
           "name": "aligned interval/bound union and widening with accumulated delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_bound_product.go",
           "tests": [
             "TestIntervalBoundProductUnionAndDelta",
