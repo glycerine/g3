@@ -2,8 +2,9 @@ package shell
 
 import (
 	"fmt"
-	"github.com/glycerine/g3/pkg/util/lbool"
 	"math/big"
+
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func (f *WCNFFrontend) WriteResult() error {
@@ -41,7 +42,11 @@ func (f *WCNFFrontend) WriteResult() error {
 				upper.Add(&upper, new(big.Int).SetUint64(clause.Weight))
 			}
 		}
-		if _, e := fmt.Fprintf(f.output, "  [0:%s]\n", upper.String()); e != nil {
+		if upper.Sign() == 0 {
+			if _, e := fmt.Fprintln(f.output, "   0"); e != nil {
+				return e
+			}
+		} else if _, e := fmt.Fprintf(f.output, "  [0:%s]\n", upper.String()); e != nil {
 			return e
 		}
 	}

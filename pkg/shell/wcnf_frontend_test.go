@@ -84,6 +84,21 @@ func TestWCNFFrontendUnsatObjectiveBounds(t *testing.T) {
 	}
 }
 
+func TestWCNFFrontendUnsatZeroWeightObjective(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewWCNFFrontend(wcnfFrontendContext(t), &output, WCNFFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := "p wcnf 1 3 10\n10 1 0\n10 -1 0\n0 1 0\n"
+	if err = f.Run(strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unsat\n   0\n"; got != want {
+		t.Fatalf("unsat zero-weight bounds = %q, want %q", got, want)
+	}
+}
+
 func TestWCNFFrontendUnknownObjectiveBounds(t *testing.T) {
 	var output bytes.Buffer
 	c := wcnfFrontendContext(t)
@@ -105,6 +120,29 @@ func TestWCNFFrontendUnknownObjectiveBounds(t *testing.T) {
 	}
 	if got, want := output.String(), "unknown\n  [0:5]\n"; got != want {
 		t.Fatalf("unknown bounds = %q, want %q", got, want)
+	}
+}
+
+func TestWCNFFrontendUnknownZeroWeightObjective(t *testing.T) {
+	var output bytes.Buffer
+	c := wcnfFrontendContext(t)
+	f, err := NewWCNFFrontend(c, &output, WCNFFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.document, err = opt.ParseWCNF(strings.NewReader("p wcnf 1 1 10\n0 1 0\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.summary, err = c.LoadWCNF(f.document); err != nil {
+		t.Fatal(err)
+	}
+	f.finished = true
+	if err = f.WriteResult(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unknown\n   0\n"; got != want {
+		t.Fatalf("unknown zero-weight bounds = %q, want %q", got, want)
 	}
 }
 

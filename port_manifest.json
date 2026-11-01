@@ -126715,7 +126715,9 @@
         "TestOPBFrontendUnknownObjectiveBounds",
         "TestWCNFFrontendUnknownObjectiveBounds",
         "TestOPBFrontendUnknownUsesAvailableBounds",
-        "TestWCNFFrontendUnknownUsesAvailableBounds"
+        "TestWCNFFrontendUnknownUsesAvailableBounds",
+        "TestWCNFFrontendUnsatZeroWeightObjective",
+        "TestWCNFFrontendUnknownZeroWeightObjective"
       ],
       "assertions": [
         {

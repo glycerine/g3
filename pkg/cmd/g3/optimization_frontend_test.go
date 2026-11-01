@@ -13,6 +13,7 @@ func TestOptimizationFrontendArguments(t *testing.T) {
 		{"opb", "-bpo", "min: 1 x1 +2 x2;\n1 x1 +1 x2 >= 1;\n", "sat\n   1\n"},
 		{"opb-negative", "-bpo", "min: -3 x1;\n1 x1 >= 1;\n", "sat\n   (- 3)\n"},
 		{"wcnf", "-wcnf", "p wcnf 1 3 10\n10 1 0\n2 -1 0\n3 1 0\n", "sat\n   2\n"},
+		{"wcnf-unsat-zero-weight", "-wcnf", "p wcnf 1 3 10\n10 1 0\n10 -1 0\n0 1 0\n", "unsat\n   0\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var output bytes.Buffer
