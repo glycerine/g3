@@ -95208,7 +95208,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "sparse table functional-column metadata, exact-row lookup and key constraints", "status": "partial", "go_target": "pkg/muz/rel/sparse_functional_metadata.go", "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalConsumersRejectMismatchedMetadata"]},
+        {"name": "sparse table functional-column metadata, exact-row lookup and key constraints", "status": "ported", "go_target": "pkg/muz/rel/sparse_functional_metadata.go", "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalConsumersRejectMismatchedMetadata"]},
         {"name": "sparse_table reports an exact row count and knows its size exactly (dl_sparse_table.h:491-493)", "status": "ported", "go_target": "pkg/muz/rel/sparse_table.go", "tests": ["TestSparseTableExactRowEstimate"]}
       ],
       "ownership": [],

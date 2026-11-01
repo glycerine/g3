@@ -52858,3 +52858,5 @@ Finite product interpreted filters (2026-11-01 UTC): closed the inner-only varia
 Concrete interval relation operations (2026-11-01 UTC): verified finite-rational fact hulls, equality filters, relation join/project, union/delta, and source formula output. Focused normal and `g3checked` tests pass; marked the concrete interval implementation/interface method ported. The shared generic vector-relation template remains partial for other instantiations.
 
 Interval formula interface closure (2026-11-01 UTC): confirmed the header's `to_formula` declaration maps to the concrete implementation, including the source's empty-interval conjunction identity, and added it to the tested interface record. Formula and empty-formula regressions pass normally and with `g3checked`.
+
+Sparse table functional metadata and key lookup (2026-11-01 UTC): verified the functional suffix boundary, exact fetch behavior, suggest/ensure preservation of physical row order, and rejection of mismatched metadata by consumers. Four focused regressions pass normally and with `g3checked`; marked the bounded header method ported.
