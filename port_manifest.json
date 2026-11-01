@@ -194284,7 +194284,7 @@
       "path": "src/tactic/sls/sls_evaluator.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/tactic/sls/sls_prune_update.go", "pkg/tactic/sls/sls_prune_update_test.go", "pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go", "pkg/tactic/sls/sls_evaluator_signed.go", "pkg/tactic/sls/sls_evaluator_bitwise.go", "pkg/tactic/sls/sls_evaluator_shifts.go", "pkg/tactic/sls/sls_evaluator_remaining_test.go", "pkg/tactic/sls/sls_evaluator_boolean.go", "pkg/tactic/sls/sls_evaluator_graph_bv.go", "pkg/tactic/sls/sls_model_flow.go", "pkg/tactic/sls/sls_graph_bv_test.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_tracker_diagnostics.go", "pkg/tactic/sls/sls_randomize_trace.go", "pkg/tactic/sls/sls_randomize_trace_test.go"],
       "tests": ["TestSLSPrunedUpdateSharedBooleanGraph", "TestSLSPrunedUpdateAllocationFrontiers", "TestSLSPrunedUpdateDefersBooleanValuesAndStopsUnhelpfulPropagation", "TestSLSPrunedUpdatePropagatesBitVectorValues", "TestSLSPrunedUpdateNegativeOccurrenceUsesBaseline", "TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorAddPowerMissFailurePreservesReachedPrefix", "TestBVEvaluatorUnsignedDivCopyFailureCleansSourceLocals", "TestBVEvaluatorSignedDivisionRemainderModuloOracles", "TestBVEvaluatorBitwiseAndComparisonOracles", "TestBVEvaluatorShiftOraclesAndOverflow", "TestBVEvaluatorShiftLeftPowerFailurePreservesLoopPrefix", "TestSLSEvaluatorBooleanFamilyAndBorrowedTrackerValues", "TestSLSEvaluatorCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation", "TestSLSRandomizeLocalSourceTrace"],
       "conditionals": [
@@ -194463,11 +194463,37 @@
           "text": "SASSERT(next_d < cur_depth);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name":"source randomize_local selected-constant and post-update model trace","status":"ported","go_target":"pkg/tactic/sls/sls_randomize_trace.go","tests":["TestSLSRandomizeLocalSourceTrace"]}],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {
+          "name": "constructor/destructor and retained basic and bit-vector operator evaluation",
+          "status": "ported",
+          "go_target": "pkg/tactic/sls/sls_evaluator_boolean.go",
+          "go_targets": ["pkg/tactic/sls/sls_evaluator_graph_bv.go", "pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_signed.go", "pkg/tactic/sls/sls_evaluator_bitwise.go", "pkg/tactic/sls/sls_evaluator_shifts.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go", "pkg/tactic/sls/sls_evaluator_remaining_test.go", "pkg/tactic/sls/sls_graph_bv_test.go"],
+          "tests": ["TestSLSEvaluatorBooleanFamilyAndBorrowedTrackerValues", "TestSLSEvaluatorCopyFailurePrefix", "TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorSignedDivisionRemainderModuloOracles", "TestBVEvaluatorBitwiseAndComparisonOracles", "TestBVEvaluatorShiftOraclesAndOverflow", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift"]
+        },
+        {
+          "name": "incremental serious/non-serious propagation and occurrence-aware pruning",
+          "status": "ported",
+          "go_target": "pkg/tactic/sls/sls_incremental_update.go",
+          "go_targets": ["pkg/tactic/sls/sls_prune_update.go", "pkg/tactic/sls/sls_prune_update_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
+          "tests": ["TestSLSPrunedUpdateSharedBooleanGraph", "TestSLSPrunedUpdateAllocationFrontiers", "TestSLSPrunedUpdateDefersBooleanValuesAndStopsUnhelpfulPropagation", "TestSLSPrunedUpdatePropagatesBitVectorValues", "TestSLSPrunedUpdateNegativeOccurrenceUsesBaseline", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable"]
+        },
+        {
+          "name": "randomize_local overloads and selected-constant/model trace",
+          "status": "ported",
+          "go_target": "pkg/tactic/sls/sls_tracker_diagnostics.go",
+          "go_targets": ["pkg/tactic/sls/sls_randomize_trace.go", "pkg/tactic/sls/sls_randomize_trace_test.go", "pkg/tactic/sls/sls_tracker_diagnostics_test.go"],
+          "tests": ["TestSLSTrackerDisplayAndRandomizeSourceOverloads", "TestSLSRandomizeLocalSourceTrace"]
+        }
+      ],
+      "ownership": [
+        "Evaluator owns the source zero, one and two numerals, borrows the AST manager, tracker and power cache, and closes temporary numerals on each evaluation/update path. Go depth buckets and visited maps are invocation-local replacements for reusable C++ traversal vectors and marks."
+      ],
+      "deviations": [
+        "The inline eval_checked helper has no source call sites and is excluded as unreachable source code; source-unsupported theory/operator cases return the Go evaluator's explicit unsupported error."
+      ]
     },
     {
       "path": "src/tactic/sls/sls_params.hpp",
