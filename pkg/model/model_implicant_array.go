@@ -27,8 +27,112 @@ func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, o
 	if err != nil {
 		return f, false, err
 	}
-	ok, _, err = i.evaluator.cfg.extractArray(h, f)
-	return f, ok, err
+	// Source model_implicant extraction normalizes as-array components in
+	// both explicit store rows and function graph rows.
+	for {
+		stored, x := i.evaluator.cfg.arrayOp(h, ast.ASTArrayOpStore)
+		if x != nil {
+			return f, false, x
+		}
+		if !stored {
+			break
+		}
+		args, x := i.manager.AppArgumentView(h)
+		if x != nil {
+			return f, false, x
+		}
+		tail, x := args.Range(1, args.Count()-1)
+		if x != nil {
+			return f, false, x
+		}
+		if x = appendArrayArguments(i.manager, &f.row, tail); x != nil {
+			return f, false, x
+		}
+		if x = i.normalizeArrayRow(f.row); x != nil {
+			return f, false, x
+		}
+		f.publishRow()
+		h, x = args.At(0)
+		if x != nil {
+			return f, false, x
+		}
+	}
+	constant, err := i.evaluator.cfg.arrayOp(h, ast.ASTArrayOpConst)
+	if err != nil {
+		return f, false, err
+	}
+	if constant {
+		fallback, err := i.manager.GetArg(h, 0)
+		if err != nil {
+			return f, false, err
+		}
+		err = i.manager.SetRef(f.elseCase, fallback)
+		return f, err == nil, err
+	}
+	backed, err := i.evaluator.cfg.arrayOp(h, ast.ASTArrayOpAsArray)
+	if err != nil || !backed {
+		return f, false, err
+	}
+	declaration, err := i.manager.AsArrayFunction(h)
+	if err != nil {
+		return f, false, err
+	}
+	graph, err := i.model.Core().FunctionInterpretation(declaration)
+	if err != nil || graph == nil {
+		return f, false, err
+	}
+	for _, entry := range graph.entries {
+		if err = appendArrayArguments(i.manager, &f.row, ast.SliceArguments(entry.args)); err != nil {
+			return f, false, err
+		}
+		value, err := entry.Result()
+		if err != nil {
+			return f, false, err
+		}
+		if err = appendArrayRoot(i.manager, &f.row, value); err != nil {
+			return f, false, err
+		}
+		for _, term := range f.row {
+			ground, err := i.manager.IsGround(term)
+			if err != nil || !ground {
+				return f, false, err
+			}
+		}
+		if err = i.normalizeArrayRow(f.row); err != nil {
+			return f, false, err
+		}
+		f.publishRow()
+	}
+	fallback, err := graph.Else()
+	if err != nil || fallback.IsNull() {
+		return f, false, err
+	}
+	ground, err := i.manager.IsGround(fallback)
+	if err != nil || !ground {
+		return f, false, err
+	}
+	if err = i.manager.SetRef(f.elseCase, fallback); err != nil {
+		return f, false, err
+	}
+	backed, err = i.evaluator.cfg.arrayOp(fallback, ast.ASTArrayOpAsArray)
+	if err != nil {
+		return f, false, err
+	}
+	if backed {
+		normalized, err := i.evalCompletedExpression(fallback)
+		if err != nil {
+			return f, false, err
+		}
+		value, err := i.manager.RefGet(normalized)
+		if err == nil {
+			err = i.manager.SetRef(f.elseCase, value)
+		}
+		err = errors.Join(err, i.manager.DelRef(&normalized))
+		if err != nil {
+			return f, false, err
+		}
+	}
+	return f, true, nil
 }
 
 func (i *ModelImplicant) evaluateRef(h ast.ASTHandle) (ast.ASTRef, error) {
@@ -281,6 +385,65 @@ func (i *ModelImplicant) normalizeArrayValue(expression ast.ASTHandle, result as
 		}
 		if err = i.manager.SetRef(result, stored); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// evalCompletedExpression shares the active evaluator without re-entering
+// setupModel/reset while recursively normalizing array-valued row components.
+func (i *ModelImplicant) evalCompletedExpression(expression ast.ASTHandle) (result ast.ASTRef, err error) {
+	previousCompletion := i.evaluator.cfg.completion
+	defer func() {
+		err = errors.Join(err, i.evaluator.SetModelCompletion(previousCompletion))
+		if err != nil && result != (ast.ASTRef{}) {
+			err = errors.Join(err, i.manager.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
+	if err = i.evaluator.SetModelCompletion(true); err != nil {
+		return result, err
+	}
+	result, err = i.evaluator.EvaluateValue(expression)
+	if err == nil {
+		err = i.normalizeArrayValue(expression, result)
+	}
+	return result, err
+}
+
+// Source model_implicant::eval_exprs, model_implicant.cpp:468-476.
+func (i *ModelImplicant) normalizeArrayRow(row []ast.ASTHandle) error {
+	for n, term := range row {
+		backed, err := i.evaluator.cfg.arrayOp(term, ast.ASTArrayOpAsArray)
+		if err != nil {
+			return err
+		}
+		if !backed {
+			continue
+		}
+		value, err := i.evalCompletedExpression(term)
+		if err != nil {
+			return err
+		}
+		normalized, err := i.manager.RefGet(value)
+		if err == nil {
+			err = i.manager.IncRef(normalized)
+		}
+		if err != nil {
+			return errors.Join(err, i.manager.DelRef(&value))
+		}
+		consumed, err := i.manager.DecRefConsumed(term)
+		if consumed {
+			row[n] = normalized
+		} else {
+			err = errors.Join(err, i.manager.DecRef(normalized))
+		}
+		err = errors.Join(err, i.manager.DelRef(&value))
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ast.ErrASTPending
 		}
 	}
 	return nil

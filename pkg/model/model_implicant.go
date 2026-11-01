@@ -673,11 +673,7 @@ func (i *ModelImplicant) EvalExpr(md *Model, expression ast.ASTHandle) (result a
 	if err = i.evaluator.SetModelCompletion(true); err != nil {
 		return result, err
 	}
-	result, err = i.evaluator.EvaluateValue(expression)
-	if err == nil {
-		err = i.normalizeArrayValue(expression, result)
-	}
-	return result, err
+	return i.evalCompletedExpression(expression)
 }
 
 // EvalDeclaration evaluates a zero-arity declaration, using EvalExpr for
