@@ -11,8 +11,9 @@ import (
 )
 
 type recover01Boolean struct {
-	atom  ast.ASTHandle
-	fresh ast.ASTRef
+	atom    ast.ASTHandle
+	atomRef ast.ASTRef
+	fresh   ast.ASTRef
 }
 
 type recover01Definitions struct {
@@ -25,7 +26,8 @@ type recover01Definitions struct {
 }
 
 func (d *recover01Definitions) Close() (err error) {
-	for i := len(d.booleans) - 1; i >= 0; i-- {
+	for i := range d.booleans {
+		err = errors.Join(err, d.manager.DelRef(&d.booleans[i].atomRef))
 		err = errors.Join(err, d.manager.DelRef(&d.booleans[i].fresh))
 	}
 	d.booleans = nil
@@ -50,11 +52,15 @@ func (d *recover01Definitions) booleanVariable(atom ast.ASTHandle) (ast.ASTHandl
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	ref, err := m.NewRef(fresh)
+	atomRef, err := m.NewRef(atom)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	d.booleans = append(d.booleans, recover01Boolean{atom: atom, fresh: ref})
+	ref, err := m.NewRef(fresh)
+	if err != nil {
+		return ast.ASTHandle{}, errors.Join(err, m.DelRef(&atomRef))
+	}
+	d.booleans = append(d.booleans, recover01Boolean{atom: atom, atomRef: atomRef, fresh: ref})
 	if d.lookup == nil {
 		d.lookup = make(map[ast.ASTHandle]int)
 	}

@@ -20,6 +20,8 @@ func TestRecover01DefinitionsShareBooleansAndHandleSigns(t *testing.T) {
 		return h
 	}
 	p, q := boolean("recover-p"), boolean("recover-q")
+	atomRefs, err := m.GetRefCount(p)
+	equationMust(t, err)
 	notQ, err := m.MkNot(q)
 	equationMust(t, err)
 	fixDLPin(t, m, notQ)
@@ -33,6 +35,11 @@ func TestRecover01DefinitionsShareBooleansAndHandleSigns(t *testing.T) {
 	defer func() { equationMust(t, d.Close()) }()
 	equationMust(t, d.build(x, []ast.ASTHandle{p, notQ}, []big.Rat{*big.NewRat(2, 1), *big.NewRat(3, 1)}))
 	equationMust(t, d.build(y, []ast.ASTHandle{p}, []big.Rat{*big.NewRat(1, 2)}))
+	ownedAtomRefs, err := m.GetRefCount(p)
+	equationMust(t, err)
+	if ownedAtomRefs <= atomRefs {
+		t.Fatalf("Boolean map key was not retained: before %d, during %d", atomRefs, ownedAtomRefs)
+	}
 	if len(d.booleans) != 2 {
 		t.Fatalf("created %d fresh variables, want two", len(d.booleans))
 	}
@@ -74,5 +81,11 @@ func TestRecover01DefinitionsShareBooleansAndHandleSigns(t *testing.T) {
 	wantReal := fixDLApp(t, m, 9, fixDLNumber(t, m, false, "1/2"), realP)
 	if find(y) != wantReal {
 		t.Fatal("real definition has wrong coercion or coefficient")
+	}
+	equationMust(t, d.Close())
+	closedAtomRefs, err := m.GetRefCount(p)
+	equationMust(t, err)
+	if closedAtomRefs+1 != ownedAtomRefs {
+		t.Fatalf("Boolean map cleanup changed references from %d to %d, want one released", ownedAtomRefs, closedAtomRefs)
 	}
 }

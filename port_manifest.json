@@ -215943,12 +215943,15 @@
         "pkg/ast/ast_expr_map.go",
         "pkg/ast/ast_expr_map_test.go",
         "pkg/api/api_ast_map_object.go",
-        "pkg/api/api_ast_map_object_test.go"
+        "pkg/api/api_ast_map_object_test.go",
+        "pkg/tactic/arith/recover_01_definitions.go",
+        "pkg/tactic/arith/recover_01_definitions_test.go"
       ],
       "tests": [
         "TestASTExprMapConcreteReferenceCleanup",
         "TestAPIASTMapConcreteReferenceCleanup",
-        "TestAPIASTMapResetNativeIDRecycleWithoutBackingReservation"
+        "TestAPIASTMapResetNativeIDRecycleWithoutBackingReservation",
+        "TestRecover01DefinitionsShareBooleansAndHandleSigns"
       ],
       "conditionals": [
         {
@@ -215982,7 +215985,11 @@
         },
         {
           "name": "dec_ref_key_values for recover_01_tactic bool-to-int map",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/tactic/arith/recover_01_definitions.go",
+          "tests": [
+            "TestRecover01DefinitionsShareBooleansAndHandleSigns"
+          ]
         },
         {
           "name": "dec_ref_values for AST expr_map proof table",
@@ -216002,7 +216009,7 @@
         }
       ],
       "ownership": [
-        "Each live helper borrows its manager and mutates an owning map. For every entry, the key/value or value reference decrements occur before map.reset; the AST expr_map reset calls proof-value cleanup before key/value cleanup. The API AST map increments incoming values before decrementing replacements and releases keys before values. A Go consumer must retire consumed references even when a later destructor reports an error."
+        "Each live helper borrows its manager and mutates an owning map. For every entry, the key/value or value reference decrements occur before map.reset; the AST expr_map reset calls proof-value cleanup before key/value cleanup. The API AST map increments incoming values before decrementing replacements and releases keys before values. The recover-01 Boolean map concretely owns atom keys and fresh integer values and releases each pair in source order. A Go consumer must retire consumed references even when a later destructor reports an error."
       ],
       "deviations": [
         "No generic Go ref-count map adapter is retained. The AST expr_map has concrete proof-first/key-value-second cleanup; the API AST map has a concrete key/value owner. SMT, command, and tactic map owners remain unported; implement their release order in typed Go collections. The separate dec_ref_collection_values in ref_util.h is not a specialization of this header."
