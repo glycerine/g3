@@ -194678,9 +194678,9 @@
       "path": "src/tactic/sls/sls_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
-      "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_public_factory.go", "pkg/tactic/sls/sls_qfbv_factory.go", "pkg/cmd_context/tactic_sls.go", "pkg/cmd_context/tactic_sls_test.go", "pkg/api/api_tactic_new_factories_test.go"],
+      "tests": ["TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel", "TestCommandContextRegistersQFBVSLSTactic", "TestAPILocalSearchTacticRegistry"],
       "conditionals": [
         {
           "line": 19,
@@ -194691,11 +194691,11 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name":"qfbv-sls tactic factory declaration and builtin registration","status":"ported","go_target":"pkg/cmd_context/tactic_sls.go","go_targets":["pkg/tactic/sls/sls_public_factory.go","pkg/tactic/sls/sls_qfbv_factory.go","pkg/cmd_context/tactic_registry.go","pkg/cmd_context/tactic_descriptions.go"],"tests":["TestCommandContextRegistersQFBVSLSTactic","TestAPILocalSearchTacticRegistry"]}],
       "ownership": [],
-      "deviations": []
+      "deviations": ["The Go factory returns the typed QF_BV SLS tactic composition; its source preamble and engine behavior are tracked in the .cpp unit."]
     },
     {
       "path": "src/tactic/sls/sls_tracker.h",
