@@ -8002,7 +8002,7 @@
       "path": "src/api/api_tactic.cpp",
       "component": "api",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/api/api_ast_printer_smt2.go",
         "pkg/api/api_goal.go",
@@ -8131,10 +8131,11 @@
       "methods": [
         {
           "name": "Z3_mk_tactic => SMTContext.Tactic",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_tactic.go",
           "tests": [
-            "TestAPITacticAndProbeCStringNamesAndIndependentHandles"
+            "TestAPITacticAndProbeCStringNamesAndIndependentHandles",
+            "TestAPITacticRegistryCountIndexAndNames"
           ]
         },
         {
@@ -8355,7 +8356,7 @@
         },
         {
           "name": "Z3_get_num_tactics => SMTContext.TacticCount",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_tactic_registry.go",
           "tests": [
             "TestAPITacticRegistryCountIndexAndNames"
@@ -8363,7 +8364,7 @@
         },
         {
           "name": "Z3_get_tactic_name => SMTContext.TacticName",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_tactic_registry.go",
           "tests": [
             "TestAPITacticRegistryCountIndexAndNames"
@@ -8395,10 +8396,11 @@
         },
         {
           "name": "Z3_tactic_get_descr => SMTContext.TacticDescription",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_tactic_description.go",
           "tests": [
-            "TestAPITacticDescriptionMatchesConstructibleFactory"
+            "TestAPITacticDescriptionMatchesConstructibleFactory",
+            "TestAPITacticRegistryCountIndexAndNames"
           ]
         },
         {

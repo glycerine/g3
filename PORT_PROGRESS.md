@@ -52806,3 +52806,5 @@ Floating-point API numeral construction (2026-11-01 UTC): `SMTContext.Numeral` n
 Generated quantifier inspection replay closure (2026-11-01 UTC): verified pattern, binder and quantifier inspection replay against the direct Go APIs and borrowed AST lifetime tests, then marked the source method complete. Focused API tests pass normally and with `g3checked`, and portcheck passes.
 
 Public tactic catalog coverage (2026-11-01 UTC): expanded the API regression to assert the complete source-ordered tactic list, count, per-index names, descriptions and construction/close lifecycle for all 106 registered factories, plus rejection of invalid names and indices. The focused test passes normally and with `g3checked`.
+
+Tactic API source closure (2026-11-01 UTC): verified public factory creation, registered tactic count/name order, and descriptions across the full 106-entry source catalog. Updated the registry contract and marked `api_tactic.cpp` complete; focused API and command-context suites pass normally and with `g3checked`, and portcheck passes.

@@ -33,8 +33,7 @@ func IsBuiltinTactic(name string) bool {
 	return false
 }
 
-// BuiltinTacticCount reports the currently ported concrete factory count.
-// The source registry still includes tactics whose factories are not ported.
+// BuiltinTacticCount reports the number of registered source tactics.
 func BuiltinTacticCount() uint32 { return uint32(len(builtinTacticNames)) }
 
 // BuiltinTacticName returns the source-ordered name at index.
