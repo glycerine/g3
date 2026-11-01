@@ -92231,7 +92231,9 @@
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
-        "pkg/muz/rel/external_relation_callbacks.go"
+        "pkg/muz/rel/external_relation_callbacks.go",
+        "pkg/muz/rel/external_relation_display.go",
+        "pkg/muz/rel/external_relation_display_test.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
@@ -92240,7 +92242,8 @@
         "TestExternalRelationJoinUnionAndWiden",
         "TestExternalRelationFilters",
         "TestExternalRelationCallbackTrailLifetime",
-        "TestExternalRelationReduceCallbackRetainsReturnedAST"
+        "TestExternalRelationReduceCallbackRetainsReturnedAST",
+        "TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"
       ],
       "assertions": [
         {
@@ -92271,6 +92274,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "external_relation::display and display_tuples print the relation expression followed by a newline", "status": "ported", "go_target": "pkg/muz/rel/external_relation_display.go", "go_targets": ["pkg/ast/ast_printer.go", "pkg/muz/rel/external_relation_display_test.go"], "tests": ["TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"]},
         {
           "name": "external callback relation initialization, store, emptiness, cloning and complement",
           "status": "partial",
@@ -92334,7 +92338,9 @@
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
-        "pkg/muz/rel/external_relation_callbacks.go"
+        "pkg/muz/rel/external_relation_callbacks.go",
+        "pkg/muz/rel/external_relation_display.go",
+        "pkg/muz/rel/external_relation_display_test.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
@@ -92343,7 +92349,8 @@
         "TestExternalRelationJoinUnionAndWiden",
         "TestExternalRelationFilters",
         "TestExternalRelationCallbackTrailLifetime",
-        "TestExternalRelationReduceCallbackRetainsReturnedAST"
+        "TestExternalRelationReduceCallbackRetainsReturnedAST",
+        "TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"
       ],
       "conditionals": [
         {
