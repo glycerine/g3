@@ -52411,7 +52411,7 @@ Polynomial/NLSAT integration checkpoint: the complete native package suites pass
 
 SMT-LIB pseudo-Boolean integration: checked each assignment of a weighted constraint with a negated literal, using independent expected results and push/pop scopes through the executable command path.
 
-Bound-relation equality correction: equating columns now preserves weak order and rejects strict order in both directions, and traversal resolves merged representatives. This intentionally corrects the source vector relation check, which can declare a weak equality empty or miss the opposite strict direction. The interval/bound product and strict cycles through merged classes have regression coverage.
+Bound-relation equality now follows the source vector relation check: after intersecting bounds, equality checks only the first argument's pre-merge representative, and treats either strict or weak self-bounds as empty. Regression tests cover both argument orders and interval/bound products; normal and g3checked rel tests and portcheck pass.
 
 Bound-relation join correction: right-hand bounds now use the concatenated signature offset. The source vector join copies the old indices unchanged, which can constrain unrelated left columns or introduce a strict self-bound; the Go product regression checks the corrected target column.
 

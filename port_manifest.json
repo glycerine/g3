@@ -91305,7 +91305,7 @@
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
-        "TestBoundRelationEqualityPreservesWeakOrderAndRejectsStrictOrder",
+        "TestBoundRelationEqualityMatchesSourceRepresentativeCheck",
         "TestBoundRelationStrictCycleThroughMergedColumn",
         "TestIntervalBoundProductIdenticalColumnsWithWeakOrder",
         "TestIntervalBoundProductJoinCopiesRightBoundIndicesUnchanged",
@@ -91456,7 +91456,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative. Empty bound relations export false, while the source formula builder ignores the empty flag.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Empty bound relations export false, while the source formula builder ignores the empty flag.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },
@@ -91596,7 +91596,7 @@
         "The concrete Go relation owns its column sets and borrows the interval relation during union."
       ],
       "deviations": [
-        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Go intentionally treats weak bounds between equated classes as redundant and rejects strict bounds in either direction; the C++ vector intersection check treats a weak self-bound as empty and checks only one representative. Empty bound relations export false, while the source formula builder ignores the empty flag.",
+        "Pending remaining filters, plugin registration and ownership/failure audit. Bound traversal tracks visited bound/strictness pairs to terminate weak cycles; public projection drops references to removed columns and preserves empty inputs. Empty bound relations export false, while the source formula builder ignores the empty flag.",
         "The Go union delta requires a destination distinct from both operands."
       ]
     },

@@ -86,20 +86,12 @@ func (r *BoundRelation) Equate(left, right uint32) error {
 	for i := range r.columns[right].le {
 		combined.le[i] = true
 	}
-	// Equality conflicts with a strict order in either direction. A weak
-	// order between the two classes becomes a redundant self-bound.
-	for index := range combined.lt {
-		root := r.find(index)
-		if root == left || root == right {
-			r.empty = true
-			return nil
-		}
-	}
-	for index := range combined.le {
-		root := r.find(index)
-		if root == left || root == right {
-			delete(combined.le, index)
-		}
+	// vector_relation::equate checks only the pre-merge representative of its
+	// first argument, and is_empty treats both strict and weak self-bounds as
+	// empty. Keep the source's argument-order-sensitive behavior.
+	if combined.lt[left] || combined.le[left] {
+		r.empty = true
+		return nil
 	}
 	if r.size[left] > r.size[right] {
 		left, right = right, left

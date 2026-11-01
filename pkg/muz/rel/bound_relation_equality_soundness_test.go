@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestBoundRelationEqualityPreservesWeakOrderAndRejectsStrictOrder(t *testing.T) {
+func TestBoundRelationEqualityMatchesSourceRepresentativeCheck(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		for _, strict := range []bool{false, true} {
 			r := NewBoundRelation(2, false)
@@ -23,14 +23,14 @@ func TestBoundRelationEqualityPreservesWeakOrderAndRejectsStrictOrder(t *testing
 				err = r.Equate(0, 1)
 			}
 			astTestMust(t, err)
-			if r.Empty() != strict {
+			if r.Empty() != reverse {
 				t.Fatalf("reverse=%t strict=%t: empty=%t", reverse, strict, r.Empty())
 			}
-			if !strict {
+			if !reverse {
 				lt, le, err := r.Bounds(0)
 				astTestMust(t, err)
-				if len(lt) != 0 || len(le) != 0 {
-					t.Fatalf("redundant self bound: %v %v", lt, le)
+				if strict && !reflect.DeepEqual(lt, []uint32{1}) || !strict && !reflect.DeepEqual(le, []uint32{1}) {
+					t.Fatalf("source preserves the post-merge self bound: strict=%v weak=%v", lt, le)
 				}
 			}
 		}
@@ -46,11 +46,11 @@ func TestIntervalBoundProductIdenticalColumnsWithWeakOrder(t *testing.T) {
 		} else {
 			astTestMust(t, p.FilterIdentical(0, 1))
 		}
-		if p.Empty() {
-			t.Fatalf("weak order with equality became empty, reverse=%t", reverse)
+		if p.Empty() != reverse {
+			t.Fatalf("source first-representative check, reverse=%t empty=%t", reverse, p.Empty())
 		}
-		if !p.ContainsFact([]*big.Rat{big.NewRat(2, 1), big.NewRat(2, 1)}) {
-			t.Fatalf("equal fact disappeared, reverse=%t", reverse)
+		if p.ContainsFact([]*big.Rat{big.NewRat(2, 1), big.NewRat(2, 1)}) == reverse {
+			t.Fatalf("membership did not follow empty state, reverse=%t", reverse)
 		}
 	}
 }
