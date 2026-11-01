@@ -95,6 +95,41 @@ func TestModelImplicantNormalizesFunctionArraysInsideStoreRows(t *testing.T) {
 			if got := m.Stats().LiveReferences; got != before {
 				t.Fatal("nested normalization leaked reference slots", got, before)
 			}
+			if position != "index" {
+				formula := variable
+				for {
+					sort, err := m.GetSort(formula)
+					astTestMust(t, err)
+					fid, err := m.GetFamilyID(sort)
+					astTestMust(t, err)
+					if fid != family {
+						break
+					}
+					formula, err = m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{formula, yes})
+					astTestMust(t, err)
+					astTestPin(t, m, formula)
+				}
+				beforeCone := m.Stats().LiveReferences
+				cone, err := implicant.MinimizeModel([]ast.ASTHandle{formula}, md)
+				astTestMust(t, err)
+				defer func() { astTestMust(t, model.CloseImplicantResults(m, &cone)) }()
+				if len(cone) != 1 {
+					t.Fatal("nested model cone lost the source variable", len(cone))
+				}
+				root, err := m.RefGet(cone[0])
+				astTestMust(t, err)
+				left, err := m.GetArg(root, 0)
+				astTestMust(t, err)
+				right, err := m.GetArg(root, 1)
+				astTestMust(t, err)
+				if left != variable || right != expected {
+					t.Fatal("nested cone value was not normalized", position)
+				}
+				astTestMust(t, model.CloseImplicantResults(m, &cone))
+				if got := m.Stats().LiveReferences; got != beforeCone {
+					t.Fatal("nested model cone leaked references", got, beforeCone)
+				}
+			}
 		})
 	}
 }

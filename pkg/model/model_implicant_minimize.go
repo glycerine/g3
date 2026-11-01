@@ -313,7 +313,7 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 			return nil, x
 		}
 		pending = append(pending, slot)
-		value, x := i.evaluator.EvaluateValue(constant)
+		value, x := i.evalCompletedExpression(constant)
 		if x != nil {
 			return nil, x
 		}

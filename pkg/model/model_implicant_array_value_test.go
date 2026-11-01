@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
 )
 
 func TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores(t *testing.T) {
@@ -77,6 +78,21 @@ func TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores(t *testing.T) {
 				for i := tc.keepFrom; i < len(values); i++ {
 					expected = store(expected, i)
 				}
+				unused, err := m.MkFreshConst("unrelated-cone-constant", boolean)
+				astTestMust(t, err)
+				astTestPin(t, m, unused)
+				unusedDecl, err := m.GetDecl(unused)
+				astTestMust(t, err)
+				astTestMust(t, md.Core().RegisterConstant(unusedDecl, yes))
+				selectArgs := append([]ast.ASTHandle{variable}, indices[2]...)
+				formula, err := m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, selectArgs)
+				astTestMust(t, err)
+				astTestPin(t, m, formula)
+				if !tc.values[2] {
+					formula, err = m.MkNot(formula)
+					astTestMust(t, err)
+					astTestPin(t, m, formula)
+				}
 				before := m.Stats().LiveReferences
 				for _, declaration := range []bool{false, true} {
 					var result ast.ASTRef
@@ -95,6 +111,27 @@ func TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores(t *testing.T) {
 					if got := m.Stats().LiveReferences; got != before {
 						t.Fatal("array evaluation leaked reference slots", got, before)
 					}
+				}
+				cone, err := implicant.MinimizeModel([]ast.ASTHandle{formula}, md)
+				astTestMust(t, err)
+				defer func() { astTestMust(t, model.CloseImplicantResults(m, &cone)) }()
+				if len(cone) != 1 {
+					t.Fatal("model cone included an unrelated constant", len(cone))
+				}
+				equality, err := m.RefGet(cone[0])
+				astTestMust(t, err)
+				kind, err := m.GetDeclKind(equality)
+				astTestMust(t, err)
+				left, err := m.GetArg(equality, 0)
+				astTestMust(t, err)
+				right, err := m.GetArg(equality, 1)
+				astTestMust(t, err)
+				if kind != ast.ASTOpEq || left != variable || right != expected {
+					t.Fatal("model cone did not publish the source-normalized array equality", tc.name)
+				}
+				astTestMust(t, model.CloseImplicantResults(m, &cone))
+				if got := m.Stats().LiveReferences; got != before {
+					t.Fatal("model cone leaked reference slots", got, before)
 				}
 				original, err := md.Core().ConstantInterpretation(decl)
 				astTestMust(t, err)
