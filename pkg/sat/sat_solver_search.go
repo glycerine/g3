@@ -197,7 +197,13 @@ func (s *Solver) simplifyProblem() error {
 	if _, e := s.probing.run(false); e != nil {
 		return e
 	}
+	if e := s.checkSimplificationDiagnostics(); e != nil {
+		return e
+	}
 	if e := s.asymm.run(false); e != nil {
+		return e
+	}
+	if e := s.checkSimplificationDiagnostics(); e != nil {
 		return e
 	}
 	if e := s.propagation.simplifyExtension(); e != nil {
