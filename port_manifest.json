@@ -100574,6 +100574,7 @@
         "TestSemanticMatcherRepeatedVariablesAndConditions",
         "TestSemanticMatcherDatatypeConstructors",
         "TestClauseEqualityReduction",
+        "TestClauseSubsumptionCachesFalseNormalizedLiterals",
         "TestClauseDoesNotSubstituteUninterpretedTerms",
         "TestClauseFromRuleInterpretedTailAndGroundCount",
         "TestClauseFormulaClosesFreeVariablesAndAvoidsNames",

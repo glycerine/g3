@@ -52738,3 +52738,5 @@ Portcheck method evidence closure: linked the extended-numeral standalone negati
 Collect-statistics traversal closure: the post-order expression/declaration collector now has explicit coverage for nested forall/exists quantifiers, patterns and no-patterns, including the source's depth counter result. The collector method record is marked ported after normal and `g3checked` focused tests pass; tactic construction and ownership remain separately partial.
 
 Collect-statistics tactic closure: completed the source audit for constructor/parameter copying, lifecycle, output order, traversal, reset, translation, builtin registration and SMT-LIB integration. Normal and `g3checked` focused tests pass across `pkg/tactic/core` and `pkg/cmd_context`, and the CLI regression passes; the C++ source/header records are now marked ported.
+
+Tabulation counterexample-literal cache verification: a solver-counting regression confirms that a model-falsified equality is normalized, cached with owning references, and used to reject a later reversed equality without another solver check. The test also exercises the actual model-evaluator path used by fixedpoint tabulation.

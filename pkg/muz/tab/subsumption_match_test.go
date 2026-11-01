@@ -5,9 +5,23 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/cooperate"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
+
+type countingTabSolver struct {
+	solver.Solver
+	checks uint32
+}
+
+func (s *countingTabSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, error) {
+	s.checks++
+	return s.Solver.CheckSat(assumptions)
+}
 
 func TestClauseSubsumptionBacktracksPredicateMatches(t *testing.T) {
 	must := func(err error) {
@@ -98,5 +112,72 @@ func TestClauseSubsumptionBacktracksPredicateMatches(t *testing.T) {
 	must(err)
 	if level != 0 {
 		t.Fatalf("scope leak %d", level)
+	}
+}
+
+func TestClauseSubsumptionCachesFalseNormalizedLiterals(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, err := newTabTestContext()
+	must(err)
+	defer func() { must(ctx.Close()) }()
+	m := ctx.manager
+	rw, err := rewriter.NewTheoryRewriter(m, ctx.params, ctx.globals, nil)
+	must(err)
+	defer func() { must(rw.Close()) }()
+	coop, err := cooperate.NewCooperation(m.Budget())
+	must(err)
+	defer func() { must(coop.Close()) }()
+	lite, err := qe.NewLite(m, nil, false, qe.Config{Context: ctx.params, Globals: ctx.globals, Cooperation: coop})
+	must(err)
+	defer func() { must(lite.Close()) }()
+	services := model.ModelEvaluatorConfig{Context: ctx.params, Globals: ctx.globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: coop}
+	backend, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: ctx.params, Globals: ctx.globals, ModelEvaluator: services})
+	must(err)
+	must(backend.SetProduceModels(true))
+	counted := &countingTabSolver{Solver: backend}
+	defer func() { must(counted.Close()) }()
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	must(err)
+	integer, err := m.GetSort(zero)
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	name, err := m.Symbols.Intern("cache-false-literal-value")
+	must(err)
+	value, err := m.MkConst(name, integer)
+	must(err)
+	name, err = m.Symbols.Intern("cache-false-literal-head")
+	must(err)
+	headDecl, err := m.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	head, err := m.MkApp(headDecl, []ast.ASTHandle{value})
+	must(err)
+	truth, err := m.MkTrue()
+	must(err)
+	query, err := NewClause(m, rw, head, nil, truth)
+	must(err)
+	defer func() { must(query.Close()) }()
+	forward, err := m.MkEq(value, zero)
+	must(err)
+	backward, err := m.MkEq(zero, value)
+	must(err)
+	first, err := NewClause(m, rw, head, nil, forward)
+	must(err)
+	defer func() { must(first.Close()) }()
+	second, err := NewClause(m, rw, head, nil, backward)
+	must(err)
+	defer func() { must(second.Close()) }()
+	found, _, err := isClauseSubsumed(query, []*Clause{first, second}, lite, counted, &services)
+	must(err)
+	if found {
+		t.Fatal("inconsistent equality candidates unexpectedly subsume the query")
+	}
+	if counted.checks != 1 {
+		t.Fatalf("solver checks=%d, want one check before the cached normalized literal rejects the second candidate", counted.checks)
 	}
 }
