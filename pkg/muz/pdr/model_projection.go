@@ -24,8 +24,12 @@ func (c *Context) substituteModelValues(modelCore *model.ModelCore, transformer 
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, c.manager.DelExprSubstitution(&substitution)) }()
-	replacer, err := rewriter.NewDefaultExprReplacer(c.manager)
+	config := c.owner.contexts.config
+	replacer, err := rewriter.NewSimplifyingExprReplacer(c.manager, config.Params, config.Globals, c.owner.contexts.params)
 	if err != nil {
+		if replacer != nil {
+			err = errors.Join(err, replacer.Close())
+		}
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()

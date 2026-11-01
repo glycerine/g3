@@ -88491,6 +88491,17 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "context::create_children model substitutions use the source simplifying expression replacer; Boolean complete/incomplete model substitutions deduplicate sources, preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/pdr/model_projection.go",
+            "pkg/muz/pdr/model_substitution_failure_test.go"
+          ],
+          "tests": [
+            "TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry"
+          ]
+        },
+        {
           "name": "pred_transformer construction/signature, frame creation, formula collection, property insertion/strengthening, reachability checks/cache, propagation and statistics (pdr_context.cpp:74-362,477-532,704-747)",
           "status": "ported",
           "go_target": "pkg/muz/pdr/predicate_transformer.go",
@@ -88787,6 +88798,17 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "context::create_children model substitutions use the source simplifying expression replacer; Boolean complete/incomplete model substitutions deduplicate sources, preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/pdr/model_projection.go",
+            "pkg/muz/pdr/model_substitution_failure_test.go"
+          ],
+          "tests": [
+            "TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry"
+          ]
+        },
         {
           "name": "retained pred_transformer signature, rule initialization, frame/property, reachability, propagation and statistics surface",
           "status": "ported",
