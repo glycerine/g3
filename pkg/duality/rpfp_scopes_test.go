@@ -4,33 +4,20 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"testing"
 )
 
 func TestRPFPNativeSolverScopesAndConstraintReplay(t *testing.T) {
-	ctx, config, m := dualityContextFixture(t)
+	ctx, _, s := dualityNativeSolverFixture(t)
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
 			t.Fatal(err)
 		}
 	}
-	must(m.RegisterDeclarationPlugins())
-	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
-	must(err)
-	defer catalog.Close()
-	globals, err := uparams.NewGlobalParamsService(m.Symbols, config.params, uparams.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
-	must(err)
-	defer globals.Close()
-	must(globals.InitializeSource())
-	factory, err := smtcore.NewSMTSolverFactory(smtcore.SMTSolverConfig{Params: config.params, Globals: globals})
-	must(err)
-	defer factory.Close()
-	s, err := factory.New(m, nil, false, true, false, "")
-	must(err)
-	defer func() { must(s.Close()) }()
 	term, err := ctx.BoolConst("scope-R")
 	must(err)
 	closeExpr(t, term)
@@ -114,4 +101,31 @@ func TestRPFPNativeSolverScopesAndConstraintReplay(t *testing.T) {
 		t.Fatal("popped base scope")
 	}
 	must(g.Close())
+}
+
+func dualityNativeSolverFixture(t *testing.T) (*Context, *ast.ASTManager, solver.Solver) {
+	t.Helper()
+	ctx, config, m := dualityContextFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	must(m.RegisterDeclarationPlugins())
+	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
+	must(err)
+	t.Cleanup(func() { must(catalog.Close()) })
+	globals, err := uparams.NewGlobalParamsService(m.Symbols, config.params, uparams.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
+	must(err)
+	t.Cleanup(func() { must(globals.Close()) })
+	must(globals.InitializeSource())
+	factory, err := smtcore.NewSMTSolverFactory(smtcore.SMTSolverConfig{Params: config.params, Globals: globals})
+	must(err)
+	t.Cleanup(func() { must(factory.Close()) })
+	s, err := factory.New(m, nil, false, true, false, "")
+	must(err)
+	t.Cleanup(func() { must(s.Close()) })
+
+	return ctx, m, s
 }
