@@ -30,6 +30,10 @@ func (r *BoundRelation) FilterIdentical(columns []uint32) error {
 	return nil
 }
 
+// FilterEqual preserves the source bound relation's coarse abstraction: its
+// filter_equal mutator accepts the request but does not refine any bounds.
+func (r *BoundRelation) FilterEqual(_ Element, _ uint32) {}
+
 // FilterInterpreted applies source strict and non-strict comparisons between
 // column variables. Unsupported formula shapes return false without mutation.
 func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHandle) (bool, error) {

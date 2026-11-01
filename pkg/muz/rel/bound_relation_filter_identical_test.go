@@ -55,3 +55,32 @@ func TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases(t *testing.T)
 		}
 	}
 }
+
+func TestBoundRelationFilterEqualPreservesCoarseBounds(t *testing.T) {
+	relation := NewBoundRelation(3, false)
+	if err := relation.AddLess(0, 1); err != nil {
+		t.Fatal(err)
+	}
+	beforeStrict, beforeWeak, err := relation.Bounds(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	relation.FilterEqual(Element(17), 99)
+	afterStrict, afterWeak, err := relation.Bounds(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(beforeStrict) != len(afterStrict) || len(beforeWeak) != len(afterWeak) {
+		t.Fatal("source filter_equal changed bound cardinalities", beforeStrict, beforeWeak, afterStrict, afterWeak)
+	}
+	for i := range beforeStrict {
+		if beforeStrict[i] != afterStrict[i] {
+			t.Fatal("source filter_equal changed strict bounds", beforeStrict, afterStrict)
+		}
+	}
+	for i := range beforeWeak {
+		if beforeWeak[i] != afterWeak[i] {
+			t.Fatal("source filter_equal changed weak bounds", beforeWeak, afterWeak)
+		}
+	}
+}

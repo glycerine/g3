@@ -52958,3 +52958,5 @@ Infinite-domain fixedpoint API integration regression (2026-11-01 UTC): added a 
 Infinite-domain PDR guard integration (2026-11-01 UTC): extended the public auto-config regression to verify an integer-domain rule containing an uninterpreted function is rejected with the source PDR diagnostic; normal and checked API tests pass.
 
 Bound relation identical-column filter (2026-11-01 UTC): added the concrete source `filter_identical` mutator, equating each subsequent column with the first in input order and validating all indexes before mutation. Formula, empty-relation, trivial-input, malformed-index and post-error reuse regressions pass in the focused normal and `g3checked` relation suites.
+
+Bound relation equal-value filter parity (2026-11-01 UTC): implemented the concrete source `filter_equal` operation as an intentional no-op and tested that arbitrary supplied values and columns leave the source bound abstraction unchanged in normal and `g3checked` builds.

@@ -91433,7 +91433,8 @@
         "TestBoundRelationUnionDelta",
         "TestBoundRelationEmptySourceCopiesItsDeltaState",
         "TestBoundRelationFilterIdenticalBuildsSourceEqualityClass",
-        "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases"
+        "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases",
+        "TestBoundRelationFilterEqualPreservesCoarseBounds"
       ],
       "assertions": [
         {
@@ -91567,6 +91568,17 @@
             "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
             "TestBoundRelationUnionDelta",
             "TestBoundRelationEmptySourceCopiesItsDeltaState"
+          ]
+        },
+        {
+          "name": "bound_relation::filter_equal accepts the source mutator and leaves its coarse bound abstraction unchanged",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/bound_relation_filter.go",
+          "go_targets": [
+            "pkg/muz/rel/bound_relation_filter_identical_test.go"
+          ],
+          "tests": [
+            "TestBoundRelationFilterEqualPreservesCoarseBounds"
           ]
         }
       ],
