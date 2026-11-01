@@ -191615,7 +191615,7 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/tactic/smtlogics/qfufnra_tactic.go","pkg/tactic/nlsat_smt/nl_purify_trace_test.go","pkg/tactic/nlsat_smt/nl_purify_trace.go",
         "pkg/tactic/nlsat_smt/nl_purify_context_translation.go",
         "pkg/tactic/nlsat_smt/nl_purify_context_translation_test.go",
         "pkg/api/api_simple_solver_translate_test.go",
@@ -191646,7 +191646,7 @@
         "pkg/tactic/nlsat_smt/shared_ast_fixtures_test.go",
         "pkg/tactic/nlsat_smt/doc.go"
       ],
-      "tests": [
+      "tests": ["TestNLPurifyReportsProofRefusal","TestNLPurifySourceTraceOnNonlinearUnsat",
         "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
         "TestNLPurifyContextTranslationOwnsTargetServices",
         "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
@@ -191697,8 +191697,8 @@
         "Expression analysis borrows caller roots. Goal transfer acquires destination formula/proof/dependency owners before replacing the source slot; interface rewriting owns cached expressions, introduced constants and definitions until closure."
       ],
       "deviations": [
-        "Pending: QF_UFNRA strategy integration and broader source, parameter, statistics and failure-frontier audits.",
-        "Purity classification runs before goal updates in this initial phase implementation; source allocation/error frontiers and diagnostic hooks have not been audited."
+        "QF_UFNRA strategy integration is present; broader source, parameter, statistics and failure-frontier audits remain pending.",
+        "Purity classification runs before goal updates in this implementation; source allocation/error frontiers and remaining diagnostic hooks have not been audited."
       ]
     },
     {

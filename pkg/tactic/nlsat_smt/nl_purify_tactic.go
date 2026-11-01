@@ -221,6 +221,16 @@ func (t *NLPurifyTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (res
 	}
 	t.running = true
 	defer func() { t.running = false }()
+	report, err := tactic.NewTacticReport("qfufnl-purify", goal)
+	if err != nil {
+		return err
+	}
+	if report != nil {
+		defer func() { resultErr = errors.Join(resultErr, report.Close()) }()
+	}
+	if err = emitNLTrace(t.manager, t.services, "operator()", 754, goal.Display); err != nil {
+		return err
+	}
 	prepared, err := prepareNLPurification(goal)
 	if err != nil {
 		return err

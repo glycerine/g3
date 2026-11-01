@@ -66,8 +66,11 @@ func (c *nlCooperation) solve(out *tactic.TacticResult) (resultErr error) {
 			return tactic.NewTacticException(m.ResourceLimit().CancelMessage())
 		}
 		again, err := c.iterate(out)
-		if err != nil || !again {
+		if err != nil {
 			return err
+		}
+		if !again {
+			return traceNLResults(m, c.services, out)
 		}
 	}
 }
@@ -90,6 +93,9 @@ func (c *nlCooperation) iterate(out *tactic.TacticResult) (_ bool, resultErr err
 		return false, fmt.Errorf("mixed nonlinear check: %w", err)
 	}
 	if nlResult.DecidedUnsat() {
+		if err = traceNLMessage(m, c.services, 337, "unsat\n"); err != nil {
+			return false, err
+		}
 		var core tactic.DependencyRef
 		defer func() { resultErr = errors.Join(resultErr, core.Close()) }()
 		if err = c.cores.finish(p.goal, &core); err != nil {
@@ -101,6 +107,9 @@ func (c *nlCooperation) iterate(out *tactic.TacticResult) (_ bool, resultErr err
 		return false, out.AddGoal(p.goal)
 	}
 	if !nlResult.DecidedSat() {
+		if err = traceNLMessage(m, c.services, 341, "not a unit\n"); err != nil {
+			return false, err
+		}
 		// NLSAT returns its unresolved goal as the sole borrowed subgoal.
 		if len(nlResult.Goals) != 1 || nlResult.Goals[0] != temporary {
 			return false, ast.ErrASTDomain
@@ -175,7 +184,7 @@ func (c *nlCooperation) iterate(out *tactic.TacticResult) (_ bool, resultErr err
 	case lbool.True:
 		return c.finishSat(out, &nlModel)
 	default:
-		return false, nil
+		return false, traceNLMessage(m, c.services, 407, "unknown\n")
 	}
 }
 
