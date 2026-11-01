@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("qfbv-sls")
+	simplify, err := source.Tactic("qe-light")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1587,6 +1587,52 @@ func TestAPITacticSolverTranslateAckermannAfterSourceClose(t *testing.T) {
 				astTestMust(t, manager.DelRef(&value))
 			}
 		})
+	}
+}
+
+func TestAPITacticSolverTranslateQFBVSLSAfterSourceClose(t *testing.T) {
+	source, err := NewSMTContext()
+	astTestMust(t, err)
+	target, err := NewSMTContext()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, source.SetLogic("QF_BV"))
+	strategy, err := source.Tactic("qfbv-sls")
+	astTestMust(t, err)
+	solver, err := source.NewSolverFromTactic(strategy)
+	astTestMust(t, err)
+	astTestMust(t, strategy.Close())
+	astTestMust(t, solver.LoadSMT2String(`(declare-const x (_ BitVec 4)) (declare-const y (_ BitVec 4)) (assert (= (bvadd (bvmul x y) x) #x3)) (assert (= (bvadd (bvmul x y) y) #x4))`))
+	translated, err := solver.Translate(target)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, translated.Close()) }()
+	astTestMust(t, solver.Close())
+	astTestMust(t, source.Close())
+	status, err := translated.Check()
+	astTestMust(t, err)
+	if status != lbool.True {
+		reason, _ := translated.ReasonUnknown()
+		t.Fatal("translated local-search solver", status, reason)
+	}
+	model, err := translated.Model()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, model.Close()) }()
+	manager, err := target.Manager()
+	astTestMust(t, err)
+	assertions, err := translated.Assertions()
+	astTestMust(t, err)
+	defer releaseAPIRefs(t, manager, assertions)
+	for _, ref := range assertions {
+		formula, err := manager.RefGet(ref)
+		astTestMust(t, err)
+		value, err := model.Evaluate(formula, true)
+		astTestMust(t, err)
+		actual, err := manager.RefGet(value)
+		astTestMust(t, err)
+		if !manager.IsTrue(actual) {
+			t.Fatal("translated local-search model violates original assertion")
+		}
+		astTestMust(t, manager.DelRef(&value))
 	}
 }
 

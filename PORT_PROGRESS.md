@@ -1,3 +1,5 @@
+The QF_BV local-search strategy now translates its engine and parameter snapshot into the target context. Direct tests exercise the translated engine and allocation failures; an API test checks a translated strategy and reconstructed model after source closure.
+
 The Ackermann bit-vector tactic now translates with target-owned services and its constructor parameter snapshot. Tests cover allocation failures, SAT/UNSAT after source closure, generated congruence constraints and reconstructed models.
 
 The quantified UFBV strategy now translates its rewriter leaf with target-owned services, completing translation of the composed strategy. Constructor and translation failure sweeps and SAT/UNSAT model tests cover target use after source closure.
