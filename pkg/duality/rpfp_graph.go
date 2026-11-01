@@ -14,6 +14,8 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
 	HornClauses          bool
+	vocabulary           *BackgroundVocabulary
+	ownsVocabulary       bool
 	context              *Context
 	nodes                []*Node
 	edges                []*Edge
@@ -49,7 +51,11 @@ func NewRPFP(context *Context) (*RPFP, error) {
 	if err := context.open(); err != nil {
 		return nil, err
 	}
-	return &RPFP{context: context}, nil
+	v, err := NewBackgroundVocabulary(context)
+	if err != nil {
+		return nil, err
+	}
+	return &RPFP{context: context, vocabulary: v, ownsVocabulary: true}, nil
 }
 func (g *RPFP) open() error {
 	if g == nil || g.closed {
@@ -287,6 +293,11 @@ func (g *RPFP) Close() error {
 	}
 	for len(g.nodes) > 0 {
 		if err := g.DeleteNode(g.nodes[len(g.nodes)-1]); err != nil {
+			return err
+		}
+	}
+	if g.ownsVocabulary {
+		if err := g.vocabulary.Close(); err != nil {
 			return err
 		}
 	}

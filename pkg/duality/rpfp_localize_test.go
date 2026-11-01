@@ -1,0 +1,158 @@
+package duality
+
+import (
+	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"testing"
+)
+
+func TestRPFPLocalizationAndReducedEdge(t *testing.T) {
+	ctx, _, m := dualityContextFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	x, err := ctx.BoolConst("local-x")
+	must(err)
+	closeExpr(t, x)
+	private, err := ctx.BoolConst("local-private")
+	must(err)
+	closeExpr(t, private)
+	global, err := ctx.BoolConst("local-global")
+	must(err)
+	closeExpr(t, global)
+	sort, err := x.Sort()
+	must(err)
+	defer sort.Close()
+	name, err := ctx.StringSymbol("local-R")
+	must(err)
+	decl, err := ctx.Function(name, []*Sort{sort}, sort)
+	must(err)
+	closeDecl(t, decl)
+	term, err := decl.Call(x)
+	must(err)
+	closeExpr(t, term)
+	joined, err := private.And(global)
+	must(err)
+	closeExpr(t, joined)
+	formula, err := term.And(joined)
+	must(err)
+	closeExpr(t, formula)
+	transformer, err := NewTransformer(ctx, []*FuncDecl{decl}, []*Expr{x}, formula)
+	must(err)
+	defer func() { must(transformer.Close()) }()
+	vocab, err := NewBackgroundVocabulary(ctx)
+	must(err)
+	defer func() { must(vocab.Close()) }()
+	g, err := NewRPFPWithVocabulary(vocab)
+	must(err)
+	defer func() { must(g.Close()) }()
+	second, err := NewRPFPWithVocabulary(vocab)
+	must(err)
+	defer func() { must(second.Close()) }()
+	gd, err := global.Decl()
+	must(err)
+	must(second.DeclareConstant(gd))
+	must(gd.Close())
+	parent, err := g.CreateNode(term)
+	must(err)
+	child, err := g.CreateNode(term)
+	must(err)
+	edge, err := g.CreateEdge(parent, transformer, []*Node{child})
+	must(err)
+	output, err := g.ReducedDualEdge(edge)
+	must(err)
+	// Build the expected source formula using independently owned terms.
+	b, vars, err := g.RedVars(parent)
+	must(err)
+	relation, err := g.RedDualRela(edge, vars, 0)
+	must(err)
+	hidden, err := HideVariable(private, edge.Number)
+	must(err)
+	pair, err := hidden.And(global)
+	must(err)
+	body, err := relation.And(pair)
+	must(err)
+	expected, err := b.Implies(body)
+	must(err)
+	got, err := output.Raw()
+	must(err)
+	want, err := expected.Raw()
+	must(err)
+	if got != want {
+		t.Fatal("reduced edge differs from source formula")
+	}
+	for _, e := range []*Expr{output, expected, body, pair, hidden, relation, vars[0], b} {
+		must(e.Close())
+	}
+	// Bound variables stay unchanged; free private constants are localized.
+	boolean, err := sort.Raw()
+	must(err)
+	variable, err := m.MkVar(0, boolean)
+	must(err)
+	vh, err := NewExpr(ctx, variable)
+	must(err)
+	defer vh.Close()
+	ph, err := private.Raw()
+	must(err)
+	qb, err := m.MkOr(variable, ph)
+	must(err)
+	binder, err := m.Symbols.Intern("local-bound")
+	must(err)
+	trigger, err := m.MkFamilyApp(2, 0, nil, []ast.ASTHandle{qb})
+	must(err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []usymbol.Symbol{binder}, Body: qb, Patterns: []ast.ASTHandle{trigger}})
+	must(err)
+	qe, err := NewExpr(ctx, q)
+	must(err)
+	defer qe.Close()
+	localized, err := g.Localize(edge, qe)
+	must(err)
+	defer localized.Close()
+	qh, err := localized.Raw()
+	must(err)
+	newbody, err := m.GetQuantifierBody(qh)
+	must(err)
+	first, err := m.GetArg(newbody, 0)
+	must(err)
+	if first != variable {
+		t.Fatal("localized bound variable")
+	}
+	pattern, err := m.GetPattern(qh, 0)
+	must(err)
+	patternBody, err := m.GetArg(pattern, 0)
+	must(err)
+	patternBound, err := m.GetArg(patternBody, 0)
+	must(err)
+	if patternBound != variable {
+		t.Fatal("pattern bound variable changed")
+	}
+	patternPrivate, err := m.GetArg(patternBody, 1)
+	must(err)
+	secondArg, err := m.GetArg(newbody, 1)
+	must(err)
+	hidden, err = HideVariable(private, edge.Number)
+	must(err)
+	defer hidden.Close()
+	want, err = hidden.Raw()
+	must(err)
+	if patternPrivate != want {
+		t.Fatal("pattern private constant was not localized")
+	}
+	if secondArg != want {
+		t.Fatal("did not localize quantified private constant")
+	}
+	must(second.Close()) // Shared vocabulary outlives either graph.
+	again, err := g.Localize(edge, global)
+	must(err)
+	defer again.Close()
+	got, err = again.Raw()
+	must(err)
+	want, err = global.Raw()
+	must(err)
+	if got != want {
+		t.Fatal("shared background declaration lost")
+	}
+}
