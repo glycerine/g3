@@ -6,6 +6,8 @@ SMT named-assertion reference cleanup: added exact AST reference-count checks pr
 
 Command-context user tactics: ported declaration replacement, tactic-body validation and lookup, application through aliases, insertion-ordered `get-user-tactics` display, reset persistence, and close cleanup. Context/parser package suites pass normally and under `g3checked`, and the `g3` SMT-LIB runner script suite passes.
 
+Reference-count map helper closure: mapped every live `dec_ref_key_values` and `dec_ref_values` instantiation to a concrete typed Go owner, including SMT tracked assertions and command user tactics. The uncalled key-only template remains excluded; portcheck validates the completed source-unit record.
+
 Sparse relation ownership audit: verified that added facts and returned rows are detached from caller memory and that cloned tables own independent row/index storage; focused and full `muz/rel` tests pass in normal and `g3checked` builds.
 
 Sparse select-equal projection: added the source indexed path for eligible nonfunctional columns and relation-manager filter-then-project fallback for singleton or functional columns. Regressions cover output facts, functional metadata, fallback behavior, and source-table immutability; full `muz/rel` tests pass in normal and `g3checked` builds.

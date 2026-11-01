@@ -216300,7 +216300,7 @@
       "path": "src/util/dec_ref_util.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/ast/ast_expr_map.go",
         "pkg/ast/ast_expr_map_test.go",
