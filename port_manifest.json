@@ -110850,6 +110850,8 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestExprQEDatatypeSearchContinuesAfterFreshVariable",
+        "TestExprQEFreshVariablePolicy",
         "TestSolverNNFAdapterTracksAddedAndRemovedVariables",
         "TestExprQEDatatypeBranchPropagatesAndSubstitutes",
         "TestExprQEDatalogBranchPropagatesAndSubstitutes",
@@ -114569,6 +114571,7 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerRecursiveDatatypeQEFreshVariable",
         "TestExprQEDatatypeSearchEliminatesRecognizedEquality",
         "TestSMTLibRunnerRecursiveDatatypeQETactic",
         "TestQuantifierTacticNonlinearOptionSnapshot",
@@ -136948,6 +136951,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/smtcore/smt_theory_equality_rollback_test.go",
         "pkg/smtcore/smt_model_cleanup_test.go",
         "pkg/smtcore/theory_array_test.go",
         "pkg/cmd/g3/test_vectors/model_macro_cleanup_scopes.smt2",
@@ -137155,6 +137159,7 @@
         "pkg/smtcore/smt_univariate_nra.go"
       ],
       "tests": [
+        "TestSMTTheoryAttachmentsInterleavedWithEqualityRollback",
         "TestSMTIncrementalCongruenceAndDisequalityNestedRollback",
         "TestSMTCongruenceTableNativeSignaturesAndNaryCollisions",
         "TestQFIDLTacticFiveThousandConstantBoundaryCPP",

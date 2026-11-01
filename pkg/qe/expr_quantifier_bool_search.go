@@ -13,6 +13,32 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
+// Arithmetic fresh-variable search still requires additional progress and
+// termination work. Datatype variables can use the refreshed context.
+func exprQENewVariablesAreDatatypes(variables *exprQEBranchVariables, context *SolverContext, start int) (bool, error) {
+	if variables == nil || context == nil || start < 0 || start > len(variables.entries) || variables.manager != context.manager {
+		return false, ast.ErrASTHandle
+	}
+	for _, entry := range variables.entries[start:] {
+		value, err := variables.manager.RefGet(entry.variable)
+		if err != nil {
+			return false, err
+		}
+		found, err := context.HasPlugin(value)
+		if err != nil || !found {
+			return false, err
+		}
+		plugin, err := context.PluginFor(value)
+		if err != nil {
+			return false, err
+		}
+		if _, ok := plugin.(*DatatypeSolverPlugin); !ok {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 // searchExprQEScalarTree explores model-selected scalar assignments and
 // Boolean partitions. Unsupported plugin branches report incomplete.
 func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, context *SolverContext, plugin *BoolPlugin, partitioner *ConjunctionPartitioner, solver *smtcore.SMTSolver, config Config, rw *rewriter.TheoryRewriter, nnf *QENNFNormalizer) (result ast.ASTRef, complete bool, err error) {
@@ -62,11 +88,13 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 		}
 		variableCount := len(variables.entries)
 		current, step, e := advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
-		// The SMT backtracking path must support theory updates made after
-		// equality merges before searches with new variables can continue.
 		if e == nil && len(variables.entries) != variableCount {
-			e = errors.Join(eval.Close(), md.DecRef())
-			return result, false, e
+			var supported bool
+			supported, e = exprQENewVariablesAreDatatypes(variables, context, variableCount)
+			if e != nil || !supported {
+				e = errors.Join(e, eval.Close(), md.DecRef())
+				return result, false, e
+			}
 		}
 		if e == nil && step == exprQEChooseVariable {
 			var checked lbool.LBool

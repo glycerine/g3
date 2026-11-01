@@ -22,7 +22,8 @@ func cloneSMTTheoryVariables(source SMTTheoryVarList) SMTTheoryVarList {
 
 func (s *SMTInternalizerState) equalitySnapshot(from, to *SMTEnode) smtEqualitySnapshot {
 	snapshot := smtEqualitySnapshot{
-		nodes: make([]smtEqualityNodeSnapshot, 0, int(from.classSize)+1),
+		nodes:       make([]smtEqualityNodeSnapshot, 0, int(from.classSize)+1),
+		theoryLimit: len(s.theoryTrail),
 	}
 	// Union changes roots and the transitivity path only in the smaller
 	// class, plus the target root's list link, size and theory variables.

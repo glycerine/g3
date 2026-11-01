@@ -46,6 +46,68 @@ func TestExprQEDatatypeSearchEliminatesRecognizedEquality(t *testing.T) {
 	}
 }
 
+func TestExprQEDatatypeSearchContinuesAfterFreshVariable(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	f, m := d.f, d.f.r.manager
+	x := f.constant("search-fresh-datatype-x", d.list)
+	y := f.constant("search-fresh-datatype-y", d.list)
+	body := f.own(m.MkEq(x, y))
+	bound, err := bindExprQuantifierVariables(m, []ast.ASTHandle{x}, body)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&bound)) }()
+	quantifier, err := m.RefGet(bound)
+	fmMust(t, err)
+	result, complete, err := eliminateQuantifierDatatypeSearch(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("search did not finish after introducing a datatype variable")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	h, err := m.RefGet(result)
+	fmMust(t, err)
+	negated := f.own(m.MkNot(h))
+	kernel := qsatKernelOwner(t, f)
+	solver, err := kernel.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(negated))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("projection should be valid", status)
+	}
+}
+
+func TestExprQEFreshVariablePolicy(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	f, m := d.f, d.f.r.manager
+	x := f.constant("policy-datatype", d.list)
+	y := f.constant("policy-arithmetic", f.integer)
+	context, err := NewSolverContext(m, []ast.ASTHandle{x, y})
+	fmMust(t, err)
+	defer func() { fmMust(t, context.Close()) }()
+	datatypes, err := NewDatatypeSolverPlugin(context)
+	fmMust(t, err)
+	fmMust(t, context.AddPlugin(datatypes))
+	arithmetic, err := NewArithmeticPlugin(context)
+	fmMust(t, err)
+	fmMust(t, context.AddPlugin(arithmetic))
+	variables, err := newExprQEBranchVariables(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, variables.Close()) }()
+	fmMust(t, variables.add(x))
+	ok, err := exprQENewVariablesAreDatatypes(variables, context, 0)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("datatype variable was rejected")
+	}
+	fmMust(t, variables.add(y))
+	ok, err = exprQENewVariablesAreDatatypes(variables, context, 1)
+	fmMust(t, err)
+	if ok {
+		t.Fatal("arithmetic variable was accepted")
+	}
+}
+
 func TestExprQEDatatypeBranchPropagatesAndSubstitutes(t *testing.T) {
 	for _, recognized := range []bool{false, true} {
 		name := "constructor"

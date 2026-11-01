@@ -79,7 +79,8 @@ type smtEqualityNodeSnapshot struct {
 }
 
 type smtEqualitySnapshot struct {
-	nodes []smtEqualityNodeSnapshot
+	nodes       []smtEqualityNodeSnapshot
+	theoryLimit int
 }
 
 type SMTTheoryPropagation struct {
@@ -386,6 +387,32 @@ func (s *SMTInternalizerState) attachTheoryVariable(node *SMTEnode, theory SMTTh
 		return err
 	}
 	s.theoryTrail = append(s.theoryTrail, trail)
+	return nil
+}
+
+// undoTheoryAttachments must run before restoring an older equality snapshot,
+// which also contains copies of the affected nodes' theory-variable lists.
+func (s *SMTInternalizerState) undoTheoryAttachments(limit int) error {
+	if limit < 0 || limit > len(s.theoryTrail) {
+		return ast.ErrASTDomain
+	}
+	for len(s.theoryTrail) > limit {
+		index := len(s.theoryTrail) - 1
+		entry := s.theoryTrail[index]
+		s.theoryTrail = s.theoryTrail[:index]
+		if entry.old == SMTNullTheoryVar {
+			if err := entry.node.DeleteTheoryVar(entry.theory); err != nil {
+				return fmt.Errorf("delete node theory variable: %w", err)
+			}
+			if entry.rootAdded {
+				if err := entry.root.DeleteTheoryVar(entry.theory); err != nil {
+					return fmt.Errorf("delete root theory variable: %w", err)
+				}
+			}
+		} else if err := entry.node.ReplaceTheoryVar(entry.theory, entry.old); err != nil {
+			return fmt.Errorf("restore node theory variable: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -849,6 +876,9 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 	for len(s.equalityTrail) > scope.equalityLimit {
 		index := len(s.equalityTrail) - 1
 		entry := s.equalityTrail[index]
+		if err := s.undoTheoryAttachments(entry.theoryLimit); err != nil {
+			return err
+		}
 		s.equalityTrail = s.equalityTrail[:index]
 		if err := s.restoreEqualitySnapshot(entry); err != nil {
 			return fmt.Errorf("restore equality snapshot: %w", err)
@@ -866,25 +896,8 @@ func (s *SMTInternalizerState) popTo(scope smtInternalizerScope) error {
 		s.context.disequalities = scope.disequalities
 		s.disequalityReasons = scope.disequalityReasons
 	}
-	if scope.theoryLimit < 0 || scope.theoryLimit > len(s.theoryTrail) {
-		return ast.ErrASTDomain
-	}
-	for len(s.theoryTrail) > scope.theoryLimit {
-		index := len(s.theoryTrail) - 1
-		entry := s.theoryTrail[index]
-		s.theoryTrail = s.theoryTrail[:index]
-		if entry.old == SMTNullTheoryVar {
-			if err := entry.node.DeleteTheoryVar(entry.theory); err != nil {
-				return fmt.Errorf("delete node theory variable: %w", err)
-			}
-			if entry.rootAdded {
-				if err := entry.root.DeleteTheoryVar(entry.theory); err != nil {
-					return fmt.Errorf("delete root theory variable: %w", err)
-				}
-			}
-		} else if err := entry.node.ReplaceTheoryVar(entry.theory, entry.old); err != nil {
-			return fmt.Errorf("restore node theory variable: %w", err)
-		}
+	if err := s.undoTheoryAttachments(scope.theoryLimit); err != nil {
+		return err
 	}
 	if scope.assignmentLimit < 0 || scope.assignmentLimit > len(s.assignmentTrail) {
 		return ast.ErrASTDomain

@@ -1,6 +1,8 @@
-QE normalization now follows variables added to or removed from its solver context, including fresh Cooper variables. Search still stops when a branch introduces new variables because an interleaved SMT theory/equality rollback needs correction.
+SMT rollback now undoes interleaved theory attachments in order with equality snapshots. QE search can continue with fresh datatype variables, covered by nested rollback, solver-equivalence and SMT-LIB tests; arithmetic fresh-variable search still stops pending further progress and termination work.
 
-QE search now propagates datatype and finite-domain branch constraints, substitutions, and datatype fresh variables. A recursive datatype search checks its projected constructor condition, with solver equivalence and SMT-LIB regression tests; searches needing a refreshed variable context remain incomplete. QE cooperation uses the source wrapper so disabled cooperation works in checked builds.
+QE normalization follows variables added to or removed from its solver context, including fresh Cooper variables.
+
+QE search propagates datatype and finite-domain branch constraints, substitutions, and datatype fresh variables. A recursive datatype search checks its projected constructor condition, with solver equivalence and SMT-LIB regression tests. QE cooperation uses the source wrapper so disabled cooperation works in checked builds.
 
 Recursive datatype QE selection now prepares equality atoms from the solver before counting branches. A selection-to-substitution test also checks that opaque datatype occurrences remain unsupported.
 
