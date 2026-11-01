@@ -121363,7 +121363,9 @@
         "pkg/sat/sat_main_config_update.go",
         "pkg/sat/sat_global_service_test.go",
         "pkg/cmd/g3/main_test.go",
-        "pkg/cmd/g3/test_vectors/sat_global_options.smt2"
+        "pkg/cmd/g3/test_vectors/sat_global_options.smt2",
+        "pkg/sat/sat_solver_simplify_assertions.go",
+        "pkg/sat/sat_solver_simplify_assertions_test.go"
       ],
       "tests": [
         "TestSATSolverBorrowedGlobalServiceCurrentModuleAndLocalOverrides",
@@ -121682,7 +121684,9 @@
         "TestSATSolverCheckSourceModelNotice",
         "TestSATSolverActualMUSCoreSourceVerboseReport",
         "TestSATSolverBoundedConsequencesSourceAbortVerbose",
-        "TestSATSolverActualConsequenceProgressSourceVerbose"
+        "TestSATSolverActualConsequenceProgressSourceVerbose",
+        "TestSATSimplifyRunsSourceChecksAfterProbingAndAsymm",
+        "TestSATSolverRestartAndGCCASSERTUseSourceTags"
       ],
       "conditionals": [
         {
