@@ -52758,3 +52758,5 @@ Duality query-preparation closure: added a malformed pinned-predicate regression
 SMT-LIB eval resource-limit parity: the source eval command reads `rlimit` from its command-local parameters, and `EvaluationOptions` already scopes that value around evaluation. The parser now accepts `:rlimit`; the differential eval integration script covers it, and focused normal and `g3checked` tests pass.
 
 Sparse-table packed-byte estimate (2026-11-01 UTC): added the Go `SparseTable.SizeEstimateBytes` method for encoded row payloads and focused empty/populated coverage. The C++ estimate also counts allocator-managed index capacity, which has no direct Go equivalent; relation package focused tests pass.
+
+Interval relation full-bound query (2026-11-01 UTC): implemented `IntervalRelation.IsFull` from the source interval plugin and added full, empty-column, bounded and nil cases. Focused relation tests pass.

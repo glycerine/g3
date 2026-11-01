@@ -23,6 +23,20 @@ func NewIntervalFull(arity uint32) *IntervalRelation {
 }
 func (r *IntervalRelation) Empty() bool { return r == nil || r.values == nil || r.values.empty }
 
+// IsFull mirrors vector_relation::is_full for interval columns.
+func (r *IntervalRelation) IsFull() bool {
+	if r == nil || r.values == nil {
+		return false
+	}
+	for i := range r.values.columns {
+		lower, _, upper, _ := r.values.columns[r.values.find(uint32(i))].Bounds()
+		if lower != nil || upper != nil {
+			return false
+		}
+	}
+	return true
+}
+
 // Clone copies the relation using vector_relation::copy semantics. The source
 // copy operation copies each representative's interval and does not recreate
 // the equality classes, so the clone has independent columns.

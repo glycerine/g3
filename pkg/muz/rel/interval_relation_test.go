@@ -66,6 +66,25 @@ func TestIntervalRelationFactAndJoin(t *testing.T) {
 	}
 }
 
+func TestIntervalRelationFull(t *testing.T) {
+	if !rel.NewIntervalFull(2).IsFull() {
+		t.Fatal("full interval relation reported bounded")
+	}
+	if !rel.NewIntervalEmpty(2).IsFull() {
+		t.Fatal("empty relation columns should retain full interval bounds")
+	}
+	bounded := rel.NewIntervalFull(1)
+	if err := bounded.FilterEqual(0, big.NewRat(3, 1)); err != nil {
+		t.Fatal(err)
+	}
+	if bounded.IsFull() {
+		t.Fatal("bounded interval relation reported full")
+	}
+	if (*rel.IntervalRelation)(nil).IsFull() {
+		t.Fatal("nil interval relation reported full")
+	}
+}
+
 func TestIntervalRelationRename(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
 	r := rel.NewIntervalEmpty(3)

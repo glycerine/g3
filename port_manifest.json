@@ -93254,6 +93254,7 @@
         "TestIntervalVectorJoinProject",
         "TestIntervalVectorUnionAndWiden",
         "TestIntervalRelationFactAndJoin",
+        "TestIntervalRelationFull",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalRelationCloneMatchesSourceCopy",
