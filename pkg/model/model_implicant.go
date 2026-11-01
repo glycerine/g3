@@ -425,7 +425,7 @@ func (i *ModelImplicant) evalBasic(h ast.ASTHandle, op int32, args []ast.ASTHand
 		}
 		return i.setState(h, implicantTrue)
 	default:
-		return i.unhandledTerm(h)
+		return i.unhandledTerm(h, 808)
 	}
 }
 
@@ -642,7 +642,7 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 	case 18:
 		return i.setState(h, implicantX)
 	default:
-		return i.unhandledTerm(h)
+		return i.unhandledTerm(h, 432)
 	}
 }
 
@@ -712,9 +712,15 @@ func (i *ModelImplicant) checkModel(formulas []ast.ASTHandle) (bool, error) {
 		if err = i.reportEvaluation(35, "assigned ", current, i.evaluationTruth(current)+"\n"); err != nil {
 			return false, err
 		}
+		if err = i.assertEvaluated(current, 852, "!is_unknown(curr)"); err != nil {
+			return false, err
+		}
 	}
 	hasX := false
 	for _, formula := range formulas {
+		if err = i.assertEvaluated(formula, 858, "!is_unknown(form)"); err != nil {
+			return false, err
+		}
 		if err = i.traceMinimization("pdr_verbose", "check_model", 859, "formula is "+i.evaluationTruth(formula)+"\n", []ast.ASTHandle{formula}, nil); err != nil {
 			return false, err
 		}

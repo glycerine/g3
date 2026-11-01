@@ -116,13 +116,13 @@ func (i *ModelImplicant) processFormula(h ast.ASTHandle, todo, collect *[]ast.AS
 			} else if i.isFalse(args[0]) {
 				*todo = append(*todo, args[0])
 			} else {
-				return i.unhandledTerm(h)
+				return i.unhandledTerm(h, 251)
 			}
 		} else {
 			*todo = append(*todo, args...)
 		}
 	default:
-		return i.unhandledTerm(h)
+		return i.unhandledTerm(h, 260)
 	}
 	return nil
 }

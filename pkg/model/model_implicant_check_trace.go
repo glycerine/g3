@@ -3,7 +3,6 @@ package model
 // Source: src/model/model_implicant.cpp:850-868.
 
 import (
-	"errors"
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -63,9 +62,9 @@ func (i *ModelImplicant) traceUndeterminedModel() error {
 }
 
 // Source: model_implicant.cpp:250,259,431,807, before UNREACHABLE.
-func (i *ModelImplicant) unhandledTerm(expression ast.ASTHandle) error {
+func (i *ModelImplicant) unhandledTerm(expression ast.ASTHandle, line int32) error {
 	if err := i.reportEvaluation(0, "Term not handled ", expression, "\n"); err != nil {
-		return errors.Join(ast.ErrASTDomain, err)
+		return err
 	}
-	return ast.ErrASTDomain
+	return diagnostic.BorrowProcessDebugContext().UnreachableSource("src/model/model_implicant.cpp", line)
 }

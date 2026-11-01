@@ -18,3 +18,16 @@ func (i *ModelImplicant) assertKnownBoolean(expression ast.ASTHandle, line int32
 	}
 	return nil
 }
+
+// Source: check_model post-evaluation and formula-root assertions, cpp:852,858.
+func (i *ModelImplicant) assertEvaluated(expression ast.ASTHandle, line int32, condition string) error {
+	debug := diagnostic.BorrowProcessDebugContext()
+	enabled, err := diagnostic.SourceAssertionsEnabled(debug)
+	if err != nil {
+		return err
+	}
+	if enabled && i.isUnknown(expression) {
+		return diagnostic.DebugAssertionFailure(debug, "src/model/model_implicant.cpp", line, condition)
+	}
+	return nil
+}
