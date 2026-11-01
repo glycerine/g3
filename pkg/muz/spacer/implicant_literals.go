@@ -339,36 +339,49 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 						todo = append(todo, args[1])
 						continue
 					}
+					// Preserve source &&/else-if short circuiting: later probes
+					// may be expensive or interrupt the model evaluator.
 					thenTrue, e := truth(args[1])
 					if e != nil {
 						return e
 					}
-					elseTrue, e := truth(args[2])
-					if e != nil {
-						return e
+					if thenTrue {
+						elseTrue, e := truth(args[2])
+						if e != nil {
+							return e
+						}
+						if elseTrue {
+							todo = append(todo, args[1:]...)
+							continue
+						}
 					}
 					thenFalse, e := falsehood(args[1])
 					if e != nil {
 						return e
 					}
-					elseFalse, e := falsehood(args[2])
-					if e != nil {
-						return e
+					if thenFalse {
+						elseFalse, e := falsehood(args[2])
+						if e != nil {
+							return e
+						}
+						if elseFalse {
+							todo = append(todo, args[1:]...)
+							continue
+						}
 					}
 					conditionTrue, e := truth(args[0])
 					if e != nil {
 						return e
 					}
+					if conditionTrue {
+						todo = append(todo, args[0], args[1])
+						continue
+					}
 					conditionFalse, e := falsehood(args[0])
 					if e != nil {
 						return e
 					}
-					switch {
-					case thenTrue && elseTrue, thenFalse && elseFalse:
-						todo = append(todo, args[1:]...)
-					case conditionTrue:
-						todo = append(todo, args[0], args[1])
-					case conditionFalse:
+					if conditionFalse {
 						todo = append(todo, args[0], args[2])
 					}
 				}

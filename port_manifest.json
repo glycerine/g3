@@ -100538,6 +100538,17 @@
           ]
         },
         {
+          "name": "implicant_picker ITE processing preserves source short-circuit Boolean probe order across agreeing branches and condition-selected branches (spacer_util.cpp:839-853)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_ite_probe_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantITEShortCircuitsSourceModelProbes"
+          ]
+        },
+        {
           "name": "implicant_picker false distinct uses project_plugin::pick_equality first model-value identity lookup with owning evaluated values, replacing quadratic reevaluation (spacer_util.cpp:807-811; qe_mbp.cpp:58-76)",
           "status": "ported",
           "go_targets": [
@@ -100746,6 +100757,17 @@
           ],
           "tests": [
             "TestSpacerNativeProjectionUsesSharedStages"
+          ]
+        },
+        {
+          "name": "implicant_picker ITE processing preserves source short-circuit Boolean probe order across agreeing branches and condition-selected branches (spacer_util.cpp:839-853)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_ite_probe_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantITEShortCircuitsSourceModelProbes"
           ]
         },
         {
