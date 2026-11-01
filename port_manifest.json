@@ -94668,7 +94668,8 @@
         "TestRelationInstructionsLoadCloneAndStoreOwnership",
         "TestProductRelationSourceFunctionalRows",
         "TestSparseFunctionalProjectWithReduceReportsEveryCollision",
-        "TestSparseFunctionalProjectWithReduceRejectsMissingReducer"
+        "TestSparseFunctionalProjectWithReduceRejectsMissingReducer",
+        "TestSparseFunctionalProjectWithReducePublishesMergedSuffix"
       ],
       "assertions": [
         {
@@ -94861,7 +94862,8 @@
           "tests": [
             "TestProductRelationSourceFunctionalRows",
             "TestSparseFunctionalProjectWithReduceReportsEveryCollision",
-            "TestSparseFunctionalProjectWithReduceRejectsMissingReducer"
+            "TestSparseFunctionalProjectWithReduceRejectsMissingReducer",
+            "TestSparseFunctionalProjectWithReducePublishesMergedSuffix"
           ]
         }
       ],
@@ -201347,7 +201349,7 @@
       "role": "test",
       "status": "ported",
       "go_targets": ["pkg/muz/rel/dl_product_relation_cpp_driver_test.go", "pkg/muz/rel/finite_sparse_product_source_test.go", "pkg/muz/rel/finite_sparse_product_conversion_test.go", "pkg/muz/rel/sparse_functional_project_test.go"],
-      "tests": ["TestProductRelationSourceFunctionalRows", "TestProductRelationSourceSuggestEnsure", "TestProductRelationSourceFunctionalColumnJoin", "TestFiniteSparseProductSourceDriver", "TestFiniteSparseProductJoinAcrossPartitions", "TestFiniteSparseProductJoinTableRelationConversion", "TestFiniteSparseProductJoinInnerSparseTableConversion", "TestSparseFunctionalProjectWithReduceReportsEveryCollision", "TestSparseFunctionalProjectWithReduceRejectsMissingReducer"],
+      "tests": ["TestProductRelationSourceFunctionalRows", "TestProductRelationSourceSuggestEnsure", "TestProductRelationSourceFunctionalColumnJoin", "TestFiniteSparseProductSourceDriver", "TestFiniteSparseProductJoinAcrossPartitions", "TestFiniteSparseProductJoinTableRelationConversion", "TestFiniteSparseProductJoinInnerSparseTableConversion", "TestSparseFunctionalProjectWithReduceReportsEveryCollision", "TestSparseFunctionalProjectWithReduceRejectsMissingReducer", "TestSparseFunctionalProjectWithReducePublishesMergedSuffix"],
       "conditionals": [
         {
           "line": 7,

@@ -52911,6 +52911,8 @@ Finite sparse product joins with inner relations (2026-11-01 UTC): connected inn
 
 Functional sparse-table projection with reduction (2026-11-01 UTC): implemented the source `project_with_reduce` behavior, preserving the first projected functional row while reporting each collision's existing and incoming functional suffix to a typed reducer. Extended the Windows-only C++ driver port and added a two-functional-column collision test; the full `muz/rel` package, focused `g3checked` tests and `portcheck` pass. The C++ test unit is now mapped as ported in the manifest.
 
+Functional sparse projection reducer mutation parity (2026-11-01 UTC): aligned the reducer callback with the source contract by publishing mutations to the existing functional suffix before `EnsureFact`. Added a max-reducer regression proving merged values reach the result table.
+
 Finite product paired-column ordering (2026-11-01 UTC): added the concrete column-pair sorter used by identical-pair filtering, replacing the source `sort_two_arrays` template instance with a typed pair slice and Go `sort.Slice`. The 97-pair source permutation and boundary lengths pass; the full utility test driver is now mapped as ported.
 
 Finite sparse product join-project fallback (2026-11-01 UTC): added the relation-manager composition path that joins two products, projects the result, and releases the temporary joined product. The regression checks duplicate-row reduction across outer/inner partitions, source operand preservation, and malformed projection rejection; normal and `g3checked` tests pass.

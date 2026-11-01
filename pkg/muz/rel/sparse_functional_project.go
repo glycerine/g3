@@ -9,8 +9,8 @@ import "errors"
 type SparseFunctionalRowReducer func(existing, incoming []Element)
 
 // ProjectWithReduce projects a functional sparse table and reports every
-// functional collision to reducer. The first row for each projected key is
-// kept, matching the source suggest/reduce/ensure sequence.
+// functional collision to reducer. Mutations to existing replace the kept
+// functional suffix, matching the source suggest/reduce/ensure sequence.
 func (table *SparseTable) ProjectWithReduce(removed []int, reducer SparseFunctionalRowReducer) (_ *SparseTable, resultErr error) {
 	if err := table.open(); err != nil {
 		return nil, err
@@ -56,6 +56,7 @@ func (table *SparseTable) ProjectWithReduce(removed []int, reducer SparseFunctio
 		}
 		existing := append([]Element(nil), candidate[resultFirstFunctional:]...)
 		reducer(existing, incoming)
+		copy(candidate[resultFirstFunctional:], existing)
 		if err = result.EnsureFact(candidate); err != nil {
 			return nil, err
 		}

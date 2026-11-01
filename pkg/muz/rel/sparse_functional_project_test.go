@@ -85,3 +85,21 @@ func TestSparseFunctionalProjectWithReduceRejectsMissingReducer(t *testing.T) {
 		t.Fatal("out-of-range projection column was accepted")
 	}
 }
+
+func TestSparseFunctionalProjectWithReducePublishesMergedSuffix(t *testing.T) {
+	table := newSparseFunctionalFixture(t, []uint64{3, 3}, 1,
+		Fact{0, 0}, Fact{1, 2}, Fact{2, 1})
+	projected, err := table.ProjectWithReduce([]int{0}, func(existing, incoming []Element) {
+		if incoming[0] > existing[0] {
+			existing[0] = incoming[0]
+		}
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer projected.Close()
+	facts, err := projected.Facts()
+	if err != nil || len(facts) != 1 || facts[0][0] != 2 {
+		t.Fatalf("reduced suffix=%v err=%v, want [[2]]", facts, err)
+	}
+}
