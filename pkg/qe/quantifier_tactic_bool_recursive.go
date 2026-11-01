@@ -83,6 +83,9 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 			eliminated, done, e = eliminateQuantifierBitVectorSearch(m, q, config)
 		}
 		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierBitVectorBlock(m, q, config)
+		}
+		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierDatatypeSearch(m, q, config)
 		}
 		if e == nil && !done {

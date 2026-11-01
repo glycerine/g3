@@ -110753,6 +110753,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_bv_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
         "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
@@ -110862,6 +110863,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestQuantifierBitVectorBlockSearch",
         "TestQuantifierMixedArrayAndBitVectorGroups",
         "TestQuantifierArrayDisjunctionUnderNegationIsNotDistributed",
         "TestQuantifierArrayEquationsProjection",
@@ -112412,6 +112414,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_bv_block.go",
+        "pkg/qe/quantifier_tactic_bv_search_test.go",
         "pkg/qe/qe_bv_plugin.go",
         "pkg/qe/qe_bv_plugin_classify.go",
         "pkg/qe/qe_bv_plugin_inputs.go",
@@ -112425,6 +112429,7 @@
         "pkg/qe/qe_bv_plugin_substitute_test.go"
       ],
       "tests": [
+        "TestQuantifierBitVectorBlockSearch",
         "TestBitVectorPluginBranchCountUsesFullWidth",
         "TestBitVectorPluginSubstitutionNormalizesBranchValue",
         "TestBitVectorPluginUninterpretedDivisionKinds",
@@ -114597,6 +114602,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_bv_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
         "pkg/qe/quantifier_tactic_array_conditional.go",
         "pkg/qe/quantifier_tactic_array_equations.go",
@@ -114626,6 +114632,8 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestQuantifierBitVectorBlockSearch",
+        "TestSMTLibRunnerQEMultipleBitVectors",
         "TestQuantifierMixedArrayAndBitVectorGroups",
         "TestSMTLibRunnerQEMixedArrayBlocks",
         "TestQuantifierArrayDisjunctionUnderNegationIsNotDistributed",

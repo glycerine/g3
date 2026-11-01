@@ -160,7 +160,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 				eliminated, done, e = eliminateQuantifierArithmeticSearch(m, q, config)
 			}
 		case 3:
-			eliminated, done, e = eliminateQuantifierBitVectorSearch(m, q, config)
+			eliminated, done, e = eliminateQuantifierBitVectorBlock(m, q, config)
 		}
 		if e != nil || !done {
 			return result, false, errors.Join(e, m.DelRef(&bound))

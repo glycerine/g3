@@ -69,14 +69,14 @@ func TestQuantifierMixedBooleanArithmeticGroups(t *testing.T) {
 }
 
 func TestQuantifierMixedArrayAndBitVectorGroups(t *testing.T) {
-	for _, name := range []string{"array-bool", "array-arithmetic", "bitvector-bool"} {
+	for _, name := range []string{"array-bool", "array-arithmetic", "bitvector-bool", "bitvector-block-bool"} {
 		t.Run(name, func(t *testing.T) {
 			f := qsatKernelFixture(t)
 			m := f.r.manager
 			boolean := f.constant("mixed-group-bool", f.boolean)
 			var variables []ast.ASTHandle
 			var body, expected ast.ASTHandle
-			if name == "bitvector-bool" {
+			if name == "bitvector-bool" || name == "bitvector-block-bool" {
 				sort := f.own(m.BitVectorSort(2))
 				x := f.constant("mixed-group-bv", sort)
 				y := f.constant("mixed-group-bv-free", sort)
@@ -84,6 +84,9 @@ func TestQuantifierMixedArrayAndBitVectorGroups(t *testing.T) {
 				body = f.own(m.MkAnd(boolean, f.own(m.MkEq(f.own(m.MkBitVectorAdd(x, y)), one))))
 				expected = f.own(m.MkTrue())
 				variables = []ast.ASTHandle{boolean, x}
+				if name == "bitvector-block-bool" {
+					variables = append(variables, y)
+				}
 			} else {
 				family, err := m.RegisterArrayPlugin()
 				fmMust(t, err)
