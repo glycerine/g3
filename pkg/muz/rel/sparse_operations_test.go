@@ -2,6 +2,7 @@ package rel
 
 import (
 	"errors"
+	"reflect"
 	"testing"
 )
 
@@ -76,6 +77,39 @@ func TestSparseUnionRejectsIncompatibleTablesBeforeMutation(t *testing.T) {
 	}
 	if err = target.Union(nil, nil); !errors.Is(err, ErrTable) {
 		t.Fatalf("nil source union error = %v", err)
+	}
+}
+
+func TestSparseJoinProjectIndexesAndKeepsOperandOrderWhenSwapping(t *testing.T) {
+	leftSignature, err := NewSignature([]uint64{3, 16})
+	must(t, err)
+	rightSignature, err := NewSignature([]uint64{3, 32})
+	must(t, err)
+	left, err := NewSparseTable(leftSignature, 0)
+	must(t, err)
+	defer left.Close()
+	right, err := NewSparseTable(rightSignature, 0)
+	must(t, err)
+	defer right.Close()
+	for _, fact := range []Fact{{0, 10}, {1, 11}, {2, 12}} {
+		if _, err = left.Add(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, fact := range []Fact{{2, 22}, {0, 20}} {
+		if _, err = right.Add(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	projected, err := left.JoinProject(right, []int{0}, []int{0}, []int{0, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer projected.Close()
+	facts, err := projected.Facts()
+	if err != nil || !reflect.DeepEqual(facts, []Fact{{12, 22}, {10, 20}}) {
+		t.Fatalf("indexed join-project facts = %v, err=%v", facts, err)
 	}
 }
 

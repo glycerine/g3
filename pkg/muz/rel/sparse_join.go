@@ -100,6 +100,30 @@ func (a *SparseTable) Join(b *SparseTable, left, right []int) (*SparseTable, err
 	return out, nil
 }
 func (a *SparseTable) JoinProject(b *SparseTable, left, right, removed []int) (*SparseTable, error) {
+	if err := a.open(); err != nil {
+		return nil, err
+	}
+	if err := b.open(); err != nil {
+		return nil, err
+	}
+	if err := validateColumns(a.signature, b.signature, left, right); err != nil {
+		return nil, err
+	}
+	joinedSignature, _, err := sparseJoinFunctionalSignature(a, b)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = projectedSignature(joinedSignature, removed); err != nil {
+		return nil, err
+	}
+	if len(removed) < joinedSignature.Len() && !sparseJoinInvolvesFunctional(a, b, left, right) {
+		plan, planErr := NewSparseIndexedJoinPlan(a, b, left, right, removed)
+		if planErr != nil {
+			return nil, planErr
+		}
+		result, _, executeErr := plan.Execute(a, b)
+		return result, executeErr
+	}
 	joined, e := a.Join(b, left, right)
 	if e != nil {
 		return nil, e
