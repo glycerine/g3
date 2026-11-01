@@ -92840,6 +92840,14 @@
           "tests": [
             "TestFiniteIntervalProductSymbolicFactInsertion"
           ]
+        },
+        {
+          "name": "finite sparse product mutating complement",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/finite_sparse_product.go",
+          "tests": [
+            "TestFiniteSparseProductComplementAndFull"
+          ]
         }
       ],
       "ownership": [

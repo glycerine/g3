@@ -1041,6 +1041,21 @@ func (p *FiniteSparseProduct) Complement() (*FiniteSparseProduct, error) {
 	return result, nil
 }
 
+// ComplementSelf replaces p with its finite-domain complement. The replacement
+// is built completely before p's storage is changed, so enumeration or
+// allocation failures leave the original relation intact.
+func (p *FiniteSparseProduct) ComplementSelf() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	replacement, err := p.Complement()
+	if err != nil {
+		return err
+	}
+	p.swapStorage(replacement)
+	return replacement.Close()
+}
+
 // NewFullFiniteSparseProduct constructs the full finite-domain product using
 // the source mk_full sequence of empty construction followed by complement.
 func NewFullFiniteSparseProduct(manager *RelationManager, sorts []ast.ASTHandle, tableColumns []bool) (*FiniteSparseProduct, error) {

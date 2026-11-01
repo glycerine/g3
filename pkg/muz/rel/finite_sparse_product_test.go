@@ -422,6 +422,15 @@ func TestFiniteSparseProductComplementAndFull(t *testing.T) {
 			t.Fatalf("complement contains %v = %v, want %v (%v)", tc.fact, found, tc.want, e)
 		}
 	}
+	if err = product.ComplementSelf(); err != nil {
+		t.Fatal(err)
+	}
+	if found, e := product.ContainsFact([]ast.ASTHandle{zeroA, oneB}); e != nil || !found {
+		t.Fatalf("complemented source should contain absent fact: %v (%v)", found, e)
+	}
+	if found, e := product.ContainsFact([]ast.ASTHandle{zeroA, zeroB}); e != nil || found {
+		t.Fatalf("complemented source should exclude original fact: %v (%v)", found, e)
+	}
 	full, err := NewFullFiniteSparseProduct(f.relations, sorts, []bool{true, false})
 	astTestMust(t, err)
 	defer func() { astTestMust(t, full.Close()) }()
