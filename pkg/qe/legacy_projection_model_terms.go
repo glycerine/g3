@@ -194,6 +194,9 @@ func (p *LegacyProjection) projectModelTerm(evaluator *model.ModelEvaluator, cur
 		if occurs {
 			continue
 		}
+		if err := p.traceModelTermProjection(variable, term, true); err != nil {
+			return false, err
+		}
 		replace, err := rewriter.NewExprSafeReplace(p.manager)
 		if err != nil {
 			return false, err
@@ -205,5 +208,5 @@ func (p *LegacyProjection) projectModelTerm(evaluator *model.ModelEvaluator, cur
 		err = errors.Join(err, replace.Close())
 		return err == nil, err
 	}
-	return false, nil
+	return false, p.traceModelTermProjection(variable, root, false)
 }

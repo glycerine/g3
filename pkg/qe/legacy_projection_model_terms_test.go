@@ -2,15 +2,23 @@ package qe
 
 // Source: src/muz/spacer/spacer_util.cpp mbqi_project and index_term_finder.
 import (
+	"bytes"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"strings"
 	"testing"
 )
 
 func TestLegacyModelTermProjectionUsesFirstEquivalentIndex(t *testing.T) {
 	f := newFMFixture(t)
 	m := f.r.manager
-	p, err := NewLegacyProjection(m, f.r.config)
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("mbqi_project")
+	config := f.r.config
+	config.Trace = tags
+	p, err := NewLegacyProjection(m, config)
 	fmMust(t, err)
 	defer func() { fmMust(t, p.Close()) }()
 	x := f.constant("mbqi-x", f.integer)
@@ -47,6 +55,12 @@ func TestLegacyModelTermProjectionUsesFirstEquivalentIndex(t *testing.T) {
 	fmMust(t, err)
 	if len(remaining) != 1 || remaining[0] != y {
 		t.Fatal("swap-removal of projected variable", remaining)
+	}
+	if tags.ShouldTrace("mbqi_project") {
+		text := output.String()
+		if !strings.Contains(text, "MBQI: replacing mbqi-x with mbqi-k") || !strings.Contains(text, "MBQI: failed to eliminate mbqi-y from ") {
+			t.Fatal("source MBQI projection decisions", text)
+		}
 	}
 	root, err := m.RefGet(current)
 	fmMust(t, err)

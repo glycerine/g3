@@ -100529,7 +100529,7 @@
           ]
         },
         {
-          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open",
+          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); replacement/failure decision TRACE implemented, verbose evaluator/term diagnostics remain open",
           "status": "partial",
           "go_targets": [
             "pkg/qe/legacy_projection.go",
@@ -100719,7 +100719,7 @@
           ]
         },
         {
-          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); TRACE diagnostics remain open",
+          "name": "index_term_finder and mbqi_project model-equivalent symbolic term fallback, postorder quantifier-aware candidate traversal, occurrence guard, sequential substitution and swap-removal (spacer_util.cpp:1191-1279); replacement/failure decision TRACE implemented, verbose evaluator/term diagnostics remain open",
           "status": "partial",
           "go_targets": [
             "pkg/qe/legacy_projection.go",
