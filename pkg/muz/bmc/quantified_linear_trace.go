@@ -15,6 +15,24 @@ import (
 // QuantifiedLinearTrace follows model-selected rules from the query to a fact.
 // The caller owns each returned rule reference.
 func (c *Compiler) QuantifiedLinearTrace(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []*base.Rule, resultErr error) {
+	steps, err := c.quantifiedLinearSteps(rules, query, width, md, services)
+	if err != nil {
+		return nil, err
+	}
+	result = make([]*base.Rule, len(steps))
+	for i := range steps {
+		result[i] = steps[i].rule
+	}
+	return result, nil
+}
+
+type quantifiedLinearStep struct {
+	rule  *base.Rule
+	index uint32
+	level uint32
+}
+
+func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandle, width uint32, md *model.ModelCore, services model.ModelEvaluatorConfig) (result []quantifiedLinearStep, resultErr error) {
 	if c == nil || c.manager == nil || rules == nil || md == nil || md.Manager() != c.manager {
 		return nil, ast.ErrASTHandle
 	}
@@ -22,7 +40,7 @@ func (c *Compiler) QuantifiedLinearTrace(rules *base.RuleSet, query ast.ASTHandl
 	defer func() {
 		if resultErr != nil {
 			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, result[i].Close())
+				resultErr = errors.Join(resultErr, result[i].rule.Close())
 			}
 			result = nil
 		}
@@ -83,6 +101,7 @@ func (c *Compiler) QuantifiedLinearTrace(rules *base.RuleSet, query ast.ASTHandl
 			return result, e
 		}
 		var selected *base.Rule
+		var selectedIndex uint32
 		for i, rule := range group {
 			atom, cause := q.rule(predicate, uint32(i))
 			if cause == nil {
@@ -100,6 +119,7 @@ func (c *Compiler) QuantifiedLinearTrace(rules *base.RuleSet, query ast.ASTHandl
 					h, cause = m.RefGet(evaluated)
 					if cause == nil && m.IsTrue(h) {
 						selected, cause = rule.Retain()
+						selectedIndex = uint32(i)
 					}
 					cause = errors.Join(cause, m.DelRef(&evaluated))
 				}
@@ -124,7 +144,7 @@ func (c *Compiler) QuantifiedLinearTrace(rules *base.RuleSet, query ast.ASTHandl
 		if selected == nil {
 			return result, fmt.Errorf("bmc: model has no selected quantified rule at level %d", level)
 		}
-		result = append(result, selected)
+		result = append(result, quantifiedLinearStep{rule: selected, index: selectedIndex, level: level})
 		tails, e := selected.UninterpretedTailSize()
 		if e != nil {
 			return result, e

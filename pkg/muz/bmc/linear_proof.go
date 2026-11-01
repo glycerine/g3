@@ -99,8 +99,17 @@ func (c *Compiler) LinearProof(rules *base.RuleSet, query ast.ASTHandle, level u
 }
 
 func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index, level uint32, md *model.ModelCore, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
+	bindings, err := c.LinearModelBindings(rule, index, level, md)
+	if err != nil {
+		return nil, ast.ASTRef{}, err
+	}
+	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 0, Second: 1})
+}
+
+// linearProofStepWithBindings takes ownership of all supplied references.
+func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.Rule, bindingRefs []ast.ASTRef, previous *base.Rule, previousProof ast.ASTRef, normalizer *transforms.RuleInlinerPlugin, position ast.ASTProofPosition) (next *base.Rule, proofRef ast.ASTRef, resultErr error) {
 	m := c.manager
-	var refs []ast.ASTRef
+	refs := append([]ast.ASTRef(nil), bindingRefs...)
 	defer func() {
 		for i := len(refs) - 1; i >= 0; i-- {
 			if refs[i] != (ast.ASTRef{}) {
@@ -118,11 +127,7 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 			}
 		}
 	}()
-	bindingRefs, err := c.LinearModelBindings(rule, index, level, md)
-	if err != nil {
-		return nil, proofRef, err
-	}
-	refs = append(refs, bindingRefs...)
+	var err error
 	bindings := make([]ast.ASTHandle, len(bindingRefs))
 	for i, ref := range bindingRefs {
 		if ref != (ast.ASTRef{}) {
@@ -202,6 +207,9 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 		}
 		sub, e := rewriter.NewVarSubstitution(m, false)
 		if e != nil {
+			if sub != nil {
+				e = errors.Join(e, sub.Close())
+			}
 			return nil, proofRef, e
 		}
 		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
@@ -245,7 +253,7 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 			return next, proofRef, e
 		}
 		premises = []ast.ASTHandle{prior, proof}
-		positions = []ast.ASTProofPosition{{First: 0, Second: 1}}
+		positions = []ast.ASTProofPosition{position}
 		substitutions = [][]ast.ASTHandle{first, bindings}
 	}
 	if err != nil {

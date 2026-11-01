@@ -28,6 +28,9 @@ func NewInterpTailSimplifierPlugin(manager *ast.ASTManager, rules *base.RuleMana
 	}
 	rewriter, err := astrewriter.NewTheoryRewriter(manager, context, globals, nil)
 	if err != nil {
+		if rewriter != nil {
+			err = errors.Join(err, rewriter.Close())
+		}
 		return nil, err
 	}
 	return &InterpTailSimplifierPlugin{manager: manager, rules: rules, rewriter: rewriter, priority: priority}, nil

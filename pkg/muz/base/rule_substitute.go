@@ -25,6 +25,9 @@ func (m *RuleManager) SubstituteRule(rule *Rule, bindings []ast.ASTHandle) (_ *R
 	}
 	sub, err := rewriter.NewVarSubstitution(manager, false)
 	if err != nil {
+		if sub != nil {
+			err = errors.Join(err, sub.Close())
+		}
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()

@@ -350,6 +350,16 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	for i := len(trace) - 1; i >= 0; i-- {
 		must(trace[i].Close())
 	}
+	proof, err := compiler.QuantifiedLinearProof(set, goal, width, md, services)
+	must(err)
+	defer func() { must(m.DelRef(&proof)) }()
+	proofHandle, err := m.RefGet(proof)
+	must(err)
+	conclusion, err := m.GetProofFact(proofHandle)
+	must(err)
+	if conclusion != goalApp {
+		t.Fatal("quantified proof conclusion", conclusion, goalApp)
+	}
 	negated, err := m.MkNot(guard)
 	must(err)
 	status, err = solver.CheckSat([]ast.ASTHandle{negated})
