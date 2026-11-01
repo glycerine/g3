@@ -559,6 +559,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	if err = result.SetLabels(optimized.Labels); err != nil {
 		return lbool.Undef, err
 	}
+	c.publishOptimizationSoftBounds(optimized)
 	if completed && len(c.objectives) == len(optimized.Values) {
 		for i := range c.objectives {
 			if c.objectives[i].soft {

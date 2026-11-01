@@ -14,6 +14,14 @@ func (e *maxResEngine) optimize(result *ArithmeticResult) (status lbool.LBool, o
 	if e == nil || e.solver == nil || e.solver.backend == nil || result == nil {
 		return lbool.Undef, false, errMaxResState
 	}
+	defer func() {
+		if err == nil && e.bestSet && e.index >= 0 && e.index < len(result.Values) {
+			value := &result.Values[e.index]
+			value.SoftLower.Set(&e.lower)
+			value.SoftUpper.Set(&e.upper)
+			value.SoftBoundsValid = true
+		}
+	}()
 	if err = e.trySLSCandidate(result); err != nil {
 		return lbool.Undef, false, err
 	}

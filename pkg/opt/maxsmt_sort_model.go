@@ -75,6 +75,7 @@ func (e *sortMaxEngine) setBounds(result *ArithmeticResult, lower, upper *big.Ra
 	value.SoftCost.Set(lower)
 	value.SoftLower.Set(lower)
 	value.SoftUpper.Set(upper)
+	value.SoftBoundsValid = true
 	total := new(big.Rat).Set(&e.objective.softOffset)
 	for _, weight := range e.objective.softWeights {
 		total.Add(total, weight)

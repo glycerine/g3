@@ -6,4 +6,5 @@ func finalizeSoftBounds(result *ArithmeticResult, index int) {
 	value := &result.Values[index]
 	value.SoftLower.Set(&value.SoftCost)
 	value.SoftUpper.Set(&value.SoftCost)
+	value.SoftBoundsValid = true
 }

@@ -22,7 +22,7 @@ func (c *Context) ObjectiveBound(index uint32, lower bool) (OptimizationBound, e
 		return OptimizationBound{}, ast.ErrASTDomain
 	}
 	source := &c.objectives[index]
-	if !source.valueReady {
+	if !source.valueReady && !source.boundsReady {
 		return OptimizationBound{}, fmt.Errorf("objective value is not available")
 	}
 	var value simplex.Infinitesimal
@@ -31,6 +31,12 @@ func (c *Context) ObjectiveBound(index uint32, lower bool) (OptimizationBound, e
 			value.Infinity.SetInt64(-1)
 		} else {
 			value.Infinity.SetInt64(1)
+		}
+	} else if source.soft && source.boundsReady {
+		if lower {
+			value.Main.Set(&source.softLower)
+		} else {
+			value.Main.Set(&source.softUpper)
 		}
 	} else if source.soft || source.bitVector {
 		value.Main.Set(&source.softValue)

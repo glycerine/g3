@@ -106533,6 +106533,7 @@
         "pkg/solver/mus.go"
       ],
       "tests": [
+        "TestMaxResInterruptedSearchPublishesCandidateBounds",
         "TestMaxResBaseAggregatesSortsAndRemovesAssumptions",
         "TestMaxResWeightBoundariesKeepEqualWeightsTogether",
         "TestMaxResMutexOrderIsDescendingAndStable",
@@ -106909,6 +106910,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd_context/optimization_soft_bounds_test.go",
+        "pkg/cmd_context/optimization_soft_bounds.go",
         "pkg/cmd_context/optimization_normalized_execution.go",
         "pkg/opt/bound_expressions.go",
         "pkg/opt/bound_expressions_test.go",
@@ -106949,6 +106952,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestOptimizationUnknownPublishesSoftSearchBounds",
         "pkg/cmd/g3/optimization_normalization_test.go",
         "TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease",
         "TestOptBoundExpressionSourceBranchesAndOwnedResult",
@@ -126751,7 +126755,7 @@
         "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
       ],
       "deviations": [
-        "Unknown results display published objective bounds or the initial interval when bounds are unavailable; intermediate optimization bounds are not yet published in all cases. Signal/timeout handling, statistics formatting, and the full source/ownership audit remain pending."
+        "Unknown results display published objective bounds, including interrupted MaxRes bounds, or the initial interval when bounds are unavailable; intermediate bounds are not yet published in all cases. Signal/timeout handling, statistics formatting, and the full source/ownership audit remain pending."
       ]
     },
     {

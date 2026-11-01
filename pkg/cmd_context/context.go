@@ -39,20 +39,23 @@ type assertion struct {
 	displayText     string
 }
 type optimizationObjective struct {
-	expression ast.ASTHandle
-	ref        ast.ASTRef
-	value      smtcore.SMTArithmeticObjectiveValue
-	modelValue smtcore.SMTArithmeticObjectiveValue
-	softTerms  []optimizationSoftTerm
-	softValue  big.Rat
-	id         string
-	maximize   bool
-	soft       bool
-	bitVector  bool
-	bitWidth   uint32
-	interval   bool
-	openBounds bool
-	valueReady bool
+	expression  ast.ASTHandle
+	ref         ast.ASTRef
+	value       smtcore.SMTArithmeticObjectiveValue
+	modelValue  smtcore.SMTArithmeticObjectiveValue
+	softTerms   []optimizationSoftTerm
+	softValue   big.Rat
+	softLower   big.Rat
+	softUpper   big.Rat
+	id          string
+	maximize    bool
+	soft        bool
+	bitVector   bool
+	bitWidth    uint32
+	interval    bool
+	openBounds  bool
+	valueReady  bool
+	boundsReady bool
 }
 type optimizationSoftTerm struct {
 	expression ast.ASTHandle
