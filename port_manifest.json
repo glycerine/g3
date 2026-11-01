@@ -216309,14 +216309,22 @@
         "pkg/tactic/arith/recover_01_definitions.go",
         "pkg/tactic/arith/recover_01_definitions_test.go",
         "pkg/smtcore/smt_solver.go",
-        "pkg/smtcore/smt_solver_test.go"
+        "pkg/smtcore/smt_solver_test.go",
+        "pkg/cmd_context/user_tactics.go",
+        "pkg/cmd_context/user_tactics_test.go",
+        "pkg/parsers/smt2/commands.go",
+        "pkg/parsers/smt2/tactics.go",
+        "pkg/parsers/smt2/user_tactics_test.go"
       ],
       "tests": [
         "TestASTExprMapConcreteReferenceCleanup",
         "TestAPIASTMapConcreteReferenceCleanup",
         "TestAPIASTMapResetNativeIDRecycleWithoutBackingReservation",
         "TestRecover01DefinitionsShareBooleansAndHandleSigns",
-        "TestSMTSolverNamedAssertionReferencesReleaseOnPopAndClose"
+        "TestSMTSolverNamedAssertionReferencesReleaseOnPopAndClose",
+        "TestContextUserTacticsReplacementOrderResetAndClose",
+        "TestSMT2UserTacticDeclarationLookupDisplayAndApply",
+        "TestSMT2UserTacticDeclarationValidatesBeforePublishing"
       ],
       "conditionals": [
         {
@@ -216375,8 +216383,18 @@
           ]
         },
         {
-          "name": "dec_ref_values for command user-tactic declarations",
-          "status": "unported"
+          "name": "declare/find/reset user tactic bodies with tactic parser lookup and get-user-tactics display",
+          "status": "ported",
+          "go_targets": [
+            "pkg/cmd_context/user_tactics.go",
+            "pkg/parsers/smt2/commands.go",
+            "pkg/parsers/smt2/tactics.go"
+          ],
+          "tests": [
+            "TestContextUserTacticsReplacementOrderResetAndClose",
+            "TestSMT2UserTacticDeclarationLookupDisplayAndApply",
+            "TestSMT2UserTacticDeclarationValidatesBeforePublishing"
+          ]
         },
         {
           "name": "dec_ref_keys has no retained production call site",
@@ -216387,7 +216405,7 @@
         "Each live helper borrows its manager and mutates an owning map. For every entry, the key/value or value reference decrements occur before map.reset; the AST expr_map reset calls proof-value cleanup before key/value cleanup. The API AST map increments incoming values before decrementing replacements and releases keys before values. The recover-01 Boolean map concretely owns atom keys and fresh integer values and releases each pair in source order. A Go consumer must retire consumed references even when a later destructor reports an error."
       ],
       "deviations": [
-        "No generic Go ref-count map adapter is retained. The AST expr_map has concrete proof-first/key-value-second cleanup; the API AST map has a concrete key/value owner. SMT, command, and tactic map owners remain unported; implement their release order in typed Go collections. The separate dec_ref_collection_values in ref_util.h is not a specialization of this header."
+        "No generic Go ref-count map adapter is used. The AST expr_map has concrete proof-first/key-value-second cleanup; the API AST map has a concrete key/value owner; tracked SMT assertions release formula references on scope pop and solver close. User tactic syntax is owned as immutable Go source strings in an insertion-ordered dictionary and cleared on context close instead of using sexpr reference counts. The separate dec_ref_collection_values in ref_util.h is not a specialization of this header."
       ]
     },
     {

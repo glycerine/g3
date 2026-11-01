@@ -2,7 +2,9 @@ SAT clause source unit closure: completed the native clause allocator, temporary
 
 SAT variable priority queue closure: audited every live heap operation and solver/simplifier consumer, confirmed the source header has no TRACE sites, and corrected the manifest's stale unported entry. Finite priority oracle, mutable activity model, warm allocation and owner guards pass in normal, `g3checked`, and `g3debug` builds; portcheck passes.
 
-SMT named-assertion reference cleanup: added exact AST reference-count checks proving scope pop and solver close release the tracked formula and tag ownership. The source consumer passes normally and under `g3checked`; the command user-tactic map remains separately unported.
+SMT named-assertion reference cleanup: added exact AST reference-count checks proving scope pop and solver close release the tracked formula and tag ownership. The source consumer passes normally and under `g3checked`.
+
+Command-context user tactics: ported declaration replacement, tactic-body validation and lookup, application through aliases, insertion-ordered `get-user-tactics` display, reset persistence, and close cleanup. Context/parser package suites pass normally and under `g3checked`, and the `g3` SMT-LIB runner script suite passes.
 
 Sparse relation ownership audit: verified that added facts and returned rows are detached from caller memory and that cloned tables own independent row/index storage; focused and full `muz/rel` tests pass in normal and `g3checked` builds.
 

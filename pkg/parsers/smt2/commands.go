@@ -37,6 +37,7 @@ type commandParser struct {
 	ignoreBadPatterns  bool
 	ignoreChecks       bool
 	queryCollector     *fixedpointQueryCollector
+	tacticExpansion    []string
 	softWeight         big.Rat
 	softID             string
 }
@@ -207,6 +208,7 @@ func (p *commandParser) clearCommand() (result error) {
 	p.refs = nil
 	p.env.reset()
 	p.bindings = 0
+	p.tacticExpansion = nil
 	return result
 }
 
@@ -711,6 +713,21 @@ func (p *commandParser) command() (bool, error) {
 			return false, err
 		}
 		success = false
+	case "declare-tactic":
+		name, err := p.symbol()
+		if err != nil {
+			return false, err
+		}
+		selected, body, err := p.parseTacticDeclaration()
+		if err != nil {
+			return false, err
+		}
+		if err = selected.DecRef(); err != nil {
+			return false, err
+		}
+		if err = p.context.DeclareUserTactic(name, body); err != nil {
+			return false, err
+		}
 	case "apply":
 		if err := p.applyTactic(!p.ignoreChecks); err != nil {
 			return false, err
@@ -816,6 +833,22 @@ func (p *commandParser) command() (bool, error) {
 			}
 		}
 		if err != nil {
+			return false, err
+		}
+		success = false
+	case "get-user-tactics":
+		if err = p.requireEnd(); err != nil {
+			return false, err
+		}
+		var declarations strings.Builder
+		for _, declaration := range p.context.UserTacticDeclarations() {
+			if declarations.Len() != 0 {
+				declarations.WriteByte('\n')
+			}
+			fmt.Fprintf(&declarations, "(declare-tactic %s %s)", declaration.Name, declaration.Body)
+		}
+		text := strings.ReplaceAll(declarations.String(), "\"", "\\\"")
+		if _, err = fmt.Fprintf(p.out, "(%s)\n", text); err != nil {
 			return false, err
 		}
 		success = false

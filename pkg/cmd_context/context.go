@@ -26,6 +26,7 @@ import (
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	utext "github.com/glycerine/g3/pkg/util/text"
 	"github.com/glycerine/g3/pkg/util/z3exception"
+	"github.com/glycerine/insdict"
 )
 
 type declaration struct {
@@ -94,6 +95,7 @@ type Context struct {
 	functionTrail, sortTrail         []declaration
 	macros                           map[string][]macroDeclaration
 	macroTrail                       []string
+	userTactics                      *insdict.Dict[string, string]
 	assertions                       []assertion
 	objectives                       []optimizationObjective
 	softObjectiveIndex               map[string]int
@@ -143,7 +145,7 @@ func NewContext(config smtcore.SMTSolverConfig) (*Context, error) {
 	if config.Params == nil || config.Globals == nil {
 		return nil, uparams.ErrParamsOwner
 	}
-	c := &Context{config: config, mainContext: true, functions: make(map[string][]ast.ASTHandle), sorts: make(map[string]ast.ASTHandle), sortArities: make(map[string]uint32), sortConstructors: make(map[string]sortConstructorDeclaration), builtins: make(map[string][]builtin), macros: make(map[string][]macroDeclaration), softObjectiveIndex: make(map[string]int), status: lbool.Undef}
+	c := &Context{config: config, mainContext: true, functions: make(map[string][]ast.ASTHandle), sorts: make(map[string]ast.ASTHandle), sortArities: make(map[string]uint32), sortConstructors: make(map[string]sortConstructorDeclaration), builtins: make(map[string][]builtin), macros: make(map[string][]macroDeclaration), userTactics: insdict.NewDict[string, string](), softObjectiveIndex: make(map[string]int), status: lbool.Undef}
 	var err error
 	c.params, err = config.Params.NewValue()
 	if err != nil {
@@ -1362,6 +1364,10 @@ func (c *Context) Close() error {
 	}
 	if err := c.resetManagerState(); err != nil {
 		return err
+	}
+	if c.userTactics != nil {
+		c.userTactics.DeleteAll()
+		c.userTactics = nil
 	}
 	if c.parameters != nil {
 		if err := c.parameters.Close(); err != nil {

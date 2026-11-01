@@ -22,6 +22,11 @@ func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
 		if e != nil {
 			return nil, e
 		}
+		if !cmd_context.IsBuiltinTactic(name) {
+			if body, found := p.context.UserTacticBody(name); found {
+				return p.parseDeclaredTactic(name, body)
+			}
+		}
 		result, err = p.context.NewBuiltinTacticWithOutput(name, p.out)
 		if err != nil {
 			return nil, err
@@ -181,6 +186,68 @@ func (p *commandParser) parseTactic() (result tactic.Tactic, err error) {
 		return nil, err
 	}
 	return result, nil
+}
+
+func (p *commandParser) parseDeclaredTactic(name, body string) (result tactic.Tactic, err error) {
+	for _, active := range p.tacticExpansion {
+		if active == name {
+			return nil, fmt.Errorf("recursive user tactic %s", name)
+		}
+	}
+	compliant, err := p.context.Compliant()
+	if err != nil {
+		return nil, err
+	}
+	subscanner, err := NewScanner(strings.NewReader(body+" "), compliant)
+	if err != nil {
+		return nil, err
+	}
+	previousScanner, previousToken, previousEnd := p.scanner, p.token, p.cacheEnd
+	p.scanner, p.token, p.cacheEnd = subscanner, NullToken, 0
+	p.tacticExpansion = append(p.tacticExpansion, name)
+	defer func() {
+		p.tacticExpansion = p.tacticExpansion[:len(p.tacticExpansion)-1]
+		p.scanner, p.token, p.cacheEnd = previousScanner, previousToken, previousEnd
+		if err != nil && result != nil {
+			err = errors.Join(err, result.DecRef())
+			result = nil
+		}
+	}()
+	if err = p.advance(); err != nil {
+		return nil, err
+	}
+	result, err = p.parseTactic()
+	if err != nil {
+		return nil, err
+	}
+	if p.token != EOFToken {
+		err = errors.Join(fmt.Errorf("invalid user tactic %s: trailing input", name), result.DecRef())
+		result = nil
+		return nil, err
+	}
+	return result, nil
+}
+
+func (p *commandParser) parseTacticDeclaration() (selected tactic.Tactic, body string, err error) {
+	if p.token == SymbolToken {
+		body = p.scanner.ID()
+		selected, err = p.parseTactic()
+		return selected, body, err
+	}
+	if p.token != LeftParenToken {
+		return nil, "", fmt.Errorf("invalid tactic, symbol or combinator expected")
+	}
+	p.scanner.StartCaching()
+	defer func() { p.scanner.StopCaching(); p.scanner.ResetCache() }()
+	selected, err = p.parseTactic()
+	if err != nil {
+		return nil, "", err
+	}
+	body, err = p.scanner.CachedString(0, p.cacheEnd)
+	if err != nil {
+		return nil, "", errors.Join(err, selected.DecRef())
+	}
+	return selected, "(" + body, nil
 }
 
 func (p *commandParser) tacticParameter(c *uparams.ParamsContext, settings *uparams.ParamsRef, key string, kind uparams.ParamKind) (err error) {
