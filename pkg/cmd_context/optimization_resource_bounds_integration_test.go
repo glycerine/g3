@@ -74,4 +74,19 @@ func TestOptimizationResourceLimitDuringMaxResCoreIsUnknown(t *testing.T) {
 	if reason != "max. resource limit exceeded" {
 		t.Fatalf("unknown reason = %q", reason)
 	}
+	lower, err := c.ObjectiveBound(0, true)
+	contextMust(t, err)
+	upper, err := c.ObjectiveBound(0, false)
+	contextMust(t, err)
+	if lower.Value.Main.Sign() != 0 || upper.Value.Main.Cmp(big.NewRat(1, 1)) != 0 {
+		t.Fatalf("interrupted core bounds = [%s:%s]", lower.Value.Main.RatString(), upper.Value.Main.RatString())
+	}
+	model, err := c.Model()
+	contextMust(t, err)
+	count, err := model.NumDeclarations()
+	contextMust(t, err)
+	if count == 0 {
+		t.Fatal("interrupted search lost its candidate model")
+	}
+	contextMust(t, model.DecRef())
 }

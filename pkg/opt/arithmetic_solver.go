@@ -17,6 +17,7 @@ import (
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 // ObjectiveValue is one result in source lexicographic order. SoftCost is set
@@ -523,6 +524,18 @@ func (s *ArithmeticSolver) optimizeSoft(index int, result *ArithmeticResult) (st
 		activeEngine = engine
 		status, optimal, err = engine.optimize(result)
 		result.MaxSMT = append(result.MaxSMT, engine.statistics())
+		if err != nil {
+			var fatal z3exception.Z3Error
+			if !errors.As(err, &fatal) {
+				canceled, cancelErr := s.manager.Canceled()
+				if cancelErr != nil {
+					return lbool.Undef, false, errors.Join(err, cancelErr)
+				}
+				if canceled {
+					return lbool.Undef, false, nil
+				}
+			}
+		}
 		if optimal {
 			finalizeSoftBounds(result, index)
 		}

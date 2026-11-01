@@ -80,7 +80,7 @@ func TestOptimizationFrontendResourceLimitDuringMaxResCore(t *testing.T) {
 	if err := runArguments([]string{"rlimit=320", "-bpo", "-in"}, strings.NewReader(input), &output); err != nil {
 		t.Fatal(err, output.String())
 	}
-	if got, want := output.String(), "unknown\n  [(* (- 1) oo):oo]\n"; got != want {
+	if got, want := output.String(), "unknown\n  [0:1]\n"; got != want {
 		t.Fatalf("resource-limited OPB output = %q, want %q", got, want)
 	}
 }
