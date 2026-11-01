@@ -7817,6 +7817,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateQELightAfterSourceClose",
         "TestAPITacticSolverTranslateQFBVSLSAfterSourceClose",
         "TestAPITacticSolverTranslateAckermannAfterSourceClose",
         "TestAPITacticSolverTranslateUFBVAfterSourceClose",
@@ -113000,6 +113001,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/qe/lite_context_translation.go",
+        "pkg/qe/lite_context_translation_test.go",
         "pkg/qe/variable_selection.go",
         "pkg/qe/array_der.go",
         "pkg/qe/trace.go",
@@ -113056,6 +113059,8 @@
         "pkg/cmd/g3/test_vectors/qe_light_fm.smt2"
       ],
       "tests": [
+        "TestLiteContextTranslationCopiesParametersAndRewriter",
+        "TestLiteContextTranslationAllocationFrontiers",
         "TestVariableTestCopiesSetComplementAndDeclarationBoundary",
         "TestArrayDERSelectSubstitutionBothOrientationsAndMultipleIndices",
         "TestArrayDERSelectFreshnessAndBooleanEqualityRefusals",

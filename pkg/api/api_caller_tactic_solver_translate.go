@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ackermannization"
 	"github.com/glycerine/g3/pkg/ast"
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
+	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/tactic"
@@ -70,6 +71,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(manager, config.ModelEvaluator)
 		case *sls.CoreTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
+		case *qe.LiteTactic:
+			return sourceTactic.TranslateWithServices(manager, qe.Config{Context: config.Params, Globals: config.Globals, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace})
 		case *nlsatsmt.NLPurifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *nlsattactic.NLSATTactic:
