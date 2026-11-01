@@ -265,6 +265,52 @@ func TestFiniteSparseProductJoinAcrossPartitions(t *testing.T) {
 	}
 }
 
+func TestFiniteSparseProductJoinProjectComposition(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-join-project")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 3)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two := value(0), value(1), value(2)
+	left, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, left.Close()) }()
+	right, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{false, true})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, right.Close()) }()
+	astTestMust(t, left.AddFact([]ast.ASTHandle{zero, zero}))
+	astTestMust(t, left.AddFact([]ast.ASTHandle{zero, one}))
+	astTestMust(t, right.AddFact([]ast.ASTHandle{zero, two}))
+	astTestMust(t, right.AddFact([]ast.ASTHandle{one, two}))
+
+	projected, err := left.JoinProject(right, []int{1}, []int{0}, []int{1, 2})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	if rows, e := projected.flatten(); e != nil {
+		t.Fatal(e)
+	} else {
+		if count, e := rows.Len(); e != nil || count != 1 {
+			t.Fatalf("join-project rows=%d, want 1 (%v)", count, e)
+		}
+		astTestMust(t, rows.Close())
+	}
+	if found, e := projected.ContainsFact([]ast.ASTHandle{zero, two}); e != nil || !found {
+		t.Fatalf("join-project lost projected fact: %v (%v)", found, e)
+	}
+	if found, e := left.ContainsFact([]ast.ASTHandle{zero, one}); e != nil || !found {
+		t.Fatalf("join-project mutated left input: %v (%v)", found, e)
+	}
+	if _, err = left.JoinProject(right, []int{1}, []int{0}, []int{2, 1}); err == nil {
+		t.Fatal("unsorted projection columns accepted")
+	}
+}
+
 func TestFiniteSparseProductEqualityFilters(t *testing.T) {
 	f := newTableRelationFixture(t)
 	name, err := f.ast.Symbols.Intern("finite-sparse-product-filter-domain")

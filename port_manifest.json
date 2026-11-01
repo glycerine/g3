@@ -94656,7 +94656,8 @@
         "pkg/muz/rel/table_join_project_test.go",
         "pkg/muz/rel/sparse_functional_project.go",
         "pkg/muz/rel/sparse_functional_project_test.go",
-        "pkg/muz/rel/dl_product_relation_cpp_driver_test.go"
+        "pkg/muz/rel/dl_product_relation_cpp_driver_test.go",
+        "pkg/muz/rel/finite_sparse_product_join_project.go"
       ],
       "tests": [
         "TestRelationManagerFiniteSignatureAndFactRoundTrip",
@@ -94849,7 +94850,8 @@
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
           "tests": [
-            "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature"
+            "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature",
+            "TestFiniteSparseProductJoinProjectComposition"
           ]
         },
         {
