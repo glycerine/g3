@@ -30,6 +30,31 @@ func TestSolverCloseAfterFailedAtomConstruction(t *testing.T) {
 	}
 }
 
+func TestSolverStatisticsAfterInterruptedSearch(t *testing.T) {
+	s := solverFixture(t)
+	_, err := s.MkVar(false)
+	assignmentMust(t, err)
+	p := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0})
+	solverUnit(t, s, AtomGT, p)
+	s.atoms.ineq.budget.FailAfter(0)
+	_, err = s.Check()
+	s.atoms.ineq.budget.FailAfter(-1)
+	t.Cleanup(func() { assignmentMust(t, s.config.Algebraic.CleanupRetained()) })
+	if err == nil {
+		t.Fatal("search did not stop on allocation failure")
+	}
+	if !s.search.failed {
+		t.Fatal("interrupted search did not own a failed operation", err)
+	}
+	statistics, err := s.Statistics()
+	if err != nil {
+		t.Fatal("statistics after interrupted search", err)
+	}
+	if _, ok := statistics["nlsat decisions"]; !ok {
+		t.Fatal("missing search counters", statistics)
+	}
+}
+
 func solverFixture(t *testing.T) *Solver {
 	return solverFixtureConfig(t, SolverConfig{SimplifyCore: true})
 }

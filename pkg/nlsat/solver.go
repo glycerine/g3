@@ -364,8 +364,14 @@ func (s *Solver) Check() (result lbool.LBool, resultErr error) {
 }
 
 func (s *Solver) Statistics() (map[string]float64, error) {
-	if err := s.open(); err != nil {
+	if s == nil || s.closed || s.search == nil || s.resolution == nil {
+		return nil, ErrSearchOwner
+	}
+	if err := s.search.owner(); err != nil {
 		return nil, err
+	}
+	if s.search.running {
+		return nil, ErrSearchPending
 	}
 	return map[string]float64{
 		"nlsat conflicts":              float64(s.search.conflicts),
