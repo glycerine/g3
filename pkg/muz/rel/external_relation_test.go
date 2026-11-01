@@ -74,6 +74,45 @@ func TestExternalRelationCallbacksAndClone(t *testing.T) {
 	}
 }
 
+func TestExternalRelationCachesAccessorDeclarations(t *testing.T) {
+	f := newTableRelationFixture(t)
+	seen := make(map[int32]ast.ASTHandle)
+	check := func(decl ast.ASTHandle) error {
+		kind, err := f.ast.GetDeclKind(decl)
+		if err != nil {
+			return err
+		}
+		if prior, ok := seen[kind]; ok && prior != decl {
+			t.Fatalf("accessor declaration %d changed from %v to %v", kind, prior, decl)
+		}
+		seen[kind] = decl
+		return nil
+	}
+	callbacks := ExternalRelationCallbacks{
+		ReduceAssign: func(decl ast.ASTHandle, _, _ []ast.ASTHandle) error { return check(decl) },
+		Reduce: func(decl ast.ASTHandle, _ []ast.ASTHandle) (ast.ASTHandle, error) {
+			if err := check(decl); err != nil {
+				return ast.ASTHandle{}, err
+			}
+			return ast.ASTHandle{}, nil
+		},
+	}
+	r, err := NewExternalRelation(f.relations, []ast.ASTHandle{f.boolean}, callbacks)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, r.Close()) }()
+	for i := 0; i < 2; i++ {
+		astTestMust(t, r.AddFact([]ast.ASTHandle{f.truth}))
+		if empty, err := r.Empty(); err != nil || empty {
+			t.Fatal("empty", empty, err)
+		}
+	}
+	for _, kind := range []int32{ast.DatalogOpEmpty, ast.DatalogOpStore, ast.DatalogOpIsEmpty} {
+		if seen[kind] == (ast.ASTHandle{}) {
+			t.Fatalf("accessor declaration %d was not exercised", kind)
+		}
+	}
+}
+
 func TestExternalRelationFallbackAndFormula(t *testing.T) {
 	f := newTableRelationFixture(t)
 	r, err := NewExternalRelation(f.relations, []ast.ASTHandle{f.boolean}, ExternalRelationCallbacks{})
