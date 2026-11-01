@@ -91,9 +91,18 @@ func TestModelImplicantMinimizationSourceTrace(t *testing.T) {
 							}
 							body += resultText + "\n"
 						}
-						expected := header(first, input) + header(last, body)
+						middle := ""
+						if cone && shape != "empty" {
+							middle = fmt.Sprintf("-------- [pdr_verbose] prune_by_cone_of_influence src/model/model_implicant.cpp:292 ---------\ncollect: minimize-trace-p\n------------------------------------------------\n")
+						}
+						expected := header(first, input) + middle + header(last, body)
 						if output.String() != expected {
 							t.Fatalf("trace mismatch\ngot %q\nwant %q", output.String(), expected)
+						}
+					} else if cone && tags.ShouldTrace("pdr") {
+						expected := fmt.Sprintf("-------- [pdr] prune_by_cone_of_influence src/model/model_implicant.cpp:307 ---------\n1 ==> %d\n------------------------------------------------\n", count)
+						if output.String() != expected {
+							t.Fatal("incorrect cone reduction trace", output.String(), expected)
 						}
 					} else if output.Len() != 0 {
 						t.Fatal("disabled minimization trace produced output", output.String())

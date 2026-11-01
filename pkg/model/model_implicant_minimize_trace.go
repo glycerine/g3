@@ -1,9 +1,10 @@
 package model
 
-// Source: src/model/model_implicant.cpp:99-107,121-124,154-157.
+// Source: src/model/model_implicant.cpp:99-107,121-124,154-157,292,307.
 
 import (
 	"errors"
+	"fmt"
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -61,4 +62,15 @@ func (i *ModelImplicant) traceMinimization(tag, function string, line int, prefi
 		return nil
 	})
 	return operandErr
+}
+
+func (i *ModelImplicant) traceConeReduction(original uint32, reduced int) {
+	tags := i.services.Trace
+	if tags == nil {
+		tags = diagnostic.BorrowProcessTraceTags()
+	}
+	_ = tags.EmitConditional("pdr", "prune_by_cone_of_influence", "src/model/model_implicant.cpp", 307, func() bool { return true }, func(w io.Writer) error {
+		_, err := fmt.Fprintf(w, "%d ==> %d\n", original, reduced)
+		return err
+	})
 }

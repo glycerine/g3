@@ -300,6 +300,9 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 	}
 	i.states = make(map[ast.ASTHandle]implicantValue)
 	for _, h := range selected {
+		if err = i.traceMinimization("pdr_verbose", "prune_by_cone_of_influence", 292, "collect: ", []ast.ASTHandle{h}, nil); err != nil {
+			return nil, err
+		}
 		if err = i.markCone(h); err != nil {
 			return nil, err
 		}
@@ -346,6 +349,10 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 			return nil, x
 		}
 	}
+	for h := range i.visited {
+		delete(i.visited, h)
+	}
+	i.traceConeReduction(count, len(pending))
 	if err = i.traceMinimization("pdr_verbose", "minimize_model", 105, "pruned model:\n", nil, pending); err != nil {
 		return nil, err
 	}
