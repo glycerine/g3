@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -18,6 +19,7 @@ type DegreeShiftTactic struct {
 	self       *DegreeShiftTactic
 	manager    *ast.ASTManager
 	services   model.ModelEvaluatorConfig
+	trace      *diagnostic.TraceTags
 	ownerBytes uint64
 	refs       uint32
 	closed     bool
@@ -86,6 +88,13 @@ func (t *DegreeShiftTactic) CollectStatistics() map[string]float64         { ret
 func (t *DegreeShiftTactic) ResetStatistics() error                        { return t.open() }
 func (t *DegreeShiftTactic) SetLogic(usymbol.Symbol) error                 { return t.open() }
 func (t *DegreeShiftTactic) SetProgressCallback(func(uint32)) error        { return t.open() }
+func (t *DegreeShiftTactic) BindTrace(tags *diagnostic.TraceTags) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	t.trace = tags
+	return nil
+}
 func (t *DegreeShiftTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) {
 	if err := t.open(); err != nil {
 		return nil, err
@@ -147,6 +156,9 @@ func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 		return err
 	}
 	defer func() { err = errors.Join(err, plan.Close()) }()
+	if err = t.traceCandidates(plan); err != nil {
+		return err
+	}
 	if len(plan.entries) != 0 {
 		walk, e := newDegreeShiftTraversal(plan, proofs)
 		if e != nil {
@@ -208,5 +220,8 @@ func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	if err = goal.IncDepth(); err != nil {
 		return err
 	}
-	return result.AddGoal(goal)
+	if err = result.AddGoal(goal); err != nil {
+		return err
+	}
+	return t.traceResult(goal, result)
 }
