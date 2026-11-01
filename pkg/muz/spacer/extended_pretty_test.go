@@ -10,11 +10,17 @@ import (
 )
 
 func TestSpacerExtendedPrettySourceRewritesAndTrace(t *testing.T) {
-	base, _ := newSpacerTestServices(t)
+	base, globals := newSpacerTestServices(t)
+	if err := globals.SourceSetName("pp.max_depth", "1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := globals.SourceSetName("pp.min_alias_size", "1"); err != nil {
+		t.Fatal(err)
+	}
 	var output bytes.Buffer
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("spacer.expand-add")
-	m, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: base.Symbols, Numerals: base.NumeralService(), Budget: base.Budget(), TraceTags: tags})
+	m, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: base.Symbols, Numerals: base.NumeralService(), Budget: base.Budget(), TraceTags: tags, Params: globals.Context, Globals: globals})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +115,23 @@ func TestSpacerExtendedPrettySourceRewritesAndTrace(t *testing.T) {
 	}
 	must(m.DelRef(&ref))
 	p := &PredicateTransformer{manager: m, name: "pretty-predicate"}
+	functionName, err := m.Symbols.Intern("pretty-deep-f")
+	must(err)
+	function, err := m.MkFuncDecl(functionName, []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	must(err)
+	deep := x
+	for i := 0; i < 12; i++ {
+		deep, err = m.MkApp(function, []ast.ASTHandle{deep})
+		must(err)
+	}
+	shared, err := m.MkArithmeticAdd(deep, deep)
+	must(err)
+	pin(shared)
+	var complete bytes.Buffer
+	must(p.writeExtendedPretty(&complete, shared))
+	if strings.Contains(complete.String(), "(let") || strings.Count(complete.String(), "pretty-deep-f") != 24 {
+		t.Fatal("extended printer inherited alias/depth limits", complete.String())
+	}
 	must(p.traceExtendedLemma(input, InfinityLevel))
 	post, err := m.NewRef(input)
 	must(err)

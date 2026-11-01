@@ -5,10 +5,12 @@ package spacer
 import (
 	"errors"
 	"io"
+	"math"
 	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
 
 type extendedPrettyConfig struct {
@@ -173,11 +175,55 @@ func (p *PredicateTransformer) writeExtendedPretty(out io.Writer, body ast.ASTHa
 	if err != nil {
 		return err
 	}
-	printer, err := ast.NewSimpleASTPrinterContext(p.manager, out, out)
+	context, globals, err := p.manager.RewriterParameterServices()
 	if err != nil {
 		return err
 	}
-	return printer.DisplayExpr(out, h, 0)
+	if context == nil && p.owner != nil && p.owner.contexts[0] != nil {
+		context = p.owner.contexts[0].config.Params
+		globals = p.owner.contexts[0].config.Globals
+	}
+	profile := ast.SMT2PPExprProfile{DecimalPrecision: 10, BVLiterals: true, FlatAssoc: true}
+	if context != nil && globals != nil {
+		profile, err = ast.SMT2PPExprProfileFromParams(context, globals, nil)
+		if err != nil {
+			return err
+		}
+	}
+	profile.MaxDepth, profile.MinAliasSize = math.MaxUint32, math.MaxUint32
+	format, err := p.manager.SMT2PPExprTreeWithConfig(h, nil, ast.SMT2PPExprConfig{Profile: &profile, Globals: globals})
+	if err != nil {
+		return err
+	}
+	fm, err := p.manager.GetFormatManager()
+	if err != nil {
+		return err
+	}
+	document, err := fm.NewRef(format)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, fm.DelRef(&document)) }()
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: p.manager.Budget()})
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, stream.Close()) }()
+	if context != nil {
+		empty := context.EmptyValue()
+		err = p.manager.PrintFormat(stream, format, context, &empty, globals)
+	} else {
+		err = p.manager.PrintFormat(stream, format, nil, nil, nil)
+	}
+	if err != nil {
+		return err
+	}
+	text, err := stream.String()
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(out, text)
+	return err
 }
 
 func (p *PredicateTransformer) traceExtendedNode(node *ProofObligation, minimumDepth uint32) error {

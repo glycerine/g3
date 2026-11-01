@@ -100588,7 +100588,7 @@
           "status": "partial",
           "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/extended_pretty_test.go"],
           "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace"],
-          "reason": "The concrete source rewrite and both add_lemma_core and queue expansion-node STRACE consumers are implemented; printer parameter and exceptional ownership audit remain open."
+          "reason": "The concrete source rewrite and both add_lemma_core and queue expansion-node STRACE consumers are implemented; source pp profile inheritance with UINT_MAX depth/alias overrides is implemented; exceptional ownership audit remains open."
         },
         {
           "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr",
