@@ -7817,6 +7817,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateQESATFamiliesAfterSourceClose",
         "TestAPITacticSolverTranslateQEAfterSourceClose",
         "TestAPITacticSolverTranslateQELightAfterSourceClose",
         "TestAPITacticSolverTranslateQFBVSLSAfterSourceClose",
@@ -110469,6 +110470,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/qe/sat_context_translation.go",
+        "pkg/qe/sat_context_translation_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/nlsat/tactic/model_projection.go",
         "pkg/qe/nlqsat_state.go",
         "pkg/qe/nlqsat_loop.go",
@@ -110483,6 +110487,9 @@
         "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
       ],
       "tests": [
+        "TestSATContextTranslationModesAndParameters",
+        "TestSATContextTranslationAllocationFrontiers",
+        "TestAPITacticSolverTranslateQESATFamiliesAfterSourceClose",
         "TestModelProjectorEliminatesRealVariableAndBuildsBlockingClause",
         "TestNLQStateModelScopesAssumptionsAndPredicateLevels",
         "TestNLQSearchTerminalAlternatingChecks",
@@ -114334,6 +114341,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/sat_context_translation.go",
+        "pkg/qe/sat_context_translation_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/qe/simplify_quantifier_rewriter_test.go",
         "pkg/qe/simplify_quantifier_rewriter.go",
         "pkg/qe/simplify_solver_context_test.go",
@@ -114367,6 +114377,9 @@
         "pkg/cmd/g3/qe_sat_integration_test.go"
       ],
       "tests": [
+        "TestSATContextTranslationModesAndParameters",
+        "TestSATContextTranslationAllocationFrontiers",
+        "TestAPITacticSolverTranslateQESATFamiliesAfterSourceClose",
         "TestSimplifyQEQuantifierSkipsPatterns",
         "TestSimplifyQEQuantifierPreservesOuterBindings",
         "TestSimplifyExistsOwnsFreshArithmeticVariables",
@@ -114840,6 +114853,9 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/qe/sat_context_translation.go",
+        "pkg/qe/sat_context_translation_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/qe/predicate_abstraction.go",
         "pkg/qe/predicate_assumptions.go",
         "pkg/qe/predicate_abstraction_test.go",
@@ -114880,6 +114896,9 @@
         "pkg/cmd/g3/test_vectors/qsat_scopes.smt2"
       ],
       "tests": [
+        "TestSATContextTranslationModesAndParameters",
+        "TestSATContextTranslationAllocationFrontiers",
+        "TestAPITacticSolverTranslateQESATFamiliesAfterSourceClose",
         "TestMaxLevelSentinelMergeAndDisplay",
         "TestPredicateAbstractionLevelsRoundTripAndReset",
         "TestPredicateAbstractionSimultaneousMapsAndPredicateSuppression",

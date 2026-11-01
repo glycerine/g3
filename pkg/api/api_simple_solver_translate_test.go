@@ -550,6 +550,76 @@ func TestAPITacticSolverTranslateQEAfterSourceClose(t *testing.T) {
 	testAPITacticSolverTranslateQEAfterSourceClose(t, "qe")
 }
 
+func TestAPITacticSolverTranslateQESATFamiliesAfterSourceClose(t *testing.T) {
+	for _, name := range []string{"qe-sat", "qsat", "qe2", "qe_rec", "nlqsat", "nlqe"} {
+		for _, contradiction := range []bool{false, true} {
+			label := "sat"
+			if contradiction {
+				label = "unsat"
+			}
+			t.Run(name+"/"+label, func(t *testing.T) {
+				source, err := NewSMTContext()
+				astTestMust(t, err)
+				target, err := NewSMTContext()
+				astTestMust(t, err)
+				defer func() { astTestMust(t, target.Close()) }()
+				astTestMust(t, source.SetLogic("ALL"))
+				transform, err := source.Tactic(name)
+				astTestMust(t, err)
+				smt, err := source.Tactic("smt")
+				astTestMust(t, err)
+				combined, err := transform.AndThen(smt)
+				astTestMust(t, err)
+				solver, err := source.NewSolverFromTactic(combined)
+				astTestMust(t, err)
+				for _, owner := range []*APITactic{combined, smt, transform} {
+					astTestMust(t, owner.Close())
+				}
+				script := `(declare-const p Bool) (assert (forall ((b Bool)) (or b p))) (assert p)`
+				if contradiction {
+					script += ` (assert (not p))`
+				}
+				astTestMust(t, solver.LoadSMT2String(script))
+				translated, err := solver.Translate(target)
+				astTestMust(t, err)
+				defer func() { astTestMust(t, translated.Close()) }()
+				astTestMust(t, solver.Close())
+				astTestMust(t, source.Close())
+				status, err := translated.Check()
+				astTestMust(t, err)
+				want := lbool.True
+				if contradiction {
+					want = lbool.False
+				}
+				if status != want {
+					t.Fatal("translated tactic solver", status, "want", want)
+				}
+				if contradiction {
+					return
+				}
+				model, err := translated.Model()
+				astTestMust(t, err)
+				defer func() { astTestMust(t, model.Close()) }()
+				manager, err := target.Manager()
+				astTestMust(t, err)
+				assertions, err := translated.Assertions()
+				astTestMust(t, err)
+				defer releaseAPIRefs(t, manager, assertions)
+				ground, err := manager.RefGet(assertions[1])
+				astTestMust(t, err)
+				value, err := model.Evaluate(ground, true)
+				astTestMust(t, err)
+				actual, err := manager.RefGet(value)
+				astTestMust(t, err)
+				if !manager.IsTrue(actual) {
+					t.Fatal("model violates the original ground assertion")
+				}
+				astTestMust(t, manager.DelRef(&value))
+			})
+		}
+	}
+}
+
 func testAPITacticSolverTranslateQEAfterSourceClose(t *testing.T, tacticName string) {
 	t.Helper()
 	for _, contradiction := range []bool{false, true} {

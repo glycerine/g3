@@ -1,3 +1,5 @@
+QE-SAT, QSAT and nonlinear QSAT tactics now translate into target-owned contexts, preserving their source-specific defaults, modes and parameter snapshots. Allocation and SAT/UNSAT model tests cover all registered tactic variants.
+
 The general QE tactic now translates into target-owned services with its parameter snapshot. Direct allocation tests and SAT/UNSAT solver tests cover use after source closure.
 
 Datatype QE now records equality atoms independently in positive and negative sets, preserving excluded terms in fallback witnesses. Unit, solver-equivalence and SMT-LIB tests cover both polarities.
