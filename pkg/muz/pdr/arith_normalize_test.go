@@ -63,6 +63,23 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 		closureMust(t, owner.Close())
 		closeBase()
 	}()
+	var outputs []ast.ASTRef
+	defer func() {
+		for i := len(outputs) - 1; i >= 0; i-- {
+			closureMust(t, manager.DelRef(&outputs[i]))
+		}
+	}()
+	normalize := func(input ast.ASTHandle) (ast.ASTHandle, error) {
+		ref, err := manager.NewRef(input)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		outputs = append(outputs, ref)
+		if err = NormalizeArithmeticRef(manager, ref); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		return manager.RefGet(ref)
+	}
 	_, err := manager.RegisterArithmeticPlugin()
 	closureMust(t, err)
 	real, err := manager.ArithmeticRealNumeralText("0")
@@ -91,21 +108,24 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	closureMust(t, err)
 	formula, err := manager.MkFamilyApp(mustArithmeticFamily(t, manager), 2, nil, []ast.ASTHandle{left, six})
 	closureMust(t, err)
-	normalized, err := NormalizeArithmetic(manager, formula)
+	sourceRef, err := manager.NewRef(formula)
+	closureMust(t, err)
+	outputs = append(outputs, sourceRef)
+	normalized, err := normalize(formula)
 	closureMust(t, err)
 	if normalized == formula {
 		t.Fatal("comparison was not normalized")
 	}
 	zeroBound, err := manager.MkFamilyApp(mustArithmeticFamily(t, manager), 2, nil, []ast.ASTHandle{twoX, real})
 	closureMust(t, err)
-	unchanged, err := NormalizeArithmetic(manager, zeroBound)
+	unchanged, err := normalize(zeroBound)
 	closureMust(t, err)
 	if unchanged != zeroBound {
 		t.Fatal("source zero coefficient must reset the divisor and suppress scaling")
 	}
 	nested, err := manager.MkNot(formula)
 	closureMust(t, err)
-	nested, err = NormalizeArithmetic(manager, nested)
+	nested, err = normalize(nested)
 	closureMust(t, err)
 	child, err := manager.GetArg(nested, 0)
 	closureMust(t, err)
@@ -117,7 +137,7 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 		Body: formula, Weight: 7, QID: xName, SkolemID: yName, NoPatterns: []ast.ASTHandle{formula},
 	})
 	closureMust(t, err)
-	quantified, err = NormalizeArithmetic(manager, quantified)
+	quantified, err = normalize(quantified)
 	closureMust(t, err)
 	body, err := manager.GetQuantifierBody(quantified)
 	closureMust(t, err)
@@ -162,7 +182,7 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	}
 	strict, err := manager.MkFamilyApp(mustArithmeticFamily(t, manager), 4, nil, []ast.ASTHandle{twoX, six})
 	closureMust(t, err)
-	strict, err = NormalizeArithmetic(manager, strict)
+	strict, err = normalize(strict)
 	closureMust(t, err)
 	if family, err := manager.GetFamilyID(strict); err != nil || family != 0 {
 		t.Fatalf("strict comparison family = %d, %v", family, err)
@@ -185,12 +205,12 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	}
 	closureMust(t, manager.DelRef(&owned))
 	closureMust(t, manager.ToggleProofMode(ast.ASTProofEnabled))
-	_, err = NormalizeArithmetic(manager, formula)
+	_, err = normalize(formula)
 	closureMust(t, err)
 	if mode, err := manager.ProofMode(); err != nil || mode != ast.ASTProofEnabled {
 		t.Fatal("normalization did not restore proof mode", mode, err)
 	}
-	if _, err := NormalizeArithmetic(manager, ast.ASTHandle{}); err == nil {
+	if _, err := normalize(ast.ASTHandle{}); err == nil {
 		t.Fatal("invalid input was accepted")
 	}
 	if mode, err := manager.ProofMode(); err != nil || mode != ast.ASTProofEnabled {

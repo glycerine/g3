@@ -8,12 +8,13 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 // NormalizeArithmeticRef matches normalize_arithmetic(expr_ref&): publish the
 // rewritten formula into the caller's owning reference before releasing the
 // previous formula. On rewrite failure the caller keeps its original formula.
-func NormalizeArithmeticRef(manager *ast.ASTManager, formula ast.ASTRef) error {
+func NormalizeArithmeticRef(manager *ast.ASTManager, formula ast.ASTRef) (resultErr error) {
 	if manager == nil {
 		return ast.ErrASTHandle
 	}
@@ -21,32 +22,76 @@ func NormalizeArithmeticRef(manager *ast.ASTManager, formula ast.ASTRef) error {
 	if err != nil {
 		return err
 	}
-	result, err := NormalizeArithmetic(manager, input)
+	scope, err := ast.NewScopedNoProof(manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
+	n := arithmeticNormalization{manager: manager}
+	defer func() {
+		if cleanup := n.close(); cleanup != nil {
+			n.cause, n.cleanupErr = errors.Join(resultErr, cleanup), cleanup
+			resultErr = &n
+		}
+	}()
+	result, err := n.tree(input, make(map[ast.ASTHandle]ast.ASTHandle))
 	if err != nil {
 		return err
 	}
 	return manager.SetRef(formula, result)
 }
 
-// NormalizeArithmetic divides both sides of a real comparison by the smallest
-// absolute monomial coefficient, following the source's zero-reset rule.
-// The returned AST is borrowed from the manager.
-func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (result ast.ASTHandle, resultErr error) {
-	if manager == nil {
-		return ast.ASTHandle{}, ast.ErrASTHandle
-	}
-	scope, err := ast.NewScopedNoProof(manager)
+// Generated nodes stay alive across sibling rewrites and are released only
+// after the caller owns the completed root, or after an interrupted rewrite.
+type arithmeticNormalization struct {
+	manager           *ast.ASTManager
+	refs              []ast.ASTHandle
+	cause, cleanupErr error
+}
+
+func (n *arithmeticNormalization) keep(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
-	return normalizeArithmeticTree(manager, formula, make(map[ast.ASTHandle]ast.ASTHandle))
+	err = n.manager.IncRef(h)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	n.refs = append(n.refs, h)
+	return h, nil
 }
+
+func (n *arithmeticNormalization) close() (result error) {
+	for len(n.refs) != 0 {
+		i := len(n.refs) - 1
+		consumed, err := n.manager.DecRefConsumed(n.refs[i])
+		result = errors.Join(result, err)
+		if !consumed {
+			return result
+		}
+		n.refs = n.refs[:i]
+	}
+	return result
+}
+
+// An interrupted decrement keeps its real ownership roots available for retry.
+func (n *arithmeticNormalization) Error() string { return n.cause.Error() }
+func (n *arithmeticNormalization) Unwrap() error { return n.cause }
+func (n *arithmeticNormalization) Cleanup() error {
+	n.cleanupErr = n.close()
+	return n.cleanupErr
+}
+func (n *arithmeticNormalization) RuntimeOwner() *memory.Runtime {
+	return n.manager.NumeralService().RuntimeOwner()
+}
+func (n *arithmeticNormalization) OriginalCause() error { return n.cause }
+func (n *arithmeticNormalization) CleanupCause() error  { return n.cleanupErr }
 
 // The source rewriter visits application children and quantifier bodies while
 // leaving patterns unchanged. Rebuild with the original declaration so that
 // parameters and uninterpreted symbols keep their identities.
-func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cache map[ast.ASTHandle]ast.ASTHandle) (ast.ASTHandle, error) {
+func (n *arithmeticNormalization) tree(formula ast.ASTHandle, cache map[ast.ASTHandle]ast.ASTHandle) (ast.ASTHandle, error) {
+	manager := n.manager
 	canceled, err := manager.Canceled()
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -67,12 +112,12 @@ func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cac
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		rewritten, err := normalizeArithmeticTree(manager, body, cache)
+		rewritten, err := n.tree(body, cache)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		if rewritten != body {
-			result, err = manager.UpdateQuantifierBody(formula, rewritten)
+			result, err = n.keep(manager.UpdateQuantifierBody(formula, rewritten))
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -89,7 +134,7 @@ func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cac
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			args[i], err = normalizeArithmeticTree(manager, arg, cache)
+			args[i], err = n.tree(arg, cache)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -100,12 +145,12 @@ func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cac
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			result, err = manager.MkApp(decl, args)
+			result, err = n.keep(manager.MkApp(decl, args))
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
 		}
-		result, err = normalizeArithmeticComparison(manager, result)
+		result, err = n.comparison(result)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -114,7 +159,8 @@ func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cac
 	return result, nil
 }
 
-func normalizeArithmeticComparison(manager *ast.ASTManager, formula ast.ASTHandle) (ast.ASTHandle, error) {
+func (n *arithmeticNormalization) comparison(formula ast.ASTHandle) (ast.ASTHandle, error) {
+	manager := n.manager
 	kind, err := manager.GetKind(formula)
 	if err != nil || kind != ast.ASTApp {
 		return formula, err
@@ -156,7 +202,7 @@ func normalizeArithmeticComparison(manager *ast.ASTManager, formula ast.ASTHandl
 	if err != nil || leftSort != rightSort {
 		return formula, err
 	}
-	realSort, err := manager.MkFamilySort(arithmetic, 0, nil)
+	realSort, err := n.keep(manager.MkFamilySort(arithmetic, 0, nil))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
@@ -164,20 +210,20 @@ func normalizeArithmeticComparison(manager *ast.ASTManager, formula ast.ASTHandl
 		if !negateResult {
 			return formula, nil
 		}
-		return arithmeticNormalizerNegatedRelation(manager, family, op, left, right)
+		return n.negatedRelation(family, op, left, right)
 	}
-	leftTerms, err := arithmeticNormalizerTerms(manager, left)
+	leftTerms, err := n.terms(left)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	rightTerms, err := arithmeticNormalizerTerms(manager, right)
+	rightTerms, err := n.terms(right)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	var divisor *big.Rat
 	for _, terms := range [][]ast.ASTHandle{leftTerms, rightTerms} {
 		for _, term := range terms {
-			coefficient, _, err := arithmeticNormalizerCoefficient(manager, term)
+			coefficient, _, err := n.coefficient(term)
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -191,39 +237,41 @@ func normalizeArithmeticComparison(manager *ast.ASTManager, formula ast.ASTHandl
 		if !negateResult {
 			return formula, nil
 		}
-		return arithmeticNormalizerNegatedRelation(manager, family, op, left, right)
+		return n.negatedRelation(family, op, left, right)
 	}
-	left, err = arithmeticNormalizerDivide(manager, leftSort, leftTerms, divisor)
+	left, err = n.divide(leftSort, leftTerms, divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	right, err = arithmeticNormalizerDivide(manager, rightSort, rightTerms, divisor)
+	right, err = n.divide(rightSort, rightTerms, divisor)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
 	args := []ast.ASTHandle{left, right}
 	var result ast.ASTHandle
 	if family == 0 {
-		result, err = manager.MkFamilyApp(0, ast.ASTOpEq, nil, args)
+		result, err = n.keep(manager.MkFamilyApp(0, ast.ASTOpEq, nil, args))
 	} else {
-		result, err = manager.MkFamilyApp(family, op, nil, args)
+		result, err = n.keep(manager.MkFamilyApp(family, op, nil, args))
 	}
 	if err != nil || !negateResult {
 		return result, err
 	}
-	not, err := manager.MkFamilyApp(0, ast.ASTOpNot, nil, []ast.ASTHandle{result})
+	not, err := n.keep(manager.MkFamilyApp(0, ast.ASTOpNot, nil, []ast.ASTHandle{result}))
 	return not, err
 }
 
-func arithmeticNormalizerNegatedRelation(manager *ast.ASTManager, family ast.FamilyID, op int32, left, right ast.ASTHandle) (ast.ASTHandle, error) {
-	relation, err := manager.MkFamilyApp(family, op, nil, []ast.ASTHandle{left, right})
+func (n *arithmeticNormalization) negatedRelation(family ast.FamilyID, op int32, left, right ast.ASTHandle) (ast.ASTHandle, error) {
+	manager := n.manager
+	relation, err := n.keep(manager.MkFamilyApp(family, op, nil, []ast.ASTHandle{left, right}))
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return manager.MkFamilyApp(0, ast.ASTOpNot, nil, []ast.ASTHandle{relation})
+	return n.keep(manager.MkFamilyApp(0, ast.ASTOpNot, nil, []ast.ASTHandle{relation}))
 }
 
-func arithmeticNormalizerTerms(manager *ast.ASTManager, expression ast.ASTHandle) ([]ast.ASTHandle, error) {
+func (n *arithmeticNormalization) terms(expression ast.ASTHandle) ([]ast.ASTHandle, error) {
+	manager := n.manager
 	arithmetic, err := manager.ArithmeticFamilyID()
 	if err != nil {
 		return nil, err
@@ -251,7 +299,8 @@ func arithmeticNormalizerTerms(manager *ast.ASTManager, expression ast.ASTHandle
 	return terms, nil
 }
 
-func arithmeticNormalizerCoefficient(manager *ast.ASTManager, term ast.ASTHandle) (*big.Rat, ast.ASTHandle, error) {
+func (n *arithmeticNormalization) coefficient(term ast.ASTHandle) (*big.Rat, ast.ASTHandle, error) {
+	manager := n.manager
 	arithmetic, err := manager.ArithmeticFamilyID()
 	if err != nil {
 		return nil, ast.ASTHandle{}, err
@@ -297,10 +346,11 @@ func arithmeticNormalizerCoefficient(manager *ast.ASTManager, term ast.ASTHandle
 	return coefficient, powerProduct, err
 }
 
-func arithmeticNormalizerDivide(manager *ast.ASTManager, sort ast.ASTHandle, terms []ast.ASTHandle, divisor *big.Rat) (ast.ASTHandle, error) {
+func (n *arithmeticNormalization) divide(sort ast.ASTHandle, terms []ast.ASTHandle, divisor *big.Rat) (ast.ASTHandle, error) {
+	manager := n.manager
 	args := make([]ast.ASTHandle, 0, len(terms))
 	for _, term := range terms {
-		coefficient, powerProduct, err := arithmeticNormalizerCoefficient(manager, term)
+		coefficient, powerProduct, err := n.coefficient(term)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
@@ -310,7 +360,7 @@ func arithmeticNormalizerDivide(manager *ast.ASTManager, sort ast.ASTHandle, ter
 				continue
 			}
 			text := coefficient.RatString()
-			constant, err := manager.ArithmeticRealNumeralText(text)
+			constant, err := n.keep(manager.ArithmeticRealNumeralText(text))
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
@@ -321,18 +371,18 @@ func arithmeticNormalizerDivide(manager *ast.ASTManager, sort ast.ASTHandle, ter
 			args = append(args, powerProduct)
 			continue
 		}
-		coefficientHandle, err := manager.ArithmeticRealNumeralText(coefficient.RatString())
+		coefficientHandle, err := n.keep(manager.ArithmeticRealNumeralText(coefficient.RatString()))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		product, err := manager.MkArithmeticMul(coefficientHandle, powerProduct)
+		product, err := n.keep(manager.MkArithmeticMul(coefficientHandle, powerProduct))
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
 		args = append(args, product)
 	}
 	if len(args) == 0 {
-		return manager.ArithmeticRealNumeralText("0")
+		return n.keep(manager.ArithmeticRealNumeralText("0"))
 	}
 	if len(args) == 1 {
 		return args[0], nil
@@ -341,5 +391,5 @@ func arithmeticNormalizerDivide(manager *ast.ASTManager, sort ast.ASTHandle, ter
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	return manager.MkFamilyApp(family, 6, nil, args)
+	return n.keep(manager.MkFamilyApp(family, 6, nil, args))
 }

@@ -90697,14 +90697,14 @@
         {
           "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
           "status": "reference_only",
-          "reason": "ceil_log2 has no source caller and pp_cube is used only by the dormant farkas_learner::test self-test; normalization now traverses application children and quantifier bodies, preserves annotations and restores scoped proof mode, while exceptional intermediate AST ownership remains under audit"
+          "reason": "ceil_log2 has no source caller and pp_cube is used only by the dormant farkas_learner::test self-test; normalization now traverses application children and quantifier bodies, preserves annotations and restores scoped proof mode, while invocation-owned intermediate AST roots now survive sibling traversal and are released after publication or failure, with cold-allocation retry coverage; interrupted-decrement coverage remains under audit"
         }
       ],
       "ownership": [
         "The reducer owns model-evaluated values, defining equalities and rewritten conjunct references until the returned conjunction reference is acquired."
       ],
       "deviations": [
-        "The default pdr.utvpi path uses the source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. NormalizeArithmeticRef publishes into the caller's owning reference, while its handle-level helper returns borrowed manager-owned AST nodes; diagnostic cube formatting and ceil_log2 remain outside live consumers."
+        "The default pdr.utvpi path uses the source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. NormalizeArithmeticRef publishes into the caller's owning reference before releasing invocation-owned temporary nodes; the unused borrowed-handle entry point is removed; diagnostic cube formatting and ceil_log2 remain outside live consumers."
       ]
     },
     {
