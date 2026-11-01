@@ -207,13 +207,6 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 			return e
 		}
 		if quantified {
-			proofs, e := goal.ProofsEnabled()
-			if e != nil {
-				return e
-			}
-			if proofs {
-				return tactic.NewTacticException("quantifier elimination proofs are not implemented")
-			}
 			var complete bool
 			updates[i], complete, e = rewriteQuantifierScalar(t.manager, form, t.config)
 			if e != nil {

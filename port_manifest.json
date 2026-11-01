@@ -111072,6 +111072,7 @@
         "TestExprQETreeClosedPartitionCompletesModelAndBlocks",
         "TestExprQEBoolPopSolvesAndBlocksPath",
         "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+        "TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof",
         "TestExprQEBoolSearchMatchesBranchExpansion",
         "TestQuantifierBoolIndependentPredicatePartitions",
         "TestRewriteQuantifierBoolPreservesOuterBindings",
@@ -111400,6 +111401,7 @@
             "TestExprQETreeClosedPartitionCompletesModelAndBlocks",
             "TestExprQEBoolPopSolvesAndBlocksPath",
             "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+            "TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof",
             "TestExprQEBoolSearchMatchesBranchExpansion",
             "TestQuantifierBoolIndependentPredicatePartitions",
             "TestRewriteQuantifierBoolPreservesOuterBindings",
@@ -114855,7 +114857,8 @@
         "TestQuantifierTacticSymbolicDivisibility",
         "TestSMTLibRunnerQEBitVectorQuantifier",
         "TestSMTLibRunnerQESymbolicDivisibility",
-        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
+        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+        "TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof"
       ],
       "assertions": [
         {
@@ -114899,13 +114902,14 @@
             "TestQuantifierTacticSymbolicDivisibility",
             "TestSMTLibRunnerQEBitVectorQuantifier",
             "TestSMTLibRunnerQESymbolicDivisibility",
-            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
+            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+            "TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities, bit-vector quantifiers and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities, bit-vector quantifiers and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, QE statistics and full audits remain unfinished. Proof-enabled goals follow the source null-rewrite-proof behavior. The qe tactic is registered for SMT-LIB."
       ]
     },
     {
@@ -114955,7 +114959,8 @@
         "TestQuantifierTacticSymbolicDivisibility",
         "TestSMTLibRunnerQEBitVectorQuantifier",
         "TestSMTLibRunnerQESymbolicDivisibility",
-        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
+        "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+        "TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof"
       ],
       "conditionals": [
         {
@@ -114999,13 +115004,14 @@
             "TestQuantifierTacticSymbolicDivisibility",
             "TestSMTLibRunnerQEBitVectorQuantifier",
             "TestSMTLibRunnerQESymbolicDivisibility",
-            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal"
+            "TestQuantifierBoolUnitsEliminateExistentialAndUniversal",
+            "TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof"
           ]
         }
       ],
       "ownership": [],
       "deviations": [
-        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities, bit-vector quantifiers and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, proof generation, statistics and full audits remain unfinished. The qe tactic is registered for SMT-LIB."
+        "Supported Boolean quantifiers use unit solving, solver-guided branches, independent partitions and recursive traversal; supported arithmetic equations, fresh integer equation variables, single-variable symbolic inequalities, bit-vector quantifiers and mixed Boolean/arithmetic blocks are also handled. General non-Boolean quantifiers, QE statistics and full audits remain unfinished. Proof-enabled goals follow the source null-rewrite-proof behavior. The qe tactic is registered for SMT-LIB."
       ]
     },
     {

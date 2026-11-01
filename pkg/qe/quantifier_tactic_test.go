@@ -59,6 +59,33 @@ func TestQuantifierTacticQuantifierFreeGoalAndRefusal(t *testing.T) {
 	}
 }
 
+func TestQuantifierTacticSourceProofModeClearsUnavailableRewriteProof(t *testing.T) {
+	f := newFMFixtureProofs(t, true)
+	m := f.r.manager
+	fmMust(t, m.RegisterDeclarationPlugins())
+	port, err := NewQuantifierTactic(m, nil, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, port.Close()) }()
+	v := f.own(m.MkVar(0, f.boolean))
+	r := f.constant("qe-proof-free-condition", f.boolean)
+	body := f.own(m.MkAnd(v, r))
+	quantified := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{f.boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body}))
+	goal := f.goal(true, false)
+	proof := f.own(m.MkProofAsserted(quantified))
+	fmMust(t, goal.AssertWithProof(quantified, proof, ast.ASTDependency{}))
+	fmMust(t, port.Apply(goal, f.result()))
+	form, err := goal.Form(0)
+	fmMust(t, err)
+	if form != r {
+		t.Fatalf("proof-mode quantifier result=%v, want %v", form, r)
+	}
+	proofResult, err := goal.Proof(0)
+	fmMust(t, err)
+	if proofResult != (ast.ASTHandle{}) {
+		t.Fatalf("source QE publishes no rewrite proof, got %v", proofResult)
+	}
+}
+
 func TestQuantifierTacticBooleanUnitsAndAtomicRefusal(t *testing.T) {
 	f := qsatKernelFixture(t)
 	m := f.r.manager
