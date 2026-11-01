@@ -229,6 +229,9 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 	}
 	walk, err := rewriter.NewTraversal(t.manager, &lia2cardRewriteConfig{manager: t.manager, arithmetic: arith, zeroOne: zeroOne, compileEquality: t.compileEquality})
 	if err != nil {
+		if walk != nil {
+			err = errors.Join(err, walk.Close())
+		}
 		return err
 	}
 	defer func() { err = errors.Join(err, walk.Close()) }()
