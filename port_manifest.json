@@ -91375,7 +91375,8 @@
         "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
-        "TestBoundRelationUnionDelta"
+        "TestBoundRelationUnionDelta",
+        "TestBoundRelationEmptySourceCopiesItsDeltaState"
       ],
       "assertions": [
         {
@@ -91503,7 +91504,8 @@
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
             "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
-            "TestBoundRelationUnionDelta"
+            "TestBoundRelationUnionDelta",
+            "TestBoundRelationEmptySourceCopiesItsDeltaState"
           ]
         }
       ],
@@ -91549,7 +91551,8 @@
         "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
-        "TestBoundRelationUnionDelta"
+        "TestBoundRelationUnionDelta",
+        "TestBoundRelationEmptySourceCopiesItsDeltaState"
       ],
       "conditionals": [
         {
@@ -91645,7 +91648,8 @@
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
             "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
-            "TestBoundRelationUnionDelta"
+            "TestBoundRelationUnionDelta",
+            "TestBoundRelationEmptySourceCopiesItsDeltaState"
           ]
         }
       ],
@@ -95779,7 +95783,8 @@
         "TestBoundRelationToFormula",
         "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
-        "TestBoundRelationUnionDelta"
+        "TestBoundRelationUnionDelta",
+        "TestBoundRelationEmptySourceCopiesItsDeltaState"
       ],
       "conditionals": [
         {
@@ -95889,7 +95894,8 @@
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
             "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
-            "TestBoundRelationUnionDelta"
+            "TestBoundRelationUnionDelta",
+            "TestBoundRelationEmptySourceCopiesItsDeltaState"
           ]
         }
       ],

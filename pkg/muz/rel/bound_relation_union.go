@@ -149,7 +149,7 @@ func (r *BoundRelation) UnionWithDelta(source, delta *BoundRelation, widen bool)
 		return false, err
 	}
 	if source.empty {
-		delta.reset()
+		delta.copyFrom(source)
 	} else if changed {
 		delta.copyFrom(r)
 	}

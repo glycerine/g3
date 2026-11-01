@@ -118,3 +118,18 @@ func TestBoundRelationUnionIntoEmptyCopiesEqualityClasses(t *testing.T) {
 		t.Fatal("delta copy lost bounds", strict)
 	}
 }
+
+func TestBoundRelationEmptySourceCopiesItsDeltaState(t *testing.T) {
+	source := NewBoundRelation(2, false)
+	astTestMust(t, source.Equate(0, 1))
+	astTestMust(t, source.AddLess(0, 0))
+	if !source.Empty() {
+		t.Fatal("strict self-bound did not make source empty")
+	}
+	target, delta := NewBoundRelation(2, false), NewBoundRelation(2, false)
+	changed, err := target.UnionWithDelta(source, delta, false)
+	astTestMust(t, err)
+	if changed || !delta.Empty() || delta.find(0) != delta.find(1) {
+		t.Fatal("empty source delta did not copy source state", changed, delta.Empty())
+	}
+}
