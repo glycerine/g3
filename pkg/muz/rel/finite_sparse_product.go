@@ -224,6 +224,110 @@ func (p *FiniteSparseProduct) Empty() (bool, error) {
 	return n == 0, err
 }
 
+// UnionFrom adds source rows into p. The source and destination must have the
+// same finite signature and column partition; inner tables are copied before
+// updates so source ownership remains independent.
+func (p *FiniteSparseProduct) UnionFrom(source *FiniteSparseProduct) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := source.open(); err != nil {
+		return err
+	}
+	if p.manager != source.manager || len(p.sorts) != len(source.sorts) || !p.innerSignature.equal(source.innerSignature) {
+		return ErrTableRelation
+	}
+	for i := range p.sorts {
+		if p.sorts[i] != source.sorts[i] {
+			return ErrTableRelation
+		}
+	}
+	for i := range p.tableColumns {
+		if p.tableColumns[i] != source.tableColumns[i] {
+			return ErrTableRelation
+		}
+	}
+	rows, err := source.table.Facts()
+	if err != nil {
+		return err
+	}
+	for _, sourceKey := range rows {
+		sourceIndex := int(sourceKey[len(sourceKey)-1])
+		if sourceIndex < 0 || sourceIndex >= len(source.inner) || source.inner[sourceIndex] == nil {
+			return ErrTableRelation
+		}
+		key := append(Fact(nil), sourceKey...)
+		exists, err := p.table.FetchFact(key)
+		if err != nil {
+			return err
+		}
+		var merged *SparseTable
+		var oldIndex int = -1
+		if exists {
+			oldIndex = int(key[len(key)-1])
+			if oldIndex < 0 || oldIndex >= len(p.inner) || p.inner[oldIndex] == nil {
+				return ErrTableRelation
+			}
+			merged, err = p.inner[oldIndex].Clone()
+		} else {
+			merged, err = NewSparseTable(p.innerSignature, 0)
+		}
+		if err != nil {
+			return err
+		}
+		facts, factsErr := source.inner[sourceIndex].Facts()
+		if factsErr != nil {
+			return errors.Join(factsErr, merged.Close())
+		}
+		for _, fact := range facts {
+			if _, err = merged.Add(fact); err != nil {
+				return errors.Join(err, merged.Close())
+			}
+		}
+		index, err := p.reserveIndex()
+		if err != nil {
+			return errors.Join(err, merged.Close())
+		}
+		key[len(key)-1] = Element(index)
+		if err = p.table.EnsureFact(key); err != nil {
+			p.recycleReservedIndex(index)
+			return errors.Join(err, merged.Close())
+		}
+		p.inner[index] = merged
+		if oldIndex >= 0 {
+			old := p.inner[oldIndex]
+			p.inner[oldIndex] = nil
+			p.available = append(p.available, oldIndex)
+			if err = old.Close(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *FiniteSparseProduct) reserveIndex() (int, error) {
+	if n := len(p.available); n != 0 {
+		index := p.available[n-1]
+		p.available = p.available[:n-1]
+		return index, nil
+	}
+	if uint64(len(p.inner)) >= math.MaxInt32 {
+		return -1, ErrTableRelation
+	}
+	index := len(p.inner)
+	p.inner = append(p.inner, nil)
+	return index, nil
+}
+
+func (p *FiniteSparseProduct) recycleReservedIndex(index int) {
+	if index == len(p.inner)-1 && p.inner[index] == nil {
+		p.inner = p.inner[:index]
+		return
+	}
+	p.available = append(p.available, index)
+}
+
 func (p *FiniteSparseProduct) Clone() (*FiniteSparseProduct, error) {
 	if err := p.open(); err != nil {
 		return nil, err

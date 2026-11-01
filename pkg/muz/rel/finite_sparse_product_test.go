@@ -72,3 +72,41 @@ func TestFiniteSparseProductRejectsInvalidConstructionAndFacts(t *testing.T) {
 		t.Fatal("wrong-arity fact accepted")
 	}
 }
+
+func TestFiniteSparseProductUnionFrom(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-union-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two := value(0), value(1), value(2)
+	target, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	source, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	astTestMust(t, target.AddFact([]ast.ASTHandle{zero, one}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{zero, two}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{one, one}))
+	if err = target.UnionFrom(source); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {zero, two}, {one, one}} {
+		if found, e := target.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("union missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	if found, e := target.ContainsFact([]ast.ASTHandle{one, two}); e != nil || found {
+		t.Fatalf("union added absent row: %v (%v)", found, e)
+	}
+	if found, e := source.ContainsFact([]ast.ASTHandle{zero, one}); e != nil || found {
+		t.Fatalf("union mutated source: %v (%v)", found, e)
+	}
+}
