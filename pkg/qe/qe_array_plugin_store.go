@@ -29,11 +29,6 @@ func (p *ArrayPlugin) TryStoreEquality(lhs, rhs, formula ast.ASTHandle) (solved 
 		return false, e
 	}
 	defer func() { err = errors.Join(err, p.manager.DelRef(&replacement)) }()
-	actual, e := p.manager.NewRef(rhs)
-	if e != nil {
-		return false, e
-	}
-	defer func() { err = errors.Join(err, p.manager.DelRef(&actual)) }()
 	step := func(level []ast.ASTHandle, levelIndex int) (stepErr error) {
 		if len(level) < 2 {
 			return ast.ErrASTDomain
@@ -56,14 +51,7 @@ func (p *ArrayPlugin) TryStoreEquality(lhs, rhs, formula ast.ASTHandle) (solved 
 				stepErr = errors.Join(stepErr, p.manager.DelRef(&freshRef))
 			}
 		}()
-		base, e := p.manager.RefGet(actual)
-		if e != nil {
-			return e
-		}
-		if p.soundStoreProjection {
-			base = rhs
-		}
-		selectArgs := append([]ast.ASTHandle{base}, level[:len(level)-1]...)
+		selectArgs := append([]ast.ASTHandle{rhs}, level[:len(level)-1]...)
 		selected, e := p.manager.MkFamilyApp(p.family, ast.ASTArrayOpSelect, nil, selectArgs)
 		if e != nil {
 			return e
@@ -82,62 +70,60 @@ func (p *ArrayPlugin) TryStoreEquality(lhs, rhs, formula ast.ASTHandle) (solved 
 			return e
 		}
 		defer func() { stepErr = errors.Join(stepErr, p.manager.DelRef(&eqRef)) }()
-		if p.soundStoreProjection {
-			// An inner write constrains the result only if no outer write
-			// addresses the same (possibly multidimensional) index.
-			for _, outer := range levels[:levelIndex] {
-				if len(outer) != len(level) {
-					return ast.ErrASTDomain
+		// An inner write constrains the result only if no outer write
+		// addresses the same (possibly multidimensional) index.
+		for _, outer := range levels[:levelIndex] {
+			if len(outer) != len(level) {
+				return ast.ErrASTDomain
+			}
+			var same ast.ASTRef
+			for index := 0; index < len(level)-1; index++ {
+				part, cause := p.manager.MkEq(level[index], outer[index])
+				if cause != nil {
+					return cause
 				}
-				var same ast.ASTRef
-				for index := 0; index < len(level)-1; index++ {
-					part, cause := p.manager.MkEq(level[index], outer[index])
+				if same == (ast.ASTRef{}) {
+					same, cause = p.manager.NewRef(part)
 					if cause != nil {
 						return cause
 					}
-					if same == (ast.ASTRef{}) {
-						same, cause = p.manager.NewRef(part)
-						if cause != nil {
-							return cause
-						}
-						defer func(ref ast.ASTRef) { stepErr = errors.Join(stepErr, p.manager.DelRef(&ref)) }(same)
-					} else {
-						previous, cause := p.manager.RefGet(same)
-						if cause != nil {
-							return cause
-						}
-						part, cause = p.manager.MkAnd(previous, part)
-						if cause != nil {
-							return cause
-						}
-						if cause = p.manager.SetRef(same, part); cause != nil {
-							return cause
-						}
+					defer func(ref ast.ASTRef) { stepErr = errors.Join(stepErr, p.manager.DelRef(&ref)) }(same)
+				} else {
+					previous, cause := p.manager.RefGet(same)
+					if cause != nil {
+						return cause
+					}
+					part, cause = p.manager.MkAnd(previous, part)
+					if cause != nil {
+						return cause
+					}
+					if cause = p.manager.SetRef(same, part); cause != nil {
+						return cause
 					}
 				}
-				if same == (ast.ASTRef{}) {
-					return ast.ErrASTDomain
-				}
-				sameExpr, cause := p.manager.RefGet(same)
-				if cause != nil {
-					return cause
-				}
-				oldEq, cause := p.manager.RefGet(eqRef)
-				if cause != nil {
-					return cause
-				}
-				guarded, cause := p.manager.MkOr(sameExpr, oldEq)
-				if cause != nil {
-					return cause
-				}
-				if cause = p.manager.SetRef(eqRef, guarded); cause != nil {
-					return cause
-				}
 			}
-			eq, e = p.manager.RefGet(eqRef)
-			if e != nil {
-				return e
+			if same == (ast.ASTRef{}) {
+				return ast.ErrASTDomain
 			}
+			sameExpr, cause := p.manager.RefGet(same)
+			if cause != nil {
+				return cause
+			}
+			oldEq, cause := p.manager.RefGet(eqRef)
+			if cause != nil {
+				return cause
+			}
+			guarded, cause := p.manager.MkOr(sameExpr, oldEq)
+			if cause != nil {
+				return cause
+			}
+			if cause = p.manager.SetRef(eqRef, guarded); cause != nil {
+				return cause
+			}
+		}
+		eq, e = p.manager.RefGet(eqRef)
+		if e != nil {
+			return e
 		}
 		oldFormula, e := p.manager.RefGet(result)
 		if e != nil {
@@ -148,14 +134,6 @@ func (p *ArrayPlugin) TryStoreEquality(lhs, rhs, formula ast.ASTHandle) (solved 
 			return e
 		}
 		if e = p.manager.SetRef(result, newFormula); e != nil {
-			return e
-		}
-		realArgs := append([]ast.ASTHandle{base}, level...)
-		realStore, e := p.manager.MkFamilyApp(p.family, ast.ASTArrayOpStore, nil, realArgs)
-		if e != nil {
-			return e
-		}
-		if e = p.manager.SetRef(actual, realStore); e != nil {
 			return e
 		}
 		oldReplacement, e := p.manager.RefGet(replacement)

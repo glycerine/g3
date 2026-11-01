@@ -1,8 +1,14 @@
 package qe
 
 import (
-	"github.com/glycerine/g3/pkg/ast"
+	"errors"
+	"fmt"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/arena"
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 func TestArrayPluginNestedStoreElimination(t *testing.T) {
@@ -61,13 +67,75 @@ func TestArrayPluginNestedStoreElimination(t *testing.T) {
 	}
 	repl := store(store(b, i, innerFresh), j, outerFresh)
 	originalRewritten := f.own(m.MkAnd(f.own(m.MkEq(store(store(repl, i, one), j, two), b)), f.own(m.MkEq(repl, b))))
-	first := f.own(m.MkEq(selectAt(b, i), one))
-	realInner := store(b, i, one)
-	second := f.own(m.MkEq(selectAt(realInner, j), two))
+	first := f.own(m.MkOr(f.own(m.MkEq(i, j)), f.own(m.MkEq(selectAt(b, i), one))))
+	second := f.own(m.MkEq(selectAt(b, j), two))
 	expected := f.own(m.MkAnd(f.own(m.MkAnd(originalRewritten, first)), second))
 	got, present, e := ctx.CurrentFormula()
 	fmMust(t, e)
 	if !present || got != expected {
 		t.Fatal("rewritten store equation", got, expected)
+	}
+	// The outer write wins when the indices coincide. The upstream
+	// transformation incorrectly requires the inner value to remain visible.
+	kernel := qsatKernelOwner(t, f)
+	solver, e := kernel.solver()
+	fmMust(t, e)
+	fmMust(t, solver.AssertFormula(got))
+	fmMust(t, solver.AssertFormula(f.own(m.MkEq(i, j))))
+	fmMust(t, solver.AssertFormula(f.own(m.MkEq(selectAt(b, i), two))))
+	status, e := solver.CheckSat(nil)
+	fmMust(t, e)
+	if status != lbool.True {
+		t.Fatal("overwritten inner store made a satisfiable projection inconsistent", status)
+	}
+}
+
+func TestArrayPluginStoreAllocationFrontiers(t *testing.T) {
+	success := false
+	for stop := int64(0); stop < 1024 && !success; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			f := newFMFixture(t)
+			m := f.r.manager
+			family, err := m.RegisterArrayPlugin()
+			fmMust(t, err)
+			sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer, f.integer}), f.integer))
+			a, b := f.constant("budget-a", sort), f.constant("budget-b", sort)
+			i, j := f.constant("budget-i", f.integer), f.constant("budget-j", f.integer)
+			k, l := f.constant("budget-k", f.integer), f.constant("budget-l", f.integer)
+			v, w := f.number("1"), f.number("2")
+			inner := f.own(m.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{a, i, j, v}))
+			outer := f.own(m.MkFamilyApp(family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{inner, k, l, w}))
+			formula := f.own(m.MkEq(outer, b))
+			ctx, err := NewSolverContext(m, []ast.ASTHandle{a})
+			fmMust(t, err)
+			plugin, err := NewArrayPlugin(ctx)
+			fmMust(t, err)
+			fmMust(t, ctx.AddPlugin(plugin))
+			m.Budget().FailAfter(stop)
+			solved, err := plugin.TryStoreEquality(outer, b, formula)
+			m.Budget().FailAfter(-1)
+			var construction memory.ConstructionFailure
+			if errors.As(err, &construction) {
+				fmMust(t, construction.Cleanup())
+			}
+			if err == nil {
+				if !solved {
+					t.Fatal("store equation was not solved")
+				}
+				success = true
+			} else if !errors.Is(err, arena.ErrInjectedFailure) {
+				var memout memory.Failure
+				if !errors.As(err, &memout) || memout.Kind != memory.FailureMemout {
+					t.Fatal(err)
+				}
+			}
+			fmMust(t, ctx.Close())
+		})
+		if t.Failed() {
+			t.Fatal("store elimination allocation frontier", stop)
+		}
+	}
+	if !success {
+		t.Fatal("no successful store elimination frontier")
 	}
 }

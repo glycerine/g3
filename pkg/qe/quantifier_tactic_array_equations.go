@@ -98,8 +98,6 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 	if err != nil {
 		return result, false, err
 	}
-	// Account for overwritten writes when symbolic indices may coincide.
-	plugin.soundStoreProjection = true
 	if err = context.AddPlugin(plugin); err != nil {
 		return result, false, errors.Join(err, plugin.Close())
 	}

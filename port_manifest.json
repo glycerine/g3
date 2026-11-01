@@ -111955,6 +111955,7 @@
         "pkg/qe/solver_context_owned_variable_test.go"
       ],
       "tests": [
+        "TestArrayPluginStoreAllocationFrontiers",
         "TestQuantifierArrayMultidimensionalStoreProjection",
         "TestSMTLibRunnerQEArrayOverlappingStores",
         "TestQuantifierMixedArrayAndBitVectorGroups",
@@ -112012,11 +112013,12 @@
           ]
         },
         {
-          "name": "solve_store: inner-to-outer consistency equations and fresh values, safe replacement and context variable updates",
+          "name": "solve_store: overlap-aware consistency equations and fresh values, safe replacement and context variable updates",
           "status": "ported",
           "go_target": "pkg/qe/qe_array_plugin_store.go",
           "tests": [
-            "TestArrayPluginNestedStoreElimination"
+            "TestArrayPluginNestedStoreElimination",
+            "TestArrayPluginStoreAllocationFrontiers"
           ]
         },
         {
@@ -112061,7 +112063,7 @@
         "Fresh variables transfer their reference to the owning solver context, independently of the plugin and rewritten formula."
       ],
       "deviations": [
-        "Pending: diagnostics, allocation-failure audit and live QE solver registration.",
+        "The store solver guards inner-write constraints when later indices may coincide; the source transformation can be unsound for overlapping writes. The direct multidimensional-store path has an allocation-frontier test. Pending: diagnostics, broader allocation-failure audit and live QE solver registration.",
         "The solve_eq_zero rewriting body is unreachable through conj_enum::extract_equalities: extracted arithmetic equalities are OP_SUB, while its guard accepts only OP_ADD. Go guards this source invariant and omits that dead body."
       ]
     },
