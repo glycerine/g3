@@ -194542,7 +194542,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_tracker_foundation.go", "pkg/tactic/sls/sls_tracker_initialize.go", "pkg/tactic/sls/sls_model_flow.go", "pkg/tactic/sls/sls_graph_bv_test.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go"],
-      "tests": ["TestSLSEngineParameterReseedKeepsBufferedRandomBits", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSTrackerFoundationParamsStateAndAccessors", "TestSLSTrackerAndEvaluatorOwnerGuards", "TestSLSTrackerValueCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation"],
+      "tests": ["TestSLSSingleAssertionSelectionKeepsRandomAndUCBState", "TestSLSGSATSingleAssertionUsesAllTrackedConstants", "TestSLSEngineParameterReseedKeepsBufferedRandomBits", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSTrackerFoundationParamsStateAndAccessors", "TestSLSTrackerAndEvaluatorOwnerGuards", "TestSLSTrackerValueCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation"],
       "conditionals": [
         {
           "line": 20,

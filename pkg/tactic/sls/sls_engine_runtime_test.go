@@ -212,6 +212,83 @@ func TestSLSEngineParameterReseedKeepsBufferedRandomBits(t *testing.T) {
 	}
 }
 
+func TestSLSSingleAssertionSelectionKeepsRandomAndUCBState(t *testing.T) {
+	_, search, _, tracker, manager, _ := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "sls-single-p")
+	slsPin(t, manager, p)
+	if err := search.Initialize([]ast.ASTHandle{p}); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.SetRandomSeed(17); err != nil {
+		t.Fatal(err)
+	}
+	search.lastPosition, search.hasLastPosition = 9, true
+	for _, ucb := range []bool{false, true} {
+		tracker.ucb = ucb
+		beforeTouched := tracker.touched
+		beforeBits, beforeCount := search.randomBits, search.randomBitsCount
+		root, found, err := search.UnsatAssertion([]ast.ASTHandle{p})
+		if err != nil || !found || root != p {
+			t.Fatal("single unsatisfied assertion", root, found, err)
+		}
+		if tracker.touched != beforeTouched || search.randomBits != beforeBits || search.randomBitsCount != beforeCount || search.lastPosition != 9 || !search.hasLastPosition {
+			t.Fatal("single assertion changed source selection state", ucb, tracker.touched, search.randomBitsCount, search.lastPosition)
+		}
+	}
+	one := numeral.NewInt(1)
+	if err := tracker.SetValue(p, &one); err != nil {
+		t.Fatal(err)
+	}
+	if _, found, err := search.UnsatAssertion([]ast.ASTHandle{p}); err != nil || found {
+		t.Fatal("satisfied single assertion", found, err)
+	}
+	if search.randomBitsCount != 0 || search.lastPosition != 9 {
+		t.Fatal("satisfied assertion changed selection state")
+	}
+}
+
+func TestSLSGSATSingleAssertionUsesAllTrackedConstants(t *testing.T) {
+	_, search, _, tracker, manager, _ := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "sls-single-all-p")
+	q := slsBoolConst(t, manager, "sls-single-all-q")
+	slsPin(t, manager, p, q)
+	if err := search.Initialize([]ast.ASTHandle{p, q}); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	tracker.walksat = false
+	got, err := search.UnsatConstants([]ast.ASTHandle{p})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatal("source returns the complete constant vector", got)
+	}
+	pDecl, err := manager.GetDecl(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qDecl, err := manager.GetDecl(q)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[0] != pDecl || got[1] != qDecl {
+		t.Fatal("source constant order", got)
+	}
+	one := numeral.NewInt(1)
+	if err = tracker.SetValue(p, &one); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = search.UnsatConstants([]ast.ASTHandle{p}); err != nil || len(got) != 0 {
+		t.Fatal("satisfied single assertion returned constants", got, err)
+	}
+}
+
 func TestSLSEngineMovePhysicalFailurePrefixIsRetryable(t *testing.T) {
 	engine, _, _, _, manager, numbers := slsEngineFixture(t)
 	if err := manager.RegisterDeclarationPlugins(); err != nil {

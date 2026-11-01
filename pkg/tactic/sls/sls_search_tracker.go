@@ -710,6 +710,17 @@ func (s *SearchTracker) UnsatAssertion(roots []ast.ASTHandle) (ast.ASTHandle, bo
 	if err := s.open(); err != nil {
 		return ast.ASTHandle{}, false, err
 	}
+	if len(roots) == 1 {
+		value, err := s.base.GetValue(roots[0])
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		one, err := s.base.numbers.IsOne(value)
+		if err != nil || one {
+			return ast.ASTHandle{}, false, err
+		}
+		return roots[0], true, nil
+	}
 	position := uint32(0)
 	found := false
 	if s.base.ucb {
@@ -775,12 +786,28 @@ func (s *SearchTracker) UnsatAssertion(roots []ast.ASTHandle) (ast.ASTHandle, bo
 }
 
 func (s *SearchTracker) UnsatConstants(roots []ast.ASTHandle) ([]ast.ASTHandle, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
 	if s.base.walksat {
 		root, found, err := s.UnsatAssertion(roots)
 		if err != nil || !found {
 			return nil, err
 		}
 		return append([]ast.ASTHandle(nil), s.constantsOcc[root]...), nil
+	}
+	if len(roots) == 1 {
+		value, err := s.base.GetValue(roots[0])
+		if err != nil {
+			return nil, err
+		}
+		one, err := s.base.numbers.IsOne(value)
+		if err != nil {
+			return nil, err
+		}
+		if !one {
+			return s.base.Constants()
+		}
 	}
 	seen := make(map[ast.ASTHandle]struct{})
 	var answer []ast.ASTHandle
