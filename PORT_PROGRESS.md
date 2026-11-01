@@ -1,3 +1,5 @@
+NLSAT solver teardown now cleans an interrupted evaluator after its search closes. The mixed nonlinear allocation-retry test covers the first evaluator interruption; subsequent numerical cleanup boundaries remain under audit.
+
 Ported src/test/model2expr.cpp using its original two-argument full and partial interpretations. Tests check the resulting constant and quantified clauses and evaluate representative instances against the model.
 
 Ported the source Datalog parser regression inputs and fixed newly declared predicate heads followed by :-, including typed declaration heads. Acceptance of the original seven inputs agrees with native Z3.

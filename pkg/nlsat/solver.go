@@ -567,6 +567,11 @@ func (s *Solver) Close() (err error) {
 			s.search, s.explanation, s.projection = nil, nil, nil
 		}
 	}
+	if err == nil && s.evaluator != nil && s.evaluator.failed {
+		// The evaluator owns its interrupted local state even after the
+		// enclosing search has closed.
+		err = s.evaluator.Cleanup()
+	}
 	if err == nil && s.evaluator != nil {
 		err = s.evaluator.Close()
 		if err == nil {
