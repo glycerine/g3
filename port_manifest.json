@@ -90677,11 +90677,11 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "repeated model-satisfied disequality reduction after QE-lite projection",
+          "name": "repeated model-satisfied disequality reduction after QE-lite projection with source flattened-conjunction rebuilding, swap-removal/reprocessing order and verbosity-level-2 counts",
           "status": "ported",
           "go_target": "pkg/muz/pdr/pdr_util.go",
-          "go_targets": ["pkg/cmd/g3/main_test.go"],
-          "tests": ["TestSMTLibRunnerScripts"]
+          "go_targets": ["pkg/cmd/g3/main_test.go", "pkg/muz/pdr/disequality_order_test.go"],
+          "tests": ["TestSMTLibRunnerScripts", "TestPDRDisequalityReductionUsesSourceSwapRemovalOrder"]
         },
         {
           "name": "difference-logic and UTVPI source postorder expression traversal/classification with ordered formula roots and verbosity-level-1 first-rejection output, used by default PDR arithmetic backend selection and Farkas fallback",

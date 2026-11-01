@@ -5,10 +5,12 @@ package pdr
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func (c *Context) disequalitySides(expression ast.ASTHandle) (left, right ast.ASTHandle, matched bool, result error) {
@@ -89,6 +91,7 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 	references := make([]ast.ASTRef, 0)
 	defer func() { resultErr = errors.Join(resultErr, closeASTRefs(c.manager, references)) }()
 	definitions := make([]ast.ASTHandle, 0)
+	var deleted uint32
 	for _, term := range order {
 		count := counts[term]
 		if count < threshold {
@@ -116,9 +119,14 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 		}
 		references = append(references, definitionRef)
 		definitions = append(definitions, definition)
+		deleted += count
 	}
 	if len(definitions) == 0 {
-		return c.manager.NewRef(formula)
+		flattened, err := c.manager.MkAndArray(conjuncts)
+		if err != nil {
+			return result, err
+		}
+		return c.manager.NewRef(flattened)
 	}
 	replacer, err := rewriter.NewSimplifyingExprReplacer(c.manager, c.owner.contexts.config.Params, c.owner.contexts.config.Globals, c.owner.contexts.params)
 	if err != nil {
@@ -128,14 +136,18 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 	if err = replacer.SetSubstitution(&substitution); err != nil {
 		return result, err
 	}
-	reduced := make([]ast.ASTHandle, 0, len(conjuncts)+len(definitions))
-	for _, conjunct := range conjuncts {
+	// Source rewrites only the original prefix. A true conjunct is replaced
+	// by the vector's last entry, often a newly appended defining equality.
+	// Displaced original conjuncts are revisited when the prefix shrinks.
+	originalSize := len(conjuncts)
+	reduced := append(append([]ast.ASTHandle(nil), conjuncts...), definitions...)
+	for i := 0; i < originalSize; i++ {
 		rewritten, x := c.manager.NewRef(ast.ASTHandle{})
 		if x != nil {
 			return result, x
 		}
 		references = append(references, rewritten)
-		if x = replacer.Rewrite(conjunct, rewritten); x != nil {
+		if x = replacer.Rewrite(reduced[i], rewritten); x != nil {
 			return result, x
 		}
 		handle, x := c.manager.RefGet(rewritten)
@@ -143,10 +155,29 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 			return result, x
 		}
 		if !c.manager.IsTrue(handle) {
-			reduced = append(reduced, handle)
+			reduced[i] = handle
+			continue
+		}
+		reduced[i] = reduced[len(reduced)-1]
+		reduced = reduced[:len(reduced)-1]
+		if i+1 != originalSize && originalSize > len(reduced) {
+			originalSize--
+			i--
 		}
 	}
-	reduced = append(reduced, definitions...)
+	enabled, err := diagnostic.ProcessVerboseEnabled(2)
+	if err != nil {
+		return result, err
+	}
+	if enabled {
+		stream, err := diagnostic.BorrowProcessVerboseStream()
+		if err != nil {
+			return result, err
+		}
+		if err = stream.AppendCString(fmt.Sprintf("Deleted %d disequalities %d conjuncts\n", deleted, len(reduced))); err != nil {
+			return result, err
+		}
+	}
 	formula, err = c.manager.MkAndArray(reduced)
 	if err != nil {
 		return result, err
