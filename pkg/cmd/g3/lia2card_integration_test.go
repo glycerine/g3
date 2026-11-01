@@ -30,3 +30,23 @@ func TestSMTLibRunnerLIA2CardTactic(t *testing.T) {
 		t.Fatal("lia2card result", got)
 	}
 }
+
+func TestSMTLibRunnerLIA2CardUnsatCoreIncludesBounds(t *testing.T) {
+	script := `(set-logic QF_LIA)
+(set-option :produce-unsat-cores true)
+(declare-const x Int)
+(assert (! (>= x 0) :named lo))
+(assert (! (<= x 1) :named hi))
+(assert (! (= (+ x 1) 3) :named equation))
+(check-sat-using (then lia2card smt))
+(get-unsat-core)
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	got := strings.Join(strings.Fields(out.String()), " ")
+	if !strings.HasPrefix(got, "unsat ") || !strings.Contains(got, "hi") || !strings.Contains(got, "equation") {
+		t.Fatal("unsat core omitted required assumptions", got)
+	}
+}

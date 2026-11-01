@@ -241,6 +241,10 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 	if err != nil {
 		return err
 	}
+	cores, err := goal.UnsatCoresEnabled()
+	if err != nil {
+		return err
+	}
 	size, err := goal.Size()
 	if err != nil {
 		return err
@@ -276,7 +280,16 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		if e != nil {
 			return e
 		}
-		if e = goal.Update(index, value, proof, dep); e != nil {
+		if cores && value != original {
+			dep, e = t.lia2cardDependencies(original, variables, zeroOne, dep)
+			if e != nil {
+				return e
+			}
+			e = errors.Join(goal.Update(index, value, proof, dep), t.manager.DependencyDec(dep))
+		} else {
+			e = goal.Update(index, value, proof, dep)
+		}
+		if e != nil {
 			return e
 		}
 		for _, variable := range variables {
@@ -304,14 +317,39 @@ func (t *LIA2CardTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (
 		if e != nil {
 			return e
 		}
-		if e = goal.Assert(upper); e != nil {
+		var upperDep, lowerDep ast.ASTDependency
+		if cores {
+			upperDep, e = t.bounds.UpperDependency(variable)
+			if e != nil {
+				return e
+			}
+			lowerDep, e = t.bounds.LowerDependency(variable)
+			if e != nil {
+				return e
+			}
+		}
+		var upperProof ast.ASTHandle
+		if proofs {
+			upperProof, e = t.manager.MkProofAsserted(upper)
+			if e != nil {
+				return e
+			}
+		}
+		if e = goal.AssertWithProof(upper, upperProof, upperDep); e != nil {
 			return e
 		}
 		lower, e := t.manager.MkArithmeticLE(zero, variable)
 		if e != nil {
 			return e
 		}
-		if e = goal.Assert(lower); e != nil {
+		var lowerProof ast.ASTHandle
+		if proofs {
+			lowerProof, e = t.manager.MkProofAsserted(lower)
+			if e != nil {
+				return e
+			}
+		}
+		if e = goal.AssertWithProof(lower, lowerProof, lowerDep); e != nil {
 			return e
 		}
 	}
