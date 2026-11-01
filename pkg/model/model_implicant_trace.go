@@ -32,3 +32,35 @@ func (i *ModelImplicant) traceArrayExtraction(line int, prefix string, terms ...
 		})
 	return operandErr
 }
+
+// Source: model_implicant::eval_array_eq, model_implicant.cpp:538-609.
+func (i *ModelImplicant) traceArrayEquality(line int, prefix string, terms ...ast.ASTHandle) error {
+	tags := i.services.Trace
+	if tags == nil {
+		tags = diagnostic.BorrowProcessTraceTags()
+	}
+	if !tags.ShouldTrace("pdr") {
+		return nil
+	}
+	var operandErr error
+	_ = tags.EmitConditional("pdr", "eval_array_eq", "src/model/model_implicant.cpp", line,
+		func() bool { return true }, func(out io.Writer) error {
+			_, _ = io.WriteString(out, prefix)
+			for n, term := range terms {
+				if err := i.evaluator.writeSMT2(out, term); err != nil {
+					operandErr = err
+					return err
+				}
+				separator := "\n"
+				if line == 565 && n+1 < len(terms) {
+					separator = " "
+				}
+				if line == 597 && (n == 1 || n == 3) {
+					separator = " |-> "
+				}
+				_, _ = io.WriteString(out, separator)
+			}
+			return nil
+		})
+	return operandErr
+}

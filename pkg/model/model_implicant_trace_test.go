@@ -13,37 +13,43 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+func modelImplicantDiagnosticFixture(t *testing.T) (*ast.ASTManager, *Model, *ModelImplicant, *bytes.Buffer, *diagnostic.TraceTags) {
+	t.Helper()
+	m := arrayTableManager(t)
+	arrayTableMust(t, m.RegisterDeclarationPlugins())
+	context, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
+	arrayTableMust(t, err)
+	catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
+	arrayTableMust(t, err)
+	globals, err := uparams.NewGlobalParamsService(m.Symbols, context, uparams.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
+	arrayTableMust(t, err)
+	arrayTableMust(t, globals.InitializeSource())
+	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: m.Budget()})
+	arrayTableMust(t, err)
+	cooperation, err := cooperate.NewCooperation(m.Budget())
+	arrayTableMust(t, err)
+	t.Cleanup(func() {
+		arrayTableMust(t, cooperation.Close())
+		arrayTableMust(t, runtime.Close())
+		arrayTableMust(t, globals.Close())
+		arrayTableMust(t, catalog.Close())
+		arrayTableMust(t, context.Close())
+	})
+	md, err := NewModel(m)
+	arrayTableMust(t, err)
+	t.Cleanup(func() { arrayTableMust(t, md.Close()) })
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	implicant, err := NewModelImplicant(m, ModelEvaluatorConfig{Context: context, Globals: globals, Memory: runtime, Cooperation: cooperation, Trace: tags})
+	arrayTableMust(t, err)
+	t.Cleanup(func() { arrayTableMust(t, implicant.Close()) })
+	return m, md, implicant, &output, tags
+}
+
 func TestModelImplicantArrayExtractorSourceTrace(t *testing.T) {
 	for _, name := range []string{"constant", "function", "no-else", "non-ground-entry", "non-ground-else", "untranslated"} {
 		t.Run(name, func(t *testing.T) {
-			m := arrayTableManager(t)
-			arrayTableMust(t, m.RegisterDeclarationPlugins())
-			context, err := uparams.NewParamsContext(m.Symbols, m.NumeralService(), uparams.ParamsConfig{Budget: m.Budget()})
-			arrayTableMust(t, err)
-			catalog, err := uparams.NewGlobalParamsCatalog(m.Symbols, uparams.GlobalParamsCatalogConfig{Budget: m.Budget()})
-			arrayTableMust(t, err)
-			globals, err := uparams.NewGlobalParamsService(m.Symbols, context, uparams.GlobalParamsConfig{Budget: m.Budget(), Catalog: catalog})
-			arrayTableMust(t, err)
-			arrayTableMust(t, globals.InitializeSource())
-			runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: m.Budget()})
-			arrayTableMust(t, err)
-			cooperation, err := cooperate.NewCooperation(m.Budget())
-			arrayTableMust(t, err)
-			defer func() {
-				arrayTableMust(t, cooperation.Close())
-				arrayTableMust(t, runtime.Close())
-				arrayTableMust(t, globals.Close())
-				arrayTableMust(t, catalog.Close())
-				arrayTableMust(t, context.Close())
-			}()
-			md, err := NewModel(m)
-			arrayTableMust(t, err)
-			defer func() { arrayTableMust(t, md.Close()) }()
-			var output bytes.Buffer
-			tags := diagnostic.NewTraceTagsWithWriter(&output)
-			implicant, err := NewModelImplicant(m, ModelEvaluatorConfig{Context: context, Globals: globals, Memory: runtime, Cooperation: cooperation, Trace: tags})
-			arrayTableMust(t, err)
-			defer func() { arrayTableMust(t, implicant.Close()) }()
+			m, md, implicant, output, tags := modelImplicantDiagnosticFixture(t)
 			var pins []ast.ASTRef
 			defer func() {
 				for j := range pins {

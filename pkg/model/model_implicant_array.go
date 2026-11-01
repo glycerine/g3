@@ -171,6 +171,9 @@ func (i *ModelImplicant) valuesDiffer(left, right ast.ASTHandle) (bool, error) {
 }
 
 func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
+	if err = i.traceArrayEquality(538, "array equality: ", h); err != nil {
+		return err
+	}
 	leftRef, err := i.evaluateRef(left)
 	if err != nil {
 		return err
@@ -217,6 +220,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 		return err
 	}
 	if !rangeInfinite && !rangeVeryBig && !arrayInfinite && !arrayVeryBig {
+		if err = i.traceArrayEquality(550, "equality is unknown: ", h); err != nil {
+			return err
+		}
 		return i.setState(h, implicantX)
 	}
 	first, firstOK, err := i.extractArray(leftValue)
@@ -227,6 +233,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 		return err
 	}
 	if !firstOK {
+		if err = i.traceArrayEquality(558, "equality is unknown: ", h); err != nil {
+			return err
+		}
 		return i.setState(h, implicantX)
 	}
 	second, secondOK, err := i.extractArray(rightValue)
@@ -237,6 +246,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 		return err
 	}
 	if !secondOK {
+		if err = i.traceArrayEquality(558, "equality is unknown: ", h); err != nil {
+			return err
+		}
 		return i.setState(h, implicantX)
 	}
 	else1, err := i.manager.RefGet(first.elseCase)
@@ -253,6 +265,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 			return err
 		}
 		if different {
+			if err = i.traceArrayEquality(565, "defaults are different: ", h, else1, else2); err != nil {
+				return err
+			}
 			return i.setState(h, implicantFalse)
 		}
 		nested, err := i.isArray(else1)
@@ -261,6 +276,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 		}
 		if nested {
 			return i.evalArrayEq(h, else1, else2)
+		}
+		if err = i.traceArrayEquality(574, "equality is unknown: ", h); err != nil {
+			return err
 		}
 		return i.setState(h, implicantX)
 	}
@@ -271,6 +289,16 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 	if err != nil {
 		return err
 	}
+	select1Ref, err := i.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, i.manager.DelRef(&select1Ref)) }()
+	select2Ref, err := i.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, i.manager.DelRef(&select2Ref)) }()
 	for _, row := range rows {
 		if len(row) < 2 {
 			return ast.ErrASTDomain
@@ -285,8 +313,14 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 		if err != nil {
 			return err
 		}
+		if err = i.manager.SetRef(select1Ref, select1); err != nil {
+			return err
+		}
 		select2, err := i.manager.MkArrayAppArguments(arrayFamily, ast.ASTArrayOpSelect, ast.SliceArguments(args2))
 		if err != nil {
+			return err
+		}
+		if err = i.manager.SetRef(select2Ref, select2); err != nil {
 			return err
 		}
 		value1Ref, err := i.evaluateRef(select1)
@@ -317,6 +351,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 			return errors.Join(err, cleanupValues())
 		}
 		if different {
+			if err = i.traceArrayEquality(597, "Equality evaluation: ", h, select1, value1, select2, value2); err != nil {
+				return errors.Join(err, cleanupValues())
+			}
 			return errors.Join(i.setState(h, implicantFalse), cleanupValues())
 		}
 		nested, err := i.isArray(value1)
@@ -337,6 +374,9 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 			return nil
 		}
 		if err = cleanupValues(); err != nil {
+			return err
+		}
+		if err = i.traceArrayEquality(609, "equality is unknown: ", h); err != nil {
 			return err
 		}
 		return i.setState(h, implicantX)
