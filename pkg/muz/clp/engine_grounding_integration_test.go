@@ -7,8 +7,22 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/base"
+	usolver "github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
+
+type recordingCLPSolver struct {
+	usolver.Solver
+	results []lbool.LBool
+}
+
+func (s *recordingCLPSolver) CheckSat(assumptions []ast.ASTHandle) (lbool.LBool, error) {
+	result, err := s.Solver.CheckSat(assumptions)
+	if err == nil {
+		s.results = append(s.results, result)
+	}
+	return result, err
+}
 
 func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 	must := func(err error) {
@@ -42,7 +56,14 @@ func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 		must(rm.RegisterPredicate(d))
 		return d
 	}
-	p, q := decl("ground-p"), decl("ground-q")
+	p, q, r := decl("ground-p"), decl("ground-q"), decl("ground-r")
+	goalName, err := m.Symbols.Intern("ground-goal")
+	must(err)
+	goalDecl, err := m.MkFuncDecl(goalName, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(rm.RegisterPredicate(goalDecl))
+	goal, err := m.MkApp(goalDecl, nil)
+	must(err)
 	app := func(d ast.ASTHandle, arg ast.ASTHandle) ast.ASTHandle {
 		h, err := m.MkApp(d, []ast.ASTHandle{arg})
 		must(err)
@@ -60,11 +81,13 @@ func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 	}
 	addRule(app(p, zero), nil)
 	addRule(app(p, one), nil)
+	addRule(app(r, one), nil)
 	x, err := m.MkVar(0, integer)
 	must(err)
 	positive, err := m.MkArithmeticGT(x, zero)
 	must(err)
 	addRule(app(q, x), []ast.ASTHandle{app(p, x), positive})
+	addRule(goal, []ast.ASTHandle{app(p, x), app(r, x)})
 	ok, err := set.Finalize()
 	must(err)
 	if !ok {
@@ -73,7 +96,8 @@ func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 	solver, err := context.NewSimpleSolver()
 	must(err)
 	defer func() { must(solver.Close()) }()
-	engine, err := clp.NewEngine(m, set, solver, 20)
+	recording := &recordingCLPSolver{Solver: solver}
+	engine, err := clp.NewEngine(m, set, recording, 20)
 	must(err)
 	defer func() { must(engine.Close()) }()
 	for _, tc := range []struct {
@@ -102,5 +126,20 @@ func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 	must(m.DelRef(&sparseRef))
 	if got != lbool.True {
 		t.Fatal("sparse-variable query", got)
+	}
+	recording.results = nil
+	got, err = engine.Query(goal)
+	must(err)
+	if got != lbool.True {
+		t.Fatal("backtracking query", got)
+	}
+	want := []lbool.LBool{lbool.True, lbool.True, lbool.False, lbool.True, lbool.True}
+	if len(recording.results) != len(want) {
+		t.Fatalf("solver checks %v, want %v", recording.results, want)
+	}
+	for i := range want {
+		if recording.results[i] != want[i] {
+			t.Fatalf("solver checks %v, want %v", recording.results, want)
+		}
 	}
 }

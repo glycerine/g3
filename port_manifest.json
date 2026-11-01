@@ -86730,6 +86730,7 @@
         "pkg/muz/clp/engine_lifecycle_test.go",
         "pkg/muz/clp/engine_grounding_integration_test.go",
         "pkg/muz/clp/engine_verbose_test.go",
+        "pkg/muz/clp/engine_order_test.go",
         "pkg/muz/fp/clp_engine.go",
         "pkg/muz/fp/bmc_engine.go",
         "pkg/muz/fp/spacer_engine.go",
@@ -86751,11 +86752,15 @@
         "TestCLPEngineResultSnapshotAndAnswer",
         "TestCLPSolverUnknownRaisesSourceErrorAndRestoresScope",
         "TestCLPSearchVerboseLevels",
-        "TestCLPVerboseRuleUsesPrettyPrinterParameters"
+        "TestCLPVerboseRuleUsesPrettyPrinterParameters",
+        "TestCLPSortsFactsBeforeRecursiveRules",
+        "TestCLPStableRuleOrderAndBacktracking",
+        "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"
       ],
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "stable ordering of rules by positive-tail size and backtracking across sibling goals", "status": "partial", "go_targets": ["pkg/muz/clp/rules.go", "pkg/muz/clp/search.go", "pkg/muz/clp/engine_order_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPSortsFactsBeforeRecursiveRules", "TestCLPStableRuleOrderAndBacktracking", "TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals"]},
         {"name": "search verbosity levels and rule-head diagnostics", "status": "partial", "go_targets": ["pkg/muz/clp/verbose.go", "pkg/muz/clp/engine_verbose_test.go"], "tests": ["TestCLPSearchVerboseLevels", "TestCLPVerboseRuleUsesPrettyPrinterParameters"]},
         {"name": "CLP search leaves its statistics counters unchanged and reset clears them", "status": "ported", "go_targets": ["pkg/muz/clp/search.go", "pkg/muz/clp/lifecycle.go", "pkg/muz/clp/engine_query_test.go", "pkg/muz/clp/engine_depth_test.go"], "tests": ["TestCLPBoundedRecursiveQuery", "TestCLPDepthFrontierUnknown", "TestCLPStatisticsRemainZeroAfterRejectedRule"]},
         {"name": "grounding closes partial variable substitutions and balances query allocations on failure", "status": "ported", "go_targets": ["pkg/muz/clp/ground.go", "pkg/muz/clp/engine_failure_test.go"], "tests": ["TestCLPGroundingClosesPartialSubstitutionOnAllocationFailure", "TestCLPQueryAllocationFrontiers"]},

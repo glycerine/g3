@@ -126,3 +126,44 @@ func TestSMT2CLPCertificateForReachableAndUnreachable(t *testing.T) {
 		t.Fatalf("CLP certificate output %q, want %q", output.String(), want)
 	}
 }
+
+func TestSMT2CLPBacktracksAcrossConstrainedSiblingGoals(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	script := `(set-option :fixedpoint.engine clp)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.datalog.subsumption false)
+(set-option :fixedpoint.xform.slice false)
+(set-logic HORN)
+(declare-rel P (Int))
+(declare-rel R (Int))
+(declare-rel Reachable ())
+(declare-rel Missing ())
+(declare-var x Int)
+(rule (P 0))
+(rule (P 1))
+(rule (R 1))
+(rule (=> (and (P x) (R x)) Reachable))
+(rule (=> (and (P x) (R x) (> x 1)) Missing))
+(query Reachable)
+(query Missing)
+(query Reachable)
+`
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	// The final query repeats the first after an unreachable query. This checks
+	// that temporary query preprocessing does not discard the original rules.
+	if want := "sat\nunsat\nsat\n"; output.String() != want {
+		t.Fatalf("backtracking results %q, want %q", output.String(), want)
+	}
+}
