@@ -1,5 +1,7 @@
 SAT clause source unit closure: completed the native clause allocator, temporary clause, wrapper, debug-tag, trace, and solver display integration audit; focused normal, checked, and g3debug clause tests pass.
 
+Sparse relation ownership audit: verified that added facts and returned rows are detached from caller memory and that cloned tables own independent row/index storage; focused and full `muz/rel` tests pass in normal and `g3checked` builds.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
