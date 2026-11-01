@@ -168,9 +168,12 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		return nil, ast.ErrASTHandle
 	}
 	result = &LegacyProjectionResult{manager: p.manager}
+	// Keep the allocation reachable even when an explicit nil return overwrites
+	// the named result, including failures after publishing the formula below.
+	ownedResult := result
 	defer func() {
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, ownedResult.Close())
 			result = nil
 		}
 	}()
