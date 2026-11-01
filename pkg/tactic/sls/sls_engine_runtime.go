@@ -271,8 +271,8 @@ func (e *Engine) Rescore() (float64, error) {
 }
 
 func (e *Engine) incrementalScore(decl ast.ASTHandle, value *numeral.Int) (float64, error) {
-	e.stats.IncrementalEvaluations++
 	if e.earlyPrune {
+		e.stats.IncrementalEvaluations++
 		benefit, err := e.evaluator.UpdatePrune(e.search, decl, value)
 		if err != nil {
 			return 0, err
@@ -280,17 +280,20 @@ func (e *Engine) incrementalScore(decl ast.ASTHandle, value *numeral.Int) (float
 		if !benefit {
 			return -math.MaxFloat64, nil
 		}
-	} else if err := e.evaluator.UpdateConstant(e.search, decl, value); err != nil {
-		return 0, err
+	} else {
+		if err := e.evaluator.UpdateConstant(e.search, decl, value); err != nil {
+			return 0, err
+		}
+		e.stats.IncrementalEvaluations++
 	}
 	return e.tracker.TopSum()
 }
 
 func (e *Engine) seriousScore(decl ast.ASTHandle, value *numeral.Int) (float64, error) {
-	e.stats.IncrementalEvaluations++
 	if err := e.evaluator.SeriousUpdate(e.search, decl, value); err != nil {
 		return 0, err
 	}
+	e.stats.IncrementalEvaluations++
 	return e.tracker.TopSum()
 }
 

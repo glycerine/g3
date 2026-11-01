@@ -251,6 +251,70 @@ func TestSLSEngineMovePhysicalFailurePrefixIsRetryable(t *testing.T) {
 	}
 }
 
+func TestSLSEngineScoreCounterFailureOrder(t *testing.T) {
+	for _, mode := range []string{"incremental", "pruned", "serious"} {
+		t.Run(mode, func(t *testing.T) {
+			engine, search, _, _, manager, numbers := slsEngineFixture(t)
+			if err := manager.RegisterDeclarationPlugins(); err != nil {
+				t.Fatal(err)
+			}
+			sort, err := manager.BitVectorSort(256)
+			if err != nil {
+				t.Fatal(err)
+			}
+			x := slsBVConst(t, manager, sort, "score-failure-"+mode)
+			zero := slsBVNumeral(t, manager, 0, 256)
+			root, err := manager.MkEq(x, zero)
+			if err != nil {
+				t.Fatal(err)
+			}
+			slsPin(t, manager, x, zero, root)
+			if err = search.Initialize([]ast.ASTHandle{root}); err != nil {
+				t.Fatal(err)
+			}
+			if err = search.Reset(); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = engine.Rescore(); err != nil {
+				t.Fatal(err)
+			}
+			decl, err := manager.GetDecl(x)
+			if err != nil {
+				t.Fatal(err)
+			}
+			one, candidate := numeral.NewInt(1), numeral.NewInt(0)
+			if err = numbers.Mul2k(&one, 200, &candidate); err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				manager.Budget().FailAfter(-1)
+				if err := numbers.Del(&candidate); err != nil {
+					t.Error(err)
+				}
+			}()
+			engine.earlyPrune = mode == "pruned"
+			before := engine.stats.IncrementalEvaluations
+			manager.Budget().FailAfter(0)
+			if mode == "serious" {
+				_, err = engine.seriousScore(decl, &candidate)
+			} else {
+				_, err = engine.incrementalScore(decl, &candidate)
+			}
+			manager.Budget().FailAfter(-1)
+			if err == nil {
+				t.Fatal("expected an interrupted numerical update")
+			}
+			want := before
+			if mode == "pruned" {
+				want++
+			}
+			if got := engine.stats.IncrementalEvaluations; got != want {
+				t.Fatalf("%s evaluations = %d, want %d", mode, got, want)
+			}
+		})
+	}
+}
+
 func TestSLSGoalOrchestrationResetsSATGoalAndStoresModel(t *testing.T) {
 	engine, _, _, _, manager, _ := slsEngineFixture(t)
 	p := slsBoolConst(t, manager, "sls-goal-p")

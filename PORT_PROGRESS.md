@@ -52646,3 +52646,5 @@ SLS tracker parameter snapshot: initialize tracker settings once during engine c
 SLS random reseeding: changing the seed now preserves unused bits already buffered by the tracker, matching set_random_seed and the source random-uint consumption order. Direct and engine-parameter tests check independently calculated values before and after reseeding across a buffer boundary.
 
 SLS statistics and restart state: the source never increments the four move-type counters, and stats::reset clears only full evaluations, incremental evaluations and flip count while preserving the move and restart counts used by search. The engine and tactic wrapper now match that behavior; regressions cover a real successful flip and both reset entry points.
+
+SLS interrupted score accounting: non-pruned and serious score updates now increment their evaluation counter after a successful evaluator update, while pruned updates increment before it as in the source. A big bit-vector allocation-refusal test distinguishes the three paths.
