@@ -237,7 +237,7 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 	}
 	first, firstOK, err := i.extractArray(leftValue)
 	if first != nil {
-		defer func() { err = errors.Join(err, first.close(i.manager)) }()
+		defer func() { err = errors.Join(err, i.closeArrayFrame(first)) }()
 	}
 	if err != nil {
 		return err
@@ -250,7 +250,7 @@ func (i *ModelImplicant) evalArrayEq(h, left, right ast.ASTHandle) (err error) {
 	}
 	second, secondOK, err := i.extractArray(rightValue)
 	if second != nil {
-		defer func() { err = errors.Join(err, second.close(i.manager)) }()
+		defer func() { err = errors.Join(err, i.closeArrayFrame(second)) }()
 	}
 	if err != nil {
 		return err
@@ -406,7 +406,7 @@ func (i *ModelImplicant) normalizeArrayValue(expression ast.ASTHandle, result as
 	}
 	frame, ok, err := i.extractArray(value)
 	if frame != nil {
-		defer func() { err = errors.Join(err, frame.close(i.manager)) }()
+		defer func() { err = errors.Join(err, i.closeArrayFrame(frame)) }()
 	}
 	if err != nil || !ok {
 		return err
@@ -524,4 +524,14 @@ func (i *ModelImplicant) normalizeArrayRow(row []ast.ASTHandle) error {
 		}
 	}
 	return nil
+}
+
+// closeArrayFrame ends a source lexical extraction scope. An interrupted
+// destructor transfers its unfinished fields to the implicant until reset/Close.
+func (i *ModelImplicant) closeArrayFrame(frame *arrayExpansion) error {
+	err := frame.close(i.manager)
+	if err != nil && frame.active {
+		i.pendingArrays = append(i.pendingArrays, frame)
+	}
+	return err
 }

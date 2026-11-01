@@ -25,17 +25,18 @@ const (
 // subset. It owns only its temporary evaluator and AST references; the model,
 // manager, formulas, and process services are borrowed.
 type ModelImplicant struct {
-	manager   *ast.ASTManager
-	services  ModelEvaluatorConfig
-	model     *Model
-	evaluator *ModelEvaluator
-	states    map[ast.ASTHandle]implicantValue
-	numbers   map[ast.ASTHandle]*big.Rat
-	values    map[ast.ASTHandle]ast.ASTHandle
-	visited   map[ast.ASTHandle]bool
-	refs      []ast.ASTRef
-	drain     int
-	closed    bool
+	manager       *ast.ASTManager
+	services      ModelEvaluatorConfig
+	model         *Model
+	evaluator     *ModelEvaluator
+	states        map[ast.ASTHandle]implicantValue
+	numbers       map[ast.ASTHandle]*big.Rat
+	values        map[ast.ASTHandle]ast.ASTHandle
+	visited       map[ast.ASTHandle]bool
+	refs          []ast.ASTRef
+	pendingArrays []*arrayExpansion
+	drain         int
+	closed        bool
 }
 
 func NewModelImplicant(m *ast.ASTManager, services ModelEvaluatorConfig) (*ModelImplicant, error) {
@@ -69,6 +70,14 @@ func (i *ModelImplicant) pin(h ast.ASTHandle) error {
 }
 
 func (i *ModelImplicant) reset() error {
+	for len(i.pendingArrays) != 0 {
+		if err := i.pendingArrays[0].close(i.manager); err != nil {
+			return err
+		}
+		i.pendingArrays[0] = nil
+		i.pendingArrays = i.pendingArrays[1:]
+	}
+	i.pendingArrays = nil
 	for i.drain < len(i.refs) {
 		// DelRef can consume and clear its slot before returning an error.
 		// On retry, advance past that completed release without replaying it.
@@ -113,7 +122,7 @@ func (i *ModelImplicant) setupModel(md *Model) error {
 	if err := i.open(); err != nil {
 		return err
 	}
-	if i.model != nil || i.evaluator != nil || len(i.refs) != 0 {
+	if i.model != nil || i.evaluator != nil || len(i.refs) != 0 || len(i.pendingArrays) != 0 {
 		return ast.ErrASTPending
 	}
 	if err := md.open(); err != nil {
