@@ -13,6 +13,7 @@ func (p *smtMAMEnodePool) take(size int) []*SMTEnode {
 	vector := p.free[i]
 	p.free[i] = nil
 	p.free = p.free[:i]
+	clear(vector)
 	if cap(vector) < size {
 		return make([]*SMTEnode, size)
 	}
@@ -20,6 +21,5 @@ func (p *smtMAMEnodePool) take(size int) []*SMTEnode {
 }
 
 func (p *smtMAMEnodePool) recycle(vector []*SMTEnode) {
-	clear(vector)
-	p.free = append(p.free, vector[:0])
+	p.free = append(p.free, vector)
 }

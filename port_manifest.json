@@ -267390,9 +267390,9 @@
       "path": "src/util/pool.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/smtcore/smt_mam_enode_pool.go", "pkg/smtcore/smt_mam.go", "pkg/smtcore/smt_mam_test.go"],
-      "tests": ["TestSMTMAMMatchesUnaryAndRepeatedVariablesModuloEquality", "TestSMTMAMJoinsMultiPatternsAndRollsBackPatterns", "TestSMTQuantifierManagerEMatchingFeedsInstanceQueue"],
+      "status": "ported",
+      "go_targets": ["pkg/smtcore/smt_mam_enode_pool.go", "pkg/smtcore/smt_mam.go", "pkg/smtcore/smt_mam_test.go", "pkg/smtcore/smt_mam_enode_pool_test.go"],
+      "tests": ["TestSMTMAMMatchesUnaryAndRepeatedVariablesModuloEquality", "TestSMTMAMJoinsMultiPatternsAndRollsBackPatterns", "TestSMTQuantifierManagerEMatchingFeedsInstanceQueue", "TestSMTMAMEnodePoolLIFOResetAndGrowth"],
       "conditionals": [
         {
           "line": 19,
@@ -267407,19 +267407,23 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "SMT MAM matcher and mam_impl pool<enode_vector> checkout with LIFO reuse or fresh vector allocation (mam.cpp:1874-1879,3088-3118)",
-          "status": "partial"
+          "name": "SMT MAM concrete pool<enode_vector> checkout with LIFO reuse or fresh slice allocation (mam.cpp:1874-1879)",
+          "status": "ported",
+          "go_target": "pkg/smtcore/smt_mam_enode_pool.go",
+          "tests": ["TestSMTMAMEnodePoolLIFOResetAndGrowth"]
         },
         {
-          "name": "SMT MAM reset on checkout, unchecked recycle and destruction of only pooled vectors (mam.cpp:1877-1884,3115-3122; pool.h:26-46)",
-          "status": "partial"
+          "name": "SMT MAM reset on checkout and unchecked recycle; instruction-tree pool is unused by its Go platform replacement (mam.cpp:1877-1884; pool.h:26-46)",
+          "status": "ported",
+          "go_target": "pkg/smtcore/smt_mam_enode_pool.go",
+          "tests": ["TestSMTMAMEnodePoolLIFOResetAndGrowth"]
         }
       ],
       "ownership": [
-        "Both retained MAM owners borrow checked-out enode_vector objects until recycle; the pool owns recycled vectors and destroys only those at owner destruction. Each checkout resets the vector after mk, while recycle preserves its contents until the next checkout. The concrete Go matcher reuses borrowed enode slices; the second C++ instruction-tree owner has no direct counterpart in the current matcher."
+        "The retained matcher borrows checked-out enode vectors until recycle; the pool owns recycled vectors. Each checkout resets its vector after mk, while recycle preserves contents until the next checkout. Go uses a concrete LIFO slice pool for this instantiation; the separate instruction-tree pool has no direct counterpart in the Go matcher."
       ],
       "deviations": [
-        "The concrete Go matcher pool reuses slices in LIFO order and clears borrowed pointers when returned. The separate C++ instruction-tree pool remains unrepresented because the Go matcher uses a direct algorithm."
+        "The Go matcher pool uses concrete Go slices and clears borrowed pointers on checkout so stale pointers do not remain visible to the garbage collector after source reset. The separate instruction-tree pool remains unrepresented because the Go matcher uses a direct algorithm."
       ]
     },
     {

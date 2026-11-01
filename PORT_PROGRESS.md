@@ -1,5 +1,7 @@
 SAT clause source unit closure: completed the native clause allocator, temporary clause, wrapper, debug-tag, trace, and solver display integration audit; focused normal, checked, and g3debug clause tests pass.
 
+SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
+
 Bound-relation union and delta paths now copy union-find classes with column bounds, including the source-empty delta case. Regression tests cover each source copy branch in normal and g3checked builds.
 
 UDoc joins now have a repeated-column source regression: one left column is matched against two right columns, and a finite exhaustive oracle checks every output row. The focused test passes in normal and g3checked builds.
