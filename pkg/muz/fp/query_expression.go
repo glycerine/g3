@@ -5,6 +5,7 @@ package fp
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -32,9 +33,18 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
-	compacted, err := e.compactQueryVariables(query)
+	hoisted, err := e.hoistQueryExistentials(query)
+	if err != nil {
+		return lbool.Undef, fmt.Errorf("muz/fp: hoist query existentials: %w", err)
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&hoisted)) }()
+	query, err = e.manager.RefGet(hoisted)
 	if err != nil {
 		return lbool.Undef, err
+	}
+	compacted, err := e.compactQueryVariables(query)
+	if err != nil {
+		return lbool.Undef, fmt.Errorf("muz/fp: compact query variables: %w", err)
 	}
 	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&compacted)) }()
 	query, err = e.manager.RefGet(compacted)

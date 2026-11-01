@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -48,5 +49,38 @@ func TestCompactQueryVariablesPreservesSortsAndBoundVariables(t *testing.T) {
 	fragmentMust(t, err)
 	if got != want {
 		t.Fatal("compaction changed bound variables or reordered free-variable sorts")
+	}
+}
+
+func TestQueryExpressionHoistsExistentialVariablesIntoHead(t *testing.T) {
+	m, _ := newPDRLifecycleServices(t)
+	engine, err := NewPropositionalEngine(m)
+	fragmentMust(t, err)
+	defer func() { fragmentMust(t, engine.Close()) }()
+	boolean, err := m.MkBoolSort()
+	fragmentMust(t, err)
+	name, err := m.Symbols.Intern("query-existential-head")
+	fragmentMust(t, err)
+	relation, err := m.MkFuncDecl(name, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	fragmentMust(t, err)
+	fragmentMust(t, engine.RegisterPredicate(relation))
+	truth, err := m.MkTrue()
+	fragmentMust(t, err)
+	fragmentMust(t, engine.AddFact(relation, []ast.ASTHandle{truth}))
+	x, err := m.MkVar(0, boolean)
+	fragmentMust(t, err)
+	body, err := m.MkApp(relation, []ast.ASTHandle{x})
+	fragmentMust(t, err)
+	query, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: body})
+	fragmentMust(t, err)
+	status, err := engine.QueryExpression(query)
+	fragmentMust(t, err)
+	if status != lbool.True {
+		t.Fatal("existential query", status)
+	}
+	arity, err := m.GetArity(engine.queryClonePredicate)
+	fragmentMust(t, err)
+	if arity != 1 {
+		t.Fatalf("query head arity %d, want 1", arity)
 	}
 }

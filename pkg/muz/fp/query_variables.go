@@ -9,6 +9,35 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
+// hoistQueryExistentials exposes the existential query variables to the
+// synthetic rule head, as rule_manager::mk_query does before compaction.
+func (e *PropositionalEngine) hoistQueryExistentials(query ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+	hasQuantifiers, err := e.manager.HasQuantifiers(query)
+	if err != nil {
+		return result, err
+	}
+	if !hasQuantifiers {
+		return e.manager.NewRef(query)
+	}
+	hoister, err := rewriter.NewDefaultQuantifierHoister(e.manager)
+	if err != nil {
+		return result, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, hoister.Close())
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&result))
+			result = ast.ASTRef{}
+		}
+	}()
+	hoisted, err := hoister.PullQuantifierIndexed(false, query, true, true)
+	if err != nil {
+		return result, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, hoisted.Close()) }()
+	return e.manager.CopyRef(hoisted.Formula)
+}
+
 // compactQueryVariables removes unused free-variable indices while preserving
 // the order and sorts of the variables that occur in the query.
 func (e *PropositionalEngine) compactQueryVariables(query ast.ASTHandle) (result ast.ASTRef, resultErr error) {
