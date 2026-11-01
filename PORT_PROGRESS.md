@@ -52750,3 +52750,5 @@ QE tactic proof-mode parity: supported quantified formulas no longer fail solely
 QF_UFNRA tactic source closure: audited the ordered two-stage preprocessing chain, `elim_and`/`blast_distinct` parameter snapshot and owned factory construction. Allocation-frontier, algebraic-root, mixed arithmetic, unsat-core and focused SMT-LIB regressions pass in normal and `g3checked` builds; arithmetic purification coverage remains tracked in its own partial source units.
 
 Datalog QE plugin lifecycle closure: expanded the cache and context test to verify cached atom references are released at plugin close while unrelated AST roots return to their pre-prepare counts. Normal and `g3checked` focused plugin, branch and finite-domain tactic suites pass; broader quantifier shapes and allocation-failure audits remain open.
+
+Sparse functional-table method closure: exact source-boundary, fact, row-order, projection, join, join-project, union/delta, select-project, negation, complement and mismatched-metadata regressions pass with the full relation package in normal and `g3checked` builds. The method is marked ported; remaining sparse-table algorithms stay partial.
