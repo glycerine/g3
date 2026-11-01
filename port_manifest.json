@@ -194701,9 +194701,9 @@
       "path": "src/tactic/sls/sls_tracker.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_tracker_foundation.go", "pkg/tactic/sls/sls_tracker_initialize.go", "pkg/tactic/sls/sls_model_flow.go", "pkg/tactic/sls/sls_graph_bv_test.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go"],
-      "tests": ["TestSLSSingleAssertionSelectionKeepsRandomAndUCBState", "TestSLSGSATSingleAssertionUsesAllTrackedConstants", "TestSLSEngineParameterReseedKeepsBufferedRandomBits", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSTrackerFoundationParamsStateAndAccessors", "TestSLSTrackerAndEvaluatorOwnerGuards", "TestSLSTrackerValueCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation"],
+      "status": "ported",
+      "go_targets": ["pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_engine_runtime_test.go", "pkg/tactic/sls/sls_tracker_foundation.go", "pkg/tactic/sls/sls_tracker_initialize.go", "pkg/tactic/sls/sls_model_flow.go", "pkg/tactic/sls/sls_tracker_diagnostics.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_graph_bv_test.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go", "pkg/tactic/sls/sls_tracker_whole_source_test.go"],
+      "tests": ["TestSLSSingleAssertionSelectionKeepsRandomAndUCBState", "TestSLSGSATSingleAssertionUsesAllTrackedConstants", "TestSLSEngineParameterReseedKeepsBufferedRandomBits", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSTrackerFoundationParamsStateAndAccessors", "TestSLSTrackerAndEvaluatorOwnerGuards", "TestSLSTrackerValueCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation", "TestSLSTrackerWholeSourceWeightsSATCandidatesAndForgetting"],
       "conditionals": [
         {
           "line": 20,
@@ -194852,11 +194852,23 @@
           "text": "SASSERT(m_mpz_manager.is_one(temp.denominator()));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"tracker construction, parameter snapshots, and lifecycle","status":"ported","go_target":"pkg/tactic/sls/sls_tracker_foundation.go","tests":["TestSLSTrackerFoundationParamsStateAndAccessors","TestSLSTrackerAndEvaluatorOwnerGuards"]},
+        {"name":"expression and declaration value, score, distance, entry-point, and uplink accessors","status":"ported","go_target":"pkg/tactic/sls/sls_tracker_foundation.go","tests":["TestSLSTrackerFoundationParamsStateAndAccessors","TestSLSTrackerWholeSourceWeightsSATCandidatesAndForgetting"]},
+        {"name":"expression graph initialization, constant discovery, and root distances","status":"ported","go_target":"pkg/tactic/sls/sls_tracker_initialize.go","tests":["TestSLSInitializedBVGraphEvaluationEndToEnd","TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies"]},
+        {"name":"Boolean and bit-vector value conversion and model import/export","status":"ported","go_target":"pkg/tactic/sls/sls_model_flow.go","tests":["TestSLSValueASTPhysicalFailurePrefixCleansInvocation","TestSLSInitializedBVGraphEvaluationEndToEnd"]},
+        {"name":"Boolean and bit-vector random value generation with buffered source random bits","status":"ported","go_target":"pkg/tactic/sls/sls_search_tracker.go","tests":["TestSLSSearchTrackerRandomStreamAndUnsatSelection","TestSLSEngineParameterReseedKeepsBufferedRandomBits"]},
+        {"name":"assertion initialization, occurrence polarity, and pruning metadata","status":"ported","go_target":"pkg/tactic/sls/sls_search_tracker.go","tests":["TestSLSTrackerWholeSourceWeightsSATCandidatesAndForgetting","TestSLSPrunedUpdateNegativeOccurrenceUsesBaseline"]},
+        {"name":"assertion weights and UCB touched-count forgetting","status":"ported","go_target":"pkg/tactic/sls/sls_tracker_foundation.go","tests":["TestSLSTrackerWholeSourceWeightsSATCandidatesAndForgetting"]},
+        {"name":"model display, reset, and randomization","status":"ported","go_target":"pkg/tactic/sls/sls_tracker_diagnostics.go","tests":["TestSLSTrackerDisplayAndRandomizeSourceOverloads"]},
+        {"name":"Boolean formula scoring and unsupported bit-vector score stub","status":"ported","go_target":"pkg/tactic/sls/sls_search_tracker.go","tests":["TestSLSInitializedBVGraphEvaluationEndToEnd","TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies"]},
+        {"name":"assertion constant collection and GSAT/WalkSAT unsatisfied assertion selection","status":"ported","go_target":"pkg/tactic/sls/sls_search_tracker.go","tests":["TestSLSSearchTrackerRandomStreamAndUnsatSelection","TestSLSGSATSingleAssertionUsesAllTrackedConstants","TestSLSSingleAssertionSelectionKeepsRandomAndUCBState"]},
+        {"name":"disabled track-unsat bookkeeping and unused formula-size helpers","status":"ported","go_target":"pkg/tactic/sls/sls_search_tracker.go","tests":["TestSLSSearchTrackerRandomStreamAndUnsatSelection"],"deviation":"Source hardcodes track_unsat to zero and comments out its selection path; formula-size and average-width helpers are inside an unused commented block."}
+      ],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Source track-unsat bookkeeping is disabled, and get_formula_size/get_avg_bw are inside an unused commented block; neither was ported."]
     },
     {
       "path": "src/tactic/smtlogics/CMakeLists.txt",
