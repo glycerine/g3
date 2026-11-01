@@ -92913,7 +92913,8 @@
         "TestFiniteSparseProductResetRecyclesIndexes",
         "TestFiniteSparseProductSourceDriver",
         "TestFiniteSparseProductRenameMovesColumnsAndPartitions",
-        "TestFiniteSparseProductToFormulaMatchesRows"
+        "TestFiniteSparseProductToFormulaMatchesRows",
+        "TestFiniteSparseProductComplementAndFull"
       ],
       "conditionals": [
         {

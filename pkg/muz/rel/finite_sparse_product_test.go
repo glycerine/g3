@@ -378,3 +378,71 @@ func TestFiniteSparseProductRenameMovesColumnsAndPartitions(t *testing.T) {
 		}
 	}
 }
+
+func TestFiniteSparseProductComplementAndFull(t *testing.T) {
+	f := newTableRelationFixture(t)
+	firstName, err := f.ast.Symbols.Intern("finite-sparse-product-complement-first")
+	astTestMust(t, err)
+	firstSort, err := f.ast.MkDatalogFiniteSort(firstName, 2)
+	astTestMust(t, err)
+	secondName, err := f.ast.Symbols.Intern("finite-sparse-product-complement-second")
+	astTestMust(t, err)
+	secondSort, err := f.ast.MkDatalogFiniteSort(secondName, 3)
+	astTestMust(t, err)
+	value := func(sort ast.ASTHandle, n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zeroA, oneA := value(firstSort, 0), value(firstSort, 1)
+	zeroB, oneB, twoB := value(secondSort, 0), value(secondSort, 1), value(secondSort, 2)
+	sorts := []ast.ASTHandle{firstSort, secondSort}
+	product, err := NewFiniteSparseProduct(f.relations, sorts, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	astTestMust(t, product.AddFact([]ast.ASTHandle{zeroA, zeroB}))
+	astTestMust(t, product.AddFact([]ast.ASTHandle{oneA, twoB}))
+	complement, err := product.Complement()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, complement.Close()) }()
+	if rows, e := complement.flatten(); e != nil {
+		t.Fatal(e)
+	} else {
+		if count, e := rows.Len(); e != nil || count != 4 {
+			t.Fatalf("complement rows = %d, want 4 (%v)", count, e)
+		}
+		astTestMust(t, rows.Close())
+	}
+	for _, tc := range []struct {
+		fact []ast.ASTHandle
+		want bool
+	}{{[]ast.ASTHandle{zeroA, zeroB}, false}, {[]ast.ASTHandle{oneA, twoB}, false}, {[]ast.ASTHandle{zeroA, oneB}, true}, {[]ast.ASTHandle{oneA, zeroB}, true}} {
+		if found, e := complement.ContainsFact(tc.fact); e != nil || found != tc.want {
+			t.Fatalf("complement contains %v = %v, want %v (%v)", tc.fact, found, tc.want, e)
+		}
+	}
+	full, err := NewFullFiniteSparseProduct(f.relations, sorts, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, full.Close()) }()
+	if rows, e := full.flatten(); e != nil {
+		t.Fatal(e)
+	} else {
+		if count, e := rows.Len(); e != nil || count != 6 {
+			t.Fatalf("full rows = %d, want 6 (%v)", count, e)
+		}
+		astTestMust(t, rows.Close())
+	}
+	if _, err = NewFullFiniteSparseProduct(f.relations, []ast.ASTHandle{firstSort, firstSort, secondSort}, []bool{true, true, false}); err == nil {
+		t.Fatal("complement unsupported multi-column partition")
+	}
+	zeroArity, err := NewFiniteSparseProduct(f.relations, nil, nil)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, zeroArity.Close()) }()
+	zeroArityFull, err := zeroArity.Complement()
+	astTestMust(t, err)
+	defer func() { astTestMust(t, zeroArityFull.Close()) }()
+	if found, e := zeroArityFull.ContainsFact(nil); e != nil || !found {
+		t.Fatalf("zero-arity complement missing empty row: %v (%v)", found, e)
+	}
+}

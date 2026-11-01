@@ -52886,3 +52886,5 @@ Finite sparse product source-driver integration (2026-11-01 UTC): ported the C++
 Finite sparse-table product rename (2026-11-01 UTC): added source-style permutation cycles that rotate row values, sort handles, and table/inner partition membership together. Normal and `g3checked` tests cover movement across partitions with unequal finite domains and reject malformed cycles.
 
 Finite sparse-table product formula conversion (2026-11-01 UTC): added source-style row enumeration into an owning Boolean formula, with conjunctions over all relation columns and false for an empty relation. Rewriter-based tests evaluate matching and nonmatching tuples and the empty case in normal and `g3checked` builds.
+
+Finite sparse-table product complement and full construction (2026-11-01 UTC): added the source empty-then-complement constructor and finite complement for partitions with at most one data column each, matching the underlying table complement precondition. Tests cover the finite oracle, full cardinality, source preservation, unsupported wider partitions, and the zero-arity universe in normal and `g3checked` builds.

@@ -833,3 +833,68 @@ func (p *FiniteSparseProduct) Clone() (*FiniteSparseProduct, error) {
 	}
 	return copy, nil
 }
+
+// Complement returns the finite-domain complement of p. The source table
+// complement contract accepts at most one data column in each product layer.
+func (p *FiniteSparseProduct) Complement() (*FiniteSparseProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if len(p.tableColumns) > 1 || len(p.innerCols) > 1 {
+		return nil, ErrTableRelation
+	}
+	flat, err := p.flatten()
+	if err != nil {
+		return nil, err
+	}
+	defer flat.Close()
+	existingFacts, err := flat.Facts()
+	if err != nil {
+		return nil, err
+	}
+	existing := make(map[string]struct{}, len(existingFacts))
+	for _, fact := range existingFacts {
+		existing[factKey(fact)] = struct{}{}
+	}
+	result, err := NewFiniteSparseProduct(p.manager, p.sorts, p.tableColumnMask())
+	if err != nil {
+		return nil, err
+	}
+	row := make(Fact, len(p.sorts))
+	var enumerate func(int) error
+	enumerate = func(column int) error {
+		if column == len(row) {
+			if _, found := existing[factKey(row)]; found {
+				return nil
+			}
+			key, inner := result.splitEncoded(row)
+			return result.addEncodedFact(key, inner)
+		}
+		domain, err := p.manager.sortDomain(p.sorts[column])
+		if err != nil {
+			return err
+		}
+		for value := uint64(0); value < domain; value++ {
+			row[column] = Element(value)
+			if err = enumerate(column + 1); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err = enumerate(0); err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	return result, nil
+}
+
+// NewFullFiniteSparseProduct constructs the full finite-domain product using
+// the source mk_full sequence of empty construction followed by complement.
+func NewFullFiniteSparseProduct(manager *RelationManager, sorts []ast.ASTHandle, tableColumns []bool) (*FiniteSparseProduct, error) {
+	empty, err := NewFiniteSparseProduct(manager, sorts, tableColumns)
+	if err != nil {
+		return nil, err
+	}
+	defer empty.Close()
+	return empty.Complement()
+}
