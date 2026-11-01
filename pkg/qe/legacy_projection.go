@@ -382,5 +382,18 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
+	if ast.ASTSourceDebug {
+		handle, err := p.manager.RefGet(result.formula)
+		if err != nil {
+			return nil, err
+		}
+		holds, err := p.projectionModelHolds(md, handle)
+		if err != nil {
+			return nil, err
+		}
+		if !holds {
+			return nil, fmt.Errorf("spacer qe_project model sanity: %w", ast.ErrASTDomain)
+		}
+	}
 	return result, nil
 }
