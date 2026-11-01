@@ -12,9 +12,10 @@ import (
 )
 
 func TestNLPurifyApplyAllocationPrefixAndRetry(t *testing.T) {
-	// The prefix includes interrupted polynomial-root conversion and retry.
-	// Later numerical and search interruptions require their own ownership audit.
-	for stop := int64(0); stop < 308; stop++ {
+	// Sweep this mixed goal through the first successful allocation frontier.
+	// Other formulas and numerical interruption paths require separate audits.
+	completed := false
+	for stop := int64(0); stop < 2048 && !completed; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
 			m := astTestManager(t)
 			_, _, config := nlModelEvaluatorFixture(t, m)
@@ -52,7 +53,12 @@ func TestNLPurifyApplyAllocationPrefixAndRetry(t *testing.T) {
 				astTestMust(t, construction.Cleanup())
 			}
 			if err == nil {
-				t.Fatal("allocation prefix unexpectedly completed")
+				if !result.DecidedSat() || result.ModelConverter == nil {
+					t.Fatal("successful search lacks a model")
+				}
+				t.Logf("first successful allocation frontier: %d", stop)
+				completed = true
+				return
 			}
 			var failure memory.Failure
 			if !errors.Is(err, arena.ErrInjectedFailure) && !(errors.As(err, &failure) && failure.Kind == memory.FailureMemout) {
@@ -67,6 +73,9 @@ func TestNLPurifyApplyAllocationPrefixAndRetry(t *testing.T) {
 				t.Fatal("mixed goal failed after cleanup retry")
 			}
 		})
+	}
+	if !completed {
+		t.Fatal("allocation sweep did not reach success")
 	}
 }
 

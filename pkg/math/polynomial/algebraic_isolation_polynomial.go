@@ -71,7 +71,7 @@ func (m *AlgebraicRootCore) cleanupIsolationConversionScope(s *algebraicIsolatio
 	return nil
 }
 
-// CleanupPolynomialIsolation releases only the stopped conversion for the
+// CleanupPolynomialIsolation releases stopped isolation work belonging to the
 // named polynomial manager and output vector.
 func (m *AlgebraicRootCore) CleanupPolynomialIsolation(pm *MultivariatePolynomialManager, roots *AlgebraicVector) error {
 	if m == nil || m.self != m || m.closed {
@@ -84,10 +84,23 @@ func (m *AlgebraicRootCore) CleanupPolynomialIsolation(pm *MultivariatePolynomia
 		return ErrAlgebraicOwner
 	}
 	s := &m.isolationConversion
-	if !s.active || s.ownerPolynomial != pm || s.ownerRoots != roots {
-		return nil
+	ownsFrame := func(f *algebraicMultivariateIsolationFrame) bool {
+		return f != nil && f.ownerPolynomial == pm && f.ownerRoots == roots
 	}
-	return m.cleanupIsolationConversionScope(s)
+	if s.active && ((s.ownerPolynomial == pm && s.ownerRoots == roots) || ownsFrame(s.caller)) {
+		if err := m.cleanupIsolationConversionScope(s); err != nil {
+			return err
+		}
+	}
+	for i := len(m.multivariateIsolationFrames) - 1; i >= 0; i-- {
+		f := m.multivariateIsolationFrames[i]
+		if f.active && ownsFrame(f) {
+			if err := m.finishMultivariateIsolation(f, true); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // IsolatePolynomialRoots is the source univariate polynomial-ref overload.

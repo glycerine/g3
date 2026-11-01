@@ -15,6 +15,8 @@ import (
 // The stack records their interleaved source construction order, including the
 // declared but unused zxi_p reference. It never copies an owning numeric token.
 type algebraicMultivariateIsolationFrame struct {
+	ownerPolynomial               *MultivariatePolynomialManager
+	ownerRoots                    *AlgebraicVector
 	assignments                   PolynomialAlgebraicEvaluation
 	owner                         *AlgebraicRootCore
 	child                         *algebraicMultivariateIsolationFrame
@@ -49,7 +51,7 @@ func (s *algebraicMultivariateIsolationFrame) constructValue(i int) {
 	s.stack[s.depth] = uint8(i + 10)
 	s.depth++
 }
-func (m *AlgebraicRootCore) newMultivariateIsolationFrame(pm *MultivariatePolynomialManager) (*algebraicMultivariateIsolationFrame, error) {
+func (m *AlgebraicRootCore) newMultivariateIsolationFrame(pm *MultivariatePolynomialManager, roots *AlgebraicVector) (*algebraicMultivariateIsolationFrame, error) {
 	if pm.algebraicIsolationBorrowers == math.MaxUint32 {
 		return nil, arena.ErrSlotLimit
 	}
@@ -64,7 +66,11 @@ func (m *AlgebraicRootCore) newMultivariateIsolationFrame(pm *MultivariatePolyno
 	if s.active {
 		return nil, ErrAlgebraicPending
 	}
-	*s = algebraicMultivariateIsolationFrame{owner: m, pm: pm, active: true, running: true, borrowed: true}
+	*s = algebraicMultivariateIsolationFrame{owner: m, pm: pm, ownerPolynomial: pm, ownerRoots: roots, active: true, running: true, borrowed: true}
+	if i > 0 {
+		s.ownerPolynomial = m.multivariateIsolationFrames[i-1].ownerPolynomial
+		s.ownerRoots = m.multivariateIsolationFrames[i-1].ownerRoots
+	}
 	if i > 0 {
 		m.multivariateIsolationFrames[i-1].child = s
 	}
@@ -255,6 +261,7 @@ func (m *AlgebraicRootCore) finishMultivariateIsolation(s *algebraicMultivariate
 			}
 		}
 		s.active = false
+		s.ownerPolynomial, s.ownerRoots = nil, nil
 		s.assignments = nil
 		if s.borrowed {
 			s.pm.algebraicIsolationBorrowers--

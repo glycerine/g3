@@ -150,3 +150,49 @@ func TestPolynomialIsolationCleanupOnlyOwnsMatchingOutput(t *testing.T) {
 		t.Fatal("did not reach stopped polynomial isolation")
 	}
 }
+
+func TestMultivariateIsolationCleanupOnlyOwnsMatchingOutput(t *testing.T) {
+	found := false
+	for allowance := uint64(0); allowance < 1024 && !found; allowance++ {
+		t.Run(strconv.FormatUint(allowance, 10), func(t *testing.T) {
+			c, up, control := algebraicControlledFixture(t)
+			pm, p, _ := polynomialEvalFixtureWithRationals(t, c.config.Rationals, []polynomialEvalTerm{{1, [3]uint32{0, 0, 1}}, {-1, [3]uint32{1, 0, 0}}})
+			otherPM, _, _ := polynomialEvalFixtureWithRationals(t, c.config.Rationals, []polynomialEvalTerm{{1, [3]uint32{0, 0, 1}}})
+			values := algebraicIsolationAssignmentsFixture(t, c, up, false)
+			roots, e := c.NewVector()
+			serviceMust(t, e)
+			other, e := c.NewVector()
+			serviceMust(t, e)
+			defer func() {
+				serviceMust(t, c.CleanupRetained())
+				serviceMust(t, other.Close())
+				serviceMust(t, roots.Close())
+			}()
+			control.limit = control.visits + allowance
+			body := c.IsolateMultivariateRoots(pm, p, values, roots)
+			control.limit = 1000000
+			if body == nil || len(c.multivariateIsolationFrames) == 0 || !c.multivariateIsolationFrames[0].active {
+				return
+			}
+			found = true
+			frame := c.multivariateIsolationFrames[0]
+			serviceMust(t, c.CleanupPolynomialIsolation(pm, other))
+			serviceMust(t, c.CleanupPolynomialIsolation(otherPM, roots))
+			if !frame.active || frame.ownerRoots != roots {
+				t.Fatal("cleaned another caller's isolation")
+			}
+			serviceMust(t, c.CleanupPolynomialIsolation(pm, roots))
+			if frame.active {
+				t.Fatal("matching isolation remains active")
+			}
+			serviceMust(t, roots.Reset())
+			serviceMust(t, c.IsolateMultivariateRoots(pm, p, values, roots))
+			if roots.Len() != 1 {
+				t.Fatal("retry root count", roots.Len())
+			}
+		})
+	}
+	if !found {
+		t.Fatal("did not reach stopped multivariate isolation")
+	}
+}

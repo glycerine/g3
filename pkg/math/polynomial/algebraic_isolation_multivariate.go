@@ -83,7 +83,7 @@ func (m *AlgebraicRootCore) isolateMultivariateRoots(pm *MultivariatePolynomialM
 		}
 		return m.isolatePolynomialRootsForMultivariate(pm, p, roots, nil)
 	}
-	s, e := m.newMultivariateIsolationFrame(pm)
+	s, e := m.newMultivariateIsolationFrame(pm, roots)
 	if e != nil {
 		return e
 	}
