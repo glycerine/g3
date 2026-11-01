@@ -98143,7 +98143,7 @@
         "PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."
       ],
       "deviations": [
-        "Go reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Unfold and coalesce proof conversion remain unported; slice proof conversion is partial.",
+        "Go reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Coalesce/unfold source hyper-resolution proof construction is implemented and verified through combined preprocessing with original asserted leaves; slice proof conversion is partial.",
         "Expression-query preprocessing can collapse named fact rules into an unnamed synthetic trace rule; original trace-name reconstruction remains incomplete."
       ]
     },
