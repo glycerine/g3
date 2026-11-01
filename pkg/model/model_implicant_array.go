@@ -459,21 +459,29 @@ func (i *ModelImplicant) normalizeArrayValue(expression ast.ASTHandle, result as
 	return nil
 }
 
-// evalCompletedExpression shares the active evaluator without re-entering
-// setupModel/reset while recursively normalizing array-valued row components.
+// evalCompletedExpression follows model::eval's fresh evaluator lifetime while
+// leaving the active implicant setup available for recursive array normalization.
 func (i *ModelImplicant) evalCompletedExpression(expression ast.ASTHandle) (result ast.ASTRef, err error) {
-	previousCompletion := i.evaluator.cfg.completion
 	defer func() {
-		err = errors.Join(err, i.evaluator.SetModelCompletion(previousCompletion))
 		if err != nil && result != (ast.ASTRef{}) {
 			err = errors.Join(err, i.manager.DelRef(&result))
 			result = ast.ASTRef{}
 		}
 	}()
-	if err = i.evaluator.SetModelCompletion(true); err != nil {
-		return result, err
-	}
-	result, err = i.evaluator.EvaluateValue(expression)
+	err = func() (evalErr error) {
+		evaluator, e := NewModelEvaluator(i.model.Core(), i.services)
+		if evaluator != nil {
+			defer func() { evalErr = errors.Join(evalErr, evaluator.Close()) }()
+		}
+		if e != nil {
+			return e
+		}
+		if e = evaluator.SetModelCompletion(true); e != nil {
+			return e
+		}
+		result, e = evaluator.EvaluateValue(expression)
+		return e
+	}()
 	if err == nil {
 		err = i.normalizeArrayValue(expression, result)
 	}
