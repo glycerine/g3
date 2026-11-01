@@ -18,7 +18,7 @@ func TestCLPDepthFrontierUnknown(t *testing.T) {
 		t.Fatal(r, x)
 	}
 	s, _ := e.Statistics()
-	if s.NoUnfold != 1 {
+	if s != (clp.Statistics{}) {
 		t.Fatal(s)
 	}
 }

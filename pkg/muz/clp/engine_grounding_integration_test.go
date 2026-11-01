@@ -90,4 +90,17 @@ func TestCLPRuleVariablesShareGroundingAcrossHeadAndBody(t *testing.T) {
 			t.Fatalf("query %v = %v, want %v", tc.value, got, tc.want)
 		}
 	}
+	// Query grounding must tolerate free-variable index gaps; variables are
+	// replaced by fresh constants without changing the omitted indices.
+	sparse, err := m.MkVar(3, integer)
+	must(err)
+	sparseQuery := app(q, sparse)
+	sparseRef, err := m.NewRef(sparseQuery)
+	must(err)
+	got, err := engine.Query(sparseQuery)
+	must(err)
+	must(m.DelRef(&sparseRef))
+	if got != lbool.True {
+		t.Fatal("sparse-variable query", got)
+	}
 }

@@ -52616,3 +52616,5 @@ CLP certificate presentation now prints its source `true` answer for reachable a
 Checked short suite checkpoint: `GOCACHE=/tmp/g3-go-build-cache CGO_ENABLED=0 go test ./... -tags g3checked -timeout=0 -short -count=1` passed on the run started at commit `681c2be5e`; the reported Spacer regression also passed separately on later commits. The `util/lp` package took approximately 704 seconds in that run.
 
 CLP grounding cleanup: interrupted variable-substitution construction now closes its partial owner, and failed cleanup cannot leave an output reference behind. Allocation-frontier tests cover nullary and variable-bearing queries, solver-scope balance, complete owner cleanup, and recovery after an injected failure.
+
+CLP source audit: search no longer increments the three dormant source statistics counters; successful, depth-limited and rejected searches confirm they stay zero. A grounding integration case also checks a free variable with omitted lower indices.

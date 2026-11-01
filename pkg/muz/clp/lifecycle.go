@@ -5,6 +5,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// Statistics returns the source counters, which its search leaves unchanged.
 func (e *Engine) Statistics() (Statistics, error) {
 	if err := e.open(); err != nil {
 		return Statistics{}, err

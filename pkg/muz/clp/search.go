@@ -34,13 +34,9 @@ func (e *Engine) search(goals []ast.ASTHandle, depth uint32, index int) (status 
 		}
 		switch candidate {
 		case lbool.True:
-			e.stats.Unfold++
 			return candidate, nil
 		case lbool.Undef:
-			e.stats.NoUnfold++
 			status = lbool.Undef
-		default:
-			e.stats.Subsumed++
 		}
 	}
 	return status, nil

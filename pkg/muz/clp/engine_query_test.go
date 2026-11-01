@@ -21,7 +21,32 @@ func TestCLPBoundedRecursiveQuery(t *testing.T) {
 		t.Fatal(f.solver.pushes, f.solver.pops)
 	}
 	s, _ := e.Statistics()
-	if s.Unfold != 2 {
+	if s != (clp.Statistics{}) {
 		t.Fatal(s)
+	}
+}
+
+func TestCLPStatisticsRemainZeroAfterRejectedRule(t *testing.T) {
+	f := newFixture(t)
+	f.solver.checks = []lbool.LBool{lbool.False}
+	engine, err := clp.NewEngine(f.m, f.set, f.solver, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer engine.Close()
+	result, err := engine.Query(f.app["Q"])
+	if err != nil || result != lbool.False {
+		t.Fatal("rejected rule", result, err)
+	}
+	stats, err := engine.Statistics()
+	if err != nil || stats != (clp.Statistics{}) {
+		t.Fatal("source CLP counters", stats, err)
+	}
+	if err = engine.ResetStatistics(); err != nil {
+		t.Fatal(err)
+	}
+	stats, err = engine.Statistics()
+	if err != nil || stats != (clp.Statistics{}) {
+		t.Fatal("reset source counters", stats, err)
 	}
 }
