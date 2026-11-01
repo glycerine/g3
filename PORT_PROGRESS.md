@@ -52956,3 +52956,5 @@ Empty parameter reference integration (2026-11-01 UTC): completed the `params_re
 Infinite-domain fixedpoint API integration regression (2026-11-01 UTC): added a public `SMTContext` test that declares an integer-domain predicate without forcing an engine, adds a ground rule, queries it, and verifies auto-configuration publishes PDR levels. This closes the API-to-PDR auto-selection test gap; broader infinite-domain rule and uninterpreted-symbol coverage remains partial.
 
 Infinite-domain PDR guard integration (2026-11-01 UTC): extended the public auto-config regression to verify an integer-domain rule containing an uninterpreted function is rejected with the source PDR diagnostic; normal and checked API tests pass.
+
+Bound relation identical-column filter (2026-11-01 UTC): added the concrete source `filter_identical` mutator, equating each subsequent column with the first in input order and validating all indexes before mutation. Formula, empty-relation, trivial-input, malformed-index and post-error reuse regressions pass in the focused normal and `g3checked` relation suites.

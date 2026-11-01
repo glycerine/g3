@@ -91407,7 +91407,8 @@
         "pkg/muz/rel/bound_relation_transform_test.go",
         "pkg/muz/rel/bound_relation_formula.go",
         "pkg/muz/rel/bound_relation_formula_test.go",
-        "pkg/muz/rel/empty_relation_formula_test.go"
+        "pkg/muz/rel/empty_relation_formula_test.go",
+        "pkg/muz/rel/bound_relation_filter_identical_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -91430,7 +91431,9 @@
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
         "TestBoundRelationUnionDelta",
-        "TestBoundRelationEmptySourceCopiesItsDeltaState"
+        "TestBoundRelationEmptySourceCopiesItsDeltaState",
+        "TestBoundRelationFilterIdenticalBuildsSourceEqualityClass",
+        "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases"
       ],
       "assertions": [
         {
@@ -91515,7 +91518,11 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/bound_relation_filter.go",
           "tests": [
-            "TestBoundRelationInterpretedEqualityClasses"
+            "TestBoundRelationFilterIdenticalBuildsSourceEqualityClass",
+            "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases"
+          ],
+          "go_targets": [
+            "pkg/muz/rel/bound_relation_filter_identical_test.go"
           ]
         },
         {

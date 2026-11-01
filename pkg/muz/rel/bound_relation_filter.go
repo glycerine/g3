@@ -8,6 +8,28 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// FilterIdentical merges the source's requested column equivalence classes.
+// The first column is equated with every later column in input order.
+func (r *BoundRelation) FilterIdentical(columns []uint32) error {
+	if r == nil {
+		return ast.ErrASTDomain
+	}
+	for _, column := range columns {
+		if uint64(column) >= uint64(len(r.columns)) {
+			return ast.ErrASTDomain
+		}
+	}
+	if len(columns) < 2 {
+		return nil
+	}
+	for _, column := range columns[1:] {
+		if err := r.Equate(columns[0], column); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // FilterInterpreted applies source strict and non-strict comparisons between
 // column variables. Unsupported formula shapes return false without mutation.
 func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHandle) (bool, error) {
