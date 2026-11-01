@@ -52832,3 +52832,5 @@ Finite product equality filters (2026-11-01 UTC): verified finite-key and interv
 Finite product garbage collection (2026-11-01 UTC): checked both source collection cases: recycle unreferenced inner relations, and remove rows whose referenced relation is empty before recycling its index. The regression also verifies index reuse and complete cleanup; focused normal and `g3checked` tests pass, and the method is marked ported in both records.
 
 Finite product projection method (2026-11-01 UTC): verified key collisions merge the corresponding interval relations before removed interval columns are projected, along with finite, interval and zero-column outputs and invalid duplicate-column rejection. Focused normal and `g3checked` tests pass; marked the method ported in both finite product records.
+
+Finite product rename method (2026-11-01 UTC): checked source cycle rotation across finite/interval boundaries and interval-only columns, plus duplicate-cycle rejection, against the Go permutation path. Focused normal and `g3checked` tests pass; marked the method ported in both source records.

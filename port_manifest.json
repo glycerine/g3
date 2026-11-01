@@ -92731,7 +92731,7 @@
         },
         {
           "name": "rename cycles across finite and interval columns",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductRename"
@@ -92975,7 +92975,7 @@
         },
         {
           "name": "rename cycles across finite and interval columns",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductRename"
