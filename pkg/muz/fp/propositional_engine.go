@@ -103,6 +103,8 @@ type PropositionalEngine struct {
 	tabSubsumed         uint32
 	spacer              *muzspacer.Context
 	scopes              []*base.RuleSet
+	autoRules           []autoRuleEntry
+	autoRuleScopes      [][]autoRuleEntry
 	assertions          []ast.ASTRef
 	assertionScopes     []int
 	predicates          map[ast.ASTHandle]*predicateState
@@ -371,6 +373,10 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	if err := e.open(); err != nil {
 		return err
 	}
+	autoKind, err := e.autoFormulaKind(formula)
+	if err != nil {
+		return err
+	}
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return err
@@ -391,6 +397,7 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	added := getErr == nil
 	getErr = errors.Join(getErr, e.manager.DelRef(&bound))
 	if added {
+		e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 		e.revision++
 	}
 	return getErr
@@ -448,6 +455,10 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 // name. A replacement must preserve the head and may only strengthen the body.
 func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (resultErr error) {
 	if err := e.open(); err != nil {
+		return err
+	}
+	autoKind, err := e.autoFormulaKind(formula)
+	if err != nil {
 		return err
 	}
 	candidateSet, err := base.NewRuleSet(e.rules)
@@ -552,6 +563,16 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	prior := e.set
 	e.set = replacement
 	keepReplacement = true
+	if oldIndex >= 0 {
+		kept := e.autoRules[:0]
+		for _, entry := range e.autoRules {
+			if entry.name != name {
+				kept = append(kept, entry)
+			}
+		}
+		e.autoRules = kept
+	}
+	e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 	e.revision++
 	e.pdrRuleRevision = e.revision
 	return prior.Close()
@@ -572,6 +593,7 @@ func (e *PropositionalEngine) Push() error {
 		return errors.Join(err, snapshot.Close())
 	}
 	e.scopes = append(e.scopes, snapshot)
+	e.autoRuleScopes = append(e.autoRuleScopes, append([]autoRuleEntry(nil), e.autoRules...))
 	e.assertionScopes = append(e.assertionScopes, len(e.assertions))
 	return nil
 }
@@ -588,7 +610,7 @@ func (e *PropositionalEngine) Pop() error {
 	if e.queried {
 		return fmt.Errorf("muz/fp: pop operation is only supported before a query")
 	}
-	if len(e.assertionScopes) != len(e.scopes) {
+	if len(e.assertionScopes) != len(e.scopes) || len(e.autoRuleScopes) != len(e.scopes) {
 		return ErrPropositionalEngine
 	}
 	last := len(e.scopes) - 1
@@ -598,6 +620,8 @@ func (e *PropositionalEngine) Pop() error {
 	}
 	e.revision++
 	e.scopes = e.scopes[:last]
+	e.autoRules = e.autoRuleScopes[last]
+	e.autoRuleScopes = e.autoRuleScopes[:last]
 	assertionSize := e.assertionScopes[last]
 	e.assertionScopes = e.assertionScopes[:last]
 	var result error
@@ -1673,6 +1697,30 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 }
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (lbool.LBool, error) {
+	count, err := e.set.Len()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if count == 0 && len(declarations) > 0 {
+		hasInfinite, nonempty := false, false
+		for _, declaration := range declarations {
+			table := e.predicates[declaration].table
+			if table == nil {
+				hasInfinite = true
+				continue
+			}
+			size, cause := table.Len()
+			if cause != nil {
+				return lbool.Undef, cause
+			}
+			nonempty = nonempty || size != 0
+		}
+		if hasInfinite {
+			e.compiled = false
+			e.datalogStats.Reset()
+			return lbool.FromBool(nonempty), nil
+		}
+	}
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return lbool.Undef, err
@@ -1883,6 +1931,20 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	state := e.predicates[declaration]
 	if state == nil || !e.queried {
+		return answer, ErrPropositionalEngine
+	}
+	if state.table == nil {
+		count, cause := e.set.Len()
+		if cause != nil {
+			return answer, cause
+		}
+		if count == 0 {
+			value, cause := e.manager.MkFalse()
+			if cause != nil {
+				return answer, cause
+			}
+			return e.manager.NewRef(value)
+		}
 		return answer, ErrPropositionalEngine
 	}
 	facts, err := state.table.Facts()
@@ -2158,6 +2220,8 @@ func (e *PropositionalEngine) Close() (result error) {
 		result = errors.Join(result, e.scopes[i].Close())
 	}
 	e.scopes = nil
+	e.autoRules = nil
+	e.autoRuleScopes = nil
 	e.assertionScopes = nil
 	for i := len(e.assertions) - 1; i >= 0; i-- {
 		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))

@@ -398,9 +398,7 @@ func (t *HornTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (resultE
 	if t.simplify {
 		return t.simplifyGoal(goal, out, engine, query, declaration)
 	}
-	// The source fixedpoint context selects Datalog for finite predicates and
-	// PDR for infinite-domain Horn relations. All predicates are registered at
-	// this point, so the concrete Go factory can make the same choice.
+	// The source fixedpoint context selects an engine from the Horn rules.
 	if err = engine.SelectEngine("auto-config"); err != nil {
 		return err
 	}

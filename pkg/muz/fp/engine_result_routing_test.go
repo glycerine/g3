@@ -16,6 +16,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/fp"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func newRoutingEngine(t *testing.T) (*fp.PropositionalEngine, *ast.ASTManager) {
@@ -33,6 +34,148 @@ func newRoutingEngine(t *testing.T) (*fp.PropositionalEngine, *ast.ASTManager) {
 		fpMust(t, context.Close())
 	})
 	return engine, manager
+}
+
+func TestFixedpointAutoConfigQuantifiedRule(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	_, head := routingPredicate(t, engine, manager, "auto-quantified")
+	rule := autoQuantifiedRule(t, manager, head)
+	fpMust(t, engine.AddRule(rule, "quantified"))
+	fpMust(t, engine.SelectEngine("auto-config"))
+	kind, err := engine.SelectedEngine()
+	fpMust(t, err)
+	if kind != fp.EngineQPDR {
+		t.Fatal("quantified rule selected", kind)
+	}
+}
+
+func autoQuantifiedRule(t *testing.T, manager *ast.ASTManager, head ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	family, err := manager.RegisterArithmeticPlugin()
+	fpMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fpMust(t, err)
+	x, err := manager.MkVar(0, integer)
+	fpMust(t, err)
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	fpMust(t, err)
+	positive, err := manager.MkArithmeticGT(x, zero)
+	fpMust(t, err)
+	quantified, err := manager.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: positive})
+	fpMust(t, err)
+	rule, err := manager.MkImplies(quantified, head)
+	fpMust(t, err)
+	return rule
+}
+
+func TestFixedpointAutoConfigRestoresRuleClassification(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	_, head := routingPredicate(t, engine, manager, "auto-scope")
+	fpMust(t, engine.AddRule(head, "fact"))
+	check := func(want fp.EngineKind) {
+		t.Helper()
+		fpMust(t, engine.SelectEngine("auto-config"))
+		kind, err := engine.SelectedEngine()
+		fpMust(t, err)
+		if kind != want {
+			t.Fatal("selected engine", kind, "want", want)
+		}
+	}
+	check(fp.EngineDatalog)
+	fpMust(t, engine.Push())
+	fpMust(t, engine.UpdateRule(autoQuantifiedRule(t, manager, head), "fact"))
+	check(fp.EngineQPDR)
+	fpMust(t, engine.Pop())
+	check(fp.EngineDatalog)
+}
+
+func TestFixedpointAutoConfigStopsAtFirstNonDatalogRule(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	family, err := manager.RegisterArithmeticPlugin()
+	fpMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fpMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	name, err := manager.Symbols.Intern("auto-order-integer")
+	fpMust(t, err)
+	declaration, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(declaration))
+	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	fpMust(t, err)
+	fact, err := manager.MkApp(declaration, []ast.ASTHandle{zero})
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(fact, "integer-fact"))
+	_, head := routingPredicate(t, engine, manager, "auto-order-quantified")
+	fpMust(t, engine.AddRule(autoQuantifiedRule(t, manager, head), "quantified"))
+	fpMust(t, engine.SelectEngine("auto-config"))
+	kind, err := engine.SelectedEngine()
+	fpMust(t, err)
+	if kind != fp.EnginePDR {
+		t.Fatal("later rule changed first non-Datalog selection", kind)
+	}
+}
+
+func TestFixedpointAutoEmptyInfiniteRelationAnswer(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	family, err := manager.RegisterArithmeticPlugin()
+	fpMust(t, err)
+	integer, err := manager.MkFamilySort(family, 1, nil)
+	fpMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	name, err := manager.Symbols.Intern("auto-empty-infinite")
+	fpMust(t, err)
+	declaration, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(declaration))
+	finite, _ := routingPredicate(t, engine, manager, "auto-empty-finite")
+	fpMust(t, engine.SelectEngine("auto-config"))
+	kind, err := engine.SelectedEngine()
+	fpMust(t, err)
+	if kind != fp.EngineDatalog {
+		t.Fatal("empty program engine", kind)
+	}
+	status, err := engine.QueryPredicates([]ast.ASTHandle{declaration, finite})
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal("empty relations result", status)
+	}
+	answer, err := engine.Answer(declaration)
+	fpMust(t, err)
+	defer func() { fpMust(t, manager.DelRef(&answer)) }()
+	value, err := manager.RefGet(answer)
+	fpMust(t, err)
+	if !manager.IsFalse(value) {
+		t.Fatal("empty infinite relation answer", value)
+	}
+}
+
+func TestFixedpointAutoIgnoresOuterRuleBinders(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	bitVector, err := manager.BitVectorSort(4)
+	fpMust(t, err)
+	boolean, err := manager.MkBoolSort()
+	fpMust(t, err)
+	name, err := manager.Symbols.Intern("auto-bound-bitvector")
+	fpMust(t, err)
+	declaration, err := manager.MkFuncDecl(name, []ast.ASTHandle{bitVector}, boolean, ast.ASTFuncDeclInfo{})
+	fpMust(t, err)
+	fpMust(t, engine.RegisterPredicate(declaration))
+	x, err := manager.MkVar(0, bitVector)
+	fpMust(t, err)
+	head, err := manager.MkApp(declaration, []ast.ASTHandle{x})
+	fpMust(t, err)
+	rule, err := manager.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{bitVector}, Names: []symbol.Symbol{symbol.Numerical(0)}, Body: head})
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(rule, "bound-fact"))
+	fpMust(t, engine.SelectEngine("auto-config"))
+	kind, err := engine.SelectedEngine()
+	fpMust(t, err)
+	if kind != fp.EngineDatalog {
+		t.Fatal("outer rule binder selected", kind)
+	}
 }
 
 func TestDDNFQueryDumpsCompiledRulesAndReturnsUnknown(t *testing.T) {

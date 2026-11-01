@@ -42,15 +42,12 @@ func (e *PropositionalEngine) SelectEngine(name string) error {
 		return err
 	}
 	if name == "auto-config" {
-		kind := EngineDatalog
-		for _, state := range e.predicates {
-			if state.table == nil {
-				if e.params == nil || e.globals == nil {
-					return fmt.Errorf("muz/fp: fixedpoint auto-config requires parameter services for infinite-domain predicates")
-				}
-				kind = EnginePDR
-				break
-			}
+		kind, err := e.autoEngineKind()
+		if err != nil {
+			return err
+		}
+		if kind != EngineDatalog && (e.params == nil || e.globals == nil) {
+			return fmt.Errorf("muz/fp: fixedpoint auto-config requires parameter services for %s", kind)
 		}
 		return e.selectBackend(kind)
 	}
