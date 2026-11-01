@@ -77,6 +77,42 @@ func TestExprQEDatatypeSearchContinuesAfterFreshVariable(t *testing.T) {
 	}
 }
 
+func TestExprQEDatatypeSearchWithBothEqualityPolarities(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	f, m := d.f, d.f.r.manager
+	x := f.constant("search-both-datatype-x", d.list)
+	y := f.constant("search-both-datatype-y", d.list)
+	b := f.constant("search-both-datatype-b", f.boolean)
+	eq := f.own(m.MkEq(x, y))
+	positive := f.own(m.MkAnd(b, eq))
+	negative := f.own(m.MkAnd(f.own(m.MkNot(b)), f.own(m.MkNot(eq))))
+	body := f.own(m.MkAnd(d.app(d.consTest, x), f.own(m.MkOr(positive, negative))))
+	bound, err := bindExprQuantifierVariables(m, []ast.ASTHandle{x}, body)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&bound)) }()
+	quantifier, err := m.RefGet(bound)
+	fmMust(t, err)
+	result, complete, err := eliminateQuantifierDatatypeSearch(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("both-polarity datatype search did not finish")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	h, err := m.RefGet(result)
+	fmMust(t, err)
+	want := f.own(m.MkOr(f.own(m.MkNot(b)), d.app(d.consTest, y)))
+	different := f.own(m.MkNot(f.own(m.MkEq(h, want))))
+	kernel := qsatKernelOwner(t, f)
+	solver, err := kernel.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(different))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("datatype projection differs from expected result", status)
+	}
+}
+
 func TestExprQEFreshVariablePolicy(t *testing.T) {
 	d := newDatatypeProjectionFixture(t)
 	f, m := d.f, d.f.r.manager

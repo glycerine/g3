@@ -1,3 +1,5 @@
+Datatype QE now records equality atoms independently in positive and negative sets, preserving excluded terms in fallback witnesses. Unit, solver-equivalence and SMT-LIB tests cover both polarities.
+
 Arithmetic QE assignment now reuses cached branch formulas and republishes the same fresh variables without duplicating constraints. Direct and nested Cooper tests cover cache ownership and repeated assignment.
 
 QE partition processing now invokes scalar elimination for independent bit-vector and arithmetic groups. Nested modulo projection is tested against its parity condition and through SMT-LIB SAT/UNSAT checks.

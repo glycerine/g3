@@ -119,8 +119,8 @@ func (p *DatatypeSolverPlugin) Prepare(variable *ast.ContainsApp, formula ast.AS
 	if err = hold(formula); err != nil {
 		return false, err
 	}
-	seen := make(map[ast.ASTHandle]bool)
 	for pass, list := range [][]ast.ASTHandle{positive, negative} {
+		seen := make(map[ast.ASTHandle]bool)
 		for _, atom := range list {
 			contains, e := variable.Check(atom)
 			if e != nil {

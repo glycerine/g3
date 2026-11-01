@@ -6,6 +6,69 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+func TestDatatypeSolverPluginCollectsBothAtomPolarities(t *testing.T) {
+	d := newDatatypeProjectionFixture(t)
+	m, f := d.f.r.manager, d.f
+	x := f.constant("qe-both-polarities-x", d.list)
+	y := f.constant("qe-both-polarities-y", d.list)
+	recognized := d.app(d.consTest, x)
+	equality := f.own(m.MkEq(x, y))
+	negated := f.own(m.MkNot(equality))
+	formula := f.own(m.MkAnd(recognized, f.own(m.MkOr(equality, negated))))
+	contains, err := ast.NewContainsApp(m, x)
+	fmMust(t, err)
+	defer func() { fmMust(t, contains.Close()) }()
+	context, err := NewSolverContext(m, []ast.ASTHandle{x})
+	fmMust(t, err)
+	defer func() { fmMust(t, context.Close()) }()
+	plugin, err := NewDatatypeSolverPlugin(context)
+	fmMust(t, err)
+	fmMust(t, context.AddPlugin(plugin))
+	ok, err := plugin.Prepare(contains, formula, []ast.ASTHandle{recognized, equality, equality}, []ast.ASTHandle{equality, equality})
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("both-polarity equality rejected")
+	}
+	entry := plugin.equalities[arithmeticPluginKey{variable: x, formula: formula}]
+	if len(entry.positive) != 1 || len(entry.negative) != 1 || entry.negative[0].value != y {
+		t.Fatal("equality atom lost a polarity or was duplicated")
+	}
+	branch, err := m.NumeralService().NewValue()
+	fmMust(t, err)
+	defer func() { fmMust(t, m.NumeralService().CleanupValue(&branch)) }()
+	fmMust(t, m.NumeralService().SetUnsigned(&branch, 1))
+	result, err := m.NewRef(formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	definition, err := m.NewRef(ast.ASTHandle{})
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&definition)) }()
+	ok, err = plugin.SubstituteRecursive(contains, &branch, result, &definition)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("fallback branch rejected")
+	}
+	definitionValue, err := m.RefGet(definition)
+	fmMust(t, err)
+	count, err := m.GetNumArgs(definitionValue)
+	fmMust(t, err)
+	if count != 1 {
+		t.Fatal("diagonal witness did not include the negative equality", count)
+	}
+	arg, err := m.GetArg(definitionValue, 0)
+	fmMust(t, err)
+	if arg != y {
+		t.Fatal("diagonal witness has the wrong excluded term")
+	}
+	resultValue, err := m.RefGet(result)
+	fmMust(t, err)
+	stillContains, err := contains.Check(resultValue)
+	fmMust(t, err)
+	if stillContains {
+		t.Fatal("fallback branch left the variable in the formula")
+	}
+}
+
 func TestDatatypeSolverPluginDirectEqualityBranches(t *testing.T) {
 	d := newDatatypeProjectionFixture(t)
 	m, f := d.f.r.manager, d.f

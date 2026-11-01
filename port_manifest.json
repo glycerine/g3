@@ -110850,6 +110850,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestExprQEDatatypeSearchWithBothEqualityPolarities",
         "TestExprQENestedModuloProjection",
         "TestExprQEArithmeticSearchWithBoundedCooperResidue",
         "TestExprQEDatatypeSearchContinuesAfterFreshVariable",
@@ -112488,6 +112489,8 @@
         "pkg/qe/qe_datatype_plugin_solve_eq.go"
       ],
       "tests": [
+        "TestDatatypeSolverPluginCollectsBothAtomPolarities",
+        "TestExprQEDatatypeSearchWithBothEqualityPolarities",
         "TestExprQEDatatypeBranchPropagatesAndSubstitutes",
         "TestExprQEDatatypeSearchEliminatesRecognizedEquality",
         "TestExprQEDatatypeBranchesPrepareSolverAtoms",
@@ -114581,6 +114584,7 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerDatatypeQEBothEqualityPolarities",
         "TestSMTLibRunnerQENestedModuloProjection",
         "TestSMTLibRunnerQEBoundedCooperResidue",
         "TestSMTLibRunnerRecursiveDatatypeQEFreshVariable",
