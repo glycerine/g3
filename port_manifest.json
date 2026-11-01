@@ -92747,7 +92747,7 @@
         },
         {
           "name": "finite and interval equality joins",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_join.go",
           "tests": [
             "TestFiniteIntervalProductJoin"
@@ -92991,7 +92991,7 @@
         },
         {
           "name": "finite and interval equality joins",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_join.go",
           "tests": [
             "TestFiniteIntervalProductJoin"

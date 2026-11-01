@@ -52838,3 +52838,5 @@ Finite product rename method (2026-11-01 UTC): checked source cycle rotation acr
 Finite product formula generation (2026-11-01 UTC): matched empty results, conjunct order and the source's leading-table-column variable positions, including its interleaved-signature behavior. The focused expression-identity regression passes normally and with `g3checked`; marked the method ported in both records.
 
 Finite product clone behavior (2026-11-01 UTC): matched the source copy constructor's deep clone of inner interval relations, including the inherited vector-copy behavior that splits equivalence classes. The dedicated regression passes normally and with `g3checked`; marked the method ported in both source records.
+
+Finite product equality joins (2026-11-01 UTC): verified matching finite and interval column pairs, result signature order, projected joins, empty operands, and invalid sort/column-list rejection against the source join path. Focused normal and `g3checked` tests pass; marked the method ported in both records.
