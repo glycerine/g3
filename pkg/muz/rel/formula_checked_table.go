@@ -248,6 +248,13 @@ func (r *FormulaCheckedTable) AddFact(values []ast.ASTHandle) (added bool, resul
 	return added, r.manager.SetRef(r.formula, actualHandle)
 }
 
+// AddNewFact follows the source caller contract that values are not already
+// present, while still checking the concrete table update against its formula.
+func (r *FormulaCheckedTable) AddNewFact(values []ast.ASTHandle) error {
+	_, err := r.AddFact(values)
+	return err
+}
+
 func (r *FormulaCheckedTable) ContainsFact(values []ast.ASTHandle) (found bool, resultErr error) {
 	if err := r.open(); err != nil {
 		return false, err
@@ -356,6 +363,41 @@ func (r *FormulaCheckedTable) Empty() (empty bool, resultErr error) {
 	}
 	if err = r.checkEquivalent(falsehood, value); err != nil {
 		return false, fmt.Errorf("empty: %w", err)
+	}
+	return true, nil
+}
+
+// FastEmpty checks the underlying relation's fast emptiness result against
+// the recorded formula, matching check_relation::fast_empty.
+func (r *FormulaCheckedTable) FastEmpty() (empty bool, resultErr error) {
+	if err := r.open(); err != nil {
+		return false, err
+	}
+	if !r.table.Empty() {
+		return false, nil
+	}
+	formula, err := r.manager.RefGet(r.formula)
+	if err != nil {
+		return false, err
+	}
+	if r.manager.IsFalse(formula) {
+		return true, nil
+	}
+	ground, err := r.ground(formula)
+	if err != nil {
+		return false, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, r.manager.DelRef(&ground)) }()
+	value, err := r.manager.RefGet(ground)
+	if err != nil {
+		return false, err
+	}
+	falsehood, err := r.manager.MkFalse()
+	if err != nil {
+		return false, err
+	}
+	if err = r.checkEquivalent(falsehood, value); err != nil {
+		return false, fmt.Errorf("fast_empty: %w", err)
 	}
 	return true, nil
 }

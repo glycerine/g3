@@ -90891,12 +90891,12 @@
           "text": "SASSERT(sig1[c1] == sig2[c2]);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "SMT formula verification for concrete table facts, emptiness and reset",
-          "status": "partial",
+          "name": "SMT formula verification for concrete table facts, add_new_fact, emptiness, fast_empty and reset",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table.go",
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
@@ -90904,7 +90904,7 @@
         },
         {
           "name": "SMT-verified equal, identical and interpreted filters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_filter.go",
           "tests": [
             "TestFormulaCheckedTableFilters"
@@ -90912,7 +90912,7 @@
         },
         {
           "name": "SMT-verified fact membership and clone",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table.go",
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
@@ -90920,7 +90920,7 @@
         },
         {
           "name": "SMT-verified union and delta bounds",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_union.go",
           "tests": [
             "TestFormulaCheckedTableUnionAndDelta"
@@ -90928,7 +90928,7 @@
         },
         {
           "name": "SMT-verified column renaming",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
           "tests": [
             "TestFormulaCheckedTableRename"
@@ -90936,7 +90936,7 @@
         },
         {
           "name": "SMT-verified existential projection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
           "tests": [
             "TestFormulaCheckedTableProjection"
@@ -90947,7 +90947,7 @@
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Generic relation plugins, fixedpoint registration and ownership/failure-frontier audits remain pending."
+        "The Go checker is specialized to TableRelation; the source check_relation_plugin wraps any registered relation backend and dispatches through relation_manager."
       ]
     },
     {
@@ -90985,12 +90985,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
-          "name": "SMT formula verification for concrete table facts, emptiness and reset",
-          "status": "partial",
+          "name": "SMT formula verification for concrete table facts, add_new_fact, emptiness, fast_empty and reset",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table.go",
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
@@ -90998,7 +90998,7 @@
         },
         {
           "name": "SMT-verified equal, identical and interpreted filters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_filter.go",
           "tests": [
             "TestFormulaCheckedTableFilters"
@@ -91006,7 +91006,7 @@
         },
         {
           "name": "SMT-verified fact membership and clone",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table.go",
           "tests": [
             "TestFormulaCheckedTableFactsAndReset"
@@ -91014,7 +91014,7 @@
         },
         {
           "name": "SMT-verified union and delta bounds",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_union.go",
           "tests": [
             "TestFormulaCheckedTableUnionAndDelta"
@@ -91022,7 +91022,7 @@
         },
         {
           "name": "SMT-verified column renaming",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
           "tests": [
             "TestFormulaCheckedTableRename"
@@ -91030,7 +91030,7 @@
         },
         {
           "name": "SMT-verified existential projection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/formula_checked_table_transform.go",
           "tests": [
             "TestFormulaCheckedTableProjection"
@@ -91041,7 +91041,7 @@
         "The checker owns the wrapped table and its formula; the temporary solver and grounding references are released after each verification."
       ],
       "deviations": [
-        "Generic relation plugins, fixedpoint registration and ownership/failure-frontier audits remain pending."
+        "The Go checker is specialized to TableRelation; the source check_relation_plugin wraps any registered relation backend and dispatches through relation_manager."
       ]
     },
     {

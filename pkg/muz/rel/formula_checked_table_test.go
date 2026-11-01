@@ -37,9 +37,15 @@ func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
 	if empty, err := checked.Empty(); err != nil || !empty {
 		t.Fatal("initial empty", empty, err)
 	}
+	if empty, err := checked.FastEmpty(); err != nil || !empty {
+		t.Fatal("initial fast empty", empty, err)
+	}
 	added, err := checked.AddFact([]ast.ASTHandle{f.truth})
 	if err != nil || !added {
 		t.Fatal("first fact", added, err)
+	}
+	if err = checked.AddNewFact([]ast.ASTHandle{f.truth}); err != nil {
+		t.Fatal("new fact", err)
 	}
 	added, err = checked.AddFact([]ast.ASTHandle{f.truth})
 	if err != nil || added {
@@ -47,6 +53,9 @@ func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
 	}
 	if empty, err := checked.Empty(); err != nil || empty {
 		t.Fatal("populated relation", empty, err)
+	}
+	if empty, err := checked.FastEmpty(); err != nil || empty {
+		t.Fatal("populated fast empty", empty, err)
 	}
 	if found, err := checked.ContainsFact([]ast.ASTHandle{f.truth}); err != nil || !found {
 		t.Fatal("checked membership", found, err)
@@ -68,6 +77,9 @@ func TestFormulaCheckedTableFactsAndReset(t *testing.T) {
 	}
 	if _, err = checked.Empty(); !errors.Is(err, ErrRelationVerification) {
 		t.Fatal("missed inconsistent empty relation", err)
+	}
+	if _, err = checked.FastEmpty(); !errors.Is(err, ErrRelationVerification) {
+		t.Fatal("missed inconsistent fast empty relation", err)
 	}
 	astTestMust(t, checked.Reset())
 	if empty, err := checked.Empty(); err != nil || !empty {
