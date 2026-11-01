@@ -335,6 +335,21 @@ func (x *Expr2Polynomial) variableValue(h ASTHandle, integer bool) (*exprPolynom
 	return x.newValue(p, nil)
 }
 
+func (x *Expr2Polynomial) unsignedPowerExponent(h ASTHandle) (uint32, bool, error) {
+	text, _, numeral, err := x.ast.ArithmeticNumeralText(h)
+	if err != nil || !numeral || strings.Contains(text, "/") || strings.HasPrefix(text, "-") {
+		return 0, false, err
+	}
+	value, err := strconv.ParseUint(text, 10, 32)
+	if err != nil {
+		// The C++ rational::is_unsigned check returns false for values outside
+		// the unsigned 32-bit range, so these powers follow the atomic-variable
+		// path instead of surfacing a parser error.
+		return 0, false, nil
+	}
+	return uint32(value), true, nil
+}
+
 func (x *Expr2Polynomial) numeralValue(h ASTHandle) (*exprPolynomialValue, error) {
 	text, _, matched, err := x.ast.ArithmeticNumeralText(h)
 	if err != nil {
@@ -427,16 +442,11 @@ func (x *Expr2Polynomial) visit(h ASTHandle) (value *exprPolynomialValue, op int
 		if e != nil {
 			return nil, 0, false, e
 		}
-		text, _, numeral, e := x.ast.ArithmeticNumeralText(exponent)
-		valid := e == nil && numeral && !strings.Contains(text, "/") && !strings.HasPrefix(text, "-")
-		if valid {
-			_, e = strconv.ParseUint(text, 10, 32)
-			valid = e == nil
+		_, valid, e := x.unsignedPowerExponent(exponent)
+		if e != nil {
+			return nil, 0, false, e
 		}
 		if !valid {
-			if e != nil && numeral {
-				return nil, 0, false, e
-			}
 			if x.useVarIndices {
 				return nil, 0, false, ErrExprNotPolynomial
 			}
@@ -599,12 +609,11 @@ func (x *Expr2Polynomial) process(h ASTHandle, op int32, args []*exprPolynomialV
 		if err != nil {
 			return nil, err
 		}
-		text, _, matched, err := x.ast.ArithmeticNumeralText(exponentHandle)
-		if err != nil || !matched {
-			return nil, errors.Join(ErrExprNotPolynomial, err)
-		}
-		k64, err := strconv.ParseUint(text, 10, 32)
+		k, valid, err := x.unsignedPowerExponent(exponentHandle)
 		if err != nil {
+			return nil, err
+		}
+		if !valid {
 			return nil, ErrExprNotPolynomial
 		}
 		base, err := args[0].polynomial.Get()
@@ -615,7 +624,7 @@ func (x *Expr2Polynomial) process(h ASTHandle, op int32, args []*exprPolynomialV
 		if err != nil {
 			return nil, err
 		}
-		if err = x.core.Power(base, uint32(k64), ref); err != nil {
+		if err = x.core.Power(base, k, ref); err != nil {
 			return nil, errors.Join(err, ref.Close())
 		}
 		if _, err = ref.Get(); err != nil {
@@ -626,7 +635,7 @@ func (x *Expr2Polynomial) process(h ASTHandle, op int32, args []*exprPolynomialV
 			return nil, errors.Join(err, ref.Close())
 		}
 		dv, _ := d.Get()
-		if err = x.integers.Power(dv, uint32(k64), dv); err != nil {
+		if err = x.integers.Power(dv, k, dv); err != nil {
 			return nil, errors.Join(err, d.Close(), ref.Close())
 		}
 		return &exprPolynomialValue{polynomial: ref, denominator: d}, nil

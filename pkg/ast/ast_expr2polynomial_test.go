@@ -303,6 +303,31 @@ func TestExpr2PolynomialSourceOperatorBranchesAndAtomicInvalidPower(t *testing.T
 	}
 	astTestMust(t, p.Close())
 	astTestMust(t, d.Close())
+
+	tooLarge := exprPolynomialNumeral(t, m, "4294967296", true)
+	largePower, err := m.MkFamilyApp(family, 18, nil, []ASTHandle{realX, tooLarge})
+	astTestMust(t, err)
+	p, d, matched, err = converter.ToPolynomial(largePower)
+	astTestMust(t, err)
+	if !matched {
+		t.Fatal("out-of-range exponent should follow the atomic-variable path")
+	}
+	atomic, err = converter.IsVar(largePower)
+	astTestMust(t, err)
+	baseMapped, err = converter.IsVar(realX)
+	astTestMust(t, err)
+	if !atomic || baseMapped {
+		t.Fatal("out-of-range exponent changed source atomic-variable behavior", atomic, baseMapped)
+	}
+	astTestMust(t, p.Close())
+	astTestMust(t, d.Close())
+
+	indexed, err := NewExpr2Polynomial(Expr2PolynomialConfig{AST: m, Polynomial: pm, UseVarIndices: true})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, indexed.Close()) }()
+	if _, _, matched, err = indexed.ToPolynomial(largePower); err != ErrExprNotPolynomial || !matched {
+		t.Fatal("indexed mode must reject an out-of-range exponent as non-polynomial", matched, err)
+	}
 }
 
 func TestExpr2PolynomialSourceFrameTraceOrder(t *testing.T) {
