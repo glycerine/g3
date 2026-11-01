@@ -169,7 +169,40 @@ func TestSieveRelationAdoptionValidatesInnerShape(t *testing.T) {
 	if _, err := AdoptSieveRelation(signature, []bool{true, false}, wrong); !errors.Is(err, ErrSieve) {
 		t.Fatal("inner domain mismatch", err)
 	}
+	if _, err := wrong.Len(); err != nil {
+		t.Fatal("failed adoption consumed the inner table", err)
+	}
+	if err := wrong.Close(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := NewSieveRelation(signature, []bool{true}); !errors.Is(err, ErrSieve) {
 		t.Fatal("mask arity", err)
+	}
+}
+
+func TestSieveRelationClosesAdoptedTable(t *testing.T) {
+	signature := sieveSignature(t, 2, 3)
+	inner := NewHashTable(sieveSignature(t, 2))
+	if _, err := inner.Add(Fact{1}); err != nil {
+		t.Fatal(err)
+	}
+	relation, err := AdoptSieveRelation(signature, []bool{true, false}, inner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clone, err := relation.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeSieve(t, clone)
+	if err = relation.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = inner.Len(); !errors.Is(err, ErrTable) {
+		t.Fatal("sieve did not close its adopted table", err)
+	}
+	requireSieveFact(t, clone, Fact{1, 0}, true)
+	if err = relation.Close(); err != nil {
+		t.Fatal("repeated close", err)
 	}
 }

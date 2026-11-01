@@ -94736,7 +94736,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
-      "tests": ["TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
+      "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
       "conditionals": [
         {
           "line": 161,
@@ -94827,8 +94827,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "sieve relation owns and closes its adopted inner relation", "status": "ported", "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_relation_test.go"], "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationCloneResetAndLifecycle"]}],
+      "ownership": ["Successful adoption transfers the inner table to the sieve; rejected adoption leaves ownership with its caller, and clones own independent tables."],
       "deviations": []
     },
     {
@@ -94837,7 +94837,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
-      "tests": ["TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
+      "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
       "conditionals": [
         {
           "line": 20,
@@ -94864,8 +94864,8 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
+      "methods": [{"name": "sieve relation owns and closes its adopted inner relation", "status": "ported", "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_relation_test.go"], "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationCloneResetAndLifecycle"]}],
+      "ownership": ["Successful adoption transfers the inner table to the sieve; rejected adoption leaves ownership with its caller, and clones own independent tables."],
       "deviations": []
     },
     {

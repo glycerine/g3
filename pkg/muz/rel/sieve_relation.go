@@ -104,6 +104,9 @@ func (r *SieveRelation) Close() error {
 	if r == nil || r.closed {
 		return nil
 	}
+	if err := r.inner.Close(); err != nil {
+		return err
+	}
 	r.closed = true
 	r.inner = nil
 	r.innerCols = nil
