@@ -568,6 +568,13 @@ func (r *searchState) close() error {
 	if err := r.cleanup(); err != nil {
 		return err
 	}
+	// Search undo uses the evaluator's interval manager and assignments.
+	// Retire the evaluator's interrupted call before undo reaches them.
+	if r.evaluator.failed {
+		if err := r.evaluator.Cleanup(); err != nil {
+			return err
+		}
+	}
 	r.running = true
 	defer func() { r.running = false }()
 	if r.explanationAssumptions != nil {

@@ -14,7 +14,7 @@ import (
 func TestNLPurifyApplyAllocationPrefixAndRetry(t *testing.T) {
 	// The prefix includes interrupted polynomial-root conversion and retry.
 	// Later numerical and search interruptions require their own ownership audit.
-	for stop := int64(0); stop < 293; stop++ {
+	for stop := int64(0); stop < 308; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
 			m := astTestManager(t)
 			_, _, config := nlModelEvaluatorFixture(t, m)
