@@ -25,6 +25,22 @@ func (i *ModelImplicant) isArray(h ast.ASTHandle) (bool, error) {
 
 func (i *ModelImplicant) extractArray(h ast.ASTHandle) (frame *arrayExpansion, ok bool, err error) {
 	f := &arrayExpansion{active: true}
+	debug := diagnostic.BorrowProcessDebugContext()
+	enabled, assertionErr := diagnostic.SourceAssertionsEnabled(debug)
+	if assertionErr != nil {
+		return f, false, assertionErr
+	}
+	if enabled {
+		array, readErr := i.isArray(h)
+		if readErr != nil {
+			return f, false, readErr
+		}
+		if !array {
+			if assertionErr = diagnostic.DebugAssertionFailure(debug, "src/model/model_implicant.cpp", 478, "m_array.is_array(a)"); assertionErr != nil {
+				return f, false, assertionErr
+			}
+		}
+	}
 	if err = i.traceArrayExtraction(480, "", h); err != nil {
 		return f, false, err
 	}
