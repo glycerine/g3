@@ -73,6 +73,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		case *qe.LiteTactic:
 			return sourceTactic.TranslateWithServices(manager, qe.Config{Context: config.Params, Globals: config.Globals, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace})
+		case *qe.QuantifierTactic:
+			return sourceTactic.TranslateWithServices(manager, qe.Config{Context: config.Params, Globals: config.Globals, Cooperation: config.ModelEvaluator.Cooperation, Trace: config.ModelEvaluator.Trace})
 		case *nlsatsmt.NLPurifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *nlsattactic.NLSATTactic:

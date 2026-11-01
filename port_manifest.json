@@ -7817,6 +7817,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateQEAfterSourceClose",
         "TestAPITacticSolverTranslateQELightAfterSourceClose",
         "TestAPITacticSolverTranslateQFBVSLSAfterSourceClose",
         "TestAPITacticSolverTranslateAckermannAfterSourceClose",
@@ -114562,6 +114563,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_context_translation.go",
+        "pkg/qe/quantifier_context_translation_test.go",
+        "pkg/api/api_simple_solver_translate_test.go",
         "pkg/qe/expr_quantifier_datatype_branch_test.go",
         "pkg/qe/quantifier_tactic_options.go",
         "pkg/qe/quantifier_tactic_options_test.go",
@@ -114584,6 +114588,9 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestQuantifierContextTranslationCopiesParametersAndOptions",
+        "TestQuantifierContextTranslationAllocationFrontiers",
+        "TestAPITacticSolverTranslateQEAfterSourceClose",
         "TestSMTLibRunnerDatatypeQEBothEqualityPolarities",
         "TestSMTLibRunnerQENestedModuloProjection",
         "TestSMTLibRunnerQEBoundedCooperResidue",

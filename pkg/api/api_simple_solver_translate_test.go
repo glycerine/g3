@@ -543,6 +543,15 @@ func TestAPIComposedTacticCrossContextTranslation(t *testing.T) {
 }
 
 func TestAPITacticSolverTranslateQELightAfterSourceClose(t *testing.T) {
+	testAPITacticSolverTranslateQEAfterSourceClose(t, "qe-light")
+}
+
+func TestAPITacticSolverTranslateQEAfterSourceClose(t *testing.T) {
+	testAPITacticSolverTranslateQEAfterSourceClose(t, "qe")
+}
+
+func testAPITacticSolverTranslateQEAfterSourceClose(t *testing.T, tacticName string) {
+	t.Helper()
 	for _, contradiction := range []bool{false, true} {
 		name := "sat"
 		if contradiction {
@@ -555,7 +564,7 @@ func TestAPITacticSolverTranslateQELightAfterSourceClose(t *testing.T) {
 			astTestMust(t, err)
 			defer func() { astTestMust(t, target.Close()) }()
 			astTestMust(t, source.SetLogic("ALL"))
-			qe, err := source.Tactic("qe-light")
+			qe, err := source.Tactic(tacticName)
 			astTestMust(t, err)
 			smt, err := source.Tactic("smt")
 			astTestMust(t, err)

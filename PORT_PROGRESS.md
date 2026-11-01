@@ -1,3 +1,5 @@
+The general QE tactic now translates into target-owned services with its parameter snapshot. Direct allocation tests and SAT/UNSAT solver tests cover use after source closure.
+
 Datatype QE now records equality atoms independently in positive and negative sets, preserving excluded terms in fallback witnesses. Unit, solver-equivalence and SMT-LIB tests cover both polarities.
 
 Arithmetic QE assignment now reuses cached branch formulas and republishes the same fresh variables without duplicating constraints. Direct and nested Cooper tests cover cache ownership and repeated assignment.
