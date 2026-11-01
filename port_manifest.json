@@ -92920,7 +92920,8 @@
         "TestFiniteSparseProductToFormulaMatchesRows",
         "TestFiniteSparseProductComplementAndFull",
         "TestFiniteSparseProductTableRelationRoundTrip",
-        "TestFiniteSparseProductIdenticalPairs"
+        "TestFiniteSparseProductIdenticalPairs",
+        "TestFiniteSparseProductUnionUnifiesTableSpecification"
       ],
       "conditionals": [
         {

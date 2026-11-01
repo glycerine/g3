@@ -52892,3 +52892,5 @@ Finite sparse-table product complement and full construction (2026-11-01 UTC): a
 Finite sparse product table conversion (2026-11-01 UTC): added table-to-product conversion for empty inner signatures and the reverse conversion when all product columns are outer-table columns. Round-trip coverage verifies both rows survive, rejects nil input and rejects reverse conversion when inner columns remain; focused normal and `g3checked` tests pass.
 
 Finite sparse-table product identity-pair filtering (2026-11-01 UTC): added the source pairwise equality mutator across outer and inner columns, requiring matching sorts for each pair. Tests cover independent pair constraints, rejected rows and invalid indexes in normal and `g3checked` builds.
+
+Finite sparse-table product union specification unification (2026-11-01 UTC): union now moves columns to the inner sparse relation until all operands share the source's common table-column intersection, including target/source/delta conversion. Tests cover plain and delta unions with incompatible partitions, verify the source remains unchanged, and pass normally and with `g3checked`.

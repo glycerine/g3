@@ -689,8 +689,24 @@ func (p *FiniteSparseProduct) UnionFrom(source *FiniteSparseProduct) error {
 	if err := source.open(); err != nil {
 		return err
 	}
-	if !p.sameLayout(source) {
+	if !p.sameSorts(source) {
 		return ErrTableRelation
+	}
+	if !p.sameLayout(source) {
+		mask := p.commonTableMask(source)
+		convertedTarget, err := p.repartition(mask)
+		if err != nil {
+			return err
+		}
+		convertedSource, err := source.repartition(mask)
+		if err != nil {
+			return errors.Join(err, convertedTarget.Close())
+		}
+		if err = convertedTarget.UnionFrom(convertedSource); err != nil {
+			return errors.Join(err, convertedTarget.Close(), convertedSource.Close())
+		}
+		p.swapRelation(convertedTarget)
+		return errors.Join(convertedTarget.Close(), convertedSource.Close())
 	}
 	rows, err := source.table.Facts()
 	if err != nil {
@@ -763,8 +779,29 @@ func (p *FiniteSparseProduct) UnionFromWithDelta(source, delta *FiniteSparseProd
 	if err := delta.open(); err != nil {
 		return err
 	}
-	if !p.sameLayout(source) || !p.sameLayout(delta) || p == delta || source == delta {
+	if !p.sameSorts(source) || !p.sameSorts(delta) || p == delta || source == delta {
 		return ErrTableRelation
+	}
+	if !p.sameLayout(source) || !p.sameLayout(delta) {
+		mask := p.commonTableMask(source, delta)
+		convertedTarget, err := p.repartition(mask)
+		if err != nil {
+			return err
+		}
+		convertedSource, err := source.repartition(mask)
+		if err != nil {
+			return errors.Join(err, convertedTarget.Close())
+		}
+		convertedDelta, err := delta.repartition(mask)
+		if err != nil {
+			return errors.Join(err, convertedTarget.Close(), convertedSource.Close())
+		}
+		if err = convertedTarget.UnionFromWithDelta(convertedSource, convertedDelta); err != nil {
+			return errors.Join(err, convertedTarget.Close(), convertedSource.Close(), convertedDelta.Close())
+		}
+		p.swapRelation(convertedTarget)
+		delta.swapRelation(convertedDelta)
+		return errors.Join(convertedTarget.Close(), convertedSource.Close(), convertedDelta.Close())
 	}
 	targetTable, err := p.flatten()
 	if err != nil {
@@ -806,13 +843,8 @@ func (p *FiniteSparseProduct) UnionFromWithDelta(source, delta *FiniteSparseProd
 }
 
 func (p *FiniteSparseProduct) sameLayout(other *FiniteSparseProduct) bool {
-	if other == nil || p.manager != other.manager || len(p.sorts) != len(other.sorts) || len(p.tableColumns) != len(other.tableColumns) || !p.innerSignature.equal(other.innerSignature) {
+	if !p.sameSorts(other) || len(p.tableColumns) != len(other.tableColumns) || !p.innerSignature.equal(other.innerSignature) {
 		return false
-	}
-	for i := range p.sorts {
-		if p.sorts[i] != other.sorts[i] {
-			return false
-		}
 	}
 	for i := range p.tableColumns {
 		if p.tableColumns[i] != other.tableColumns[i] {
@@ -820,6 +852,58 @@ func (p *FiniteSparseProduct) sameLayout(other *FiniteSparseProduct) bool {
 		}
 	}
 	return true
+}
+
+func (p *FiniteSparseProduct) sameSorts(other *FiniteSparseProduct) bool {
+	if other == nil || p.manager != other.manager || len(p.sorts) != len(other.sorts) {
+		return false
+	}
+	for i := range p.sorts {
+		if p.sorts[i] != other.sorts[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *FiniteSparseProduct) commonTableMask(others ...*FiniteSparseProduct) []bool {
+	mask := p.tableColumnMask()
+	for _, other := range others {
+		for column := range mask {
+			mask[column] = mask[column] && other.isTableColumn(column)
+		}
+	}
+	return mask
+}
+
+func (p *FiniteSparseProduct) repartition(mask []bool) (*FiniteSparseProduct, error) {
+	flat, err := p.flatten()
+	if err != nil {
+		return nil, err
+	}
+	defer flat.Close()
+	facts, err := flat.Facts()
+	if err != nil {
+		return nil, err
+	}
+	result, err := NewFiniteSparseProduct(p.manager, p.sorts, mask)
+	if err != nil {
+		return nil, err
+	}
+	for _, fact := range facts {
+		key, inner := result.splitEncoded(fact)
+		if err = result.addEncodedFact(key, inner); err != nil {
+			return nil, errors.Join(err, result.Close())
+		}
+	}
+	return result, nil
+}
+
+func (p *FiniteSparseProduct) swapRelation(other *FiniteSparseProduct) {
+	p.swapStorage(other)
+	p.tableColumns, other.tableColumns = other.tableColumns, p.tableColumns
+	p.innerCols, other.innerCols = other.innerCols, p.innerCols
+	p.innerSignature, other.innerSignature = other.innerSignature, p.innerSignature
 }
 
 func (p *FiniteSparseProduct) reserveIndex() (int, error) {

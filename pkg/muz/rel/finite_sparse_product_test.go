@@ -481,3 +481,63 @@ func TestFiniteSparseProductIdenticalPairs(t *testing.T) {
 		t.Fatal("invalid identity pair accepted")
 	}
 }
+
+func TestFiniteSparseProductUnionUnifiesTableSpecification(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-unify-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 3)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one := value(0), value(1)
+	newProduct := func(mask []bool) *FiniteSparseProduct {
+		p, e := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, mask)
+		astTestMust(t, e)
+		return p
+	}
+	target := newProduct([]bool{true, false})
+	source := newProduct([]bool{false, true})
+	delta := newProduct([]bool{true, true})
+	defer func() { astTestMust(t, target.Close()) }()
+	defer func() { astTestMust(t, source.Close()) }()
+	defer func() { astTestMust(t, delta.Close()) }()
+	astTestMust(t, target.AddFact([]ast.ASTHandle{zero, zero}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{zero, zero}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{zero, one}))
+	astTestMust(t, delta.AddFact([]ast.ASTHandle{one, zero}))
+	if err = target.UnionFromWithDelta(source, delta); err != nil {
+		t.Fatal(err)
+	}
+	if len(target.tableColumns) != 0 || len(source.tableColumns) != 1 || source.tableColumns[0] != 1 || len(delta.tableColumns) != 0 {
+		t.Fatalf("union partition target=%v source=%v delta=%v", target.tableColumns, source.tableColumns, delta.tableColumns)
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, zero}, {zero, one}} {
+		if found, e := target.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("unified target missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {one, zero}} {
+		if found, e := delta.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("unified delta missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	plainTarget, plainSource := newProduct([]bool{true, false}), newProduct([]bool{false, true})
+	defer func() { astTestMust(t, plainTarget.Close()) }()
+	defer func() { astTestMust(t, plainSource.Close()) }()
+	astTestMust(t, plainTarget.AddFact([]ast.ASTHandle{zero, zero}))
+	astTestMust(t, plainSource.AddFact([]ast.ASTHandle{one, one}))
+	if err = plainTarget.UnionFrom(plainSource); err != nil {
+		t.Fatal(err)
+	}
+	if len(plainTarget.tableColumns) != 0 {
+		t.Fatalf("plain union did not use common partition: %v", plainTarget.tableColumns)
+	}
+	if found, e := plainTarget.ContainsFact([]ast.ASTHandle{one, one}); e != nil || !found {
+		t.Fatalf("plain unified union missing new row: %v (%v)", found, e)
+	}
+}
