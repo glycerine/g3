@@ -94994,6 +94994,18 @@
           ]
         },
         {
+          "name": "Default interpreted filter-and-project transforms a cloned table and releases its temporary (dl_relation_manager.cpp:1446-1481)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/sparse_table_interpreted_project.go",
+          "go_targets": [
+            "pkg/muz/rel/sparse_table_interpreted_test.go",
+            "pkg/muz/rel/sparse_transform.go"
+          ],
+          "tests": [
+            "TestSparseTableInterpretedFilterProjectComposesOnClone"
+          ]
+        },
+        {
           "name": "Default finite-table join/project fallback owns a temporary joined table through projection (dl_relation_manager.cpp:1084-1140)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",

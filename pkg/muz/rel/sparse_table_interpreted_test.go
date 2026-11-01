@@ -104,3 +104,41 @@ func TestSparseTableDefaultInterpretedFilterRejectsMismatchBeforeMutation(t *tes
 		t.Fatal("non-Boolean condition accepted")
 	}
 }
+
+func TestSparseTableInterpretedFilterProjectComposesOnClone(t *testing.T) {
+	f := newTableRelationFixture(t)
+	sorts := []ast.ASTHandle{f.boolean, f.bits}
+	signature, err := tableRelationSignature(f.relations, sorts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer table.Close()
+	for _, fact := range []Fact{{0, 0}, {1, 1}, {1, 2}, {1, 1}} {
+		if _, err = table.Add(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rewriter := tableRelationTheoryRewriter(t, f.ast)
+	condition, err := f.ast.MkVar(0, f.boolean)
+	if err != nil {
+		t.Fatal(err)
+	}
+	astTestPin(t, f.ast, condition)
+	projected, err := table.FilterInterpretedAndProject(f.relations, sorts, rewriter, condition, []int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer projected.Close()
+	rows, err := projected.Facts()
+	if err != nil || !reflect.DeepEqual(rows, []Fact{{2}, {1}}) {
+		t.Fatalf("filtered projection facts = %v, err=%v", rows, err)
+	}
+	rows, err = table.Facts()
+	if err != nil || !reflect.DeepEqual(rows, []Fact{{0, 0}, {1, 1}, {1, 2}}) {
+		t.Fatalf("transform changed source rows: %v, err=%v", rows, err)
+	}
+}

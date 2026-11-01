@@ -52972,3 +52972,5 @@ Sparse table domain-width boundary (2026-11-01 UTC): matched `get_domain_length`
 Sparse table generic filters (2026-11-01 UTC): ported the relation manager's fallback equality and identical-column row filters used when the sparse plugin has no specialization. Tests cover functional suffix values, out-of-domain equality values, multi-column matches and invalid-column atomicity; focused normal and `g3checked` tests pass.
 
 Sparse table interpreted fallback (2026-11-01 UTC): ported the relation manager's default per-row substitution and rewrite path for sparse tables. False results remove rows, symbolic Boolean results remain, and sort/arity mismatches fail before mutation; full relation-package tests pass in normal and `g3checked` builds.
+
+Sparse interpreted filter-and-project (2026-11-01 UTC): ported the default manager composition that clones a sparse table, filters the clone, projects it, and closes the temporary. A regression checks the projected rows and confirms the source rows are unchanged.
