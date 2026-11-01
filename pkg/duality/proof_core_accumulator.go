@@ -54,14 +54,9 @@ func (c *ProofCoreAccumulator) AddCurrentProof(g *RPFP) (result error) {
 		return err
 	}
 	for _, term := range assumptions {
-		if _, exists := c.terms[term]; exists {
-			continue
-		}
-		ref, err := c.context.manager.NewRef(term)
-		if err != nil {
+		if err := c.includeHandle(term); err != nil {
 			return err
 		}
-		c.terms[term] = ref
 	}
 	return nil
 }
@@ -120,5 +115,17 @@ func (c *ProofCoreAccumulator) Close() error {
 	}
 	c.terms = nil
 	c.closed = true
+	return nil
+}
+
+func (c *ProofCoreAccumulator) includeHandle(h ast.ASTHandle) error {
+	if _, found := c.terms[h]; found {
+		return nil
+	}
+	ref, err := c.context.manager.NewRef(h)
+	if err != nil {
+		return err
+	}
+	c.terms[h] = ref
 	return nil
 }
