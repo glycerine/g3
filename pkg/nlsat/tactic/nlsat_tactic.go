@@ -264,6 +264,15 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	if goal == nil || result == nil || goal.Manager() != t.manager {
 		return ast.ErrASTHandle
 	}
+	if ast.ASTSourceDebug {
+		wellSorted, e := goal.IsWellSorted()
+		if e != nil {
+			return e
+		}
+		if !wellSorted {
+			return ast.ErrASTDomain
+		}
+	}
 	t.running = true
 	defer func() { t.running = false }()
 	if err = result.Prepare(t.manager); err != nil {
@@ -403,5 +412,17 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 	if err = goal.IncDepth(); err != nil {
 		return err
 	}
-	return result.AddGoal(goal)
+	if err = result.AddGoal(goal); err != nil {
+		return err
+	}
+	if ast.ASTSourceDebug {
+		wellSorted, e := goal.IsWellSorted()
+		if e != nil {
+			return e
+		}
+		if !wellSorted {
+			return ast.ErrASTDomain
+		}
+	}
+	return nil
 }
