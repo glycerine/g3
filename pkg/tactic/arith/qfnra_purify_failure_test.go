@@ -55,7 +55,7 @@ func TestGeneralPurifierAllocationFrontiers(t *testing.T) {
 		name              string
 		proofs, converter bool
 		wantSize          uint32
-	}{{"forward", false, true, 2}, {"forward", true, true, 2}, {"integer", true, true, 7}, {"inverse", true, true, 4}, {"root", true, true, 4}, {"quantifier", true, false, 1}} {
+	}{{"forward", false, true, 2}, {"forward", true, true, 2}, {"integer", true, true, 7}, {"inverse", true, true, 4}, {"root", true, true, 4}, {"quantifier", true, true, 1}} {
 		success := false
 		for stop := int64(0); stop < 256 && !success; stop++ {
 			t.Run(fmt.Sprintf("%s/proofs=%v/%d", tc.name, tc.proofs, stop), func(t *testing.T) {

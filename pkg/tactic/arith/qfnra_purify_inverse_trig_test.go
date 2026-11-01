@@ -230,9 +230,10 @@ func TestPurifyInverseTrigDisabledAndQuantified(t *testing.T) {
 	equationMust(t, runner.Apply(quantGoal, &quantResult))
 	size, err := quantGoal.Size()
 	equationMust(t, err)
-	if size != 1 || quantResult.ModelConverter != nil {
+	if size != 1 || quantResult.ModelConverter == nil {
 		t.Fatal("inverse constraints escaped quantifier", size)
 	}
+	assertEmptyPurifyFilter(t, quantResult.ModelConverter)
 	outer, err := quantGoal.Form(0)
 	equationMust(t, err)
 	inner, err := m.GetQuantifierBody(outer)

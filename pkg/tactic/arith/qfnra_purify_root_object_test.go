@@ -176,9 +176,10 @@ func TestGeneralPurifierQuantifiedRootStaysScoped(t *testing.T) {
 	equationMust(t, runner.Apply(goal, &result))
 	size, err := goal.Size()
 	equationMust(t, err)
-	if size != 1 || result.ModelConverter != nil {
+	if size != 1 || result.ModelConverter == nil {
 		t.Fatal("quantified root escaped its binder", size)
 	}
+	assertEmptyPurifyFilter(t, result.ModelConverter)
 	outer, err := goal.Form(0)
 	equationMust(t, err)
 	inner, err := m.GetQuantifierBody(outer)

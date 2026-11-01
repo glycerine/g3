@@ -1,12 +1,64 @@
 package arith
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 )
+
+func assertEmptyPurifyFilter(t *testing.T, converter tactic.ModelConverter) {
+	t.Helper()
+	if converter == nil {
+		t.Fatal("missing model filter")
+	}
+	var out bytes.Buffer
+	equationMust(t, converter.Display(&out))
+	if got := out.String(); got != "(filter-model-converter)\n" {
+		t.Fatalf("unexpected filtered declarations: %s", got)
+	}
+}
+
+func TestPurifyArithEmptyModelFilterPreservesInterpretations(t *testing.T) {
+	for _, models := range []bool{false, true} {
+		t.Run(fmt.Sprint(models), func(t *testing.T) {
+			runner, m := qfnraPurifier(t, false, true)
+			x := fixDLConst(t, m, true, "purify-empty-filter-x")
+			one := fixDLNumber(t, m, true, "1")
+			formula := collectorEq(t, m, x, one)
+			goal := fixDLGoal(t, m, false, models, false, formula)
+			var result tactic.TacticResult
+			t.Cleanup(func() { equationMust(t, result.Close()) })
+			equationMust(t, runner.Apply(goal, &result))
+			if !models {
+				if result.ModelConverter != nil {
+					t.Fatal("converter published with models disabled")
+				}
+				return
+			}
+			assertEmptyPurifyFilter(t, result.ModelConverter)
+			declaration, err := m.GetDecl(x)
+			equationMust(t, err)
+			md, err := model.NewModel(m)
+			equationMust(t, err)
+			equationMust(t, md.CoreField.RegisterConstant(declaration, one))
+			var output tactic.ModelRef
+			equationMust(t, output.Set(&md.CoreField))
+			t.Cleanup(func() { equationMust(t, output.Close()) })
+			equationMust(t, result.ModelConverter.ApplyModel(&output, 0))
+			converted, err := output.Get()
+			equationMust(t, err)
+			value, err := converted.ConstantInterpretation(declaration)
+			equationMust(t, err)
+			if value != one {
+				t.Fatal("empty filter changed the interpretation")
+			}
+		})
+	}
+}
 
 func qfnraPurifier(t *testing.T, proofs bool, complete bool) (*QFNRAPurifyTactic, *ast.ASTManager) {
 	t.Helper()

@@ -140,9 +140,10 @@ func TestGeneralPurifierForwardTrigRejectsUnsafeAngle(t *testing.T) {
 	equationMust(t, err)
 	got, err := goal.Form(0)
 	equationMust(t, err)
-	if size != 2 || got != first || result.ModelConverter != nil {
+	if size != 2 || got != first || result.ModelConverter == nil {
 		t.Fatal("unsafe angle was rewritten", size)
 	}
+	assertEmptyPurifyFilter(t, result.ModelConverter)
 }
 
 func TestGeneralPurifierForwardTrigSeesEarlierRewrittenAngleUse(t *testing.T) {

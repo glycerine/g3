@@ -131,9 +131,6 @@ func (i *qfnraPurifyInvocation) publishModel(out *tactic.TacticResult) (err erro
 	if i.trig != nil && i.trig.inv != nil {
 		pairs = i.trig.inv.pairOrder
 	}
-	if len(i.freshDecls) == 0 && len(pairs) == 0 {
-		return nil
-	}
 	m := i.owner.manager
 	filter, err := tactic.NewFilterModel(m)
 	if err != nil {

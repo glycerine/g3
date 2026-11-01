@@ -90,9 +90,7 @@ func TestPurifyQuantifierScopesFreshVariablesAndProof(t *testing.T) {
 			if index != 0 {
 				t.Fatalf("fresh variable index = %d", index)
 			}
-			if result.ModelConverter != nil {
-				t.Fatal("scoped variable leaked into model converter")
-			}
+			assertEmptyPurifyFilter(t, result.ModelConverter)
 			if proofs {
 				p, e := goal.Proof(0)
 				equationMust(t, e)
@@ -281,9 +279,7 @@ func TestPurifyQuantifiedModulusBindsBothAuxiliaries(t *testing.T) {
 	if index != 2 {
 		t.Fatalf("original variable index = %d", index)
 	}
-	if result.ModelConverter != nil {
-		t.Fatal("quantified auxiliaries escaped into model converter")
-	}
+	assertEmptyPurifyFilter(t, result.ModelConverter)
 	proof, err := goal.Proof(0)
 	equationMust(t, err)
 	fact, err := m.GetProofFact(proof)
