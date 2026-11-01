@@ -1,40 +1,71 @@
 # g3
 
-G3 is a native Go port of Z3. This is an early preview of g3. It retains the MIT license of the C++ Z3.
+G3 is a native Go port of the Ivy fork of Z3 4.7.1, distributed under the
+[MIT license](LICENSE.txt). The port is 85% complete.
 
-The preview has substantial working infrastructure and an executable SMT-LIB command-line solver,
-with selected solving paths tested against the original C++ implementation.
- 
-Full Z3 feature coverage remains under development.
+## What works today
 
-What is in place:
+The command-line solver and Go API already support the following use cases.
 
-  * 95 Go packages, covering utilities, numerical infrastructure, AST construction and rewriting,
-  solver infrastructure, and portions of the SAT and SMT engines.
-
-  * The AST source units are fully accounted for as ported, replaced by Go facilities, or excluded as out-of-scope.
+* **SAT and SMT solving.** The command-line solver reads DIMACS CNF and can
+  return a satisfying assignment using the input's variable numbers. In SMT-LIB,
+  it can solve nonlinear real arithmetic problems such as finding a positive
+  root of `x² = 2`, evaluate assertions in the resulting model, and recheck
+  satisfiability after `push` and `pop`. [DIMACS tests](pkg/cmd/g3/dimacs_frontend_sat_test.go)
+  and [SMT-LIB arithmetic tests](pkg/cmd/g3/nra_backend_test.go).
   
-  * Working parsing, incremental solving, and model generation for tested subsets.
+* **Strings and sequences.** Tested SMT-LIB cases include string word equations,
+  negative containment, regular-expression constraints, and symbolic integer
+  prefixes across solver scopes. [Word-equation example](pkg/cmd/g3/test_vectors/sequence_word_equations_relations.smt2)
+  and [symbolic prefix regression](pkg/cmd/g3/test_vectors/quant_seq_symbolic_int_prefix.smt2).
   
-  * Automated regression tests, C++ comparison tests, and checks for resource ownership and failure handling.
-
-What remains:
-
-  * Complete the SAT and SMT engines, including remaining theory algorithms and interactions. Some sequence/string cases still time out.
+* **Optimization.** The CLI accepts pseudo-Boolean objectives and constraints
+  in OPB format and weighted MaxSAT problems in WCNF format. Tests check the
+  reported optimum and detect contradictory hard constraints.
+  [Optimization tests](pkg/cmd/g3/optimization_frontend_test.go).
   
-  * Finish outstanding numerical, polynomial, algebraic, and utility algorithms.
+* **Quantifier elimination.** SMT-LIB scripts can compose the `qe` and `smt`
+  tactics. For example, on a recursive list datatype they can decide whether
+  there exists a nonempty list equal to a given value, for both the empty list
+  and a constructed list. [Tactic tests](pkg/cmd/g3/qe_boolean_integration_test.go).
   
-  * Complete broader tactics, quantifier elimination, command handling, and public API coverage.
+* **Fixed-point queries.** The Go API can add facts and named rules, then query
+  a relation derived from them. The CLI's quantified PDR engine can distinguish
+  reachable and unreachable relations in rules with existential integer
+  conditions. [Go API tests](pkg/api/api_fixedpoint_object_query_test.go) and
+  [quantified PDR tests](pkg/cmd/g3/fixedpoint_qpdr_integration_test.go).
   
-  * Port higher-level engines, including fixed-point/Datalog functionality, which remains largely outstanding.
+* **Datatypes and exact arithmetic in Go.** The API can define mutually
+  recursive datatypes and compute with real algebraic numbers. One test obtains
+  both roots of `x² = 2` and verifies their signs and exact squares.
+  [Datatype tests](pkg/api/api_datatype_recursive_test.go) and
+  [algebraic root tests](pkg/api/api_algebraic_roots_test.go).
 
-The source inventory currently records 802 fully ported units, 248 partially ported, and 938 unported, with another 115 classified as Go platform
-replacements, reference-only material, or dead code. These counts include upstream tooling and language bindings; they measure inventory coverage,
-rather than percentage of engineering effort completed.
+## What remains
 
-This preview provides a working foundation for experimentation and development. It does not yet offer full Z3 compatibility.
+The following differences from the bundled C++ implementation have regression tests.
 
-The original Z3 readme (the Ivy fork of Z3 4.7.1 in C++ is also here-in) is:
+* **Duality fixed-point queries.** C++ registers a Duality engine. In Go,
+  selecting `duality` on a fixed-point object causes relation and expression
+  queries to return an engine-not-ported error. The same object can run a query
+  after switching to `pdr`. [C++ engine factory](src/muz/fp/dl_register_engine.cpp),
+  [Go engine selection](pkg/muz/fp/register_engine.go), and
+  [API regression](pkg/api/api_fixedpoint_object_parameters_test.go).
+
+* **Copying a solver that uses `horn-simplify` between Go contexts.** C++ can
+  rebuild the Horn simplification tactic in a new AST manager. In Go, a solver
+  constructed from `smt` followed by `horn-simplify` returns an error when
+  translated into a second context. The original solver remains usable.
+  [C++ tactic translation](src/muz/fp/horn_tactic.cpp),
+  [Go translation dispatch](pkg/api/api_caller_tactic_solver_translate.go), and
+  [API regression](pkg/api/api_simple_solver_translate_test.go).
+
+Of the production source units retained for the Go port, 1,208 are classified
+as ported, 236 as partially ported, and **0 as unported**. The partial units
+can contain working code alongside unfinished behavior, as the examples above
+illustrate. [Source inventory](port_manifest.json) and [porting log](PORT_PROGRESS.md).
+
+The original C++ Z3 README follows.
 
 # Z3
 
