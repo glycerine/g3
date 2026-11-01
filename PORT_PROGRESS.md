@@ -10,6 +10,8 @@ Sparse join-project materialization: route eligible joins through the existing i
 
 Sparse join-project oracle: exhaustively compare dispatched join-project results against an independent finite relation oracle for all 256 pairs of binary two-column relations and all 15 projections that leave at least one column. The oracle passes in normal and `g3checked` builds.
 
+Sparse relation integration gate: the `muz/fp` Datalog and Spacer package suites pass in both normal and `g3checked` builds after the sparse select, union, and join-project changes.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
