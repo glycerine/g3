@@ -24,6 +24,7 @@ type RPFP struct {
 }
 
 type Node struct {
+	dual                           ast.ASTRef
 	Name                           ast.ASTRef
 	Annotation, Bound, Underapprox *Transformer
 	Owner                          *RPFP
@@ -36,15 +37,17 @@ type Node struct {
 }
 
 type Edge struct {
-	relMap   map[ast.ASTHandle]int
-	varMap   map[ast.ASTHandle]ast.ASTRef
-	F        *Transformer
-	Parent   *Node
-	Children []*Node
-	Owner    *RPFP
-	Number   int
-	Map      *Edge
-	closed   bool
+	dual        ast.ASTRef
+	constraints []ast.ASTRef
+	relMap      map[ast.ASTHandle]int
+	varMap      map[ast.ASTHandle]ast.ASTRef
+	F           *Transformer
+	Parent      *Node
+	Children    []*Node
+	Owner       *RPFP
+	Number      int
+	Map         *Edge
+	closed      bool
 }
 
 func NewRPFP(context *Context) (*RPFP, error) {
@@ -183,6 +186,11 @@ func (n *Node) close() error {
 			}
 		}
 	}
+	if n.dual != (ast.ASTRef{}) {
+		if err := n.Owner.context.manager.DelRef(&n.dual); err != nil {
+			return err
+		}
+	}
 	if n.Name != (ast.ASTRef{}) {
 		if err := n.Owner.context.manager.DelRef(&n.Name); err != nil {
 			return err
@@ -255,6 +263,9 @@ func (g *RPFP) DeleteEdge(edge *Edge) error {
 	}
 	if edge == nil || edge.Owner != g || edge.closed {
 		return ErrWrapperOwner
+	}
+	if err := edge.closeConstraints(); err != nil {
+		return err
 	}
 	if err := edge.clearMaps(); err != nil {
 		return err
