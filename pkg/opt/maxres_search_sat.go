@@ -14,6 +14,11 @@ func (e *maxResEngine) processSearchSAT(result *ArithmeticResult, full bool) (bo
 		}
 		return false, nil
 	}
+	if e.strategy == maxResPrimalDual {
+		// primal_dual_solver closes the remaining bound gap when the current
+		// model has no correction set.
+		e.lower.Set(&e.upper)
+	}
 	result.Values[e.index].SoftCost.Set(&e.lower)
 	return true, nil
 }

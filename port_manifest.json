@@ -106640,13 +106640,16 @@
             "pkg/opt/maxres_boundaries.go",
             "pkg/opt/maxres_mutex_preprocess.go",
             "pkg/opt/maxres_proxy.go",
-            "pkg/opt/maxres_stats.go"
+            "pkg/opt/maxres_stats.go",
+            "pkg/opt/maxres_search_sat.go",
+            "pkg/opt/maxres_search_sat_test.go"
           ],
           "tests": [
             "TestMaxResBaseAggregatesSortsAndRemovesAssumptions",
             "TestMaxResWeightBoundariesKeepEqualWeightsTogether",
             "TestMaxResMutexOrderIsDescendingAndStable",
-            "TestMaxResMutexTransformPreservesTotalWithExactLowerOffset"
+            "TestMaxResMutexTransformPreservesTotalWithExactLowerOffset",
+            "TestMaxResPrimalDualEmptyCorrectionClosesBound"
           ]
         },
         {
@@ -150792,11 +150795,13 @@
         {
           "name": "goal reduction, solver-guided contextual traversal, Boolean forcing and fresh-name construction",
           "status": "ported",
+          "go_target": "pkg/smtcore/ctx_solver_simplify_tactic.go",
           "tests": ["pkg/smtcore/ctx_solver_simplify_tactic_test.go", "pkg/cmd/g3/test_vectors/ctx_solver_simplify.smt2"]
         },
         {
           "name": "parameter, statistics, translation and cleanup hooks",
           "status": "ported",
+          "go_target": "pkg/smtcore/ctx_solver_simplify_tactic.go",
           "tests": ["pkg/smtcore/ctx_solver_simplify_tactic_test.go"]
         }
       ],
@@ -150828,6 +150833,7 @@
         {
           "name": "ctx-solver-simplify factory and native tactic registration",
           "status": "ported",
+          "go_target": "pkg/smtcore/ctx_solver_simplify_tactic.go",
           "tests": ["pkg/cmd_context/tactic_registry_factory_test.go", "pkg/cmd/g3/test_vectors/ctx_solver_simplify.smt2"]
         }
       ],
@@ -194714,7 +194720,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name":"qfbv-sls tactic factory declaration and builtin registration","status":"ported","go_target":"pkg/cmd_context/tactic_sls.go","go_targets":["pkg/tactic/sls/sls_public_factory.go","pkg/tactic/sls/sls_qfbv_factory.go","pkg/cmd_context/tactic_registry.go","pkg/cmd_context/tactic_descriptions.go"],"tests":["TestCommandContextRegistersQFBVSLSTactic","TestAPILocalSearchTacticRegistry"]}],
+      "methods": [{"name":"qfbv-sls tactic factory declaration and builtin registration","status":"ported","go_target":"pkg/cmd_context/tactic_sls.go","go_targets":["pkg/tactic/sls/sls_public_factory.go","pkg/tactic/sls/sls_qfbv_factory.go","pkg/cmd_context/tactic_registry.go","pkg/cmd_context/tactic_descriptions.go","pkg/api/api_tactic_new_factories_test.go"],"tests":["TestCommandContextRegistersQFBVSLSTactic","TestAPILocalSearchTacticRegistry"]}],
       "ownership": [],
       "deviations": ["The Go factory returns the typed QF_BV SLS tactic composition; its source preamble and engine behavior are tracked in the .cpp unit."]
     },
