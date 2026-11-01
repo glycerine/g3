@@ -52782,3 +52782,5 @@ SLS evaluator source-unit closure (2026-11-01 UTC): audited every retained evalu
 SLS tactic header registration closure (2026-11-01 UTC): verified the header's `mk_qfbv_sls_tactic` declaration and public registration against the Go context factory, registry, description and API catalog tests. The header-only factory surface is now recorded ported; preamble composition and engine execution remain covered by the separate `.cpp` source unit.
 
 Concrete next-power-of-two utility (2026-11-01 UTC): added the source `uint32` bit-spread helper and wired eq2bv width calculation to it. Boundary coverage checks zero, exact powers, rounding and unsigned overflow; STL hash-table capacity behavior remains excluded from the Go map-backed table.
+
+Eq2bv goal invariant (2026-11-01 UTC): check the transformed goal's well-sortedness after applying the source conversion, matching the final C++ debug assertion. Focused normal and checked eq2bv tests pass.

@@ -222,6 +222,15 @@ func eq2bvApply(goal *tactic.Goal, bounds *BoundManager, result *tactic.TacticRe
 	if err = result.AddGoal(goal); err != nil {
 		return err
 	}
+	if ast.ASTSourceDebug {
+		wellSorted, e := goal.IsWellSorted()
+		if e != nil {
+			return e
+		}
+		if !wellSorted {
+			return ast.ErrASTDomain
+		}
+	}
 	tags := m.BorrowSourceTraceTags()
 	if len(trace) != 0 && trace[0] != nil {
 		tags = trace[0]
