@@ -1,5 +1,7 @@
 package ast
 
+import "errors"
+
 // Source: src/ast/array_decl_plugin.cpp:566-569.
 
 // ArrayFamilyID follows array_util construction: register the family name,
@@ -27,7 +29,7 @@ func (m *ASTManager) MkArrayAppArguments(fid FamilyID, op int32, args AppArgumen
 	return m.mkArrayAppArguments(fid, op, nil, args)
 }
 
-func (m *ASTManager) mkArrayAppArguments(fid FamilyID, op int32, ps []ASTParameter, args AppArguments) (ASTHandle, error) {
+func (m *ASTManager) mkArrayAppArguments(fid FamilyID, op int32, ps []ASTParameter, args AppArguments) (result ASTHandle, cause error) {
 	if fid < 0 || !m.pluginAt(fid).present {
 		return ASTHandle{}, nil
 	}
@@ -54,6 +56,12 @@ func (m *ASTManager) mkArrayAppArguments(fid FamilyID, op int32, ps []ASTParamet
 	if e != nil || d.slot == 0 {
 		return ASTHandle{}, e
 	}
+	// Own a newly created declaration until the application acquires it.
+	// Refused application allocation must not leave an unowned declaration.
+	if e = m.incNode(d); e != nil {
+		return ASTHandle{}, e
+	}
+	defer func() { _, err := m.decNode(d); cause = errors.Join(cause, err) }()
 	r, e := m.mkAppArguments(d, args)
 	return m.external(r), e
 }

@@ -3,6 +3,7 @@ package ast
 // Source: src/ast/ast.cpp:1568-1638; src/ast/ast.h:1323-1402.
 
 import (
+	"errors"
 	"math"
 
 	"github.com/glycerine/g3/pkg/arena"
@@ -153,7 +154,7 @@ func (m *ASTManager) mkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args 
 	return m.mkFamilyAppDomainArguments(fid, k, ps, SliceArguments(args))
 }
 
-func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTParameter, args AppArguments) (astNodeRef, error) {
+func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTParameter, args AppArguments) (result astNodeRef, cause error) {
 	// Source decl_plugin's expr overload collects sorts in a lexical ptr_buffer;
 	// use a native typed slice for those borrowed sort handles.
 	var inline [16]ASTHandle
@@ -234,6 +235,12 @@ func (m *ASTManager) mkFamilyAppDomainArguments(fid FamilyID, k int32, ps []ASTP
 	if e != nil || decl.slot == 0 {
 		return astNodeRef{}, e
 	}
+	// A plugin can return a fresh declaration with no owner yet.
+	// Hold it until application construction succeeds or fails.
+	if e = m.incNode(decl); e != nil {
+		return astNodeRef{}, e
+	}
+	defer func() { _, err := m.decNode(decl); cause = errors.Join(cause, err) }()
 	return m.mkAppArguments(decl, args)
 }
 func (m *ASTManager) MkFamilyApp(fid FamilyID, k int32, ps []ASTParameter, args []ASTHandle) (ASTHandle, error) {
