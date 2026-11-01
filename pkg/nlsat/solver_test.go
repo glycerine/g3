@@ -171,6 +171,35 @@ func TestSolverTemporaryLiteralAssumptionsReturnCoreAndCollectClauses(t *testing
 	}
 }
 
+func TestSolverInterruptedAssumptionsPreserveInput(t *testing.T) {
+	s := solverFixture(t)
+	boolean, err := s.MkBoolVar()
+	assignmentMust(t, err)
+	other, err := s.MkBoolVar()
+	assignmentMust(t, err)
+	literal := sat.MakeLiteral(boolean, false)
+	second := sat.MakeLiteral(other, true)
+	assumptions := []sat.Literal{literal, second}
+	before := len(s.clauses.originals)
+	s.config.Limit.IncCancel()
+	_, err = s.CheckAssumptions(&assumptions)
+	s.config.Limit.DecCancel()
+	if err == nil {
+		t.Fatal("check did not stop on cancellation")
+	}
+	if len(assumptions) != 2 || assumptions[0] != literal || assumptions[1] != second {
+		t.Fatal("interrupted check changed its input assumptions", assumptions)
+	}
+	if len(s.clauses.originals) != before {
+		t.Fatal("interrupted check kept temporary assumption clauses")
+	}
+	result, err := s.CheckAssumptions(&assumptions)
+	assignmentMust(t, err)
+	if result != lbool.True || len(assumptions) != 0 {
+		t.Fatal("retry did not return SAT and clear assumptions", result, assumptions)
+	}
+}
+
 func TestSolverModelStateAndLiteralVariableViews(t *testing.T) {
 	s := solverFixture(t)
 	for i := 0; i < 2; i++ {

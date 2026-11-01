@@ -105197,7 +105197,7 @@
         "pkg/cmd/g3/nra_backend_test.go",
         "pkg/smtcore/smt_univariate_nra_test.go"
       ],
-      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry","TestSolverCloseAfterFailedAtomConstruction","TestSolverReorderPreservesBooleanModel","TestSolverValueReturnsZeroForUnassignedVariables",
+      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry","TestSolverCloseAfterFailedAtomConstruction","TestSolverReorderPreservesBooleanModel","TestSolverValueReturnsZeroForUnassignedVariables","TestSolverInterruptedAssumptionsPreserveInput",
         "pkg/nlsat/assumption_manager_test.go",
         "pkg/nlsat/assumption_justification_pending_test.go",
         "pkg/nlsat/clause_justification_test.go",

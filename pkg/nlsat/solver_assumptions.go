@@ -82,7 +82,10 @@ func (s *Solver) CheckAssumptions(assumptions *[]sat.Literal) (result lbool.LBoo
 		return lbool.Undef, resultErr
 	}
 	result, resultErr = s.Check()
-	if resultErr != nil || result != lbool.False {
+	if resultErr != nil {
+		return result, resultErr
+	}
+	if result != lbool.False {
 		*assumptions = (*assumptions)[:0]
 		return result, resultErr
 	}
