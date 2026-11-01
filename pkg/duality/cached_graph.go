@@ -7,11 +7,12 @@ import (
 )
 
 // CachedGraphAssertions connects graph formula ownership to a borrowed
-// dedicated solver/cache scope. Native graph-solver overrides and switching
-// remain separate from these explicit literal-vector source operations.
+// dedicated solver/cache scope. Cached scope operations keep solver guards
+// permanent; per-edge solver switching remains a separate operation.
 type CachedGraphAssertions struct {
-	graph *RPFP
-	scope *EdgeSolverScope
+	active *CachedAssumptions
+	graph  *RPFP
+	scope  *EdgeSolverScope
 }
 
 func NewCachedGraphAssertions(graph *RPFP, scope *EdgeSolverScope) (*CachedGraphAssertions, error) {
@@ -31,7 +32,11 @@ func NewCachedGraphAssertions(graph *RPFP, scope *EdgeSolverScope) (*CachedGraph
 	} else if graph.solver != scope.Solver {
 		return nil, ErrWrapperOwner
 	}
-	return &CachedGraphAssertions{graph, scope}, nil
+	active, err := NewCachedAssumptions(scope)
+	if err != nil {
+		return nil, err
+	}
+	return &CachedGraphAssertions{graph: graph, scope: scope, active: active}, nil
 }
 func (c *CachedGraphAssertions) AssertEdgeCache(edge *Edge, literals *[]*Expr, withChildren bool) (result error) {
 	if c == nil || literals == nil || edge == nil || edge.Owner != c.graph || edge.closed {

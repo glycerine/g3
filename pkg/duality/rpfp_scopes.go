@@ -70,6 +70,10 @@ func (g *RPFP) Pop(count uint32) error {
 	if err := g.solver.Pop(count); err != nil {
 		return err
 	}
+	return g.releaseGraphScopes(count)
+}
+
+func (g *RPFP) releaseGraphScopes(count uint32) error {
 	m := g.context.manager
 	for n := uint32(0); n < count; n++ {
 		scope := &g.scopes[len(g.scopes)-1]
