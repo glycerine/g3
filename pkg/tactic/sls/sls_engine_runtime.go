@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -161,7 +162,7 @@ func (e *Engine) checkpointNow() error {
 		return err
 	}
 	if canceled {
-		return ErrSLSSearch
+		return tactic.NewTacticException(e.manager.ResourceLimit().CancelMessage())
 	}
 	if e.checkpoint != nil {
 		return e.checkpoint()

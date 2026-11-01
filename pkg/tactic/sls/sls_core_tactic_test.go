@@ -160,6 +160,59 @@ func TestSLSCoreTacticAppliesCleansAndReusesFreshEngine(t *testing.T) {
 	apply("sls-core-second")
 }
 
+func TestSLSCoreCancellationUsesSourceException(t *testing.T) {
+	_, manager, _, _, context, globals, local, _ := slsTrackerFixture(t)
+	core, err := NewCoreTactic(manager, context, globals, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := core.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	atom := slsBoolConst(t, manager, "sls-canceled")
+	slsPin(t, manager, atom)
+	goal, err := tactic.NewGoal(manager, false, true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer goal.Close()
+	if err = goal.Assert(atom); err != nil {
+		t.Fatal(err)
+	}
+	var result tactic.TacticResult
+	defer result.Close()
+	callbacks := 0
+	core.owner.engine.checkpoint = func() error { callbacks++; return nil }
+	manager.ResourceLimit().IncCancel()
+	reason := manager.ResourceLimit().CancelMessage()
+	err = core.Apply(goal, &result)
+	manager.ResourceLimit().DecCancel()
+	var canceled tactic.TacticException
+	if !errors.As(err, &canceled) || canceled.Message() != reason {
+		t.Fatal("source cancellation exception", err, reason)
+	}
+	if callbacks != 0 {
+		t.Fatal("cooperation callback ran after cancellation", callbacks)
+	}
+	depth, err := goal.Depth()
+	if err != nil || depth != 0 {
+		t.Fatal("canceled goal depth", depth, err)
+	}
+	if err = core.Cleanup(); err != nil {
+		t.Fatal("cleanup after cancellation", err)
+	}
+	var retry tactic.TacticResult
+	defer retry.Close()
+	if err = core.Apply(goal, &retry); err != nil {
+		t.Fatal("retry after cancellation", err)
+	}
+	if size, err := goal.Size(); err != nil || size != 0 || retry.ModelConverter == nil {
+		t.Fatal("retry did not solve the goal", size, err)
+	}
+}
+
 func TestSLSCoreTacticParamsStatisticsAndReferenceLifecycle(t *testing.T) {
 	_, manager, _, _, context, globals, local, budget := slsTrackerFixture(t)
 	core, err := NewCoreTactic(manager, context, globals, local)

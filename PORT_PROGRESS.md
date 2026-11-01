@@ -52638,3 +52638,5 @@ Unit-subsumption proof and reconstruction failure coverage: the application allo
 Unit-subsumption direct translation: target manager service resolution now works through the same target-configuration callback as SMT solver translation, with parameters copied into the target owner. A cross-manager test closes the original tactic before using the copy and checks resolver failures; SMT-LIB integration tests exercise proof and unsat-core output through the tactic pipeline.
 
 SLS cleanup replacement: construct the new search engine before closing the active one, matching the source allocation order. Tests exercise all observed replacement allocation refusals, preserve the old engine and statistics after failure, solve a goal with it, and verify successful cleanup and retry; other SLS source paths remain partial.
+
+SLS cancellation: checkpoints now return the source tactic exception and resource-limit cancellation message instead of a generic search-state error. The core-tactic regression checks cancellation before cooperation, unchanged goal depth, and a successful retry after cleanup.
