@@ -260,6 +260,113 @@ func (p *FiniteSparseProduct) splitEncoded(values Fact) (Fact, Fact) {
 	return key, inner
 }
 
+// Join returns the concatenation join of two finite sparse products. The
+// flattened sparse tables provide the generic table join semantics, including
+// equalities that cross either product's outer and inner partitions.
+func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, rightColumns []int) (*FiniteSparseProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if err := right.open(); err != nil {
+		return nil, err
+	}
+	if p.manager != right.manager {
+		return nil, ErrTableRelation
+	}
+	for i := range leftColumns {
+		if i >= len(rightColumns) || leftColumns[i] < 0 || leftColumns[i] >= len(p.sorts) || rightColumns[i] < 0 || rightColumns[i] >= len(right.sorts) || p.sorts[leftColumns[i]] != right.sorts[rightColumns[i]] {
+			return nil, ErrTableRelation
+		}
+	}
+	if len(leftColumns) != len(rightColumns) {
+		return nil, ErrTableRelation
+	}
+	left, err := p.flatten()
+	if err != nil {
+		return nil, err
+	}
+	defer left.Close()
+	rightTable, err := right.flatten()
+	if err != nil {
+		return nil, err
+	}
+	defer rightTable.Close()
+	joined, err := left.Join(rightTable, leftColumns, rightColumns)
+	if err != nil {
+		return nil, err
+	}
+	defer joined.Close()
+	sorts := append(append([]ast.ASTHandle(nil), p.sorts...), right.sorts...)
+	mask := make([]bool, 0, len(sorts))
+	for column := range p.sorts {
+		mask = append(mask, p.isTableColumn(column))
+	}
+	for column := range right.sorts {
+		mask = append(mask, right.isTableColumn(column))
+	}
+	result, err := NewFiniteSparseProduct(p.manager, sorts, mask)
+	if err != nil {
+		return nil, err
+	}
+	facts, err := joined.Facts()
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	for _, fact := range facts {
+		key, inner := result.splitEncoded(fact)
+		if err = result.addEncodedFact(key, inner); err != nil {
+			return nil, errors.Join(err, result.Close())
+		}
+	}
+	return result, nil
+}
+
+func (p *FiniteSparseProduct) flatten() (*SparseTable, error) {
+	domains := make([]uint64, len(p.sorts))
+	for column, sort := range p.sorts {
+		domain, err := p.manager.sortDomain(sort)
+		if err != nil {
+			return nil, err
+		}
+		domains[column] = domain
+	}
+	signature, err := NewSignature(domains)
+	if err != nil {
+		return nil, err
+	}
+	flat, err := NewSparseTable(signature, 0)
+	if err != nil {
+		return nil, err
+	}
+	keys, err := p.table.Facts()
+	if err != nil {
+		return nil, errors.Join(err, flat.Close())
+	}
+	for _, key := range keys {
+		index := int(key[len(key)-1])
+		if index < 0 || index >= len(p.inner) || p.inner[index] == nil {
+			return nil, errors.Join(ErrTableRelation, flat.Close())
+		}
+		innerFacts, innerErr := p.inner[index].Facts()
+		if innerErr != nil {
+			return nil, errors.Join(innerErr, flat.Close())
+		}
+		for _, inner := range innerFacts {
+			fact := make(Fact, len(p.sorts))
+			for i, column := range p.tableColumns {
+				fact[column] = key[i]
+			}
+			for i, column := range p.innerCols {
+				fact[column] = inner[i]
+			}
+			if _, err = flat.Add(fact); err != nil {
+				return nil, errors.Join(err, flat.Close())
+			}
+		}
+	}
+	return flat, nil
+}
+
 func (p *FiniteSparseProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {
 	key, innerFact, err := p.split(values)
 	if err != nil {

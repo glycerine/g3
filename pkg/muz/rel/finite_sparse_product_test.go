@@ -147,3 +147,39 @@ func TestFiniteSparseProductProjectMergesRows(t *testing.T) {
 		}
 	}
 }
+
+func TestFiniteSparseProductJoinAcrossPartitions(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-join-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two, three := value(0), value(1), value(2), value(3)
+	left, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, left.Close()) }()
+	right, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{false, true})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, right.Close()) }()
+	astTestMust(t, left.AddFact([]ast.ASTHandle{zero, one}))
+	astTestMust(t, left.AddFact([]ast.ASTHandle{one, two}))
+	astTestMust(t, right.AddFact([]ast.ASTHandle{one, three}))
+	astTestMust(t, right.AddFact([]ast.ASTHandle{two, zero}))
+	joined, err := left.Join(right, []int{1}, []int{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, joined.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{zero, one, one, three}, {one, two, two, zero}} {
+		if found, e := joined.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("join missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	if found, e := joined.ContainsFact([]ast.ASTHandle{zero, one, two, zero}); e != nil || found {
+		t.Fatalf("join produced a mismatched pair: %v (%v)", found, e)
+	}
+}
