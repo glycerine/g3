@@ -120,6 +120,10 @@ type Context struct {
 	initializationError              error
 	regularOutput                    io.Writer
 	diagnosticOutput                 io.Writer
+	regularOutputName                string
+	diagnosticOutputName             string
+	regularFile                      *os.File
+	diagnosticFile                   *os.File
 	logicChecker                     LogicChecker
 }
 
@@ -167,7 +171,17 @@ func (c *Context) SetRegularOutput(output io.Writer) error {
 	if err := c.valid(); err != nil {
 		return err
 	}
+	if w, ok := output.(contextRegularOutput); ok && w.context == c {
+		return nil
+	}
+	if c.regularFile != nil {
+		if err := c.regularFile.Close(); err != nil {
+			return err
+		}
+		c.regularFile = nil
+	}
 	c.regularOutput = output
+	c.regularOutputName = "caller-owned"
 	return nil
 }
 
@@ -177,7 +191,47 @@ func (c *Context) SetDiagnosticOutput(output io.Writer) error {
 	if err := c.valid(); err != nil {
 		return err
 	}
+	if c.diagnosticFile != nil {
+		if err := c.diagnosticFile.Close(); err != nil {
+			return err
+		}
+		c.diagnosticFile = nil
+	}
 	c.diagnosticOutput = output
+	c.diagnosticOutputName = "caller-owned"
+	return nil
+}
+
+// RegularOutput follows the current stream even when a command changes it.
+func (c *Context) RegularOutput() io.Writer { return contextRegularOutput{c} }
+
+func (c *Context) setOutputChannel(name string, regular bool) error {
+	output, channelName, file := &c.diagnosticOutput, &c.diagnosticOutputName, &c.diagnosticFile
+	defaultName := "stderr"
+	if regular {
+		output, channelName, file = &c.regularOutput, &c.regularOutputName, &c.regularFile
+		defaultName = "stdout"
+	}
+	if *file != nil {
+		if err := (*file).Close(); err != nil {
+			return err
+		}
+		*file = nil
+	}
+	*output, *channelName = nil, defaultName
+	switch name {
+	case "stdout":
+		*output = os.Stdout
+	case "stderr":
+		*output = os.Stderr
+	default:
+		opened, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			return fmt.Errorf("failed to set output stream '%s': %w", name, err)
+		}
+		*output, *file = opened, opened
+	}
+	*channelName = name
 	return nil
 }
 
@@ -414,15 +468,14 @@ func (c *Context) SetSymbolOption(name, value string) error {
 	return c.globalParametersUpdated()
 }
 
-// SetStringOption follows the context-local string parameter path used by
-// proof/trace filenames. Output-channel filenames remain separate transports.
+// SetStringOption follows the context-local string and output-channel paths.
 func (c *Context) SetStringOption(name, value string) error {
 	if err := c.valid(); err != nil {
 		return err
 	}
 	name = strings.ReplaceAll(name, "-", "_")
 	if name == "regular_output_channel" || name == "diagnostic_output_channel" {
-		return fmt.Errorf("string output-channel setters are not ported")
+		return c.setOutputChannel(value, name == "regular_output_channel")
 	}
 	if name == "dot_proof_file" || name == "trace_file_name" {
 		if err := c.parameters.Set(&name, &value); err != nil {
@@ -1138,6 +1191,18 @@ func (c *Context) Close() error {
 			return err
 		}
 		c.owned = nil
+	}
+	if c.regularFile != nil {
+		if err := c.regularFile.Close(); err != nil {
+			return err
+		}
+		c.regularFile = nil
+	}
+	if c.diagnosticFile != nil {
+		if err := c.diagnosticFile.Close(); err != nil {
+			return err
+		}
+		c.diagnosticFile = nil
 	}
 	c.closed = true
 	return nil

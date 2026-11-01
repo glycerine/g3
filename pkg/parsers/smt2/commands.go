@@ -82,7 +82,7 @@ func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer,
 	if err != nil {
 		return err
 	}
-	p := &commandParser{context: context, scanner: scanner, out: out, ignoreChecks: ignoreChecks, queryCollector: collector}
+	p := &commandParser{context: context, scanner: scanner, out: context.RegularOutput(), ignoreChecks: ignoreChecks, queryCollector: collector}
 	p.softWeight.SetInt64(1)
 	defer func() {
 		result = errors.Join(result, p.clearCommand())

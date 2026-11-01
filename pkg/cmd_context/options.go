@@ -44,8 +44,14 @@ func (c *Context) GetOption(name string) (string, bool, error) {
 		value, e := diagnostic.ProcessVerbosityLevel()
 		return strconv.FormatUint(uint64(value), 10), e == nil, e
 	case "regular_output_channel":
+		if c.regularOutputName != "" {
+			return c.regularOutputName, true, nil
+		}
 		return "stdout", true, nil
 	case "diagnostic_output_channel":
+		if c.diagnosticOutputName != "" {
+			return c.diagnosticOutputName, true, nil
+		}
 		return "stderr", true, nil
 	case "error_behavior":
 		if c.ExitOnError {

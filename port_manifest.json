@@ -43813,6 +43813,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/parsers/smt2/output_channel_test.go",
         "pkg/cmd_context/context.go",
         "pkg/api/api_solver_params.go",
         "pkg/api/api_solver_params_test.go",
@@ -43878,6 +43879,7 @@
         "pkg/parsers/smt2/echo_command.go"
       ],
       "tests": [
+        "TestSMT2OutputChannelsRouteCommandsAndAppend",
         "TestCommandContextDoubleOptionsValidateTypesAndUpdateLiveSolver",
         "TestSMTContextTypedParameterCatalog",
         "TestSMTContextTypedParametersValidateCatalogAndOwner",
@@ -44670,6 +44672,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd_context/output_channel_test.go",
         "pkg/parsers/smt2/function_references.go",
         "pkg/parsers/smt2/function_references_test.go",
         "pkg/parsers/smt2/expressions.go",
@@ -44836,6 +44839,7 @@
         "pkg/cmd/g3/test_vectors/nra_solver_quantifiers.smt2"
       ],
       "tests": [
+        "TestDiagnosticOutputChannelEchoAndReplacement",
         "TestSMT2FunctionDeclarationReferenceErrors",
         "TestCommandContextScopesDeclarationsAndModel",
         "TestCommandContextNamedCoreAndProof",
@@ -108446,6 +108450,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/parsers/smt2/output_channel_test.go",
         "pkg/parsers/smt2/function_references.go",
         "pkg/parsers/smt2/function_references_test.go",
         "pkg/cmd_context/function_references.go",
@@ -108545,6 +108550,7 @@
         "pkg/parsers/smt2/fixedpoint_query_collector_test.go"
       ],
       "tests": [
+        "TestSMT2OutputChannelSwitchRoutesSuccess",
         "TestSMT2FunctionDeclarationReferenceErrors",
         "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
         "TestSMT2FixedpointPropositionalQueriesMatchCPP",

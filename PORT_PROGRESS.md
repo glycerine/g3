@@ -1,3 +1,5 @@
+SMT-LIB output channels now open append-only files or select stdout/stderr, route subsequent parser and tactic output through the current stream, report channel names and close owned files. Native Z3 comparison and focused tests cover switching, failed opens, append behavior and diagnostic tactic output; routing process-global warning and verbose streams remains open.
+
 NLSAT solver teardown now cleans an interrupted evaluator after its search closes. The mixed nonlinear allocation-retry test covers the first evaluator interruption; subsequent numerical cleanup boundaries remain under audit.
 
 Ported src/test/model2expr.cpp using its original two-argument full and partial interpretations. Tests check the resulting constant and quantified clauses and evaluate representative instances against the model.
