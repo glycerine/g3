@@ -52836,3 +52836,5 @@ Finite product projection method (2026-11-01 UTC): verified key collisions merge
 Finite product rename method (2026-11-01 UTC): checked source cycle rotation across finite/interval boundaries and interval-only columns, plus duplicate-cycle rejection, against the Go permutation path. Focused normal and `g3checked` tests pass; marked the method ported in both source records.
 
 Finite product formula generation (2026-11-01 UTC): matched empty results, conjunct order and the source's leading-table-column variable positions, including its interleaved-signature behavior. The focused expression-identity regression passes normally and with `g3checked`; marked the method ported in both records.
+
+Finite product clone behavior (2026-11-01 UTC): matched the source copy constructor's deep clone of inner interval relations, including the inherited vector-copy behavior that splits equivalence classes. The dedicated regression passes normally and with `g3checked`; marked the method ported in both source records.

@@ -92779,7 +92779,7 @@
         },
         {
           "name": "interval cloning uses source vector copy equivalence behavior",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
@@ -93023,7 +93023,7 @@
         },
         {
           "name": "interval cloning uses source vector copy equivalence behavior",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductCloneUsesSourceVectorCopy"
