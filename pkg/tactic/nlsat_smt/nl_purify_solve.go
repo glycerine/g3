@@ -139,6 +139,9 @@ func (c *nlCooperation) iterate(out *tactic.TacticResult) (_ bool, resultErr err
 		}
 		evaluator, e := model.NewModelEvaluator(core, c.services)
 		if e != nil {
+			if evaluator != nil {
+				e = errors.Join(e, evaluator.Close())
+			}
 			return false, e
 		}
 		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
@@ -213,6 +216,9 @@ func (c *nlCooperation) finishSat(out *tactic.TacticResult, nlModel *tactic.Mode
 	}
 	evaluator, err := model.NewModelEvaluator(core, c.services)
 	if err != nil {
+		if evaluator != nil {
+			err = errors.Join(err, evaluator.Close())
+		}
 		return false, err
 	}
 	changed, err := c.equalities.enforce(evaluator, p.interfaces.interfaceValues, p.nonlinear, c.smt)
