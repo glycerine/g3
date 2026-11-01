@@ -180,3 +180,32 @@ func TestSieveNegationFilterMappings(t *testing.T) {
 		t.Fatal("full target to retained negated must be identity", identity.Empty(), err)
 	}
 }
+
+func TestSieveNegationFilterUsesOuterColumnMappings(t *testing.T) {
+	signature := sieveSignature(t, 2, 2, 2)
+	target, err := NewSieveRelation(signature, []bool{true, true, true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	negated, err := NewSieveRelation(signature, []bool{true, true, true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeSieve(t, target, negated)
+	if _, err = target.AddFact(Fact{0, 0, 0}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = negated.AddFact(Fact{1, 0, 0}); err != nil {
+		t.Fatal(err)
+	}
+	// The only equality is on outer column 2. The source C++ factory indexes
+	// its inner-column maps with the equality-pair position (0), which compares
+	// column 0 here and leaves the row behind. The Go port uses the supplied
+	// outer-column IDs, so this matching row is removed.
+	if err = target.FilterByNegation(negated, []int{2}, []int{2}); err != nil {
+		t.Fatal(err)
+	}
+	if !target.Empty() {
+		t.Fatal("matching outer-column row survived negation filtering")
+	}
+}

@@ -94816,7 +94816,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
-      "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings"],
+      "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings", "TestSieveNegationFilterUsesOuterColumnMappings"],
       "conditionals": [
         {
           "line": 161,
@@ -94909,7 +94909,7 @@
       "ownership_audited": false,
       "methods": [{"name": "sieve relation owns and closes its adopted inner relation", "status": "ported", "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_relation_test.go"], "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationCloneResetAndLifecycle"]}],
       "ownership": ["Successful adoption transfers the inner table to the sieve; rejected adoption leaves ownership with its caller, and clones own independent tables."],
-      "deviations": []
+      "deviations": ["Negation filtering uses the supplied outer column IDs to construct inner equalities. The C++ factory indexes both inner-column maps by equality-pair position at lines 638-639, which can leave a matching row when the pair references a later column; the Go regression captures the semantic correction."]
     },
     {
       "path": "src/muz/rel/dl_sieve_relation.h",

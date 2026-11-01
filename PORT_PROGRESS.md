@@ -52792,3 +52792,5 @@ Purify-arith goal invariant (2026-11-01 UTC): check the transformed goal's well-
 NLSAT goal invariants (2026-11-01 UTC): check input and output goal well-sortedness, matching the source tactic's entry and exit assertions, including the already-decided input path. The complete focused normal and checked NLSAT tactic suites pass.
 
 Recover-01 goal invariants (2026-11-01 UTC): check the input goal and the recovered output goal for well-sortedness, matching the source assertions around clause collection and rewriting. Focused normal and checked recover-01 tests pass.
+
+Sieve negation-filter regression (2026-11-01 UTC): added a focused case where the equality pair refers to outer column 2, distinguishing the Go column mapping from a C++ pair-indexing defect that can keep a matching row. The source deviation is recorded in the manifest; focused normal and checked tests pass.
