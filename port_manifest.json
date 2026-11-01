@@ -92803,7 +92803,7 @@
         },
         {
           "name": "table and interval conversion",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_conversion.go",
           "tests": [
             "TestFiniteIntervalProductTableConversion",
@@ -93047,7 +93047,7 @@
         },
         {
           "name": "table and interval conversion",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_conversion.go",
           "tests": [
             "TestFiniteIntervalProductTableConversion",
