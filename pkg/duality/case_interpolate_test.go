@@ -85,8 +85,16 @@ func TestDualityCaseInterpolationNativeLearningFaultAndRetry(t *testing.T) {
 	baseline, err := main.NumAssertions()
 	must(err)
 	runner := &CaseInterpolator{Graph: g, Auxiliary: auxiliary, Extensional: true, Simplifier: simplifier, Quantifiers: quantifiers}
+	original, err := NewRPFPWithVocabulary(g.vocabulary)
+	must(err)
+	defer original.Close()
+	base, err := NewDerivationTree(original, g)
+	must(err)
+	base.Top = parent
+	search, err := NewBacktrackingDerivation(base)
+	must(err)
 	for attempt := 0; attempt < 3; attempt++ {
-		err := runner.Interpolate(parent, child, nil)
+		err := search.SimplifyNode(child, runner, nil)
 		if attempt == 1 {
 			if !errors.Is(err, ErrCaseInterpolationBad) {
 				t.Fatal("source TEST_BAD schedule did not fail second case", err)

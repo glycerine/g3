@@ -37,6 +37,13 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 		return ErrWrapperOwner
 	}
 	m := g.context.manager
+	serviceManager, err := c.Simplifier.ASTManager()
+	if err != nil {
+		return err
+	}
+	if serviceManager != m {
+		return ErrContextMismatch
+	}
 	if c.badLimit == 0 {
 		c.badLimit = 1
 	}

@@ -27,6 +27,13 @@ func (g *RPFP) StrengthenFormulaByCaseSplitting(formula *Expr, simplifier *inter
 	}
 	c := g.context
 	m := c.manager
+	serviceManager, err := simplifier.ASTManager()
+	if err != nil {
+		return nil, nil, err
+	}
+	if serviceManager != m {
+		return nil, nil, ErrContextMismatch
+	}
 	var pins, selected []*Expr
 	defer func() {
 		for _, pin := range pins {
