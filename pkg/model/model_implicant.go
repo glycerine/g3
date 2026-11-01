@@ -683,13 +683,30 @@ func (i *ModelImplicant) checkModel(formulas []ast.ASTHandle) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+		if err = i.reportEvaluation(35, "assigned ", current, i.evaluationTruth(current)+"\n"); err != nil {
+			return false, err
+		}
 	}
 	hasX := false
 	for _, formula := range formulas {
+		if err = i.traceMinimization("pdr_verbose", "check_model", 859, "formula is "+i.evaluationTruth(formula)+"\n", []ast.ASTHandle{formula}, nil); err != nil {
+			return false, err
+		}
 		if i.isFalse(formula) {
+			if err = i.reportEvaluation(0, "formula false in model: ", formula, "\n"); err != nil {
+				return false, errors.Join(ast.ErrASTDomain, err)
+			}
 			return false, ast.ErrASTDomain
 		}
-		hasX = hasX || i.isX(formula)
+		if i.isX(formula) {
+			if err = i.reportEvaluation(0, "formula undetermined in model: ", formula, "\n"); err != nil {
+				return false, err
+			}
+			if err = i.traceUndeterminedModel(); err != nil {
+				return false, err
+			}
+			hasX = true
+		}
 	}
 	return !hasX, nil
 }

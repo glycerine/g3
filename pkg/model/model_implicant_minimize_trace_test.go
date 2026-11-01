@@ -74,38 +74,38 @@ func TestModelImplicantMinimizationSourceTrace(t *testing.T) {
 					if len(result) != count {
 						t.Fatal("duplicate or missing selected result", len(result), count)
 					}
-					if tags.ShouldTrace(tag) {
-						header := func(line int, body string) string {
-							return fmt.Sprintf("-------- [%s] %s src/model/model_implicant.cpp:%d ---------\n%s------------------------------------------------\n", tag, function, line, body)
+					header := func(tag, function string, line int, body string) string {
+						if !tags.ShouldTrace(tag) {
+							return ""
 						}
-						input, body := "formulas:\n", prefix
-						if shape != "empty" {
-							input += formulaText + "\n" + formulaText + "\n"
-							resultText := formulaText
-							if cone {
-								scalar := "true"
-								if shape == "negative" {
-									scalar = "false"
-								}
-								resultText = "(= minimize-trace-p " + scalar + ")"
+						return fmt.Sprintf("-------- [%s] %s src/model/model_implicant.cpp:%d ---------\n%s------------------------------------------------\n", tag, function, line, body)
+					}
+					input, body, roots, collect := "formulas:\n", prefix, "", ""
+					if shape != "empty" {
+						input += formulaText + "\n" + formulaText + "\n"
+						root := header("pdr_verbose", "check_model", 859, "formula is true\n"+formulaText+"\n")
+						roots = root + root
+						resultText := formulaText
+						if cone {
+							scalar := "true"
+							if shape == "negative" {
+								scalar = "false"
 							}
-							body += resultText + "\n"
+							resultText = "(= minimize-trace-p " + scalar + ")"
+							collect = header("pdr_verbose", "prune_by_cone_of_influence", 292, "collect: minimize-trace-p\n")
 						}
-						middle := ""
-						if cone && shape != "empty" {
-							middle = fmt.Sprintf("-------- [pdr_verbose] prune_by_cone_of_influence src/model/model_implicant.cpp:292 ---------\ncollect: minimize-trace-p\n------------------------------------------------\n")
-						}
-						expected := header(first, input) + middle + header(last, body)
-						if output.String() != expected {
-							t.Fatalf("trace mismatch\ngot %q\nwant %q", output.String(), expected)
-						}
-					} else if cone && tags.ShouldTrace("pdr") {
-						expected := fmt.Sprintf("-------- [pdr] prune_by_cone_of_influence src/model/model_implicant.cpp:307 ---------\n1 ==> %d\n------------------------------------------------\n", count)
-						if output.String() != expected {
-							t.Fatal("incorrect cone reduction trace", output.String(), expected)
-						}
-					} else if output.Len() != 0 {
-						t.Fatal("disabled minimization trace produced output", output.String())
+						body += resultText + "\n"
+					}
+					expected := header(tag, function, first, input) + roots
+					if cone {
+						expected += collect + header("pdr", "prune_by_cone_of_influence", 307, fmt.Sprintf("1 ==> %d\n", count))
+					}
+					expected += header(tag, function, last, body)
+					if cone && ast.ASTSourceDebug {
+						expected += roots
+					}
+					if output.String() != expected {
+						t.Fatalf("trace mismatch\ngot %q\nwant %q", output.String(), expected)
 					}
 					arrayTableMust(t, CloseImplicantResults(m, &result))
 					after := m.Stats()
