@@ -211,10 +211,10 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			resultErr = errors.Join(resultErr, generated[index].Close())
 		}
 	}()
-	cache := make(map[ast.ASTHandle]reducedProofEntry)
+	cache := make(map[*ModelNode]reducedProofEntry)
 	var reduce func(*ModelNode) (reducedProofEntry, error)
 	reduce = func(node *ModelNode) (reducedProofEntry, error) {
-		if prior, found := cache[node.state]; found {
+		if prior, found := cache[node]; found {
 			return prior, nil
 		}
 		selected, x := c.selectedTraceRule(node)
@@ -247,19 +247,19 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 		uninterpreted, x := currentRule.UninterpretedTailSize()
 		if x != nil || len(children) != uninterpreted {
 			if x == nil {
-				x = ast.ErrASTDomain
+				x = fmt.Errorf("pdr: trace has %d children for %d predicate tails: %w", len(children), uninterpreted, ast.ErrASTDomain)
 			}
 			return reducedProofEntry{}, x
 		}
-		for _, child := range children {
+		for childIndex, child := range children {
 			childEntry, y := reduce(child)
 			if y != nil {
-				return reducedProofEntry{}, y
+				return reducedProofEntry{}, fmt.Errorf("pdr: resolve trace child %d: %w", childIndex, y)
 			}
 			resolved, targetSubst, sourceSubst, temporaryRefs, y := c.resolveProofRules(rules, currentRule, childEntry.rule)
 			references = append(references, temporaryRefs...)
 			if y != nil {
-				return reducedProofEntry{}, y
+				return reducedProofEntry{}, fmt.Errorf("pdr: unify trace child %d: %w", childIndex, y)
 			}
 			generated = append(generated, resolved)
 			conclusion, y := resolved.ToFormula()
@@ -287,7 +287,7 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			currentRule = resolved
 		}
 		entry := reducedProofEntry{rule: currentRule, proof: currentProof}
-		cache[node.state] = entry
+		cache[node] = entry
 		return entry, nil
 	}
 	entry, err := reduce(root)

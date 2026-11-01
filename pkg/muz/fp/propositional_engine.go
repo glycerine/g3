@@ -93,6 +93,8 @@ type PropositionalEngine struct {
 	pdrMagic            map[ast.ASTHandle]ast.ASTHandle
 	pdrKarr             map[ast.ASTHandle]rel.KarrMatrix
 	pdrConversions      []hornModelConversion
+	pdrProof            ast.ASTRef
+	pdrSliceProof       bool
 	pdrStatistics       statistics.Statistics
 	bmcStatistics       statistics.Statistics
 	bmcTrace            []*base.Rule
@@ -1914,6 +1916,12 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 			}
 			return e.inductiveModelAnswer(inductive)
 		}
+		if e.pdrProof != (ast.ASTRef{}) {
+			if e.pdrPredicate(declaration) != e.pdrPredicate(e.pdrQuery) {
+				return answer, ast.ErrASTDomain
+			}
+			return e.manager.CopyRef(e.pdrProof)
+		}
 		// Relation-query answers intentionally retain sliced predicate names,
 		// matching pdr_dl_interface's converter-free reachable-trace surface.
 		return e.pdr.Answer(e.pdrPredicate(declaration))
@@ -2032,6 +2040,12 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := e.requirePDRSnapshot(); err != nil {
 		return ast.ASTRef{}, err
+	}
+	if e.pdrProof != (ast.ASTRef{}) {
+		if e.pdrPredicate(declaration) != e.pdrPredicate(e.pdrQuery) {
+			return ast.ASTRef{}, ast.ErrASTDomain
+		}
+		return e.manager.CopyRef(e.pdrProof)
 	}
 	return e.pdr.Proof(e.pdrPredicate(declaration))
 }

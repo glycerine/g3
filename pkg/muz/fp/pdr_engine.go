@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
+	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
@@ -42,6 +43,10 @@ func (e *PropositionalEngine) pdrPredicate(declaration ast.ASTHandle) ast.ASTHan
 
 func (e *PropositionalEngine) clearPDRPreprocessing() error {
 	result := closeHornModelConversions(e.pdrConversions)
+	if e.pdrProof != (ast.ASTRef{}) {
+		result = errors.Join(result, e.manager.DelRef(&e.pdrProof))
+	}
+	e.pdrSliceProof = false
 	e.pdrDerived = nil
 	e.pdrPredicates = nil
 	e.pdrSlices = nil
@@ -68,6 +73,17 @@ func (e *PropositionalEngine) installPDRPreprocessing(result *hornPreprocessResu
 }
 
 func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool, resultErr error) {
+	status, err := e.queryPDRWithSliceProof(declaration, true)
+	if onlyErrorKind(err, errRetryUnslicedProof) {
+		if closeErr := e.closePDRForReplacement(); closeErr != nil {
+			return lbool.Undef, closeErr
+		}
+		return e.queryPDRWithSliceProof(declaration, false)
+	}
+	return status, err
+}
+
+func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, allowSliceProof bool) (_ lbool.LBool, resultErr error) {
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: PDR requires parameter and global services")
 	}
@@ -107,7 +123,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	if e.pdr != nil && e.pdrRevision == e.revision && e.pdrQuery == declaration {
+	if e.pdr != nil && e.pdrRevision == e.revision && e.pdrQuery == declaration && !e.pdrSliceProof {
 		return e.pdr.Solve(e.pdrPredicate(declaration))
 	}
 	parameters, err := e.fixedpointParamView()
@@ -226,7 +242,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	if err = context.SetGenerateProofTrace(generateProofTrace || e.forceProofTrace); err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
-	preprocessed, err := e.preprocessHornRules(declaration, true, true)
+	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, allowSliceProof)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}
@@ -301,6 +317,7 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 		}
 	}
 	e.installPDRPreprocessing(preprocessed)
+	e.pdrSliceProof = preprocessed.sliceProof != nil
 	e.pdrDerived = derivedPredicates
 	e.pdr = context
 	e.pdrRules = snapshot
@@ -314,7 +331,45 @@ func (e *PropositionalEngine) queryPDR(declaration ast.ASTHandle) (_ lbool.LBool
 	}
 	keepSnapshot = true
 	installed = true
-	return context.Solve(queryDeclaration)
+	status, err := context.Solve(queryDeclaration)
+	if err != nil || status != lbool.True || preprocessed.sliceProof == nil {
+		return status, err
+	}
+	proof, err := context.Proof(queryDeclaration)
+	if err != nil {
+		if onlyErrorKind(err, ast.ErrASTDomain) {
+			return lbool.Undef, errRetryUnslicedProof
+		}
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&proof)) }()
+	original, err := e.manager.RefGet(proof)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	converted, err := preprocessed.sliceProof.Convert(original)
+	if err != nil {
+		if onlyErrorKind(err, transforms.ErrSliceProofUnsupported) || onlyErrorKind(err, ast.ErrASTDomain) {
+			return lbool.Undef, errRetryUnslicedProof
+		}
+		return lbool.Undef, err
+	}
+	convertedHandle, err := e.manager.RefGet(converted)
+	if err == nil {
+		var before, after ast.ASTHandle
+		before, err = e.manager.GetProofFact(original)
+		if err == nil {
+			after, err = e.manager.GetProofFact(convertedHandle)
+		}
+		if err == nil && before != after {
+			err = errRetryUnslicedProof
+		}
+	}
+	if err != nil {
+		return lbool.Undef, errors.Join(err, e.manager.DelRef(&converted))
+	}
+	e.pdrProof = converted
+	return status, nil
 }
 
 func (e *PropositionalEngine) pdrContext() (*pdr.Context, error) {
