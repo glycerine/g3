@@ -52804,3 +52804,5 @@ MaxRes primal-dual terminal bounds (2026-11-01 UTC): when a satisfiable candidat
 Floating-point API numeral construction (2026-11-01 UTC): `SMTContext.Numeral` now accepts the source decimal and binary-exponent spellings for floating-point sorts and enforces the C API character whitelist before MPF conversion. Added equivalence tests against native float numerals and invalid `NaN` spelling coverage; normal and checked focused floating-point/API tests pass.
 
 Generated quantifier inspection replay closure (2026-11-01 UTC): verified pattern, binder and quantifier inspection replay against the direct Go APIs and borrowed AST lifetime tests, then marked the source method complete. Focused API tests pass normally and with `g3checked`, and portcheck passes.
+
+Public tactic catalog coverage (2026-11-01 UTC): expanded the API regression to assert the complete source-ordered tactic list, count, per-index names, descriptions and construction/close lifecycle for all 106 registered factories, plus rejection of invalid names and indices. The focused test passes normally and with `g3checked`.
