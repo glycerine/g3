@@ -20,9 +20,13 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	originalPreprocessor := c.optimizationPreprocessor
 	// Lexicographic execution owns one ArithmeticSolver and can carry the
 	// tactic converter through its model publication path. Pareto and box
-	// maintain separate long-lived model paths and keep their existing input
-	// preparation until those paths accept the same converter contract.
-	useSimplifier := !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
+	// maintain separate long-lived model paths; weighted soft objectives also
+	// keep their source MaxSMT search and resource accounting intact.
+	settings, err := c.optimizationSettings()
+	if err != nil {
+		return nil, err
+	}
+	useSimplifier := settings.rlimit == 0 && settings.timeout == 0 && !paretoContinuation && !boxContinuation && priority != "pareto" && priority != "box"
 	for i := range original {
 		if original[i].soft && len(original[i].softTerms) == 0 {
 			useSimplifier = false
@@ -32,7 +36,6 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	var formulaSet *opt.ObjectiveFormulaSet
 	var simplified *optimizationSimplifiedFormulas
 	var source opt.DecodedFormulaSet
-	var err error
 	if useSimplifier {
 		formulaSet, err = c.EncodeOptimizationFormulas()
 		if err != nil {
@@ -42,11 +45,25 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		if err != nil {
 			return nil, errors.Join(err, formulaSet.Close())
 		}
-		source = simplified.decoded
-		if len(source.Objectives) != len(original) {
-			return nil, errors.Join(ast.ErrASTDomain, simplified.Close(), formulaSet.Close())
+		if simplified.inconsistent {
+			if err = simplified.Close(); err != nil {
+				return nil, errors.Join(err, formulaSet.Close())
+			}
+			simplified = nil
+			if err = formulaSet.Close(); err != nil {
+				formulaSet = nil
+				return nil, err
+			}
+			formulaSet = nil
+			useSimplifier = false
+		} else {
+			source = simplified.decoded
+			if len(source.Objectives) != len(original) {
+				return nil, errors.Join(ast.ErrASTDomain, simplified.Close(), formulaSet.Close())
+			}
 		}
-	} else {
+	}
+	if !useSimplifier {
 		source.Objectives = make([]opt.DecodedFormulaObjective, len(original))
 		for i, objective := range original {
 			kind := opt.FormulaMinimize

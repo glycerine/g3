@@ -15,11 +15,12 @@ import (
 )
 
 type optimizationSimplifiedFormulas struct {
-	decoded opt.DecodedFormulaSet
-	refs    []ast.ASTRef
-	model   tactic.ModelConverter
-	manager *ast.ASTManager
-	closed  bool
+	decoded      opt.DecodedFormulaSet
+	refs         []ast.ASTRef
+	model        tactic.ModelConverter
+	manager      *ast.ASTManager
+	inconsistent bool
+	closed       bool
 }
 
 func (f *optimizationSimplifiedFormulas) Close() (result error) {
@@ -187,6 +188,14 @@ func (c *Context) simplifyOptimizationFormulas(set *opt.ObjectiveFormulaSet) (re
 		return nil, ast.ErrASTDomain
 	}
 	output := applied.Goals[0]
+	inconsistent, err := output.Inconsistent()
+	if err != nil {
+		return nil, err
+	}
+	if inconsistent {
+		result.inconsistent = true
+		return result, nil
+	}
 	count, err := output.Size()
 	if err != nil {
 		return nil, err
