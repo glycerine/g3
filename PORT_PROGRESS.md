@@ -52808,3 +52808,5 @@ Generated quantifier inspection replay closure (2026-11-01 UTC): verified patter
 Public tactic catalog coverage (2026-11-01 UTC): expanded the API regression to assert the complete source-ordered tactic list, count, per-index names, descriptions and construction/close lifecycle for all 106 registered factories, plus rejection of invalid names and indices. The focused test passes normally and with `g3checked`.
 
 Tactic API source closure (2026-11-01 UTC): verified public factory creation, registered tactic count/name order, and descriptions across the full 106-entry source catalog. Updated the registry contract and marked `api_tactic.cpp` complete; focused API and command-context suites pass normally and with `g3checked`, and portcheck passes.
+
+Algebraic arithmetic context validation (2026-11-01 UTC): added a cross-context operand regression that requires rejection without disturbing the owning context, alongside existing rational/irrational arithmetic and invalid-operand tests. Normal and `g3checked` algebraic API tests pass; the `z3_algebraic.h` arithmetic method record is now complete.

@@ -12527,7 +12527,9 @@
       "tests": [
         "TestAPIAlgebraicRationalAndMixedArithmetic",
         "TestAPIAlgebraicRootsRationalAssignment",
-        "TestRCFRationalResultFeedsAlgebraicNumeral"
+        "TestRCFRationalResultFeedsAlgebraicNumeral",
+        "TestAPIAlgebraicRejectsInvalidOperands",
+        "TestAPIAlgebraicRejectsForeignContextOperands"
       ],
       "conditionals": [
         {
@@ -12560,11 +12562,13 @@
       "methods": [
         {
           "name": "algebraic arithmetic operations",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/api_algebraic_arithmetic.go",
           "tests": [
             "TestAPIAlgebraicRationalAndMixedArithmetic",
-            "TestRCFRationalResultFeedsAlgebraicNumeral"
+            "TestRCFRationalResultFeedsAlgebraicNumeral",
+            "TestAPIAlgebraicRejectsInvalidOperands",
+            "TestAPIAlgebraicRejectsForeignContextOperands"
           ]
         }
       ],

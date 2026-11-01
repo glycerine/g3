@@ -23,3 +23,14 @@ func TestAPIAlgebraicRejectsInvalidOperands(t *testing.T) {
 		t.Fatal("even root of negative", err)
 	}
 }
+
+func TestAPIAlgebraicRejectsForeignContextOperands(t *testing.T) {
+	left := newAPIAlgebraicFixture(t)
+	right := newAPIAlgebraicFixture(t)
+	if _, err := left.c.AlgebraicAdd(left.one, right.one); !errors.Is(err, ast.ErrASTHandle) {
+		t.Fatal("foreign algebraic operand error", err)
+	}
+	if text, err := left.c.NumeralString(left.one); err != nil || text != "1" {
+		t.Fatal("foreign operand rejection changed the owning context", text, err)
+	}
+}
