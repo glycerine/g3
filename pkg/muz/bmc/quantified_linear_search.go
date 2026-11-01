@@ -1,0 +1,104 @@
+package bmc
+
+// Source: src/muz/bmc/dl_bmc_engine.cpp, qlinear::check.
+
+import (
+	"errors"
+	"fmt"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
+
+// SearchQuantifiedLinear checks increasing index widths beginning at four.
+// A satisfiable result returns an owning model reference, which remains valid
+// after the temporary solver scope is popped and must be released by DecRef.
+func (c *Compiler) SearchQuantifiedLinear(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver) (status lbool.LBool, width uint32, winning *model.ModelCore, resultErr error) {
+	if c == nil || c.manager == nil || rules == nil || solver == nil {
+		return lbool.Undef, 0, nil, ast.ErrASTHandle
+	}
+	if err := solver.SetProduceModels(true); err != nil {
+		return lbool.Undef, 0, nil, err
+	}
+	for width = 4; ; width++ {
+		canceled, err := c.manager.Canceled()
+		if err != nil {
+			return lbool.Undef, width, nil, err
+		}
+		if canceled {
+			return lbool.Undef, width, nil, fmt.Errorf("bmc: %s", c.manager.ResourceLimit().CancelMessage())
+		}
+		status, winning, err = c.checkQuantifiedLinearWidth(rules, query, solver, width)
+		if err != nil || status != lbool.False {
+			return status, width, winning, err
+		}
+		if width == ^uint32(0) {
+			return lbool.Undef, width, nil, ast.ErrASTDomain
+		}
+	}
+}
+
+func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.ASTHandle, solver *smtcore.SMTSolver, width uint32) (status lbool.LBool, winning *model.ModelCore, resultErr error) {
+	if err := solver.Push(); err != nil {
+		return lbool.Undef, nil, err
+	}
+	defer func() {
+		resultErr = errors.Join(resultErr, solver.Pop(1))
+		if resultErr != nil && winning != nil {
+			resultErr = errors.Join(resultErr, winning.DecRef())
+			winning = nil
+		}
+	}()
+	formulas, err := c.CompileQuantifiedLinear(rules, width)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	for i := range formulas {
+		value, cause := c.manager.RefGet(formulas[i])
+		if cause == nil {
+			cause = solver.AssertFormula(value)
+		}
+		if cause != nil {
+			err = cause
+			break
+		}
+	}
+	for i := len(formulas) - 1; i >= 0; i-- {
+		err = errors.Join(err, c.manager.DelRef(&formulas[i]))
+	}
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	q, err := newQuantifiedLinear(c.manager, width)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, q.close()) }()
+	name, err := c.manager.Symbols.Intern("T")
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	index, err := q.hold(c.manager.MkConst(name, q.index))
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	goal, err := q.predicate(query, index)
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	if err = solver.AssertFormula(goal); err != nil {
+		return lbool.Undef, nil, err
+	}
+	status, err = solver.CheckSat(nil)
+	if err != nil || status != lbool.True {
+		return status, nil, err
+	}
+	winning, err = solver.AcquireModel()
+	if err != nil || winning == nil {
+		return lbool.Undef, winning, errors.Join(err, ast.ErrASTDomain)
+	}
+	return status, winning, nil
+}

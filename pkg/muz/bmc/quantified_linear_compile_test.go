@@ -13,6 +13,7 @@ import (
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/bmc"
+	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
@@ -166,6 +167,116 @@ func TestBMCQuantifiedLinearCompilationLevels(t *testing.T) {
 			t.Fatalf("quantified level result: got %v, want %v", status, tc.want)
 		}
 		must(solver.Pop(1))
+	}
+}
+
+func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	context, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(context.Close()) }()
+	m, err := context.Manager()
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	name, err := m.Symbols.Intern("qlinear-search-fact")
+	must(err)
+	predicate, err := m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	fact, err := m.MkApp(predicate, nil)
+	must(err)
+	goalName, err := m.Symbols.Intern("qlinear-search-goal")
+	must(err)
+	goal, err := m.MkFuncDecl(goalName, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	goalApp, err := m.MkApp(goal, nil)
+	must(err)
+	rm, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rm.Close()) }()
+	must(rm.RegisterPredicate(predicate))
+	must(rm.RegisterPredicate(goal))
+	set, err := base.NewRuleSet(rm)
+	must(err)
+	defer func() { must(set.Close()) }()
+	rule, err := rm.NewRule(fact, nil, nil, "fact")
+	must(err)
+	must(set.Add(rule))
+	must(rule.Close())
+	step, err := rm.NewRule(goalApp, []ast.ASTHandle{fact}, nil, "step")
+	must(err)
+	must(set.Add(step))
+	must(step.Close())
+	compiler, err := bmc.NewCompiler(m)
+	must(err)
+	defer func() { must(compiler.Close()) }()
+	raw, err := context.NewSimpleSolver()
+	must(err)
+	defer func() { must(raw.Close()) }()
+	solver, ok := raw.(*smtcore.SMTSolver)
+	if !ok {
+		t.Fatal("expected native SMT solver")
+	}
+	guardName, err := m.Symbols.Intern("qlinear-existing-guard")
+	must(err)
+	guard, err := m.MkConst(guardName, boolean)
+	must(err)
+	guardRef, err := m.NewRef(guard)
+	must(err)
+	defer func() { must(m.DelRef(&guardRef)) }()
+	must(solver.AssertFormula(guard))
+	nonlinear, err := base.NewRuleSet(rm)
+	must(err)
+	badRule, err := rm.NewRule(goalApp, []ast.ASTHandle{fact, fact}, nil, "nonlinear")
+	must(err)
+	must(nonlinear.Add(badRule))
+	must(badRule.Close())
+	_, _, badModel, badErr := compiler.SearchQuantifiedLinear(nonlinear, goal, solver)
+	must(nonlinear.Close())
+	if badErr == nil || badModel != nil {
+		t.Fatal("nonlinear rules were accepted by quantified linear search", badErr)
+	}
+	m.ResourceLimit().Cancel()
+	_, _, canceledModel, cancelErr := compiler.SearchQuantifiedLinear(set, goal, solver)
+	m.ResourceLimit().ResetCancel()
+	if cancelErr == nil || canceledModel != nil {
+		t.Fatal("canceled quantified search returned a model", cancelErr)
+	}
+	status, width, md, err := compiler.SearchQuantifiedLinear(set, goal, solver)
+	must(err)
+	if status != lbool.True || width != 4 || md == nil {
+		t.Fatal("quantified search", status, width, md)
+	}
+	defer func() { must(md.DecRef()) }()
+	indexSort, err := m.BitVectorSort(width)
+	must(err)
+	indexName, err := m.Symbols.Intern("T")
+	must(err)
+	index, err := m.MkConst(indexName, indexSort)
+	must(err)
+	indexDecl, err := m.GetDecl(index)
+	must(err)
+	value, err := md.ConstantInterpretation(indexDecl)
+	must(err)
+	if value.IsNull() {
+		t.Fatal("winning model lost its index after solver pop")
+	}
+	level, bits, numeral, err := m.BitVectorNumeralBigInt(value)
+	must(err)
+	if !numeral || bits != width || level.Sign() <= 0 {
+		t.Fatal("recursive query did not choose a positive index", level, bits)
+	}
+	negated, err := m.MkNot(guard)
+	must(err)
+	status, err = solver.CheckSat([]ast.ASTHandle{negated})
+	must(err)
+	if status != lbool.False {
+		t.Fatal("quantified search damaged the original solver scope", status)
 	}
 }
 
