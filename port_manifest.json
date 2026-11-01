@@ -100584,10 +100584,15 @@
           ]
         },
         {
-          "name": "remaining Spacer utility algorithms",
+          "name": "mk_epp and adhoc_rewriter_rpp extended diagnostic expression rewriting and printing",
           "status": "unported",
           "go_target": null,
           "tests": []
+        },
+        {
+          "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr",
+          "status": "reference_only",
+          "reason": "Source-wide caller audit finds no callers for the ITE hoister or select/index/declaration scans. ground_expr has one call in spacer_context.cpp:768, guarded by literal if (false). These helpers are excluded under the live-source-consumer rule; mk_epp remains live at spacer_context.cpp:335 and 2832."
         }
       ],
       "ownership": [],
@@ -100772,10 +100777,15 @@
           ]
         },
         {
-          "name": "remaining Spacer utility declarations",
+          "name": "mk_epp extended diagnostic expression rewrite/print declaration",
           "status": "unported",
           "go_target": null,
           "tests": []
+        },
+        {
+          "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr declarations without live consumers",
+          "status": "reference_only",
+          "reason": "Corresponding implementation caller audit excludes the unused hoister/scans and the grounding call guarded by literal if (false); no Go adapters are introduced for them."
         }
       ],
       "ownership": [],
