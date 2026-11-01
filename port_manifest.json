@@ -92691,7 +92691,7 @@
         },
         {
           "name": "collect unreferenced and empty inner relations and reuse indexes",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductGarbageCollectionAndReuse"
@@ -92935,7 +92935,7 @@
         },
         {
           "name": "collect unreferenced and empty inner relations and reuse indexes",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductGarbageCollectionAndReuse"

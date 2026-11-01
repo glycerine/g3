@@ -52828,3 +52828,5 @@ Finite product source fact lookup (2026-11-01 UTC): verified `contains_fact` tab
 Finite product interval fact insertion (2026-11-01 UTC): matched interval insertion's per-column interpreted equality construction and union into the existing interval to `interval_relation::add_fact`. Symbolic insertion regression passes normally and with `g3checked`; marked the method ported in both finite product records.
 
 Finite product equality filters (2026-11-01 UTC): verified finite-key and interval-value equality filtering, plus same-sort identical-column filtering across table and interval groups, against the source dispatch. Focused normal and `g3checked` regressions pass; marked both methods ported in the implementation and interface records.
+
+Finite product garbage collection (2026-11-01 UTC): checked both source collection cases: recycle unreferenced inner relations, and remove rows whose referenced relation is empty before recycling its index. The regression also verifies index reuse and complete cleanup; focused normal and `g3checked` tests pass, and the method is marked ported in both records.
