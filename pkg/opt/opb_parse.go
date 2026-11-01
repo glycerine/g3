@@ -79,6 +79,9 @@ func parseOPBTerm(s *opbScanner) (OPBTerm, error) {
 	term.Coefficient.Set(&coefficient)
 	for {
 		if err = s.skipWhitespace(); err != nil {
+			if err == io.EOF {
+				return term, nil
+			}
 			return OPBTerm{}, fmt.Errorf("opb:%d: unterminated term: %w", s.line, err)
 		}
 		b, _ := s.peek()
@@ -96,11 +99,15 @@ func parseOPBTerm(s *opbScanner) (OPBTerm, error) {
 func parseOPBObjective(s *opbScanner, minimize bool) (OPBObjective, error) {
 	result := OPBObjective{MinimizeSyntax: minimize}
 	for {
-		if yes, _ := s.consume(";"); yes {
+		yes, err := s.consume(";")
+		if yes || err == io.EOF {
 			if len(result.Terms) == 0 {
 				return OPBObjective{}, fmt.Errorf("opb:%d: empty objective", s.line)
 			}
 			return result, nil
+		}
+		if err != nil {
+			return OPBObjective{}, err
 		}
 		term, err := parseOPBTerm(s)
 		if err != nil {
@@ -125,8 +132,8 @@ func parseOPBConstraint(s *opbScanner) (OPBConstraint, error) {
 				if err != nil {
 					return OPBConstraint{}, err
 				}
-				if yes, _ = s.consume(";"); !yes {
-					return OPBConstraint{}, fmt.Errorf("opb:%d: expected semicolon", s.line)
+				if _, err = s.consume(";"); err != nil && err != io.EOF {
+					return OPBConstraint{}, err
 				}
 				result.Relation = relation.kind
 				result.Bound.Set(&bound)

@@ -107731,6 +107731,7 @@
       "tests": [
         "TestParseOPBObjectivesConstraintsAndProducts",
         "TestParseOPBPreservesMaxSyntaxAndEquality",
+        "TestParseOPBOptionalConstraintSemicolonsAndObjectiveEOF",
         "TestParseOPBRejectsMalformedRetainedGrammar",
         "TestOPBDocumentCopyOwnsIntegersAndSlices",
         "TestParseWCNFPreservesHeaderWeightsAndLiteralOrder",

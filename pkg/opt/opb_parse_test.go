@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func TestParseOPBOptionalConstraintSemicolonsAndObjectiveEOF(t *testing.T) {
+	for _, input := range []string{
+		"1 x1 >= 1\n1 ~x1 >= 1\nmin: 2 x1",
+		"1 x1 >= 1; 1 ~x1 >= 1; min: 2 x1   \n",
+	} {
+		document, err := ParseOPB(strings.NewReader(input))
+		if err != nil {
+			t.Fatalf("ParseOPB(%q): %v", input, err)
+		}
+		if len(document.Constraints) != 2 || len(document.Objectives) != 1 ||
+			len(document.Objectives[0].Terms) != 1 || document.Objectives[0].Terms[0].Coefficient.String() != "2" {
+			t.Fatalf("ParseOPB(%q): %#v", input, document)
+		}
+	}
+}
+
 func TestParseOPBObjectivesConstraintsAndProducts(t *testing.T) {
 	input := `* #variable= 3 #constraint= 2
 min: + 2 x1 -3 ~x2 x3;

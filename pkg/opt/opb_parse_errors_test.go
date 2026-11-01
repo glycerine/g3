@@ -10,7 +10,6 @@ func TestParseOPBRejectsMalformedRetainedGrammar(t *testing.T) {
 		"min:;",
 		"min: 1 y1;",
 		"1 x1 > 0;",
-		"1 x1 >= 0",
 		"1 x2147483648 >= 0;",
 		"1 >= 0;",
 		"1 x1 x >= 0;",
