@@ -93354,7 +93354,7 @@
         },
         {
           "name": "interval relation rename and union delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
           "tests": [
             "TestIntervalRelationRename",
@@ -93480,7 +93480,7 @@
         },
         {
           "name": "interval relation rename and union delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
           "tests": [
             "TestIntervalRelationRename",

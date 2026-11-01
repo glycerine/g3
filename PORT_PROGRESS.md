@@ -52851,4 +52851,6 @@ QF_UFNRA tactic source closure (2026-11-01 UTC): verified the composed preproces
 
 Interval interpreted comparison filtering (2026-11-01 UTC): added a regression showing unsupported conjunctions leave the interval unchanged, matching the source's single-comparison recognizer. Existing rational/integer strict-bound and binary propagation cases pass alongside it in normal and `g3checked` builds; marked the filter method ported in both interval source records.
 
+Interval relation rename and delta union (2026-11-01 UTC): checked source permutation cycles and empty preservation, plus changed/unchanged/empty-source delta updates and alias rejection. Focused normal and `g3checked` tests pass; marked both methods ported in the interval implementation and interface records.
+
 Finite product interpreted filters (2026-11-01 UTC): closed the inner-only variable-renaming path and the finite-table-only path, including wrong-column dispatch and ground false behavior. All three focused filter regressions pass normally and with `g3checked`; the genuinely mixed table/interval condition path remains partial and is not promoted.
