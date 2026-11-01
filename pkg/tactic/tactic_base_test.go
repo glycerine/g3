@@ -172,3 +172,15 @@ func TestBaseTacticExceptionMessages(t *testing.T) {
 		t.Fatal("tactic exception message aliases", got)
 	}
 }
+
+func TestTacticExceptionPreservesCauseAndMessage(t *testing.T) {
+	cause := errors.Join(arena.ErrInjectedFailure, errors.New("cleanup pending"))
+	wrapped := WrapTacticException(cause)
+	if wrapped.Message() != cause.Error() || wrapped.Error() != cause.Error() || !errors.Is(wrapped, arena.ErrInjectedFailure) {
+		t.Fatal("tactic exception lost its message or cause", wrapped)
+	}
+	var typed TacticException
+	if !errors.As(wrapped, &typed) || typed.HasErrorCode() {
+		t.Fatal("tactic exception type changed", wrapped)
+	}
+}

@@ -20654,13 +20654,13 @@
       "path": "src/ast/expr2polynomial.cpp",
       "component": "ast",
       "role": "production",
-      "status": "ported",
-      "go_targets": [
+      "status": "partial",
+      "go_targets": ["pkg/tactic/nlsat_smt/nl_purify_failure_test.go",
         "pkg/ast/ast_expr2polynomial.go",
         "pkg/ast/ast_expr2polynomial_test.go",
         "pkg/math/polynomial/polynomial_expr_translation_binding.go"
       ],
-      "tests": [
+      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry","TestExpr2PolynomialValueConstructionReleasesFreshPolynomial",
         "TestExpr2PolynomialForwardRationalArithmeticCacheAndOwnership",
         "TestExpr2PolynomialForwardRefusalCancelAndVarIndexMode",
         "TestExpr2PolynomialSourceOperatorBranchesAndAtomicInvalidPower",
@@ -20758,7 +20758,7 @@
         }
       ],
       "methods_audited": true,
-      "ownership_audited": true,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "imp/default owner construction, borrowed AST/polynomial accessors, concrete variable allocation/kind policy, cancellation and destruction (cpp37-109,466-518)",
@@ -20805,7 +20805,7 @@
         "Expr2Polynomial borrows the AST and polynomial managers and an optional external Expr2Var. The default form owns and closes its concrete Expr2Var. Variable-to-expression entries and cached domains own ASTRefs; cached numerator polynomials and denominator integers own independent references.",
         "ToPolynomial transfers an owning PolynomialRef and ScopedInt denominator to the caller. ToExpr transfers one owning ASTRef. Iterative frame arguments own temporary polynomial/integer pairs until their parent operation publishes or failure cleanup completes."
       ],
-      "deviations": [
+      "deviations": ["Interrupted polynomial compilation and solver search still have unresolved cleanup and ownership paths.",
         "Native slices and maps replace source vectors and obj_map. The abstract C++ mk_var/is_int virtual pair is a concrete typed ExprPolynomialVariables interface for the retained nlsat specialization; the default path directly uses the polynomial manager and its bool slice policy.",
         "Go returns typed errors for source assertions and exceptions and returns owning result objects rather than mutating caller-created reference wrappers. Standard-library string parsing transports exact numerals between the independent AST and polynomial numeral owners."
       ]
@@ -106151,7 +106151,7 @@
       "path": "src/nlsat/tactic/nlsat_tactic.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": ["pkg/tactic/nlsat_smt/nl_purify_failure_test.go","pkg/api/api_simple_solver_translate_test.go", "pkg/api/api_caller_tactic_solver_translate.go", "pkg/nlsat/tactic/nlsat_tactic_test.go", "pkg/nlsat/tactic/context_translation.go",
         "pkg/nlsat/tactic/nlsat_tactic.go",
         "pkg/cmd/g3/main_test.go"
@@ -106179,7 +106179,7 @@
         }
       ],
       "methods_audited": true,
-      "ownership_audited": true,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "retained tactic application, SAT model publication, UNSAT core publication, solver statistics capture, and statistics reset",
@@ -106201,7 +106201,7 @@
       "ownership": [
         "NLSATTactic owns its copied parameter snapshot and statistics map. Each Apply call lexically owns the prime generator, polynomial manager, solver, and GoalCompiler in dependency order; the compiler closes before the solver, which closes before polynomial and prime services. Published SAT models are copied into a stored converter before this stack is retired, while UNSAT dependencies are joined into the result before compiler attachments close."
       ],
-      "deviations": [
+      "deviations": ["Interrupted polynomial compilation and solver search still have unresolved cleanup and ownership paths.",
         "The source display-variable callback only customizes internal diagnostic rendering. Go diagnostics use the solver's stable numeric variable identities; solving, model/core publication, parameters and translation, exact five-counter statistics forwarding, and reset behavior are integrated."
       ]
     },
@@ -197805,7 +197805,7 @@
         "pkg/tactic/tactic_base_test.go",
         "pkg/math/subpaving/tactic/fast_core_tactic_test.go"
       ],
-      "tests": [
+      "tests": ["TestTacticExceptionPreservesCauseAndMessage",
         "TestBaseTacticExceptionMessages",
         "TestFastCoreTacticReturnsBorrowedGoalAndCollectsSearchStats"
       ],

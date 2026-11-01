@@ -335,11 +335,11 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 		return err
 	}
 	if err = compiler.Compile(goal); err != nil {
-		return basetactic.NewTacticException(err.Error())
+		return basetactic.WrapTacticException(err)
 	}
 	status, err := solver.Check()
 	if err != nil {
-		return basetactic.NewTacticException(err.Error())
+		return basetactic.WrapTacticException(err)
 	}
 	switch status {
 	case lbool.True:

@@ -5,14 +5,61 @@ package ast
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	umemory "github.com/glycerine/g3/pkg/util/memory"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
+
+func TestExpr2PolynomialValueConstructionReleasesFreshPolynomial(t *testing.T) {
+	for _, stop := range []int64{0, 1} {
+		for _, borrowed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%d/borrowed=%v", stop, borrowed), func(t *testing.T) {
+				m, pm := exprPolynomialFixture(t)
+				_, err := m.RegisterArithmeticPlugin()
+				astTestMust(t, err)
+				converter, err := NewExpr2Polynomial(Expr2PolynomialConfig{AST: m, Polynomial: pm})
+				astTestMust(t, err)
+				t.Cleanup(func() { astTestMust(t, converter.Close()) })
+				core, err := pm.ArithmeticCore()
+				astTestMust(t, err)
+				variable, err := core.MkVar()
+				astTestMust(t, err)
+				p, err := core.MkVariable(variable, 1)
+				astTestMust(t, err)
+				info, err := core.Info(p)
+				astTestMust(t, err)
+				if info.RefCount != 0 {
+					t.Fatal("fresh polynomial already has an owner", info.RefCount)
+				}
+				if borrowed {
+					astTestMust(t, core.IncRef(p))
+					t.Cleanup(func() { astTestMust(t, core.DecRef(p)) })
+				}
+				m.Budget().FailAfter(stop)
+				value, err := converter.newValue(p, nil)
+				m.Budget().FailAfter(-1)
+				if value != nil || !errors.Is(err, arena.ErrInjectedFailure) {
+					t.Fatal("expected injected construction failure", value, err)
+				}
+				info, err = core.Info(p)
+				if borrowed {
+					astTestMust(t, err)
+					if info.RefCount != 1 {
+						t.Fatal("borrowed polynomial reference changed", info.RefCount)
+					}
+				} else if err == nil {
+					t.Fatal("fresh polynomial was not released")
+				}
+			})
+		}
+	}
+}
 
 func exprPolynomialFixture(t *testing.T) (*ASTManager, *polynomial.MultivariatePolynomialManager) {
 	t.Helper()

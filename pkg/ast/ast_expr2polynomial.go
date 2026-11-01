@@ -189,10 +189,23 @@ func (x *Expr2Polynomial) isIntReal(h ASTHandle) (isInt, matched bool, err error
 }
 
 func (x *Expr2Polynomial) newValue(p polynomial.Polynomial, d *unumeral.Int) (v *exprPolynomialValue, err error) {
+	// A freshly constructed polynomial has no caller reference yet. Pin it
+	// before reserving the wrapper so a failed reservation cannot orphan it.
+	pinned := false
+	if p != (polynomial.Polynomial{}) {
+		if err = x.core.IncRef(p); err != nil {
+			return nil, err
+		}
+		pinned = true
+	}
 	v = &exprPolynomialValue{}
+	owner := v
 	defer func() {
+		if pinned {
+			err = errors.Join(err, x.core.DecRef(p))
+		}
 		if err != nil {
-			err = errors.Join(err, v.close())
+			err = errors.Join(err, owner.close())
 			v = nil
 		}
 	}()
