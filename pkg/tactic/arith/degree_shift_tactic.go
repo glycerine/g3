@@ -137,6 +137,11 @@ func (t *DegreeShiftTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	if err != nil {
 		return err
 	}
+	report, err := tactic.NewTacticReport("degree_shift", goal)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, report.Close()) }()
 	plan, err := degreeShiftPrepareWithCheckpoint(m, roots, proofs, t.checkpoint)
 	if err != nil {
 		return err
