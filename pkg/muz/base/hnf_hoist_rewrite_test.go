@@ -4,6 +4,7 @@ package base_test
 // default rewrite_ok=true; quant_hoist.cpp reduces rebuilt Boolean gates.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -75,6 +76,20 @@ func TestHornNormalizerHoistingRewritesBooleanGates(t *testing.T) {
 						result, err = normalizer.NormalizeWithProof(formula, proof)
 					} else {
 						result, err = normalizer.Normalize(formula)
+					}
+					if withProof && !prefix && ast.ASTSourceDebug {
+						// Source hnf::mk_horn only repairs the premise after
+						// hoisting when it collected a prefix; mk_modus_ponens
+						// then asserts on this rewritten, unmatched premise.
+						if result != nil || !errors.Is(err, ast.ErrASTDomain) {
+							t.Fatalf("source debug precondition = %v, %v", result, err)
+						}
+						mode, modeErr := m.ProofMode()
+						ruleMust(t, modeErr)
+						if mode != ast.ASTProofDisabled {
+							t.Fatal("failed proof normalization changed proof mode")
+						}
+						return
 					}
 					ruleMust(t, err)
 					defer func() { ruleMust(t, result.Close()) }()

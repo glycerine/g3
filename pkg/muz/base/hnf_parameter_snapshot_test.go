@@ -44,6 +44,9 @@ func TestHornNormalizerCapturesHoisterGlobalParameters(t *testing.T) {
 	inner := own(m.MkOr(quantified, f.app["Q"]))
 	outer := own(m.MkOr(inner, f.app["R"]))
 	formula := own(m.MkImplies(outer, f.app["H"]))
+	// A collected outer prefix makes source hnf attach the pull-quant proof
+	// after gate rewriting; otherwise its debug modus-ponens precondition fails.
+	formula = own(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{boolean}, Names: []symbol.Symbol{symbol.Numerical(1)}, Body: formula}))
 	ruleMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
 	original := own(m.MkProofAsserted(formula))
 	ruleMust(t, m.ToggleProofMode(ast.ASTProofDisabled))
