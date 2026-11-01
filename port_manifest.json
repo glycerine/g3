@@ -100595,9 +100595,9 @@
         {
           "name": "mk_epp and adhoc_rewriter_rpp extended diagnostic expression rewriting and printing",
           "status": "partial",
-          "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/extended_pretty_test.go"],
-          "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace"],
-          "reason": "The concrete source rewrite and both add_lemma_core and queue expansion-node STRACE consumers are implemented; source pp profile inheritance with UINT_MAX depth/alias overrides is implemented; exceptional ownership audit remains open."
+          "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/extended_pretty_test.go", "pkg/muz/spacer/extended_pretty_rhs_failure_test.go"],
+          "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace", "TestSpacerExtendedPrettyOwnsRHSOnComparisonConstructionFailure"],
+          "reason": "The concrete source rewrite and both add_lemma_core and queue expansion-node STRACE consumers are implemented; source pp profile inheritance with UINT_MAX depth/alias overrides is implemented; cold failure coverage now includes RHS construction and rendering, while destructor-callback cleanup remains under audit."
         },
         {
           "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr",
@@ -100797,8 +100797,8 @@
         {
           "name": "mk_epp extended diagnostic expression rewrite/print declaration",
           "status": "partial",
-          "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/extended_pretty_test.go"],
-          "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace"]
+          "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/extended_pretty_test.go", "pkg/muz/spacer/extended_pretty_rhs_failure_test.go"],
+          "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace", "TestSpacerExtendedPrettyOwnsRHSOnComparisonConstructionFailure"]
         },
         {
           "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr declarations without live consumers",

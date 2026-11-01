@@ -48,7 +48,7 @@ func (c *extendedPrettyConfig) numeral(h ast.ASTHandle, want string) (bool, erro
 	return matched && text == want, err
 }
 
-func (c *extendedPrettyConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (rewriter.RewriteStatus, error) {
+func (c *extendedPrettyConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments, out, proof ast.ASTRef) (_ rewriter.RewriteStatus, resultErr error) {
 	family, err := c.m.GetFamilyID(d)
 	if err != nil {
 		return rewriter.RewriteFailed, err
@@ -111,6 +111,16 @@ func (c *extendedPrettyConfig) ReduceApp(d ast.ASTHandle, args ast.AppArguments,
 	} else {
 		if !zero {
 			b, err = c.m.MkArithmeticAdd(b, rhs)
+			if err != nil {
+				return rewriter.RewriteFailed, err
+			}
+			// Source adhoc_rewriter_rpp keeps B+C in an expr_ref until
+			// the comparison owns it, including failed construction.
+			if err = c.m.IncRef(b); err != nil {
+				return rewriter.RewriteFailed, err
+			}
+			right := b
+			defer func() { resultErr = errors.Join(resultErr, c.m.DecRef(right)) }()
 		}
 		if err == nil {
 			h, err = c.m.MkFamilyApp(c.arithmetic, op, nil, []ast.ASTHandle{a, b})
