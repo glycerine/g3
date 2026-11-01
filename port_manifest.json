@@ -151499,7 +151499,7 @@
       "path": "src/smt/tactic/unit_subsumption_tactic.cpp",
       "component": "smt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/smtcore/unit_subsumption_tactic.go",
         "pkg/smtcore/unit_subsumption_trace.go",
@@ -151539,11 +151539,11 @@
           "text": "SASSERT(count <= v.size());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
-        {"name": "direct translation to target manager services and copied parameters", "status": "partial", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_translation_test.go"], "tests": ["TestUnitSubsumptionDirectTranslationUsesTargetServices"]},
-        {"name": "constructor and interrupted application cleanup with solver reconstruction on retry", "status": "partial", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_failure_test.go"], "tests": ["TestUnitSubsumptionConstructorAllocationFrontiers", "TestUnitSubsumptionApplyAllocationFrontiers", "TestUnitSubsumptionReconstructionAllocationFrontiers", "TestUnitSubsumptionRetryPreservesConstructorParameters"]},
+        {"name": "direct translation to target manager services and copied parameters", "status": "ported", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_translation_test.go"], "tests": ["TestUnitSubsumptionDirectTranslationUsesTargetServices"]},
+        {"name": "constructor and interrupted application cleanup with solver reconstruction on retry", "status": "ported", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_failure_test.go"], "tests": ["TestUnitSubsumptionConstructorAllocationFrontiers", "TestUnitSubsumptionApplyAllocationFrontiers", "TestUnitSubsumptionReconstructionAllocationFrontiers", "TestUnitSubsumptionRetryPreservesConstructorParameters"]},
         {"name": "source removal and final-goal trace records", "status": "ported", "go_targets": ["pkg/smtcore/unit_subsumption_trace.go", "pkg/smtcore/unit_subsumption_trace_test.go"], "tests": ["TestUnitSubsumptionSourceTrace"]},
         {
           "name": "clause proxy creation, contextual subsumption checks and goal reconstruction",
@@ -151567,17 +151567,16 @@
         }
       ],
       "ownership": [
-        "UnitSubsumptionKeep owns one temporary SMT solver and borrows input formulas; fresh proxy nodes are manager-owned and the returned formula handles remain borrowed."
+        "The named tactic owns one persistent SMT solver, its parameter snapshot, and manager-owned reusable clause proxies; input goals and formulas are borrowed.",
+        "Each Apply balances its two outer solver scopes on success and error; a failed solver is rebuilt before retry while keeping the constructor solver parameters as the source does."
       ],
-      "deviations": [
-        "The Spacer consumer uses the typed helper; the named tactic owns a persistent solver and reusable proxies. Proof/core behavior and exceptional construction and cleanup still need a full audit."
-      ]
+      "deviations": []
     },
     {
       "path": "src/smt/tactic/unit_subsumption_tactic.h",
       "component": "smt",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/smtcore/unit_subsumption_tactic.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -151600,8 +151599,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "retained unit-subsume-simplify construction surface",
@@ -151610,10 +151609,10 @@
           "tests": ["TestUnitSubsumptionUsesIncrementalPropagationAndDeletionOrder"]
         }
       ],
-      "ownership": [],
-      "deviations": [
-        "The named tactic now owns a persistent solver and clause proxies. Proof/core behavior, diagnostic fidelity and exceptional construction and cleanup still need a full audit."
-      ]
+      "ownership": [
+        "The tactic is constructed against its owning AST manager and owns its solver, parameter snapshot, and reusable manager-owned clause proxies."
+      ],
+      "deviations": []
     },
     {
       "path": "src/smt/theory_arith.cpp",
