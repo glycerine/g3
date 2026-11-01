@@ -151042,6 +151042,7 @@
         "TestUnitSubsumptionTacticPreservesSurvivingProofAndDependency",
         "TestUnitSubsumptionConstructorAllocationFrontiers",
         "TestUnitSubsumptionApplyAllocationFrontiers",
+        "TestUnitSubsumptionReconstructionAllocationFrontiers",
         "TestUnitSubsumptionRetryPreservesConstructorParameters",
         "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"
       ],
@@ -151054,7 +151055,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "constructor and interrupted application cleanup with solver reconstruction on retry", "status": "partial", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_failure_test.go"], "tests": ["TestUnitSubsumptionConstructorAllocationFrontiers", "TestUnitSubsumptionApplyAllocationFrontiers", "TestUnitSubsumptionRetryPreservesConstructorParameters"]},
+        {"name": "constructor and interrupted application cleanup with solver reconstruction on retry", "status": "partial", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_failure_test.go"], "tests": ["TestUnitSubsumptionConstructorAllocationFrontiers", "TestUnitSubsumptionApplyAllocationFrontiers", "TestUnitSubsumptionReconstructionAllocationFrontiers", "TestUnitSubsumptionRetryPreservesConstructorParameters"]},
         {"name": "source removal and final-goal trace records", "status": "ported", "go_targets": ["pkg/smtcore/unit_subsumption_trace.go", "pkg/smtcore/unit_subsumption_trace_test.go"], "tests": ["TestUnitSubsumptionSourceTrace"]},
         {
           "name": "clause proxy creation, contextual subsumption checks and goal reconstruction",
