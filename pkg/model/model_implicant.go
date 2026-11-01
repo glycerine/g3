@@ -571,7 +571,14 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 		if op == 10 {
 			return i.setNumber(h, new(big.Rat).Quo(a, b))
 		}
-		quotient := floorRat(new(big.Rat).Quo(a, b))
+		// Source rational::div uses Euclidean integer division: floor for a
+		// positive divisor and ceiling for a negative divisor. This keeps
+		// mod nonnegative; rem subsequently follows the divisor's sign.
+		ratio := new(big.Rat).Quo(a, b)
+		quotient := floorRat(ratio)
+		if b.Sign() < 0 && !ratio.IsInt() {
+			quotient.Add(quotient, big.NewInt(1))
+		}
 		if op == 11 {
 			return i.setNumber(h, new(big.Rat).SetInt(quotient))
 		}
