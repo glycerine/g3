@@ -67,3 +67,35 @@ func TestSparseLayoutFullWidthColumnMask(t *testing.T) {
 		t.Fatalf("64-bit round trip: facts=%v err=%v", got, err)
 	}
 }
+
+func TestSparseLayoutZeroColumnFact(t *testing.T) {
+	signature, err := NewSignature(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	table, err := NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer table.Close()
+	if added, err := table.Add(Fact{}); err != nil || !added {
+		t.Fatalf("insert empty fact: added=%v err=%v", added, err)
+	}
+	if added, err := table.Add(Fact{}); err != nil || added {
+		t.Fatalf("duplicate empty fact: added=%v err=%v", added, err)
+	}
+	if found, err := table.Contains(Fact{}); err != nil || !found {
+		t.Fatalf("contains empty fact: found=%v err=%v", found, err)
+	}
+	clone, err := table.Clone()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer clone.Close()
+	if rows, err := clone.Facts(); err != nil || len(rows) != 1 || len(rows[0]) != 0 {
+		t.Fatalf("zero-column clone facts = %v, err=%v", rows, err)
+	}
+	if removed, err := table.Remove(Fact{}); err != nil || !removed {
+		t.Fatalf("remove empty fact: removed=%v err=%v", removed, err)
+	}
+}

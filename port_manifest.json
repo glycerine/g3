@@ -92307,7 +92307,8 @@
         "pkg/muz/rel/finite_sparse_product.go",
         "pkg/muz/rel/finite_sparse_product_test.go",
         "pkg/muz/rel/finite_sparse_product_interpreted.go",
-        "pkg/muz/rel/finite_sparse_product_interpreted_test.go"
+        "pkg/muz/rel/finite_sparse_product_interpreted_test.go",
+        "pkg/muz/rel/finite_sparse_product_source_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductUnionAndDelta", "TestFiniteExplanationProductProjectCollisions", "TestFiniteExplanationProductJoinRows", "TestFiniteExplanationProductRenameFinite", "TestFiniteExplanationProductFiniteFilters", "TestFiniteExplanationProductNegationFilter",
@@ -92870,7 +92871,8 @@
         "pkg/muz/rel/finite_sparse_product.go",
         "pkg/muz/rel/finite_sparse_product_test.go",
         "pkg/muz/rel/finite_sparse_product_interpreted.go",
-        "pkg/muz/rel/finite_sparse_product_interpreted_test.go"
+        "pkg/muz/rel/finite_sparse_product_interpreted_test.go",
+        "pkg/muz/rel/finite_sparse_product_source_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership",
@@ -92904,7 +92906,8 @@
         "TestFiniteSparseProductEqualityFilters",
         "TestFiniteSparseProductNegationFilterAcrossPartitions",
         "TestFiniteSparseProductInterpretedFilterSourceCondition",
-        "TestFiniteSparseProductResetRecyclesIndexes"
+        "TestFiniteSparseProductResetRecyclesIndexes",
+        "TestFiniteSparseProductSourceDriver"
       ],
       "conditionals": [
         {
@@ -95001,8 +95004,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_join_project.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go", "pkg/muz/rel/sparse_key_index_types.go", "pkg/muz/rel/sparse_key_index_build.go", "pkg/muz/rel/sparse_key_index_query.go", "pkg/muz/rel/sparse_indexed_join_types.go", "pkg/muz/rel/sparse_indexed_join_execute.go", "pkg/muz/rel/sparse_indexed_join_probe.go", "pkg/muz/rel/sparse_indexed_join_product.go", "pkg/muz/rel/sparse_indexed_select_types.go", "pkg/muz/rel/sparse_indexed_select_execute.go", "pkg/muz/rel/sparse_indexed_negation_types.go", "pkg/muz/rel/sparse_indexed_negation_execute.go", "pkg/muz/rel/sparse_layout_test.go", "pkg/muz/rel/sparse_table_test.go", "pkg/muz/rel/sparse_join.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_operations_test.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_filter.go", "pkg/muz/rel/sparse_functional_negation_test.go"],
-      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalProjectBoundaryRules", "TestSparseFunctionalJoinUsesSourceColumnOrder", "TestSparseFunctionalJoinProjectComposesBoundaries", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalSelectProjectTracksBoundary", "TestSparseFunctionalNegationUsesOnlyNonFunctionalIndexes", "TestSparseFunctionalComplementUsesSuppliedSuffix", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask", "TestSparseTablePackedFunctionalStorage", "TestSparseTableExactRowEstimate", "TestSparseTableSizeEstimateBytes", "TestSparseJoinUsesSourceSmallerOuterTraversal", "TestSparseFunctionalJoinUsesSourceSmallerOuterTraversal", "TestSparseNegationRemovesMatchingRowsInSourceOffsetOrder", "TestSparseNegationFallsBackForFunctionalJoinColumns"],
+      "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_project.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_functional_join_project.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_functional_union.go", "pkg/muz/rel/sparse_functional_select.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_functional_complement.go", "pkg/muz/rel/sparse_key_index_types.go", "pkg/muz/rel/sparse_key_index_build.go", "pkg/muz/rel/sparse_key_index_query.go", "pkg/muz/rel/sparse_indexed_join_types.go", "pkg/muz/rel/sparse_indexed_join_execute.go", "pkg/muz/rel/sparse_indexed_join_probe.go", "pkg/muz/rel/sparse_indexed_join_product.go", "pkg/muz/rel/sparse_indexed_select_types.go", "pkg/muz/rel/sparse_indexed_select_execute.go", "pkg/muz/rel/sparse_indexed_negation_types.go", "pkg/muz/rel/sparse_indexed_negation_execute.go", "pkg/muz/rel/sparse_layout.go", "pkg/muz/rel/sparse_layout_test.go", "pkg/muz/rel/sparse_table_test.go", "pkg/muz/rel/sparse_join.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_operations_test.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_filter.go", "pkg/muz/rel/sparse_functional_negation_test.go"],
+      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalProjectBoundaryRules", "TestSparseFunctionalJoinUsesSourceColumnOrder", "TestSparseFunctionalJoinProjectComposesBoundaries", "TestSparseFunctionalUnionUsesKeyAndDeltaSemantics", "TestSparseFunctionalSelectProjectTracksBoundary", "TestSparseFunctionalNegationUsesOnlyNonFunctionalIndexes", "TestSparseFunctionalComplementUsesSuppliedSuffix", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask", "TestSparseLayoutZeroColumnFact", "TestSparseTablePackedFunctionalStorage", "TestSparseTableExactRowEstimate", "TestSparseTableSizeEstimateBytes", "TestSparseJoinUsesSourceSmallerOuterTraversal", "TestSparseFunctionalJoinUsesSourceSmallerOuterTraversal", "TestSparseNegationRemovesMatchingRowsInSourceOffsetOrder", "TestSparseNegationFallsBackForFunctionalJoinColumns"],
       "conditionals": [
         {
           "line": 466,
@@ -95171,8 +95174,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_layout_test.go", "pkg/muz/rel/sparse_table_test.go", "pkg/muz/rel/sparse_join.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_operations_test.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_filter.go", "pkg/muz/rel/sparse_functional_negation_test.go"],
-      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask", "TestSparseTablePackedFunctionalStorage", "TestSparseTableExactRowEstimate", "TestSparseFunctionalJoinUsesSourceSmallerOuterTraversal", "TestSparseNegationRemovesMatchingRowsInSourceOffsetOrder", "TestSparseNegationFallsBackForFunctionalJoinColumns"],
+      "go_targets": ["pkg/muz/rel/sparse_table.go", "pkg/muz/rel/sparse_functional_metadata.go", "pkg/muz/rel/sparse_functional_fact.go", "pkg/muz/rel/sparse_functional_signature.go", "pkg/muz/rel/sparse_functional_constraints.go", "pkg/muz/rel/sparse_layout.go", "pkg/muz/rel/sparse_layout_test.go", "pkg/muz/rel/sparse_table_test.go", "pkg/muz/rel/sparse_join.go", "pkg/muz/rel/sparse_functional_join.go", "pkg/muz/rel/sparse_operations_test.go", "pkg/muz/rel/sparse_functional_negation.go", "pkg/muz/rel/sparse_filter.go", "pkg/muz/rel/sparse_functional_negation_test.go"],
+      "tests": ["TestSparseFunctionalMetadataMatchesSourceBoundary", "TestSparseFunctionalFetchSuggestEnsureSourceSemantics", "TestSparseFunctionalEnsurePreservesPhysicalRowOrder", "TestSparseFunctionalConsumersRejectMismatchedMetadata", "TestSparseLayoutWideAndFunctionalAlignment", "TestSparseLayoutFullWidthColumnMask", "TestSparseLayoutZeroColumnFact", "TestSparseTablePackedFunctionalStorage", "TestSparseTableExactRowEstimate", "TestSparseFunctionalJoinUsesSourceSmallerOuterTraversal", "TestSparseNegationRemovesMatchingRowsInSourceOffsetOrder", "TestSparseNegationFallsBackForFunctionalJoinColumns"],
       "conditionals": [
         {
           "line": 20,
@@ -95232,7 +95235,7 @@
         {"name": "sparse_table reports an exact row count and knows its size exactly (dl_sparse_table.h:491-493)", "status": "ported", "go_target": "pkg/muz/rel/sparse_table.go", "tests": ["TestSparseTableExactRowEstimate"]}
       ],
       "ownership": [],
-      "deviations": []
+      "deviations": ["Go SparseTable supports a zero-column singleton fact so finite-product projection can represent a zero-column inner relation; the C++ packed sparse layout asserts a positive entry size."]
     },
     {
       "path": "src/muz/rel/dl_table.cpp",

@@ -22,8 +22,11 @@ func sparseDomainBits(n uint64) uint32 {
 	return r
 }
 func NewSparseLayout(signature Signature, functional int) (SparseLayout, error) {
-	if signature.Len() == 0 || functional < 0 || functional > signature.Len() {
+	if functional < 0 || functional > signature.Len() {
 		return SparseLayout{}, ErrTable
+	}
+	if signature.Len() == 0 {
+		return SparseLayout{}, nil
 	}
 	cols := make([]sparseColumn, signature.Len())
 	var offset uint32
