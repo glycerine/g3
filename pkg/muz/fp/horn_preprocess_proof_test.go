@@ -2,6 +2,7 @@ package fp
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -346,15 +347,19 @@ func TestQBMCConvertsNonlinearSlicedProof(t *testing.T) {
 	}
 }
 
-func TestQBMCRetriesWhenSliceResolutionMergesTails(t *testing.T) {
-	testRetryWhenSliceResolutionMergesTails(t, "qbmc")
+func TestQBMCConvertsSliceProofWhenResolutionMergesTails(t *testing.T) {
+	for _, reordered := range []bool{false, true} {
+		t.Run(fmt.Sprintf("reordered_%v", reordered), func(t *testing.T) {
+			testSliceProofWhenResolutionMergesTails(t, "qbmc", reordered)
+		})
+	}
 }
 
 func TestPDRConvertsSharedStateBranches(t *testing.T) {
-	testRetryWhenSliceResolutionMergesTails(t, "pdr")
+	testSliceProofWhenResolutionMergesTails(t, "pdr", false)
 }
 
-func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
+func testSliceProofWhenResolutionMergesTails(t *testing.T, backend string, reordered bool) {
 	manager, globals := newPDRLifecycleServices(t)
 	for _, setting := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear", "fixedpoint.xform.subsumption_checker"} {
 		fragmentMust(t, globals.SourceSetName(setting, "false"))
@@ -397,10 +402,14 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 	}
 	p0, q0, ry, goalApp := app(p, zero), app(q, zero), app(r, y), app(goal)
 	px, qx := app(p, x), app(q, x)
+	tails := []ast.ASTHandle{px, qx, q0, ry}
+	if reordered {
+		tails = []ast.ASTHandle{q0, px, ry, qx}
+	}
 	for _, spec := range []struct {
 		head  ast.ASTHandle
 		tails []ast.ASTHandle
-	}{{p0, nil}, {q0, nil}, {ry, nil}, {goalApp, []ast.ASTHandle{px, qx, q0, ry}}} {
+	}{{p0, nil}, {q0, nil}, {ry, nil}, {goalApp, tails}} {
 		rule, e := engine.rules.NewRule(spec.head, spec.tails, nil, "")
 		fragmentMust(t, e)
 		fragmentMust(t, engine.set.Add(rule))
@@ -413,8 +422,8 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 	}
 	if backend == "pdr" {
 		fragmentMust(t, err)
-	} else if !onlyErrorKind(err, errRetryUnslicedProof) {
-		t.Fatal("expected retry after merged tails", err)
+	} else {
+		fragmentMust(t, err)
 	}
 	var status lbool.LBool
 	if backend == "pdr" {
@@ -424,7 +433,7 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 	}
 	fragmentMust(t, err)
 	if status != lbool.True {
-		t.Fatal("unsliced retry status", status)
+		t.Fatal("slice proof query status", status)
 	}
 	var proofRef ast.ASTRef
 	if backend == "pdr" {
@@ -439,7 +448,7 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 	fact, err := manager.GetProofFact(proof)
 	fragmentMust(t, err)
 	if fact != goalApp {
-		t.Fatal("retry proof conclusion differs")
+		t.Fatal("slice proof conclusion differs")
 	}
 	checker, err := proofs.NewChecker(manager)
 	fragmentMust(t, err)
@@ -451,7 +460,7 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 		}
 	}()
 	if !valid {
-		t.Fatal("retry proof is invalid")
+		t.Fatal("converted proof is invalid")
 	}
 	solver, err := smtcore.NewSMTSolver(manager, nil, "", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
 	fragmentMust(t, err)
@@ -465,7 +474,7 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 		fragmentMust(t, e)
 		fragmentMust(t, solver.Pop(1))
 		if checked != lbool.False {
-			t.Fatal("invalid retry proof side condition", checked)
+			t.Fatal("invalid converted proof side condition", checked)
 		}
 	}
 	if backend == "pdr" {
@@ -473,12 +482,16 @@ func testRetryWhenSliceResolutionMergesTails(t *testing.T, backend string) {
 			t.Fatal("PDR did not use sliced predicates")
 		}
 	} else {
+		foundSliced := false
 		for _, rule := range engine.bmcTrace {
 			decl, e := rule.HeadDeclaration()
 			fragmentMust(t, e)
 			if decl != p && decl != q && decl != r && decl != goal {
-				t.Fatal("retry retained a sliced predicate")
+				foundSliced = true
 			}
+		}
+		if !foundSliced {
+			t.Fatal("QBMC did not use sliced predicates")
 		}
 	}
 }

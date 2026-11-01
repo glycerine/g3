@@ -169,7 +169,11 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 		if e != nil {
 			return value, e
 		}
-		removed := make(map[uint32]bool)
+		positions := make([]int, originalPositive)
+		for i := range positions {
+			positions[i] = i
+		}
+		seenPositions := make(map[uint32]bool)
 		for i := 1; i < len(premises); i++ {
 			other, cause := prepare(i)
 			if cause != nil {
@@ -186,32 +190,25 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 				return value, fmt.Errorf("%w: resolution positions", ErrSliceProofUnsupported)
 			}
 			originalIndex := position.First - 1
-			if originalIndex >= uint32(originalPositive) || removed[originalIndex] {
+			if originalIndex >= uint32(originalPositive) || seenPositions[originalIndex] {
 				return value, fmt.Errorf("%w: invalid or repeated body position", ErrSliceProofUnsupported)
 			}
-			index := originalIndex
-			for prior := range removed {
-				if prior < originalIndex {
-					index--
+			seenPositions[originalIndex] = true
+			index := positions[originalIndex]
+			if index < 0 {
+				// A previous resolution removed an identical antecedent after
+				// unification; resolving the duplicate again is unnecessary.
+				continue
+			}
+			var tailMap []int
+			next, nextProof, cause := c.resolveProof(value.rule, value.proof, other.rule, other.proof, index, &tailMap)
+			if cause != nil {
+				return value, cause
+			}
+			for j, old := range positions {
+				if old >= 0 {
+					positions[j] = tailMap[old]
 				}
-			}
-			removed[originalIndex] = true
-			before, cause := value.rule.PositiveTailSize()
-			if cause != nil {
-				return value, cause
-			}
-			added, cause := other.rule.PositiveTailSize()
-			if cause != nil {
-				return value, cause
-			}
-			next, nextProof, cause := c.resolveProof(value.rule, value.proof, other.rule, other.proof, int(index))
-			if cause != nil {
-				return value, cause
-			}
-			after, cause := next.PositiveTailSize()
-			if cause != nil || after != before-1+added {
-				cause = errors.Join(cause, fmt.Errorf("%w: resolution merged body predicates", ErrSliceProofUnsupported), next.Close(), m.DelRef(&nextProof))
-				return value, cause
 			}
 			cause = errors.Join(value.rule.Close(), m.DelRef(&value.proof))
 			value.rule, value.proof = next, nextProof
@@ -228,7 +225,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 	return m.CopyRef(converted.proof)
 }
 
-func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTRef, second *base.Rule, secondProof ast.ASTRef, tailIndex int) (rule *base.Rule, proof ast.ASTRef, resultErr error) {
+func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTRef, second *base.Rule, secondProof ast.ASTRef, tailIndex int, tailMap *[]int) (rule *base.Rule, proof ast.ASTRef, resultErr error) {
 	m := c.manager
 	defer func() {
 		if resultErr != nil {
@@ -316,6 +313,9 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 			}
 		}
 	}
+	if err = c.mapResolvedPositiveTails(first, rule, tailIndex, substitutions[0], tailMap); err != nil {
+		return rule, proof, err
+	}
 	formula, err := rule.ToFormula()
 	if err != nil {
 		return rule, proof, err
@@ -340,4 +340,73 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 	}
 	proof, err = m.NewRef(node)
 	return rule, proof, err
+}
+
+// mapResolvedPositiveTails tracks target antecedents after substitution,
+// duplicate removal, and variable compression in the resolved rule.
+func (c *SliceProofConverter) mapResolvedPositiveTails(first, resolved *base.Rule, selected int, substitution []ast.ASTHandle, out *[]int) (resultErr error) {
+	count, err := first.PositiveTailSize()
+	if err != nil {
+		return err
+	}
+	resolvedCount, err := resolved.PositiveTailSize()
+	if err != nil {
+		return err
+	}
+	mapping := make([]int, count)
+	for i := range mapping {
+		mapping[i] = -1
+	}
+	var sub *rewriter.VarSubstitution
+	if len(substitution) != 0 {
+		sub, err = rewriter.NewVarSubstitution(c.manager, false)
+		if sub != nil {
+			defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
+		}
+		if err != nil {
+			return err
+		}
+	}
+	for i := 0; i < count; i++ {
+		if i == selected {
+			continue
+		}
+		term, _, err := first.Tail(i)
+		if err != nil {
+			return err
+		}
+		var transformed ast.ASTRef
+		if sub != nil {
+			transformed, err = c.manager.NewRef(ast.ASTHandle{})
+			if err != nil {
+				return err
+			}
+			if err = sub.Substitute(term, substitution, transformed); err == nil {
+				term, err = c.manager.RefGet(transformed)
+			}
+		}
+		if err == nil {
+			for j := 0; j < resolvedCount; j++ {
+				var candidate ast.ASTHandle
+				candidate, _, err = resolved.Tail(j)
+				if err != nil || candidate == term {
+					if err == nil {
+						mapping[i] = j
+					}
+					break
+				}
+			}
+		}
+		if transformed != (ast.ASTRef{}) {
+			err = errors.Join(err, c.manager.DelRef(&transformed))
+		}
+		if err != nil {
+			return err
+		}
+		if mapping[i] < 0 {
+			return fmt.Errorf("%w: cannot map resolved antecedent", ErrSliceProofUnsupported)
+		}
+	}
+	*out = mapping
+	return nil
 }

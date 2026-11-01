@@ -206,3 +206,40 @@ func TestSMT2QBMCNonlinearSlicedProofTrace(t *testing.T) {
 		t.Fatal("nonlinear sliced certificate", text)
 	}
 }
+
+func TestSMT2QBMCProofConvertsMergedTails(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	script := `(set-option :fixedpoint.engine qbmc)
+(set-option :fixedpoint.generate_proof_trace true)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.xform.subsumption_checker false)
+(declare-rel P (Int))
+(declare-rel Q (Int))
+(declare-rel R (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(declare-var y Int)
+(rule (P 0))
+(rule (Q 0))
+(rule (R y))
+(rule (=> (and (P x) (Q x) (Q 0) (R y)) Goal))
+(query Goal :print-certificate true)
+`
+	var output bytes.Buffer
+	if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	text := output.String()
+	if !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "hyper-res") || !strings.Contains(text, "(P ") || !strings.Contains(text, "(Q ") || strings.Contains(text, "!slice!") {
+		t.Fatal("merged-tail certificate", text)
+	}
+}
