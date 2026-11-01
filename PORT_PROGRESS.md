@@ -52826,3 +52826,5 @@ Finite product relation conversion methods (2026-11-01 UTC): audited table-to-pr
 Finite product source fact lookup (2026-11-01 UTC): verified `contains_fact` table-key lookup, conservative non-numeral interval membership and visibility of empty inner rows before collection against the source method. The focused lookup regression passes normally and with `g3checked`; marked the method ported in both source records.
 
 Finite product interval fact insertion (2026-11-01 UTC): matched interval insertion's per-column interpreted equality construction and union into the existing interval to `interval_relation::add_fact`. Symbolic insertion regression passes normally and with `g3checked`; marked the method ported in both finite product records.
+
+Finite product equality filters (2026-11-01 UTC): verified finite-key and interval-value equality filtering, plus same-sort identical-column filtering across table and interval groups, against the source dispatch. Focused normal and `g3checked` regressions pass; marked both methods ported in the implementation and interface records.

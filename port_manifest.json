@@ -92699,7 +92699,7 @@
         },
         {
           "name": "finite and interval column equality filters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFilterEqual"
@@ -92723,7 +92723,7 @@
         },
         {
           "name": "identical finite columns and interval columns",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFilterIdentical"
@@ -92943,7 +92943,7 @@
         },
         {
           "name": "finite and interval column equality filters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFilterEqual"
@@ -92967,7 +92967,7 @@
         },
         {
           "name": "identical finite columns and interval columns",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFilterIdentical"
