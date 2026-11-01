@@ -194013,7 +194013,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/sls/bvsls_optimizer.go", "pkg/tactic/sls/bvsls_moves.go", "pkg/tactic/sls/bvsls_model.go", "pkg/tactic/sls/bvsls_optimizer_test.go"],
-      "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"],
+      "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective", "TestBVSLSOptimizerRespectsZeroRestartBudget", "TestBVSLSOptimizerRunsConfiguredRestarts", "TestBVSLSOptimizerCountsUnsuccessfulSatisfactionRestarts"],
       "conditionals": [
         {
           "line": 209,

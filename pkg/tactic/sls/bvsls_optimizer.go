@@ -15,7 +15,8 @@ import (
 var ErrBVSLSOptimizer = errors.New("sls: invalid bit-vector optimizer state")
 
 // OptimizationResult preserves the source distinction between an unknown
-// search and a satisfiable search whose best value happens to be zero.
+// search and a satisfiable search whose best value happens to be zero. The
+// optimum is borrowed from the optimizer until its next Optimize or Close.
 type OptimizationResult struct {
 	Status  lbool.LBool
 	Optimum ast.ASTHandle
@@ -32,6 +33,7 @@ type BVOptimizer struct {
 	evaluator *Evaluator
 
 	objectiveExpr ast.ASTHandle
+	optimumRef    ast.ASTHandle
 	objectiveBits uint32
 	bestScore     numeral.Int
 	bestModel     *model.Model
@@ -123,15 +125,24 @@ func (o *BVOptimizer) setupObjective(objective ast.ASTHandle, maximize bool) err
 // Optimize follows the source's hard-satisfaction phase before entering the
 // objective hill-climber. A supplied model seeds only declarations tracked by
 // the hard formula, as in sls_tracker::set_model.
-func (o *BVOptimizer) Optimize(objective ast.ASTHandle, initial *model.Model, maximize bool) (OptimizationResult, error) {
-	result := OptimizationResult{Status: lbool.Undef}
-	if err := o.setupObjective(objective, maximize); err != nil {
+func (o *BVOptimizer) Optimize(objective ast.ASTHandle, initial *model.Model, maximize bool) (result OptimizationResult, resultErr error) {
+	result = OptimizationResult{Status: lbool.Undef}
+	if err := o.open(); err != nil {
 		return result, err
+	}
+	if !o.optimumRef.IsNull() {
+		if err := o.hard.manager.DecRef(o.optimumRef); err != nil {
+			return result, err
+		}
+		o.optimumRef = ast.ASTHandle{}
 	}
 	if err := o.hard.search.Initialize(o.hard.assertions); err != nil {
 		return result, err
 	}
 	if err := o.hard.search.Reset(); err != nil {
+		return result, err
+	}
+	if err := o.setupObjective(objective, maximize); err != nil {
 		return result, err
 	}
 	if initial != nil {
@@ -149,31 +160,91 @@ func (o *BVOptimizer) Optimize(objective ast.ASTHandle, initial *model.Model, ma
 	status := lbool.Undef
 	if sat {
 		status = lbool.True
-	} else {
-		status, err = o.hard.Search()
+	}
+	oldBest := numeral.NewInt(0)
+	defer func() { resultErr = errors.Join(resultErr, o.hard.numbers.Del(&oldBest)) }()
+	for o.hard.stats.Restarts = 0; o.hard.stats.Restarts < o.hard.maxRestarts; o.hard.stats.Restarts++ {
+		if err = o.hard.numbers.Copy(&oldBest, &o.bestScore); err != nil {
+			return result, err
+		}
+		if status != lbool.True {
+			for {
+				if err = o.hard.checkpointNow(); err != nil {
+					return result, err
+				}
+				status, err = o.hard.Search()
+				if err != nil {
+					return result, err
+				}
+				if status == lbool.Undef {
+					if err = o.hard.search.Randomize(); err != nil {
+						return result, err
+					}
+				}
+				if status == lbool.True {
+					break
+				}
+				previous := o.hard.stats.Restarts
+				o.hard.stats.Restarts++
+				if previous >= o.hard.maxRestarts {
+					break
+				}
+			}
+		}
+		if status == lbool.True {
+			result.Status = lbool.True
+			hardModel, e := o.hard.tracker.GetModel()
+			if e != nil {
+				return result, e
+			}
+			e = o.objective.SetModel(hardModel)
+			e = errors.Join(e, hardModel.Close())
+			if e != nil {
+				return result, e
+			}
+			if err = o.evaluator.UpdateAll(o.search); err != nil {
+				return result, err
+			}
+			optimum, e := o.maximizeObjective()
+			if e != nil {
+				return result, e
+			}
+			var improved bool
+			if maximize {
+				improved, e = o.hard.numbers.Greater(&o.bestScore, &oldBest)
+			} else {
+				improved, e = o.hard.numbers.Less(&o.bestScore, &oldBest)
+			}
+			if e != nil {
+				return result, e
+			}
+			if improved {
+				if e = o.hard.manager.IncRef(optimum); e != nil {
+					return result, e
+				}
+				if !o.optimumRef.IsNull() {
+					if e = o.hard.manager.DecRef(o.optimumRef); e != nil {
+						return result, errors.Join(e, o.hard.manager.DecRef(optimum))
+					}
+				}
+				o.optimumRef, result.Optimum = optimum, optimum
+			}
+		}
+		if err = o.hard.search.Randomize(); err != nil {
+			return result, err
+		}
+		if err = o.hard.evaluator.UpdateAll(o.hard.search); err != nil {
+			return result, err
+		}
+		sat, err = o.hard.tracker.IsSAT()
 		if err != nil {
 			return result, err
 		}
+		status = lbool.Undef
+		if sat {
+			status = lbool.True
+		}
 	}
-	if status != lbool.True {
-		return result, nil
-	}
-	hardModel, err := o.hard.tracker.GetModel()
-	if err != nil {
-		return result, err
-	}
-	defer hardModel.Close()
-	if err = o.objective.SetModel(hardModel); err != nil {
-		return result, err
-	}
-	if err = o.evaluator.UpdateAll(o.search); err != nil {
-		return result, err
-	}
-	optimum, err := o.maximizeObjective()
-	if err != nil {
-		return result, err
-	}
-	result.Status, result.Optimum = lbool.True, optimum
 	return result, nil
 }
 
@@ -187,6 +258,10 @@ func (o *BVOptimizer) Close() (result error) {
 	if o.bestModel != nil {
 		result = errors.Join(result, o.bestModel.Close())
 		o.bestModel = nil
+	}
+	if !o.optimumRef.IsNull() {
+		result = errors.Join(result, o.hard.manager.DecRef(o.optimumRef))
+		o.optimumRef = ast.ASTHandle{}
 	}
 	if !o.objectiveExpr.IsNull() {
 		result = errors.Join(result, o.hard.manager.DecRef(o.objectiveExpr))
