@@ -167,10 +167,12 @@ func (t *InjectivityTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	if err := out.InsertName("max_memory", uparams.ParamUInt, nil, nil, nil); err != nil {
+	memory := "(default: infty) maximum amount of memory in megabytes."
+	models := "(default: false) model generation."
+	if err := out.InsertName("max_memory", uparams.ParamUInt, &memory, nil, nil); err != nil {
 		return err
 	}
-	return out.InsertName("produce_models", uparams.ParamBool, nil, nil, nil)
+	return out.InsertName("produce_models", uparams.ParamBool, &models, nil, nil)
 }
 func (t *InjectivityTactic) CollectStatistics() map[string]float64  { return nil }
 func (t *InjectivityTactic) ResetStatistics() error                 { return t.open() }
