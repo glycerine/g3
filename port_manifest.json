@@ -84813,7 +84813,9 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go",
+      "go_targets": [
+        "pkg/parsers/smt2/qbmc_engine_test.go",
+        "pkg/muz/fp/bmc_engine_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/rule_ingest.go",
         "pkg/muz/fp/rule_ingest_unbound_test.go",
@@ -84841,9 +84843,14 @@
         "pkg/muz/fp/engine_result_routing_test.go",
         "pkg/muz/fp/relation_query_answer.go",
         "pkg/muz/fp/relation_query_answer_test.go",
-        "pkg/api/api_fixedpoint_relations_answer_test.go"
+        "pkg/api/api_fixedpoint_relations_answer_test.go",
+        "pkg/api/api_fixedpoint_autoconfig_infinite_test.go"
       ],
-      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler",
+      "tests": [
+        "TestQBMCEngineRuleTraceAndSnapshot",
+        "TestQBMCEngineExpressionQueryKeepsTrace",
+        "TestSMT2QBMCEngineSearchAndCertificate",
+        "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler",
         "TestDatalogModelMaterializesFiniteRelationTables",
         "TestHornTacticReturnsDatalogModelForFiniteGoal",
         "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
@@ -84870,7 +84877,8 @@
         "TestExpressionQueryAllocationFailureInvalidatesSnapshot",
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
-        "TestAPIFixedpointDatalogMultipleRelationAnswers"
+        "TestAPIFixedpointDatalogMultipleRelationAnswers",
+        "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain"
       ],
       "assertions": [
         {
@@ -84937,7 +84945,19 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
-        {"name": "expression-query result invalidation covers normalization, construction and cleanup failures", "status": "ported", "go_targets": ["pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/query_expression_failure_test.go"], "tests": ["TestFailedExpressionQueryInvalidatesPreviousResult", "TestExpressionQueryAllocationFailureInvalidatesSnapshot"]},
+        {
+          "name": "expression-query result invalidation covers normalization, construction and cleanup failures",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/fp/query_expression.go",
+            "pkg/muz/fp/engine_result_routing_test.go",
+            "pkg/muz/fp/query_expression_failure_test.go"
+          ],
+          "tests": [
+            "TestFailedExpressionQueryInvalidatesPreviousResult",
+            "TestExpressionQueryAllocationFailureInvalidatesSnapshot"
+          ]
+        },
         {
           "name": "Retained register_predicate/add_rule/close-reopen/query orchestration for finite-domain Horn programs, including compiled relational-bytecode execution and recursive least-fixpoint saturation for positive rules with up to two tails and complete structural head assembly, implicit-variable binding, HNF ingestion with computed head terms, stratified negation, finite direct guards and ground theory-rewritten guards, dependency-ordered fallback table saturation, tuple answers, and lbool results (dl_context.cpp:122-190,344-469,680-738,861-889)",
           "status": "partial",
@@ -85011,16 +85031,14 @@
         {
           "name": "infinite-domain predicate registration, PDR/Spacer uninterpreted-symbol rule guard and query dispatch through the retained rule context",
           "status": "partial",
-          "go_target": "pkg/muz/fp/pdr_engine.go",
+          "go_target": "pkg/api/api_fixedpoint_autoconfig_infinite_test.go",
           "go_targets": [
-            "pkg/parsers/smt2/fixedpoint_commands_test.go"
+            "pkg/api/api_fixedpoint_autoconfig_infinite_test.go",
+            "pkg/muz/fp/auto_engine.go",
+            "pkg/muz/fp/pdr_engine.go"
           ],
           "tests": [
-            "TestPDREngineMatchesCPPIntegerHornQueries",
-            "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
-            "TestSMT2FixedpointAutoConfigIntegerQueriesMatchCPP",
-            "TestSMT2FixedpointPDRBackgroundAssertionsMatchCPP",
-            "TestSMT2FixedpointPDRRejectsUninterpretedRuleSymbolsLikeCPP"
+            "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain"
           ]
         }
       ],
