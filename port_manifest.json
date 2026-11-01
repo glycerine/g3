@@ -92303,7 +92303,9 @@
         "pkg/muz/rel/finite_interval_product_table_filter.go",
         "pkg/muz/rel/finite_interval_product_mixed_filter.go",
         "pkg/muz/rel/finite_interval_product_conversion.go",
-        "pkg/muz/rel/finite_interval_product_conversion_test.go"
+        "pkg/muz/rel/finite_interval_product_conversion_test.go",
+        "pkg/muz/rel/finite_sparse_product.go",
+        "pkg/muz/rel/finite_sparse_product_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductUnionAndDelta", "TestFiniteExplanationProductProjectCollisions", "TestFiniteExplanationProductJoinRows", "TestFiniteExplanationProductRenameFinite", "TestFiniteExplanationProductFiniteFilters", "TestFiniteExplanationProductNegationFilter",
@@ -92862,7 +92864,9 @@
         "pkg/muz/rel/finite_interval_product_table_filter.go",
         "pkg/muz/rel/finite_interval_product_mixed_filter.go",
         "pkg/muz/rel/finite_interval_product_conversion.go",
-        "pkg/muz/rel/finite_interval_product_conversion_test.go"
+        "pkg/muz/rel/finite_interval_product_conversion_test.go",
+        "pkg/muz/rel/finite_sparse_product.go",
+        "pkg/muz/rel/finite_sparse_product_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership",
@@ -92886,7 +92890,9 @@
         "TestFiniteIntervalProductTableConversion",
         "TestFiniteIntervalProductIntervalConversion",
         "TestFiniteIntervalProductSourceFactLookup",
-        "TestFiniteIntervalProductSymbolicFactInsertion"
+        "TestFiniteIntervalProductSymbolicFactInsertion",
+        "TestFiniteSparseProductFactsAndClone",
+        "TestFiniteSparseProductRejectsInvalidConstructionAndFacts"
       ],
       "conditionals": [
         {
