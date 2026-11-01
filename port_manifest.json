@@ -92308,7 +92308,9 @@
         "pkg/muz/rel/finite_sparse_product_test.go",
         "pkg/muz/rel/finite_sparse_product_interpreted.go",
         "pkg/muz/rel/finite_sparse_product_interpreted_test.go",
-        "pkg/muz/rel/finite_sparse_product_source_test.go"
+        "pkg/muz/rel/finite_sparse_product_source_test.go",
+        "pkg/muz/rel/finite_sparse_product_formula.go",
+        "pkg/muz/rel/finite_sparse_product_formula_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductUnionAndDelta", "TestFiniteExplanationProductProjectCollisions", "TestFiniteExplanationProductJoinRows", "TestFiniteExplanationProductRenameFinite", "TestFiniteExplanationProductFiniteFilters", "TestFiniteExplanationProductNegationFilter",
@@ -92872,7 +92874,9 @@
         "pkg/muz/rel/finite_sparse_product_test.go",
         "pkg/muz/rel/finite_sparse_product_interpreted.go",
         "pkg/muz/rel/finite_sparse_product_interpreted_test.go",
-        "pkg/muz/rel/finite_sparse_product_source_test.go"
+        "pkg/muz/rel/finite_sparse_product_source_test.go",
+        "pkg/muz/rel/finite_sparse_product_formula.go",
+        "pkg/muz/rel/finite_sparse_product_formula_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership",
@@ -92908,7 +92912,8 @@
         "TestFiniteSparseProductInterpretedFilterSourceCondition",
         "TestFiniteSparseProductResetRecyclesIndexes",
         "TestFiniteSparseProductSourceDriver",
-        "TestFiniteSparseProductRenameMovesColumnsAndPartitions"
+        "TestFiniteSparseProductRenameMovesColumnsAndPartitions",
+        "TestFiniteSparseProductToFormulaMatchesRows"
       ],
       "conditionals": [
         {
