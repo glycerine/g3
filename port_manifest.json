@@ -183112,8 +183112,8 @@
           "text": "SASSERT(new_goal->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "save_clause: Boolean literal and single numeral-equality matching, strict size limit and first accepted clause arity",
@@ -183133,7 +183133,7 @@
         },
         {
           "name": "mk_ivar/process/operator(): build substitutions and bounds, rewrite goals, reconstruct models and expose tactic",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/arith/recover_01_apply.go",
           "tests": [
             "TestRecover01DefinitionsShareBooleansAndHandleSigns",
@@ -183154,7 +183154,7 @@
         "Clause analysis borrows roots; substitutions and fresh-bit references are owned for the duration of the invocation, and the output owns the new goal and model converter."
       ],
       "deviations": [
-        "Clause truth-table analysis caps clause size at 31; full source and ownership audits remain unfinished."
+        "Clause truth-table analysis safely declines clauses wider than 31 entries before computing the source unsigned assignment table; this avoids source-width shift overflow and infeasible allocation."
       ]
     },
     {
