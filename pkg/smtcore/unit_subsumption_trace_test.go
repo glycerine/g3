@@ -13,7 +13,7 @@ import (
 )
 
 func TestUnitSubsumptionSourceTrace(t *testing.T) {
-	for _, mode := range []string{"disabled", "enabled", "no-deletion", "refusing"} {
+	for _, mode := range []string{"disabled", "enabled", "solver-owned-parameters", "no-deletion", "refusing"} {
 		t.Run(mode, func(t *testing.T) {
 			owner, config := smtModelGeneratorFixture(t)
 			var output bytes.Buffer
@@ -44,7 +44,11 @@ func TestUnitSubsumptionSourceTrace(t *testing.T) {
 			for _, form := range forms {
 				astTestMust(t, goal.Assert(form))
 			}
-			unit, err := NewUnitSubsumptionTactic(m, nil, SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: config})
+			solverConfig := SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: config}
+			if mode == "solver-owned-parameters" {
+				solverConfig.Globals = nil
+			}
+			unit, err := NewUnitSubsumptionTactic(m, nil, solverConfig)
 			astTestMust(t, err)
 			t.Cleanup(func() { astTestMust(t, unit.Close()) })
 			var result tactic.TacticResult

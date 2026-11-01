@@ -29,8 +29,9 @@ func (t *UnitSubsumptionTactic) traceResult(goal *tactic.Goal) (result error) {
 	if !tags.ShouldTrace("unit_subsumption_tactic") {
 		return nil
 	}
-	if t.config.Globals != nil && uparams.BorrowProcessGlobalParamsService() != t.config.Globals {
-		previous, err := uparams.BindProcessGlobalParamsService(t.config.Globals)
+	globals := t.solver.kernel.paramGlobals
+	if globals != nil && uparams.BorrowProcessGlobalParamsService() != globals {
+		previous, err := uparams.BindProcessGlobalParamsService(globals)
 		if err != nil {
 			return err
 		}
