@@ -337,3 +337,44 @@ func TestFiniteSparseProductNegationFilterAcrossPartitions(t *testing.T) {
 		t.Fatal("out-of-range negation column accepted")
 	}
 }
+
+func TestFiniteSparseProductRenameMovesColumnsAndPartitions(t *testing.T) {
+	f := newTableRelationFixture(t)
+	firstName, err := f.ast.Symbols.Intern("finite-sparse-product-rename-first")
+	astTestMust(t, err)
+	firstSort, err := f.ast.MkDatalogFiniteSort(firstName, 3)
+	astTestMust(t, err)
+	secondName, err := f.ast.Symbols.Intern("finite-sparse-product-rename-second")
+	astTestMust(t, err)
+	secondSort, err := f.ast.MkDatalogFiniteSort(secondName, 5)
+	astTestMust(t, err)
+	value := func(sort ast.ASTHandle, n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	a1, a2 := value(firstSort, 1), value(firstSort, 2)
+	b2, b4 := value(secondSort, 2), value(secondSort, 4)
+	source, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{firstSort, secondSort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	astTestMust(t, source.AddFact([]ast.ASTHandle{a1, b2}))
+	astTestMust(t, source.AddFact([]ast.ASTHandle{a2, b4}))
+	renamed, err := source.Rename([]int{0, 1})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, renamed.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{b2, a1}, {b4, a2}} {
+		if found, e := renamed.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("renamed product missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	if len(renamed.tableColumns) != 1 || renamed.tableColumns[0] != 1 || len(renamed.innerCols) != 1 || renamed.innerCols[0] != 0 {
+		t.Fatalf("renamed partition = table %v inner %v", renamed.tableColumns, renamed.innerCols)
+	}
+	for _, cycle := range [][]int{{0}, {0, 0}, {0, 2}} {
+		if _, e := source.Rename(cycle); e == nil {
+			t.Fatalf("invalid rename cycle accepted: %v", cycle)
+		}
+	}
+}

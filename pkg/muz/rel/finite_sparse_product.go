@@ -259,6 +259,57 @@ func (p *FiniteSparseProduct) Project(removed []int) (*FiniteSparseProduct, erro
 	return result, nil
 }
 
+// Rename returns a product with the selected columns rotated by cycle. The
+// finite sort and outer/inner partition move with each column.
+func (p *FiniteSparseProduct) Rename(cycle []int) (*FiniteSparseProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	if len(cycle) < 2 {
+		return nil, ErrTableRelation
+	}
+	seen := make(map[int]bool, len(cycle))
+	for _, column := range cycle {
+		if column < 0 || column >= len(p.sorts) || seen[column] {
+			return nil, ErrTableRelation
+		}
+		seen[column] = true
+	}
+	sorts := append([]ast.ASTHandle(nil), p.sorts...)
+	mask := p.tableColumnMask()
+	for i := 1; i < len(cycle); i++ {
+		sorts[cycle[i-1]] = p.sorts[cycle[i]]
+		mask[cycle[i-1]] = p.isTableColumn(cycle[i])
+	}
+	sorts[cycle[len(cycle)-1]] = p.sorts[cycle[0]]
+	mask[cycle[len(cycle)-1]] = p.isTableColumn(cycle[0])
+	result, err := NewFiniteSparseProduct(p.manager, sorts, mask)
+	if err != nil {
+		return nil, err
+	}
+	flat, err := p.flatten()
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	defer flat.Close()
+	facts, err := flat.Facts()
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	for _, fact := range facts {
+		rotated := append(Fact(nil), fact...)
+		for i := 1; i < len(cycle); i++ {
+			rotated[cycle[i-1]] = fact[cycle[i]]
+		}
+		rotated[cycle[len(cycle)-1]] = fact[cycle[0]]
+		key, inner := result.splitEncoded(rotated)
+		if err = result.addEncodedFact(key, inner); err != nil {
+			return nil, errors.Join(err, result.Close())
+		}
+	}
+	return result, nil
+}
+
 func (p *FiniteSparseProduct) isTableColumn(column int) bool {
 	for _, tableColumn := range p.tableColumns {
 		if tableColumn == column {

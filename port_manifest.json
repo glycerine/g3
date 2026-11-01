@@ -92907,7 +92907,8 @@
         "TestFiniteSparseProductNegationFilterAcrossPartitions",
         "TestFiniteSparseProductInterpretedFilterSourceCondition",
         "TestFiniteSparseProductResetRecyclesIndexes",
-        "TestFiniteSparseProductSourceDriver"
+        "TestFiniteSparseProductSourceDriver",
+        "TestFiniteSparseProductRenameMovesColumnsAndPartitions"
       ],
       "conditionals": [
         {
