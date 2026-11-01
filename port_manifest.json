@@ -88491,14 +88491,16 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "context::create_children model substitutions use the source simplifying expression replacer; Boolean complete/incomplete model substitutions deduplicate sources, preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
+          "name": "context::create_children model substitutions evaluate sources with completion before source simplifying replacement; Boolean complete/incomplete and function-backed array substitutions preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
           "status": "ported",
           "go_targets": [
             "pkg/muz/pdr/model_projection.go",
-            "pkg/muz/pdr/model_substitution_failure_test.go"
+            "pkg/muz/pdr/model_substitution_failure_test.go",
+            "pkg/muz/pdr/model_substitution_array_test.go"
           ],
           "tests": [
-            "TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry"
+            "TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry",
+            "TestPDRModelSubstitutionExpandsFunctionBackedArrayValues"
           ]
         },
         {
@@ -88799,14 +88801,16 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "context::create_children model substitutions use the source simplifying expression replacer; Boolean complete/incomplete model substitutions deduplicate sources, preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
+          "name": "context::create_children model substitutions evaluate sources with completion before source simplifying replacement; Boolean complete/incomplete and function-backed array substitutions preserve proof mode and clean up/retry under allocation failure (pdr_context.cpp:2260-2271,2287-2306)",
           "status": "ported",
           "go_targets": [
             "pkg/muz/pdr/model_projection.go",
-            "pkg/muz/pdr/model_substitution_failure_test.go"
+            "pkg/muz/pdr/model_substitution_failure_test.go",
+            "pkg/muz/pdr/model_substitution_array_test.go"
           ],
           "tests": [
-            "TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry"
+            "TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry",
+            "TestPDRModelSubstitutionExpandsFunctionBackedArrayValues"
           ]
         },
         {

@@ -61,7 +61,7 @@ func TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry(t *testing.T) {
 					}
 					before := m.Stats().LiveReferences
 					m.Budget().FailAfter(stop)
-					result, err := c.substituteModelValues(md.Core(), transformer, formula, sources)
+					result, err := c.substituteModelValues(md.Core(), formula, sources)
 					m.Budget().FailAfter(-1)
 					if result != (ast.ASTRef{}) {
 						closureMust(t, m.DelRef(&result))
@@ -79,7 +79,7 @@ func TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry(t *testing.T) {
 					} else {
 						succeeded = true
 					}
-					check := func() {
+					check := func(completed bool) {
 						t.Helper()
 						if got := m.Stats().LiveReferences; got != before {
 							t.Fatal("substitution leaked reference slots", got, before)
@@ -94,8 +94,19 @@ func TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry(t *testing.T) {
 							closureMust(t, err)
 							found, err := md.Core().HasConstantInterpretation(decl)
 							closureMust(t, err)
-							if found != (i%2 == 0 || !incomplete) {
-								t.Fatal("substitution completed a missing interpretation", i)
+							if !found && (completed || i%2 == 0 || !incomplete) {
+								t.Fatal("substitution lost a model interpretation", i)
+							}
+							if found {
+								value, err := md.Core().ConstantInterpretation(decl)
+								closureMust(t, err)
+								expected := falsity
+								if i%2 == 0 {
+									expected = truth
+								}
+								if value != expected {
+									t.Fatal("wrong completed interpretation", i)
+								}
 							}
 						}
 						gotMode, err := m.ProofMode()
@@ -104,8 +115,8 @@ func TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry(t *testing.T) {
 							t.Fatal("substitution changed proof mode", gotMode, mode)
 						}
 					}
-					check()
-					retry, err := c.substituteModelValues(md.Core(), transformer, formula, sources)
+					check(false)
+					retry, err := c.substituteModelValues(md.Core(), formula, sources)
 					closureMust(t, err)
 					defer func() {
 						if retry != (ast.ASTRef{}) {
@@ -118,7 +129,7 @@ func TestPDRModelSubstitutionColdFailureAndIncompleteModelRetry(t *testing.T) {
 						t.Fatal("source simplifying substitution did not collapse the false conjunction")
 					}
 					closureMust(t, m.DelRef(&retry))
-					check()
+					check(true)
 				})
 				if t.Failed() {
 					break

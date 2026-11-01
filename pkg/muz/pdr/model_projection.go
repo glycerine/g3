@@ -12,13 +12,16 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 )
 
-func (c *Context) substituteModelValues(modelCore *model.ModelCore, transformer *PredicateTransformer, expression ast.ASTHandle, sources []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
+func (c *Context) substituteModelValues(modelCore *model.ModelCore, expression ast.ASTHandle, sources []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	defer func() {
 		if resultErr != nil && result != (ast.ASTRef{}) {
 			resultErr = errors.Join(resultErr, c.manager.DelRef(&result))
 			result = ast.ASTRef{}
 		}
 	}()
+	if modelCore == nil || modelCore.DerivedModel() == nil {
+		return result, ast.ErrASTDomain
+	}
 	substitution, err := c.manager.NewExprSubstitution()
 	if err != nil {
 		return result, err
@@ -44,12 +47,17 @@ func (c *Context) substituteModelValues(modelCore *model.ModelCore, transformer 
 			continue
 		}
 		seen[source] = true
-		found, x := transformer.modelConstant(modelCore, source, valueRef)
+		evaluated, x := c.implicant.EvalExpr(modelCore.DerivedModel(), source)
 		if x != nil {
 			return result, x
 		}
-		if !found {
-			return result, ast.ErrASTDomain
+		valueHandle, x := c.manager.RefGet(evaluated)
+		if x == nil {
+			x = c.manager.SetRef(valueRef, valueHandle)
+		}
+		x = errors.Join(x, c.manager.DelRef(&evaluated))
+		if x != nil {
+			return result, x
 		}
 		value, x := c.manager.RefGet(valueRef)
 		if x != nil {
@@ -200,7 +208,7 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 	}
 	projected := make([]ast.ASTHandle, 0, len(forms))
 	for _, formula := range forms {
-		reference, x := c.substituteModelValues(modelCore, node.transformer, formula, eliminated)
+		reference, x := c.substituteModelValues(modelCore, formula, eliminated)
 		if x != nil {
 			return fmt.Errorf("muz/pdr: projected model substitution: %w", x)
 		}
@@ -283,7 +291,7 @@ func (c *Context) createChildrenProjected(node *ModelNode) (resultErr error) {
 				replaced = append(replaced, variable)
 			}
 		}
-		reduced, x := c.substituteModelValues(modelCore, node.transformer, literal, replaced)
+		reduced, x := c.substituteModelValues(modelCore, literal, replaced)
 		if x != nil {
 			return fmt.Errorf("muz/pdr: coupled-state model substitution: %w", x)
 		}
