@@ -113117,6 +113117,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_mixed.go",
+        "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_datalog_search_test.go",
         "pkg/qe/quantifier_tactic_bool_recursive.go",
         "pkg/qe/quantifier_tactic_arith_search.go",
@@ -113129,6 +113131,8 @@
         "pkg/qe/datalog_branch_test.go"
       ],
       "tests": [
+        "TestQuantifierMixedBooleanAndDatalogBlock",
+        "TestQuantifierTacticEliminatesDatalogBlocks",
         "TestQuantifierTacticEliminatesDatalogDisequalities",
         "TestQuantifierTacticEliminatesDatalogFiniteEquality",
         "TestExprQEDatalogBranchPropagatesAndSubstitutes",
@@ -113205,7 +113209,7 @@
         "Branch constraints own formula references until transferred or plugin close; substitution uses and closes a scoped expression replacer."
       ],
       "deviations": [
-        "Single-variable finite-domain search is registered with context-atom discovery and live solver constraints. Equal domain and atom counts use exhaustive enumeration to avoid the source other-value unsoundness; broader quantifier shapes, diagnostics and allocation-failure audit remain pending. Datalog less-than reports an explicit unimplemented error as in source."
+        "Finite-domain scalar, same-sort block and mixed-quantifier searches are registered with context-atom discovery and live solver constraints. Equal domain and atom counts use exhaustive enumeration, and other-value substitution makes all equality atoms false, correcting two source soundness issues; broader quantifier shapes, diagnostics and allocation-failure audit remain pending. Datalog less-than reports an explicit unimplemented error as in source."
       ]
     },
     {

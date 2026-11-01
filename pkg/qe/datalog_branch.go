@@ -152,8 +152,12 @@ func (p *DatalogPlugin) Substitute(variable *ast.ContainsApp, value *numeral.Own
 			return e
 		}
 	} else {
-		for pass, atoms := range [][]datalogQEAtom{entry.atoms.positive, entry.atoms.negative} {
-			replacement, e := p.manager.MkBoolVal(pass == 1)
+		// Both slices contain equality atoms. The other-value branch asserts
+		// their negations, so each equality is false regardless of polarity.
+		// The source substitutes true for negative atoms, contradicting its
+		// own branch constraints and losing satisfiable disequalities.
+		for _, atoms := range [][]datalogQEAtom{entry.atoms.positive, entry.atoms.negative} {
+			replacement, e := p.manager.MkBoolVal(false)
 			if e != nil {
 				return e
 			}

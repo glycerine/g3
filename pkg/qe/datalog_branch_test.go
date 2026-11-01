@@ -87,8 +87,7 @@ func TestDatalogPluginAssignAndSubstituteBranches(t *testing.T) {
 				expected = f.own(m.MkAnd(a, f.own(m.MkNot(b))))
 			} else if tc.last {
 				no := f.own(m.MkBoolVal(false))
-				yes := f.own(m.MkBoolVal(true))
-				expected = f.own(m.MkAnd(no, f.own(m.MkNot(yes))))
+				expected = f.own(m.MkAnd(no, f.own(m.MkNot(no))))
 			} else {
 				a := f.own(m.MkEq(y, y))
 				b := f.own(m.MkEq(y, z))

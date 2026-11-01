@@ -36,8 +36,9 @@ func eliminateQuantifierDatalogSearch(m *ast.ASTManager, quantifier ast.ASTHandl
 	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarDatalog)
 }
 
-// eliminateQuantifierScalarSearch handles one arithmetic, bit-vector, or
-// datatype declaration when propagation finishes without fresh variables.
+// eliminateQuantifierScalarSearch handles one arithmetic, bit-vector,
+// datatype, or finite-domain declaration when propagation finishes without
+// fresh variables.
 func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config, searchKind qeScalarSearchKind) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle

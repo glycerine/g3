@@ -9,8 +9,8 @@ import (
 	"github.com/glycerine/g3/pkg/tactic"
 )
 
-// rewriteQuantifierScalar recursively eliminates supported Boolean, arithmetic
-// and bit-vector quantifiers.
+// rewriteQuantifierScalar recursively eliminates supported Boolean, arithmetic,
+// bit-vector, datatype, array, and finite-domain quantifiers.
 // Free de Bruijn variables are temporarily represented by fresh constants while
 // eliminating each quantifier, then abstracted back into their original scope.
 func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
@@ -93,6 +93,9 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 		}
 		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierDatalogSearch(m, q, config)
+		}
+		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierDatalogBlock(m, q, config)
 		}
 		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierArrayEquations(m, q, config)

@@ -9,8 +9,8 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// eliminateQuantifierMixed separates array, datatype, Boolean, arithmetic, and
-// bit-vector declarations of one quantifier. Every group must be fully
+// eliminateQuantifierMixed separates array, datatype, Boolean, arithmetic,
+// bit-vector, and finite-domain declarations of one quantifier. Every group must be fully
 // eliminated by its concrete solver; unsupported declarations report incomplete.
 func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Cooperation == nil {
@@ -61,7 +61,11 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	if err != nil {
 		return result, false, err
 	}
-	var arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars []ast.ASTHandle
+	datalog, err := m.RegisterDatalogPlugin()
+	if err != nil {
+		return result, false, err
+	}
+	var arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars, datalogVars []ast.ASTHandle
 	for _, ref := range extracted.variables {
 		variable, e := m.RefGet(ref)
 		if e != nil {
@@ -94,11 +98,13 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			datatypeVars = append(datatypeVars, variable)
 		case arithmetic:
 			arithmeticVars = append(arithmeticVars, variable)
+		case datalog:
+			datalogVars = append(datalogVars, variable)
 		default:
 			return result, false, nil
 		}
 	}
-	groups := [][]ast.ASTHandle{arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars}
+	groups := [][]ast.ASTHandle{arrayVars, datatypeVars, boolVars, arithmeticVars, bitVectorVars, datalogVars}
 	nonempty := 0
 	for _, group := range groups {
 		if len(group) > 0 {
@@ -169,6 +175,8 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			}
 		case 4:
 			eliminated, done, e = eliminateQuantifierBitVectorBlock(m, q, config)
+		case 5:
+			eliminated, done, e = eliminateQuantifierDatalogBlock(m, q, config)
 		}
 		if e != nil || !done {
 			return result, false, errors.Join(e, m.DelRef(&bound))

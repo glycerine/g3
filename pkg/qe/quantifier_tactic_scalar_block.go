@@ -19,11 +19,15 @@ func eliminateQuantifierDatatypeBlock(m *ast.ASTManager, quantifier ast.ASTHandl
 	return eliminateQuantifierScalarBlock(m, quantifier, config, qeScalarDatatype)
 }
 
+func eliminateQuantifierDatalogBlock(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
+	return eliminateQuantifierScalarBlock(m, quantifier, config, qeScalarDatalog)
+}
+
 func eliminateQuantifierScalarBlock(m *ast.ASTManager, quantifier ast.ASTHandle, config Config, searchKind qeScalarSearchKind) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
 	}
-	if searchKind != qeScalarBitVector && searchKind != qeScalarDatatype {
+	if searchKind != qeScalarBitVector && searchKind != qeScalarDatatype && searchKind != qeScalarDatalog {
 		return result, false, ast.ErrASTDomain
 	}
 	defer func() {
@@ -54,9 +58,14 @@ func eliminateQuantifierScalarBlock(m *ast.ASTManager, quantifier ast.ASTHandle,
 	if err != nil {
 		return result, false, err
 	}
-	var datatypeFamily ast.FamilyID
+	var scalarFamily ast.FamilyID
 	if searchKind == qeScalarDatatype {
-		datatypeFamily, err = m.RegisterDatatypePlugin()
+		scalarFamily, err = m.RegisterDatatypePlugin()
+		if err != nil {
+			return result, false, err
+		}
+	} else if searchKind == qeScalarDatalog {
+		scalarFamily, err = m.RegisterDatalogPlugin()
 		if err != nil {
 			return result, false, err
 		}
@@ -73,7 +82,7 @@ func eliminateQuantifierScalarBlock(m *ast.ASTManager, quantifier ast.ASTHandle,
 			}
 		} else {
 			family, cause := m.GetFamilyID(sort)
-			if cause != nil || family != datatypeFamily {
+			if cause != nil || family != scalarFamily {
 				return result, false, cause
 			}
 		}

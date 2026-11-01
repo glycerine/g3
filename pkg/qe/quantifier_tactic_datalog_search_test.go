@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestQuantifierTacticEliminatesDatalogFiniteEquality(t *testing.T) {
@@ -38,6 +39,72 @@ func TestQuantifierTacticEliminatesDatalogFiniteEquality(t *testing.T) {
 	fmMust(t, err)
 	if size != 0 {
 		t.Fatalf("finite-domain existential equality should reduce to true; goal size = %d", size)
+	}
+}
+
+func TestQuantifierTacticEliminatesDatalogBlocks(t *testing.T) {
+	for _, forall := range []bool{false, true} {
+		t.Run(map[bool]string{false: "exists", true: "forall"}[forall], func(t *testing.T) {
+			f := newFMFixture(t)
+			m := f.r.manager
+			name, err := m.Symbols.Intern("qe-block-domain")
+			fmMust(t, err)
+			sort := f.own(m.MkDatalogFiniteSort(name, 2))
+			x, y := f.own(m.MkVar(1, sort)), f.own(m.MkVar(0, sort))
+			body := f.own(m.MkNot(f.own(m.MkEq(x, y))))
+			q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{
+				Forall: forall, Sorts: []ast.ASTHandle{sort, sort},
+				Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body,
+			}))
+			result, complete, err := rewriteQuantifierScalar(m, q, f.r.config)
+			fmMust(t, err)
+			if !complete {
+				t.Fatal("finite-domain block was not eliminated")
+			}
+			defer func() { fmMust(t, m.DelRef(&result)) }()
+			h, err := m.RefGet(result)
+			fmMust(t, err)
+			if !forall {
+				h = f.own(m.MkNot(h))
+			}
+			kernel := qsatKernelOwner(t, f)
+			solver, err := kernel.solver()
+			fmMust(t, err)
+			fmMust(t, solver.AssertFormula(h))
+			status, err := solver.CheckSat(nil)
+			fmMust(t, err)
+			if status != lbool.False {
+				t.Fatalf("block truth value is wrong: forall=%t, status=%v", forall, status)
+			}
+		})
+	}
+}
+
+func TestQuantifierMixedBooleanAndDatalogBlock(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	name, err := m.Symbols.Intern("qe-mixed-domain")
+	fmMust(t, err)
+	sort := f.own(m.MkDatalogFiniteSort(name, 2))
+	boolean, err := m.MkBoolSort()
+	fmMust(t, err)
+	b, x := f.own(m.MkVar(1, boolean)), f.own(m.MkVar(0, sort))
+	zero := f.own(m.MkDatalogNumeral(0, sort))
+	body := f.own(m.MkAnd(b, f.own(m.MkEq(x, zero))))
+	q := f.own(m.MkQuantifier(ast.ASTQuantifierSpec{
+		Sorts: []ast.ASTHandle{boolean, sort},
+		Names: []symbol.Symbol{symbol.Numerical(0), symbol.Numerical(1)}, Body: body,
+	}))
+	result, complete, err := rewriteQuantifierScalar(m, q, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("mixed Boolean and finite-domain quantifier was not eliminated")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	h, err := m.RefGet(result)
+	fmMust(t, err)
+	if !m.IsTrue(h) {
+		t.Fatal("mixed existential witnesses should exist")
 	}
 }
 
