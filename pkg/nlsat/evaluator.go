@@ -261,6 +261,16 @@ func (e *Evaluator) Cleanup() error {
 		return e.Close()
 	}
 	e.failed = true
+	if e.roots != nil {
+		if err := e.am.CleanupPolynomialIsolation(e.pm, e.roots); err != nil {
+			return err
+		}
+	}
+	if e.addRoots != nil {
+		if err := e.am.CleanupPolynomialIsolation(e.pm, e.addRoots); err != nil {
+			return err
+		}
+	}
 	if e.callRef != nil {
 		if err := e.callRef.Close(); err != nil {
 			return err

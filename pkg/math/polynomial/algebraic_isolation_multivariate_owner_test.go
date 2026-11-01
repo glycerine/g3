@@ -106,3 +106,47 @@ func TestAlgebraicMultivariateIsolationEmptyOutputAssertionBeforeLocals(t *testi
 		t.Fatal("output assertion after locals", e)
 	}
 }
+
+func TestPolynomialIsolationCleanupOnlyOwnsMatchingOutput(t *testing.T) {
+	found := false
+	for allowance := uint64(0); allowance < 512 && !found; allowance++ {
+		t.Run(strconv.FormatUint(allowance, 10), func(t *testing.T) {
+			c, _, control := algebraicControlledFixture(t)
+			pm, p, _ := polynomialEvalFixtureWithRationals(t, c.config.Rationals, []polynomialEvalTerm{{1, [3]uint32{0, 0, 2}}, {-2, [3]uint32{}}})
+			otherPM, _, _ := polynomialEvalFixtureWithRationals(t, c.config.Rationals, []polynomialEvalTerm{{1, [3]uint32{0, 0, 1}}})
+			roots, e := c.NewVector()
+			serviceMust(t, e)
+			other, e := c.NewVector()
+			serviceMust(t, e)
+			defer func() {
+				serviceMust(t, c.CleanupRetained())
+				serviceMust(t, other.Close())
+				serviceMust(t, roots.Close())
+			}()
+			control.limit = control.visits + allowance
+			body := c.IsolateMultivariateRoots(pm, p, &algebraicIsolationAssignments{}, roots)
+			control.limit = 1000000
+			if body == nil || !c.isolationConversion.active {
+				return
+			}
+			found = true
+			serviceMust(t, c.CleanupPolynomialIsolation(otherPM, roots))
+			serviceMust(t, c.CleanupPolynomialIsolation(pm, other))
+			if !c.isolationConversion.active || c.isolationConversion.ownerRoots != roots {
+				t.Fatal("cleaned a different output's conversion")
+			}
+			serviceMust(t, c.CleanupPolynomialIsolation(pm, roots))
+			if c.isolationConversion.active {
+				t.Fatal("owned conversion remains active")
+			}
+			serviceMust(t, roots.Reset())
+			serviceMust(t, c.IsolateMultivariateRoots(pm, p, &algebraicIsolationAssignments{}, roots))
+			if roots.Len() != 2 {
+				t.Fatal("retry roots", roots.Len())
+			}
+		})
+	}
+	if !found {
+		t.Fatal("did not reach stopped polynomial isolation")
+	}
+}

@@ -8,6 +8,8 @@ import (
 )
 
 type algebraicIsolationConversionScope struct {
+	ownerPolynomial *MultivariatePolynomialManager
+	ownerRoots      *AlgebraicVector
 	refinable       upolyRefinableInvocationReceipt
 	caller          *algebraicMultivariateIsolationFrame
 	factor          upolyFactorFrontendInvocationReceipt
@@ -65,7 +67,27 @@ func (m *AlgebraicRootCore) cleanupIsolationConversionScope(s *algebraicIsolatio
 		}
 	}
 	s.active = false
+	s.ownerPolynomial, s.ownerRoots = nil, nil
 	return nil
+}
+
+// CleanupPolynomialIsolation releases only the stopped conversion for the
+// named polynomial manager and output vector.
+func (m *AlgebraicRootCore) CleanupPolynomialIsolation(pm *MultivariatePolynomialManager, roots *AlgebraicVector) error {
+	if m == nil || m.self != m || m.closed {
+		return ErrAlgebraicOwner
+	}
+	if pm == nil || roots == nil {
+		return arena.ErrConfig
+	}
+	if roots.core != m {
+		return ErrAlgebraicOwner
+	}
+	s := &m.isolationConversion
+	if !s.active || s.ownerPolynomial != pm || s.ownerRoots != roots {
+		return nil
+	}
+	return m.cleanupIsolationConversionScope(s)
 }
 
 // IsolatePolynomialRoots is the source univariate polynomial-ref overload.
@@ -116,7 +138,7 @@ func (m *AlgebraicRootCore) isolatePolynomialRootsForMultivariate(pm *Multivaria
 	if e != nil || zero {
 		return e
 	}
-	*s = algebraicIsolationConversionScope{caller: caller, active: true, running: true}
+	*s = algebraicIsolationConversionScope{caller: caller, ownerPolynomial: pm, ownerRoots: out, active: true, running: true}
 	defer func() { s.running = false }()
 	up := m.config.Polynomials
 	if m.isolateTmp1.slot == 0 {
@@ -139,6 +161,7 @@ func (m *AlgebraicRootCore) isolatePolynomialRootsForMultivariate(pm *Multivaria
 	e = m.isolateRootsForPolynomial(view, out, s)
 	if e == nil {
 		s.active = false
+		s.ownerPolynomial, s.ownerRoots = nil, nil
 	}
 	return e
 }
