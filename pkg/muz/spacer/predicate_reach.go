@@ -315,6 +315,11 @@ func (p *PredicateTransformer) IsMustReachable(state ast.ASTHandle, needModel bo
 }
 
 func (p *PredicateTransformer) usedReachFact(evaluator *model.ModelEvaluator, all bool, oldIndex *uint32) (*ReachFact, bool, error) {
+	// Source passes false to model_evaluator_util::eval for every case,
+	// regardless of the evaluator's parameter default.
+	if err := evaluator.SetModelCompletion(false); err != nil {
+		return nil, false, err
+	}
 	start := uint32(0)
 	if !all {
 		start = p.initialReachFacts
