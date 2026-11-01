@@ -4,8 +4,6 @@ package simplex
 // select_var_to_fix and make_feasible. These policies are consumed by the
 // concrete SMT arithmetic theory using this shared exact tableau.
 
-import "sort"
-
 // SetArithmeticPivotPolicy configures the source SMT arithmetic selection,
 // including its repeated-leaving-variable threshold for Bland's rule.
 func (s *Solver) SetArithmeticPivotPolicy(strategy, blandThreshold uint32) {
@@ -18,14 +16,9 @@ func (s *Solver) selectArithmeticPatch() uint32 {
 	if s.arithmeticBland || s.arithmeticPivotStrategy != 1 && s.arithmeticPivotStrategy != 2 {
 		return s.selectPatch()
 	}
-	keys := make([]uint32, 0, len(s.patch))
-	for v := range s.patch {
-		keys = append(keys, v)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 	best := NullVariable
 	var bestError Infinitesimal
-	for _, v := range keys {
+	for _, v := range s.patch.values {
 		var delta Infinitesimal
 		if s.belowLower(v) {
 			delta = s.vars[v].lower.Clone()
@@ -43,9 +36,9 @@ func (s *Solver) selectArithmeticPatch() uint32 {
 		}
 	}
 	if best == NullVariable {
-		clear(s.patch)
+		s.patch.clear()
 	} else {
-		delete(s.patch, best)
+		s.patch.erase(best)
 	}
 	return best
 }

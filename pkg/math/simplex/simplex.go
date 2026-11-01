@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"math/big"
-	"sort"
 
 	"github.com/glycerine/g3/pkg/util/control"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -124,7 +123,7 @@ type Solver struct {
 	matrix                   Matrix
 	vars                     []variableInfo
 	rowBase                  []uint32
-	patch                    map[uint32]bool
+	patch                    simplexVariableHeap
 	maxIterations            uint32
 	arithmeticPolicy         bool
 	arithmeticPivotStrategy  uint32
@@ -135,13 +134,14 @@ type Solver struct {
 }
 
 func NewSolver(limit *control.Reslimit) *Solver {
-	return &Solver{limit: limit, patch: make(map[uint32]bool), maxIterations: ^uint32(0), infeasible: NullVariable}
+	return &Solver{limit: limit, maxIterations: ^uint32(0), infeasible: NullVariable}
 }
 func (s *Solver) EnsureVariable(v uint32) {
 	for uint32(len(s.vars)) <= v {
 		s.matrix.EnsureVariable(uint32(len(s.vars)))
 		s.vars = append(s.vars, variableInfo{})
 	}
+	s.patch.ensure(v)
 }
 func (s *Solver) NumVariables() uint32      { return uint32(len(s.vars)) }
 func (s *Solver) Matrix() *Matrix           { return &s.matrix }
@@ -167,7 +167,7 @@ func (s *Solver) belowUpper(v uint32) bool {
 }
 func (s *Solver) addPatch(v uint32) {
 	if s.isBase(v) && s.outside(v) {
-		s.patch[v] = true
+		s.patch.insert(v)
 	}
 }
 
@@ -356,18 +356,15 @@ func (s *Solver) SetValue(v uint32, value Infinitesimal) {
 }
 
 func (s *Solver) selectPatch() uint32 {
-	keys := make([]uint32, 0, len(s.patch))
-	for v := range s.patch {
-		keys = append(keys, v)
-	}
-	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-	for _, v := range keys {
-		delete(s.patch, v)
+	for {
+		v, ok := s.patch.popMin()
+		if !ok {
+			return NullVariable
+		}
 		if s.outside(v) {
 			return v
 		}
 	}
-	return NullVariable
 }
 func (s *Solver) nonFreeDependencies(v uint32) int {
 	n := 0
@@ -518,7 +515,7 @@ func (s *Solver) MakeFeasible() (lbool.LBool, error) {
 			return lbool.Undef, err
 		}
 		if !ok {
-			s.patch[v] = true
+			s.patch.insert(v)
 			s.infeasible = v
 			s.Stats.NumInfeasible++
 			return lbool.False, nil
@@ -598,7 +595,7 @@ func (s *Solver) DeleteRow(variable uint32) error {
 		}
 	}
 	base := s.rowBase[r.id]
-	delete(s.patch, base)
+	s.patch.erase(base)
 	x := &s.vars[base]
 	x.base, x.lowerValid, x.upperValid = false, false, false
 	s.rowBase[r.id] = NullVariable
@@ -756,7 +753,7 @@ func (s *Solver) Reset() {
 	s.matrix.Reset()
 	s.vars = nil
 	s.rowBase = nil
-	s.patch = make(map[uint32]bool)
+	s.patch.clear()
 	s.infeasible = NullVariable
 }
 func (s *Solver) Display(w io.Writer) error {

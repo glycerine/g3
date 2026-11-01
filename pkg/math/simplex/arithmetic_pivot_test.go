@@ -77,7 +77,9 @@ func TestArithmeticPivotStrictErrorAndStalePatch(t *testing.T) {
 		// same pending violations that tableau propagation queues for bases.
 		s.vars[0].value = RationalInfinitesimal(rat(0, 1))
 		s.vars[1].value = RationalInfinitesimal(rat(0, 1))
-		s.patch[0], s.patch[1], s.patch[2] = true, true, true
+		s.patch.insert(0)
+		s.patch.insert(1)
+		s.patch.insert(2)
 		want := uint32(1)
 		if strategy == 2 {
 			want = 0
@@ -88,7 +90,7 @@ func TestArithmeticPivotStrictErrorAndStalePatch(t *testing.T) {
 		if v := s.selectArithmeticPatch(); v != 1-want {
 			t.Fatal("remaining violation", v)
 		}
-		if v := s.selectArithmeticPatch(); v != NullVariable || len(s.patch) != 0 {
+		if v := s.selectArithmeticPatch(); v != NullVariable || len(s.patch.values) != 0 {
 			t.Fatal("stale feasible patch", v, s.patch)
 		}
 	}

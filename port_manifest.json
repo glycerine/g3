@@ -219523,7 +219523,9 @@
         },
         {
           "name": "simplex variable-order heap (simplex.h:58)",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/math/simplex/variable_heap.go",
+          "tests": ["TestSimplexVariableHeapSourceShapeAndIndexedErase", "TestSimplexVariableHeapGrowthDuplicateAndClear", "TestArithmeticPivotStrictErrorAndStalePatch"]
         }
       ],
       "ownership": [

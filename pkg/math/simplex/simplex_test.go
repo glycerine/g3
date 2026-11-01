@@ -104,7 +104,7 @@ func TestSimplexIntegerRowFacadeAndReset(t *testing.T) {
 		t.Fatal("integer row")
 	}
 	s.Reset()
-	if s.NumVariables() != 0 || len(s.matrix.rows) != 0 || len(s.patch) != 0 {
+	if s.NumVariables() != 0 || len(s.matrix.rows) != 0 || len(s.patch.values) != 0 {
 		t.Fatal("reset")
 	}
 }
