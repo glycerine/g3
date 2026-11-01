@@ -93346,10 +93346,12 @@
         },
         {
           "name": "concrete interval relation join/project/union and fact/filter API",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
           "tests": [
-            "TestIntervalRelationFactAndJoin"
+            "TestIntervalRelationFactAndJoin",
+            "TestIntervalRelationUnionDelta",
+            "TestIntervalRelationToFormula"
           ]
         },
         {
@@ -93472,10 +93474,12 @@
         },
         {
           "name": "concrete interval relation join/project/union and fact/filter API",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
           "tests": [
-            "TestIntervalRelationFactAndJoin"
+            "TestIntervalRelationFactAndJoin",
+            "TestIntervalRelationUnionDelta",
+            "TestIntervalRelationToFormula"
           ]
         },
         {
