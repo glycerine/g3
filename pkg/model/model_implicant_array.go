@@ -471,7 +471,7 @@ func (i *ModelImplicant) evalCompletedExpression(expression ast.ASTHandle) (resu
 	err = func() (evalErr error) {
 		evaluator, e := NewModelEvaluator(i.model.Core(), i.services)
 		if evaluator != nil {
-			defer func() { evalErr = errors.Join(evalErr, evaluator.Close()) }()
+			defer func() { evalErr = errors.Join(evalErr, i.closeTemporaryEvaluator(evaluator)) }()
 		}
 		if e != nil {
 			return e

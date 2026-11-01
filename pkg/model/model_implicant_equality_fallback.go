@@ -17,7 +17,7 @@ import (
 func (i *ModelImplicant) evaluateModelWithoutCompletion(expression ast.ASTHandle, out ast.ASTRef) (resultErr error) {
 	evaluator, err := NewModelEvaluator(i.model.Core(), i.services)
 	if evaluator != nil {
-		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+		defer func() { resultErr = errors.Join(resultErr, i.closeTemporaryEvaluator(evaluator)) }()
 	}
 	if err != nil {
 		return err
@@ -62,4 +62,14 @@ func (i *ModelImplicant) traceUnknownEquality(value ast.ASTHandle) error {
 		return nil
 	})
 	return operandErr
+}
+
+// A fresh model::eval evaluator can stop partway through destruction. Keep
+// its remaining fields owned until the implicant completes reset or Close.
+func (i *ModelImplicant) closeTemporaryEvaluator(evaluator *ModelEvaluator) error {
+	err := evaluator.Close()
+	if err != nil && !evaluator.closed {
+		i.pendingEvaluators = append(i.pendingEvaluators, evaluator)
+	}
+	return err
 }
