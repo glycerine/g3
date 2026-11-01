@@ -541,3 +541,34 @@ func TestFiniteSparseProductUnionUnifiesTableSpecification(t *testing.T) {
 		t.Fatalf("plain unified union missing new row: %v (%v)", found, e)
 	}
 }
+
+func TestFiniteSparseProductSizeEstimatesUseOuterTable(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-estimate-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two := value(0), value(1), value(2)
+	product, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	if rows, e := product.SizeEstimateRows(); e != nil || rows != 0 {
+		t.Fatalf("empty outer row estimate = %d (%v)", rows, e)
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {zero, two}, {one, one}} {
+		astTestMust(t, product.AddFact(fact))
+	}
+	if rows, e := product.SizeEstimateRows(); e != nil || rows != 2 {
+		t.Fatalf("outer row estimate = %d, want 2 (%v)", rows, e)
+	}
+	wantBytes := uint32(len(product.table.data.entries)) * product.table.layout.EntryBytes()
+	if bytes, e := product.SizeEstimateBytes(); e != nil || bytes != wantBytes {
+		t.Fatalf("outer byte estimate = %d, want %d (%v)", bytes, wantBytes, e)
+	}
+}

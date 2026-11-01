@@ -92921,7 +92921,8 @@
         "TestFiniteSparseProductComplementAndFull",
         "TestFiniteSparseProductTableRelationRoundTrip",
         "TestFiniteSparseProductIdenticalPairs",
-        "TestFiniteSparseProductUnionUnifiesTableSpecification"
+        "TestFiniteSparseProductUnionUnifiesTableSpecification",
+        "TestFiniteSparseProductSizeEstimatesUseOuterTable"
       ],
       "conditionals": [
         {

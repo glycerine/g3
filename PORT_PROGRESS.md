@@ -52894,3 +52894,5 @@ Finite sparse product table conversion (2026-11-01 UTC): added table-to-product 
 Finite sparse-table product identity-pair filtering (2026-11-01 UTC): added the source pairwise equality mutator across outer and inner columns, requiring matching sorts for each pair. Tests cover independent pair constraints, rejected rows and invalid indexes in normal and `g3checked` builds.
 
 Finite sparse-table product union specification unification (2026-11-01 UTC): union now moves columns to the inner sparse relation until all operands share the source's common table-column intersection, including target/source/delta conversion. Tests cover plain and delta unions with incompatible partitions, verify the source remains unchanged, and pass normally and with `g3checked`.
+
+Finite sparse-table product size estimates (2026-11-01 UTC): added row and byte estimates delegated to the outer functional table, matching the source API rather than counting nested facts. Tests distinguish outer-key count from total inner-fact count and pass normally and with `g3checked`.

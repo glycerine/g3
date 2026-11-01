@@ -104,6 +104,23 @@ func (p *FiniteSparseProduct) Reset() error {
 	return resultErr
 }
 
+// SizeEstimateRows reports the source's outer-table row estimate; each row
+// represents one finite key and its nested sparse relation.
+func (p *FiniteSparseProduct) SizeEstimateRows() (uint32, error) {
+	if err := p.open(); err != nil {
+		return 0, err
+	}
+	return p.table.SizeEstimateRows()
+}
+
+// SizeEstimateBytes reports the source's outer-table storage estimate.
+func (p *FiniteSparseProduct) SizeEstimateBytes() (uint32, error) {
+	if err := p.open(); err != nil {
+		return 0, err
+	}
+	return p.table.SizeEstimateBytes()
+}
+
 func (p *FiniteSparseProduct) split(values []ast.ASTHandle) (Fact, Fact, error) {
 	if err := p.open(); err != nil {
 		return nil, nil, err
