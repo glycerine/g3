@@ -349,6 +349,24 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 	if err = i.traceMinimization("pdr_verbose", "minimize_model", 105, "pruned model:\n", nil, pending); err != nil {
 		return nil, err
 	}
+	if err = i.reset(); err != nil {
+		return nil, err
+	}
+	// Source DEBUG_CODE rebuilds model state and verifies the original
+	// formulas after pruning, including any model completion performed above.
+	if ast.ASTSourceDebug {
+		if err = i.setupModel(md); err != nil {
+			return nil, err
+		}
+		var satisfied bool
+		satisfied, err = i.checkModel(formulas)
+		if err != nil {
+			return nil, err
+		}
+		if !satisfied {
+			return nil, ast.ErrASTDomain
+		}
+	}
 	return pending, nil
 }
 
