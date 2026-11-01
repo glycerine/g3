@@ -81,32 +81,6 @@ func (p *RuleProperties) SetGenerateProof(enabled bool) error {
 	return nil
 }
 
-func (p *RuleProperties) ensureRuleProof(rule *Rule) (resultErr error) {
-	_, found, err := rule.Proof()
-	if err != nil || found {
-		return err
-	}
-	scope, err := ast.NewScopedProof(p.manager)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
-	formula, err := rule.ToFormula()
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formula)) }()
-	fact, err := p.manager.RefGet(formula)
-	if err != nil {
-		return err
-	}
-	proof, err := p.manager.MkProofAsserted(fact)
-	if err != nil {
-		return err
-	}
-	return rule.SetProof(proof)
-}
-
 func NewRuleProperties(rules *RuleManager) (*RuleProperties, error) {
 	if rules == nil {
 		return nil, ErrRuleProperties
@@ -321,7 +295,7 @@ func (p *RuleProperties) Collect(set *RuleSet) error {
 			}
 		}
 		if p.generateProof {
-			if e = p.ensureRuleProof(rule); e != nil {
+			if e = p.rules.MkRuleAssertedProof(rule); e != nil {
 				return e
 			}
 		}

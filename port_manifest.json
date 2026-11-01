@@ -102674,6 +102674,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/transforms/rule_slice.go",
+        "pkg/muz/transforms/rule_slice_test.go",
+        "pkg/muz/fp/horn_preprocess_proof_test.go",
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
@@ -102681,6 +102683,8 @@
       ],
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
+        "TestRuleSliceGeneratesProofsForRewrittenRules",
+        "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
         "TestRuleSliceRetainsConstantConstrainedColumn",
         "TestRuleSliceRetainsNegatedPredicateColumns",
         "TestRuleSlicePropagatesInterpretedEqualityMasks",
@@ -102783,7 +102787,7 @@
         "The replacement RuleSet owns sliced rules and original/derived declaration mappings; temporary source rules and rewritten rules are closed after transfer."
       ],
       "deviations": [
-        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. Proof conversion remains unported."
+        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. Proof conversion remains unported, so fixedpoint preprocessing skips slicing when proof tracing is requested."
       ]
     },
     {

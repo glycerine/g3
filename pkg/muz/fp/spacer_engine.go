@@ -95,6 +95,7 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
 	}
+	generateProofTrace = generateProofTrace || e.forceProofTrace
 	sliceRules, err := parameters.Bool("xform.slice", true)
 	if err != nil {
 		return nil, errors.Join(err, transformer.Close())
@@ -403,9 +404,13 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 	if err != nil {
 		return nil, fmt.Errorf("muz/fp: Spacer rule preprocessing: %w", err)
 	}
-	if sliceRules {
+	// Sliced-rule proofs require the source slice proof converter before they
+	// can be returned as proofs of the original program. Until it is ported,
+	// preserve the original predicates whenever proof tracing is requested.
+	if sliceRules && !generateProofTrace {
 		slicer := base.NewRuleTransformer()
 		plugin := transforms.NewRuleSlicePlugin(e.manager, e.rules, 1)
+		plugin.SetGenerateProofTrace(generateProofTrace)
 		if err = slicer.Register(plugin); err != nil {
 			return nil, errors.Join(err, plugin.Close(), slicer.Close())
 		}

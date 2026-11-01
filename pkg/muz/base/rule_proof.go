@@ -10,6 +10,47 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// MkRuleAssertedProof attaches an asserted proof of the rule's formula if the
+// rule does not already carry a proof. Proof mode is restored on return.
+func (m *RuleManager) MkRuleAssertedProof(rule *Rule) (resultErr error) {
+	if err := m.open(); err != nil {
+		return err
+	}
+	if rule == nil {
+		return ErrRuleOwner
+	}
+	manager, err := rule.ASTManager()
+	if err != nil {
+		return err
+	}
+	if manager != m.manager {
+		return fmt.Errorf("muz/base: asserted-proof rule belongs to another AST manager")
+	}
+	_, found, err := rule.Proof()
+	if err != nil || found {
+		return err
+	}
+	scope, err := ast.NewScopedProof(m.manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
+	formula, err := rule.ToFormula()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, m.manager.DelRef(&formula)) }()
+	fact, err := m.manager.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	proof, err := m.manager.MkProofAsserted(fact)
+	if err != nil {
+		return err
+	}
+	return rule.SetProof(proof)
+}
+
 // MkRuleRewriteProof transfers a proof of oldRule's formula to newRule by
 // rewriting the proved fact to the new rule formula and applying modus ponens.
 func (m *RuleManager) MkRuleRewriteProof(oldRule, newRule *Rule) (resultErr error) {

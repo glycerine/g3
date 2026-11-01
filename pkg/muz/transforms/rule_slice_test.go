@@ -379,3 +379,90 @@ func TestRuleSliceRetainsConstantConstrainedColumn(t *testing.T) {
 		t.Fatal("constant slice did not retain constrained argument", argument, zero)
 	}
 }
+
+func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			f := newConeFixture(t)
+			boolean, err := f.manager.MkBoolSort()
+			coneMust(t, err)
+			zero, err := f.manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+			coneMust(t, err)
+			integer, err := f.manager.GetSort(zero)
+			coneMust(t, err)
+			declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+				symbol, e := f.manager.Symbols.Intern(name)
+				coneMust(t, e)
+				decl, e := f.manager.MkFuncDecl(symbol, domain, boolean, ast.ASTFuncDeclInfo{})
+				coneMust(t, e)
+				coneMust(t, f.rules.RegisterPredicate(decl))
+				return decl
+			}
+			p := declare("slice-proof-P", []ast.ASTHandle{integer})
+			goal := declare("slice-proof-goal", nil)
+			v, err := f.manager.MkVar(0, integer)
+			coneMust(t, err)
+			pApp, err := f.manager.MkApp(p, []ast.ASTHandle{v})
+			coneMust(t, err)
+			goalApp, err := f.manager.MkApp(goal, nil)
+			coneMust(t, err)
+			for _, spec := range []struct {
+				head  ast.ASTHandle
+				tails []ast.ASTHandle
+			}{{pApp, nil}, {goalApp, []ast.ASTHandle{pApp}}} {
+				rule, e := f.rules.NewRule(spec.head, spec.tails, nil, "")
+				coneMust(t, e)
+				coneMust(t, f.set.Add(rule))
+				coneMust(t, rule.Close())
+			}
+			coneMust(t, f.set.SetOutputPredicate(goal))
+			valid, err := f.set.Finalize()
+			coneMust(t, err)
+			if !valid {
+				t.Fatal("invalid fixture")
+			}
+			plugin := transforms.NewRuleSlicePlugin(f.manager, f.rules, 1)
+			plugin.SetGenerateProofTrace(enabled)
+			transformer := base.NewRuleTransformer()
+			defer func() { coneMust(t, transformer.Close()) }()
+			coneMust(t, transformer.Register(plugin))
+			modified, err := transformer.Apply(f.set)
+			coneMust(t, err)
+			if !modified {
+				t.Fatal("expected sliced rules")
+			}
+			count, err := f.set.Len()
+			coneMust(t, err)
+			if count != 2 {
+				t.Fatalf("got %d rules", count)
+			}
+			for i := 0; i < count; i++ {
+				rule, e := f.set.Rule(i)
+				coneMust(t, e)
+				proof, found, e := rule.Proof()
+				coneMust(t, e)
+				if found != enabled {
+					t.Fatalf("proof present = %v, want %v", found, enabled)
+				}
+				if found {
+					formula, e := rule.ToFormula()
+					coneMust(t, e)
+					fact, e := f.manager.RefGet(formula)
+					coneMust(t, e)
+					proved, e := f.manager.GetProofFact(proof)
+					coneMust(t, e)
+					if proved != fact {
+						t.Fatal("proof concludes a different formula")
+					}
+					coneMust(t, f.manager.DelRef(&formula))
+				}
+				coneMust(t, rule.Close())
+			}
+			mode, err := f.manager.ProofMode()
+			coneMust(t, err)
+			if mode != ast.ASTProofDisabled {
+				t.Fatal("proof mode was not restored")
+			}
+		})
+	}
+}

@@ -16,7 +16,14 @@ type RuleSlicePlugin struct {
 	sliceable  map[ast.ASTHandle][]bool
 	order      []ast.ASTHandle
 	predicates map[ast.ASTHandle]ast.ASTHandle
+	proofTrace bool
 	closed     bool
+}
+
+// SetGenerateProofTrace requests asserted proofs for rewritten rules. These
+// proofs describe sliced predicates and need conversion before being exported.
+func (p *RuleSlicePlugin) SetGenerateProofTrace(enabled bool) {
+	p.proofTrace = enabled
 }
 
 func NewRuleSlicePlugin(manager *ast.ASTManager, rules *base.RuleManager, priority uint32) *RuleSlicePlugin {
@@ -490,7 +497,16 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule) (*base.Rule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return p.rules.NewRule(head, tails, negated, name)
+	updatedRule, err := p.rules.NewRule(head, tails, negated, name)
+	if err != nil {
+		return nil, err
+	}
+	if p.proofTrace {
+		if err = p.rules.MkRuleAssertedProof(updatedRule); err != nil {
+			return nil, errors.Join(err, updatedRule.Close())
+		}
+	}
+	return updatedRule, nil
 }
 
 func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
