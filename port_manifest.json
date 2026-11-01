@@ -194545,7 +194545,7 @@
       "path": "src/tactic/sls/sls_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/sls/sls_core_trace.go",
         "pkg/tactic/sls/sls_core_trace_test.go",
@@ -194573,10 +194573,12 @@
           "text": "SASSERT(g->is_well_sorted());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "source before-and-after goal traces and tactic report", "status": "partial", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_trace.go", "pkg/tactic/sls/sls_core_trace_test.go"], "tests": ["TestSLSCoreSourceTraceAndTacticReport"]}, {"name": "cleanup constructs a replacement engine before destroying the previous engine", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCleanupPreservesEngineOnConstructionFailure", "TestSLSCoreCleanupAllocationFrontiers"]}],
-      "ownership": [],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "source before-and-after goal traces and tactic report", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_trace.go", "pkg/tactic/sls/sls_core_trace_test.go"], "tests": ["TestSLSCoreSourceTraceAndTacticReport"]}, {"name": "cleanup constructs a replacement engine before destroying the previous engine", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCleanupPreservesEngineOnConstructionFailure", "TestSLSCoreCleanupAllocationFrontiers"]}],
+      "ownership": [
+        "Core tactic cleanup constructs a replacement engine before closing the current owner; goal and model ownership follows the source engine wrapper."
+      ],
       "deviations": []
     },
     {
