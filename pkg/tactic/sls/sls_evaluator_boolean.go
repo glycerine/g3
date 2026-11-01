@@ -41,8 +41,8 @@ func (e *Evaluator) open() error {
 	return nil
 }
 
-// Evaluate translates the source operator() prefix and complete basic-family
-// switch. BV-family cases remain explicit unsupported work for the next slice.
+// Evaluate computes the source basic-family and bit-vector app values from the
+// current tracker assignments.
 func (e *Evaluator) Evaluate(node ast.ASTHandle, result *numeral.Int) error {
 	if err := e.open(); err != nil {
 		return err

@@ -8,13 +8,14 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
-func slsEngineFixture(t *testing.T) (*Engine, *SearchTracker, *Evaluator, *Tracker, *ast.ASTManager, *numeral.IntegerManager) {
+func slsEngineFixture(t *testing.T, trace ...*diagnostic.TraceTags) (*Engine, *SearchTracker, *Evaluator, *Tracker, *ast.ASTManager, *numeral.IntegerManager) {
 	t.Helper()
-	tracker, manager, numbers, powerCache, context, globals, local, _ := slsTrackerFixture(t)
+	tracker, manager, numbers, powerCache, context, globals, local, _ := slsTrackerFixture(t, trace...)
 	wp := "wp"
 	randomOffset := "random_offset"
 	ucb := "walksat_ucb"

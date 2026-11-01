@@ -52774,3 +52774,5 @@ Recover-01 header factory closure (2026-11-01 UTC): verified the source header's
 Subpaving header factory closure (2026-11-01 UTC): audited the source `mk_subpaving_tactic` declaration and `ADD_TACTIC` registration against the Go factory, owned simplify composition and command-context registration tests. The header's sole factory method is now recorded ported; the algorithm and subpaving component remain tracked independently.
 
 Eq2bv header factory closure (2026-11-01 UTC): checked the source factory's clean-wrapper construction and `ADD_TACTIC` name against the Go clean tactic factory and command registry, and added direct construction/refcount coverage. The header's sole factory method is now recorded ported; algorithm coverage remains tracked in the `.cpp` unit.
+
+SLS evaluator randomization trace (2026-11-01 UTC): restored the source `randomize_local` trace record for the selected declaration and post-update model. Disabled, enabled and refusing-stream cases pass; source trace output is verified with `g3trace`. Broader evaluator, graph-update and randomized-search implementation remains tracked in its partial source record.

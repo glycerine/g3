@@ -9,14 +9,19 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-func slsTrackerFixture(t *testing.T) (*Tracker, *ast.ASTManager, *numeral.IntegerManager, *powers, *uparams.ParamsContext, *uparams.GlobalParamsService, *uparams.ParamsRef, *arena.Budget) {
+func slsTrackerFixture(t *testing.T, trace ...*diagnostic.TraceTags) (*Tracker, *ast.ASTManager, *numeral.IntegerManager, *powers, *uparams.ParamsContext, *uparams.GlobalParamsService, *uparams.ParamsRef, *arena.Budget) {
 	t.Helper()
 	context, globals, local, budget := slsParamsFixture(t)
-	manager, err := ast.NewASTManager(ast.ASTManagerConfig{Symbols: context.SymbolsField, Numerals: context.NumeralsField, Budget: budget})
+	config := ast.ASTManagerConfig{Symbols: context.SymbolsField, Numerals: context.NumeralsField, Budget: budget}
+	if len(trace) > 0 {
+		config.TraceTags = trace[0]
+	}
+	manager, err := ast.NewASTManager(config)
 	if err != nil {
 		t.Fatal(err)
 	}

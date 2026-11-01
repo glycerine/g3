@@ -138,5 +138,8 @@ func (e *Evaluator) RandomizeLocal(search *SearchTracker, declarations []ast.AST
 	if err = search.RandomValue(sort, &value); err != nil {
 		return err
 	}
-	return e.SeriousUpdate(search, decl, &value)
+	if err = e.SeriousUpdate(search, decl, &value); err != nil {
+		return err
+	}
+	return e.traceRandomization(decl)
 }
