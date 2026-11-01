@@ -7410,8 +7410,8 @@
       "component": "api",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/api/api_numeral_string.go", "pkg/api/api_numeral_string_test.go", "pkg/api/api_numerals.go", "pkg/api/api_numerals_test.go", "pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_fpa_api_numeral_text_test.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
-      "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestSMTContextNumeralConstructionAndQueries", "TestSMTContextBitVectorNumeralBits", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
+      "go_targets": ["pkg/api/api_numeral_string.go", "pkg/api/api_numeral_string_test.go", "pkg/api/api_numerals.go", "pkg/api/api_numerals_test.go", "pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_fpa_api_numeral_text_test.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go", "pkg/ast/ast_fpa_api_string_numeral.go", "pkg/api/api_fpa_numeral_string_test.go"],
+      "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestSMTContextNumeralConstructionAndQueries", "TestSMTContextBitVectorNumeralBits", "TestSMTContextNumeralParsesFloatingPointStrings", "TestASTFPANumeralStringAPIScopedMPFAndBranches"],
       "assertions": [
         {
           "line": 337,
@@ -7427,6 +7427,13 @@
           "go_target": "pkg/api/api_numeral_string.go",
           "go_targets": ["pkg/ast/ast_fpa_api_numeral_text.go", "pkg/ast/ast_bv_api_numeral_text.go", "pkg/ast/ast_datalog_finite.go"],
           "tests": ["TestAPINumeralStringArithmeticFPAAndRefusal", "TestASTFPANumeralStringAPIScopedMPFAndBranches"]
+        },
+        {
+          "name": "Z3_mk_numeral parses arithmetic, bit-vector, finite-domain and floating-point source spellings",
+          "status": "ported",
+          "go_target": "pkg/api/api_numerals.go",
+          "go_targets": ["pkg/ast/ast_fpa_api_string_numeral.go", "pkg/api/api_fpa_numeral_string_test.go"],
+          "tests": ["TestSMTContextNumeralConstructionAndQueries", "TestSMTContextBitVectorNumeralBits", "TestSMTContextNumeralParsesFloatingPointStrings"]
         }
       ],
       "ownership": [],

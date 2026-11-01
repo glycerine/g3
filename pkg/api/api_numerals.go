@@ -1,8 +1,7 @@
 package api
 
-// Source: src/api/api_numeral.cpp:50-194,265-403. Arithmetic, bit-vector and
-// datalog construction are retained here; FPA text construction and algebraic
-// decimal display remain with the unported FPA/algebraic API bridge.
+// Source: src/api/api_numeral.cpp:50-194,265-403. Arithmetic, bit-vector,
+// finite-domain and floating-point numeral construction is implemented here.
 
 import (
 	"errors"
@@ -71,6 +70,19 @@ func (c *SMTContext) Numeral(value string, sort ast.ASTHandle) (result ast.ASTHa
 		return m.MkDatalogNumeral(r.Num().Uint64(), sort)
 	} else if e != nil {
 		return result, e
+	}
+	floatingPoint, floatingPointFamily, e := c.floatingPointManager()
+	if e != nil {
+		return result, e
+	}
+	if family == floatingPointFamily {
+		for i := 0; i < len(value); i++ {
+			ch := value[i]
+			if !('0' <= ch && ch <= '9') && ch != '/' && ch != '-' && ch != '+' && ch != ' ' && ch != '\n' && ch != '.' && ch != 'e' && ch != 'E' && ch != 'p' && ch != 'P' {
+				return result, ast.ErrASTDomain
+			}
+		}
+		return floatingPoint.MkFPANumeralString(value, sort)
 	}
 	return result, ast.ErrASTDomain
 }
