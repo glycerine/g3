@@ -13,6 +13,7 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
+	HornClauses          bool
 	context              *Context
 	nodes                []*Node
 	edges                []*Edge
