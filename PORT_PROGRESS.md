@@ -52917,6 +52917,8 @@ Finite sparse product conversion capability (2026-11-01 UTC): added the source `
 
 Finite sparse product join partition oracle (2026-11-01 UTC): added an independent exhaustive finite oracle over all 16 two-column outer/inner layout pairs, checking Cartesian joins, single equalities, and crossed two-column equalities against every possible four-column output tuple.
 
+Finite sparse paired-filter ownership regression (2026-11-01 UTC): the identity-pair test now supplies constraints out of order and asserts filtering leaves the caller's pair slice unchanged, matching the source functor's copied-and-sorted arrays.
+
 Finite product paired-column ordering (2026-11-01 UTC): added the concrete column-pair sorter used by identical-pair filtering, replacing the source `sort_two_arrays` template instance with a typed pair slice and Go `sort.Slice`. The 97-pair source permutation and boundary lengths pass; the full utility test driver is now mapped as ported.
 
 Finite sparse product join-project fallback (2026-11-01 UTC): added the relation-manager composition path that joins two products, projects the result, and releases the temporary joined product. The regression checks duplicate-row reduction across outer/inner partitions, source operand preservation, and malformed projection rejection; normal and `g3checked` tests pass.

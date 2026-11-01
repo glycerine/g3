@@ -629,8 +629,12 @@ func TestFiniteSparseProductIdenticalPairs(t *testing.T) {
 	for _, fact := range [][]ast.ASTHandle{{zero, zero, one, one}, {zero, one, one, one}, {two, two, two, zero}} {
 		astTestMust(t, product.AddFact(fact))
 	}
-	if err = product.FilterIdenticalPairs([][2]int{{0, 1}, {2, 3}}); err != nil {
+	pairs := [][2]int{{2, 3}, {0, 1}}
+	if err = product.FilterIdenticalPairs(pairs); err != nil {
 		t.Fatal(err)
+	}
+	if pairs[0] != [2]int{2, 3} || pairs[1] != [2]int{0, 1} {
+		t.Fatalf("identity filter reordered caller pairs: %v", pairs)
 	}
 	if found, e := product.ContainsFact([]ast.ASTHandle{zero, zero, one, one}); e != nil || !found {
 		t.Fatalf("pair filter removed matching row: %v (%v)", found, e)
