@@ -188035,7 +188035,7 @@
       "methods": [
         {
           "name": "axiom recognition",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/injectivity_finder.go",
           "tests": [
             "TestInjectivityFinderOrientationAndExactDeBruijnShape"
@@ -188043,10 +188043,14 @@
         },
         {
           "name": "goal discovery and equality rewriting",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/injectivity_tactic.go",
           "tests": [
-            "TestInjectivityDiscoversInverseAndRewritesEquality"
+            "TestInjectivityDiscoversInverseAndRewritesEquality",
+            "TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration",
+            "TestInjectivityRefusesUnsatCoresBeforeProofs",
+            "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty",
+            "TestSMTLibRunnerInjectivityTactic"
           ]
         }
       ],
@@ -188101,7 +188105,7 @@
       "methods": [
         {
           "name": "axiom recognition",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/injectivity_finder.go",
           "tests": [
             "TestInjectivityFinderOrientationAndExactDeBruijnShape"
@@ -188109,10 +188113,14 @@
         },
         {
           "name": "goal discovery and equality rewriting",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/core/injectivity_tactic.go",
           "tests": [
-            "TestInjectivityDiscoversInverseAndRewritesEquality"
+            "TestInjectivityDiscoversInverseAndRewritesEquality",
+            "TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration",
+            "TestInjectivityRefusesUnsatCoresBeforeProofs",
+            "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty",
+            "TestSMTLibRunnerInjectivityTactic"
           ]
         }
       ],
