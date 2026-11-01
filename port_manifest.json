@@ -110755,6 +110755,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_auxiliary.go",
         "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
         "pkg/qe/quantifier_tactic_array_conditional.go",
@@ -111930,6 +111931,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_auxiliary.go",
         "pkg/qe/quantifier_tactic_mixed.go",
         "pkg/qe/quantifier_tactic_mixed_test.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
@@ -111955,6 +111957,10 @@
         "pkg/qe/solver_context_owned_variable_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerQEArrayStoreAuxiliary",
+        "TestSMTLibRunnerQEArrayStoreBooleanAuxiliaryConstraint",
+        "TestSMTLibRunnerQEArrayStoreDatatypeAuxiliary",
+        "TestSMTLibRunnerQEArrayStoreSingletonAuxiliary",
         "TestArrayPluginStoreAllocationFrontiers",
         "TestQuantifierArrayMultidimensionalStoreProjection",
         "TestSMTLibRunnerQEArrayOverlappingStores",
@@ -114615,6 +114621,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_auxiliary.go",
         "pkg/qe/quantifier_tactic_scalar_block.go",
         "pkg/qe/quantifier_tactic_array_disjunction.go",
         "pkg/qe/quantifier_tactic_array_conditional.go",
@@ -114645,6 +114652,10 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestSMTLibRunnerQEArrayStoreAuxiliary",
+        "TestSMTLibRunnerQEArrayStoreBooleanAuxiliaryConstraint",
+        "TestSMTLibRunnerQEArrayStoreDatatypeAuxiliary",
+        "TestSMTLibRunnerQEArrayStoreSingletonAuxiliary",
         "TestQuantifierArrayMultidimensionalStoreProjection",
         "TestSMTLibRunnerQEArrayOverlappingStores",
         "TestSMTLibRunnerQEArrayStores",

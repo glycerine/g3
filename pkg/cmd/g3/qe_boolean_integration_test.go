@@ -240,6 +240,109 @@ func TestSMTLibRunnerQEArrayOverlappingStores(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEArrayStoreAuxiliary(t *testing.T) {
+	for _, tc := range []struct {
+		name, sort string
+	}{
+		{"integer", "Int"},
+		{"boolean", "Bool"},
+		{"bitvector", "(_ BitVec 2)"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			script := `(set-logic ALL)
+(declare-const B (Array Int ` + tc.sort + `))
+(declare-const i Int)
+(declare-const v ` + tc.sort + `)
+(declare-const w ` + tc.sort + `)
+(assert (exists ((A (Array Int ` + tc.sort + `)))
+  (and (= (store A i v) B) (distinct (select A i) w))))
+(push)
+(assert (not (= (select B i) v)))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= (select B i) v))
+(check-sat-using (then qe smt))
+`
+			var out bytes.Buffer
+			if err := run(strings.NewReader(script), &out); err != nil {
+				t.Fatal(err, out.String())
+			}
+			if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+				t.Fatalf("array store auxiliary QE result: %s", got)
+			}
+		})
+	}
+}
+
+func TestSMTLibRunnerQEArrayStoreBooleanAuxiliaryConstraint(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-const B (Array Int Bool))
+(declare-const i Int)
+(declare-const v Bool)
+(declare-const w Bool)
+(declare-const x Bool)
+(assert (exists ((A (Array Int Bool)))
+  (and (= (store A i v) B) (distinct (select A i) w) (distinct (select A i) x))))
+(assert (= (select B i) v))
+(push)
+(assert (distinct w x))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= w x))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("Boolean array auxiliary constraints: %s", got)
+	}
+}
+
+func TestSMTLibRunnerQEArrayStoreDatatypeAuxiliary(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-datatypes ((Color 0)) (((red) (blue))))
+(declare-const B (Array Int Color))
+(declare-const i Int)
+(declare-const v Color)
+(declare-const w Color)
+(assert (exists ((A (Array Int Color)))
+  (and (= (store A i v) B) (distinct (select A i) w))))
+(push)
+(assert (not (= (select B i) v)))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= (select B i) v))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("datatype array auxiliary QE result: %s", got)
+	}
+}
+
+func TestSMTLibRunnerQEArrayStoreSingletonAuxiliary(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-datatypes ((Only 0)) (((one))))
+(declare-const B (Array Int Only))
+(declare-const i Int)
+(assert (exists ((A (Array Int Only)))
+  (and (= (store A i one) B) (distinct (select A i) one))))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.TrimSpace(out.String()); got != "unsat" {
+		t.Fatalf("singleton array auxiliary QE result: %s", got)
+	}
+}
+
 func TestSMTLibRunnerQEArrayDisjunction(t *testing.T) {
 	script := `(set-logic ALL)
 (declare-const B (Array Int Int))

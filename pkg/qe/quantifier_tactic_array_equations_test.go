@@ -8,7 +8,7 @@ import (
 )
 
 func TestQuantifierArrayEquationsProjection(t *testing.T) {
-	for _, name := range []string{"array-equality", "single-select", "two-selects", "store", "nested-stores", "three-stores", "same-index-stores", "disjunction", "guarded-disjunction"} {
+	for _, name := range []string{"array-equality", "single-select", "two-selects", "store", "store-with-disequality", "nested-stores", "three-stores", "same-index-stores", "disjunction", "guarded-disjunction"} {
 		t.Run(name, func(t *testing.T) {
 			f := newFMFixture(t)
 			m := f.r.manager
@@ -40,6 +40,9 @@ func TestQuantifierArrayEquationsProjection(t *testing.T) {
 				expected = f.own(m.MkOr(f.own(m.MkNot(f.own(m.MkEq(i, j)))), f.own(m.MkEq(v, w))))
 			} else if name == "store" {
 				body = f.own(m.MkEq(storeAt(a, i, v), b))
+				expected = f.own(m.MkEq(selectAt(b, i), v))
+			} else if name == "store-with-disequality" {
+				body = f.own(m.MkAnd(f.own(m.MkEq(storeAt(a, i, v), b)), f.own(m.MkNot(f.own(m.MkEq(selectAt(a, i), w))))))
 				expected = f.own(m.MkEq(selectAt(b, i), v))
 			} else if name == "nested-stores" {
 				body = f.own(m.MkEq(storeAt(storeAt(a, i, v), j, w), b))

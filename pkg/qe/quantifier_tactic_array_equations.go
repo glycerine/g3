@@ -176,6 +176,13 @@ func eliminateQuantifierArrayEquations(m *ast.ASTManager, quantifier ast.ASTHand
 			return result, false, e
 		}
 		if !solved {
+			changed, cause := projectArrayAuxiliary(m, context, formula, config)
+			if cause != nil {
+				return result, false, cause
+			}
+			if changed {
+				continue
+			}
 			projected, done, cause := projectArrayConditional(m, body, context, config)
 			if cause == nil && !done {
 				projected, done, cause = projectArrayDisjunction(m, body, context, config)
