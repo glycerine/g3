@@ -46,6 +46,15 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	if normalized == formula {
 		t.Fatal("comparison was not normalized")
 	}
+	nested, err := manager.MkNot(formula)
+	closureMust(t, err)
+	nested, err = NormalizeArithmetic(manager, nested)
+	closureMust(t, err)
+	child, err := manager.GetArg(nested, 0)
+	closureMust(t, err)
+	if child != normalized {
+		t.Fatal("nested comparison did not receive the same normalization")
+	}
 	left, err = manager.GetArg(normalized, 0)
 	closureMust(t, err)
 	count, err := manager.GetNumArgs(left)

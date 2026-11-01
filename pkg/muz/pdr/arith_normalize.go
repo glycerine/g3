@@ -15,6 +15,74 @@ func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (ast.AS
 	if manager == nil {
 		return ast.ASTHandle{}, ast.ErrASTHandle
 	}
+	return normalizeArithmeticTree(manager, formula, make(map[ast.ASTHandle]ast.ASTHandle))
+}
+
+// The source rewriter visits application children and quantifier bodies while
+// leaving patterns unchanged. Rebuild with the original declaration so that
+// parameters and uninterpreted symbols keep their identities.
+func normalizeArithmeticTree(manager *ast.ASTManager, formula ast.ASTHandle, cache map[ast.ASTHandle]ast.ASTHandle) (ast.ASTHandle, error) {
+	if result, found := cache[formula]; found {
+		return result, nil
+	}
+	kind, err := manager.GetKind(formula)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	result := formula
+	if kind == ast.ASTQuantifier {
+		body, err := manager.GetQuantifierBody(formula)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		rewritten, err := normalizeArithmeticTree(manager, body, cache)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		if rewritten != body {
+			result, err = manager.UpdateQuantifierBody(formula, rewritten)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
+	} else if kind == ast.ASTApp {
+		count, err := manager.GetNumArgs(formula)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		args := make([]ast.ASTHandle, count)
+		changed := false
+		for i := range args {
+			arg, err := manager.GetArg(formula, uint32(i))
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			args[i], err = normalizeArithmeticTree(manager, arg, cache)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			changed = changed || args[i] != arg
+		}
+		if changed {
+			decl, err := manager.GetDecl(formula)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			result, err = manager.MkApp(decl, args)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+		}
+		result, err = normalizeArithmeticComparison(manager, result)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+	}
+	cache[formula] = result
+	return result, nil
+}
+
+func normalizeArithmeticComparison(manager *ast.ASTManager, formula ast.ASTHandle) (ast.ASTHandle, error) {
 	kind, err := manager.GetKind(formula)
 	if err != nil || kind != ast.ASTApp {
 		return formula, err
