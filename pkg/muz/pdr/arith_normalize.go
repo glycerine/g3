@@ -56,14 +56,13 @@ func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (ast.AS
 	if err != nil || leftSort != rightSort {
 		return formula, err
 	}
-	sortName, err := manager.GetASTName(leftSort)
+	realSort, err := manager.MkFamilySort(arithmetic, 0, nil)
 	if err != nil {
 		return ast.ASTHandle{}, err
 	}
-	name, present, err := manager.Symbols.BareString(sortName)
-	if err != nil || !present || name != "Real" {
-		if err != nil || !negateResult {
-			return formula, err
+	if leftSort != realSort {
+		if !negateResult {
+			return formula, nil
 		}
 		return arithmeticNormalizerNegatedRelation(manager, family, op, left, right)
 	}
