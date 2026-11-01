@@ -52834,3 +52834,5 @@ Finite product garbage collection (2026-11-01 UTC): checked both source collecti
 Finite product projection method (2026-11-01 UTC): verified key collisions merge the corresponding interval relations before removed interval columns are projected, along with finite, interval and zero-column outputs and invalid duplicate-column rejection. Focused normal and `g3checked` tests pass; marked the method ported in both finite product records.
 
 Finite product rename method (2026-11-01 UTC): checked source cycle rotation across finite/interval boundaries and interval-only columns, plus duplicate-cycle rejection, against the Go permutation path. Focused normal and `g3checked` tests pass; marked the method ported in both source records.
+
+Finite product formula generation (2026-11-01 UTC): matched empty results, conjunct order and the source's leading-table-column variable positions, including its interleaved-signature behavior. The focused expression-identity regression passes normally and with `g3checked`; marked the method ported in both records.

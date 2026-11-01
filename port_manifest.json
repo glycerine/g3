@@ -92739,7 +92739,7 @@
         },
         {
           "name": "source-order finite product formula construction",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_formula.go",
           "tests": [
             "TestFiniteIntervalProductToFormulaSourceOrder"
@@ -92983,7 +92983,7 @@
         },
         {
           "name": "source-order finite product formula construction",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_formula.go",
           "tests": [
             "TestFiniteIntervalProductToFormulaSourceOrder"
