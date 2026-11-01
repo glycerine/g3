@@ -7,18 +7,21 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/substitution"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
 )
 
 type subsumptionSearch struct {
-	manager    *ast.ASTManager
-	goal       *groundClause
-	matcher    *SemanticMatcher
-	bindings   *substitution.Substitution
-	conditions []ast.ASTRef
-	lite       *qe.Lite
-	smt        solver.Solver
+	manager        *ast.ASTManager
+	goal           *groundClause
+	matcher        *SemanticMatcher
+	bindings       *substitution.Substitution
+	conditions     []ast.ASTRef
+	lite           *qe.Lite
+	smt            solver.Solver
+	falseLiterals  map[ast.ASTHandle]ast.ASTRef
+	modelEvaluator *model.ModelEvaluatorConfig
 }
 
 func (s *subsumptionSearch) truncateConditions(n int) error {
@@ -37,7 +40,7 @@ func (s *subsumptionSearch) matchPredicates(candidate *Clause, index int) (match
 		return false, err
 	}
 	if index == len(candidate.predicates) {
-		return validateSubsumption(s.manager, candidate, s.bindings, s.conditions, s.lite, s.smt)
+		return validateSubsumption(s.manager, candidate, s.bindings, s.conditions, s.lite, s.smt, s.falseLiterals, s.modelEvaluator)
 	}
 	pattern, err := s.manager.RefGet(candidate.predicates[index])
 	if err != nil {
@@ -71,7 +74,7 @@ func (s *subsumptionSearch) matchPredicates(candidate *Clause, index int) (match
 	return false, nil
 }
 
-func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt solver.Solver) (found bool, sequence uint32, err error) {
+func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt solver.Solver, evaluator ...*model.ModelEvaluatorConfig) (found bool, sequence uint32, err error) {
 	if query == nil || query.closed || lite == nil || smt == nil {
 		return false, 0, ast.ErrASTHandle
 	}
@@ -97,7 +100,20 @@ func isClauseSubsumed(query *Clause, candidates []*Clause, lite *qe.Lite, smt so
 		return false, 0, err
 	}
 	defer func() { err = errors.Join(err, bindings.Close()) }()
-	search := &subsumptionSearch{manager: m, goal: grounded, matcher: matcher, bindings: bindings, lite: lite, smt: smt}
+	if len(evaluator) > 1 {
+		return false, 0, ast.ErrASTHandle
+	}
+	var modelEvaluator *model.ModelEvaluatorConfig
+	falseLiterals := make(map[ast.ASTHandle]ast.ASTRef)
+	defer func() {
+		for _, ref := range falseLiterals {
+			err = errors.Join(err, m.DelRef(&ref))
+		}
+	}()
+	if len(evaluator) == 1 {
+		modelEvaluator = evaluator[0]
+	}
+	search := &subsumptionSearch{manager: m, goal: grounded, matcher: matcher, bindings: bindings, lite: lite, smt: smt, falseLiterals: falseLiterals, modelEvaluator: modelEvaluator}
 	defer func() { err = errors.Join(err, search.truncateConditions(0)) }()
 	if err = smt.Push(); err != nil {
 		return false, 0, err

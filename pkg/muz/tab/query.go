@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
@@ -21,12 +22,12 @@ type Statistics struct {
 // QueryPredicate runs tabulation for a predicate application over rules.
 // It returns an owning proof for a reachable query and true for an unreachable
 // query. The caller owns a nonzero answer reference and all supplied services.
-func QueryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string) (status lbool.LBool, answer ast.ASTRef, err error) {
-	return QueryPredicateWithStatistics(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil)
+func QueryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
+	return QueryPredicateWithStatistics(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil, evaluator...)
 }
 
 // QueryPredicateWithStatistics adds this query's search counters to stats.
-func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, stats *Statistics) (status lbool.LBool, answer ast.ASTRef, err error) {
+func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
 	if rules == nil || rw == nil || rw.Manager() == nil || lite == nil || querySolver == nil || subsumptionSolver == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -72,7 +73,14 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 	if err != nil {
 		return lbool.Undef, answer, err
 	}
-	search, err := newTabSearch(goal, index, rw, lite, querySolver, subsumptionSolver, strategy)
+	var modelConfig *model.ModelEvaluatorConfig
+	if len(evaluator) > 1 {
+		return lbool.Undef, answer, ast.ErrASTHandle
+	}
+	if len(evaluator) == 1 {
+		modelConfig = &evaluator[0]
+	}
+	search, err := newTabSearch(goal, index, rw, lite, querySolver, subsumptionSolver, strategy, modelConfig)
 	if err != nil {
 		return lbool.Undef, answer, errors.Join(err, goal.Close())
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/tab"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -95,7 +96,8 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 	if err = e.params.SetUIntName(&params, &timeout, 1000); err != nil {
 		return lbool.Undef, err
 	}
-	config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals}
+	modelEvaluator := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
+	config := smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals, ModelEvaluator: modelEvaluator}
 	querySolver, err := smtcore.NewSMTSolver(e.manager, &params, "", config)
 	if err != nil {
 		return lbool.Undef, err
@@ -106,6 +108,9 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 		return lbool.Undef, err
 	}
 	defer func() { err = errors.Join(err, subSolver.Close()) }()
+	if err = subSolver.SetProduceModels(true); err != nil {
+		return lbool.Undef, err
+	}
 	arity, err := e.manager.GetArity(declaration)
 	if err != nil {
 		return lbool.Undef, err
@@ -131,7 +136,7 @@ func (e *PropositionalEngine) queryTabPredicate(declaration ast.ASTHandle) (stat
 	}
 	defer func() { err = errors.Join(err, e.manager.DelRef(&ref)) }()
 	var stats tab.Statistics
-	status, e.tabAnswer, err = tab.QueryPredicateWithStatistics(e.set, query, rw, lite, querySolver, subSolver, strategy, &stats)
+	status, e.tabAnswer, err = tab.QueryPredicateWithStatistics(e.set, query, rw, lite, querySolver, subSolver, strategy, &stats, modelEvaluator)
 	e.tabUnfold += stats.Unfold
 	e.tabUnfoldFail += stats.UnfoldFail
 	e.tabSubsumed += stats.Subsumed

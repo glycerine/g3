@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -18,6 +19,7 @@ type tabSearch struct {
 	rewriter                       *rewriter.TheoryRewriter
 	lite                           *qe.Lite
 	querySolver, subsumptionSolver solver.Solver
+	modelEvaluator                 *model.ModelEvaluatorConfig
 	selection                      *predicateSelection
 	stack, index, owned            []*Clause
 	nextSequence                   uint32
@@ -26,7 +28,7 @@ type tabSearch struct {
 }
 
 // newTabSearch takes ownership of query and borrows the rule index and services.
-func newTabSearch(query *Clause, rules *RuleIndex, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string) (search *tabSearch, err error) {
+func newTabSearch(query *Clause, rules *RuleIndex, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, evaluator ...*model.ModelEvaluatorConfig) (search *tabSearch, err error) {
 	if query == nil || query.closed || rules == nil || rules.closed || query.manager != rules.manager || rw == nil || rw.Manager() != query.manager || lite == nil || querySolver == nil || subsumptionSolver == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -46,7 +48,14 @@ func newTabSearch(query *Clause, rules *RuleIndex, rw *rewriter.TheoryRewriter, 
 	if err = selection.Init(rules); err != nil {
 		return nil, errors.Join(err, selection.Close())
 	}
-	search = &tabSearch{manager: query.manager, rules: rules, rewriter: rw, lite: lite, querySolver: querySolver, subsumptionSolver: subsumptionSolver, selection: selection}
+	if len(evaluator) > 1 {
+		return nil, errors.Join(ast.ErrASTHandle, selection.Close())
+	}
+	var modelEvaluator *model.ModelEvaluatorConfig
+	if len(evaluator) == 1 {
+		modelEvaluator = evaluator[0]
+	}
+	search = &tabSearch{manager: query.manager, rules: rules, rewriter: rw, lite: lite, querySolver: querySolver, subsumptionSolver: subsumptionSolver, modelEvaluator: modelEvaluator, selection: selection}
 	search.appendClause(query)
 	return search, nil
 }
@@ -185,7 +194,7 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 		child.index = uint32(len(s.stack))
 		child.sequence = s.nextSequence
 		s.nextSequence++
-		found, _, e := isClauseSubsumed(child, s.index, s.lite, s.subsumptionSolver)
+		found, _, e := isClauseSubsumed(child, s.index, s.lite, s.subsumptionSolver, s.modelEvaluator)
 		if e != nil {
 			return lbool.Undef, errors.Join(e, child.Close())
 		}

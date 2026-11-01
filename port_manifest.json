@@ -100579,7 +100579,8 @@
         "TestClauseFormulaClosesFreeVariablesAndAvoidsNames",
         "TestTabSearchUnfoldsRulesAndBacktracks",
         "TestTabEngineQueryProofAndSnapshots",
-        "TestSMTLibRunnerTabulationArithmeticRules"
+        "TestSMTLibRunnerTabulationArithmeticRules",
+        "TestSubsumptionLiteralNormalizationOrdersEqualityArguments"
       ],
       "assertions": [
         {
@@ -100672,7 +100673,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Predicate queries, search, subsumption and proof replay are connected to fixedpoint selection. Counterexample-literal caching, complete source assertion/ownership audit, compound-query fidelity and broader differential coverage remain unfinished."
+        "Predicate queries, search, subsumption and proof replay are connected to fixedpoint selection; normalized counterexample-literal caching is covered in Go. Complete source assertion/ownership audit, compound-query fidelity and broader differential coverage remain unfinished."
       ]
     },
     {

@@ -82,7 +82,7 @@ func TestSubsumptionValidationUsesPreconditionAndRestoresSolverScope(t *testing.
 		clause *Clause
 		want   bool
 	}{{good, true}, {bad, false}, {good, true}} {
-		got, e := validateSubsumption(m, tc.clause, bindings, nil, lite, smt)
+		got, e := validateSubsumption(m, tc.clause, bindings, nil, lite, smt, nil, nil)
 		must(e)
 		if got != tc.want {
 			t.Fatalf("valid=%v want %v", got, tc.want)
@@ -92,5 +92,48 @@ func TestSubsumptionValidationUsesPreconditionAndRestoresSolverScope(t *testing.
 		if level != 0 {
 			t.Fatalf("solver scope leaked: %d", level)
 		}
+	}
+}
+
+func TestSubsumptionLiteralNormalizationOrdersEqualityArguments(t *testing.T) {
+	ctx, err := newTabTestContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := ctx.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	m, err := ctx.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	one, err := m.ArithmeticIntegerNumeralText("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	forward, err := m.MkEq(zero, one)
+	if err != nil {
+		t.Fatal(err)
+	}
+	backward, err := m.MkEq(one, zero)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := normalizeSubsumptionLiteral(m, backward)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := normalizeSubsumptionLiteral(m, forward)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("normalized equality handles differ: got %v want %v", got, want)
 	}
 }

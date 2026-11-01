@@ -9,12 +9,13 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/ast/substitution"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substitution.Substitution, side []ast.ASTRef, lite *qe.Lite, smt solver.Solver) (valid bool, err error) {
+func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substitution.Substitution, side []ast.ASTRef, lite *qe.Lite, smt solver.Solver, falseLiterals map[ast.ASTHandle]ast.ASTRef, evaluator *model.ModelEvaluatorConfig) (valid bool, err error) {
 	if m == nil || candidate == nil || candidate.closed || candidate.manager != m || bindings == nil || lite == nil || smt == nil {
 		return false, ast.ErrASTHandle
 	}
@@ -74,6 +75,15 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 	if err != nil {
 		return false, err
 	}
+	for _, value := range values {
+		key, e := normalizeSubsumptionLiteral(m, value)
+		if e != nil {
+			return false, e
+		}
+		if _, seen := falseLiterals[key]; seen {
+			return false, nil
+		}
+	}
 	post, err := m.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return false, err
@@ -114,5 +124,75 @@ func validateSubsumption(m *ast.ASTManager, candidate *Clause, bindings *substit
 	if err != nil {
 		return false, err
 	}
+	if status == lbool.True && falseLiterals != nil && evaluator != nil {
+		md, e := smt.AcquireModel()
+		if e != nil {
+			return false, e
+		}
+		if md != nil {
+			defer func() { err = errors.Join(err, md.DecRef()) }()
+			ev, e := model.NewModelEvaluator(md, *evaluator)
+			if e != nil {
+				return false, e
+			}
+			defer func() { err = errors.Join(err, ev.Close()) }()
+			for _, value := range values {
+				result, evalErr := ev.EvaluateValue(value)
+				if evalErr != nil {
+					return false, evalErr
+				}
+				actual, evalErr := m.RefGet(result)
+				evalErr = errors.Join(evalErr, m.DelRef(&result))
+				if evalErr != nil {
+					return false, evalErr
+				}
+				if m.IsFalse(actual) {
+					key, e := normalizeSubsumptionLiteral(m, value)
+					if e != nil {
+						return false, e
+					}
+					if _, exists := falseLiterals[key]; !exists {
+						ref, refErr := m.NewRef(key)
+						if refErr != nil {
+							return false, refErr
+						}
+						falseLiterals[key] = ref
+					}
+				}
+			}
+		}
+	}
 	return status == lbool.False, nil
+}
+
+func normalizeSubsumptionLiteral(m *ast.ASTManager, h ast.ASTHandle) (ast.ASTHandle, error) {
+	family, err := m.GetFamilyID(h)
+	if err != nil || family != 0 {
+		return h, err
+	}
+	kind, err := m.GetDeclKind(h)
+	if err != nil || kind != ast.ASTOpEq {
+		return h, err
+	}
+	count, err := m.GetNumArgs(h)
+	if err != nil || count != 2 {
+		return h, err
+	}
+	x, err := m.GetArg(h, 0)
+	if err != nil {
+		return h, err
+	}
+	y, err := m.GetArg(h, 1)
+	if err != nil {
+		return h, err
+	}
+	xID, err := m.GetASTID(x)
+	if err != nil {
+		return h, err
+	}
+	yID, err := m.GetASTID(y)
+	if err != nil || xID <= yID {
+		return h, err
+	}
+	return m.MkEq(y, x)
 }
