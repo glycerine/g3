@@ -83,6 +83,30 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 		if cause != nil {
 			return result, cause
 		}
+		value, cause := m.RefGet(result[i])
+		if cause != nil {
+			return result, cause
+		}
+		isValue, cause := m.IsValue(value)
+		if cause != nil {
+			return result, cause
+		}
+		if !isValue {
+			// An uninterpreted function with no model entry evaluates to its
+			// application, not a value. Keep the rule variable unbound, as the
+			// linear path does for an absent model interpretation.
+			sort, e := m.GetSort(term)
+			if e != nil {
+				return result, e
+			}
+			variable, e := m.MkVar(uint32(i), sort)
+			if e != nil {
+				return result, e
+			}
+			if e = m.SetRef(result[i], variable); e != nil {
+				return result, e
+			}
+		}
 	}
 	return result, nil
 }

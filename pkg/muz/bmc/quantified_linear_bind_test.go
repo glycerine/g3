@@ -78,6 +78,20 @@ func TestBMCQuantifiedLinearBindingsUseDerivationLevel(t *testing.T) {
 	compiler, err := bmc.NewCompiler(m)
 	must(err)
 	defer func() { must(compiler.Close()) }()
+	emptyModel, err := model.NewModel(m)
+	must(err)
+	defer func() { must(emptyModel.Close()) }()
+	unbound, err := compiler.QuantifiedLinearModelBindings(rule, 0, 1, 4, emptyModel.Core(), services)
+	must(err)
+	if len(unbound) != 1 {
+		t.Fatal("unbound binding count", len(unbound))
+	}
+	defer func() { must(m.DelRef(&unbound[0])) }()
+	missing, err := m.RefGet(unbound[0])
+	must(err)
+	if missing != x {
+		t.Fatal("missing interpretation did not preserve the rule variable", missing)
+	}
 	bindings, err := compiler.QuantifiedLinearModelBindings(rule, 0, 1, 4, md.Core(), services)
 	must(err)
 	if len(bindings) != 1 {
@@ -226,6 +240,106 @@ func TestBMCQuantifiedLinearProofWithRuleVariables(t *testing.T) {
 		must(solver.Pop(1))
 		if checked != lbool.False {
 			t.Fatal("quantified proof side condition is not valid", checked)
+		}
+	}
+}
+
+func TestBMCQuantifiedLinearProofWithUninterpretedBinding(t *testing.T) {
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	context, err := cmd_context.NewStandaloneContext()
+	must(err)
+	defer func() { must(context.Close()) }()
+	m, err := context.Manager()
+	must(err)
+	zero, err := m.ArithmeticIntegerNumeralText("0")
+	must(err)
+	integer, err := m.GetSort(zero)
+	must(err)
+	boolean, err := m.MkBoolSort()
+	must(err)
+	rm, err := base.NewRuleManager(m)
+	must(err)
+	defer func() { must(rm.Close()) }()
+	set, err := base.NewRuleSet(rm)
+	must(err)
+	defer func() { must(set.Close()) }()
+	declare := func(name string, sorts []ast.ASTHandle) ast.ASTHandle {
+		symbol, e := m.Symbols.Intern(name)
+		must(e)
+		decl, e := m.MkFuncDecl(symbol, sorts, boolean, ast.ASTFuncDeclInfo{})
+		must(e)
+		must(rm.RegisterPredicate(decl))
+		return decl
+	}
+	p := declare("qlinear-unbound-P", []ast.ASTHandle{integer})
+	goal := declare("qlinear-unbound-goal", nil)
+	x, err := m.MkVar(0, integer)
+	must(err)
+	pApp, err := m.MkApp(p, []ast.ASTHandle{x})
+	must(err)
+	goalApp, err := m.MkApp(goal, nil)
+	must(err)
+	for _, spec := range []struct {
+		head ast.ASTHandle
+		tail []ast.ASTHandle
+	}{{pApp, nil}, {goalApp, []ast.ASTHandle{pApp}}} {
+		rule, e := rm.NewRule(spec.head, spec.tail, nil, "")
+		must(e)
+		must(set.Add(rule))
+		must(rule.Close())
+	}
+	compiler, err := bmc.NewCompiler(m)
+	must(err)
+	defer func() { must(compiler.Close()) }()
+	raw, err := context.NewSimpleSolver()
+	must(err)
+	defer func() { must(raw.Close()) }()
+	solver := raw.(*smtcore.SMTSolver)
+	status, width, md, err := compiler.SearchQuantifiedLinear(set, goal, solver)
+	must(err)
+	if status != lbool.True || md == nil {
+		t.Fatal("search", status)
+	}
+	defer func() { must(md.DecRef()) }()
+	services, err := context.ModelEvaluatorConfig()
+	must(err)
+	proof, err := compiler.QuantifiedLinearProof(set, goal, width, md, services)
+	must(err)
+	defer func() { must(m.DelRef(&proof)) }()
+	handle, err := m.RefGet(proof)
+	must(err)
+	fact, err := m.GetProofFact(handle)
+	must(err)
+	if fact != goalApp {
+		t.Fatal("wrong proof conclusion")
+	}
+	checker, err := proofs.NewChecker(m)
+	must(err)
+	valid, side, err := checker.Check(handle)
+	must(err)
+	defer func() {
+		for _, condition := range side {
+			must(m.DecRef(condition))
+		}
+	}()
+	if !valid {
+		t.Fatal("invalid proof structure")
+	}
+	for _, condition := range side {
+		must(solver.Push())
+		negated, e := m.MkNot(condition)
+		must(e)
+		must(solver.AssertFormula(negated))
+		checked, e := solver.CheckSat(nil)
+		must(e)
+		must(solver.Pop(1))
+		if checked != lbool.False {
+			t.Fatal("proof side condition is not valid", checked)
 		}
 	}
 }
