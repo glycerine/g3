@@ -8,7 +8,7 @@ import "github.com/glycerine/g3/pkg/arena"
 
 var builtinTacticNames = [...]string{
 	"ackermannize_bv", "subpaving", "horn", "horn-simplify", "nlsat", "qfnra-nlsat", "nlqsat", "qe-light",
-	"qe-sat", "qe", "qsat", "qe2", "qe_rec", "sat", "sat-preprocess", "smt",
+	"qe-sat", "qe", "qsat", "qe2", "qe_rec", "sat", "sat-preprocess", "ctx-solver-simplify", "smt",
 	"unit-subsume-simplify", "aig", "add-bounds", "card2bv", "degree-shift", "diff-neq", "elim01", "eq2bv",
 	"factor", "fix-dl-var", "fm", "lia2card", "lia2pb", "nla2bv", "normalize-bounds", "pb2bv",
 	"propagate-ineqs", "purify-arith", "recover-01", "bit-blast", "bv1-blast", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new",

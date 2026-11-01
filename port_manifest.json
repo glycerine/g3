@@ -150763,9 +150763,9 @@
       "path": "src/smt/tactic/ctx_solver_simplify_tactic.cpp",
       "component": "smt",
       "role": "production",
-      "status": "reference_only",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/smtcore/ctx_solver_simplify_tactic.go"],
+      "tests": ["pkg/smtcore/ctx_solver_simplify_tactic_test.go", "pkg/cmd/g3/test_vectors/ctx_solver_simplify.smt2"],
       "assertions": [
         {
           "line": 92,
@@ -150793,29 +150793,27 @@
       "methods": [
         {
           "name": "goal reduction, solver-guided contextual traversal, Boolean forcing and fresh-name construction",
-          "status": "reference_only",
-          "tests": []
+          "status": "ported",
+          "tests": ["pkg/smtcore/ctx_solver_simplify_tactic_test.go", "pkg/cmd/g3/test_vectors/ctx_solver_simplify.smt2"]
         },
         {
           "name": "parameter, statistics, translation and cleanup hooks",
-          "status": "reference_only",
-          "tests": []
+          "status": "ported",
+          "tests": ["pkg/smtcore/ctx_solver_simplify_tactic_test.go"]
         }
       ],
       "ownership": [
         "The native tactic owns its private SMT kernel, generated declaration cache and reference-counted declarations."
       ],
-      "deviations": [
-        "Only native shell, test and DLL tactic registries construct this optional tactic; none is part of the retained Go command or solver graph."
-      ]
+      "deviations": ["The Go tactic owns an SMT solver and simplified-app helper; fresh proxy declarations and AST references are scoped through Go manager handles."]
     },
     {
       "path": "src/smt/tactic/ctx_solver_simplify_tactic.h",
       "component": "smt",
       "role": "production",
-      "status": "reference_only",
-      "go_targets": [],
-      "tests": [],
+      "status": "ported",
+      "go_targets": ["pkg/smtcore/ctx_solver_simplify_tactic.go"],
+      "tests": ["pkg/cmd_context/tactic_registry_factory_test.go"],
       "conditionals": [
         {
           "line": 19,
@@ -150831,8 +150829,8 @@
       "methods": [
         {
           "name": "ctx-solver-simplify factory and native tactic registration",
-          "status": "reference_only",
-          "tests": []
+          "status": "ported",
+          "tests": ["pkg/cmd_context/tactic_registry_factory_test.go", "pkg/cmd/g3/test_vectors/ctx_solver_simplify.smt2"]
         }
       ],
       "ownership": [],

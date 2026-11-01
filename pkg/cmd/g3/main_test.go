@@ -602,6 +602,7 @@ var scriptResults = map[string]string{
 	"add_bounds_boolean_precise.smt2":              "sat\nunsat\n",
 	"add_bounds_proof_under.smt2":                  "unknown\n(:reason-unknown \"under-approximated goal found to be unsat\")\n",
 	"ctx_simplify_memory_refusal.smt2":             "unknown\n(:reason-unknown \"max. memory exceeded\")\nsat\nsat\n",
+	"ctx_solver_simplify.smt2":                     "sat\n",
 	"ctx_simplify_forward_backward.smt2":           "sat\n",
 	"ctx_simplify_ite.smt2":                        "sat\n",
 	"ctx_simplify_or.smt2":                         "sat\n",

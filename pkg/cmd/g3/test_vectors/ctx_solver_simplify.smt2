@@ -1,0 +1,6 @@
+(set-logic QF_UF)
+(declare-const p Bool)
+(declare-const q Bool)
+(assert p)
+(assert (or p q))
+(check-sat-using (then ctx-solver-simplify smt))

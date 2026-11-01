@@ -60,7 +60,7 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return nil, err
 	}
 	switch name {
-	case "qe-light", "qe", "qe-sat", "qsat", "nlqsat", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "fm", "simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess", "sine-filter", "qfnra-nlsat", "purify-arith", "unit-subsume-simplify", "default", "horn-simplify", "ufbv-rewriter", "elim01", "bvarray2uf", "nl-purify", "lra", "lia", "lira", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "eq2bv", "degree-shift", "recover-01", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "lia2card", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided", "dom-simplify":
+	case "qe-light", "qe", "qe-sat", "qsat", "nlqsat", "qe2", "qe_rec", "smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving", "fm", "simplify", "ctx-simplify", "ctx-solver-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess", "sine-filter", "qfnra-nlsat", "purify-arith", "unit-subsume-simplify", "default", "horn-simplify", "ufbv-rewriter", "elim01", "bvarray2uf", "nl-purify", "lra", "lia", "lira", "tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values", "propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast", "elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size", "reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr", "occf", "split-clause", "symmetry-reduce", "der", "distribute-forall", "nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv", "fix-dl-var", "eq2bv", "degree-shift", "recover-01", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "lia2card", "card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr", "qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra", "qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira", "aufnira", "skip", "fail", "fail-if-undecided", "dom-simplify":
 	default:
 		return nil, fmt.Errorf("invalid tactic, unknown tactic %s", name)
 	}
@@ -129,6 +129,8 @@ func (c *Context) NewBuiltinTacticWithOutput(name string, output io.Writer) (tac
 		return core.MakeSimplifyTactic(m, c.config.Params, c.config.Globals, nil)
 	case "ctx-simplify":
 		return core.MakeContextSimplifyTactic(m, c.config.Params, c.config.Globals, nil, c.config.ModelEvaluator)
+	case "ctx-solver-simplify":
+		return smtcore.NewContextSolverSimplifyTactic(m, nil, c.config)
 	case "dom-simplify":
 		return core.NewDomSimplifyTactic(m, nil)
 	case "collect-statistics":

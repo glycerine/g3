@@ -34,6 +34,7 @@ var builtinTacticDescriptions = map[string]string{
 	"bv_bound_chk":            "attempts to detect inconsistencies of bounds on bv expressions.",
 	"card2bv":                 "convert pseudo-boolean constraints to bit-vectors.",
 	"ctx-simplify":            "apply contextual simplification rules.",
+	"ctx-solver-simplify":     "apply solver-based contextual simplification rules.",
 	"collect-statistics":      "Collects various statistics.",
 	"injectivity":             "Identifies and applies injectivity axioms.",
 	"der":                     "destructive equality resolution.",
