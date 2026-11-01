@@ -85129,8 +85129,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
-      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go", "pkg/muz/fp/propositional_engine_test.go", "pkg/parsers/smt2/fixedpoint_commands_test.go"],
+      "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate", "TestPropositionalEngineMatchesCPPFixedpointQueries", "TestDatalogRejectsInfinitePredicateSorts", "TestDatalogRejectsQuantifiedInterpretedTails", "TestSMT2FixedpointPropositionalQueriesMatchCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -85144,6 +85144,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "single-relation BMC query binds variables in declaration order before constructing the reversed query-head domain (dl_engine_base.h:52-70)", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]},
         {
           "name": "Concrete query and cleanup contract for the first exact positive-propositional fixedpoint engine slice (dl_engine_base.h:40-114)",
           "status": "partial",
@@ -86660,9 +86661,9 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
+      "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}, {"name": "linear BMC constructs a model-selected proof when proof tracing is enabled", "status": "ported", "go_targets": ["pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_relation_query_test.go", "pkg/parsers/smt2/qbmc_engine_test.go"], "tests": ["TestBMCRelationQueryUsesSourceVariableOrder", "TestSMT2BMCRelationQueryMixedSortCertificate"]}],
       "ownership": [],
-      "deviations": ["Nonlinear compilation, incremental search and model-selected rule tracing are started; hyper-resolution proof reconstruction, default rule transformations, quantified BMC proof conversion and broader interrupted-cleanup audits and full failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level, leaves unevaluated symbolic bindings as rule variables, and uses body/head resolution positions, correcting source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
+      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. General proof conversion for all transformations and broader interrupted-cleanup and failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level, leaves unevaluated symbolic bindings as rule variables, and uses body/head resolution positions, correcting source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
     },
     {
       "path": "src/muz/bmc/dl_bmc_engine.h",
@@ -86685,7 +86686,7 @@
       "ownership_audited": false,
       "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": ["Nonlinear compilation, incremental search and model-selected rule tracing are started; hyper-resolution proof reconstruction, default rule transformations, quantified BMC proof conversion and broader interrupted-cleanup audits and full failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level, leaves unevaluated symbolic bindings as rule variables, and uses body/head resolution positions, correcting source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
+      "deviations": ["Nonlinear and quantified compilation, search, model-selected traces and hyper-resolution proofs are integrated. General proof conversion for all transformations and broader interrupted-cleanup and failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level, leaves unevaluated symbolic bindings as rule variables, and uses body/head resolution positions, correcting source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
     },
     {
       "path": "src/muz/clp/CMakeLists.txt",
@@ -97210,7 +97211,7 @@
         "Ground answer traversal retains every queued reach fact, renamed constraint, evaluated argument, and emitted predicate application through local SMT model evaluation, then releases them in reverse owner order."
       ],
       "deviations": [
-        "The retained Go query path uses the requested predicate directly instead of introducing the source synthetic query rule; answer traversal therefore discards the direct query reach fact before walking its single justification."
+        "Relation queries create the source synthetic query rule in a temporary preprocessing set; ground-answer traversal discards its query reach fact before walking its single justification."
       ]
     },
     {
@@ -97716,7 +97717,7 @@
         "PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."
       ],
       "deviations": [
-        "Go selects direct predicate declarations through the typed engine API and reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Slice/unfold/coalesce proof conversion remains unported.",
+        "Go reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Unfold and coalesce proof conversion remain unported; slice proof conversion is partial.",
         "Expression-query preprocessing can collapse named fact rules into an unnamed synthetic trace rule; original trace-name reconstruction remains incomplete."
       ]
     },

@@ -243,3 +243,36 @@ func TestSMT2QBMCProofConvertsMergedTails(t *testing.T) {
 		t.Fatal("merged-tail certificate", text)
 	}
 }
+
+func TestSMT2BMCRelationQueryMixedSortCertificate(t *testing.T) {
+	for _, backend := range []string{"bmc", "qbmc"} {
+		t.Run(backend, func(t *testing.T) {
+			context, err := cmd_context.NewStandaloneContext()
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := context.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
+			script := `(set-option :fixedpoint.engine ENGINE)
+(set-option :fixedpoint.generate_proof_trace true)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.xform.slice false)
+(declare-rel P (Bool Int))
+(rule (P true 7))
+(query P :print-certificate true)
+`
+			var output bytes.Buffer
+			if err = ParseCommands(context, strings.NewReader(strings.Replace(script, "ENGINE", backend, 1)), &output); err != nil {
+				t.Fatal(err, output.String())
+			}
+			text := output.String()
+			if !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "(query!0 7 true)") {
+				t.Fatal("mixed-sort query certificate", text)
+			}
+		})
+	}
+}

@@ -54,7 +54,7 @@ func (e *PropositionalEngine) queryBMCRelation(declaration ast.ASTHandle) (statu
 		if err != nil {
 			return lbool.Undef, err
 		}
-		arguments[i], err = e.manager.MkVar(arity-i-1, sort)
+		arguments[i], err = e.manager.MkVar(i, sort)
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -234,7 +234,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		}
 	} else if linear {
 		e.bmcTrace, err = compiler.LinearTrace(rules, declaration, level, md)
-		if err == nil && !proofTrace && !e.forceProofTrace {
+		if err == nil {
 			services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals}
 			e.bmcProof, err = compiler.LinearProof(rules, declaration, level, md, services)
 		}
