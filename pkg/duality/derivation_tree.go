@@ -7,6 +7,7 @@ import "errors"
 // DerivationTree owns search bookkeeping over a borrowed working graph. The
 // graph owns all created instances and edges. Original nodes are borrowed.
 type DerivationTree struct {
+	Heuristic                            *ExpansionHeuristic
 	original, tree                       *RPFP
 	leaves                               []*Node
 	FullExpand, Underapprox, FalseApprox bool
@@ -22,7 +23,11 @@ func NewDerivationTree(original, tree *RPFP) (*DerivationTree, error) {
 	if original.context != tree.context {
 		return nil, ErrContextMismatch
 	}
-	return &DerivationTree{original: original, tree: tree, FalseApprox: true}, nil
+	heuristic, err := NewExpansionHeuristic(original)
+	if err != nil {
+		return nil, err
+	}
+	return &DerivationTree{original: original, tree: tree, FalseApprox: true, Heuristic: heuristic}, nil
 }
 func (d *DerivationTree) initializeApproximatedInstance(node *Node) error {
 	if node == nil || node.Owner != d.tree || node.closed || node.Map == nil || node.Map.closed {
