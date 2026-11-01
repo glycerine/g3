@@ -120,37 +120,6 @@ func (e *Evaluator) SeriousUpdate(search *SearchTracker, decl ast.ASTHandle, val
 	return e.updateNodes(search, []ast.ASTHandle{entry}, true)
 }
 
-// UpdatePrune preserves the source's Boolean occurrence criterion. The value
-// propagation and score publication are identical to UpdateConstant; the
-// returned flag says whether a changed Boolean score can benefit a retained
-// positive or negative occurrence.
-func (e *Evaluator) UpdatePrune(search *SearchTracker, decl ast.ASTHandle, value *numeral.Int) (bool, error) {
-	before := make(map[ast.ASTHandle]float64)
-	for node, score := range e.tracker.scores {
-		if score.hasPosOcc != 0 || score.hasNegOcc != 0 {
-			before[node] = score.score
-		}
-	}
-	if err := e.UpdateConstant(search, decl, value); err != nil {
-		return false, err
-	}
-	for node, old := range before {
-		score := e.tracker.scores[node]
-		baseline := score.scorePrune
-		// The first prune pass compares against the last serious score. Preserve
-		// old only as an assertion that this node was actually reached.
-		if score.score != old {
-			if score.score > baseline && score.hasPosOcc != 0 {
-				return true, nil
-			}
-			if score.score <= baseline && score.hasNegOcc != 0 {
-				return true, nil
-			}
-		}
-	}
-	return false, nil
-}
-
 func (e *Evaluator) RandomizeLocal(search *SearchTracker, declarations []ast.ASTHandle) (result error) {
 	if len(declarations) == 0 {
 		return ErrSLSSearch

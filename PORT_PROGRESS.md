@@ -52650,3 +52650,5 @@ SLS statistics and restart state: the source never increments the four move-type
 SLS interrupted score accounting: non-pruned and serious score updates now increment their evaluation counter after a successful evaluator update, while pruned updates increment before it as in the source. A big bit-vector allocation-refusal test distinguishes the three paths.
 
 SLS candidate restoration: candidate probes choose the pruned or ordinary score path, while restoration after each candidate always uses the ordinary update as in the source. A regression exercises restoration with pruning enabled; the evaluator's full source pruning traversal remains partial.
+
+SLS pruned evaluation: ported the source split traversal for non-Boolean value propagation and occurrence-gated Boolean score propagation. Speculative probes leave Boolean values unchanged, stop at unhelpful candidates and compare negative occurrences against the serious-update baseline; focused Boolean and bit-vector tests cover these branches. An SMT-LIB test also checks a bit-vector model returned through qfbv-sls. Broader evaluator ownership and failure audits remain partial.

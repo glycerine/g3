@@ -194155,8 +194155,8 @@
       "component": "tactic",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go", "pkg/tactic/sls/sls_evaluator_signed.go", "pkg/tactic/sls/sls_evaluator_bitwise.go", "pkg/tactic/sls/sls_evaluator_shifts.go", "pkg/tactic/sls/sls_evaluator_remaining_test.go", "pkg/tactic/sls/sls_evaluator_boolean.go", "pkg/tactic/sls/sls_evaluator_graph_bv.go", "pkg/tactic/sls/sls_model_flow.go", "pkg/tactic/sls/sls_graph_bv_test.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go"],
-      "tests": ["TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorAddPowerMissFailurePreservesReachedPrefix", "TestBVEvaluatorUnsignedDivCopyFailureCleansSourceLocals", "TestBVEvaluatorSignedDivisionRemainderModuloOracles", "TestBVEvaluatorBitwiseAndComparisonOracles", "TestBVEvaluatorShiftOraclesAndOverflow", "TestBVEvaluatorShiftLeftPowerFailurePreservesLoopPrefix", "TestSLSEvaluatorBooleanFamilyAndBorrowedTrackerValues", "TestSLSEvaluatorCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation"],
+      "go_targets": ["pkg/tactic/sls/sls_prune_update.go", "pkg/tactic/sls/sls_prune_update_test.go", "pkg/tactic/sls/sls_evaluator_bv.go", "pkg/tactic/sls/sls_evaluator_bv_test.go", "pkg/tactic/sls/sls_evaluator_arithmetic.go", "pkg/tactic/sls/sls_evaluator_arithmetic_test.go", "pkg/tactic/sls/sls_evaluator_signed.go", "pkg/tactic/sls/sls_evaluator_bitwise.go", "pkg/tactic/sls/sls_evaluator_shifts.go", "pkg/tactic/sls/sls_evaluator_remaining_test.go", "pkg/tactic/sls/sls_evaluator_boolean.go", "pkg/tactic/sls/sls_evaluator_graph_bv.go", "pkg/tactic/sls/sls_model_flow.go", "pkg/tactic/sls/sls_graph_bv_test.go", "pkg/tactic/sls/sls_tracker_evaluator_test.go"],
+      "tests": ["TestSLSPrunedUpdateDefersBooleanValuesAndStopsUnhelpfulPropagation", "TestSLSPrunedUpdatePropagatesBitVectorValues", "TestSLSPrunedUpdateNegativeOccurrenceUsesBaseline", "TestBVEvaluatorConcatSourceOrderAndIndependentOracle", "TestBVEvaluatorExtractSourceFormulaAndCachedPower", "TestBVEvaluatorSliceRejectsUnreachableShapesAndEndedPowerOwner", "TestBVEvaluatorModularArithmeticIndependentOracles", "TestBVEvaluatorUnsignedDivisionRemainderAndZeroSemantics", "TestBVEvaluatorAddPowerMissFailurePreservesReachedPrefix", "TestBVEvaluatorUnsignedDivCopyFailureCleansSourceLocals", "TestBVEvaluatorSignedDivisionRemainderModuloOracles", "TestBVEvaluatorBitwiseAndComparisonOracles", "TestBVEvaluatorShiftOraclesAndOverflow", "TestBVEvaluatorShiftLeftPowerFailurePreservesLoopPrefix", "TestSLSEvaluatorBooleanFamilyAndBorrowedTrackerValues", "TestSLSEvaluatorCopyFailurePrefix", "TestSLSInitializedBVGraphEvaluationEndToEnd", "TestSLSBVGraphArithmeticBitwiseShiftAndComparisonFamilies", "TestSLSBVGraphPhysicalFailurePrefixIsCleanupSafe", "TestSLSBVGraphSignedDivisionRemainderComparisonAndShift", "TestSLSValueASTPhysicalFailurePrefixCleansInvocation"],
       "conditionals": [
         {
           "line": 20,
@@ -194484,6 +194484,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/parsers/smt2/sls_tactic_test.go",
         "pkg/tactic/sls/sls_context_translation_test.go",
         "pkg/tactic/sls/sls_context_translation.go",
         "pkg/cmd_context/tactic_commands.go",
@@ -194491,6 +194492,7 @@
         "pkg/cmd_context/tactic_descriptions.go",
         "pkg/api/api_tactic_new_factories_test.go","pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
       "tests": [
+        "TestSMT2QFBVSLSBitVectorModel",
         "TestSLSContextTranslationCopiesParametersAndEngine",
         "TestSLSCoreCleanupPreservesEngineOnConstructionFailure",
         "TestSLSCoreCleanupAllocationFrontiers",
