@@ -92339,7 +92339,9 @@
         "TestFiniteIntervalProductTableConversion",
         "TestFiniteIntervalProductIntervalConversion",
         "TestFiniteIntervalProductSourceFactLookup",
-        "TestFiniteIntervalProductSymbolicFactInsertion"
+        "TestFiniteIntervalProductSymbolicFactInsertion",
+        "TestFiniteSparseProductComplementAndFull",
+        "TestFiniteSparseProductJoinTableRelationConversion"
       ],
       "conditionals": [
         {
@@ -92847,6 +92849,14 @@
           "go_target": "pkg/muz/rel/finite_sparse_product.go",
           "tests": [
             "TestFiniteSparseProductComplementAndFull"
+          ]
+        },
+        {
+          "name": "finite sparse product joins with converted table relations",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/finite_sparse_product.go",
+          "tests": [
+            "TestFiniteSparseProductJoinTableRelationConversion"
           ]
         }
       ],

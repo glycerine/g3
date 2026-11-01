@@ -400,6 +400,28 @@ func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, righ
 	return result, nil
 }
 
+// JoinTableRelation converts a table relation operand to a product with an
+// empty inner signature, matching the source plugin's table conversion path.
+func (p *FiniteSparseProduct) JoinTableRelation(right *TableRelation, leftColumns, rightColumns []int) (*FiniteSparseProduct, error) {
+	converted, err := NewFiniteSparseProductFromTableRelation(right)
+	if err != nil {
+		return nil, err
+	}
+	defer converted.Close()
+	return p.Join(converted, leftColumns, rightColumns)
+}
+
+// JoinFromTableRelation joins a table relation on the left with p on the
+// right, preserving the source operand order in the result columns.
+func (p *FiniteSparseProduct) JoinFromTableRelation(left *TableRelation, leftColumns, rightColumns []int) (*FiniteSparseProduct, error) {
+	converted, err := NewFiniteSparseProductFromTableRelation(left)
+	if err != nil {
+		return nil, err
+	}
+	defer converted.Close()
+	return converted.Join(p, leftColumns, rightColumns)
+}
+
 func (p *FiniteSparseProduct) flatten() (*SparseTable, error) {
 	domains := make([]uint64, len(p.sorts))
 	for column, sort := range p.sorts {
