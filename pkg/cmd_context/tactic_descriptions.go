@@ -58,7 +58,7 @@ var builtinTacticDescriptions = map[string]string{
 	"macro-finder":            "Identifies and applies macros.",
 	"max-bv-sharing":          "use heuristics to maximize the sharing of bit-vector expressions such as adders and multipliers.",
 	"nla2bv":                  "convert a nonlinear arithmetic problem into a bit-vector problem, in most cases the resultant goal is an under approximation and is useul for finding models.",
-	"nlqe":                    "apply a NL-QE solver.",
+	"dom-simplify":            "apply dominator simplification rules.",
 	"nlqsat":                  "apply a NL-QSAT solver.",
 	"nlsat":                   "(try to) solve goal using a nonlinear arithmetic solver.",
 	"nnf":                     "put goal in negation normal form.",

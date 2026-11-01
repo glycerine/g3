@@ -67,8 +67,8 @@ func TestSMTLibRunnerQSATAndQuantifierElimination(t *testing.T) {
 	}
 }
 
-func TestSMTLibRunnerNLQEProjection(t *testing.T) {
-	script, err := os.ReadFile(filepath.Join("test_vectors", "nlqe_projection.smt2"))
+func TestSMTLibRunnerNLQSATProjection(t *testing.T) {
+	script, err := os.ReadFile(filepath.Join("test_vectors", "nlqsat_projection.smt2"))
 	if err != nil {
 		t.Fatal(err)
 	}

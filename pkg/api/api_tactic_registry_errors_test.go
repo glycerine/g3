@@ -14,7 +14,7 @@ func TestAPITacticRegistryCopiesBoundsAndClosedContext(t *testing.T) {
 	names[0] = "changed"
 	again, err := f.c.TacticNames()
 	astTestMust(t, err)
-	if again[0] != "qe-light" {
+	if again[0] != "ackermannize_bv" {
 		t.Fatal("caller changed registry", again[0])
 	}
 	if _, err = f.c.TacticName(uint32(len(again))); !errors.Is(err, arena.ErrBounds) {

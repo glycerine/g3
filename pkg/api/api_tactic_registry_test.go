@@ -24,4 +24,10 @@ func TestAPITacticRegistryCountIndexAndNames(t *testing.T) {
 	if yes, lookupErr := f.c.HasTactic("not-a-retained-tactic"); lookupErr != nil || yes {
 		t.Fatal("unknown tactic lookup", yes, lookupErr)
 	}
+	if yes, lookupErr := f.c.HasTactic("nlqe"); lookupErr != nil || yes {
+		t.Fatal("internal NLQE helper was exposed as a registered tactic", yes, lookupErr)
+	}
+	if yes, lookupErr := f.c.HasTactic("dom-simplify"); lookupErr != nil || !yes {
+		t.Fatal("registered dominator simplifier missing", yes, lookupErr)
+	}
 }

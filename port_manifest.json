@@ -47817,7 +47817,9 @@
         "pkg/cmd/g3/test_vectors/qe2_nested_unsat.smt2",
         "pkg/cmd/g3/test_vectors/qe_rec_blocked_terms.smt2",
         "pkg/cmd/g3/test_vectors/qe_rec_free_boolean.smt2",
-        "pkg/cmd/g3/test_vectors/qsat_scopes.smt2"
+        "pkg/cmd/g3/test_vectors/qsat_scopes.smt2",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go"
       ],
       "tests": [
         "TestTacticManagerSourceOrderLookupFactoryAndFinalization",
@@ -47904,7 +47906,10 @@
         "TestQMaxRetainedOptimizerSurface",
         "TestQMaxAllocationFrontiers",
         "TestQMaxQuantifiedRealBoundCPP",
-        "TestSMTLibRunnerQSATAndQuantifierElimination"
+        "TestSMTLibRunnerQSATAndQuantifierElimination",
+        "TestBuiltinTacticRegistryDrivesFactoryValidation",
+        "TestBuiltinTacticRegistryRetainsFactoryOrder",
+        "TestBuiltinTacticDescriptionsRetainSourceText"
       ],
       "conditionals": [
         {
@@ -110663,7 +110668,7 @@
         "pkg/cmd/g3/qsat_test.go",
         "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2",
         "pkg/cmd/g3/test_vectors/nlqsat_models.smt2",
-        "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
+        "pkg/cmd/g3/test_vectors/nlqsat_projection.smt2"
       ],
       "tests": [
         "TestSATContextTranslationModesAndParameters",
@@ -110685,7 +110690,7 @@
         "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
         "TestNLQETacticComposesWithNLQSATForFreeParameters",
         "TestNLQAnswerSimplificationUsesPriorProjectedClauses",
-        "TestSMTLibRunnerNLQEProjection",
+        "TestSMTLibRunnerNLQSATProjection",
         "TestSMTLibRunnerQSATAndQuantifierElimination"
       ],
       "assertions": [
@@ -110832,14 +110837,14 @@
             "pkg/qe/nlqsat_tactic.go",
             "pkg/cmd_context/tactic_commands.go",
             "pkg/cmd/g3/qsat_test.go",
-            "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
+            "pkg/cmd/g3/test_vectors/nlqsat_projection.smt2"
           ],
           "tests": [
             "TestNLQETacticEliminatesNonlinearExistential",
             "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
             "TestNLQETacticComposesWithNLQSATForFreeParameters",
             "TestNLQAnswerSimplificationUsesPriorProjectedClauses",
-            "TestSMTLibRunnerNLQEProjection"
+            "TestSMTLibRunnerNLQSATProjection"
           ]
         }
       ],
@@ -110867,7 +110872,7 @@
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/qsat_test.go",
         "pkg/cmd/g3/test_vectors/nlqsat_nonlinear_quantifiers.smt2",
-        "pkg/cmd/g3/test_vectors/nlqe_projection.smt2"
+        "pkg/cmd/g3/test_vectors/nlqsat_projection.smt2"
       ],
       "tests": [
         "TestNLQSATTacticClosedExistentialAndFalseGoals",
@@ -110881,7 +110886,7 @@
         "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
         "TestNLQETacticComposesWithNLQSATForFreeParameters",
         "TestNLQAnswerSimplificationUsesPriorProjectedClauses",
-        "TestSMTLibRunnerNLQEProjection",
+        "TestSMTLibRunnerNLQSATProjection",
         "TestSMTLibRunnerQSATAndQuantifierElimination"
       ],
       "conditionals": [
@@ -110913,7 +110918,7 @@
             "TestNLQETacticEliminatesUniversalAndAlternatingNonlinear",
             "TestNLQETacticComposesWithNLQSATForFreeParameters",
             "TestNLQAnswerSimplificationUsesPriorProjectedClauses",
-            "TestSMTLibRunnerNLQEProjection",
+            "TestSMTLibRunnerNLQSATProjection",
             "TestSMTLibRunnerQSATAndQuantifierElimination"
           ],
           "go_targets": [
@@ -187493,7 +187498,10 @@
         "pkg/tactic/core/dom_simplify_ite_test.go",
         "pkg/tactic/core/dom_simplify_lifecycle_test.go",
         "pkg/tactic/core/dom_simplify_trace_test.go",
-        "pkg/tactic/bv/bv_bounds_tactic_test.go"
+        "pkg/tactic/bv/bv_bounds_tactic_test.go",
+        "pkg/cmd_context/tactic_registry.go",
+        "pkg/cmd_context/tactic_descriptions.go",
+        "pkg/cmd_context/tactic_commands.go"
       ],
       "tests": [
         "TestExpressionDominatorsDiamondAndTree",
@@ -187513,7 +187521,9 @@
         "TestBVBoundsDominatorSourceTacticSimplifiesUsingSiblingBounds",
         "TestBVBoundsDominatorPropagatesSingletonEquality",
         "TestBVBoundsDominatorDetectsContradictorySiblingBounds",
-        "TestBVBoundsDominatorScopesITEBranchBounds"
+        "TestBVBoundsDominatorScopesITEBranchBounds",
+        "TestBuiltinTacticRegistryDrivesFactoryValidation",
+        "TestBuiltinTacticDescriptionsRetainSourceText"
       ],
       "conditionals": [
         {

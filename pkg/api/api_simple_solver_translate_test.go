@@ -551,7 +551,7 @@ func TestAPITacticSolverTranslateQEAfterSourceClose(t *testing.T) {
 }
 
 func TestAPITacticSolverTranslateQESATFamiliesAfterSourceClose(t *testing.T) {
-	for _, name := range []string{"qe-sat", "qsat", "qe2", "qe_rec", "nlqsat", "nlqe"} {
+	for _, name := range []string{"qe-sat", "qsat", "qe2", "qe_rec", "nlqsat"} {
 		for _, contradiction := range []bool{false, true} {
 			label := "sat"
 			if contradiction {

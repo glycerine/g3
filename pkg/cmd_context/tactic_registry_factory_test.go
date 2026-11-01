@@ -7,7 +7,7 @@ import (
 
 func TestBuiltinTacticRegistryDrivesFactoryValidation(t *testing.T) {
 	c := contextFixture(t)
-	for _, name := range []string{"qe", "qe-sat", "skip", "fail", "simplify", "propagate-bv-bounds", "propagate-bv-bounds-new", "nla2bv"} {
+	for _, name := range []string{"qe", "qe-sat", "skip", "fail", "simplify", "dom-simplify", "propagate-bv-bounds", "propagate-bv-bounds-new", "nla2bv"} {
 		created, err := c.NewBuiltinTactic(name)
 		contextMust(t, err)
 		if created == nil {
@@ -18,6 +18,12 @@ func TestBuiltinTacticRegistryDrivesFactoryValidation(t *testing.T) {
 	}
 	if _, err := c.NewBuiltinTactic("not-a-retained-tactic"); err == nil || !strings.Contains(err.Error(), "unknown tactic") {
 		t.Fatal("unknown factory", err)
+	}
+	if IsBuiltinTactic("nlqe") {
+		t.Fatal("unregistered NLQE helper appeared in the public tactic registry")
+	}
+	if _, err := c.NewBuiltinTactic("nlqe"); err == nil || !strings.Contains(err.Error(), "unknown tactic") {
+		t.Fatal("unregistered NLQE helper was accepted as a public tactic", err)
 	}
 }
 

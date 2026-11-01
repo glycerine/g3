@@ -1,26 +1,26 @@
 package cmd_context
 
 // Source: src/api/api_tactic.cpp Z3_get_num_tactics/Z3_get_tactic_name and
-// the retained tactic factories dispatched by tactic_commands.go. The slice
-// preserves the observable order of the concrete Go factories.
+// the source-ordered tactic factories dispatched by tactic_commands.go. The slice
+// lists the retained Go factories in the native registration order.
 
 import "github.com/glycerine/g3/pkg/arena"
 
 var builtinTacticNames = [...]string{
-	"qe-light", "qe", "qe-sat", "qsat", "nlqsat", "nlqe", "qe2", "qe_rec",
-	"smt", "nlsat", "nra", "horn", "sat", "sat-preprocess", "subpaving",
-	"simplify", "ctx-simplify", "collect-statistics", "injectivity", "add-bounds", "elim-and", "elim-term-ite", "blast-term-ite", "cofactor-term-ite", "pb-preprocess", "sine-filter", "qfnra-nlsat", "purify-arith", "unit-subsume-simplify", "default", "horn-simplify", "ufbv-rewriter", "elim01", "bvarray2uf", "nl-purify",
-	"tseitin-cnf", "tseitin-cnf-core", "factor", "propagate-values",
-	"propagate-ineqs", "max-bv-sharing", "bit-blast", "bv1-blast",
-	"elim-small-bv", "fpa2bv", "dt2bv", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new", "reduce-bv-size",
-	"reduce-args", "ackermannize_bv", "aig", "solve-eqs", "elim-uncnstr",
-	"occf", "split-clause", "symmetry-reduce", "der", "distribute-forall",
-	"nnf", "snf", "macro-finder", "quasi-macros", "ufbv", "bv",
-	"fix-dl-var", "eq2bv", "degree-shift", "recover-01", "fm", "normalize-bounds", "nla2bv", "diff-neq", "lia2pb", "lia2card",
-	"card2bv", "pb2bv", "qfbv", "qfbv-sls", "qfaufbv", "qfufbv", "qfufbv_ackr",
-	"qfidl", "qflia", "qfnia", "qfnra", "qfufnra", "qffp", "qffpbv", "qffplra",
-	"qfauflia", "qflra", "qfuf", "ufnia", "uflra", "auflia", "auflira",
-	"aufnira", "lra", "lia", "lira", "skip", "fail", "fail-if-undecided",
+	"ackermannize_bv", "subpaving", "horn", "horn-simplify", "nlsat", "qfnra-nlsat", "nlqsat", "qe-light",
+	"qe-sat", "qe", "qsat", "qe2", "qe_rec", "sat", "sat-preprocess", "smt",
+	"unit-subsume-simplify", "aig", "add-bounds", "card2bv", "degree-shift", "diff-neq", "elim01", "eq2bv",
+	"factor", "fix-dl-var", "fm", "lia2card", "lia2pb", "nla2bv", "normalize-bounds", "pb2bv",
+	"propagate-ineqs", "purify-arith", "recover-01", "bit-blast", "bv1-blast", "bv_bound_chk", "propagate-bv-bounds", "propagate-bv-bounds-new",
+	"reduce-bv-size", "bvarray2uf", "dt2bv", "elim-small-bv", "max-bv-sharing", "blast-term-ite", "cofactor-term-ite", "collect-statistics",
+	"ctx-simplify", "der", "distribute-forall", "dom-simplify", "elim-term-ite", "elim-uncnstr", "injectivity", "snf",
+	"nnf", "occf", "pb-preprocess", "propagate-values", "reduce-args", "simplify", "elim-and", "solve-eqs",
+	"split-clause", "symmetry-reduce", "tseitin-cnf", "tseitin-cnf-core", "fpa2bv", "qffp", "qffpbv", "qffplra",
+	"nl-purify", "default", "sine-filter", "qfbv-sls", "nra", "qfaufbv", "qfauflia", "qfbv",
+	"qfidl", "qflia", "qflra", "qfnia", "qfnra", "qfuf", "qfufbv", "qfufbv_ackr",
+	"qfufnra", "ufnia", "uflra", "auflia", "auflira", "aufnira", "lra", "lia",
+	"lira", "skip", "fail", "fail-if-undecided", "macro-finder", "quasi-macros", "ufbv-rewriter", "bv",
+	"ufbv",
 }
 
 // IsBuiltinTactic reports whether name has a retained concrete factory.
@@ -33,7 +33,8 @@ func IsBuiltinTactic(name string) bool {
 	return false
 }
 
-// BuiltinTacticCount is the source registry size.
+// BuiltinTacticCount reports the currently ported concrete factory count.
+// The source registry still includes tactics whose factories are not ported.
 func BuiltinTacticCount() uint32 { return uint32(len(builtinTacticNames)) }
 
 // BuiltinTacticName returns the source-ordered name at index.
