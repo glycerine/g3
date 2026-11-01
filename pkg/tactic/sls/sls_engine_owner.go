@@ -83,7 +83,7 @@ func (o *EngineOwner) Engine() (*Engine, error) {
 	return o.engine, nil
 }
 
-func (o *EngineOwner) Close() (result error) {
+func (o *EngineOwner) Close() error {
 	if o == nil || o.self != o {
 		return ErrSLSSearch
 	}
@@ -91,31 +91,41 @@ func (o *EngineOwner) Close() (result error) {
 		return nil
 	}
 	if o.engine != nil {
-		result = errors.Join(result, o.engine.Close())
+		if err := o.engine.Close(); err != nil {
+			return err
+		}
 		o.engine = nil
 	}
 	if o.evaluator != nil {
-		result = errors.Join(result, o.evaluator.Close())
+		if err := o.evaluator.Close(); err != nil {
+			return err
+		}
 		o.evaluator = nil
 	}
 	if o.search != nil {
-		result = errors.Join(result, o.search.Close())
+		if err := o.search.Close(); err != nil {
+			return err
+		}
 		o.search = nil
 	}
 	if o.tracker != nil {
-		result = errors.Join(result, o.tracker.Close())
+		if err := o.tracker.Close(); err != nil {
+			return err
+		}
 		o.tracker = nil
 	}
 	if o.powers != nil {
-		result = errors.Join(result, o.powers.closeChecked())
+		if err := o.powers.closeChecked(); err != nil {
+			return err
+		}
 		o.powers = nil
 	}
 	if o.numbers != nil {
-		result = errors.Join(result, o.numbers.CloseChecked())
+		if err := o.numbers.CloseChecked(); err != nil {
+			return err
+		}
 		o.numbers = nil
 	}
-	if result == nil {
-		o.closed = true
-	}
-	return result
+	o.closed = true
+	return nil
 }

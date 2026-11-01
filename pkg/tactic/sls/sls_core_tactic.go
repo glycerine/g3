@@ -220,7 +220,7 @@ func (t *CoreTactic) Translate(manager *ast.ASTManager) (tactic.Tactic, error) {
 	return NewCoreTactic(manager, t.context, t.globals, &t.params)
 }
 
-func (t *CoreTactic) Close() (result error) {
+func (t *CoreTactic) Close() error {
 	if t == nil || t.self != t {
 		return ErrSLSSearch
 	}
@@ -228,15 +228,17 @@ func (t *CoreTactic) Close() (result error) {
 		return nil
 	}
 	if t.owner != nil {
-		result = errors.Join(result, t.owner.Close())
+		if err := t.owner.Close(); err != nil {
+			return err
+		}
 		t.owner = nil
 	}
 	if t.paramLive {
-		result = errors.Join(result, t.context.Del(&t.params))
+		if err := t.context.Del(&t.params); err != nil {
+			return err
+		}
 		t.paramLive = false
 	}
-	if result == nil {
-		t.closed = true
-	}
-	return result
+	t.closed = true
+	return nil
 }

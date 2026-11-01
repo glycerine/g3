@@ -10,8 +10,43 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
+
+func TestSLSCoreCloseRetriesStoppedNumericalOwner(t *testing.T) {
+	_, manager, _, _, context, globals, local, _ := slsTrackerFixture(t)
+	core, err := NewCoreTactic(manager, context, globals, local)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner, numbers := core.owner, core.owner.numbers
+	executing := false
+	if err = numbers.SetCallerExecutionGuard(func() bool { return executing }); err != nil {
+		t.Fatal(err)
+	}
+	executing = true
+	err = core.Close()
+	if !errors.Is(err, numeral.ErrNumericPending) {
+		t.Fatal("active numerical caller did not stop close", err)
+	}
+	if core.owner != owner || owner.numbers != numbers || owner.closed || core.closed || !core.paramLive {
+		t.Fatal("stopped close discarded its numerical owner or parameters")
+	}
+	executing = false
+	if err = numbers.SetCallerExecutionGuard(nil); err != nil {
+		t.Fatal(err)
+	}
+	if err = core.Close(); err != nil {
+		t.Fatal("close retry", err)
+	}
+	if !core.closed || !owner.closed || core.owner != nil {
+		t.Fatal("close retry did not retire both owners")
+	}
+	if err = core.Close(); err != nil {
+		t.Fatal("repeated close", err)
+	}
+}
 
 func TestSLSCoreCleanupPreservesEngineOnConstructionFailure(t *testing.T) {
 	_, manager, _, _, context, globals, local, budget := slsTrackerFixture(t)
