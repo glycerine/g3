@@ -4,9 +4,71 @@ package qe
 
 import (
 	"io"
+	"strconv"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
+
+func (p *LegacyProjection) traceModelTermVerbose(line int, body func(io.Writer) error) error {
+	tags := p.config.Trace
+	if tags == nil {
+		tags = p.manager.BorrowSourceTraceTags()
+	}
+	err := tags.EmitConditional("mbqi_project_verbose", "mbqi_project_var", "src/muz/spacer/spacer_util.cpp", line,
+		func() bool { return true }, func(out io.Writer) error { return body(traceBodyWriter{out}) })
+	if tags.IsStreamFailure(err) {
+		return nil
+	}
+	return err
+}
+
+func (p *LegacyProjection) traceModelTermInput(variable, formula ast.ASTHandle) error {
+	return p.traceModelTermVerbose(1220, func(out io.Writer) error {
+		_, _ = io.WriteString(out, "MBQI: var: ")
+		if err := writeExpression(p.manager, p.config, out, variable); err != nil {
+			return err
+		}
+		_, _ = io.WriteString(out, "\nfml: ")
+		if err := writeExpression(p.manager, p.config, out, formula); err != nil {
+			return err
+		}
+		_, _ = io.WriteString(out, "\n")
+		return nil
+	})
+}
+
+func (p *LegacyProjection) traceModelTermCandidates(terms []ast.ASTHandle) error {
+	return p.traceModelTermVerbose(1228, func(out io.Writer) error {
+		_, _ = io.WriteString(out, "terms:\n")
+		for i, term := range terms {
+			_, _ = io.WriteString(out, strconv.Itoa(i)+": ")
+			if err := writeExpression(p.manager, p.config, out, term); err != nil {
+				return err
+			}
+			_, _ = io.WriteString(out, "\n")
+		}
+		return nil
+	})
+}
+
+func (p *LegacyProjection) traceModelTermValues(term, evaluated, value ast.ASTHandle) error {
+	return p.traceModelTermVerbose(1239, func(out io.Writer) error {
+		_, _ = io.WriteString(out, "term: ")
+		if err := writeExpression(p.manager, p.config, out, term); err != nil {
+			return err
+		}
+		_, _ = io.WriteString(out, " tval: ")
+		if err := writeExpression(p.manager, p.config, out, evaluated); err != nil {
+			return err
+		}
+		_, _ = io.WriteString(out, " val: ")
+		if err := writeExpression(p.manager, p.config, out, value); err != nil {
+			return err
+		}
+		_, _ = io.WriteString(out, "\n")
+		return nil
+	})
+}
 
 func (p *LegacyProjection) traceModelTermProjection(variable, term ast.ASTHandle, replaced bool) error {
 	tags := p.config.Trace

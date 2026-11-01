@@ -16,6 +16,7 @@ func TestLegacyModelTermProjectionUsesFirstEquivalentIndex(t *testing.T) {
 	var output bytes.Buffer
 	tags := diagnostic.NewTraceTagsWithWriter(&output)
 	tags.Enable("mbqi_project")
+	tags.Enable("mbqi_project_verbose")
 	config := f.r.config
 	config.Trace = tags
 	p, err := NewLegacyProjection(m, config)
@@ -60,6 +61,16 @@ func TestLegacyModelTermProjectionUsesFirstEquivalentIndex(t *testing.T) {
 		text := output.String()
 		if !strings.Contains(text, "MBQI: replacing mbqi-x with mbqi-k") || !strings.Contains(text, "MBQI: failed to eliminate mbqi-y from ") {
 			t.Fatal("source MBQI projection decisions", text)
+		}
+	}
+	if tags.ShouldTrace("mbqi_project_verbose") {
+		text := output.String()
+		input := strings.Index(text, "MBQI: var: mbqi-x\nfml: ")
+		candidates := strings.Index(text, "terms:\n0: mbqi-k\n1: mbqi-j\n")
+		values := strings.Index(text, "term: mbqi-k tval: 2 val: 2\n")
+		decision := strings.Index(text, "MBQI: replacing mbqi-x with mbqi-k")
+		if input < 0 || candidates < input || values < candidates || decision < values {
+			t.Fatal("source verbose MBQI record order", text)
 		}
 	}
 	root, err := m.RefGet(current)

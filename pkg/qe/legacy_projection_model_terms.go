@@ -170,8 +170,14 @@ func (p *LegacyProjection) projectModelTerm(evaluator *model.ModelEvaluator, cur
 	if err != nil {
 		return false, err
 	}
+	if err := p.traceModelTermInput(variable, root); err != nil {
+		return false, err
+	}
 	terms, err := p.modelProjectionTerms(root, variable)
 	if err != nil {
+		return false, err
+	}
+	if err := p.traceModelTermCandidates(terms); err != nil {
 		return false, err
 	}
 	for _, term := range terms {
@@ -180,6 +186,9 @@ func (p *LegacyProjection) projectModelTerm(evaluator *model.ModelEvaluator, cur
 			return false, err
 		}
 		handle, err := p.manager.RefGet(evaluated)
+		if err == nil {
+			err = p.traceModelTermValues(term, handle, valueHandle)
+		}
 		err = errors.Join(err, p.manager.DelRef(&evaluated))
 		if err != nil {
 			return false, err
