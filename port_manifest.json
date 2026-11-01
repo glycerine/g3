@@ -92278,13 +92278,13 @@
           "text": "SASSERT(m_plugin.check_kind(r));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {"name": "external_relation::display and display_tuples print the relation expression followed by a newline", "status": "ported", "go_target": "pkg/muz/rel/external_relation_display.go", "go_targets": ["pkg/ast/ast_printer.go", "pkg/muz/rel/external_relation_display_test.go"], "tests": ["TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"]},
         {
           "name": "external callback relation initialization, store, emptiness, cloning and complement",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation.go",
           "tests": [
             "TestExternalRelationCallbacksAndClone",
@@ -92293,7 +92293,7 @@
         },
         {
           "name": "external project and rename callback reductions",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_transform.go",
           "tests": [
             "TestExternalRelationProjectAndRename"
@@ -92301,7 +92301,7 @@
         },
         {
           "name": "plugin identity, join, union and widening callback operations",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_transform.go",
           "tests": [
             "TestExternalRelationJoinUnionAndWiden"
@@ -92309,7 +92309,7 @@
         },
         {
           "name": "external interpreted, equality, identical-column and negation filters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_filter.go",
           "tests": [
             "TestExternalRelationFilters"
@@ -92317,7 +92317,7 @@
         },
         {
           "name": "callback argument and result trail ownership",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_callbacks.go",
           "tests": [
             "TestExternalRelationCallbackTrailLifetime",
@@ -92329,9 +92329,8 @@
         "The external relation owns its AST relation reference and accessor declarations. The shared plugin owns callback declaration, argument and result references until it closes after its relations."
       ],
       "deviations": [
-        "Fixedpoint callback registration remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
-        "Full ownership and failure-frontier audits remain pending."
+        "Automatic relation-manager dispatch from fixedpoint rule/query execution into external relation operators remains unimplemented."
       ]
     },
     {
@@ -92369,12 +92368,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "external callback relation initialization, store, emptiness, cloning and complement",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation.go",
           "tests": [
             "TestExternalRelationCallbacksAndClone",
@@ -92383,7 +92382,7 @@
         },
         {
           "name": "external project and rename callback reductions",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_transform.go",
           "tests": [
             "TestExternalRelationProjectAndRename"
@@ -92391,7 +92390,7 @@
         },
         {
           "name": "plugin identity, join, union and widening callback operations",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_transform.go",
           "tests": [
             "TestExternalRelationJoinUnionAndWiden"
@@ -92399,7 +92398,7 @@
         },
         {
           "name": "external interpreted, equality, identical-column and negation filters",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_filter.go",
           "tests": [
             "TestExternalRelationFilters"
@@ -92407,7 +92406,7 @@
         },
         {
           "name": "callback argument and result trail ownership",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/external_relation_callbacks.go",
           "tests": [
             "TestExternalRelationCallbackTrailLifetime",
@@ -92419,9 +92418,8 @@
         "The external relation owns its AST relation reference and accessor declarations. The shared plugin owns callback declaration, argument and result references until it closes after its relations."
       ],
       "deviations": [
-        "Fixedpoint callback registration remain pending.",
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",
-        "Full ownership and failure-frontier audits remain pending."
+        "Automatic relation-manager dispatch from fixedpoint rule/query execution into external relation operators remains unimplemented."
       ]
     },
     {
