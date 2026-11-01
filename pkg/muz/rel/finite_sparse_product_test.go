@@ -111,6 +111,63 @@ func TestFiniteSparseProductUnionFrom(t *testing.T) {
 	}
 }
 
+func TestFiniteSparseProductUnionFromWithDelta(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-delta-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two, three := value(0), value(1), value(2), value(3)
+	newProduct := func() *FiniteSparseProduct {
+		product, e := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, []bool{true, false})
+		astTestMust(t, e)
+		return product
+	}
+	target, source, delta := newProduct(), newProduct(), newProduct()
+	defer func() { astTestMust(t, target.Close()) }()
+	defer func() { astTestMust(t, source.Close()) }()
+	defer func() { astTestMust(t, delta.Close()) }()
+	astTestMust(t, target.AddFact([]ast.ASTHandle{zero, one}))
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {zero, two}, {one, three}} {
+		astTestMust(t, source.AddFact(fact))
+	}
+	astTestMust(t, delta.AddFact([]ast.ASTHandle{three, zero}))
+	if err = target.UnionFromWithDelta(source, delta); err != nil {
+		t.Fatal(err)
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, one}, {zero, two}, {one, three}} {
+		if found, e := target.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("union target missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, two}, {one, three}, {three, zero}} {
+		if found, e := delta.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("union delta missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	flat, err := delta.flatten()
+	astTestMust(t, err)
+	if count, e := flat.Len(); e != nil || count != 3 {
+		t.Fatalf("delta contains %d facts, want 3 (%v)", count, e)
+	}
+	astTestMust(t, flat.Close())
+	if err = target.UnionFromWithDelta(source, delta); err != nil {
+		t.Fatal(err)
+	}
+	flat, err = delta.flatten()
+	astTestMust(t, err)
+	if count, e := flat.Len(); e != nil || count != 3 {
+		t.Fatalf("repeated union changed delta cardinality to %d (%v)", count, e)
+	}
+	astTestMust(t, flat.Close())
+}
+
 func TestFiniteSparseProductProjectMergesRows(t *testing.T) {
 	f := newTableRelationFixture(t)
 	name, err := f.ast.Symbols.Intern("finite-sparse-product-project-domain")

@@ -92894,6 +92894,7 @@
         "TestFiniteSparseProductFactsAndClone",
         "TestFiniteSparseProductRejectsInvalidConstructionAndFacts",
         "TestFiniteSparseProductUnionFrom",
+        "TestFiniteSparseProductUnionFromWithDelta",
         "TestFiniteSparseProductProjectMergesRows",
         "TestFiniteSparseProductJoinAcrossPartitions",
         "TestFiniteSparseProductEqualityFilters",

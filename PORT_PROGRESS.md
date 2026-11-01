@@ -52876,3 +52876,5 @@ Finite sparse-table product join (2026-11-01 UTC): joins now flatten each produc
 Finite sparse-table product equality filters (2026-11-01 UTC): added mutating equality-to-value and identical-column filters across both outer and inner columns. Tests cover mixed-partition comparisons, wrong-sort values, and equal numeric ordinals from distinct finite sorts; focused normal and `g3checked` builds pass. Interpreted and negation filters remain open.
 
 Finite sparse-table product negation filtering (2026-11-01 UTC): added a mutating anti-join filter across arbitrary outer and inner columns, returning the removed-row count and enforcing sort-compatible join pairs. Mixed-partition removal, unrelated-row preservation, and invalid-column rejection pass in normal and `g3checked` tests; interpreted filtering and plugin integration remain open.
+
+Finite sparse-table product delta union (2026-11-01 UTC): added source-style union with a separate delta product, preserving existing delta rows while collecting only newly inserted target facts. Tests verify overlap suppression, new target rows, delta accumulation and repeat stability in normal and `g3checked` builds.

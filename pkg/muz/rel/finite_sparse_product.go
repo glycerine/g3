@@ -485,20 +485,32 @@ func (p *FiniteSparseProduct) FilterNegation(negative *FiniteSparseProduct, targ
 }
 
 func (p *FiniteSparseProduct) replaceFacts(facts []Fact) error {
-	replacement, err := NewFiniteSparseProduct(p.manager, p.sorts, p.tableColumnMask())
+	replacement, err := p.productFromFacts(facts)
 	if err != nil {
 		return err
+	}
+	p.swapStorage(replacement)
+	return replacement.Close()
+}
+
+func (p *FiniteSparseProduct) productFromFacts(facts []Fact) (*FiniteSparseProduct, error) {
+	replacement, err := NewFiniteSparseProduct(p.manager, p.sorts, p.tableColumnMask())
+	if err != nil {
+		return nil, err
 	}
 	for _, fact := range facts {
 		key, inner := replacement.splitEncoded(fact)
 		if err = replacement.addEncodedFact(key, inner); err != nil {
-			return errors.Join(err, replacement.Close())
+			return nil, errors.Join(err, replacement.Close())
 		}
 	}
+	return replacement, nil
+}
+
+func (p *FiniteSparseProduct) swapStorage(replacement *FiniteSparseProduct) {
 	p.table, replacement.table = replacement.table, p.table
 	p.inner, replacement.inner = replacement.inner, p.inner
 	p.available, replacement.available = replacement.available, p.available
-	return replacement.Close()
 }
 
 func (p *FiniteSparseProduct) tableColumnMask() []bool {
@@ -571,18 +583,8 @@ func (p *FiniteSparseProduct) UnionFrom(source *FiniteSparseProduct) error {
 	if err := source.open(); err != nil {
 		return err
 	}
-	if p.manager != source.manager || len(p.sorts) != len(source.sorts) || !p.innerSignature.equal(source.innerSignature) {
+	if !p.sameLayout(source) {
 		return ErrTableRelation
-	}
-	for i := range p.sorts {
-		if p.sorts[i] != source.sorts[i] {
-			return ErrTableRelation
-		}
-	}
-	for i := range p.tableColumns {
-		if p.tableColumns[i] != source.tableColumns[i] {
-			return ErrTableRelation
-		}
 	}
 	rows, err := source.table.Facts()
 	if err != nil {
@@ -641,6 +643,77 @@ func (p *FiniteSparseProduct) UnionFrom(source *FiniteSparseProduct) error {
 		}
 	}
 	return nil
+}
+
+// UnionFromWithDelta adds source facts to p and accumulates only newly added
+// facts in delta. Existing delta facts are preserved.
+func (p *FiniteSparseProduct) UnionFromWithDelta(source, delta *FiniteSparseProduct) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := source.open(); err != nil {
+		return err
+	}
+	if err := delta.open(); err != nil {
+		return err
+	}
+	if !p.sameLayout(source) || !p.sameLayout(delta) || p == delta || source == delta {
+		return ErrTableRelation
+	}
+	targetTable, err := p.flatten()
+	if err != nil {
+		return err
+	}
+	defer targetTable.Close()
+	sourceTable, err := source.flatten()
+	if err != nil {
+		return err
+	}
+	defer sourceTable.Close()
+	deltaTable, err := delta.flatten()
+	if err != nil {
+		return err
+	}
+	defer deltaTable.Close()
+	if err = targetTable.Union(sourceTable, deltaTable); err != nil {
+		return err
+	}
+	targetFacts, err := targetTable.Facts()
+	if err != nil {
+		return err
+	}
+	deltaFacts, err := deltaTable.Facts()
+	if err != nil {
+		return err
+	}
+	newTarget, err := p.productFromFacts(targetFacts)
+	if err != nil {
+		return err
+	}
+	newDelta, err := delta.productFromFacts(deltaFacts)
+	if err != nil {
+		return errors.Join(err, newTarget.Close())
+	}
+	p.swapStorage(newTarget)
+	delta.swapStorage(newDelta)
+	return errors.Join(newTarget.Close(), newDelta.Close())
+}
+
+func (p *FiniteSparseProduct) sameLayout(other *FiniteSparseProduct) bool {
+	if other == nil || p.manager != other.manager || len(p.sorts) != len(other.sorts) || len(p.tableColumns) != len(other.tableColumns) || !p.innerSignature.equal(other.innerSignature) {
+		return false
+	}
+	for i := range p.sorts {
+		if p.sorts[i] != other.sorts[i] {
+			return false
+		}
+	}
+	for i := range p.tableColumns {
+		if p.tableColumns[i] != other.tableColumns[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *FiniteSparseProduct) reserveIndex() (int, error) {
