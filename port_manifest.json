@@ -92707,7 +92707,7 @@
         },
         {
           "name": "aligned finite/interval union and accumulated delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductUnionAndDelta"
@@ -92951,7 +92951,7 @@
         },
         {
           "name": "aligned finite/interval union and accumulated delta",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductUnionAndDelta"

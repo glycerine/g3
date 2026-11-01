@@ -52841,4 +52841,6 @@ Finite product clone behavior (2026-11-01 UTC): matched the source copy construc
 
 Finite product equality joins (2026-11-01 UTC): verified matching finite and interval column pairs, result signature order, projected joins, empty operands, and invalid sort/column-list rejection against the source join path. Focused normal and `g3checked` tests pass; marked the method ported in both records.
 
+Finite product aligned union and delta (2026-11-01 UTC): matched shared-key interval union, source-only rows, accumulated delta, self-union, and aliased-delta rejection for the aligned source configuration. Focused normal and `g3checked` tests pass; marked the method ported in both source records. Specification unification for differently ordered layouts remains outside this method's bounded coverage.
+
 Finite product interpreted filters (2026-11-01 UTC): closed the inner-only variable-renaming path and the finite-table-only path, including wrong-column dispatch and ground false behavior. All three focused filter regressions pass normally and with `g3checked`; the genuinely mixed table/interval condition path remains partial and is not promoted.
