@@ -5,8 +5,9 @@ import "github.com/glycerine/g3/pkg/solver"
 
 // Covering tracks the concrete single-node covering relation. The outer
 // search registers new instances and underapproximation-node associations.
-// Reporter callbacks and union-based covering remain unfinished.
+// Reporter callbacks and outer search lifecycle wiring remain unfinished.
 type Covering struct {
+	dominated   map[*Node]bool
 	graph       *RPFP
 	aux         solver.Solver
 	coveredBy   map[*Node]*Node
@@ -31,7 +32,7 @@ func NewCovering(graph *RPFP, aux solver.Solver) (*Covering, error) {
 	if m != graph.context.manager {
 		return nil, ErrContextMismatch
 	}
-	c := &Covering{instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
+	c := &Covering{dominated: make(map[*Node]bool), instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
 	for _, node := range graph.nodes {
 		if err = c.RegisterInstance(node); err != nil {
 			return nil, err

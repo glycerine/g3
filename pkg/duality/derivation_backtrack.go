@@ -14,6 +14,7 @@ type derivationLevel struct {
 // BacktrackingDerivation tracks the source slow-search expansion levels over
 // a borrowed derivation tree. Solver scopes are pushed by its search caller.
 type BacktrackingDerivation struct {
+	sourceCovering *Covering
 	*DerivationTree
 	stack        []derivationLevel
 	nodeMap      map[*Node][]*Node

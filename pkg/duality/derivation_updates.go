@@ -30,8 +30,8 @@ func replaceNodeAnnotation(node *Node, annotation *Transformer) error {
 }
 
 // RecordAnnotationUpdate performs the source fact intersection and queues
-// affected instances. Covering-set invalidation and update reporters remain
-// separate unfinished parts of the outer Duality Update operation.
+// affected instances. A bound source covering is invalidated before the
+// original fact changes. Update reporters remain unfinished.
 func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.Solver) (bool, error) {
 	if d == nil || node == nil || node.Owner != d.tree || node.Map == nil {
 		return false, ErrWrapperOwner
@@ -43,6 +43,9 @@ func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.S
 	}
 	if redundant {
 		return false, nil
+	}
+	if d.sourceCovering != nil {
+		d.sourceCovering.Update(original)
 	}
 	if err = original.Annotation.IntersectWith(node.Annotation); err != nil {
 		return false, err
@@ -97,5 +100,15 @@ func (d *BacktrackingDerivation) HandleUpdatedNodes() error {
 			n++
 		}
 	}
+	return nil
+}
+
+// BindSourceCovering connects the source unwinding covering relation used by
+// outer Update; it belongs to the original graph, not the derivation graph.
+func (d *BacktrackingDerivation) BindSourceCovering(covering *Covering) error {
+	if d == nil || covering == nil || covering.graph != d.original {
+		return ErrWrapperOwner
+	}
+	d.sourceCovering = covering
 	return nil
 }

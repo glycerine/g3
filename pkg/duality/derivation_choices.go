@@ -31,8 +31,8 @@ func (d *DerivationTree) ExpansionChoicesFull(best *[]*Node, highPriority, bestO
 }
 
 // ExpandSomeFullNodes applies the source full-choice expansion path to
-// materialized original edges. Underapproximation-core selection and
-// stratified edge resolution are separate unfinished search operations.
+// materialized original edges. Underapproximation selection is provided by
+// ExpansionChoices; stratified edge resolution remains unfinished.
 func (d *DerivationTree) ExpandSomeFullNodes(highPriority bool, limit int) (bool, error) {
 	var choices []*Node
 	if err := d.ExpansionChoicesFull(&choices, highPriority, limit != int(^uint32(0)>>1)); err != nil {
