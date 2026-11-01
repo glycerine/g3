@@ -6,6 +6,9 @@ import "sort"
 // Unwinding owns outer-search bookkeeping over a borrowed graph and covering
 // relation. Node and edge AST ownership belongs to the graph.
 type Unwinding struct {
+	FeasibleEdges      bool
+	RecursionBound     int
+	backEdges          map[*Node]map[*Node]int
 	StratifiedInlining bool
 	leafMap            map[*Node]*Node
 	candidates         []ExpansionCandidate
@@ -27,7 +30,7 @@ func NewUnwinding(source, graph *RPFP, covering *Covering) (*Unwinding, error) {
 	if covering == nil || covering.graph != graph {
 		return nil, ErrWrapperOwner
 	}
-	return &Unwinding{source: source, graph: graph, covering: covering}, nil
+	return &Unwinding{source: source, graph: graph, covering: covering, FeasibleEdges: true, RecursionBound: -1, backEdges: make(map[*Node]map[*Node]int)}, nil
 }
 func (u *Unwinding) CreateNodeInstance(node *Node, number int) (*Node, error) {
 	if u == nil || node == nil || node.Owner != u.source {

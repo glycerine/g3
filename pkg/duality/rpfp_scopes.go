@@ -33,12 +33,9 @@ func (g *RPFP) BindSolver(s solver.Solver) error {
 	if m != g.context.manager {
 		return ErrContextMismatch
 	}
-	depth, err := s.ScopeLevel()
+	_, err = s.ScopeLevel()
 	if err != nil {
 		return err
-	}
-	if depth != 0 {
-		return ErrWrapperOwner
 	}
 	g.solver = s
 	g.scopes = []graphScope{{}}
