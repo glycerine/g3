@@ -86372,7 +86372,9 @@
         "pkg/muz/fp/rule_fragment.go",
         "pkg/muz/fp/rule_fragment_test.go",
         "pkg/muz/fp/propositional_engine.go",
-        "pkg/parsers/smt2/fixedpoint_commands_test.go"
+        "pkg/parsers/smt2/fixedpoint_commands_test.go",
+        "pkg/muz/fp/horn_preprocess_proof_test.go",
+        "pkg/parsers/smt2/qbmc_engine_test.go"
       ],
       "tests": [
         "TestRulePropertiesExistentialTraversalDistinctionsAndReuse",
@@ -86382,7 +86384,12 @@
         "TestPDRAndSpacerRejectNegativePredicates",
         "TestPDRAndSpacerRejectPartialDatatypeAccessors",
         "TestDatalogRejectsInfinitePredicateSorts",
-        "TestDatalogRejectsQuantifiedInterpretedTails"
+        "TestDatalogRejectsQuantifiedInterpretedTails",
+        "TestRulePropertiesGeneratesMissingRuleProofs",
+        "TestRulePropertiesProofAllocationFrontiers",
+        "TestFixedpointRuleValidationProofParameterPrecedence",
+        "TestHornPreprocessingCarriesRequestedRuleProofs",
+        "TestSMT2QBMCRequestedProofTrace"
       ],
       "assertions": [
         {
@@ -102823,6 +102830,7 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/subsumption_checker.go",
+        "pkg/muz/transforms/subsumption_checker_test.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/main_test.go"
       ],
@@ -102830,6 +102838,7 @@
         "TestSubsumptionCheckerDropsTautologicalSelfRule",
         "TestSubsumptionCheckerRemovesTotalPositiveTail",
         "TestSubsumptionCheckerDisabledReturnsNoChange",
+        "TestSubsumptionCheckerTransfersRuleProof",
         "TestSMTLibRunnerCPPReference/fp_spacer_skip_propagate.smt2"
       ],
       "assertions": [

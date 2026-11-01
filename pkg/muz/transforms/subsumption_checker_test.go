@@ -6,6 +6,7 @@ package transforms_test
 import (
 	"testing"
 
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 )
@@ -75,6 +76,63 @@ func TestSubsumptionCheckerRemovesTotalPositiveTail(t *testing.T) {
 	coneMust(t, err)
 	if !f.manager.IsTrue(formula) {
 		t.Fatal("total-relation interpretation is not true", formula)
+	}
+}
+
+func TestSubsumptionCheckerTransfersRuleProof(t *testing.T) {
+	f := newConeFixture(t, "Total", "Goal")
+	f.add(t, f.applications["Total"], "total")
+	f.edge(t, "Total", "Goal")
+	coneMust(t, f.set.SetOutputPredicate(f.declarations["Goal"]))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("proof fixture rejected")
+	}
+	original, err := f.set.Rule(1)
+	coneMust(t, err)
+	defer func() { coneMust(t, original.Close()) }()
+	formula, err := original.ToFormula()
+	coneMust(t, err)
+	defer func() { coneMust(t, f.manager.DelRef(&formula)) }()
+	value, err := f.manager.RefGet(formula)
+	coneMust(t, err)
+	scope, err := ast.NewScopedProof(f.manager)
+	coneMust(t, err)
+	prior, err := f.manager.MkProofAsserted(value)
+	coneMust(t, err)
+	coneMust(t, original.SetProof(prior))
+	coneMust(t, scope.Close())
+	transformer := base.NewRuleTransformer()
+	defer func() { coneMust(t, transformer.Close()) }()
+	coneMust(t, transformer.Register(transforms.NewSubsumptionCheckerPlugin(true, 0)))
+	modified, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !modified {
+		t.Fatal("total tail was not removed")
+	}
+	updated, err := f.set.Rule(0)
+	coneMust(t, err)
+	defer func() { coneMust(t, updated.Close()) }()
+	proof, found, err := updated.Proof()
+	coneMust(t, err)
+	if !found {
+		t.Fatal("rewritten rule has no proof")
+	}
+	fact, err := f.manager.GetProofFact(proof)
+	coneMust(t, err)
+	newFormula, err := updated.ToFormula()
+	coneMust(t, err)
+	defer func() { coneMust(t, f.manager.DelRef(&newFormula)) }()
+	want, err := f.manager.RefGet(newFormula)
+	coneMust(t, err)
+	if fact != want {
+		t.Fatal("rewritten proof fact differs from the new rule")
+	}
+	parent, err := f.manager.GetProofParent(proof, 0)
+	coneMust(t, err)
+	if parent != prior {
+		t.Fatal("rewritten proof does not depend on the original proof")
 	}
 }
 

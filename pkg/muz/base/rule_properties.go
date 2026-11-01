@@ -67,7 +67,44 @@ type RuleProperties struct {
 	nested        []*Rule
 	negative      *Rule
 	infinite      *Rule
+	generateProof bool
 	closed        bool
+}
+
+// SetGenerateProof enables source rule-property collection's creation of
+// asserted proofs for rules that do not already have one.
+func (p *RuleProperties) SetGenerateProof(enabled bool) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	p.generateProof = enabled
+	return nil
+}
+
+func (p *RuleProperties) ensureRuleProof(rule *Rule) (resultErr error) {
+	_, found, err := rule.Proof()
+	if err != nil || found {
+		return err
+	}
+	scope, err := ast.NewScopedProof(p.manager)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, scope.Close()) }()
+	formula, err := rule.ToFormula()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, p.manager.DelRef(&formula)) }()
+	fact, err := p.manager.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	proof, err := p.manager.MkProofAsserted(fact)
+	if err != nil {
+		return err
+	}
+	return rule.SetProof(proof)
 }
 
 func NewRuleProperties(rules *RuleManager) (*RuleProperties, error) {
@@ -281,6 +318,11 @@ func (p *RuleProperties) Collect(set *RuleSet) error {
 			}
 			if x = p.collectExpression(rule, tail, visited); x != nil {
 				return x
+			}
+		}
+		if p.generateProof {
+			if e = p.ensureRuleProof(rule); e != nil {
+				return e
 			}
 		}
 		if p.infinite == nil {

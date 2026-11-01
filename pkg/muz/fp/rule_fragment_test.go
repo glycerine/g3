@@ -147,3 +147,90 @@ func TestQPDRAllowsExistentialRuleTail(t *testing.T) {
 		})
 	}
 }
+
+func TestFixedpointRuleValidationGeneratesRequestedProof(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		name := "disabled"
+		if enabled {
+			name = "enabled"
+		}
+		t.Run(name, func(t *testing.T) {
+			engine, manager := newFragmentTestEngine(t, "pdr")
+			engine.forceProofTrace = enabled
+			boolean, err := manager.MkBoolSort()
+			fragmentMust(t, err)
+			symbol, err := manager.Symbols.Intern("fragment-proof-" + name)
+			fragmentMust(t, err)
+			declaration, err := manager.MkFuncDecl(symbol, nil, boolean, ast.ASTFuncDeclInfo{})
+			fragmentMust(t, err)
+			fragmentMust(t, engine.RegisterPredicate(declaration))
+			head, err := manager.MkApp(declaration, nil)
+			fragmentMust(t, err)
+			rule, err := engine.rules.NewRule(head, nil, nil, "fact")
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, rule.Close()) }()
+			fragmentMust(t, engine.set.Add(rule))
+			fragmentMust(t, engine.validateFragment())
+			proof, found, err := rule.Proof()
+			fragmentMust(t, err)
+			if found != enabled {
+				t.Fatal("proof tracing did not control rule proof creation", found, enabled)
+			}
+			if found {
+				fact, e := manager.GetProofFact(proof)
+				fragmentMust(t, e)
+				if fact != head {
+					t.Fatal("generated proof has wrong fact", fact)
+				}
+			}
+		})
+	}
+}
+
+func TestFixedpointRuleValidationProofParameterPrecedence(t *testing.T) {
+	for _, tc := range []struct {
+		name, global string
+		local        *bool
+		want         bool
+	}{
+		{"default", "false", nil, false},
+		{"global", "true", nil, true},
+		{"local-enable", "false", magicQueryBool(true), true},
+		{"local-disable", "true", magicQueryBool(false), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manager, globals := newPDRLifecycleServices(t)
+			fragmentMust(t, globals.SourceSetName("fixedpoint.generate_proof_trace", tc.global))
+			engine, err := NewPropositionalEngineWithServices(manager, globals.Context, globals)
+			fragmentMust(t, err)
+			t.Cleanup(func() { fragmentMust(t, engine.Close()) })
+			fragmentMust(t, engine.SelectEngine("qbmc"))
+			if tc.local != nil {
+				params := globals.Context.EmptyValue()
+				key := "generate_proof_trace"
+				fragmentMust(t, globals.Context.SetBoolName(&params, &key, *tc.local))
+				fragmentMust(t, engine.SetQueryParameters(&params))
+				fragmentMust(t, globals.Context.Del(&params))
+			}
+			boolean, err := manager.MkBoolSort()
+			fragmentMust(t, err)
+			name, err := manager.Symbols.Intern("proof-param-" + tc.name)
+			fragmentMust(t, err)
+			declaration, err := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+			fragmentMust(t, err)
+			fragmentMust(t, engine.RegisterPredicate(declaration))
+			head, err := manager.MkApp(declaration, nil)
+			fragmentMust(t, err)
+			fragmentMust(t, engine.AddRule(head, "fact"))
+			fragmentMust(t, engine.validateFragment())
+			rule, err := engine.set.Rule(0)
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, rule.Close()) }()
+			_, found, err := rule.Proof()
+			fragmentMust(t, err)
+			if found != tc.want {
+				t.Fatal("unexpected rule proof state", found, tc.want)
+			}
+		})
+	}
+}

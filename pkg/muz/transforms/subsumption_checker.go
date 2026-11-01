@@ -287,7 +287,13 @@ func transformSubsumedRule(manager *base.RuleManager, rule *base.Rule, total map
 		return nil, false, false, err
 	}
 	replacement, err := manager.NewRule(head, tail, negated, name)
-	return replacement, true, true, err
+	if err != nil {
+		return nil, false, false, err
+	}
+	if err = manager.MkRuleRewriteProof(rule, replacement); err != nil {
+		return nil, false, false, errors.Join(err, replacement.Close())
+	}
+	return replacement, true, true, nil
 }
 
 func subsumptionPass(source *base.RuleSet) (_ *base.RuleSet, changed bool, resultErr error) {

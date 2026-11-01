@@ -14,7 +14,7 @@ import (
 // validateRuleSetProperties applies the source check_rules ordering. Ordering
 // is observable: the first failing property is the diagnostic returned to the
 // fixedpoint caller.
-func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backend string) (resultErr error) {
+func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backend string, generateProof bool) (resultErr error) {
 	kind, err := parseEngineKind(backend)
 	if err != nil || !kind.Retained() {
 		if err == nil {
@@ -31,6 +31,9 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 			resultErr = errors.Join(resultErr, fmt.Errorf("%w: close rule properties: %w", ErrPropositionalHorn, closeErr))
 		}
 	}()
+	if err = properties.SetGenerateProof(generateProof); err != nil {
+		return fmt.Errorf("%w: %w", ErrPropositionalHorn, err)
+	}
 	if err = properties.Collect(set); err != nil {
 		return fmt.Errorf("%w: collect rule properties: %w", ErrPropositionalHorn, err)
 	}

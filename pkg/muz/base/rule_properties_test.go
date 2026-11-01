@@ -4,11 +4,14 @@ package base_test
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -78,6 +81,133 @@ func propertyKind(t *testing.T, err error, want base.RulePropertyKind) {
 	var property *base.RulePropertyError
 	if !errors.As(err, &property) || property.Kind != want {
 		t.Fatalf("property error = %v, want kind %d", err, want)
+	}
+}
+
+func TestRulePropertiesGeneratesMissingRuleProofs(t *testing.T) {
+	f := newRulePropertiesFixture(t)
+	set, err := base.NewRuleSet(f.rules)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, set.Close()) }()
+	first, err := f.rules.NewRule(f.p, nil, nil, "first")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, first.Close()) }()
+	second, err := f.rules.NewRule(f.q, nil, nil, "second")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, second.Close()) }()
+	ruleMust(t, set.Add(first))
+	ruleMust(t, set.Add(second))
+	before, err := f.manager.ProofMode()
+	ruleMust(t, err)
+	scope, err := ast.NewScopedProof(f.manager)
+	ruleMust(t, err)
+	existing, err := f.manager.MkProofAsserted(f.q)
+	ruleMust(t, err)
+	ruleMust(t, second.SetProof(existing))
+	ruleMust(t, scope.Close())
+	properties, err := base.NewRuleProperties(f.rules)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, properties.Close()) }()
+	ruleMust(t, properties.Collect(set))
+	if _, found, e := first.Proof(); e != nil || found {
+		t.Fatal("proof generation is enabled by default", found, e)
+	}
+	ruleMust(t, properties.SetGenerateProof(true))
+	ruleMust(t, properties.Collect(set))
+	proof, found, err := first.Proof()
+	ruleMust(t, err)
+	if !found {
+		t.Fatal("missing asserted rule proof")
+	}
+	fact, err := f.manager.GetProofFact(proof)
+	ruleMust(t, err)
+	formula, err := first.ToFormula()
+	ruleMust(t, err)
+	defer func() { ruleMust(t, f.manager.DelRef(&formula)) }()
+	value, err := f.manager.RefGet(formula)
+	ruleMust(t, err)
+	if fact != value {
+		t.Fatal("generated proof does not establish the rule", fact, value)
+	}
+	prior, found, err := second.Proof()
+	ruleMust(t, err)
+	if !found || prior != existing {
+		t.Fatal("collection replaced an existing rule proof")
+	}
+	ruleMust(t, properties.Collect(set))
+	again, found, err := first.Proof()
+	ruleMust(t, err)
+	if !found || again != proof {
+		t.Fatal("repeat collection replaced the generated proof")
+	}
+	after, err := f.manager.ProofMode()
+	ruleMust(t, err)
+	if after != before {
+		t.Fatal("proof generation changed the manager proof mode", before, after)
+	}
+}
+
+func TestRulePropertiesProofAllocationFrontiers(t *testing.T) {
+	success, failures := false, 0
+	for stop := int64(0); stop < 512 && !success; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			var budget *arena.Budget
+			t.Cleanup(func() {
+				if budget != nil && budget.Used() != 0 {
+					t.Errorf("rule property proof cleanup left %d bytes", budget.Used())
+				}
+			})
+			f := newRulePropertiesFixture(t)
+			budget = f.manager.Budget()
+			set, err := base.NewRuleSet(f.rules)
+			ruleMust(t, err)
+			t.Cleanup(func() { ruleMust(t, set.Close()) })
+			boolean, err := f.manager.MkBoolSort()
+			ruleMust(t, err)
+			for i := 0; i < 128; i++ {
+				name, e := f.manager.Symbols.Intern(fmt.Sprintf("proof-frontier-%d", i))
+				ruleMust(t, e)
+				guard, e := f.manager.MkConst(name, boolean)
+				ruleMust(t, e)
+				rule, e := f.rules.NewRule(f.p, []ast.ASTHandle{guard}, nil, "allocation")
+				ruleMust(t, e)
+				ruleMust(t, set.Add(rule))
+				ruleMust(t, rule.Close())
+			}
+			properties, err := base.NewRuleProperties(f.rules)
+			ruleMust(t, err)
+			t.Cleanup(func() { ruleMust(t, properties.Close()) })
+			ruleMust(t, properties.SetGenerateProof(true))
+			before, err := f.manager.ProofMode()
+			ruleMust(t, err)
+			budget.FailAfter(stop)
+			err = properties.Collect(set)
+			budget.FailAfter(-1)
+			after, modeErr := f.manager.ProofMode()
+			ruleMust(t, modeErr)
+			if before != after {
+				t.Fatal("interrupted collection changed proof mode", before, after)
+			}
+			if err == nil {
+				success = true
+				return
+			}
+			var construction memory.ConstructionFailure
+			if errors.As(err, &construction) {
+				ruleMust(t, construction.Cleanup())
+			}
+			var memout memory.Failure
+			if !errors.Is(err, arena.ErrInjectedFailure) && (!errors.As(err, &memout) || memout.Kind != memory.FailureMemout) {
+				t.Fatal(err)
+			}
+			failures++
+		})
+		if t.Failed() {
+			t.Fatal("rule property proof allocation frontier", stop)
+		}
+	}
+	if !success || failures == 0 {
+		t.Fatal("did not reach both failure and success", failures, success)
 	}
 }
 

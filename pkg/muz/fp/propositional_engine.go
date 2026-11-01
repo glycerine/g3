@@ -633,7 +633,20 @@ func (e *PropositionalEngine) Pop() error {
 }
 
 func (e *PropositionalEngine) validateFragment() error {
-	if err := validateRuleSetProperties(e.rules, e.set, e.backend); err != nil {
+	generateProof := e.forceProofTrace
+	if e.params != nil && e.globals != nil {
+		parameters, err := e.fixedpointParamView()
+		if err != nil {
+			return err
+		}
+		requested, cause := parameters.Bool("generate_proof_trace", false)
+		cause = errors.Join(cause, parameters.Close())
+		if cause != nil {
+			return cause
+		}
+		generateProof = generateProof || requested
+	}
+	if err := validateRuleSetProperties(e.rules, e.set, e.backend, generateProof); err != nil {
 		return err
 	}
 	count, err := e.set.Len()
