@@ -14,7 +14,7 @@ import (
 func TestNLPurifyApplyAllocationPrefixAndRetry(t *testing.T) {
 	// This prefix reaches polynomial compilation. Later constructor and
 	// search interruption paths require their own ownership audit.
-	for stop := int64(0); stop < 98; stop++ {
+	for stop := int64(0); stop < 107; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
 			m := astTestManager(t)
 			_, _, config := nlModelEvaluatorFixture(t, m)

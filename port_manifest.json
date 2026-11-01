@@ -105036,8 +105036,8 @@
       "path": "src/nlsat/nlsat_solver.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
-      "go_targets": [
+      "status": "partial",
+      "go_targets": ["pkg/tactic/nlsat_smt/nl_purify_failure_test.go","pkg/nlsat/solver_test.go",
         "pkg/nlsat/variable_order_root_test.go",
         "pkg/nlsat/assumption.go",
         "pkg/nlsat/assumption_manager.go",
@@ -105064,7 +105064,7 @@
         "pkg/cmd/g3/nra_backend_test.go",
         "pkg/smtcore/smt_univariate_nra_test.go"
       ],
-      "tests": [
+      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry","TestSolverCloseAfterFailedAtomConstruction",
         "pkg/nlsat/assumption_manager_test.go",
         "pkg/nlsat/assumption_justification_pending_test.go",
         "pkg/nlsat/clause_justification_test.go",
@@ -105521,7 +105521,7 @@
         }
       ],
       "methods_audited": true,
-      "ownership_audited": true,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "dependency_manager<solver::imp::dconfig> with borrowed concrete assumption identities, 30-bit node refs, zero-ref leaf/join factories, source BFS traversal, node marks and iterative LIFO destruction",
@@ -105791,7 +105791,7 @@
         "The public Solver owns the native allocator/cache/factory/assumption/clause/assignment/evaluator/search/explanation/projection/resolution composition while borrowing compatible caller numerical and polynomial managers. Construction follows dependency order and returns a partial owner on failure. Close releases resolution assumptions/literals before search-owned explanation state, then evaluator/assignment, clauses and dependency DAGs, remaining zero-reference atoms, the polynomial cache and allocator. Clause retirement owns learned and input dependencies independently; exported model copies belong to the caller. The borrowed managers remain usable after Solver Close.",
         "Public projected results own atom references through LiteralVector. Solver Close refuses before mutating member state while any such result remains live; closing the result releases its literals forward and removes that borrower."
       ],
-      "deviations": [
+      "deviations": ["Interrupted search and algebraic cleanup still contain unresolved ownership paths.",
         "Explicit variable reordering remaps a root atom’s distinguished variable together with its polynomial and reindexes the existing root table. The fork leaves that variable unchanged, which makes a projected root false after restoring the order in the tst6 fixture; heuristic reorder still refuses root atoms as in source.",
         "The NLSAT assumption specialization is concrete and AST-independent: leaf values carry either a frontend attachment identity or a borrowed pointer to an actual input literal. Nonzero-sized attachment tokens preserve distinct native identities; the retained goal frontend must map its concrete AST dependencies to these identities when integrated. Equal-valued literals at different input positions remain distinct. No any-valued callback/value adapter or C++ standard-library container is introduced. Native Go layouts/array capacities differ from source; caller output slices use Go storage. Every allocation/lexical/diagnostic frontier and full solver integration remain unaudited.",
         "The staged solver port now includes the retained assumption manager, atoms, clauses/watches, search/explanation, model access, variable ordering, temporary-assumption/core protocol, and public composition tracked above. The whole source unit remains partial for unretained diagnostics and any consumer-facing surfaces still identified separately.",

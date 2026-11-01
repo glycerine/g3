@@ -210,7 +210,7 @@ func (c *GoalCompiler) processArithmeticAtom(expression ast.ASTHandle, kind nlsa
 	}
 	defer func() { err = errors.Join(err, factors.CloseChecked()) }()
 	if err = c.polynomials.Factor(difference, factors, polynomial.DefaultUPolynomialFactorParams()); err != nil {
-		return 0, err
+		return 0, errors.Join(err, c.polynomials.CleanupFactor())
 	}
 	count, err := factors.Distinct()
 	if err != nil || count == 0 {

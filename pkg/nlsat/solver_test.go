@@ -1,14 +1,34 @@
 package nlsat
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/math/polynomial"
 	"github.com/glycerine/g3/pkg/sat"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	z3rand "github.com/glycerine/g3/pkg/util/random"
 )
+
+func TestSolverCloseAfterFailedAtomConstruction(t *testing.T) {
+	s := solverFixture(t)
+	_, err := s.MkVar(false)
+	assignmentMust(t, err)
+	p := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 1}, evaluatorTerm{-1, 0, 0})
+	budget := s.atoms.ineq.budget
+	budget.FailAfter(0)
+	_, err = s.MkInequality(AtomLT, []polynomial.Polynomial{p}, []bool{false}, false)
+	budget.FailAfter(-1)
+	if !errors.Is(err, arena.ErrInjectedFailure) || !s.atoms.failed {
+		t.Fatal("expected failed atom construction", err)
+	}
+	assignmentMust(t, s.Close())
+	if !s.closed {
+		t.Fatal("solver did not close after interrupted atom construction")
+	}
+}
 
 func solverFixture(t *testing.T) *Solver {
 	return solverFixtureConfig(t, SolverConfig{SimplifyCore: true})

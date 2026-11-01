@@ -548,6 +548,13 @@ func (s *Solver) Close() (err error) {
 	if s.literalVectors != 0 {
 		return ErrSearchPending
 	}
+	// A failed atom factory call owns temporary cache entries that must be
+	// retired before the search and clause owners can be destroyed.
+	if s.atoms != nil && s.atoms.failed {
+		if err = s.atoms.cleanup(); err != nil {
+			return err
+		}
+	}
 	if s.resolution != nil {
 		err = errors.Join(err, s.resolution.close())
 		if err == nil {
