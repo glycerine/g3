@@ -52621,7 +52621,7 @@ CLP source audit: search no longer increments the three dormant source statistic
 
 Checked relation lifecycle: closing the Go wrapper now closes both owned backing tables, and filter-and-project validates its source before dereferencing it. A lifecycle regression covers backing-table closure and operations after close; normal and g3checked relation package suites pass.
 
-CLP search diagnostics: the source search-depth and rule-head messages now use the process verbosity stream at levels one and two. A focused regression checks the disabled and enabled levels; the CLP and fixedpoint package suites pass in normal and g3checked builds. Rule-head layout currently uses the format manager's defaults; the broader CLP source audit remains partial.
+CLP search diagnostics: the source search-depth and rule-head messages now use the process verbosity stream at levels one and two. A focused regression checks the disabled and enabled levels; the CLP and fixedpoint package suites pass in normal and g3checked builds. The broader CLP source audit remains partial.
 
 CLP and Horn trace printer parameters: passing an initialized empty parameter value lets rule diagnostics honor global pretty-print settings and prevents Horn tracing from failing with bound parameter services. Focused regressions cover a narrow CLP line width and normalization with enabled Horn tracing and real parameter owners.
 
@@ -52634,3 +52634,5 @@ Unit-subsumption trace owner correction: when the tactic creates its own global 
 Unit-subsumption interrupted application recovery: a failed solver push can leave named and core scope counts out of step, so the next application now reconstructs its private solver from the original constructor parameters before reuse. Allocation-frontier campaigns cover 117 construction refusals and 25 application refusals through success, check complete fixture ownership cleanup, and retry each interrupted application; another regression checks interrupted reconstruction and parameter snapshots. Other failure shapes remain unaudited.
 
 Unit-subsumption proof and reconstruction failure coverage: the application allocation campaign now checks all proof and unsat-core combinations, including surviving proof facts and dependencies after retry. A separate allocation campaign interrupts each observed solver-reconstruction point, retries, checks the surviving assertion and verifies fixture ownership cleanup.
+
+Unit-subsumption direct translation: target manager service resolution now works through the same target-configuration callback as SMT solver translation, with parameters copied into the target owner. A cross-manager test closes the original tactic before using the copy and checks resolver failures; SMT-LIB integration tests exercise proof and unsat-core output through the tactic pipeline.

@@ -282,6 +282,19 @@ func (t *UnitSubsumptionTactic) Translate(m *ast.ASTManager) (tactic.Tactic, err
 	if e := t.open(); e != nil {
 		return nil, e
 	}
+	if m == nil {
+		return nil, ast.ErrASTHandle
+	}
+	if err := t.config.Params.CheckServices(m.Symbols, m.NumeralService()); err != nil {
+		if t.config.TargetConfig == nil {
+			return nil, err
+		}
+		config, err := t.config.TargetConfig(m)
+		if err != nil {
+			return nil, err
+		}
+		return t.TranslateWithConfig(m, config)
+	}
 	return NewUnitSubsumptionTactic(m, &t.params, t.config)
 }
 
@@ -289,6 +302,12 @@ func (t *UnitSubsumptionTactic) Translate(m *ast.ASTManager) (tactic.Tactic, err
 func (t *UnitSubsumptionTactic) TranslateWithConfig(m *ast.ASTManager, config SMTSolverConfig) (result tactic.Tactic, resultErr error) {
 	if err := t.open(); err != nil {
 		return nil, err
+	}
+	if m == nil {
+		return nil, ast.ErrASTHandle
+	}
+	if config.Params == nil {
+		return nil, uparams.ErrParamsOwner
 	}
 	params, err := t.config.Params.TranslateTo(&t.params, config.Params)
 	if err != nil {

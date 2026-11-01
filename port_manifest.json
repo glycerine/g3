@@ -151023,6 +151023,8 @@
         "pkg/smtcore/unit_subsumption_trace.go",
         "pkg/smtcore/unit_subsumption_trace_test.go",
         "pkg/smtcore/unit_subsumption_failure_test.go",
+        "pkg/smtcore/unit_subsumption_translation_test.go",
+        "pkg/parsers/smt2/unit_subsumption_integration_test.go",
         "pkg/smtcore/unit_subsumption_tactic_proof_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
@@ -151044,6 +151046,9 @@
         "TestUnitSubsumptionApplyAllocationFrontiers",
         "TestUnitSubsumptionReconstructionAllocationFrontiers",
         "TestUnitSubsumptionRetryPreservesConstructorParameters",
+        "TestUnitSubsumptionDirectTranslationUsesTargetServices",
+        "TestSMT2UnitSubsumptionPreservesUnsatCore",
+        "TestSMT2UnitSubsumptionProducesProof",
         "TestSpacerFramesSimplifySameLevelLemmasByUnitPropagation"
       ],
       "assertions": [
@@ -151055,6 +151060,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "direct translation to target manager services and copied parameters", "status": "partial", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_translation_test.go"], "tests": ["TestUnitSubsumptionDirectTranslationUsesTargetServices"]},
         {"name": "constructor and interrupted application cleanup with solver reconstruction on retry", "status": "partial", "go_targets": ["pkg/smtcore/unit_subsumption_tactic.go", "pkg/smtcore/unit_subsumption_failure_test.go"], "tests": ["TestUnitSubsumptionConstructorAllocationFrontiers", "TestUnitSubsumptionApplyAllocationFrontiers", "TestUnitSubsumptionReconstructionAllocationFrontiers", "TestUnitSubsumptionRetryPreservesConstructorParameters"]},
         {"name": "source removal and final-goal trace records", "status": "ported", "go_targets": ["pkg/smtcore/unit_subsumption_trace.go", "pkg/smtcore/unit_subsumption_trace_test.go"], "tests": ["TestUnitSubsumptionSourceTrace"]},
         {
