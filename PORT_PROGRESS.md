@@ -1,3 +1,5 @@
+Bound-relation union now copies union-find equivalence classes together with column bounds when the destination is empty, including the distinct delta output. Regression tests cover both paths against the source copy behavior in normal and g3checked builds.
+
 UDoc joins now have a repeated-column source regression: one left column is matched against two right columns, and a finite exhaustive oracle checks every output row. The focused test passes in normal and g3checked builds.
 
 QE now eliminates multiple datatype variables and mixed datatype/Boolean blocks using the existing scalar search. Solver-equivalence and SMT-LIB tests cover recursive datatype SAT, UNSAT and universal cases.

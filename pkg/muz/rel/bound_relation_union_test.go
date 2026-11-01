@@ -87,3 +87,34 @@ func TestBoundRelationUnionDelta(t *testing.T) {
 		t.Fatal("aliased delta accepted")
 	}
 }
+
+func TestBoundRelationUnionIntoEmptyCopiesEqualityClasses(t *testing.T) {
+	source := NewBoundRelation(3, false)
+	astTestMust(t, source.Equate(0, 1))
+	astTestMust(t, source.AddLess(0, 2))
+
+	target := NewBoundRelation(3, true)
+	changed, err := target.Union(source)
+	astTestMust(t, err)
+	if !changed || target.Empty() || target.find(0) != target.find(1) {
+		t.Fatal("union into empty lost source equality", changed, target.Empty())
+	}
+	strict, _, err := target.Bounds(1)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{2}) {
+		t.Fatal("union into empty lost bounds", strict)
+	}
+
+	deltaTarget := NewBoundRelation(3, true)
+	delta := NewBoundRelation(3, true)
+	changed, err = deltaTarget.UnionWithDelta(source, delta, false)
+	astTestMust(t, err)
+	if !changed || delta.find(0) != delta.find(1) {
+		t.Fatal("delta copy lost source equality", changed)
+	}
+	strict, _, err = delta.Bounds(1)
+	astTestMust(t, err)
+	if !reflect.DeepEqual(strict, []uint32{2}) {
+		t.Fatal("delta copy lost bounds", strict)
+	}
+}

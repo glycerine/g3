@@ -16,6 +16,22 @@ func cloneBoundColumn(c boundColumn) boundColumn {
 	return result
 }
 
+// copyFrom mirrors vector_relation::copy: bounds and equality classes are both
+// part of the relation value.
+func (r *BoundRelation) copyFrom(source *BoundRelation) {
+	r.parent = append(r.parent[:0], source.parent...)
+	r.size = append(r.size[:0], source.size...)
+	if cap(r.columns) < len(source.columns) {
+		r.columns = make([]boundColumn, len(source.columns))
+	} else {
+		r.columns = r.columns[:len(source.columns)]
+	}
+	for i := range source.columns {
+		r.columns[i] = cloneBoundColumn(source.columns[i])
+	}
+	r.empty = source.empty
+}
+
 func sameBoundColumn(a, b boundColumn) bool {
 	if len(a.lt) != len(b.lt) || len(a.le) != len(b.le) {
 		return false
@@ -75,11 +91,7 @@ func (r *BoundRelation) Union(source *BoundRelation) (bool, error) {
 		return false, nil
 	}
 	if r.empty {
-		r.reset()
-		r.empty = false
-		for i := range r.columns {
-			r.columns[i] = cloneBoundColumn(source.columns[source.find(uint32(i))])
-		}
+		r.copyFrom(source)
 		return true, nil
 	}
 	joint := NewBoundRelation(uint32(len(r.columns)), false)
@@ -139,11 +151,7 @@ func (r *BoundRelation) UnionWithDelta(source, delta *BoundRelation, widen bool)
 	if source.empty {
 		delta.reset()
 	} else if changed {
-		delta.reset()
-		delta.empty = false
-		for i := range delta.columns {
-			delta.columns[i] = cloneBoundColumn(r.columns[r.find(uint32(i))])
-		}
+		delta.copyFrom(r)
 	}
 	return changed, nil
 }

@@ -91374,6 +91374,7 @@
         "TestBoundRelationToFormula",
         "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationFactAbstraction",
+        "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
         "TestBoundRelationUnionDelta"
       ],
       "assertions": [
@@ -91501,6 +91502,7 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
+            "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
             "TestBoundRelationUnionDelta"
           ]
         }
@@ -91546,6 +91548,7 @@
         "TestBoundRelationToFormula",
         "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationFactAbstraction",
+        "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
         "TestBoundRelationUnionDelta"
       ],
       "conditionals": [
@@ -91641,6 +91644,7 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
+            "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
             "TestBoundRelationUnionDelta"
           ]
         }
@@ -95774,6 +95778,7 @@
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
         "TestEmptyRelationFormulaSourceSemantics",
+        "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
         "TestBoundRelationUnionDelta"
       ],
       "conditionals": [
@@ -95883,6 +95888,7 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/bound_relation_union.go",
           "tests": [
+            "TestBoundRelationUnionIntoEmptyCopiesEqualityClasses",
             "TestBoundRelationUnionDelta"
           ]
         }
