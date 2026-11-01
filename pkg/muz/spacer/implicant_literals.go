@@ -17,6 +17,19 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	if manager == nil || md == nil || md.DerivedModel() == nil {
 		return nil, ast.ErrASTHandle
 	}
+	// Source expr_ref locals and m_todo own generated expressions. Keep
+	// native references until extraction finishes, including failure exits.
+	var generated []ast.ASTHandle
+	ownGenerated := func(h ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return h, err
+		}
+		if err = manager.IncRef(h); err != nil {
+			return ast.ASTHandle{}, err
+		}
+		generated = append(generated, h)
+		return h, nil
+	}
 	evaluator, err := newSpacerModelEvaluator(md.DerivedModel().Core(), config)
 	if err != nil {
 		return nil, err
@@ -27,6 +40,9 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	var result []ast.ASTRef
 	defer func() {
 		resultErr = errors.Join(resultErr, evaluator.Close())
+		for i := len(generated) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DecRef(generated[i]))
+		}
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, result))
 		}
@@ -53,7 +69,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		}
 		literal := expression
 		if f {
-			literal, evalErr = manager.MkNot(expression)
+			literal, evalErr = ownGenerated(manager.MkNot(expression))
 			if evalErr != nil {
 				return evalErr
 			}
@@ -82,11 +98,11 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 				if e != nil {
 					return e
 				}
-				eq, e := manager.MkEq(a, b)
+				eq, e := ownGenerated(manager.MkEq(a, b))
 				if e != nil {
 					return e
 				}
-				literal, e = manager.MkNot(eq)
+				literal, e = ownGenerated(manager.MkNot(eq))
 				if e != nil {
 					return e
 				}
@@ -111,7 +127,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 					if x != nil || y != nil {
 						return errors.Join(x, y)
 					}
-					literal, evalErr = manager.MkEq(a, b)
+					literal, evalErr = ownGenerated(manager.MkEq(a, b))
 				case ast.ASTOpEq:
 					a, x := manager.GetArg(inner, 0)
 					b, y := manager.GetArg(inner, 1)
@@ -135,7 +151,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 					if family != arithmetic {
 						break
 					}
-					left, x := manager.MkArithmeticLT(a, b)
+					left, x := ownGenerated(manager.MkArithmeticLT(a, b))
 					if x != nil {
 						return x
 					}
@@ -144,7 +160,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 					} else if yes {
 						literal = left
 					} else {
-						literal, evalErr = manager.MkArithmeticLT(b, a)
+						literal, evalErr = ownGenerated(manager.MkArithmeticLT(b, a))
 					}
 				}
 			}
@@ -232,7 +248,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 								return e
 							}
 							if previous, ok := values[value]; ok {
-								eq, e := manager.MkEq(argument, previous)
+								eq, e := ownGenerated(manager.MkEq(argument, previous))
 								if e != nil {
 									return e
 								}
@@ -255,7 +271,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 						return evalErr
 					}
 				} else {
-					expanded, e := manager.MkDistinctExpanded(args)
+					expanded, e := ownGenerated(manager.MkDistinctExpanded(args))
 					if e != nil {
 						return e
 					}
@@ -422,7 +438,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, flattenedRefs)) }()
 	allTrue := true
 	if len(flattened) != 0 {
-		conjunction, e := manager.MkAndArray(flattened)
+		conjunction, e := ownGenerated(manager.MkAndArray(flattened))
 		if e != nil {
 			return nil, e
 		}

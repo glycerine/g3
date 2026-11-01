@@ -100549,6 +100549,17 @@
           ]
         },
         {
+          "name": "implicant_picker generated worklist roots and literal intermediates have explicit owning lifetimes through evaluation, publication and failure cleanup, matching expr_ref and expr_ref_vector ownership (spacer_util.cpp:740-909)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_failure_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantGeneratedTermsColdFailureCleanupAndRetry"
+          ]
+        },
+        {
           "name": "implicant_picker false distinct uses project_plugin::pick_equality first model-value identity lookup with owning evaluated values, replacing quadratic reevaluation (spacer_util.cpp:807-811; qe_mbp.cpp:58-76)",
           "status": "ported",
           "go_targets": [
@@ -100768,6 +100779,17 @@
           ],
           "tests": [
             "TestSpacerImplicantITEShortCircuitsSourceModelProbes"
+          ]
+        },
+        {
+          "name": "implicant_picker generated worklist roots and literal intermediates have explicit owning lifetimes through evaluation, publication and failure cleanup, matching expr_ref and expr_ref_vector ownership (spacer_util.cpp:740-909)",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/spacer/implicant_literals.go",
+            "pkg/muz/spacer/implicant_failure_test.go"
+          ],
+          "tests": [
+            "TestSpacerImplicantGeneratedTermsColdFailureCleanupAndRetry"
           ]
         },
         {
