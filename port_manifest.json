@@ -84785,6 +84785,7 @@
         "pkg/cmd_context/fixedpoint_datalog_profile.go",
         "pkg/parsers/smt2/commands.go",
         "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/query_expression_failure_test.go",
         "pkg/muz/fp/query_expression_answer_test.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
         "pkg/cmd_context/fixedpoint_expression_answer.go",
@@ -84816,6 +84817,8 @@
         "TestAPIFixedpointExpressionAnswerUnreachableBackends",
         "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
         "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
+        "TestFailedExpressionQueryInvalidatesPreviousResult",
+        "TestExpressionQueryAllocationFailureInvalidatesSnapshot",
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
         "TestAPIFixedpointDatalogMultipleRelationAnswers"
@@ -84885,6 +84888,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "expression-query result invalidation covers normalization, construction and cleanup failures", "status": "ported", "go_targets": ["pkg/muz/fp/query_expression.go", "pkg/muz/fp/engine_result_routing_test.go", "pkg/muz/fp/query_expression_failure_test.go"], "tests": ["TestFailedExpressionQueryInvalidatesPreviousResult", "TestExpressionQueryAllocationFailureInvalidatesSnapshot"]},
         {
           "name": "Retained register_predicate/add_rule/close-reopen/query orchestration for finite-domain Horn programs, including compiled relational-bytecode execution and recursive least-fixpoint saturation for positive rules with up to two tails and complete structural head assembly, implicit-variable binding, HNF ingestion with computed head terms, stratified negation, finite direct guards and ground theory-rewritten guards, dependency-ordered fallback table saturation, tuple answers, and lbool results (dl_context.cpp:122-190,344-469,680-738,861-889)",
           "status": "partial",

@@ -541,3 +541,44 @@ func TestExpressionQueryLastResultAndSpacerTraceInvalidation(t *testing.T) {
 		t.Fatal("stale trace", err)
 	}
 }
+
+func TestFailedExpressionQueryInvalidatesPreviousResult(t *testing.T) {
+	for _, backend := range []string{"datalog", "pdr", "spacer"} {
+		t.Run(backend, func(t *testing.T) {
+			engine, manager := newRoutingEngine(t)
+			declaration, application := routingPredicate(t, engine, manager, "failed-expression-"+backend)
+			fpMust(t, engine.AddRule(application, "fact"))
+			fpMust(t, engine.SelectEngine(backend))
+			status, err := engine.QueryPredicate(declaration)
+			fpMust(t, err)
+			if status != lbool.True {
+				t.Fatal("initial result", status)
+			}
+			ownedAnswer, err := engine.Answer(declaration)
+			fpMust(t, err)
+			defer func() { fpMust(t, manager.DelRef(&ownedAnswer)) }()
+			if _, err = engine.QueryExpression(ast.ASTHandle{}); err == nil {
+				t.Fatal("invalid expression query succeeded")
+			}
+			if _, err = manager.RefGet(ownedAnswer); err != nil {
+				t.Fatal("failed query invalidated an already owned answer", err)
+			}
+			reason, err := engine.ReasonUnknown()
+			fpMust(t, err)
+			if reason != "input error" {
+				t.Fatal("failed query status", reason)
+			}
+			if _, err = engine.LastResult(); !errors.Is(err, fp.ErrPropositionalEngine) {
+				t.Fatal("failed expression exposed an earlier result", err)
+			}
+			if _, err = engine.Answer(declaration); !errors.Is(err, fp.ErrPropositionalEngine) {
+				t.Fatal("failed expression exposed an earlier answer", err)
+			}
+			status, err = engine.QueryExpression(application)
+			fpMust(t, err)
+			if status != lbool.True {
+				t.Fatal("query did not recover", status)
+			}
+		})
+	}
+}

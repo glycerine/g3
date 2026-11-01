@@ -30,6 +30,13 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if level != nil && e.backend != "spacer" {
 		return lbool.Undef, ErrPropositionalEngine
 	}
+	// Every failure after a query begins invalidates the previous snapshot,
+	// including normalization, clone construction, and deferred cleanup.
+	defer func() {
+		if resultErr != nil {
+			e.recordQueryStatus(result, resultErr)
+		}
+	}()
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
@@ -94,9 +101,6 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			e.queryClone = clone
 		} else {
 			resultErr = errors.Join(resultErr, clone.Close())
-		}
-		if resultErr != nil {
-			e.recordQueryStatus(result, resultErr)
 		}
 	}()
 	declaration, head, err := clone.makeQueryHead(query)
