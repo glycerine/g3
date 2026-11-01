@@ -399,7 +399,7 @@ func (i *ModelImplicant) evalBasic(h ast.ASTHandle, op int32, args []ast.ASTHand
 		}
 		return i.setState(h, implicantTrue)
 	default:
-		return ast.ErrASTDomain
+		return i.unhandledTerm(h)
 	}
 }
 
@@ -616,7 +616,7 @@ func (i *ModelImplicant) evalArithmetic(h ast.ASTHandle, op int32, args []ast.AS
 	case 18:
 		return i.setState(h, implicantX)
 	default:
-		return ast.ErrASTDomain
+		return i.unhandledTerm(h)
 	}
 }
 

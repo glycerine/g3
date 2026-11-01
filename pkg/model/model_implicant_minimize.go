@@ -115,13 +115,13 @@ func (i *ModelImplicant) processFormula(h ast.ASTHandle, todo, collect *[]ast.AS
 			} else if i.isFalse(args[0]) {
 				*todo = append(*todo, args[0])
 			} else {
-				return ast.ErrASTDomain
+				return i.unhandledTerm(h)
 			}
 		} else {
 			*todo = append(*todo, args...)
 		}
 	default:
-		return ast.ErrASTDomain
+		return i.unhandledTerm(h)
 	}
 	return nil
 }
