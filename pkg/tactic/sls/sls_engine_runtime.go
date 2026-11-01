@@ -740,9 +740,15 @@ func (e *Engine) Solve() (lbool.LBool, error) {
 		if err := e.checkpointNow(); err != nil {
 			return lbool.Undef, err
 		}
+		if err := tactic.ReportTacticProgress("Searching... restarts left:", e.maxRestarts-e.stats.Restarts); err != nil {
+			return lbool.Undef, err
+		}
 		status, err := e.Search()
-		if err != nil || status == lbool.True {
+		if err != nil {
 			return status, err
+		}
+		if status == lbool.True {
+			return status, e.reportSearchSummary()
 		}
 		if e.restartInit {
 			err = e.search.Randomize()
@@ -757,7 +763,7 @@ func (e *Engine) Solve() (lbool.LBool, error) {
 		previous := e.stats.Restarts
 		e.stats.Restarts++
 		if previous >= e.maxRestarts {
-			return status, nil
+			return status, e.reportSearchSummary()
 		}
 	}
 }

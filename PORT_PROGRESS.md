@@ -52656,3 +52656,5 @@ SLS pruned evaluation: ported the source split traversal for non-Boolean value p
 SLS pruning graph and failure coverage: a shared Boolean DAG checks propagation and weighted root accounting; a large bit-vector allocation-frontier campaign verifies cleanup through successful evaluation. A failed destructive numeral copy can leave the source-style partial tracker value, so that campaign does not claim the interrupted engine can be reused.
 
 SLS single-assertion selection: the source returns a single unsatisfied assertion without consuming random bits, updating UCB counters or changing its last position, and GSAT returns the full tracked-constant vector for that case. Go now follows both shortcuts; tests cover unsatisfied and satisfied assertions, selection state and constant order.
+
+SLS progress and search summary: the engine now emits the source's verbosity-gated restart and successful-move reports and its final search summary through the process diagnostic stream. Tests cover level gating, zero counters, event order and exhausted restarts; the separate tactic-report and trace audit remains open.

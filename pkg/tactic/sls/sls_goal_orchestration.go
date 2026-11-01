@@ -57,6 +57,9 @@ func ApplyGoal(engine *Engine, goal *tactic.Goal, out *tactic.TacticResult) (sta
 		return status, err
 	}
 	if status == lbool.True {
+		if err = tactic.ReportTacticProgress("Number of flips:", engine.stats.Moves); err != nil {
+			return status, err
+		}
 		for _, formula := range engine.assertions {
 			value, x := engine.tracker.GetValue(formula)
 			if x != nil {
