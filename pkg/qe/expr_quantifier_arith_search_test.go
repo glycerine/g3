@@ -74,3 +74,37 @@ func TestExprQEArithmeticSearchRetestsPropagation(t *testing.T) {
 		t.Fatal("the integer interval [y, y+1] should always be satisfiable")
 	}
 }
+
+func TestExprQEArithmeticSearchWithBoundedCooperResidue(t *testing.T) {
+	f := qsatKernelFixture(t)
+	m := f.r.manager
+	x := f.constant("search-cooper-x", f.integer)
+	y := f.constant("search-cooper-y", f.integer)
+	twoX := f.own(m.MkArithmeticMul(f.number("2"), x))
+	polynomial := f.own(m.MkArithmeticAdd(twoX, y))
+	mod := f.own(m.MkFamilyApp(f.r.arithmetic, 13, nil, []ast.ASTHandle{polynomial, f.number("7")}))
+	body := f.own(m.MkEq(mod, f.number("0")))
+	bound, err := bindExprQuantifierVariables(m, []ast.ASTHandle{x}, body)
+	fmMust(t, err)
+	defer func() { fmMust(t, m.DelRef(&bound)) }()
+	quantifier, err := m.RefGet(bound)
+	fmMust(t, err)
+	result, complete, err := eliminateQuantifierArithmeticSearch(m, quantifier, f.r.config)
+	fmMust(t, err)
+	if !complete {
+		t.Fatal("Cooper search did not finish")
+	}
+	defer func() { fmMust(t, m.DelRef(&result)) }()
+	h, err := m.RefGet(result)
+	fmMust(t, err)
+	notResult := f.own(m.MkNot(h))
+	kernel := qsatKernelOwner(t, f)
+	solver, err := kernel.solver()
+	fmMust(t, err)
+	fmMust(t, solver.AssertFormula(notResult))
+	status, err := solver.CheckSat(nil)
+	fmMust(t, err)
+	if status != lbool.False {
+		t.Fatal("every integer has a solution modulo seven", status)
+	}
+}

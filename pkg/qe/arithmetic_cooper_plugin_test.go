@@ -20,13 +20,15 @@ func assignArithmeticInfinity(t *testing.T, f *arithmeticPluginFixture, formula 
 	return result
 }
 
-func releaseArithmeticCooperOutputs(t *testing.T, f *arithmeticPluginFixture) ([]ast.ASTHandle, int) {
+func releaseArithmeticCooperOutputs(t *testing.T, f *arithmeticPluginFixture) ([]uint32, int) {
 	t.Helper()
 	fresh, err := f.plugin.TakeFreshVariables()
 	pluginMust(t, err)
-	handles := make([]ast.ASTHandle, len(fresh))
+	widths := make([]uint32, len(fresh))
 	for i := range fresh {
-		handles[i], err = f.manager.RefGet(fresh[i])
+		handle, err := f.manager.RefGet(fresh[i])
+		pluginMust(t, err)
+		widths[i], err = f.manager.BitVectorSize(handle)
 		pluginMust(t, err)
 		pluginMust(t, f.manager.DelRef(&fresh[i]))
 	}
@@ -35,7 +37,7 @@ func releaseArithmeticCooperOutputs(t *testing.T, f *arithmeticPluginFixture) ([
 	for i := range constraints {
 		pluginMust(t, f.manager.DelRef(&constraints[i].Formula))
 	}
-	return handles, len(constraints)
+	return widths, len(constraints)
 }
 
 func TestArithmeticCooperDirectAndNegatedDivisibility(t *testing.T) {
@@ -73,6 +75,9 @@ func TestArithmeticCooperDirectAndNegatedDivisibility(t *testing.T) {
 			if len(fresh) != 1 || constraints != 4 {
 				t.Fatal("Cooper outputs", len(fresh), constraints)
 			}
+			if fresh[0] != 3 {
+				t.Fatal("residue bit-vector width", fresh[0])
+			}
 			again, err := f.plugin.TakeFreshVariables()
 			pluginMust(t, err)
 			if len(again) != 0 {
@@ -106,5 +111,8 @@ func TestArithmeticCooperNestedModuloRoutesResidues(t *testing.T) {
 	fresh, constraints := releaseArithmeticCooperOutputs(t, f)
 	if len(fresh) != 2 || constraints != 4 {
 		t.Fatal("nested Cooper outputs", len(fresh), constraints)
+	}
+	if fresh[0] != 3 || fresh[1] != 3 {
+		t.Fatal("nested residue bit-vector widths", fresh)
 	}
 }

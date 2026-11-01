@@ -153,6 +153,18 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	if err = context.AddPlugin(scalarPlugin); err != nil {
 		return result, false, errors.Join(err, scalarPlugin.Close())
 	}
+	if searchKind == qeScalarArithmetic {
+		if _, cause := m.RegisterBitVectorPlugin(); cause != nil {
+			return result, false, cause
+		}
+		bitVectors, cause := NewBitVectorPlugin(context)
+		if cause != nil {
+			return result, false, cause
+		}
+		if cause = context.AddPlugin(bitVectors); cause != nil {
+			return result, false, errors.Join(cause, bitVectors.Close())
+		}
+	}
 	rw, err := rewriter.NewTheoryRewriter(m, config.Context, config.Globals, nil)
 	if err != nil {
 		return result, false, err
@@ -182,6 +194,19 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	}
 	if err = partitioner.AddPlugin(scalarPlugin); err != nil {
 		return result, false, err
+	}
+	if searchKind == qeScalarArithmetic {
+		family, cause := m.BitVectorUtilityFamilyID()
+		if cause != nil {
+			return result, false, cause
+		}
+		plugin, found, cause := context.Plugin(family)
+		if cause != nil || !found {
+			return result, false, errors.Join(cause, ast.ErrASTDomain)
+		}
+		if cause = partitioner.AddPlugin(plugin); cause != nil {
+			return result, false, cause
+		}
 	}
 	variables, err := newExprQEBranchVariables(m)
 	if err != nil {

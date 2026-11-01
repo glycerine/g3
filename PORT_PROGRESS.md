@@ -1,4 +1,6 @@
-SMT rollback now undoes interleaved theory attachments in order with equality snapshots. QE search can continue with fresh datatype variables, covered by nested rollback, solver-equivalence and SMT-LIB tests; arithmetic fresh-variable search still stops pending further progress and termination work.
+Cooper elimination now uses bounded bit-vector residues and converts them to integers for arithmetic constraints, matching the source representation. Arithmetic QE can follow the new bit-vector variables; direct, solver-equivalence and SMT-LIB tests cover modular elimination.
+
+SMT rollback now undoes interleaved theory attachments in order with equality snapshots. QE search can continue with fresh datatype variables, covered by nested rollback, solver-equivalence and SMT-LIB tests.
 
 QE normalization follows variables added to or removed from its solver context, including fresh Cooper variables.
 

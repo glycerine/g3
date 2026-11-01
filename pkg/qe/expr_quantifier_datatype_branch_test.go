@@ -82,7 +82,11 @@ func TestExprQEFreshVariablePolicy(t *testing.T) {
 	f, m := d.f, d.f.r.manager
 	x := f.constant("policy-datatype", d.list)
 	y := f.constant("policy-arithmetic", f.integer)
-	context, err := NewSolverContext(m, []ast.ASTHandle{x, y})
+	_, err := m.RegisterBitVectorPlugin()
+	fmMust(t, err)
+	bvSort := f.own(m.BitVectorSort(3))
+	z := f.constant("policy-bit-vector", bvSort)
+	context, err := NewSolverContext(m, []ast.ASTHandle{x, y, z})
 	fmMust(t, err)
 	defer func() { fmMust(t, context.Close()) }()
 	datatypes, err := NewDatatypeSolverPlugin(context)
@@ -91,20 +95,29 @@ func TestExprQEFreshVariablePolicy(t *testing.T) {
 	arithmetic, err := NewArithmeticPlugin(context)
 	fmMust(t, err)
 	fmMust(t, context.AddPlugin(arithmetic))
+	bitVectors, err := NewBitVectorPlugin(context)
+	fmMust(t, err)
+	fmMust(t, context.AddPlugin(bitVectors))
 	variables, err := newExprQEBranchVariables(m)
 	fmMust(t, err)
 	defer func() { fmMust(t, variables.Close()) }()
 	fmMust(t, variables.add(x))
-	ok, err := exprQENewVariablesAreDatatypes(variables, context, 0)
+	ok, err := exprQENewVariablesSupported(variables, context, 0)
 	fmMust(t, err)
 	if !ok {
 		t.Fatal("datatype variable was rejected")
 	}
 	fmMust(t, variables.add(y))
-	ok, err = exprQENewVariablesAreDatatypes(variables, context, 1)
+	ok, err = exprQENewVariablesSupported(variables, context, 1)
 	fmMust(t, err)
 	if ok {
 		t.Fatal("arithmetic variable was accepted")
+	}
+	fmMust(t, variables.add(z))
+	ok, err = exprQENewVariablesSupported(variables, context, 2)
+	fmMust(t, err)
+	if !ok {
+		t.Fatal("bit-vector variable was rejected")
 	}
 }
 

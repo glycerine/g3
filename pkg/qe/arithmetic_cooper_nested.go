@@ -16,19 +16,10 @@ func (r *ArithmeticCooperRuntime) rewriteNested(processor *ArithmeticBoundsProce
 }
 
 func (r *ArithmeticCooperRuntime) rewriteOneNested(constraint *ArithmeticDivisibility, result ast.ASTRef) error {
-	sort, err := r.plugin.manager.GetSort(r.residue)
+	fresh, err := r.boundedVariable(new(big.Int).Abs(constraint.Divisor.Num()))
 	if err != nil {
 		return err
 	}
-	fresh, err := r.plugin.manager.MkFreshConst("qe-cooper-mod", sort)
-	if err != nil {
-		return err
-	}
-	ref, err := r.plugin.manager.NewRef(fresh)
-	if err != nil {
-		return err
-	}
-	r.fresh = append(r.fresh, ref)
 
 	upper := new(big.Int).Sub(new(big.Int).Abs(constraint.Divisor.Num()), big.NewInt(1))
 	bounded, err := r.boundedResidue(fresh, upper)

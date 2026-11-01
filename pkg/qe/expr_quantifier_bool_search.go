@@ -13,9 +13,9 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
-// Arithmetic fresh-variable search still requires additional progress and
-// termination work. Datatype variables can use the refreshed context.
-func exprQENewVariablesAreDatatypes(variables *exprQEBranchVariables, context *SolverContext, start int) (bool, error) {
+// Fresh datatype and bit-vector variables can use the refreshed context.
+// Other new theories still require additional search support.
+func exprQENewVariablesSupported(variables *exprQEBranchVariables, context *SolverContext, start int) (bool, error) {
 	if variables == nil || context == nil || start < 0 || start > len(variables.entries) || variables.manager != context.manager {
 		return false, ast.ErrASTHandle
 	}
@@ -32,7 +32,9 @@ func exprQENewVariablesAreDatatypes(variables *exprQEBranchVariables, context *S
 		if err != nil {
 			return false, err
 		}
-		if _, ok := plugin.(*DatatypeSolverPlugin); !ok {
+		switch plugin.(type) {
+		case *DatatypeSolverPlugin, *BitVectorPlugin:
+		default:
 			return false, nil
 		}
 	}
@@ -90,7 +92,7 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 		current, step, e := advanceExprQEScalarTree(root, variables, context, eval, config, rw, nnf, solver, false)
 		if e == nil && len(variables.entries) != variableCount {
 			var supported bool
-			supported, e = exprQENewVariablesAreDatatypes(variables, context, variableCount)
+			supported, e = exprQENewVariablesSupported(variables, context, variableCount)
 			if e != nil || !supported {
 				e = errors.Join(e, eval.Close(), md.DecRef())
 				return result, false, e
