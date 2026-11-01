@@ -7814,6 +7814,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateMacroTacticsAfterSourceClose",
         "TestAPITacticSolverTranslateFPA2BVAfterSourceClose",
         "TestAPITacticSolverTranslateBVEliminationAfterSourceClose",
         "TestAPITacticSolverTranslateBVBoundsAfterSourceClose",
@@ -198451,11 +198452,14 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/ufbv/macro_context_translation.go",
+        "pkg/tactic/ufbv/macro_context_translation_test.go",
         "pkg/tactic/ufbv/macro_tactics.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestMacroTacticContextTranslationCopiesKindAndPolicy",
         "TestMacroFinderTacticGoalProofCoreAndModelBoundary",
         "TestSMTLibRunnerScripts/ufbv_macro_tactics.smt2"
       ],
@@ -198537,11 +198541,14 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/ufbv/macro_context_translation.go",
+        "pkg/tactic/ufbv/macro_context_translation_test.go",
         "pkg/tactic/ufbv/macro_tactics.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestMacroTacticContextTranslationCopiesKindAndPolicy",
         "TestQuasiMacrosTacticRunsToFixedPoint",
         "TestSMTLibRunnerScripts/ufbv_macro_tactics.smt2"
       ],
