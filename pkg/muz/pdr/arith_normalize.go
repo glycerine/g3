@@ -9,7 +9,7 @@ import (
 )
 
 // NormalizeArithmetic divides both sides of a real comparison by the smallest
-// nonzero absolute monomial coefficient, matching the source PDR normalizer.
+// absolute monomial coefficient, following the source's zero-reset rule.
 // The returned AST is borrowed from the manager.
 func NormalizeArithmetic(manager *ast.ASTManager, formula ast.ASTHandle) (ast.ASTHandle, error) {
 	if manager == nil {
@@ -149,16 +149,13 @@ func normalizeArithmeticComparison(manager *ast.ASTManager, formula ast.ASTHandl
 			if err != nil {
 				return ast.ASTHandle{}, err
 			}
-			if coefficient.Sign() == 0 {
-				continue
-			}
 			coefficient.Abs(coefficient)
-			if divisor == nil || coefficient.Cmp(divisor) < 0 {
+			if divisor == nil || divisor.Sign() == 0 || coefficient.Cmp(divisor) < 0 {
 				divisor = coefficient
 			}
 		}
 	}
-	if divisor == nil || divisor.Cmp(big.NewRat(1, 1)) == 0 {
+	if divisor == nil || divisor.Sign() == 0 || divisor.Cmp(big.NewRat(1, 1)) == 0 {
 		if !negateResult {
 			return formula, nil
 		}

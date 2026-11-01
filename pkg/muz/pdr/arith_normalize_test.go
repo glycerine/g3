@@ -47,6 +47,13 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	if normalized == formula {
 		t.Fatal("comparison was not normalized")
 	}
+	zeroBound, err := manager.MkFamilyApp(mustArithmeticFamily(t, manager), 2, nil, []ast.ASTHandle{twoX, real})
+	closureMust(t, err)
+	unchanged, err := NormalizeArithmetic(manager, zeroBound)
+	closureMust(t, err)
+	if unchanged != zeroBound {
+		t.Fatal("source zero coefficient must reset the divisor and suppress scaling")
+	}
 	nested, err := manager.MkNot(formula)
 	closureMust(t, err)
 	nested, err = NormalizeArithmetic(manager, nested)
