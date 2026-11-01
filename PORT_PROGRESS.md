@@ -52748,3 +52748,5 @@ Datalog QE negative-equality branch test: added a negative-only regression for t
 QE tactic proof-mode parity: supported quantified formulas no longer fail solely because the goal enables proofs. The source also runs QE, then publishes a null rewrite proof; a proof-enabled Boolean quantifier regression checks the rewritten formula and cleared proof. General non-Boolean quantifiers and tactic statistics remain partial.
 
 QF_UFNRA tactic source closure: audited the ordered two-stage preprocessing chain, `elim_and`/`blast_distinct` parameter snapshot and owned factory construction. Allocation-frontier, algebraic-root, mixed arithmetic, unsat-core and focused SMT-LIB regressions pass in normal and `g3checked` builds; arithmetic purification coverage remains tracked in its own partial source units.
+
+Datalog QE plugin lifecycle closure: expanded the cache and context test to verify cached atom references are released at plugin close while unrelated AST roots return to their pre-prepare counts. Normal and `g3checked` focused plugin, branch and finite-domain tactic suites pass; broader quantifier shapes and allocation-failure audits remain open.

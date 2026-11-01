@@ -25,6 +25,12 @@ func TestDatalogPluginPrepareCacheAndContextOwnership(t *testing.T) {
 			contains, e := ast.NewContainsApp(m, x)
 			fmMust(t, e)
 			defer func() { fmMust(t, contains.Close()) }()
+			roots := []ast.ASTHandle{x, formula, eq, zero}
+			before := make([]uint32, len(roots))
+			for i, root := range roots {
+				before[i], e = m.GetRefCount(root)
+				fmMust(t, e)
+			}
 			ctx, e := NewSolverContext(m, []ast.ASTHandle{x})
 			fmMust(t, e)
 			plugin, e := NewDatalogPlugin(ctx)
@@ -70,6 +76,23 @@ func TestDatalogPluginPrepareCacheAndContextOwnership(t *testing.T) {
 			}
 			fmMust(t, service.Del(&count))
 			fmMust(t, ctx.Close())
+			for i, root := range roots {
+				if i == 2 { // The plugin was the equality's last owner after eqRef was released.
+					if _, kindErr := m.GetKind(root); !errors.Is(kindErr, ast.ErrASTHandle) {
+						t.Fatalf("plugin close kept equality alive: %v", kindErr)
+					}
+					continue
+				}
+				got, countErr := m.GetRefCount(root)
+				fmMust(t, countErr)
+				want := before[i]
+				if i == 0 || i == 3 { // Releasing the equality also releases its argument pins.
+					want--
+				}
+				if got != want {
+					t.Fatalf("plugin close refcount for root %d = %d, want %d", i, got, want)
+				}
+			}
 			if _, _, e = plugin.MkAtom(eq, true); !errors.Is(e, arena.ErrClosed) {
 				t.Fatal("plugin remained open", e)
 			}

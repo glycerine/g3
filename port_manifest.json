@@ -113195,7 +113195,7 @@
           "text": "VERIFY(m_eqs_cache.find(x, fml, eqs));"
         }
       ],
-      "methods_audited": false,
+      "methods_audited": true,
       "ownership_audited": false,
       "methods": [
         {
@@ -113209,10 +113209,15 @@
         },
         {
           "name": "plugin creation, family dispatch, owned atom cache, explicit prepare and branch count from finite sort cardinality",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/qe/datalog_plugin.go",
           "tests": [
-            "TestDatalogPluginPrepareCacheAndContextOwnership"
+            "TestDatalogPluginPrepareCacheAndContextOwnership",
+            "TestDatalogPluginAssignAndSubstituteBranches",
+            "TestDatalogPluginOtherBranchPreservesNegativeEquality",
+            "TestQuantifierTacticEliminatesDatalogFiniteEquality",
+            "TestQuantifierTacticEliminatesDatalogBlocks",
+            "TestQuantifierTacticEliminatesDatalogDisequalities"
           ]
         },
         {
@@ -113229,7 +113234,7 @@
         "Branch constraints own formula references until transferred or plugin close; substitution uses and closes a scoped expression replacer."
       ],
       "deviations": [
-        "Finite-domain scalar, same-sort block and mixed-quantifier searches are registered with context-atom discovery and live solver constraints. Equal domain and atom counts use exhaustive enumeration, and other-value substitution makes all equality atoms false, correcting two source soundness issues; broader quantifier shapes, diagnostics and allocation-failure audit remain pending. Datalog less-than reports an explicit unimplemented error as in source."
+        "The datalog QE plugin's family dispatch, finite-domain cardinality, ordered atom cache and cache-reference cleanup are covered. Broader quantifier shapes, diagnostics and allocation-failure audits remain pending; Datalog less-than reports an explicit unimplemented error as in source."
       ]
     },
     {
