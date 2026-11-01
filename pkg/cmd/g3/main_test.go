@@ -338,6 +338,8 @@ func TestSMTLibRunnerBitBlastStepFrontiers(t *testing.T) {
 }
 
 var scriptResults = map[string]string{
+	"fixedpoint_spacer_bv_state.smt2":              "unsat\nsat\nunsat\n",
+	"fixedpoint_spacer_datatype_state.smt2":        "unsat\nsat\nunsat\n",
 	"qfnra_nlsat_named.smt2":                       "sat\nunsat\nsat\nsat\nunsat\n",
 	"unit_subsumption_named.smt2":                  "sat\nunsat\n",
 	"default_named_tactic.smt2":                    "sat\nunsat\nsat\n",
