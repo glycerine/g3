@@ -191953,7 +191953,7 @@
         "pkg/tactic/nlsat_smt/shared_ast_fixtures_test.go",
         "pkg/tactic/nlsat_smt/doc.go"
       ],
-      "tests": ["TestNLPurifyCleanupAllocationFrontiers","TestNLPurifyConstructorAllocationFrontiers","TestNLPurifyApplyAllocationPrefixAndRetry","TestNLPurifyReportsProofRefusal","TestNLPurifySourceTraceOnNonlinearUnsat",
+      "tests": ["TestNLPurifyCleanupAllocationFrontiers","TestNLPurifyConstructorAllocationFrontiers","TestNLPurifyApplyAllocationPrefixAndRetry","TestNLPurifyAllocationOtherModes","TestNLPurifyCooperationResourceCancellationUsesSourceMessage","TestNLPurifyReportsProofRefusal","TestNLPurifySourceTraceOnNonlinearUnsat",
         "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
         "TestNLPurifyContextTranslationOwnsTargetServices",
         "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
