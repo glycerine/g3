@@ -219,15 +219,51 @@ func (p *legacyArrayProjection) projectSelects(md *model.ModelCore, variables []
 			if err != nil {
 				return nil, err
 			}
-			text, _, numeral, err := p.syntax.manager.ArithmeticNumeralText(valueHandle)
-			if err != nil || !numeral {
-				return nil, errors.Join(err, ast.ErrASTDomain)
+			classes = append(classes, indexClass{representative: index, value: value, constant: constant})
+		}
+		// The source orders arithmetic indices. For other index sorts,
+		// pairwise disequalities express the same model partition without
+		// requiring an ordering operation on that sort.
+		numeric := true
+		if len(classes) > 1 {
+			for i := range classes {
+				value, err := p.syntax.manager.RefGet(classes[i].value)
+				if err != nil {
+					return nil, err
+				}
+				text, _, numeral, err := p.syntax.manager.ArithmeticNumeralText(value)
+				if err != nil {
+					return nil, err
+				}
+				if !numeral {
+					numeric = false
+					break
+				}
+				classes[i].number, numeral = new(big.Rat).SetString(text)
+				if !numeral {
+					return nil, ast.ErrASTDomain
+				}
 			}
-			number, ok := new(big.Rat).SetString(text)
-			if !ok {
-				return nil, ast.ErrASTDomain
+		}
+		if !numeric {
+			for i := range classes {
+				for j := 0; j < i; j++ {
+					equality, err := p.syntax.manager.MkEq(classes[i].representative, classes[j].representative)
+					if err != nil {
+						return nil, err
+					}
+					inequality, err := p.syntax.manager.MkNot(equality)
+					if err != nil {
+						return nil, err
+					}
+					owned, err := p.syntax.manager.NewRef(inequality)
+					if err != nil {
+						return nil, err
+					}
+					conditions = append(conditions, owned)
+				}
 			}
-			classes = append(classes, indexClass{representative: index, value: value, constant: constant, number: number})
+			continue
 		}
 		sort.SliceStable(classes, func(left, right int) bool { return classes[left].number.Cmp(classes[right].number) < 0 })
 		arithmetic, err := p.syntax.manager.ArithmeticFamilyID()

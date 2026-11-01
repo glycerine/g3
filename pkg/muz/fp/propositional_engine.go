@@ -126,6 +126,8 @@ type PropositionalEngine struct {
 	pdrRevision         uint64
 	spacerRules         *base.RuleSet
 	spacerRevision      uint64
+	spacerOriginalQuery ast.ASTHandle
+	spacerQuery         ast.ASTHandle
 	spacerPredicates    map[ast.ASTHandle]ast.ASTHandle
 	spacerSlices        map[ast.ASTHandle][]bool
 	spacerQuantified    map[ast.ASTHandle]ast.ASTHandle
@@ -1938,7 +1940,10 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 			}
 			return e.inductiveModelAnswer(inductive)
 		}
-		answer, result = e.spacer.Answer(e.spacerPredicate(declaration))
+		if declaration != e.spacerOriginalQuery {
+			return answer, ast.ErrASTDomain
+		}
+		answer, result = e.spacer.Answer(e.spacerQuery)
 		if result != nil {
 			return answer, result
 		}
@@ -2151,7 +2156,10 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 		return e.expandHornModel(result, e.pdrConversions)
 	}
 	if e.backend == "spacer" && e.spacer != nil && e.spacerRevision == e.revision {
-		result, err := e.spacer.Model(e.spacerPredicate(declaration))
+		if declaration != e.spacerOriginalQuery {
+			return nil, ast.ErrASTDomain
+		}
+		result, err := e.spacer.Model(e.spacerQuery)
 		if err != nil {
 			return nil, err
 		}

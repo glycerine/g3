@@ -37,7 +37,8 @@ func TestSMT2SpacerSlicesWithProofTrace(t *testing.T) {
 		t.Fatal(err, output.String())
 	}
 	text := output.String()
-	if !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "P!slice!") || !strings.HasSuffix(text, "unsat\n") {
-		t.Fatal("Spacer sliced trace and unreachable query", text)
+	// This is the output of the bundled native Z3 source for the same script.
+	if want := "sat\n(and Goal P!slice!1)\nunsat\n"; text != want {
+		t.Fatalf("Spacer sliced trace: got %q, want %q", text, want)
 	}
 }

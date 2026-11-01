@@ -97572,6 +97572,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/spacer_relation_query.go",
+        "pkg/muz/fp/spacer_relation_query_test.go",
+        "pkg/parsers/smt2/spacer_slice_trace_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
         "pkg/muz/spacer/context.go",
@@ -97583,6 +97586,8 @@
         "pkg/muz/fp/query_expression.go"
       ],
       "tests": [
+        "TestSpacerRelationQueryReversesMixedSortHead",
+        "TestSMT2SpacerSlicesWithProofTrace",
         "TestSpacerEngineRunsReachableAndInductiveHornQueries",
         "TestSpacerEngineExpandsSlicedReachableColumns",
         "TestSpacerEngineReconstructsInlinedReachablePredicate",
@@ -97606,6 +97611,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "relation query creates a synthetic rule in the temporary preprocessing set and routes answer, model and ground trace through its derived query predicate", "status": "ported", "go_targets": ["pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_test.go", "pkg/muz/fp/spacer_rule_lifecycle_test.go", "pkg/parsers/smt2/spacer_slice_trace_test.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_engine.go"], "tests": ["TestSpacerRelationQueryReversesMixedSortHead", "TestSMT2SpacerSlicesWithProofTrace", "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules"]},
         {
           "name": "dl_interface cover/level operations access the Spacer context before the first query; check_reset skips its comparison when the old rule set is empty, preserving supplied covers through first rule installation",
           "status": "ported",
@@ -99060,7 +99066,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": ["pkg/qe/legacy_projection_constructor_test.go", "pkg/qe/legacy_arithmetic_linear.go", "pkg/qe/legacy_arithmetic_bounds.go", "pkg/qe/legacy_arithmetic_compare.go", "pkg/qe/legacy_arithmetic_real.go", "pkg/qe/legacy_arithmetic_integer.go", "pkg/qe/legacy_arithmetic_integer_project.go", "pkg/qe/legacy_arithmetic_mod.go", "pkg/qe/legacy_arithmetic_factor_mod.go", "pkg/qe/legacy_arithmetic_formula.go", "pkg/qe/legacy_array_equalities.go", "pkg/qe/legacy_array_select_reducer.go", "pkg/qe/legacy_array_ackermann.go", "pkg/qe/legacy_array_direct_equality.go", "pkg/qe/legacy_array_partial_equality.go", "pkg/qe/legacy_array_store_equality.go", "pkg/qe/legacy_array_partial_selects.go", "pkg/qe/legacy_array_polarity.go", "pkg/qe/legacy_array_formula.go", "pkg/qe/legacy_projection.go"],
-      "tests": ["TestLegacyProjectionConstructorAllocationFrontiers", "TestLegacyArrayDirectEqualityAllocationFrontiers", "TestLegacyModelEvaluatorAllocationFrontiers", "TestLegacyArithmeticProjectionClassifiesLinearLiterals", "TestLegacyArithmeticProjectionClassifiesEqualities", "TestLegacyArithmeticProjectionSelectsModelBounds", "TestLegacyArithmeticProjectionBuildsBoundComparisons", "TestLegacyArithmeticProjectionProjectsRealBounds", "TestLegacyArithmeticProjectionNormalizesIntegerCoefficients", "TestLegacyArithmeticProjectionProjectsIntegerPaths", "TestLegacyArithmeticProjectionRewritesModEquality", "TestLegacyArithmeticProjectionFactorsSharedModTerms", "TestLegacyArithmeticProjectionCoordinatesFormula", "TestLegacyArrayProjectionFindsStoreEqualitiesButBlocksSelects", "TestLegacyArrayProjectionReducesModelSelectedStore", "TestLegacyArrayProjectionAckermannizesEqualModelIndices", "TestLegacyArrayProjectionSubstitutesDirectEquality", "TestLegacyPartialEqualityApplicationAndExpansion", "TestLegacyArrayProjectionSubstitutesStoreEquality", "TestLegacyArrayProjectionFactorsSelectInsidePartialEquality", "TestLegacyArrayProjectionReplacesUnsolvedEqualityPolarity", "TestLegacyArrayProjectionCoordinatesEqualityAndSelects", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"],
+      "tests": ["TestLegacyArrayAckermannBooleanIndexClasses", "TestLegacyProjectionConstructorAllocationFrontiers", "TestLegacyArrayDirectEqualityAllocationFrontiers", "TestLegacyModelEvaluatorAllocationFrontiers", "TestLegacyArithmeticProjectionClassifiesLinearLiterals", "TestLegacyArithmeticProjectionClassifiesEqualities", "TestLegacyArithmeticProjectionSelectsModelBounds", "TestLegacyArithmeticProjectionBuildsBoundComparisons", "TestLegacyArithmeticProjectionProjectsRealBounds", "TestLegacyArithmeticProjectionNormalizesIntegerCoefficients", "TestLegacyArithmeticProjectionProjectsIntegerPaths", "TestLegacyArithmeticProjectionRewritesModEquality", "TestLegacyArithmeticProjectionFactorsSharedModTerms", "TestLegacyArithmeticProjectionCoordinatesFormula", "TestLegacyArrayProjectionFindsStoreEqualitiesButBlocksSelects", "TestLegacyArrayProjectionReducesModelSelectedStore", "TestLegacyArrayProjectionAckermannizesEqualModelIndices", "TestLegacyArrayProjectionSubstitutesDirectEquality", "TestLegacyPartialEqualityApplicationAndExpansion", "TestLegacyArrayProjectionSubstitutesStoreEquality", "TestLegacyArrayProjectionFactorsSelectInsidePartialEquality", "TestLegacyArrayProjectionReplacesUnsolvedEqualityPolarity", "TestLegacyArrayProjectionCoordinatesEqualityAndSelects", "TestLegacyProjectionCombinesBooleanArrayAndArithmetic"],
       "assertions": [
         {
           "line": 101,
@@ -99238,7 +99244,7 @@
         {"name": "legacy no-substitution array equality model-polarity replacement", "status": "ported", "go_target": "pkg/qe/legacy_array_polarity.go", "tests": ["TestLegacyArrayProjectionReplacesUnsolvedEqualityPolarity"]}
       ],
       "ownership": ["Each classified legacy literal owns its residual arithmetic term reference. LegacyProjection owns the concrete arithmetic and array services; each result owns its formula and remaining or auxiliary variable references until Close."],
-      "deviations": ["The retained free functions are consolidated into the owning LegacyProjection API. Live spacer.native_mbp selection belongs to spacer_legacy_mbp.cpp/spacer_util.cpp integration and is tracked separately."]
+      "deviations": ["The retained free functions are consolidated into the owning LegacyProjection API. Live spacer.native_mbp selection belongs to spacer_legacy_mbp.cpp/spacer_util.cpp integration and is tracked separately. Non-arithmetic array index classes use pairwise disequalities instead of the source's arithmetic-only index ordering precondition."]
     },
     {
       "path": "src/muz/spacer/spacer_qe_project.h",
@@ -102833,7 +102839,7 @@
         "The replacement RuleSet owns sliced rules and original/derived declaration mappings; temporary source rules and rewritten rules are closed after transfer."
       ],
       "deviations": [
-        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. QBMC and PDR use the partial proof converter and retry unsliced for unsupported proof shapes or changed conclusions. Spacer also slices with proof tracing enabled; its source overall proof hook is empty. Its ground trace can differ because Go relation queries do not create the source synthetic query predicate."
+        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. QBMC and PDR use the partial proof converter and retry unsliced for unsupported proof shapes or changed conclusions. Spacer also slices with proof tracing enabled; its source overall proof hook is empty."
       ]
     },
     {

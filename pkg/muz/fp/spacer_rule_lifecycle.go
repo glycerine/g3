@@ -4,6 +4,8 @@ package fp
 
 import (
 	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/smtcore"
 )
@@ -16,6 +18,8 @@ func (e *PropositionalEngine) closeSpacerForReplacement() (result error) {
 		e.spacer = nil
 		e.spacerRevision = 0
 	}
+	e.spacerOriginalQuery = ast.ASTHandle{}
+	e.spacerQuery = ast.ASTHandle{}
 	if e.spacerRules != nil {
 		result = errors.Join(result, e.spacerRules.Close())
 		e.spacerRules = nil

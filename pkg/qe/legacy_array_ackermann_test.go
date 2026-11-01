@@ -136,3 +136,46 @@ func TestLegacyArrayAckermannSharedSelectsAndSortedIndexClasses(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyArrayAckermannBooleanIndexClasses(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := newLegacyArrayProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	boolean := f.own(m.MkBoolSort())
+	arraySort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{boolean}), f.integer))
+	a := f.constant("boolean-index-array", arraySort)
+	i := f.constant("boolean-index-i", boolean)
+	j := f.constant("boolean-index-j", boolean)
+	selectI := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, i}))
+	selectJ := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, j}))
+	formula := f.own(m.MkEq(selectI, selectJ))
+	truth := f.own(m.MkTrue())
+	falsity := f.own(m.MkFalse())
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	array := f.own(m.MkConstArray(arraySort, zero))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	for variable, value := range map[ast.ASTHandle]ast.ASTHandle{a: array, i: truth, j: falsity} {
+		decl, err := m.GetDecl(variable)
+		fmMust(t, err)
+		fmMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	result, err := p.projectSelects(md.Core(), []ast.ASTHandle{a}, formula)
+	fmMust(t, err)
+	defer func() { fmMust(t, result.Close()) }()
+	if len(result.variables) != 2 {
+		t.Fatal("distinct Boolean indices must create two select values", len(result.variables))
+	}
+	root, err := m.RefGet(result.formula)
+	fmMust(t, err)
+	guard, err := m.GetArg(root, 0)
+	fmMust(t, err)
+	equality := f.own(m.MkEq(i, j))
+	want := f.own(m.MkNot(equality))
+	if guard != want {
+		t.Fatal("distinct Boolean index classes require a disequality")
+	}
+}

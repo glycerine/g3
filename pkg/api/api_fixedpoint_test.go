@@ -560,7 +560,7 @@ func TestSMTContextFixedpointSpacerInductiveExports(t *testing.T) {
 	astTestMust(t, manager.DelRef(&ground))
 	trace, names, err := context.FixedpointRulesAlongTrace()
 	astTestMust(t, err)
-	if len(trace) != 1 || len(names) != 1 || names[0] != "api-spacer-fact" {
+	if len(trace) != 1 || len(names) != 1 || names[0] != ";api-spacer-fact" {
 		t.Fatal("Spacer public trace rules", len(trace), names)
 	}
 	traceHandle, err := manager.RefGet(trace[0])

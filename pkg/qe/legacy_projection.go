@@ -5,6 +5,7 @@ package qe
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
@@ -218,7 +219,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 	for {
 		prepared, err := p.prepareProjectionRound(pending, current)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("projection preparation: %w", err)
 		}
 		ownedVariables = append(ownedVariables, prepared...)
 		pending = pending[:0]
@@ -258,7 +259,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 			}
 			next, err := p.substituteModelValues(md, handle, booleans)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Boolean model substitution: %w", err)
 			}
 			if err = p.manager.DelRef(&current); err != nil {
 				_ = p.manager.DelRef(&next)
@@ -275,7 +276,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 		}
 		projected, err := p.array.projectFormula(md, arrays, handle, reduceAllSelects)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("array projection: %w", err)
 		}
 		nextHandle, err := p.manager.RefGet(projected.formula)
 		if err == nil {
@@ -381,7 +382,7 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 	}
 	result.formula, err = p.arithmetic.rewriteLegacy(handle)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("projection final rewrite: %w", err)
 	}
 	return result, nil
 }

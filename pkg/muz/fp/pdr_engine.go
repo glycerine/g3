@@ -508,7 +508,10 @@ func (e *PropositionalEngine) GroundSatAnswer(declaration ast.ASTHandle) (ast.AS
 	if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 		return ast.ASTRef{}, err
 	}
-	answer, err := e.spacer.GroundSatAnswer(e.spacerPredicate(declaration))
+	if declaration != e.spacerOriginalQuery {
+		return ast.ASTRef{}, ast.ErrASTDomain
+	}
+	answer, err := e.spacer.GroundSatAnswer(e.spacerQuery)
 	if err != nil {
 		return ast.ASTRef{}, err
 	}

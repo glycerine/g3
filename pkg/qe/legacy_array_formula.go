@@ -4,6 +4,7 @@ package qe
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
@@ -56,7 +57,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		}
 		direct, eliminated, err := p.projectDirectEquality(md, variable, currentHandle)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("direct equality: %w", err)
 		}
 		if eliminated {
 			next, err := p.syntax.manager.RefGet(direct.formula)
@@ -75,7 +76,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		}
 		store, eliminated, err := p.projectStoreEquality(md, variable, currentHandle)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("store equality: %w", err)
 		}
 		if eliminated {
 			next, err := p.syntax.manager.RefGet(store.formula)
@@ -108,7 +109,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		}
 		polarized, err := p.replaceEqualityPolarities(md, variable, currentHandle)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("equality polarity: %w", err)
 		}
 		next, err := p.syntax.manager.RefGet(polarized.formula)
 		if err == nil {
@@ -126,7 +127,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 	}
 	reduced, err := p.reduceSelects(md, remaining, currentHandle, reduceAllSelects)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("select reduction: %w", err)
 	}
 	next, err := p.syntax.manager.RefGet(reduced.formula)
 	if err == nil {
@@ -142,7 +143,7 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 	}
 	selects, err := p.projectSelects(md, remaining, currentHandle)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("select projection: %w", err)
 	}
 	next, err = p.syntax.manager.RefGet(selects.formula)
 	if err == nil {

@@ -29,6 +29,16 @@ func TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("recursive-only predicate must be unreachable", status)
 	}
+	inductive, err := e.Model(query)
+	must(err)
+	for auxiliary := range e.auxiliary {
+		present, err := inductive.Core().HasInterpretation(auxiliary)
+		must(err)
+		if present {
+			t.Fatal("synthetic query predicate escaped into the model")
+		}
+	}
+	must(inductive.Close())
 	original := e.spacer
 	previous, found, err := original.Transformer(e.spacerPredicate(query))
 	must(err)

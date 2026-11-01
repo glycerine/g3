@@ -407,7 +407,9 @@ func TestSpacerEngineRunsReachableAndInductiveHornQueries(t *testing.T) {
 	}
 	trace, names, err := engine.RulesAlongTrace()
 	fpMust(t, err)
-	if len(trace) != 1 || len(names) != 1 || names[0] != "spacer-step" {
+	// Default preprocessing inlines the source query wrapper to an unnamed
+	// fact; the trace starts with that query rule.
+	if len(trace) != 1 || len(names) != 1 || names[0] != "" {
 		t.Fatal("Spacer preorder trace rules", names, len(trace))
 	}
 	for index := len(trace) - 1; index >= 0; index-- {

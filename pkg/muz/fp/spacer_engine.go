@@ -18,6 +18,10 @@ func (e *PropositionalEngine) preprocessHornRules(query ast.ASTHandle, allowSubs
 }
 
 func (e *PropositionalEngine) preprocessHornRulesWithSliceProof(query ast.ASTHandle, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof bool) (_ *hornPreprocessResult, resultErr error) {
+	return e.preprocessHornRulesWithQueryRule(query, nil, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof)
+}
+
+func (e *PropositionalEngine) preprocessHornRulesWithQueryRule(query ast.ASTHandle, queryRule *base.Rule, allowSubsumptionResultTransforms, allowInlineResultTransforms, allowSliceProof bool) (_ *hornPreprocessResult, resultErr error) {
 	var slicedPredicates map[ast.ASTHandle]ast.ASTHandle
 	var slicedColumns map[ast.ASTHandle][]bool
 	var sliceProof *transforms.SliceProofConverter
@@ -36,6 +40,11 @@ func (e *PropositionalEngine) preprocessHornRulesWithSliceProof(query ast.ASTHan
 	}()
 	if err = prepared.AddRules(e.set); err != nil {
 		return nil, err
+	}
+	if queryRule != nil {
+		if err = prepared.Add(queryRule); err != nil {
+			return nil, err
+		}
 	}
 	// rule_manager::mk_query registers the synthetic/direct query predicate as
 	// an output before apply_default_transformation runs.
@@ -552,6 +561,15 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
+	queryDeclaration := declaration
+	var queryRule *base.Rule
+	if !e.auxiliary[declaration] {
+		queryDeclaration, queryRule, err = e.makeSpacerRelationQuery(declaration)
+		if err != nil {
+			return lbool.Undef, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, queryRule.Close()) }()
+	}
 	resetRules, err := e.shouldResetSpacerRules()
 	if err != nil {
 		return lbool.Undef, err
@@ -568,7 +586,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	}()
 	// Spacer's overall proof hook is empty in this source version; reachable
 	// answers and unreachable models use its trace/model conversion paths.
-	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, true)
+	preprocessed, err := e.preprocessHornRulesWithQueryRule(queryDeclaration, queryRule, true, true, true)
 	if err != nil {
 		return lbool.Undef, err
 	}
@@ -587,7 +605,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	e.spacerMagic = preprocessed.magicPredicates
 	e.spacerKarr = preprocessed.karrInvariants
 	e.spacerConversions = preprocessed.takeModelConversions()
-	queryDeclaration, deriveErr := prepared.DerivedPredicate(declaration)
+	queryDeclaration, deriveErr := prepared.DerivedPredicate(queryDeclaration)
 	if deriveErr != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed Spacer query: %w", deriveErr)
 	}
@@ -633,5 +651,7 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	}
 	e.spacer = context
 	e.spacerRevision = e.revision
+	e.spacerOriginalQuery = declaration
+	e.spacerQuery = queryDeclaration
 	return context.Solve(fromLevel, maximumLevels)
 }
