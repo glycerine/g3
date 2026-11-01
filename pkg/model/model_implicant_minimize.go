@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 func closeImplicantResults(m *ast.ASTManager, values *[]ast.ASTRef) error {
@@ -22,8 +23,8 @@ func closeImplicantResults(m *ast.ASTManager, values *[]ast.ASTRef) error {
 }
 
 func (i *ModelImplicant) processFormula(h ast.ASTHandle, todo, collect *[]ast.ASTHandle) error {
-	if !i.isTrue(h) && !i.isFalse(h) {
-		return ast.ErrASTDomain
+	if err := i.assertKnownBoolean(h, 164); err != nil {
+		return err
 	}
 	args, err := i.appArgs(h)
 	if err != nil {
@@ -135,7 +136,9 @@ func (i *ModelImplicant) collect(formulas []ast.ASTHandle) ([]ast.ASTHandle, err
 		return nil, err
 	}
 	if !ok {
-		return nil, ast.ErrASTDomain
+		if err = diagnostic.BorrowProcessDebugContext().VerifyFailure("src/model/model_implicant.cpp", 273, "check_model(formulas)"); err != nil {
+			return nil, err
+		}
 	}
 	todo := append([]ast.ASTHandle(nil), formulas...)
 	result := make([]ast.ASTHandle, 0)
@@ -193,6 +196,9 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 		return nil, err
 	}
 	for _, h := range selected {
+		if err = i.assertKnownBoolean(h, 136); err != nil {
+			return nil, err
+		}
 		// Reserve the owning output before constructing a new literal.
 		slot, x := i.manager.NewRef(ast.ASTHandle{})
 		if x != nil {
@@ -200,7 +206,7 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 		}
 		pending = append(pending, slot)
 		literal := h
-		if i.isFalse(h) {
+		if !i.isTrue(h) {
 			args, x := i.appArgs(h)
 			if x != nil {
 				return nil, x
@@ -371,7 +377,9 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 			return nil, err
 		}
 		if !satisfied {
-			return nil, ast.ErrASTDomain
+			if err = diagnostic.BorrowProcessDebugContext().VerifyFailure("src/model/model_implicant.cpp", 113, "check_model(formulas)"); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return pending, nil
