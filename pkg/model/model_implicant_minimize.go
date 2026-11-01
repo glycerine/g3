@@ -21,15 +21,6 @@ func closeImplicantResults(m *ast.ASTManager, values *[]ast.ASTRef) error {
 	return nil
 }
 
-func (i *ModelImplicant) appendResult(values *[]ast.ASTRef, h ast.ASTHandle) error {
-	r, err := i.manager.NewRef(h)
-	if err != nil {
-		return err
-	}
-	*values = append(*values, r)
-	return nil
-}
-
 func (i *ModelImplicant) processFormula(h ast.ASTHandle, todo, collect *[]ast.ASTHandle) error {
 	if !i.isTrue(h) && !i.isFalse(h) {
 		return ast.ErrASTDomain
@@ -176,13 +167,15 @@ func (i *ModelImplicant) collect(formulas []ast.ASTHandle) ([]ast.ASTHandle, err
 // MinimizeLiterals returns owning references to the source-selected literals.
 // CloseImplicantResults releases a successful result vector.
 func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (result []ast.ASTRef, err error) {
+	var pending []ast.ASTRef
 	if err = i.setupModel(md); err != nil {
 		return nil, errors.Join(err, i.reset())
 	}
 	defer func() {
 		err = errors.Join(err, i.reset())
 		if err != nil {
-			err = errors.Join(err, closeImplicantResults(i.manager, &result))
+			err = errors.Join(err, closeImplicantResults(i.manager, &pending))
+			result = nil
 		}
 	}()
 	selected, err := i.collect(formulas)
@@ -194,6 +187,12 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 		return nil, err
 	}
 	for _, h := range selected {
+		// Reserve the owning output before constructing a new literal.
+		slot, x := i.manager.NewRef(ast.ASTHandle{})
+		if x != nil {
+			return nil, x
+		}
+		pending = append(pending, slot)
 		literal := h
 		if i.isFalse(h) {
 			args, x := i.appArgs(h)
@@ -224,11 +223,11 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 				}
 			}
 		}
-		if err = i.appendResult(&result, literal); err != nil {
+		if err = i.manager.SetRef(slot, literal); err != nil {
 			return nil, err
 		}
 	}
-	return result, nil
+	return pending, nil
 }
 
 func (i *ModelImplicant) markCone(root ast.ASTHandle) error {
@@ -269,13 +268,15 @@ func (i *ModelImplicant) markCone(root ast.ASTHandle) error {
 // MinimizeModel returns equalities for precisely the registered constants in
 // the selected formulas' cone of influence, preserving model order.
 func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (result []ast.ASTRef, err error) {
+	var pending []ast.ASTRef
 	if err = i.setupModel(md); err != nil {
 		return nil, errors.Join(err, i.reset())
 	}
 	defer func() {
 		err = errors.Join(err, i.reset())
 		if err != nil {
-			err = errors.Join(err, closeImplicantResults(i.manager, &result))
+			err = errors.Join(err, closeImplicantResults(i.manager, &pending))
+			result = nil
 		}
 	}()
 	selected, err := i.collect(formulas)
@@ -307,6 +308,11 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 		if !i.visited[constant] {
 			continue
 		}
+		slot, x := i.manager.NewRef(ast.ASTHandle{})
+		if x != nil {
+			return nil, x
+		}
+		pending = append(pending, slot)
 		value, x := i.evaluator.EvaluateValue(constant)
 		if x != nil {
 			return nil, x
@@ -317,15 +323,15 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 			return nil, x
 		}
 		eq, x := i.manager.MkEq(constant, valueHandle)
+		if x == nil {
+			x = i.manager.SetRef(slot, eq)
+		}
 		x = errors.Join(x, i.manager.DelRef(&value))
 		if x != nil {
 			return nil, x
 		}
-		if err = i.appendResult(&result, eq); err != nil {
-			return nil, err
-		}
 	}
-	return result, nil
+	return pending, nil
 }
 
 // CloseImplicantResults releases a successful MinimizeModel or
