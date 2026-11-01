@@ -539,11 +539,33 @@ func (e *Engine) RandomMove(declarations []ast.ASTHandle) (result error) {
 		if err != nil {
 			return err
 		}
-		choice, err := e.search.RandomUint(2)
+		first, err := e.search.RandomBool()
 		if err != nil {
 			return err
 		}
-		switch choice % 3 {
+		firstOne, err := e.numbers.IsOne(first)
+		if err != nil {
+			return err
+		}
+		second, err := e.search.RandomBool()
+		if err != nil {
+			return err
+		}
+		secondOne, err := e.numbers.IsOne(second)
+		if err != nil {
+			return err
+		}
+		choice := uint32(0)
+		if firstOne {
+			choice = 2
+		}
+		if secondOne {
+			choice++
+		}
+		if choice == 3 {
+			choice = 0
+		}
+		switch choice {
 		case 0:
 			width := uint32(32)
 			switch {
@@ -570,8 +592,7 @@ func (e *Engine) RandomMove(declarations []ast.ASTHandle) (result error) {
 			return err
 		}
 	}
-	_, err = e.seriousScore(decl, &value)
-	return err
+	return e.evaluator.SeriousUpdate(e.search, decl, &value)
 }
 
 func (e *Engine) CheckRestart(current uint32) bool {

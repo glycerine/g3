@@ -143,6 +143,131 @@ func TestSLSEngineMoveArithmeticWrapsAtBitWidth(t *testing.T) {
 	}
 }
 
+func TestSLSRandomWalkUsesSourceMoveBits(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		bits uint32
+		want string
+	}{
+		{"flip", 0, "1"},
+		{"increment", 1 << 5, "6"},
+		{"decrement", 1 << 4, "4"},
+		{"inversion-becomes-flip", 1<<4 | 1<<5, "1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			engine, search, evaluator, tracker, manager, numbers := slsEngineFixture(t)
+			if err := manager.RegisterDeclarationPlugins(); err != nil {
+				t.Fatal(err)
+			}
+			sort, err := manager.BitVectorSort(4)
+			if err != nil {
+				t.Fatal(err)
+			}
+			x := slsBVConst(t, manager, sort, "random-walk-x")
+			target := slsBVNumeral(t, manager, 6, 4)
+			root, err := manager.MkEq(x, target)
+			if err != nil {
+				t.Fatal(err)
+			}
+			slsPin(t, manager, root)
+			if err = search.Initialize([]ast.ASTHandle{root}); err != nil {
+				t.Fatal(err)
+			}
+			if err = search.Reset(); err != nil {
+				t.Fatal(err)
+			}
+			decl, err := manager.GetDecl(x)
+			if err != nil {
+				t.Fatal(err)
+			}
+			initial := numeral.NewInt(5)
+			if err = evaluator.SeriousUpdate(search, decl, &initial); err != nil {
+				t.Fatal(err)
+			}
+			// Four bits select the only declaration; the next two select the
+			// move, and the next four select bit 2 for the flip cases.
+			search.randomBits, search.randomBitsCount = tc.bits|1<<9, 15
+			before := engine.stats.IncrementalEvaluations
+			if err = engine.RandomMove([]ast.ASTHandle{decl}); err != nil {
+				t.Fatal(err)
+			}
+			value, err := tracker.GetValue(x)
+			if err != nil || slsIntText(t, numbers, value) != tc.want {
+				t.Fatal("random walk value", err, slsIntText(t, numbers, value), "want", tc.want)
+			}
+			if engine.stats.IncrementalEvaluations != before {
+				t.Fatal("random walk changed incremental evaluation count", engine.stats.IncrementalEvaluations, before)
+			}
+			rootValue, err := tracker.GetValue(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantRoot := "0"
+			if tc.want == "6" {
+				wantRoot = "1"
+			}
+			if got := slsIntText(t, numbers, rootValue); got != wantRoot {
+				t.Fatal("root value after random walk", got, "want", wantRoot)
+			}
+		})
+	}
+}
+
+func TestSLSRandomWalkBooleanUpdatesWithoutScoreEvaluation(t *testing.T) {
+	engine, search, _, tracker, manager, numbers := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "random-walk-p")
+	slsPin(t, manager, p)
+	if err := search.Initialize([]ast.ASTHandle{p}); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	decl, err := manager.GetDecl(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	search.randomBits, search.randomBitsCount = 0, 15
+	if err = engine.RandomMove([]ast.ASTHandle{decl}); err != nil {
+		t.Fatal(err)
+	}
+	value, err := tracker.GetValue(p)
+	if err != nil || slsIntText(t, numbers, value) != "1" {
+		t.Fatal("Boolean random walk", value, err)
+	}
+	if engine.stats.IncrementalEvaluations != 0 || search.randomBitsCount != 11 {
+		t.Fatal("Boolean random walk accounting", engine.stats, search.randomBitsCount)
+	}
+}
+
+func TestSLSSearchSolvesViaRandomWalk(t *testing.T) {
+	engine, search, _, tracker, manager, numbers := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "random-walk-search-p")
+	slsPin(t, manager, p)
+	if err := engine.AssertExpression(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Initialize([]ast.ASTHandle{p}); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	engine.wp = 1024
+	search.randomBits, search.randomBitsCount = 0, 15
+	status, err := engine.Search()
+	if err != nil || status != lbool.True {
+		t.Fatal("random-walk search", status, err)
+	}
+	value, err := tracker.GetValue(p)
+	if err != nil || slsIntText(t, numbers, value) != "1" {
+		t.Fatal("random-walk model", value, err)
+	}
+	if engine.stats.Moves != 2 || engine.stats.IncrementalEvaluations != 0 || engine.stats.FullEvaluations != 1 {
+		t.Fatal("random-walk search accounting", engine.stats)
+	}
+}
+
 func TestSLSSearchTrackerRandomStreamAndUnsatSelection(t *testing.T) {
 	_, search, _, tracker, manager, _ := slsEngineFixture(t)
 	p := slsBoolConst(t, manager, "sls-random-p")
