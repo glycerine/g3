@@ -197655,21 +197655,25 @@
         "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
         "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
         "TestSMTLibRunnerScripts/qfufnra_forward_trig.smt2",
+        "TestQFUFNRATacticConstructorAllocationFrontiers",
         "TestQFUFNRATacticWithAlgebraicRoot",
         "TestSMT2QFUFNRATacticMixedArithmetic",
         "TestSMT2QFUFNRATacticUnsatCore",
         "TestNLPurifyCooperatingSolversMixedSatisfiability",
         "TestNLPurifyTacticReuseAfterCleanup"
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "QF_UFNRA tactic construction and command registration",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go",
           "tests": [
+            "TestQFUFNRATacticConstructorAllocationFrontiers",
+            "TestQFUFNRATacticWithAlgebraicRoot",
             "TestSMT2QFUFNRATacticMixedArithmetic",
+            "TestSMT2QFUFNRATacticUnsatCore",
             "TestNLPurifyCooperatingSolversMixedSatisfiability"
           ],
           "go_targets": [
@@ -197680,7 +197684,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Arithmetic purification now includes root objects, integer division, modulus, to_int and quantified scope; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."
+        "The QF_UFNRA sequence, owning construction and factory registration are complete; arithmetic purification behavior remains partial in its own source units."
       ]
     },
     {
@@ -197712,15 +197716,18 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "QF_UFNRA tactic construction and command registration",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/tactic/smtlogics/qfufnra_tactic.go",
           "tests": [
+            "TestQFUFNRATacticConstructorAllocationFrontiers",
+            "TestQFUFNRATacticWithAlgebraicRoot",
             "TestSMT2QFUFNRATacticMixedArithmetic",
+            "TestSMT2QFUFNRATacticUnsatCore",
             "TestNLPurifyCooperatingSolversMixedSatisfiability"
           ],
           "go_targets": [
@@ -197731,7 +197738,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Arithmetic purification uses the existing real-arithmetic specialization; the full source purification behavior and tactic ownership, cancellation and failure-frontier audits remain incomplete."
+        "The QF_UFNRA sequence, owning construction and factory registration are complete; arithmetic purification behavior remains partial in its own source units."
       ]
     },
     {

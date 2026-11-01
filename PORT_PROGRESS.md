@@ -52746,3 +52746,5 @@ Tabulation compound-query integration coverage: the tab engine now checks both a
 Datalog QE negative-equality branch test: added a negative-only regression for the large-domain “other value” branch. It verifies the generated exclusion constraint and that substituting the equality atom produces `not(false)`, guarding the source polarity correction against being masked by a positive equality in the same formula.
 
 QE tactic proof-mode parity: supported quantified formulas no longer fail solely because the goal enables proofs. The source also runs QE, then publishes a null rewrite proof; a proof-enabled Boolean quantifier regression checks the rewritten formula and cleared proof. General non-Boolean quantifiers and tactic statistics remain partial.
+
+QF_UFNRA tactic source closure: audited the ordered two-stage preprocessing chain, `elim_and`/`blast_distinct` parameter snapshot and owned factory construction. Allocation-frontier, algebraic-root, mixed arithmetic, unsat-core and focused SMT-LIB regressions pass in normal and `g3checked` builds; arithmetic purification coverage remains tracked in its own partial source units.
