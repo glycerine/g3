@@ -3,6 +3,7 @@ package rel
 // Source: src/test/dl_relation.cpp test_interval_relation.
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -51,6 +52,20 @@ func TestIntervalRelationSourceOperations(t *testing.T) {
 	astTestMust(t, err)
 	if projected.Empty() {
 		t.Fatal("projection of source join became empty")
+	}
+
+	real, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	x := own(m.MkVar(0, real))
+	half := own(m.ArithmeticRealNumeralText("1/2"))
+	two := own(m.ArithmeticRealNumeralText("2"))
+	ranged := NewIntervalFull(1)
+	astTestMust(t, ranged.FilterInterpreted(m, own(m.MkArithmeticLT(half, x))))
+	astTestMust(t, ranged.FilterInterpreted(m, own(m.MkArithmeticLE(x, two))))
+	var display bytes.Buffer
+	astTestMust(t, ranged.Display(&display))
+	if got, want := display.String(), "0 in (1/2, 2]\n\n"; got != want {
+		t.Fatalf("finite interval source display: got %q, want %q", got, want)
 	}
 }
 
