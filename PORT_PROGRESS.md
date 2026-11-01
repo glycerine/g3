@@ -22,6 +22,8 @@ Sparse table plugin audit: mapped plugin construction, dispatch, empty/clone fac
 
 External relation display: ported the source relation-expression display and tuple-display delegation, including the final newline and writer-error propagation. A regression checks both entry points, nil/closed behavior, and writer failure in normal and `g3checked` builds.
 
+External relation integration gate: the full relation package and Datalog/API consumers pass normally; the fixedpoint external-relation callback registration test also passes in normal and `g3checked` builds.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
