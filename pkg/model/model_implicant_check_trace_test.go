@@ -9,6 +9,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
 	utext "github.com/glycerine/g3/pkg/util/text"
+	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
 func TestModelImplicantCheckModelSourceDiagnostics(t *testing.T) {
@@ -21,6 +22,9 @@ func TestModelImplicantCheckModelSourceDiagnostics(t *testing.T) {
 					truth = "unknown"
 					tags = diagnostic.NewTraceTagsWithWriter(modelImplicantRefusingTraceWriter{})
 					implicant.services.Trace = tags
+				}
+				if truth == "false" {
+					modelImplicantVerificationFixture(t, m, "T")
 				}
 				var pins []ast.ASTRef
 				defer func() {
@@ -79,8 +83,13 @@ func TestModelImplicantCheckModelSourceDiagnostics(t *testing.T) {
 				arrayTableMust(t, implicant.setupModel(md))
 				satisfied, err := implicant.checkModel([]ast.ASTHandle{formula})
 				if truth == "false" {
-					if !errors.Is(err, ast.ErrASTDomain) {
-						t.Fatal("false formula lost source failure", err)
+					if ast.ASTSourceDebug {
+						var source z3exception.DefaultException
+						if !errors.As(err, &source) {
+							t.Fatal("false formula lost source throw", err)
+						}
+					} else if !errors.Is(err, diagnostic.ErrDebugNativeUnreachable) {
+						t.Fatal("false formula lost source release guard", err)
 					}
 				} else {
 					arrayTableMust(t, err)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 type implicantValue uint8
@@ -719,9 +720,11 @@ func (i *ModelImplicant) checkModel(formulas []ast.ASTHandle) (bool, error) {
 		}
 		if i.isFalse(formula) {
 			if err = i.reportEvaluation(0, "formula false in model: ", formula, "\n"); err != nil {
-				return false, errors.Join(ast.ErrASTDomain, err)
+				return false, err
 			}
-			return false, ast.ErrASTDomain
+			if err = diagnostic.BorrowProcessDebugContext().UnreachableSource("src/model/model_implicant.cpp", 864); err != nil {
+				return false, err
+			}
 		}
 		if i.isX(formula) {
 			if err = i.reportEvaluation(0, "formula undetermined in model: ", formula, "\n"); err != nil {
