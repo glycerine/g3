@@ -80,6 +80,9 @@ func containsGeneralizedLiteral(values []ast.ASTHandle, value ast.ASTHandle) boo
 // Constructor field equalities appended during expansion are visited too.
 func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) ([]ast.ASTHandle, error) {
 	conjs := []ast.ASTHandle{literal}
+	if err := p.traceLiteralExpansion(conjs, true); err != nil {
+		return nil, err
+	}
 	for i := 0; i < len(conjs); i++ {
 		expanded, err := p.expandInductiveLiteralOnce(conjs[i])
 		if err != nil {
@@ -110,6 +113,9 @@ func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) ([]
 		} else {
 			conjs = append(conjs, expanded[1:]...)
 		}
+	}
+	if err := p.traceLiteralExpansion(conjs, false); err != nil {
+		return nil, err
 	}
 	return conjs, nil
 }

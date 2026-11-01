@@ -1,3 +1,5 @@
+Spacer literal-expansion traces: ported source begin/end records around the live inductive-generalizer expansion, rendering literals in traversal order. The debug regression verifies equality input and adjacent arithmetic-bound output; full normal and checked Spacer package tests pass. The broader utility unit remains partial.
+
 Spacer bit-vector literal-expansion finite oracle: checked all 126 values at widths one through six in both equality orientations against independent bit masks and composed extract positions. The oracle accounts for source growing-vector traversal revisiting appended positive literals and adding redundant one-bit extracts; normal and checked focused runs pass.
 
 Spacer verbose MBQI projection: added the source input-formula, numbered candidate-list and candidate/model-value traces, retaining evaluated AST references until after printing. The debug regression verifies source record order and first-equivalent candidate selection; normal and checked projection tests pass. This completes the missing MBQI trace sites without claiming the broader Spacer utility audit complete.
