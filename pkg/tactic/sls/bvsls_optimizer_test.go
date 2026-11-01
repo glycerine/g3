@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/numeral"
 )
 
 func TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel(t *testing.T) {
@@ -83,5 +84,78 @@ func TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective(t *testing.T) {
 	result, err := optimizer.Optimize(x, nil, false)
 	if err != nil || result.Status != lbool.True || result.Optimum != five {
 		t.Fatal("source represents minimization as maximizing bvneg", result, err)
+	}
+}
+
+func TestBVSLSOptimizerUsesOnlySourceEnabledMoves(t *testing.T) {
+	engine, _, _, _, manager, numbers := slsEngineFixture(t)
+	if err := manager.RegisterDeclarationPlugins(); err != nil {
+		t.Fatal(err)
+	}
+	sort, err := manager.BitVectorSort(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := slsBVConst(t, manager, sort, "bvsls-source-moves-x")
+	one, two := slsBVNumeral(t, manager, 1, 3), slsBVNumeral(t, manager, 2, 3)
+	isOne, err := manager.MkEq(x, one)
+	if err != nil {
+		t.Fatal(err)
+	}
+	isTwo, err := manager.MkEq(x, two)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hard, err := manager.MkOr(isOne, isTwo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slsPin(t, manager, x, one, two, isOne, isTwo, hard)
+	if err = engine.AssertExpression(hard); err != nil {
+		t.Fatal(err)
+	}
+	optimizer, err := NewBVOptimizer(engine)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer optimizer.Close()
+	if err = engine.search.Initialize(engine.assertions); err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	decl, err := manager.GetDecl(x)
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := numeral.NewInt(1)
+	if err = engine.tracker.SetDeclValue(decl, &start); err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.evaluator.UpdateAll(engine.search); err != nil {
+		t.Fatal(err)
+	}
+	if err = optimizer.setupObjective(x, true); err != nil {
+		t.Fatal(err)
+	}
+	if err = optimizer.objective.SetDeclValue(decl, &start); err != nil {
+		t.Fatal(err)
+	}
+	if err = optimizer.evaluator.UpdateAll(optimizer.search); err != nil {
+		t.Fatal(err)
+	}
+	declarations, err := optimizer.objective.Constants()
+	if err != nil {
+		t.Fatal(err)
+	}
+	score := numeral.NewInt(1)
+	bestValue, maximum := numeral.NewInt(0), numeral.NewInt(7)
+	_, _, _, _, found, err := optimizer.findBestMove(declarations, &score, &bestValue, &maximum)
+	if err != nil || found {
+		t.Fatal("source build enables only bit flips and inversion; +1 to the sole other feasible value is disabled", found, err)
+	}
+	if err = numbers.Del(&maximum); err != nil {
+		t.Fatal(err)
 	}
 }

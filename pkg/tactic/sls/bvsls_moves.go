@@ -101,29 +101,13 @@ func (o *BVOptimizer) findBestMove(declarations []ast.ASTHandle, score, bestValu
 			}
 		}
 		if sort != boolSort && bits > 1 {
-			even, x := o.hard.numbers.IsEven(&oldValue)
-			if x != nil {
-				return bestScore, bestIndex, 0, 0, false, x
-			}
-			if even {
-				x = o.hard.MkDecrement(bits, &oldValue, &candidate)
-				move = SLSMoveDecrement
-			} else {
-				x = o.hard.MkIncrement(bits, &oldValue, &candidate)
-				move = SLSMoveIncrement
-			}
-			if x != nil {
+			// The source's _USE_ADDSUB_, _USE_UNARY_MINUS_ and
+			// _USE_MUL2DIV2_ switches are undefined in the retained build, so
+			// only the unconditional bit flips and bitwise inversion run here.
+			if x := o.hard.MkInvert(bits, &oldValue, &candidate); x != nil {
 				return bestScore, bestIndex, 0, 0, false, x
 			}
 			better, x := o.whatIf(decl, uint32(i), &candidate, &bestScore, bestValue, &bestIndex)
-			if x != nil {
-				return bestScore, bestIndex, 0, 0, false, x
-			}
-			found = found || better
-			if x = o.hard.MkInvert(bits, &oldValue, &candidate); x != nil {
-				return bestScore, bestIndex, 0, 0, false, x
-			}
-			better, x = o.whatIf(decl, uint32(i), &candidate, &bestScore, bestValue, &bestIndex)
 			if x != nil {
 				return bestScore, bestIndex, 0, 0, false, x
 			}

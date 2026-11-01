@@ -194120,7 +194120,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/sls/bvsls_optimizer.go", "pkg/tactic/sls/bvsls_moves.go", "pkg/tactic/sls/bvsls_model.go", "pkg/tactic/sls/bvsls_optimizer_test.go"],
-      "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"],
+      "tests": ["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel", "TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective", "TestBVSLSOptimizerUsesOnlySourceEnabledMoves"],
       "conditionals": [
         {
           "line": 209,
@@ -194197,11 +194197,18 @@
           "text": "SASSERT(mdl->get_const_interp(fd) == val);"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": []
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name":"objective tracker setup and minimization by bit-vector negation","status":"ported","go_target":"pkg/tactic/sls/bvsls_optimizer.go","tests":["TestBVSLSOptimizerMinimizeUsesSourceNegatedObjective"]},
+        {"name":"hard-constraint search, initial-model import, and objective optimization pass","status":"partial","go_target":"pkg/tactic/sls/bvsls_optimizer.go","tests":["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel"]},
+        {"name":"candidate scoring and hard-satisfaction guard","status":"ported","go_target":"pkg/tactic/sls/bvsls_moves.go","tests":["TestBVSLSOptimizerUsesOnlySourceEnabledMoves"]},
+        {"name":"default-build best-move enumeration using bit flips and inversion","status":"ported","go_target":"pkg/tactic/sls/bvsls_moves.go","tests":["TestBVSLSOptimizerUsesOnlySourceEnabledMoves"]},
+        {"name":"objective hill climbing and hard-satisfying randomization","status":"ported","go_target":"pkg/tactic/sls/bvsls_moves.go","tests":["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel"]},
+        {"name":"best model merge, score snapshot, and returned optimum","status":"ported","go_target":"pkg/tactic/sls/bvsls_model.go","tests":["TestBVSLSOptimizerPreservesHardConstraintAndSavesBestModel"]}
+      ],
+      "ownership": ["BVOptimizer borrows the hard Engine and owns its objective Tracker, SearchTracker, Evaluator, objective expression reference, best score, and best model; Close releases these owned resources.", "The best model combines hard and objective interpretations while checking overlapping declarations for identical values."],
+      "deviations": ["The retained Go Optimize call performs one bounded hard-satisfaction and objective pass; the C++ outer loop continues through max_restarts (default UINT_MAX) and requires external cancellation to stop. C++ move branches controlled by undefined build switches (_USE_ADDSUB_, _USE_UNARY_MINUS_, _USE_MUL2DIV2_) are disabled; Go now matches that active default move set."]
     },
     {
       "path": "src/tactic/sls/bvsls_opt_engine.h",
