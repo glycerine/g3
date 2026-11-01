@@ -120173,6 +120173,7 @@
         "TestSATIntegrityDisjointFreshSetEveryRefusal",
         "TestSATIntegrityNaryBlockedAndReinitProfiles",
         "TestSATIntegrityAsymmActualEnabledWrapperSites",
+        "TestSATSCCInvariantUsesSourceConditionalAssertionTag",
         "TestSATSCCNativeFrameGrowthAndCleanup",
         "TestSATSCCNativeDeepComponentsAndRepeat"
       ],
@@ -120229,7 +120230,7 @@
           ]
         },
         {
-          "name": "Enabled source integrity call sites delegate to actual lifecycle checker; Asymm propagation, entry and exit resource increments covered",
+          "name": "Enabled source integrity call sites delegate to actual lifecycle checker; asymm_branch and scc_bug process assertion gates are tested",
           "status": "partial",
           "go_target": "pkg/sat/sat_solver_integrity.go",
           "tests": [
@@ -120242,6 +120243,7 @@
             "TestSATIntegrityDisjointFreshSetEveryRefusal",
             "TestSATIntegrityNaryBlockedAndReinitProfiles",
             "TestSATIntegrityAsymmActualEnabledWrapperSites",
+            "TestSATSCCInvariantUsesSourceConditionalAssertionTag",
             "TestSATSCCNativeFrameGrowthAndCleanup",
             "TestSATSCCNativeDeepComponentsAndRepeat"
           ]

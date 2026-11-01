@@ -57,6 +57,34 @@ func TestSATSCCDefaultEquivalenceAndActualConverter(t *testing.T) {
 		t.Fatal(n, p.converter.Size())
 	}
 }
+
+func TestSATSCCInvariantUsesSourceConditionalAssertionTag(t *testing.T) {
+	g, _ := satGCFixture(t, 3)
+	l := g.lifecycle()
+	ctx := l.propagation.config.context
+	params, err := ctx.NewValue()
+	satOK(t, err)
+	c, err := newSATSCC(l, &params)
+	satOK(t, ctx.Del(&params))
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, c.Close()) })
+	debug, _, _ := satIntegrityActionFixture(t, "")
+	before := l.propagation.limit.Steps
+	_, err = c.run()
+	satOK(t, err)
+	baselineChecks := l.propagation.limit.Steps - before
+	satOK(t, debug.EnableDebug("scc_bug"))
+	before = l.propagation.limit.Steps
+	_, err = c.run()
+	satOK(t, err)
+	want := baselineChecks
+	if satStorageSourceDebug {
+		want += 2 // CASSERT before SCC search and after equivalence elimination.
+	}
+	if got := l.propagation.limit.Steps - before; got != want {
+		t.Fatalf("enabled process assertion consumed %d checks, want %d", got, want)
+	}
+}
 func TestSATSCCExternalRootAndContradiction(t *testing.T) {
 	for _, ext := range []bool{false, true} {
 		c, l := satSCCFixture(t, 2)

@@ -6,6 +6,8 @@ SAT equivalence elimination now closes its source audit: watch cleanup, clause n
 
 Asymmetric branching now gates its entry/exit invariant checks through the source `asymm_branch` process assertion tag; normal, checked and debug tests verify disabled and enabled resource-check counts.
 
+SCC invariant checks now follow the source `scc_bug` process assertion tag at search entry and post-elimination; focused normal, checked and debug regressions distinguish algorithm checkpoints from the two conditional checks.
+
 Bound-relation union and delta paths now copy union-find classes with column bounds, including the source-empty delta case. Regression tests cover each source copy branch in normal and g3checked builds.
 
 UDoc joins now have a repeated-column source regression: one left column is matched against two right columns, and a finite exhaustive oracle checks every output row. The focused test passes in normal and g3checked builds.

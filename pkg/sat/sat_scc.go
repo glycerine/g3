@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
@@ -16,23 +17,23 @@ import (
 // Traversal arrays are native Go storage. Frames borrow the actual watch iterator;
 // no encoded frame or container backing is allocated through Runtime.
 type satSCC struct {
-	self                                                         *satSCC
-	solver                                                       *Solver // borrowed source owner for mk_stat in report
-	lifecycle                                                    *satSolverClauseLifecycle
-	index, lowlink, stack                                        []uint32
-	inStack                                                      []bool
-	roots                                                        []Literal
-	frames                                                       []satSCCFrame
-	toElim                                                       []BoolVar
-	eliminator                                                   satElimEqs
-	big                                                          *satBIG
-	numElim, numElimBinary, nextIndex                            uint32
-	reportNumElim, reportNumElimBinary                           uint32
-	header                                                       uint64
-	bodyCause, cleanupCause                                      error
-	report                                                       stopwatch.Stopwatch
-	reportActive                                                 bool
-	enabled, transitive, active, closing, closed, debugInvariant bool
+	self                                         *satSCC
+	solver                                       *Solver // borrowed source owner for mk_stat in report
+	lifecycle                                    *satSolverClauseLifecycle
+	index, lowlink, stack                        []uint32
+	inStack                                      []bool
+	roots                                        []Literal
+	frames                                       []satSCCFrame
+	toElim                                       []BoolVar
+	eliminator                                   satElimEqs
+	big                                          *satBIG
+	numElim, numElimBinary, nextIndex            uint32
+	reportNumElim, reportNumElimBinary           uint32
+	header                                       uint64
+	bodyCause, cleanupCause                      error
+	report                                       stopwatch.Stopwatch
+	reportActive                                 bool
+	enabled, transitive, active, closing, closed bool
 }
 
 func newSATSCC(l *satSolverClauseLifecycle, p *uparams.ParamsRef) (*satSCC, error) {
@@ -177,6 +178,19 @@ func (c *satSCC) frame(f uint32) (uint32, bool, satSolverWatchIterator, error) {
 	x := c.frames[f]
 	return x.literal, x.first, x.iterator, nil
 }
+
+func (c *satSCC) assertConditionalInvariant() error {
+	if !satStorageSourceDebug {
+		return nil
+	}
+	d := diagnostic.BorrowProcessDebugContext()
+	enabled, err := d.ConditionalAssertionEnabled("scc_bug")
+	if err != nil || !enabled {
+		return err
+	}
+	return c.lifecycle.checkInvariantWithActions(true)
+}
+
 func (c *satSCC) run() (count uint32, err error) {
 	if e := c.open(); e != nil {
 		return 0, e
@@ -188,10 +202,8 @@ func (c *satSCC) run() (count uint32, err error) {
 	if c.active || c.reportActive {
 		return 0, arena.ErrClosed
 	}
-	if satStorageSourceDebug && c.debugInvariant {
-		if e := c.lifecycle.checkInvariant(); e != nil {
-			return 0, e
-		}
+	if e := c.assertConditionalInvariant(); e != nil {
+		return 0, e
 	}
 	c.report = stopwatch.Stopwatch{}
 	c.reportNumElim = c.numElim
@@ -338,10 +350,8 @@ func (c *satSCC) run() (count uint32, err error) {
 		return 0, e
 	}
 	c.traceSolverDisplay("scc_detail", 221)
-	if satStorageSourceDebug && c.debugInvariant {
-		if e := c.lifecycle.checkInvariant(); e != nil {
-			return 0, e
-		}
+	if e := c.assertConditionalInvariant(); e != nil {
+		return 0, e
 	}
 	if c.transitive {
 		if e = c.reduceTransitive(); e != nil {
