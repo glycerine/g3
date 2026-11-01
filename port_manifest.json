@@ -92354,6 +92354,7 @@
         "TestFiniteSparseProductComplementAndFull",
         "TestFiniteSparseProductJoinTableRelationConversion",
         "TestFiniteSparseProductJoinAcrossPartitions",
+        "TestFiniteSparseProductJoinPartitionOracle",
         "TestFiniteSparseProductSourceDriver",
         "TestFiniteSparseProductFromInnerSparseTableClonesInput",
         "TestFiniteSparseProductJoinInnerSparseTableConversion"
@@ -92790,7 +92791,8 @@
           "go_target": "pkg/muz/rel/finite_sparse_product.go",
           "tests": [
             "TestFiniteSparseProductJoinAcrossPartitions",
-            "TestFiniteSparseProductSourceDriver"
+            "TestFiniteSparseProductSourceDriver",
+            "TestFiniteSparseProductJoinPartitionOracle"
           ]
         },
         {

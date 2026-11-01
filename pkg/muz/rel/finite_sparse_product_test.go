@@ -311,6 +311,90 @@ func TestFiniteSparseProductJoinProjectComposition(t *testing.T) {
 	}
 }
 
+func TestFiniteSparseProductJoinPartitionOracle(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-join-partition-oracle")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 3)
+	astTestMust(t, err)
+	values := make([]ast.ASTHandle, 3)
+	for i := range values {
+		values[i], err = f.ast.MkDatalogNumeral(uint64(i), sort)
+		astTestMust(t, err)
+		astTestPin(t, f.ast, values[i])
+	}
+	conditions := []struct{ left, right []int }{
+		{nil, nil},
+		{[]int{0}, []int{0}},
+		{[]int{0, 1}, []int{1, 0}},
+	}
+	for leftLayout := 0; leftLayout < 4; leftLayout++ {
+		for rightLayout := 0; rightLayout < 4; rightLayout++ {
+			leftMask := []bool{leftLayout&1 != 0, leftLayout&2 != 0}
+			rightMask := []bool{rightLayout&1 != 0, rightLayout&2 != 0}
+			left, e := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, leftMask)
+			astTestMust(t, e)
+			t.Cleanup(func() { astTestMust(t, left.Close()) })
+			right, e := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort}, rightMask)
+			astTestMust(t, e)
+			t.Cleanup(func() { astTestMust(t, right.Close()) })
+			var leftRows, rightRows []Fact
+			for a := Element(0); a < 3; a++ {
+				for b := Element(0); b < 3; b++ {
+					row := Fact{a, b}
+					if (int(a)*5+int(b)*3+leftLayout)%4 != 0 {
+						astTestMust(t, left.AddFact([]ast.ASTHandle{values[a], values[b]}))
+						leftRows = append(leftRows, row)
+					}
+					if (int(a)*2+int(b)+rightLayout)%3 != 0 {
+						astTestMust(t, right.AddFact([]ast.ASTHandle{values[a], values[b]}))
+						rightRows = append(rightRows, row)
+					}
+				}
+			}
+			for _, condition := range conditions {
+				joined, e := left.Join(right, condition.left, condition.right)
+				if e != nil {
+					t.Fatalf("layouts (%d,%d), join %v/%v: %v", leftLayout, rightLayout, condition.left, condition.right, e)
+				}
+				t.Cleanup(func() { astTestMust(t, joined.Close()) })
+				want := make(map[string]struct{})
+				for _, x := range leftRows {
+					for _, y := range rightRows {
+						matches := true
+						for i := range condition.left {
+							if x[condition.left[i]] != y[condition.right[i]] {
+								matches = false
+								break
+							}
+						}
+						if matches {
+							want[factKey(append(append(Fact(nil), x...), y...))] = struct{}{}
+						}
+					}
+				}
+				for a := Element(0); a < 3; a++ {
+					for b := Element(0); b < 3; b++ {
+						for c := Element(0); c < 3; c++ {
+							for d := Element(0); d < 3; d++ {
+								row := Fact{a, b, c, d}
+								found, containsErr := joined.ContainsFact([]ast.ASTHandle{values[a], values[b], values[c], values[d]})
+								_, expected := want[factKey(row)]
+								if containsErr != nil || found != expected {
+									t.Fatalf("layouts (%d,%d), join %v/%v, row %v: got %v err %v, want %v", leftLayout, rightLayout, condition.left, condition.right, row, found, containsErr, expected)
+								}
+							}
+						}
+					}
+				}
+				astTestMust(t, joined.Close())
+			}
+			astTestMust(t, left.Close())
+			astTestMust(t, right.Close())
+		}
+	}
+}
+
 func TestFiniteSparseProductEqualityFilters(t *testing.T) {
 	f := newTableRelationFixture(t)
 	name, err := f.ast.Symbols.Intern("finite-sparse-product-filter-domain")
