@@ -167,6 +167,12 @@ func (i *ModelImplicant) collect(formulas []ast.ASTHandle) ([]ast.ASTHandle, err
 // MinimizeLiterals returns owning references to the source-selected literals.
 // CloseImplicantResults releases a successful result vector.
 func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (result []ast.ASTRef, err error) {
+	if err = i.open(); err != nil {
+		return nil, err
+	}
+	if err = i.traceMinimization("pdr", "minimize_literals", 121, "formulas:\n", formulas, nil); err != nil {
+		return nil, err
+	}
 	var pending []ast.ASTRef
 	if err = i.setupModel(md); err != nil {
 		return nil, errors.Join(err, i.reset())
@@ -227,6 +233,12 @@ func (i *ModelImplicant) MinimizeLiterals(formulas []ast.ASTHandle, md *Model) (
 			return nil, err
 		}
 	}
+	if err = i.reset(); err != nil {
+		return nil, err
+	}
+	if err = i.traceMinimization("pdr", "minimize_literals", 154, "minimized model:\n", nil, pending); err != nil {
+		return nil, err
+	}
 	return pending, nil
 }
 
@@ -279,6 +291,9 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 			result = nil
 		}
 	}()
+	if err = i.traceMinimization("pdr_verbose", "minimize_model", 99, "formulas:\n", formulas, nil); err != nil {
+		return nil, err
+	}
 	selected, err := i.collect(formulas)
 	if err != nil {
 		return nil, err
@@ -330,6 +345,9 @@ func (i *ModelImplicant) MinimizeModel(formulas []ast.ASTHandle, md *Model) (res
 		if x != nil {
 			return nil, x
 		}
+	}
+	if err = i.traceMinimization("pdr_verbose", "minimize_model", 105, "pruned model:\n", nil, pending); err != nil {
+		return nil, err
 	}
 	return pending, nil
 }
