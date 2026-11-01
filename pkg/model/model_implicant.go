@@ -70,8 +70,12 @@ func (i *ModelImplicant) pin(h ast.ASTHandle) error {
 
 func (i *ModelImplicant) reset() error {
 	for i.drain < len(i.refs) {
-		if err := i.manager.DelRef(&i.refs[i.drain]); err != nil {
-			return err
+		// DelRef can consume and clear its slot before returning an error.
+		// On retry, advance past that completed release without replaying it.
+		if i.refs[i.drain] != (ast.ASTRef{}) {
+			if err := i.manager.DelRef(&i.refs[i.drain]); err != nil {
+				return err
+			}
 		}
 		i.drain++
 	}
