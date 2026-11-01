@@ -190,7 +190,7 @@ func (c *elimSmallBVConfig) PreVisit(h ast.ASTHandle) (bool, error) {
 }
 func (c *elimSmallBVConfig) checkpoint() (bool, error) {
 	if c.owner.cooperation != nil {
-		if e := c.owner.cooperation.Checkpoint("elim-small-bv"); e != nil {
+		if e := c.owner.cooperation.Cooperate("elim-small-bv"); e != nil {
 			return false, e
 		}
 	}

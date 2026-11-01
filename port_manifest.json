@@ -7814,6 +7814,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateBVEliminationAfterSourceClose",
         "TestAPITacticSolverTranslateBVBoundsAfterSourceClose",
         "TestAPISolverTranslationUsesExplicitParameterSnapshot",
         "TestSMTContextTypedParameterCatalog",
@@ -184735,6 +184736,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/bv/bv_context_translation_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd_context/tactic_registry.go",
         "pkg/cmd_context/tactic_descriptions.go",
@@ -184743,6 +184745,7 @@
         "pkg/tactic/bv/bvarray2uf_trace.go"
       ],
       "tests": [
+        "TestBVArray2UFContextTranslationCreatesIndependentRewriter",
         "TestAPIMoreRegisteredTacticFactories",
         "TestBVArray2UFTacticPublishesSideConstraintsAndDepth",
         "TestBVArray2UFComposesRewriteProof",
@@ -184958,8 +184961,8 @@
       "component": "tactic",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/tactic/bv/elim_small_bv_tactic.go", "pkg/tactic/bv/elim_small_bv_tactic_test.go", "pkg/cmd_context/tactic_commands.go"],
-      "tests": ["TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle"],
+      "go_targets": ["pkg/tactic/bv/bv_context_translation_test.go", "pkg/tactic/bv/elim_small_bv_tactic.go", "pkg/tactic/bv/elim_small_bv_tactic_test.go", "pkg/cmd_context/tactic_commands.go"],
+      "tests": ["TestElimSmallBVContextTranslationCopiesPolicy", "TestElimSmallBVRetainsSourceWidthBoundEnumerationAndLifecycle"],
       "assertions": [
         {
           "line": 105,

@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("elim-small-bv")
+	simplify, err := source.Tactic("fpa2bv")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1251,6 +1251,72 @@ func TestAPITacticSolverTranslateBVBoundsAfterSourceClose(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAPITacticSolverTranslateBVEliminationAfterSourceClose(t *testing.T) {
+	for _, test := range []struct {
+		name, label, script string
+		want                lbool.LBool
+	}{
+		{"elim-small-bv", "sat", `(assert (exists ((x (_ BitVec 2))) (= x #b01)))`, lbool.True},
+		{"elim-small-bv", "unsat", `(assert (forall ((x (_ BitVec 2))) (= x #b01)))`, lbool.False},
+		{"bvarray2uf", "sat", `(declare-const a (Array (_ BitVec 2) (_ BitVec 2))) (assert (= (select a #b00) #b01))`, lbool.True},
+		{"bvarray2uf", "unsat", `(declare-const a (Array (_ BitVec 2) (_ BitVec 2))) (assert (= (select a #b00) #b01)) (assert (= (select a #b00) #b10))`, lbool.False},
+	} {
+		t.Run(test.name+"/"+test.label, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			astTestMust(t, source.SetLogic("ALL"))
+			transform, err := source.Tactic(test.name)
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			combined, err := transform.AndThen(smt)
+			astTestMust(t, err)
+			solver, err := source.NewSolverFromTactic(combined)
+			astTestMust(t, err)
+			for _, owner := range []*APITactic{combined, smt, transform} {
+				astTestMust(t, owner.Close())
+			}
+			astTestMust(t, solver.LoadSMT2String(test.script))
+			translated, err := solver.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, solver.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != test.want {
+				t.Fatal("translated solver", status, "want", test.want)
+			}
+			if test.name != "bvarray2uf" || status != lbool.True {
+				return
+			}
+			model, err := translated.Model()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, model.Close()) }()
+			manager, err := target.Manager()
+			astTestMust(t, err)
+			assertions, err := translated.Assertions()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, manager, assertions)
+			for _, ref := range assertions {
+				formula, err := manager.RefGet(ref)
+				astTestMust(t, err)
+				value, err := model.Evaluate(formula, true)
+				astTestMust(t, err)
+				actual, err := manager.RefGet(value)
+				astTestMust(t, err)
+				if !manager.IsTrue(actual) {
+					t.Fatal("translated array model violates its original assertion")
+				}
+				astTestMust(t, manager.DelRef(&value))
+			}
+		})
 	}
 }
 
