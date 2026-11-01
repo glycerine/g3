@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -624,6 +625,7 @@ type QFNRAPurifyTactic struct {
 	context     *uparams.ParamsContext
 	globals     *uparams.GlobalParamsService
 	services    model.ModelEvaluatorConfig
+	trace       *diagnostic.TraceTags
 	params      uparams.ParamsRef
 	arithmetic  ast.FamilyID
 	complete    bool
@@ -728,7 +730,7 @@ func (t *QFNRAPurifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	description := "(default: true) constrain interpretations of underspecified arithmetic operators as functions."
+	description := "(default: true) add constraints to make sure that any interpretation of a underspecified arithmetic operators is a function. The result will include additional uninterpreted functions/constants: /0, div0, mod0, 0^0, neg-root"
 	if err := out.InsertName("complete", uparams.ParamBool, &description, nil, nil); err != nil {
 		return err
 	}
@@ -736,8 +738,11 @@ func (t *QFNRAPurifyTactic) CollectParamDescrs(out *uparams.ParamDescrs) error {
 	if err := out.InsertName("elim_root_objects", uparams.ParamBool, &description, nil, nil); err != nil {
 		return err
 	}
-	description = "(default: true) eliminate inverse trigonometric functions."
-	return out.InsertName("elim_inverses", uparams.ParamBool, &description, nil, nil)
+	description = "(default: true) eliminate inverse trigonometric functions (asin, acos, atan)."
+	if err := out.InsertName("elim_inverses", uparams.ParamBool, &description, nil, nil); err != nil {
+		return err
+	}
+	return rewriter.TheoryRewriterParameterDescriptions(out)
 }
 
 func (t *QFNRAPurifyTactic) CollectStatistics() map[string]float64  { return nil }
@@ -750,7 +755,11 @@ func (t *QFNRAPurifyTactic) Translate(m *ast.ASTManager) (tactic.Tactic, error) 
 	if err := t.open(); err != nil {
 		return nil, err
 	}
-	return NewQFNRAPurifyTactic(m, t.context, t.globals, &t.params, t.services)
+	next, err := NewQFNRAPurifyTactic(m, t.context, t.globals, &t.params, t.services)
+	if err == nil {
+		next.trace = t.trace
+	}
+	return next, err
 }
 
 func (t *QFNRAPurifyTactic) Close() error {
@@ -783,6 +792,9 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	}
 	if report != nil {
 		defer func() { err = errors.Join(err, report.Close()) }()
+	}
+	if err = t.traceGoal(goal, 835); err != nil {
+		return err
 	}
 	invocation, err := newQFNRAPurifyInvocation(t, goal)
 	if err != nil {
@@ -858,6 +870,9 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 			return e
 		}
 	}
+	if err = invocation.traceConstraints(); err != nil {
+		return err
+	}
 	for j := range invocation.constraints {
 		constraint, e := t.manager.RefGet(invocation.constraints[j])
 		if e != nil {
@@ -880,5 +895,8 @@ func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult
 	if err = goal.IncDepth(); err != nil {
 		return err
 	}
-	return result.AddGoal(goal)
+	if err = result.AddGoal(goal); err != nil {
+		return err
+	}
+	return t.traceGoal(goal, 847)
 }

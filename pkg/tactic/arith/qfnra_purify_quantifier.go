@@ -95,6 +95,9 @@ func (i *qfnraPurifyInvocation) processQuantifier(q ast.ASTHandle) (result, proo
 			boundEntries = append(boundEntries, entry)
 		}
 	}
+	if err = i.owner.traceQuantifier(body, rewritten, len(boundEntries)); err != nil {
+		return result, proof, err
+	}
 	if len(child.constraints) != 0 || len(boundEntries) != 0 {
 		terms := make([]ast.ASTHandle, 0, len(child.constraints)+1)
 		for _, ref := range child.constraints {

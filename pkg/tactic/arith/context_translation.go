@@ -190,6 +190,7 @@ func TranslateContextLeaf(value tactic.Tactic, m *ast.ASTManager, c *uparams.Par
 		next, e := NewQFNRAPurifyTactic(m, c, g, &p, services)
 		err = e
 		if err == nil {
+			next.trace = t.trace
 			result = next
 		}
 	}
