@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 
 	"github.com/glycerine/g3/pkg/util/cooperate"
@@ -181,7 +182,7 @@ func TestModelEvaluatorResourceLimitsAndReset(t *testing.T) {
 	astTestMust(t, e)
 	e = ev.Evaluate(term, out)
 	astTestMust(t, memory.Deallocate(&block))
-	if e == nil || e.Error() != messages.MaxMemory {
+	if e == nil || e.Error() != messages.MaxMemory || !rewriter.IsRewriterException(e) {
 		t.Fatal("source memory precedes step limit", e)
 	}
 	astTestMust(t, ev.Cleanup(nil))

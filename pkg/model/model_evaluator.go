@@ -447,7 +447,7 @@ func (c *evaluatorConfiguration) MaxStepsExceeded(n uint32) (bool, error) {
 		return false, e
 	}
 	if size > c.maxMemory {
-		return false, errors.New(messages.MaxMemory)
+		return false, rewriter.NewRewriterException(messages.MaxMemory)
 	}
 	return n > c.maxSteps, nil
 }

@@ -32,18 +32,9 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 		}
 	}()
 	evalBool := func(expression ast.ASTHandle) (bool, bool, error) {
-		value, evalErr := evaluator.EvaluateValue(expression)
-		if evalErr != nil {
-			return false, false, evalErr
-		}
-		h, getErr := manager.RefGet(value)
-		if getErr != nil {
-			return false, false, errors.Join(getErr, manager.DelRef(&value))
-		}
-		truth := manager.IsTrue(h)
-		falsehood := manager.IsFalse(h)
-		return truth, falsehood, manager.DelRef(&value)
+		return evaluateSpacerModelBoolean(manager, evaluator, config, expression)
 	}
+
 	truth := func(expression ast.ASTHandle) (bool, error) {
 		t, f, e := evalBool(expression)
 		return t && !f, e

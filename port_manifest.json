@@ -100435,6 +100435,13 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "model_evaluator_util Boolean probes use non-completing evaluation, typed model-evaluator rewrite-exception catches and source exception TRACE output",
+          "status": "partial",
+          "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go"],
+          "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset"],
+          "reason": "The implicant Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
+        },
+        {
           "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",
           "status": "ported",
           "go_targets": [
@@ -100600,9 +100607,9 @@
           "reason": "The concrete source rewrite and both add_lemma_core and queue expansion-node STRACE consumers are implemented; source pp profile inheritance with UINT_MAX depth/alias overrides is implemented; cold failure coverage now includes RHS construction and rendering, while destructor-callback cleanup remains under audit."
         },
         {
-          "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr",
+          "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr, unused Spacer reduce_disequalities/is_difference_logic/is_utvpi_logic copies and simplify_bounds_old",
           "status": "reference_only",
-          "reason": "Source-wide caller audit finds no callers for the ITE hoister or select/index/declaration scans. ground_expr has one call in spacer_context.cpp:768, guarded by literal if (false). These helpers are excluded under the live-source-consumer rule; mk_epp remains live at spacer_context.cpp:335 and 2832."
+          "reason": "Source-wide caller audit finds no callers for the ITE hoister or select/index/declaration scans. ground_expr has one call in spacer_context.cpp:768, guarded by literal if (false). Source-wide identifier search also finds no consumers for the Spacer disequality/classifier copies or simplify_bounds_old; PDR calls resolve to the separate pdr namespace implementations. These helpers are excluded under the live-source-consumer rule; mk_epp remains live at spacer_context.cpp:335 and 2832."
         }
       ],
       "ownership": [],
@@ -100638,6 +100645,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "model_evaluator_util Boolean probes use non-completing evaluation, typed model-evaluator rewrite-exception catches and source exception TRACE output",
+          "status": "partial",
+          "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go"],
+          "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset"],
+          "reason": "The implicant Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
+        },
         {
           "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",
           "status": "ported",
@@ -100801,7 +100815,7 @@
           "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace", "TestSpacerExtendedPrettyOwnsRHSOnComparisonConstructionFailure"]
         },
         {
-          "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr declarations without live consumers",
+          "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr, unused Spacer reduce_disequalities/is_difference_logic/is_utvpi_logic copies and simplify_bounds_old declarations without live consumers",
           "status": "reference_only",
           "reason": "Corresponding implementation caller audit excludes the unused hoister/scans and the grounding call guarded by literal if (false); no Go adapters are introduced for them."
         }
