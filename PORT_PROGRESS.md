@@ -2,6 +2,8 @@ SAT clause source unit closure: completed the native clause allocator, temporary
 
 Sparse relation ownership audit: verified that added facts and returned rows are detached from caller memory and that cloned tables own independent row/index storage; focused and full `muz/rel` tests pass in normal and `g3checked` builds.
 
+Sparse select-equal projection: added the source indexed path for eligible nonfunctional columns and relation-manager filter-then-project fallback for singleton or functional columns. Regressions cover output facts, functional metadata, fallback behavior, and source-table immutability; full `muz/rel` tests pass in normal and `g3checked` builds.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.

@@ -1,23 +1,30 @@
 package rel
 
 func (t *SparseTable) SelectEqualAndProject(value Element, column int) (*SparseTable, error) {
+	if err := t.open(); err != nil {
+		return nil, err
+	}
 	if column < 0 || column >= t.signature.Len() {
 		return nil, ErrTable
 	}
-	out, e := t.Project([]int{column})
-	if e != nil {
-		return nil, e
-	}
-	out.Reset()
-	facts, _ := t.Facts()
-	for _, f := range facts {
-		if f[column] == value {
-			g := append(Fact(nil), f[:column]...)
-			g = append(g, f[column+1:]...)
-			out.Add(g)
+	firstFunctional := t.signature.Len() - t.functional
+	if t.signature.Len() > 1 && column < firstFunctional {
+		plan, err := NewSparseIndexedSelectPlan(t, value, column)
+		if err != nil {
+			return nil, err
 		}
+		result, _, err := plan.Execute(t)
+		return result, err
 	}
-	return out, nil
+	filtered, err := t.Clone()
+	if err != nil {
+		return nil, err
+	}
+	defer filtered.Close()
+	if err := filtered.FilterEqual(value, column); err != nil {
+		return nil, err
+	}
+	return filtered.Project([]int{column})
 }
 func (t *SparseTable) FilterNegation(negative *SparseTable, tCols, nCols []int) error {
 	if err := t.open(); err != nil {

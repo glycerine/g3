@@ -63,3 +63,45 @@ func TestSparseTableDefaultIdenticalFilterAndValidation(t *testing.T) {
 		t.Fatalf("one-column identity filter: %v", err)
 	}
 }
+
+func TestSparseTableSelectEqualAndProjectFiltersBeforeProjection(t *testing.T) {
+	signature, err := NewSignature([]uint64{4, 3, 3})
+	must(t, err)
+	table, err := NewSparseTable(signature, 1)
+	must(t, err)
+	defer table.Close()
+	for _, fact := range []Fact{{0, 1, 2}, {1, 1, 0}, {2, 2, 2}} {
+		if _, err = table.Add(fact); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	selected, err := table.SelectEqualAndProject(1, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer selected.Close()
+	if functional, err := selected.FunctionalColumns(); err != nil || functional != 0 {
+		t.Fatalf("projected functional columns = %d, err=%v", functional, err)
+	}
+	facts, err := selected.Facts()
+	if err != nil || !reflect.DeepEqual(facts, []Fact{{0, 2}, {1, 0}}) {
+		t.Fatalf("selected projected facts = %v, err=%v", facts, err)
+	}
+	sourceFacts, err := table.Facts()
+	if err != nil || !reflect.DeepEqual(sourceFacts, []Fact{{0, 1, 2}, {1, 1, 0}, {2, 2, 2}}) {
+		t.Fatalf("selection changed source facts = %v, err=%v", sourceFacts, err)
+	}
+	if _, err = table.SelectEqualAndProject(1, 3); err == nil {
+		t.Fatal("out-of-range selection column accepted")
+	}
+	functionalSelection, err := table.SelectEqualAndProject(2, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer functionalSelection.Close()
+	facts, err = functionalSelection.Facts()
+	if err != nil || !reflect.DeepEqual(facts, []Fact{{0, 1}, {2, 2}}) {
+		t.Fatalf("functional-column fallback facts = %v, err=%v", facts, err)
+	}
+}
