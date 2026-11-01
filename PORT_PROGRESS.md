@@ -1,3 +1,5 @@
+UDoc joins now have a repeated-column source regression: one left column is matched against two right columns, and a finite exhaustive oracle checks every output row. The focused test passes in normal and g3checked builds.
+
 QE now eliminates multiple datatype variables and mixed datatype/Boolean blocks using the existing scalar search. Solver-equivalence and SMT-LIB tests cover recursive datatype SAT, UNSAT and universal cases.
 
 QE now eliminates bit-vector blocks one variable at a time, including blocks mixed with Boolean declarations. Existential, universal and SMT-LIB tests cover multiple bit-vector variables.

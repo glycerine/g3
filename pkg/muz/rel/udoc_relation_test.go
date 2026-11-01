@@ -216,6 +216,47 @@ func TestUDocJoinWithoutKeysIsCartesianProduct(t *testing.T) {
 	}
 }
 
+func TestUDocJoinRepeatedColumnsAppliesEverySourceConstraint(t *testing.T) {
+	leftManager, _ := newTestDocManager(t, 2)
+	rightManager, _ := newTestDocManager(t, 4)
+	joinManager, _ := newTestDocManager(t, 6)
+	left, err := NewUDocRelation(leftManager, []uint32{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := NewUDocRelation(rightManager, []uint32{2, 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, left, right)
+	for x := uint64(0); x < 4; x++ {
+		if _, err = left.AddFact([]uint64{x}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for x := uint64(0); x < 4; x++ {
+		for y := uint64(0); y < 4; y++ {
+			if _, err = right.AddFact([]uint64{x, y}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	joined, err := left.Join(right, []uint32{0, 0}, []uint32{0, 1}, joinManager)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeUDoc(t, joined)
+	if joined.NumRecords() != 4 {
+		t.Fatalf("repeated-column join produced %d rows, want 4", joined.NumRecords())
+	}
+	for x := uint64(0); x < 4; x++ {
+		for y := uint64(0); y < 4; y++ {
+			want := x == y
+			requireFact(t, joined, []uint64{x, x, y}, want)
+		}
+	}
+}
+
 func TestUDocCyclicJoinThenProject(t *testing.T) {
 	leftManager, _ := newTestDocManager(t, 4)
 	rightManager, _ := newTestDocManager(t, 4)
