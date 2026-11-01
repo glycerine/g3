@@ -12,6 +12,7 @@ type Covering struct {
 	coveredBy   map[*Node]*Node
 	covers      map[*Node][]*Node
 	allOfNode   map[*Node][]*Node
+	instances   map[*Node][]*Node
 	underapprox map[*Node]*Node
 	someUpdates bool
 }
@@ -30,7 +31,7 @@ func NewCovering(graph *RPFP, aux solver.Solver) (*Covering, error) {
 	if m != graph.context.manager {
 		return nil, ErrContextMismatch
 	}
-	c := &Covering{graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
+	c := &Covering{instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
 	for _, node := range graph.nodes {
 		if err = c.RegisterInstance(node); err != nil {
 			return nil, err
@@ -49,6 +50,7 @@ func (c *Covering) RegisterInstance(node *Node) error {
 		}
 	}
 	c.allOfNode[group] = append(c.allOfNode[group], node)
+	c.instances[group] = append(c.instances[group], node)
 	return nil
 }
 func (c *Covering) MapUnderapproximation(node, associated *Node) error {
@@ -146,3 +148,27 @@ func (c *Covering) CoverByNode(covered, covering *Node) (bool, error) {
 	return true, nil
 }
 func (c *Covering) Update(node *Node) { c.RemoveCoveringsBy(node); c.someUpdates = true }
+
+// SetInstanceActive updates the source insts_of_node candidate list while
+// preserving all_of_node history for annotation-update invalidation.
+func (c *Covering) SetInstanceActive(node *Node, active bool) error {
+	if c == nil || node == nil || node.closed || node.Owner != c.graph {
+		return ErrWrapperOwner
+	}
+	if err := c.RegisterInstance(node); err != nil {
+		return err
+	}
+	group := node.Map
+	for n, other := range c.instances[group] {
+		if other == node {
+			if !active {
+				c.instances[group] = append(c.instances[group][:n], c.instances[group][n+1:]...)
+			}
+			return nil
+		}
+	}
+	if active {
+		c.instances[group] = append(c.instances[group], node)
+	}
+	return nil
+}
