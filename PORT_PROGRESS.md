@@ -52642,3 +52642,5 @@ SLS cleanup replacement: construct the new search engine before closing the acti
 SLS cancellation: checkpoints now return the source tactic exception and resource-limit cancellation message instead of a generic search-state error. The core-tactic regression checks cancellation before cooperation, unchanged goal depth, and a successful retry after cleanup.
 
 SLS tracker parameter snapshot: initialize tracker settings once during engine construction, as in the source, rather than reapplying them on every engine parameter update. A regression checks that an updated restart setting takes effect immediately while the tracker UCB setting changes when cleanup constructs the next engine.
+
+SLS random reseeding: changing the seed now preserves unused bits already buffered by the tracker, matching set_random_seed and the source random-uint consumption order. Direct and engine-parameter tests check independently calculated values before and after reseeding across a buffer boundary.

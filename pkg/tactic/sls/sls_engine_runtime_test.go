@@ -155,12 +155,15 @@ func TestSLSSearchTrackerRandomStreamAndUnsatSelection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if first != 62464 {
+		t.Fatal("first source random value", first)
+	}
 	if err = search.SetRandomSeed(17); err != nil {
 		t.Fatal(err)
 	}
 	again, err := search.RandomUint(16)
-	if err != nil || first != again {
-		t.Fatal("deterministic source random stream", first, again, err)
+	if err != nil || again != 90010 {
+		t.Fatal("source random stream after reseeding", first, again, err)
 	}
 	root, found, err := search.UnsatAssertion([]ast.ASTHandle{p, q})
 	if err != nil || !found || root != p && root != q {
@@ -172,6 +175,37 @@ func TestSLSSearchTrackerRandomStreamAndUnsatSelection(t *testing.T) {
 	}
 	if tracker.touched == 0 {
 		t.Fatal("tracker touched total was not initialized")
+	}
+}
+
+func TestSLSEngineParameterReseedKeepsBufferedRandomBits(t *testing.T) {
+	engine, search, _, _, _, _ := slsEngineFixture(t)
+	if err := search.SetRandomSeed(17); err != nil {
+		t.Fatal(err)
+	}
+	first, err := search.RandomUint(16)
+	if err != nil || first != 62464 {
+		t.Fatal("initial source random value", first, err)
+	}
+	settings, err := engine.context.NewValue()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := engine.context.Del(&settings); err != nil {
+			t.Error(err)
+		}
+	}()
+	name := "random_seed"
+	if err = engine.context.SetUIntName(&settings, &name, 17); err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.UpdateParams(&settings); err != nil {
+		t.Fatal(err)
+	}
+	next, err := search.RandomUint(16)
+	if err != nil || next != 90010 {
+		t.Fatal("source random value after parameter update", next, err)
 	}
 }
 

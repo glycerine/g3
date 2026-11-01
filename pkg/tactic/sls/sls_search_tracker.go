@@ -66,7 +66,6 @@ func (s *SearchTracker) SetRandomSeed(seed uint32) error {
 		return err
 	}
 	s.random.SetSeed(seed)
-	s.randomBits, s.randomBitsCount = 0, 0
 	return nil
 }
 
