@@ -8,6 +8,24 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
+// NormalizeArithmeticRef matches normalize_arithmetic(expr_ref&): publish the
+// rewritten formula into the caller's owning reference before releasing the
+// previous formula. On rewrite failure the caller keeps its original formula.
+func NormalizeArithmeticRef(manager *ast.ASTManager, formula ast.ASTRef) error {
+	if manager == nil {
+		return ast.ErrASTHandle
+	}
+	input, err := manager.RefGet(formula)
+	if err != nil {
+		return err
+	}
+	result, err := NormalizeArithmetic(manager, input)
+	if err != nil {
+		return err
+	}
+	return manager.SetRef(formula, result)
+}
+
 // NormalizeArithmetic divides both sides of a real comparison by the smallest
 // absolute monomial coefficient, following the source's zero-reset rule.
 // The returned AST is borrowed from the manager.

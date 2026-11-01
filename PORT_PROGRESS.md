@@ -1,3 +1,5 @@
+PDR arithmetic normalizer owning publication: added the concrete `expr_ref&` counterpart and switched the arithmetic source driver to update its owning AST reference. The result is acquired before the old formula is released; direct publication and API source-driver regressions pass in normal and checked profiles.
+
 PDR arithmetic normalization zero parity: matched `update_coeff`'s source zero-reset rule, including a final zero right-hand side suppressing coefficient division. The regression distinguishes source structure from an equivalent scaled comparison; focused PDR and arithmetic-driver tests pass normally and under checked builds.
 
 PDR arithmetic normalizer traversal: added shared-expression caching and bottom-up application/quantifier-body traversal, preserving original declarations and quantifier annotations while leaving patterns unchanged. A nested-negation regression verifies comparison normalization reaches Boolean children; focused normal and checked PDR tests pass.

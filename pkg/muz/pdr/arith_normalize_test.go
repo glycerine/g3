@@ -126,6 +126,15 @@ func TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient(t *testing.T
 	if op, err := manager.GetDeclKind(ge); err != nil || op != 3 {
 		t.Fatalf("strict comparison inner relation = %d, %v", op, err)
 	}
+	owned, err := manager.NewRef(formula)
+	closureMust(t, err)
+	closureMust(t, NormalizeArithmeticRef(manager, owned))
+	published, err := manager.RefGet(owned)
+	closureMust(t, err)
+	if published != normalized {
+		t.Fatal("owning normalizer did not publish the rewritten formula")
+	}
+	closureMust(t, manager.DelRef(&owned))
 }
 
 func mustArithmeticFamily(t *testing.T, manager *ast.ASTManager) ast.FamilyID {

@@ -32,9 +32,9 @@ func TestArithmeticRewriterSourceExamples(t *testing.T) {
 	for i, formula := range []ast.ASTHandle{first, second} {
 		rewritten, err := f.c.Simplify(formula)
 		astTestMust(t, err)
-		h, err := f.m.RefGet(rewritten)
+		err = pdr.NormalizeArithmeticRef(f.m, rewritten)
 		astTestMust(t, err)
-		h, err = pdr.NormalizeArithmetic(f.m, h)
+		h, err := f.m.RefGet(rewritten)
 		astTestMust(t, err)
 		for _, xv := range []int64{-2, 0, 3} {
 			for _, yv := range []int64{-1, 0, 4} {
