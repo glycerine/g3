@@ -194492,6 +194492,8 @@
         "pkg/api/api_tactic_new_factories_test.go","pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
       "tests": [
         "TestSLSContextTranslationCopiesParametersAndEngine",
+        "TestSLSCoreCleanupPreservesEngineOnConstructionFailure",
+        "TestSLSCoreCleanupAllocationFrontiers",
         "TestAPILocalSearchTacticRegistry","TestSLSEngineSolvesRetainedBooleanConstantEndToEnd", "TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips", "TestSLSEngineMoveArithmeticWrapsAtBitWidth", "TestSLSSearchTrackerRandomStreamAndUnsatSelection", "TestSLSEngineMovePhysicalFailurePrefixIsRetryable", "TestSLSGoalOrchestrationResetsSATGoalAndStoresModel"],
       "assertions": [
         {
@@ -194505,7 +194507,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "cleanup constructs a replacement engine before destroying the previous engine", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCleanupPreservesEngineOnConstructionFailure", "TestSLSCoreCleanupAllocationFrontiers"]}],
       "ownership": [],
       "deviations": []
     },

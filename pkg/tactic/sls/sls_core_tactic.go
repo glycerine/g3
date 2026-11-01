@@ -72,15 +72,14 @@ func (t *CoreTactic) open() error {
 }
 
 func (t *CoreTactic) rebuild() error {
-	if t.owner != nil {
-		if err := t.owner.Close(); err != nil {
-			return err
-		}
-		t.owner = nil
-	}
 	owner, err := NewEngineOwner(t.manager, t.context, t.globals, &t.params, nil)
 	if err != nil {
 		return err
+	}
+	if t.owner != nil {
+		if err = t.owner.Close(); err != nil {
+			return errors.Join(err, owner.Close())
+		}
 	}
 	t.owner = owner
 	return nil
