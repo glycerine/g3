@@ -68,14 +68,14 @@ func TestBoundRelationStrictCycleThroughMergedColumn(t *testing.T) {
 	}
 }
 
-func TestIntervalBoundProductJoinShiftsRightBounds(t *testing.T) {
+func TestIntervalBoundProductJoinCopiesRightBoundIndicesUnchanged(t *testing.T) {
 	left, right := NewIntervalBoundProduct(1, false), NewIntervalBoundProduct(2, false)
 	astTestMust(t, right.bound.AddLess(0, 1))
 	joined, err := JoinIntervalBoundProducts(left, right, nil, nil)
 	astTestMust(t, err)
 	strict, weak, err := joined.bound.Bounds(1)
 	astTestMust(t, err)
-	if !reflect.DeepEqual(strict, []uint32{2}) || len(weak) != 0 {
-		t.Fatalf("right relation bound targets wrong column: strict=%v weak=%v", strict, weak)
+	if !reflect.DeepEqual(strict, []uint32{1}) || len(weak) != 0 {
+		t.Fatalf("source vector join leaves raw right index unshifted: strict=%v weak=%v", strict, weak)
 	}
 }

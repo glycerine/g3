@@ -18,8 +18,8 @@ func TestBoundRelationJoinAndProjection(t *testing.T) {
 	}
 	strict, weak, err = joined.Bounds(2)
 	astTestMust(t, err)
-	// Right-hand indices refer to the concatenated signature.
-	if len(strict) != 0 || !reflect.DeepEqual(weak, []uint32{3}) {
+	// vector_relation::mk_join copies the right payload's indices unchanged.
+	if len(strict) != 0 || !reflect.DeepEqual(weak, []uint32{1}) {
 		t.Fatal("right joined bounds", strict, weak)
 	}
 	joined, err = JoinBoundRelations(left, right, []uint32{0}, []uint32{1})
