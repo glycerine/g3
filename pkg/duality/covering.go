@@ -7,6 +7,7 @@ import "github.com/glycerine/g3/pkg/solver"
 // search registers new instances and underapproximation-node associations.
 // Reporter callbacks and outer search lifecycle wiring remain unfinished.
 type Covering struct {
+	dominance   map[*Node]map[*Node]bool
 	simpleLoops map[*Node]bool
 	dominated   map[*Node]bool
 	graph       *RPFP
@@ -33,7 +34,7 @@ func NewCovering(graph *RPFP, aux solver.Solver) (*Covering, error) {
 	if m != graph.context.manager {
 		return nil, ErrContextMismatch
 	}
-	c := &Covering{simpleLoops: make(map[*Node]bool), dominated: make(map[*Node]bool), instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
+	c := &Covering{dominance: make(map[*Node]map[*Node]bool), simpleLoops: make(map[*Node]bool), dominated: make(map[*Node]bool), instances: make(map[*Node][]*Node), graph: graph, aux: aux, coveredBy: make(map[*Node]*Node), covers: make(map[*Node][]*Node), allOfNode: make(map[*Node][]*Node), underapprox: make(map[*Node]*Node)}
 	for _, node := range graph.nodes {
 		if err = c.RegisterInstance(node); err != nil {
 			return nil, err
