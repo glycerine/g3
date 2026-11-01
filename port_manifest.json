@@ -84878,7 +84878,8 @@
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
         "TestAPIFixedpointDatalogMultipleRelationAnswers",
-        "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain"
+        "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain",
+        "TestSMTContextFixedpointAutoConfigRejectsPDRUninterpretedSymbols"
       ],
       "assertions": [
         {
@@ -85038,7 +85039,8 @@
             "pkg/muz/fp/pdr_engine.go"
           ],
           "tests": [
-            "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain"
+            "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain",
+            "TestSMTContextFixedpointAutoConfigRejectsPDRUninterpretedSymbols"
           ]
         }
       ],
