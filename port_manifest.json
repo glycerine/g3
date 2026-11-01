@@ -265311,7 +265311,13 @@
         "pkg/util/params/util_params_rational_entry_memory_trace_debug_test.go",
         "pkg/util/params/util_params_unreachable_debug_test.go",
         "pkg/util/params/util_params_translate.go",
-        "pkg/util/params/util_params_translate_test.go"
+        "pkg/util/params/util_params_translate_test.go",
+        "pkg/api/api_interp.go",
+        "pkg/api/api_interp_test.go",
+        "pkg/muz/spacer/manager.go",
+        "pkg/muz/spacer/prop_solver.go",
+        "pkg/muz/spacer/smt_context_manager.go",
+        "pkg/muz/spacer/smt_context_manager_test.go"
       ],
       "tests": [
         "TestParamsReferenceCopyEmptySourceDetachesSharedDestination",
@@ -265416,7 +265422,11 @@
         "TestParamsRationalEntryMemoryTraceNewMatchedAndReleasePaths",
         "TestParamsInvalidEntrySourceUnreachableContinue",
         "TestParamsTranslateToIndependentServices",
-        "TestParamsTranslateFailureLeavesSourceUsable"
+        "TestParamsTranslateFailureLeavesSourceUsable",
+        "TestParamsSourceStaticEmptyOwnerAdaptation",
+        "TestInterpolationContextBinary",
+        "TestInterpolationContextTree",
+        "TestSpacerSMTContextManagerPoolsGuardedSolvers"
       ],
       "conditionals": [
         {
@@ -265661,8 +265671,20 @@
         },
         {
           "name": "params_ref::get_empty copied default arguments at API interpolation and Spacer SMT context construction",
-          "status": "unported",
-          "tests": []
+          "status": "ported",
+          "tests": [
+            "TestParamsSourceStaticEmptyOwnerAdaptation",
+            "TestInterpolationContextBinary",
+            "TestInterpolationContextTree",
+            "TestSpacerSMTContextManagerPoolsGuardedSolvers"
+          ],
+          "go_target": "pkg/util/params/util_source_package_boundaries.go",
+          "go_targets": [
+            "pkg/api/api_interp.go",
+            "pkg/muz/spacer/manager.go",
+            "pkg/muz/spacer/prop_solver.go",
+            "pkg/muz/spacer/smt_context_manager.go"
+          ]
         },
         {
           "name": "params_ref destructor and Copy/Append stopped owning cleanup",
