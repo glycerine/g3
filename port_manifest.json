@@ -82602,7 +82602,7 @@
       "path": "src/math/subpaving/tactic/subpaving_tactic.h",
       "component": "math",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/math/subpaving/tactic/public_factory.go",
         "pkg/math/subpaving/tactic/public_factory_test.go",
@@ -82623,12 +82623,12 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "mk_subpaving_tactic concrete public factory",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/math/subpaving/tactic/public_factory.go",
           "tests": [
             "TestSubpavingPublicFactoryOwnsSimplifyComposition"
@@ -82638,9 +82638,7 @@
       "ownership": [
         "The public factory transfers ownership of the tactic composition to its caller."
       ],
-      "deviations": [
-        "Pending source and ownership audit alongside the partially ported implementation; the factory is registered with the command context."
-      ]
+      "deviations": []
     },
     {
       "path": "src/model/CMakeLists.txt",
