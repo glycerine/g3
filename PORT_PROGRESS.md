@@ -52830,3 +52830,5 @@ Finite product interval fact insertion (2026-11-01 UTC): matched interval insert
 Finite product equality filters (2026-11-01 UTC): verified finite-key and interval-value equality filtering, plus same-sort identical-column filtering across table and interval groups, against the source dispatch. Focused normal and `g3checked` regressions pass; marked both methods ported in the implementation and interface records.
 
 Finite product garbage collection (2026-11-01 UTC): checked both source collection cases: recycle unreferenced inner relations, and remove rows whose referenced relation is empty before recycling its index. The regression also verifies index reuse and complete cleanup; focused normal and `g3checked` tests pass, and the method is marked ported in both records.
+
+Finite product projection method (2026-11-01 UTC): verified key collisions merge the corresponding interval relations before removed interval columns are projected, along with finite, interval and zero-column outputs and invalid duplicate-column rejection. Focused normal and `g3checked` tests pass; marked the method ported in both finite product records.

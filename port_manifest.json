@@ -92715,7 +92715,7 @@
         },
         {
           "name": "projection with finite-key collision union before inner projection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductProjection"
@@ -92959,7 +92959,7 @@
         },
         {
           "name": "projection with finite-key collision union before inner projection",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductProjection"
