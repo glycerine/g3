@@ -18,7 +18,7 @@ type apiMPSInvocation struct {
 }
 
 func newAPIMPSInvocation(input *apiMPSInput, options *MPSRunOptions) (*apiMPSInvocation, error) {
-	command, err := cmd_context.NewStandaloneContext()
+	command, err := cmd_context.NewAuxiliaryContext()
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
@@ -24,6 +25,7 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
+	utext "github.com/glycerine/g3/pkg/util/text"
 	"github.com/glycerine/g3/pkg/util/z3exception"
 )
 
@@ -124,6 +126,12 @@ type Context struct {
 	diagnosticOutputName             string
 	regularFile                      *os.File
 	diagnosticFile                   *os.File
+	mainContext                      bool
+	diagnosticBound                  bool
+	diagnosticGeneration             uint64
+	previousWarning                  io.Writer
+	previousVerbose                  *utext.NumericTextStream
+	diagnosticVerbose                *utext.NumericTextStream
 	logicChecker                     LogicChecker
 }
 
@@ -131,7 +139,7 @@ func NewContext(config smtcore.SMTSolverConfig) (*Context, error) {
 	if config.Params == nil || config.Globals == nil {
 		return nil, uparams.ErrParamsOwner
 	}
-	c := &Context{config: config, functions: make(map[string][]ast.ASTHandle), sorts: make(map[string]ast.ASTHandle), sortArities: make(map[string]uint32), sortConstructors: make(map[string]sortConstructorDeclaration), builtins: make(map[string][]builtin), macros: make(map[string][]macroDeclaration), softObjectiveIndex: make(map[string]int), status: lbool.Undef}
+	c := &Context{config: config, mainContext: true, functions: make(map[string][]ast.ASTHandle), sorts: make(map[string]ast.ASTHandle), sortArities: make(map[string]uint32), sortConstructors: make(map[string]sortConstructorDeclaration), builtins: make(map[string][]builtin), macros: make(map[string][]macroDeclaration), softObjectiveIndex: make(map[string]int), status: lbool.Undef}
 	var err error
 	c.params, err = config.Params.NewValue()
 	if err != nil {
@@ -191,6 +199,9 @@ func (c *Context) SetDiagnosticOutput(output io.Writer) error {
 	if err := c.valid(); err != nil {
 		return err
 	}
+	if err := c.unbindDiagnosticGlobals(); err != nil {
+		return err
+	}
 	if c.diagnosticFile != nil {
 		if err := c.diagnosticFile.Close(); err != nil {
 			return err
@@ -227,11 +238,88 @@ func (c *Context) setOutputChannel(name string, regular bool) error {
 	default:
 		opened, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
+			if !regular {
+				_ = c.unbindDiagnosticGlobals()
+			}
 			return fmt.Errorf("failed to set output stream '%s': %w", name, err)
 		}
 		*output, *file = opened, opened
 	}
 	*channelName = name
+	if !regular && c.mainContext {
+		if err := c.bindDiagnosticGlobals(); err != nil {
+			return errors.Join(err, c.unbindDiagnosticGlobals())
+		}
+	}
+	return nil
+}
+
+// bindDiagnosticGlobals implements cmd_context::set_diagnostic_stream for a
+// main context. Named channels are concrete files, borrowed by the formatter.
+func (c *Context) bindDiagnosticGlobals() error {
+	file, ok := c.diagnosticOutput.(*os.File)
+	if !ok {
+		return arena.ErrConfig
+	}
+	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: c.config.Params.BudgetField, BorrowedFile: file})
+	if err != nil {
+		return err
+	}
+	warnings := diagnostic.BorrowProcessWarningService()
+	if !c.diagnosticBound {
+		c.previousWarning = warnings.WarningStream()
+		c.previousVerbose, err = diagnostic.BorrowProcessVerboseStream()
+		if err != nil {
+			return errors.Join(err, stream.Close())
+		}
+	}
+	c.diagnosticGeneration++
+	if err = warnings.SetWarningStream(contextWarningOutput{c, c.diagnosticGeneration}); err != nil {
+		return errors.Join(err, stream.Close())
+	}
+	if err = diagnostic.SetProcessVerboseStream(stream); err != nil {
+		return errors.Join(err, stream.Close())
+	}
+	old := c.diagnosticVerbose
+	c.diagnosticVerbose, c.diagnosticBound = stream, true
+	if old != nil {
+		return old.Close()
+	}
+	return nil
+}
+
+func (c *Context) unbindDiagnosticGlobals() error {
+	if !c.diagnosticBound {
+		return nil
+	}
+	warnings := diagnostic.BorrowProcessWarningService()
+	if selected, ok := warnings.WarningStream().(contextWarningOutput); ok && selected.context == c && selected.generation == c.diagnosticGeneration {
+		previous := c.previousWarning
+		if prior, ok := previous.(contextWarningOutput); ok && (prior.context.closed || prior.generation != prior.context.diagnosticGeneration) {
+			previous = nil
+		}
+		if err := warnings.SetWarningStream(previous); err != nil {
+			return err
+		}
+	}
+	selected, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	if selected == c.diagnosticVerbose {
+		previous := c.previousVerbose
+		if previous.Closed {
+			previous = diagnostic.BorrowDefaultProcessVerboseStream()
+		}
+		if err = diagnostic.SetProcessVerboseStream(previous); err != nil {
+			return err
+		}
+	}
+	if err = c.diagnosticVerbose.Close(); err != nil {
+		return err
+	}
+	c.diagnosticVerbose, c.previousVerbose, c.previousWarning = nil, nil, nil
+	c.diagnosticBound = false
 	return nil
 }
 
@@ -246,6 +334,17 @@ func (w contextRegularOutput) Write(data []byte) (int, error) {
 }
 
 type contextDiagnosticOutput struct{ context *Context }
+
+// Each selected ostream has a distinct sticky failure state, even if its
+// enclosing context subsequently opens another diagnostic destination.
+type contextWarningOutput struct {
+	context    *Context
+	generation uint64
+}
+
+func (w contextWarningOutput) Write(data []byte) (int, error) {
+	return (contextDiagnosticOutput{w.context}).Write(data)
+}
 
 func (w contextDiagnosticOutput) Write(data []byte) (int, error) {
 	output := w.context.diagnosticOutput
@@ -1170,6 +1269,9 @@ func (c *Context) Close() error {
 	}
 	if c.closed {
 		return nil
+	}
+	if err := c.unbindDiagnosticGlobals(); err != nil {
+		return err
 	}
 	if err := c.resetManagerState(); err != nil {
 		return err

@@ -44839,6 +44839,7 @@
         "pkg/cmd/g3/test_vectors/nra_solver_quantifiers.smt2"
       ],
       "tests": [
+        "TestDiagnosticChannelRoutesProcessStreamsAndRestores",
         "TestDiagnosticOutputChannelEchoAndReplacement",
         "TestSMT2FunctionDeclarationReferenceErrors",
         "TestCommandContextScopesDeclarationsAndModel",
@@ -108550,6 +108551,7 @@
         "pkg/parsers/smt2/fixedpoint_query_collector_test.go"
       ],
       "tests": [
+        "TestSMT2DiagnosticChannelRoutesPatternWarning",
         "TestSMT2OutputChannelSwitchRoutesSuccess",
         "TestSMT2FunctionDeclarationReferenceErrors",
         "TestSMT2FixedpointEmptyProgramQueryMatchesCPP",
@@ -284911,6 +284913,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/cmd_context/output_channel_test.go",
         "pkg/util/diagnostic/util_warning.go",
         "pkg/util/params/util_env_params.go",
         "pkg/util/z3exception/z3_exception.go",
@@ -284927,6 +284930,7 @@
         "pkg/api/api_context_check_sorts_test.go"
       ],
       "tests": [
+        "TestDiagnosticChannelRoutesProcessStreamsAndRestores",
         "TestASTWellSortedSourceMismatchPrinter",
         "TestWarningSourceDefaultRoutingAndDisabledState",
         "TestWarningSourceBorrowedStreamTruncationAndFallback",

@@ -109,3 +109,32 @@ func TestSMT2OutputChannelSwitchRoutesSuccess(t *testing.T) {
 		t.Fatal("original stream", output.String())
 	}
 }
+
+func TestSMT2DiagnosticChannelRoutesPatternWarning(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	path := filepath.Join(t.TempDir(), "diagnostic.out")
+	script := fmt.Sprintf(`(set-option :diagnostic-output-channel %q)
+(set-option :parser.ignore_bad_patterns true)
+(declare-fun p (Int) Bool)
+(assert (forall ((x Int) (y Int)) (! (p x) :pattern ((p x)))))
+(check-sat)`, path)
+	var output bytes.Buffer
+	if err := ParseCommands(c, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || !strings.Contains(string(data), "WARNING:") || !strings.Contains(string(data), "pattern does not contain all quantified variables") {
+		t.Fatal("pattern warning", string(data), err)
+	}
+	if output.String() != "sat\n" {
+		t.Fatal("ordinary output", output.String())
+	}
+}

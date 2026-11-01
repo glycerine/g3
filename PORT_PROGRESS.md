@@ -1,4 +1,6 @@
-SMT-LIB output channels now open append-only files or select stdout/stderr, route subsequent parser and tactic output through the current stream, report channel names and close owned files. Native Z3 comparison and focused tests cover switching, failed opens, append behavior and diagnostic tactic output; routing process-global warning and verbose streams remains open.
+Main command contexts now route process warnings and verbose output to the selected diagnostic channel, while auxiliary API parsing contexts leave process streams untouched. Tests cover actual pattern warnings, verbose output, nested context close and allocation-failure cleanup.
+
+SMT-LIB output channels now open append-only files or select stdout/stderr, route subsequent parser and tactic output through the current stream, report channel names and close owned files. Native Z3 comparison and focused tests cover switching, failed opens, append behavior and diagnostic tactic output.
 
 NLSAT solver teardown now cleans an interrupted evaluator after its search closes. The mixed nonlinear allocation-retry test covers the first evaluator interruption; subsequent numerical cleanup boundaries remain under audit.
 

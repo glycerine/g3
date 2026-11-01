@@ -14,7 +14,7 @@ type apiWCNFInvocation struct {
 }
 
 func newAPIWCNFInvocation(options *WCNFRunOptions) (*apiWCNFInvocation, error) {
-	c, e := cmd_context.NewStandaloneContext()
+	c, e := cmd_context.NewAuxiliaryContext()
 	if e != nil {
 		return nil, e
 	}

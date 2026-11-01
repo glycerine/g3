@@ -58,6 +58,14 @@ func (s *WarningService) Enable(flag bool) error {
 }
 func (s *WarningService) Enabled() bool { return s != nil && s.enabled }
 
+// WarningStream returns the selected borrowed stream, or nil for the default.
+func (s *WarningService) WarningStream() io.Writer {
+	if s == nil {
+		return nil
+	}
+	return s.stream
+}
+
 func (s *WarningService) SetWarningStream(stream io.Writer) error {
 	if s == nil {
 		return arena.ErrConfig

@@ -14,6 +14,10 @@ import (
 // owner is confined to one caller lane, as with the retained process services.
 // The default formatter borrows os.Stderr for the lifetime of the process.
 var processVerboseContext = newProcessVerboseContext()
+var processDefaultVerboseStream = processVerboseContext.stream
+
+// BorrowDefaultProcessVerboseStream returns the process-lifetime stderr stream.
+func BorrowDefaultProcessVerboseStream() *utext.NumericTextStream { return processDefaultVerboseStream }
 
 // BorrowProcessVerboseContext supplies the one source global owner to retained
 // environment-parameter and diagnostic consumers. Callers must not close it.

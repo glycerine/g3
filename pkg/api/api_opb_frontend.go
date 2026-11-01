@@ -18,7 +18,7 @@ type apiOPBInvocation struct {
 }
 
 func newAPIOPBInvocation(options *OPBRunOptions) (*apiOPBInvocation, error) {
-	command, err := cmd_context.NewStandaloneContext()
+	command, err := cmd_context.NewAuxiliaryContext()
 	if err != nil {
 		return nil, err
 	}

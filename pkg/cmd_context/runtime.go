@@ -72,6 +72,16 @@ func NewStandaloneContext() (*Context, error) {
 	return c, nil
 }
 
+// NewAuxiliaryContext constructs the non-main command context used by API
+// parsers, which must not redirect the process diagnostic streams.
+func NewAuxiliaryContext() (*Context, error) {
+	c, err := NewStandaloneContext()
+	if c != nil {
+		c.mainContext = false
+	}
+	return c, err
+}
+
 func (s *contextServices) Close() (result error) {
 	if s.cooperation != nil {
 		result = errors.Join(result, s.cooperation.Close())

@@ -44,7 +44,7 @@ type smtContextState struct {
 // Logic and proof/core options must be selected before Manager initializes the
 // AST manager, matching the native context lifecycle.
 func NewSMTContext() (*SMTContext, error) {
-	command, err := cmd_context.NewStandaloneContext()
+	command, err := cmd_context.NewAuxiliaryContext()
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +330,7 @@ func (c *SMTContext) AssertSMT2(input io.Reader) (result error) {
 	if err != nil {
 		return err
 	}
-	parsed, err := cmd_context.NewStandaloneContext()
+	parsed, err := cmd_context.NewAuxiliaryContext()
 	if err != nil {
 		return err
 	}
