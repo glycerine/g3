@@ -201719,7 +201719,7 @@
       "path": "src/test/ext_numeral.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
+      "status": "ported",
       "go_targets": ["pkg/math/interval/ext_numeral_cpp_test.go"],
       "tests": ["TestExtendedNumeralSourceArithmeticAndRelations", "TestExtendedNumeralSourcePredicatesAndDisplay"],
       "assertions": [
@@ -201844,11 +201844,11 @@
           "text": "ENSURE(buffer.str() == \"-oo\");"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [{"name": "tst1 arithmetic/inverse and tst2 comparisons", "status": "partial", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst3 predicates and display", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourcePredicatesAndDisplay"]}, {"name": "tst1 standalone scalar negation", "status": "unported"}],
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [{"name": "tst1 arithmetic/inverse, negation, and tst2 comparisons", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst3 predicates and display", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourcePredicatesAndDisplay"]}, {"name": "tst1 standalone scalar negation", "status": "ported"}],
       "ownership": ["The test owns and releases its three rational values and their manager, checking the allocation budget at teardown."],
-      "deviations": ["The scalar negation helper is reached only by this test driver; its source semantics are covered by the concrete rational specialization without a generic manager adapter."]
+      "deviations": ["Finite rational negation and both infinity-kind transitions are covered by the concrete rational specialization without a generic manager adapter."]
     },
     {
       "path": "src/test/f2n.cpp",
