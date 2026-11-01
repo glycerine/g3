@@ -72,12 +72,12 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			return value, e
 		}
 		if asserted {
-			if original := c.byFormula[fact]; original != nil {
+			if original, found := c.byFormula[fact]; found {
 				value.proof, _, e = c.ConvertAsserted(node)
 				if e != nil {
 					return value, e
 				}
-				value.rule, e = original.Retain()
+				value.rule, e = original.rule.Retain()
 				return value, e
 			}
 		}

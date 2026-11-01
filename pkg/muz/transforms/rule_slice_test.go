@@ -906,3 +906,96 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 		}
 	})
 }
+
+func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
+	f := newConeFixture(t)
+	m := f.manager
+	boolean, err := m.MkBoolSort()
+	coneMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := m.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string, arity int) ast.ASTHandle {
+		s, e := m.Symbols.Intern(name)
+		coneMust(t, e)
+		domain := make([]ast.ASTHandle, arity)
+		for i := range domain {
+			domain[i] = integer
+		}
+		d, e := m.MkFuncDecl(s, domain, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, e)
+		coneMust(t, f.rules.RegisterPredicate(d))
+		return d
+	}
+	p, goal := declare("slice-map-P", 2), declare("slice-map-goal", 1)
+	x, err := m.MkVar(0, integer)
+	coneMust(t, err)
+	y, err := m.MkVar(1, integer)
+	coneMust(t, err)
+	pApp, err := m.MkApp(p, []ast.ASTHandle{x, y})
+	coneMust(t, err)
+	goalApp, err := m.MkApp(goal, []ast.ASTHandle{y})
+	coneMust(t, err)
+	guard, err := m.MkEq(y, zero)
+	coneMust(t, err)
+	for _, spec := range []struct {
+		head ast.ASTHandle
+		tail []ast.ASTHandle
+	}{{pApp, nil}, {goalApp, []ast.ASTHandle{pApp, guard}}} {
+		rule, e := f.rules.NewRule(spec.head, spec.tail, nil, "")
+		coneMust(t, e)
+		coneMust(t, f.rules.MkRuleAssertedProof(rule))
+		coneMust(t, f.set.Add(rule))
+		coneMust(t, rule.Close())
+	}
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("invalid fixture")
+	}
+	plugin := transforms.NewRuleSlicePlugin(m, f.rules, 1)
+	plugin.SetGenerateProofTrace(true)
+	transformer := base.NewRuleTransformer()
+	coneMust(t, transformer.Register(plugin))
+	changed, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !changed {
+		t.Fatal("expected slicing")
+	}
+	derived, ok := plugin.DerivedPredicate(p)
+	if !ok {
+		t.Fatal("predicate was not sliced")
+	}
+	converter := plugin.TakeProofConverter()
+	coneMust(t, transformer.Close())
+	if converter == nil {
+		t.Fatal("missing converter")
+	}
+	defer func() { coneMust(t, converter.Close()) }()
+	for _, decl := range []ast.ASTHandle{goal, derived} {
+		rules, e := f.set.PredicateRules(decl)
+		coneMust(t, e)
+		if len(rules) != 1 {
+			t.Fatal("unexpected rule count", len(rules))
+		}
+		proof, found, e := rules[0].Proof()
+		coneMust(t, e)
+		if !found {
+			t.Fatal("missing rule proof")
+		}
+		mapping, found, e := converter.OriginalVariables(proof)
+		coneMust(t, e)
+		if !found || len(mapping) != 1 || mapping[0] != 1 {
+			t.Fatal("wrong sliced-to-original variable map", mapping, found)
+		}
+		mapping[0] = 99
+		mapping, found, e = converter.OriginalVariables(proof)
+		coneMust(t, e)
+		if !found || len(mapping) != 1 || mapping[0] != 1 {
+			t.Fatal("mutable variable map leaked", mapping)
+		}
+		coneMust(t, rules[0].Close())
+	}
+}

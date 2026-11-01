@@ -18,14 +18,19 @@ type SliceProofConverter struct {
 	rules     *base.RuleManager
 	originals []*base.Rule
 	formulas  []ast.ASTRef
-	byFormula map[ast.ASTHandle]*base.Rule
+	byFormula map[ast.ASTHandle]sliceOriginalRule
+}
+
+type sliceOriginalRule struct {
+	rule      *base.Rule
+	variables []uint32
 }
 
 func newSliceProofConverter(manager *ast.ASTManager, rules *base.RuleManager) *SliceProofConverter {
-	return &SliceProofConverter{manager: manager, rules: rules, byFormula: make(map[ast.ASTHandle]*base.Rule)}
+	return &SliceProofConverter{manager: manager, rules: rules, byFormula: make(map[ast.ASTHandle]sliceOriginalRule)}
 }
 
-func (c *SliceProofConverter) insert(original, sliced *base.Rule) (resultErr error) {
+func (c *SliceProofConverter) insert(original, sliced *base.Rule, variables []uint32) (resultErr error) {
 	if c == nil || c.manager == nil || original == nil || sliced == nil {
 		return ast.ErrASTHandle
 	}
@@ -49,8 +54,26 @@ func (c *SliceProofConverter) insert(original, sliced *base.Rule) (resultErr err
 	c.originals = append(c.originals, owner)
 	c.formulas = append(c.formulas, formula)
 	formula = ast.ASTRef{}
-	c.byFormula[fact] = owner
+	c.byFormula[fact] = sliceOriginalRule{rule: owner, variables: append([]uint32(nil), variables...)}
 	return nil
+}
+
+// OriginalVariables maps each sliced rule variable index to its original index.
+// The returned slice is independent of the converter's internal mapping.
+func (c *SliceProofConverter) OriginalVariables(proof ast.ASTHandle) ([]uint32, bool, error) {
+	if c == nil || c.manager == nil {
+		return nil, false, ast.ErrASTHandle
+	}
+	var fact ast.ASTHandle
+	matched, err := c.manager.MatchProofAsserted(proof, &fact)
+	if err != nil || !matched {
+		return nil, false, err
+	}
+	entry, found := c.byFormula[fact]
+	if !found {
+		return nil, false, nil
+	}
+	return append([]uint32(nil), entry.variables...), true, nil
 }
 
 // ConvertAsserted maps an asserted sliced rule to the original rule's proof.
@@ -64,11 +87,11 @@ func (c *SliceProofConverter) ConvertAsserted(proof ast.ASTHandle) (result ast.A
 	if err != nil || !matched {
 		return result, false, err
 	}
-	rule, found := c.byFormula[fact]
+	entry, found := c.byFormula[fact]
 	if !found {
 		return result, false, nil
 	}
-	original, found, err := rule.Proof()
+	original, found, err := entry.rule.Proof()
 	if err != nil {
 		return result, false, err
 	}

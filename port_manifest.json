@@ -102690,6 +102690,7 @@
         "TestRuleSliceGeneratesProofsForRewrittenRules",
         "TestRuleSliceConvertsNestedHyperResolution",
         "TestRuleSliceConvertsNonlinearResolutionPositions",
+        "TestRuleSliceProofTracksVariableRenumbering",
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
         "TestRuleSliceRetainsConstantConstrainedColumn",
@@ -102792,7 +102793,8 @@
           "tests": [
             "TestRuleSliceGeneratesProofsForRewrittenRules",
             "TestRuleSliceConvertsNestedHyperResolution",
-            "TestRuleSliceConvertsNonlinearResolutionPositions"
+            "TestRuleSliceConvertsNonlinearResolutionPositions",
+            "TestRuleSliceProofTracksVariableRenumbering"
           ]
         }
       ],

@@ -440,7 +440,7 @@ func (p *RuleSlicePlugin) updateApplication(application ast.ASTHandle) (ast.ASTH
 	return p.manager.MkApp(derived, kept)
 }
 
-func (p *RuleSlicePlugin) updateRule(rule *base.Rule) (*base.Rule, error) {
+func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*base.Rule, error) {
 	headDecl, err := rule.HeadDeclaration()
 	if err != nil {
 		return nil, err
@@ -458,6 +458,17 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule) (*base.Rule, error) {
 		updated = !p.predicates[declaration].IsNull()
 	}
 	if !updated {
+		if variables != nil {
+			used, getErr := rule.UsedVariables()
+			if getErr != nil {
+				return nil, getErr
+			}
+			for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
+				if !used.Contains(i).IsNull() {
+					*variables = append(*variables, i)
+				}
+			}
+		}
 		return rule.Retain()
 	}
 	head, err := rule.Head()
@@ -493,6 +504,25 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule) (*base.Rule, error) {
 	for _, conjunct := range conjuncts {
 		tails = append(tails, conjunct)
 		negated = append(negated, false)
+	}
+	if variables != nil {
+		used, getErr := ast.NewASTUsedVars(p.manager)
+		if getErr != nil {
+			return nil, getErr
+		}
+		if getErr = used.Process(head); getErr != nil {
+			return nil, getErr
+		}
+		for _, tail := range tails {
+			if getErr = used.Process(tail); getErr != nil {
+				return nil, getErr
+			}
+		}
+		for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
+			if !used.Contains(i).IsNull() {
+				*variables = append(*variables, i)
+			}
+		}
 	}
 	name, err := rule.Name()
 	if err != nil {
@@ -653,9 +683,14 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 		if getErr != nil {
 			return nil, getErr
 		}
-		updated, updateErr := p.updateRule(rule)
+		var variables []uint32
+		var variableOutput *[]uint32
+		if converter != nil {
+			variableOutput = &variables
+		}
+		updated, updateErr := p.updateRule(rule, variableOutput)
 		if updateErr == nil && converter != nil {
-			updateErr = converter.insert(rule, updated)
+			updateErr = converter.insert(rule, updated, variables)
 		}
 		updateErr = errors.Join(updateErr, rule.Close())
 		if updateErr == nil {
