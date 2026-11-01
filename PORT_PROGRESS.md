@@ -52678,3 +52678,5 @@ Mixed nonlinear root-conversion cleanup: a stopped polynomial-root conversion no
 Mixed nonlinear model-evaluator construction: both the nonlinear-model and SMT-model phases now close a partially constructed evaluator on failure. The owner-budget and successful-retry campaign passes allocation stops 0–292 in normal and checked builds; later stops expose another algebraic/search cleanup boundary and remain open.
 
 NLSAT teardown ordering: after search-local cleanup, close an interrupted evaluator before undoing search assignments that use it. The complete NLSAT and mixed nonlinear package suites pass in normal and checked builds; the mixed-tactic allocation-and-retry prefix now covers stops 0–307. Stop 308 reaches a separate polynomial-construction cleanup gap.
+
+Full checked short-suite checkpoint: all 111 package result lines passed on committed snapshot ca265ed11 with CGO_ENABLED=0 and -tags g3checked -timeout=0 -short -count=1; the SMT-LIB runner passed, and util/lp took 708.526 seconds. The subsequent root-conversion, model-evaluator and teardown fixes have separate focused normal and checked coverage.
