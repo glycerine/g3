@@ -136,6 +136,43 @@ func TestLegacyModelTermProjectionRejectsSelfOccurrence(t *testing.T) {
 	}
 }
 
+func TestLegacyProjectionRemainingArithmeticSubstitutionPolicy(t *testing.T) {
+	f := newFMFixture(t)
+	m := f.r.manager
+	p, err := NewLegacyProjection(m, f.r.config)
+	fmMust(t, err)
+	defer func() { fmMust(t, p.Close()) }()
+	x := f.constant("remaining-policy-x", f.integer)
+	zero := f.own(m.ArithmeticIntegerNumeralText("0"))
+	two := f.own(m.ArithmeticIntegerNumeralText("2"))
+	square := f.own(m.MkArithmeticMul(x, x))
+	formula := f.own(m.MkArithmeticGT(square, zero))
+	md, err := model.NewModel(m)
+	fmMust(t, err)
+	defer func() { fmMust(t, md.Close()) }()
+	decl, err := m.GetDecl(x)
+	fmMust(t, err)
+	fmMust(t, md.Core().RegisterConstant(decl, two))
+	for _, retain := range []bool{true, false} {
+		result, err := p.Project(md.Core(), []ast.ASTHandle{x}, formula, false, retain)
+		fmMust(t, err)
+		root, err := result.Formula()
+		fmMust(t, err)
+		remaining, err := result.Variables()
+		fmMust(t, err)
+		occurs, err := m.OccursExpr(x, root)
+		fmMust(t, err)
+		if retain {
+			if len(remaining) != 1 || remaining[0] != x || !occurs {
+				t.Fatal("dont_sub discarded the nonlinear variable", remaining, occurs)
+			}
+		} else if len(remaining) != 0 || occurs || !m.IsTrue(root) {
+			t.Fatal("model substitution did not simplify the nonlinear witness", remaining, root)
+		}
+		fmMust(t, result.Close())
+	}
+}
+
 func TestLegacyModelTermProjectionEqualityDirections(t *testing.T) {
 	for _, reverse := range []bool{false, true} {
 		f := newFMFixture(t)

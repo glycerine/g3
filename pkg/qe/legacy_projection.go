@@ -363,6 +363,9 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 				return nil, err
 			}
 			current = next
+			if err = p.rewriteProjectionCurrent(current); err != nil {
+				return nil, fmt.Errorf("projection substitution rewrite: %w", err)
+			}
 		} else {
 			for _, variable := range remaining {
 				variableRef, err := p.manager.NewRef(variable)
@@ -373,13 +376,11 @@ func (p *LegacyProjection) project(md *model.ModelCore, variables []ast.ASTHandl
 			}
 		}
 	}
-	handle, err := p.manager.RefGet(current)
+	// Source qe_project rewrites here only after substituting remaining
+	// arithmetic variables. MBQI symbolic replacements are published directly.
+	result.formula, err = p.manager.CopyRef(current)
 	if err != nil {
 		return nil, err
-	}
-	result.formula, err = p.arithmetic.rewriteLegacy(handle)
-	if err != nil {
-		return nil, fmt.Errorf("projection final rewrite: %w", err)
 	}
 	return result, nil
 }
