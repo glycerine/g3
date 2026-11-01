@@ -92820,7 +92820,7 @@
         },
         {
           "name": "interval fact insertion via interpreted equalities",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductSymbolicFactInsertion"
@@ -93064,7 +93064,7 @@
         },
         {
           "name": "interval fact insertion via interpreted equalities",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductSymbolicFactInsertion"

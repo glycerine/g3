@@ -52824,3 +52824,5 @@ Finite product reset method (2026-11-01 UTC): matched the source reset sequence 
 Finite product relation conversion methods (2026-11-01 UTC): audited table-to-product, interval-to-product and product-to-table conversion against the source plugin's empty-inner-signature path and cleanup behavior. Round-trip, source interval cloning, empty-product and unsupported reverse-conversion regressions pass normally and with `g3checked`; marked these methods ported in both source records.
 
 Finite product source fact lookup (2026-11-01 UTC): verified `contains_fact` table-key lookup, conservative non-numeral interval membership and visibility of empty inner rows before collection against the source method. The focused lookup regression passes normally and with `g3checked`; marked the method ported in both source records.
+
+Finite product interval fact insertion (2026-11-01 UTC): matched interval insertion's per-column interpreted equality construction and union into the existing interval to `interval_relation::add_fact`. Symbolic insertion regression passes normally and with `g3checked`; marked the method ported in both finite product records.
