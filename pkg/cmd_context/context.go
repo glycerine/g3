@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	muzfp "github.com/glycerine/g3/pkg/muz/fp"
@@ -251,8 +250,12 @@ func (c *Context) setOutputChannel(name string, regular bool) error {
 	}
 	switch name {
 	case "stdout":
-		if regular && c.shellOutput != nil {
-			*output = c.shellOutput
+		if c.shellOutput != nil {
+			if regular {
+				*output = c.shellOutput
+			} else {
+				*output = contextShellOutput{c}
+			}
 		} else {
 			*output = os.Stdout
 		}
@@ -278,13 +281,15 @@ func (c *Context) setOutputChannel(name string, regular bool) error {
 }
 
 // bindDiagnosticGlobals implements cmd_context::set_diagnostic_stream for a
-// main context. Named channels are concrete files, borrowed by the formatter.
+// main context. The formatter borrows the selected file or shell writer.
 func (c *Context) bindDiagnosticGlobals() error {
-	file, ok := c.diagnosticOutput.(*os.File)
-	if !ok {
-		return arena.ErrConfig
+	config := utext.NumericTextStreamConfig{Budget: c.config.Params.BudgetField}
+	if file, ok := c.diagnosticOutput.(*os.File); ok {
+		config.BorrowedFile = file
+	} else {
+		config.BorrowedWriter = c.diagnosticOutput
 	}
-	stream, err := utext.NewNumericTextStream(utext.NumericTextStreamConfig{Budget: c.config.Params.BudgetField, BorrowedFile: file})
+	stream, err := utext.NewNumericTextStream(config)
 	if err != nil {
 		return err
 	}
@@ -348,6 +353,18 @@ func (c *Context) unbindDiagnosticGlobals() error {
 
 type contextRegularOutput struct{ context *Context }
 
+type contextShellOutput struct{ context *Context }
+
+func (w contextShellOutput) Write(data []byte) (int, error) {
+	output := w.context.shellOutput
+	if output == nil {
+		output = os.Stdout
+	}
+	return output.Write(data)
+}
+
+func (w contextShellOutput) Flush() error { return flushOutput(w.context.shellOutput) }
+
 func (w contextRegularOutput) Write(data []byte) (int, error) {
 	output := w.context.regularOutput
 	if output == nil {
@@ -367,6 +384,15 @@ type contextWarningOutput struct {
 
 func (w contextWarningOutput) Write(data []byte) (int, error) {
 	return (contextDiagnosticOutput{w.context}).Write(data)
+}
+
+func (w contextWarningOutput) Flush() error { return flushOutput(w.context.diagnosticOutput) }
+
+func flushOutput(output io.Writer) error {
+	if flusher, ok := output.(interface{ Flush() error }); ok {
+		return flusher.Flush()
+	}
+	return nil
 }
 
 func (w contextDiagnosticOutput) Write(data []byte) (int, error) {

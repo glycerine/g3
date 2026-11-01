@@ -8,6 +8,7 @@ package text
 import (
 	"bytes"
 	"errors"
+	"io"
 	"math"
 	"os"
 	"reflect"
@@ -44,9 +45,10 @@ const NumericLibStdCPPAMD64 NumericStreamProfile = 0
 // Profile0 explicitly denotes the selected narrow C-locale, nearest/even,
 // libstdc++ AMD64 precision ABI. It does not select arbitrary host CRT behavior.
 type NumericTextStreamConfig struct {
-	Budget       *arena.Budget
-	Profile      NumericStreamProfile
-	BorrowedFile *os.File
+	Budget         *arena.Budget
+	Profile        NumericStreamProfile
+	BorrowedFile   *os.File
+	BorrowedWriter io.Writer
 }
 type NumericStreamState struct {
 	Precision, Width                        int64
@@ -70,6 +72,7 @@ type NumericTextStream struct {
 	Budget       *arena.Budget
 	Buffer       *bytes.Buffer
 	File         *os.File
+	writer       io.Writer
 	fileByte     [1]byte
 	FilePosition uint64
 	FileBad      bool
@@ -82,18 +85,27 @@ type NumericTextStream struct {
 }
 
 func NewNumericTextStream(c NumericTextStreamConfig) (*NumericTextStream, error) {
-	if c.Profile != NumericLibStdCPPAMD64 {
+	if c.Profile != NumericLibStdCPPAMD64 || c.BorrowedFile != nil && c.BorrowedWriter != nil {
 		return nil, ErrNumericStreamConfig
+	}
+	if c.BorrowedWriter != nil {
+		v := reflect.ValueOf(c.BorrowedWriter)
+		switch v.Kind() {
+		case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+			if v.IsNil() {
+				return nil, ErrNumericStreamConfig
+			}
+		}
 	}
 	header := uint64(reflect.TypeOf(NumericTextStream{}).Size())
 	if e := c.Budget.Reserve(header); e != nil {
 		return nil, e
 	}
 	var b *bytes.Buffer
-	if c.BorrowedFile == nil {
+	if c.BorrowedFile == nil && c.BorrowedWriter == nil {
 		b = new(bytes.Buffer)
 	}
-	s := &NumericTextStream{Budget: c.Budget, Buffer: b, File: c.BorrowedFile, OwnerBytes: header, state: NumericStreamState{Precision: 6, IntegerBase: 10, Fill: ' '}}
+	s := &NumericTextStream{Budget: c.Budget, Buffer: b, File: c.BorrowedFile, writer: c.BorrowedWriter, OwnerBytes: header, state: NumericStreamState{Precision: 6, IntegerBase: 10, Fill: ' '}}
 	s.self = s
 	return s, nil
 }
@@ -120,7 +132,7 @@ func (s *NumericTextStream) Stats() NumericStreamStats {
 		return NumericStreamStats{}
 	}
 	defer s.mu.Unlock()
-	if s.fileMode || s.File != nil {
+	if s.fileMode || s.File != nil || s.writer != nil {
 		return NumericStreamStats{OwnerBytes: s.OwnerBytes, ScratchBytes: uint64(len(s.scratch)), Position: s.FilePosition, State: s.state}
 	}
 	return NumericStreamStats{OwnerBytes: s.OwnerBytes, ScratchBytes: uint64(len(s.scratch)), Position: uint64(s.Buffer.Len()), OutputCapacity: uint64(s.Buffer.Cap()), State: s.state}
@@ -227,15 +239,21 @@ func (s *NumericTextStream) fieldPadding(n uint64) (uint64, error) {
 	return size - n, nil
 }
 func (s *NumericTextStream) emitByte(c byte) error {
-	if s.fileMode || s.File != nil {
+	if s.fileMode || s.File != nil || s.writer != nil {
 		if s.FileBad || s.fileFail {
 			return nil
 		}
-		if s.File == nil {
+		if s.File == nil && s.writer == nil {
 			return ErrNumericStreamFile
 		}
 		s.fileByte[0] = c
-		n, e := s.File.Write(s.fileByte[:])
+		var n int
+		var e error
+		if s.writer != nil {
+			n, e = s.writer.Write(s.fileByte[:])
+		} else {
+			n, e = s.File.Write(s.fileByte[:])
+		}
 		s.FilePosition += uint64(n)
 		if e != nil || n != 1 {
 			s.FileBad = true
@@ -567,7 +585,7 @@ func (s *NumericTextStream) String() (string, error) {
 		return "", e
 	}
 	defer s.mu.Unlock()
-	if s.fileMode || s.File != nil {
+	if s.fileMode || s.File != nil || s.writer != nil {
 		return "", ErrNumericStreamFile
 	}
 	return s.Buffer.String(), nil
@@ -577,7 +595,7 @@ func (s *NumericTextStream) ResetText() error {
 		return e
 	}
 	defer s.mu.Unlock()
-	if s.fileMode || s.File != nil {
+	if s.fileMode || s.File != nil || s.writer != nil {
 		return ErrNumericStreamFile
 	}
 	s.Buffer.Reset()
@@ -593,6 +611,7 @@ func (s *NumericTextStream) Close() error {
 		return nil
 	}
 	s.Buffer = nil
+	s.writer = nil
 	s.Budget.Release(uint64(len(s.scratch)) + s.OwnerBytes)
 	s.scratch = nil
 	s.Closed = true

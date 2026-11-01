@@ -1,6 +1,8 @@
 package cmd_context
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -37,6 +39,25 @@ func TestDiagnosticOutputChannelEchoAndReplacement(t *testing.T) {
 	contextMust(t, err)
 	if !ok || name != "stderr" {
 		t.Fatal("replacement channel", name, ok)
+	}
+}
+
+func TestShellStdoutDiagnosticChannelUsesBorrowedWriter(t *testing.T) {
+	c := contextFixture(t)
+	var output bytes.Buffer
+	buffered := bufio.NewWriter(&output)
+	contextMust(t, c.SetShellRegularOutput(buffered))
+	contextMust(t, c.SetStringOption("diagnostic-output-channel", "stdout"))
+	contextMust(t, diagnostic.BorrowProcessWarningService().Warning("warning to stdout"))
+	if output.String() != "WARNING: warning to stdout\n" {
+		t.Fatal("warning was not flushed", output.String())
+	}
+	stream, err := diagnostic.BorrowProcessVerboseStream()
+	contextMust(t, err)
+	contextMust(t, stream.AppendString("verbose to stdout\n"))
+	contextMust(t, stream.Flush())
+	if output.String() != "WARNING: warning to stdout\nverbose to stdout\n" {
+		t.Fatal("shell diagnostic stdout", output.String())
 	}
 }
 

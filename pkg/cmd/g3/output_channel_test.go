@@ -30,3 +30,18 @@ func TestSMTLibShellOutputChannelIdentityAndReturnToStdout(t *testing.T) {
 		t.Fatal("redirected output", string(data), err)
 	}
 }
+
+func TestSMTLibShellDiagnosticStdoutCapturesPatternWarning(t *testing.T) {
+	script := `(set-option :diagnostic-output-channel "stdout")
+(set-option :parser.ignore_bad_patterns true)
+(declare-fun p (Int) Bool)
+(assert (forall ((x Int) (y Int)) (! (p x) :pattern ((p x)))))
+(check-sat)`
+	var output bytes.Buffer
+	if err := run(strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(output.String(), "WARNING:") || !strings.Contains(output.String(), "pattern does not contain all quantified variables") || !strings.HasSuffix(output.String(), "sat\n") {
+		t.Fatal("stdout", output.String())
+	}
+}

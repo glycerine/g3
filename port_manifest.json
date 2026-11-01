@@ -44841,6 +44841,7 @@
         "pkg/cmd/g3/test_vectors/nra_solver_quantifiers.smt2"
       ],
       "tests": [
+        "TestShellStdoutDiagnosticChannelUsesBorrowedWriter",
         "TestDiagnosticChannelRoutesProcessStreamsAndRestores",
         "TestDiagnosticOutputChannelEchoAndReplacement",
         "TestSMT2FunctionDeclarationReferenceErrors",
@@ -108553,6 +108554,7 @@
         "pkg/parsers/smt2/fixedpoint_query_collector_test.go"
       ],
       "tests": [
+        "TestSMT2ShellDiagnosticStdoutTracksNextSession",
         "TestSMT2DiagnosticChannelRoutesPatternWarning",
         "TestSMT2OutputChannelSwitchRoutesSuccess",
         "TestSMT2FunctionDeclarationReferenceErrors",
@@ -126588,6 +126590,7 @@
         "pkg/shell/smtlib_frontend_ownership_test.go"
       ],
       "tests": [
+        "TestSMTLibShellDiagnosticStdoutCapturesPatternWarning",
         "TestSMTLIBFrontendStatisticsRestoreStdout",
         "TestSMTLibShellOutputChannelIdentityAndReturnToStdout",
         "TestSMTLibRunnerCommandLine",

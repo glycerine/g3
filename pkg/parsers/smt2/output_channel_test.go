@@ -138,3 +138,28 @@ func TestSMT2DiagnosticChannelRoutesPatternWarning(t *testing.T) {
 		t.Fatal("ordinary output", output.String())
 	}
 }
+
+func TestSMT2ShellDiagnosticStdoutTracksNextSession(t *testing.T) {
+	c, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	var first, second bytes.Buffer
+	if err := ParseShellCommands(c, strings.NewReader(`(set-option :diagnostic-output-channel "stdout")`), &first); err != nil {
+		t.Fatal(err)
+	}
+	script := `(set-option :parser.ignore_bad_patterns true)
+(declare-fun p (Int) Bool)
+(assert (forall ((x Int) (y Int)) (! (p x) :pattern ((p x)))))`
+	if err := ParseShellCommands(c, strings.NewReader(script), &second); err != nil {
+		t.Fatal(err)
+	}
+	if first.Len() != 0 || !strings.Contains(second.String(), "pattern does not contain all quantified variables") {
+		t.Fatal("diagnostic session routing", first.String(), second.String())
+	}
+}
