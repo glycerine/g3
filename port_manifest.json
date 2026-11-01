@@ -86768,7 +86768,7 @@
         {"name": "display_certificate prints the true answer for both reachable and unreachable queries", "status": "ported", "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/clp_engine_test.go", "pkg/parsers/smt2/clp_engine_test.go"], "tests": ["TestCLPEngineResultSnapshotAndAnswer", "TestSMT2CLPCertificateForReachableAndUnreachable"]},
         {
           "name": "search: distinguish solver unknown exception from depth-limit unknown and restore scopes",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/clp/search_rule.go",
           "tests": [
             "TestCLPSolverUnknownRaisesSourceErrorAndRestoresScope",
