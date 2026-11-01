@@ -1639,3 +1639,175 @@ func TestRuleSliceProofSubstitutesCompoundBodyTerm(t *testing.T) {
 		}
 	}
 }
+
+func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
+	f := newConeFixture(t)
+	m := f.manager
+	boolean, err := m.MkBoolSort()
+	coneMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := m.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		s, e := m.Symbols.Intern(name)
+		coneMust(t, e)
+		d, e := m.MkFuncDecl(s, domain, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, e)
+		coneMust(t, f.rules.RegisterPredicate(d))
+		return d
+	}
+	p := declare("slice-derived-P", []ast.ASTHandle{integer, integer})
+	q := declare("slice-derived-Q", []ast.ASTHandle{integer, integer})
+	goal := declare("slice-derived-goal", []ast.ASTHandle{integer})
+	x, err := m.MkVar(0, integer)
+	coneMust(t, err)
+	y, err := m.MkVar(1, integer)
+	coneMust(t, err)
+	app := func(d ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkApp(d, args)
+		coneMust(t, e)
+		return h
+	}
+	pApp, qApp, goalApp := app(p, x, y), app(q, x, y), app(goal, y)
+	guard, err := m.MkEq(y, zero)
+	coneMust(t, err)
+	for _, spec := range []struct {
+		head  ast.ASTHandle
+		tails []ast.ASTHandle
+	}{{pApp, nil}, {qApp, []ast.ASTHandle{pApp}}, {goalApp, []ast.ASTHandle{qApp, guard}}} {
+		r, e := f.rules.NewRule(spec.head, spec.tails, nil, "")
+		coneMust(t, e)
+		coneMust(t, f.rules.MkRuleAssertedProof(r))
+		coneMust(t, f.set.Add(r))
+		coneMust(t, r.Close())
+	}
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("invalid fixture")
+	}
+	plugin := transforms.NewRuleSlicePlugin(m, f.rules, 1)
+	plugin.SetGenerateProofTrace(true)
+	transformer := base.NewRuleTransformer()
+	coneMust(t, transformer.Register(plugin))
+	changed, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !changed {
+		t.Fatal("expected slicing")
+	}
+	derivedP, ok := plugin.DerivedPredicate(p)
+	if !ok {
+		t.Fatal("P not sliced")
+	}
+	derivedQ, ok := plugin.DerivedPredicate(q)
+	if !ok {
+		t.Fatal("Q not sliced")
+	}
+	converter := plugin.TakeProofConverter()
+	coneMust(t, transformer.Close())
+	if converter == nil {
+		t.Fatal("missing converter")
+	}
+	defer func() { coneMust(t, converter.Close()) }()
+	var ps [2]ast.ASTHandle
+	for i, decl := range []ast.ASTHandle{derivedQ, derivedP} {
+		rules, e := f.set.PredicateRules(decl)
+		coneMust(t, e)
+		if len(rules) != 1 {
+			t.Fatal("unexpected rule count", len(rules))
+		}
+		ps[i], ok, e = rules[0].Proof()
+		coneMust(t, e)
+		if !ok {
+			t.Fatal("missing sliced proof")
+		}
+		coneMust(t, rules[0].Close())
+	}
+	qVar := app(derivedQ, x)
+	name, err := m.Symbols.Intern("slice-derived-x")
+	coneMust(t, err)
+	qAll, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{name}, Body: qVar})
+	coneMust(t, err)
+	scope, err := ast.NewScopedProof(m)
+	coneMust(t, err)
+	inner, err := m.MkProofHyperResolve(ps[:], qAll, []ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{{x}, {x}})
+	coneMust(t, err)
+	innerRef, err := m.NewRef(inner)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&innerRef)) }()
+	outer, err := m.MkProofHyperResolve([]ast.ASTHandle{inner}, app(derivedQ, zero), nil, [][]ast.ASTHandle{{zero}})
+	coneMust(t, err)
+	outerRef, err := m.NewRef(outer)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&outerRef)) }()
+	coneMust(t, scope.Close())
+	converted, err := converter.Convert(outer)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&converted)) }()
+	handle, err := m.RefGet(converted)
+	coneMust(t, err)
+	fact, err := m.GetProofFact(handle)
+	coneMust(t, err)
+	body, err := m.GetQuantifierBody(fact)
+	coneMust(t, err)
+	decl, err := m.GetDecl(body)
+	coneMust(t, err)
+	second, err := m.GetArg(body, 1)
+	coneMust(t, err)
+	if decl != q || second != zero {
+		t.Fatal("derived substitution did not reach original predicate", decl, second)
+	}
+	checker, err := proofs.NewChecker(m)
+	coneMust(t, err)
+	valid, side, err := checker.Check(handle)
+	coneMust(t, err)
+	defer func() {
+		for _, c := range side {
+			coneMust(t, m.DecRef(c))
+		}
+	}()
+	if !valid {
+		t.Fatal("derived substitution proof invalid")
+	}
+	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+	coneMust(t, err)
+	defer func() { coneMust(t, solver.Close()) }()
+	for _, condition := range side {
+		coneMust(t, solver.Push())
+		negated, e := m.MkNot(condition)
+		coneMust(t, e)
+		coneMust(t, solver.AssertFormula(negated))
+		status, e := solver.CheckSat(nil)
+		coneMust(t, e)
+		coneMust(t, solver.Pop(1))
+		if status != lbool.False {
+			t.Fatal("invalid derived proof side condition", status)
+		}
+	}
+	otherName, err := m.Symbols.Intern("slice-derived-unused")
+	coneMust(t, err)
+	gapFormula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer}, Names: []symbol.Symbol{name, otherName}, Body: app(derivedQ, y)})
+	coneMust(t, err)
+	scope, err = ast.NewScopedProof(m)
+	coneMust(t, err)
+	gapInner, err := m.MkProofHyperResolve(ps[:], gapFormula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{y}, {y}})
+	coneMust(t, err)
+	gapPin, err := m.NewRef(gapInner)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&gapPin)) }()
+	gapOuter, err := m.MkProofHyperResolve([]ast.ASTHandle{gapInner}, app(derivedQ, zero), nil, [][]ast.ASTHandle{{zero, zero}})
+	coneMust(t, err)
+	gapOuterPin, err := m.NewRef(gapOuter)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&gapOuterPin)) }()
+	coneMust(t, scope.Close())
+	gapResult, gapErr := converter.Convert(gapOuter)
+	if gapResult != (ast.ASTRef{}) {
+		coneMust(t, m.DelRef(&gapResult))
+	}
+	if gapErr == nil {
+		t.Fatal("accepted derived variable indices that require separate remapping")
+	}
+}

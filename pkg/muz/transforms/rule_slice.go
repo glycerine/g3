@@ -671,7 +671,7 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 	}
 	var converter *SliceProofConverter
 	if p.proofTrace {
-		converter = newSliceProofConverter(p.manager, p.rules)
+		converter = newSliceProofConverter(p.manager, p.rules, p.predicates, p.sliceable)
 		defer func() {
 			if converter != nil {
 				resultErr = errors.Join(resultErr, converter.Close())

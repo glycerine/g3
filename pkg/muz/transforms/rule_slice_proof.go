@@ -14,11 +14,17 @@ import (
 // ConvertAsserted handles assertion leaves; Convert also handles supported
 // hyper-resolution nodes, including quantified conclusions.
 type SliceProofConverter struct {
-	manager   *ast.ASTManager
-	rules     *base.RuleManager
-	originals []*base.Rule
-	formulas  []ast.ASTRef
-	byFormula map[ast.ASTHandle]sliceOriginalRule
+	manager    *ast.ASTManager
+	rules      *base.RuleManager
+	originals  []*base.Rule
+	formulas   []ast.ASTRef
+	byFormula  map[ast.ASTHandle]sliceOriginalRule
+	predicates map[ast.ASTHandle]slicePredicateOrigin
+}
+
+type slicePredicateOrigin struct {
+	declaration ast.ASTHandle
+	removed     []bool
 }
 
 type sliceOriginalRule struct {
@@ -26,8 +32,12 @@ type sliceOriginalRule struct {
 	variables []uint32
 }
 
-func newSliceProofConverter(manager *ast.ASTManager, rules *base.RuleManager) *SliceProofConverter {
-	return &SliceProofConverter{manager: manager, rules: rules, byFormula: make(map[ast.ASTHandle]sliceOriginalRule)}
+func newSliceProofConverter(manager *ast.ASTManager, rules *base.RuleManager, predicates map[ast.ASTHandle]ast.ASTHandle, slices map[ast.ASTHandle][]bool) *SliceProofConverter {
+	c := &SliceProofConverter{manager: manager, rules: rules, byFormula: make(map[ast.ASTHandle]sliceOriginalRule), predicates: make(map[ast.ASTHandle]slicePredicateOrigin)}
+	for original, derived := range predicates {
+		c.predicates[derived] = slicePredicateOrigin{declaration: original, removed: append([]bool(nil), slices[original]...)}
+	}
+	return c
 }
 
 func (c *SliceProofConverter) insert(original, sliced *base.Rule, variables []uint32) (resultErr error) {
@@ -117,5 +127,6 @@ func (c *SliceProofConverter) Close() (result error) {
 	c.originals = nil
 	c.formulas = nil
 	c.byFormula = nil
+	c.predicates = nil
 	return result
 }

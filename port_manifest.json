@@ -102678,6 +102678,7 @@
         "pkg/muz/transforms/rule_slice_proof_hyper.go",
         "pkg/muz/transforms/rule_slice_proof_instantiate.go",
         "pkg/muz/transforms/rule_slice_proof_compound.go",
+        "pkg/muz/transforms/rule_slice_proof_variables.go",
         "pkg/muz/transforms/rule_unifier.go",
         "pkg/muz/transforms/rule_unifier_test.go",
         "pkg/muz/transforms/rule_slice_test.go",
@@ -102695,6 +102696,7 @@
         "TestRuleSliceProofTracksVariableRenumbering",
         "TestRuleSliceProofPermutesSurvivingVariables",
         "TestRuleSliceProofSubstitutesCompoundBodyTerm",
+        "TestRuleSliceProofSubstitutesDerivedPremise",
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
         "TestRuleSliceRetainsConstantConstrainedColumn",
@@ -102800,7 +102802,8 @@
             "TestRuleSliceConvertsNonlinearResolutionPositions",
             "TestRuleSliceProofTracksVariableRenumbering",
             "TestRuleSliceProofPermutesSurvivingVariables",
-            "TestRuleSliceProofSubstitutesCompoundBodyTerm"
+            "TestRuleSliceProofSubstitutesCompoundBodyTerm",
+            "TestRuleSliceProofSubstitutesDerivedPremise"
           ]
         }
       ],

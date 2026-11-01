@@ -20,9 +20,9 @@ type slicedProofResult struct {
 // Convert translates asserted leaves and supported hyper-resolution nodes to
 // proofs over original rules. It returns an owned proof. As in the source
 // converter, resolution uses rule unification. Substitutions on asserted rules
-// use Horn conversion for compound predicate heads; substitutions on derived
-// premises and resolution against a premise other than a positive rule head
-// remain unsupported.
+// use Horn conversion for compound predicate heads. Derived substitutions
+// require an unambiguous predicate-based variable correspondence; resolution
+// against a premise other than a positive rule head remains unsupported.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || c.rules == nil {
 		return result, ast.ErrASTHandle
@@ -131,8 +131,17 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if cause != nil {
 				return slicedProofResult{}, cause
 			}
-			if !found || original.rule == nil {
-				return slicedProofResult{}, fmt.Errorf("slice proof: substitution for derived premise is not implemented")
+			if original.rule == nil {
+				return slicedProofResult{}, fmt.Errorf("slice proof: substituted premise has no original rule")
+			}
+			if !found {
+				variables, found, cause = c.derivedVariables(premises[index], original.rule)
+				if cause != nil {
+					return slicedProofResult{}, cause
+				}
+			}
+			if !found {
+				return slicedProofResult{}, fmt.Errorf("slice proof: cannot map derived premise variables")
 			}
 			rule, ref, cause := c.instantiateAsserted(original.rule, original.proof, variables, substitution)
 			if cause != nil {
