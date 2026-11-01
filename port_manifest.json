@@ -188058,7 +188058,8 @@
             "TestInjectivityRefusesUnsatCoresBeforeProofs",
             "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty",
             "TestSMTLibRunnerInjectivityTactic"
-          ]
+          ],
+          "go_targets": ["pkg/cmd/g3/injectivity_tactic_test.go"]
         }
       ],
       "ownership": [
@@ -188128,7 +188129,8 @@
             "TestInjectivityRefusesUnsatCoresBeforeProofs",
             "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty",
             "TestSMTLibRunnerInjectivityTactic"
-          ]
+          ],
+          "go_targets": ["pkg/cmd/g3/injectivity_tactic_test.go"]
         }
       ],
       "ownership": [
@@ -201877,7 +201879,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [{"name": "tst1 arithmetic/inverse, negation, and tst2 comparisons", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst3 predicates and display", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourcePredicatesAndDisplay"]}, {"name": "tst1 standalone scalar negation", "status": "ported"}],
+      "methods": [{"name": "tst1 arithmetic/inverse, negation, and tst2 comparisons", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}, {"name": "tst3 predicates and display", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourcePredicatesAndDisplay"]}, {"name": "tst1 standalone scalar negation", "status": "ported", "go_target": "pkg/math/interval/ext_numeral_cpp_test.go", "tests": ["TestExtendedNumeralSourceArithmeticAndRelations"]}],
       "ownership": ["The test owns and releases its three rational values and their manager, checking the allocation budget at teardown."],
       "deviations": ["Finite rational negation and both infinity-kind transitions are covered by the concrete rational specialization without a generic manager adapter."]
     },

@@ -52730,3 +52730,7 @@ eq2bv source trace: wired the source `pb` goal display after successful conversi
 recover-01 source traces: implemented the definition and transformed-goal `recover_01` trace records, including the source compile gate and tolerated stream refusal. Focused recovery tests pass normally, with `g3checked`, and with `g3trace`; the surrounding source unit remains partial for its broader previously recorded audit items.
 
 SLS core tactic closure: the source before/after goal traces, tactic report, clean engine invocation, QF_BV factory/preamble, parameter forwarding and construct-before-destroy cleanup now have focused normal and `g3checked` coverage. Marked `sls_tactic.cpp` complete after its trace/report regression, cleanup allocation-frontier tests, QF_BV SMT2 integration and context-translation tests passed.
+
+Extended-numeral ledger evidence: linked the already passing scalar-negation cases in `TestExtendedNumeralSourceArithmeticAndRelations` to the standalone `tst1` method record, resolving portcheck's missing method evidence without adding duplicate tests.
+
+Portcheck method evidence closure: linked the extended-numeral standalone negation check and injectivity SMT-LIB integration test through their method-level Go targets, so the checker can verify declarations across packages. `go run ./pkg/cmd/portcheck -manifest port_manifest.json` passes with 2,103 units and 677 API operations (1,282 ported, 279 partial, 377 unported, 29 dead/deleted).
