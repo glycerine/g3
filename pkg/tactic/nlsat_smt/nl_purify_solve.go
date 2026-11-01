@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/messages"
 )
 
 type nlCooperation struct {
@@ -63,7 +64,7 @@ func (c *nlCooperation) solve(out *tactic.TacticResult) (resultErr error) {
 			return err
 		}
 		if canceled {
-			return tactic.NewTacticException(m.ResourceLimit().CancelMessage())
+			return tactic.NewTacticException(messages.Canceled)
 		}
 		again, err := c.iterate(out)
 		if err != nil {

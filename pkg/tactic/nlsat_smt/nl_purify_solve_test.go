@@ -1,6 +1,7 @@
 package nlsatsmt
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -8,7 +9,47 @@ import (
 	nlsattactic "github.com/glycerine/g3/pkg/nlsat/tactic"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/messages"
 )
+
+func TestNLPurifyCooperationResourceCancellationUsesSourceMessage(t *testing.T) {
+	m := astTestManager(t)
+	_, _, config := nlModelEvaluatorFixture(t, m)
+	goal, err := tactic.NewGoal(m, false, true, false)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, goal.Close()) })
+	prepared, err := prepareNLPurification(goal)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, prepared.Close()) })
+	smt, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: config.Context, Globals: config.Globals, ModelEvaluator: config})
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, smt.Close()) })
+	nonlinear, err := nlsattactic.NewNLSATTactic(m, config.Context, config.Globals, nil, config)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, nonlinear.Close()) })
+	cooperation, err := newNLCooperation(prepared, smt, nonlinear, config)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, cooperation.Close()) })
+	var result tactic.TacticResult
+	t.Cleanup(func() { astTestMust(t, result.Close()) })
+	limit := m.ResourceLimit()
+	astTestMust(t, limit.Push(1))
+	if !limit.Inc() {
+		t.Fatal("resource limit exhausted too early")
+	}
+	err = cooperation.solve(&result)
+	limit.Pop()
+	var exception tactic.TacticException
+	if !errors.As(err, &exception) || exception.Message() != messages.Canceled {
+		t.Fatal("cooperation cancellation", err)
+	}
+	limit.IncCancel()
+	err = cooperation.solve(&result)
+	limit.DecCancel()
+	if !errors.As(err, &exception) || exception.Message() != messages.Canceled {
+		t.Fatal("cooperation explicit cancellation", err)
+	}
+}
 
 func TestNLPurifyCooperatingSolversMixedSatisfiability(t *testing.T) {
 	for _, tc := range []struct {
