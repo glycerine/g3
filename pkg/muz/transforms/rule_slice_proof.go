@@ -11,17 +11,18 @@ import (
 )
 
 // SliceProofConverter owns the rule and formula mappings created by slicing.
-// Hyper-resolution reconstruction is still pending; ConvertAsserted handles
-// the source converter's asserted leaves only.
+// ConvertAsserted handles assertion leaves; Convert also handles resolution
+// nodes whose reconstructed conclusions need no quantified generalization.
 type SliceProofConverter struct {
 	manager   *ast.ASTManager
+	rules     *base.RuleManager
 	originals []*base.Rule
 	formulas  []ast.ASTRef
 	byFormula map[ast.ASTHandle]*base.Rule
 }
 
-func newSliceProofConverter(manager *ast.ASTManager) *SliceProofConverter {
-	return &SliceProofConverter{manager: manager, byFormula: make(map[ast.ASTHandle]*base.Rule)}
+func newSliceProofConverter(manager *ast.ASTManager, rules *base.RuleManager) *SliceProofConverter {
+	return &SliceProofConverter{manager: manager, rules: rules, byFormula: make(map[ast.ASTHandle]*base.Rule)}
 }
 
 func (c *SliceProofConverter) insert(original, sliced *base.Rule) (resultErr error) {
@@ -89,6 +90,7 @@ func (c *SliceProofConverter) Close() (result error) {
 		result = errors.Join(result, c.originals[i].Close())
 	}
 	c.manager = nil
+	c.rules = nil
 	c.originals = nil
 	c.formulas = nil
 	c.byFormula = nil

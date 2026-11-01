@@ -4,13 +4,18 @@ package transforms_test
 // and rule/predicate rewriting.
 
 import (
+	"bytes"
 	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/transforms"
+	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func TestRuleSliceRemovesUnconstrainedPredicateColumns(t *testing.T) {
@@ -464,6 +469,7 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 			if count != 2 {
 				t.Fatalf("got %d rules", count)
 			}
+			slicedProofs := make(map[ast.ASTHandle]ast.ASTHandle)
 			for i := 0; i < count; i++ {
 				rule, e := f.set.Rule(i)
 				coneMust(t, e)
@@ -483,6 +489,7 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 					if decl == derived {
 						decl = p
 					}
+					slicedProofs[decl] = proof
 					want := originalProofs[decl]
 					got, e := f.manager.RefGet(converted)
 					coneMust(t, e)
@@ -503,11 +510,241 @@ func TestRuleSliceGeneratesProofsForRewrittenRules(t *testing.T) {
 				}
 				coneMust(t, rule.Close())
 			}
+			if enabled {
+				scope, e := ast.NewScopedProof(f.manager)
+				coneMust(t, e)
+				sliced, e := f.manager.MkProofHyperResolve(
+					[]ast.ASTHandle{slicedProofs[goal], slicedProofs[p]}, goalApp,
+					[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{nil, nil})
+				coneMust(t, e)
+				for _, unsupported := range []struct {
+					positions     []ast.ASTProofPosition
+					substitutions [][]ast.ASTHandle
+				}{
+					{[]ast.ASTProofPosition{{First: 0, Second: 1}}, [][]ast.ASTHandle{nil, nil}},
+					{[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{{v}, nil}},
+				} {
+					node, cause := f.manager.MkProofHyperResolve([]ast.ASTHandle{slicedProofs[goal], slicedProofs[p]}, goalApp, unsupported.positions, unsupported.substitutions)
+					coneMust(t, cause)
+					ref, cause := f.manager.NewRef(node)
+					coneMust(t, cause)
+					converted, cause := converter.Convert(node)
+					if converted != (ast.ASTRef{}) {
+						coneMust(t, f.manager.DelRef(&converted))
+					}
+					coneMust(t, f.manager.DelRef(&ref))
+					if cause == nil {
+						t.Fatal("converter accepted unsupported resolution metadata")
+					}
+				}
+				pin, e := f.manager.NewRef(sliced)
+				coneMust(t, e)
+				defer func() { coneMust(t, f.manager.DelRef(&pin)) }()
+				coneMust(t, scope.Close())
+				converted, e := converter.Convert(sliced)
+				coneMust(t, e)
+				defer func() { coneMust(t, f.manager.DelRef(&converted)) }()
+				handle, e := f.manager.RefGet(converted)
+				coneMust(t, e)
+				conclusion, e := f.manager.GetProofFact(handle)
+				coneMust(t, e)
+				if conclusion != goalApp {
+					t.Fatal("converted proof has wrong conclusion")
+				}
+				checker, e := proofs.NewChecker(f.manager)
+				coneMust(t, e)
+				valid, side, e := checker.Check(handle)
+				coneMust(t, e)
+				defer func() {
+					for _, condition := range side {
+						coneMust(t, f.manager.DecRef(condition))
+					}
+				}()
+				if !valid {
+					t.Fatal("converted proof failed structural checking")
+				}
+				solver, e := smtcore.NewSMTSolver(f.manager, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+				coneMust(t, e)
+				defer func() { coneMust(t, solver.Close()) }()
+				for _, condition := range side {
+					coneMust(t, solver.Push())
+					negated, e := f.manager.MkNot(condition)
+					coneMust(t, e)
+					coneMust(t, solver.AssertFormula(negated))
+					status, e := solver.CheckSat(nil)
+					coneMust(t, e)
+					coneMust(t, solver.Pop(1))
+					if status != lbool.False {
+						t.Fatal("invalid converted proof side condition", status)
+					}
+				}
+			}
 			mode, err := f.manager.ProofMode()
 			coneMust(t, err)
 			if mode != ast.ASTProofDisabled {
 				t.Fatal("proof mode was not restored")
 			}
 		})
+	}
+}
+
+func TestRuleSliceConvertsNestedHyperResolution(t *testing.T) {
+	t.Run("ground intermediate", func(t *testing.T) { testRuleSliceNestedHyperResolution(t, false) })
+	t.Run("generalized intermediate", func(t *testing.T) { testRuleSliceNestedHyperResolution(t, true) })
+}
+
+func testRuleSliceNestedHyperResolution(t *testing.T, generalize bool) {
+	f := newConeFixture(t)
+	m := f.manager
+	boolean, err := m.MkBoolSort()
+	coneMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := m.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+		s, e := m.Symbols.Intern(name)
+		coneMust(t, e)
+		d, e := m.MkFuncDecl(s, domain, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, e)
+		coneMust(t, f.rules.RegisterPredicate(d))
+		return d
+	}
+	p := declare("slice-nested-P", []ast.ASTHandle{integer})
+	q := declare("slice-nested-Q", []ast.ASTHandle{integer})
+	goal := declare("slice-nested-goal", nil)
+	x, err := m.MkVar(0, integer)
+	coneMust(t, err)
+	app := func(decl ast.ASTHandle, args ...ast.ASTHandle) ast.ASTHandle {
+		h, e := m.MkApp(decl, args)
+		coneMust(t, e)
+		return h
+	}
+	pApp, qApp, goalApp := app(p, x), app(q, x), app(goal)
+	factApp := app(p, zero)
+	if generalize {
+		factApp = pApp
+	}
+	for _, spec := range []struct {
+		head ast.ASTHandle
+		tail []ast.ASTHandle
+	}{
+		{factApp, nil}, {qApp, []ast.ASTHandle{pApp}}, {goalApp, []ast.ASTHandle{qApp}},
+	} {
+		rule, e := f.rules.NewRule(spec.head, spec.tail, nil, "")
+		coneMust(t, e)
+		coneMust(t, f.rules.MkRuleAssertedProof(rule))
+		coneMust(t, f.set.Add(rule))
+		coneMust(t, rule.Close())
+	}
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("invalid fixture")
+	}
+	plugin := transforms.NewRuleSlicePlugin(m, f.rules, 1)
+	plugin.SetGenerateProofTrace(true)
+	transformer := base.NewRuleTransformer()
+	coneMust(t, transformer.Register(plugin))
+	changed, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !changed {
+		t.Fatal("expected slicing")
+	}
+	derivedP, ok := plugin.DerivedPredicate(p)
+	if !ok {
+		t.Fatal("P was not sliced")
+	}
+	derivedQ, ok := plugin.DerivedPredicate(q)
+	if !ok {
+		t.Fatal("Q was not sliced")
+	}
+	converter := plugin.TakeProofConverter()
+	coneMust(t, transformer.Close())
+	if converter == nil {
+		t.Fatal("missing converter")
+	}
+	defer func() { coneMust(t, converter.Close()) }()
+	ps := make(map[ast.ASTHandle]ast.ASTHandle)
+	for _, decl := range []ast.ASTHandle{derivedP, derivedQ, goal} {
+		rules, e := f.set.PredicateRules(decl)
+		coneMust(t, e)
+		if len(rules) != 1 {
+			t.Fatal("unexpected rule count", len(rules))
+		}
+		ps[decl], ok, e = rules[0].Proof()
+		coneMust(t, e)
+		if !ok {
+			t.Fatal("missing sliced proof")
+		}
+		coneMust(t, rules[0].Close())
+	}
+	scope, err := ast.NewScopedProof(m)
+	coneMust(t, err)
+	inner, err := m.MkProofHyperResolve([]ast.ASTHandle{ps[derivedQ], ps[derivedP]}, app(derivedQ), []ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{nil, nil})
+	coneMust(t, err)
+	innerRef, err := m.NewRef(inner)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&innerRef)) }()
+	outer, err := m.MkProofHyperResolve([]ast.ASTHandle{ps[goal], inner}, goalApp, []ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{nil, nil})
+	coneMust(t, err)
+	outerRef, err := m.NewRef(outer)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&outerRef)) }()
+	coneMust(t, scope.Close())
+	result, err := converter.Convert(outer)
+	if generalize {
+		if err == nil {
+			if result != (ast.ASTRef{}) {
+				coneMust(t, m.DelRef(&result))
+			}
+			t.Fatal("converter accepted an unproved quantified generalization")
+		}
+		return
+	}
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&result)) }()
+	proof, err := m.RefGet(result)
+	coneMust(t, err)
+	fact, err := m.GetProofFact(proof)
+	coneMust(t, err)
+	if fact != goalApp {
+		t.Fatal("nested proof has wrong conclusion")
+	}
+	checker, err := proofs.NewChecker(m)
+	coneMust(t, err)
+	valid, side, err := checker.Check(proof)
+	coneMust(t, err)
+	defer func() {
+		for _, condition := range side {
+			coneMust(t, m.DecRef(condition))
+		}
+	}()
+	if !valid {
+		t.Fatal("nested proof is invalid")
+	}
+	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+	coneMust(t, err)
+	defer func() { coneMust(t, solver.Close()) }()
+	for _, condition := range side {
+		coneMust(t, solver.Push())
+		name, e := m.Symbols.Intern("slice-proof-x")
+		coneMust(t, e)
+		closed, e := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer}, Names: []symbol.Symbol{name}, Body: condition})
+		coneMust(t, e)
+		negated, e := m.MkNot(closed)
+		coneMust(t, e)
+		coneMust(t, solver.AssertFormula(negated))
+		status, e := solver.CheckSat(nil)
+		coneMust(t, e)
+		coneMust(t, solver.Pop(1))
+		if status != lbool.False {
+			printer, e := ast.NewLegacySMTPrinter(m)
+			coneMust(t, e)
+			var text bytes.Buffer
+			coneMust(t, printer.DisplayExpr(&text, condition, []string{"x"}))
+			t.Fatal("invalid nested proof side condition", status, text.String())
+		}
 	}
 }
