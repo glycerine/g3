@@ -7,9 +7,141 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	astproofs "github.com/glycerine/g3/pkg/ast/proofs"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/tactic"
 	"github.com/glycerine/g3/pkg/util/memory"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
+
+func TestTheoryRewriterQuantifierProofChecker(t *testing.T) {
+	base, m := fixDLFixture(t, true)
+	r, err := rewriter.NewTheoryRewriter(m, base.context, base.globals, nil)
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, r.Close()) })
+	sort, err := m.MkBoolSort()
+	equationMust(t, err)
+	variable, err := m.MkVar(0, sort)
+	equationMust(t, err)
+	fixDLPin(t, m, variable)
+	inner, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{usymbol.Numerical(1)}, Body: variable})
+	equationMust(t, err)
+	fixDLPin(t, m, inner)
+	outer, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{sort, sort}, Names: []usymbol.Symbol{usymbol.Numerical(2), usymbol.Numerical(3)}, Body: inner})
+	equationMust(t, err)
+	fixDLPin(t, m, outer)
+	out, err := m.NewRef(ast.ASTHandle{})
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, m.DelRef(&out)) })
+	proofRef, err := m.NewRef(ast.ASTHandle{})
+	equationMust(t, err)
+	t.Cleanup(func() { equationMust(t, m.DelRef(&proofRef)) })
+	equationMust(t, r.RewriteWithProof(outer, out, proofRef))
+	proof, err := m.RefGet(proofRef)
+	equationMust(t, err)
+	checker, err := astproofs.NewChecker(m)
+	equationMust(t, err)
+	valid, side, err := checker.Check(proof)
+	equationMust(t, err)
+	equationMust(t, checker.ReleaseSideConditions(side))
+	if !valid {
+		t.Fatal("quantifier merge and unused variable elimination proof failed validation")
+	}
+}
+
+func TestPurifyArithFactoryKeepsExistentialAfterParameterUpdate(t *testing.T) {
+	for _, proofs := range []bool{false, true} {
+		t.Run(fmt.Sprintf("proofs=%v", proofs), func(t *testing.T) {
+			base, m := fixDLFixture(t, proofs)
+			p, err := base.context.NewValue()
+			equationMust(t, err)
+			t.Cleanup(func() { equationMust(t, base.context.Del(&p)) })
+			key := "skolemize"
+			equationMust(t, base.context.SetBoolName(&p, &key, true))
+			strategy, err := MakePurifyArithTactic(m, base.context, base.globals, &p, base.services)
+			equationMust(t, err)
+			equationMust(t, strategy.IncRef())
+			t.Cleanup(func() { equationMust(t, strategy.DecRef()) })
+			equationMust(t, strategy.UpdateParams(&p))
+			constant := fixDLConst(t, m, false, "quantifier-factory-sort")
+			sort, err := m.GetSort(constant)
+			equationMust(t, err)
+			variable, err := m.MkVar(0, sort)
+			equationMust(t, err)
+			fixDLPin(t, m, variable)
+			term := fixDLApp(t, m, qfnraPurifyToInt, variable)
+			body := collectorEq(t, m, term, fixDLNumber(t, m, true, "0"))
+			q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: body})
+			equationMust(t, err)
+			fixDLPin(t, m, q)
+			goal := fixDLGoal(t, m, proofs, false, false, q)
+			var result tactic.TacticResult
+			t.Cleanup(func() { equationMust(t, result.Close()) })
+			equationMust(t, strategy.Apply(goal, &result))
+			if len(result.Goals) != 1 {
+				t.Fatal("unexpected goal count", len(result.Goals))
+			}
+			form, err := result.Goals[0].Form(0)
+			equationMust(t, err)
+			kind, err := m.GetKind(form)
+			equationMust(t, err)
+			if kind != ast.ASTQuantifier {
+				t.Fatal("existential quantifier was skolemized")
+			}
+			forall, err := m.IsForall(form)
+			equationMust(t, err)
+			if forall {
+				t.Fatal("existential quantifier changed polarity")
+			}
+			if proofs {
+				proof, err := result.Goals[0].Proof(0)
+				equationMust(t, err)
+				fact, err := m.GetProofFact(proof)
+				equationMust(t, err)
+				if fact != form {
+					actual, _ := fmExpressionText(m, base.services, fact, 0)
+					want, _ := fmExpressionText(m, base.services, form, 0)
+					t.Fatalf("quantified proof has wrong conclusion: %s; want %s", actual, want)
+				}
+				checker, err := astproofs.NewChecker(m)
+				equationMust(t, err)
+				valid, side, err := checker.Check(proof)
+				equationMust(t, err)
+				equationMust(t, checker.ReleaseSideConditions(side))
+				if !valid {
+					t.Fatal("quantified proof failed validation")
+				}
+				queue := []ast.ASTHandle{proof}
+				foundPull := false
+				for len(queue) > 0 {
+					node := queue[0]
+					queue = queue[1:]
+					op, e := m.GetDeclKind(node)
+					equationMust(t, e)
+					if op == ast.ASTPrPullQuant {
+						valid, side, e := checker.Check(node)
+						equationMust(t, e)
+						equationMust(t, checker.ReleaseSideConditions(side))
+						if !valid {
+							t.Fatal("quantifier merge proof failed validation")
+						}
+						foundPull = true
+					}
+					n, e := m.GetProofNumParents(node)
+					equationMust(t, e)
+					for j := uint32(0); j < n; j++ {
+						parent, e := m.GetProofParent(node, j)
+						equationMust(t, e)
+						queue = append(queue, parent)
+					}
+				}
+				if !foundPull {
+					t.Fatal("quantifier merge proof is missing")
+				}
+			}
+		})
+	}
+}
 
 func TestPurifyArithFactoryApplyAllocationFrontiers(t *testing.T) {
 	for _, proofs := range []bool{false, true} {

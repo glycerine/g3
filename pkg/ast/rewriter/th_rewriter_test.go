@@ -80,6 +80,74 @@ func TestTheoryRewriterProofTraversal(t *testing.T) {
 	}
 }
 
+func TestTheoryRewriterQuantifierMergeAndUnusedProof(t *testing.T) {
+	m, context, globals, local := boolRewriterConfigFixture(t)
+	astTestMust(t, m.ToggleProofMode(ast.ASTProofEnabled))
+	r, err := NewTheoryRewriter(m, context, globals, local)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	variable, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	inner, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{usymbol.Numerical(1)}, Body: variable})
+	astTestMust(t, err)
+	astTestPin(t, m, inner)
+	outer, err := m.MkQuantifier(ast.ASTQuantifierSpec{Sorts: []ast.ASTHandle{sort, sort}, Names: []usymbol.Symbol{usymbol.Numerical(2), usymbol.Numerical(3)}, Body: inner})
+	astTestMust(t, err)
+	astTestPin(t, m, outer)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	proof := astTestPin(t, m, ast.ASTHandle{})
+	astTestMust(t, r.RewriteWithProof(outer, out, proof))
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	count, err := m.GetNumDeclarations(got)
+	astTestMust(t, err)
+	if count != 1 {
+		t.Fatal("unused quantified declarations survived", count)
+	}
+	p, err := m.RefGet(proof)
+	astTestMust(t, err)
+	fact, err := m.GetProofFact(p)
+	astTestMust(t, err)
+	want, err := m.MkIff(outer, got)
+	astTestMust(t, err)
+	if fact != want {
+		t.Fatal("quantifier merge and elimination proof has wrong fact")
+	}
+}
+
+func TestTheoryRewriterModularSumWithBoundVariable(t *testing.T) {
+	m, r := theoryRewriterFixture(t)
+	one := arithRewriterNumeral(t, m, "1", true)
+	three := arithRewriterNumeral(t, m, "3", true)
+	sort, err := m.GetSort(one)
+	astTestMust(t, err)
+	variable, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	astTestPin(t, m, variable)
+	sum, err := m.MkArithmeticAdd(variable, one)
+	astTestMust(t, err)
+	astTestPin(t, m, sum)
+	mod, err := m.MkFamilyApp(r.configuration.arithmetic.family, arithOpMod, nil, []ast.ASTHandle{sum, three})
+	astTestMust(t, err)
+	astTestPin(t, m, mod)
+	equality, err := m.MkEq(mod, one)
+	astTestMust(t, err)
+	q, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{sort}, Names: []usymbol.Symbol{usymbol.Numerical(0)}, Body: equality})
+	astTestMust(t, err)
+	astTestPin(t, m, q)
+	out := astTestPin(t, m, ast.ASTHandle{})
+	astTestMust(t, r.Rewrite(q, out))
+	got, err := m.RefGet(out)
+	astTestMust(t, err)
+	wellSorted, err := m.IsWellSorted(got, nil)
+	astTestMust(t, err)
+	if !wellSorted {
+		t.Fatal("rewritten quantified modular sum is not well sorted")
+	}
+}
+
 func TestTheoryRewriterCoreTraversalAcrossFamilies(t *testing.T) {
 	m, r := theoryRewriterFixture(t)
 	two := arithRewriterNumeral(t, m, "2", true)

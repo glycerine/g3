@@ -145,6 +145,7 @@ func (c *theoryRewriterConfiguration) ReduceQuantifier(old, body ast.ASTHandle, 
 		return false, err
 	}
 	var updated ast.ASTHandle
+	merged := false
 	if bodyKind == ast.ASTQuantifier && oldPatterns == 0 && oldNoPatterns == 0 {
 		innerForall, e := m.IsForall(body)
 		if e != nil {
@@ -207,6 +208,7 @@ func (c *theoryRewriterConfiguration) ReduceQuantifier(old, body ast.ASTHandle, 
 			}
 			updated, err = m.MkQuantifier(ast.ASTQuantifierSpec{Forall: oldForall, Sorts: sorts, Names: names,
 				Body: innerBody, Weight: outerWeight, QID: qid, SkolemID: skid})
+			merged = err == nil
 		}
 	}
 	if updated.IsNull() {
@@ -236,6 +238,37 @@ func (c *theoryRewriterConfiguration) ReduceQuantifier(old, body ast.ASTHandle, 
 	value, err := m.RefGet(eliminated)
 	if err != nil {
 		return false, err
+	}
+	proofs, err := m.ProofsEnabled()
+	if err != nil {
+		return false, err
+	}
+	if proofs {
+		var pull, elim ast.ASTHandle
+		if merged {
+			pull, err = m.MkProofPullQuant(old, updated)
+			if err != nil {
+				return false, err
+			}
+		}
+		pullRef, e := m.NewRef(pull)
+		if e != nil {
+			return false, e
+		}
+		defer func() { err = errors.Join(err, m.DelRef(&pullRef)) }()
+		if updated != value {
+			elim, err = m.MkProofElimUnusedVars(updated, value)
+			if err != nil {
+				return false, err
+			}
+		}
+		combined, e := m.MkProofTransitivity(pull, elim)
+		if e != nil {
+			return false, e
+		}
+		if err = m.SetRef(proof, combined); err != nil {
+			return false, err
+		}
 	}
 	return true, m.SetRef(out, value)
 }

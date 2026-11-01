@@ -28937,13 +28937,13 @@
       "component": "ast",
       "role": "production",
       "status": "ported",
-      "go_targets": [
+      "go_targets": ["pkg/tactic/arith/purify_arith_factory_test.go","pkg/ast/rewriter/th_rewriter_test.go",
         "pkg/ast/rewriter/arith_rewriter.go",
         "pkg/ast/rewriter/arith_polynomial.go",
         "pkg/ast/rewriter/arith_algebraic.go",
         "pkg/ast/rewriter/arith_transcendental.go"
       ],
-      "tests": [
+      "tests": ["TestPurifyArithFactoryKeepsExistentialAfterParameterUpdate","TestTheoryRewriterModularSumWithBoundVariable",
         "TestArithRewriterRationalScalarCores",
         "TestArithRewriterStructuralScalarRules",
         "TestArithRewriterSymbolicModRemAndCasts",
@@ -41554,7 +41554,7 @@
       "component": "ast",
       "role": "production",
       "status": "ported",
-      "go_targets": [
+      "go_targets": ["pkg/tactic/arith/purify_arith_factory_test.go",
         "pkg/ast/rewriter/th_rewriter.go",
         "pkg/ast/rewriter/th_rewriter_test.go",
         "pkg/ast/ast_rewriter_access.go",
@@ -41564,7 +41564,7 @@
         "pkg/smtcore/theory_str_library_extract_test.go",
         "pkg/ast/rewriter/th_rewriter_fresh_default_test.go"
       ],
-      "tests": [
+      "tests": ["TestTheoryRewriterQuantifierProofChecker","TestTheoryRewriterQuantifierMergeAndUnusedProof",
         "TestTheoryRewriterCoreTraversalAcrossFamilies",
         "TestTheoryRewriterTamagotchiAndRawMakeApp",
         "TestTheoryRewriterPullCheapITE",
@@ -182098,7 +182098,7 @@
         "pkg/tactic/arith/qfnra_purify_tactic.go",
         "pkg/cmd/g3/main_test.go"
       ],
-      "tests": ["TestPurifyArithTraceBindingSurvivesTranslation","TestPurifyArithExactEmptyConstraintTrace","TestPurifyArithSourceTraceSitesAndRefusedStream","TestPurifyArithParameterDescriptionsIncludeTheoryRewriter","TestPurifyArithFactoryApplyAllocationFrontiers","TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower",
+      "tests": ["TestPurifyArithFactoryKeepsExistentialAfterParameterUpdate","TestPurifyArithTraceBindingSurvivesTranslation","TestPurifyArithExactEmptyConstraintTrace","TestPurifyArithSourceTraceSitesAndRefusedStream","TestPurifyArithParameterDescriptionsIncludeTheoryRewriter","TestPurifyArithFactoryApplyAllocationFrontiers","TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower",
         "TestAPITacticSolverTranslateQFUFNRAUnsatAfterSourceClose",
         "TestPurifierContextTranslationCopiesTargetServicesAndPolicy",
         "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose",
@@ -182264,7 +182264,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": ["pkg/tactic/arith/qfnra_purify_trace_test.go","pkg/tactic/arith/qfnra_purify_trace.go","pkg/api/api_simple_solver_translate_test.go", "pkg/tactic/arith/purify_arith_factory.go", "pkg/tactic/arith/purify_arith_factory_test.go", "pkg/cmd/g3/purify_arith_factory_test.go", "pkg/cmd_context/tactic_commands.go", "pkg/cmd_context/tactic_registry.go", "pkg/cmd_context/tactic_descriptions.go", "pkg/tactic/arith/qfnra_purify_tactic_test.go","pkg/tactic/arith/qfnra_purify_tactic.go"],
-      "tests": ["TestPurifyArithTraceBindingSurvivesTranslation","TestPurifyArithExactEmptyConstraintTrace","TestPurifyArithSourceTraceSitesAndRefusedStream","TestPurifyArithParameterDescriptionsIncludeTheoryRewriter","TestPurifyArithFactoryApplyAllocationFrontiers","TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower","TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
+      "tests": ["TestPurifyArithFactoryKeepsExistentialAfterParameterUpdate","TestPurifyArithTraceBindingSurvivesTranslation","TestPurifyArithExactEmptyConstraintTrace","TestPurifyArithSourceTraceSitesAndRefusedStream","TestPurifyArithParameterDescriptionsIncludeTheoryRewriter","TestPurifyArithFactoryApplyAllocationFrontiers","TestPurifyArithFactoryConstructorAllocationFrontiers", "TestPurifyArithFactoryEliminatesRemainderAndModulo", "TestSMTLibRunnerPurifyArithTactic", "TestAPITacticSolverTranslateArithmeticTransformsAfterSourceClose", "TestQFNRAPurifyIntegerZeroPower","TestQFNRAPurifyDivisionProofCoreAndModelFilter", "TestQFNRAPurifyZeroOddAndEvenPowers", "TestQFNRAPurifyLeavesPositiveIntegerPower"],
       "conditionals": [
         {
           "line": 48,

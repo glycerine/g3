@@ -236,6 +236,10 @@ func (r *ArithRewriter) arithmeticTerm(h ast.ASTHandle) (bool, error) {
 }
 
 func (r *ArithRewriter) isITE(h ast.ASTHandle) (bool, error) {
+	nodeKind, err := r.manager.GetKind(h)
+	if err != nil || nodeKind != ast.ASTApp {
+		return false, err
+	}
 	family, err := r.manager.GetFamilyID(h)
 	if err != nil || family != r.manager.BasicFamilyID() {
 		return false, err
@@ -1044,6 +1048,10 @@ func (r *ArithRewriter) rewriteToReal(arg ast.ASTHandle, out ast.ASTRef) (Rewrit
 }
 
 func (r *ArithRewriter) unary(h ast.ASTHandle, kind int32) (bool, ast.ASTHandle, error) {
+	nodeKind, err := r.manager.GetKind(h)
+	if err != nil || nodeKind != ast.ASTApp {
+		return false, ast.ASTHandle{}, err
+	}
 	family, err := r.manager.GetFamilyID(h)
 	if err != nil || family != r.family {
 		return false, ast.ASTHandle{}, err

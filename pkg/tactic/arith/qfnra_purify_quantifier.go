@@ -178,16 +178,13 @@ func (i *qfnraPurifyInvocation) processQuantifier(q ast.ASTHandle) (result, proo
 			}
 		}
 		if i.proofs {
-			premises := make([]ast.ASTHandle, 0, len(child.proofRefs)+1)
+			premises := make([]ast.ASTHandle, 0, len(child.proofRefs))
 			for _, ref := range child.proofRefs {
 				p, e := m.RefGet(ref)
 				if e != nil {
 					return result, proof, e
 				}
 				premises = append(premises, p)
-			}
-			if !bodyProof.IsNull() {
-				premises = append(premises, bodyProof)
 			}
 			bodyProof, e = m.MkProofRewriteStar(body, inner, premises)
 			if e != nil {
