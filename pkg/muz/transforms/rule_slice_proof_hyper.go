@@ -19,9 +19,10 @@ type slicedProofResult struct {
 
 // Convert translates asserted leaves and supported hyper-resolution nodes to
 // proofs over original rules. It returns an owned proof. As in the source
-// converter, resolution uses rule unification. Values and in-scope variable
-// substitutions on asserted rules are supported; other substitutions and
-// resolution against a premise other than a positive rule head remain unsupported.
+// converter, resolution uses rule unification. Substitutions on asserted rules
+// are supported when they preserve valid rule heads; substitutions on derived
+// premises and resolution against a premise other than a positive rule head
+// remain unsupported.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || c.rules == nil {
 		return result, ast.ErrASTHandle

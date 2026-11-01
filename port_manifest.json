@@ -102693,6 +102693,7 @@
         "TestRuleSliceConvertsNonlinearResolutionPositions",
         "TestRuleSliceProofTracksVariableRenumbering",
         "TestRuleSliceProofPermutesSurvivingVariables",
+        "TestRuleSliceProofSubstitutesCompoundBodyTerm",
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
         "TestRuleSliceRetainsConstantConstrainedColumn",
@@ -102797,7 +102798,8 @@
             "TestRuleSliceConvertsNestedHyperResolution",
             "TestRuleSliceConvertsNonlinearResolutionPositions",
             "TestRuleSliceProofTracksVariableRenumbering",
-            "TestRuleSliceProofPermutesSurvivingVariables"
+            "TestRuleSliceProofPermutesSurvivingVariables",
+            "TestRuleSliceProofSubstitutesCompoundBodyTerm"
           ]
         }
       ],

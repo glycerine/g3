@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-// instantiateAsserted translates value and variable sliced substitutions into
-// the original rule's variable bank, keeping removed variables quantified.
+// instantiateAsserted translates sliced substitutions into the original
+// rule's variable bank, keeping removed variables quantified.
 func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalProof ast.ASTRef, variables []uint32, input []ast.ASTHandle) (rule *base.Rule, proof ast.ASTRef, resultErr error) {
 	m := c.manager
 	defer func() {
@@ -33,44 +34,13 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 	bindings := make([]ast.ASTHandle, len(sorts))
 	var refs []ast.ASTRef
 	defer func() { resultErr = errors.Join(resultErr, releaseTransformRefs(m, refs)) }()
+	usedInput, err := ast.NewASTUsedVars(m)
+	if err != nil {
+		return nil, proof, err
+	}
 	for i, term := range input {
 		if int(variables[i]) >= len(bindings) || term.IsNull() {
 			return nil, proof, ast.ErrASTDomain
-		}
-		kind, e := m.GetKind(term)
-		if e != nil {
-			return nil, proof, e
-		}
-		if kind == ast.ASTVar {
-			index, e := m.GetVarIndex(term)
-			if e != nil {
-				return nil, proof, e
-			}
-			sort, e := m.GetSort(term)
-			if e != nil {
-				return nil, proof, e
-			}
-			if int(index) >= len(variables) || int(variables[index]) >= len(sorts) || sort != sorts[variables[i]] || sort != sorts[variables[index]] {
-				return nil, proof, fmt.Errorf("slice proof: variable substitution has no matching sliced variable")
-			}
-			variable, e := m.MkVar(variables[index], sort)
-			if e != nil {
-				return nil, proof, e
-			}
-			ref, e := m.NewRef(variable)
-			if e != nil {
-				return nil, proof, e
-			}
-			refs = append(refs, ref)
-			bindings[variables[i]] = variable
-			continue
-		}
-		isValue, e := m.IsValue(term)
-		if e != nil {
-			return nil, proof, e
-		}
-		if !isValue {
-			return nil, proof, fmt.Errorf("slice proof: non-value substitution is not implemented")
 		}
 		sort, e := m.GetSort(term)
 		if e != nil {
@@ -78,6 +48,66 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		}
 		if sort != sorts[variables[i]] {
 			return nil, proof, ast.ErrASTDomain
+		}
+		if e = usedInput.Process(term); e != nil {
+			return nil, proof, e
+		}
+	}
+	inputMap := make([]ast.ASTHandle, usedInput.MaxFoundVarIndexPlusOne())
+	for i := range inputMap {
+		sort := usedInput.Contains(uint32(i))
+		if sort.IsNull() {
+			continue
+		}
+		var index uint32
+		if i < len(variables) {
+			index = variables[i]
+			if int(index) >= len(sorts) || sort != sorts[index] {
+				return nil, proof, ast.ErrASTDomain
+			}
+		} else {
+			fresh := uint64(len(sorts)) + uint64(i-len(variables))
+			if fresh > uint64(^uint32(0)) {
+				return nil, proof, ast.ErrASTDomain
+			}
+			index = uint32(fresh)
+		}
+		variable, e := m.MkVar(index, sort)
+		if e != nil {
+			return nil, proof, e
+		}
+		ref, e := m.NewRef(variable)
+		if e != nil {
+			return nil, proof, e
+		}
+		refs = append(refs, ref)
+		inputMap[i] = variable
+	}
+	var sub *rewriter.VarSubstitution
+	if len(inputMap) != 0 {
+		sub, err = rewriter.NewVarSubstitution(m, false)
+		if err != nil {
+			if sub != nil {
+				err = errors.Join(err, sub.Close())
+			}
+			return nil, proof, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
+	}
+	for i, term := range input {
+		if sub != nil {
+			ref, e := m.NewRef(ast.ASTHandle{})
+			if e != nil {
+				return nil, proof, e
+			}
+			refs = append(refs, ref)
+			if e = sub.Substitute(term, inputMap, ref); e != nil {
+				return nil, proof, e
+			}
+			term, e = m.RefGet(ref)
+			if e != nil {
+				return nil, proof, e
+			}
 		}
 		bindings[variables[i]] = term
 	}
@@ -109,25 +139,36 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		renaming[i] = variable
 		next++
 	}
+	if sub == nil && len(renaming) != 0 {
+		sub, err = rewriter.NewVarSubstitution(m, false)
+		if err != nil {
+			if sub != nil {
+				err = errors.Join(err, sub.Close())
+			}
+			return nil, proof, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
+	}
 	for i := range bindings {
-		index := uint32(i)
-		if !bindings[i].IsNull() {
-			kind, e := m.GetKind(bindings[i])
+		if bindings[i].IsNull() {
+			if i >= len(renaming) || renaming[i].IsNull() {
+				return nil, proof, fmt.Errorf("slice proof: missing substituted variable")
+			}
+			bindings[i] = renaming[i]
+		} else if sub != nil {
+			ref, e := m.NewRef(ast.ASTHandle{})
 			if e != nil {
 				return nil, proof, e
 			}
-			if kind != ast.ASTVar {
-				continue
+			refs = append(refs, ref)
+			if e = sub.Substitute(bindings[i], renaming, ref); e != nil {
+				return nil, proof, e
 			}
-			index, e = m.GetVarIndex(bindings[i])
+			bindings[i], e = m.RefGet(ref)
 			if e != nil {
 				return nil, proof, e
 			}
 		}
-		if int(index) >= len(renaming) || renaming[index].IsNull() {
-			return nil, proof, fmt.Errorf("slice proof: missing substituted variable")
-		}
-		bindings[i] = renaming[index]
 	}
 	head, err := temporary.Head()
 	if err != nil {
