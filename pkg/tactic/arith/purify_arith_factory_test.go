@@ -1,12 +1,44 @@
 package arith
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/tactic"
 )
+
+func TestPurifyArithFactoryConstructorAllocationFrontiers(t *testing.T) {
+	success := false
+	for stop := int64(0); stop < 512 && !success; stop++ {
+		t.Run(fmt.Sprint(stop), func(t *testing.T) {
+			base, m := fixDLFixture(t, false)
+			m.Budget().FailAfter(stop)
+			value, err := MakePurifyArithTactic(m, base.context, base.globals, nil, base.services)
+			m.Budget().FailAfter(-1)
+			if value != nil {
+				equationMust(t, value.IncRef())
+				equationMust(t, value.DecRef())
+			}
+			if err == nil {
+				success = true
+				return
+			}
+			if !errors.Is(err, arena.ErrInjectedFailure) {
+				t.Fatal(err)
+			}
+			retry, err := MakePurifyArithTactic(m, base.context, base.globals, nil, base.services)
+			equationMust(t, err)
+			equationMust(t, retry.IncRef())
+			equationMust(t, retry.DecRef())
+		})
+	}
+	if !success {
+		t.Fatal("no successful constructor allocation frontier")
+	}
+}
 
 func TestPurifyArithFactoryEliminatesRemainderAndModulo(t *testing.T) {
 	for _, proofs := range []bool{false, true} {
