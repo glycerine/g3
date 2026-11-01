@@ -51,12 +51,12 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 	if negated {
 		condition = arg
 	}
-	family, op, left, right, binary, err := intervalParts(m, condition)
-	if err != nil || !binary {
-		return false, err
-	}
 	arithmetic, err := m.RegisterArithmeticPlugin()
 	if err != nil {
+		return false, err
+	}
+	family, op, left, right, binary, err := intervalParts(m, condition)
+	if err != nil || !binary {
 		return false, err
 	}
 	if !negated && family == m.BasicFamilyID() && op == ast.ASTOpEq {
@@ -64,14 +64,11 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 		if e != nil {
 			return false, e
 		}
-		if leftKind != ast.ASTVar {
-			return false, nil
-		}
 		rightKind, e := m.GetKind(right)
 		if e != nil {
 			return false, e
 		}
-		if rightKind == ast.ASTVar {
+		if leftKind == ast.ASTVar && rightKind == ast.ASTVar {
 			i, e := m.GetVarIndex(left)
 			if e != nil {
 				return false, e
@@ -81,6 +78,39 @@ func (r *BoundRelation) FilterInterpreted(m *ast.ASTManager, condition ast.ASTHa
 				return false, e
 			}
 			return true, r.Equate(i, j)
+		}
+		// The source recognizes x = z - y (in either orientation), but its
+		// EQ_SUB branch is explicitly a TODO and does not refine the relation.
+		for _, pair := range [][2]ast.ASTHandle{{left, right}, {right, left}} {
+			variable, difference := pair[0], pair[1]
+			variableKind, e := m.GetKind(variable)
+			if e != nil {
+				return false, e
+			}
+			if variableKind != ast.ASTVar {
+				continue
+			}
+			subFamily, subOp, minuend, subtrahend, sub, e := intervalParts(m, difference)
+			if e != nil {
+				return false, e
+			}
+			if !sub || subFamily != arithmetic || subOp != 7 {
+				continue
+			}
+			minuendKind, e := m.GetKind(minuend)
+			if e != nil {
+				return false, e
+			}
+			subtrahendKind, e := m.GetKind(subtrahend)
+			if e != nil {
+				return false, e
+			}
+			if minuendKind == ast.ASTVar && subtrahendKind == ast.ASTVar {
+				return true, nil
+			}
+		}
+		if leftKind != ast.ASTVar {
+			return false, nil
 		}
 		addFamily, addOp, a, b, add, e := intervalParts(m, right)
 		if e != nil || !add {

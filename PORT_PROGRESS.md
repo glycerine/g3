@@ -52964,3 +52964,5 @@ Bound relation equal-value filter parity (2026-11-01 UTC): implemented the concr
 Bound relation clone fidelity (2026-11-01 UTC): implemented `bound_relation::clone` through the source vector copy behavior. Tests verify empty-state preservation, independent storage, and the source behavior that copies each representative's bound payload into independent columns without preserving equality classes.
 
 Bound relation display (2026-11-01 UTC): ported the source `display_index` and vector-relation display text, including its representative ordering, strict/weak bound ordering, source spacing/newlines, empty form, and writer-error propagation.
+
+Bound relation subtraction equality dispatch (2026-11-01 UTC): aligned interpreted-filter applicability with the source `EQ_SUB` branch for `x = y - z` in either orientation. The recognized branch remains a no-op as in C++; focused normal and `g3checked` regressions pass, while the broader interpreted-filter audit remains partial.

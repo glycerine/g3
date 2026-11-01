@@ -86,6 +86,31 @@ func TestBoundRelationInterpretedPositiveOffsetEquality(t *testing.T) {
 	}
 }
 
+func TestBoundRelationInterpretedSubtractionEqualityIsRecognizedNoOp(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	real, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	own := func(h ast.ASTHandle, e error) ast.ASTHandle { astTestMust(t, e); astTestPin(t, m, h); return h }
+	x, y, z := own(m.MkVar(0, real)), own(m.MkVar(1, real)), own(m.MkVar(2, real))
+	difference := own(m.MkArithmeticSub(y, z))
+	r := NewBoundRelation(3, false)
+	astTestMust(t, r.AddLess(0, 2))
+	for _, equality := range []ast.ASTHandle{own(m.MkEq(x, difference)), own(m.MkEq(difference, x))} {
+		ok, err := r.FilterInterpreted(m, equality)
+		astTestMust(t, err)
+		if !ok || r.Empty() {
+			t.Fatal("source-supported subtraction equality was not recognized")
+		}
+		strict, weak, err := r.Bounds(0)
+		astTestMust(t, err)
+		if !reflect.DeepEqual(strict, []uint32{2}) || len(weak) != 0 {
+			t.Fatalf("source EQ_SUB placeholder changed bounds: strict=%v weak=%v", strict, weak)
+		}
+	}
+}
+
 func TestBoundRelationInterpretedEqualityClasses(t *testing.T) {
 	m := astTestManager(t)
 	family, err := m.RegisterArithmeticPlugin()

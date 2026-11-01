@@ -91518,7 +91518,8 @@
           "go_target": "pkg/muz/rel/bound_relation_filter.go",
           "tests": [
             "TestBoundRelationInterpretedVariableComparisons",
-            "TestBoundRelationInterpretedPositiveOffsetEquality"
+               "TestBoundRelationInterpretedPositiveOffsetEquality",
+               "TestBoundRelationInterpretedSubtractionEqualityIsRecognizedNoOp"
           ]
         },
         {
