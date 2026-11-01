@@ -153,6 +153,31 @@ func TestSMTLibRunnerQEArrayTwoSelects(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEArrayDisjunction(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-const B (Array Int Int))
+(declare-const C (Array Int Int))
+(declare-const i Int)
+(declare-const v Int)
+(declare-const w Int)
+(assert (exists ((A (Array Int Int))) (or (and (= A B) (= (select A i) v)) (and (= A C) (= (select A i) w)))))
+(assert (not (= (select B i) v)))
+(push)
+(assert (not (= (select C i) w)))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= (select C i) w))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("array disjunction QE result: %s", got)
+	}
+}
+
 func TestSMTLibRunnerBooleanQETactic(t *testing.T) {
 	script := `(set-option :produce-models true)
 (declare-const r Bool)

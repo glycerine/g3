@@ -1,3 +1,5 @@
+Array QE now projects positive disjunctions, including those nested under conjunctions, while declining unsupported negative disjunctions. Solver-equivalence and SMT-LIB tests cover alternative array equations.
+
 Array QE now expands select-over-store terms and projects relevant conditional branches, including two symbolic select indices. Solver-equivalence and SMT-LIB tests cover equal and unequal values at matching indices.
 
 General QE now invokes the array equation plugin for array-only quantifiers, including direct array equality and single-select elimination. Solver-equivalence and SMT-LIB tests cover these cases.
