@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("fpa2bv")
+	simplify, err := source.Tactic("ufbv-rewriter")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1313,6 +1313,68 @@ func TestAPITacticSolverTranslateBVEliminationAfterSourceClose(t *testing.T) {
 				astTestMust(t, err)
 				if !manager.IsTrue(actual) {
 					t.Fatal("translated array model violates its original assertion")
+				}
+				astTestMust(t, manager.DelRef(&value))
+			}
+		})
+	}
+}
+
+func TestAPITacticSolverTranslateFPA2BVAfterSourceClose(t *testing.T) {
+	for _, test := range []struct {
+		name, extra string
+		want        lbool.LBool
+	}{{"sat", "", lbool.True}, {"unsat", "(assert (not (fp.isNaN x)))", lbool.False}} {
+		t.Run(test.name, func(t *testing.T) {
+			source, err := NewSMTContext()
+			astTestMust(t, err)
+			target, err := NewSMTContext()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, target.Close()) }()
+			astTestMust(t, source.SetLogic("QF_FP"))
+			convert, err := source.Tactic("fpa2bv")
+			astTestMust(t, err)
+			smt, err := source.Tactic("smt")
+			astTestMust(t, err)
+			combined, err := convert.AndThen(smt)
+			astTestMust(t, err)
+			solver, err := source.NewSolverFromTactic(combined)
+			astTestMust(t, err)
+			for _, owner := range []*APITactic{combined, smt, convert} {
+				astTestMust(t, owner.Close())
+			}
+			script := `(declare-const x (_ FloatingPoint 8 24)) (assert (fp.isNaN x))` + test.extra
+			astTestMust(t, solver.LoadSMT2String(script))
+			translated, err := solver.Translate(target)
+			astTestMust(t, err)
+			defer func() { astTestMust(t, translated.Close()) }()
+			astTestMust(t, solver.Close())
+			astTestMust(t, source.Close())
+			status, err := translated.Check()
+			astTestMust(t, err)
+			if status != test.want {
+				t.Fatal("translated floating-point solver", status, "want", test.want)
+			}
+			if status != lbool.True {
+				return
+			}
+			model, err := translated.Model()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, model.Close()) }()
+			manager, err := target.Manager()
+			astTestMust(t, err)
+			assertions, err := translated.Assertions()
+			astTestMust(t, err)
+			defer releaseAPIRefs(t, manager, assertions)
+			for _, ref := range assertions {
+				formula, err := manager.RefGet(ref)
+				astTestMust(t, err)
+				value, err := model.Evaluate(formula, true)
+				astTestMust(t, err)
+				actual, err := manager.RefGet(value)
+				astTestMust(t, err)
+				if !manager.IsTrue(actual) {
+					t.Fatal("translated floating-point model violates the original assertion")
 				}
 				astTestMust(t, manager.DelRef(&value))
 			}

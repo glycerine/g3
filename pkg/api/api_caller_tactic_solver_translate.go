@@ -17,6 +17,7 @@ import (
 	"github.com/glycerine/g3/pkg/tactic/arith"
 	"github.com/glycerine/g3/pkg/tactic/bv"
 	"github.com/glycerine/g3/pkg/tactic/core"
+	"github.com/glycerine/g3/pkg/tactic/fpa"
 	nlsatsmt "github.com/glycerine/g3/pkg/tactic/nlsat_smt"
 	"github.com/glycerine/g3/pkg/tactic/smtlogics"
 	uparams "github.com/glycerine/g3/pkg/util/params"
@@ -57,6 +58,8 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator.Cooperation)
 		case *bv.BVArray2UFTactic:
 			return sourceTactic.TranslateWithServices(manager, config.ModelEvaluator)
+		case *fpa.FPA2BVTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals)
 		case *nlsatsmt.NLPurifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *nlsattactic.NLSATTactic:

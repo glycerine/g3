@@ -61,15 +61,15 @@ func (p *Pass) open() error {
 
 func (p *Pass) build() error {
 	converter, err := astfpa.NewConverter(p.manager)
-	if err != nil {
-		return err
-	}
 	p.converter = converter
-	rewrite, err := rewriter.NewFPA2BVRewriter(p.manager, converter)
 	if err != nil {
 		return err
 	}
+	rewrite, err := rewriter.NewFPA2BVRewriter(p.manager, converter)
 	p.rewriter = rewrite
+	if err != nil {
+		return err
+	}
 	settings, err := astfpa.NewFPA2BVRewriterParams(p.context, p.globals, &p.params)
 	if err != nil {
 		return err

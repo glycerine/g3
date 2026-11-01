@@ -7814,6 +7814,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateFPA2BVAfterSourceClose",
         "TestAPITacticSolverTranslateBVEliminationAfterSourceClose",
         "TestAPITacticSolverTranslateBVBoundsAfterSourceClose",
         "TestAPISolverTranslationUsesExplicitParameterSnapshot",
@@ -190412,6 +190413,8 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/fpa/fpa2bv_context_translation.go",
+        "pkg/tactic/fpa/fpa2bv_context_translation_test.go",
         "pkg/tactic/fpa/fpa2bv_tactic.go",
         "pkg/tactic/fpa/fpa2bv_tactic_adapter.go",
         "pkg/ast/rewriter/fpa2bv_rewriter.go",
@@ -190421,6 +190424,7 @@
         "pkg/cmd/g3/test_vectors/fpa2bv_tactic.smt2"
       ],
       "tests": [
+        "TestFPA2BVContextTranslationCopiesPolicyAndRewrites",
         "TestFPA2BVTacticRewritesGoalAndPublishesSingleResult",
         "TestSMTLibRunnerScripts/fpa2bv_tactic.smt2",
         "TestSMTLibRunnerCPPReference/fpa2bv_tactic.smt2"

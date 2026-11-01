@@ -1,3 +1,5 @@
+Floating-point-to-bit-vector tactics now translate with target-owned parameter and conversion state. Construction cleanup handles partially initialized rewriters; tests cover allocation frontiers, independent parameter snapshots and translated SAT/UNSAT model validity after source closure.
+
 Quantified small-bit-vector elimination and bit-vector-array to function tactics now translate into target-owned contexts. Tests cover independent rewriter state, parameter snapshots, foreign service rejection, allocation failures and translated SAT/UNSAT models after source closure. Small-bit-vector elimination also skips cooperation checkpoints when cooperation is disabled, matching the source wrapper.
 
 Bit-vector size reduction and bound-check tactics now translate into independent target-owned contexts. Tests cover copied bound-check policy, fresh reduction state, allocation failures, SAT/UNSAT and target model validity after source closure.
