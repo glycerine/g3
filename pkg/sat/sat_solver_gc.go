@@ -29,7 +29,7 @@ type satSolverGC struct {
 	gcThreshold, restartThreshold, lubyIndex, restarts, restartStat, numFrozen, gcClauseStat uint32
 	minDTk                                                                                   float64
 	watch                                                                                    stopwatch.Stopwatch
-	initialized, closed, closing, running, interrupted, debugInvariant                       bool
+	initialized, closed, closing, running, interrupted                                       bool
 	cursor, out, end, drainPrefix, drainSuffix                                               uint32
 	scratch                                                                                  []StoredClauseRef
 	scratchBytes                                                                             uint64
@@ -76,11 +76,16 @@ func (g *satSolverGC) open() error {
 	}
 	return g.cleaner.open()
 }
-func (g *satSolverGC) invariant() error {
-	if satStorageSourceDebug && g.debugInvariant {
-		return g.lifecycle().checkInvariant()
+func (g *satSolverGC) conditionalInvariant(tag string) error {
+	if !satStorageSourceDebug {
+		return nil
 	}
-	return nil
+	d := diagnostic.BorrowProcessDebugContext()
+	enabled, err := d.ConditionalAssertionEnabled(tag)
+	if err != nil || !enabled {
+		return err
+	}
+	return g.lifecycle().checkInvariantWithActions(true)
 }
 func (g *satSolverGC) initSearch() error {
 	if e := g.open(); e != nil {
@@ -164,7 +169,7 @@ func (g *satSolverGC) restart() error {
 	default:
 		return ErrSATAssertion
 	}
-	return g.invariant()
+	return g.conditionalInvariant("sat_restart")
 }
 func (g *satSolverGC) gc() error {
 	if e := g.open(); e != nil {
@@ -177,7 +182,7 @@ func (g *satSolverGC) gc() error {
 	if s.conflictsSinceGC <= g.gcThreshold {
 		return nil
 	}
-	if e := g.invariant(); e != nil {
+	if e := g.conditionalInvariant("sat_gc_bug"); e != nil {
 		return e
 	}
 	cfg, e := s.analysis.propagation.config.State()
@@ -209,7 +214,7 @@ func (g *satSolverGC) gc() error {
 	}
 	s.conflictsSinceGC = 0
 	g.gcThreshold += cfg.GCIncrement
-	return g.invariant()
+	return g.conditionalInvariant("sat_gc_bug")
 }
 func (g *satSolverGC) psm(r StoredClauseRef) (uint32, error) {
 	p := g.conflict.analysis.propagation

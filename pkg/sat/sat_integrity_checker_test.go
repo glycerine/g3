@@ -165,9 +165,9 @@ func TestSATIntegrityActualEnabledConsumerBindings(t *testing.T) {
 	debug, _, _ := satIntegrityActionFixture(t, "T")
 	satOK(t, debug.EnableDebug("sat_propagate"))
 	satOK(t, debug.EnableDebug("sat_missed_prop"))
+	satOK(t, debug.EnableDebug("sat_restart"))
 	satOK(t, probing.propagate())
-	g.debugInvariant = true
-	satOK(t, g.invariant())
+	satOK(t, g.conditionalInvariant("sat_restart"))
 	satOK(t, l.checkInvariant())
 	if satStorageSourceDebug {
 		if p.limit.Steps != before+3 {

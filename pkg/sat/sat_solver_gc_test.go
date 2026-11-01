@@ -24,6 +24,45 @@ func satGCFixture(t *testing.T, n uint32) (*satSolverGC, *satSolverConflictResol
 	satOK(t, g.initSearch())
 	return g, s
 }
+
+func TestSATSolverRestartAndGCCASSERTUseSourceTags(t *testing.T) {
+	g, s := satGCFixture(t, 2)
+	debug, _, _ := satIntegrityActionFixture(t, "")
+	p := s.analysis.propagation
+	before := p.limit.Steps
+	satOK(t, g.restart())
+	if got := p.limit.Steps - before; got != 0 {
+		t.Fatal("disabled restart tag reached checker", got)
+	}
+	satOK(t, debug.EnableDebug("sat_restart"))
+	before = p.limit.Steps
+	satOK(t, g.restart())
+	want := uint64(0)
+	if satStorageSourceDebug {
+		want = 1
+	}
+	if got := p.limit.Steps - before; got != want {
+		t.Fatal("restart CASSERT source tag", got, want)
+	}
+	s.conflictsSinceGC = g.gcThreshold + 1
+	before = p.limit.Steps
+	satOK(t, g.gc())
+	if got := p.limit.Steps - before; got != 0 {
+		t.Fatal("disabled GC tag reached checker", got)
+	}
+	satOK(t, debug.EnableDebug("sat_gc_bug"))
+	s.conflictsSinceGC = g.gcThreshold + 1
+	before = p.limit.Steps
+	satOK(t, g.gc())
+	want = 0
+	if satStorageSourceDebug {
+		want = 2
+	}
+	if got := p.limit.Steps - before; got != want {
+		t.Fatal("GC entry and exit CASSERT source tags", got, want)
+	}
+}
+
 func satGCClause(t *testing.T, g *satSolverGC, x []Literal, glue uint32) StoredClauseRef {
 	t.Helper()
 	l := g.lifecycle()
