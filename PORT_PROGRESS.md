@@ -52794,3 +52794,5 @@ NLSAT goal invariants (2026-11-01 UTC): check input and output goal well-sortedn
 Recover-01 goal invariants (2026-11-01 UTC): check the input goal and the recovered output goal for well-sortedness, matching the source assertions around clause collection and rewriting. Focused normal and checked recover-01 tests pass.
 
 Sieve negation-filter regression (2026-11-01 UTC): added a focused case where the equality pair refers to outer column 2, distinguishing the Go column mapping from a C++ pair-indexing defect that can keep a matching row. The source deviation is recorded in the manifest; focused normal and checked tests pass.
+
+Lazy select-project fallback regression (2026-11-01 UTC): covered filtering on one column followed by projection of a different column. The finite result and force/filter/project statistics verify the source fallback path instead of the single-column select-and-project fusion; focused normal and checked tests pass.

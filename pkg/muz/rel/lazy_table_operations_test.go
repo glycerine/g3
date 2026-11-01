@@ -88,6 +88,37 @@ func TestLazyTableSelectEqualProjectFusion(t *testing.T) {
 	}
 }
 
+func TestLazyTableSelectEqualOtherProjectionUsesFallback(t *testing.T) {
+	engine := NewLazyTableEngine()
+	t.Cleanup(func() {
+		if err := engine.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	table := newLazyTableWithFacts(t, engine, lazySignature(t, 2, 2, 2),
+		Fact{0, 1, 0}, Fact{1, 1, 1}, Fact{0, 0, 1})
+	if err := table.FilterEqual(1, 1); err != nil {
+		t.Fatal(err)
+	}
+	// The source fused factory projects away the selected column only. Removing
+	// column 0 therefore takes the ordinary force/filter/project path.
+	projected, err := table.Project([]int{0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	closeLazyTables(t, table, projected)
+	if projected.Forced() {
+		t.Fatal("projection forced before observation")
+	}
+	requireLazyFact(t, projected, Fact{1, 0}, true)
+	requireLazyFact(t, projected, Fact{1, 1}, true)
+	requireLazyFact(t, projected, Fact{0, 1}, false)
+	stats := engine.Statistics()
+	if stats.SelectEqualProject != 0 || stats.EqualFilters != 1 || stats.Projects != 1 {
+		t.Fatal("non-fused select-project path", stats)
+	}
+}
+
 func TestLazyTableRenameNegationAndEagerUnion(t *testing.T) {
 	engine := NewLazyTableEngine()
 	t.Cleanup(func() {
