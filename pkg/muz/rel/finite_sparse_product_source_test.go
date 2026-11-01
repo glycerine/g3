@@ -50,6 +50,34 @@ func TestFiniteSparseProductSourceDriver(t *testing.T) {
 
 	// The C++ driver's table/table, table/inner, and inner/inner joins.
 	r1, r2 := product(2, []bool{true, false}), product(2, []bool{true, false})
+	r3 := product(2, []bool{true, false})
+	add(r1, seven, seven)
+	add(r2, seven, nine)
+	add(r3, nine, nine)
+	assertContains(r1, []ast.ASTHandle{nine, nine}, false)
+
+	// Source clone/add and union-with-delta expectations.
+	r4, e := r2.Clone()
+	astTestMust(t, e)
+	t.Cleanup(func() { astTestMust(t, r4.Close()) })
+	assertContains(r4, []ast.ASTHandle{seven, seven}, false)
+	assertContains(r4, []ast.ASTHandle{seven, nine}, true)
+	add(r4, seven, seven)
+	add(r4, nine, nine)
+	assertContains(r4, []ast.ASTHandle{seven, seven}, true)
+	assertContains(r4, []ast.ASTHandle{seven, nine}, true)
+	assertContains(r4, []ast.ASTHandle{nine, nine}, true)
+	astTestMust(t, r1.UnionFromWithDelta(r2, r3))
+	assertContains(r1, []ast.ASTHandle{seven, seven}, true)
+	assertContains(r1, []ast.ASTHandle{seven, nine}, true)
+	assertContains(r1, []ast.ASTHandle{nine, nine}, false)
+	assertContains(r3, []ast.ASTHandle{seven, seven}, false)
+	assertContains(r3, []ast.ASTHandle{seven, nine}, true)
+	assertContains(r3, []ast.ASTHandle{nine, nine}, true)
+
+	// Reuse the same products for the source join matrix.
+	astTestMust(t, r1.Reset())
+	astTestMust(t, r2.Reset())
 	add(r1, seven, seven)
 	add(r1, seven, nine)
 	add(r1, nine, seven)

@@ -32,6 +32,26 @@ func TestProductRelationSourceFunctionalRows(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	var reductions [][2][]Element
+	projectedWithReduce, err := table.ProjectWithReduce([]int{0}, func(existing, incoming []Element) {
+		reductions = append(reductions, [2][]Element{append([]Element(nil), existing...), append([]Element(nil), incoming...)})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer projectedWithReduce.Close()
+	if n, err := projectedWithReduce.SizeEstimateRows(); err != nil || n != 1 {
+		t.Fatal("reduced projection rows", n, err)
+	}
+	if functional, err := projectedWithReduce.FunctionalColumns(); err != nil || functional != 1 {
+		t.Fatal("reduced projection functional columns", functional, err)
+	}
+	if got, err := projectedWithReduce.Contains(Fact{0}); err != nil || !got {
+		t.Fatal("reduced projection kept row", got, err)
+	}
+	if len(reductions) != 1 || len(reductions[0][0]) != 1 || reductions[0][0][0] != 0 || reductions[0][1][0] != 1 {
+		t.Fatalf("reducer collision values=%v", reductions)
+	}
 }
 
 func TestProductRelationSourceSuggestEnsure(t *testing.T) {

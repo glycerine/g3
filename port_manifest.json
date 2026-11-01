@@ -94642,7 +94642,10 @@
         "pkg/muz/rel/relation_manager.go",
         "pkg/muz/rel/table.go",
         "pkg/muz/rel/table_join_project.go",
-        "pkg/muz/rel/table_join_project_test.go"
+        "pkg/muz/rel/table_join_project_test.go",
+        "pkg/muz/rel/sparse_functional_project.go",
+        "pkg/muz/rel/sparse_functional_project_test.go",
+        "pkg/muz/rel/dl_product_relation_cpp_driver_test.go"
       ],
       "tests": [
         "TestRelationManagerFiniteSignatureAndFactRoundTrip",
@@ -94650,7 +94653,10 @@
         "TestRelationManagerRejectsInfiniteAndWrongSortValues",
         "TestHashTableFiniteFiltersValidateAndMutate",
         "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature",
-        "TestRelationInstructionsLoadCloneAndStoreOwnership"
+        "TestRelationInstructionsLoadCloneAndStoreOwnership",
+        "TestProductRelationSourceFunctionalRows",
+        "TestSparseFunctionalProjectWithReduceReportsEveryCollision",
+        "TestSparseFunctionalProjectWithReduceRejectsMissingReducer"
       ],
       "assertions": [
         {
@@ -94834,13 +94840,23 @@
           "tests": [
             "TestHashTableJoinProjectMatchesSourceCompositionAndZeroSignature"
           ]
+        },
+        {
+          "name": "default functional-table project-with-reduce reports projected row collisions (dl_relation_manager.cpp:1642-1723)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/sparse_functional_project.go",
+          "tests": [
+            "TestProductRelationSourceFunctionalRows",
+            "TestSparseFunctionalProjectWithReduceReportsEveryCollision",
+            "TestSparseFunctionalProjectWithReduceRejectsMissingReducer"
+          ]
         }
       ],
       "ownership": [
         "RelationManager borrows its AST manager, owns stored finite tables and saturation state, and retains each stored predicate declaration until reset or close. Encode paths return caller-owned Go facts; decode paths return explicit owning AST references and release partial results on failure."
       ],
       "deviations": [
-        "Retained consumers use concrete finite-table storage and operations directly. Unused plugin selection, universal operation-factory adapters, functional tables, and non-table implementations are intentionally omitted. Only bounded finite sorts with concrete native numeral encodings are accepted."
+        "Retained consumers use concrete finite-table storage and operations directly. Unused plugin selection, universal operation-factory adapters, and non-table implementations are intentionally omitted. Only bounded finite sorts with concrete native numeral encodings are accepted."
       ]
     },
     {
@@ -201316,9 +201332,9 @@
       "path": "src/test/dl_product_relation.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": ["pkg/muz/rel/dl_product_relation_cpp_driver_test.go"],
-      "tests": ["TestProductRelationSourceFunctionalRows", "TestProductRelationSourceSuggestEnsure", "TestProductRelationSourceFunctionalColumnJoin"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/dl_product_relation_cpp_driver_test.go", "pkg/muz/rel/finite_sparse_product_source_test.go", "pkg/muz/rel/finite_sparse_product_conversion_test.go", "pkg/muz/rel/sparse_functional_project_test.go"],
+      "tests": ["TestProductRelationSourceFunctionalRows", "TestProductRelationSourceSuggestEnsure", "TestProductRelationSourceFunctionalColumnJoin", "TestFiniteSparseProductSourceDriver", "TestFiniteSparseProductJoinAcrossPartitions", "TestFiniteSparseProductJoinTableRelationConversion", "TestFiniteSparseProductJoinInnerSparseTableConversion", "TestSparseFunctionalProjectWithReduceReportsEveryCollision", "TestSparseFunctionalProjectWithReduceRejectsMissingReducer"],
       "conditionals": [
         {
           "line": 7,
@@ -201559,11 +201575,14 @@
           "text": "ENSURE(r31->contains_fact(f799));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["Functional-row insertion, ordinary projections, suggest and ensure are covered. Projection with reduction and the finite product relation examples remain open. The functional-column join uses the source relation-manager fallback."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "test_functional_columns", "status": "ported", "go_target": "pkg/muz/rel/dl_product_relation_cpp_driver_test.go", "tests": ["TestProductRelationSourceFunctionalRows", "TestProductRelationSourceSuggestEnsure", "TestProductRelationSourceFunctionalColumnJoin"]},
+        {"name": "test_finite_product_relation", "status": "ported", "go_target": "pkg/muz/rel/finite_sparse_product_source_test.go", "tests": ["TestFiniteSparseProductSourceDriver", "TestFiniteSparseProductJoinAcrossPartitions"]}
+      ],
+      "ownership": ["Go fixtures close their sparse tables and finite sparse products, while clones and conversion results are tested for independent ownership."],
+      "deviations": ["The C++ test body is Windows-only and emits diagnostic display output; Go tests run on all supported targets and assert values directly. Direct concrete Go constructors replace plugin pointer and capability assertions."]
     },
     {
       "path": "src/test/dl_query.cpp",
