@@ -446,3 +446,38 @@ func TestFiniteSparseProductComplementAndFull(t *testing.T) {
 		t.Fatalf("zero-arity complement missing empty row: %v (%v)", found, e)
 	}
 }
+
+func TestFiniteSparseProductIdenticalPairs(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-identical-pairs")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two := value(0), value(1), value(2)
+	product, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort, sort, sort}, []bool{true, false, true, false})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, product.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{zero, zero, one, one}, {zero, one, one, one}, {two, two, two, zero}} {
+		astTestMust(t, product.AddFact(fact))
+	}
+	if err = product.FilterIdenticalPairs([][2]int{{0, 1}, {2, 3}}); err != nil {
+		t.Fatal(err)
+	}
+	if found, e := product.ContainsFact([]ast.ASTHandle{zero, zero, one, one}); e != nil || !found {
+		t.Fatalf("pair filter removed matching row: %v (%v)", found, e)
+	}
+	for _, fact := range [][]ast.ASTHandle{{zero, one, one, one}, {two, two, two, zero}} {
+		if found, e := product.ContainsFact(fact); e != nil || found {
+			t.Fatalf("pair filter kept mismatch %v: %v (%v)", fact, found, e)
+		}
+	}
+	if err = product.FilterIdenticalPairs([][2]int{{0, 9}}); err == nil {
+		t.Fatal("invalid identity pair accepted")
+	}
+}

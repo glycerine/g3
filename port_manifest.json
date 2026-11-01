@@ -92919,7 +92919,8 @@
         "TestFiniteSparseProductRenameMovesColumnsAndPartitions",
         "TestFiniteSparseProductToFormulaMatchesRows",
         "TestFiniteSparseProductComplementAndFull",
-        "TestFiniteSparseProductTableRelationRoundTrip"
+        "TestFiniteSparseProductTableRelationRoundTrip",
+        "TestFiniteSparseProductIdenticalPairs"
       ],
       "conditionals": [
         {

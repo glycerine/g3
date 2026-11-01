@@ -510,6 +510,41 @@ func (p *FiniteSparseProduct) FilterIdentical(columns []int) error {
 	return p.replaceFacts(kept)
 }
 
+// FilterIdenticalPairs keeps rows satisfying each selected column equality.
+func (p *FiniteSparseProduct) FilterIdenticalPairs(pairs [][2]int) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	for _, pair := range pairs {
+		if pair[0] < 0 || pair[0] >= len(p.sorts) || pair[1] < 0 || pair[1] >= len(p.sorts) {
+			return ErrTableRelation
+		}
+	}
+	flat, err := p.flatten()
+	if err != nil {
+		return err
+	}
+	defer flat.Close()
+	facts, err := flat.Facts()
+	if err != nil {
+		return err
+	}
+	kept := make([]Fact, 0, len(facts))
+	for _, fact := range facts {
+		match := true
+		for _, pair := range pairs {
+			if p.sorts[pair[0]] != p.sorts[pair[1]] || fact[pair[0]] != fact[pair[1]] {
+				match = false
+				break
+			}
+		}
+		if match {
+			kept = append(kept, fact)
+		}
+	}
+	return p.replaceFacts(kept)
+}
+
 // FilterNegation removes each row in p that matches a row in negative on the
 // selected column pairs, and reports the number of removed rows.
 func (p *FiniteSparseProduct) FilterNegation(negative *FiniteSparseProduct, targetColumns, negativeColumns []int) (int, error) {

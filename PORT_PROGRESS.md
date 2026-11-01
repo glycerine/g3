@@ -52890,3 +52890,5 @@ Finite sparse-table product formula conversion (2026-11-01 UTC): added source-st
 Finite sparse-table product complement and full construction (2026-11-01 UTC): added the source empty-then-complement constructor and finite complement for partitions with at most one data column each, matching the underlying table complement precondition. Tests cover the finite oracle, full cardinality, source preservation, unsupported wider partitions, and the zero-arity universe in normal and `g3checked` builds.
 
 Finite sparse product table conversion (2026-11-01 UTC): added table-to-product conversion for empty inner signatures and the reverse conversion when all product columns are outer-table columns. Round-trip coverage verifies both rows survive, rejects nil input and rejects reverse conversion when inner columns remain; focused normal and `g3checked` tests pass.
+
+Finite sparse-table product identity-pair filtering (2026-11-01 UTC): added the source pairwise equality mutator across outer and inner columns, requiring matching sorts for each pair. Tests cover independent pair constraints, rejected rows and invalid indexes in normal and `g3checked` builds.
