@@ -2848,7 +2848,7 @@
       "path": "src/ackermannization/ackermannization_params.hpp",
       "component": "ackermannization",
       "role": "production",
-      "status": "ported",
+          "status": "ported",
       "go_targets": [
         "pkg/util/params/util_gparams.go",
         "pkg/util/params/util_gparams_catalog.go",
@@ -6188,9 +6188,12 @@
         },
         {
           "name": "generated replay of pattern, binder and quantifier inspection with borrowed AST results",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/z3_generated_quantifier_inspection.go",
           "go_targets": [
+            "pkg/api/z3_generated_quantifier_inspection.go",
+            "pkg/api/z3_generated_quantifier_inspection_test.go",
+            "pkg/api/api_quantifiers.go",
             "pkg/cmd/g3/z3_log_frontend_test.go"
           ],
           "tests": [
