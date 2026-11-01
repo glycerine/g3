@@ -15,6 +15,8 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
+	evaluatorConfig      model.ModelEvaluatorConfig
+	pendingEvaluators    []*model.ModelEvaluator
 	proofCore            map[ast.ASTHandle]ast.ASTRef
 	dualModel            *model.ModelCore
 	solver               solver.Solver
@@ -326,6 +328,13 @@ func (g *RPFP) Close() error {
 		}
 	}
 	g.underapproxFlags = nil
+	for len(g.pendingEvaluators) > 0 {
+		ev := g.pendingEvaluators[0]
+		if err := ev.Close(); err != nil {
+			return err
+		}
+		g.pendingEvaluators = g.pendingEvaluators[1:]
+	}
 	if err := g.ClearProofCore(); err != nil {
 		return err
 	}
