@@ -2,13 +2,43 @@ package arith
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
 )
+
+func TestQFNRAPurifyCancellationUsesTacticException(t *testing.T) {
+	runner, m := qfnraPurifier(t, false, false)
+	x := fixDLConst(t, m, false, "purify-cancel-x")
+	y := fixDLConst(t, m, false, "purify-cancel-y")
+	division := fixDLApp(t, m, qfnraPurifyDiv, x, y)
+	formula := collectorEq(t, m, division, x)
+	goal := fixDLGoal(t, m, false, false, false, formula)
+	var result tactic.TacticResult
+	t.Cleanup(func() { equationMust(t, result.Close()) })
+	m.ResourceLimit().IncCancel()
+	want := m.ResourceLimit().CancelMessage()
+	err := runner.Apply(goal, &result)
+	m.ResourceLimit().DecCancel()
+	var exception tactic.TacticException
+	if !errors.As(err, &exception) || exception.Message() != want {
+		t.Fatal("purifier cancellation did not become a tactic exception", err, want)
+	}
+	if rewriter.IsRewriterException(err) {
+		t.Fatal("rewriter exception escaped the tactic boundary", err)
+	}
+	if err = runner.Apply(goal, &result); err != nil {
+		t.Fatal("purifier did not recover after cancellation", err)
+	}
+	if size, err := goal.Size(); err != nil || size < 2 {
+		t.Fatal("retry did not add division constraints", size, err)
+	}
+}
 
 func assertEmptyPurifyFilter(t *testing.T, converter tactic.ModelConverter) {
 	t.Helper()

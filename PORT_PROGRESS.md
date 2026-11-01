@@ -52666,3 +52666,5 @@ SLS random-walk correction: select bit-vector moves from the two source Boolean 
 SLS repick fallback: when the alternate assertion has no improving move, randomization now uses its constants, reflecting the source's shared temporary candidate vector. A failed multi-assertion repick clears that vector, while a single assertion leaves it intact; focused search regressions cover the repicked and single-assertion cases in normal and checked builds.
 
 SLS owner cleanup: the engine owner and core tactic now stop at a failed child close and keep the remaining owners for a retry. A numerical caller guard regression stops cleanup at the integer manager, checks the live ownership chain, and completes a second close; SLS and focused checked integration tests pass. Constructor-failure and other exceptional paths remain under audit.
+
+Arithmetic purifier cancellation: the tactic boundary now converts a rewriter exception into the source tactic exception. A cancellation regression checks the exception type and message, then retries the same tactic successfully; the arithmetic package and checked purifier and QF_UFNRA checks pass.

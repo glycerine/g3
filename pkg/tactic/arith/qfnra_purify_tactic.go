@@ -777,6 +777,11 @@ func (t *QFNRAPurifyTactic) Close() error {
 }
 
 func (t *QFNRAPurifyTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (err error) {
+	defer func() {
+		if rewriter.IsRewriterException(err) {
+			err = tactic.NewTacticException(err.Error())
+		}
+	}()
 	if err = t.open(); err != nil {
 		return err
 	}
