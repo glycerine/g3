@@ -17,10 +17,10 @@ func TestSATIntegrityAsymmActualEnabledWrapperSites(t *testing.T) {
 	a, e := newSATAsymmBranch(l, &params)
 	satOK(t, e)
 	t.Cleanup(func() { satOK(t, a.Close()) })
-	a.debugInvariant = true
 	debug, _, _ := satIntegrityActionFixture(t, "")
 	satOK(t, debug.EnableDebug("sat_propagate"))
 	satOK(t, debug.EnableDebug("sat_missed_prop"))
+	satOK(t, debug.EnableDebug("asymm_branch"))
 	before := p.limit.Count()
 	satOK(t, a.run(true))
 	want := uint64(0)
@@ -32,5 +32,36 @@ func TestSATIntegrityAsymmActualEnabledWrapperSites(t *testing.T) {
 	}
 	if a.reportActive || a.savedPhase != nil {
 		t.Fatal("completed source locals")
+	}
+}
+
+func TestSATAsymmInvariantUsesSourceConditionalAssertionTag(t *testing.T) {
+	g, _ := satGCFixture(t, 3)
+	l := g.lifecycle()
+	params, err := l.propagation.config.context.NewValue()
+	satOK(t, err)
+	a, err := newSATAsymmBranch(l, &params)
+	satOK(t, l.propagation.config.context.Del(&params))
+	satOK(t, err)
+	t.Cleanup(func() { satOK(t, a.Close()) })
+	debug, _, _ := satIntegrityActionFixture(t, "")
+	before := l.propagation.limit.Steps
+	satOK(t, a.run(true))
+	want := uint64(0)
+	if satStorageSourceDebug {
+		want = 0 // The source tag is disabled by default.
+	}
+	if got := l.propagation.limit.Steps - before; got != want {
+		t.Fatalf("disabled process assertion consumed %d checks, want %d", got, want)
+	}
+	satOK(t, debug.EnableDebug("asymm_branch"))
+	before = l.propagation.limit.Steps
+	satOK(t, a.run(true))
+	want = 0
+	if satStorageSourceDebug {
+		want = 2 // CASSERT at asymmetric-branch entry and normal exit.
+	}
+	if got := l.propagation.limit.Steps - before; got != want {
+		t.Fatalf("enabled process assertion consumed %d checks, want %d", got, want)
 	}
 }

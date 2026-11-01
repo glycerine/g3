@@ -116313,6 +116313,7 @@
         "TestSATIntegrityDisjointFreshSetEveryRefusal",
         "TestSATIntegrityNaryBlockedAndReinitProfiles",
         "TestSATIntegrityAsymmActualEnabledWrapperSites",
+        "TestSATAsymmInvariantUsesSourceConditionalAssertionTag",
         "TestSATAsymmNativeSnapshotCleanupPreservesBodyError"
       ],
       "conditionals": [
@@ -116443,7 +116444,8 @@
             "TestSATPropagateIndependentProcessAssertionTags",
             "TestSATIntegrityDisjointFreshSetEveryRefusal",
             "TestSATIntegrityNaryBlockedAndReinitProfiles",
-            "TestSATIntegrityAsymmActualEnabledWrapperSites"
+            "TestSATIntegrityAsymmActualEnabledWrapperSites",
+            "TestSATAsymmInvariantUsesSourceConditionalAssertionTag"
           ]
         }
       ],

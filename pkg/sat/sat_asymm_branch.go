@@ -8,6 +8,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
 	"github.com/glycerine/g3/pkg/util/stopwatch"
@@ -22,7 +23,7 @@ type satAsymmBranch struct {
 	rounds, limit, elimLiterals, reportElimLiterals                                       uint32
 	savedPhase                                                                            []int8
 	report                                                                                stopwatch.Stopwatch
-	reportActive, closing, closed, debugInvariant, running, interrupted                   bool
+	reportActive, closing, closed, running, interrupted                                   bool
 	cursor, out, end, drainPrefix, drainSuffix                                            uint32
 	detachedClause, discardedClause                                                       StoredClauseRef
 	detachActive                                                                          bool
@@ -137,10 +138,15 @@ func (a *satAsymmBranch) negateCounter() error {
 	return nil
 }
 func (a *satAsymmBranch) invariant() error {
-	if satStorageSourceDebug && a.debugInvariant {
-		return a.lifecycle.checkInvariant()
+	if !satStorageSourceDebug {
+		return nil
 	}
-	return nil
+	d := diagnostic.BorrowProcessDebugContext()
+	enabled, err := d.ConditionalAssertionEnabled("asymm_branch")
+	if err != nil || !enabled {
+		return err
+	}
+	return a.lifecycle.checkInvariantWithActions(true)
 }
 func (a *satAsymmBranch) trailInvariant() error {
 	if satStorageSourceDebug {
