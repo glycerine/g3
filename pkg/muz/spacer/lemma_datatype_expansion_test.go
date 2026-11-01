@@ -61,8 +61,16 @@ func TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation(t *testing.T) {
 					left, right = right, left
 				}
 				input := own(m.MkEq(left, right))
-				expanded, err := p.expandInductiveLiteral(input)
-				depthMust(t, err)
+				expandedOwner, err := p.expandInductiveLiteral(input)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if err := expandedOwner.Close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				expanded := expandedOwner.literals
 				for _, h := range expanded {
 					own(h, nil)
 				}

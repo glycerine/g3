@@ -100551,11 +100551,14 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/lemma_generalizer.go",
+            "pkg/muz/spacer/literal_expansion.go",
+            "pkg/muz/spacer/lemma_expansion_failure_test.go",
             "pkg/muz/spacer/lemma_generalizer_test.go",
             "pkg/muz/spacer/lemma_datatype_expansion_test.go"
           ],
           "tests": [
             "TestExpandInductiveDatatypeAndBitVectorEqualities",
+            "TestSpacerLiteralExpansionColdFailureReleasesPartialResults",
             "TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation"
           ]
         },
@@ -100752,11 +100755,14 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/lemma_generalizer.go",
+            "pkg/muz/spacer/literal_expansion.go",
+            "pkg/muz/spacer/lemma_expansion_failure_test.go",
             "pkg/muz/spacer/lemma_generalizer_test.go",
             "pkg/muz/spacer/lemma_datatype_expansion_test.go"
           ],
           "tests": [
             "TestExpandInductiveDatatypeAndBitVectorEqualities",
+            "TestSpacerLiteralExpansionColdFailureReleasesPartialResults",
             "TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation"
           ]
         },

@@ -36,10 +36,16 @@ func TestExpandInductiveLiteralSourceTrace(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := &PredicateTransformer{manager: m}
-	result, err := p.expandInductiveLiteral(equality)
+	resultOwner, err := p.expandInductiveLiteral(equality)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := resultOwner.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	result := resultOwner.literals
 	if len(result) != 2 {
 		t.Fatal("expanded bound count", len(result))
 	}

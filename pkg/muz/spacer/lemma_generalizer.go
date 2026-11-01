@@ -81,13 +81,25 @@ func containsGeneralizedLiteral(values []ast.ASTHandle, value ast.ASTHandle) boo
 
 // expandInductiveLiteral follows expand_literals' growing conjunction vector.
 // Constructor field equalities appended during expansion are visited too.
-func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) ([]ast.ASTHandle, error) {
+func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) (result *literalExpansion, resultErr error) {
+	owner := &literalExpansion{manager: p.manager}
+	defer func() {
+		if resultErr != nil {
+			if cleanup := owner.Close(); cleanup != nil {
+				owner.cause, owner.cleanupErr = errors.Join(resultErr, cleanup), cleanup
+				resultErr = owner
+			}
+		}
+	}()
+	if _, err := owner.keep(literal, nil); err != nil {
+		return nil, err
+	}
 	conjs := []ast.ASTHandle{literal}
 	if err := p.traceLiteralExpansion(conjs, true); err != nil {
 		return nil, err
 	}
 	for i := 0; i < len(conjs); i++ {
-		expanded, err := p.expandInductiveLiteralOnce(conjs[i])
+		expanded, err := p.expandInductiveLiteralOnce(owner, conjs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -120,10 +132,11 @@ func (p *PredicateTransformer) expandInductiveLiteral(literal ast.ASTHandle) ([]
 	if err := p.traceLiteralExpansion(conjs, false); err != nil {
 		return nil, err
 	}
-	return conjs, nil
+	owner.literals = conjs
+	return owner, nil
 }
 
-func (p *PredicateTransformer) expandInductiveLiteralOnce(literal ast.ASTHandle) ([]ast.ASTHandle, error) {
+func (p *PredicateTransformer) expandInductiveLiteralOnce(owner *literalExpansion, literal ast.ASTHandle) ([]ast.ASTHandle, error) {
 	family, err := p.manager.GetFamilyID(literal)
 	if err != nil || family != p.manager.BasicFamilyID() {
 		return []ast.ASTHandle{literal}, err
@@ -153,26 +166,26 @@ func (p *PredicateTransformer) expandInductiveLiteralOnce(literal ast.ASTHandle)
 		return nil, err
 	}
 	if sortFamily == arithmetic {
-		le, err := p.manager.MkArithmeticLE(left, right)
+		le, err := owner.keep(p.manager.MkArithmeticLE(left, right))
 		if err != nil {
 			return nil, err
 		}
-		ge, err := p.manager.MkArithmeticGE(left, right)
+		ge, err := owner.keep(p.manager.MkArithmeticGE(left, right))
 		if err != nil {
 			return nil, err
 		}
 		return []ast.ASTHandle{le, ge}, nil
 	}
-	if expanded, matched, err := p.expandInductiveDatatypeEquality(left, right); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveDatatypeEquality(owner, left, right); err != nil || matched {
 		return expanded, err
 	}
-	if expanded, matched, err := p.expandInductiveDatatypeEquality(right, left); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveDatatypeEquality(owner, right, left); err != nil || matched {
 		return expanded, err
 	}
-	if expanded, matched, err := p.expandInductiveBitVectorEquality(left, right); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveBitVectorEquality(owner, left, right); err != nil || matched {
 		return expanded, err
 	}
-	if expanded, matched, err := p.expandInductiveBitVectorEquality(right, left); err != nil || matched {
+	if expanded, matched, err := p.expandInductiveBitVectorEquality(owner, right, left); err != nil || matched {
 		return expanded, err
 	}
 	return []ast.ASTHandle{literal}, nil
@@ -180,7 +193,7 @@ func (p *PredicateTransformer) expandInductiveLiteralOnce(literal ast.ASTHandle)
 
 // expandInductiveDatatypeEquality treats value as the constructor side and
 // term as the side replaced by a recognizer and accessor equalities.
-func (p *PredicateTransformer) expandInductiveDatatypeEquality(term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+func (p *PredicateTransformer) expandInductiveDatatypeEquality(owner *literalExpansion, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
 	kind, err := p.manager.GetKind(value)
 	if err != nil || kind != ast.ASTApp {
 		return nil, false, err
@@ -205,7 +218,7 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(term, value ast.A
 	if err != nil {
 		return nil, false, err
 	}
-	isConstructor, err := p.manager.MkApp(recognizer, []ast.ASTHandle{term})
+	isConstructor, err := owner.keep(p.manager.MkApp(recognizer, []ast.ASTHandle{term}))
 	if err != nil {
 		return nil, false, err
 	}
@@ -229,7 +242,7 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(term, value ast.A
 		if termConstructor {
 			selected, err = p.manager.GetArg(term, uint32(index))
 		} else {
-			selected, err = p.manager.MkApp(accessor, []ast.ASTHandle{term})
+			selected, err = owner.keep(p.manager.MkApp(accessor, []ast.ASTHandle{term}))
 		}
 		if err != nil {
 			return nil, false, err
@@ -238,7 +251,7 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(term, value ast.A
 		if err != nil {
 			return nil, false, err
 		}
-		equality, err := p.manager.MkEq(selected, field)
+		equality, err := owner.keep(p.manager.MkEq(selected, field))
 		if err != nil {
 			return nil, false, err
 		}
@@ -248,7 +261,7 @@ func (p *PredicateTransformer) expandInductiveDatatypeEquality(term, value ast.A
 }
 
 // expandInductiveBitVectorEquality treats value as the numeral side.
-func (p *PredicateTransformer) expandInductiveBitVectorEquality(term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
+func (p *PredicateTransformer) expandInductiveBitVectorEquality(owner *literalExpansion, term, value ast.ASTHandle) ([]ast.ASTHandle, bool, error) {
 	text, matched, err := p.manager.BitVectorNumeralText(value)
 	if err != nil {
 		return nil, false, fmt.Errorf("read bit-vector numeral text: %w", err)
@@ -267,22 +280,22 @@ func (p *PredicateTransformer) expandInductiveBitVectorEquality(term, value ast.
 	if _, ok := integer.SetString(text, 10); !ok {
 		return nil, false, ast.ErrASTDomain
 	}
-	one, err := p.manager.BitVectorNumeralUnsigned(1, 1)
+	one, err := owner.keep(p.manager.BitVectorNumeralUnsigned(1, 1))
 	if err != nil {
 		return nil, false, fmt.Errorf("construct bit-vector one: %w", err)
 	}
 	result := make([]ast.ASTHandle, 0, width)
 	for bit := uint32(0); bit < width; bit++ {
-		extract, err := p.manager.MkBitVectorExtract(bit, bit, term)
+		extract, err := owner.keep(p.manager.MkBitVectorExtract(bit, bit, term))
 		if err != nil {
 			return nil, false, err
 		}
-		literal, err := p.manager.MkEq(one, extract)
+		literal, err := owner.keep(p.manager.MkEq(one, extract))
 		if err != nil {
 			return nil, false, err
 		}
 		if integer.Bit(int(bit)) == 0 {
-			literal, err = p.manager.MkNot(literal)
+			literal, err = owner.keep(p.manager.MkNot(literal))
 			if err != nil {
 				return nil, false, err
 			}
@@ -300,6 +313,12 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 	// Source cube and extra_lits are owning vectors. Keep all solver cores
 	// and speculative expansion candidates until the final lemma owns its cube.
 	var held []ast.ASTRef
+	var expansions []*literalExpansion
+	defer func() {
+		for _, expanded := range expansions {
+			resultErr = errors.Join(resultErr, expanded.Close())
+		}
+	}()
 	defer func() { resultErr = errors.Join(resultErr, releaseNormalizeRefs(p.manager, held)) }()
 	checkCube := func(cube []ast.ASTHandle, level uint32) ([]ast.ASTHandle, uint32, bool, error) {
 		refs, used, inductive, err := p.checkInductiveCube(cube, level)
@@ -352,17 +371,12 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 				continue
 			}
 		}
-		expanded, expandErr := p.expandInductiveLiteral(literal)
+		expansion, expandErr := p.expandInductiveLiteral(literal)
 		if expandErr != nil {
 			return lemma, expandErr
 		}
-		for _, candidate := range expanded {
-			ref, err := p.manager.NewRef(candidate)
-			if err != nil {
-				return lemma, err
-			}
-			held = append(held, ref)
-		}
+		expansions = append(expansions, expansion)
+		expanded := expansion.literals
 		found := false
 		if len(expanded) > 1 || expanded[0] != literal {
 			for _, replacement := range expanded {

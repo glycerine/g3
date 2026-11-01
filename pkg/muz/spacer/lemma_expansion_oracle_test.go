@@ -36,8 +36,16 @@ func TestExpandInductiveBitVectorEqualityFiniteOracle(t *testing.T) {
 				}
 				equality, err := m.MkEq(left, right)
 				must(err)
-				literals, err := p.expandInductiveLiteral(equality)
-				must(err)
+				literalsOwner, err := p.expandInductiveLiteral(equality)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer func() {
+					if err := literalsOwner.Close(); err != nil {
+						t.Error(err)
+					}
+				}()
+				literals := literalsOwner.literals
 				if len(literals) != int(width) {
 					t.Fatalf("width %d value %d: %d literals", width, value, len(literals))
 				}

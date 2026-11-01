@@ -69,10 +69,16 @@ func TestExpandInductiveArithmeticEquality(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expanded, err := transformer.expandInductiveLiteral(equality)
+	expandedOwner, err := transformer.expandInductiveLiteral(equality)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := expandedOwner.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	expanded := expandedOwner.literals
 	if len(expanded) != 2 {
 		t.Fatal("expanded equality size", len(expanded))
 	}
@@ -208,10 +214,16 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	datatypeExpanded, err := transformer.expandInductiveLiteral(boxEquality)
+	datatypeExpandedOwner, err := transformer.expandInductiveLiteral(boxEquality)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := datatypeExpandedOwner.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	datatypeExpanded := datatypeExpandedOwner.literals
 	if len(datatypeExpanded) != 5 {
 		t.Fatal("expanded datatype equality size", len(datatypeExpanded))
 	}
@@ -259,10 +271,16 @@ func TestExpandInductiveDatatypeAndBitVectorEqualities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	bvExpanded, err := transformer.expandInductiveLiteral(bvEquality)
+	bvExpandedOwner, err := transformer.expandInductiveLiteral(bvEquality)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := bvExpandedOwner.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	bvExpanded := bvExpandedOwner.literals
 	if len(bvExpanded) != 3 {
 		t.Fatal("expanded bit-vector equality size", len(bvExpanded))
 	}
