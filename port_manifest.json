@@ -106014,13 +106014,13 @@
       "path": "src/nlsat/tactic/goal2nlsat.cpp",
       "component": "nlsat",
       "role": "production",
-      "status": "ported",
-      "go_targets": [
+      "status": "partial",
+      "go_targets": ["pkg/tactic/nlsat_smt/nl_purify_failure_test.go",
         "pkg/nlsat/tactic/goal2nlsat.go",
         "pkg/nlsat/tactic/nlsat2goal.go",
         "pkg/qe/nlqsat_tactic_test.go"
       ],
-      "tests": [
+      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry",
         "TestGoalCompilerRealQuadraticSat",
         "TestGoalCompilerIntegerLinearUnsat",
         "TestGoalCompilerRationalDenominatorClearing",
@@ -106058,7 +106058,7 @@
         }
       ],
       "methods_audited": true,
-      "ownership_audited": true,
+      "ownership_audited": false,
       "methods": [
         {
           "name": "retained goal compiler, polynomial factor atoms, model reconstruction, and core mapping",
@@ -106105,7 +106105,7 @@
         "GoalCompiler borrows the AST manager and live NLSAT solver while owning expression-to-variable mappings, the arithmetic expression compiler, and retained assumption attachments. Compile transfers polynomial factors and clauses into the solver; Close retires compiler expressions and mappings, then dependency attachments, without closing the borrowed solver.",
         "GoalConverter and ModelProjector borrow compiler mappings and the solver. Converted literals return owning AST references, filtered model reconstruction admits only explicitly requested frontend constants, and projected literal vectors close before their borrowed solver."
       ],
-      "deviations": [
+      "deviations": ["Interrupted polynomial construction in atom compilation still has unresolved cleanup ownership.",
         "Root atoms retain the source's fresh-Boolean fallback semantics with a deterministic nlsat-root variable name instead of embedding the solver display text."
       ]
     },

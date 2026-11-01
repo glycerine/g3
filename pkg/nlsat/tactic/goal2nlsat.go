@@ -185,18 +185,18 @@ func (c *GoalCompiler) processArithmeticAtom(expression ast.ASTHandle, kind nlsa
 	if err != nil {
 		return 0, err
 	}
-	difference, err := core.AddMul(&leftScale, unit, leftPolynomial, &rightScale, unit, rightPolynomial)
-	if err != nil {
-		return 0, err
-	}
 	owned, err := polynomial.NewPolynomialRef(core)
 	if err != nil {
 		return 0, err
 	}
-	if err = owned.Assign(difference); err != nil {
-		return 0, errors.Join(err, owned.Close())
-	}
 	defer func() { err = errors.Join(err, owned.Close()) }()
+	difference, err := core.AddMul(&leftScale, unit, leftPolynomial, &rightScale, unit, rightPolynomial)
+	if err != nil {
+		return 0, err
+	}
+	if err = owned.Assign(difference); err != nil {
+		return 0, err
+	}
 	maxVariable, err := core.MaxVariable(difference)
 	if err != nil {
 		return 0, err
