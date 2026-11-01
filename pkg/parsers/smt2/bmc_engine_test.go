@@ -152,3 +152,46 @@ func TestSMT2BMCNonlinearProofTrace(t *testing.T) {
 		})
 	}
 }
+
+func TestSMT2BMCNonlinearCertificateWithoutProofOption(t *testing.T) {
+	for _, engine := range []string{"bmc", "qbmc"} {
+		for _, slice := range []string{"true", "false"} {
+			for _, outputKind := range []string{"print-certificate", "print-answer"} {
+				t.Run(engine+"/slice="+slice+"/"+outputKind, func(t *testing.T) {
+					context, err := cmd_context.NewStandaloneContext()
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer func() {
+						if err := context.Close(); err != nil {
+							t.Error(err)
+						}
+					}()
+					script := fmt.Sprintf(`(set-option :fixedpoint.engine %s)
+(set-option :fixedpoint.xform.slice %s)
+(set-option :fixedpoint.xform.inline_eager false)
+(set-option :fixedpoint.xform.inline_linear false)
+(set-option :fixedpoint.xform.subsumption_checker false)
+(declare-rel P (Int))
+(declare-rel Q (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(declare-var y Int)
+(rule (P x))
+(rule (Q y))
+(rule (=> (and (P x) (Q y)) Goal))
+(query Goal :%s true)
+`, engine, slice, outputKind)
+					var output bytes.Buffer
+					if err = ParseCommands(context, strings.NewReader(script), &output); err != nil {
+						t.Fatal(err, output.String())
+					}
+					text := output.String()
+					if !strings.HasPrefix(text, "sat\n") || !strings.Contains(text, "hyper-res") || !strings.Contains(text, "(P ") || !strings.Contains(text, "(Q ") || strings.Contains(text, "!slice!") {
+						t.Fatal("nonlinear certificate without global proof option", text)
+					}
+				})
+			}
+		}
+	}
+}

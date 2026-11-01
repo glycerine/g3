@@ -99,6 +99,7 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if e.params == nil || e.globals == nil {
 		return lbool.Undef, ErrPropositionalEngine
 	}
+	sourceDeclaration := declaration
 	if err := e.clearBMCTrace(); err != nil {
 		return lbool.Undef, err
 	}
@@ -115,6 +116,23 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		if !valid {
 			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
 		}
+	}
+	view, err := e.fixedpointParamView()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, view.Close()) }()
+	proofTrace, err := view.Bool("generate_proof_trace", false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	printAnswer, err := view.Bool("print_answer", false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	printCertificate, err := view.Bool("print_certificate", false)
+	if err != nil {
+		return lbool.Undef, err
 	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
@@ -148,16 +166,18 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err != nil {
 		return lbool.Undef, err
 	}
-	view, err := e.fixedpointParamView()
-	if err != nil {
-		return lbool.Undef, err
+	// Nonlinear reconstruction requires rule proofs. Rebuild only when a
+	// requested answer needs them and ordinary preprocessing stayed nonlinear;
+	// this preserves the source's default linear certificate path.
+	if !linear && !proofTrace && !e.forceProofTrace && (printAnswer || printCertificate) {
+		if err = preprocessed.Close(); err != nil {
+			return lbool.Undef, err
+		}
+		e.forceProofTrace = true
+		defer func() { e.forceProofTrace = false }()
+		return e.queryBMCPredicateWithSliceProof(sourceDeclaration, allowSliceProof)
 	}
-	defer func() { resultErr = errors.Join(resultErr, view.Close()) }()
 	depth, err := view.UInt("bmc.linear_unrolling_depth", math.MaxUint32)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	proofTrace, err := view.Bool("generate_proof_trace", false)
 	if err != nil {
 		return lbool.Undef, err
 	}
