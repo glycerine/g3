@@ -188421,7 +188421,7 @@
       "path": "src/tactic/core/injectivity_tactic.cpp",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/injectivity_param_descrs_test.go",
         "pkg/tactic/core/context_translation.go",
@@ -188465,8 +188465,8 @@
           "text": "SASSERT(m().get_sort(a->get_arg(0)) == m().get_sort(b->get_arg(0)));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "axiom recognition",
@@ -188488,20 +188488,36 @@
             "TestSMTLibRunnerInjectivityTactic"
           ],
           "go_targets": ["pkg/cmd/g3/injectivity_tactic_test.go"]
+        },
+        {
+          "name": "injectivity relation map insertion, lookup and declaration ownership",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/injectivity_relations.go",
+          "tests": ["TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty"]
+        },
+        {
+          "name": "rewrite configuration reduces unary equalities of marked declarations and leaves other applications unchanged",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/injectivity_rewrite.go",
+          "tests": ["TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration"]
+        },
+        {
+          "name": "tactic constructor, parameter update/descriptions, cleanup, translation and reference-counted lifecycle",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/injectivity_tactic.go",
+          "tests": ["TestInjectivityParameterDescriptionsMatchSource", "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty", "TestAPICoreTacticSolversCrossContextTranslation"]
         }
       ],
       "ownership": [
-        "The tactic owns its rewrite traversal, inverse relation map and parameter value."
+        "The tactic owns its rewriter traversal, nested injectivity relation map, retained function declarations and parameter value. Cleanup replaces the relation map and resets traversal state; translation builds fresh target-manager state and copies the parameter snapshot."
       ],
-      "deviations": [
-        "Pending full source-method, assertion and ownership audit. The builtin factory and SMT-LIB application path are integrated."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/core/injectivity_tactic.h",
       "component": "tactic",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/tactic/core/injectivity_tactic.go",
         "pkg/tactic/core/injectivity_relations.go",
@@ -188536,8 +188552,8 @@
           "text": "#endif"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "axiom recognition",
@@ -188559,14 +188575,30 @@
             "TestSMTLibRunnerInjectivityTactic"
           ],
           "go_targets": ["pkg/cmd/g3/injectivity_tactic_test.go"]
+        },
+        {
+          "name": "injectivity relation map insertion, lookup and declaration ownership",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/injectivity_relations.go",
+          "tests": ["TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty"]
+        },
+        {
+          "name": "rewrite configuration reduces unary equalities of marked declarations and leaves other applications unchanged",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/injectivity_rewrite.go",
+          "tests": ["TestInjectivityRewritesNestedEqualityOnlyForMarkedDeclaration"]
+        },
+        {
+          "name": "tactic constructor, parameter update/descriptions, cleanup, translation and reference-counted lifecycle",
+          "status": "ported",
+          "go_target": "pkg/tactic/core/injectivity_tactic.go",
+          "tests": ["TestInjectivityParameterDescriptionsMatchSource", "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty", "TestAPICoreTacticSolversCrossContextTranslation"]
         }
       ],
       "ownership": [
-        "The tactic owns its rewrite traversal, inverse relation map and parameter value."
+        "The tactic owns its rewriter traversal, nested injectivity relation map, retained function declarations and parameter value. Cleanup replaces the relation map and resets traversal state; translation builds fresh target-manager state and copies the parameter snapshot."
       ],
-      "deviations": [
-        "Pending full source-method, assertion and ownership audit. The builtin factory and SMT-LIB application path are integrated."
-      ]
+      "deviations": []
     },
     {
       "path": "src/tactic/core/nnf_tactic.cpp",

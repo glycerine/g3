@@ -1,3 +1,5 @@
+Injectivity tactic source-unit closure: audited axiom recognition, relation ownership, unary equality rewriting, proof/core refusal, parameter handling, cleanup, translation and lifecycle; the manifest now marks the C++ unit and header ported. Focused tactic and SMT-LIB tests, cross-context API translation tests, `pkg/portcheck`, and `git diff --check` pass.
+
 SAT clause source unit closure: completed the native clause allocator, temporary clause, wrapper, debug-tag, trace, and solver display integration audit; focused normal, checked, and g3debug clause tests pass.
 
 SAT variable priority queue closure: audited every live heap operation and solver/simplifier consumer, confirmed the source header has no TRACE sites, and corrected the manifest's stale unported entry. Finite priority oracle, mutable activity model, warm allocation and owner guards pass in normal, `g3checked`, and `g3debug` builds; portcheck passes.
