@@ -128,3 +128,22 @@ func (d *BacktrackingDerivation) PopLevel() error {
 	d.stack = d.stack[:len(d.stack)-1]
 	return nil
 }
+
+// LevelUsedInProof must be queried before deleting that level's expansions.
+// The proof core may outlive native solver scopes while backtracking.
+// Source: duality_solver.cpp:2469-2476.
+func (d *BacktrackingDerivation) LevelUsedInProof(level int) (bool, error) {
+	if d == nil || d.DerivationTree == nil || level < 0 || level >= len(d.stack) {
+		return false, ErrWrapperOwner
+	}
+	for _, node := range d.stack[level].expansions {
+		if node == nil {
+			return false, ErrWrapperOwner
+		}
+		used, err := d.tree.EdgeUsedInProof(node.Outgoing)
+		if err != nil || used {
+			return used, err
+		}
+	}
+	return false, nil
+}

@@ -87,3 +87,81 @@ func TestDerivationBacktrackingRestoresNestedFrontiers(t *testing.T) {
 	}
 	must(working.Pop(1))
 }
+
+func TestDerivationProofCoreTracksExpansionLevels(t *testing.T) {
+	ctx, _, s := dualityNativeSolverFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	original, err := NewRPFP(ctx)
+	must(err)
+	defer func() { must(original.Close()) }()
+	working, err := NewRPFPWithVocabulary(original.vocabulary)
+	must(err)
+	defer func() { must(working.Close()) }()
+	must(working.BindSolver(s))
+	base, err := NewDerivationTree(original, working)
+	must(err)
+	base.FullExpand = true
+	search, err := NewBacktrackingDerivation(base)
+	must(err)
+	term, err := ctx.BoolConst("level-proof-R")
+	must(err)
+	closeExpr(t, term)
+	unrelated, err := original.CreateNode(term)
+	must(err)
+	unrelatedEdge, err := original.CreateLowerBoundEdge(unrelated)
+	must(err)
+	must(unrelatedEdge.F.SetEmpty())
+	impossible, err := original.CreateNode(term)
+	must(err)
+	must(impossible.Bound.SetEmpty())
+	edge, err := original.CreateLowerBoundEdge(impossible)
+	must(err)
+	must(edge.F.SetEmpty())
+	first, err := base.CreateApproximatedInstance(unrelated)
+	must(err)
+	last, err := base.CreateApproximatedInstance(impossible)
+	must(err)
+	must(working.Push())
+	must(working.AssertNode(last))
+	for _, node := range []*Node{first, last} {
+		base.RemoveLeaves(map[*Node]bool{node: true})
+		must(working.Push())
+		must(search.ExpandMaterializedNode(node))
+	}
+	status, err := working.Check(last, nil, nil)
+	must(err)
+	if status != lbool.False {
+		t.Fatal(status)
+	}
+	for level, want := range []bool{false, false, true} {
+		got, err := search.LevelUsedInProof(level)
+		must(err)
+		if got != want {
+			t.Fatalf("level %d used=%v want=%v", level, got, want)
+		}
+	}
+	for _, level := range []int{-1, 3} {
+		if _, err := search.LevelUsedInProof(level); err == nil {
+			t.Fatal("accepted invalid level", level)
+		}
+	}
+	must(search.PopLevel())
+	// Source backtracking keeps the computed core after popping its solver scope.
+	used, err := search.LevelUsedInProof(1)
+	must(err)
+	if used {
+		t.Fatal("unrelated level became relevant after pop")
+	}
+	must(search.PopLevel())
+	status, err = working.Check(last, nil, nil)
+	must(err)
+	if status != lbool.True || working.proofCore != nil {
+		t.Fatal("post-backtrack result/core", status)
+	}
+	must(working.Pop(1))
+}
