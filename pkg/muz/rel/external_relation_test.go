@@ -294,3 +294,37 @@ func TestExternalRelationCallbackTrailLifetime(t *testing.T) {
 		t.Fatal("plugin close did not release callback argument")
 	}
 }
+
+func TestExternalRelationReduceCallbackRetainsReturnedAST(t *testing.T) {
+	f := newTableRelationFixture(t)
+	var result ast.ASTHandle
+	var resultRef ast.ASTRef
+	callbacks := ExternalRelationCallbacks{Reduce: func(ast.ASTHandle, []ast.ASTHandle) (ast.ASTHandle, error) {
+		var err error
+		result, err = f.ast.MkFreshConst("callback-result", f.boolean)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		resultRef, err = f.ast.NewRef(result)
+		return result, err
+	}}
+	plugin, err := NewExternalRelationPlugin(f.relations, callbacks)
+	astTestMust(t, err)
+	relation, err := plugin.NewEmpty([]ast.ASTHandle{f.boolean})
+	astTestMust(t, err)
+	if empty, err := relation.Empty(); err != nil || empty {
+		t.Fatal("callback result was not used", empty, err)
+	}
+	astTestMust(t, f.ast.DelRef(&resultRef))
+	if _, err := f.ast.GetKind(result); err != nil {
+		t.Fatal("callback result was not retained by plugin trail", err)
+	}
+	astTestMust(t, relation.Close())
+	if _, err := f.ast.GetKind(result); err != nil {
+		t.Fatal("callback result released before plugin cleanup", err)
+	}
+	astTestMust(t, plugin.Close())
+	if _, err := f.ast.GetKind(result); err == nil {
+		t.Fatal("plugin cleanup did not release callback result")
+	}
+}

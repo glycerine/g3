@@ -92127,7 +92127,8 @@
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
-        "pkg/muz/rel/external_relation_callbacks.go"
+        "pkg/muz/rel/external_relation_callbacks.go",
+        "pkg/muz/rel/external_relation_test.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
@@ -92135,7 +92136,8 @@
         "TestExternalRelationProjectAndRename",
         "TestExternalRelationJoinUnionAndWiden",
         "TestExternalRelationFilters",
-        "TestExternalRelationCallbackTrailLifetime"
+        "TestExternalRelationCallbackTrailLifetime",
+        "TestExternalRelationReduceCallbackRetainsReturnedAST"
       ],
       "assertions": [
         {
@@ -92204,7 +92206,8 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/external_relation_callbacks.go",
           "tests": [
-            "TestExternalRelationCallbackTrailLifetime"
+            "TestExternalRelationCallbackTrailLifetime",
+            "TestExternalRelationReduceCallbackRetainsReturnedAST"
           ]
         }
       ],
@@ -92228,7 +92231,8 @@
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
-        "pkg/muz/rel/external_relation_callbacks.go"
+        "pkg/muz/rel/external_relation_callbacks.go",
+        "pkg/muz/rel/external_relation_test.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
@@ -92236,7 +92240,8 @@
         "TestExternalRelationProjectAndRename",
         "TestExternalRelationJoinUnionAndWiden",
         "TestExternalRelationFilters",
-        "TestExternalRelationCallbackTrailLifetime"
+        "TestExternalRelationCallbackTrailLifetime",
+        "TestExternalRelationReduceCallbackRetainsReturnedAST"
       ],
       "conditionals": [
         {
@@ -92289,7 +92294,8 @@
           "status": "partial",
           "go_target": "pkg/muz/rel/external_relation_callbacks.go",
           "tests": [
-            "TestExternalRelationCallbackTrailLifetime"
+            "TestExternalRelationCallbackTrailLifetime",
+            "TestExternalRelationReduceCallbackRetainsReturnedAST"
           ]
         }
       ],
