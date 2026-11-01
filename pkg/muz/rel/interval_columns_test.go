@@ -99,3 +99,41 @@ func TestIntervalColumnsBinaryPropagation(t *testing.T) {
 		t.Fatalf("binary propagation: x lower %v open=%v, y upper %v open=%v", lo, loOpen, hi, hiOpen)
 	}
 }
+
+func TestIntervalColumnsIntegerStrictBounds(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	integer, err := m.MkFamilySort(family, 1, nil)
+	astTestMust(t, err)
+	own := func(h ast.ASTHandle, err error) ast.ASTHandle {
+		astTestMust(t, err)
+		astTestPin(t, m, h)
+		return h
+	}
+	x := own(m.MkVar(0, integer))
+	three := own(m.ArithmeticIntegerNumeralText("3"))
+	four := own(m.ArithmeticIntegerNumeralText("4"))
+
+	less := newIntervalColumns(1, false)
+	astTestMust(t, less.filterInterpreted(m, own(m.MkArithmeticLT(x, three))))
+	_, lowerOpen, upper, upperOpen := less.columns[0].Bounds()
+	if !lowerOpen || upper == nil || upper.RatString() != "2" || upperOpen {
+		t.Fatalf("integer x < 3 bound: lower open=%v, upper=%v open=%v", lowerOpen, upper, upperOpen)
+	}
+
+	notAtMost := newIntervalColumns(1, false)
+	atMost := own(m.MkArithmeticLE(x, three))
+	astTestMust(t, notAtMost.filterInterpreted(m, own(m.MkNot(atMost))))
+	lower, lowerOpen, _, _ := notAtMost.columns[0].Bounds()
+	if lower == nil || lower.RatString() != "4" || lowerOpen {
+		t.Fatalf("integer not (x <= 3) bound: lower=%v open=%v", lower, lowerOpen)
+	}
+
+	contradiction := newIntervalColumns(1, false)
+	astTestMust(t, contradiction.filterInterpreted(m, own(m.MkArithmeticLT(x, three))))
+	astTestMust(t, contradiction.filterInterpreted(m, own(m.MkArithmeticGE(x, four))))
+	if !contradiction.empty {
+		t.Fatal("incompatible integer strict and non-strict bounds must empty the relation")
+	}
+}

@@ -93319,7 +93319,8 @@
           "go_target": "pkg/muz/rel/interval_columns.go",
           "tests": [
             "TestIntervalColumnsInterpretedFilters",
-            "TestIntervalColumnsBinaryPropagation"
+            "TestIntervalColumnsBinaryPropagation",
+            "TestIntervalColumnsIntegerStrictBounds"
           ]
         },
         {
@@ -93443,7 +93444,8 @@
           "go_target": "pkg/muz/rel/interval_columns.go",
           "tests": [
             "TestIntervalColumnsInterpretedFilters",
-            "TestIntervalColumnsBinaryPropagation"
+            "TestIntervalColumnsBinaryPropagation",
+            "TestIntervalColumnsIntegerStrictBounds"
           ]
         },
         {
