@@ -32,6 +32,15 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
+	compacted, err := e.compactQueryVariables(query)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&compacted)) }()
+	query, err = e.manager.RefGet(compacted)
+	if err != nil {
+		return lbool.Undef, err
+	}
 	e.queried = true
 	clone, err := e.newQueryClone()
 	if err != nil {
