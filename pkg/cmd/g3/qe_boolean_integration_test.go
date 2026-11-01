@@ -178,6 +178,34 @@ func TestSMTLibRunnerQEArrayDisjunction(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEMixedArrayBlocks(t *testing.T) {
+	for _, test := range []struct{ name, body, no, yes string }{
+		{"boolean", `(exists ((A (Array Int Int)) (b Bool)) (and (= A B) (= (select A i) (ite b 1 2))))`, `(= (select B i) 3)`, `(= (select B i) 2)`},
+		{"integer", `(exists ((A (Array Int Int)) (x Int)) (and (= A B) (= (select A i) x) (= x 7)))`, `(not (= (select B i) 7))`, `(= (select B i) 7)`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			script := `(set-logic ALL)
+(declare-const B (Array Int Int))
+(declare-const i Int)
+(assert ` + test.body + `)
+(push)
+(assert ` + test.no + `)
+(check-sat-using (then qe smt))
+(pop)
+(assert ` + test.yes + `)
+(check-sat-using (then qe smt))
+`
+			var out bytes.Buffer
+			if err := run(strings.NewReader(script), &out); err != nil {
+				t.Fatal(err, out.String())
+			}
+			if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+				t.Fatalf("mixed array QE result: %s", got)
+			}
+		})
+	}
+}
+
 func TestSMTLibRunnerBooleanQETactic(t *testing.T) {
 	script := `(set-option :produce-models true)
 (declare-const r Bool)

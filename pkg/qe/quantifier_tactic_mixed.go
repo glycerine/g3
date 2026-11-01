@@ -9,9 +9,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
-// eliminateQuantifierMixed separates Boolean and arithmetic declarations of
-// a single quantifier. Every group must be fully eliminated by its concrete
-// solver; unsupported declarations or group results report incomplete.
+// eliminateQuantifierMixed separates array, Boolean, arithmetic, and bit-vector
+// declarations of one quantifier. Every group must be fully eliminated by its
+// concrete solver; unsupported declarations report incomplete.
 func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
@@ -53,7 +53,11 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 	if err != nil {
 		return result, false, err
 	}
-	var boolVars, arithmeticVars []ast.ASTHandle
+	array, err := m.RegisterArrayPlugin()
+	if err != nil {
+		return result, false, err
+	}
+	var arrayVars, boolVars, arithmeticVars, bitVectorVars []ast.ASTHandle
 	for _, ref := range extracted.variables {
 		variable, e := m.RefGet(ref)
 		if e != nil {
@@ -67,16 +71,35 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			boolVars = append(boolVars, variable)
 			continue
 		}
+		isBitVector, e := m.IsBitVectorSort(sort)
+		if e != nil {
+			return result, false, e
+		}
+		if isBitVector {
+			bitVectorVars = append(bitVectorVars, variable)
+			continue
+		}
 		family, e := m.GetFamilyID(sort)
 		if e != nil {
 			return result, false, e
 		}
-		if family != arithmetic {
+		switch family {
+		case array:
+			arrayVars = append(arrayVars, variable)
+		case arithmetic:
+			arithmeticVars = append(arithmeticVars, variable)
+		default:
 			return result, false, nil
 		}
-		arithmeticVars = append(arithmeticVars, variable)
 	}
-	if len(boolVars) == 0 || len(arithmeticVars) == 0 {
+	groups := [][]ast.ASTHandle{arrayVars, boolVars, arithmeticVars, bitVectorVars}
+	nonempty := 0
+	for _, group := range groups {
+		if len(group) > 0 {
+			nonempty++
+		}
+	}
+	if nonempty < 2 {
 		return result, false, nil
 	}
 	body, err = m.RefGet(extracted.body)
@@ -98,7 +121,7 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 		return result, false, err
 	}
 	defer func() { err = errors.Join(err, m.DelRef(&formula)) }()
-	for i, group := range [][]ast.ASTHandle{boolVars, arithmeticVars} {
+	for i, group := range groups {
 		body, e := m.RefGet(formula)
 		if e != nil {
 			return result, false, e
@@ -123,9 +146,12 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 		}
 		var eliminated ast.ASTRef
 		var done bool
-		if i == 0 {
+		switch i {
+		case 0:
+			eliminated, done, e = eliminateQuantifierArrayEquations(m, q, config)
+		case 1:
 			eliminated, done, e = eliminateQuantifierBoolUnits(m, q, config)
-		} else {
+		case 2:
 			eliminated, done, e = eliminateQuantifierArithmeticEquations(m, q, config)
 			if e == nil && !done {
 				eliminated, done, e = eliminateQuantifierArithmeticClosed(m, q, config)
@@ -133,6 +159,8 @@ func eliminateQuantifierMixed(m *ast.ASTManager, quantifier ast.ASTHandle, confi
 			if e == nil && !done {
 				eliminated, done, e = eliminateQuantifierArithmeticSearch(m, q, config)
 			}
+		case 3:
+			eliminated, done, e = eliminateQuantifierBitVectorSearch(m, q, config)
 		}
 		if e != nil || !done {
 			return result, false, errors.Join(e, m.DelRef(&bound))

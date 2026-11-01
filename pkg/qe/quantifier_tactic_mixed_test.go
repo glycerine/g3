@@ -67,3 +67,69 @@ func TestQuantifierMixedBooleanArithmeticGroups(t *testing.T) {
 		t.Fatal("universal mixed formula should be false")
 	}
 }
+
+func TestQuantifierMixedArrayAndBitVectorGroups(t *testing.T) {
+	for _, name := range []string{"array-bool", "array-arithmetic", "bitvector-bool"} {
+		t.Run(name, func(t *testing.T) {
+			f := qsatKernelFixture(t)
+			m := f.r.manager
+			boolean := f.constant("mixed-group-bool", f.boolean)
+			var variables []ast.ASTHandle
+			var body, expected ast.ASTHandle
+			if name == "bitvector-bool" {
+				sort := f.own(m.BitVectorSort(2))
+				x := f.constant("mixed-group-bv", sort)
+				y := f.constant("mixed-group-bv-free", sort)
+				one := f.own(m.BitVectorNumeralUint64(1, 2))
+				body = f.own(m.MkAnd(boolean, f.own(m.MkEq(f.own(m.MkBitVectorAdd(x, y)), one))))
+				expected = f.own(m.MkTrue())
+				variables = []ast.ASTHandle{boolean, x}
+			} else {
+				family, err := m.RegisterArrayPlugin()
+				fmMust(t, err)
+				sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+				a, b := f.constant("mixed-array-a", sort), f.constant("mixed-array-b", sort)
+				i := f.constant("mixed-array-i", f.integer)
+				v, w := f.constant("mixed-array-v", f.integer), f.constant("mixed-array-w", f.integer)
+				selectAt := func(array ast.ASTHandle) ast.ASTHandle {
+					return f.own(m.MkFamilyApp(family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{array, i}))
+				}
+				eqArray := f.own(m.MkEq(a, b))
+				if name == "array-bool" {
+					choice := f.own(m.MkIte(boolean, v, w))
+					body = f.own(m.MkAnd(eqArray, f.own(m.MkEq(selectAt(a), choice))))
+					expected = f.own(m.MkOr(f.own(m.MkEq(selectAt(b), v)), f.own(m.MkEq(selectAt(b), w))))
+					variables = []ast.ASTHandle{a, boolean}
+				} else {
+					x := f.constant("mixed-array-x", f.integer)
+					body = f.own(m.MkAndArray([]ast.ASTHandle{eqArray, f.own(m.MkEq(selectAt(a), x)), f.own(m.MkEq(x, v))}))
+					expected = f.own(m.MkEq(selectAt(b), v))
+					variables = []ast.ASTHandle{a, x}
+				}
+			}
+			bound, err := bindExprQuantifierVariables(m, variables, body)
+			fmMust(t, err)
+			defer func() { fmMust(t, m.DelRef(&bound)) }()
+			quantifier, err := m.RefGet(bound)
+			fmMust(t, err)
+			result, complete, err := eliminateQuantifierMixed(m, quantifier, f.r.config)
+			fmMust(t, err)
+			if !complete {
+				t.Fatal("mixed theory block was not eliminated")
+			}
+			defer func() { fmMust(t, m.DelRef(&result)) }()
+			value, err := m.RefGet(result)
+			fmMust(t, err)
+			difference := f.own(m.MkNot(f.own(m.MkEq(value, expected))))
+			kernel := qsatKernelOwner(t, f)
+			solver, err := kernel.solver()
+			fmMust(t, err)
+			fmMust(t, solver.AssertFormula(difference))
+			status, err := solver.CheckSat(nil)
+			fmMust(t, err)
+			if status != lbool.False {
+				t.Fatal("mixed projection differs from expected", status)
+			}
+		})
+	}
+}

@@ -1,3 +1,5 @@
+Mixed QE blocks now combine array, Boolean, arithmetic and bit-vector groups, eliminating array equations before other groups. Solver-equivalence and SMT-LIB tests cover mixed array blocks and bit-vector/Boolean blocks.
+
 Array QE now projects positive disjunctions, including those nested under conjunctions, while declining unsupported negative disjunctions. Solver-equivalence and SMT-LIB tests cover alternative array equations.
 
 Array QE now expands select-over-store terms and projects relevant conditional branches, including two symbolic select indices. Solver-equivalence and SMT-LIB tests cover equal and unequal values at matching indices.
