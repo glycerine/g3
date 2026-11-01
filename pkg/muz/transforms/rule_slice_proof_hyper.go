@@ -19,9 +19,9 @@ type slicedProofResult struct {
 
 // Convert translates asserted leaves and supported hyper-resolution nodes to
 // proofs over original rules. It returns an owned proof. As in the source
-// converter, resolution uses rule unification. Input substitutions and
-// resolution against a premise other than a positive rule head are rejected
-// until those conversions are ported.
+// converter, resolution uses rule unification. Ground substitutions on
+// asserted rules are supported; other substitutions and resolution against a
+// premise other than a positive rule head remain unsupported.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || c.rules == nil {
 		return result, ast.ErrASTHandle
@@ -109,16 +109,39 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 		if e != nil || !matched || len(premises) == 0 {
 			return value, errors.Join(ast.ErrASTDomain, e)
 		}
-		for i := uint32(0); i < output.SubstitutionsLen(); i++ {
-			substitution, cause := output.Substitution(i)
+		var instantiated []slicedProofResult
+		defer func() {
+			for _, temporary := range instantiated {
+				nodeErr = errors.Join(nodeErr, temporary.rule.Close())
+				ref := temporary.proof
+				nodeErr = errors.Join(nodeErr, m.DelRef(&ref))
+			}
+		}()
+		prepare := func(index int) (slicedProofResult, error) {
+			original, cause := translate(premises[index])
 			if cause != nil {
-				return value, cause
+				return original, cause
 			}
-			if len(substitution) != 0 {
-				return value, fmt.Errorf("slice proof: input substitution conversion is not implemented")
+			substitution, cause := output.Substitution(uint32(index))
+			if cause != nil || len(substitution) == 0 {
+				return original, cause
 			}
+			variables, found, cause := c.OriginalVariables(premises[index])
+			if cause != nil {
+				return slicedProofResult{}, cause
+			}
+			if !found || original.rule == nil {
+				return slicedProofResult{}, fmt.Errorf("slice proof: substitution for derived premise is not implemented")
+			}
+			rule, ref, cause := c.instantiateAsserted(original.rule, original.proof, variables, substitution)
+			if cause != nil {
+				return slicedProofResult{}, cause
+			}
+			value := slicedProofResult{proof: ref, rule: rule}
+			instantiated = append(instantiated, value)
+			return value, nil
 		}
-		first, e := translate(premises[0])
+		first, e := prepare(0)
 		if e != nil {
 			return value, e
 		}
@@ -139,7 +162,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 		}
 		removed := make(map[uint32]bool)
 		for i := 1; i < len(premises); i++ {
-			other, cause := translate(premises[i])
+			other, cause := prepare(i)
 			if cause != nil {
 				return value, cause
 			}

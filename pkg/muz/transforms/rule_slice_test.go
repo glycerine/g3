@@ -12,6 +12,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/proofs"
+	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -974,6 +975,7 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 		t.Fatal("missing converter")
 	}
 	defer func() { coneMust(t, converter.Close()) }()
+	slicedProofs := make(map[ast.ASTHandle]ast.ASTHandle)
 	for _, decl := range []ast.ASTHandle{goal, derived} {
 		rules, e := f.set.PredicateRules(decl)
 		coneMust(t, e)
@@ -985,6 +987,7 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 		if !found {
 			t.Fatal("missing rule proof")
 		}
+		slicedProofs[decl] = proof
 		mapping, found, e := converter.OriginalVariables(proof)
 		coneMust(t, e)
 		if !found || len(mapping) != 1 || mapping[0] != 1 {
@@ -996,6 +999,143 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 		if !found || len(mapping) != 1 || mapping[0] != 1 {
 			t.Fatal("mutable variable map leaked", mapping)
 		}
+		if decl == derived {
+			fact, e := m.GetProofFact(proof)
+			coneMust(t, e)
+			body, e := m.GetQuantifierBody(fact)
+			coneMust(t, e)
+			sub, e := rewriter.NewVarSubstitution(m, false)
+			coneMust(t, e)
+			defer func() { coneMust(t, sub.Close()) }()
+			instantiated, e := m.NewRef(ast.ASTHandle{})
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&instantiated)) }()
+			coneMust(t, sub.Substitute(body, []ast.ASTHandle{zero}, instantiated))
+			conclusion, e := m.RefGet(instantiated)
+			coneMust(t, e)
+			scope, e := ast.NewScopedProof(m)
+			coneMust(t, e)
+			step, e := m.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{{zero}})
+			coneMust(t, e)
+			for _, bad := range [][]ast.ASTHandle{{x}, {zero, zero}} {
+				invalid, cause := m.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{bad})
+				coneMust(t, cause)
+				invalidRef, cause := m.NewRef(invalid)
+				coneMust(t, cause)
+				result, cause := converter.Convert(invalid)
+				if result != (ast.ASTRef{}) {
+					coneMust(t, m.DelRef(&result))
+				}
+				coneMust(t, m.DelRef(&invalidRef))
+				if cause == nil {
+					t.Fatal("accepted unsupported substitution", bad)
+				}
+			}
+			pin, e := m.NewRef(step)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&pin)) }()
+			coneMust(t, scope.Close())
+			converted, e := converter.Convert(step)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&converted)) }()
+			handle, e := m.RefGet(converted)
+			coneMust(t, e)
+			result, e := m.GetProofFact(handle)
+			coneMust(t, e)
+			forall, e := m.IsForall(result)
+			coneMust(t, e)
+			if !forall {
+				t.Fatal("removed original variable should stay quantified")
+			}
+			body, e = m.GetQuantifierBody(result)
+			coneMust(t, e)
+			decl, e := m.GetDecl(body)
+			coneMust(t, e)
+			arg, e := m.GetArg(body, 1)
+			coneMust(t, e)
+			if decl != p || arg != zero {
+				t.Fatal("translated substitution does not refer to the original predicate", decl, arg)
+			}
+			checker, e := proofs.NewChecker(m)
+			coneMust(t, e)
+			valid, side, e := checker.Check(handle)
+			coneMust(t, e)
+			defer func() {
+				for _, condition := range side {
+					coneMust(t, m.DecRef(condition))
+				}
+			}()
+			if !valid {
+				t.Fatal("instantiated proof failed structural checking")
+			}
+			solver, e := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+			coneMust(t, e)
+			defer func() { coneMust(t, solver.Close()) }()
+			for _, condition := range side {
+				coneMust(t, solver.Push())
+				negated, e := m.MkNot(condition)
+				coneMust(t, e)
+				coneMust(t, solver.AssertFormula(negated))
+				status, e := solver.CheckSat(nil)
+				coneMust(t, e)
+				coneMust(t, solver.Pop(1))
+				if status != lbool.False {
+					t.Fatal("invalid instantiated proof side condition", status)
+				}
+			}
+		}
 		coneMust(t, rules[0].Close())
+	}
+	goalZero, err := m.MkApp(goal, []ast.ASTHandle{zero})
+	coneMust(t, err)
+	guardZero, err := m.MkEq(zero, zero)
+	coneMust(t, err)
+	conclusion, err := m.MkImplies(guardZero, goalZero)
+	coneMust(t, err)
+	scope, err := ast.NewScopedProof(m)
+	coneMust(t, err)
+	step, err := m.MkProofHyperResolve([]ast.ASTHandle{slicedProofs[goal], slicedProofs[derived]}, conclusion,
+		[]ast.ASTProofPosition{{First: 1, Second: 0}}, [][]ast.ASTHandle{{zero}, {zero}})
+	coneMust(t, err)
+	pin, err := m.NewRef(step)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&pin)) }()
+	coneMust(t, scope.Close())
+	converted, err := converter.Convert(step)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&converted)) }()
+	convertedHandle, err := m.RefGet(converted)
+	coneMust(t, err)
+	fact, err := m.GetProofFact(convertedHandle)
+	coneMust(t, err)
+	if fact != conclusion {
+		t.Fatal("instantiated resolution has wrong conclusion")
+	}
+	checker, err := proofs.NewChecker(m)
+	coneMust(t, err)
+	valid, side, err := checker.Check(convertedHandle)
+	coneMust(t, err)
+	defer func() {
+		for _, condition := range side {
+			coneMust(t, m.DecRef(condition))
+		}
+	}()
+	if !valid {
+		t.Fatal("instantiated resolution proof is invalid")
+	}
+	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+	coneMust(t, err)
+	defer func() { coneMust(t, solver.Close()) }()
+	for _, condition := range side {
+		coneMust(t, solver.Push())
+		negated, e := m.MkNot(condition)
+		coneMust(t, e)
+		coneMust(t, solver.AssertFormula(negated))
+		status, e := solver.CheckSat(nil)
+		coneMust(t, e)
+		coneMust(t, solver.Pop(1))
+		if status != lbool.False {
+			t.Fatal("invalid instantiated resolution side condition", status)
+		}
 	}
 }
