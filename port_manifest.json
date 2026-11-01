@@ -118002,7 +118002,7 @@
       "path": "src/sat/sat_elim_eqs.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_elim_eqs.go",
         "pkg/sat/sat_elim_eqs_trace.go",
@@ -118054,8 +118054,8 @@
           "text": "SASSERT(check_clauses(roots));"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Reached SAT equivalence-elimination clause normalization, model deletion, invalid-literal CTRACE and full-solver display sites at sat_elim_eqs.cpp:81,104,138,187,205,216",
@@ -118064,8 +118064,8 @@
           "tests": ["TestSATElimEqsClauseAndModelSourceTraces", "TestSATElimEqsFullSolverBinCleanupDisplaySourceTrace", "TestSATElimEqsEliminatedLiteralSourceTraceBeforeAssertion"]
         },
         {
-          "name": "Selected equivalence-elimination binary-watch, clause-normalization and model-converter routes",
-          "status": "partial",
+          "name": "Equivalence-elimination binary-watch cleanup, clause normalization/compaction, model-converter publication, propagation and debug verification",
+          "status": "ported",
           "go_target": "pkg/sat/sat_elim_eqs.go",
           "tests": [
             "TestSATElimEqsAllClauseAritiesAndModels",
@@ -118080,7 +118080,7 @@
         "The standalone eliminator owns a charged header; the SCC embeds its eliminator directly. Each run borrows root and elimination-order slices from SCC, while the clause lifecycle retains clause/watch ownership, model-converter entries and interrupted compaction prefixes. Clause sorting uses existing storage without an additional Runtime buffer."
       ],
       "deviations": [
-        "Selected equivalence-elimination clauses, watches, model entries and six TRACE/CTRACE sites are connected. Remaining source assertion and propagation-wrapper diagnostics require a separate audit. The concrete in-place heapsort preserves unsigned literal order, not C++ standard-library invocation schedules. Standalone eliminator fixtures have no full solver display owner; the retained SCC solver binds it. No whole-unit completion credit."
+        "The concrete in-place heapsort preserves unsigned literal order, not C++ standard-library invocation schedules. Standalone eliminator fixtures have no full solver display owner; the retained SCC solver binds it."
       ]
     },
     {
