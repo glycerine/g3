@@ -61,15 +61,6 @@ func (r *IntervalRelation) ToFormula(m *ast.ASTManager, sorts []ast.ASTHandle) (
 			return result, e
 		}
 	}
-	if r.Empty() {
-		falsity, err := m.MkFalse()
-		if err != nil {
-			return result, err
-		}
-		result, resultErr = m.NewRef(falsity)
-		owned = resultErr == nil
-		return result, resultErr
-	}
 	var conjuncts []ast.ASTHandle
 	add := func(h ast.ASTHandle, e error) error {
 		value, e := hold(h, e)

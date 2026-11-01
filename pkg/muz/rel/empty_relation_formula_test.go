@@ -6,7 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-func TestEmptyRelationsExportFalse(t *testing.T) {
+func TestEmptyRelationFormulaSourceSemantics(t *testing.T) {
 	m := astTestManager(t)
 	family, err := m.RegisterArithmeticPlugin()
 	astTestMust(t, err)
@@ -22,9 +22,8 @@ func TestEmptyRelationsExportFalse(t *testing.T) {
 		t.Fatal("strict cycle must make product empty")
 	}
 	for name, makeFormula := range map[string]func() (ast.ASTRef, error){
-		"bound":    func() (ast.ASTRef, error) { return bound.ToFormula(m, sorts) },
-		"interval": func() (ast.ASTRef, error) { return interval.ToFormula(m, sorts) },
-		"product":  func() (ast.ASTRef, error) { return product.ToFormula(m, sorts) },
+		"bound":   func() (ast.ASTRef, error) { return bound.ToFormula(m, sorts) },
+		"product": func() (ast.ASTRef, error) { return product.ToFormula(m, sorts) },
 		"empty-product": func() (ast.ASTRef, error) {
 			return NewIntervalBoundProduct(2, true).ToFormula(m, sorts)
 		},
@@ -38,4 +37,12 @@ func TestEmptyRelationsExportFalse(t *testing.T) {
 		}
 		astTestMust(t, m.DelRef(&ref))
 	}
+	intervalRef, err := interval.ToFormula(m, sorts)
+	astTestMust(t, err)
+	intervalFormula, err := m.RefGet(intervalRef)
+	astTestMust(t, err)
+	if !m.IsTrue(intervalFormula) {
+		t.Fatal("empty interval relation formula", intervalFormula, "want source empty-conjunction true")
+	}
+	astTestMust(t, m.DelRef(&intervalRef))
 }

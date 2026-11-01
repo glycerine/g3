@@ -91347,7 +91347,7 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
-        "TestEmptyRelationsExportFalse",
+        "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionDelta"
       ],
@@ -91519,7 +91519,7 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
-        "TestEmptyRelationsExportFalse",
+        "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationFactAbstraction",
         "TestBoundRelationUnionDelta"
       ],
@@ -93266,7 +93266,7 @@
         "TestIntervalRelationDisplaySourceFormat",
         "TestIntervalVectorRenameEquivalences",
         "TestIntervalRelationToFormula",
-        "TestEmptyRelationsExportFalse"
+        "TestEmptyRelationFormulaSourceSemantics"
       ],
       "assertions": [
         {
@@ -93342,11 +93342,11 @@
         },
         {
           "name": "source formula for interval bounds and equal columns",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation_formula.go",
           "tests": [
             "TestIntervalRelationToFormula",
-            "TestEmptyRelationsExportFalse"
+            "TestEmptyRelationFormulaSourceSemantics"
           ]
         },
         {
@@ -93373,7 +93373,7 @@
         "Interval bounds are copied across the package boundary and carry no arithmetic dependencies."
       ],
       "deviations": [
-        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin. Empty interval relations export false, while the source formula builder ignores the empty flag."
+        "Pending full vector relation operations, remaining filter operations, plugin registration, diagnostics and ownership/allocation audit. The concrete interval implementation is not yet installed in a live relation plugin. The source formula builder ignores the empty flag, so empty interval relations export the conjunction identity."
       ]
     },
     {
@@ -93407,7 +93407,7 @@
         "TestIntervalRelationUnionDelta",
         "TestIntervalVectorRenameEquivalences",
         "TestIntervalRelationToFormula",
-        "TestEmptyRelationsExportFalse"
+        "TestEmptyRelationFormulaSourceSemantics"
       ],
       "conditionals": [
         {
@@ -93471,7 +93471,7 @@
           "go_target": "pkg/muz/rel/interval_relation_formula.go",
           "tests": [
             "TestIntervalRelationToFormula",
-            "TestEmptyRelationsExportFalse"
+            "TestEmptyRelationFormulaSourceSemantics"
           ]
         },
         {
@@ -95613,7 +95613,7 @@
         "TestBoundRelationProjectionPreservesEquivalence",
         "TestBoundRelationRename",
         "TestBoundRelationToFormula",
-        "TestEmptyRelationsExportFalse",
+        "TestEmptyRelationFormulaSourceSemantics",
         "TestBoundRelationUnionDelta"
       ],
       "conditionals": [
