@@ -197,6 +197,14 @@ func (i *ModelImplicant) setValue(h, value ast.ASTHandle) error {
 }
 
 func (i *ModelImplicant) assignValue(h, value ast.ASTHandle) error {
+	// model::eval leaves its local expr_ref null after a caught exception.
+	// Source type/value predicates accept that null and classify it as X.
+	if value.IsNull() {
+		if err := i.reportUntrackedValue(h, value); err != nil {
+			return err
+		}
+		return i.setState(h, implicantX)
+	}
 	if i.manager.IsTrue(value) {
 		return i.setState(h, implicantTrue)
 	}
@@ -644,7 +652,7 @@ func (i *ModelImplicant) checkModel(formulas []ast.ASTHandle) (bool, error) {
 			var out ast.ASTRef
 			out, err = i.manager.NewRef(ast.ASTHandle{})
 			if err == nil {
-				err = i.evaluator.Evaluate(current, out)
+				err = i.evaluateModelWithoutCompletion(current, out)
 			}
 			if err == nil {
 				var value ast.ASTHandle

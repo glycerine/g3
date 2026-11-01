@@ -2,6 +2,7 @@ package model
 
 // Source: model_implicant::eval_eq, model_implicant.cpp:625-637;
 // model_implicant::eval_array_eq, model_implicant.cpp:540-541,591-592;
+// model_implicant::check_model, model_implicant.cpp:844-847;
 // model::eval, model.cpp:79-90.
 
 import (

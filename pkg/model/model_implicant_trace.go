@@ -77,6 +77,9 @@ func (i *ModelImplicant) reportUntrackedValue(expression, value ast.ASTHandle) e
 			return err
 		}
 		print := func(h ast.ASTHandle) error {
+			if h.IsNull() {
+				return out.AppendCString("null")
+			}
 			format, err := i.manager.SMT2PPExprTree(h, nil)
 			if err != nil {
 				return err
@@ -115,9 +118,13 @@ func (i *ModelImplicant) reportUntrackedValue(expression, value ast.ASTHandle) e
 			return err
 		}
 		_, _ = io.WriteString(out, " := ")
-		if err := i.evaluator.writeSMT2(out, value); err != nil {
-			operandErr = err
-			return err
+		if value.IsNull() {
+			_, _ = io.WriteString(out, "null")
+		} else {
+			if err := i.evaluator.writeSMT2(out, value); err != nil {
+				operandErr = err
+				return err
+			}
 		}
 		_, _ = io.WriteString(out, "\n")
 		return nil
