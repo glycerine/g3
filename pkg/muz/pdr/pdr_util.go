@@ -130,6 +130,9 @@ func (c *Context) reduceDisequalities(md *model.Model, threshold uint32, formula
 	}
 	replacer, err := rewriter.NewSimplifyingExprReplacer(c.manager, c.owner.contexts.config.Params, c.owner.contexts.config.Globals, c.owner.contexts.params)
 	if err != nil {
+		if replacer != nil {
+			err = errors.Join(err, replacer.Close())
+		}
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()
