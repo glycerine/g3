@@ -17,6 +17,7 @@ const (
 	qeScalarArithmetic qeScalarSearchKind = iota
 	qeScalarBitVector
 	qeScalarDatatype
+	qeScalarDatalog
 )
 
 func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
@@ -29,6 +30,10 @@ func eliminateQuantifierBitVectorSearch(m *ast.ASTManager, quantifier ast.ASTHan
 
 func eliminateQuantifierDatatypeSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
 	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarDatatype)
+}
+
+func eliminateQuantifierDatalogSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
+	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarDatalog)
 }
 
 // eliminateQuantifierScalarSearch handles one arithmetic, bit-vector, or
@@ -86,6 +91,8 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 		expectedFamily, err = m.BitVectorUtilityFamilyID()
 	case qeScalarDatatype:
 		expectedFamily, err = m.RegisterDatatypePlugin()
+	case qeScalarDatalog:
+		expectedFamily, err = m.RegisterDatalogPlugin()
 	default:
 		return result, false, ast.ErrASTDomain
 	}
@@ -146,6 +153,10 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 		var datatypePlugin *DatatypeSolverPlugin
 		datatypePlugin, err = NewDatatypeSolverPlugin(context)
 		scalarPlugin = datatypePlugin
+	case qeScalarDatalog:
+		var datalogPlugin *DatalogPlugin
+		datalogPlugin, err = NewDatalogPlugin(context)
+		scalarPlugin = datalogPlugin
 	}
 	if err != nil {
 		return result, false, err

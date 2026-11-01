@@ -125,11 +125,13 @@ func collectDatalogQEAtoms(m *ast.ASTManager, variable ast.ASTHandle, positive, 
 	return result, true, nil
 }
 
-// datalogQEBranchCount uses exhaustive values only when the domain is
-// strictly smaller than the number of equality and disequality atoms.
+// datalogQEBranchCount enumerates the domain when the equality and
+// disequality atoms can exclude every value. The source's strict comparison
+// also takes the other-value branch when the counts are equal, which is
+// unsound if the excluded values are all distinct.
 func datalogQEBranchCount(domain uint64, atoms datalogQEAtoms) (count uint64, small bool) {
 	total := uint64(len(atoms.positive)) + uint64(len(atoms.negative))
-	if domain < total {
+	if domain <= total {
 		return domain, true
 	}
 	return uint64(len(atoms.positive)) + 1, false

@@ -92,6 +92,9 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 			eliminated, done, e = eliminateQuantifierDatatypeBlock(m, q, config)
 		}
 		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierDatalogSearch(m, q, config)
+		}
+		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierArrayEquations(m, q, config)
 		}
 		if e == nil && !done {
