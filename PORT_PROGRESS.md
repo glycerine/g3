@@ -52814,3 +52814,5 @@ Algebraic arithmetic context validation (2026-11-01 UTC): added a cross-context 
 Polynomial power exponent boundary parity (2026-11-01 UTC): matched `expr2polynomial` to `rational::is_unsigned`'s exact unsigned-32 range, treating out-of-range numeric powers as atomic variables in mapped mode and rejecting them in variable-index mode. Focused expression-to-polynomial tests pass normally and with `g3checked`.
 
 NLSAT large-power integration regression (2026-11-01 UTC): verified the live goal compiler maps an out-of-range power as one atomic term without mapping its base, matching the source converter contract. The focused NLSAT tactic test passes normally and with `g3checked`.
+
+Expr2Polynomial scoped integer cleanup (2026-11-01 UTC): propagated scoped denominator access failures in the power branch and moved multiplication's temporary denominator cleanup to cover every return path. Focused `TestExpr2Polynomial` tests pass; broader ownership audit remains open.

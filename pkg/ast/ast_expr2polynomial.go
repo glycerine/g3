@@ -634,7 +634,10 @@ func (x *Expr2Polynomial) process(h ASTHandle, op int32, args []*exprPolynomialV
 		if err != nil {
 			return nil, errors.Join(err, ref.Close())
 		}
-		dv, _ := d.Get()
+		dv, err := d.Get()
+		if err != nil {
+			return nil, errors.Join(err, d.Close(), ref.Close())
+		}
 		if err = x.integers.Power(dv, k, dv); err != nil {
 			return nil, errors.Join(err, d.Close(), ref.Close())
 		}
@@ -657,6 +660,7 @@ func (x *Expr2Polynomial) process(h ASTHandle, op int32, args []*exprPolynomialV
 			return nil, errors.Join(err, accumulator.Close())
 		}
 		d := unumeral.NewInt(1)
+		defer x.integers.Del(&d)
 		for _, arg := range args {
 			ap, e := arg.polynomial.Get()
 			if e != nil {
@@ -681,7 +685,6 @@ func (x *Expr2Polynomial) process(h ASTHandle, op int32, args []*exprPolynomialV
 				return nil, errors.Join(e, accumulator.Close())
 			}
 		}
-		defer x.integers.Del(&d)
 		scoped, err := unumeral.NewScopedInt(x.integers)
 		if err != nil {
 			return nil, errors.Join(err, accumulator.Close())
