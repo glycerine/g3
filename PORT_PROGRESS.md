@@ -52960,3 +52960,5 @@ Infinite-domain PDR guard integration (2026-11-01 UTC): extended the public auto
 Bound relation identical-column filter (2026-11-01 UTC): added the concrete source `filter_identical` mutator, equating each subsequent column with the first in input order and validating all indexes before mutation. Formula, empty-relation, trivial-input, malformed-index and post-error reuse regressions pass in the focused normal and `g3checked` relation suites.
 
 Bound relation equal-value filter parity (2026-11-01 UTC): implemented the concrete source `filter_equal` operation as an intentional no-op and tested that arbitrary supplied values and columns leave the source bound abstraction unchanged in normal and `g3checked` builds.
+
+Bound relation clone fidelity (2026-11-01 UTC): implemented `bound_relation::clone` through the source vector copy behavior. Tests verify empty-state preservation, independent storage, and the source behavior that copies each representative's bound payload into independent columns without preserving equality classes.

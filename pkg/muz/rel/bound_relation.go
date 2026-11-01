@@ -27,6 +27,24 @@ func NewBoundRelation(arity uint32, empty bool) *BoundRelation {
 	}
 	return r
 }
+
+// Clone follows vector_relation::copy, which copies each representative's
+// bound payload into independent columns instead of preserving equivalence
+// classes. The source empty state is copied as an empty relation.
+func (r *BoundRelation) Clone() *BoundRelation {
+	if r == nil {
+		return nil
+	}
+	result := NewBoundRelation(uint32(len(r.columns)), r.empty)
+	if r.empty {
+		return result
+	}
+	for i := range r.columns {
+		result.columns[i] = cloneBoundColumn(r.columns[r.find(uint32(i))])
+	}
+	return result
+}
+
 func (r *BoundRelation) Empty() bool { return r == nil || r.empty }
 
 // AddFact joins the source's unconstrained abstraction of a concrete fact.

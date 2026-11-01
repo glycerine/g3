@@ -91408,7 +91408,8 @@
         "pkg/muz/rel/bound_relation_formula.go",
         "pkg/muz/rel/bound_relation_formula_test.go",
         "pkg/muz/rel/empty_relation_formula_test.go",
-        "pkg/muz/rel/bound_relation_filter_identical_test.go"
+        "pkg/muz/rel/bound_relation_filter_identical_test.go",
+        "pkg/muz/rel/bound_relation_clone_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -91434,7 +91435,9 @@
         "TestBoundRelationEmptySourceCopiesItsDeltaState",
         "TestBoundRelationFilterIdenticalBuildsSourceEqualityClass",
         "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases",
-        "TestBoundRelationFilterEqualPreservesCoarseBounds"
+        "TestBoundRelationFilterEqualPreservesCoarseBounds",
+        "TestBoundRelationCloneUsesSourceVectorCopySemantics",
+        "TestBoundRelationClonePreservesEmptyState"
       ],
       "assertions": [
         {
@@ -91579,6 +91582,18 @@
           ],
           "tests": [
             "TestBoundRelationFilterEqualPreservesCoarseBounds"
+          ]
+        },
+        {
+          "name": "bound_relation::clone using vector_relation::copy semantics, including copied representative payloads and source loss of equality classes",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/bound_relation.go",
+          "go_targets": [
+            "pkg/muz/rel/bound_relation_clone_test.go"
+          ],
+          "tests": [
+            "TestBoundRelationCloneUsesSourceVectorCopySemantics",
+            "TestBoundRelationClonePreservesEmptyState"
           ]
         }
       ],
