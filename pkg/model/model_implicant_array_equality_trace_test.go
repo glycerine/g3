@@ -81,6 +81,7 @@ func TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership(t *testing.
 					tags.Enable("pdr")
 				}
 				arrayTableMust(t, implicant.setupModel(md))
+				output.Reset()
 				arrayTableMust(t, implicant.evalArrayEq(equality, left, right))
 				if got := implicant.state(equality); got != state {
 					t.Fatal("wrong source array equality decision", got, state)

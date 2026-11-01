@@ -221,6 +221,9 @@ func (i *ModelImplicant) assignValue(h, value ast.ASTHandle) error {
 	if isValue {
 		return i.setValue(h, value)
 	}
+	if err = i.reportUntrackedValue(h, value); err != nil {
+		return err
+	}
 	return i.setState(h, implicantX)
 }
 

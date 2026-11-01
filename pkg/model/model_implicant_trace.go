@@ -64,3 +64,63 @@ func (i *ModelImplicant) traceArrayEquality(line int, prefix string, terms ...as
 		})
 	return operandErr
 }
+
+// Source: model_implicant::assign_value, model_implicant.cpp:65-66.
+func (i *ModelImplicant) reportUntrackedValue(expression, value ast.ASTHandle) error {
+	enabled, err := diagnostic.ProcessVerboseEnabled(3)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		out, err := diagnostic.BorrowProcessVerboseStream()
+		if err != nil {
+			return err
+		}
+		print := func(h ast.ASTHandle) error {
+			format, err := i.manager.SMT2PPExprTree(h, nil)
+			if err != nil {
+				return err
+			}
+			empty := i.services.Context.EmptyValue()
+			return i.manager.PrintFormat(out, format, i.services.Context, &empty, i.services.Globals)
+		}
+		if err = out.AppendCString("Not evaluated "); err != nil {
+			return err
+		}
+		if err = print(expression); err != nil {
+			return err
+		}
+		if err = out.AppendCString(" := "); err != nil {
+			return err
+		}
+		if err = print(value); err != nil {
+			return err
+		}
+		if err = out.AppendCString("\n"); err != nil {
+			return err
+		}
+	}
+	tags := i.services.Trace
+	if tags == nil {
+		tags = diagnostic.BorrowProcessTraceTags()
+	}
+	if !tags.ShouldTrace("pdr") {
+		return nil
+	}
+	var operandErr error
+	_ = tags.EmitConditional("pdr", "assign_value", "src/model/model_implicant.cpp", 66, func() bool { return true }, func(out io.Writer) error {
+		_, _ = io.WriteString(out, "Variable is not tracked: ")
+		if err := i.evaluator.writeSMT2(out, expression); err != nil {
+			operandErr = err
+			return err
+		}
+		_, _ = io.WriteString(out, " := ")
+		if err := i.evaluator.writeSMT2(out, value); err != nil {
+			operandErr = err
+			return err
+		}
+		_, _ = io.WriteString(out, "\n")
+		return nil
+	})
+	return operandErr
+}
