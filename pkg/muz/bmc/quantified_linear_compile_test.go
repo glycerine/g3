@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/bmc"
 	"github.com/glycerine/g3/pkg/smtcore"
@@ -27,9 +28,15 @@ func TestBMCQuantifiedLinearCompilationLevels(t *testing.T) {
 	}
 	context, err := cmd_context.NewStandaloneContext()
 	must(err)
-	defer func() { must(context.Close()) }()
 	m, err := context.Manager()
 	must(err)
+	budget := m.Budget()
+	defer func() {
+		must(context.Close())
+		if used := budget.Used(); used != 0 {
+			t.Errorf("quantified compilation fixture left %d bytes", used)
+		}
+	}()
 	family, err := m.RegisterArithmeticPlugin()
 	must(err)
 	integer, err := m.MkFamilySort(family, 1, nil)
@@ -179,9 +186,15 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	}
 	context, err := cmd_context.NewStandaloneContext()
 	must(err)
-	defer func() { must(context.Close()) }()
 	m, err := context.Manager()
 	must(err)
+	budget := m.Budget()
+	defer func() {
+		must(context.Close())
+		if used := budget.Used(); used != 0 {
+			t.Errorf("quantified search fixture left %d bytes", used)
+		}
+	}()
 	boolean, err := m.MkBoolSort()
 	must(err)
 	name, err := m.Symbols.Intern("qlinear-search-fact")
@@ -196,11 +209,18 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	must(err)
 	goalApp, err := m.MkApp(goal, nil)
 	must(err)
+	middleName, err := m.Symbols.Intern("qlinear-search-middle")
+	must(err)
+	middle, err := m.MkFuncDecl(middleName, nil, boolean, ast.ASTFuncDeclInfo{})
+	must(err)
+	middleApp, err := m.MkApp(middle, nil)
+	must(err)
 	rm, err := base.NewRuleManager(m)
 	must(err)
 	defer func() { must(rm.Close()) }()
 	must(rm.RegisterPredicate(predicate))
 	must(rm.RegisterPredicate(goal))
+	must(rm.RegisterPredicate(middle))
 	set, err := base.NewRuleSet(rm)
 	must(err)
 	defer func() { must(set.Close()) }()
@@ -208,7 +228,17 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	must(err)
 	must(set.Add(rule))
 	must(rule.Close())
-	step, err := rm.NewRule(goalApp, []ast.ASTHandle{fact}, nil, "step")
+	falsity, err := m.MkFalse()
+	must(err)
+	impossible, err := rm.NewRule(goalApp, []ast.ASTHandle{fact, falsity}, nil, "impossible")
+	must(err)
+	must(set.Add(impossible))
+	must(impossible.Close())
+	transition, err := rm.NewRule(middleApp, []ast.ASTHandle{fact}, nil, "middle")
+	must(err)
+	must(set.Add(transition))
+	must(transition.Close())
+	step, err := rm.NewRule(goalApp, []ast.ASTHandle{middleApp}, nil, "step")
 	must(err)
 	must(set.Add(step))
 	must(step.Close())
@@ -268,8 +298,57 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	}
 	level, bits, numeral, err := m.BitVectorNumeralBigInt(value)
 	must(err)
-	if !numeral || bits != width || level.Sign() <= 0 {
-		t.Fatal("recursive query did not choose a positive index", level, bits)
+	if !numeral || bits != width || level.Cmp(big.NewInt(2)) < 0 {
+		t.Fatal("recursive query chose an index below its derivation depth", level, bits)
+	}
+	services, err := context.ModelEvaluatorConfig()
+	must(err)
+	completed, failures := false, 0
+	for stop := int64(0); stop < 512 && !completed; stop++ {
+		budget.FailAfter(stop)
+		candidate, cause := compiler.QuantifiedLinearTrace(set, goal, width, md, services)
+		budget.FailAfter(-1)
+		for i := len(candidate) - 1; i >= 0; i-- {
+			must(candidate[i].Close())
+		}
+		if cause == nil {
+			completed = true
+			break
+		}
+		var construction memory.ConstructionFailure
+		if errors.As(cause, &construction) {
+			must(construction.Cleanup())
+		}
+		var memout memory.Failure
+		if !errors.Is(cause, arena.ErrInjectedFailure) && (!errors.As(cause, &memout) || memout.Kind != memory.FailureMemout) {
+			t.Fatalf("trace allocation frontier %d: %v", stop, cause)
+		}
+		failures++
+	}
+	if !completed || failures == 0 {
+		t.Fatal("trace allocation campaign did not reach both failure and success", failures, completed)
+	}
+	emptyModel, err := model.NewModelCore(m)
+	must(err)
+	invalidTrace, invalidErr := compiler.QuantifiedLinearTrace(set, goal, width, emptyModel, services)
+	must(emptyModel.Close())
+	if invalidErr == nil || len(invalidTrace) != 0 {
+		t.Fatal("uninterpreted model was accepted for trace reconstruction", invalidErr)
+	}
+	trace, err := compiler.QuantifiedLinearTrace(set, goal, width, md, services)
+	must(err)
+	if len(trace) != 3 {
+		t.Fatal("quantified rule trace length", len(trace))
+	}
+	for i, want := range []string{"step", "middle", "fact"} {
+		got, e := trace[i].Name()
+		must(e)
+		if got != want {
+			t.Fatal("quantified rule trace", i, got, want)
+		}
+	}
+	for i := len(trace) - 1; i >= 0; i-- {
+		must(trace[i].Close())
 	}
 	negated, err := m.MkNot(guard)
 	must(err)
