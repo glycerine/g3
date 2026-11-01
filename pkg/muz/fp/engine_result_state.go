@@ -56,6 +56,14 @@ func (e *PropositionalEngine) requirePDRSnapshot() error {
 	return e.requireResultSnapshot(kind)
 }
 
+func (e *PropositionalEngine) requireBMCSnapshot() error {
+	kind, err := parseEngineKind(e.backend)
+	if err != nil || (kind != EngineBMC && kind != EngineQBMC) {
+		return ErrPropositionalEngine
+	}
+	return e.requireResultSnapshot(kind)
+}
+
 // LastResult returns the retained source result for the latest non-stale
 // query, including unknown. Mutations invalidate the snapshot.
 func (e *PropositionalEngine) LastResult() (lbool.LBool, error) {

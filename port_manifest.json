@@ -84764,7 +84764,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go",
         "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/fp/rule_ingest.go",
         "pkg/muz/fp/rule_ingest_unbound_test.go",
@@ -84793,7 +84793,7 @@
         "pkg/muz/fp/relation_query_answer_test.go",
         "pkg/api/api_fixedpoint_relations_answer_test.go"
       ],
-      "tests": [
+      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler",
         "TestDatalogModelMaterializesFiniteRelationTables",
         "TestHornTacticReturnsDatalogModelForFiniteGoal",
         "TestFiniteCompilerAssemblesRepeatedPermutedAndUnboundHeads",
@@ -86545,8 +86545,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/parsers/smt2/bmc_engine_test.go"],
-      "tests": ["TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestBMCLinearCompilationSharesRuleVariables", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate"],
+      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/parsers/smt2/bmc_engine_test.go"],
+      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestBMCLinearCompilationSharesRuleVariables", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate"],
       "assertions": [
         {
           "line": 138,
@@ -86649,15 +86649,15 @@
       "ownership_audited": false,
       "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": ["Nonlinear compilation, incremental search and model-selected rule tracing are started; hyper-resolution proof reconstruction, default rule transformations, quantified BMC solver parameter setup, converted proofs and engine registration and full failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level and uses body/head resolution positions, correcting two source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
+      "deviations": ["Nonlinear compilation, incremental search and model-selected rule tracing are started; hyper-resolution proof reconstruction, default rule transformations, quantified BMC proof conversion and broader interrupted-cleanup audits and full failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level and uses body/head resolution positions, correcting two source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
     },
     {
       "path": "src/muz/bmc/dl_bmc_engine.h",
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/parsers/smt2/bmc_engine_test.go"],
-      "tests": ["TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestBMCLinearCompilationSharesRuleVariables", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate"],
+      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/muz/bmc/quantified_linear_bind.go", "pkg/muz/bmc/quantified_linear_bind_test.go", "pkg/muz/bmc/quantified_linear_proof.go", "pkg/muz/bmc/quantified_linear_trace.go", "pkg/muz/bmc/quantified_linear_search.go", "pkg/muz/bmc/quantified_linear_names.go", "pkg/muz/bmc/quantified_linear_compile.go", "pkg/muz/bmc/quantified_linear_compile_test.go", "pkg/muz/bmc/rule_analysis.go", "pkg/muz/bmc/rule_analysis_test.go", "pkg/muz/bmc/nonlinear_query.go", "pkg/muz/bmc/nonlinear_query_test.go", "pkg/muz/bmc/nonlinear_level.go", "pkg/muz/bmc/nonlinear_level_test.go", "pkg/muz/bmc/nonlinear_bind.go", "pkg/muz/bmc/nonlinear_bind_test.go", "pkg/muz/bmc/nonlinear_compile.go", "pkg/muz/bmc/nonlinear_compile_test.go", "pkg/muz/bmc/nonlinear_search.go", "pkg/muz/bmc/nonlinear_search_test.go", "pkg/muz/bmc/nonlinear_trace.go", "pkg/muz/bmc/nonlinear_proof.go", "pkg/muz/bmc/nonlinear_trace_test.go", "pkg/muz/bmc/linear_compile.go", "pkg/muz/bmc/linear_bind.go", "pkg/muz/bmc/linear_compile_test.go", "pkg/muz/bmc/linear_search.go", "pkg/muz/bmc/linear_trace.go", "pkg/muz/bmc/linear_proof.go", "pkg/muz/fp/bmc_engine.go", "pkg/muz/fp/bmc_engine_test.go", "pkg/parsers/smt2/bmc_engine_test.go"],
+      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler", "TestBMCQuantifiedLinearBindingsUseDerivationLevel", "TestBMCQuantifiedLinearProofWithRuleVariables", "TestBMCQuantifiedLinearSearchPreservesSolverScope", "TestBMCQuantifiedLinearCompilationAllocationFrontiers", "TestBMCQuantifiedLinearCompilationLevels", "TestBMCLinearSelectionChecksTailArityAndQuantifiers", "TestBMCCompileQueryNamesAndSorts", "TestBMCReplacePredicatesAcrossQuantifiers", "TestBMCBindVariablesCompressesGapsAndBuildsPattern", "TestBMCNonlinearCompilationUnfoldsRulesByLevel", "TestBMCNonlinearCompilationSharesExistentialAcrossBranches", "TestBMCNonlinearCompilationPreservesRepeatedHeadVariables", "TestBMCNonlinearSearchFindsFirstReachableLevel", "TestBMCNonlinearTraceVisitsModelSelectedRules", "TestBMCLinearCompilationSharesRuleVariables", "TestBMCEngineRuleTraceAndSnapshot", "TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses", "TestSMT2BMCEngineSearch", "TestSMT2BMCCertificate", "TestSMT2BMCRecursiveCertificate"],
       "conditionals": [
         {
           "line": 20,
@@ -86672,7 +86672,7 @@
       "ownership_audited": false,
       "methods": [{"name": "linear compiler selection from predicate-tail arity and quantifiers", "status": "partial", "go_target": "pkg/muz/bmc/rule_analysis.go", "tests": ["TestBMCLinearSelectionChecksTailArityAndQuantifiers"]}],
       "ownership": [],
-      "deviations": ["Nonlinear compilation, incremental search and model-selected rule tracing are started; hyper-resolution proof reconstruction, default rule transformations, quantified BMC solver parameter setup, converted proofs and engine registration and full failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level and uses body/head resolution positions, correcting two source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
+      "deviations": ["Nonlinear compilation, incremental search and model-selected rule tracing are started; hyper-resolution proof reconstruction, default rule transformations, quantified BMC proof conversion and broader interrupted-cleanup audits and full failure-frontier audits remain pending. The quantified proof evaluates bindings at the selected derivation level and uses body/head resolution positions, correcting two source mistakes. For raw untransformed rules the trace binds head variables from model-evaluated head arguments rather than unconstrained Skolem functions."]
     },
     {
       "path": "src/muz/clp/CMakeLists.txt",
@@ -87700,7 +87700,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go",
         "pkg/muz/fp/auto_engine.go",
         "pkg/cmd/g3/fixedpoint_qpdr_integration_test.go",
         "pkg/muz/fp/rule_fragment_test.go",
@@ -87715,7 +87715,7 @@
         "pkg/muz/fp/tab_engine_test.go",
         "pkg/parsers/smt2/bmc_engine_test.go"
       ],
-      "tests": [
+      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler",
         "TestFixedpointAutoConfigQuantifiedRule",
         "TestFixedpointAutoConfigRestoresRuleClassification",
         "TestFixedpointAutoConfigStopsAtFirstNonDatalogRule",
@@ -87762,7 +87762,7 @@
         "The selected Datalog engine remains owned by cmd_context.Context; selection itself borrows the engine and creates no additional owner."
       ],
       "deviations": [
-        "Datalog, PDR, QPDR, Spacer, BMC, tabulation, CLP and DDNF have concrete selection branches. Automatic selection records original rule classifications before ingestion, and QBMC and duality remain unavailable."
+        "Datalog, PDR, QPDR, Spacer, BMC, tabulation, CLP and DDNF have concrete selection branches. Automatic selection records original rule classifications before ingestion, and Duality remains unavailable; converted QBMC proof fidelity and broader audits remain incomplete."
       ]
     },
     {
@@ -87770,14 +87770,14 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/parsers/smt2/qbmc_engine_test.go", "pkg/muz/fp/bmc_engine_test.go",
         "pkg/muz/fp/clp_engine.go",
         "pkg/muz/fp/bmc_engine.go",
         "pkg/muz/fp/register_engine.go",
         "pkg/cmd_context/fixedpoint.go",
         "pkg/parsers/smt2/bmc_engine_test.go"
       ],
-      "tests": [
+      "tests": ["TestQBMCEngineRuleTraceAndSnapshot", "TestQBMCEngineExpressionQueryKeepsTrace", "TestSMT2QBMCEngineSearchAndCertificate", "TestSMT2QBMCNonlinearFallsBackToNonlinearCompiler",
         "TestBMCEngineRuleTraceAndSnapshot",
         "TestSMT2BMCEngineSearch",
         "TestSMT2CLPEngineConstrainedRules",

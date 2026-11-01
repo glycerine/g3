@@ -969,7 +969,7 @@ func TestPropositionalEngineExecutesStratifiedNegation(t *testing.T) {
 }
 
 func TestPDRAndSpacerRejectNegativePredicates(t *testing.T) {
-	for _, backend := range []string{"pdr", "qpdr", "spacer"} {
+	for _, backend := range []string{"pdr", "qpdr", "qbmc", "spacer"} {
 		t.Run(backend, func(t *testing.T) {
 			context, err := cmd_context.NewStandaloneContext()
 			fpMust(t, err)

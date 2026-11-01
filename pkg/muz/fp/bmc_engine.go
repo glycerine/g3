@@ -132,15 +132,22 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, e.params.Del(&local)) }()
+	quantified := linear && e.backend == "qbmc"
 	if linear {
 		name := "mbqi"
-		if err = e.params.SetBoolName(&local, &name, false); err != nil {
+		if err = e.params.SetBoolName(&local, &name, quantified); err != nil {
+			return lbool.Undef, err
+		}
+	}
+	if quantified {
+		name := "compact"
+		if err = e.params.SetBoolName(&local, &name, true); err != nil {
 			return lbool.Undef, err
 		}
 	}
 	relevancy := "relevancy"
 	value := uint32(2)
-	if linear {
+	if linear && !quantified {
 		value = 0
 	}
 	if err = e.params.SetUIntName(&local, &relevancy, value); err != nil {
@@ -159,7 +166,10 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	}
 	defer func() { resultErr = errors.Join(resultErr, compiler.Close()) }()
 	var level uint32
-	if linear {
+	var md *model.ModelCore
+	if quantified {
+		status, level, md, err = compiler.SearchQuantifiedLinear(rules, declaration, solver)
+	} else if linear {
 		status, level, err = compiler.SearchLinear(rules, declaration, solver, depth)
 	} else {
 		status, level, err = compiler.SearchNonlinear(rules, declaration, solver)
@@ -167,15 +177,28 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 	if err != nil || status != lbool.True {
 		return status, err
 	}
-	md, err := solver.AcquireModel()
-	if err != nil {
-		return lbool.Undef, err
+	if !quantified {
+		md, err = solver.AcquireModel()
+		if err != nil {
+			return lbool.Undef, err
+		}
 	}
 	if md == nil {
 		return lbool.Undef, ast.ErrASTHandle
 	}
 	defer func() { resultErr = errors.Join(resultErr, md.DecRef()) }()
-	if linear {
+	if quantified {
+		cooperation, e2 := cooperate.NewCooperation(e.manager.Budget())
+		if e2 != nil {
+			return lbool.Undef, e2
+		}
+		defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
+		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
+		e.bmcTrace, err = compiler.QuantifiedLinearTrace(rules, declaration, level, md, services)
+		if err == nil {
+			e.bmcProof, err = compiler.QuantifiedLinearProof(rules, declaration, level, md, services)
+		}
+	} else if linear {
 		e.bmcTrace, err = compiler.LinearTrace(rules, declaration, level, md)
 		if err == nil && !proofTrace && !e.forceProofTrace {
 			services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals}
@@ -198,7 +221,7 @@ func (e *PropositionalEngine) queryBMCPredicate(declaration ast.ASTHandle) (stat
 
 // bmcRulesAlongTrace returns caller-owned formulas from the latest query.
 func (e *PropositionalEngine) bmcRulesAlongTrace() (formulas []ast.ASTRef, names []string, resultErr error) {
-	if err := e.requireResultSnapshot(EngineBMC); err != nil {
+	if err := e.requireBMCSnapshot(); err != nil {
 		return nil, nil, err
 	}
 	defer func() {

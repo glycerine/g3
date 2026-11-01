@@ -61,6 +61,11 @@ func validateRuleSetProperties(rules *base.RuleManager, set *base.RuleSet, backe
 		}
 	case EngineBMC:
 		err = properties.CheckNegativePredicates()
+	case EngineQBMC:
+		err = properties.CheckExistentialTail()
+		if err == nil {
+			err = properties.CheckNegativePredicates()
+		}
 	}
 	if err != nil {
 		var property *base.RulePropertyError

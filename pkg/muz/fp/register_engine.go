@@ -10,7 +10,7 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 			return err
 		}
 		e.queryReady = false
-		if e.backend == EngineBMC.String() {
+		if e.backend == EngineBMC.String() || e.backend == EngineQBMC.String() {
 			if err := e.clearBMCTrace(); err != nil {
 				return err
 			}
@@ -61,7 +61,7 @@ func (e *PropositionalEngine) SelectEngine(name string) error {
 	switch kind {
 	case EngineDatalog:
 		return e.selectBackend(kind)
-	case EnginePDR, EngineQPDR, EngineSpacer, EngineBMC, EngineTab, EngineCLP:
+	case EnginePDR, EngineQPDR, EngineSpacer, EngineBMC, EngineQBMC, EngineTab, EngineCLP:
 		if e.params == nil || e.globals == nil {
 			return fmt.Errorf("muz/fp: fixedpoint engine %s requires parameter services", name)
 		}

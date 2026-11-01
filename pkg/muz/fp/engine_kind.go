@@ -35,7 +35,7 @@ func (k EngineKind) String() string {
 }
 
 func (k EngineKind) Retained() bool {
-	return k == EngineDatalog || k == EnginePDR || k == EngineQPDR || k == EngineSpacer || k == EngineBMC || k == EngineTab || k == EngineCLP || k == EngineDDNF
+	return k == EngineDatalog || k == EnginePDR || k == EngineQPDR || k == EngineSpacer || k == EngineBMC || k == EngineQBMC || k == EngineTab || k == EngineCLP || k == EngineDDNF
 }
 
 func parseEngineKind(name string) (EngineKind, error) {

@@ -51,7 +51,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 				clone.tabAnswer = ast.ASTRef{}
 			}
 		}
-		if e.backend == "bmc" && resultErr == nil {
+		if (e.backend == "bmc" || e.backend == "qbmc") && resultErr == nil {
 			if err := e.clearBMCTrace(); err != nil {
 				resultErr = errors.Join(resultErr, err)
 			} else {
@@ -148,7 +148,7 @@ func (e *PropositionalEngine) ExpressionAnswer() (ast.ASTRef, error) {
 	}
 	// BMC and tabulation transfer their proof/answer to the parent during query
 	// cleanup; their answer methods do not inspect the predicate argument.
-	if kind == EngineBMC || kind == EngineTab {
+	if kind == EngineBMC || kind == EngineQBMC || kind == EngineTab {
 		return e.Answer(e.queryClonePredicate)
 	}
 	return clone.Answer(e.queryClonePredicate)

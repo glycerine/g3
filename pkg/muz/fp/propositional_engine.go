@@ -1520,7 +1520,7 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 	if e.backend == "spacer" && e.spacer != nil {
 		return e.spacer.CollectStatistics(destination)
 	}
-	if e.backend == "bmc" {
+	if e.backend == "bmc" || e.backend == "qbmc" {
 		destination.Copy(e.bmcStatistics)
 		return nil
 	}
@@ -1551,7 +1551,7 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	if e.backend == "spacer" && e.spacer != nil {
 		return e.spacer.ResetStatistics()
 	}
-	if e.backend == "bmc" {
+	if e.backend == "bmc" || e.backend == "qbmc" {
 		e.bmcStatistics.Reset()
 		return nil
 	}
@@ -1651,7 +1651,7 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		e.compiled = false
 		return e.queryCLPPredicate(declaration)
 	}
-	if e.backend == "bmc" {
+	if e.backend == "bmc" || e.backend == "qbmc" {
 		e.compiled = false
 		if !e.auxiliary[declaration] {
 			return e.queryBMCRelation(declaration)
@@ -1873,7 +1873,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		}
 		return e.manager.NewRef(value)
 	}
-	if kind == EngineBMC {
+	if kind == EngineBMC || kind == EngineQBMC {
 		if e.bmcProof == (ast.ASTRef{}) {
 			return answer, ErrPropositionalEngine
 		}
@@ -2040,8 +2040,8 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	if e.backend == "ddnf" {
 		return false, ErrPropositionalEngine
 	}
-	if e.backend == "bmc" {
-		if err := e.requireResultSnapshot(EngineBMC); err != nil {
+	if e.backend == "bmc" || e.backend == "qbmc" {
+		if err := e.requireBMCSnapshot(); err != nil {
 			return false, err
 		}
 		status, err := e.LastResult()

@@ -473,7 +473,7 @@ func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []
 		}
 		return clone.RulesAlongTrace()
 	}
-	if e.backend == "bmc" {
+	if e.backend == "bmc" || e.backend == "qbmc" {
 		return e.bmcRulesAlongTrace()
 	}
 	if err := e.requireResultSnapshot(EngineSpacer); err != nil {

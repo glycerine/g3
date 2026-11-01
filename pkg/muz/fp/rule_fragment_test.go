@@ -111,7 +111,7 @@ func TestFixedpointRulePropertyValidationWiring(t *testing.T) {
 }
 
 func TestQPDRAllowsExistentialRuleTail(t *testing.T) {
-	for _, backend := range []string{"pdr", "qpdr"} {
+	for _, backend := range []string{"pdr", "qpdr", "qbmc"} {
 		t.Run(backend, func(t *testing.T) {
 			engine, manager := newFragmentTestEngine(t, backend)
 			boolean, err := manager.MkBoolSort()
@@ -141,7 +141,7 @@ func TestQPDRAllowsExistentialRuleTail(t *testing.T) {
 			} else {
 				var property *base.RulePropertyError
 				if !errors.As(err, &property) || property.Kind != base.RulePropertyExistentialTail {
-					t.Fatal("PDR accepted an existential tail", err)
+					t.Fatal("engine accepted an existential tail", backend, err)
 				}
 			}
 		})

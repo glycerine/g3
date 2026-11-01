@@ -87,3 +87,71 @@ func TestBMCEngineExpressionQueryKeepsTraceAfterCloneCloses(t *testing.T) {
 	}
 	fpMust(t, manager.DelRef(&answer))
 }
+
+func TestQBMCEngineRuleTraceAndSnapshot(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	fpMust(t, engine.SelectEngine("qbmc"))
+	_, fact := routingPredicate(t, engine, manager, "qbmc-fact")
+	goalDecl, goal := routingPredicate(t, engine, manager, "qbmc-goal")
+	fpMust(t, engine.AddRule(fact, "qbmc-fact"))
+	implication, err := manager.MkImplies(fact, goal)
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(implication, "qbmc-step"))
+	status, err := engine.QueryPredicate(goalDecl)
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("QBMC query", status)
+	}
+	formulas, names, err := engine.RulesAlongTrace()
+	fpMust(t, err)
+	for i := range formulas {
+		fpMust(t, manager.DelRef(&formulas[i]))
+	}
+	if len(names) == 0 {
+		t.Fatal("QBMC returned an empty trace")
+	}
+	answer, err := engine.Answer(goalDecl)
+	fpMust(t, err)
+	proof, err := manager.RefGet(answer)
+	fpMust(t, err)
+	if _, err = manager.GetProofFact(proof); err != nil {
+		t.Fatal("QBMC answer is not a proof", err)
+	}
+	fpMust(t, manager.DelRef(&answer))
+	fpMust(t, engine.AddRule(goal, "extra"))
+	if _, _, err = engine.RulesAlongTrace(); !errors.Is(err, fp.ErrPropositionalEngine) {
+		t.Fatal("QBMC exposed a stale trace", err)
+	}
+}
+
+func TestQBMCEngineExpressionQueryKeepsTrace(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	fpMust(t, engine.SelectEngine("qbmc"))
+	_, fact := routingPredicate(t, engine, manager, "qbmc-expression-fact")
+	_, goal := routingPredicate(t, engine, manager, "qbmc-expression-goal")
+	fpMust(t, engine.AddRule(fact, "fact"))
+	implication, err := manager.MkImplies(fact, goal)
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(implication, "step"))
+	status, err := engine.QueryExpression(goal)
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("QBMC expression query", status)
+	}
+	formulas, names, err := engine.RulesAlongTrace()
+	fpMust(t, err)
+	for i := range formulas {
+		fpMust(t, manager.DelRef(&formulas[i]))
+	}
+	if len(formulas) == 0 || len(formulas) != len(names) {
+		t.Fatal("QBMC expression trace", names)
+	}
+	answer, err := engine.ExpressionAnswer()
+	fpMust(t, err)
+	proof, err := manager.RefGet(answer)
+	fpMust(t, err)
+	if _, err = manager.GetProofFact(proof); err != nil {
+		t.Fatal("QBMC expression proof is not live", err)
+	}
+	fpMust(t, manager.DelRef(&answer))
+}
