@@ -75,6 +75,9 @@ func (p *PredicateTransformer) Reachable() (result ast.ASTRef, resultErr error) 
 	config := p.owner.contexts[0].config
 	replacer, err := rewriter.NewSimplifyingExprReplacer(p.manager, config.Params, config.Globals, nil)
 	if err != nil {
+		if replacer != nil {
+			err = errors.Join(err, replacer.Close())
+		}
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, replacer.Close()) }()

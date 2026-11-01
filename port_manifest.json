@@ -97449,10 +97449,12 @@
           "status": "ported",
           "go_targets": [
             "pkg/muz/spacer/predicate_reachable.go",
-            "pkg/muz/spacer/predicate_reachable_test.go"
+            "pkg/muz/spacer/predicate_reachable_test.go",
+            "pkg/muz/spacer/predicate_reachable_failure_test.go"
           ],
           "tests": [
-            "TestSpacerReachableSimplifiesEachRenamedFactBeforeDisjunction"
+            "TestSpacerReachableSimplifiesEachRenamedFactBeforeDisjunction",
+            "TestSpacerReachableColdFailureCleanupAndRetry"
           ]
         },
         {
@@ -97876,10 +97878,12 @@
           "status": "ported",
           "go_targets": [
             "pkg/muz/spacer/predicate_reachable.go",
-            "pkg/muz/spacer/predicate_reachable_test.go"
+            "pkg/muz/spacer/predicate_reachable_test.go",
+            "pkg/muz/spacer/predicate_reachable_failure_test.go"
           ],
           "tests": [
-            "TestSpacerReachableSimplifiesEachRenamedFactBeforeDisjunction"
+            "TestSpacerReachableSimplifiesEachRenamedFactBeforeDisjunction",
+            "TestSpacerReachableColdFailureCleanupAndRetry"
           ]
         },
         {
