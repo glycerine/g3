@@ -263607,7 +263607,7 @@
       "path": "src/util/numeral_buffer.h",
       "component": "util",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/util/numeral/scoped_numeral.go",
         "pkg/util/numeral/numeral_buffer_reserve_test.go",
@@ -263629,7 +263629,9 @@
         "pkg/tactic/arith/bound_equation_store_test.go",
         "pkg/tactic/arith/polynomial_builder.go",
         "pkg/tactic/arith/polynomial_builder_test.go",
-        "pkg/tactic/arith/polynomial_subsumption_test.go"
+        "pkg/tactic/arith/polynomial_subsumption_test.go",
+        "pkg/smtcore/theory_arith_euclidean.go",
+        "pkg/smtcore/theory_arith_euclidean_test.go"
       ],
       "tests": [
         "TestEuclideanIntegerBufferSortAndRawSwap",
@@ -263652,7 +263654,8 @@
         "TestBoundEquationStoreVariablesWatchesAndConstraintOwnership",
         "TestBoundEquationStoreRationalConstructionAndCancellation",
         "TestInequalityPolynomialBuilderArithmeticASTAndRationalBuffer",
-        "TestInequalityPolynomialSubsumptionUsesOwnedCoefficientBuffer"
+        "TestInequalityPolynomialSubsumptionUsesOwnedCoefficientBuffer",
+        "TestSMTEuclideanBridgeCongruenceScopesProofsAndModels"
       ],
       "conditionals": [
         {
@@ -263711,17 +263714,21 @@
         },
         {
           "name": "concrete mpz SMT theory_arith_int Euclidean bridge buffer (theory_arith_int.h:934-1112)",
-          "status": "unported"
+          "status": "ported",
+          "go_target": "pkg/smtcore/theory_arith_euclidean.go",
+          "tests": [
+            "TestSMTEuclideanBridgeCongruenceScopesProofsAndModels"
+          ]
         }
       ],
       "ownership": [
         "The buffer borrows its numeral manager and owns a manager-copy of each appended mpz/mpq value. Pop destroys the last value; reset and the destructor destroy values in ascending slot order. swap(svector&) transfers raw numeral storage in both directions, so the receiving owner must later delete its acquired numeral payloads. c_ptr and indexed access borrow mutable slots and become stale after slice growth or swap."
       ],
       "deviations": [
-        "No generic Go numeral-buffer adapter is retained. Concrete typed scoped numeral vectors expose borrowed indexed/c_ptr-style views and raw-slice storage swaps; Euclidean sorting and the integer/rational addmul row merges use them. The reached linear_equation mpz reserve is size growth, not Go capacity-only growth, and has a concrete typed method. The retained propagate_ineqs_tactic mpq consumer is ported; SMT theory_arith_int's mpz bridge remains unported.",
-        "The arithmetic linear-equation owner now exercises concrete integer buffer reset, deep-copy push, logical-size reserve, borrowed indexed and slice views, and cleanup in native and checked/debug focused tests; other tactic and SMT consumers remain open.",
-        "The arithmetic bound equation store reaches the concrete linear-equation integer and rational buffers through variable-watch registration, propagation and ordered constraint cleanup; the SMT consumer remains open.",
-        "Whole-header retained-use audit: constructor/destructor, manager borrowing, size, deep-copy push, indexed slots, reset, c_ptr and raw swap are reached in the Euclidean owner; logical-size reserve is reached in linear_equation. Back, empty and mpq reserve have no retained production call in these concrete instantiations. The sole still-unported concrete owner is theory_arith_int's mpz bridge."
+        "No generic Go numeral-buffer adapter is retained. Concrete typed scoped numeral vectors expose borrowed indexed/c_ptr-style views and raw-slice storage swaps; Euclidean sorting and the integer/rational addmul row merges use them. The reached linear_equation mpz reserve is size growth, not Go capacity-only growth, and has a concrete typed method. The retained propagate_ineqs_tactic mpq consumer and SMT theory_arith_int mpz bridge are ported.",
+        "The arithmetic linear-equation owner now exercises concrete integer buffer reset, deep-copy push, logical-size reserve, borrowed indexed and slice views, and cleanup in native and checked/debug focused tests; the Euclidean theory bridge now reuses a concrete scoped integer buffer.",
+        "The arithmetic bound equation store reaches the concrete linear-equation integer and rational buffers through variable-watch registration, propagation and ordered constraint cleanup; the Euclidean bridge uses the concrete scoped integer buffer path.",
+        "Whole-header retained-use audit: constructor/destructor, manager borrowing, size, deep-copy push, indexed slots, reset, c_ptr and raw swap are reached in the Euclidean owner; logical-size reserve is reached in linear_equation. Back, empty and mpq reserve have no retained production call in these concrete instantiations. All retained concrete numeral-buffer owners now have typed Go paths; unused methods and typedefs remain reference-only."
       ]
     },
     {

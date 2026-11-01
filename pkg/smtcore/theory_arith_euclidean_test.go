@@ -89,6 +89,9 @@ func TestSMTEuclideanBridgeCongruenceScopesProofsAndModels(t *testing.T) {
 							astTestMust(t, err)
 							config.EuclideanSolver = enabled
 							astTestMust(t, theory.ConfigureArithmetic(config))
+							numerals, err := theory.euclideanNumeralOwner()
+							astTestMust(t, err)
+							liveNumerals := numerals.Z.Cells.Stats().Live
 							for repeat := 0; repeat < 2; repeat++ {
 								astTestMust(t, s.Push())
 								for _, formula := range formulas {
@@ -103,6 +106,9 @@ func TestSMTEuclideanBridgeCongruenceScopesProofsAndModels(t *testing.T) {
 								}
 								if status != want {
 									t.Fatal("Euclidean bridge result", status, want)
+								}
+								if got := numerals.Z.Cells.Stats().Live; got != liveNumerals {
+									t.Fatalf("Euclidean bridge leaked integer cells after check %d: got %d want %d", repeat, got, liveNumerals)
 								}
 								if enabled && (theory.statistics.euclideanCalls == beforeCalls || theory.statistics.euclideanBounds == beforeBounds || theory.statistics.branches != beforeBranches) {
 									t.Fatal("Euclidean congruence did not solve without branching", theory.statistics)

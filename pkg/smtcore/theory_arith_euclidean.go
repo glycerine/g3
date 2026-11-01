@@ -57,6 +57,7 @@ type smtEuclideanBridge struct {
 	solver              *euclid.Solver
 	integers            *numeral.IntegerManager
 	numbers             []numeral.Int
+	coefficients        *numeral.ScopedIntVector
 	variables           map[uint32]uint32
 	justifications      []uint32
 	normalizationBounds []simplex.ArithmeticBoundUse
@@ -65,6 +66,10 @@ type smtEuclideanBridge struct {
 }
 
 func (b *smtEuclideanBridge) close() (result error) {
+	if b.coefficients != nil {
+		result = errors.Join(result, b.coefficients.Close())
+		b.coefficients = nil
+	}
 	for i := len(b.numbers) - 1; i >= 0; i-- {
 		result = errors.Join(result, b.integers.Del(&b.numbers[i]))
 	}
@@ -77,6 +82,17 @@ func (b *smtEuclideanBridge) integer(value *big.Int) (numeral.Int, error) {
 	b.numbers = append(b.numbers, numeral.NewInt(0))
 	err := b.integers.SetString(&b.numbers[index], value.String())
 	return b.numbers[index], err
+}
+
+// pushCoefficient mirrors numeral_buffer::push_back: copy the current
+// coefficient into a reusable manager-owned slot, then release the temporary.
+func (b *smtEuclideanBridge) pushCoefficient(value *big.Int) (result error) {
+	temporary := numeral.NewInt(0)
+	if err := b.integers.SetString(&temporary, value.String()); err != nil {
+		return errors.Join(err, b.integers.Del(&temporary))
+	}
+	pushErr := b.coefficients.Push(&temporary)
+	return errors.Join(pushErr, b.integers.Del(&temporary))
 }
 
 func (b *smtEuclideanBridge) bigInteger(value *numeral.Int) (*big.Int, error) {
@@ -178,7 +194,9 @@ func (b *smtEuclideanBridge) assertEquations() error {
 		if err != nil {
 			return err
 		}
-		var coefficients []numeral.Int
+		if err = b.coefficients.Reset(); err != nil {
+			return err
+		}
 		var variables []uint32
 		usable := true
 		for _, argument := range arguments {
@@ -203,15 +221,17 @@ func (b *smtEuclideanBridge) assertEquations() error {
 				}
 				b.variables[column] = variable
 			}
-			a, err := b.integer(coefficient.Num())
-			if err != nil {
+			if err = b.pushCoefficient(coefficient.Num()); err != nil {
 				return err
 			}
-			coefficients = append(coefficients, a)
 			variables = append(variables, variable)
 		}
 		if usable {
 			constant, err := b.integer(new(big.Int).Neg(value.Num()))
+			if err != nil {
+				return err
+			}
+			coefficients, err := b.coefficients.BorrowedValues()
 			if err != nil {
 				return err
 			}
@@ -225,13 +245,15 @@ func (b *smtEuclideanBridge) assertEquations() error {
 
 func (b *smtEuclideanBridge) congruence(expression ast.ASTHandle) (gcd, constant *big.Int, usable bool, result error) {
 	b.normalizationBounds = nil
+	if err := b.coefficients.Reset(); err != nil {
+		return nil, nil, false, err
+	}
 	arguments, err := b.monomials(expression)
 	if err != nil {
 		return nil, nil, false, err
 	}
 	g := new(big.Int)
 	missing := false
-	var coefficients []numeral.Int
 	var variables []uint32
 	for _, argument := range arguments {
 		coefficient, pp, err := b.monomial(argument)
@@ -255,11 +277,9 @@ func (b *smtEuclideanBridge) congruence(expression ast.ASTHandle) (gcd, constant
 				return nil, nil, false, nil
 			}
 		} else {
-			a, err := b.integer(coefficient.Num())
-			if err != nil {
+			if err = b.pushCoefficient(coefficient.Num()); err != nil {
 				return nil, nil, false, err
 			}
-			coefficients = append(coefficients, a)
 			variables = append(variables, variable)
 		}
 	}
@@ -270,6 +290,10 @@ func (b *smtEuclideanBridge) congruence(expression ast.ASTHandle) (gcd, constant
 	a, c := numeral.NewInt(0), numeral.NewInt(0)
 	defer func() { result = errors.Join(result, b.integers.Del(&a), b.integers.Del(&c)) }()
 	var js []uint32
+	coefficients, err := b.coefficients.BorrowedValues()
+	if err != nil {
+		return nil, nil, false, err
+	}
 	if err = b.solver.Normalize(coefficients, variables, &zero, &a, &c, &js); err != nil {
 		return nil, nil, false, err
 	}
@@ -315,7 +339,11 @@ func (t *SMTLinearArithmeticTheory) applyEuclideanSolver(tableau *simplex.Solver
 	if err != nil {
 		return false, errors.Join(err, solver.Close())
 	}
-	b := smtEuclideanBridge{theory: t, tableau: tableau, solver: solver, integers: m.Integers(), variables: make(map[uint32]uint32), refs: smtArithmeticDivisionCall{theory: t}}
+	coefficients, err := numeral.NewScopedIntVector(m.Integers())
+	if err != nil {
+		return false, errors.Join(err, solver.Close())
+	}
+	b := smtEuclideanBridge{theory: t, tableau: tableau, solver: solver, integers: m.Integers(), coefficients: coefficients, variables: make(map[uint32]uint32), refs: smtArithmeticDivisionCall{theory: t}}
 	defer func() { result = errors.Join(result, b.close()) }()
 	mask := t.arithmeticIntegerMask()
 	for variable, column := range t.simplexVariables {

@@ -52673,6 +52673,8 @@ Rational RCF relation coverage now checks all six public comparisons for less-th
 
 Rational RCF arithmetic now also checks that a binary result remains valid and usable after both input values are released. The lifetime regression passes in normal and checked builds.
 
+The SMT integer-arithmetic Euclidean bridge now uses a reusable concrete scoped integer coefficient buffer, matching the source numeral-buffer push/reset/copy lifetime across asserted equations and normalization queries. Repeated SAT/UNSAT model and proof coverage now checks that each bridge call returns the numeral manager to its prior live-cell count; the Euclidean regressions pass in normal and checked builds.
+
 Arithmetic purifier cancellation: the tactic boundary now converts a rewriter exception into the source tactic exception. A cancellation regression checks the exception type and message, then retries the same tactic successfully; the arithmetic package and checked purifier and QF_UFNRA checks pass.
 
 Mixed nonlinear checkpoint cancellation: the cooperation loop now reports the source's fixed canceled message for both explicit cancellation and resource exhaustion. Focused normal and checked package suites pass. Rechecking application allocation stop 108 still exposes pending algebraic and search state on retry, so the established 0–107 passing prefix and the remaining ownership gap are unchanged.
