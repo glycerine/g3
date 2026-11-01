@@ -52843,4 +52843,6 @@ Finite product equality joins (2026-11-01 UTC): verified matching finite and int
 
 Finite product aligned union and delta (2026-11-01 UTC): matched shared-key interval union, source-only rows, accumulated delta, self-union, and aliased-delta rejection for the aligned source configuration. Focused normal and `g3checked` tests pass; marked the method ported in both source records. Specification unification for differently ordered layouts remains outside this method's bounded coverage.
 
+Finite product construction and fact operations (2026-11-01 UTC): audited the concrete table/interval specialization's signature selection, fresh and existing-key fact insertion, lookup, and clone independence against source behavior. Constructor, clone, non-numeral lookup and symbolic-insertion regressions pass normally and with `g3checked`; marked this bounded method ported in both records.
+
 Finite product interpreted filters (2026-11-01 UTC): closed the inner-only variable-renaming path and the finite-table-only path, including wrong-column dispatch and ground false behavior. All three focused filter regressions pass normally and with `g3checked`; the genuinely mixed table/interval condition path remains partial and is not promoted.

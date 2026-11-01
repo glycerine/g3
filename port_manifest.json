@@ -92682,11 +92682,13 @@
       "methods": [
         {
           "name": "concrete finite-table/interval construction, fact insertion, lookup and clone",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFactsAndClone",
-            "TestFiniteIntervalProductColumnSelection"
+            "TestFiniteIntervalProductColumnSelection",
+            "TestFiniteIntervalProductSourceFactLookup",
+            "TestFiniteIntervalProductSymbolicFactInsertion"
           ]
         },
         {
@@ -92926,11 +92928,13 @@
       "methods": [
         {
           "name": "concrete finite-table/interval construction, fact insertion, lookup and clone",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFactsAndClone",
-            "TestFiniteIntervalProductColumnSelection"
+            "TestFiniteIntervalProductColumnSelection",
+            "TestFiniteIntervalProductSourceFactLookup",
+            "TestFiniteIntervalProductSymbolicFactInsertion"
           ]
         },
         {
