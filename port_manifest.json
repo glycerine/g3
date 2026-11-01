@@ -105197,7 +105197,7 @@
         "pkg/cmd/g3/nra_backend_test.go",
         "pkg/smtcore/smt_univariate_nra_test.go"
       ],
-      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry","TestSolverCloseAfterFailedAtomConstruction",
+      "tests": ["TestNLPurifyApplyAllocationPrefixAndRetry","TestSolverCloseAfterFailedAtomConstruction","TestSolverReorderPreservesBooleanModel",
         "pkg/nlsat/assumption_manager_test.go",
         "pkg/nlsat/assumption_justification_pending_test.go",
         "pkg/nlsat/clause_justification_test.go",
@@ -105846,11 +105846,14 @@
           "go_target": "pkg/nlsat/variable_order.go",
           "tests": [
             "TestSolverHeuristicVariablePermutation",
+            "TestSolverReorderPreservesBooleanModel",
+            "TestSMT2QFUFNRATacticMixedArithmetic",
             "TestSolverShuffledVariablePermutation",
             "TestSMTLibRunnerCPPReference/nlsat_shuffle.smt2"
           ],
           "go_targets": [
-            "pkg/cmd/g3/main_test.go"
+            "pkg/cmd/g3/main_test.go",
+            "pkg/parsers/smt2/qfufnra_tactic_test.go"
           ]
         },
         {

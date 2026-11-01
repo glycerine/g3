@@ -14,6 +14,8 @@ func TestSMT2QFUFNRATacticMixedArithmetic(t *testing.T) {
 		{"nonlinear-interface-model", "(assert (> (f (+ x 1)) (* x x)))", "(get-value ((> (f (+ x 1)) (* x x))))", "sat\n(((> (f (+ x 1)) (* x x)) true))\n"},
 		{"arithmetic-conflict", "(assert (> (f x) 0))(assert (< (f x) 0))", "", "unsat\n"},
 		{"function-congruence", "(assert (= x y))(assert (> (f x) 0))(assert (< (f y) 0))", "", "unsat\n"},
+		{"nonlinear-congruence", "(assert (= (* x x) 1))(assert (= (* y y) 1))(assert (> x 0))(assert (> y 0))(assert (distinct (f x) (f y)))", "", "unsat\n"},
+		{"nonlinear-distinct-model", "(assert (= (* x x) 1))(assert (= (* y y) 1))(assert (> x 0))(assert (< y 0))(assert (distinct (f x) (f y)))", "(get-value ((> x 0) (< y 0) (distinct (f x) (f y))))", "sat\n(((> x 0) true)\n ((< y 0) true)\n ((distinct (f x) (f y)) true))\n"},
 		{"guarded-conflict", "(assert (or p (> (f x) 0)))(assert (not p))(assert (<= (f x) 0))", "", "unsat\n"},
 		{"division", "(assert (= x 2))(assert (= (f x) (/ 1 x)))(assert (> (f x) 0))", "", "sat\n"},
 		{"nonlinear-conflict", "(assert (= (f (+ x 1)) (* x x)))(assert (< (f (+ x 1)) 0))", "", "unsat\n"},

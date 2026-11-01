@@ -195,7 +195,9 @@ func (s *Solver) ReorderVariables(permutation []uint32) (resultErr error) {
 			return x
 		}
 	}
-	if err = s.search.undoUntilEmpty(); err != nil {
+	// Reordering changes arithmetic stages but must leave Boolean decisions in
+	// the model, as source reorder's undo_until_stage(null_var) does.
+	if err = s.search.undoUntilStage(NullVariable); err != nil {
 		return err
 	}
 	if err = s.cache.Reset(); err != nil {

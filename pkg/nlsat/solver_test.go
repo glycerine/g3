@@ -398,6 +398,43 @@ func TestSolverHeuristicVariablePermutation(t *testing.T) {
 	}
 }
 
+func TestSolverReorderPreservesBooleanModel(t *testing.T) {
+	for _, positive := range []bool{false, true} {
+		t.Run(map[bool]string{false: "false", true: "true"}[positive], func(t *testing.T) {
+			s := solverFixtureConfig(t, SolverConfig{Reorder: true})
+			for i := 0; i < 2; i++ {
+				_, err := s.MkVar(false)
+				assignmentMust(t, err)
+			}
+			boolean, err := s.MkBoolVar()
+			assignmentMust(t, err)
+			assignmentMust(t, s.AddClause([]sat.Literal{sat.MakeLiteral(boolean, !positive)}, Assumption{}))
+			x0 := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 1, 0})
+			x1Cubed := evaluatorPolynomial(t, s.evaluator, evaluatorTerm{1, 0, 3})
+			solverUnit(t, s, AtomGT, x0)
+			repeated := solverUnit(t, s, AtomGT, x1Cubed)
+			assignmentMust(t, s.AddClause([]sat.Literal{repeated}, Assumption{}))
+			permutation, supported, err := s.HeuristicVariablePermutation()
+			assignmentMust(t, err)
+			if !supported || len(permutation) != 2 || permutation[0] != 1 || permutation[1] != 0 {
+				t.Fatal("fixture did not trigger reordering", permutation, supported)
+			}
+			for attempt := 0; attempt < 2; attempt++ {
+				status, err := s.Check()
+				assignmentMust(t, err)
+				if status != lbool.True {
+					t.Fatal("solver result", status)
+				}
+				value, err := s.BooleanValue(boolean)
+				assignmentMust(t, err)
+				if value != lbool.FromBool(positive) {
+					t.Fatal("Boolean model after variable-order restoration", value, positive)
+				}
+			}
+		})
+	}
+}
+
 func TestSolverShuffledVariablePermutation(t *testing.T) {
 	s := solverFixtureConfig(t, SolverConfig{Seed: 7})
 	for i := 0; i < 4; i++ {
