@@ -71,7 +71,10 @@ func TestSLSEngineWholeSourceParamsRestartAndStatistics(t *testing.T) {
 	if err = engine.ResetStatistics(); err != nil {
 		t.Fatal(err)
 	}
-	if engine.stats.Moves != 0 || engine.stats.Restarts != 0 || engine.restartNext != priorRestartNext {
-		t.Fatal("statistics reset changed solver policy", engine.stats, engine.restartNext)
+	if engine.stats.Moves != 5 || engine.stats.Restarts != 2 || engine.stats.FullEvaluations != 0 ||
+		engine.stats.IncrementalEvaluations != 0 || engine.stats.Flips != 0 ||
+		engine.stats.Increments != 7 || engine.stats.Decrements != 8 || engine.stats.Inversions != 9 ||
+		engine.restartNext != priorRestartNext {
+		t.Fatal("source statistics reset", engine.stats, engine.restartNext)
 	}
 }

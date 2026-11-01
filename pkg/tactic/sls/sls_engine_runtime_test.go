@@ -72,6 +72,9 @@ func TestSLSEngineSolvesRetainedBooleanConstantEndToEnd(t *testing.T) {
 	if err != nil || stats.Moves == 0 || stats.IncrementalEvaluations == 0 || stats.FullEvaluations == 0 {
 		t.Fatal("source statistics", stats, err)
 	}
+	if stats.Flips != 0 || stats.Increments != 0 || stats.Decrements != 0 || stats.Inversions != 0 {
+		t.Fatal("source leaves move-type counters unchanged", stats)
+	}
 }
 
 func TestSLSEngineSolvesRetainedBVEqualityByIncrementalFlips(t *testing.T) {

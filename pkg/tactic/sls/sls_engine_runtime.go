@@ -625,9 +625,8 @@ func (e *Engine) Search() (status lbool.LBool, result error) {
 		}
 		oldScore := score
 		var index uint32
-		var move SLSMoveType
 		var found bool
-		score, index, _, move, found, err = e.FindBestMove(declarations, score, &bestValue)
+		score, index, _, _, found, err = e.FindBestMove(declarations, score, &bestValue)
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -647,7 +646,7 @@ func (e *Engine) Search() (status lbool.LBool, result error) {
 				if x != nil {
 					return lbool.Undef, x
 				}
-				score, index, _, move, found, x = e.FindBestMove(alternatives, score, &bestValue)
+				score, index, _, _, found, x = e.FindBestMove(alternatives, score, &bestValue)
 				if x != nil {
 					return lbool.Undef, x
 				}
@@ -704,16 +703,6 @@ func (e *Engine) Search() (status lbool.LBool, result error) {
 			}
 			if score, err = e.seriousScore(declarations[index], &bestValue); err != nil {
 				return lbool.Undef, err
-			}
-			switch move {
-			case SLSMoveFlip:
-				e.stats.Flips++
-			case SLSMoveIncrement:
-				e.stats.Increments++
-			case SLSMoveDecrement:
-				e.stats.Decrements++
-			case SLSMoveInvert:
-				e.stats.Inversions++
 			}
 		}
 	}

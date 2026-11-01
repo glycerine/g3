@@ -154,6 +154,11 @@ func TestSLSCoreTacticAppliesCleansAndReusesFreshEngine(t *testing.T) {
 	if stats["sls moves"] == 0 || stats["sls incr evals"] == 0 {
 		t.Fatal("source statistics missing", stats)
 	}
+	for _, key := range []string{"sls FLIP moves", "sls INC moves", "sls DEC moves", "sls INV moves"} {
+		if stats[key] != 0 {
+			t.Fatal("source leaves move-type counters unchanged", key, stats[key])
+		}
+	}
 	if err = core.Cleanup(); err != nil {
 		t.Fatal(err)
 	}
@@ -230,11 +235,13 @@ func TestSLSCoreTacticParamsStatisticsAndReferenceLifecycle(t *testing.T) {
 	if size, err := descriptions.Size(); err != nil || size < 10 {
 		t.Fatal("generated SLS parameter descriptions", size, err)
 	}
+	core.owner.engine.stats = EngineStats{Restarts: 3, Moves: 9, FullEvaluations: 5, IncrementalEvaluations: 4, Flips: 6, Increments: 7}
 	if err = core.ResetStatistics(); err != nil {
 		t.Fatal(err)
 	}
-	if core.CollectStatistics()["sls moves"] != 0 {
-		t.Fatal("statistics reset")
+	stats := core.CollectStatistics()
+	if stats["sls moves"] != 9 || stats["sls restarts"] != 3 || stats["sls full evals"] != 0 || stats["sls incr evals"] != 0 || stats["sls FLIP moves"] != 0 || stats["sls INC moves"] != 7 {
+		t.Fatal("source statistics reset", stats)
 	}
 	if err = core.IncRef(); err != nil {
 		t.Fatal(err)

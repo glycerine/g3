@@ -30,12 +30,15 @@ func (e *Engine) CollectStatistics() (map[string]float64, error) {
 	}, nil
 }
 
-// ResetStatistics preserves the source separation between statistical state
-// and the restart schedule/parameters.
+// ResetStatistics follows stats::reset, which leaves moves and restarts intact
+// because they also control the ongoing restart schedule.
 func (e *Engine) ResetStatistics() error {
 	if err := e.open(); err != nil {
 		return err
 	}
-	e.stats = EngineStats{Started: time.Now()}
+	e.stats.FullEvaluations = 0
+	e.stats.IncrementalEvaluations = 0
+	e.stats.Flips = 0
+	e.stats.Started = time.Now()
 	return nil
 }

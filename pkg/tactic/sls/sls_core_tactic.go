@@ -169,8 +169,7 @@ func (t *CoreTactic) ResetStatistics() error {
 	if err := t.open(); err != nil {
 		return err
 	}
-	t.owner.engine.stats = EngineStats{Started: time.Now()}
-	return nil
+	return t.owner.engine.ResetStatistics()
 }
 
 func (t *CoreTactic) Cleanup() error {
