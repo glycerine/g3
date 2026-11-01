@@ -93354,6 +93354,12 @@
           "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
           "tests": ["TestIntervalRelationDisplaySourceFormat"]
+        },
+        {
+          "name": "interval relation full-bound query",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": ["TestIntervalRelationFull"]
         }
       ],
       "ownership": [
@@ -93460,6 +93466,12 @@
             "TestIntervalRelationToFormula",
             "TestEmptyRelationsExportFalse"
           ]
+        },
+        {
+          "name": "interval relation full-bound query",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": ["TestIntervalRelationFull"]
         }
       ],
       "ownership": [
