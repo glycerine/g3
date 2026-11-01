@@ -92787,7 +92787,7 @@
         },
         {
           "name": "construct full finite/interval product",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFull"
@@ -93031,7 +93031,7 @@
         },
         {
           "name": "construct full finite/interval product",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductFull"
