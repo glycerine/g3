@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
@@ -102,38 +103,92 @@ func TestSpacerCoalesceAndUnfoldComposeRuleProofs(t *testing.T) {
 	if fact != want {
 		t.Fatal("composed proof concludes a different rule")
 	}
-	seen := make(map[ast.ASTHandle]bool)
-	stack := []ast.ASTHandle{proof}
-	resolutions := 0
-	for len(stack) != 0 {
-		node := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-		if seen[node] {
-			continue
-		}
-		seen[node] = true
-		isProof, err := m.IsProof(node)
-		fragmentMust(t, err)
-		if !isProof {
-			continue
-		}
-		kind, err := m.GetDeclKind(node)
-		fragmentMust(t, err)
-		if kind == ast.ASTPrHyperResolve {
-			resolutions++
-		}
-		if kind == ast.ASTPrAsserted && !originalProofs[node] {
-			t.Fatal("preprocessing introduced an asserted proof leaf for a transformed rule")
-		}
-		count, err := m.GetNumArgs(node)
-		fragmentMust(t, err)
-		for i := uint32(0); i < count; i++ {
-			child, err := m.GetArg(node, i)
+	var queryWrapper ast.ASTHandle
+	checkProof := func(proof ast.ASTHandle) int {
+		seen := make(map[ast.ASTHandle]bool)
+		stack := []ast.ASTHandle{proof}
+		resolutions := 0
+		for len(stack) != 0 {
+			node := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if seen[node] {
+				continue
+			}
+			seen[node] = true
+			isProof, err := m.IsProof(node)
 			fragmentMust(t, err)
-			stack = append(stack, child)
+			if !isProof {
+				continue
+			}
+			kind, err := m.GetDeclKind(node)
+			fragmentMust(t, err)
+			if kind == ast.ASTPrHyperResolve {
+				resolutions++
+			}
+			if kind == ast.ASTPrAsserted && !originalProofs[node] {
+				if queryWrapper.IsNull() {
+					t.Fatal("preprocessing introduced an asserted proof leaf for a transformed rule")
+				}
+				fact, err := m.GetProofFact(node)
+				fragmentMust(t, err)
+				hasWrapper, err := m.OccursExpr(queryWrapper, fact)
+				fragmentMust(t, err)
+				hasQuery, err := m.OccursExpr(p, fact)
+				fragmentMust(t, err)
+				if !hasWrapper || !hasQuery {
+					t.Fatal("trace proof introduced a non-query assertion")
+				}
+			}
+			count, err := m.GetNumArgs(node)
+			fragmentMust(t, err)
+			for i := uint32(0); i < count; i++ {
+				child, err := m.GetArg(node, i)
+				fragmentMust(t, err)
+				stack = append(stack, child)
+			}
 		}
+		return resolutions
 	}
-	if resolutions < 2 {
+	if resolutions := checkProof(proof); resolutions < 2 {
 		t.Fatalf("proof has %d hyper-resolution nodes, want coalesce and unfold", resolutions)
+	}
+	status, err := e.QueryPredicate(goal)
+	fragmentMust(t, err)
+	if status != lbool.True {
+		t.Fatal("coalesced/unfolded query", status)
+	}
+	queryWrapper, err = m.MkApp(e.spacerQuery, []ast.ASTHandle{x})
+	fragmentMust(t, err)
+	trace, err := e.spacer.RulesAlongTrace()
+	fragmentMust(t, err)
+	defer func() {
+		for _, rule := range trace {
+			fragmentMust(t, rule.Close())
+		}
+	}()
+	if len(trace) < 2 {
+		t.Fatal("missing query-wrapper and goal trace", len(trace))
+	}
+	traceResolutions := 0
+	for i, rule := range trace {
+		proof, found, err := rule.Proof()
+		fragmentMust(t, err)
+		if !found {
+			t.Fatal("reachable trace rule lost its proof", i)
+		}
+		formula, err := rule.ToFormula()
+		fragmentMust(t, err)
+		want, err := m.RefGet(formula)
+		fragmentMust(t, err)
+		fact, err := m.GetProofFact(proof)
+		fragmentMust(t, err)
+		if fact != want {
+			t.Fatal("trace proof conclusion differs from its rule", i)
+		}
+		fragmentMust(t, m.DelRef(&formula))
+		traceResolutions += checkProof(proof)
+	}
+	if traceResolutions < 2 {
+		t.Fatal("query trace lost coalesce/unfold proof ancestry", traceResolutions)
 	}
 }
