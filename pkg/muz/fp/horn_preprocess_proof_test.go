@@ -304,6 +304,40 @@ func TestQBMCFallsBackFromUnsupportedSlicedProof(t *testing.T) {
 			t.Fatal("fallback trace contains a sliced predicate")
 		}
 	}
+	proof, err := manager.RefGet(engine.bmcProof)
+	fragmentMust(t, err)
+	fact, err := manager.GetProofFact(proof)
+	fragmentMust(t, err)
+	if fact != goalApp {
+		t.Fatal("nonlinear fallback proof has the wrong conclusion")
+	}
+	checker, err := proofs.NewChecker(manager)
+	fragmentMust(t, err)
+	valid, side, err := checker.Check(proof)
+	fragmentMust(t, err)
+	defer func() {
+		for _, condition := range side {
+			fragmentMust(t, manager.DecRef(condition))
+		}
+	}()
+	if !valid {
+		t.Fatal("nonlinear fallback proof is invalid")
+	}
+	solver, err := smtcore.NewSMTSolver(manager, nil, "", smtcore.SMTSolverConfig{Params: globals.Context, Globals: globals})
+	fragmentMust(t, err)
+	defer func() { fragmentMust(t, solver.Close()) }()
+	for _, condition := range side {
+		fragmentMust(t, solver.Push())
+		negated, e := manager.MkNot(condition)
+		fragmentMust(t, e)
+		fragmentMust(t, solver.AssertFormula(negated))
+		checked, e := solver.CheckSat(nil)
+		fragmentMust(t, e)
+		fragmentMust(t, solver.Pop(1))
+		if checked != lbool.False {
+			t.Fatal("invalid nonlinear fallback side condition", checked)
+		}
+	}
 	if !onlyErrorKind(errors.Join(errRetryUnslicedProof, errRetryUnslicedProof), errRetryUnslicedProof) {
 		t.Fatal("retry signal was lost")
 	}

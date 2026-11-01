@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
 	"github.com/glycerine/g3/pkg/muz/base"
@@ -122,13 +123,32 @@ func TestBMCNonlinearTraceVisitsModelSelectedRules(t *testing.T) {
 	must(err)
 	fact, err := m.GetProofFact(proof)
 	must(err)
-	queryRef, err := compiler.CompileQuery(goal, level)
-	must(err)
-	query, err := m.RefGet(queryRef)
-	must(err)
-	if fact != query {
-		t.Fatal("nonlinear proof conclusion", fact, query)
+	if fact != app(goal) {
+		t.Fatal("nonlinear proof conclusion", fact, app(goal))
 	}
-	must(m.DelRef(&queryRef))
+	checker, err := proofs.NewChecker(m)
+	must(err)
+	valid, side, err := checker.Check(proof)
+	must(err)
+	defer func() {
+		for _, condition := range side {
+			must(m.DecRef(condition))
+		}
+	}()
+	if !valid {
+		t.Fatal("nonlinear proof is invalid")
+	}
+	for _, condition := range side {
+		must(smt.Push())
+		negated, e := m.MkNot(condition)
+		must(e)
+		must(smt.AssertFormula(negated))
+		checked, e := smt.CheckSat(nil)
+		must(e)
+		must(smt.Pop(1))
+		if checked != lbool.False {
+			t.Fatal("invalid nonlinear proof side condition", checked)
+		}
+	}
 	must(m.DelRef(&proofRef))
 }

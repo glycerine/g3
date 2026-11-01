@@ -31,6 +31,9 @@ func (c *Compiler) NonlinearProof(rules *base.RuleSet, query ast.ASTHandle, leve
 	}()
 	evaluator, err := model.NewModelEvaluator(md, services)
 	if err != nil {
+		if evaluator != nil {
+			err = errors.Join(err, evaluator.Close())
+		}
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()

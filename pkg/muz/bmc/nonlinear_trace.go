@@ -28,6 +28,9 @@ func (c *Compiler) NonlinearTrace(rules *base.RuleSet, query ast.ASTHandle, leve
 	}()
 	evaluator, err := model.NewModelEvaluator(md, services)
 	if err != nil {
+		if evaluator != nil {
+			err = errors.Join(err, evaluator.Close())
+		}
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
@@ -241,6 +244,9 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 	}
 	sub, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
+		if sub != nil {
+			err = errors.Join(err, sub.Close())
+		}
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
@@ -288,7 +294,30 @@ func (c *Compiler) traceNonlinearRule(rules *base.RuleSet, evaluator *model.Mode
 		}
 	}
 	if proofResult != nil {
-		proof, err := m.MkProofHyperResolve(premises, application, positions, substitutions)
+		// The search uses a level-indexed predicate at the root. Proofs must
+		// conclude the original predicate at the model-evaluated arguments.
+		values := make([]ast.ASTHandle, len(args))
+		for i, argument := range args {
+			value, e := evaluator.EvaluateValue(argument)
+			if e != nil {
+				return e
+			}
+			refs = append(refs, value)
+			values[i], e = m.RefGet(value)
+			if e != nil {
+				return e
+			}
+		}
+		conclusion, err := m.MkApp(predicate, values)
+		if err != nil {
+			return err
+		}
+		conclusionRef, err := m.NewRef(conclusion)
+		if err != nil {
+			return err
+		}
+		refs = append(refs, conclusionRef)
+		proof, err := m.MkProofHyperResolve(premises, conclusion, positions, substitutions)
 		if err != nil {
 			return err
 		}

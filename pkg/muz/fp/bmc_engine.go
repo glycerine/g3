@@ -249,6 +249,9 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 		defer func() { resultErr = errors.Join(resultErr, cooperation.Close()) }()
 		services := model.ModelEvaluatorConfig{Context: e.params, Globals: e.globals, Memory: e.manager.NumeralService().RuntimeOwner(), Cooperation: cooperation}
 		e.bmcTrace, err = compiler.NonlinearTrace(rules, declaration, level, md, services)
+		if err == nil && (proofTrace || e.forceProofTrace) {
+			e.bmcProof, err = compiler.NonlinearProof(rules, declaration, level, md, services)
+		}
 	}
 	if err != nil {
 		return lbool.Undef, err
