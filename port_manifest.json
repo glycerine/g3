@@ -90604,7 +90604,7 @@
       "path": "src/muz/pdr/pdr_util.cpp",
       "component": "muz",
       "role": "production",
-      "status": "ported",
+      "status": "partial",
       "go_targets": [
         "pkg/muz/pdr/pdr_util.go",
         "pkg/muz/pdr/fragment.go",
@@ -90689,16 +90689,22 @@
           "tests": ["TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment"]
         },
         {
+          "name": "real comparison coefficient normalization exercised by the retained arithmetic-rewriter source driver",
+          "status": "ported",
+          "go_target": "pkg/muz/pdr/arith_normalize.go",
+          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestArithmeticRewriterSourceExamples"]
+        },
+        {
           "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
           "status": "reference_only",
-          "reason": "ceil_log2 has no source caller; pp_cube is used only by the dormant farkas_learner::test self-test; normalize_arithmetic is used only by src/test/arith_rewriter.cpp"
+          "reason": "ceil_log2 has no source caller and pp_cube is used only by the dormant farkas_learner::test self-test; the normalizer's broader generic traversal beyond the retained driver's root comparisons remains partial"
         }
       ],
       "ownership": [
         "The reducer owns model-evaluated values, defining equalities and rewritten conjunct references until the returned conjunction reference is acquired."
       ],
       "deviations": [
-        "The default pdr.utvpi path uses the retained source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. Diagnostic cube formatting, ceil_log2 and the arithmetic normalizer have no retained production consumer."
+        "The default pdr.utvpi path uses the source classifier before child solver construction and reuses it to reject proof-derived lemmas outside the selected fragment. The real-comparison normalizer returns borrowed manager-owned AST nodes; diagnostic cube formatting and ceil_log2 remain outside live consumers."
       ]
     },
     {
@@ -107732,7 +107738,15 @@
             "TestMaxResSearchRespectsHardConstraint",
             "TestMaxResPrimalDualSearchRespectsHardFormula",
             "TestMaxResPrimalDualSearchNormalizesNegativeWeight",
-            "TestMaxSMTDuplicateAndNegativeWeightsEndToEnd"
+            "TestMaxSMTDuplicateAndNegativeWeightsEndToEnd",
+            "TestAPIOptimizeModelAfterUnsatIsEmpty",
+            "TestOptimizationModelAfterUnsatReturnsOwnedEmptyModel",
+            "TestOptimizationResourceLimitDuringMaxResCoreIsUnknown",
+            "TestOptimizationFrontendResourceLimitedOPBBounds",
+            "TestOptimizationFrontendResourceLimitDuringMaxResCore",
+            "TestOptimizationFrontendResourceLimitedSortMaxBounds",
+            "TestOPBFrontendUnsatObjectiveBounds",
+            "TestWCNFFrontendUnsatObjectiveBounds"
           ]
         },
         {
@@ -200582,8 +200596,8 @@
       "path": "src/test/arith_rewriter.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": ["pkg/api/arith_rewriter_cpp_driver_test.go"],
+      "status": "ported",
+      "go_targets": ["pkg/api/arith_rewriter_cpp_driver_test.go", "pkg/muz/pdr/arith_normalize.go", "pkg/muz/pdr/arith_normalize_test.go"],
       "tests": ["TestArithmeticRewriterSourceExamples"],
       "assertions": [
         {
@@ -200595,11 +200609,11 @@
           "text": "ENSURE(ctx.begin_assertions() != ctx.end_assertions());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [],
       "ownership": [],
-      "deviations": ["The source zero product and both theory-rewritten formulas are checked on exact rational assignments. The separate PDR normalize_arithmetic helper has no other live source consumer and remains unported."]
+      "deviations": ["The Go driver constructs the formulas directly instead of parsing its embedded SMT-LIB text, checks exact rational assignments instead of reproducing diagnostic stdout, and invokes the source PDR normalizer on the same root comparison expressions."]
     },
     {
       "path": "src/test/arith_simplifier_plugin.cpp",

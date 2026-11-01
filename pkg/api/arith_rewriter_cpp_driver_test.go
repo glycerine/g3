@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -32,6 +33,8 @@ func TestArithmeticRewriterSourceExamples(t *testing.T) {
 		rewritten, err := f.c.Simplify(formula)
 		astTestMust(t, err)
 		h, err := f.m.RefGet(rewritten)
+		astTestMust(t, err)
+		h, err = pdr.NormalizeArithmetic(f.m, h)
 		astTestMust(t, err)
 		for _, xv := range []int64{-2, 0, 3} {
 			for _, yv := range []int64{-1, 0, 4} {
