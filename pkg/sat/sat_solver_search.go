@@ -178,14 +178,32 @@ func (s *Solver) simplifyProblem() error {
 	if _, e := s.cleaner.run(false); e != nil {
 		return e
 	}
+	if e := s.checkSimplificationInvariant(); e != nil {
+		return e
+	}
 	if _, e := s.scc.run(); e != nil {
+		return e
+	}
+	if e := s.checkSimplificationInvariant(); e != nil {
 		return e
 	}
 	if e := s.simplifier.Run(false); e != nil {
 		return e
 	}
+	if e := s.checkSimplificationInvariant(); e != nil {
+		return e
+	}
+	if e := s.checkSimplificationMissedPropagation(); e != nil {
+		return e
+	}
 	if len(s.Lifecycle.learned) != 0 {
 		if e := s.simplifier.Run(true); e != nil {
+			return e
+		}
+		if e := s.checkSimplificationMissedPropagation(); e != nil {
+			return e
+		}
+		if e := s.checkSimplificationInvariant(); e != nil {
 			return e
 		}
 	}
@@ -193,6 +211,9 @@ func (s *Solver) simplifyProblem() error {
 		if e := s.Variables.watches.store.SortByKind(r); e != nil {
 			return e
 		}
+	}
+	if e := s.checkSimplificationInvariant(); e != nil {
+		return e
 	}
 	if _, e := s.probing.run(false); e != nil {
 		return e
