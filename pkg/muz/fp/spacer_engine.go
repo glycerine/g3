@@ -561,10 +561,19 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
+	parameters, err := e.fixedpointParamView()
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	proofTrace, err := parameters.Bool("generate_proof_trace", false)
+	if err != nil {
+		return lbool.Undef, err
+	}
 	queryDeclaration := declaration
 	var queryRule *base.Rule
 	if !e.auxiliary[declaration] {
-		queryDeclaration, queryRule, err = e.makeSpacerRelationQuery(declaration)
+		queryDeclaration, queryRule, err = e.makeSpacerRelationQuery(declaration, proofTrace || e.forceProofTrace)
 		if err != nil {
 			return lbool.Undef, err
 		}
@@ -609,11 +618,6 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if deriveErr != nil {
 		return lbool.Undef, fmt.Errorf("muz/fp: resolve preprocessed Spacer query: %w", deriveErr)
 	}
-	parameters, err := e.fixedpointParamView()
-	if err != nil {
-		return lbool.Undef, err
-	}
-	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
 	maximumLevels, err := parameters.UInt("spacer.max_level", ^uint32(0))
 	if err != nil {
 		return lbool.Undef, err

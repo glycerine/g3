@@ -52606,3 +52606,5 @@ Requested nonlinear BMC certificates: when a query explicitly requests an answer
 Nonlinear BMC API answers: nonlinear queries now prepare their proof even when no answer or certificate option was supplied in advance. API tests cover both relation and expression queries, subsequent answer requests and owned-answer lifetime; proof checking and side-condition tests cover BMC and QBMC. This adds a proof-preparation pass for queries that remain nonlinear after the initial preprocessing.
 
 Sieve relation ownership: closing a sieve now closes its adopted inner table, matching the source scoped owner. Tests check successful and rejected adoption, independent clone lifetime, and repeated close; the broader sieve plugin and ownership audit remain partial.
+
+Spacer synthetic query proofs: when proof tracing is enabled, the temporary relation-query rule now carries an asserted proof of its own formula as in rule_manager::mk_query. A focused test covers enabled and disabled tracing, proof conclusion and proof-mode restoration; the reported checked nonlinear-inlining regression passes.

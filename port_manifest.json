@@ -97616,7 +97616,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
-        {"name": "relation query creates a synthetic rule in the temporary preprocessing set and routes answer, model and ground trace through its derived query predicate", "status": "ported", "go_targets": ["pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_test.go", "pkg/muz/fp/spacer_rule_lifecycle_test.go", "pkg/parsers/smt2/spacer_slice_trace_test.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_engine.go"], "tests": ["TestSpacerRelationQueryReversesMixedSortHead", "TestSMT2SpacerSlicesWithProofTrace", "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules"]},
+        {"name": "relation query creates a synthetic rule in the temporary preprocessing set, attaches its asserted proof when tracing, and routes answer, model and ground trace through its derived query predicate", "status": "ported", "go_targets": ["pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_test.go", "pkg/muz/fp/spacer_rule_lifecycle_test.go", "pkg/parsers/smt2/spacer_slice_trace_test.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_engine.go"], "tests": ["TestSpacerRelationQueryProofFollowsTraceSetting", "TestSpacerRelationQueryReversesMixedSortHead", "TestSMT2SpacerSlicesWithProofTrace", "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules"]},
         {
           "name": "dl_interface cover/level operations access the Spacer context before the first query; check_reset skips its comparison when the old rule set is empty, preserving supplied covers through first rule installation",
           "status": "ported",

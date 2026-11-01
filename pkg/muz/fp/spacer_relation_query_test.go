@@ -23,7 +23,7 @@ func TestSpacerRelationQueryReversesMixedSortHead(t *testing.T) {
 	relation, err := m.MkFuncDecl(name, []ast.ASTHandle{boolean, integer}, boolean, ast.ASTFuncDeclInfo{})
 	fragmentMust(t, err)
 	fragmentMust(t, e.RegisterPredicate(relation))
-	query, rule, err := e.makeSpacerRelationQuery(relation)
+	query, rule, err := e.makeSpacerRelationQuery(relation, false)
 	fragmentMust(t, err)
 	defer func() { fragmentMust(t, rule.Close()) }()
 	for i, want := range []ast.ASTHandle{integer, boolean} {
@@ -55,5 +55,41 @@ func TestSpacerRelationQueryReversesMixedSortHead(t *testing.T) {
 		if index != i {
 			t.Fatalf("tail variable %d has index %d", i, index)
 		}
+	}
+}
+
+func TestSpacerRelationQueryProofFollowsTraceSetting(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "disabled", true: "enabled"}[enabled], func(t *testing.T) {
+			f := newPDRLifecycleFixture(t)
+			mode, err := f.manager.ProofMode()
+			fragmentMust(t, err)
+			_, rule, err := f.engine.makeSpacerRelationQuery(f.declarations["p"], enabled)
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, rule.Close()) }()
+			proof, found, err := rule.Proof()
+			fragmentMust(t, err)
+			if found != enabled {
+				t.Fatal("query-rule proof presence", found, enabled)
+			}
+			if enabled {
+				formula, err := rule.ToFormula()
+				fragmentMust(t, err)
+				defer func() { fragmentMust(t, f.manager.DelRef(&formula)) }()
+				want, err := f.manager.RefGet(formula)
+				fragmentMust(t, err)
+				var fact ast.ASTHandle
+				asserted, err := f.manager.MatchProofAsserted(proof, &fact)
+				fragmentMust(t, err)
+				if !asserted || fact != want {
+					t.Fatal("query proof does not assert its rule")
+				}
+			}
+			after, err := f.manager.ProofMode()
+			fragmentMust(t, err)
+			if after != mode {
+				t.Fatal("query rule changed the manager proof mode")
+			}
+		})
 	}
 }

@@ -4,13 +4,15 @@ package fp
 // src/muz/base/dl_rule.cpp rule_manager::mk_query.
 
 import (
+	"errors"
+
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 // makeSpacerRelationQuery creates a local synthetic rule without changing the
 // persistent program. Its predicate remains registered for model filtering.
-func (e *PropositionalEngine) makeSpacerRelationQuery(declaration ast.ASTHandle) (ast.ASTHandle, *base.Rule, error) {
+func (e *PropositionalEngine) makeSpacerRelationQuery(declaration ast.ASTHandle, generateProof bool) (ast.ASTHandle, *base.Rule, error) {
 	arity, err := e.manager.GetArity(declaration)
 	if err != nil {
 		return ast.ASTHandle{}, nil, err
@@ -39,5 +41,13 @@ func (e *PropositionalEngine) makeSpacerRelationQuery(declaration ast.ASTHandle)
 	}
 	e.auxiliary[queryDeclaration] = true
 	rule, err := e.rules.NewRule(head, []ast.ASTHandle{query}, nil, "")
-	return queryDeclaration, rule, err
+	if err != nil {
+		return ast.ASTHandle{}, nil, err
+	}
+	if generateProof {
+		if err = e.rules.MkRuleAssertedProof(rule); err != nil {
+			return ast.ASTHandle{}, nil, errors.Join(err, rule.Close())
+		}
+	}
+	return queryDeclaration, rule, nil
 }
