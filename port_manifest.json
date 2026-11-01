@@ -126711,7 +126711,11 @@
         "TestOptimizationFrontendArguments",
         "TestOptimizationFrontendFileTypeDetection",
         "TestOPBFrontendUnsatObjectiveBounds",
-        "TestWCNFFrontendUnsatObjectiveBounds"
+        "TestWCNFFrontendUnsatObjectiveBounds",
+        "TestOPBFrontendUnknownObjectiveBounds",
+        "TestWCNFFrontendUnknownObjectiveBounds",
+        "TestOPBFrontendUnknownUsesAvailableBounds",
+        "TestWCNFFrontendUnknownUsesAvailableBounds"
       ],
       "assertions": [
         {
@@ -126744,7 +126748,7 @@
         "Frontends borrow the command context and output writer; the executable closes its owned context and input file."
       ],
       "deviations": [
-        "Pending native optimization frontend behavior for unknown bounds, signal/timeout and statistics formatting, and full source/ownership audit. Successful and initially unsatisfiable objective bounds use the native shell format."
+        "Unknown results display published objective bounds or the initial interval when bounds are unavailable; intermediate optimization bounds are not yet published in all cases. Signal/timeout handling, statistics formatting, and the full source/ownership audit remain pending."
       ]
     },
     {

@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -80,5 +81,49 @@ func TestWCNFFrontendUnsatObjectiveBounds(t *testing.T) {
 	}
 	if output.String() != "unsat\n  [0:5]\n" {
 		t.Fatalf("unsat bounds: %q", output.String())
+	}
+}
+
+func TestWCNFFrontendUnknownObjectiveBounds(t *testing.T) {
+	var output bytes.Buffer
+	c := wcnfFrontendContext(t)
+	f, err := NewWCNFFrontend(c, &output, WCNFFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := "p wcnf 1 3 10\n10 1 0\n2 -1 0\n3 1 0\n"
+	f.document, err = opt.ParseWCNF(strings.NewReader(input))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.summary, err = c.LoadWCNF(f.document); err != nil {
+		t.Fatal(err)
+	}
+	f.finished = true
+	if err = f.WriteResult(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unknown\n  [0:5]\n"; got != want {
+		t.Fatalf("unknown bounds = %q, want %q", got, want)
+	}
+}
+
+func TestWCNFFrontendUnknownUsesAvailableBounds(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewWCNFFrontend(wcnfFrontendContext(t), &output, WCNFFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := "p wcnf 1 3 10\n10 1 0\n2 -1 0\n3 1 0\n"
+	if err = f.Run(strings.NewReader(input)); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	f.status = lbool.Undef
+	if err = f.WriteResult(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unknown\n   2\n"; got != want {
+		t.Fatalf("unknown bounds = %q, want %q", got, want)
 	}
 }

@@ -24,12 +24,22 @@ func (f *OPBFrontend) WriteResult() error {
 			return err
 		}
 	}
-	if f.status == lbool.True && f.summary.Objectives != 0 {
+	valuesAvailable := f.status == lbool.True
+	if f.status == lbool.Undef && f.summary.Objectives != 0 {
+		valuesAvailable = true
+		for i := 0; i < f.summary.Objectives; i++ {
+			if _, err := f.context.ObjectiveBound(uint32(i), true); err != nil {
+				valuesAvailable = false
+				break
+			}
+		}
+	}
+	if valuesAvailable && f.summary.Objectives != 0 {
 		if err := f.context.WriteOptimizationFrontendValues(f.output); err != nil {
 			return err
 		}
 	}
-	if f.status == lbool.False {
+	if !valuesAvailable {
 		for i := 0; i < f.summary.Objectives; i++ {
 			if _, err := fmt.Fprintln(f.output, "  [(* (- 1) oo):oo]"); err != nil {
 				return err

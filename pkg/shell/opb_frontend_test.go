@@ -7,6 +7,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/cmd_context"
 	_ "github.com/glycerine/g3/pkg/engine"
+	"github.com/glycerine/g3/pkg/opt"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -72,6 +73,48 @@ func TestOPBFrontendUnsatObjectiveBounds(t *testing.T) {
 	}
 	if output.String() != "unsat\n  [(* (- 1) oo):oo]\n" {
 		t.Fatalf("unsat bounds: %q", output.String())
+	}
+}
+
+func TestOPBFrontendUnknownObjectiveBounds(t *testing.T) {
+	var output bytes.Buffer
+	c := opbFrontendContext(t)
+	f, err := NewOPBFrontend(c, &output, OPBFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := opt.ParseOPB(strings.NewReader("min: 2 x1; 1 x1 >= 1;"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.summary, err = c.LoadOPB(document); err != nil {
+		t.Fatal(err)
+	}
+	f.finished = true
+	if err = f.WriteResult(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unknown\n  [(* (- 1) oo):oo]\n"; got != want {
+		t.Fatalf("unknown bounds = %q, want %q", got, want)
+	}
+}
+
+func TestOPBFrontendUnknownUsesAvailableBounds(t *testing.T) {
+	var output bytes.Buffer
+	f, err := NewOPBFrontend(opbFrontendContext(t), &output, OPBFrontendOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Run(strings.NewReader("min: 2 x1; 1 x1 >= 1;")); err != nil {
+		t.Fatal(err)
+	}
+	output.Reset()
+	f.status = lbool.Undef
+	if err = f.WriteResult(); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := output.String(), "unknown\n   2\n"; got != want {
+		t.Fatalf("unknown bounds = %q, want %q", got, want)
 	}
 }
 

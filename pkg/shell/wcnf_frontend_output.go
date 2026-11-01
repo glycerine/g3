@@ -24,12 +24,17 @@ func (f *WCNFFrontend) WriteResult() error {
 			return e
 		}
 	}
-	if f.status == lbool.True && f.summary.SoftClauses > 0 {
+	valuesAvailable := f.status == lbool.True
+	if f.status == lbool.Undef && f.summary.SoftClauses > 0 {
+		_, err := f.context.ObjectiveBound(0, true)
+		valuesAvailable = err == nil
+	}
+	if valuesAvailable && f.summary.SoftClauses > 0 {
 		if e := f.context.WriteOptimizationFrontendValues(f.output); e != nil {
 			return e
 		}
 	}
-	if f.status == lbool.False && f.summary.SoftClauses > 0 {
+	if !valuesAvailable && f.summary.SoftClauses > 0 {
 		var upper big.Int
 		for _, clause := range f.document.Clauses {
 			if clause.Weight < f.document.TopWeight {
