@@ -92305,7 +92305,9 @@
         "pkg/muz/rel/finite_interval_product_conversion.go",
         "pkg/muz/rel/finite_interval_product_conversion_test.go",
         "pkg/muz/rel/finite_sparse_product.go",
-        "pkg/muz/rel/finite_sparse_product_test.go"
+        "pkg/muz/rel/finite_sparse_product_test.go",
+        "pkg/muz/rel/finite_sparse_product_interpreted.go",
+        "pkg/muz/rel/finite_sparse_product_interpreted_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership", "TestFiniteExplanationProductUnionAndDelta", "TestFiniteExplanationProductProjectCollisions", "TestFiniteExplanationProductJoinRows", "TestFiniteExplanationProductRenameFinite", "TestFiniteExplanationProductFiniteFilters", "TestFiniteExplanationProductNegationFilter",
@@ -92866,7 +92868,9 @@
         "pkg/muz/rel/finite_interval_product_conversion.go",
         "pkg/muz/rel/finite_interval_product_conversion_test.go",
         "pkg/muz/rel/finite_sparse_product.go",
-        "pkg/muz/rel/finite_sparse_product_test.go"
+        "pkg/muz/rel/finite_sparse_product_test.go",
+        "pkg/muz/rel/finite_sparse_product_interpreted.go",
+        "pkg/muz/rel/finite_sparse_product_interpreted_test.go"
       ],
       "tests": [
         "TestFiniteExplanationProductFactsAndOwnership",
@@ -92898,7 +92902,9 @@
         "TestFiniteSparseProductProjectMergesRows",
         "TestFiniteSparseProductJoinAcrossPartitions",
         "TestFiniteSparseProductEqualityFilters",
-        "TestFiniteSparseProductNegationFilterAcrossPartitions"
+        "TestFiniteSparseProductNegationFilterAcrossPartitions",
+        "TestFiniteSparseProductInterpretedFilterSourceCondition",
+        "TestFiniteSparseProductResetRecyclesIndexes"
       ],
       "conditionals": [
         {

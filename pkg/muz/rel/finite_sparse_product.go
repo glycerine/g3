@@ -84,6 +84,26 @@ func (p *FiniteSparseProduct) Close() error {
 	return err
 }
 
+// Reset clears all rows and recycles each allocated inner-relation index.
+func (p *FiniteSparseProduct) Reset() error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := p.table.Reset(); err != nil {
+		return err
+	}
+	var resultErr error
+	for index, inner := range p.inner {
+		if inner == nil {
+			continue
+		}
+		resultErr = errors.Join(resultErr, inner.Close())
+		p.inner[index] = nil
+		p.available = append(p.available, index)
+	}
+	return resultErr
+}
+
 func (p *FiniteSparseProduct) split(values []ast.ASTHandle) (Fact, Fact, error) {
 	if err := p.open(); err != nil {
 		return nil, nil, err
