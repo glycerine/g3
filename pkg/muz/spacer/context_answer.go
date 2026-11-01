@@ -273,6 +273,10 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 		}
 	}
 
+	if err = c.traceGroundCounterexample(counterexample); err != nil {
+		return ast.ASTRef{}, err
+	}
+
 	handles := make([]ast.ASTHandle, len(counterexample))
 	for index := range counterexample {
 		handles[index], err = c.manager.RefGet(counterexample[index])

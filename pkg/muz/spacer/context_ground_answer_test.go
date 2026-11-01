@@ -3,11 +3,14 @@ package spacer
 // Source: src/muz/spacer/spacer_context.cpp context::get_ground_sat_answer.
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -22,7 +25,21 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 		{"multiple-leaf-rule-tags", true, true, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			m, globals := newSpacerTestServices(t)
+			baseManager, globals := newSpacerTestServices(t)
+			var output bytes.Buffer
+			tags := diagnostic.NewTraceTagsWithWriter(&output)
+			m, err := ast.NewASTManager(ast.ASTManagerConfig{
+				Symbols: baseManager.Symbols, Numerals: baseManager.NumeralService(), Budget: baseManager.Budget(), TraceTags: tags,
+				Params: globals.Context, Globals: globals,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() {
+				if err := m.Close(); err != nil {
+					t.Error(err)
+				}
+			}()
 			must := func(err error) {
 				t.Helper()
 				if err != nil {
@@ -130,6 +147,7 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 					}
 				}
 			}
+			tags.Enable("spacer")
 			answer, err := ctx.GroundSatAnswer(queryDecl)
 			must(err)
 			defer func() { must(m.DelRef(&answer)) }()
@@ -137,6 +155,15 @@ func TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments(t *testing.T
 			must(err)
 			count, err := m.GetNumArgs(h)
 			must(err)
+			if tags.ShouldTrace("spacer") {
+				want := "ground cex\nground-answer-root\n"
+				if tc.branches {
+					want += "ground-answer-left\nground-answer-right\n(ground-answer-leaf true)\n(ground-answer-leaf false)\n"
+				}
+				if !strings.Contains(output.String(), want) {
+					t.Fatal("ground counterexample trace order", output.String())
+				}
+			}
 			if tc.branches {
 				if int(count) != len(expectedBranch) {
 					t.Fatal("branching answer length", count)

@@ -97540,7 +97540,7 @@
           ]
         },
         {
-          "name": "bounded proof-obligation search with Luby lemma restarts, configurable ground-CTI derivation projection, parameterized concrete reach-fact projection, and preorder ground satisfying-answer reconstruction",
+          "name": "bounded proof-obligation search with Luby lemma restarts, configurable ground-CTI derivation projection, parameterized concrete reach-fact projection, and preorder ground satisfying-answer reconstruction with source ground-counterexample TRACE output",
           "status": "partial",
           "go_target": "pkg/muz/spacer/context_answer.go",
           "tests": [
