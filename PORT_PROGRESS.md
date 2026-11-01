@@ -52648,3 +52648,5 @@ SLS random reseeding: changing the seed now preserves unused bits already buffer
 SLS statistics and restart state: the source never increments the four move-type counters, and stats::reset clears only full evaluations, incremental evaluations and flip count while preserving the move and restart counts used by search. The engine and tactic wrapper now match that behavior; regressions cover a real successful flip and both reset entry points.
 
 SLS interrupted score accounting: non-pruned and serious score updates now increment their evaluation counter after a successful evaluator update, while pruned updates increment before it as in the source. A big bit-vector allocation-refusal test distinguishes the three paths.
+
+SLS candidate restoration: candidate probes choose the pruned or ordinary score path, while restoration after each candidate always uses the ordinary update as in the source. A regression exercises restoration with pruning enabled; the evaluator's full source pruning traversal remains partial.

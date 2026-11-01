@@ -297,6 +297,8 @@ func TestSLSEngineScoreCounterFailureOrder(t *testing.T) {
 			manager.Budget().FailAfter(0)
 			if mode == "serious" {
 				_, err = engine.seriousScore(decl, &candidate)
+			} else if mode == "pruned" {
+				_, err = engine.incrementalScorePrune(decl, &candidate)
 			} else {
 				_, err = engine.incrementalScore(decl, &candidate)
 			}
@@ -312,6 +314,34 @@ func TestSLSEngineScoreCounterFailureOrder(t *testing.T) {
 				t.Fatalf("%s evaluations = %d, want %d", mode, got, want)
 			}
 		})
+	}
+}
+
+func TestSLSEngineRestorationUsesUnprunedScore(t *testing.T) {
+	engine, search, _, _, manager, _ := slsEngineFixture(t)
+	p := slsBoolConst(t, manager, "sls-unpruned-restore")
+	slsPin(t, manager, p)
+	if err := engine.AssertExpression(p); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Initialize([]ast.ASTHandle{p}); err != nil {
+		t.Fatal(err)
+	}
+	if err := search.Reset(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := engine.Rescore(); err != nil {
+		t.Fatal(err)
+	}
+	decl, err := manager.GetDecl(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine.earlyPrune = true
+	zero := numeral.NewInt(0)
+	score, err := engine.incrementalScore(decl, &zero)
+	if err != nil || score != 0 {
+		t.Fatal("source restoration must use the full score", score, err)
 	}
 }
 

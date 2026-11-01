@@ -271,20 +271,21 @@ func (e *Engine) Rescore() (float64, error) {
 }
 
 func (e *Engine) incrementalScore(decl ast.ASTHandle, value *numeral.Int) (float64, error) {
-	if e.earlyPrune {
-		e.stats.IncrementalEvaluations++
-		benefit, err := e.evaluator.UpdatePrune(e.search, decl, value)
-		if err != nil {
-			return 0, err
-		}
-		if !benefit {
-			return -math.MaxFloat64, nil
-		}
-	} else {
-		if err := e.evaluator.UpdateConstant(e.search, decl, value); err != nil {
-			return 0, err
-		}
-		e.stats.IncrementalEvaluations++
+	if err := e.evaluator.UpdateConstant(e.search, decl, value); err != nil {
+		return 0, err
+	}
+	e.stats.IncrementalEvaluations++
+	return e.tracker.TopSum()
+}
+
+func (e *Engine) incrementalScorePrune(decl ast.ASTHandle, value *numeral.Int) (float64, error) {
+	e.stats.IncrementalEvaluations++
+	benefit, err := e.evaluator.UpdatePrune(e.search, decl, value)
+	if err != nil {
+		return 0, err
+	}
+	if !benefit {
+		return -math.MaxFloat64, nil
 	}
 	return e.tracker.TopSum()
 }
@@ -298,7 +299,13 @@ func (e *Engine) seriousScore(decl ast.ASTHandle, value *numeral.Int) (float64, 
 }
 
 func (e *Engine) whatIf(decl ast.ASTHandle, index uint32, candidate *numeral.Int, bestScore *float64, bestIndex *uint32, bestValue *numeral.Int) (bool, error) {
-	score, err := e.incrementalScore(decl, candidate)
+	var score float64
+	var err error
+	if e.earlyPrune {
+		score, err = e.incrementalScorePrune(decl, candidate)
+	} else {
+		score, err = e.incrementalScore(decl, candidate)
+	}
 	if err != nil {
 		return false, err
 	}
