@@ -94969,8 +94969,14 @@
           "name": "Concrete default finite-table equality and identical-column mutators (dl_relation_manager.cpp:1276-1310,1350-1380)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
+          "go_targets": [
+            "pkg/muz/rel/sparse_table_filters.go",
+            "pkg/muz/rel/sparse_table_filters_test.go"
+          ],
           "tests": [
-            "TestHashTableFiniteFiltersValidateAndMutate"
+            "TestHashTableFiniteFiltersValidateAndMutate",
+            "TestSparseTableDefaultEqualFilterHandlesFunctionalSuffix",
+            "TestSparseTableDefaultIdenticalFilterAndValidation"
           ]
         },
         {
