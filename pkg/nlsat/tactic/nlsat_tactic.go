@@ -297,6 +297,9 @@ func (t *NLSATTactic) Apply(goal *basetactic.Goal, result *basetactic.TacticResu
 		Trace:         t.services.Trace,
 	})
 	if err != nil {
+		if polynomials != nil {
+			err = errors.Join(err, polynomials.CloseChecked())
+		}
 		return errors.Join(err, primes.Close())
 	}
 	var solver *nlsat.Solver
