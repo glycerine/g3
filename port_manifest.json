@@ -219512,8 +219512,20 @@
           ]
         },
         {
-          "name": "SMT arithmetic theory variable, quantified-instance priority and difference-logic variable/DFS heaps (theory_arith.h:395; smt_quantifier_instances.h:57; diff_logic.h:201,1396)",
-          "status": "unported"
+          "name": "SMT arithmetic theory variable heap concrete uint32 specialization (theory_arith.h:395)",
+          "status": "platform_replacement",
+          "go_target": "pkg/math/simplex/variable_heap.go",
+          "tests": ["TestSimplexVariableHeapSourceShapeAndIndexedErase", "TestArithmeticPivotStrictErrorAndStalePatch"]
+        },
+        {
+          "name": "quantifier_instances priority heap has no retained source consumer",
+          "status": "dead_deleted"
+        },
+        {
+          "name": "difference-logic gamma-priority variable and DFS heaps (diff_logic.h:201,1396)",
+          "status": "platform_replacement",
+          "go_targets": ["pkg/smtcore/smt_diff_graph_rational.go", "pkg/smtcore/smt_diff_graph_inf_rational.go", "pkg/smtcore/smt_diff_graph_inf_zero.go"],
+          "tests": ["TestSMTRationalDiffHeapDecreaseAndReset", "TestSMTInfRationalDiffHeapDecreaseAndReset", "TestSMTRationalDiffGraphFeasibleActivationAndAssignment", "TestSMTInfRationalDiffGraphStrictNegativeCycle", "TestSMTInfRationalTightEdgeComponentsPathsAndUpdates"]
         },
         {
           "name": "Hilbert basis passive and passive2 weight heaps (hilbert_basis.cpp:389,508)",
