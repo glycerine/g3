@@ -116626,7 +116626,7 @@
       "path": "src/sat/sat_clause.cpp",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_clause_storage.go",
         "pkg/sat/sat_clause_large.go"
@@ -116789,8 +116789,8 @@
           "text": "SASSERT(!learned || cls->is_learned());"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "Reached clause-allocator allocation and pre-ID-recycle deletion TRACE sites at sat_clause.cpp:203,209",
@@ -116800,7 +116800,7 @@
         },
         {
           "name": "normal/temporary clause construction, extent allocation, ID recycle-before-delete and exact temporary reuse/destroy-before-grow",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/sat/sat_clause_storage.go",
           "tests": [
             "TestSATClauseSetNativeCollections",
@@ -116822,9 +116822,14 @@
           ]
         },
         {
-          "name": "whole runtime conditional debug-tag policy and remaining consumer integration",
-          "status": "unported",
-          "tests": []
+          "name": "whole runtime conditional debug-tag and TRACE policy plus native consumer display integration",
+          "status": "ported",
+          "go_target": "pkg/sat/sat_storage_debug.go",
+          "tests": [
+            "TestSATClauseSourceLifecycleFlagsAndApprox",
+            "TestSATClauseAllocatorSourceAllocationAndDeletionTraces",
+            "TestSATSolverInspectionExactSourceDisplays"
+          ]
         }
       ],
       "ownership": [
@@ -116838,7 +116843,7 @@
       "path": "src/sat/sat_clause.h",
       "component": "sat",
       "role": "production",
-      "status": "partial",
+      "status": "ported",
       "go_targets": [
         "pkg/sat/sat_clause_storage.go",
         "pkg/sat/sat_clause_large.go",
@@ -116947,12 +116952,12 @@
           "text": "clause * get_clause() const { SASSERT(!is_binary()); return m_cls; }"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
+      "methods_audited": true,
+      "ownership_audited": true,
       "methods": [
         {
           "name": "clause flags/literals/approximation/elimination/display, binary/wrapper records, actual clause allocation and temporary-clause lifecycle",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/sat/sat_clause_storage.go",
           "tests": [
             "TestSATClauseSetNativeCollections",
@@ -116975,9 +116980,14 @@
           ]
         },
         {
-          "name": "whole runtime conditional debug-tag/TRACE policy and remaining consumer integration",
-          "status": "unported",
-          "tests": []
+          "name": "whole runtime conditional debug-tag and TRACE policy plus native consumer display integration",
+          "status": "ported",
+          "go_target": "pkg/sat/sat_storage_debug.go",
+          "tests": [
+            "TestSATClauseSourceLifecycleFlagsAndApprox",
+            "TestSATClauseAllocatorSourceAllocationAndDeletionTraces",
+            "TestSATSolverInspectionExactSourceDisplays"
+          ]
         },
         {
           "name": "Selected actual Runtime literal-span placement construction preserves header/ID before reached literal copy and retained constructor-read failure candidate",
