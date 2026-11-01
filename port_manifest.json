@@ -90693,7 +90693,7 @@
           "name": "real comparison coefficient normalization, shared application and quantifier-body traversal, owning reference publication, scoped no-proof mode and cancellation retry exercised by the arithmetic-rewriter source driver",
           "status": "ported",
           "go_target": "pkg/muz/pdr/arith_normalize.go",
-          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestNormalizeArithmeticRefCancellationPreservesInputAndRetry", "TestArithmeticRewriterSourceExamples"]
+          "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestNormalizeArithmeticRefCancellationPreservesInputAndRetry", "TestArithmeticNormalizationDiscardsTemporariesUnderRefusedBudget", "TestArithmeticRewriterSourceExamples"]
         },
         {
           "name": "remaining diagnostic cube formatting and arithmetic normalization helpers",
