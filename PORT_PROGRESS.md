@@ -52862,3 +52862,5 @@ Interval formula interface closure (2026-11-01 UTC): confirmed the header's `to_
 Sparse table functional metadata and key lookup (2026-11-01 UTC): verified the functional suffix boundary, exact fetch behavior, suggest/ensure preservation of physical row order, and rejection of mismatched metadata by consumers. Four focused regressions pass normally and with `g3checked`; marked the bounded header method ported.
 
 Interval/bound aligned union (2026-11-01 UTC): matched source union and widening for the two registered components, which do not offer mutual cross-component unions and therefore skip side intersections. Tests cover accumulated deltas, empty source, widening, arity mismatch and alias rejection; focused normal and `g3checked` tests pass.
+
+Concrete interval/bound product operations (2026-11-01 UTC): verified facts, component filters, formula composition, join, projection and rename for the registered pair. Product/empty-product formula behavior passes source regressions; focused normal and `g3checked` tests pass. Broader component combinations and manager registration remain open.

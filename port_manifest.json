@@ -94460,11 +94460,12 @@
       "methods": [
         {
           "name": "concrete interval/bound product facts, filters, formulas and transforms",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_bound_product.go",
           "tests": [
             "TestIntervalBoundProductFiltersAndTransforms",
-            "TestIntervalBoundProductFactsAndEmpty"
+            "TestIntervalBoundProductFactsAndEmpty",
+            "TestEmptyRelationFormulaSourceSemantics"
           ]
         },
         {
@@ -94516,11 +94517,12 @@
       "methods": [
         {
           "name": "concrete interval/bound product facts, filters, formulas and transforms",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/interval_bound_product.go",
           "tests": [
             "TestIntervalBoundProductFiltersAndTransforms",
-            "TestIntervalBoundProductFactsAndEmpty"
+            "TestIntervalBoundProductFactsAndEmpty",
+            "TestEmptyRelationFormulaSourceSemantics"
           ]
         },
         {
