@@ -126,14 +126,6 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err != nil {
 		return lbool.Undef, err
 	}
-	printAnswer, err := view.Bool("print_answer", false)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	printCertificate, err := view.Bool("print_certificate", false)
-	if err != nil {
-		return lbool.Undef, err
-	}
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
@@ -166,10 +158,10 @@ func (e *PropositionalEngine) queryBMCPredicateWithSliceProof(declaration ast.AS
 	if err != nil {
 		return lbool.Undef, err
 	}
-	// Nonlinear reconstruction requires rule proofs. Rebuild only when a
-	// requested answer needs them and ordinary preprocessing stayed nonlinear;
-	// this preserves the source's default linear certificate path.
-	if !linear && !proofTrace && !e.forceProofTrace && (printAnswer || printCertificate) {
+	// Nonlinear answers require rule proofs even when the caller asks for
+	// them only after the query. Rebuild nonlinear preprocessing with proofs;
+	// ordinary linear queries keep their existing certificate path.
+	if !linear && !proofTrace && !e.forceProofTrace {
 		if err = preprocessed.Close(); err != nil {
 			return lbool.Undef, err
 		}

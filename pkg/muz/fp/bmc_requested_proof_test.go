@@ -9,11 +9,18 @@ import (
 )
 
 func TestBMCRequestedNonlinearProofWithoutGlobalTracing(t *testing.T) {
-	for _, backend := range []string{"bmc", "qbmc"} {
-		t.Run(backend, func(t *testing.T) {
+	for _, test := range []struct {
+		backend string
+		request bool
+	}{{"bmc", true}, {"bmc", false}, {"qbmc", true}, {"qbmc", false}} {
+		name := test.backend + "/explicit"
+		if !test.request {
+			name = test.backend + "/post-query-answer"
+		}
+		t.Run(name, func(t *testing.T) {
 			f := newPDRLifecycleFixture(t)
 			e, m := f.engine, f.manager
-			fragmentMust(t, e.SelectEngine(backend))
+			fragmentMust(t, e.SelectEngine(test.backend))
 			body, err := m.MkAnd(f.applications["p"], f.applications["q"])
 			fragmentMust(t, err)
 			rule, err := m.MkImplies(body, f.applications["u"])
@@ -23,7 +30,7 @@ func TestBMCRequestedNonlinearProofWithoutGlobalTracing(t *testing.T) {
 			fragmentMust(t, err)
 			defer func() { fragmentMust(t, e.params.Del(&params)) }()
 			for key, enabled := range map[string]bool{
-				"print_certificate":         true,
+				"print_certificate":         test.request,
 				"xform.inline_eager":        false,
 				"xform.inline_linear":       false,
 				"xform.subsumption_checker": false,
@@ -40,7 +47,10 @@ func TestBMCRequestedNonlinearProofWithoutGlobalTracing(t *testing.T) {
 			if e.forceProofTrace || e.queryClone == nil || e.queryClone.forceProofTrace {
 				t.Fatal("temporary proof setting escaped the query")
 			}
-			proof, err := m.RefGet(e.bmcProof)
+			answer, err := e.Answer(f.declarations["u"])
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, m.DelRef(&answer)) }()
+			proof, err := m.RefGet(answer)
 			fragmentMust(t, err)
 			fact, err := m.GetProofFact(proof)
 			fragmentMust(t, err)

@@ -77,6 +77,46 @@ func TestAPIFixedpointExpressionAnswerUnreachableBackends(t *testing.T) {
 	}
 }
 
+func TestAPIFixedpointNonlinearBMCAnswersWithoutProofOption(t *testing.T) {
+	for _, backend := range []string{"bmc", "qbmc"} {
+		t.Run(backend, func(t *testing.T) {
+			f := newAPIFixedpointFixture(t)
+			astTestMust(t, f.c.SetFixedpointEngine(backend))
+			for _, name := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear", "fixedpoint.xform.subsumption_checker"} {
+				astTestMust(t, f.c.SetBoolOption(name, false))
+			}
+			astTestMust(t, f.fp.AddFact(f.p, nil))
+			astTestMust(t, f.fp.AddFact(f.q, nil))
+			query := f.pin(f.m.MkAndArgs([]ast.ASTHandle{f.pAtom, f.qAtom}))
+			rule := f.pin(f.m.MkImplies(query, f.uAtom))
+			astTestMust(t, f.fp.AddRule(rule, "nonlinear"))
+			status, err := f.fp.QueryExpression(query)
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("expression query", status)
+			}
+			first, err := f.fp.LastAnswer()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, f.m.DelRef(&first)) }()
+			status, err = f.fp.Query(f.u)
+			astTestMust(t, err)
+			if status != lbool.True {
+				t.Fatal("relation query", status)
+			}
+			second, err := f.fp.LastAnswer()
+			astTestMust(t, err)
+			defer func() { astTestMust(t, f.m.DelRef(&second)) }()
+			for _, ref := range []ast.ASTRef{first, second} {
+				proof, err := f.m.RefGet(ref)
+				astTestMust(t, err)
+				if _, err = f.m.GetProofFact(proof); err != nil {
+					t.Fatal("answer is not an owned proof", err)
+				}
+			}
+		})
+	}
+}
+
 func TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace(t *testing.T) {
 	f := newAPIFixedpointFixture(t)
 	astTestMust(t, f.c.SetFixedpointEngine("spacer"))
