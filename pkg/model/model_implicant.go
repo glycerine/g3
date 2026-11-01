@@ -141,11 +141,19 @@ func (i *ModelImplicant) setupModel(md *Model) error {
 		if err != nil {
 			return err
 		}
+		// Reserve ownership before creating a potentially new constant. If
+		// reference-arena growth fails after MkApp, the unpublished node
+		// would otherwise have no owner for reset to release.
+		slot, err := i.manager.NewRef(ast.ASTHandle{})
+		if err != nil {
+			return err
+		}
+		i.refs = append(i.refs, slot)
 		constant, err := i.manager.MkApp(decl, nil)
 		if err != nil {
 			return err
 		}
-		if err = i.pin(constant); err != nil {
+		if err = i.manager.SetRef(slot, constant); err != nil {
 			return err
 		}
 		if err = i.assignValue(constant, value); err != nil {
