@@ -107,6 +107,28 @@ func TestSMTLibRunnerQENestedModuloProjection(t *testing.T) {
 	}
 }
 
+func TestSMTLibRunnerQEArrayEquations(t *testing.T) {
+	script := `(set-logic ALL)
+(declare-const B (Array Int Int))
+(declare-const i Int)
+(declare-const v Int)
+(assert (exists ((A (Array Int Int))) (and (= A B) (= (select A i) v))))
+(push)
+(assert (not (= (select B i) v)))
+(check-sat-using (then qe smt))
+(pop)
+(assert (= (select B i) v))
+(check-sat-using (then qe smt))
+`
+	var out bytes.Buffer
+	if err := run(strings.NewReader(script), &out); err != nil {
+		t.Fatal(err, out.String())
+	}
+	if got := strings.Join(strings.Fields(out.String()), " "); got != "unsat sat" {
+		t.Fatalf("array QE result: %s", got)
+	}
+}
+
 func TestSMTLibRunnerBooleanQETactic(t *testing.T) {
 	script := `(set-option :produce-models true)
 (declare-const r Bool)

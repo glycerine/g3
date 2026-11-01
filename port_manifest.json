@@ -110753,6 +110753,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_equations.go",
+        "pkg/qe/quantifier_tactic_array_equations_test.go",
         "pkg/qe/qe_nnf_adapter_mutation_test.go",
         "pkg/qe/expr_quantifier_datatype_branch_test.go",
         "pkg/qe/expr_quantifier_datalog_branch_test.go",
@@ -110858,6 +110860,7 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestQuantifierArrayEquationsProjection",
         "TestExprQEDatatypeSearchWithBothEqualityPolarities",
         "TestExprQENestedModuloProjection",
         "TestExprQEArithmeticSearchWithBoundedCooperResidue",
@@ -111917,6 +111920,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_equations.go",
+        "pkg/qe/quantifier_tactic_array_equations_test.go",
+        "pkg/cmd/g3/qe_boolean_integration_test.go",
         "pkg/qe/qe_array_plugin.go",
         "pkg/qe/qe_array_plugin_direct.go",
         "pkg/qe/qe_array_plugin_test.go",
@@ -111935,6 +111941,8 @@
         "pkg/qe/solver_context_owned_variable_test.go"
       ],
       "tests": [
+        "TestQuantifierArrayEquationsProjection",
+        "TestSMTLibRunnerQEArrayEquations",
         "TestArrayPluginRecognizesSafeStoreAndSelectChains",
         "TestArrayPluginEliminatesDirectEqualityInEitherOrientation",
         "TestArrayPluginSelectEqualityIntroducesFreshArray",
@@ -114576,6 +114584,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/quantifier_tactic_array_equations.go",
+        "pkg/qe/quantifier_tactic_array_equations_test.go",
         "pkg/qe/quantifier_context_translation.go",
         "pkg/qe/quantifier_context_translation_test.go",
         "pkg/api/api_simple_solver_translate_test.go",
@@ -114601,6 +114611,8 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestQuantifierArrayEquationsProjection",
+        "TestSMTLibRunnerQEArrayEquations",
         "TestQuantifierContextTranslationCopiesParametersAndOptions",
         "TestQuantifierContextTranslationAllocationFrontiers",
         "TestAPITacticSolverTranslateQEAfterSourceClose",

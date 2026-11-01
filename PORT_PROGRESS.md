@@ -1,3 +1,5 @@
+General QE now invokes the array equation plugin for array-only quantifiers, including direct array equality and single-select elimination. Two selects at symbolic indices still require conditional projection; solver-equivalence and SMT-LIB tests cover the supported cases.
+
 QE-SAT, QSAT and nonlinear QSAT tactics now translate into target-owned contexts, preserving their source-specific defaults, modes and parameter snapshots. Allocation and SAT/UNSAT model tests cover all registered tactic variants.
 
 The general QE tactic now translates into target-owned services with its parameter snapshot. Direct allocation tests and SAT/UNSAT solver tests cover use after source closure.
