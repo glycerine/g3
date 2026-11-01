@@ -4,6 +4,8 @@ package rel
 // instantiation of dl_vector_relation.h.
 
 import (
+	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -29,6 +31,50 @@ func (r *IntervalRelation) Clone() (*IntervalRelation, error) {
 		return nil, ast.ErrASTDomain
 	}
 	return cloneIntervalRelation(r), nil
+}
+
+// Display writes the source vector_relation diagnostic format.
+func (r *IntervalRelation) Display(out io.Writer) error {
+	if r == nil || r.values == nil || out == nil {
+		return ast.ErrASTDomain
+	}
+	if r.Empty() {
+		_, err := fmt.Fprintln(out, "empty")
+		return err
+	}
+	for i := range r.values.columns {
+		root := r.values.find(uint32(i))
+		if i != int(root) {
+			if _, err := fmt.Fprintf(out, "%d = %d ", i, root); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err := fmt.Fprintf(out, "%d in %s\n", i, intervalRelationString(r.values.columns[i])); err != nil {
+			return err
+		}
+	}
+	_, err := fmt.Fprintln(out)
+	return err
+}
+
+func intervalRelationString(value smtcore.RelationInterval) string {
+	lower, lowerOpen, upper, upperOpen := value.Bounds()
+	left, right := "[", "]"
+	if lowerOpen {
+		left = "("
+	}
+	if upperOpen {
+		right = ")"
+	}
+	lowerText, upperText := "-oo", "oo"
+	if lower != nil {
+		lowerText = lower.RatString()
+	}
+	if upper != nil {
+		upperText = upper.RatString()
+	}
+	return left + lowerText + ", " + upperText + right
 }
 
 // Bounds returns copies of the column's endpoints; nil denotes infinity.

@@ -93234,6 +93234,7 @@
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
         "TestIntervalRelationCloneMatchesSourceCopy",
+        "TestIntervalRelationDisplaySourceFormat",
         "TestIntervalVectorRenameEquivalences",
         "TestIntervalRelationToFormula",
         "TestEmptyRelationsExportFalse"
@@ -93323,6 +93324,12 @@
           "status": "ported",
           "go_target": "pkg/muz/rel/interval_relation.go",
           "tests": ["TestIntervalRelationCloneMatchesSourceCopy"]
+        },
+        {
+          "name": "interval relation source diagnostic display",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/interval_relation.go",
+          "tests": ["TestIntervalRelationDisplaySourceFormat"]
         }
       ],
       "ownership": [

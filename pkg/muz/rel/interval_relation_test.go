@@ -1,11 +1,17 @@
 package rel_test
 
 import (
+	"bytes"
+	"errors"
 	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
+
+type intervalRelationRefusingWriter struct{ err error }
+
+func (w intervalRelationRefusingWriter) Write([]byte) (int, error) { return 0, w.err }
 
 func TestIntervalRelationFactAndJoin(t *testing.T) {
 	n := func(v int64) *big.Rat { return big.NewRat(v, 1) }
@@ -145,5 +151,46 @@ func TestIntervalRelationCloneMatchesSourceCopy(t *testing.T) {
 	}
 	if _, err := (*rel.IntervalRelation)(nil).Clone(); err == nil {
 		t.Fatal("nil relation clone accepted")
+	}
+}
+
+func TestIntervalRelationDisplaySourceFormat(t *testing.T) {
+	var output bytes.Buffer
+	full := rel.NewIntervalFull(3)
+	if err := full.Display(&output); err != nil {
+		t.Fatal(err)
+	}
+	const fullWant = "0 in (-oo, oo)\n1 in (-oo, oo)\n2 in (-oo, oo)\n\n"
+	if output.String() != fullWant {
+		t.Fatalf("full display: got %q, want %q", output.String(), fullWant)
+	}
+
+	output.Reset()
+	if err := rel.NewIntervalEmpty(2).Display(&output); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "empty\n" {
+		t.Fatalf("empty display: %q", output.String())
+	}
+
+	output.Reset()
+	joined := rel.NewIntervalFull(2)
+	if err := joined.FilterIdentical(0, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := joined.Display(&output); err != nil {
+		t.Fatal(err)
+	}
+	const joinedWant = "0 = 1 1 in (-oo, oo)\n\n"
+	if output.String() != joinedWant {
+		t.Fatalf("equality-class display: got %q, want %q", output.String(), joinedWant)
+	}
+
+	refusal := errors.New("refused")
+	if err := full.Display(intervalRelationRefusingWriter{refusal}); !errors.Is(err, refusal) {
+		t.Fatalf("writer error: %v", err)
+	}
+	if err := full.Display(nil); err == nil {
+		t.Fatal("nil writer accepted")
 	}
 }
