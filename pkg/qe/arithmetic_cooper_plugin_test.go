@@ -116,3 +116,77 @@ func TestArithmeticCooperNestedModuloRoutesResidues(t *testing.T) {
 		t.Fatal("nested residue bit-vector widths", fresh)
 	}
 }
+
+func TestArithmeticCooperCachedBranchReusesFreshVariables(t *testing.T) {
+	for _, nested := range []bool{false, true} {
+		name := "direct"
+		if nested {
+			name = "nested"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := newArithmeticPluginFixture(t, false)
+			two := f.integerNumeral(t, "2")
+			five := f.integerNumeral(t, "5")
+			term := f.pin(f.manager.MkArithmeticAdd(f.pin(f.manager.MkArithmeticMul(two, f.x)), f.y))
+			mod := arithmeticQEMod(t, f.arithmeticQEFixture, term, five)
+			other := f.integerNumeral(t, "0")
+			if nested {
+				other = f.integerNumeral(t, "1")
+			}
+			formula := f.pin(f.manager.MkEq(mod, other))
+			ok, err := f.plugin.Prepare(f.contains, formula, []ast.ASTHandle{formula}, nil)
+			pluginMust(t, err)
+			if !ok {
+				t.Fatal("Cooper formula rejected")
+			}
+			first := assignArithmeticInfinity(t, f, formula)
+			defer func() { pluginMust(t, f.manager.DelRef(&first)) }()
+			before, err := f.manager.RefGet(first)
+			pluginMust(t, err)
+			owners, err := f.plugin.TakeFreshVariables()
+			pluginMust(t, err)
+			if len(owners) == 0 {
+				t.Fatal("missing fresh variables")
+			}
+			variables := make([]ast.ASTHandle, len(owners))
+			for i := range owners {
+				variables[i], err = f.manager.RefGet(owners[i])
+				pluginMust(t, err)
+				pluginMust(t, f.manager.DelRef(&owners[i]))
+			}
+			constraints, err := f.plugin.TakeConstraints()
+			pluginMust(t, err)
+			if len(constraints) == 0 {
+				t.Fatal("first assignment emitted no constraints")
+			}
+			for i := range constraints {
+				pluginMust(t, f.manager.DelRef(&constraints[i].Formula))
+			}
+			second := assignArithmeticInfinity(t, f, formula)
+			defer func() { pluginMust(t, f.manager.DelRef(&second)) }()
+			after, err := f.manager.RefGet(second)
+			pluginMust(t, err)
+			if before != after {
+				t.Fatal("cached branch formula was reconstructed")
+			}
+			owners, err = f.plugin.TakeFreshVariables()
+			pluginMust(t, err)
+			if len(owners) != len(variables) {
+				t.Fatal("cached fresh variable count", len(owners))
+			}
+			for i := range owners {
+				h, e := f.manager.RefGet(owners[i])
+				pluginMust(t, e)
+				if h != variables[i] {
+					t.Fatal("cached assignment changed a fresh variable")
+				}
+				pluginMust(t, f.manager.DelRef(&owners[i]))
+			}
+			constraints, err = f.plugin.TakeConstraints()
+			pluginMust(t, err)
+			if len(constraints) != 0 {
+				t.Fatal("cached assignment re-emitted constraints")
+			}
+		})
+	}
+}

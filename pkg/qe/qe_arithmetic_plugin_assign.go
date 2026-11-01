@@ -23,6 +23,11 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 	if err != nil {
 		return err
 	}
+	key := ArithmeticBranchKey{Formula: formula, Variable: target, Branch: branchNumber}
+	if cached := p.branches[key]; cached != nil {
+		return p.replayBranch(cached)
+	}
+	freshStart := len(p.pendingFresh)
 	v := new(big.Rat).SetInt64(int64(branchNumber))
 	selection, err := p.SelectBranch(variable, formula, v)
 	if err != nil {
@@ -57,6 +62,5 @@ func (p *ArithmeticPlugin) Assign(variable *ast.ContainsApp, formula ast.ASTHand
 	if err != nil {
 		return err
 	}
-	key := ArithmeticBranchKey{Formula: formula, Variable: target, Branch: branchNumber}
-	return p.storeBranch(key, result, definition, selection)
+	return p.storeBranch(key, result, definition, selection, p.pendingFresh[freshStart:])
 }

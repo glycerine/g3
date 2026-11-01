@@ -1,3 +1,5 @@
+Arithmetic QE assignment now reuses cached branch formulas and republishes the same fresh variables without duplicating constraints. Direct and nested Cooper tests cover cache ownership and repeated assignment.
+
 QE partition processing now invokes scalar elimination for independent bit-vector and arithmetic groups. Nested modulo projection is tested against its parity condition and through SMT-LIB SAT/UNSAT checks.
 
 Cooper elimination now uses bounded bit-vector residues and converts them to integers for arithmetic constraints, matching the source representation. Arithmetic QE can follow the new bit-vector variables; direct, solver-equivalence and SMT-LIB tests cover modular elimination.
