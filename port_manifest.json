@@ -94980,6 +94980,20 @@
           ]
         },
         {
+          "name": "Default finite-table interpreted filtering substitutes row values and removes rows whose rewritten condition is false (dl_relation_manager.cpp:1385-1443)",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/sparse_table_interpreted.go",
+          "go_targets": [
+            "pkg/muz/rel/sparse_table_interpreted_test.go",
+            "pkg/ast/rewriter/expr_free_vars.go",
+            "pkg/ast/rewriter/th_rewriter.go"
+          ],
+          "tests": [
+            "TestSparseTableDefaultInterpretedFilterEvaluatesFiniteRows",
+            "TestSparseTableDefaultInterpretedFilterRejectsMismatchBeforeMutation"
+          ]
+        },
+        {
           "name": "Default finite-table join/project fallback owns a temporary joined table through projection (dl_relation_manager.cpp:1084-1140)",
           "status": "ported",
           "go_target": "pkg/muz/rel/table.go",
