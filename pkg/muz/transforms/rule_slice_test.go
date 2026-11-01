@@ -1017,7 +1017,7 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 			coneMust(t, e)
 			step, e := m.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{{zero}})
 			coneMust(t, e)
-			for _, bad := range [][]ast.ASTHandle{{x}, {zero, zero}} {
+			for _, bad := range [][]ast.ASTHandle{{y}, {zero, zero}} {
 				invalid, cause := m.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{bad})
 				coneMust(t, cause)
 				invalidRef, cause := m.NewRef(invalid)
@@ -1029,6 +1029,58 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 				coneMust(t, m.DelRef(&invalidRef))
 				if cause == nil {
 					t.Fatal("accepted unsupported substitution", bad)
+				}
+			}
+			identity, e := m.MkProofHyperResolve([]ast.ASTHandle{proof}, body, nil, [][]ast.ASTHandle{{x}})
+			coneMust(t, e)
+			identityRef, e := m.NewRef(identity)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&identityRef)) }()
+			identityConverted, e := converter.Convert(identity)
+			coneMust(t, e)
+			defer func() { coneMust(t, m.DelRef(&identityConverted)) }()
+			identityHandle, e := m.RefGet(identityConverted)
+			coneMust(t, e)
+			identityFact, e := m.GetProofFact(identityHandle)
+			coneMust(t, e)
+			original, found, e := converter.ConvertAsserted(proof)
+			coneMust(t, e)
+			if !found {
+				t.Fatal("missing original proof")
+			}
+			defer func() { coneMust(t, m.DelRef(&original)) }()
+			originalHandle, e := m.RefGet(original)
+			coneMust(t, e)
+			originalFact, e := m.GetProofFact(originalHandle)
+			coneMust(t, e)
+			if identityFact != originalFact {
+				t.Fatal("identity substitution changed the original rule")
+			}
+			identityChecker, e := proofs.NewChecker(m)
+			coneMust(t, e)
+			identityValid, identitySide, e := identityChecker.Check(identityHandle)
+			coneMust(t, e)
+			defer func() {
+				for _, condition := range identitySide {
+					coneMust(t, m.DecRef(condition))
+				}
+			}()
+			if !identityValid {
+				t.Fatal("identity substitution proof is invalid")
+			}
+			identitySolver, e := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+			coneMust(t, e)
+			defer func() { coneMust(t, identitySolver.Close()) }()
+			for _, condition := range identitySide {
+				coneMust(t, identitySolver.Push())
+				negated, e := m.MkNot(condition)
+				coneMust(t, e)
+				coneMust(t, identitySolver.AssertFormula(negated))
+				status, e := identitySolver.CheckSat(nil)
+				coneMust(t, e)
+				coneMust(t, identitySolver.Pop(1))
+				if status != lbool.False {
+					t.Fatal("invalid identity proof side condition", status)
 				}
 			}
 			pin, e := m.NewRef(step)
@@ -1136,6 +1188,200 @@ func TestRuleSliceProofTracksVariableRenumbering(t *testing.T) {
 		coneMust(t, solver.Pop(1))
 		if status != lbool.False {
 			t.Fatal("invalid instantiated resolution side condition", status)
+		}
+	}
+}
+
+func TestRuleSliceProofPermutesSurvivingVariables(t *testing.T) {
+	f := newConeFixture(t)
+	m := f.manager
+	boolean, err := m.MkBoolSort()
+	coneMust(t, err)
+	zero, err := m.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+	coneMust(t, err)
+	integer, err := m.GetSort(zero)
+	coneMust(t, err)
+	declare := func(name string, arity int) ast.ASTHandle {
+		s, e := m.Symbols.Intern(name)
+		coneMust(t, e)
+		domain := make([]ast.ASTHandle, arity)
+		for i := range domain {
+			domain[i] = integer
+		}
+		d, e := m.MkFuncDecl(s, domain, boolean, ast.ASTFuncDeclInfo{})
+		coneMust(t, e)
+		coneMust(t, f.rules.RegisterPredicate(d))
+		return d
+	}
+	p, goal := declare("slice-permute-P", 3), declare("slice-permute-goal", 2)
+	x, err := m.MkVar(0, integer)
+	coneMust(t, err)
+	y, err := m.MkVar(1, integer)
+	coneMust(t, err)
+	z, err := m.MkVar(2, integer)
+	coneMust(t, err)
+	pApp, err := m.MkApp(p, []ast.ASTHandle{x, y, z})
+	coneMust(t, err)
+	goalApp, err := m.MkApp(goal, []ast.ASTHandle{y, z})
+	coneMust(t, err)
+	guardY, err := m.MkEq(y, zero)
+	coneMust(t, err)
+	guardZ, err := m.MkEq(z, zero)
+	coneMust(t, err)
+	for _, spec := range []struct {
+		head  ast.ASTHandle
+		tails []ast.ASTHandle
+	}{{pApp, nil}, {goalApp, []ast.ASTHandle{pApp, guardY, guardZ}}} {
+		r, e := f.rules.NewRule(spec.head, spec.tails, nil, "")
+		coneMust(t, e)
+		coneMust(t, f.rules.MkRuleAssertedProof(r))
+		coneMust(t, f.set.Add(r))
+		coneMust(t, r.Close())
+	}
+	coneMust(t, f.set.SetOutputPredicate(goal))
+	valid, err := f.set.Finalize()
+	coneMust(t, err)
+	if !valid {
+		t.Fatal("invalid fixture")
+	}
+	plugin := transforms.NewRuleSlicePlugin(m, f.rules, 1)
+	plugin.SetGenerateProofTrace(true)
+	transformer := base.NewRuleTransformer()
+	coneMust(t, transformer.Register(plugin))
+	changed, err := transformer.Apply(f.set)
+	coneMust(t, err)
+	if !changed {
+		t.Fatal("expected slicing")
+	}
+	derived, found := plugin.DerivedPredicate(p)
+	if !found {
+		t.Fatal("missing sliced predicate")
+	}
+	converter := plugin.TakeProofConverter()
+	coneMust(t, transformer.Close())
+	if converter == nil {
+		t.Fatal("missing converter")
+	}
+	defer func() { coneMust(t, converter.Close()) }()
+	rules, err := f.set.PredicateRules(derived)
+	coneMust(t, err)
+	if len(rules) != 1 {
+		t.Fatal("fact rules", len(rules))
+	}
+	defer func() { coneMust(t, rules[0].Close()) }()
+	proof, found, err := rules[0].Proof()
+	coneMust(t, err)
+	if !found {
+		t.Fatal("missing sliced proof")
+	}
+	mapping, found, err := converter.OriginalVariables(proof)
+	coneMust(t, err)
+	if !found || len(mapping) != 2 || mapping[0] != 1 || mapping[1] != 2 {
+		t.Fatal("wrong variable correspondence", mapping)
+	}
+	conclusion, err := m.MkApp(derived, []ast.ASTHandle{y, x})
+	coneMust(t, err)
+	scope, err := ast.NewScopedProof(m)
+	coneMust(t, err)
+	step, err := m.MkProofHyperResolve([]ast.ASTHandle{proof}, conclusion, nil, [][]ast.ASTHandle{{y, x}})
+	coneMust(t, err)
+	pin, err := m.NewRef(step)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&pin)) }()
+	coneMust(t, scope.Close())
+	converted, err := converter.Convert(step)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&converted)) }()
+	handle, err := m.RefGet(converted)
+	coneMust(t, err)
+	fact, err := m.GetProofFact(handle)
+	coneMust(t, err)
+	body, err := m.GetQuantifierBody(fact)
+	coneMust(t, err)
+	for i, want := range []uint32{0, 2, 1} {
+		arg, e := m.GetArg(body, uint32(i))
+		coneMust(t, e)
+		index, e := m.GetVarIndex(arg)
+		coneMust(t, e)
+		if index != want {
+			t.Fatalf("argument %d variable %d, want %d", i, index, want)
+		}
+	}
+	checker, err := proofs.NewChecker(m)
+	coneMust(t, err)
+	valid, side, err := checker.Check(handle)
+	coneMust(t, err)
+	defer func() {
+		for _, c := range side {
+			coneMust(t, m.DecRef(c))
+		}
+	}()
+	if !valid {
+		t.Fatal("permuted proof invalid")
+	}
+	solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+	coneMust(t, err)
+	defer func() { coneMust(t, solver.Close()) }()
+	for _, condition := range side {
+		coneMust(t, solver.Push())
+		negated, e := m.MkNot(condition)
+		coneMust(t, e)
+		coneMust(t, solver.AssertFormula(negated))
+		status, e := solver.CheckSat(nil)
+		coneMust(t, e)
+		coneMust(t, solver.Pop(1))
+		if status != lbool.False {
+			t.Fatal("invalid permutation proof side condition", status)
+		}
+	}
+	aliasConclusion, err := m.MkApp(derived, []ast.ASTHandle{y, y})
+	coneMust(t, err)
+	scope, err = ast.NewScopedProof(m)
+	coneMust(t, err)
+	aliasStep, err := m.MkProofHyperResolve([]ast.ASTHandle{proof}, aliasConclusion, nil, [][]ast.ASTHandle{{y, y}})
+	coneMust(t, err)
+	aliasPin, err := m.NewRef(aliasStep)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&aliasPin)) }()
+	coneMust(t, scope.Close())
+	alias, err := converter.Convert(aliasStep)
+	coneMust(t, err)
+	defer func() { coneMust(t, m.DelRef(&alias)) }()
+	aliasHandle, err := m.RefGet(alias)
+	coneMust(t, err)
+	aliasFact, err := m.GetProofFact(aliasHandle)
+	coneMust(t, err)
+	aliasBody, err := m.GetQuantifierBody(aliasFact)
+	coneMust(t, err)
+	for i, want := range []uint32{0, 1, 1} {
+		arg, e := m.GetArg(aliasBody, uint32(i))
+		coneMust(t, e)
+		index, e := m.GetVarIndex(arg)
+		coneMust(t, e)
+		if index != want {
+			t.Fatalf("aliased argument %d variable %d, want %d", i, index, want)
+		}
+	}
+	valid, aliasSide, err := checker.Check(aliasHandle)
+	coneMust(t, err)
+	defer func() {
+		for _, c := range aliasSide {
+			coneMust(t, m.DecRef(c))
+		}
+	}()
+	if !valid {
+		t.Fatal("aliased proof invalid")
+	}
+	for _, condition := range aliasSide {
+		coneMust(t, solver.Push())
+		negated, e := m.MkNot(condition)
+		coneMust(t, e)
+		coneMust(t, solver.AssertFormula(negated))
+		status, e := solver.CheckSat(nil)
+		coneMust(t, e)
+		coneMust(t, solver.Pop(1))
+		if status != lbool.False {
+			t.Fatal("invalid alias proof side condition", status)
 		}
 	}
 }
