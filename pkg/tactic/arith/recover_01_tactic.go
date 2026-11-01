@@ -11,6 +11,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
@@ -21,6 +22,7 @@ type Recover01Tactic struct {
 	context             *uparams.ParamsContext
 	globals             *uparams.GlobalParamsService
 	services            model.ModelEvaluatorConfig
+	trace               *diagnostic.TraceTags
 	params              uparams.ParamsRef
 	rewriter            *rewriter.TheoryRewriter
 	maxBits             uint32
@@ -181,6 +183,13 @@ func (t *Recover01Tactic) CollectStatistics() map[string]float64  { return nil }
 func (t *Recover01Tactic) ResetStatistics() error                 { return t.open() }
 func (t *Recover01Tactic) SetLogic(usymbol.Symbol) error          { return t.open() }
 func (t *Recover01Tactic) SetProgressCallback(func(uint32)) error { return t.open() }
+func (t *Recover01Tactic) BindTrace(tags *diagnostic.TraceTags) error {
+	if err := t.open(); err != nil {
+		return err
+	}
+	t.trace = tags
+	return nil
+}
 func (t *Recover01Tactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (err error) {
 	defer func() {
 		if rewriter.IsRewriterException(err) {
@@ -193,5 +202,5 @@ func (t *Recover01Tactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (er
 	if goal == nil || goal.Manager() != t.manager || out == nil {
 		return ast.ErrASTHandle
 	}
-	return recover01Apply(goal, t.rewriter, t.services, t.maxBits, out)
+	return recover01Apply(goal, t.rewriter, t.services, t.maxBits, out, t.trace)
 }

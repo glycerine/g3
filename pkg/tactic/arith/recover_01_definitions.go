@@ -91,7 +91,7 @@ func (d *recover01Definitions) booleanVariable(atom ast.ASTHandle) (ast.ASTHandl
 	return fresh, nil
 }
 
-func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTHandle, coefficients []big.Rat) (err error) {
+func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTHandle, coefficients []big.Rat, trace ...func(ast.ASTHandle, ast.ASTHandle) error) (err error) {
 	if d == nil || d.manager == nil || d.goal == nil || len(literals) == 0 || len(literals) != len(coefficients) {
 		return ast.ErrASTDomain
 	}
@@ -181,6 +181,11 @@ func (d *recover01Definitions) build(variable ast.ASTHandle, literals []ast.ASTH
 	}
 	if err = m.ExprSubstitutionInsert(d.sub, variable, definition, ast.ASTHandle{}, ast.ASTDependency{}); err != nil {
 		return err
+	}
+	if len(trace) != 0 && trace[0] != nil {
+		if err = trace[0](variable, definition); err != nil {
+			return err
+		}
 	}
 	d.variables = append(d.variables, variable)
 	return nil

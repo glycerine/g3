@@ -10,9 +10,10 @@ import (
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/tactic"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
-func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services model.ModelEvaluatorConfig, maxBits uint32, out *tactic.TacticResult) (err error) {
+func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services model.ModelEvaluatorConfig, maxBits uint32, out *tactic.TacticResult, trace ...*diagnostic.TraceTags) (err error) {
 	if goal == nil || rw == nil || out == nil {
 		return ast.ErrASTHandle
 	}
@@ -116,7 +117,9 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 		if e != nil {
 			return e
 		}
-		if e = defs.build(variable, literals, coeffs); e != nil {
+		if e = defs.build(variable, literals, coeffs, func(variable, definition ast.ASTHandle) error {
+			return emitRecover01Definition(m, trace, services.Trace, variable, definition)
+		}); e != nil {
 			return e
 		}
 		recovered++
@@ -165,5 +168,5 @@ func recover01Apply(goal *tactic.Goal, rw *rewriter.TheoryRewriter, services mod
 		return err
 	}
 	taken = true
-	return nil
+	return emitRecover01Goal(newGoal, trace, services.Trace)
 }
