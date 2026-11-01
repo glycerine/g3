@@ -18,6 +18,8 @@ Checked short-suite repair (2026-11-01): moved the incomplete 2019 SAT search sn
 
 Sparse table header audit: mapped the packed layout/storage invariants, general and full-signature key indexes, table lifecycle, and public table operations to concrete Go implementations and regressions. Explicitly recorded Go-managed collection and storage choices; JSON validation and portcheck pass.
 
+Sparse table plugin audit: mapped plugin construction, dispatch, empty/clone factories and table lifecycle to concrete typed Go operations; explicit pooling and high-watermark GC differences are documented as runtime-managed. Lifecycle regressions already pass, and portcheck confirms the source evidence.
+
 SMT matcher pool now matches the live `pool<enode_vector>` lifecycle: LIFO recycle preserves vector contents until checkout resets them, with a concrete reuse/growth regression in normal and checked builds.
 
 SAT equivalence elimination now closes its source audit: watch cleanup, clause normalization, model entries, propagation and debug verification pass the focused suite in normal, checked and g3debug builds.
