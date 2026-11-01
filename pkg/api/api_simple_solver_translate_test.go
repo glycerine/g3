@@ -551,7 +551,7 @@ func TestAPIUnsupportedTacticLeafCrossContextTranslation(t *testing.T) {
 	defer func() { astTestMust(t, target.Close()) }()
 	smt, err := source.Tactic("smt")
 	astTestMust(t, err)
-	simplify, err := source.Tactic("reduce-bv-size")
+	simplify, err := source.Tactic("elim-small-bv")
 	astTestMust(t, err)
 	combined, err := smt.AndThen(simplify)
 	astTestMust(t, err)
@@ -1187,6 +1187,70 @@ func TestAPITacticSolverTranslateMaxBVSharingUnsatAfterSourceClose(t *testing.T)
 	astTestMust(t, err)
 	if status != lbool.False {
 		t.Fatal("translated unsatisfiable sharing solver", status)
+	}
+}
+
+func TestAPITacticSolverTranslateBVBoundsAfterSourceClose(t *testing.T) {
+	for _, name := range []string{"reduce-bv-size", "bv_bound_chk"} {
+		for _, test := range []struct {
+			name, value string
+			want        lbool.LBool
+		}{{"sat", "#x01", lbool.True}, {"unsat", "#x03", lbool.False}} {
+			t.Run(name+"/"+test.name, func(t *testing.T) {
+				source, err := NewSMTContext()
+				astTestMust(t, err)
+				target, err := NewSMTContext()
+				astTestMust(t, err)
+				defer func() { astTestMust(t, target.Close()) }()
+				astTestMust(t, source.SetLogic("QF_BV"))
+				transform, err := source.Tactic(name)
+				astTestMust(t, err)
+				smt, err := source.Tactic("smt")
+				astTestMust(t, err)
+				combined, err := transform.AndThen(smt)
+				astTestMust(t, err)
+				solver, err := source.NewSolverFromTactic(combined)
+				astTestMust(t, err)
+				for _, owner := range []*APITactic{combined, smt, transform} {
+					astTestMust(t, owner.Close())
+				}
+				script := "(declare-const x (_ BitVec 8)) (assert (bvsge x #xfe)) (assert (bvsle x #x02)) (assert (= x " + test.value + "))"
+				astTestMust(t, solver.LoadSMT2String(script))
+				translated, err := solver.Translate(target)
+				astTestMust(t, err)
+				defer func() { astTestMust(t, translated.Close()) }()
+				astTestMust(t, solver.Close())
+				astTestMust(t, source.Close())
+				status, err := translated.Check()
+				astTestMust(t, err)
+				if status != test.want {
+					t.Fatal("translated bounds", status, "want", test.want)
+				}
+				if status != lbool.True {
+					return
+				}
+				model, err := translated.Model()
+				astTestMust(t, err)
+				defer func() { astTestMust(t, model.Close()) }()
+				manager, err := target.Manager()
+				astTestMust(t, err)
+				assertions, err := translated.Assertions()
+				astTestMust(t, err)
+				defer releaseAPIRefs(t, manager, assertions)
+				for _, ref := range assertions {
+					formula, err := manager.RefGet(ref)
+					astTestMust(t, err)
+					value, err := model.Evaluate(formula, true)
+					astTestMust(t, err)
+					actual, err := manager.RefGet(value)
+					astTestMust(t, err)
+					if !manager.IsTrue(actual) {
+						t.Fatal("translated model violates original bound")
+					}
+					astTestMust(t, manager.DelRef(&value))
+				}
+			})
+		}
 	}
 }
 

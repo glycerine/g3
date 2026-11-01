@@ -7814,6 +7814,7 @@
         "pkg/tactic/core/context_translation.go"
       ],
       "tests": [
+        "TestAPITacticSolverTranslateBVBoundsAfterSourceClose",
         "TestAPISolverTranslationUsesExplicitParameterSnapshot",
         "TestSMTContextTypedParameterCatalog",
         "TestSMTContextTypedParametersValidateCatalogAndOwner",
@@ -183496,6 +183497,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/bv/bv_context_translation_test.go",
         "pkg/tactic/bv/bv_bound_chk_tactic.go",
         "pkg/tactic/bv/bv_bound_chk_config.go",
         "pkg/tactic/bv/bv_bound_chk_trace.go",
@@ -183510,6 +183512,7 @@
         "pkg/cmd/g3/test_vectors/bv_bound_proof_refusal.smt2"
       ],
       "tests": [
+        "TestBVBoundCheckContextTranslationCopiesPolicyAndResetsStatistics",
         "TestBVBoundCheckExactGoalsCPP",
         "TestBVBoundCheckStatisticsCleanupAndGuards",
         "TestBVBoundCheckLimitsTranslationCancellationAndTrace",
@@ -184090,6 +184093,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/tactic/bv/bv_context_translation_test.go",
         "pkg/tactic/bv/bv_size_reduction_tactic.go",
         "pkg/tactic/bv/bv_size_reduction_bounds.go",
         "pkg/tactic/bv/bv_size_reduction_trace.go",
@@ -184107,6 +184111,7 @@
         "pkg/cmd/g3/test_vectors/bv_size_unsigned_unchanged.smt2"
       ],
       "tests": [
+        "TestBVSizeReductionContextTranslationUsesFreshTargetState",
         "TestBVSizeReductionExactGoalsCPP",
         "TestBVSizeReductionModelLifetimeFilteringAndPlacementCleanup",
         "TestBVSizeReductionMetadataGuardsAndCancellation",

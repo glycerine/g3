@@ -1,3 +1,5 @@
+Bit-vector size reduction and bound-check tactics now translate into independent target-owned contexts. Tests cover copied bound-check policy, fresh reduction state, allocation failures, SAT/UNSAT and target model validity after source closure.
+
 Embedded shell sessions now route default and explicitly selected stderr through their supplied diagnostic writer, including when regular output selects stderr. Native comparison and runner tests cover the split and warnings.
 
 Diagnostic stdout now uses the embedded shell stdout writer for both warnings and verbose formatting. The formatter borrows that writer, maintains stream failure state and is tested alongside an SMT-LIB pattern-warning integration case.

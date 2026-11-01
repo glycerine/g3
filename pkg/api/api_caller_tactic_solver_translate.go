@@ -49,6 +49,10 @@ func translateCallerTacticSolver(source *solver.TacticSolver, target *SMTContext
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.ModelEvaluator)
 		case *bv.MaxBVSharingTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.ModelEvaluator.Cooperation)
+		case *bv.BVSizeReductionTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
+		case *bv.BVBoundCheckTactic:
+			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *nlsatsmt.NLPurifyTactic:
 			return sourceTactic.TranslateWithServices(manager, config.Params, config.Globals, config.ModelEvaluator)
 		case *nlsattactic.NLSATTactic:
