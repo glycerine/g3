@@ -1666,12 +1666,15 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	}
 	if e.backend == "clp" {
 		e.compiled = false
+		if !e.auxiliary[declaration] {
+			return e.queryRelationExpression(declaration)
+		}
 		return e.queryCLPPredicate(declaration)
 	}
 	if e.backend == "bmc" || e.backend == "qbmc" {
 		e.compiled = false
 		if !e.auxiliary[declaration] {
-			return e.queryBMCRelation(declaration)
+			return e.queryRelationExpression(declaration)
 		}
 		return e.queryBMCPredicate(declaration)
 	}
@@ -2055,10 +2058,9 @@ func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, erro
 	return e.pdr.Proof(e.pdrPredicate(declaration))
 }
 
-// WriteCertificate emits the PDR certificate selected by the source
-// fixedpoint query command. Unreachable queries use the converted inductive
-// model; reachable queries use the retained trace expression. Spacer owns a
-// separate certificate presentation path and reports no output here.
+// WriteCertificate emits the selected backend's fixedpoint certificate.
+// PDR uses the converted inductive model or reachable trace, CLP prints true,
+// and Spacer's certificate presentation path reports no output.
 func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.ASTHandle, writeExpression func(io.Writer, ast.ASTHandle) error) (found bool, resultErr error) {
 	if err := e.open(); err != nil {
 		return false, err
@@ -2068,6 +2070,13 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 			return false, err
 		}
 		return false, e.spacer.DisplayCertificate(out)
+	}
+	if e.backend == "clp" {
+		if err := e.requireResultSnapshot(EngineCLP); err != nil {
+			return false, err
+		}
+		_, err := fmt.Fprintln(out, "true")
+		return true, err
 	}
 	if e.backend == "ddnf" {
 		return false, ErrPropositionalEngine

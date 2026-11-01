@@ -41,9 +41,9 @@ func onlyErrorKind(err, target error) bool {
 	return err == target
 }
 
-// queryBMCRelation constructs the same synthetic query rule used for an
-// expression query, preserving the source query predicate in proof answers.
-func (e *PropositionalEngine) queryBMCRelation(declaration ast.ASTHandle) (status lbool.LBool, resultErr error) {
+// queryRelationExpression implements engine_base's single-relation wrapper,
+// which turns a relation into an expression query with fresh variables.
+func (e *PropositionalEngine) queryRelationExpression(declaration ast.ASTHandle) (status lbool.LBool, resultErr error) {
 	arity, err := e.manager.GetArity(declaration)
 	if err != nil {
 		return lbool.Undef, err

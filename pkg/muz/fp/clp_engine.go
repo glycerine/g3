@@ -32,37 +32,36 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
-	state := e.predicates[declaration]
-	if state == nil {
+	if e.predicates[declaration] == nil {
 		return lbool.Undef, ErrPropositionalHorn
 	}
-	var refs []ast.ASTRef
+	// CLP uses the shared default transformation pipeline, without Spacer's
+	// additional slice, coalesce, and unfold stages.
+	preprocessed, err := e.preprocessHornRulesWithQueryRule(declaration, nil, true, true, false, false)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
+	queryDeclaration, err := preprocessed.rules.DerivedPredicate(declaration)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	rules, err := preprocessed.rules.PredicateRules(queryDeclaration)
+	if err != nil {
+		return lbool.Undef, err
+	}
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, e.manager.DelRef(&refs[i]))
+		for i := len(rules) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, rules[i].Close())
 		}
 	}()
-	args := make([]ast.ASTHandle, len(state.sorts))
-	for i, sort := range state.sorts {
-		args[i], err = e.manager.MkVar(uint32(i), sort)
-		if err != nil {
-			return lbool.Undef, err
-		}
-		ref, err := e.manager.NewRef(args[i])
-		if err != nil {
-			return lbool.Undef, err
-		}
-		refs = append(refs, ref)
+	if len(rules) == 0 {
+		return lbool.False, nil
 	}
-	query, err := e.manager.MkApp(declaration, args)
+	query, err := rules[0].Head()
 	if err != nil {
 		return lbool.Undef, err
 	}
-	queryRef, err := e.manager.NewRef(query)
-	if err != nil {
-		return lbool.Undef, err
-	}
-	refs = append(refs, queryRef)
 	local, err := e.params.NewValue()
 	if err != nil {
 		return lbool.Undef, err
@@ -81,7 +80,7 @@ func (e *PropositionalEngine) queryCLPPredicate(declaration ast.ASTHandle) (resu
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, backend.Close()) }()
-	engine, err := clp.NewEngine(e.manager, e.set, backend, 20)
+	engine, err := clp.NewEngine(e.manager, preprocessed.rules, backend, 20)
 	if err != nil {
 		return lbool.Undef, err
 	}

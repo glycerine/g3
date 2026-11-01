@@ -52608,3 +52608,7 @@ Nonlinear BMC API answers: nonlinear queries now prepare their proof even when n
 Sieve relation ownership: closing a sieve now closes its adopted inner table, matching the source scoped owner. Tests check successful and rejected adoption, independent clone lifetime, and repeated close; the broader sieve plugin and ownership audit remain partial.
 
 Spacer synthetic query proofs: when proof tracing is enabled, the temporary relation-query rule now carries an asserted proof of its own formula as in rule_manager::mk_query. A focused test covers enabled and disabled tracing, proof conclusion and proof-mode restoration; the reported checked nonlinear-inlining regression passes.
+
+CLP query preprocessing: relation queries now create the source synthetic query rule and run the default Horn transformations before bounded search. Native comparisons cover the 20-level boundary, default inlining, and CLP's omission of the separate unfold/coalesce stages. Tests also check repeated queries and persistent-program isolation; the broader CLP source and ownership audit remains partial.
+
+CLP certificate presentation now prints its source `true` answer for reachable and unreachable queries. Tests compare the complete SMT-LIB output with native Z3 and check result guards and output-error propagation.
