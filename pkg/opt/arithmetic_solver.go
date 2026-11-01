@@ -32,6 +32,9 @@ type ObjectiveValue struct {
 	SoftLower            big.Rat
 	SoftUpper            big.Rat
 	SoftBoundsValid      bool
+	SourceLower          big.Rat
+	SourceUpper          big.Rat
+	SourceBoundsValid    bool
 	SoftAssignment       []bool
 	Soft                 bool
 }

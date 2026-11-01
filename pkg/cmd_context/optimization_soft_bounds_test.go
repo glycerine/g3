@@ -22,7 +22,7 @@ func TestOptimizationUnknownPublishesSoftSearchBounds(t *testing.T) {
 	value.SoftBoundsValid = true
 	value.SoftLower.SetFrac64(1, 2)
 	value.SoftUpper.SetFrac64(5, 2)
-	c.publishOptimizationSoftBounds(result)
+	c.publishOptimizationBounds(result)
 	value.SoftLower.SetInt64(77)
 	value.SoftUpper.SetInt64(88)
 	lower, err := c.ObjectiveBound(0, true)
@@ -37,7 +37,7 @@ func TestOptimizationUnknownPublishesSoftSearchBounds(t *testing.T) {
 	if got, want := output.String(), "  [(/ 1.0 2.0):(/ 5.0 2.0)]\n"; got != want {
 		t.Fatalf("partial bound output = %q, want %q", got, want)
 	}
-	c.publishOptimizationSoftBounds(&opt.ArithmeticResult{Values: make([]opt.ObjectiveValue, 1)})
+	c.publishOptimizationBounds(&opt.ArithmeticResult{Values: make([]opt.ObjectiveValue, 1)})
 	if _, err = c.ObjectiveBound(0, true); err == nil {
 		t.Fatal("unavailable bounds reused from an earlier check")
 	}

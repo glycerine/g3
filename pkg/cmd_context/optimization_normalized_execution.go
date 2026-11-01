@@ -82,6 +82,11 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 	if err != nil {
 		return optimized, err
 	}
+	if optimized.Status != lbool.True {
+		if err = restoreNormalizedObjectiveBounds(optimized, original, decomposed); err != nil {
+			return optimized, err
+		}
+	}
 	if optimized.Status == lbool.True {
 		for i, d := range decomposed {
 			if original[i].soft || original[i].bitVector || !d.Converted {
@@ -100,4 +105,34 @@ func (c *Context) runNormalizedOptimization(assumptions []ast.ASTHandle, continu
 		}
 	}
 	return optimized, nil
+}
+
+// MaxSMT penalties have the opposite order when normalization negates the
+// objective. Restore both endpoints before exposing an interrupted result.
+func restoreNormalizedObjectiveBounds(result *opt.ArithmeticResult, original []optimizationObjective, decomposed []opt.DecomposedObjective) error {
+	for i := range original {
+		if original[i].soft || i >= len(decomposed) || i >= len(result.Values) || !decomposed[i].Converted {
+			continue
+		}
+		value := &result.Values[i]
+		if !value.SoftBoundsValid {
+			continue
+		}
+		lowerPenalty, upperPenalty := &value.SoftLower, &value.SoftUpper
+		if decomposed[i].Negate {
+			lowerPenalty, upperPenalty = upperPenalty, lowerPenalty
+		}
+		lower, err := decomposed[i].RestoreValue(lowerPenalty)
+		if err != nil {
+			return err
+		}
+		upper, err := decomposed[i].RestoreValue(upperPenalty)
+		if err != nil {
+			return err
+		}
+		value.SourceLower.Set(lower)
+		value.SourceUpper.Set(upper)
+		value.SourceBoundsValid = true
+	}
+	return nil
 }

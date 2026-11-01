@@ -106910,6 +106910,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd_context/optimization_normalized_bounds_test.go",
         "pkg/cmd_context/optimization_soft_bounds_test.go",
         "pkg/cmd_context/optimization_soft_bounds.go",
         "pkg/cmd_context/optimization_normalized_execution.go",
@@ -106952,6 +106953,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestInterruptedNormalizedObjectiveBoundsRestoreSourceOrder",
         "TestOptimizationUnknownPublishesSoftSearchBounds",
         "pkg/cmd/g3/optimization_normalization_test.go",
         "TestOptBoundExpressionsRetainSourceTripleAfterBoundRelease",

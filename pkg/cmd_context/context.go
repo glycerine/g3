@@ -45,8 +45,8 @@ type optimizationObjective struct {
 	modelValue  smtcore.SMTArithmeticObjectiveValue
 	softTerms   []optimizationSoftTerm
 	softValue   big.Rat
-	softLower   big.Rat
-	softUpper   big.Rat
+	boundLower  big.Rat
+	boundUpper  big.Rat
 	id          string
 	maximize    bool
 	soft        bool

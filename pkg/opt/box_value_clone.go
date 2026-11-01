@@ -12,6 +12,8 @@ func cloneObjectiveValue(source ObjectiveValue) ObjectiveValue {
 	result.SoftSatisfied = *new(big.Rat).Set(&source.SoftSatisfied)
 	result.SoftLower = *new(big.Rat).Set(&source.SoftLower)
 	result.SoftUpper = *new(big.Rat).Set(&source.SoftUpper)
+	result.SourceLower = *new(big.Rat).Set(&source.SourceLower)
+	result.SourceUpper = *new(big.Rat).Set(&source.SourceUpper)
 	result.SoftAssignment = append([]bool(nil), source.SoftAssignment...)
 	return result
 }

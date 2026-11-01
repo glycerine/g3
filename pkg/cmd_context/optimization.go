@@ -52,6 +52,8 @@ func cloneOptimizationBoxValues(source []opt.ObjectiveValue) []opt.ObjectiveValu
 		result[i].SoftSatisfied.Set(&source[i].SoftSatisfied)
 		result[i].SoftLower.Set(&source[i].SoftLower)
 		result[i].SoftUpper.Set(&source[i].SoftUpper)
+		result[i].SourceLower.Set(&source[i].SourceLower)
+		result[i].SourceUpper.Set(&source[i].SourceUpper)
 		result[i].SoftAssignment = append([]bool(nil), source[i].SoftAssignment...)
 	}
 	return result
@@ -559,7 +561,7 @@ func (c *Context) checkOptimize(assumptions []ast.ASTHandle, continuation bool) 
 	if err = result.SetLabels(optimized.Labels); err != nil {
 		return lbool.Undef, err
 	}
-	c.publishOptimizationSoftBounds(optimized)
+	c.publishOptimizationBounds(optimized)
 	if completed && len(c.objectives) == len(optimized.Values) {
 		for i := range c.objectives {
 			if c.objectives[i].soft {
