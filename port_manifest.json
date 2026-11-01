@@ -100585,9 +100585,10 @@
         },
         {
           "name": "mk_epp and adhoc_rewriter_rpp extended diagnostic expression rewriting and printing",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "partial",
+          "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/predicate_transformer.go", "pkg/muz/spacer/extended_pretty_test.go"],
+          "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace"],
+          "reason": "The concrete source rewrite and add_lemma_core STRACE consumer are implemented; expansion-node STRACE wiring and printer parameter/exceptional ownership audit remain open."
         },
         {
           "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr",
@@ -100778,9 +100779,9 @@
         },
         {
           "name": "mk_epp extended diagnostic expression rewrite/print declaration",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "status": "partial",
+          "go_targets": ["pkg/muz/spacer/extended_pretty.go", "pkg/muz/spacer/extended_pretty_test.go"],
+          "tests": ["TestSpacerExtendedPrettySourceRewritesAndTrace"]
         },
         {
           "name": "hoist_non_bool_if, contains_selects, get_select_indices, find_decls and ground_expr declarations without live consumers",

@@ -388,6 +388,9 @@ func (p *PredicateTransformer) AddLemmaCore(lemma *Lemma) error {
 	if err != nil {
 		return err
 	}
+	if err = p.traceExtendedLemma(body, level); err != nil {
+		return err
+	}
 	if level == InfinityLevel {
 		p.invariants++
 	}
