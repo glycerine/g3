@@ -483,6 +483,28 @@ func (p *FiniteSparseProduct) JoinFromTableRelation(left *TableRelation, leftCol
 	return converted.Join(p, leftColumns, rightColumns)
 }
 
+// JoinInnerSparseTable converts an inner sparse-table relation before joining
+// it on the right, matching the source plugin's inner-relation conversion.
+func (p *FiniteSparseProduct) JoinInnerSparseTable(right *SparseTable, rightSorts []ast.ASTHandle, leftColumns, rightColumns []int) (*FiniteSparseProduct, error) {
+	converted, err := NewFiniteSparseProductFromInnerSparseTable(p.manager, rightSorts, right)
+	if err != nil {
+		return nil, err
+	}
+	defer converted.Close()
+	return p.Join(converted, leftColumns, rightColumns)
+}
+
+// JoinFromInnerSparseTable converts an inner sparse-table relation before
+// joining it on the left, preserving the source operand order.
+func (p *FiniteSparseProduct) JoinFromInnerSparseTable(left *SparseTable, leftSorts []ast.ASTHandle, leftColumns, rightColumns []int) (*FiniteSparseProduct, error) {
+	converted, err := NewFiniteSparseProductFromInnerSparseTable(p.manager, leftSorts, left)
+	if err != nil {
+		return nil, err
+	}
+	defer converted.Close()
+	return converted.Join(p, leftColumns, rightColumns)
+}
+
 func (p *FiniteSparseProduct) flatten() (*SparseTable, error) {
 	domains := make([]uint64, len(p.sorts))
 	for column, sort := range p.sorts {
