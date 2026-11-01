@@ -109,3 +109,41 @@ func TestFixedpointRulePropertyValidationWiring(t *testing.T) {
 		})
 	}
 }
+
+func TestQPDRAllowsExistentialRuleTail(t *testing.T) {
+	for _, backend := range []string{"pdr", "qpdr"} {
+		t.Run(backend, func(t *testing.T) {
+			engine, manager := newFragmentTestEngine(t, backend)
+			boolean, err := manager.MkBoolSort()
+			fragmentMust(t, err)
+			var applications []ast.ASTHandle
+			for _, suffix := range []string{"head", "tail"} {
+				name, cause := manager.Symbols.Intern("qpdr-fragment-" + backend + "-" + suffix)
+				fragmentMust(t, cause)
+				decl, cause := manager.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+				fragmentMust(t, cause)
+				fragmentMust(t, engine.RegisterPredicate(decl))
+				app, cause := manager.MkApp(decl, nil)
+				fragmentMust(t, cause)
+				applications = append(applications, app)
+			}
+			truth, err := manager.MkTrue()
+			fragmentMust(t, err)
+			body, err := manager.MkImplies(applications[1], truth)
+			fragmentMust(t, err)
+			rule, err := engine.rules.NewRule(applications[0], []ast.ASTHandle{body}, nil, "existential-tail")
+			fragmentMust(t, err)
+			fragmentMust(t, engine.set.Add(rule))
+			fragmentMust(t, rule.Close())
+			err = engine.validateFragment()
+			if backend == "qpdr" {
+				fragmentMust(t, err)
+			} else {
+				var property *base.RulePropertyError
+				if !errors.As(err, &property) || property.Kind != base.RulePropertyExistentialTail {
+					t.Fatal("PDR accepted an existential tail", err)
+				}
+			}
+		})
+	}
+}

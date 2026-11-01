@@ -321,7 +321,7 @@ func (e *PropositionalEngine) pdrContext() (*pdr.Context, error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
-	if e.backend != "pdr" || e.pdr == nil || e.pdrRevision != e.revision {
+	if (e.backend != "pdr" && e.backend != "qpdr") || e.pdr == nil || e.pdrRevision != e.revision {
 		return nil, ErrPropositionalEngine
 	}
 	return e.pdr, nil

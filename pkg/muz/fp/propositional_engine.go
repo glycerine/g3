@@ -1486,7 +1486,7 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 	if destination == nil {
 		return ErrPropositionalEngine
 	}
-	if e.backend == "pdr" {
+	if e.backend == "pdr" || e.backend == "qpdr" {
 		destination.Copy(e.pdrStatistics)
 		if e.pdr != nil {
 			return e.pdr.CollectStatistics(destination)
@@ -1517,7 +1517,7 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	if err := e.open(); err != nil {
 		return err
 	}
-	if e.backend == "pdr" {
+	if e.backend == "pdr" || e.backend == "qpdr" {
 		e.pdrStatistics.Reset()
 		if e.pdr != nil {
 			return e.pdr.ResetStatistics()
@@ -1611,7 +1611,7 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		return lbool.Undef, ErrPropositionalHorn
 	}
 	e.queried = true
-	if e.backend == "pdr" {
+	if e.backend == "pdr" || e.backend == "qpdr" {
 		e.compiled = false
 		return e.queryPDR(declaration)
 	}
@@ -1841,7 +1841,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		}
 		return e.manager.CopyRef(e.tabAnswer)
 	}
-	if e.backend == "pdr" {
+	if e.backend == "pdr" || e.backend == "qpdr" {
 		status, err := e.pdr.LastResult()
 		if err != nil {
 			return answer, err
@@ -1955,7 +1955,7 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 // fixedpoint.generate_proof_trace. The caller releases it through
 // ASTManager.DelRef.
 func (e *PropositionalEngine) Proof(declaration ast.ASTHandle) (ast.ASTRef, error) {
-	if err := e.requireResultSnapshot(EnginePDR); err != nil {
+	if err := e.requirePDRSnapshot(); err != nil {
 		return ast.ASTRef{}, err
 	}
 	return e.pdr.Proof(e.pdrPredicate(declaration))
@@ -2005,10 +2005,10 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		_, err = fmt.Fprintln(out)
 		return true, err
 	}
-	if e.backend != "pdr" {
+	if e.backend != "pdr" && e.backend != "qpdr" {
 		return false, nil
 	}
-	if err := e.requireResultSnapshot(EnginePDR); err != nil {
+	if err := e.requirePDRSnapshot(); err != nil {
 		return false, err
 	}
 	status, err := e.pdr.LastResult()
@@ -2054,7 +2054,7 @@ func (e *PropositionalEngine) Model(declaration ast.ASTHandle) (*model.Model, er
 	if e.backend == "datalog" {
 		return e.datalogModel(declaration)
 	}
-	if e.backend == "pdr" && e.pdr != nil {
+	if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil {
 		result, err := e.pdr.Model(e.pdrPredicate(declaration))
 		if err != nil {
 			return nil, err

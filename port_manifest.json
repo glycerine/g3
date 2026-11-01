@@ -87701,6 +87701,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd/g3/fixedpoint_qpdr_integration_test.go",
+        "pkg/muz/fp/rule_fragment_test.go",
+        "pkg/muz/fp/engine_result_routing_test.go",
         "pkg/muz/fp/clp_engine.go",
         "pkg/muz/fp/bmc_engine.go",
         "pkg/muz/fp/register_engine.go",
@@ -87712,6 +87715,10 @@
         "pkg/parsers/smt2/bmc_engine_test.go"
       ],
       "tests": [
+        "TestPDRAndQPDRSwitchInvalidatesResult",
+        "TestFixedpointQPDRQuantifiedRules",
+        "TestFixedpointQPDRQuantifiedBodyUsesRuleVariable",
+        "TestQPDRAllowsExistentialRuleTail",
         "TestBMCEngineRuleTraceAndSnapshot",
         "TestSMT2BMCEngineSearch",
         "TestSMT2CLPEngineConstrainedRules",
@@ -87747,7 +87754,7 @@
         "The selected Datalog engine remains owned by cmd_context.Context; selection itself borrows the engine and creates no additional owner."
       ],
       "deviations": [
-        "Datalog, PDR, Spacer, BMC, tabulation, CLP and DDNF have concrete selection branches. QPDR, QBMC and duality remain unavailable."
+        "Datalog, PDR, QPDR, Spacer, BMC, tabulation, CLP and DDNF have concrete selection branches. QBMC and duality remain unavailable; automatic selection of QPDR for quantified rules remains pending."
       ]
     },
     {

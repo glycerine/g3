@@ -154,6 +154,7 @@ func TestRetainedEngineKindSelectionAndDiagnostics(t *testing.T) {
 	}{
 		{"datalog", fp.EngineDatalog},
 		{"pdr", fp.EnginePDR},
+		{"qpdr", fp.EngineQPDR},
 		{"spacer", fp.EngineSpacer},
 		{"bmc", fp.EngineBMC},
 		{"tab", fp.EngineTab},
@@ -167,7 +168,7 @@ func TestRetainedEngineKindSelectionAndDiagnostics(t *testing.T) {
 			t.Fatal("selected engine", kind, kind.String(), kind.Retained())
 		}
 	}
-	for _, name := range []string{"qpdr", "qbmc", "duality"} {
+	for _, name := range []string{"qbmc", "duality"} {
 		if err := engine.SelectEngine(name); err == nil || errors.Is(err, fp.ErrPropositionalEngine) {
 			t.Fatal("known unported engine diagnostic", name, err)
 		}
@@ -227,7 +228,7 @@ func TestDatalogResultSnapshotRoutesAndInvalidates(t *testing.T) {
 }
 
 func TestPDRAndSpacerPreQueryResultGuards(t *testing.T) {
-	for _, backend := range []string{"pdr", "spacer"} {
+	for _, backend := range []string{"pdr", "qpdr", "spacer"} {
 		t.Run(backend, func(t *testing.T) {
 			engine, manager := newRoutingEngine(t)
 			declaration, _ := routingPredicate(t, engine, manager, backend)
@@ -245,7 +246,7 @@ func TestPDRAndSpacerPreQueryResultGuards(t *testing.T) {
 			var output bytes.Buffer
 			_, err = engine.WriteCertificate(&output, declaration, func(io.Writer, ast.ASTHandle) error { return nil })
 			assertOwner("certificate", err)
-			if backend == "pdr" {
+			if backend == "pdr" || backend == "qpdr" {
 				_, err = engine.Proof(declaration)
 				assertOwner("proof", err)
 			} else {
@@ -261,7 +262,7 @@ func TestPDRAndSpacerPreQueryResultGuards(t *testing.T) {
 }
 
 func TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision(t *testing.T) {
-	for _, backend := range []string{"pdr", "spacer"} {
+	for _, backend := range []string{"pdr", "qpdr", "spacer"} {
 		t.Run(backend, func(t *testing.T) {
 			engine, manager := newRoutingEngine(t)
 			declaration, application := routingPredicate(t, engine, manager, backend+"-revision")
@@ -277,6 +278,10 @@ func TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision(t *testing.
 			if last != status {
 				t.Fatal("published result differs from query", last, status)
 			}
+			if backend == "qpdr" {
+				_, err := engine.NumLevels(declaration)
+				fpMust(t, err)
+			}
 			answer, err := engine.Answer(declaration)
 			fpMust(t, err)
 			fpMust(t, manager.DelRef(&answer))
@@ -287,7 +292,7 @@ func TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision(t *testing.
 				return nil
 			})
 			fpMust(t, err)
-			if backend == "pdr" && (!found || calls != 1) {
+			if (backend == "pdr" || backend == "qpdr") && (!found || calls != 1) {
 				t.Fatal("PDR reachable certificate route", found, calls)
 			}
 			if backend == "spacer" && (found || calls != 0 || certificate.Len() != 0) {
@@ -341,6 +346,26 @@ func TestEngineSwitchDoesNotRepublishPriorBackendResult(t *testing.T) {
 	fpMust(t, engine.SelectEngine("datalog"))
 	if _, err = engine.LastResult(); !errors.Is(err, fp.ErrPropositionalEngine) {
 		t.Fatal("old snapshot was restored after engine round trip", err)
+	}
+}
+
+func TestPDRAndQPDRSwitchInvalidatesResult(t *testing.T) {
+	engine, manager := newRoutingEngine(t)
+	declaration, fact := routingPredicate(t, engine, manager, "qpdr-switch")
+	fpMust(t, engine.AddRule(fact, "fact"))
+	for _, backend := range []string{"qpdr", "pdr", "qpdr"} {
+		fpMust(t, engine.SelectEngine(backend))
+		if _, err := engine.LastResult(); !errors.Is(err, fp.ErrPropositionalEngine) {
+			t.Fatal("engine switch exposed stale result", backend, err)
+		}
+		status, err := engine.QueryPredicate(declaration)
+		fpMust(t, err)
+		if status != lbool.True {
+			t.Fatal("fact query after engine switch", backend, status)
+		}
+		answer, err := engine.Answer(declaration)
+		fpMust(t, err)
+		fpMust(t, manager.DelRef(&answer))
 	}
 }
 

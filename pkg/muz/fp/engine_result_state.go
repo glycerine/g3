@@ -36,7 +36,7 @@ func (e *PropositionalEngine) requireResultSnapshot(kind EngineKind) error {
 		return ErrPropositionalEngine
 	}
 	switch kind {
-	case EnginePDR:
+	case EnginePDR, EngineQPDR:
 		if e.pdr == nil || e.pdrRevision != e.revision {
 			return ErrPropositionalEngine
 		}
@@ -46,6 +46,14 @@ func (e *PropositionalEngine) requireResultSnapshot(kind EngineKind) error {
 		}
 	}
 	return nil
+}
+
+func (e *PropositionalEngine) requirePDRSnapshot() error {
+	kind, err := parseEngineKind(e.backend)
+	if err != nil || (kind != EnginePDR && kind != EngineQPDR) {
+		return ErrPropositionalEngine
+	}
+	return e.requireResultSnapshot(kind)
 }
 
 // LastResult returns the retained source result for the latest non-stale

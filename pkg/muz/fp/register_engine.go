@@ -64,7 +64,7 @@ func (e *PropositionalEngine) SelectEngine(name string) error {
 	switch kind {
 	case EngineDatalog:
 		return e.selectBackend(kind)
-	case EnginePDR, EngineSpacer, EngineBMC, EngineTab, EngineCLP:
+	case EnginePDR, EngineQPDR, EngineSpacer, EngineBMC, EngineTab, EngineCLP:
 		if e.params == nil || e.globals == nil {
 			return fmt.Errorf("muz/fp: fixedpoint engine %s requires parameter services", name)
 		}
