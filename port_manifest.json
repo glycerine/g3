@@ -92812,7 +92812,7 @@
         },
         {
           "name": "source fact lookup including nonnumerals and uncollected empty rows",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductSourceFactLookup"
@@ -93056,7 +93056,7 @@
         },
         {
           "name": "source fact lookup including nonnumerals and uncollected empty rows",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product.go",
           "tests": [
             "TestFiniteIntervalProductSourceFactLookup"
