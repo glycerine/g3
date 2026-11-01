@@ -52,6 +52,7 @@ var builtinTacticDescriptions = map[string]string{
 	"fix-dl-var":              "if goal is in the difference logic fragment, then fix the variable with the most number of occurrences at 0.",
 	"fpa2bv":                  "convert floating point numbers to bit-vectors.",
 	"horn":                    "apply tactic for horn clauses.",
+	"purify-arith":            "eliminate unnecessary operators: -, /, div, mod, rem, is-int, to-int, ^, root-objects.",
 	"lia2card":                "introduce cardinality constraints from 0-1 integer.",
 	"lia2pb":                  "convert bounded integer variables into a sequence of 0-1 variables.",
 	"macro-finder":            "Identifies and applies macros.",
