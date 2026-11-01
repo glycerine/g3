@@ -1,7 +1,10 @@
 package rel
 
 // Source: src/muz/rel/dl_sparse_table.{h,cpp} column_layout.
-import "fmt"
+import (
+	"fmt"
+	"math/bits"
+)
 
 type sparseColumn struct{ offset, length uint32 }
 type SparseLayout struct {
@@ -10,16 +13,29 @@ type SparseLayout struct {
 }
 
 func sparseDomainBits(n uint64) uint32 {
-	if n <= 1 {
+	if n == 0 {
 		return 1
 	}
-	n--
-	var r uint32
-	for n != 0 {
-		r++
-		n >>= 1
+	if n <= uint64(^uint32(0)) {
+		if n == 1 {
+			return 1
+		}
+		return uint32(bits.Len32(uint32(n - 1)))
 	}
-	return r
+	// Match get_domain_length's split into a low 32-bit word and a high
+	// word. Its unary-high-word branch intentionally allocates 33 bits for
+	// the exact 2^32 domain boundary.
+	high := uint32(n >> 32)
+	if uint32(n) != 0 && high != ^uint32(0) {
+		high++
+	}
+	if high == 1 {
+		return 33
+	}
+	if high > 0x80000000 {
+		return 64
+	}
+	return 32 + uint32(bits.Len32(high-1))
 }
 func NewSparseLayout(signature Signature, functional int) (SparseLayout, error) {
 	if functional < 0 || functional > signature.Len() {

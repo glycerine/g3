@@ -2,6 +2,54 @@ package rel
 
 import "testing"
 
+func TestSparseDomainBitsMatchSourceWordBoundary(t *testing.T) {
+	for _, test := range []struct {
+		domain uint64
+		bits   uint32
+	}{
+		{1, 1},
+		{1 << 31, 31},
+		{1<<31 + 1, 32},
+		{uint64(^uint32(0)), 32},
+		{1 << 32, 33},
+		{1<<32 + 1, 33},
+		{1 << 33, 33},
+		{1 << 63, 63},
+		{^uint64(0), 64},
+	} {
+		if got := sparseDomainBits(test.domain); got != test.bits {
+			t.Errorf("sparseDomainBits(%d) = %d, want source width %d", test.domain, got, test.bits)
+		}
+	}
+}
+
+func TestSparseLayoutExactTwoToThirtySecondDomainUsesSourceWidth(t *testing.T) {
+	signature, err := NewSignature([]uint64{1 << 32})
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, err := NewSparseLayout(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if layout.EntryBytes() != 5 {
+		t.Fatalf("entry width = %d bytes, want source's 5-byte allocation", layout.EntryBytes())
+	}
+	table, err := NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer table.Close()
+	fact := Fact{Element((uint64(1) << 32) - 1)}
+	if added, err := table.Add(fact); err != nil || !added {
+		t.Fatalf("insert upper-bound value: added=%v err=%v", added, err)
+	}
+	rows, err := table.Facts()
+	if err != nil || len(rows) != 1 || rows[0][0] != fact[0] {
+		t.Fatalf("packed boundary fact = %v, err=%v", rows, err)
+	}
+}
+
 func TestSparseLayoutWideAndFunctionalAlignment(t *testing.T) {
 	signature, err := NewSignature([]uint64{3, 1 << 55, 17, 2})
 	if err != nil {

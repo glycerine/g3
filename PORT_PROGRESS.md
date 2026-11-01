@@ -52966,3 +52966,5 @@ Bound relation clone fidelity (2026-11-01 UTC): implemented `bound_relation::clo
 Bound relation display (2026-11-01 UTC): ported the source `display_index` and vector-relation display text, including its representative ordering, strict/weak bound ordering, source spacing/newlines, empty form, and writer-error propagation.
 
 Bound relation subtraction equality dispatch (2026-11-01 UTC): aligned interpreted-filter applicability with the source `EQ_SUB` branch for `x = y - z` in either orientation. The recognized branch remains a no-op as in C++; focused normal and `g3checked` regressions pass, while the broader interpreted-filter audit remains partial.
+
+Sparse table domain-width boundary (2026-11-01 UTC): matched `get_domain_length`'s split-word calculation, including the source's 33-bit allocation for a domain of exactly `2^32`. Added width-boundary and packed-row regressions; focused normal and `g3checked` tests pass.
