@@ -102689,6 +102689,7 @@
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
         "TestRuleSliceGeneratesProofsForRewrittenRules",
         "TestRuleSliceConvertsNestedHyperResolution",
+        "TestRuleSliceConvertsNonlinearResolutionPositions",
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
         "TestRuleSliceRetainsConstantConstrainedColumn",
@@ -102790,7 +102791,8 @@
           "go_target": "pkg/muz/transforms/rule_slice_proof.go",
           "tests": [
             "TestRuleSliceGeneratesProofsForRewrittenRules",
-            "TestRuleSliceConvertsNestedHyperResolution"
+            "TestRuleSliceConvertsNestedHyperResolution",
+            "TestRuleSliceConvertsNonlinearResolutionPositions"
           ]
         }
       ],

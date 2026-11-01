@@ -19,9 +19,9 @@ type slicedProofResult struct {
 
 // Convert translates asserted leaves and supported hyper-resolution nodes to
 // proofs over original rules. It returns an owned proof. As in the source
-// converter, resolution chooses the first remaining body predicate. Input
-// substitutions and other resolution positions are rejected until those
-// conversions are ported.
+// converter, resolution uses rule unification. Input substitutions and
+// resolution against a premise other than a positive rule head are rejected
+// until those conversions are ported.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	if c == nil || c.manager == nil || c.rules == nil {
 		return result, ast.ErrASTHandle
@@ -133,6 +133,11 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 		if e != nil {
 			return value, e
 		}
+		originalPositive, e := first.rule.PositiveTailSize()
+		if e != nil {
+			return value, e
+		}
+		removed := make(map[uint32]bool)
 		for i := 1; i < len(premises); i++ {
 			other, cause := translate(premises[i])
 			if cause != nil {
@@ -145,11 +150,35 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if cause != nil {
 				return value, cause
 			}
-			if position.First != 1 || position.Second != 0 {
+			if position.First == 0 || position.Second != 0 {
 				return value, fmt.Errorf("slice proof: unsupported resolution positions")
 			}
-			next, nextProof, cause := c.resolveProof(value.rule, value.proof, other.rule, other.proof, position)
+			originalIndex := position.First - 1
+			if originalIndex >= uint32(originalPositive) || removed[originalIndex] {
+				return value, fmt.Errorf("slice proof: invalid or repeated body position")
+			}
+			index := originalIndex
+			for prior := range removed {
+				if prior < originalIndex {
+					index--
+				}
+			}
+			removed[originalIndex] = true
+			before, cause := value.rule.PositiveTailSize()
 			if cause != nil {
+				return value, cause
+			}
+			added, cause := other.rule.PositiveTailSize()
+			if cause != nil {
+				return value, cause
+			}
+			next, nextProof, cause := c.resolveProof(value.rule, value.proof, other.rule, other.proof, int(index))
+			if cause != nil {
+				return value, cause
+			}
+			after, cause := next.PositiveTailSize()
+			if cause != nil || after != before-1+added {
+				cause = errors.Join(cause, fmt.Errorf("slice proof: resolution merged body predicates"), next.Close(), m.DelRef(&nextProof))
 				return value, cause
 			}
 			cause = errors.Join(value.rule.Close(), m.DelRef(&value.proof))
@@ -167,7 +196,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 	return m.CopyRef(converted.proof)
 }
 
-func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTRef, second *base.Rule, secondProof ast.ASTRef, position ast.ASTProofPosition) (rule *base.Rule, proof ast.ASTRef, resultErr error) {
+func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTRef, second *base.Rule, secondProof ast.ASTRef, tailIndex int) (rule *base.Rule, proof ast.ASTRef, resultErr error) {
 	m := c.manager
 	defer func() {
 		if resultErr != nil {
@@ -185,7 +214,7 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 		return nil, proof, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, u.Close()) }()
-	ok, err := u.UnifyRules(first, 0, second)
+	ok, err := u.UnifyRules(first, tailIndex, second)
 	if err != nil || !ok {
 		return nil, proof, errors.Join(ast.ErrASTDomain, err)
 	}
@@ -210,7 +239,7 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 		}
 	}
 	var renaming []ast.ASTRef
-	rule, renaming, err = u.ResolveRawWithRenaming(c.rules, first, 0, second)
+	rule, renaming, err = u.ResolveRawWithRenaming(c.rules, first, tailIndex, second)
 	if err != nil {
 		return nil, proof, err
 	}
@@ -269,6 +298,7 @@ func (c *SliceProofConverter) resolveProof(first *base.Rule, firstProof ast.ASTR
 	if err != nil {
 		return rule, proof, err
 	}
+	position := ast.ASTProofPosition{First: uint32(tailIndex + 1), Second: 0}
 	node, err := m.MkProofHyperResolve([]ast.ASTHandle{left, right}, fact, []ast.ASTProofPosition{position}, substitutions)
 	if err != nil {
 		return rule, proof, err
