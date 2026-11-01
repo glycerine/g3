@@ -50036,8 +50036,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go", "pkg/ast/ast_family_public.go", "pkg/ast/ast_family_public_test.go", "pkg/duality/wrapper_owner.go", "pkg/duality/wrapper_owner_test.go", "pkg/duality/wrapper_ast.go", "pkg/duality/wrapper_expr.go", "pkg/duality/wrapper_ast_test.go"],
-      "tests": ["TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals", "TestASTEnsureFamilyIDSourceSemantics", "TestASTEnsureFamilyIDCStringAndLifetime", "TestContextFamilyOrderAndConfigCopy", "TestContextConstructorFailureReleasesConfigCopy", "TestContextBorrowsManagerAndRejectsShallowCopy", "TestObjectCopyAndContextChecks", "TestSymbolNamesSignedNumbersAndAssignment", "TestSymbolWriterFailureForeignOwnerAndClosedContext", "TestWrapperASTReferenceCopyAssignmentAndClose", "TestWrapperASTNullAndCrossContextAssignment", "TestWrapperBooleanSortDeclarationAndExpression", "TestWrapperBooleanOperatorsAndContextGuards"],
+      "go_targets": ["pkg/duality/interpolation_tree.go", "pkg/duality/interpolation_tree_test.go", "pkg/duality/wrapper_config.go", "pkg/duality/wrapper_config_test.go", "pkg/ast/ast_family_public.go", "pkg/ast/ast_family_public_test.go", "pkg/duality/wrapper_owner.go", "pkg/duality/wrapper_owner_test.go", "pkg/duality/wrapper_ast.go", "pkg/duality/wrapper_expr.go", "pkg/duality/wrapper_ast_test.go"],
+      "tests": ["TestInterpolationTreePartitionOrderAndReconstruction", "TestConfigSettersAndSignedUintConversion", "TestConfigCloneSharesThenDetaches", "TestConfigOwnerAndLifetimeGuards", "TestWrapperKindsRetainSourceOrdinals", "TestASTEnsureFamilyIDSourceSemantics", "TestASTEnsureFamilyIDCStringAndLifetime", "TestContextFamilyOrderAndConfigCopy", "TestContextConstructorFailureReleasesConfigCopy", "TestContextBorrowsManagerAndRejectsShallowCopy", "TestObjectCopyAndContextChecks", "TestSymbolNamesSignedNumbersAndAssignment", "TestSymbolWriterFailureForeignOwnerAndClosedContext", "TestWrapperASTReferenceCopyAssignmentAndClose", "TestWrapperASTNullAndCrossContextAssignment", "TestWrapperBooleanSortDeclarationAndExpression", "TestWrapperBooleanOperatorsAndContextGuards"],
       "conditionals": [
         {
           "line": 21,
@@ -50078,7 +50078,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [],
+      "methods": [{"name": "linearize_assumptions and unlinearize_interpolants postorder partition conversion with final false root", "status": "ported", "go_target": "pkg/duality/interpolation_tree.go", "tests": ["TestInterpolationTreePartitionOrderAndReconstruction"]}],
       "ownership": [],
       "deviations": []
     },
