@@ -111,14 +111,8 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 	if md == nil {
 		return RuleSelection{}, ast.ErrASTHandle
 	}
-	config := p.owner.contexts[0].config.ModelEvaluator
-	evaluator, err := newSpacerModelEvaluator(md, config)
-	if err != nil {
-		return RuleSelection{}, err
-	}
 	selection := RuleSelection{}
 	defer func() {
-		resultErr = errors.Join(resultErr, evaluator.Close())
 		if resultErr != nil {
 			resultErr = errors.Join(resultErr, selection.Close())
 		}
@@ -127,16 +121,17 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 		if normalized.tag.IsNull() {
 			continue
 		}
-		valueRef, err := evaluator.EvaluateValue(normalized.tag)
+		// Source uses model_core::eval(func_decl*), which only reads the
+		// interpretation; it never rewrites or completes the model.
+		declaration, err := p.manager.GetDecl(normalized.tag)
 		if err != nil {
 			return RuleSelection{}, err
 		}
-		value, err := p.manager.RefGet(valueRef)
-		isTrue := err == nil && p.manager.IsTrue(value)
-		deleteErr := p.manager.DelRef(&valueRef)
-		if err != nil || deleteErr != nil {
-			return RuleSelection{}, errors.Join(err, deleteErr)
+		value, err := md.ConstantInterpretation(declaration)
+		if err != nil {
+			return RuleSelection{}, err
 		}
+		isTrue := p.manager.IsTrue(value)
 		if !isTrue {
 			continue
 		}
@@ -169,13 +164,11 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 				}
 				origin, err := p.manager.RefGet(originRef)
 				if err == nil {
-					var evaluated ast.ASTRef
-					evaluated, err = evaluator.EvaluateValue(origin)
+					var declaration, value ast.ASTHandle
+					declaration, err = p.manager.GetDecl(origin)
 					if err == nil {
-						var result ast.ASTHandle
-						result, err = p.manager.RefGet(evaluated)
-						used = err == nil && p.manager.IsFalse(result)
-						err = errors.Join(err, p.manager.DelRef(&evaluated))
+						value, err = md.ConstantInterpretation(declaration)
+						used = err == nil && p.manager.IsFalse(value)
 					}
 				}
 				err = errors.Join(err, p.manager.DelRef(&originRef))

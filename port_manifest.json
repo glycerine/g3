@@ -97456,6 +97456,17 @@
           ]
         },
         {
+          "name": "pred_transformer::find_rule reads rule tags and predecessor reach-case constant interpretations directly without evaluator rewriting or model completion (spacer_context.cpp:201-254); broader selection-order/diagnostic audit remains partial",
+          "status": "partial",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_rule_queries.go",
+            "pkg/muz/spacer/predicate_rule_selection_model_test.go"
+          ],
+          "tests": [
+            "TestSpacerRuleSelectionUsesDirectModelInterpretations"
+          ]
+        },
+        {
           "name": "pred_transformer::get_reachable uses simplifying substitution on each reach fact before combining the disjunction, handles the empty set and preserves the unsupported auxiliary-variable case (spacer_context.cpp:457-492)",
           "status": "ported",
           "go_targets": [
@@ -97893,6 +97904,17 @@
           ],
           "tests": [
             "TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder"
+          ]
+        },
+        {
+          "name": "pred_transformer::find_rule reads rule tags and predecessor reach-case constant interpretations directly without evaluator rewriting or model completion (spacer_context.cpp:201-254); broader selection-order/diagnostic audit remains partial",
+          "status": "partial",
+          "go_targets": [
+            "pkg/muz/spacer/predicate_rule_queries.go",
+            "pkg/muz/spacer/predicate_rule_selection_model_test.go"
+          ],
+          "tests": [
+            "TestSpacerRuleSelectionUsesDirectModelInterpretations"
           ]
         },
         {
