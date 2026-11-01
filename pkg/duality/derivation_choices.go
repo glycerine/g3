@@ -38,6 +38,10 @@ func (d *DerivationTree) ExpandSomeFullNodes(highPriority bool, limit int) (bool
 	if err := d.ExpansionChoicesFull(&choices, highPriority, limit != int(^uint32(0)>>1)); err != nil {
 		return false, err
 	}
+	return d.expandSelected(choices, limit)
+}
+
+func (d *DerivationTree) expandSelected(choices []*Node, limit int) (bool, error) {
 	selected := make(map[*Node]bool)
 	for _, node := range choices {
 		selected[node] = true

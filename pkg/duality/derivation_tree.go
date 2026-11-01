@@ -2,11 +2,19 @@ package duality
 
 // Source: duality_solver.cpp:1910-1928,1986-2013.
 
-import "errors"
+import (
+	"errors"
+	"io"
+	"os"
+)
 
 // DerivationTree owns search bookkeeping over a borrowed working graph. The
 // graph owns all created instances and edges. Original nodes are borrowed.
 type DerivationTree struct {
+	Top                                  *Node
+	Constrained                          bool
+	Output                               io.Writer
+	oldChoices                           map[*Node]bool
 	Heuristic                            *ExpansionHeuristic
 	original, tree                       *RPFP
 	leaves                               []*Node
@@ -27,7 +35,7 @@ func NewDerivationTree(original, tree *RPFP) (*DerivationTree, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DerivationTree{original: original, tree: tree, FalseApprox: true, Heuristic: heuristic}, nil
+	return &DerivationTree{original: original, tree: tree, FalseApprox: true, Heuristic: heuristic, Output: os.Stdout}, nil
 }
 func (d *DerivationTree) initializeApproximatedInstance(node *Node) error {
 	if node == nil || node.Owner != d.tree || node.closed || node.Map == nil || node.Map.closed {
