@@ -36,6 +36,16 @@ func NewExternalRelationPlugin(manager *RelationManager, callbacks ExternalRelat
 	return &ExternalRelationPlugin{manager: manager, ast: manager.manager, callbacks: callbacks}, nil
 }
 
+// SetCallbacks replaces the context-level reduction callbacks used by every
+// relation created through this plugin, matching fixedpoint_context setters.
+func (plugin *ExternalRelationPlugin) SetCallbacks(callbacks ExternalRelationCallbacks) error {
+	if plugin == nil || plugin.closed || plugin.manager == nil || plugin.manager.open() != nil {
+		return ErrTableRelation
+	}
+	plugin.callbacks = callbacks
+	return nil
+}
+
 // ExternalRelation owns its relation expression and cached accessor declarations.
 // The relation manager and callback functions are borrowed.
 type ExternalRelation struct {

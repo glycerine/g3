@@ -6544,7 +6544,11 @@
         "pkg/muz/fp/relation_query_answer.go",
         "pkg/muz/fp/relation_query_answer_test.go",
         "pkg/api/api_fixedpoint_relations_answer_test.go",
-        "pkg/muz/fp/query_expression.go"
+        "pkg/muz/fp/query_expression.go",
+        "pkg/api/api_fixedpoint_external_relation.go",
+        "pkg/api/api_fixedpoint_external_relation_test.go",
+        "pkg/cmd_context/fixedpoint_external_relation.go",
+        "pkg/muz/fp/external_relations.go"
       ],
       "tests": ["TestSMTContextFixedpointLevelResourceLimitAndRetry","TestSMTContextFixedpointResourceLimitAndRetry","TestAPIFixedpointQueryLimitsFollowLatestUpdateAndParent", "TestAPIFixedpointQueryResourceLimitAndRetry",
         "TestFixedpointQueryTimeoutScopeUsesLocalParametersAndRestoresCancellation",
@@ -6574,7 +6578,8 @@
         "TestDatalogRelationsAnswerConjoinsRequestedRelations",
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
         "TestAPIFixedpointDatalogMultipleRelationAnswers",
-        "TestAPIFixedpointSpacerExpressionQueryFromLevel"
+        "TestAPIFixedpointSpacerExpressionQueryFromLevel",
+        "TestSMTContextFixedpointExternalRelationCallbackRegistration"
       ],
       "assertions": [
         {
@@ -6614,10 +6619,19 @@
           ]
         },
         {
-          "name": "external-relation callbacks",
-          "status": "unported",
-          "go_target": null,
-          "tests": []
+          "name": "typed fixedpoint callback registration and callback-backed external relation lifecycle",
+          "status": "partial",
+          "go_target": "pkg/api/api_fixedpoint_external_relation.go",
+          "go_targets": [
+            "pkg/cmd_context/fixedpoint_external_relation.go",
+            "pkg/muz/fp/external_relations.go",
+            "pkg/muz/rel/external_relation_callbacks.go"
+          ],
+          "tests": [
+            "TestSMTContextFixedpointExternalRelationCallbackRegistration",
+            "TestExternalRelationCallbackTrailLifetime",
+            "TestExternalRelationReduceCallbackRetainsReturnedAST"
+          ]
         }
       ],
       "ownership": [
@@ -92127,8 +92141,7 @@
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
-        "pkg/muz/rel/external_relation_callbacks.go",
-        "pkg/muz/rel/external_relation_test.go"
+        "pkg/muz/rel/external_relation_callbacks.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
@@ -92231,8 +92244,7 @@
         "pkg/ast/ast_datalog_relation_simple.go",
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
-        "pkg/muz/rel/external_relation_callbacks.go",
-        "pkg/muz/rel/external_relation_test.go"
+        "pkg/muz/rel/external_relation_callbacks.go"
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",

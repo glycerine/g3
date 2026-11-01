@@ -72,6 +72,7 @@ type PropositionalEngine struct {
 	set                 *base.RuleSet
 	binder              *base.VariableBinder
 	relations           *rel.RelationManager
+	external            *rel.ExternalRelationPlugin
 	guard               *astrewriter.TheoryRewriter
 	unboundCooperation  *cooperate.Cooperation
 	unboundLite         *qe.Lite
@@ -2221,6 +2222,12 @@ func (e *PropositionalEngine) Close() (result error) {
 			e.ddnf = ddnfEngineState{}
 		}
 		return result
+	}
+	if e.external != nil {
+		if err := e.external.Close(); err != nil {
+			return err
+		}
+		e.external = nil
 	}
 	result = errors.Join(result, e.clearQueryResources())
 	if e.queryParamsReady {
