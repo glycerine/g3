@@ -633,6 +633,8 @@ func (p *FiniteSparseProduct) FilterIdenticalPairs(pairs [][2]int) error {
 			return ErrTableRelation
 		}
 	}
+	orderedPairs := append([][2]int(nil), pairs...)
+	sortPairedColumnIndices(orderedPairs)
 	flat, err := p.flatten()
 	if err != nil {
 		return err
@@ -645,7 +647,7 @@ func (p *FiniteSparseProduct) FilterIdenticalPairs(pairs [][2]int) error {
 	kept := make([]Fact, 0, len(facts))
 	for _, fact := range facts {
 		match := true
-		for _, pair := range pairs {
+		for _, pair := range orderedPairs {
 			if p.sorts[pair[0]] != p.sorts[pair[1]] || fact[pair[0]] != fact[pair[1]] {
 				match = false
 				break

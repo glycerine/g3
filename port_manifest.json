@@ -85926,7 +85926,7 @@
       "ownership_audited": true,
       "methods": [{"name": "try_remove_cycle_from_permutation for finite-product rename", "status": "ported", "go_target": "pkg/muz/rel/permutation_cycle.go", "tests": ["TestDatalogUtilitySourcePermutationCycles", "TestFiniteIntervalProductRename"]}, {"name": "checked decimal read/string conversion, concrete relation-row and mapping-line consumers, and uint64 formatting", "status": "ported", "go_target": "pkg/muz/base/util_uint64_scan.go", "go_targets": ["pkg/muz/base/util_uint64_string.go", "pkg/muz/base/util_uint64_fields.go", "pkg/muz/base/util_uint64_mapping.go", "pkg/muz/base/util_uint64_format.go"], "tests": ["TestReadUint64BoundariesAndPointerContract", "TestStringToUint64ScanfPrefixSemantics", "TestParseUint64FieldsSpacingCommentsAndEmptyLines", "TestParseUint64MappingPreservesRawName", "TestUint64TextCanonicalDecimal"]}, {"name": "source filename-without-extension behavior for retained Datalog relation-file lookup", "status": "ported", "go_target": "pkg/muz/base/util_path.go", "go_targets": ["pkg/cmd_context/wpa_discover.go"], "tests": ["TestFileNameWithoutExtensionMatchesDatalogSource", "TestWPAFileBaseMatchesDatalogExtensionRule"]}, {"name": "recursive WPA source-file discovery with hidden-directory exclusion and exact extension suffix matching (dl_util.cpp:554-600)", "status": "ported", "go_target": "pkg/cmd_context/wpa_discover.go", "tests": ["TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories", "TestWPADirectoryMapsRulesRelationsAndSaturation"]}, {"name": "predicate filter-tail construction through the retained mk_new_rule_tail algorithm", "status": "ported", "go_target": "pkg/muz/transforms/filter_rules.go", "tests": ["TestFilterRulesCachesNormalizedRepeatedArgumentFilters", "TestFilterRulesLocalRepeatedAndValueArguments"]}, {"name": "normalized rule resolution, removed-rule model capture, and proof attachment used by retained rule unfolding/inlining", "status": "ported", "go_target": "pkg/muz/transforms/rule_unfold.go", "go_targets": ["pkg/muz/transforms/rule_inliner.go"], "tests": ["TestRuleUnfoldCarriesHyperResolutionProof", "TestRuleUnfoldExpandsOriginalTailOnce", "TestRuleInlinerEliminatesAcyclicChainIntoProtectedOutput"]}, {"name": "predicate output and variable-set helpers used by retained rule and simple-join diagnostics/planning", "status": "ported", "go_target": "pkg/muz/base/rule_display.go", "go_targets": ["pkg/muz/transforms/simple_joins_cost.go", "pkg/muz/transforms/simple_joins_pair.go"], "tests": ["TestRuleManagerWriteSourceRuleDisplay", "TestSimpleJoinPairCostCountsRepeatedVariablePositions"]}, {"name": "variable_intersection and column projection/permutation helper instantiations used by retained finite relational compilation", "status": "ported", "go_target": "pkg/muz/rel/compiler.go", "go_targets": ["pkg/muz/rel/table.go", "pkg/muz/rel/sieve_relation.go"], "tests": ["TestFiniteCompilerJoinsTwoPositiveTails", "TestHashTableJoinProjectSelectionAndRename", "TestSieveRenameCycleMovesMaskDomainsAndRows"]}],
       "ownership": ["Retained rule transformations return owning Go Rule wrappers; trace formatting borrows the AST manager, and relation/table transformations return independently owned values."],
-      "deviations": ["Helpers whose only consumers are unported or test-only C++ units remain excluded: contains_var, count_variable_arguments, display_fact, sort_two_arrays, and finite-product set transforms. The retained algorithms use concrete typed Go slices/maps instead of universal adapters for C++ templates or STL containers."]
+      "deviations": ["Helpers whose only consumers are unported or test-only C++ units remain excluded: contains_var, count_variable_arguments, display_fact, and finite-product set transforms. The retained algorithms use concrete typed Go slices/maps instead of universal adapters for C++ templates or STL containers."]
     },
     {
       "path": "src/muz/base/dl_util.h",
@@ -85944,7 +85944,8 @@
         "pkg/muz/rel/compiler.go",
         "pkg/muz/rel/table.go",
         "pkg/muz/rel/sieve_relation.go",
-        "pkg/muz/transforms/simple_joins_pair.go"
+        "pkg/muz/transforms/simple_joins_pair.go",
+        "pkg/muz/rel/finite_sparse_product_pairs.go"
       ],
       "tests": [
         "TestReadUint64BoundariesAndPointerContract",
@@ -85955,7 +85956,8 @@
         "TestFileNameWithoutExtensionMatchesDatalogSource",
         "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
         "TestWPAFileBaseMatchesDatalogExtensionRule",
-        "TestWPADirectoryMapsRulesRelationsAndSaturation"
+        "TestWPADirectoryMapsRulesRelationsAndSaturation",
+        "TestDatalogUtilitySourcePairedSort"
       ],
       "conditionals": [
         {
@@ -86028,13 +86030,22 @@
             "TestSieveRenameCycleMovesMaskDomainsAndRows",
             "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder"
           ]
+        },
+        {
+          "name": "concrete paired-column ordering used by finite-product identity filtering",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/finite_sparse_product_pairs.go",
+          "tests": [
+            "TestDatalogUtilitySourcePairedSort",
+            "TestFiniteSparseProductIdenticalPairs"
+          ]
         }
       ],
       "ownership": [
         "Pure set/index helpers borrow their input slices; Go relation and table operations return fresh typed slices or owned table values, while file discovery returns an owned path slice."
       ],
       "deviations": [
-        "C++ templates are represented only for retained concrete consumers. Helpers used only by unported explanation, similarity-compression, finite-product, or test sources and generic STL-oriented adapters remain excluded."
+        "C++ templates are represented only for retained concrete consumers. Helpers used only by unported explanation, similarity-compression, or generic STL-oriented adapters remain excluded."
       ]
     },
     {
@@ -201757,9 +201768,9 @@
       "path": "src/test/dl_util.cpp",
       "component": "test",
       "role": "test",
-      "status": "partial",
-      "go_targets": ["pkg/muz/rel/dl_util_cpp_driver_test.go", "pkg/muz/rel/permutation_cycle.go"],
-      "tests": ["TestDatalogUtilitySourcePermutationCycles"],
+      "status": "ported",
+      "go_targets": ["pkg/muz/rel/dl_util_cpp_driver_test.go", "pkg/muz/rel/permutation_cycle.go", "pkg/muz/rel/finite_sparse_product_pairs.go"],
+      "tests": ["TestDatalogUtilitySourcePermutationCycles", "TestDatalogUtilitySourcePairedSort"],
       "assertions": [
         {
           "line": 25,
@@ -201786,11 +201797,14 @@
           "text": "ENSURE( (cycle[i]+1)%len2==cycle[(i+1)%len2] );"
         }
       ],
-      "methods_audited": false,
-      "ownership_audited": false,
-      "methods": [],
-      "ownership": [],
-      "deviations": ["Both source permutation examples use the concrete cycle-removal helper consumed by finite-product rename. The paired-sort example remains open with its unported mixed finite-product filter consumer."]
+      "methods_audited": true,
+      "ownership_audited": true,
+      "methods": [
+        {"name": "dl_util_two_array_sort", "status": "ported", "go_target": "pkg/muz/rel/dl_util_cpp_driver_test.go", "tests": ["TestDatalogUtilitySourcePairedSort"]},
+        {"name": "dl_util_cycle_from_permutation", "status": "ported", "go_target": "pkg/muz/rel/permutation_cycle.go", "tests": ["TestDatalogUtilitySourcePermutationCycles"]}
+      ],
+      "ownership": ["The Go driver tests own their concrete input slices; the production paired-column sorter mutates only its caller-supplied pair slice."],
+      "deviations": ["The source paired arrays are represented as typed column pairs, and Go sort.Slice replaces the C++ std::sort call."]
     },
     {
       "path": "src/test/doc.cpp",
