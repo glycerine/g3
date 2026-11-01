@@ -13,16 +13,17 @@ import (
 )
 
 type UnitSubsumptionTactic struct {
-	self        *UnitSubsumptionTactic
-	manager     *ast.ASTManager
-	config      SMTSolverConfig
-	params      uparams.ParamsRef
-	paramsReady bool
-	solver      *SMTSolver
-	proxies     []ast.ASTRef
-	refs        uint32
-	bytes       uint64
-	closed      bool
+	self         *UnitSubsumptionTactic
+	manager      *ast.ASTManager
+	config       SMTSolverConfig
+	params       uparams.ParamsRef
+	paramsReady  bool
+	solver       *SMTSolver
+	solverBroken bool
+	proxies      []ast.ASTRef
+	refs         uint32
+	bytes        uint64
+	closed       bool
 }
 
 func NewUnitSubsumptionTactic(m *ast.ASTManager, p *uparams.ParamsRef, config SMTSolverConfig) (*UnitSubsumptionTactic, error) {
@@ -137,6 +138,16 @@ func (t *UnitSubsumptionTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) 
 	if g == nil || out == nil || g.Manager() != t.manager {
 		return ast.ErrASTHandle
 	}
+	if t.solverBroken {
+		if err := t.rebuildSolver(); err != nil {
+			return err
+		}
+	}
+	defer func() {
+		if resultErr != nil {
+			t.solverBroken = true
+		}
+	}()
 	if err := out.Prepare(t.manager); err != nil {
 		return err
 	}
@@ -235,6 +246,24 @@ func (t *UnitSubsumptionTactic) Apply(g *tactic.Goal, out *tactic.TacticResult) 
 		return err
 	}
 	return t.traceResult(g)
+}
+
+// A failed source push can leave solver_na2as and its core at different
+// scope levels. Rebuild the private context before reusing the tactic while
+// preserving the constructor's solver parameters, which UpdateParams does not
+// apply to the existing context.
+func (t *UnitSubsumptionTactic) rebuildSolver() error {
+	old := t.solver
+	next, err := NewSMTSolver(t.manager, &old.params, "", t.config)
+	if err != nil {
+		return err
+	}
+	if err = old.Close(); err != nil {
+		return errors.Join(err, next.Close())
+	}
+	t.solver = next
+	t.solverBroken = false
+	return nil
 }
 func (t *UnitSubsumptionTactic) UpdateParams(p *uparams.ParamsRef) error {
 	if e := t.open(); e != nil {
