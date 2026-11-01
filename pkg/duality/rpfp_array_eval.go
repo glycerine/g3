@@ -104,7 +104,10 @@ func (g *RPFP) evalArrayTerm(term ast.ASTHandle) (arrayModelValue, error) {
 
 // The source wrapper's is_numeral recognizes arithmetic unique values only.
 func (g *RPFP) arrayStoreNumeral(term ast.ASTHandle) (bool, error) {
-	m := g.context.manager
+	return sourceArithmeticNumeral(g.context.manager, term)
+}
+
+func sourceArithmeticNumeral(m *ast.ASTManager, term ast.ASTHandle) (bool, error) {
 	kind, err := m.GetKind(term)
 	if err != nil || kind != ast.ASTApp {
 		return false, err
