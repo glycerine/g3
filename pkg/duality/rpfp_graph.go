@@ -14,6 +14,8 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
 	HornClauses          bool
+	underapproxFlags     map[ast.ASTHandle]*Node
+	underapproxFlagRefs  []ast.ASTRef
 	vocabulary           *BackgroundVocabulary
 	ownsVocabulary       bool
 	context              *Context
@@ -307,6 +309,17 @@ func (g *RPFP) Close() error {
 			return err
 		}
 	}
+	for len(g.underapproxFlagRefs) > 0 {
+		n := len(g.underapproxFlagRefs) - 1
+		err := g.context.manager.DelRef(&g.underapproxFlagRefs[n])
+		if g.underapproxFlagRefs[n] == (ast.ASTRef{}) {
+			g.underapproxFlagRefs = g.underapproxFlagRefs[:n]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	g.underapproxFlags = nil
 	if g.ownsVocabulary {
 		if err := g.vocabulary.Close(); err != nil {
 			return err
