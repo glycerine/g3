@@ -92755,7 +92755,7 @@
         },
         {
           "name": "inner-only interpreted filter with column renaming",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_filter.go",
           "tests": [
             "TestFiniteIntervalProductInnerInterpretedFilter"
@@ -92763,7 +92763,7 @@
         },
         {
           "name": "table-only interpreted filtering",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_table_filter.go",
           "tests": [
             "TestFiniteIntervalProductTableInterpretedFilter"
@@ -92999,7 +92999,7 @@
         },
         {
           "name": "inner-only interpreted filter with column renaming",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_filter.go",
           "tests": [
             "TestFiniteIntervalProductInnerInterpretedFilter"
@@ -93007,7 +93007,7 @@
         },
         {
           "name": "table-only interpreted filtering",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/muz/rel/finite_interval_product_table_filter.go",
           "tests": [
             "TestFiniteIntervalProductTableInterpretedFilter"
