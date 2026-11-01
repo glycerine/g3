@@ -126160,6 +126160,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/shell/smtlib_frontend_diagnostics_test.go",
         "pkg/shell/global_timeout_option.go",
         "pkg/shell/input_file_option.go",
         "pkg/shell/command_line.go",
@@ -126175,6 +126176,7 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestRunnerRoutesSMTLIBDiagnosticStderr",
         "TestShellGlobalTimeoutOptionSourceBranch",
         "TestShellInputFileSourceBranches",
         "TestShellInputFileWarningRefusalPreservesSelection",
@@ -126590,6 +126592,7 @@
         "pkg/shell/smtlib_frontend_ownership_test.go"
       ],
       "tests": [
+        "TestSMTLibShellStderrUsesDiagnosticWriter",
         "TestSMTLibShellDiagnosticStdoutCapturesPatternWarning",
         "TestSMTLIBFrontendStatisticsRestoreStdout",
         "TestSMTLibShellOutputChannelIdentityAndReturnToStdout",

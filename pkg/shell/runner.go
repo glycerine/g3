@@ -11,31 +11,33 @@ import (
 // RunnerConfig contains the process-independent transports of one shell
 // invocation. Args excludes argv[0]. Context is borrowed when supplied.
 type RunnerConfig struct {
-	Args    []string
-	Input   io.Reader
-	Output  io.Writer
-	Context *cmd_context.Context
+	Args        []string
+	Input       io.Reader
+	Output      io.Writer
+	Diagnostics io.Writer
+	Context     *cmd_context.Context
 }
 
 type Runner struct {
-	args       []string
-	input      io.Reader
-	output     io.Writer
-	context    *cmd_context.Context
-	command    *CommandLine
-	inputClose io.Closer
-	owned      bool
-	running    bool
-	ran        bool
-	closed     bool
-	result     RunnerResult
+	args        []string
+	input       io.Reader
+	output      io.Writer
+	diagnostics io.Writer
+	context     *cmd_context.Context
+	command     *CommandLine
+	inputClose  io.Closer
+	owned       bool
+	running     bool
+	ran         bool
+	closed      bool
+	result      RunnerResult
 }
 
 func NewRunner(c RunnerConfig) (runner *Runner, err error) {
 	if c.Input == nil || c.Output == nil {
 		return nil, ErrShellOptionService
 	}
-	runner = &Runner{args: append([]string(nil), c.Args...), input: c.Input, output: c.Output, context: c.Context}
+	runner = &Runner{args: append([]string(nil), c.Args...), input: c.Input, output: c.Output, diagnostics: c.Diagnostics, context: c.Context}
 	if runner.context == nil {
 		runner.context, err = cmd_context.NewStandaloneContext()
 		if err != nil {

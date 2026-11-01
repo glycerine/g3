@@ -17,7 +17,7 @@ func (r *Runner) dispatch(kind InputKind) (result error) {
 		return RunDatalogFrontend(r.context, r.result.InputName, r.output)
 	case InputSMT2:
 		frontend, err := NewSMTLIBFrontend(SMTLIBFrontendConfig{
-			Context: r.context, Input: r.input, Output: r.output,
+			Context: r.context, Input: r.input, Output: r.output, Diagnostics: r.diagnostics,
 			DisplayStatistics: r.command.DisplayStatistics,
 		})
 		if err != nil {

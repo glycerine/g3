@@ -121,6 +121,7 @@ type Context struct {
 	initializationError              error
 	regularOutput                    io.Writer
 	shellOutput                      io.Writer
+	shellDiagnostic                  io.Writer
 	diagnosticOutput                 io.Writer
 	regularOutputName                string
 	diagnosticOutputName             string
@@ -208,6 +209,24 @@ func (c *Context) SetShellRegularOutput(output io.Writer) error {
 	return nil
 }
 
+// SetShellDiagnosticOutput supplies the shell's stderr transport without
+// changing the context's current channel selection.
+func (c *Context) SetShellDiagnosticOutput(output io.Writer) error {
+	if err := c.valid(); err != nil {
+		return err
+	}
+	c.shellDiagnostic = output
+	if output != nil && (c.diagnosticOutputName == "" || c.diagnosticOutputName == "stderr") {
+		c.diagnosticOutput = contextShellDiagnosticOutput{c}
+		if c.mainContext {
+			if err := c.bindDiagnosticGlobals(); err != nil {
+				return errors.Join(err, c.unbindDiagnosticGlobals())
+			}
+		}
+	}
+	return nil
+}
+
 // SetDiagnosticOutput borrows the command session's diagnostic transport.
 // Source: cmd_context.h set_diagnostic_stream(std::ostream&).
 func (c *Context) SetDiagnosticOutput(output io.Writer) error {
@@ -260,7 +279,11 @@ func (c *Context) setOutputChannel(name string, regular bool) error {
 			*output = os.Stdout
 		}
 	case "stderr":
-		*output = os.Stderr
+		if c.shellDiagnostic != nil {
+			*output = contextShellDiagnosticOutput{c}
+		} else {
+			*output = os.Stderr
+		}
 	default:
 		opened, err := os.OpenFile(name, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
@@ -354,6 +377,18 @@ func (c *Context) unbindDiagnosticGlobals() error {
 type contextRegularOutput struct{ context *Context }
 
 type contextShellOutput struct{ context *Context }
+
+type contextShellDiagnosticOutput struct{ context *Context }
+
+func (w contextShellDiagnosticOutput) Write(data []byte) (int, error) {
+	output := w.context.shellDiagnostic
+	if output == nil {
+		output = os.Stderr
+	}
+	return output.Write(data)
+}
+
+func (w contextShellDiagnosticOutput) Flush() error { return flushOutput(w.context.shellDiagnostic) }
 
 func (w contextShellOutput) Write(data []byte) (int, error) {
 	output := w.context.shellOutput

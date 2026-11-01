@@ -28,7 +28,7 @@ func run(input io.Reader, output io.Writer) (result error) {
 }
 
 func runArguments(args []string, input io.Reader, output io.Writer) error {
-	return runArgumentsWithDiagnostics(args, input, output, io.Discard)
+	return runArgumentsWithDiagnostics(args, input, output, nil)
 }
 
 func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnostics io.Writer) (result error) {
@@ -85,6 +85,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		return err
 	}
 	if kind == shell.InputZ3Log {
+		if diagnostics == nil {
+			diagnostics = io.Discard
+		}
 		replayer, err := api.NewZ3Replayer(input, output)
 		if err != nil {
 			return err
@@ -148,6 +151,9 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 		}
 		defer func() { result = errors.Join(result, frontend.Close()) }()
 		return frontend.Run()
+	}
+	if err = context.SetShellDiagnosticOutput(diagnostics); err != nil {
+		return err
 	}
 	total := stopwatch.New(nil)
 	if command.DisplayStatistics {

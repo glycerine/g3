@@ -18,6 +18,7 @@ type SMTLIBFrontendConfig struct {
 	Context           *cmd_context.Context
 	Input             io.Reader
 	Output            io.Writer
+	Diagnostics       io.Writer
 	DisplayStatistics bool
 	Clock             func() (uint64, error)
 }
@@ -26,17 +27,18 @@ type SMTLIBFrontendConfig struct {
 // parser owns command-local references; Context owns declarations, assertions,
 // solver state and results until Close.
 type SMTLIBFrontend struct {
-	context    *cmd_context.Context
-	input      io.Reader
-	output     io.Writer
-	inputClose io.Closer
-	watch      stopwatch.Stopwatch
-	stats      bool
-	owned      bool
-	running    bool
-	ran        bool
-	closed     bool
-	result     SMTLIBFrontendResult
+	context     *cmd_context.Context
+	input       io.Reader
+	output      io.Writer
+	diagnostics io.Writer
+	inputClose  io.Closer
+	watch       stopwatch.Stopwatch
+	stats       bool
+	owned       bool
+	running     bool
+	ran         bool
+	closed      bool
+	result      SMTLIBFrontendResult
 }
 
 func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
@@ -44,11 +46,12 @@ func NewSMTLIBFrontend(c SMTLIBFrontendConfig) (f *SMTLIBFrontend, err error) {
 		return nil, ErrShellOptionService
 	}
 	f = &SMTLIBFrontend{
-		context: c.Context,
-		input:   c.Input,
-		output:  c.Output,
-		stats:   c.DisplayStatistics,
-		watch:   stopwatch.New(c.Clock),
+		context:     c.Context,
+		input:       c.Input,
+		output:      c.Output,
+		diagnostics: c.Diagnostics,
+		stats:       c.DisplayStatistics,
+		watch:       stopwatch.New(c.Clock),
 	}
 	if f.context == nil {
 		f.context, err = cmd_context.NewStandaloneContext()
@@ -72,6 +75,9 @@ func (f *SMTLIBFrontend) Run() (result error) {
 		f.result.Completed = true
 	}()
 
+	if err := f.context.SetShellDiagnosticOutput(f.diagnostics); err != nil {
+		return err
+	}
 	if err := f.watch.Start(); err != nil {
 		return err
 	}

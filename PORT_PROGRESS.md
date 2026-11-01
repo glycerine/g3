@@ -1,3 +1,5 @@
+Embedded shell sessions now route default and explicitly selected stderr through their supplied diagnostic writer, including when regular output selects stderr. Native comparison and runner tests cover the split and warnings.
+
 Diagnostic stdout now uses the embedded shell stdout writer for both warnings and verbose formatting. The formatter borrows that writer, maintains stream failure state and is tested alongside an SMT-LIB pattern-warning integration case.
 
 Shell SMT-LIB sessions preserve the source stdout channel identity even when embedded with a caller-provided writer. A native comparison and CLI regression cover the default name, file redirection and switching back to stdout; final shell statistics also restore stdout as in the source.

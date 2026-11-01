@@ -45,3 +45,25 @@ func TestSMTLibShellDiagnosticStdoutCapturesPatternWarning(t *testing.T) {
 		t.Fatal("stdout", output.String())
 	}
 }
+
+func TestSMTLibShellStderrUsesDiagnosticWriter(t *testing.T) {
+	script := `(get-option :diagnostic-output-channel)
+(set-option :diagnostic-output-channel "stderr")
+(set-option :parser.ignore_bad_patterns true)
+(declare-fun p (Int) Bool)
+(assert (forall ((x Int) (y Int)) (! (p x) :pattern ((p x)))))
+(set-option :regular-output-channel "stderr")
+(echo "on stderr")
+(set-option :regular-output-channel "stdout")
+(echo "back")`
+	var output, diagnostics bytes.Buffer
+	if err := runArgumentsWithDiagnostics([]string{"-in"}, strings.NewReader(script), &output, &diagnostics); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "stderr\nback\n" {
+		t.Fatal("stdout", output.String())
+	}
+	if !strings.Contains(diagnostics.String(), "WARNING:") || !strings.Contains(diagnostics.String(), "pattern does not contain all quantified variables") || !strings.HasSuffix(diagnostics.String(), "on stderr\n") {
+		t.Fatal("stderr", diagnostics.String())
+	}
+}

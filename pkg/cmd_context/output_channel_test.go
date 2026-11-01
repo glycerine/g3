@@ -83,6 +83,27 @@ func TestDiagnosticChannelFormatterAllocationFailureRestoresProcessStreams(t *te
 	contextMust(t, c.Close())
 }
 
+func TestShellDiagnosticOutputAllocationFailureKeepsProcessStreams(t *testing.T) {
+	c := contextFixture(t)
+	warnings := diagnostic.BorrowProcessWarningService()
+	beforeWarning := warnings.WarningStream()
+	beforeVerbose, err := diagnostic.BorrowProcessVerboseStream()
+	contextMust(t, err)
+	var output bytes.Buffer
+	c.config.Params.BudgetField.FailAfter(0)
+	err = c.SetShellDiagnosticOutput(&output)
+	c.config.Params.BudgetField.FailAfter(-1)
+	if !errors.Is(err, arena.ErrInjectedFailure) {
+		t.Fatal("formatter allocation failure", err)
+	}
+	afterVerbose, err := diagnostic.BorrowProcessVerboseStream()
+	contextMust(t, err)
+	if afterVerbose != beforeVerbose || warnings.WarningStream() != beforeWarning {
+		t.Fatal("failed setup changed process streams")
+	}
+	contextMust(t, c.Close())
+}
+
 func TestDiagnosticChannelRoutesProcessStreamsAndRestores(t *testing.T) {
 	c := contextFixture(t)
 	warnings := diagnostic.BorrowProcessWarningService()

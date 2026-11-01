@@ -14,6 +14,7 @@ import (
 type SMTLIBFileFrontendConfig struct {
 	Context           *cmd_context.Context
 	Output            io.Writer
+	Diagnostics       io.Writer
 	DisplayStatistics bool
 	Clock             func() (uint64, error)
 }
@@ -37,6 +38,7 @@ func OpenSMTLIBFrontend(name string, c SMTLIBFileFrontendConfig) (f *SMTLIBFront
 		Context:           c.Context,
 		Input:             file,
 		Output:            c.Output,
+		Diagnostics:       c.Diagnostics,
 		DisplayStatistics: c.DisplayStatistics,
 		Clock:             c.Clock,
 	})
