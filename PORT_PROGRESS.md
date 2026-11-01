@@ -52622,3 +52622,5 @@ CLP source audit: search no longer increments the three dormant source statistic
 Checked relation lifecycle: closing the Go wrapper now closes both owned backing tables, and filter-and-project validates its source before dereferencing it. A lifecycle regression covers backing-table closure and operations after close; normal and g3checked relation package suites pass.
 
 CLP search diagnostics: the source search-depth and rule-head messages now use the process verbosity stream at levels one and two. A focused regression checks the disabled and enabled levels; the CLP and fixedpoint package suites pass in normal and g3checked builds. Rule-head layout currently uses the format manager's defaults; the broader CLP source audit remains partial.
+
+CLP and Horn trace printer parameters: passing an initialized empty parameter value lets rule diagnostics honor global pretty-print settings and prevents Horn tracing from failing with bound parameter services. Focused regressions cover a narrow CLP line width and normalization with enabled Horn tracing and real parameter owners.

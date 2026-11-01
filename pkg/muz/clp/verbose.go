@@ -56,8 +56,13 @@ func (e *Engine) verboseRule(index int, head ast.ASTHandle) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, formats.DelRef(&ref)) }()
-	// The format manager has its own parameter owner; use its default layout.
-	if err = e.manager.PrintFormat(out, format, nil, nil, nil); err != nil {
+	if context != nil && globals != nil {
+		empty := context.EmptyValue()
+		err = e.manager.PrintFormat(out, format, context, &empty, globals)
+	} else {
+		err = e.manager.PrintFormat(out, format, nil, nil, nil)
+	}
+	if err != nil {
 		return err
 	}
 	return out.AppendCString("\n")

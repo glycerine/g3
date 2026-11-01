@@ -41,7 +41,13 @@ func (n *HornNormalizer) writeHornTraceExpr(w io.Writer, h ast.ASTHandle) (resul
 		return err
 	}
 	defer func() { result = errors.Join(result, stream.Close()) }()
-	if err = m.PrintFormat(stream, format, context, nil, globals); err != nil {
+	if context != nil && globals != nil {
+		empty := context.EmptyValue()
+		err = m.PrintFormat(stream, format, context, &empty, globals)
+	} else {
+		err = m.PrintFormat(stream, format, nil, nil, nil)
+	}
+	if err != nil {
 		return err
 	}
 	body, err := stream.String()

@@ -115,3 +115,41 @@ type hornTraceRefusingWriter struct{}
 func (hornTraceRefusingWriter) Write([]byte) (int, error) {
 	return 0, errors.New("trace stream refused")
 }
+
+func TestHornNormalizerTraceWithParameterServices(t *testing.T) {
+	f := newRuleSetFixture(t)
+	context, globals, err := f.manager.RewriterParameterServices()
+	ruleMust(t, err)
+	if context == nil || globals == nil {
+		t.Fatal("fixture lacks parameter services")
+	}
+	var output bytes.Buffer
+	tags := diagnostic.NewTraceTagsWithWriter(&output)
+	tags.Enable("hnf")
+	m, err := ast.NewASTManager(ast.ASTManagerConfig{
+		Symbols: f.manager.Symbols, Numerals: f.manager.NumeralService(),
+		Budget: f.manager.Budget(), Params: context, Globals: globals, TraceTags: tags,
+	})
+	ruleMust(t, err)
+	defer func() { ruleMust(t, m.Close()) }()
+	boolean, err := m.MkBoolSort()
+	ruleMust(t, err)
+	name, err := m.Symbols.Intern("trace-parameter-predicate")
+	ruleMust(t, err)
+	decl, err := m.MkFuncDecl(name, nil, boolean, ast.ASTFuncDeclInfo{})
+	ruleMust(t, err)
+	formula, err := m.MkApp(decl, nil)
+	ruleMust(t, err)
+	root, err := m.NewRef(formula)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, m.DelRef(&root)) }()
+	normalizer, err := base.NewHornNormalizer(m, "trace")
+	ruleMust(t, err)
+	defer func() { ruleMust(t, normalizer.Close()) }()
+	result, err := normalizer.Normalize(formula)
+	ruleMust(t, err)
+	defer func() { ruleMust(t, result.Close()) }()
+	if tags.ShouldTrace("hnf") && !bytes.Contains(output.Bytes(), []byte("trace-parameter-predicate")) {
+		t.Fatalf("missing trace formula: %q", output.String())
+	}
+}
