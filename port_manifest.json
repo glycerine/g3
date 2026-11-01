@@ -49269,8 +49269,8 @@
       "component": "duality",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/expansion_heuristic.go", "pkg/duality/expansion_heuristic_test.go", "pkg/duality/solver_options.go", "pkg/duality/solver_options_test.go"],
-      "tests": ["TestExpansionHeuristicUsesMappedUpdatesAndSourceCutoff", "TestDualitySolverOptionsSourceDefaultsAndParsing"],
+      "go_targets": ["pkg/duality/derivation_tree.go", "pkg/duality/derivation_tree_test.go", "pkg/duality/expansion_heuristic.go", "pkg/duality/expansion_heuristic_test.go", "pkg/duality/solver_options.go", "pkg/duality/solver_options_test.go"],
+      "tests": ["TestDerivationInstancesMaterializeAndRecycleSourceEdges", "TestExpansionHeuristicUsesMappedUpdatesAndSourceCutoff", "TestDualitySolverOptionsSourceDefaultsAndParsing"],
       "conditionals": [
         {
           "line": 22,
@@ -50027,7 +50027,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "Heuristic active Update/ChooseExpand midpoint and best-only scoring with neutral Done/UseNode hooks", "status": "ported", "go_target": "pkg/duality/expansion_heuristic.go", "tests": ["TestExpansionHeuristicUsesMappedUpdatesAndSourceCutoff"]}],
+      "methods": [{"name": "DerivationTree InitializeApproximatedInstance/CreateApproximatedInstance and materialized-edge portion of ExpandNode", "status": "partial", "go_target": "pkg/duality/derivation_tree.go", "reason": "Fresh and recycled instance expansion is implemented; stratified GetNodeOutgoing resolution, expansion reporting and search-loop integration remain unfinished.", "tests": ["TestDerivationInstancesMaterializeAndRecycleSourceEdges"]},{"name": "Heuristic active Update/ChooseExpand midpoint and best-only scoring with neutral Done/UseNode hooks", "status": "ported", "go_target": "pkg/duality/expansion_heuristic.go", "tests": ["TestExpansionHeuristicUsesMappedUpdatesAndSourceCutoff"]}],
       "ownership": [],
       "deviations": ["Solver option defaults and setters are started; graph expansion, interpolation, solving and reporting remain unfinished. The source leaves EnableRestarts uninitialized, while Go initializes it to false before the fixedpoint interface sets it."]
     },
