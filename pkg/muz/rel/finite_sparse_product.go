@@ -115,6 +115,10 @@ func (p *FiniteSparseProduct) AddFact(values []ast.ASTHandle) (resultErr error) 
 	if err != nil {
 		return err
 	}
+	return p.addEncodedFact(key, innerFact)
+}
+
+func (p *FiniteSparseProduct) addEncodedFact(key, innerFact Fact) (resultErr error) {
 	found, err := p.table.FetchFact(key)
 	if err != nil {
 		return err
@@ -170,6 +174,90 @@ func (p *FiniteSparseProduct) AddFact(values []ast.ASTHandle) (resultErr error) 
 	p.inner[index] = inner
 	keep = true
 	return nil
+}
+
+// Project returns a product with removed columns omitted. Rows that become
+// equal are merged by insertion into their resulting inner relations.
+func (p *FiniteSparseProduct) Project(removed []int) (*FiniteSparseProduct, error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	remove := make([]bool, len(p.sorts))
+	last := -1
+	for _, column := range removed {
+		if column <= last || column < 0 || column >= len(p.sorts) {
+			return nil, ErrTableRelation
+		}
+		remove[column] = true
+		last = column
+	}
+	sorts := make([]ast.ASTHandle, 0, len(p.sorts)-len(removed))
+	tableColumns := make([]bool, 0, cap(sorts))
+	for column, sort := range p.sorts {
+		if !remove[column] {
+			sorts = append(sorts, sort)
+			tableColumns = append(tableColumns, p.isTableColumn(column))
+		}
+	}
+	result, err := NewFiniteSparseProduct(p.manager, sorts, tableColumns)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := p.table.Facts()
+	if err != nil {
+		return nil, errors.Join(err, result.Close())
+	}
+	for _, key := range rows {
+		index := int(key[len(key)-1])
+		if index < 0 || index >= len(p.inner) || p.inner[index] == nil {
+			return nil, errors.Join(ErrTableRelation, result.Close())
+		}
+		innerFacts, err := p.inner[index].Facts()
+		if err != nil {
+			return nil, errors.Join(err, result.Close())
+		}
+		for _, innerFact := range innerFacts {
+			fact := make(Fact, len(p.sorts))
+			for i, column := range p.tableColumns {
+				fact[column] = key[i]
+			}
+			for i, column := range p.innerCols {
+				fact[column] = innerFact[i]
+			}
+			projected := make(Fact, 0, len(sorts))
+			for column, value := range fact {
+				if !remove[column] {
+					projected = append(projected, value)
+				}
+			}
+			outKey, outInner := result.splitEncoded(projected)
+			if err = result.addEncodedFact(outKey, outInner); err != nil {
+				return nil, errors.Join(err, result.Close())
+			}
+		}
+	}
+	return result, nil
+}
+
+func (p *FiniteSparseProduct) isTableColumn(column int) bool {
+	for _, tableColumn := range p.tableColumns {
+		if tableColumn == column {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *FiniteSparseProduct) splitEncoded(values Fact) (Fact, Fact) {
+	key := make(Fact, len(p.tableColumns)+1)
+	inner := make(Fact, len(p.innerCols))
+	for i, column := range p.tableColumns {
+		key[i] = values[column]
+	}
+	for i, column := range p.innerCols {
+		inner[i] = values[column]
+	}
+	return key, inner
 }
 
 func (p *FiniteSparseProduct) ContainsFact(values []ast.ASTHandle) (bool, error) {

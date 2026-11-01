@@ -92893,7 +92893,8 @@
         "TestFiniteIntervalProductSymbolicFactInsertion",
         "TestFiniteSparseProductFactsAndClone",
         "TestFiniteSparseProductRejectsInvalidConstructionAndFacts",
-        "TestFiniteSparseProductUnionFrom"
+        "TestFiniteSparseProductUnionFrom",
+        "TestFiniteSparseProductProjectMergesRows"
       ],
       "conditionals": [
         {

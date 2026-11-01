@@ -110,3 +110,40 @@ func TestFiniteSparseProductUnionFrom(t *testing.T) {
 		t.Fatalf("union mutated source: %v (%v)", found, e)
 	}
 }
+
+func TestFiniteSparseProductProjectMergesRows(t *testing.T) {
+	f := newTableRelationFixture(t)
+	name, err := f.ast.Symbols.Intern("finite-sparse-product-project-domain")
+	astTestMust(t, err)
+	sort, err := f.ast.MkDatalogFiniteSort(name, 4)
+	astTestMust(t, err)
+	value := func(n uint64) ast.ASTHandle {
+		h, e := f.ast.MkDatalogNumeral(n, sort)
+		astTestMust(t, e)
+		astTestPin(t, f.ast, h)
+		return h
+	}
+	zero, one, two, three := value(0), value(1), value(2), value(3)
+	source, err := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort, sort, sort}, []bool{true, false, true})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, source.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{zero, one, two}, {three, one, two}, {zero, two, three}} {
+		astTestMust(t, source.AddFact(fact))
+	}
+	projected, err := source.Project([]int{0})
+	astTestMust(t, err)
+	defer func() { astTestMust(t, projected.Close()) }()
+	for _, fact := range [][]ast.ASTHandle{{one, two}, {two, three}} {
+		if found, e := projected.ContainsFact(fact); e != nil || !found {
+			t.Fatalf("projected product missing %v: %v (%v)", fact, found, e)
+		}
+	}
+	if found, e := projected.ContainsFact([]ast.ASTHandle{three, one}); e != nil || found {
+		t.Fatalf("projection added absent row: %v (%v)", found, e)
+	}
+	for _, removed := range [][]int{{1, 0}, {3}} {
+		if _, e := source.Project(removed); e == nil {
+			t.Fatalf("invalid projection columns accepted: %v", removed)
+		}
+	}
+}
