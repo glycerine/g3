@@ -6160,7 +6160,7 @@
       "methods": [
         {
           "name": "generated replay of pattern, bound-variable, forall, exists and extended quantifier constructors",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/z3_generated_quantifier_commands.go",
           "go_targets": [
             "pkg/cmd/g3/z3_log_frontend_test.go"
@@ -6175,7 +6175,7 @@
         },
         {
           "name": "generated replay of constant-bound forall, exists and extended quantifier constructors",
-          "status": "partial",
+          "status": "ported",
           "go_target": "pkg/api/z3_generated_quantifier_commands.go",
           "go_targets": [
             "pkg/cmd/g3/z3_log_frontend_test.go"

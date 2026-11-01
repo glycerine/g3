@@ -20,7 +20,7 @@ func TestGeneratedQuantifierReplayBoundPatternAndSymbols(t *testing.T) {
 		"R\nP 0x41\nP 0x48\nI 0\nI 3\nI 0\nC 900\n" +
 		"R\nP 0x41\nI 1\nU 4\nU 0\np 0\nU 1\nP 0x42\np 1\n# 7\ns 1\nP 0x43\nC 194\n= 0x49\n" +
 		"R\nP 0x41\nP 0x49\nI 1\nI 4\nI 0\nC 900\n" +
-		"R\nP 0x41\nI 0\nU 6\n$ |qid|\n# 22\nU 0\np 0\nU 0\np 0\nU 1\nP 0x42\np 1\n# 7\ns 1\nP 0x43\nC 195\n= 0x50\n" +
+		"R\nP 0x41\nI 0\nU 6\n$ |qid|\n# 22\nU 0\np 0\nU 1\nP 0x43\np 1\nU 1\nP 0x42\np 1\n# 7\ns 1\nP 0x43\nC 195\n= 0x50\n" +
 		"R\nP 0x41\nP 0x50\nI 0\nI 6\nI 0\nC 900\n"
 	r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 	if err != nil {
@@ -81,6 +81,21 @@ func TestGeneratedQuantifierReplayBoundPatternAndSymbols(t *testing.T) {
 			t.Fatalf("numeric binder name lost: %v", name)
 		}
 		if wantWeight == 6 {
+			noPatterns, x := owner.results.manager.GetNumNoPatterns(value.handle)
+			if x != nil || noPatterns != 1 {
+				return fmt.Errorf("extended quantifier no-pattern count %d: %w", noPatterns, x)
+			}
+			noPattern, x := owner.results.manager.GetNoPattern(value.handle, 0)
+			if x != nil {
+				return x
+			}
+			body, x := owner.results.manager.GetQuantifierBody(value.handle)
+			if x != nil {
+				return x
+			}
+			if noPattern != body {
+				return fmt.Errorf("extended quantifier no-pattern %v differs from body %v", noPattern, body)
+			}
 			qid, skid, e := owner.results.manager.GetQuantifierIDs(value.handle)
 			if e != nil {
 				return e
@@ -202,12 +217,13 @@ func TestGeneratedConstantQuantifierReplay(t *testing.T) {
 	cases := []struct {
 		id             uint32
 		forall         bool
+		patterned      bool
 		prefix, suffix string
 	}{
-		{196, true, "U 5\n", ""},
-		{197, false, "U 5\n", ""},
-		{198, true, "I 1\nU 5\n", ""},
-		{199, false, "I 0\nU 5\n# 22\n$ |skid|\n", "U 0\np 0\n"},
+		{196, true, true, "U 5\n", ""},
+		{197, false, true, "U 5\n", ""},
+		{198, true, true, "I 1\nU 5\n", ""},
+		{199, false, false, "I 0\nU 5\n# 22\n$ |skid|\n", "U 1\nP 0x45\np 1\n"},
 	}
 	for _, tc := range cases {
 		t.Run(fmt.Sprint(tc.id), func(t *testing.T) {
@@ -217,7 +233,12 @@ func TestGeneratedConstantQuantifierReplay(t *testing.T) {
 				"R\nP 0x41\n$ |f|\nU 1\nP 0x42\np 1\nP 0x42\nC 49\n= 0x44\n" +
 				"R\nP 0x41\nP 0x44\nU 1\nP 0x43\np 1\nC 50\n= 0x45\n" +
 				"R\nP 0x41\nU 1\nP 0x45\np 1\nC 190\n= 0x46\n" +
-				"R\nP 0x41\n" + tc.prefix + "U 1\nP 0x43\np 1\nU 1\nP 0x46\np 1\n" + tc.suffix + "P 0x45\n" + fmt.Sprintf("C %d\n= 0x47\n", tc.id) +
+				"R\nP 0x41\n" + tc.prefix + "U 1\nP 0x43\np 1\n" + func() string {
+				if tc.patterned {
+					return "U 1\nP 0x46\np 1\n"
+				}
+				return "U 0\np 0\n"
+			}() + tc.suffix + "P 0x45\n" + fmt.Sprintf("C %d\n= 0x47\n", tc.id) +
 				"R\nP 0x41\nP 0x47\nC 900\n"
 			r, err := NewZ3Replayer(strings.NewReader(log), io.Discard)
 			if err != nil {
@@ -271,23 +292,44 @@ func TestGeneratedConstantQuantifierReplay(t *testing.T) {
 				if e != nil || index != 0 {
 					t.Fatalf("abstracted body index %d: %v", index, e)
 				}
-				pattern, e := m.GetPattern(q.handle, 0)
-				if e != nil {
-					return e
-				}
-				term, e := m.GetArg(pattern, 0)
-				if e != nil {
-					return e
-				}
-				arg, e = m.GetArg(term, 0)
-				if e != nil {
-					return e
-				}
-				index, e = m.GetVarIndex(arg)
-				if e != nil || index != 0 {
-					t.Fatalf("abstracted pattern index %d: %v", index, e)
+				if tc.patterned {
+					pattern, x := m.GetPattern(q.handle, 0)
+					if x != nil {
+						return x
+					}
+					term, x := m.GetArg(pattern, 0)
+					if x != nil {
+						return x
+					}
+					arg, x = m.GetArg(term, 0)
+					if x != nil {
+						return x
+					}
+					index, x = m.GetVarIndex(arg)
+					if x != nil || index != 0 {
+						t.Fatalf("abstracted pattern index %d: %v", index, x)
+					}
 				}
 				if tc.id == 199 {
+					noPatterns, e := m.GetNumNoPatterns(q.handle)
+					if e != nil || noPatterns != 1 {
+						return fmt.Errorf("extended constant quantifier no-pattern count %d: %w", noPatterns, e)
+					}
+					noPattern, e := m.GetNoPattern(q.handle, 0)
+					if e != nil {
+						return e
+					}
+					if noPattern != body {
+						return fmt.Errorf("abstracted no-pattern %v differs from body %v", noPattern, body)
+					}
+					arg, e := m.GetArg(noPattern, 0)
+					if e != nil {
+						return e
+					}
+					index, e := m.GetVarIndex(arg)
+					if e != nil || index != 0 {
+						return fmt.Errorf("abstracted no-pattern variable index %d: %w", index, e)
+					}
 					qid, skid, e := m.GetQuantifierIDs(q.handle)
 					if e != nil {
 						return e
