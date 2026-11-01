@@ -100437,9 +100437,9 @@
         {
           "name": "model_evaluator_util Boolean probes use non-completing evaluation, typed model-evaluator rewrite-exception catches and source exception TRACE output",
           "status": "partial",
-          "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go"],
-          "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset"],
-          "reason": "The implicant Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
+          "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/weak_derivation_evaluator_test.go"],
+          "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset", "TestSpacerWeakDerivationUsesSourceBooleanProbePolicy"],
+          "reason": "The implicant and weak-derivation Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
         },
         {
           "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",
@@ -100648,9 +100648,9 @@
         {
           "name": "model_evaluator_util Boolean probes use non-completing evaluation, typed model-evaluator rewrite-exception catches and source exception TRACE output",
           "status": "partial",
-          "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go"],
-          "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset"],
-          "reason": "The implicant Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
+          "go_targets": ["pkg/muz/spacer/model_evaluator.go", "pkg/muz/spacer/implicant_literals.go", "pkg/model/model_evaluator.go", "pkg/muz/spacer/implicant_evaluator_limit_test.go", "pkg/muz/spacer/predicate_derivation.go", "pkg/muz/spacer/weak_derivation_evaluator_test.go"],
+          "tests": ["TestSpacerModelEvaluatorCatchesSourceResourceExceptions", "TestModelEvaluatorResourceLimitsAndReset", "TestSpacerWeakDerivationUsesSourceBooleanProbePolicy"],
+          "reason": "The implicant and weak-derivation Boolean probes are wired; other vector/value consumers still need wrapper-level exception auditing. Interrupted traversals preserve the source not_rewriting precondition rather than silently resetting."
         },
         {
           "name": "qe_project initially flattens conjunctions with source swap/reprocessing order before repeated qe_lite and theory rewriting, for both arithmetic modes (spacer_util.cpp:495-504)",

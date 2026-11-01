@@ -130,37 +130,35 @@ func (p *PredicateTransformer) CreateDerivationChild(obligation *ProofObligation
 			return nil, err
 		}
 	}
-	// Source create_children drops the optimization when a weak model does
-	// not satisfy the original T && phi, even if its selected implicant does.
-	if p.weakAbstraction {
-		evaluator, err := newSpacerModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
-		if err = evaluator.SetModelCompletion(false); err != nil {
-			return nil, err
-		}
-		for _, expression := range []ast.ASTHandle{transition, post} {
-			value, err := evaluator.EvaluateValue(expression)
-			if err != nil {
-				return nil, err
-			}
-			handle, err := p.manager.RefGet(value)
-			isTrue := err == nil && p.manager.IsTrue(handle)
-			if err = errors.Join(err, p.manager.DelRef(&value)); err != nil {
-				return nil, err
-			}
-			if !isTrue {
-				if err = child.SetDerivation(nil); err != nil {
-					return nil, err
-				}
-				break
-			}
-		}
+	if err = p.checkWeakDerivation(child, md, transition, post); err != nil {
+		return nil, err
 	}
 	if p.contextStats != nil {
 		p.contextStats.queries++
 	}
 	return child, nil
+}
+
+func (p *PredicateTransformer) checkWeakDerivation(child *ProofObligation, md *model.ModelCore, transition, post ast.ASTHandle) (resultErr error) {
+	// Source create_children drops the optimization when a weak model does
+	// not satisfy the original T && phi, even if its selected implicant does.
+	if !p.weakAbstraction {
+		return nil
+	}
+	config := p.owner.contexts[0].config.ModelEvaluator
+	evaluator, err := newSpacerModelEvaluator(md, config)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, evaluator.Close()) }()
+	for _, expression := range []ast.ASTHandle{transition, post} {
+		isTrue, _, err := evaluateSpacerModelBoolean(p.manager, evaluator, config, expression)
+		if err != nil {
+			return err
+		}
+		if !isTrue {
+			return child.SetDerivation(nil)
+		}
+	}
+	return nil
 }
