@@ -4,6 +4,7 @@ package model
 
 import (
 	"io"
+	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
@@ -127,6 +128,27 @@ func (i *ModelImplicant) reportUntrackedValue(expression, value ast.ASTHandle) e
 			}
 		}
 		_, _ = io.WriteString(out, "\n")
+		return nil
+	})
+	return operandErr
+}
+
+// Source: model_implicant::set_number, model_implicant.h:77.
+func (i *ModelImplicant) traceNumber(expression ast.ASTHandle, value *big.Rat) error {
+	tags := i.services.Trace
+	if tags == nil {
+		tags = diagnostic.BorrowProcessTraceTags()
+	}
+	if !tags.ShouldTrace("pdr_verbose") {
+		return nil
+	}
+	var operandErr error
+	_ = tags.EmitConditional("pdr_verbose", "set_number", "src/model/model_implicant.h", 77, func() bool { return true }, func(out io.Writer) error {
+		operandErr = i.evaluator.writeSMT2(out, expression)
+		if operandErr != nil {
+			return operandErr
+		}
+		_, _ = io.WriteString(out, " "+value.RatString()+"\n")
 		return nil
 	})
 	return operandErr

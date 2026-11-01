@@ -192,6 +192,9 @@ func (i *ModelImplicant) setNumber(h ast.ASTHandle, value *big.Rat) error {
 	if err := i.setState(h, implicantConcrete); err != nil {
 		return err
 	}
+	if err := i.traceNumber(h, value); err != nil {
+		return err
+	}
 	i.numbers[h] = new(big.Rat).Set(value)
 	return nil
 }
