@@ -107,15 +107,35 @@ func (t *CoreTactic) DecRef() error {
 	return nil
 }
 
-func (t *CoreTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) error {
+func (t *CoreTactic) Apply(goal *tactic.Goal, result *tactic.TacticResult) (resultErr error) {
 	if err := t.open(); err != nil {
 		return err
 	}
 	if goal == nil || result == nil || goal.Manager() != t.manager {
 		return ast.ErrASTHandle
 	}
-	_, err := ApplyGoal(t.owner.engine, goal, result)
-	return err
+	wellSorted, err := goal.IsWellSorted()
+	if err != nil {
+		return err
+	}
+	if !wellSorted {
+		return ErrSLSSearch
+	}
+	if err = result.Prepare(t.manager); err != nil {
+		return err
+	}
+	if err = t.traceGoal(goal, 70); err != nil {
+		return err
+	}
+	report, err := tactic.NewTacticReport("sls", goal)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, report.Close()) }()
+	if _, err = ApplyGoal(t.owner.engine, goal, result); err != nil {
+		return err
+	}
+	return t.traceGoal(goal, 77)
 }
 
 func (t *CoreTactic) UpdateParams(params *uparams.ParamsRef) error {

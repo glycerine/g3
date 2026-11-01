@@ -194484,6 +194484,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/tactic/sls/sls_core_trace.go",
+        "pkg/tactic/sls/sls_core_trace_test.go",
         "pkg/parsers/smt2/sls_tactic_test.go",
         "pkg/tactic/sls/sls_context_translation_test.go",
         "pkg/tactic/sls/sls_context_translation.go",
@@ -194492,6 +194494,7 @@
         "pkg/cmd_context/tactic_descriptions.go",
         "pkg/api/api_tactic_new_factories_test.go","pkg/tactic/sls/sls_search_tracker.go", "pkg/tactic/sls/sls_incremental_update.go", "pkg/tactic/sls/sls_engine_runtime.go", "pkg/tactic/sls/sls_goal_orchestration.go", "pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go", "pkg/tactic/sls/sls_engine_runtime_test.go"],
       "tests": [
+        "TestSLSCoreSourceTraceAndTacticReport",
         "TestSMT2QFBVSLSBitVectorModel",
         "TestSLSContextTranslationCopiesParametersAndEngine",
         "TestSLSCoreCleanupPreservesEngineOnConstructionFailure",
@@ -194509,7 +194512,7 @@
       ],
       "methods_audited": false,
       "ownership_audited": false,
-      "methods": [{"name": "cleanup constructs a replacement engine before destroying the previous engine", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCleanupPreservesEngineOnConstructionFailure", "TestSLSCoreCleanupAllocationFrontiers"]}],
+      "methods": [{"name": "source before-and-after goal traces and tactic report", "status": "partial", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_trace.go", "pkg/tactic/sls/sls_core_trace_test.go"], "tests": ["TestSLSCoreSourceTraceAndTacticReport"]}, {"name": "cleanup constructs a replacement engine before destroying the previous engine", "status": "ported", "go_targets": ["pkg/tactic/sls/sls_core_tactic.go", "pkg/tactic/sls/sls_core_tactic_test.go"], "tests": ["TestSLSCoreCleanupPreservesEngineOnConstructionFailure", "TestSLSCoreCleanupAllocationFrontiers"]}],
       "ownership": [],
       "deviations": []
     },

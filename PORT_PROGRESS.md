@@ -52658,3 +52658,5 @@ SLS pruning graph and failure coverage: a shared Boolean DAG checks propagation 
 SLS single-assertion selection: the source returns a single unsatisfied assertion without consuming random bits, updating UCB counters or changing its last position, and GSAT returns the full tracked-constant vector for that case. Go now follows both shortcuts; tests cover unsatisfied and satisfied assertions, selection state and constant order.
 
 SLS progress and search summary: the engine now emits the source's verbosity-gated restart and successful-move reports and its final search summary through the process diagnostic stream. Tests cover level gating, zero counters, event order and exhausted restarts; the separate tactic-report and trace audit remains open.
+
+SLS tactic reporting: the core wrapper now emits the source before-and-after goal traces and the verbosity-gated tactic report. Tests cover enabled and disabled tracing, a refusing trace stream and the successful goal transition; additional engine trace sites remain partial.
