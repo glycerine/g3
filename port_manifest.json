@@ -92341,7 +92341,9 @@
         "TestFiniteIntervalProductSourceFactLookup",
         "TestFiniteIntervalProductSymbolicFactInsertion",
         "TestFiniteSparseProductComplementAndFull",
-        "TestFiniteSparseProductJoinTableRelationConversion"
+        "TestFiniteSparseProductJoinTableRelationConversion",
+        "TestFiniteSparseProductJoinAcrossPartitions",
+        "TestFiniteSparseProductSourceDriver"
       ],
       "conditionals": [
         {
@@ -92767,6 +92769,15 @@
           "go_target": "pkg/muz/rel/finite_interval_product_join.go",
           "tests": [
             "TestFiniteIntervalProductJoin"
+          ]
+        },
+        {
+          "name": "finite sparse product split-layer joins",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/finite_sparse_product.go",
+          "tests": [
+            "TestFiniteSparseProductJoinAcrossPartitions",
+            "TestFiniteSparseProductSourceDriver"
           ]
         },
         {

@@ -339,9 +339,9 @@ func (p *FiniteSparseProduct) splitEncoded(values Fact) (Fact, Fact) {
 	return key, inner
 }
 
-// Join returns the concatenation join of two finite sparse products. The
-// flattened sparse tables provide the generic table join semantics, including
-// equalities that cross either product's outer and inner partitions.
+// Join returns the concatenation join of two finite sparse products. It joins
+// outer tables and nested sparse relations independently, then enforces any
+// equalities that cross those partitions.
 func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, rightColumns []int) (*FiniteSparseProduct, error) {
 	if err := p.open(); err != nil {
 		return nil, err
@@ -360,21 +360,45 @@ func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, righ
 	if len(leftColumns) != len(rightColumns) {
 		return nil, ErrTableRelation
 	}
-	left, err := p.flatten()
+	leftTablePosition := make(map[int]int, len(p.tableColumns))
+	for position, column := range p.tableColumns {
+		leftTablePosition[column] = position
+	}
+	rightTablePosition := make(map[int]int, len(right.tableColumns))
+	for position, column := range right.tableColumns {
+		rightTablePosition[column] = position
+	}
+	leftInnerPosition := make(map[int]int, len(p.innerCols))
+	for position, column := range p.innerCols {
+		leftInnerPosition[column] = position
+	}
+	rightInnerPosition := make(map[int]int, len(right.innerCols))
+	for position, column := range right.innerCols {
+		rightInnerPosition[column] = position
+	}
+	var tableLeft, tableRight, innerLeft, innerRight []int
+	var crossPairs [][2]int
+	for i, leftColumn := range leftColumns {
+		rightColumn := rightColumns[i]
+		leftTable, rightTable := p.isTableColumn(leftColumn), right.isTableColumn(rightColumn)
+		switch {
+		case leftTable && rightTable:
+			tableLeft = append(tableLeft, leftTablePosition[leftColumn])
+			tableRight = append(tableRight, rightTablePosition[rightColumn])
+		case !leftTable && !rightTable:
+			innerLeft = append(innerLeft, leftInnerPosition[leftColumn])
+			innerRight = append(innerRight, rightInnerPosition[rightColumn])
+		case leftTable:
+			crossPairs = append(crossPairs, [2]int{leftColumn, len(p.sorts) + rightColumn})
+		default:
+			crossPairs = append(crossPairs, [2]int{leftColumn, len(p.sorts) + rightColumn})
+		}
+	}
+	joinedOuter, err := p.table.Join(right.table, tableLeft, tableRight)
 	if err != nil {
 		return nil, err
 	}
-	defer left.Close()
-	rightTable, err := right.flatten()
-	if err != nil {
-		return nil, err
-	}
-	defer rightTable.Close()
-	joined, err := left.Join(rightTable, leftColumns, rightColumns)
-	if err != nil {
-		return nil, err
-	}
-	defer joined.Close()
+	defer joinedOuter.Close()
 	sorts := append(append([]ast.ASTHandle(nil), p.sorts...), right.sorts...)
 	mask := make([]bool, 0, len(sorts))
 	for column := range p.sorts {
@@ -387,16 +411,53 @@ func (p *FiniteSparseProduct) Join(right *FiniteSparseProduct, leftColumns, righ
 	if err != nil {
 		return nil, err
 	}
-	facts, err := joined.Facts()
+	keepResult := false
+	defer func() {
+		if !keepResult {
+			_ = result.Close()
+		}
+	}()
+	outerFacts, err := joinedOuter.Facts()
 	if err != nil {
-		return nil, errors.Join(err, result.Close())
+		return nil, err
 	}
-	for _, fact := range facts {
-		key, inner := result.splitEncoded(fact)
-		if err = result.addEncodedFact(key, inner); err != nil {
-			return nil, errors.Join(err, result.Close())
+	leftIndexColumn := len(p.tableColumns) + len(right.tableColumns)
+	rightIndexColumn := leftIndexColumn + 1
+	for _, outerFact := range outerFacts {
+		leftIndex, rightIndex := int(outerFact[leftIndexColumn]), int(outerFact[rightIndexColumn])
+		if leftIndex < 0 || leftIndex >= len(p.inner) || p.inner[leftIndex] == nil || rightIndex < 0 || rightIndex >= len(right.inner) || right.inner[rightIndex] == nil {
+			return nil, ErrTableRelation
+		}
+		joinedInner, joinErr := p.inner[leftIndex].Join(right.inner[rightIndex], innerLeft, innerRight)
+		if joinErr != nil {
+			return nil, joinErr
+		}
+		innerFacts, factsErr := joinedInner.Facts()
+		closeErr := joinedInner.Close()
+		if factsErr != nil || closeErr != nil {
+			return nil, errors.Join(factsErr, closeErr)
+		}
+		key := make(Fact, len(result.tableColumns)+1)
+		for position, column := range result.tableColumns {
+			if column < len(p.sorts) {
+				key[position] = outerFact[leftTablePosition[column]]
+			} else {
+				rightColumn := column - len(p.sorts)
+				key[position] = outerFact[len(p.tableColumns)+rightTablePosition[rightColumn]]
+			}
+		}
+		for _, innerFact := range innerFacts {
+			if err = result.addEncodedFact(key, innerFact); err != nil {
+				return nil, err
+			}
 		}
 	}
+	if len(crossPairs) != 0 {
+		if err = result.FilterIdenticalPairs(crossPairs); err != nil {
+			return nil, err
+		}
+	}
+	keepResult = true
 	return result, nil
 }
 

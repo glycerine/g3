@@ -239,6 +239,30 @@ func TestFiniteSparseProductJoinAcrossPartitions(t *testing.T) {
 	if found, e := joined.ContainsFact([]ast.ASTHandle{zero, one, two, zero}); e != nil || found {
 		t.Fatalf("join produced a mismatched pair: %v (%v)", found, e)
 	}
+	for _, leftTable := range []bool{false, true} {
+		for _, rightTable := range []bool{false, true} {
+			leftPart, e := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort}, []bool{leftTable})
+			astTestMust(t, e)
+			t.Cleanup(func() { astTestMust(t, leftPart.Close()) })
+			rightPart, e := NewFiniteSparseProduct(f.relations, []ast.ASTHandle{sort}, []bool{rightTable})
+			astTestMust(t, e)
+			t.Cleanup(func() { astTestMust(t, rightPart.Close()) })
+			astTestMust(t, leftPart.AddFact([]ast.ASTHandle{zero}))
+			astTestMust(t, leftPart.AddFact([]ast.ASTHandle{one}))
+			astTestMust(t, rightPart.AddFact([]ast.ASTHandle{one}))
+			partJoin, e := leftPart.Join(rightPart, []int{0}, []int{0})
+			if e != nil {
+				t.Fatalf("join table partitions (%v,%v): %v", leftTable, rightTable, e)
+			}
+			t.Cleanup(func() { astTestMust(t, partJoin.Close()) })
+			if found, e := partJoin.ContainsFact([]ast.ASTHandle{one, one}); e != nil || !found {
+				t.Fatalf("join table partitions (%v,%v) lost match: %v (%v)", leftTable, rightTable, found, e)
+			}
+			if found, e := partJoin.ContainsFact([]ast.ASTHandle{zero, one}); e != nil || found {
+				t.Fatalf("join table partitions (%v,%v) accepted mismatch: %v (%v)", leftTable, rightTable, found, e)
+			}
+		}
+	}
 }
 
 func TestFiniteSparseProductEqualityFilters(t *testing.T) {
