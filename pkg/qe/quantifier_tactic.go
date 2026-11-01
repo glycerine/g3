@@ -188,7 +188,7 @@ func (t *QuantifierTactic) Apply(goal *tactic.Goal, out *tactic.TacticResult) (r
 		if canceled {
 			return tactic.NewTacticException(t.manager.ResourceLimit().CancelMessage())
 		}
-		if e = t.config.Cooperation.Checkpoint("qe"); e != nil {
+		if e = t.config.Cooperation.Cooperate("qe"); e != nil {
 			return e
 		}
 		inconsistent, e := goal.Inconsistent()

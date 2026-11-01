@@ -110745,6 +110745,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/expr_quantifier_datatype_branch_test.go",
+        "pkg/qe/expr_quantifier_datalog_branch_test.go",
         "pkg/muz/base/rule_unbound_test.go",
         "pkg/muz/base/rule_unbound.go",
         "pkg/qe/simplify_quantifier_rewriter_test.go",
@@ -110847,6 +110849,9 @@
         "pkg/qe/quantifier_tactic_bv_search_test.go"
       ],
       "tests": [
+        "TestExprQEDatatypeBranchPropagatesAndSubstitutes",
+        "TestExprQEDatalogBranchPropagatesAndSubstitutes",
+        "TestExprQEDatatypeSearchEliminatesRecognizedEquality",
         "TestExprQEDatatypeBranchesPrepareSolverAtoms",
         "TestRuleManagerFixUnboundSimplifiesIntegerEquation",
         "TestSimplifyQEQuantifierSkipsPatterns",
@@ -112459,6 +112464,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/expr_quantifier_datatype_branch_test.go",
         "pkg/qe/qe_datatype_plugin.go",
         "pkg/qe/qe_datatype_plugin_test.go",
         "pkg/qe/qe_datatype_plugin_substitute.go",
@@ -112468,6 +112474,8 @@
         "pkg/qe/qe_datatype_plugin_solve_eq.go"
       ],
       "tests": [
+        "TestExprQEDatatypeBranchPropagatesAndSubstitutes",
+        "TestExprQEDatatypeSearchEliminatesRecognizedEquality",
         "TestExprQEDatatypeBranchesPrepareSolverAtoms",
         "TestDatatypeSolverPluginNonRecursiveBranches",
         "TestDatatypeSolverPluginBranchAssignment",
@@ -112913,6 +112921,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/expr_quantifier_datalog_branch_test.go",
         "pkg/qe/datalog_atoms.go",
         "pkg/qe/datalog_atoms_test.go",
         "pkg/qe/datalog_plugin.go",
@@ -112921,6 +112930,7 @@
         "pkg/qe/datalog_branch_test.go"
       ],
       "tests": [
+        "TestExprQEDatalogBranchPropagatesAndSubstitutes",
         "TestDatalogQEAtomCollectionAndBranches",
         "TestDatalogQEContainsIgnoresQuantifierAnnotations",
         "TestDatalogPluginPrepareCacheAndContextOwnership",
@@ -114535,6 +114545,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/qe/expr_quantifier_datatype_branch_test.go",
         "pkg/qe/quantifier_tactic_options.go",
         "pkg/qe/quantifier_tactic_options_test.go",
         "pkg/qe/quantifier_tactic.go",
@@ -114556,6 +114567,8 @@
         "pkg/cmd/g3/qe_boolean_integration_test.go"
       ],
       "tests": [
+        "TestExprQEDatatypeSearchEliminatesRecognizedEquality",
+        "TestSMTLibRunnerRecursiveDatatypeQETactic",
         "TestQuantifierTacticNonlinearOptionSnapshot",
         "TestQuantifierTacticQuantifierFreeGoalAndRefusal",
         "TestQuantifierTacticBooleanUnitsAndAtomicRefusal",

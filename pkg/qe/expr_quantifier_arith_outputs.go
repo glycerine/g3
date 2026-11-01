@@ -18,21 +18,8 @@ func drainExprQEArithmeticOutputs(plugin *ArithmeticPlugin, node *exprQETree, va
 	if err != nil {
 		return err
 	}
-	defer func() {
-		for i := range constraints {
-			if constraints[i].Formula != (ast.ASTRef{}) {
-				err = errors.Join(err, m.DelRef(&constraints[i].Formula))
-			}
-		}
-	}()
-	for _, constraint := range constraints {
-		h, e := m.RefGet(constraint.Formula)
-		if e != nil {
-			return e
-		}
-		if e = assertExprQETreeConstraint(node, solver, constraint.UseVariable, h); e != nil {
-			return e
-		}
+	if err = drainExprQEConstraints(constraints, node, solver); err != nil {
+		return err
 	}
 	fresh, err := plugin.TakeFreshVariables()
 	if err != nil {
@@ -51,6 +38,27 @@ func drainExprQEArithmeticOutputs(plugin *ArithmeticPlugin, node *exprQETree, va
 			return e
 		}
 		if e = variables.add(h); e != nil {
+			return e
+		}
+	}
+	return nil
+}
+
+func drainExprQEConstraints(constraints []ArithmeticConstraint, node *exprQETree, solver *smtcore.SMTSolver) (err error) {
+	m := node.manager
+	defer func() {
+		for i := range constraints {
+			if constraints[i].Formula != (ast.ASTRef{}) {
+				err = errors.Join(err, m.DelRef(&constraints[i].Formula))
+			}
+		}
+	}()
+	for _, constraint := range constraints {
+		h, e := m.RefGet(constraint.Formula)
+		if e != nil {
+			return e
+		}
+		if e = assertExprQETreeConstraint(node, solver, constraint.UseVariable, h); e != nil {
 			return e
 		}
 	}

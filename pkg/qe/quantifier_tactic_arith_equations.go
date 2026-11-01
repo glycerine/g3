@@ -143,7 +143,7 @@ func eliminateQuantifierArithmeticEquations(m *ast.ASTManager, quantifier ast.AS
 		if canceled {
 			return result, false, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
 		}
-		if err = config.Cooperation.Checkpoint("qe"); err != nil {
+		if err = config.Cooperation.Cooperate("qe"); err != nil {
 			return result, false, err
 		}
 		body, err = m.RefGet(formula)

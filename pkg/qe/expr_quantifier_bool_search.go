@@ -39,7 +39,7 @@ func searchExprQEScalarTree(root *exprQETree, variables *exprQEBranchVariables, 
 		if canceled {
 			return result, false, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
 		}
-		if e = config.Cooperation.Checkpoint("qe"); e != nil {
+		if e = config.Cooperation.Cooperate("qe"); e != nil {
 			return result, false, e
 		}
 		status, e := solver.CheckSat(nil)

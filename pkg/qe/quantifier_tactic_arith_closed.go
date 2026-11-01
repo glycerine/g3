@@ -31,7 +31,7 @@ func eliminateQuantifierArithmeticClosed(m *ast.ASTManager, quantifier ast.ASTHa
 	if canceled {
 		return result, false, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
 	}
-	if err = config.Cooperation.Checkpoint("qe"); err != nil {
+	if err = config.Cooperation.Cooperate("qe"); err != nil {
 		return result, false, err
 	}
 	kind, err := m.GetKind(quantifier)

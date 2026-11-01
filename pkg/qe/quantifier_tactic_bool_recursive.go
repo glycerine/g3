@@ -29,7 +29,7 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 	if canceled {
 		return result, false, tactic.NewTacticException(m.ResourceLimit().CancelMessage())
 	}
-	if err = config.Cooperation.Checkpoint("qe"); err != nil {
+	if err = config.Cooperation.Cooperate("qe"); err != nil {
 		return result, false, err
 	}
 	kind, err := m.GetKind(expression)
@@ -81,6 +81,9 @@ func rewriteQuantifierScalar(m *ast.ASTManager, expression ast.ASTHandle, config
 		}
 		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierBitVectorSearch(m, q, config)
+		}
+		if e == nil && !done {
+			eliminated, done, e = eliminateQuantifierDatatypeSearch(m, q, config)
 		}
 		if e == nil && !done {
 			eliminated, done, e = eliminateQuantifierMixed(m, q, config)

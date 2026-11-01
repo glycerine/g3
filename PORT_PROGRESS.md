@@ -1,3 +1,5 @@
+QE search now propagates datatype and finite-domain branch constraints, substitutions, and datatype fresh variables. A recursive datatype search checks its projected constructor condition, with solver equivalence and SMT-LIB regression tests; searches needing a refreshed variable context remain incomplete. QE cooperation uses the source wrapper so disabled cooperation works in checked builds.
+
 Recursive datatype QE selection now prepares equality atoms from the solver before counting branches. A selection-to-substitution test also checks that opaque datatype occurrences remain unsupported.
 
 Lightweight quantifier elimination now translates into target-owned services and rewriter state. Tests cover variable elimination, allocation failures, and translated SAT/UNSAT solvers after source closure.

@@ -16,6 +16,7 @@ type qeScalarSearchKind uint8
 const (
 	qeScalarArithmetic qeScalarSearchKind = iota
 	qeScalarBitVector
+	qeScalarDatatype
 )
 
 func eliminateQuantifierArithmeticSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
@@ -26,8 +27,12 @@ func eliminateQuantifierBitVectorSearch(m *ast.ASTManager, quantifier ast.ASTHan
 	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarBitVector)
 }
 
-// eliminateQuantifierScalarSearch handles one concrete arithmetic or bit-vector
-// declaration when branch propagation finishes without fresh variables.
+func eliminateQuantifierDatatypeSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config) (ast.ASTRef, bool, error) {
+	return eliminateQuantifierScalarSearch(m, quantifier, config, qeScalarDatatype)
+}
+
+// eliminateQuantifierScalarSearch handles one arithmetic, bit-vector, or
+// datatype declaration when propagation finishes without fresh variables.
 func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle, config Config, searchKind qeScalarSearchKind) (result ast.ASTRef, complete bool, err error) {
 	if m == nil || config.Context == nil || config.Globals == nil || config.Cooperation == nil {
 		return result, false, ast.ErrASTHandle
@@ -79,6 +84,8 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 			return result, false, err
 		}
 		expectedFamily, err = m.BitVectorUtilityFamilyID()
+	case qeScalarDatatype:
+		expectedFamily, err = m.RegisterDatatypePlugin()
 	default:
 		return result, false, ast.ErrASTDomain
 	}
@@ -127,13 +134,18 @@ func eliminateQuantifierScalarSearch(m *ast.ASTManager, quantifier ast.ASTHandle
 	}
 	var scalarPlugin SolverPlugin
 	var arithPlugin *ArithmeticPlugin
-	if searchKind == qeScalarArithmetic {
+	switch searchKind {
+	case qeScalarArithmetic:
 		arithPlugin, err = NewArithmeticPlugin(context)
 		scalarPlugin = arithPlugin
-	} else {
+	case qeScalarBitVector:
 		var bitVectorPlugin *BitVectorPlugin
 		bitVectorPlugin, err = NewBitVectorPlugin(context)
 		scalarPlugin = bitVectorPlugin
+	case qeScalarDatatype:
+		var datatypePlugin *DatatypeSolverPlugin
+		datatypePlugin, err = NewDatatypeSolverPlugin(context)
+		scalarPlugin = datatypePlugin
 	}
 	if err != nil {
 		return result, false, err

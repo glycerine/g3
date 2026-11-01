@@ -77,7 +77,7 @@ func (s *satPartialSearch) checkpoint() error {
 	if canceled {
 		return tactic.NewTacticException(s.manager.ResourceLimit().CancelMessage())
 	}
-	return s.config.Cooperation.Checkpoint("qe-sat")
+	return s.config.Cooperation.Cooperate("qe-sat")
 }
 func (s *satPartialSearch) Close() error {
 	if s == nil || s.manager == nil {
