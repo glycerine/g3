@@ -48,6 +48,11 @@ func ParseCommands(context *cmd_context.Context, input io.Reader, out io.Writer)
 	return parseCommands(context, input, out, false, nil)
 }
 
+// ParseShellCommands uses the shell's default stdout identity for its output.
+func ParseShellCommands(context *cmd_context.Context, input io.Reader, out io.Writer) error {
+	return parseCommandsWithOutput(context, input, out, false, nil, true)
+}
+
 // ParseAssertions parses a solver-loading SMT-LIB stream. Check commands are
 // syntax-checked but not executed or printed; callers consume the context's
 // final assertion set only, matching api_solver.cpp solver_from_stream.
@@ -56,7 +61,17 @@ func ParseAssertions(context *cmd_context.Context, input io.Reader) error {
 }
 
 func parseCommands(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector) (result error) {
-	if err := context.SetRegularOutput(out); err != nil {
+	return parseCommandsWithOutput(context, input, out, ignoreChecks, collector, false)
+}
+
+func parseCommandsWithOutput(context *cmd_context.Context, input io.Reader, out io.Writer, ignoreChecks bool, collector *fixedpointQueryCollector, shell bool) (result error) {
+	var err error
+	if shell {
+		err = context.SetShellRegularOutput(out)
+	} else {
+		err = context.SetRegularOutput(out)
+	}
+	if err != nil {
 		return err
 	}
 	// Source gparams is process-wide. During this single-goroutine command

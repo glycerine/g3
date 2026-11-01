@@ -43813,6 +43813,7 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
+        "pkg/cmd/g3/output_channel_test.go",
         "pkg/parsers/smt2/output_channel_test.go",
         "pkg/cmd_context/context.go",
         "pkg/api/api_solver_params.go",
@@ -43879,6 +43880,7 @@
         "pkg/parsers/smt2/echo_command.go"
       ],
       "tests": [
+        "TestSMTLibShellOutputChannelIdentityAndReturnToStdout",
         "TestSMT2OutputChannelsRouteCommandsAndAppend",
         "TestCommandContextDoubleOptionsValidateTypesAndUpdateLiveSolver",
         "TestSMTContextTypedParameterCatalog",
@@ -126569,6 +126571,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/cmd/g3/output_channel_test.go",
         "pkg/cmd/g3/main.go",
         "pkg/cmd/g3/main_test.go",
         "pkg/shell/smtlib_frontend.go",
@@ -126585,6 +126588,8 @@
         "pkg/shell/smtlib_frontend_ownership_test.go"
       ],
       "tests": [
+        "TestSMTLIBFrontendStatisticsRestoreStdout",
+        "TestSMTLibShellOutputChannelIdentityAndReturnToStdout",
         "TestSMTLibRunnerCommandLine",
         "TestSMTLibRunnerScripts",
         "TestSMTLibRunnerCPPReference",

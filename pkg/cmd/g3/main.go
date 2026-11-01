@@ -24,7 +24,7 @@ func run(input io.Reader, output io.Writer) (result error) {
 		return err
 	}
 	defer func() { result = errors.Join(result, context.Close()) }()
-	return smt2.ParseCommands(context, input, output)
+	return smt2.ParseShellCommands(context, input, output)
 }
 
 func runArguments(args []string, input io.Reader, output io.Writer) error {
@@ -155,12 +155,15 @@ func runArgumentsWithDiagnostics(args []string, input io.Reader, output, diagnos
 			return err
 		}
 	}
-	parseErr := smt2.ParseCommands(context, input, output)
+	parseErr := smt2.ParseShellCommands(context, input, output)
 	if command.DisplayStatistics {
 		stopErr := total.Stop()
 		seconds, secondsErr := total.Seconds()
 		if stopErr == nil && secondsErr == nil {
-			err = context.WriteStatisticsWithTotalTime(output, seconds)
+			err = context.SetStringOption("regular-output-channel", "stdout")
+			if err == nil {
+				err = context.WriteStatisticsWithTotalTime(output, seconds)
+			}
 		}
 		err = errors.Join(stopErr, secondsErr, err)
 	}

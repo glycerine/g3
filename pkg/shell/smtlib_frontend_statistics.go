@@ -9,6 +9,9 @@ func (f *SMTLIBFrontend) writeFinalStatistics(seconds float64) error {
 	if f == nil || f.context == nil || f.output == nil {
 		return ErrShellOptionService
 	}
+	if err := f.context.SetStringOption("regular-output-channel", "stdout"); err != nil {
+		return err
+	}
 	return f.context.WriteStatisticsWithTotalTime(f.output, seconds)
 }
 

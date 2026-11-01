@@ -121,6 +121,7 @@ type Context struct {
 	closed                           bool
 	initializationError              error
 	regularOutput                    io.Writer
+	shellOutput                      io.Writer
 	diagnosticOutput                 io.Writer
 	regularOutputName                string
 	diagnosticOutputName             string
@@ -189,7 +190,22 @@ func (c *Context) SetRegularOutput(output io.Writer) error {
 		c.regularFile = nil
 	}
 	c.regularOutput = output
+	c.shellOutput = nil
 	c.regularOutputName = "caller-owned"
+	return nil
+}
+
+// SetShellRegularOutput supplies the shell's stdout transport. It can be a
+// caller-provided writer while retaining the source shell's stdout identity.
+func (c *Context) SetShellRegularOutput(output io.Writer) error {
+	if w, ok := output.(contextRegularOutput); ok && w.context == c {
+		return c.valid()
+	}
+	if err := c.SetRegularOutput(output); err != nil {
+		return err
+	}
+	c.shellOutput = output
+	c.regularOutputName = "stdout"
 	return nil
 }
 
@@ -230,9 +246,16 @@ func (c *Context) setOutputChannel(name string, regular bool) error {
 		*file = nil
 	}
 	*output, *channelName = nil, defaultName
+	if regular && c.shellOutput != nil {
+		*output = c.shellOutput
+	}
 	switch name {
 	case "stdout":
-		*output = os.Stdout
+		if regular && c.shellOutput != nil {
+			*output = c.shellOutput
+		} else {
+			*output = os.Stdout
+		}
 	case "stderr":
 		*output = os.Stderr
 	default:

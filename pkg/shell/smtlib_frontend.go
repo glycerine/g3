@@ -75,7 +75,7 @@ func (f *SMTLIBFrontend) Run() (result error) {
 	if err := f.watch.Start(); err != nil {
 		return err
 	}
-	parseErr := smt2.ParseCommands(f.context, f.input, f.output)
+	parseErr := smt2.ParseShellCommands(f.context, f.input, f.output)
 	stopErr := f.watch.Stop()
 	seconds, secondsErr := f.watch.Seconds()
 	f.result.DurationSeconds = seconds

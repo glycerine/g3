@@ -1,3 +1,5 @@
+Shell SMT-LIB sessions preserve the source stdout channel identity even when embedded with a caller-provided writer. A native comparison and CLI regression cover the default name, file redirection and switching back to stdout; final shell statistics also restore stdout as in the source.
+
 Main command contexts now route process warnings and verbose output to the selected diagnostic channel, while auxiliary API parsing contexts leave process streams untouched. Tests cover actual pattern warnings, verbose output, nested context close and allocation-failure cleanup.
 
 SMT-LIB output channels now open append-only files or select stdout/stderr, route subsequent parser and tactic output through the current stream, report channel names and close owned files. Native Z3 comparison and focused tests cover switching, failed opens, append behavior and diagnostic tactic output.
