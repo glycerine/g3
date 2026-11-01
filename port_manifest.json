@@ -216307,13 +216307,16 @@
         "pkg/api/api_ast_map_object.go",
         "pkg/api/api_ast_map_object_test.go",
         "pkg/tactic/arith/recover_01_definitions.go",
-        "pkg/tactic/arith/recover_01_definitions_test.go"
+        "pkg/tactic/arith/recover_01_definitions_test.go",
+        "pkg/smtcore/smt_solver.go",
+        "pkg/smtcore/smt_solver_test.go"
       ],
       "tests": [
         "TestASTExprMapConcreteReferenceCleanup",
         "TestAPIASTMapConcreteReferenceCleanup",
         "TestAPIASTMapResetNativeIDRecycleWithoutBackingReservation",
-        "TestRecover01DefinitionsShareBooleansAndHandleSigns"
+        "TestRecover01DefinitionsShareBooleansAndHandleSigns",
+        "TestSMTSolverNamedAssertionReferencesReleaseOnPopAndClose"
       ],
       "conditionals": [
         {
@@ -216362,7 +216365,17 @@
           ]
         },
         {
-          "name": "dec_ref_values for SMT name-to-assertion map and command user-tactic declarations",
+          "name": "dec_ref_values for SMT name-to-assertion map across scope pop and solver destruction",
+          "status": "ported",
+          "go_targets": ["pkg/smtcore/smt_solver.go", "pkg/smtcore/smt_solver_test.go"],
+          "tests": [
+            "TestSMTSolverTrackedAssertionsCoreDuplicatesAndRollback",
+            "TestSMTSolverNamedAssertionReferencesReleaseOnPopAndClose",
+            "TestSMTSolverTranslatesBaseKernelAndTrackedAssertions"
+          ]
+        },
+        {
+          "name": "dec_ref_values for command user-tactic declarations",
           "status": "unported"
         },
         {

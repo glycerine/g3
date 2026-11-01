@@ -873,6 +873,47 @@ func TestSMTSolverTrackedAssertionsCoreDuplicatesAndRollback(t *testing.T) {
 	astTestMust(t, s.AssertTracked(a, tag))
 }
 
+func TestSMTSolverNamedAssertionReferencesReleaseOnPopAndClose(t *testing.T) {
+	m, s := smtSolverFixture(t)
+	formula := smtRelevancyBool(t, m, "smt-solver-named-release-formula")
+	tag := smtRelevancyBool(t, m, "smt-solver-named-release-tag")
+	formulaPin, err := m.NewRef(formula)
+	astTestMust(t, err)
+	tagPin, err := m.NewRef(tag)
+	astTestMust(t, err)
+	t.Cleanup(func() {
+		astTestMust(t, m.DelRef(&tagPin))
+		astTestMust(t, m.DelRef(&formulaPin))
+	})
+	refCount := func(value ast.ASTHandle) uint32 {
+		t.Helper()
+		count, err := m.GetRefCount(value)
+		astTestMust(t, err)
+		return count
+	}
+	formulaBefore, tagBefore := refCount(formula), refCount(tag)
+	astTestMust(t, s.Push())
+	astTestMust(t, s.AssertTracked(formula, tag))
+	if refCount(formula) <= formulaBefore || refCount(tag) <= tagBefore {
+		t.Fatal("tracked assertion did not own its formula and assumption tag")
+	}
+	astTestMust(t, s.Pop(1))
+	if got := refCount(formula); got != formulaBefore {
+		t.Fatal("popped tracked formula reference", got, "want", formulaBefore)
+	}
+	if got := refCount(tag); got != tagBefore {
+		t.Fatal("popped tracked tag reference", got, "want", tagBefore)
+	}
+	astTestMust(t, s.AssertTracked(formula, tag))
+	astTestMust(t, s.Close())
+	if got := refCount(formula); got != formulaBefore {
+		t.Fatal("closed solver formula reference", got, "want", formulaBefore)
+	}
+	if got := refCount(tag); got != tagBefore {
+		t.Fatal("closed solver tag reference", got, "want", tagBefore)
+	}
+}
+
 func TestSMTSolverExtendsUnsatCoreThroughQuantifierPatterns(t *testing.T) {
 	m, s := smtSolverFixture(t)
 	sort, err := m.MkUninterpretedSort(astTestSymbol(t, m, "core-pattern-sort"), nil)
