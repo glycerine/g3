@@ -566,7 +566,9 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 			resultErr = errors.Join(resultErr, snapshot.Close())
 		}
 	}()
-	preprocessed, err := e.preprocessHornRules(declaration, true, true)
+	// Spacer's overall proof hook is empty in this source version; reachable
+	// answers and unreachable models use its trace/model conversion paths.
+	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, true)
 	if err != nil {
 		return lbool.Undef, err
 	}

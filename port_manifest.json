@@ -102694,6 +102694,7 @@
         "pkg/muz/fp/horn_preprocess.go",
         "pkg/parsers/smt2/qbmc_engine_test.go",
         "pkg/parsers/smt2/pdr_slice_proof_test.go",
+        "pkg/parsers/smt2/spacer_slice_trace_test.go",
         "pkg/muz/fp/pdr_engine.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/muz/fp/spacer_slice_results.go",
@@ -102714,6 +102715,8 @@
         "TestPDRConvertsSharedStateBranches",
         "TestPDRConvertsSlicedProofToOriginalRules",
         "TestSMT2PDRSlicedProofTrace",
+        "TestSpacerSlicesWithProofTraceEnabled",
+        "TestSMT2SpacerSlicesWithProofTrace",
         "TestQBMCConvertsNonlinearSlicedProof", "TestQBMCRetriesWhenSliceResolutionMergesTails", "TestSMT2QBMCNonlinearSlicedProofTrace",
         "TestSMT2QBMCProofConvertsSlicedPredicate",
         "TestRuleSliceRetainsConstantConstrainedColumn",
@@ -102828,7 +102831,7 @@
         "The replacement RuleSet owns sliced rules and original/derived declaration mappings; temporary source rules and rewritten rules are closed after transfer."
       ],
       "deviations": [
-        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. QBMC and PDR use the partial proof converter and retry unsliced for unsupported proof shapes or changed conclusions; Spacer keeps proof-traced rules unsliced."
+        "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. QBMC and PDR use the partial proof converter and retry unsliced for unsupported proof shapes or changed conclusions. Spacer also slices with proof tracing enabled; its source overall proof hook is empty. Its ground trace can differ because Go relation queries do not create the source synthetic query predicate."
       ]
     },
     {

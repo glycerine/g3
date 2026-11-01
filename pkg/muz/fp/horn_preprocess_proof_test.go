@@ -613,3 +613,86 @@ func TestPDRConvertsSlicedProofToOriginalRules(t *testing.T) {
 		t.Fatal("unreachable query returned a reachable proof")
 	}
 }
+
+func TestSpacerSlicesWithProofTraceEnabled(t *testing.T) {
+	for _, mode := range []string{"parameter", "forced"} {
+		t.Run(mode, func(t *testing.T) {
+			manager, globals := newPDRLifecycleServices(t)
+			for _, setting := range []string{"fixedpoint.xform.inline_eager", "fixedpoint.xform.inline_linear", "fixedpoint.xform.subsumption_checker"} {
+				fragmentMust(t, globals.SourceSetName(setting, "false"))
+			}
+			if mode == "parameter" {
+				fragmentMust(t, globals.SourceSetName("fixedpoint.generate_proof_trace", "true"))
+			}
+			engine, err := NewPropositionalEngineWithServices(manager, globals.Context, globals)
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, engine.Close()) }()
+			engine.forceProofTrace = mode == "forced"
+			fragmentMust(t, engine.SelectEngine("spacer"))
+			boolean, err := manager.MkBoolSort()
+			fragmentMust(t, err)
+			zero, err := manager.ArithmeticNumeralRat(big.NewRat(0, 1), true)
+			fragmentMust(t, err)
+			integer, err := manager.GetSort(zero)
+			fragmentMust(t, err)
+			declare := func(name string, domain []ast.ASTHandle) ast.ASTHandle {
+				s, e := manager.Symbols.Intern(name)
+				fragmentMust(t, e)
+				d, e := manager.MkFuncDecl(s, domain, boolean, ast.ASTFuncDeclInfo{})
+				fragmentMust(t, e)
+				fragmentMust(t, engine.RegisterPredicate(d))
+				return d
+			}
+			p := declare("spacer-trace-slice-P", []ast.ASTHandle{integer})
+			goal := declare("spacer-trace-slice-goal", nil)
+			missing := declare("spacer-trace-slice-missing", nil)
+			x, err := manager.MkVar(0, integer)
+			fragmentMust(t, err)
+			pApp, err := manager.MkApp(p, []ast.ASTHandle{x})
+			fragmentMust(t, err)
+			goalApp, err := manager.MkApp(goal, nil)
+			fragmentMust(t, err)
+			for _, spec := range []struct {
+				head  ast.ASTHandle
+				tails []ast.ASTHandle
+			}{{pApp, nil}, {goalApp, []ast.ASTHandle{pApp}}} {
+				r, e := engine.rules.NewRule(spec.head, spec.tails, nil, "")
+				fragmentMust(t, e)
+				fragmentMust(t, engine.set.Add(r))
+				fragmentMust(t, r.Close())
+			}
+			status, err := engine.QueryPredicate(goal)
+			fragmentMust(t, err)
+			if status != lbool.True {
+				t.Fatal("reachable query", status)
+			}
+			if _, found := engine.spacerPredicates[p]; !found {
+				t.Fatal("proof tracing prevented Spacer slicing")
+			}
+			answer, err := engine.Answer(goal)
+			fragmentMust(t, err)
+			defer func() { fragmentMust(t, manager.DelRef(&answer)) }()
+			handle, err := manager.RefGet(answer)
+			fragmentMust(t, err)
+			if handle.IsNull() {
+				t.Fatal("missing reachable answer")
+			}
+			proof, err := engine.spacer.Proof()
+			fragmentMust(t, err)
+			if !proof.IsNull() {
+				t.Fatal("Spacer unexpectedly returned an overall proof")
+			}
+			status, err = engine.QueryPredicate(missing)
+			fragmentMust(t, err)
+			if status != lbool.False {
+				t.Fatal("unreachable query", status)
+			}
+			model, err := engine.Model(missing)
+			fragmentMust(t, err)
+			fragmentMust(t, model.Close())
+			if _, err = manager.RefGet(answer); err != nil {
+				t.Fatal("previous answer lost its ownership", err)
+			}
+		})
+	}
+}
