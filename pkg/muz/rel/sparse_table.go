@@ -77,6 +77,16 @@ func (t *SparseTable) SizeEstimateRows() (uint32, error) {
 	return uint32(rows), err
 }
 
+// SizeEstimateBytes reports the packed row payload held by the sparse table.
+// The native estimate also includes allocator capacity for its index; Go's
+// map allocation is runtime-managed, so this reports the owned encoded rows.
+func (t *SparseTable) SizeEstimateBytes() (uint32, error) {
+	if err := t.open(); err != nil {
+		return 0, err
+	}
+	return uint32(len(t.data.entries)) * t.layout.entryBytes, nil
+}
+
 func (t *SparseTable) KnowsExactSize() (bool, error) {
 	if err := t.open(); err != nil {
 		return false, err

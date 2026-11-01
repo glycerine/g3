@@ -58,3 +58,19 @@ func TestSparseTableExactRowEstimate(t *testing.T) {
 		t.Fatalf("populated row estimate = %d, %v", rows, err)
 	}
 }
+
+func TestSparseTableSizeEstimateBytes(t *testing.T) {
+	signature, err := NewSignature([]uint64{3, 5})
+	must(t, err)
+	table, err := NewSparseTable(signature, 0)
+	must(t, err)
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != 0 {
+		t.Fatalf("empty byte estimate = %d, %v", bytes, err)
+	}
+	if _, err := table.Add(Fact{2, 4}); err != nil {
+		t.Fatal(err)
+	}
+	if bytes, err := table.SizeEstimateBytes(); err != nil || bytes != table.layout.EntryBytes() {
+		t.Fatalf("populated byte estimate = %d, %v", bytes, err)
+	}
+}
