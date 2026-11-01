@@ -16,10 +16,12 @@ func TestBMCLinearSelectionChecksTailArityAndQuantifiers(t *testing.T) {
 		name           string
 		predicateTails int
 		quantified     bool
+		secondTails    int
 		want           bool
 	}{
-		{"fact", 0, false, true}, {"one-predicate", 1, false, true},
-		{"two-predicates", 2, false, false}, {"quantified-tail", 0, true, false},
+		{"fact", 0, false, 0, true}, {"one-predicate", 1, false, 0, true},
+		{"two-predicates", 2, false, 0, false}, {"quantified-tail", 0, true, 0, false},
+		{"later-rule-has-two-predicates", 0, false, 2, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			must := func(err error) {
@@ -66,6 +68,12 @@ func TestBMCLinearSelectionChecksTailArityAndQuantifiers(t *testing.T) {
 			must(err)
 			must(set.Add(rule))
 			must(rule.Close())
+			if tc.secondTails > 0 {
+				second, err := rm.NewRule(head, []ast.ASTHandle{p, q}[:tc.secondTails], nil, "nonlinear-later-rule")
+				must(err)
+				must(set.Add(second))
+				must(second.Close())
+			}
 			got, err := bmc.IsLinear(set)
 			must(err)
 			if got != tc.want {
