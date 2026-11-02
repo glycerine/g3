@@ -39,6 +39,9 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		return nil, proof, err
 	}
 	for i, term := range input {
+		if variables[i] == ^uint32(0) {
+			continue
+		}
 		if int(variables[i]) >= len(bindings) || term.IsNull() {
 			return nil, proof, ast.ErrASTDomain
 		}
@@ -60,13 +63,13 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 			continue
 		}
 		var index uint32
-		if i < len(variables) {
+		if i < len(variables) && variables[i] != ^uint32(0) {
 			index = variables[i]
 			if int(index) >= len(sorts) || sort != sorts[index] {
 				return nil, proof, ast.ErrASTDomain
 			}
 		} else {
-			fresh := uint64(len(sorts)) + uint64(i-len(variables))
+			fresh := uint64(len(sorts)) + uint64(i)
 			if fresh > uint64(^uint32(0)) {
 				return nil, proof, ast.ErrASTDomain
 			}
@@ -95,6 +98,9 @@ func (c *SliceProofConverter) instantiateAsserted(original *base.Rule, originalP
 		defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
 	}
 	for i, term := range input {
+		if variables[i] == ^uint32(0) {
+			continue
+		}
 		if sub != nil {
 			ref, e := m.NewRef(ast.ASTHandle{})
 			if e != nil {

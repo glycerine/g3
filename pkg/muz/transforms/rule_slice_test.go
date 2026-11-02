@@ -1852,10 +1852,36 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 	defer func() { coneMust(t, m.DelRef(&gapOuterPin)) }()
 	coneMust(t, scope.Close())
 	gapResult, gapErr := converter.Convert(gapOuter)
-	if gapResult != (ast.ASTRef{}) {
-		coneMust(t, m.DelRef(&gapResult))
+	coneMust(t, gapErr)
+	defer func() { coneMust(t, m.DelRef(&gapResult)) }()
+	gapHandle, e := m.RefGet(gapResult)
+	coneMust(t, e)
+	gapFact, e := m.GetProofFact(gapHandle)
+	coneMust(t, e)
+	if gapFact != fact {
+		t.Fatal("sparse substitution changed reconstructed fact", gapFact, fact)
 	}
-	if !errors.Is(gapErr, transforms.ErrSliceProofUnsupported) {
-		t.Fatal("sparse derived variables did not report unsupported proof remapping", gapErr)
+	gapValid, gapSide, e := checker.Check(gapHandle)
+	coneMust(t, e)
+	defer func() {
+		for _, condition := range gapSide {
+			coneMust(t, m.DecRef(condition))
+		}
+	}()
+	if !gapValid {
+		t.Fatal("invalid sparse variable proof")
 	}
+	for _, condition := range gapSide {
+		coneMust(t, solver.Push())
+		negated, e := m.MkNot(condition)
+		coneMust(t, e)
+		coneMust(t, solver.AssertFormula(negated))
+		status, e := solver.CheckSat(nil)
+		coneMust(t, e)
+		coneMust(t, solver.Pop(1))
+		if status != lbool.False {
+			t.Fatal("invalid sparse proof side condition", status)
+		}
+	}
+
 }

@@ -34,9 +34,7 @@ func (c *SliceProofConverter) derivedVariables(proof ast.ASTHandle, original *ba
 	if err = before.Collect(body); err != nil {
 		return nil, false, err
 	}
-	if !before.UsesAllVars(before.MaxFoundVarIndexPlusOne()) {
-		return nil, false, nil
-	}
+
 	sliced, err := c.rules.NewRuleFromFormula(fact, "")
 	if err != nil {
 		return nil, false, err
@@ -185,6 +183,24 @@ func (c *SliceProofConverter) derivedVariables(proof ast.ASTHandle, original *ba
 		if !found[i] {
 			return nil, false, nil
 		}
+	}
+	if !before.UsesAllVars(before.MaxFoundVarIndexPlusOne()) {
+		expanded := make([]uint32, before.MaxFoundVarIndexPlusOne())
+		next := 0
+		for i := range expanded {
+			expanded[i] = ^uint32(0)
+			if !before.Contains(uint32(i)).IsNull() {
+				if next >= len(mapping) {
+					return nil, false, nil
+				}
+				expanded[i] = mapping[next]
+				next++
+			}
+		}
+		if next != len(mapping) {
+			return nil, false, nil
+		}
+		mapping = expanded
 	}
 	return mapping, true, nil
 }
