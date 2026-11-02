@@ -257,6 +257,16 @@ func (p *InterpTailSimplifierPlugin) propagate(rule *base.Rule) (_ *base.Rule, c
 			changed = changed || unified
 			continue
 		}
+		// Declaration kinds are local to a family: arithmetic <=, for
+		// example, has the same numeric kind as basic equality. Source
+		// is_and/is_eq/is_iff require the basic family before propagating.
+		family, getErr := p.manager.GetFamilyID(term)
+		if getErr != nil {
+			return nil, false, getErr
+		}
+		if family != p.manager.BasicFamilyID() {
+			continue
+		}
 		operation, getErr := p.manager.GetDeclKind(term)
 		if getErr != nil {
 			return nil, false, getErr

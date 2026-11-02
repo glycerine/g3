@@ -102995,12 +102995,16 @@
       "go_targets": ["pkg/muz/bmc/quantified_linear_bind_test.go",
         "pkg/muz/transforms/interp_tail_simplifier.go",
         "pkg/muz/transforms/interp_tail_simplifier_test.go",
+        "pkg/muz/transforms/interp_tail_arithmetic_family_test.go",
+        "pkg/muz/fp/spacer_symbolic_witness_test.go",
         "pkg/muz/transforms/boolean_normalizer.go",
         "pkg/muz/fp/spacer_engine.go",
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": ["TestBMCQuantifiedLinearProofWithRuleVariables",
         "TestInterpTailSimplifierPropagatesEqualityAndRemovesTruth",
+        "TestInterpTailSimplifierPreservesArithmeticBounds",
+        "TestSpacerSymbolicNonlinearWitnessOriginalClauses",
         "TestInterpTailSimplifierPreservesRewriteProof",
         "TestSMTLibRunnerScripts/fixedpoint_spacer_nonlinear_inlining.smt2",
         "TestInterpTailSimplifierDropsFalseRule",
@@ -103082,7 +103086,10 @@
         {
           "name": "rule_substitution and propagate_variable_equivalences for Boolean variables and flexible equality/iff terms",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go"
+          "go_target": "pkg/muz/transforms/interp_tail_simplifier.go",
+          "go_targets": ["pkg/muz/transforms/interp_tail_arithmetic_family_test.go", "pkg/muz/fp/spacer_symbolic_witness_test.go"],
+          "tests": ["TestInterpTailSimplifierPreservesArithmeticBounds", "TestSpacerSymbolicNonlinearWitnessOriginalClauses"],
+          "notes": "Family-aware basic operator recognition prevents arithmetic comparison opcodes from seeding equality substitutions. Independent bound equivalence and symbolic nonlinear Spacer witnesses cover the soundness regression."
         },
         {
           "name": "normalizer_cfg sorted AND/OR duplicate normalization and paired-clause equivalence recognition",
