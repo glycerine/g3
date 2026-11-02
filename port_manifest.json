@@ -84951,6 +84951,11 @@
         "pkg/muz/base/datalog_context_background_formula.go",
         "pkg/muz/base/rule_set_smt2.go",
         "pkg/muz/base/rule_set_display_formulas.go",
+        "pkg/muz/base/context_smt2.go",
+        "pkg/muz/base/context_smt2_expression.go",
+        "pkg/muz/base/context_smt2_variables.go",
+        "pkg/muz/base/context_smt2_test.go",
+        "pkg/muz/base/context_smt2_failure_test.go",
         "pkg/muz/base/rule_set_display_formulas_test.go",
         "pkg/muz/dataflow/reachability.go",
         "pkg/muz/rel/table.go",
@@ -85078,10 +85083,17 @@
           "reason": "Concrete preparatory stage for the live PDR/context dump consumers; caller-owned vectors keep any successfully appended prefix on failure. Pending raw-formula handling and full context dump integration remain separate open obligations."
         },
         {
-          "name": "context display_smt2 profiles, output queries and pending raw-formula handoff",
+          "name": "finalized context display_smt2 printing profiles, declare_vars per-sort reuse, canonical is_query recognition and fresh query bridges (dl_context.cpp:1120-1335)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/base/context_smt2.go", "pkg/muz/base/context_smt2_expression.go", "pkg/muz/base/context_smt2_variables.go", "pkg/muz/base/context_smt2_test.go", "pkg/muz/base/context_smt2_failure_test.go"],
+          "tests": ["TestContextSMT2OutputQueriesProfilesAndReplay", "TestContextSMT2BackgroundPlainHORNRejectionPrefix", "TestContextSMT2VariableDeclarationAndQuantifiedQueryProfiles", "TestContextSMT2DeclaredVariablesReusePerSortAndKeepDeBruijnOrder", "TestContextSMT2AllocationFailureOwnershipAndRetry", "TestContextSMT2WriterFailureReleasesTemporaryOwners"],
+          "reason": "Provides the concrete finalized dump needed by the live PDR/context source consumers. Both syntactic profiles replay ground queries independently; quantified declaration/bridge and cleanup policies have focused tests. Pending raw-formula normalization and production PDR/API entry-point wiring remain separate open obligations."
+        },
+        {
+          "name": "context display_smt2 pending raw-formula handoff and production consumers",
           "status": "partial",
-          "go_target": "pkg/muz/base/rule_set_smt2.go",
-          "reason": "Existing RuleSet.WriteSMT2 is an explicit plain-HORN all-rule export, not context::display_smt2: source defaults print_fixedpoint_extensions=true and partitions output clauses into queries. The finalized partition helper is now implemented; full profile-aware context emission, raw pending-formula handling and PDR trace integration remain open."
+          "go_target": "pkg/muz/base/context_smt2.go",
+          "reason": "The finalized dump formatter and all three print switches are implemented; pending raw-formula normalization, PDR TRACE wiring, source ostream-failure operand continuation at that caller and API routing remain open. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export."
         },
         {
           "name": "admitted Go fixedpoint engine disposal invalidates query snapshots and blocks ordinary operations after a solver guard-disabling refusal while allowing Close retry",
