@@ -1,0 +1,294 @@
+package duality
+
+import (
+	"errors"
+	"github.com/glycerine/g3/pkg/interp"
+	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/solver"
+)
+
+// EngineConfig borrows the native solvers, factory, interpolation manager and
+// evaluator services. Theory expressions are copied. A nil Quantifiers asks
+// the engine to own its qe-lite service; a supplied service stays borrowed.
+type EngineConfig struct {
+	Native, Auxiliary solver.Solver
+	Factory           solver.Factory
+	Evaluator         model.ModelEvaluatorConfig
+	Simplifier        *interp.Manager
+	Quantifiers       *qe.Lite
+	Theory            []*Expr
+	Interpolation     *interp.RunConfig
+	Extensional       bool
+}
+
+// Engine owns the unwinding, counterexample, history proposals and per-solve
+// checkers/heuristic. The source graph and configured services stay borrowed.
+// Source: duality_solver.cpp:324-377,421-433, active lifecycle switches.
+type Engine struct {
+	self            *Engine
+	source          *RPFP
+	config          EngineConfig
+	options         SolverOptions
+	graph           *RPFP
+	unwinding       *Unwinding
+	counterexample  *Counterexample
+	local, global   *LocalEdgeChecker
+	heuristic       *ExpansionHeuristic
+	proposers       []*HistoryProposer
+	theory          []*Expr
+	cases           *CaseInterpolator
+	quantifiers     *qe.Lite
+	ownsQuantifiers bool
+	running, closed bool
+}
+
+func NewEngine(source *RPFP, config EngineConfig) (out *Engine, result error) {
+	if err := source.open(); err != nil {
+		return nil, err
+	}
+	if config.Native == nil || config.Auxiliary == nil || config.Factory == nil || config.Simplifier == nil {
+		return nil, ErrWrapperOwner
+	}
+	for _, native := range []solver.Solver{config.Native, config.Auxiliary} {
+		m, err := native.Manager()
+		if err != nil {
+			return nil, err
+		}
+		if m != source.context.manager {
+			return nil, ErrContextMismatch
+		}
+	}
+	m, err := config.Simplifier.ASTManager()
+	if err != nil {
+		return nil, err
+	}
+	if m != source.context.manager {
+		return nil, ErrContextMismatch
+	}
+	e := &Engine{source: source, config: config, options: *NewSolverOptions(), counterexample: NewCounterexample()}
+	e.self = e
+	defer func() {
+		if result != nil {
+			result = errors.Join(result, e.Close())
+		}
+	}()
+	for _, term := range config.Theory {
+		if err = term.open(); err != nil {
+			return nil, err
+		}
+		if term.value.object.context != source.context {
+			return nil, ErrContextMismatch
+		}
+		copy, err := term.Clone()
+		if err != nil {
+			return nil, err
+		}
+		e.theory = append(e.theory, copy)
+	}
+	e.config.Theory = nil
+	e.quantifiers = config.Quantifiers
+	if e.quantifiers == nil {
+		e.ownsQuantifiers = true
+		e.quantifiers, err = qe.NewLite(m, nil, true, qe.Config{Context: source.context.config.params, Globals: config.Evaluator.Globals, Cooperation: config.Evaluator.Cooperation})
+		if err != nil {
+			return nil, err
+		}
+		e.ownsQuantifiers = true
+	}
+	e.cases = &CaseInterpolator{Auxiliary: config.Auxiliary, Extensional: config.Extensional, Simplifier: config.Simplifier, Quantifiers: e.quantifiers, Theory: e.theory}
+	return e, nil
+}
+func (e *Engine) open() error {
+	if e == nil || e.self != e || e.closed || e.running {
+		return ErrWrapperOwner
+	}
+	return e.source.open()
+}
+func (e *Engine) SetOption(name, value string) bool {
+	return e.open() == nil && e.options.SetOption(name, value)
+}
+func (e *Engine) GetCounterexample() *Counterexample {
+	if e == nil || e.self != e || e.closed {
+		return nil
+	}
+	return e.counterexample
+}
+func (e *Engine) UnwindingGraph() *RPFP {
+	if e == nil || e.self != e || e.closed {
+		return nil
+	}
+	return e.graph
+}
+func (e *Engine) IsResultRecursionBounded() bool {
+	return e != nil && e.self == e && !e.closed && e.unwinding.IsResultRecursionBounded()
+}
+
+func (e *Engine) closeRunServices() error {
+	if e.heuristic != nil {
+		if err := e.heuristic.Close(); err != nil {
+			return err
+		}
+		e.heuristic = nil
+	}
+	if e.local != nil {
+		if err := e.local.Close(); err != nil {
+			return err
+		}
+		e.local = nil
+	}
+	if e.global != nil {
+		if err := e.global.Close(); err != nil {
+			return err
+		}
+		e.global = nil
+	}
+	return nil
+}
+func (e *Engine) closeProposers() error {
+	for len(e.proposers) > 0 {
+		i := len(e.proposers) - 1
+		if err := e.proposers[i].Close(); err != nil {
+			return err
+		}
+		e.proposers = e.proposers[:i]
+	}
+	return nil
+}
+
+// Solve creates a fresh unwinding per call, replays an existing counterexample
+// when present, and leaves only the resulting unwinding/counterexample owned
+// after per-run inference resources and history proposals have been closed.
+func (e *Engine) Solve() (satisfied bool, result error) {
+	if err := e.open(); err != nil {
+		return false, err
+	}
+	e.running = true
+	defer func() { result = errors.Join(result, e.closeRunServices(), e.closeProposers()); e.running = false }()
+	if err := e.closeRunServices(); err != nil {
+		return false, err
+	}
+	if e.graph != nil {
+		if err := e.graph.Close(); err != nil {
+			return false, err
+		}
+		e.graph = nil
+		e.unwinding = nil
+	}
+	graph, err := NewRPFPWithVocabulary(e.source.vocabulary)
+	if err != nil {
+		return false, err
+	}
+	e.graph = graph
+	graph.HornClauses = e.source.HornClauses
+	covering, err := NewCovering(graph, e.config.Auxiliary)
+	if err != nil {
+		return false, err
+	}
+	u, err := NewUnwinding(e.source, graph, covering)
+	if err != nil {
+		return false, err
+	}
+	e.unwinding = u
+	u.FeasibleEdges = e.options.FeasibleEdges
+	u.StratifiedInlining = e.options.StratifiedInlining
+	u.RecursionBound = int(e.options.RecursionBound)
+	for _, node := range e.source.nodes {
+		if node.RecursionBound < ^uint32(0) {
+			u.RecursionBound = 0
+		}
+	}
+	if e.counterexample.Tree() != nil {
+		e.heuristic, err = NewReplayExpansionHeuristic(graph, e.counterexample)
+	} else {
+		e.heuristic, err = NewExpansionHeuristic(graph)
+	}
+	if err != nil {
+		return false, err
+	}
+	if err = e.counterexample.Clear(); err != nil {
+		return false, err
+	}
+	e.local, err = NewLocalEdgeChecker(e.source, e.config.Factory, e.theory)
+	if err != nil {
+		return false, err
+	}
+	e.global, err = NewLocalEdgeChecker(e.source, e.config.Factory, e.theory)
+	if err != nil {
+		return false, err
+	}
+	if err = u.CreateEdgesByChildMap(); err != nil {
+		return false, err
+	}
+	search := &UnwindingSearch{Unwinding: u, Native: e.config.Native, Evaluator: e.config.Evaluator, Local: e.local, Global: e.global, Auxiliary: e.config.Auxiliary, Simplifier: e.config.Simplifier, Cases: e.cases, Config: e.config.Interpolation, Heuristic: e.heuristic, Counterexample: e.counterexample, Proposers: e.proposers, FullExpand: e.options.FullExpand, UseUnderapprox: e.options.UseUnderapprox, NoConjectures: e.options.NoConj, EnableRestarts: e.options.EnableRestarts}
+	if err = search.CreateInitialUnwinding(); err != nil {
+		return false, err
+	}
+	return search.SolveMain()
+}
+
+// LearnFrom swaps counterexamples and caches translated history facts from the
+// other engine's completed unwinding. Both configured contexts/services must
+// remain live while a transferred counterexample is used for replay.
+func (e *Engine) LearnFrom(other *Engine) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	if err := other.open(); err != nil {
+		return err
+	}
+	if other.graph == nil {
+		return ErrWrapperOwner
+	}
+	if err := e.counterexample.Swap(other.counterexample); err != nil {
+		return err
+	}
+	proposer, err := NewHistoryProposer(other.graph, e.source)
+	if err != nil {
+		return err
+	}
+	e.proposers = append(e.proposers, proposer)
+	return nil
+}
+func (e *Engine) Close() error {
+	if e == nil {
+		return nil
+	}
+	if e.self != e || e.running {
+		return ErrWrapperOwner
+	}
+	if e.closed {
+		return nil
+	}
+	if err := e.closeRunServices(); err != nil {
+		return err
+	}
+	if err := e.closeProposers(); err != nil {
+		return err
+	}
+	if err := e.counterexample.Close(); err != nil {
+		return err
+	}
+	if e.graph != nil {
+		if err := e.graph.Close(); err != nil {
+			return err
+		}
+		e.graph = nil
+		e.unwinding = nil
+	}
+	if e.ownsQuantifiers && e.quantifiers != nil {
+		if err := e.quantifiers.Close(); err != nil {
+			return err
+		}
+		e.quantifiers = nil
+	}
+	for len(e.theory) > 0 {
+		i := len(e.theory) - 1
+		if err := e.theory[i].Close(); err != nil {
+			return err
+		}
+		e.theory = e.theory[:i]
+	}
+	e.closed = true
+	return nil
+}
