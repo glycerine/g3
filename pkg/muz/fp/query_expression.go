@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/statistics"
 )
 
 // QueryExpression evaluates an arbitrary Boolean Horn query without adding
@@ -127,6 +128,18 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err = clone.applyQueryMagicSets(declaration); err != nil {
 		return lbool.Undef, err
 	}
+	// The source PDR context already exists when covers are supplied before
+	// the first query. Move that owner after query preparation succeeds.
+	if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil && e.pdrRules == nil {
+		clone.pdr = e.pdr
+		clone.pdrRevision = clone.revision
+		e.pdr = nil
+		e.pdrRevision = 0
+	} else if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil {
+		if err := e.closePDRForReplacement(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	if level != nil {
 		result, err = clone.QueryPredicateFromLevel(declaration, *level)
 	} else if clone.backend == "ddnf" {
@@ -149,12 +162,21 @@ func (e *PropositionalEngine) clearQueryResources() error {
 	if e.queryClone == nil {
 		return nil
 	}
+	var archived statistics.Statistics
+	var result error
+	archivePDR := e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr"
+	if archivePDR {
+		result = e.queryClone.CollectStatistics(&archived)
+	}
 	if err := e.queryClone.Close(); err != nil {
-		return err
+		return errors.Join(result, err)
+	}
+	if archivePDR && result == nil {
+		e.pdrStatistics.Copy(archived)
 	}
 	e.queryClone = nil
 	e.queryClonePredicate = ast.ASTHandle{}
-	return nil
+	return result
 }
 
 // ExpressionAnswer returns the backend answer to the most recent expression

@@ -61,10 +61,26 @@ func (v *fixedpointParamView) Symbol(name string, fallback usymbol.Symbol) (usym
 	return v.context.GetSymbolFallbackName(v.local, &name, &v.global, fallback)
 }
 
+// PrepareQueryParameters applies query-local overrides. An absent override
+// preserves module-configured pre-query state unless a previous local override
+// must be cleared. Explicit parameter updates use SetQueryParameters.
+func (e *PropositionalEngine) PrepareQueryParameters(params *uparams.ParamsRef) error {
+	if err := e.open(); err != nil {
+		return err
+	}
+	if params == nil && !e.queryParamsReady {
+		return nil
+	}
+	return e.SetQueryParameters(params)
+}
+
 // SetQueryParameters retains a query-local parameter snapshot. A nil value
 // clears the previous snapshot so module parameters become the sole source.
 func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (result error) {
 	if err := e.open(); err != nil {
+		return err
+	}
+	if err := e.clearQueryResources(); err != nil {
 		return err
 	}
 	// PDR and Spacer updt_params rebuild their contexts so constructor

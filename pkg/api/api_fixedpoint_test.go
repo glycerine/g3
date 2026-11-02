@@ -33,6 +33,7 @@ func TestSMTContextFixedpointPDRLifecycle(t *testing.T) {
 	truth := pin(manager.MkTrue())
 
 	astTestMust(t, context.SetFixedpointEngine("pdr"))
+	astTestMust(t, context.SetFixedpointBool(FixedpointTransformSlice, false))
 	p, err := context.DeclareRelation("api-fp-P", []ast.ASTHandle{integer})
 	astTestMust(t, err)
 	q, err := context.DeclareRelation("api-fp-Q", []ast.ASTHandle{integer})

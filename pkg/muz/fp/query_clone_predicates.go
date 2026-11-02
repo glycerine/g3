@@ -7,7 +7,9 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		if err := clone.RegisterPredicate(declaration); err != nil {
 			return err
 		}
-		clone.auxiliary[declaration] = e.auxiliary[declaration]
+		if e.auxiliary[declaration] {
+			clone.auxiliary[declaration] = true
+		}
 	}
 	return nil
 }

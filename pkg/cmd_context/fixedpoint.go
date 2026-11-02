@@ -175,7 +175,7 @@ func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef) (*muzfp.Prop
 	if err != nil {
 		return nil, err
 	}
-	if err = engine.SetQueryParameters(params); err != nil {
+	if err = engine.PrepareQueryParameters(params); err != nil {
 		return nil, err
 	}
 	assertions, err := c.Assertions()
@@ -392,6 +392,9 @@ func (c *Context) FixedpointNumLevels(declaration ast.ASTHandle) (uint32, error)
 	if err != nil {
 		return 0, err
 	}
+	if err = engine.SelectConfiguredEngine(); err != nil {
+		return 0, err
+	}
 	return engine.NumLevels(declaration)
 }
 
@@ -402,6 +405,9 @@ func (c *Context) FixedpointCoverDelta(level int, declaration ast.ASTHandle) (as
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
+	if err = engine.SelectConfiguredEngine(); err != nil {
+		return ast.ASTRef{}, err
+	}
 	return engine.CoverDelta(level, declaration)
 }
 
@@ -410,6 +416,9 @@ func (c *Context) FixedpointCoverDelta(level int, declaration ast.ASTHandle) (as
 func (c *Context) AddFixedpointCover(level int, declaration, property ast.ASTHandle) error {
 	engine, err := c.fixedpointContext()
 	if err != nil {
+		return err
+	}
+	if err = engine.SelectConfiguredEngine(); err != nil {
 		return err
 	}
 	return engine.AddCover(level, declaration, property)

@@ -378,6 +378,15 @@ func (e *PropositionalEngine) ParametersUpdated() error {
 	if err := e.open(); err != nil {
 		return err
 	}
+	if err := e.clearQueryResources(); err != nil {
+		return err
+	}
+	if err := e.closePDRForReplacement(); err != nil {
+		return err
+	}
+	if err := e.closeSpacerForReplacement(); err != nil {
+		return err
+	}
 	e.revision++
 	return nil
 }
@@ -1574,7 +1583,12 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 	if e.backend == "pdr" || e.backend == "qpdr" {
 		destination.Copy(e.pdrStatistics)
 		if e.pdr != nil {
-			return e.pdr.CollectStatistics(destination)
+			if err := e.pdr.CollectStatistics(destination); err != nil {
+				return err
+			}
+		}
+		if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
+			return e.queryClone.CollectStatistics(destination)
 		}
 		return nil
 	}
@@ -1605,7 +1619,12 @@ func (e *PropositionalEngine) ResetStatistics() error {
 	if e.backend == "pdr" || e.backend == "qpdr" {
 		e.pdrStatistics.Reset()
 		if e.pdr != nil {
-			return e.pdr.ResetStatistics()
+			if err := e.pdr.ResetStatistics(); err != nil {
+				return err
+			}
+		}
+		if e.queryClone != nil && (e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr") {
+			return e.queryClone.ResetStatistics()
 		}
 		return nil
 	}

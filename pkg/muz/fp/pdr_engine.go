@@ -343,6 +343,13 @@ func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, erro
 	if err := e.open(); err != nil {
 		return 0, err
 	}
+	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
+		clone, _, err := e.expressionQueryState()
+		if err != nil {
+			return 0, err
+		}
+		return clone.NumLevels(declaration)
+	}
 	if e.backend == "spacer" {
 		context, err := e.spacerContext()
 		if err != nil {
@@ -362,6 +369,13 @@ func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, erro
 func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (ast.ASTRef, error) {
 	if err := e.open(); err != nil {
 		return ast.ASTRef{}, err
+	}
+	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
+		clone, _, err := e.expressionQueryState()
+		if err != nil {
+			return ast.ASTRef{}, err
+		}
+		return clone.CoverDelta(level, declaration)
 	}
 	if e.backend == "spacer" {
 		context, err := e.spacerContext()
@@ -404,6 +418,13 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTHandle) error {
 	if err := e.open(); err != nil {
 		return err
+	}
+	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
+		clone, _, err := e.expressionQueryState()
+		if err != nil {
+			return err
+		}
+		return clone.AddCover(level, declaration, property)
 	}
 	if e.backend == "spacer" {
 		context, err := e.spacerContext()
