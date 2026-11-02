@@ -16,11 +16,22 @@ func (m *Manager) rewrite(term ast.ASTHandle, rewriter *astrewriter.TheoryRewrit
 	if rewriter == nil {
 		return ast.ASTRef{}, NewError("interpolation manager has no theory rewriter")
 	}
+	dirty := &m.simplifierDirty
+	if rewriter == m.strong {
+		dirty = &m.strongDirty
+	}
+	if *dirty {
+		if err := rewriter.Reset(); err != nil {
+			return ast.ASTRef{}, err
+		}
+		*dirty = false
+	}
 	out, err := m.ast.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
 	if err = rewriter.Rewrite(term, out); err != nil {
+		*dirty = true
 		return ast.ASTRef{}, errors.Join(err, m.ast.DelRef(&out))
 	}
 	return out, nil

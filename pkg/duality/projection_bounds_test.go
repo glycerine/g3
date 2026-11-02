@@ -100,7 +100,9 @@ func TestProjectionRedundantIntegerBoundsAndOwnership(t *testing.T) {
 				t.Fatal("partial bounds", fault, failure)
 			}
 			retry, err := graph.ElimRedundantBounds([]*Expr{lower0, lower2}, simplifier)
-			must(err)
+			if err != nil {
+				t.Fatalf("retry after fault %d (%v): %v", fault, failure, err)
+			}
 			for _, term := range retry {
 				must(term.Close())
 			}
@@ -312,7 +314,9 @@ func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
 				t.Fatal("partial projection", n, failure)
 			}
 			retry, err := graph.ProjectFormula([]*Expr{z}, formula, simplifier)
-			must(err)
+			if err != nil {
+				t.Fatalf("retry after fault %d (%v): %v", n, failure, err)
+			}
 			must(retry.Close())
 		}
 		if got := m.Stats().LiveReferences; got != baseline {

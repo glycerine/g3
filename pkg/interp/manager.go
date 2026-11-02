@@ -67,15 +67,17 @@ const (
 // Manager is the retained typed convenience layer over ASTManager. It borrows
 // the AST manager; callers pin handles that outlive an immediate operation.
 type Manager struct {
-	self       *Manager
-	ast        *ast.ASTManager
-	arithmetic ast.FamilyID
-	array      ast.FamilyID
-	simplifier *astrewriter.TheoryRewriter
-	strong     *astrewriter.TheoryRewriter
-	context    *uparams.ParamsContext
-	globals    *uparams.GlobalParamsService
-	closed     bool
+	self            *Manager
+	ast             *ast.ASTManager
+	arithmetic      ast.FamilyID
+	array           ast.FamilyID
+	simplifierDirty bool
+	strongDirty     bool
+	simplifier      *astrewriter.TheoryRewriter
+	strong          *astrewriter.TheoryRewriter
+	context         *uparams.ParamsContext
+	globals         *uparams.GlobalParamsService
+	closed          bool
 }
 
 func NewManager(m *ast.ASTManager) (*Manager, error) {

@@ -119,7 +119,9 @@ func TestGaussElimCheapDependenciesKeptVariablesAndCycles(t *testing.T) {
 				t.Fatal("partial Gaussian projection", fault, failure)
 			}
 			retry, err := graph.GaussElimCheap([]*Expr{x}, chain, simplifier)
-			must(err)
+			if err != nil {
+				t.Fatalf("retry after fault %d (%v): %v", fault, failure, err)
+			}
 			for _, term := range retry {
 				must(term.Close())
 			}
