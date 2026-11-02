@@ -1,6 +1,7 @@
 package duality
 
 import (
+	"errors"
 	"github.com/glycerine/g3/pkg/ast"
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/util/lbool"
@@ -22,14 +23,30 @@ func (b *Backend) WriteDerivation(out io.Writer, writeExpr func(io.Writer, ast.A
 	return e.active.engine.GetCounterexample().WriteDerivation(out, writeExpr, e.config.Factory)
 }
 
-// WriteCertificate includes the filtered V2 counterexample model.
-func (b *Backend) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error) error {
+// WriteCertificate prints the source fixedpoint model for a safe result, or
+// the derivation and filtered V2 counterexample model for a reachable result.
+func (b *Backend) WriteCertificate(out io.Writer, writeExpr func(io.Writer, ast.ASTHandle) error) (result error) {
 	if err := b.open(); err != nil {
 		return err
 	}
 	e := b.queries
-	if e.active == nil || e.status != lbool.True {
+	if e.active == nil || e.status == lbool.Undef {
 		return graph.ErrWrapperOwner
+	}
+	if e.status == lbool.False {
+		md, err := e.GetModel()
+		if err != nil {
+			return err
+		}
+		defer func() { result = errors.Join(result, md.Close()) }()
+		if _, err = io.WriteString(out, "(fixedpoint \n"); err != nil {
+			return err
+		}
+		if err = md.Core().WriteSMT2(out, e.config.Evaluator.Context, e.config.Evaluator.Globals, 0); err != nil {
+			return err
+		}
+		_, err = io.WriteString(out, ")\n")
+		return err
 	}
 	background := append([]*graph.Expr(nil), e.config.Theory...)
 	background = append(background, e.active.background...)

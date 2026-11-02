@@ -87603,6 +87603,8 @@
       "go_targets": ["pkg/muz/duality/query_profile.go", "pkg/muz/fp/duality_preprocess.go", "pkg/duality/proof_witness.go", "pkg/duality/counterexample_proof.go", "pkg/muz/duality/query_proof.go", "pkg/muz/duality/query_proof_test.go", "pkg/duality/rpfp_source_clause.go", "pkg/duality/from_clauses.go", "pkg/duality/from_clauses_test.go", "pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
         "pkg/muz/duality/query_clause.go",
         "pkg/muz/duality/query_clause_test.go",
+        "pkg/muz/duality/query_derivation.go",
+        "pkg/muz/duality/query_certificate_safe_test.go",
         "pkg/muz/duality/missing_heads.go",
         "pkg/muz/duality/missing_heads_test.go",
         "pkg/muz/duality/prepare_query.go",
@@ -87613,6 +87615,7 @@
       ],
       "tests": ["TestDualityBackendProfileOutputAndWriterRetry", "TestSMT2DualityArrayQuantificationQueries", "TestSMT2DualityArrayValuedOutputQuantification", "TestRPFPAnnotationModelParameterOrderAndIndependentLifetime", "TestRPFPAnnotationModelEveryAllocationPrefix", "pkg/muz/duality/backend_test.go", "pkg/muz/duality/native_solver_test.go", "pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
+        "TestDualitySafeCertificateModelAndWriterRetry",
         "TestMissingHeadClausesQuantifiedAndGround",
         "TestPrepareQueryRulesMissingHeadsAndBounds",
         "TestPrepareQueryFailureReleasesClauseOwners"
@@ -87733,11 +87736,22 @@
             "TestPrepareQueryRulesMissingHeadsAndBounds",
             "TestPrepareQueryFailureReleasesClauseOwners"
           ]
+        },
+        {
+          "name": "display_certificate safe-result model branch and reachable-result derivation branch",
+          "status": "ported",
+          "go_target": "pkg/muz/duality/query_derivation.go",
+          "tests": [
+            "TestDualitySafeCertificateModelAndWriterRetry"
+          ],
+          "notes": "Safe results print the source fixedpoint model without entering counterexample-expression rendering; mid-stream refusal releases the temporary model and a later retry succeeds. Reachable results keep the existing derivation and filtered V2 model path, while undefined/no-result calls reject."
         }
       ],
-      "ownership": [],
+      "ownership": [
+        "Safe certificate rendering owns a temporary annotation-model snapshot through all writer outcomes and closes it before returning; the backend result remains independently reusable for retry."
+      ],
       "deviations": [
-        "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, RPFP construction, solver execution and annotation model snapshots are ported; fixedpoint engine registration, proof extraction and certificate reporting remain unfinished.",
+        "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, RPFP construction, solver execution, annotation model snapshots and the safe/reachable certificate split are ported; wider exceptional backend lifecycle auditing remains unfinished.",
         "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction.",
         "Proof export uses the original clause head, including false instead of synthetic @Fail; binder substitutions follow de Bruijn indexing, predicate literal positions include intervening theory atoms, and repeated occurrences of a shared relation application receive repeated resolution premises. These corrections are checked by independent logical side-condition validation.",
         "Proof export reconstructs quantified witnesses with the native solver factory when QE-lite has projected original variables out of the counterexample model; taking default model values as in the source can produce an invalid original-clause instance."
