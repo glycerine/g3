@@ -18,6 +18,7 @@ type SubsumptionCheckerPlugin struct {
 	enabled    bool
 	modelSteps []ConeModelStep
 	closed     bool
+	closing    bool
 }
 
 func NewSubsumptionCheckerPlugin(enabled bool, priority uint32) *SubsumptionCheckerPlugin {
@@ -37,16 +38,22 @@ func (p *SubsumptionCheckerPlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
 	}
-	p.closed = true
-	result := closeConeModelSteps(p.modelSteps)
+	if p.closed {
+		return nil
+	}
+	p.closing = true
+	if err := closeConeModelSteps(p.modelSteps); err != nil {
+		return err
+	}
 	p.modelSteps = nil
-	return result
+	p.closed = true
+	return nil
 }
 
 // TakeModelSteps transfers the ordered total-relation interpretations emitted
 // by this subsumption stage.
 func (p *SubsumptionCheckerPlugin) TakeModelSteps() ([]ConeModelStep, error) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	steps := p.modelSteps
@@ -413,7 +420,7 @@ func subsumptionPass(source *base.RuleSet) (_ *base.RuleSet, changed bool, resul
 }
 
 func (p *SubsumptionCheckerPlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	if !p.enabled {

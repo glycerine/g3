@@ -104448,6 +104448,7 @@
         "TestSubsumptionCheckerRemovesTotalPositiveTail",
         "TestSubsumptionCheckerDisabledReturnsNoChange",
         "TestSubsumptionCheckerTransfersRuleProof",
+        "TestSubsumptionClosePreservesModelStepsWhileManagerExecutes",
         "TestSMTLibRunnerCPPReference/fp_spacer_skip_propagate.smt2"
       ],
       "assertions": [
@@ -104505,7 +104506,8 @@
           "status": "ported",
           "go_target": "pkg/muz/transforms/subsumption_checker.go",
           "tests": [
-            "TestSubsumptionCheckerRemovesTotalPositiveTail"
+            "TestSubsumptionCheckerRemovesTotalPositiveTail",
+            "TestSubsumptionClosePreservesModelStepsWhileManagerExecutes"
           ]
         },
         {
@@ -104515,7 +104517,7 @@
         }
       ],
       "ownership": [
-        "Each transform result owns newly constructed rules and inherited predicate metadata; source snapshots and retained total-rule definitions are closed on every return path."
+        "Each transform result owns newly constructed rules and inherited predicate metadata; source snapshots and total-rule definitions remain owned while cleanup is refused and are released on a successful retry."
       ],
       "deviations": [
         "The retained PDR and Spacer consumers have no finite relation context, so table-cardinality discovery is omitted. Structural total relations publish ordered true interpretations through the shared Horn conversion ledger."
