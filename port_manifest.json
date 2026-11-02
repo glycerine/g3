@@ -104380,6 +104380,7 @@
         "pkg/muz/transforms/rule_slice_proof_compound.go",
         "pkg/muz/transforms/rule_slice_proof_variables.go",
         "pkg/muz/transforms/rule_slice_constraint_variables_test.go",
+        "pkg/muz/transforms/rule_slice_plugin_close_pending_test.go",
         "pkg/muz/transforms/rule_unifier.go",
         "pkg/muz/transforms/rule_unifier_test.go",
         "pkg/muz/transforms/rule_slice_test.go",
@@ -104399,6 +104400,7 @@
         "TestRuleSliceGeneratesProofsForRewrittenRules", "TestRuleSliceProofConverterColdFailureAndRetry",
         "TestRuleSliceCompoundHeadAllocationFailureAndRetry",
         "TestSliceProofClosePreservesRootsWhileManagerExecutes",
+        "TestRuleSliceClosePreservesOwnedProofConverter",
         "TestRuleSliceCoalesceUnfoldProofComposition",
         "TestRuleSliceNestedCoalesceAndRepeatedUnfoldProofs",
         "TestRuleSliceCompositionAllocationFailureAndRetry",
@@ -104536,6 +104538,13 @@
             "TestRuleSliceProofSubstitutesDerivedPremise",
             "TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable"
           ]
+        },
+        {
+          "name": "RuleSlicePlugin proof-converter and predicate-map cleanup continuation after native AST refusal",
+          "status": "ported",
+          "go_targets": ["pkg/muz/transforms/rule_slice.go", "pkg/muz/transforms/rule_slice_plugin_close_pending_test.go"],
+          "tests": ["TestRuleSliceClosePreservesOwnedProofConverter"],
+          "reason": "Actual slicing preserves the converter and mappings on refused cleanup, blocks publication while closing, reconstructs the exact original proof and completes zero-budget retry; later partial converter disposal remains open."
         }
       ],
       "ownership": [
@@ -104553,12 +104562,14 @@
       "role": "production",
       "status": "ported",
       "go_targets": [
-        "pkg/muz/transforms/rule_slice.go"
+        "pkg/muz/transforms/rule_slice.go",
+        "pkg/muz/transforms/rule_slice_plugin_close_pending_test.go"
       ],
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
         "TestRuleSliceRetainsConstantConstrainedColumn",
-        "TestRuleSliceLeavesZeroArityOutputRulesUnchanged"
+        "TestRuleSliceLeavesZeroArityOutputRulesUnchanged",
+        "TestRuleSliceClosePreservesOwnedProofConverter"
       ],
       "conditionals": [
         {
@@ -104576,7 +104587,8 @@
         {
           "name": "RuleSlicePlugin construction, transformation contract, derived-predicate lookup, priority, cancellation metadata, and owned lifecycle",
           "status": "ported",
-          "go_target": "pkg/muz/transforms/rule_slice.go"
+          "go_target": "pkg/muz/transforms/rule_slice.go",
+          "tests": ["TestRuleSliceClosePreservesOwnedProofConverter"]
         }
       ],
       "ownership": [

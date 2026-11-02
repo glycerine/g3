@@ -19,6 +19,7 @@ type RuleSlicePlugin struct {
 	proofTrace     bool
 	proofConverter *SliceProofConverter
 	closed         bool
+	closing        bool
 }
 
 // SetGenerateProofTrace requests asserted proofs for rewritten rules. These
@@ -541,7 +542,7 @@ func (p *RuleSlicePlugin) updateRule(rule *base.Rule, variables *[]uint32) (*bas
 }
 
 func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	if p.proofConverter != nil {
@@ -709,7 +710,7 @@ func (p *RuleSlicePlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resu
 
 // TakeProofConverter transfers the mapping produced by the latest transform.
 func (p *RuleSlicePlugin) TakeProofConverter() *SliceProofConverter {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return nil
 	}
 	converter := p.proofConverter
@@ -718,7 +719,7 @@ func (p *RuleSlicePlugin) TakeProofConverter() *SliceProofConverter {
 }
 
 func (p *RuleSlicePlugin) DerivedPredicate(original ast.ASTHandle) (ast.ASTHandle, bool) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return ast.ASTHandle{}, false
 	}
 	derived, found := p.predicates[original]
@@ -730,7 +731,7 @@ func (p *RuleSlicePlugin) DerivedPredicate(original ast.ASTHandle) (ast.ASTHandl
 // successful transform. The AST handles remain borrowed from the transformed
 // rule set.
 func (p *RuleSlicePlugin) PredicateSlices() (map[ast.ASTHandle]ast.ASTHandle, map[ast.ASTHandle][]bool) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return make(map[ast.ASTHandle]ast.ASTHandle), make(map[ast.ASTHandle][]bool)
 	}
 	predicates := make(map[ast.ASTHandle]ast.ASTHandle, len(p.predicates))
@@ -746,9 +747,11 @@ func (p *RuleSlicePlugin) Close() error {
 	if p == nil || p.closed {
 		return base.ErrRuleTransformerOwner
 	}
-	var result error
+	p.closing = true
 	if p.proofConverter != nil {
-		result = p.proofConverter.Close()
+		if err := p.proofConverter.Close(); err != nil {
+			return err
+		}
 		p.proofConverter = nil
 	}
 	p.closed = true
@@ -757,5 +760,5 @@ func (p *RuleSlicePlugin) Close() error {
 	p.sliceable = nil
 	p.order = nil
 	p.predicates = nil
-	return result
+	return nil
 }
