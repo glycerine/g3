@@ -7,6 +7,13 @@ import (
 
 func TestCachedPropagationChecksFactsAndPreservesSourceFailedTrialState(t *testing.T) {
 	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	defer func() {
+		if profile.current != profile.top || profile.top.children["PropagateCache"] == nil {
+			t.Fatal("native phase timer scope", "PropagateCache")
+		}
+	}()
 	must := func(err error) {
 		t.Helper()
 		if err != nil {

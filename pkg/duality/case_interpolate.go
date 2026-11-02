@@ -36,6 +36,11 @@ func (c *CaseInterpolator) Interpolate(root, node *Node, config *interp.RunConfi
 	if node == nil || node.closed || node.Owner != g || node.Outgoing == nil {
 		return ErrWrapperOwner
 	}
+	timer, err := startProfile(g.context, "InterpolateByCases")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	m := g.context.manager
 	serviceManager, err := c.Simplifier.ASTManager()
 	if err != nil {

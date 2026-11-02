@@ -11,6 +11,11 @@ func (c *CachedGraphAssertions) PropagateCache(edge *Edge) (_ bool, result error
 	if c == nil || edge == nil || edge.Owner != c.graph || edge.closed {
 		return false, ErrWrapperOwner
 	}
+	timer, err := startProfile(c.graph.context, "PropagateCache")
+	if err != nil {
+		return false, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	node := edge.Parent
 	skip, err := node.Annotation.Formula()
 	if err != nil {

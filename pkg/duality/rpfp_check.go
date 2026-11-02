@@ -37,6 +37,11 @@ func (g *RPFP) Check(root *Node, underapproximations []*Node, core *[]*Node) (st
 	if err := g.solverReady(); err != nil {
 		return lbool.Undef, err
 	}
+	timer, err := startProfile(g.context, "Check")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if err := g.ClearProofCore(); err != nil {
 		return lbool.Undef, err
 	}
@@ -64,7 +69,7 @@ func (g *RPFP) Check(root *Node, underapproximations []*Node, core *[]*Node) (st
 			return lbool.Undef, err
 		}
 	}
-	status, err := g.solver.CheckSat(assumptions)
+	status, err = g.solver.CheckSat(assumptions)
 	if err != nil {
 		return status, err
 	}

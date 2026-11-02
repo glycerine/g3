@@ -10,6 +10,11 @@ func (c *CachedGraphAssertions) GeneralizeCache(edge *Edge, theory []*Expr) (res
 	if c == nil || edge == nil || edge.Owner != c.graph || edge.closed {
 		return ErrWrapperOwner
 	}
+	timer, err := startProfile(c.graph.context, "Generalize")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	var assumptions, core, owned []*Expr
 	defer func() {
 		for _, terms := range [][]*Expr{assumptions, core, owned} {

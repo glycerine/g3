@@ -24,6 +24,14 @@ func (g *RPFP) GetConstraintTree(root, skip *Node) (*TermTree, error) {
 // by the graph. The source persist argument affects only disabled code in
 // DecodeTree and is therefore unnecessary here.
 func (g *RPFP) Solve(root *Node, manager *interp.Manager, config *interp.RunConfig) (status lbool.LBool, result error) {
+	if err := g.open(); err != nil {
+		return lbool.Undef, err
+	}
+	timer, err := startProfile(g.context, "Solve")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	tree, err := g.GetConstraintTree(root, nil)
 	if err != nil {
 		return lbool.Undef, err
@@ -32,7 +40,13 @@ func (g *RPFP) Solve(root *Node, manager *interp.Manager, config *interp.RunConf
 	if err = g.ClearProofCore(); err != nil {
 		return lbool.Undef, err
 	}
+	interpolationTimer, err := startProfile(g.context, "interpolate_tree")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { result = errors.Join(result, interpolationTimer.Close()) }()
 	status, learned, err := g.InterpolateTree(manager, tree, nil, true, config)
+	err = errors.Join(err, interpolationTimer.Close())
 	if learned != nil {
 		defer func() { result = errors.Join(result, learned.Close()) }()
 	}

@@ -100,6 +100,11 @@ func (c *CachedGraphAssertions) Check(extra []*Expr, wantCore bool) (status lboo
 	if c == nil {
 		return lbool.Undef, nil, ErrWrapperOwner
 	}
+	timer, err := startProfile(c.graph.context, "Check")
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	status, core, result = c.active.Check(extra, wantCore)
 	if result != nil {
 		return

@@ -57,6 +57,11 @@ func (g *RPFP) SolveSingleNode(root, node *Node, manager *interp.Manager, config
 	if node == nil || node.Owner != g || node.closed {
 		return lbool.Undef, ErrWrapperOwner
 	}
+	timer, err := startProfile(g.context, "Solve")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	tree, err := g.GetConstraintTree(root, node)
 	if err != nil {
 		return lbool.Undef, err
@@ -76,7 +81,13 @@ func (g *RPFP) SolveSingleNode(root, node *Node, manager *interp.Manager, config
 	if err = g.ClearProofCore(); err != nil {
 		return lbool.Undef, err
 	}
+	interpolationTimer, err := startProfile(g.context, "interpolate_tree")
+	if err != nil {
+		return lbool.Undef, err
+	}
+	defer func() { result = errors.Join(result, interpolationTimer.Close()) }()
 	status, learned, err := g.InterpolateTree(manager, tree, nil, true, config)
+	err = errors.Join(err, interpolationTimer.Close())
 	if learned != nil {
 		defer func() { result = errors.Join(result, learned.Close()) }()
 	}

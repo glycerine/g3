@@ -109,6 +109,19 @@ func TestDualityNativeTreeInterpolation(t *testing.T) {
 
 func TestDualityGraphSolveLearnsAnnotation(t *testing.T) {
 	ctx, m, s, globals := dualityNativeSolverServicesFixture(t)
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	defer func() {
+		if profile.current != profile.top || profile.top.children["Solve"] == nil {
+			t.Fatal("native phase timer scope", "Solve")
+		}
+	}()
+	defer func() {
+		solve := profile.top.children["Solve"]
+		if solve == nil || solve.children["interpolate_tree"] == nil {
+			t.Fatal("missing nested interpolation timer")
+		}
+	}()
 	must := func(err error) {
 		t.Helper()
 		if err != nil {

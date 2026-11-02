@@ -142,7 +142,7 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 					t.Fatal("missing feasibility timer", profileOutput.String())
 				}
 				if round == 0 {
-					for _, phase := range []string{"Derive", "Build", "Pop", "ExpandSomeNodes", "ExpansionChoices"} {
+					for _, phase := range []string{"Derive", "Build", "Pop", "ExpandSomeNodes", "ExpansionChoices", "Check", "SetEdgeMaps", "Localize", "RedVars"} {
 						if !strings.Contains(profileOutput.String(), phase) {
 							t.Fatal("missing derivation timer", phase, profileOutput.String())
 						}

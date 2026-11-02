@@ -17,6 +17,11 @@ func (g *RPFP) RedVars(node *Node) (activation *Expr, variables []*Expr, result 
 	if node == nil || node.Owner != g || node.closed {
 		return nil, nil, ErrWrapperOwner
 	}
+	timer, err := startProfile(g.context, "RedVars")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	defer func() {
 		if result != nil {
 			if activation != nil {

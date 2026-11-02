@@ -7,6 +7,13 @@ import (
 
 func TestRPFPCheckNativeAssumptionCoresAndModelReplacement(t *testing.T) {
 	ctx, _, s := dualityNativeSolverFixture(t)
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	defer func() {
+		if profile.current != profile.top || profile.top.children["Check"] == nil {
+			t.Fatal("native phase timer scope", "Check")
+		}
+	}()
 	must := func(err error) {
 		t.Helper()
 		if err != nil {

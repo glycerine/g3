@@ -7,6 +7,13 @@ import (
 
 func TestCachedGeneralizationRebuildsAnnotationFromReducedCore(t *testing.T) {
 	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	profile := NewProfiler(nil)
+	ctx.activeProfiler = profile
+	defer func() {
+		if profile.current != profile.top || profile.top.children["Generalize"] == nil {
+			t.Fatal("native phase timer scope", "Generalize")
+		}
+	}()
 	must := func(err error) {
 		t.Helper()
 		if err != nil {

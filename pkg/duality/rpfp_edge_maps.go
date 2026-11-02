@@ -33,6 +33,11 @@ func (g *RPFP) SetEdgeMaps(edge *Edge) (result error) {
 	if edge == nil || edge.Owner != g || edge.closed {
 		return ErrWrapperOwner
 	}
+	timer, err := startProfile(g.context, "SetEdgeMaps")
+	if err != nil {
+		return err
+	}
+	defer func() { result = errors.Join(result, timer.Close()) }()
 	if err := edge.clearMaps(); err != nil {
 		return err
 	}
