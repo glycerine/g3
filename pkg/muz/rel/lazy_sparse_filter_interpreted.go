@@ -16,16 +16,35 @@ type lazySparseInterpretedFilter struct {
 	manager       *RelationManager
 	rewriter      *astrewriter.TheoryRewriter
 	relationSorts []ast.ASTHandle
+	columns       map[uint32]int
+	sorts         map[uint32]ast.ASTHandle
+}
+
+func (f *lazySparseInterpretedFilter) conditions() ([]ast.ASTHandle, error) {
+	if f == nil || f.owner == nil || f.owner.manager == nil || len(f.owner.refs) == 0 || f.rewriter == nil {
+		return nil, ErrLazySparse
+	}
+	if f.manager == nil || f.manager.open() != nil || f.rewriter.Manager() != f.owner.manager {
+		return nil, ErrLazySparse
+	}
+	result := make([]ast.ASTHandle, len(f.owner.refs))
+	for index := range f.owner.refs {
+		handle, err := f.owner.manager.RefGet(f.owner.refs[index])
+		if err != nil {
+			return nil, err
+		}
+		result[index] = handle
+	}
+	return result, nil
+
 }
 
 func (f *lazySparseInterpretedFilter) condition() (ast.ASTHandle, error) {
-	if f == nil || f.owner == nil || f.owner.manager == nil || len(f.owner.refs) != 1 || f.rewriter == nil {
+	conditions, err := f.conditions()
+	if err != nil || len(conditions) != 1 {
 		return ast.ASTHandle{}, ErrLazySparse
 	}
-	if f.manager == nil || f.manager.open() != nil || f.rewriter.Manager() != f.owner.manager {
-		return ast.ASTHandle{}, ErrLazySparse
-	}
-	return f.owner.manager.RefGet(f.owner.refs[0])
+	return conditions[0], nil
 }
 
 func validateLazySparseCondition(manager *RelationManager, signature Signature, relationSorts []ast.ASTHandle, rewriter *astrewriter.TheoryRewriter, condition ast.ASTHandle) error {
@@ -111,11 +130,20 @@ func evalLazySparseInterpreted(engine *LazySparseEngine, node *lazySparseNode) (
 	if err != nil {
 		return nil, err
 	}
-	condition, err := node.interpreted.condition()
-	if err != nil {
-		return nil, err
+	if node.interpreted.columns != nil || node.interpreted.sorts != nil {
+		conditions, conditionErr := node.interpreted.conditions()
+		if conditionErr != nil {
+			return nil, conditionErr
+		}
+		err = filterSparseInterpretedBound(result, node.interpreted.manager, node.interpreted.rewriter, conditions, node.interpreted.columns, node.interpreted.sorts)
+	} else {
+		condition, conditionErr := node.interpreted.condition()
+		if conditionErr != nil {
+			return nil, conditionErr
+		}
+		err = result.FilterInterpreted(node.interpreted.manager, node.interpreted.relationSorts, node.interpreted.rewriter, condition)
 	}
-	if err = result.FilterInterpreted(node.interpreted.manager, node.interpreted.relationSorts, node.interpreted.rewriter, condition); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -128,9 +156,31 @@ func evalLazySparseInterpretedProject(engine *LazySparseEngine, filter *lazySpar
 	if err != nil {
 		return nil, err
 	}
-	condition, err := filter.interpreted.condition()
-	if err != nil {
-		return nil, err
+	if filter.interpreted.columns != nil || filter.interpreted.sorts != nil {
+		conditions, conditionErr := filter.interpreted.conditions()
+		if conditionErr != nil {
+			return nil, conditionErr
+		}
+		clone, cloneErr := source.Clone()
+		if cloneErr != nil {
+			return nil, cloneErr
+		}
+		if conditionErr = filterSparseInterpretedBound(clone, filter.interpreted.manager, filter.interpreted.rewriter, conditions, filter.interpreted.columns, filter.interpreted.sorts); conditionErr != nil {
+			return nil, errors.Join(conditionErr, clone.Close())
+		}
+		projected, projectErr := clone.Project(removed)
+		closeErr := clone.Close()
+		if projectErr != nil || closeErr != nil {
+			if projected != nil {
+				closeErr = errors.Join(closeErr, projected.Close())
+			}
+			return nil, errors.Join(projectErr, closeErr)
+		}
+		return projected, nil
+	}
+	condition, conditionErr := filter.interpreted.condition()
+	if conditionErr != nil {
+		return nil, conditionErr
 	}
 	return source.FilterInterpretedAndProject(filter.interpreted.manager, filter.interpreted.relationSorts, filter.interpreted.rewriter, condition, removed)
 }
@@ -152,12 +202,16 @@ func evalLazySparseNullaryFilter(engine *LazySparseEngine, node *lazySparseNode)
 	case LazyTableFilterIdentical:
 		return result, nil
 	case LazyTableFilterInterpreted:
-		condition, conditionErr := node.interpreted.condition()
+		relation := &TableRelation{manager: node.interpreted.manager, sorts: nil, table: result}
+		conditions, conditionErr := node.interpreted.conditions()
 		if conditionErr != nil {
 			return nil, errors.Join(conditionErr, result.Close())
 		}
-		relation := &TableRelation{manager: node.interpreted.manager, sorts: nil, table: result}
-		conditionErr = relation.FilterInterpreted(node.interpreted.rewriter, []ast.ASTHandle{condition}, nil, nil)
+		columns, sorts := node.interpreted.columns, node.interpreted.sorts
+		if columns == nil && sorts == nil {
+			columns, sorts = map[uint32]int{}, map[uint32]ast.ASTHandle{}
+		}
+		conditionErr = relation.FilterInterpreted(node.interpreted.rewriter, conditions, columns, sorts)
 		if conditionErr != nil {
 			return nil, errors.Join(conditionErr, result.Close())
 		}

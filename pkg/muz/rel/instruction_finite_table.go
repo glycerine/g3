@@ -95,6 +95,12 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 			return a.Join(b, left, right)
 		}
 	}
+	if _, firstChecked := first.(*FiniteCheckedPair); firstChecked {
+		return checkedPairMixedJoin(first, second, left, right)
+	}
+	if _, secondChecked := second.(*FiniteCheckedPair); secondChecked {
+		return checkedPairMixedJoin(first, second, left, right)
+	}
 	firstSignature, err := first.Signature()
 	if err != nil {
 		return nil, err
@@ -240,6 +246,12 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 		if b, ok := second.(*FiniteCheckedPair); ok {
 			return a.JoinProject(b, left, right, removed)
 		}
+	}
+	if _, firstChecked := first.(*FiniteCheckedPair); firstChecked {
+		return checkedPairMixedJoinProject(first, second, left, right, removed)
+	}
+	if _, secondChecked := second.(*FiniteCheckedPair); secondChecked {
+		return checkedPairMixedJoinProject(first, second, left, right, removed)
 	}
 	joined, err := finiteTableJoin(first, second, left, right)
 	if err != nil {
@@ -395,6 +407,12 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 				return a.UnionFrom(b, d)
 			}
 		}
+		if delta == nil {
+			return checkedPairMixedUnion(a, source, nil)
+		}
+		if d, sameDelta := delta.(*FiniteCheckedPair); sameDelta {
+			return checkedPairMixedUnion(a, source, d)
+		}
 	}
 	facts, err := source.Facts()
 	if err != nil {
@@ -434,6 +452,7 @@ func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, nega
 		if b, same := negative.(*FiniteCheckedPair); same {
 			return a.FilterByNegation(b, targetColumns, negativeColumns)
 		}
+		return checkedPairMixedNegation(a, negative, targetColumns, negativeColumns)
 	}
 	targetSignature, err := target.Signature()
 	if err != nil {

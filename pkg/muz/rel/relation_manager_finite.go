@@ -45,6 +45,45 @@ func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTabl
 	return table, nil
 }
 
+// ExchangeFiniteRelation transfers replacement into an already stored
+// predicate and transfers the prior concrete owner to the caller. It neither
+// closes an owner nor changes the manager's retained predicate reference.
+// On failure replacement remains caller-owned and manager storage is unchanged.
+func (m *RelationManager) ExchangeFiniteRelation(predicate ast.ASTHandle, replacement FiniteTable) (FiniteTable, error) {
+	if err := m.open(); err != nil {
+		return nil, err
+	}
+	if replacement == nil {
+		return nil, ErrTable
+	}
+	_, expected, err := m.PredicateSignature(predicate)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := replacement.Signature()
+	if err != nil || !expected.equal(actual) {
+		return nil, errors.Join(err, ErrTable)
+	}
+	var prior FiniteTable = m.finite[predicate]
+	if prior == nil {
+		prior = m.relations[predicate]
+	}
+	if prior == nil || prior == replacement {
+		return nil, ErrTable
+	}
+	if _, err = prior.Signature(); err != nil {
+		return nil, err
+	}
+	delete(m.relations, predicate)
+	delete(m.finite, predicate)
+	if hash, ok := replacement.(*HashTable); ok {
+		m.relations[predicate] = hash
+	} else {
+		m.finite[predicate] = replacement
+	}
+	return prior, nil
+}
+
 // StoreFiniteRelation consumes table only on success. Replacement closes the
 // former concrete owner while preserving the manager's predicate reference.
 func (m *RelationManager) StoreFiniteRelation(predicate ast.ASTHandle, table FiniteTable) error {

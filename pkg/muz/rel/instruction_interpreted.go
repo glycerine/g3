@@ -120,6 +120,34 @@ func (i *interpretedFilterInstruction) accepts(fact Fact) (accepted bool, result
 	return true, nil
 }
 
+func (i *interpretedFilterInstruction) conditionHandles() ([]ast.ASTHandle, error) {
+	conditions := make([]ast.ASTHandle, len(i.conditions))
+	for index := range i.conditions {
+		handle, err := i.manager.RefGet(i.conditions[index])
+		if err != nil {
+			return nil, err
+		}
+		conditions[index] = handle
+	}
+	return conditions, nil
+}
+
+func (i *interpretedFilterInstruction) relationSorts(table FiniteTable) ([]ast.ASTHandle, error) {
+	signature, err := table.Signature()
+	if err != nil {
+		return nil, err
+	}
+	result := make([]ast.ASTHandle, signature.Len())
+	for variable, sort := range i.variableSorts {
+		column, found := i.variableColumns[variable]
+		if !found || column < 0 || column >= len(result) {
+			return nil, ErrInstruction
+		}
+		result[column] = sort
+	}
+	return result, nil
+}
+
 func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := i.open(); err != nil {
 		return false, err
@@ -135,6 +163,26 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		return true, err
 	}
 	context.stats.Filter++
+	conditions, err := i.conditionHandles()
+	if err != nil {
+		return false, err
+	}
+	switch concrete := table.(type) {
+	case *LazySparseTable:
+		if err = concrete.filterInterpretedCompiled(i.relations, i.rewriter, conditions, i.variableColumns, i.variableSorts); err != nil {
+			return false, err
+		}
+		return true, nil
+	case *FiniteCheckedPair:
+		relationSorts, sortErr := i.relationSorts(table)
+		if sortErr != nil {
+			return false, sortErr
+		}
+		if err = concrete.FilterInterpreted(i.relations, relationSorts, i.rewriter, conditions, i.variableColumns, i.variableSorts); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
 	facts, err := table.Facts()
 	if err != nil {
 		return false, err

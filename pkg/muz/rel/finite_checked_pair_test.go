@@ -3,6 +3,8 @@ package rel
 import (
 	"errors"
 	"testing"
+
+	"github.com/glycerine/g3/pkg/ast"
 )
 
 func TestFiniteCheckedPairPreservesConfiguredConcreteKinds(t *testing.T) {
@@ -210,5 +212,102 @@ func TestFiniteCheckedPairEmptyFullAndComplement(t *testing.T) {
 	defer func() { must(t, full.Close()) }()
 	if rows, err := full.Len(); err != nil || rows != 3 {
 		t.Fatal("checked full", rows, err)
+	}
+}
+
+func TestFiniteCheckedPairLiftPlainAndNullaryOperands(t *testing.T) {
+	signature, err := NewSignature([]uint64{2})
+	must(t, err)
+	plain := NewHashTable(signature)
+	_, err = plain.Add(Fact{1})
+	must(t, err)
+	defer func() { must(t, plain.Close()) }()
+	for _, tc := range []struct{ primary, checker string }{
+		{"hashtable", "hashtable"}, {"hashtable", "sparse"},
+		{"sparse", "hashtable"}, {"sparse", "sparse"},
+	} {
+		t.Run(tc.primary+"-"+tc.checker, func(t *testing.T) {
+			templateSource, err := newFiniteTableKind(tc.primary, signature)
+			must(t, err)
+			template, err := NewFiniteCheckedPair(templateSource, tc.checker)
+			must(t, err)
+			must(t, templateSource.Close())
+			defer func() { must(t, template.Close()) }()
+			lifted, err := template.Lift(plain)
+			must(t, err)
+			defer func() { must(t, lifted.Close()) }()
+			primary, checker, err := lifted.ConcreteKinds()
+			if err != nil || primary != tc.primary || checker != tc.checker {
+				t.Fatal("lifted concrete kinds", primary, checker, err)
+			}
+
+			nullarySignature, err := NewSignature(nil)
+			must(t, err)
+			nullary := NewHashTable(nullarySignature)
+			_, err = nullary.Add(Fact{})
+			must(t, err)
+			liftedNullary, err := template.Lift(nullary)
+			must(t, err)
+			must(t, nullary.Close())
+			defer func() { must(t, liftedNullary.Close()) }()
+			primary, checker, err = liftedNullary.ConcreteKinds()
+			if err != nil || primary != "hashtable" || checker != "hashtable" {
+				t.Fatal("nullary fallback kinds", primary, checker, err)
+			}
+			found, err := liftedNullary.Contains(Fact{})
+			if err != nil || !found {
+				t.Fatal("lifted nullary", found, err)
+			}
+		})
+	}
+}
+
+func TestFiniteCheckedFactoryCreatesCheckedCompilerTemporaries(t *testing.T) {
+	for _, tc := range []struct{ primary, checker string }{
+		{"hashtable", "hashtable"}, {"hashtable", "sparse"},
+		{"sparse", "hashtable"}, {"sparse", "sparse"},
+	} {
+		factory, err := NewFiniteCheckedFactory(tc.primary, tc.checker)
+		must(t, err)
+		signature, err := NewSignature([]uint64{2})
+		must(t, err)
+		table, err := factory.New(signature)
+		must(t, err)
+		primary, checker, err := table.ConcreteKinds()
+		if err != nil || primary != tc.primary || checker != tc.checker {
+			t.Fatal("factory kinds", primary, checker, err)
+		}
+		must(t, table.Close())
+
+		nullary, err := factory.New(Signature{})
+		must(t, err)
+		primary, checker, err = nullary.ConcreteKinds()
+		if err != nil || primary != "hashtable" || checker != "hashtable" {
+			t.Fatal("factory nullary fallback", primary, checker, err)
+		}
+		must(t, nullary.Close())
+	}
+}
+
+func TestFiniteCheckedPairInterpretedFilterChecksBothSides(t *testing.T) {
+	f := newTableRelationFixture(t)
+	signature, err := NewSignature([]uint64{2})
+	must(t, err)
+	source, err := NewSparseTable(signature, 0)
+	must(t, err)
+	_, err = source.Add(Fact{0})
+	must(t, err)
+	_, err = source.Add(Fact{1})
+	must(t, err)
+	pair, err := NewFiniteCheckedPair(source, "hashtable")
+	must(t, err)
+	must(t, source.Close())
+	defer func() { must(t, pair.Close()) }()
+	theory := tableRelationTheoryRewriter(t, f.ast)
+	if err = pair.FilterInterpreted(f.relations, []ast.ASTHandle{f.boolean}, theory, []ast.ASTHandle{f.falsehood}, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if rows, err := pair.Len(); err != nil || rows != 0 {
+		t.Fatal("interpreted checked filter", rows, err)
 	}
 }

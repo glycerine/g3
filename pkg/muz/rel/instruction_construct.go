@@ -24,6 +24,7 @@ type constructInstruction struct {
 	explanations  int
 	finiteSort    ast.ASTRef
 	finiteManager *ast.ASTManager
+	pendingFinite FiniteTable
 	closing       bool
 }
 
@@ -107,6 +108,28 @@ func (i *constructInstruction) open() error {
 	return nil
 }
 
+func (i *constructInstruction) clearPendingFinite() error {
+	if i.pendingFinite == nil {
+		return nil
+	}
+	if err := i.pendingFinite.Close(); err != nil {
+		return err
+	}
+	i.pendingFinite = nil
+	return nil
+}
+
+func (i *constructInstruction) disposeUninstalledFinite(table FiniteTable, cause error) error {
+	if table == nil {
+		return cause
+	}
+	if err := table.Close(); err != nil {
+		i.pendingFinite = table
+		return errors.Join(cause, err)
+	}
+	return cause
+}
+
 func fillTotalTable(table FiniteTable, signature Signature) error {
 	fact := make(Fact, signature.Len())
 	for {
@@ -139,6 +162,9 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 	if err := i.open(); err != nil {
 		return false, err
 	}
+	if err := i.clearPendingFinite(); err != nil {
+		return false, err
+	}
 	switch i.kind {
 	case "mk_unary_singleton":
 		context.stats.UnarySingleton++
@@ -149,7 +175,10 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		if _, err := table.Add(Fact{i.value}); err != nil {
 			return false, errors.Join(err, table.Close())
 		}
-		return true, context.SetFiniteRegister(i.target, table)
+		if err := context.SetFiniteRegister(i.target, table); err != nil {
+			return false, i.disposeUninstalledFinite(table, err)
+		}
+		return true, nil
 	case "mk_total":
 		context.stats.Total++
 		table, err := constructFiniteTable(context, i.signature)
@@ -159,7 +188,10 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		if err := fillTotalTable(table, i.signature); err != nil {
 			return false, errors.Join(err, table.Close())
 		}
-		return true, context.SetFiniteRegister(i.target, table)
+		if err := context.SetFiniteRegister(i.target, table); err != nil {
+			return false, i.disposeUninstalledFinite(table, err)
+		}
+		return true, nil
 	case "mk_explanation_finite_total", "mk_explanation_finite_singleton":
 		if err := context.open(); err != nil {
 			return false, err
@@ -302,6 +334,9 @@ func (i *constructInstruction) Close() error {
 		return nil
 	}
 	i.closing = true
+	if err := i.clearPendingFinite(); err != nil {
+		return err
+	}
 	if i.finiteSort != (ast.ASTRef{}) {
 		if err := i.finiteManager.DelRef(&i.finiteSort); err != nil {
 			return err

@@ -5,6 +5,9 @@ package rel
 import (
 	"errors"
 	"fmt"
+
+	"github.com/glycerine/g3/pkg/ast"
+	astrewriter "github.com/glycerine/g3/pkg/ast/rewriter"
 )
 
 // FiniteCheckedPair owns independently instantiated concrete primary and
@@ -13,6 +16,45 @@ type FiniteCheckedPair struct {
 	primary FiniteTable
 	checker FiniteTable
 	closed  bool
+}
+
+// FiniteCheckedFactory is the concrete check_table plugin selection used for
+// compiler temporaries during one configured checked execution.
+type FiniteCheckedFactory struct {
+	primaryKind string
+	checkerKind string
+}
+
+func NewFiniteCheckedFactory(primaryKind, checkerKind string) (*FiniteCheckedFactory, error) {
+	valid := func(kind string) bool {
+		return kind == "hashtable" || kind == "tr_hashtable" || kind == "sparse" || kind == "tr_sparse"
+	}
+	if !valid(primaryKind) || !valid(checkerKind) {
+		return nil, ErrCheckTable
+	}
+	return &FiniteCheckedFactory{primaryKind: primaryKind, checkerKind: checkerKind}, nil
+}
+
+func checkedFactoryTable(kind string, signature Signature) (FiniteTable, error) {
+	if signature.Len() == 0 && (kind == "sparse" || kind == "tr_sparse") {
+		return NewHashTable(signature), nil
+	}
+	return newFiniteTableKind(kind, signature)
+}
+
+func (f *FiniteCheckedFactory) New(signature Signature) (*FiniteCheckedPair, error) {
+	if f == nil {
+		return nil, ErrCheckTable
+	}
+	primary, err := checkedFactoryTable(f.primaryKind, signature)
+	if err != nil {
+		return nil, err
+	}
+	checker, err := checkedFactoryTable(f.checkerKind, signature)
+	if err != nil {
+		return nil, errors.Join(err, primary.Close())
+	}
+	return adoptFiniteCheckedPair(primary, checker)
 }
 
 func adoptFiniteCheckedPair(primary, checker FiniteTable) (_ *FiniteCheckedPair, resultErr error) {
@@ -50,6 +92,33 @@ func newFiniteTableKind(kind string, signature Signature) (FiniteTable, error) {
 	}
 }
 
+func newFiniteTableLike(template FiniteTable, signature Signature) (FiniteTable, error) {
+	switch template.(type) {
+	case *HashTable:
+		return NewHashTable(signature), nil
+	case *SparseTable:
+		if signature.Len() == 0 {
+			return NewHashTable(signature), nil
+		}
+		return NewSparseTable(signature, 0)
+	default:
+		return nil, fmt.Errorf("%w: unsupported checked component %T", ErrCheckTable, template)
+	}
+}
+
+func copyFiniteFacts(target, source FiniteTable) error {
+	facts, err := source.Facts()
+	if err != nil {
+		return err
+	}
+	for _, fact := range facts {
+		if _, err = target.Add(fact); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // NewFiniteCheckedPair clones source as the selected implementation and
 // creates an independent configured checker seeded with the same rows.
 func NewFiniteCheckedPair(source FiniteTable, checkerKind string) (_ *FiniteCheckedPair, resultErr error) {
@@ -84,6 +153,42 @@ func NewFiniteCheckedPair(source FiniteTable, checkerKind string) (_ *FiniteChec
 		}
 	}
 	if err = result.verify("construction"); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+// Lift materializes a plain compiler operand into this pair's exact concrete
+// primary/checker kinds. Nullary Sparse components use the source fallback.
+func (p *FiniteCheckedPair) Lift(source FiniteTable) (_ *FiniteCheckedPair, resultErr error) {
+	if err := p.open(); err != nil || source == nil {
+		return nil, errors.Join(err, ErrCheckTable)
+	}
+	signature, err := source.Signature()
+	if err != nil {
+		return nil, err
+	}
+	primary, err := newFiniteTableLike(p.primary, signature)
+	if err != nil {
+		return nil, err
+	}
+	checker, err := newFiniteTableLike(p.checker, signature)
+	if err != nil {
+		return nil, errors.Join(err, primary.Close())
+	}
+	result := &FiniteCheckedPair{primary: primary, checker: checker}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, result.Close())
+		}
+	}()
+	if err = copyFiniteFacts(primary, source); err != nil {
+		return nil, err
+	}
+	if err = copyFiniteFacts(checker, source); err != nil {
+		return nil, err
+	}
+	if err = result.verify("lift"); err != nil {
 		return nil, err
 	}
 	return result, nil
@@ -409,6 +514,33 @@ func (p *FiniteCheckedPair) FilterByNegation(negative *FiniteCheckedPair, target
 		return err
 	}
 	return p.verify("filter negation")
+}
+
+func filterCheckedPairInterpreted(table FiniteTable, manager *RelationManager, relationSorts []ast.ASTHandle, theory *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
+	switch concrete := table.(type) {
+	case *HashTable:
+		relation := &TableRelation{manager: manager, sorts: append([]ast.ASTHandle(nil), relationSorts...), table: concrete}
+		return relation.FilterInterpreted(theory, conditions, columns, sorts)
+	case *SparseTable:
+		return filterSparseInterpretedBound(concrete, manager, theory, conditions, columns, sorts)
+	default:
+		return ErrCheckTable
+	}
+}
+
+// FilterInterpreted executes the source checker first and selected primary
+// second, then verifies the concrete results remain extensionally equal.
+func (p *FiniteCheckedPair) FilterInterpreted(manager *RelationManager, relationSorts []ast.ASTHandle, theory *astrewriter.TheoryRewriter, conditions []ast.ASTHandle, columns map[uint32]int, sorts map[uint32]ast.ASTHandle) error {
+	if err := p.open(); err != nil {
+		return err
+	}
+	if err := filterCheckedPairInterpreted(p.checker, manager, relationSorts, theory, conditions, columns, sorts); err != nil {
+		return err
+	}
+	if err := filterCheckedPairInterpreted(p.primary, manager, relationSorts, theory, conditions, columns, sorts); err != nil {
+		return err
+	}
+	return p.verify("filter interpreted")
 }
 
 // UnionFrom executes the reached check_table union semantics and accumulates
