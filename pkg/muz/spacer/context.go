@@ -670,9 +670,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	// selected declaration. Source solve_core resolves it in the new map.
 	c.query = c.transformers[c.queryDecl]
 	if c.query == nil {
-		c.solved = true
-		c.lastResult = lbool.False
-		return c.lastResult, nil
+		return c.finishEarlyUnreachable(fromLevel)
 	}
 	queryRules, err := c.query.Rules()
 	if err != nil {
@@ -687,10 +685,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	// context::solve_core returns false before constructing a root obligation
 	// when preprocessing removed every definition of the query predicate.
 	if len(queryRules) == 0 {
-		c.solved = true
-		c.inductive = fromLevel
-		c.lastResult = lbool.False
-		return c.lastResult, nil
+		return c.finishEarlyUnreachable(fromLevel)
 	}
 	truth, err := c.manager.MkTrue()
 	if err != nil {
