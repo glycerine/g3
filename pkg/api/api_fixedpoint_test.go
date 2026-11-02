@@ -218,6 +218,8 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 	t.Cleanup(func() { astTestMust(t, context.Close()) })
 	manager, err := context.Manager()
 	astTestMust(t, err)
+	_, err = context.DeclareRelation("fp-replay-unused", nil)
+	astTestMust(t, err)
 	p, err := context.DeclareRelation("fp-replay-P", nil)
 	astTestMust(t, err)
 	q, err := context.DeclareRelation("fp-replay-Q", nil)
@@ -233,9 +235,10 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 	astTestMust(t, context.AddFixedpointFact(p, nil))
 	astTestMust(t, context.AddFixedpointRule(step, "fp-replay-edge"))
 	astTestMust(t, context.AssertFixedpoint(truth))
-	script, err := context.FixedpointSMT2()
+	script, err := context.FixedpointReplaySMT2()
 	astTestMust(t, err)
 	for _, fragment := range []string{
+		"(declare-rel fp-replay-unused ())",
 		"(declare-rel fp-replay-P ())",
 		"(declare-rel fp-replay-Q ())",
 		"(assert true)",
@@ -245,7 +248,7 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 			t.Fatalf("fixedpoint replay omitted %q:\n%s", fragment, script)
 		}
 	}
-	if err = context.WriteFixedpointSMT2(nil); err == nil {
+	if err = context.WriteFixedpointReplaySMT2(nil); err == nil {
 		t.Fatal("nil fixedpoint replay writer succeeded")
 	}
 

@@ -10,9 +10,9 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 )
 
-// WriteFixedpointSMT2 writes the effective current fixedpoint declarations,
+// WriteFixedpointReplaySMT2 writes the effective current fixedpoint declarations,
 // background assertions, and Horn rules. It deliberately omits a query.
-func (c *Context) WriteFixedpointSMT2(out io.Writer) (resultErr error) {
+func (c *Context) WriteFixedpointReplaySMT2(out io.Writer) (resultErr error) {
 	if out == nil {
 		return ast.ErrASTHandle
 	}

@@ -69,25 +69,26 @@ func (c *SMTContext) FixedpointParameterDescriptors() ([]FixedpointParameterDesc
 	return result, nil
 }
 
-// WriteFixedpointSMT2 exports the effective current fixedpoint declarations,
-// background assertions, and rules as replayable SMT-LIB without a query.
-func (c *SMTContext) WriteFixedpointSMT2(output io.Writer) error {
+// WriteFixedpointSMT2 writes the source fixedpoint context dump using effective
+// print options and the supplied queries in order. For complete declaration
+// replay independent of print options, use WriteFixedpointReplaySMT2.
+func (c *SMTContext) WriteFixedpointSMT2(output io.Writer, queries ...ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err
 	}
 	if output == nil {
 		return ErrSMTContextOwner
 	}
-	return c.command.WriteFixedpointSMT2(output)
+	return c.command.WriteFixedpointSMT2(output, queries...)
 }
 
-// FixedpointSMT2 returns the replay stream produced by WriteFixedpointSMT2.
-func (c *SMTContext) FixedpointSMT2() (string, error) {
+// FixedpointSMT2 returns the source context dump produced by WriteFixedpointSMT2.
+func (c *SMTContext) FixedpointSMT2(queries ...ast.ASTHandle) (string, error) {
 	if err := c.open(); err != nil {
 		return "", err
 	}
 	var output strings.Builder
-	if err := c.command.WriteFixedpointSMT2(&output); err != nil {
+	if err := c.command.WriteFixedpointSMT2(&output, queries...); err != nil {
 		return "", err
 	}
 	return output.String(), nil

@@ -10,6 +10,12 @@ import (
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
+// WriteFixedpointSMT2 writes the source context dump, optionally with queries.
+// Use WriteFixedpointReplaySMT2 to export all registered relations for replay.
+func (c *Context) WriteFixedpointSMT2(out io.Writer, queries ...ast.ASTHandle) error {
+	return c.WriteFixedpointSMT2WithQueries(out, queries)
+}
+
 // WriteFixedpointSMT2WithQueries writes the source context dump with queries
 // in caller order and the effective engine/module print settings.
 func (c *Context) WriteFixedpointSMT2WithQueries(out io.Writer, queries []ast.ASTHandle) error {
