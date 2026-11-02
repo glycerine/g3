@@ -122,11 +122,22 @@ func (p *datalogParser) parseInfix(first datalogToken) (ast.ASTHandle, error) {
 			return ast.ASTHandle{}, e
 		}
 		return p.manager.MkNot(equal)
-	case datalogLess:
+	case datalogLess, datalogGreater:
+		if operator == datalogGreater {
+			left, right = right, left
+		}
+		finite, e := p.manager.IsDatalogFiniteSort(sort)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		if finite {
+			return p.manager.MkDatalogLT(left, right)
+		}
+		// The original legacy command rejects arithmetic sorts here, but the
+		// established Go parser accepts its live integer-domain extension.
 		return p.manager.MkArithmeticLT(left, right)
-	default:
-		return p.manager.MkArithmeticLT(right, left)
 	}
+	return ast.ASTHandle{}, p.fail("unsupported infix operator")
 }
 
 func (p *datalogParser) addRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool) (resultErr error) {

@@ -38,3 +38,36 @@ func TestDatalogLexerQuotedIdentifiersAndFailures(t *testing.T) {
 		t.Fatal(token)
 	}
 }
+
+func TestDatalogLexerSourceCommentNewlinePolicy(t *testing.T) {
+	lexer, err := newDatalogLexer(strings.NewReader("# first\nN 2 # trailing\n# between\nM 3\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lexer.parsingDomains = true
+	var got []string
+	for {
+		token := lexer.next()
+		got = append(got, token.text)
+		if token.kind == datalogEOF {
+			break
+		}
+	}
+	want := []string{"N", "2", "\\n", "M", "3", "\\n", ""}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatal("source comment token stream", got, want)
+	}
+}
+
+func TestDatalogLexerSourceNegativeNumeralToken(t *testing.T) {
+	lexer, err := newDatalogLexer(strings.NewReader("-12 -name"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if token := lexer.next(); token.kind != datalogNumber || token.text != "-12" {
+		t.Fatal("negative numeral token", token)
+	}
+	if token := lexer.next(); token.kind != datalogIdentifier || token.text != "-name" {
+		t.Fatal("minus identifier token", token)
+	}
+}

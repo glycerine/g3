@@ -38,3 +38,25 @@ func TestDatalogParserRejectsDuplicateAndZeroDomains(t *testing.T) {
 		}
 	}
 }
+
+func TestDatalogParserCommentOnlyLinesDoNotEndDomains(t *testing.T) {
+	f := newDatalogParserFixture(t)
+	input := "# header\nN 2\n# between domains\nM 3\n\nP(x:N,y:M)\nP(\"n\",\"m\").\n"
+	fpMust(t, fp.ParseDatalogString(f.context, input))
+	if count := f.ruleCount(t); count != 1 {
+		t.Fatal("rule count after domain comments", count)
+	}
+	predicates, err := f.context.Predicates()
+	fpMust(t, err)
+	manager, err := f.context.Manager()
+	fpMust(t, err)
+	for i, want := range []uint64{2, 3} {
+		sort, err := manager.GetDomain(predicates[0], uint32(i))
+		fpMust(t, err)
+		size, found, err := manager.DatalogFiniteSortSize(sort)
+		fpMust(t, err)
+		if !found || size != want {
+			t.Fatalf("domain %d size %d found %v, want %d", i, size, found, want)
+		}
+	}
+}

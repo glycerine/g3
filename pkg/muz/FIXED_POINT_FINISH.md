@@ -332,6 +332,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/fp/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/fp/datalog_parser.cpp` (partial), `src/muz/fp/datalog_parser.h` (partial)
   - [x] Constant-left equality/ordering infix bodies, source greater-than reversal, finite/numeric constants, quoted integer construction and constant-only rejection.
+  - [x] Column-one comment newline handling, negative numeral token classification and finite-domain ordering through `DatalogOpLT`.
 - [ ] `src/muz/fp/dl_cmds.cpp` (partial), `src/muz/fp/dl_cmds.h` (partial)
   - [x] `dl_query_cmd::set_next_arg` rejects non-uninterpreted and unregistered ordinary Boolean functions before parameters/backend execution.
 - [ ] `src/muz/fp/dl_register_engine.cpp` (partial), `src/muz/fp/dl_register_engine.h` (partial)
@@ -963,3 +964,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Corrected fixedpoint expression-query entry dispatch to resolve configured or automatic engine selection before raw-rule flushing and query-from-level validation. Fresh PDR, Spacer, Duality, local-precedence, cached and numeric-auto cases now enter the intended backend; focused dispatch and fragment tests passed in 0.037s. Direct predicate-query selection remains a separate audit item.
 
 - 2026-11-02 — Ground explanation rules now compile from a full nullary identity through finite head assembly and zero-child explanation assignment. `compiler_explanation_ground_test.go` checks exhaustive Boolean tuples, guards, exact explanations, repeated execution and ownership after transformer disposal. Focused compiler tests passed in 0.031s. Commit: `Compile ground explanation rules`; two-tail and whole-program execution remain open.
+
+- 2026-11-02 — Ported Datalog lexer column-one comment and negative-numeral behavior, and finite-domain comparisons through `DatalogOpLT` with greater-than reversal. Existing arithmetic-domain parsing remains available. Lexer/parser tests passed in 0.084s; source targets are `dlexer::read_comment/next_token` and `dparser::parse_infix`. Commit: `Port Datalog comment and finite ordering semantics`.

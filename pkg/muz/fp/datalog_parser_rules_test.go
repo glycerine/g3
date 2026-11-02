@@ -84,3 +84,11 @@ func TestDatalogParserInfixRequiresVariableOperand(t *testing.T) {
 		t.Fatal("constant-only infix relation accepted")
 	}
 }
+
+func TestDatalogParserRejectsSourceUnsignedNegativeArgument(t *testing.T) {
+	f := newDatalogParserFixture(t)
+	input := "I int\n\nP(x:I)\nP(-3).\n"
+	if err := fp.ParseDatalogString(f.context, input); err == nil {
+		t.Fatal("negative numeral was misclassified as a variable")
+	}
+}

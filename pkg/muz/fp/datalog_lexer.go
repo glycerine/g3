@@ -89,7 +89,14 @@ func (l *datalogLexer) next() datalogToken {
 	case '\n':
 		return datalogToken{kind: datalogNewline, text: "\\n", line: line, column: column}
 	case '#':
+		lineComment := column == 1
 		for l.peek() >= 0 && l.peek() != '\n' {
+			l.take()
+		}
+		// Source read_comment consumes the newline only when '#' begins the
+		// physical line. This lets comment-only lines occur among domains,
+		// while a trailing comment still exposes the line terminator.
+		if lineComment && l.peek() == '\n' {
 			l.take()
 		}
 		return l.next()
@@ -138,7 +145,7 @@ func (l *datalogLexer) next() datalogToken {
 		l.take()
 		return datalogToken{kind: datalogIdentifier, text: value.String(), line: line, column: column}
 	}
-	if unicode.IsDigit(r) {
+	if unicode.IsDigit(r) || r == '-' && unicode.IsDigit(l.peek()) {
 		var value strings.Builder
 		value.WriteRune(r)
 		for unicode.IsDigit(l.peek()) {
