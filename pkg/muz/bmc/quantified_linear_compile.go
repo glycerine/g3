@@ -29,11 +29,8 @@ func (c *Compiler) CompileQuantifiedLinear(rules *base.RuleSet, width uint32) (r
 		return nil, err
 	}
 	defer func() {
-		resultErr = errors.Join(resultErr, q.close())
+		resultErr = q.disposeResults(result, resultErr)
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, c.manager.DelRef(&result[i]))
-			}
 			result = nil
 		}
 	}()

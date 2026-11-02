@@ -49,7 +49,7 @@ func (c *Compiler) quantifiedLinearSteps(rules *base.RuleSet, query ast.ASTHandl
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, q.close()) }()
+	defer func() { resultErr = errors.Join(resultErr, q.dispose()) }()
 	evaluator, err := model.NewModelEvaluator(md, services)
 	if err != nil {
 		if evaluator != nil {

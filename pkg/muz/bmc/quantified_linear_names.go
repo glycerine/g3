@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 // quantifiedLinear owns the temporary expressions of one compilation.
@@ -21,6 +22,32 @@ type quantifiedLinear struct {
 	refs     []ast.ASTRef
 }
 
+type quantifiedLinearCleanupFailure struct {
+	cause      error
+	cleanupErr error
+	owner      *quantifiedLinear
+	results    []ast.ASTRef
+}
+
+func (f *quantifiedLinearCleanupFailure) Error() string {
+	return errors.Join(f.cause, f.cleanupErr).Error()
+}
+func (f *quantifiedLinearCleanupFailure) Unwrap() error {
+	return errors.Join(f.cause, f.cleanupErr)
+}
+func (f *quantifiedLinearCleanupFailure) Cleanup() error {
+	f.cleanupErr = f.owner.close()
+	if f.cleanupErr == nil {
+		f.cleanupErr = closeQuantifiedResults(f.owner.manager, f.results)
+	}
+	return f.cleanupErr
+}
+func (f *quantifiedLinearCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.owner.manager.NumeralService().RuntimeOwner()
+}
+func (f *quantifiedLinearCleanupFailure) OriginalCause() error { return f.cause }
+func (f *quantifiedLinearCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+
 func newQuantifiedLinear(m *ast.ASTManager, width uint32) (q *quantifiedLinear, err error) {
 	if m == nil || width == 0 {
 		return nil, ast.ErrASTDomain
@@ -28,7 +55,9 @@ func newQuantifiedLinear(m *ast.ASTManager, width uint32) (q *quantifiedLinear, 
 	q = &quantifiedLinear{manager: m, width: width}
 	defer func() {
 		if err != nil {
-			err = errors.Join(err, q.close())
+			if cleanup := q.close(); cleanup != nil {
+				err = &quantifiedLinearCleanupFailure{cause: err, cleanupErr: cleanup, owner: q}
+			}
 			q = nil
 		}
 	}()
@@ -49,10 +78,57 @@ func newQuantifiedLinear(m *ast.ASTManager, width uint32) (q *quantifiedLinear, 
 
 func (q *quantifiedLinear) close() (err error) {
 	for i := len(q.refs) - 1; i >= 0; i-- {
-		err = errors.Join(err, q.manager.DelRef(&q.refs[i]))
+		if q.refs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if err = q.manager.DelRef(&q.refs[i]); err != nil {
+			return err
+		}
 	}
 	q.refs = nil
 	return err
+}
+
+func (q *quantifiedLinear) dispose() error {
+	if err := q.close(); err != nil {
+		return &quantifiedLinearCleanupFailure{cause: err, cleanupErr: err, owner: q}
+	}
+	return nil
+}
+
+func closeQuantifiedResults(manager *ast.ASTManager, refs []ast.ASTRef) error {
+	for i := len(refs) - 1; i >= 0; i-- {
+		if refs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if err := manager.DelRef(&refs[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// disposeResults publishes refs only when q cleanup and the originating
+// operation both succeed. On either failure the concrete retry owner keeps q
+// and every result reference reachable until cleanup completes.
+func (q *quantifiedLinear) disposeResults(refs []ast.ASTRef, cause error) error {
+	cleanup := q.close()
+	if cause == nil && cleanup == nil {
+		return nil
+	}
+	if cause == nil {
+		// Preserve the originating cleanup refusal after a later successful
+		// retry so Error and Unwrap remain stable diagnostics.
+		cause = cleanup
+	}
+	failure := &quantifiedLinearCleanupFailure{cause: cause, cleanupErr: cleanup, owner: q, results: refs}
+	if cleanup == nil {
+		failure.cleanupErr = closeQuantifiedResults(q.manager, refs)
+	}
+	if failure.cleanupErr != nil {
+		return failure
+	}
+	return cause
 }
 
 func (q *quantifiedLinear) hold(value ast.ASTHandle, err error) (ast.ASTHandle, error) {

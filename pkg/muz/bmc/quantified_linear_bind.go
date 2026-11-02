@@ -19,21 +19,16 @@ func (c *Compiler) QuantifiedLinearModelBindings(rule *base.Rule, ruleIndex, lev
 		return nil, ast.ErrASTHandle
 	}
 	m := c.manager
-	defer func() {
-		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				if result[i] != (ast.ASTRef{}) {
-					resultErr = errors.Join(resultErr, m.DelRef(&result[i]))
-				}
-			}
-			result = nil
-		}
-	}()
 	q, err := newQuantifiedLinear(m, width)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, q.close()) }()
+	defer func() {
+		resultErr = q.disposeResults(result, resultErr)
+		if resultErr != nil {
+			result = nil
+		}
+	}()
 	evaluator, err := model.NewModelEvaluator(md, services)
 	if err != nil {
 		if evaluator != nil {

@@ -76,7 +76,7 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, q.close()) }()
+	defer func() { resultErr = errors.Join(resultErr, q.dispose()) }()
 	name, err := c.manager.Symbols.Intern("T")
 	if err != nil {
 		return lbool.Undef, nil, err
