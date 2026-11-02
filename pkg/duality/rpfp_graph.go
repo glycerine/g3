@@ -47,6 +47,7 @@ type Node struct {
 }
 
 type Edge struct {
+	labeled     ast.ASTRef
 	dual        ast.ASTRef
 	constraints []ast.ASTRef
 	relMap      map[ast.ASTHandle]int
@@ -273,6 +274,11 @@ func (g *RPFP) DeleteEdge(edge *Edge) error {
 	}
 	if edge == nil || edge.Owner != g || edge.closed {
 		return ErrWrapperOwner
+	}
+	if edge.labeled != (ast.ASTRef{}) {
+		if err := g.context.manager.DelRef(&edge.labeled); err != nil {
+			return err
+		}
 	}
 	if err := edge.closeConstraints(); err != nil {
 		return err

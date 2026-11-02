@@ -10,6 +10,7 @@ import (
 // preparedHornClause owns the canonical body/head and delayed outer-binder
 // substitutions used by the active USE_QE_LITE FromClauses path.
 type preparedHornClause struct {
+	Parent       *Node
 	Body, Head   *Expr
 	Replacements map[uint32]*Expr
 }
