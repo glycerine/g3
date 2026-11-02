@@ -25,6 +25,7 @@ type QueryEngine struct {
 	active        *queryRun
 	runs          []*queryRun
 	status        lbool.LBool
+	closing       bool
 	closed        bool
 }
 type queryRun struct {
@@ -79,7 +80,7 @@ func NewQueryEngine(context *graph.Context, config graph.EngineConfig) (*QueryEn
 	return e, nil
 }
 func (e *QueryEngine) open() error {
-	if e == nil || e.self != e || e.closed {
+	if e == nil || e.self != e || e.closing || e.closed {
 		return graph.ErrWrapperOwner
 	}
 	_, err := e.context.Manager()
@@ -226,6 +227,7 @@ func (e *QueryEngine) Close() error {
 	if e.closed {
 		return nil
 	}
+	e.closing = true
 	e.active = nil
 	if err := e.reap(); err != nil {
 		return err

@@ -319,6 +319,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/duality/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/duality/duality_dl_interface.cpp` (partial), `src/muz/duality/duality_dl_interface.h` (partial)
   - [x] Safe-result `display_certificate` fixedpoint-model output, reachable derivation separation, temporary model ownership, writer-failure cleanup, and retry.
+  - [x] Cleanup-pending query lifecycle blocks result/query access and preserves concrete runs after refused native child cleanup until retry.
   - [ ] Wider exceptional backend lifecycle audit and remaining interface closure.
 
 ### fp
@@ -902,3 +903,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Matched CLP's stateless `get_answer` by constructing true on demand and removing its non-source persistent answer root. Grounding cleanup now retires fresh constants incrementally, preserves exact remaining constants plus a successfully constructed unpublished substitution across native AST refusal, and exposes a complete retryable construction-failure contract. Focused lifecycle/allocation tests passed in 0.083s and the complete native CLP package passed in 0.126s. Temporary search ownership beyond the exercised grounding path and full unit audit remain open.
 
 - 2026-11-02 — Dense legacy arithmetic projection frontiers reproduced a real one-reference leak at allocation stop 16: classified real literals were not transferred to scoped cleanup before later fallible model/AST work. Real and integer paths now acquire literal ownership immediately; both frontiers and existing semantic paths pass in 0.155s. Mapped projection also rejects cleanup-pending parents, allocates nothing on that path, and independently owns failed result construction through its 2,048-step frontier. Remaining exceptional Spacer projection paths keep the unit partial.
+
+- 2026-11-02 — Duality query cleanup now enters an explicit pending state before child disposal. A refused native child close preserves the concrete run while all query/model/counterexample operations reject; cleanup retry completes idempotently and reaches zero final budget. A real safe query reproduces the refusal and verifies the result boundary. Focused tests passed in 0.008s and the complete native Duality package passed in 1.048s. Wider backend lifecycle and interface closure remain open.
