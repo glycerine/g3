@@ -68,8 +68,12 @@ func TestPsortASTNetworkWeightedIndependentClauseOracle(t *testing.T) {
 					want = sum == k
 				}
 				values[rid] = 1
-				if got := psortOracleSAT(oracle.clauses, values); got != want {
+				if got := psortOracleSAT(oracle.clauses, append([]int8(nil), values...)); got != want {
 					t.Fatal("weighted oracle", mode, k, assignment, sum, got, want)
+				}
+				values[rid] = -1
+				if got := psortOracleSAT(oracle.clauses, append([]int8(nil), values...)); got == want {
+					t.Fatal("weighted oracle opposite polarity", mode, k, assignment, sum, got, want)
 				}
 			}
 			astTestMust(t, network.Close())
@@ -140,8 +144,12 @@ func TestPsortASTNetworkWeightedMaximumBoundOracle(t *testing.T) {
 						want = sum == uint64(k)
 					}
 					values[rid] = 1
-					if got := psortOracleSAT(oracle.clauses, values); got != want {
+					if got := psortOracleSAT(oracle.clauses, append([]int8(nil), values...)); got != want {
 						t.Fatal("weighted oracle", mode, k, assignment, sum, got, want)
+					}
+					values[rid] = -1
+					if got := psortOracleSAT(oracle.clauses, append([]int8(nil), values...)); got == want {
+						t.Fatal("weighted oracle opposite polarity", mode, k, assignment, sum, got, want)
 					}
 				}
 				astTestMust(t, network.Close())
