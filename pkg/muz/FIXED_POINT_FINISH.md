@@ -37,6 +37,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
 - [ ] Verify recursive/nonlinear SAT and UNSAT, assumptions/background, repeated queries, witnesses, proofs and original-rule traces at the public boundary.
   - [x] Verify repeated nonlinear unreachable/reachable/unreachable queries in one SMT-LIB context for PDR, Spacer and Duality (`TestSMT2FixedpointRepeatedNonlinearQueries`).
+  - [x] Verify a newly added fact changes a previously unreachable nonlinear goal to reachable after earlier queries, with repeated SAT afterward.
+  - [ ] Audit source scope behavior against the current PDR/Spacer prohibition on popping after a query; preserve this guard until that audit establishes a supported replacement.
 - [ ] Close all PDR source obligations before declaring the engine complete.
 
 ## 4. Spacer — second engine closure
@@ -192,3 +194,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Added `TestSMT2FixedpointRepeatedNonlinearQueries` in `pkg/parsers/smt2/fixedpoint_nonlinear_integer_test.go`. Each engine reuses one context and the same ascending/descending recursive relations for an UNSAT/SAT/UNSAT query sequence whose goals require two relation children. The focused native integration test passes for PDR, Spacer and Duality; other lifecycle acceptance items remain open. Previous inventory reconciliation commit: `98fdf2c9c`.
   Validation: `go -C pkg test ./parsers/smt2 -run '^TestSMT2FixedpointRepeatedNonlinearQueries$' -count=1 -timeout=45s` passed. Commit title: `Test repeated nonlinear fixedpoint query isolation`.
+
+- 2026-11-02 — Extended `TestSMT2FixedpointRepeatedNonlinearQueries`: PDR, Spacer and Duality now must produce UNSAT/SAT/UNSAT, then SAT/SAT after a new fact is added to the same context. The focused native test passes. An attempted post-query scope-pop variant exposed the current explicit PDR/Spacer restriction in `PropositionalEngine.Pop`; it was preserved and recorded for source comparison rather than bypassed or counted as complete. Previous query-isolation commit: `ea54042a0`.
+  Validation: `go -C pkg test ./parsers/smt2 -run '^TestSMT2FixedpointRepeatedNonlinearQueries$' -count=1 -timeout=45s` passed. Commit title: `Test fixedpoint result refresh after rule mutation`.
