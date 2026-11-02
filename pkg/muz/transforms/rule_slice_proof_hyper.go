@@ -207,7 +207,7 @@ func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, r
 			if cause != nil {
 				return value, cause
 			}
-			if position.First == 0 && position.Second > 0 && originalPositive == 0 && len(premises) == 2 {
+			if position.First == 0 && position.Second > 0 && len(premises) == 2 {
 				positive, cause := other.rule.PositiveTailSize()
 				if cause != nil {
 					return value, cause

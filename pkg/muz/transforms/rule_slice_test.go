@@ -819,12 +819,14 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 		coneMust(t, e)
 		return h
 	}
+	finish := declare("slice-positions-final", nil)
+	finishApp := app(finish)
 	goalApp := app(goal)
 	for _, spec := range []struct {
 		head ast.ASTHandle
 		tail []ast.ASTHandle
 	}{
-		{app(p, zero), nil}, {app(q, zero), nil}, {goalApp, []ast.ASTHandle{app(p, x), app(q, y)}},
+		{finishApp, []ast.ASTHandle{goalApp}}, {app(p, zero), nil}, {app(q, zero), nil}, {goalApp, []ast.ASTHandle{app(p, x), app(q, y)}},
 	} {
 		r, e := f.rules.NewRule(spec.head, spec.tail, nil, "")
 		coneMust(t, e)
@@ -832,7 +834,7 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 		coneMust(t, f.set.Add(r))
 		coneMust(t, r.Close())
 	}
-	coneMust(t, f.set.SetOutputPredicate(goal))
+	coneMust(t, f.set.SetOutputPredicate(finish))
 	valid, err := f.set.Finalize()
 	coneMust(t, err)
 	if !valid {
@@ -880,9 +882,21 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 		}
 		coneMust(t, rules[0].Close())
 	}
+	finalRules, e := f.set.PredicateRules(finish)
+	coneMust(t, e)
+	if len(finalRules) != 1 {
+		t.Fatal("missing final rule")
+	}
+	defer func() { coneMust(t, finalRules[0].Close()) }()
+	finalProof, ok, e := finalRules[0].Proof()
+	coneMust(t, e)
+	if !ok {
+		t.Fatal("missing final proof")
+	}
 	for _, order := range [][2]int{{0, 1}, {1, 0}} {
-		for _, reverse := range []bool{false, true} {
-			t.Run(fmt.Sprint(order, "/reverse=", reverse), func(t *testing.T) {
+		for _, mode := range []int{0, 1, 2} {
+			reverse := mode == 1
+			t.Run(fmt.Sprint(order, "/mode=", mode), func(t *testing.T) {
 				scope, e := ast.NewScopedProof(m)
 				coneMust(t, e)
 				original, e := m.MkProofHyperResolve(
@@ -903,6 +917,25 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 					original, e = m.MkProofHyperResolve([]ast.ASTHandle{middle, factProofs[order[1]]}, goalApp, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{nil, nil})
 					coneMust(t, e)
 				}
+				expected := goalApp
+				if mode == 2 {
+					left, _, e := goals[0].Tail(0)
+					coneMust(t, e)
+					right, _, e := goals[0].Tail(1)
+					coneMust(t, e)
+					body, e := m.MkAnd(left, right)
+					coneMust(t, e)
+					middleFact, e := m.MkImplies(body, finishApp)
+					coneMust(t, e)
+					middle, e := m.MkProofHyperResolve([]ast.ASTHandle{goalProof, finalProof}, middleFact, []ast.ASTProofPosition{{Second: 1}}, [][]ast.ASTHandle{nil, nil})
+					coneMust(t, e)
+					middlePin, e := m.NewRef(middle)
+					coneMust(t, e)
+					defer func() { coneMust(t, m.DelRef(&middlePin)) }()
+					original, e = m.MkProofHyperResolve([]ast.ASTHandle{middle, factProofs[order[0]], factProofs[order[1]]}, finishApp, []ast.ASTProofPosition{{First: uint32(order[0] + 1)}, {First: uint32(order[1] + 1)}}, [][]ast.ASTHandle{nil, nil, nil})
+					coneMust(t, e)
+					expected = finishApp
+				}
 				pin, e := m.NewRef(original)
 				coneMust(t, e)
 				defer func() { coneMust(t, m.DelRef(&pin)) }()
@@ -914,7 +947,7 @@ func TestRuleSliceConvertsNonlinearResolutionPositions(t *testing.T) {
 				coneMust(t, e)
 				fact, e := m.GetProofFact(proof)
 				coneMust(t, e)
-				if fact != goalApp {
+				if fact != expected {
 					t.Fatal("wrong converted conclusion")
 				}
 				checker, e := proofs.NewChecker(m)
