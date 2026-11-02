@@ -30,6 +30,7 @@ type Context struct {
 	lastResult       lbool.LBool
 	inductive        uint32
 	cexDepth         uint32
+	cexDepthSet      bool
 	stats            contextStatistics
 	skipPropagate    bool
 	resetQueue       bool
@@ -672,6 +673,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 			return lbool.Undef, err
 		}
 		c.stats.maxQueryLevel = level
+		c.stats.queryLevelSet = true
 		reachable, err := c.queue.checkReachability(c.resetQueue, c.flexibleTrace, c.flexibleDepth, c.useRestarts, c.restartInitial, c.lemmaAdditions)
 		if err != nil {
 			return lbool.Undef, err
@@ -682,6 +684,9 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 				return c.lastResult, err
 			}
 			c.cexDepth, err = c.counterexampleDepth()
+			if err == nil {
+				c.cexDepthSet = true
+			}
 			return c.lastResult, err
 		}
 		if level > 0 && !c.skipPropagate {
@@ -817,30 +822,29 @@ func (c *Context) GroundSatAnswer(declaration ast.ASTHandle) (ast.ASTRef, error)
 }
 
 func (c *Context) CollectStatistics(destination *statistics.Statistics) error {
-	if err := c.open(); err != nil {
-		return err
-	}
+	return c.CollectStatisticsWithSnapshot(destination, StatisticsSnapshot{})
+}
+
+// CollectStatisticsWithSnapshot keeps retired context/solver counters while
+// collecting property and propagation gauges only from the active program.
+func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statistics, previous StatisticsSnapshot) error {
 	if destination == nil {
 		return ast.ErrASTHandle
 	}
-	if err := c.owner.CollectStatistics(destination); err != nil {
+	current, err := c.SnapshotStatistics()
+	if err != nil {
+		return err
+	}
+	previous.Merge(current)
+	if err = previous.Collect(destination); err != nil {
 		return err
 	}
 	for _, declaration := range c.order {
-		if err := c.transformers[declaration].CollectStatistics(destination); err != nil {
+		if err = c.transformers[declaration].CollectStatistics(destination); err != nil {
 			return err
 		}
 	}
-	destination.UpdateUint("SPACER num queries", c.stats.queries)
-	destination.UpdateUint("SPACER num reach queries", c.stats.reachQueries)
-	destination.UpdateUint("SPACER num reuse reach facts", c.stats.reuseReach)
-	destination.UpdateUint("SPACER max query lvl", c.stats.maxQueryLevel)
-	destination.UpdateUint("SPACER max depth", c.stats.maxDepth)
 	destination.UpdateUint("SPACER inductive level", c.inductive)
-	destination.UpdateUint("SPACER cex depth", c.cexDepth)
-	destination.UpdateUint("SPACER expand node undef", c.stats.expandUndef)
-	destination.UpdateUint("SPACER num lemmas", c.stats.lemmas)
-	destination.UpdateUint("SPACER restarts", c.stats.restarts)
 	return nil
 }
 
@@ -858,6 +862,7 @@ func (c *Context) ResetStatistics() error {
 	}
 	c.queue.restarts = 0
 	c.cexDepth = 0
+	c.cexDepthSet = false
 	c.stats = contextStatistics{}
 	return nil
 }

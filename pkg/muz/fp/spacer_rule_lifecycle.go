@@ -12,9 +12,14 @@ import (
 
 func (e *PropositionalEngine) closeSpacerForReplacement() (result error) {
 	if e.spacer != nil {
+		archived, err := e.spacer.SnapshotStatistics()
+		if err != nil {
+			return err
+		}
 		if err := e.spacer.Close(); err != nil {
 			return err
 		}
+		e.spacerStatistics.Merge(archived)
 		e.spacer = nil
 		e.spacerRevision = 0
 	}

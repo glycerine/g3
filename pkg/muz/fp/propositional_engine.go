@@ -110,6 +110,7 @@ type PropositionalEngine struct {
 	tabUnfoldFail       uint32
 	tabSubsumed         uint32
 	spacer              *muzspacer.Context
+	spacerStatistics    muzspacer.StatisticsSnapshot
 	scopes              []*base.RuleSet
 	autoRules           []autoRuleEntry
 	rawRules            []rawRuleFormula
@@ -1584,8 +1585,8 @@ func (e *PropositionalEngine) CollectStatistics(destination *statistics.Statisti
 	if e.backend == "pdr" || e.backend == "qpdr" {
 		return e.collectPDRStatistics(destination, muzpdr.StatisticsSnapshot{})
 	}
-	if e.backend == "spacer" && e.spacer != nil {
-		return e.spacer.CollectStatistics(destination)
+	if e.backend == "spacer" {
+		return e.collectSpacerStatistics(destination, muzspacer.StatisticsSnapshot{})
 	}
 	if e.backend == "bmc" || e.backend == "qbmc" {
 		destination.Copy(e.bmcStatistics)
@@ -1620,8 +1621,17 @@ func (e *PropositionalEngine) ResetStatistics() error {
 		}
 		return nil
 	}
-	if e.backend == "spacer" && e.spacer != nil {
-		return e.spacer.ResetStatistics()
+	if e.backend == "spacer" {
+		e.spacerStatistics.Reset()
+		if e.spacer != nil {
+			if err := e.spacer.ResetStatistics(); err != nil {
+				return err
+			}
+		}
+		if e.queryClone != nil && e.queryClone.backend == "spacer" {
+			return e.queryClone.ResetStatistics()
+		}
+		return nil
 	}
 	if e.backend == "bmc" || e.backend == "qbmc" {
 		e.bmcStatistics.Reset()

@@ -213,16 +213,24 @@ func (e *PropositionalEngine) clearQueryResources() error {
 		return nil
 	}
 	var archived pdr.StatisticsSnapshot
+	var archivedSpacer spacer.StatisticsSnapshot
 	var result error
 	archivePDR := e.queryClone.backend == "pdr" || e.queryClone.backend == "qpdr"
 	if archivePDR {
 		archived, result = e.queryClone.snapshotPDRStatistics()
+	}
+	archiveSpacer := e.queryClone.backend == "spacer"
+	if archiveSpacer {
+		archivedSpacer, result = e.queryClone.snapshotSpacerStatistics()
 	}
 	if err := e.queryClone.Close(); err != nil {
 		return errors.Join(result, fmt.Errorf("muz/fp: close expression-query clone: %w", err))
 	}
 	if archivePDR && result == nil {
 		e.pdrStatistics.Merge(archived)
+	}
+	if archiveSpacer && result == nil {
+		e.spacerStatistics.Merge(archivedSpacer)
 	}
 	e.queryClone = nil
 	e.queryCloneRevision = 0

@@ -100,6 +100,12 @@ func (f *VirtualSolverFactory) CollectStatistics(destination *statistics.Statist
 	if err := f.backend.CollectStatistics(destination); err != nil {
 		return err
 	}
+	return f.collectVirtualStatistics(destination)
+}
+
+// Shared backend counters and resettable factory counters have different
+// lifetimes when an expression-query context is archived.
+func (f *VirtualSolverFactory) collectVirtualStatistics(destination *statistics.Statistics) error {
 	checkSeconds, err := f.checkWatch.Seconds()
 	if err != nil {
 		return err

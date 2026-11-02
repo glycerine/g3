@@ -6,5 +6,6 @@ package spacer
 type contextStatistics struct {
 	queries, reachQueries, reuseReach uint32
 	maxQueryLevel, maxDepth           uint32
+	queryLevelSet                     bool
 	expandUndef, lemmas, restarts     uint32
 }
