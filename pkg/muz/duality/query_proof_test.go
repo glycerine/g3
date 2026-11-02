@@ -2,6 +2,7 @@ package duality_test
 
 import (
 	"math"
+	"math/big"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -133,6 +134,97 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	must(err)
 	defer func() { must(m.DelRef(&proof)) }()
 	validateDualityProof(t, m, config, proof)
+
+	// QE-lite may eliminate the predecessor from y = !x. The original
+	// quantified rule still needs x=true to justify W(false) from W(true).
+	w := declare("proof-W", 1)
+	wx := pin(m.MkApp(w, []ast.ASTHandle{x}))
+	wy := pin(m.MkApp(w, []ast.ASTHandle{y}))
+	notX := pin(m.MkNot(x))
+	transition := pin(m.MkEq(y, notX))
+	stepBody := pin(m.MkAnd(wx, transition))
+	witnessRules := []ast.ASTHandle{
+		pin(m.MkApp(w, []ast.ASTHandle{truth})),
+		quantify(pin(m.MkImplies(stepBody, wy))),
+	}
+	witnessQuery := pin(m.MkApp(w, []ast.ASTHandle{falsity}))
+	preparedWitness, err := duality.PrepareQuery(m, witnessRules, []uint32{math.MaxUint32, math.MaxUint32}, witnessQuery, []ast.ASTHandle{w}, math.MaxUint32)
+	must(err)
+	defer preparedWitness.Close()
+	status, err = backend.Query(preparedWitness)
+	must(err)
+	must(preparedWitness.Close())
+	if status != lbool.True {
+		t.Fatal("independently reachable Boolean predecessor query", status)
+	}
+	witnessProof, err := backend.GetProof()
+	must(err)
+	defer func() { must(m.DelRef(&witnessProof)) }()
+	validateDualityProof(t, m, config, witnessProof)
+	completed := false
+	before := m.Stats().LiveReferences
+	for fault := int64(0); fault < 1024; fault++ {
+		m.Budget().FailAfter(fault)
+		trial, failure := backend.GetProof()
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			must(m.DelRef(&trial))
+			completed = true
+		} else {
+			if trial != (ast.ASTRef{}) {
+				t.Fatal("failed witness extraction published a partial proof", fault, failure)
+			}
+			// A retry owns cleanup of any stopped construction before starting
+			// a fresh witness solve; the original counterexample stays usable.
+			retry, err := backend.GetProof()
+			must(err)
+			must(m.DelRef(&retry))
+		}
+		if m.Stats().LiveReferences != before {
+			t.Fatal("witness extraction leaked references", fault, failure, before, m.Stats().LiveReferences)
+		}
+		if completed {
+			t.Log("witness extraction allocation prefixes", fault)
+			break
+		}
+	}
+	if !completed {
+		t.Fatal("witness extraction did not reach allocation success")
+	}
+
+	// Normalized integer transition heads keep y while projecting x; the
+	// second step requires recovering x=1, rather than the default x=0.
+	zero := pin(m.ArithmeticNumeralRat(big.NewRat(0, 1), true))
+	one := pin(m.ArithmeticNumeralRat(big.NewRat(1, 1), true))
+	two := pin(m.ArithmeticNumeralRat(big.NewRat(2, 1), true))
+	integer := pin(m.GetSort(zero))
+	old, next := pin(m.MkVar(1, integer)), pin(m.MkVar(0, integer))
+	rn, err := m.Symbols.Intern("proof-Reach")
+	must(err)
+	reach := pin(m.MkFuncDecl(rn, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{}))
+	rOld := pin(m.MkApp(reach, []ast.ASTHandle{old}))
+	rNext := pin(m.MkApp(reach, []ast.ASTHandle{next}))
+	plusOne := pin(m.MkArithmeticAdd(old, one))
+	update := pin(m.MkEq(next, plusOne))
+	intBody := pin(m.MkAnd(update, rOld))
+	intRule := pin(m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer}, Names: []usymbol.Symbol{xn, yn}, Body: pin(m.MkImplies(intBody, rNext))}))
+	intRules := []ast.ASTHandle{pin(m.MkApp(reach, []ast.ASTHandle{zero})), intRule}
+	intQuery := pin(m.MkApp(reach, []ast.ASTHandle{two}))
+	preparedInt, err := duality.PrepareQuery(m, intRules, []uint32{math.MaxUint32, math.MaxUint32}, intQuery, []ast.ASTHandle{reach}, math.MaxUint32)
+	must(err)
+	defer preparedInt.Close()
+	status, err = backend.Query(preparedInt)
+	must(err)
+	must(preparedInt.Close())
+	if status != lbool.True {
+		t.Fatal("independently reachable integer predecessor query", status)
+	}
+	intProof, err := backend.GetProof()
+	must(err)
+	defer func() { must(m.DelRef(&intProof)) }()
+	validateDualityProof(t, m, config, intProof)
 	must(backend.Close())
 	validateDualityProof(t, m, config, proof)
+	validateDualityProof(t, m, config, witnessProof)
+	validateDualityProof(t, m, config, intProof)
 }

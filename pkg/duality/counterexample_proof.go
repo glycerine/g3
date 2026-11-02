@@ -6,12 +6,14 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/solver"
 )
 
 // Proof returns an owned hyper-resolution derivation of the original query.
 // Original clauses and evaluated substitutions are copied into the proof, so
 // the returned reference survives counterexample and backend destruction.
-func (c *Counterexample) Proof() (out ast.ASTRef, result error) {
+// The borrowed factory reconstructs witnesses removed by preprocessing.
+func (c *Counterexample) Proof(factory solver.Factory) (out ast.ASTRef, result error) {
 	if err := c.open(); err != nil {
 		return out, err
 	}
@@ -19,6 +21,9 @@ func (c *Counterexample) Proof() (out ast.ASTRef, result error) {
 		return out, ErrWrapperOwner
 	}
 	if err := c.tree.open(); err != nil {
+		return out, err
+	}
+	if err := c.tree.cleanupProofWitnesses(); err != nil {
 		return out, err
 	}
 	m := c.tree.context.manager
@@ -32,10 +37,10 @@ func (c *Counterexample) Proof() (out ast.ASTRef, result error) {
 			result = errors.Join(result, m.DelRef(&out))
 		}
 	}()
-	return c.tree.extractCounterexampleProof(c.root, make(map[*Node]bool))
+	return c.tree.extractCounterexampleProof(c.root, make(map[*Node]bool), factory)
 }
 
-func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool) (out ast.ASTRef, result error) {
+func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, factory solver.Factory) (out ast.ASTRef, result error) {
 	if node == nil || node.closed || node.Owner != g || node.Outgoing == nil || active[node] {
 		return out, ErrWrapperOwner
 	}
@@ -84,6 +89,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool) (ou
 	refs = append(refs, ref)
 	premises := []ast.ASTHandle{asserted}
 	substitutions := [][]ast.ASTHandle{nil}
+	quantified := clause
 	kind, err := m.GetKind(clause)
 	if err != nil {
 		return out, err
@@ -99,33 +105,6 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool) (ou
 				return out, err
 			}
 			substitutions[0] = make([]ast.ASTHandle, n)
-			for j := uint32(0); j < n; j++ {
-				sort, err := m.GetDeclarationSort(clause, j)
-				if err != nil {
-					return out, err
-				}
-				name, err := m.GetDeclarationName(clause, j)
-				if err != nil {
-					return out, err
-				}
-				h, err := m.MkConst(name, sort)
-				if err != nil {
-					return out, err
-				}
-				skolem, err := hold(NewExpr(g.context, h))
-				if err != nil {
-					return out, err
-				}
-				value, err := hold(g.Eval(edge, skolem))
-				if err != nil {
-					return out, err
-				}
-				// Hyper-resolution substitutions index de Bruijn variables.
-				substitutions[0][n-1-j], err = value.Raw()
-				if err != nil {
-					return out, err
-				}
-			}
 			clause, err = m.GetQuantifierBody(clause)
 			if err != nil {
 				return out, err
@@ -148,7 +127,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool) (ou
 		if empty {
 			continue
 		}
-		proof, err := g.extractCounterexampleProof(child, active)
+		proof, err := g.extractCounterexampleProof(child, active, factory)
 		if err != nil {
 			return out, err
 		}
@@ -203,6 +182,19 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool) (ou
 		return out, err
 	}
 	refs = append(refs, conclusionRef)
+	if len(substitutions[0]) > 0 {
+		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion)
+		if err != nil {
+			return out, err
+		}
+		refs = append(refs, values...)
+		for i, value := range values {
+			substitutions[0][i], err = m.RefGet(value)
+			if err != nil {
+				return out, err
+			}
+		}
+	}
 	proof, err := m.MkProofHyperResolve(premises, conclusion, resolved, substitutions)
 	if err != nil {
 		return out, err

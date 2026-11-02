@@ -15,24 +15,25 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
-	sourceClauses        []ast.ASTRef
-	clauseIndices        map[*Edge]int
-	evaluatorConfig      model.ModelEvaluatorConfig
-	pendingEvaluators    []*model.ModelEvaluator
-	proofCore            map[ast.ASTHandle]ast.ASTRef
-	dualModel            *model.ModelCore
-	solver               solver.Solver
-	scopes               []graphScope
-	HornClauses          bool
-	underapproxFlags     map[ast.ASTHandle]*Node
-	underapproxFlagRefs  []ast.ASTRef
-	vocabulary           *BackgroundVocabulary
-	ownsVocabulary       bool
-	context              *Context
-	nodes                []*Node
-	edges                []*Edge
-	nodeCount, edgeCount int
-	closed               bool
+	pendingProofWitnesses []*proofWitnessCall
+	sourceClauses         []ast.ASTRef
+	clauseIndices         map[*Edge]int
+	evaluatorConfig       model.ModelEvaluatorConfig
+	pendingEvaluators     []*model.ModelEvaluator
+	proofCore             map[ast.ASTHandle]ast.ASTRef
+	dualModel             *model.ModelCore
+	solver                solver.Solver
+	scopes                []graphScope
+	HornClauses           bool
+	underapproxFlags      map[ast.ASTHandle]*Node
+	underapproxFlagRefs   []ast.ASTRef
+	vocabulary            *BackgroundVocabulary
+	ownsVocabulary        bool
+	context               *Context
+	nodes                 []*Node
+	edges                 []*Edge
+	nodeCount, edgeCount  int
+	closed                bool
 }
 
 type Node struct {
@@ -337,6 +338,9 @@ func (g *RPFP) Close() error {
 		}
 	}
 	g.clauseIndices = nil
+	if err := g.cleanupProofWitnesses(); err != nil {
+		return err
+	}
 	for len(g.underapproxFlagRefs) > 0 {
 		n := len(g.underapproxFlagRefs) - 1
 		err := g.context.manager.DelRef(&g.underapproxFlagRefs[n])

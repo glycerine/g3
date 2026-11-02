@@ -22,7 +22,7 @@ func (e *QueryEngine) GetProof() (ast.ASTRef, error) {
 		}
 		return m.NewRef(ast.ASTHandle{})
 	}
-	return e.active.engine.GetCounterexample().Proof()
+	return e.active.engine.GetCounterexample().Proof(e.config.Factory)
 }
 
 func (b *Backend) GetProof() (ast.ASTRef, error) {
