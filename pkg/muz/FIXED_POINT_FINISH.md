@@ -48,6 +48,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Verify all-true/all-unknown no-selection results for current and origin-state cases without model completion or temporary-reference leaks.
   - [x] Verify the direct constant-model selection path remains usable with a zero-step evaluator budget and releases its returned owner.
   - [x] Exercise origin-selection allocation failures through success and retry with reference accounting and no failed-result publication.
+  - [x] Verify a nonliteral Boolean model interpretation is skipped in favor of a later false case, without leaked temporary references.
   - [ ] Audit source VERIFY/UNREACHABLE/SASSERT transport and evaluator-exception cleanup before closing reach-fact selection.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
 - [ ] Finish slice-proof conversion for every live proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution now have evidence, but general multi-premise mixed orientations remain unproven.
@@ -215,3 +216,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Fixed a reach-selection error-return ownership gap: an evaluation result acquired before translated-formula cleanup fails is now released before returning that failure. Added `TestSpacerOriginReachSelectionAllocationFailureAndRetry`, requiring observed allocation failures, successful selection, clean reference counts, no failed-result publication and successful retry. Complete native Spacer tests pass. The campaign covers observed allocation frontiers; it does not force the specific destructor-error branch or close the broader exception audit. Previous constant-selection commit: `f71299613`.
   Validation: focused origin-selection campaign and `go -C pkg test ./muz/spacer -short` passed. Commit title: `Close Spacer reach evaluation result on cleanup failure`.
+
+- 2026-11-02 — Added `TestSpacerReachSelectionSkipsNonliteralModelInterpretation`: a symbolic Boolean interpretation at the first case must not be mistaken for false; selection reaches the later false case with reference accounting intact. The focused native test passes with max_steps=0. This fixture returns an unevaluated model interpretation rather than triggering rewriting, so it supplies no evaluator-exception evidence; that audit remains open. Previous ownership correction: `8ab4916ae`.
+  Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachSelectionSkipsNonliteralModelInterpretation$' -count=1` passed. Commit title: `Test Spacer selection skips symbolic model interpretations`.

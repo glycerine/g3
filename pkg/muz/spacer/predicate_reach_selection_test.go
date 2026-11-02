@@ -205,3 +205,71 @@ func TestSpacerReachFactSelectionWithZeroStepBudget(t *testing.T) {
 		t.Fatal("limited selection leaked references")
 	}
 }
+
+func TestSpacerReachSelectionSkipsNonliteralModelInterpretation(t *testing.T) {
+	f := newContextAnswerFixture(t, false)
+	p, m := f.context.transformers[f.query], f.context.manager
+	boolean, err := m.MkBoolSort()
+	depthMust(t, err)
+	formula, err := m.MkFreshConst("after-evaluator-failure", boolean)
+	depthMust(t, err)
+	fact, err := NewReachFact(m, f.rule, formula, nil, false)
+	depthMust(t, err)
+	added, err := p.AddReachFact(fact)
+	depthMust(t, err)
+	depthMust(t, fact.Close())
+	if !added || len(p.reachCaseVariables) != 2 {
+		t.Fatal("invalid nonliteral selection fixture")
+	}
+	config := p.owner.contexts[0].config.ModelEvaluator
+	params, err := config.Context.NewValue()
+	depthMust(t, err)
+	key := "max_steps"
+	depthMust(t, config.Context.SetUIntName(&params, &key, 0))
+	limited := config
+	limited.Params = &params
+	p.owner.contexts[0].config.ModelEvaluator = limited
+	defer func() { p.owner.contexts[0].config.ModelEvaluator = config; depthMust(t, config.Context.Del(&params)) }()
+	md, err := model.NewModel(m)
+	depthMust(t, err)
+	defer func() { depthMust(t, md.Close()) }()
+	atom, err := m.MkFreshConst("evaluation-rewrite-input", boolean)
+	depthMust(t, err)
+	atomDecl, err := m.GetDecl(atom)
+	depthMust(t, err)
+	yes, err := m.MkTrue()
+	depthMust(t, err)
+	depthMust(t, md.Core().RegisterConstant(atomDecl, yes))
+	compound, err := m.MkNot(atom)
+	depthMust(t, err)
+	compoundPin, err := m.NewRef(compound)
+	depthMust(t, err)
+	defer func() { depthMust(t, m.DelRef(&compoundPin)) }()
+	no, err := m.MkFalse()
+	depthMust(t, err)
+	for i, ref := range p.reachCaseVariables {
+		h, err := m.RefGet(ref)
+		depthMust(t, err)
+		decl, err := m.GetDecl(h)
+		depthMust(t, err)
+		value := compound
+		if i == 1 {
+			value = no
+		}
+		depthMust(t, md.Core().RegisterConstant(decl, value))
+	}
+	before := m.Stats().LiveReferences
+	selected, found, err := p.UsedReachFact(md.Core(), true)
+	depthMust(t, err)
+	if !found || selected == nil {
+		t.Fatal("nonliteral interpretation hid the later false case")
+	}
+	if selected.state != p.reachFacts[1].state {
+		depthMust(t, selected.Close())
+		t.Fatal("wrong reach fact after nonliteral interpretation")
+	}
+	depthMust(t, selected.Close())
+	if m.Stats().LiveReferences != before {
+		t.Fatal("nonliteral selection leaked references")
+	}
+}
