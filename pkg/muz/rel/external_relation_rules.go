@@ -12,13 +12,13 @@ import (
 )
 
 type externalFactRule struct {
-	head, tail  ast.ASTHandle
-	tail2       ast.ASTHandle
+	head        ast.ASTHandle
+	tails       []ast.ASTHandle
 	values      []ast.ASTHandle
-	joinLeft    []uint32
-	joinRight   []uint32
+	joinLeft    [][]uint32
+	joinRight   [][]uint32
 	headColumns []externalHeadColumn
-	filters     [2]externalTailFilter
+	filters     []externalTailFilter
 }
 
 type externalTailFilter struct {
@@ -71,7 +71,7 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		return result, err
 	}
 	tails, err := rule.TailSize()
-	if err != nil || positive < 0 || positive > 2 || uninterpreted != positive || tails != positive {
+	if err != nil || positive < 0 || uninterpreted != positive || tails != positive {
 		return result, errors.Join(err, ErrCompilerUnsupported)
 	}
 	headCount, err := manager.GetNumArgs(head)
@@ -96,7 +96,6 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		return result, nil
 	}
 	positions := make(map[ast.ASTHandle]uint32)
-	firstTail := make(map[ast.ASTHandle]uint32)
 	columns := make([]ast.ASTHandle, 0)
 	for tailIndex := 0; tailIndex < positive; tailIndex++ {
 		tail, negated, cause := rule.Tail(tailIndex)
@@ -107,10 +106,11 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		if cause != nil {
 			return result, cause
 		}
-		if tailIndex == 0 {
-			result.tail = declaration
-		} else {
-			result.tail2 = declaration
+		result.tails = append(result.tails, declaration)
+		result.filters = append(result.filters, externalTailFilter{})
+		if tailIndex != 0 {
+			result.joinLeft = append(result.joinLeft, nil)
+			result.joinRight = append(result.joinRight, nil)
 		}
 		count, cause := manager.GetNumArgs(tail)
 		if cause != nil {
@@ -141,11 +141,11 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 			local[argument] = append(local[argument], index)
 			if len(local[argument]) == 1 {
 				localOrder = append(localOrder, argument)
-				if tailIndex == 0 {
-					firstTail[argument] = index
-				} else if left, shared := firstTail[argument]; shared {
-					result.joinLeft = append(result.joinLeft, left)
-					result.joinRight = append(result.joinRight, index)
+				if tailIndex != 0 {
+					if left, shared := positions[argument]; shared {
+						result.joinLeft[tailIndex-1] = append(result.joinLeft[tailIndex-1], left)
+						result.joinRight[tailIndex-1] = append(result.joinRight[tailIndex-1], index)
+					}
 				}
 				if _, found := positions[argument]; !found {
 					positions[argument] = combined
@@ -183,9 +183,9 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 }
 
 // ExecuteExternalFactRules runs the concrete source-reached external relation
-// slice: ground facts, single positive-tail transformations, and two-tail
-// equality joins with constant and repeated-variable tail filters. It validates the whole set
-// before mutation.
+// slice: ground facts and ordered positive-tail equality joins with constant
+// and repeated-variable filters, followed by source head assembly. It
+// validates the whole set before mutation.
 func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet) (resultErr error) {
 	if plugin == nil || plugin.closed || plugin.ast == nil || set == nil {
 		return ErrCompilerUnsupported
@@ -214,7 +214,10 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 	validated := make(map[ast.ASTHandle]bool)
 	predicateOrder := make([]ast.ASTHandle, 0)
 	for _, entry := range compiled {
-		for _, predicate := range []ast.ASTHandle{entry.head, entry.tail, entry.tail2} {
+		predicates := make([]ast.ASTHandle, 0, 1+len(entry.tails))
+		predicates = append(predicates, entry.head)
+		predicates = append(predicates, entry.tails...)
+		for _, predicate := range predicates {
 			if predicate.IsNull() || validated[predicate] {
 				continue
 			}
@@ -284,7 +287,7 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 		return err
 	}
 	for _, entry := range compiled {
-		if !entry.tail.IsNull() {
+		if len(entry.tails) != 0 {
 			continue
 		}
 		target, cause := plugin.PredicateRelation(entry.head)
@@ -301,10 +304,10 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			return err
 		}
 		for _, entry := range compiled {
-			if entry.tail.IsNull() {
+			if len(entry.tails) == 0 {
 				continue
 			}
-			source, cause := plugin.PredicateRelation(entry.tail)
+			source, cause := plugin.PredicateRelation(entry.tails[0])
 			if cause != nil {
 				return cause
 			}
@@ -312,16 +315,16 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			if cause != nil {
 				return cause
 			}
-			if !entry.tail2.IsNull() {
-				second, secondErr := plugin.PredicateRelation(entry.tail2)
+			for tailIndex := 1; tailIndex < len(entry.tails); tailIndex++ {
+				second, secondErr := plugin.PredicateRelation(entry.tails[tailIndex])
 				if secondErr != nil {
 					return errors.Join(secondErr, value.Close())
 				}
-				secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[1])
+				secondValue, secondErr := prepareExternalRuleTail(second, entry.filters[tailIndex])
 				if secondErr != nil {
 					return errors.Join(secondErr, value.Close())
 				}
-				joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft, entry.joinRight)
+				joined, joinErr := JoinExternalRelations(value, secondValue, entry.joinLeft[tailIndex-1], entry.joinRight[tailIndex-1])
 				joinErr = errors.Join(joinErr, value.Close(), secondValue.Close())
 				if joinErr != nil {
 					if joined != nil {

@@ -321,6 +321,15 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 		}
 		return true, changed, nil
 	}
+	tryMatch := func(pattern, value ast.ASTHandle) (bool, error) {
+		before := append([]ast.ASTHandle(nil), substitution...)
+		matched, changed, err := match(pattern, value)
+		if err != nil || !matched {
+			copy(substitution, before)
+			return false, err
+		}
+		return changed, nil
+	}
 	progress := true
 	for progress {
 		progress = false
@@ -344,7 +353,7 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 			if value, complete, err := known(left); err != nil {
 				return ast.ASTRef{}, err
 			} else if complete {
-				_, added, err := match(right, value)
+				added, err := tryMatch(right, value)
 				if err != nil {
 					return ast.ASTRef{}, err
 				}
@@ -353,7 +362,7 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 			if value, complete, err := known(right); err != nil {
 				return ast.ASTRef{}, err
 			} else if complete {
-				_, added, err := match(left, value)
+				added, err := tryMatch(left, value)
 				if err != nil {
 					return ast.ASTRef{}, err
 				}

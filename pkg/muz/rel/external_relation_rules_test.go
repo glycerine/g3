@@ -312,18 +312,40 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 		t.Fatal("repeated filtered saturation", rows[wHandle], beforeRepeatFilters, filters)
 	}
 
-	unsupported, err := base.NewRuleSet(rules)
+	threeTail, err := base.NewRuleSet(rules)
 	astTestMust(t, err)
-	defer func() { astTestMust(t, unsupported.Close()) }()
-	rule, err := rules.NewRule(app(r, x), []ast.ASTHandle{app(p, x, y), app(q, x), app(tail, y, z)}, nil, "three-tail")
+	defer func() { astTestMust(t, threeTail.Close()) }()
+	three := declaration("external-three-tail", []ast.ASTHandle{f.boolean, f.boolean})
+	rule, err := rules.NewRule(app(three, z, x), []ast.ASTHandle{app(p, x, y), app(q, x), app(tail, y, z)}, nil, "three-tail")
 	astTestMust(t, err)
-	astTestMust(t, unsupported.Add(rule))
+	astTestMust(t, threeTail.Add(rule))
 	astTestMust(t, rule.Close())
-	if err = ExecuteExternalFactRules(plugin, unsupported); !errors.Is(err, ErrCompilerUnsupported) {
-		t.Fatal("unsupported external rule shape", err)
-	}
+	astTestMust(t, ExecuteExternalFactRules(plugin, threeTail))
 	if stores != 10 {
-		t.Fatal("validation failure partially executed rules", stores)
+		t.Fatal("three-tail rule unexpectedly stored a ground fact", stores)
+	}
+	threeRelation, err := plugin.PredicateRelation(three)
+	astTestMust(t, err)
+	threeHandle, err := threeRelation.Relation()
+	astTestMust(t, err)
+	if len(rows[threeHandle]) != 1 || len(rows[threeHandle][0]) != 2 || rows[threeHandle][0][0] != f.falsehood || rows[threeHandle][0][1] != f.truth {
+		t.Fatal("ordered three-tail join", rows[threeHandle])
+	}
+	fourTail, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, fourTail.Close()) }()
+	four := declaration("external-four-tail", []ast.ASTHandle{f.boolean, f.boolean, f.boolean, f.boolean})
+	rule, err = rules.NewRule(app(four, z, z, f.truth, x), []ast.ASTHandle{app(p, x, y), app(q, x), app(tail, y, z), app(v, x, x, f.truth)}, nil, "four-tail-filtered")
+	astTestMust(t, err)
+	astTestMust(t, fourTail.Add(rule))
+	astTestMust(t, rule.Close())
+	astTestMust(t, ExecuteExternalFactRules(plugin, fourTail))
+	fourRelation, err := plugin.PredicateRelation(four)
+	astTestMust(t, err)
+	fourHandle, err := fourRelation.Relation()
+	astTestMust(t, err)
+	if len(rows[fourHandle]) != 1 || len(rows[fourHandle][0]) != 4 || rows[fourHandle][0][0] != f.falsehood || rows[fourHandle][0][1] != f.falsehood || rows[fourHandle][0][2] != f.truth || rows[fourHandle][0][3] != f.truth {
+		t.Fatal("ordered four-tail filters and head assembly", rows[fourHandle])
 	}
 	constantFailure, err := base.NewRuleSet(rules)
 	astTestMust(t, err)
@@ -398,6 +420,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	astTestMust(t, err)
 	edge := declaration("external-recursive-edge", []ast.ASTHandle{bits, bits})
 	reach := declaration("external-recursive-reach", []ast.ASTHandle{bits, bits})
+	node := declaration("external-recursive-node", []ast.ASTHandle{bits})
 	values := make([]ast.ASTHandle, 8)
 	valueRefs := make([]ast.ASTRef, len(values))
 	defer func() {
@@ -413,8 +436,13 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	}
 	edgeRelation, err := plugin.PredicateRelation(edge)
 	astTestMust(t, err)
+	nodeRelation, err := plugin.PredicateRelation(node)
+	astTestMust(t, err)
 	for index := 0; index+1 < len(values); index++ {
 		astTestMust(t, edgeRelation.AddFact([]ast.ASTHandle{values[index], values[index+1]}))
+	}
+	for index := range values {
+		astTestMust(t, nodeRelation.AddFact([]ast.ASTHandle{values[index]}))
 	}
 	recursive, err := base.NewRuleSet(rules)
 	astTestMust(t, err)
@@ -425,7 +453,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	astTestMust(t, err)
 	rz, err := f.ast.MkVar(2, bits)
 	astTestMust(t, err)
-	recursiveRule, err := rules.NewRule(app(reach, rx, rz), []ast.ASTHandle{app(reach, rx, ry), app(edge, ry, rz)}, nil, "recursive-reach")
+	recursiveRule, err := rules.NewRule(app(reach, rx, rz), []ast.ASTHandle{app(reach, rx, ry), app(edge, ry, rz), app(node, rz)}, nil, "recursive-reach-three-tail")
 	astTestMust(t, err)
 	astTestMust(t, recursive.Add(recursiveRule))
 	astTestMust(t, recursiveRule.Close())
