@@ -187,6 +187,11 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
+	// Source check_reset scans original rules before default transformations.
+	sourceReusable, err := e.canReusePDRSourceRules(declaration)
+	if err != nil {
+		return lbool.Undef, err
+	}
 	if e.pdr != nil && e.pdrRevision == e.revision && e.pdrQuery == declaration && !e.pdrSliceProof {
 		if err = writePDRQueryRules(e.pdrRules); err != nil {
 			return lbool.Undef, err
@@ -268,7 +273,10 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		derived := hornDerivedPredicate(declaration, preprocessed.quantifiedPredicates, preprocessed.scaledPredicates, preprocessed.magicPredicates, preprocessed.bitBlastedPredicates, preprocessed.instantiatedPredicates, preprocessed.slicedPredicates)
 		auxiliary = append(auxiliary, derived)
 	}
-	reuse, err := e.canReusePDRRules(prepared, declaration)
+	reuse := sourceReusable
+	if reuse {
+		reuse, err = e.pdr.CanUpdateRules(prepared)
+	}
 	if err != nil {
 		return lbool.Undef, errors.Join(err, context.Close())
 	}

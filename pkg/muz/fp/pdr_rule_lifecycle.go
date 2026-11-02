@@ -5,7 +5,6 @@ package fp
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
-	"github.com/glycerine/g3/pkg/muz/base"
 )
 
 func (e *PropositionalEngine) advanceRuleRevision() {
@@ -16,14 +15,21 @@ func (e *PropositionalEngine) advanceRuleRevision() {
 	e.revision++
 }
 
-func (e *PropositionalEngine) canReusePDRRules(prepared *base.RuleSet, query ast.ASTHandle) (bool, error) {
+func (e *PropositionalEngine) canReusePDRSourceRules(query ast.ASTHandle) (bool, error) {
 	if e.pdr == nil || e.pdrSourceRules == nil || e.pdrRuleRevision != e.revision || e.pdrQuery != query {
 		return false, nil
 	}
 	// Source check_reset compares rules before query preprocessing.
-	subsumes, err := hornRuleSetSubsumes(e.pdrSourceRules, e.set)
-	if err != nil || !subsumes {
+	missing, err := firstUncoveredHornRule(e.pdrSourceRules, e.set)
+	if err != nil {
 		return false, err
 	}
-	return e.pdr.CanUpdateRules(prepared)
+	if missing >= 0 {
+		oldCount, err := e.pdrSourceRules.Len()
+		if err == nil && oldCount > 0 {
+			err = e.tracePDRFreshRule(missing)
+		}
+		return false, err
+	}
+	return true, nil
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	unumeral "github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -21,6 +22,10 @@ type pdrLifecycleServices struct {
 }
 
 func newPDRLifecycleServices(t *testing.T) (*ast.ASTManager, *uparams.GlobalParamsService) {
+	return newPDRLifecycleServicesWithTrace(t, nil)
+}
+
+func newPDRLifecycleServicesWithTrace(t *testing.T, tags *diagnostic.TraceTags) (*ast.ASTManager, *uparams.GlobalParamsService) {
 	t.Helper()
 	services := &pdrLifecycleServices{}
 	budget := arena.NewBudget(1 << 32)
@@ -42,7 +47,7 @@ func newPDRLifecycleServices(t *testing.T) (*ast.ASTManager, *uparams.GlobalPara
 		err = services.globals.InitializeSource()
 	}
 	if err == nil {
-		services.manager, err = ast.NewASTManager(ast.ASTManagerConfig{Symbols: services.symbols, Numerals: services.numerals, Budget: budget})
+		services.manager, err = ast.NewASTManager(ast.ASTManagerConfig{TraceTags: tags, Symbols: services.symbols, Numerals: services.numerals, Budget: budget})
 	}
 	if err == nil {
 		err = services.manager.RegisterDeclarationPlugins()

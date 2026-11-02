@@ -17,18 +17,25 @@ func hornRuleSetSubsumes(oldSet, newSet *base.RuleSet) (_ bool, resultErr error)
 	if oldSet == nil || newSet == nil {
 		return false, nil
 	}
+	missing, err := firstUncoveredHornRule(oldSet, newSet)
+	return err == nil && missing < 0, err
+}
+
+// firstUncoveredHornRule preserves source rule order for check_reset's
+// diagnostic, without rescanning or holding an extra rule owner.
+func firstUncoveredHornRule(oldSet, newSet *base.RuleSet) (_ int, resultErr error) {
 	oldCount, err := oldSet.Len()
 	if err != nil {
-		return false, err
+		return -1, err
 	}
 	newCount, err := newSet.Len()
 	if err != nil {
-		return false, err
+		return -1, err
 	}
 	for newIndex := 0; newIndex < newCount; newIndex++ {
 		candidate, err := newSet.Rule(newIndex)
 		if err != nil {
-			return false, err
+			return -1, err
 		}
 		covered := false
 		for oldIndex := 0; oldIndex < oldCount && !covered; oldIndex++ {
@@ -40,17 +47,17 @@ func hornRuleSetSubsumes(oldSet, newSet *base.RuleSet) (_ bool, resultErr error)
 				oldErr = errors.Join(oldErr, oldRule.Close())
 			}
 			if oldErr != nil {
-				return false, errors.Join(oldErr, candidate.Close())
+				return -1, errors.Join(oldErr, candidate.Close())
 			}
 		}
 		if err = candidate.Close(); err != nil {
-			return false, err
+			return -1, err
 		}
 		if !covered {
-			return false, nil
+			return newIndex, nil
 		}
 	}
-	return true, nil
+	return -1, nil
 }
 
 func snapshotHornRules(set *base.RuleSet) (*base.RuleSet, error) {

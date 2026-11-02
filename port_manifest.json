@@ -89360,6 +89360,9 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/pdr_query_trace.go",
+        "pkg/muz/fp/pdr_query_trace_test.go",
+        "pkg/muz/fp/horn_rule_lifecycle_test.go",
         "pkg/muz/fp/pdr_query_verbose.go",
         "pkg/muz/fp/pdr_query_verbose_test.go",
         "pkg/muz/fp/pdr_empty_model_failure_test.go",
@@ -89453,6 +89456,13 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "check_reset first uncovered-rule TRACE preserves source scan order and continues after ostream refusal on the same-query rule-update path (pdr_dl_interface.cpp:68)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/horn_rule_lifecycle.go", "pkg/muz/fp/pdr_rule_lifecycle.go", "pkg/muz/fp/pdr_query_trace.go", "pkg/muz/fp/horn_rule_lifecycle_test.go", "pkg/muz/fp/pdr_query_trace_test.go"],
+          "tests": ["TestHornRuleLifecycleFirstUncoveredRuleOrder", "TestPDRFreshRuleTraceOrderGateAndStreamFailure"],
+          "reason": "The shared scan reports the first uncovered source-rule index without a second subsumption scan. Trace operands are lazy and their rule owner is closed on every exit. Initial/unchanged queries emit no fresh-rule trace; disabled and failed streams preserve query results. Different-root/configuration rebuild paths remain under the broader interface audit."
+        },
+        {
           "name": "query displays transformed rules at source verbosity 2, including repeated queries using an existing context (pdr_dl_interface.cpp:153)",
           "status": "ported",
           "go_targets": ["pkg/muz/fp/pdr_query_verbose.go", "pkg/muz/fp/pdr_query_verbose_test.go"],
@@ -89469,7 +89479,7 @@
           "name": "check_reset/query source TRACE checkpoints",
           "status": "partial",
           "go_target": "pkg/muz/fp/pdr_engine.go",
-          "reason": "Fresh-rule reset TRACE, pre-transform background/query/rules TRACE and post-transform rule/SMT2 TRACE remain unimplemented or unverified. The interface stays partial; implemented verbose branches alone do not close diagnostics."
+          "reason": "The same-query fresh-rule reset TRACE is implemented; pre-transform background/query/rules TRACE, post-transform rule/SMT2 TRACE and different-root/configuration rebuild diagnostic paths remain unimplemented or unverified. The interface stays partial; implemented verbose branches alone do not close diagnostics."
         },
         {
           "name": "PDR and QPDR query preprocessing excludes relational filter/simple-join normalization and preserves original rules across repeated SAT/UNSAT queries",

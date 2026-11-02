@@ -31,3 +31,33 @@ func TestHornRuleLifecycleSnapshotAndSubsumption(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHornRuleLifecycleFirstUncoveredRuleOrder(t *testing.T) {
+	f := newPDRLifecycleFixture(t)
+	snapshot, err := snapshotHornRules(f.engine.set)
+	fragmentMust(t, err)
+	defer func() { fragmentMust(t, snapshot.Close()) }()
+	missing, err := firstUncoveredHornRule(snapshot, f.engine.set)
+	fragmentMust(t, err)
+	if missing != -1 {
+		t.Fatal("covered source rule index", missing)
+	}
+	u, err := f.manager.MkApp(f.declarations["u"], nil)
+	fragmentMust(t, err)
+	fragmentMust(t, f.engine.AddRule(u, "first-fresh"))
+	// A later fresh rule must not replace the first one in the source diagnostic.
+	notP, err := f.manager.MkNot(f.applications["p"])
+	fragmentMust(t, err)
+	later, err := f.manager.MkImplies(notP, u)
+	fragmentMust(t, err)
+	fragmentMust(t, f.engine.AddRule(later, "later-fresh"))
+	before := f.manager.Stats().LiveReferences
+	missing, err = firstUncoveredHornRule(snapshot, f.engine.set)
+	fragmentMust(t, err)
+	if missing != 2 {
+		t.Fatal("first fresh source rule index", missing)
+	}
+	if f.manager.Stats().LiveReferences != before {
+		t.Fatal("subsumption scan leaked rule references")
+	}
+}
