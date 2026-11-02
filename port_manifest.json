@@ -84103,7 +84103,7 @@
       "component": "model",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_minimize.go", "pkg/model/model_implicant_array.go", "pkg/model/model_implicant_trace.go", "pkg/model/model_implicant_equality_fallback.go"],
+      "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_minimize.go", "pkg/model/model_implicant_array.go", "pkg/model/model_implicant_trace.go", "pkg/model/model_implicant_equality_fallback.go", "pkg/muz/pdr/implicant_failure_test.go", "pkg/muz/pdr/nested_array_failure_test.go"],
       "tests": ["TestModelImplicantBooleanLiteralAndConeSelection", "TestModelImplicantArithmeticDisequalitySplit", "TestPDRImplicantPartialOutputFailureCleanupAndRetry", "TestModelImplicantEvalExpressionUsesCompletion", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows", "TestModelImplicantArrayExtractorSourceTrace", "TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership", "TestModelImplicantRecursiveArrayEqualityContinuesAfterEqualRows", "TestModelImplicantScalarEqualityFallbackUsesSourceModelEvalPolicy", "TestModelImplicantAssignmentClassificationAndSourceDiagnostics", "TestModelImplicantConcreteValueEqualityAndITEInheritance", "TestModelImplicantArrayEqualityUsesSourceModelEvalPolicy", "TestModelImplicantTheoryExpressionsUseSourceModelEvalPolicy", "TestPDRNestedArrayEvaluationColdFailureCleanupAndRetry", "TestModelImplicantExtensionalArrayEquality"],
       "assertions": [
         {
@@ -84292,7 +84292,7 @@
         {"name": "prune_by_cone_of_influence selected-literal and reduction-count diagnostics preserve source collection order, model-ordered equality output and visited-mark reset (model_implicant.cpp:292,306-307)", "status": "ported", "go_targets": ["pkg/model/model_implicant_minimize.go", "pkg/model/model_implicant_minimize_trace.go", "pkg/model/model_implicant_cone_order_test.go", "pkg/model/model_implicant_minimize_trace_test.go"], "tests": ["TestModelImplicantConeCollectionAndModelOrder", "TestModelImplicantMinimizationSourceTrace"]},
         {"name": "minimize_model source DEBUG_CODE resets pruned state, rebuilds model assignments and verifies original formula truth before returning owning output (model_implicant.cpp:109-114)", "status": "ported", "go_targets": ["pkg/model/model_implicant_minimize.go", "pkg/model/model_implicant_cone_debug_test.go"], "tests": ["TestModelImplicantConeRechecksModelInSourceDebugBuild"]},
         {"name": "cone-of-influence pruning and model-order constant equalities use completed, normalized array values (model_implicant.cpp:286-305)", "status": "ported", "go_target": "pkg/model/model_implicant_minimize.go", "go_targets": ["pkg/model/model_implicant_array.go", "pkg/model/model_implicant_array_value_test.go", "pkg/model/model_implicant_nested_array_test.go"], "tests": ["TestModelImplicantBooleanLiteralAndConeSelection", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows"]},
-        {"name": "model-completing expression evaluation with fresh evaluator lifetime, normalized array reconstruction and zero-arity declaration evaluation", "status": "ported", "go_target": "pkg/model/model_implicant.go", "go_targets": ["pkg/model/model_implicant_array.go"], "tests": ["TestModelImplicantCompletedEvaluationHasFreshLifetime", "TestModelImplicantEvalExpressionUsesCompletion", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows", "TestModelImplicantArrayExtractorSourceTrace", "TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership", "TestModelImplicantRecursiveArrayEqualityContinuesAfterEqualRows", "TestModelImplicantScalarEqualityFallbackUsesSourceModelEvalPolicy", "TestModelImplicantAssignmentClassificationAndSourceDiagnostics", "TestModelImplicantConcreteValueEqualityAndITEInheritance", "TestModelImplicantArrayEqualityUsesSourceModelEvalPolicy", "TestModelImplicantTheoryExpressionsUseSourceModelEvalPolicy", "TestPDRNestedArrayEvaluationColdFailureCleanupAndRetry", "TestModelImplicantExtensionalArrayEquality"]},
+        {"name": "model-completing expression evaluation with fresh evaluator lifetime, normalized array reconstruction and zero-arity declaration evaluation", "status": "ported", "go_target": "pkg/model/model_implicant.go", "go_targets": ["pkg/model/model_implicant_array.go", "pkg/muz/pdr/nested_array_failure_test.go"], "tests": ["TestModelImplicantCompletedEvaluationHasFreshLifetime", "TestModelImplicantEvalExpressionUsesCompletion", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows", "TestModelImplicantArrayExtractorSourceTrace", "TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership", "TestModelImplicantRecursiveArrayEqualityContinuesAfterEqualRows", "TestModelImplicantScalarEqualityFallbackUsesSourceModelEvalPolicy", "TestModelImplicantAssignmentClassificationAndSourceDiagnostics", "TestModelImplicantConcreteValueEqualityAndITEInheritance", "TestModelImplicantArrayEqualityUsesSourceModelEvalPolicy", "TestModelImplicantTheoryExpressionsUseSourceModelEvalPolicy", "TestPDRNestedArrayEvaluationColdFailureCleanupAndRetry", "TestModelImplicantExtensionalArrayEquality"]},
         {"name": "array function-interpretation extraction and best-effort extensional equality over defaults and selected store rows", "status": "partial", "reason": "Source nested normalization and array-equality decisions/traces have direct coverage, including provisional recursive true, late unequal rows and unknown defaults/rows; other model::eval wrapper call sites, destructor-callback-specific cleanup and broader method diagnostics remain under audit.", "go_target": "pkg/model/model_implicant_array.go", "tests": ["TestModelImplicantExtensionalArrayEquality"]}
       ],
       "ownership": ["ModelImplicant borrows the manager, model and process services; it owns one temporary ModelEvaluator and explicit AST references for tracked concrete values and constant applications. Returned literal/cone vectors contain caller-owned ASTRef values released by CloseImplicantResults."],
@@ -84303,7 +84303,7 @@
       "component": "model",
       "role": "production",
       "status": "ported",
-      "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_minimize.go", "pkg/model/model_implicant_array.go", "pkg/model/model_implicant_trace.go", "pkg/model/model_implicant_equality_fallback.go"],
+      "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_minimize.go", "pkg/model/model_implicant_array.go", "pkg/model/model_implicant_trace.go", "pkg/model/model_implicant_equality_fallback.go", "pkg/muz/pdr/implicant_failure_test.go", "pkg/muz/pdr/nested_array_failure_test.go"],
       "tests": ["TestModelImplicantBooleanLiteralAndConeSelection", "TestModelImplicantArithmeticDisequalitySplit", "TestPDRImplicantPartialOutputFailureCleanupAndRetry", "TestModelImplicantEvalExpressionUsesCompletion", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows", "TestModelImplicantArrayExtractorSourceTrace", "TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership", "TestModelImplicantRecursiveArrayEqualityContinuesAfterEqualRows", "TestModelImplicantScalarEqualityFallbackUsesSourceModelEvalPolicy", "TestModelImplicantAssignmentClassificationAndSourceDiagnostics", "TestModelImplicantConcreteValueEqualityAndITEInheritance", "TestModelImplicantArrayEqualityUsesSourceModelEvalPolicy", "TestModelImplicantTheoryExpressionsUseSourceModelEvalPolicy", "TestPDRNestedArrayEvaluationColdFailureCleanupAndRetry", "TestModelImplicantExtensionalArrayEquality"],
       "conditionals": [
         {
@@ -84338,7 +84338,7 @@
       "methods": [
         {"name": "set_number inline pdr_verbose expression/rational diagnostic follows state marking and precedes value-map insertion (model_implicant.h:77)", "status": "ported", "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_trace.go", "pkg/model/model_implicant_number_trace_test.go"], "tests": ["TestModelImplicantNumberAssignmentSourceTrace"]},
         {"name": "typed unknown/X/false/true/concrete state, tracked numerals and concrete values", "status": "ported", "go_target": "pkg/model/model_implicant.go", "tests": ["TestModelImplicantBooleanLiteralAndConeSelection", "TestModelImplicantArithmeticDisequalitySplit"]},
-        {"name": "MinimizeModel, MinimizeLiterals, EvalExpr and EvalDeclaration public operations", "status": "ported", "go_target": "pkg/model/model_implicant_minimize.go", "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_array.go"], "tests": ["TestModelImplicantBooleanLiteralAndConeSelection", "TestModelImplicantArithmeticDisequalitySplit", "TestPDRImplicantPartialOutputFailureCleanupAndRetry", "TestModelImplicantEvalExpressionUsesCompletion", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows", "TestModelImplicantArrayExtractorSourceTrace", "TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership", "TestModelImplicantRecursiveArrayEqualityContinuesAfterEqualRows", "TestModelImplicantScalarEqualityFallbackUsesSourceModelEvalPolicy", "TestModelImplicantAssignmentClassificationAndSourceDiagnostics", "TestModelImplicantConcreteValueEqualityAndITEInheritance", "TestModelImplicantArrayEqualityUsesSourceModelEvalPolicy", "TestModelImplicantTheoryExpressionsUseSourceModelEvalPolicy", "TestPDRNestedArrayEvaluationColdFailureCleanupAndRetry", "TestModelImplicantExtensionalArrayEquality"]}
+        {"name": "MinimizeModel, MinimizeLiterals, EvalExpr and EvalDeclaration public operations", "status": "ported", "go_target": "pkg/model/model_implicant_minimize.go", "go_targets": ["pkg/model/model_implicant.go", "pkg/model/model_implicant_array.go", "pkg/muz/pdr/implicant_failure_test.go", "pkg/muz/pdr/nested_array_failure_test.go"], "tests": ["TestModelImplicantBooleanLiteralAndConeSelection", "TestModelImplicantArithmeticDisequalitySplit", "TestPDRImplicantPartialOutputFailureCleanupAndRetry", "TestModelImplicantEvalExpressionUsesCompletion", "TestModelImplicantArrayValueDropsOnlyInnermostDefaultStores", "TestModelImplicantNormalizesFunctionArraysInsideStoreRows", "TestModelImplicantArrayExtractorSourceTrace", "TestModelImplicantArrayEqualityDecisionsTraceAndSelectOwnership", "TestModelImplicantRecursiveArrayEqualityContinuesAfterEqualRows", "TestModelImplicantScalarEqualityFallbackUsesSourceModelEvalPolicy", "TestModelImplicantAssignmentClassificationAndSourceDiagnostics", "TestModelImplicantConcreteValueEqualityAndITEInheritance", "TestModelImplicantArrayEqualityUsesSourceModelEvalPolicy", "TestModelImplicantTheoryExpressionsUseSourceModelEvalPolicy", "TestPDRNestedArrayEvaluationColdFailureCleanupAndRetry", "TestModelImplicantExtensionalArrayEquality"]}
       ],
       "ownership": ["The concrete Go owner has explicit Close and retryable temporary-reference/evaluator cleanup. Successful minimization transfers independent ASTRef results to the caller."],
       "deviations": ["ModelEvaluatorConfig supplies the process services that C++ obtains implicitly. Successful result ownership is explicit through ASTRef values and CloseImplicantResults."]
@@ -87507,7 +87507,8 @@
         "pkg/muz/duality/prepare_query.go",
         "pkg/muz/duality/prepare_query_test.go",
         "pkg/muz/duality/prepare_query_failure_test.go",
-        "pkg/muz/duality/prepare_query_failure_test.go"
+        "pkg/muz/duality/prepare_query_failure_test.go",
+        "pkg/parsers/smt2/duality_engine_test.go"
       ],
       "tests": ["TestDualityBackendProfileOutputAndWriterRetry", "TestSMT2DualityArrayQuantificationQueries", "TestSMT2DualityArrayValuedOutputQuantification", "TestRPFPAnnotationModelParameterOrderAndIndependentLifetime", "TestRPFPAnnotationModelEveryAllocationPrefix", "pkg/muz/duality/backend_test.go", "pkg/muz/duality/native_solver_test.go", "pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
@@ -87610,7 +87611,7 @@
           "name": "original query clause ownership and proof edge association",
           "status": "ported",
           "go_target": "pkg/duality/rpfp_source_clause.go",
-          "go_targets": ["pkg/duality/from_clauses.go", "pkg/duality/rpfp_graph.go"],
+          "go_targets": ["pkg/duality/from_clauses.go", "pkg/duality/rpfp_graph.go", "pkg/muz/duality/build_graph_test.go"],
           "tests": ["TestDualityFromClausesNativeSafeAndReachable", "TestDualityFromClausesQuantifiersAndCumulativeLabelGuard", "TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"],
           "notes": "The graph owns all original clause references, independently of PreparedQuery, and maps each constructed edge before pruning. Tests distinguish live clauses after an earlier dead clause, preserve original quantifiers and labels through preprocessing, recover a real counterexample's original query after preparation closure, and release an actual partially acquired clause prefix on allocation failure. Hyper-resolution extraction and certificate reporting remain unfinished."
         },
@@ -88827,7 +88828,7 @@
         {
           "name": "context statistics ownership across program/query reset: cumulative solver checks/unfoldings, maximum depth, live-only transformer gauges and preserved inductive result frame during statistics reset",
           "status": "ported",
-          "go_target": "pkg/muz/pdr/context_statistics_snapshot.go",
+          "go_target": "pkg/muz/pdr/context_statistics_snapshot.go", "go_targets": ["pkg/muz/fp/pdr_expression_statistics_test.go"],
           "tests": ["TestPDRExpressionStatisticsSurviveCloneDisposal", "TestContextSolveFindsInductiveUnreachablePredicate", "TestContextResetReleasesSolverPoolsAndPreservesStatistics"]
         },
         {
@@ -89500,7 +89501,8 @@
           "go_targets": [
             "pkg/parsers/smt2/fixedpoint_commands_test.go",
             "pkg/api/api_fixedpoint_test.go",
-            "pkg/cmd/g3/main_test.go"
+            "pkg/cmd/g3/main_test.go",
+            "pkg/cmd_context/fixedpoint_prequery_cover_test.go"
           ]
         },
         {
@@ -91022,7 +91024,8 @@
         "pkg/muz/pdr/fragment_test.go",
         "pkg/muz/pdr/model_projection.go",
         "pkg/cmd/g3/test_vectors/fixedpoint_pdr_repeated_disequalities.smt2",
-        "pkg/cmd/g3/main_test.go"
+        "pkg/cmd/g3/main_test.go",
+        "pkg/api/arith_rewriter_cpp_driver_test.go"
       ],
       "tests": ["TestSMTLibRunnerScripts", "TestPDRDifferenceAndUTVPIFragmentClassification", "TestPDRFragmentRejectionUsesSourceTraversalAndVerbosity", "TestPDRContextSelectsArithmeticFragmentBeforeSolverSetup", "TestPropSolverRejectsFarkasLemmasOutsideSelectedFragment", "TestPDRDisequalityReductionColdFailureOwnershipAndRetry", "TestArithmeticRewriterSourceExamples", "TestArithmeticNormalizationCleanupUnderNumericalGuard", "TestArithmeticNormalizationCleanupKeepsUnconsumedRootsForRetry"],
       "assertions": [
@@ -91102,7 +91105,7 @@
         {
           "name": "real comparison coefficient normalization, shared application and quantifier-body traversal, owning reference publication, scoped no-proof mode and cancellation retry exercised by the arithmetic-rewriter source driver",
           "status": "ported",
-          "go_target": "pkg/muz/pdr/arith_normalize.go",
+          "go_target": "pkg/muz/pdr/arith_normalize.go", "go_targets": ["pkg/api/arith_rewriter_cpp_driver_test.go"],
           "tests": ["TestNormalizeArithmeticDividesRealComparisonByLeastCoefficient", "TestPDRArithmeticNormalizationMatchesExactRationalOracle", "TestNormalizeArithmeticRefCancellationPreservesInputAndRetry", "TestArithmeticNormalizationDiscardsTemporariesUnderRefusedBudget", "TestArithmeticRewriterSourceExamples", "TestArithmeticNormalizationCleanupUnderNumericalGuard", "TestArithmeticNormalizationCleanupKeepsUnconsumedRootsForRetry"]
         },
         {
@@ -98275,7 +98278,7 @@
         {
           "name": "non-SAT get_rules_along_trace returns an empty trace and emits a level-1 source diagnostic, with closed-owner rejection and public query-snapshot guards preserved (spacer_context.cpp:2332-2337)",
           "status": "ported",
-          "go_target": "pkg/muz/spacer/context_trace.go",
+          "go_target": "pkg/muz/spacer/context_trace.go", "go_targets": ["pkg/muz/fp/engine_result_routing_test.go"],
           "tests": ["TestSpacerTraceStatusPolicyAndOwnership", "TestSpacerUnconfiguredContextHasEmptyTrace", "TestPDRAndSpacerPreQueryResultGuards", "TestPDRAndSpacerResultSnapshotsInvalidateAfterParameterRevision", "TestExpressionQueryLastResultAndSpacerTraceInvalidation"],
           "reason": "Native status/verbosity and unconfigured-context regressions verify the source empty result without removing any closed-owner or public snapshot checks."
         },
@@ -108720,7 +108723,12 @@
             "pkg/cmd_context/optimization_normalized_execution.go",
             "pkg/opt/arithmetic_solver.go",
             "pkg/opt/maxsmt_model_filter.go",
-            "pkg/opt/maxsmt_engine.go"
+            "pkg/opt/maxsmt_engine.go",
+            "pkg/cmd/g3/main_test.go",
+            "pkg/api/api_optimize_model_unsat_test.go",
+            "pkg/cmd/g3/optimization_frontend_test.go",
+            "pkg/shell/opb_frontend_test.go",
+            "pkg/shell/wcnf_frontend_test.go"
           ],
           "tests": [
             "TestSMTLibRunnerScripts",
@@ -189529,7 +189537,7 @@
         {
           "name": "tactic constructor, parameter update/descriptions, cleanup, translation and reference-counted lifecycle",
           "status": "ported",
-          "go_target": "pkg/tactic/core/injectivity_tactic.go",
+          "go_target": "pkg/tactic/core/injectivity_tactic.go", "go_targets": ["pkg/api/api_simple_solver_translate_test.go"],
           "tests": ["TestInjectivityParameterDescriptionsMatchSource", "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty", "TestAPICoreTacticSolversCrossContextTranslation"]
         }
       ],
@@ -189616,7 +189624,7 @@
         {
           "name": "tactic constructor, parameter update/descriptions, cleanup, translation and reference-counted lifecycle",
           "status": "ported",
-          "go_target": "pkg/tactic/core/injectivity_tactic.go",
+          "go_target": "pkg/tactic/core/injectivity_tactic.go", "go_targets": ["pkg/api/api_simple_solver_translate_test.go"],
           "tests": ["TestInjectivityParameterDescriptionsMatchSource", "TestInjectivityRelationsPersistUntilCleanupAndTranslationStartsEmpty", "TestAPICoreTacticSolversCrossContextTranslation"]
         }
       ],
@@ -201602,7 +201610,15 @@
       ],
       "methods_audited": true,
       "ownership_audited": true,
-      "methods": [],
+      "methods": [
+        {
+          "name": "tst_arith_rewriter zero product and both source comparison examples through theory rewriting and PDR normalization",
+          "status": "ported",
+          "go_target": "pkg/api/arith_rewriter_cpp_driver_test.go",
+          "tests": ["TestArithmeticRewriterSourceExamples"],
+          "reason": "Direct AST construction replaces parse_fml; exact rational assignments check both comparisons after normalization, as recorded in the unit deviations."
+        }
+      ],
       "ownership": [],
       "deviations": ["The Go driver constructs the formulas directly instead of parsing its embedded SMT-LIB text, checks exact rational assignments instead of reproducing diagnostic stdout, and invokes the source PDR normalizer on the same root comparison expressions."]
     },
