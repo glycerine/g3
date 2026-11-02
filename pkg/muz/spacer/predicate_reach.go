@@ -350,6 +350,9 @@ func (p *PredicateTransformer) usedReachFact(evaluator *model.ModelEvaluator, al
 			err = errors.Join(err, p.manager.DelRef(&formulaRef))
 		}
 		if err != nil {
+			if valueRef != (ast.ASTRef{}) {
+				err = errors.Join(err, p.manager.DelRef(&valueRef))
+			}
 			return nil, false, err
 		}
 		value, err := p.manager.RefGet(valueRef)

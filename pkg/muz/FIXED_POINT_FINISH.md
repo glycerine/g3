@@ -47,6 +47,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Verify unknown-case skipping, first-false ordering, initial-fact filtering and non-completing evaluation with the existing selection regression.
   - [x] Verify all-true/all-unknown no-selection results for current and origin-state cases without model completion or temporary-reference leaks.
   - [x] Verify the direct constant-model selection path remains usable with a zero-step evaluator budget and releases its returned owner.
+  - [x] Exercise origin-selection allocation failures through success and retry with reference accounting and no failed-result publication.
   - [ ] Audit source VERIFY/UNREACHABLE/SASSERT transport and evaluator-exception cleanup before closing reach-fact selection.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
 - [ ] Finish slice-proof conversion for every live proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution now have evidence, but general multi-premise mixed orientations remain unproven.
@@ -211,3 +212,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Added `TestSpacerReachFactSelectionWithZeroStepBudget`: a directly interpreted false case must select the correct reach fact even with evaluator max_steps=0, and closing the returned owner restores the reference baseline. The focused native test passes. The experiment confirms direct Boolean cases bypass the rewriting limit; it does not claim to exercise a caught evaluator exception, whose transport/cleanup audit stays open. Previous no-selection coverage commit: `bae0c4178`.
   Validation: `go -C pkg test ./muz/spacer -run '^TestSpacerReachFactSelectionWithZeroStepBudget$' -count=1` passed. Commit title: `Test Spacer constant reach selection under zero step budget`.
+
+- 2026-11-02 — Fixed a reach-selection error-return ownership gap: an evaluation result acquired before translated-formula cleanup fails is now released before returning that failure. Added `TestSpacerOriginReachSelectionAllocationFailureAndRetry`, requiring observed allocation failures, successful selection, clean reference counts, no failed-result publication and successful retry. Complete native Spacer tests pass. The campaign covers observed allocation frontiers; it does not force the specific destructor-error branch or close the broader exception audit. Previous constant-selection commit: `f71299613`.
+  Validation: focused origin-selection campaign and `go -C pkg test ./muz/spacer -short` passed. Commit title: `Close Spacer reach evaluation result on cleanup failure`.
