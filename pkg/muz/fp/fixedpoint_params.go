@@ -80,6 +80,10 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	if err := e.open(); err != nil {
 		return err
 	}
+	// Source updt_params replaces backend contexts inside the existing
+	// engine_base. Preserve that lifetime even when Go rebuilds lazily:
+	// clearing a prequery PDR/Spacer owner must not make Pop legal again.
+	e.engineInstantiated = e.engineInstantiated || e.pdr != nil || e.spacer != nil
 	e.invalidateQueryForMutation()
 	if err := e.clearQueryResources(); err != nil {
 		return err
