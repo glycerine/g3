@@ -56,7 +56,7 @@ func (c *Compiler) QuantifiedLinearProof(rules *base.RuleSet, query ast.ASTHandl
 			return result, cause
 		}
 		// The accumulated rule's first body atom resolves with the next
-		// rule's head; the source qlinear path reverses these positions.
+		// rule's head: body position one and head position zero.
 		position := ast.ASTProofPosition{First: 1, Second: 0}
 		next, proof, cause := c.linearProofStepWithBindings(rm, step.rule, bindings, previous, result, normalizer, position)
 		if cause != nil {

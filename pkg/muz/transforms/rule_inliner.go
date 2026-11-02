@@ -175,41 +175,18 @@ func ruleVariableCount(manager *ast.ASTManager, rule *base.Rule) (uint32, error)
 }
 
 // ruleProofSubstitution mirrors rule_unifier::get_rule_subst: enumerate the
-// rule's normalized variables in index order, then apply the selected bank.
+// rule's variables in index order, filling unused slots with Bool as get_vars
+// does, then apply the selected bank. Instantiation can leave sparse indices.
 func ruleProofSubstitution(manager *ast.ASTManager, rule *base.Rule, offset uint32, variables uint32, subst *substitution.Substitution) ([]ast.ASTHandle, []ast.ASTRef, error) {
-	used, err := ast.NewASTUsedVars(manager)
+	sorts, err := rule.VariableSorts()
 	if err != nil {
 		return nil, nil, err
-	}
-	head, err := rule.Head()
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = used.Process(head); err != nil {
-		return nil, nil, err
-	}
-	tails, err := rule.TailSize()
-	if err != nil {
-		return nil, nil, err
-	}
-	for i := 0; i < tails; i++ {
-		tail, _, getErr := rule.Tail(i)
-		if getErr != nil {
-			return nil, nil, getErr
-		}
-		if err = used.Process(tail); err != nil {
-			return nil, nil, err
-		}
 	}
 	deltas := []uint32{0, variables}
-	result := make([]ast.ASTHandle, 0, used.MaxFoundVarIndexPlusOne())
+	result := make([]ast.ASTHandle, 0, len(sorts))
 	var refs []ast.ASTRef
-	for i := uint32(0); i < used.MaxFoundVarIndexPlusOne(); i++ {
-		sort := used.Contains(i)
-		if sort.IsNull() {
-			_ = releaseTransformRefs(manager, refs)
-			return nil, nil, ast.ErrASTDomain
-		}
+	for index, sort := range sorts {
+		i := uint32(index)
 		variable, mkErr := manager.MkVar(i, sort)
 		if mkErr != nil {
 			_ = releaseTransformRefs(manager, refs)

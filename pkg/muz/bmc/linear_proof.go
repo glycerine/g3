@@ -103,7 +103,7 @@ func (c *Compiler) linearProofStep(rm *base.RuleManager, rule *base.Rule, index,
 	if err != nil {
 		return nil, ast.ASTRef{}, err
 	}
-	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 0, Second: 1})
+	return c.linearProofStepWithBindings(rm, rule, bindings, previous, previousProof, normalizer, ast.ASTProofPosition{First: 1, Second: 0})
 }
 
 // linearProofStepWithBindings takes ownership of all supplied references.
@@ -230,23 +230,43 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 				return nil, proofRef, e
 			}
 		}
-		next, err = unifier.ResolveRaw(rm, previous, 0, instantiated)
+		var renaming []ast.ASTRef
+		next, renaming, err = unifier.ResolveRawWithRenaming(rm, previous, 0, instantiated)
+		refs = append(refs, renaming...)
 		if err != nil {
 			return nil, proofRef, err
 		}
-		normalized, e := normalizer.NormalizeResolvedRule(next)
-		if e != nil {
-			return next, proofRef, e
-		}
-		if e = next.Close(); e != nil {
-			if normalized != nil {
-				e = errors.Join(e, normalized.Close())
+		// Rule construction compacts the resolvent variable bank. Compose
+		// that compression with both premise substitutions before proving it.
+		mapping := make([]ast.ASTHandle, len(renaming))
+		for i, ref := range renaming {
+			if ref != (ast.ASTRef{}) {
+				mapping[i], err = m.RefGet(ref)
+				if err != nil {
+					return next, proofRef, err
+				}
 			}
-			return nil, proofRef, e
 		}
-		next = normalized
-		if next == nil {
-			return nil, proofRef, ast.ErrASTDomain
+		if len(mapping) != 0 {
+			for _, bank := range [][]ast.ASTHandle{first, bindings} {
+				for i, term := range bank {
+					if term.IsNull() {
+						continue
+					}
+					ref, e := m.NewRef(ast.ASTHandle{})
+					if e != nil {
+						return next, proofRef, e
+					}
+					refs = append(refs, ref)
+					if e = sub.Substitute(term, mapping, ref); e != nil {
+						return next, proofRef, e
+					}
+					bank[i], e = m.RefGet(ref)
+					if e != nil {
+						return next, proofRef, e
+					}
+				}
+			}
 		}
 		prior, e := m.RefGet(previousProof)
 		if e != nil {
@@ -275,6 +295,32 @@ func (c *Compiler) linearProofStepWithBindings(rm *base.RuleManager, rule *base.
 	resolvedProof, err := m.MkProofHyperResolve(premises, conclusion, positions, substitutions)
 	if err != nil {
 		return next, proofRef, err
+	}
+	if previous != nil {
+		// Prove the raw resolvent first so interpreted-tail normalization can
+		// preserve its proof through explicit rewrite/modus-ponens steps.
+		if err = next.SetProof(resolvedProof); err != nil {
+			return next, proofRef, err
+		}
+		normalized, e := normalizer.NormalizeResolvedRule(next)
+		if e != nil {
+			return next, proofRef, e
+		}
+		if e = next.Close(); e != nil {
+			if normalized != nil {
+				e = errors.Join(e, normalized.Close())
+			}
+			return nil, proofRef, e
+		}
+		next = normalized
+		if next == nil {
+			return nil, proofRef, ast.ErrASTDomain
+		}
+		var found bool
+		resolvedProof, found, err = next.Proof()
+		if err != nil || !found {
+			return next, proofRef, errors.Join(err, ast.ErrASTDomain)
+		}
 	}
 	proofRef, err = m.NewRef(resolvedProof)
 	return next, proofRef, err
