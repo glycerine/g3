@@ -18,7 +18,10 @@ func (p *datalogParser) loadConstantMap(sort ast.ASTHandle, filename string) err
 	}
 	file, err := os.Open(filename)
 	if err != nil {
-		return err
+		// Source parse_mapfile reports a warning and continues when an
+		// optional map cannot be opened. This API has no parser diagnostic
+		// stream, so preserve the functional behavior without global stderr.
+		return nil
 	}
 	defer file.Close()
 	table := p.constants[sort]
@@ -27,6 +30,8 @@ func (p *datalogParser) loadConstantMap(sort ast.ASTHandle, filename string) err
 		p.constants[sort] = table
 	}
 	scanner := bufio.NewScanner(file)
+	// Source line_reader grows to the complete symbol spelling.
+	scanner.Buffer(make([]byte, 1024), int(^uint(0)>>1))
 	for scanner.Scan() {
 		name := strings.TrimSpace(scanner.Text())
 		if _, found := table[name]; !found {

@@ -12,14 +12,13 @@ import (
 )
 
 type externalFactRule struct {
-	head, tail ast.ASTHandle
-	tail2      ast.ASTHandle
-	values     []ast.ASTHandle
-	joinLeft   []uint32
-	joinRight  []uint32
-	removed    []uint32
-	cycles     [][]uint32
-	filters    [2]externalTailFilter
+	head, tail  ast.ASTHandle
+	tail2       ast.ASTHandle
+	values      []ast.ASTHandle
+	joinLeft    []uint32
+	joinRight   []uint32
+	headColumns []externalHeadColumn
+	filters     [2]externalTailFilter
 }
 
 type externalTailFilter struct {
@@ -160,51 +159,25 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 			}
 		}
 	}
-	used := make([]bool, len(columns))
-	headSeen := make(map[ast.ASTHandle]bool, len(headArgs))
-	headPositions := make([]uint32, len(headArgs))
-	for index, argument := range headArgs {
-		position, found := positions[argument]
-		if !found || headSeen[argument] {
-			return result, ErrCompilerUnsupported
+	result.headColumns = make([]externalHeadColumn, 0, len(headArgs))
+	for _, argument := range headArgs {
+		kind, cause := manager.GetKind(argument)
+		if cause != nil {
+			return result, cause
 		}
-		headSeen[argument] = true
-		used[position] = true
-		headPositions[index] = position
-	}
-	compact := make(map[uint32]uint32, len(headArgs))
-	next := uint32(0)
-	for index := range used {
-		if !used[index] {
-			result.removed = append(result.removed, uint32(index))
+		if kind == ast.ASTVar {
+			position, found := positions[argument]
+			if !found {
+				return result, ErrCompilerUnsupported
+			}
+			result.headColumns = append(result.headColumns, externalSourceHeadColumn(position))
 			continue
 		}
-		compact[uint32(index)] = next
-		next++
-	}
-	// external_relation::rename uses a cycle c where new[c[i]] receives
-	// old[c[i+1]]. Decompose the desired destination-to-source permutation.
-	permutation := make([]uint32, len(headPositions))
-	for destination, original := range headPositions {
-		permutation[destination] = compact[original]
-	}
-	visited := make([]bool, len(permutation))
-	for start := range permutation {
-		if visited[start] || permutation[start] == uint32(start) {
-			visited[start] = true
-			continue
+		value, cause := manager.IsValue(argument)
+		if cause != nil || !value {
+			return result, errors.Join(cause, ErrCompilerUnsupported)
 		}
-		cycle := make([]uint32, 0, len(permutation))
-		current := uint32(start)
-		for !visited[current] {
-			visited[current] = true
-			cycle = append(cycle, current)
-			current = permutation[current]
-		}
-		if current != uint32(start) {
-			return result, ErrCompilerUnsupported
-		}
-		result.cycles = append(result.cycles, cycle)
+		result.headColumns = append(result.headColumns, externalConstantHeadColumn(argument))
 	}
 	return result, nil
 }
@@ -262,6 +235,39 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 	for _, predicate := range predicateOrder {
 		if _, err = plugin.PredicateRelation(predicate); err != nil {
 			return err
+		}
+	}
+	// Source make_add_constant_column caches unary singleton tables in top-level
+	// setup. Construct every required singleton before publishing ground facts,
+	// preserving whole-program preflight on callback failure.
+	constantRelations := make(map[ast.ASTHandle]*ExternalRelation)
+	constantOwners := make([]*ExternalRelation, 0)
+	defer func() {
+		for index := len(constantOwners) - 1; index >= 0; index-- {
+			resultErr = errors.Join(resultErr, constantOwners[index].Close())
+		}
+	}()
+	for _, entry := range compiled {
+		for _, column := range entry.headColumns {
+			if column.constant.IsNull() || constantRelations[column.constant] != nil {
+				continue
+			}
+			sort, cause := plugin.ast.GetSort(column.constant)
+			if cause != nil {
+				return cause
+			}
+			singleton, cause := plugin.NewEmpty([]ast.ASTHandle{sort})
+			if cause == nil {
+				cause = singleton.AddFact([]ast.ASTHandle{column.constant})
+			}
+			if cause != nil {
+				if singleton != nil {
+					cause = errors.Join(cause, singleton.Close())
+				}
+				return cause
+			}
+			constantRelations[column.constant] = singleton
+			constantOwners = append(constantOwners, singleton)
 		}
 	}
 	checkpoint := func() error {
@@ -325,28 +331,15 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 				}
 				value = joined
 			}
-			if len(entry.removed) != 0 {
-				projected, projectErr := value.Project(entry.removed)
-				projectErr = errors.Join(projectErr, value.Close())
-				if projectErr != nil {
-					if projected != nil {
-						projectErr = errors.Join(projectErr, projected.Close())
-					}
-					return projectErr
+			assembled, assembleErr := assembleExternalRuleHead(value, entry.headColumns, constantRelations)
+			assembleErr = errors.Join(assembleErr, value.Close())
+			if assembleErr != nil {
+				if assembled != nil {
+					assembleErr = errors.Join(assembleErr, assembled.Close())
 				}
-				value = projected
+				return assembleErr
 			}
-			for _, cycle := range entry.cycles {
-				renamed, renameErr := value.Rename(cycle)
-				renameErr = errors.Join(renameErr, value.Close())
-				if renameErr != nil {
-					if renamed != nil {
-						renameErr = errors.Join(renameErr, renamed.Close())
-					}
-					return renameErr
-				}
-				value = renamed
-			}
+			value = assembled
 			target, cause := plugin.PredicateRelation(entry.head)
 			var delta *ExternalRelation
 			if cause == nil {

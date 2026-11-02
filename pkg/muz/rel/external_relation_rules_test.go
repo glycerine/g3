@@ -34,7 +34,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 		rows[target] = append(rows[target], append([]ast.ASTHandle(nil), values...))
 		return true
 	}
-	stores, renames, joins, filters := 0, 0, 0, 0
+	stores, renames, joins, filters, assembledDeltaRows := 0, 0, 0, 0, 0
 	emptyCalls, failEmptyAt := 0, 0
 	emptyFailure := errors.New("external empty construction refused")
 	constructed := make([]ast.ASTHandle, 0)
@@ -100,6 +100,9 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 				for _, values := range rows[arguments[1]] {
 					if appendUnique(outputs[0], values) && len(outputs) == 2 {
 						appendUnique(outputs[1], values)
+						if len(values) == 4 {
+							assembledDeltaRows++
+						}
 					}
 				}
 			default:
@@ -183,7 +186,23 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 					appendUnique(result, projected)
 				} else {
 					renames++
-					appendUnique(result, []ast.ASTHandle{values[1], values[0]})
+					parameters, err := f.ast.GetDeclParametersCopy(declaration)
+					if err != nil {
+						return ast.ASTHandle{}, err
+					}
+					cycle := make([]int32, len(parameters))
+					for index := range parameters {
+						cycle[index], err = f.ast.ParameterInt(parameters[index])
+						astTestMust(t, f.ast.DelParameter(&parameters[index]))
+						if err != nil {
+							return ast.ASTHandle{}, err
+						}
+					}
+					renamed := append([]ast.ASTHandle(nil), values...)
+					for index, destination := range cycle {
+						renamed[destination] = values[cycle[(index+1)%len(cycle)]]
+					}
+					appendUnique(result, renamed)
 				}
 			}
 			return result, nil
@@ -213,6 +232,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	joined := declaration("external-rule-u", []ast.ASTHandle{f.boolean, f.boolean})
 	v := declaration("external-rule-v", []ast.ASTHandle{f.boolean, f.boolean, f.boolean})
 	w := declaration("external-rule-w", []ast.ASTHandle{f.boolean})
+	h := declaration("external-rule-head-assembly", []ast.ASTHandle{f.boolean, f.boolean, f.boolean, f.boolean})
 	x, err := f.ast.MkVar(0, f.boolean)
 	astTestMust(t, err)
 	y, err := f.ast.MkVar(1, f.boolean)
@@ -235,6 +255,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	add(app(r, x), []ast.ASTHandle{app(q, x)}, "r-from-q")
 	add(app(joined, z, x), []ast.ASTHandle{app(p, x, y), app(tail, y, z)}, "u-joins-p-t")
 	add(app(s, y, x), []ast.ASTHandle{app(p, x, y)}, "s-swaps-p")
+	add(app(h, y, y, f.truth, x), []ast.ASTHandle{app(p, x, y)}, "h-repeats-and-extends-p")
 	add(app(q, x), []ast.ASTHandle{app(p, x, y)}, "q-from-p")
 	add(app(w, x), []ast.ASTHandle{app(v, x, x, f.truth)}, "w-filters-v")
 	add(app(v, f.truth, f.truth, f.truth), nil, "v-match")
@@ -242,7 +263,7 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	add(app(tail, f.falsehood, f.falsehood), nil, "t-fact")
 	add(app(p, f.truth, f.falsehood), nil, "p-fact")
 	astTestMust(t, ExecuteExternalFactRules(plugin, set))
-	wantConstructionOrder := []ast.ASTHandle{r, q, joined, p, tail, s, w, v}
+	wantConstructionOrder := []ast.ASTHandle{r, q, joined, p, tail, s, h, w, v}
 	if len(constructed) < len(wantConstructionOrder) {
 		t.Fatal("missing predicate relation construction callbacks", constructed)
 	}
@@ -255,13 +276,13 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 			t.Fatal("predicate construction order", index, constructed[index], handle)
 		}
 	}
-	if stores != 4 {
+	if stores != 5 {
 		t.Fatal("ground fact store count", stores)
 	}
 	for _, tc := range []struct {
 		declaration ast.ASTHandle
 		want        []ast.ASTHandle
-	}{{p, []ast.ASTHandle{f.truth, f.falsehood}}, {q, []ast.ASTHandle{f.truth}}, {r, []ast.ASTHandle{f.truth}}, {s, []ast.ASTHandle{f.falsehood, f.truth}}, {tail, []ast.ASTHandle{f.falsehood, f.falsehood}}, {joined, []ast.ASTHandle{f.falsehood, f.truth}}, {w, []ast.ASTHandle{f.truth}}} {
+	}{{p, []ast.ASTHandle{f.truth, f.falsehood}}, {q, []ast.ASTHandle{f.truth}}, {r, []ast.ASTHandle{f.truth}}, {s, []ast.ASTHandle{f.falsehood, f.truth}}, {tail, []ast.ASTHandle{f.falsehood, f.falsehood}}, {joined, []ast.ASTHandle{f.falsehood, f.truth}}, {w, []ast.ASTHandle{f.truth}}, {h, []ast.ASTHandle{f.falsehood, f.falsehood, f.truth, f.truth}}} {
 		relation, err := plugin.PredicateRelation(tc.declaration)
 		astTestMust(t, err)
 		handle, err := relation.Relation()
@@ -277,6 +298,9 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	}
 	if renames == 0 || joins == 0 || filters == 0 {
 		t.Fatal("richer external operations", renames, joins, filters)
+	}
+	if assembledDeltaRows == 0 {
+		t.Fatal("assembled head never reached the union delta output")
 	}
 	beforeRepeatFilters := filters
 	astTestMust(t, ExecuteExternalFactRules(plugin, set))
@@ -298,8 +322,33 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	if err = ExecuteExternalFactRules(plugin, unsupported); !errors.Is(err, ErrCompilerUnsupported) {
 		t.Fatal("unsupported external rule shape", err)
 	}
-	if stores != 8 {
+	if stores != 10 {
 		t.Fatal("validation failure partially executed rules", stores)
+	}
+	constantFailure, err := base.NewRuleSet(rules)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, constantFailure.Close()) }()
+	for _, item := range []struct {
+		head ast.ASTHandle
+		tail []ast.ASTHandle
+		name string
+	}{
+		{app(p, f.falsehood, f.truth), nil, "constant-preflight-ground"},
+		{app(h, y, y, f.falsehood, x), []ast.ASTHandle{app(p, x, y)}, "constant-preflight-head"},
+	} {
+		rule, cause := rules.NewRule(item.head, item.tail, nil, item.name)
+		astTestMust(t, cause)
+		astTestMust(t, constantFailure.Add(rule))
+		astTestMust(t, rule.Close())
+	}
+	beforeConstantFailureStores := stores
+	failEmptyAt = emptyCalls + 1
+	if err = ExecuteExternalFactRules(plugin, constantFailure); !errors.Is(err, emptyFailure) {
+		t.Fatal("constant singleton preflight failure", err)
+	}
+	failEmptyAt = 0
+	if stores != beforeConstantFailureStores {
+		t.Fatal("constant singleton failure published a ground prefix", beforeConstantFailureStores, stores)
 	}
 	repeated, err := base.NewRuleSet(rules)
 	astTestMust(t, err)
@@ -308,8 +357,17 @@ func TestExecuteExternalFactRulesGroundProjectionAndChain(t *testing.T) {
 	astTestMust(t, err)
 	astTestMust(t, repeated.Add(rule))
 	astTestMust(t, rule.Close())
-	if err = ExecuteExternalFactRules(plugin, repeated); !errors.Is(err, ErrCompilerUnsupported) {
-		t.Fatal("repeated external head variable", err)
+	astTestMust(t, ExecuteExternalFactRules(plugin, repeated))
+	sRelation, err := plugin.PredicateRelation(s)
+	astTestMust(t, err)
+	sHandle, err := sRelation.Relation()
+	astTestMust(t, err)
+	foundRepeated := false
+	for _, tuple := range rows[sHandle] {
+		foundRepeated = foundRepeated || len(tuple) == 2 && tuple[0] == f.truth && tuple[1] == f.truth
+	}
+	if !foundRepeated {
+		t.Fatal("repeated external head variable tuple missing", rows[sHandle])
 	}
 
 	nullary, err := base.NewRuleSet(rules)
