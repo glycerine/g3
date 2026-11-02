@@ -1,7 +1,9 @@
 package duality
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -26,6 +28,8 @@ func TestStratifiedLeavesAndOverapproximationsPreserveSourceStates(t *testing.T)
 			graph, err := NewRPFPWithVocabulary(source.vocabulary)
 			must(err)
 			defer graph.Close()
+			var report bytes.Buffer
+			graph.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: &report}}
 			covering, err := NewCovering(graph, aux)
 			must(err)
 			u, err := NewUnwinding(source, graph, covering)
@@ -33,6 +37,9 @@ func TestStratifiedLeavesAndOverapproximationsPreserveSourceStates(t *testing.T)
 			u.StratifiedInlining = stratified
 			leaf, err := u.CreateLeaf(relation)
 			must(err)
+			if !strings.Contains(report.String(), "]node 1: ") {
+				t.Fatal("missing leaf event", report.String())
+			}
 			empty, err := leaf.Annotation.IsEmpty()
 			must(err)
 			edgeEmpty, err := leaf.Outgoing.F.IsEmpty()

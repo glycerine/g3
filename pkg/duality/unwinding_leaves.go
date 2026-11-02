@@ -76,6 +76,9 @@ func (u *Unwinding) MakeLeaf(node *Node, doNotExpand bool, services *ExpansionSe
 		u.updatedNodes[node] = true
 	}
 	edge.Map = nil
+	if err := u.graph.streamReporter.Extend(node); err != nil {
+		return err
+	}
 	if !doNotExpand {
 		return u.TryExpandNode(node, services)
 	}
