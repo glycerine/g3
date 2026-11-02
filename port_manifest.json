@@ -84947,6 +84947,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/context_formula_rules.go",
+        "pkg/muz/fp/context_formula_rules_test.go",
         "pkg/muz/fp/auto_engine_phase_test.go",
         "pkg/muz/fp/raw_rules.go",
         "pkg/muz/fp/context_smt2.go",
@@ -85091,6 +85093,7 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {"name": "source public get_rules_as_formulas enumeration preserves pending inputs and appends negated output queries", "status": "ported", "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go"], "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion"], "reason": "Shares display phase selection/open normalization; preserves internal Rules/NamedRules normalized contracts and returns independently owned source formulas."},
         {"name": "automatic engine selection scans normalized rules before pending formulas (dl_context.cpp:840-859)", "status": "ported", "go_targets": ["pkg/muz/fp/auto_engine.go", "pkg/muz/fp/auto_engine_phase_test.go", "pkg/muz/fp/engine_result_routing_test.go"], "tests": ["TestFixedpointAutoConfigNormalizedPrefixPrecedesPendingInputs", "TestFixedpointAutoConfigTracksUpdatePromotionAndPop", "TestFixedpointAutoConfigRestoresRuleClassification"], "reason": "Actual phase order replaces cached ingestion classifications; covers genuine normalized QPDR, existential-to-PDR normalization, named updates, display promotion and scope restoration."},
         {
           "name": "get_rules_as_formulas finalized-rule partition: output clauses become ordered queries, quantified implications use an existential body, quantified facts retain their original universal formula (dl_context.cpp:1072-1105)",
@@ -288575,7 +288578,8 @@
       ],
       "status": "ported",
       "go_target": "pkg/api/api_fixedpoint.go",
-      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+      "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go"],
+      "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion", "TestSMTContextFixedpointPDRLifecycle"]
     },
     {
       "name": "Z3_fixedpoint_get_rules_along_trace",

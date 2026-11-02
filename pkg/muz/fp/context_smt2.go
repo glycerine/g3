@@ -70,54 +70,14 @@ func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTH
 	if err != nil {
 		return err
 	}
-	if err = e.normalizePendingOpenRules(); err != nil {
-		return err
-	}
-	count, err := e.set.Len()
+	rules, pending, names, err := e.contextFormulaRules()
 	if err != nil {
 		return err
 	}
-	omit := make([]bool, count)
-	for _, raw := range e.rawRules {
-		if !raw.pending {
-			continue
-		}
-		h, err := e.manager.RefGet(raw.formula)
-		if err != nil {
-			return err
-		}
-		if raw.first < 0 || raw.end > count || raw.first > raw.end {
-			return ErrPropositionalEngine
-		}
-		for i := raw.first; i < raw.end; i++ {
-			omit[i] = true
-		}
-		config.PendingRules = append(config.PendingRules, h)
-		config.PendingNames = append(config.PendingNames, raw.name)
+	if rules != e.set {
+		defer func() { resultErr = errors.Join(resultErr, rules.Close()) }()
 	}
-	if len(config.PendingRules) == 0 {
-		return e.set.WriteContextSMT2(out, config)
-	}
-	snapshot, err := base.NewRuleSet(e.rules)
-	if err != nil {
-		return err
-	}
-	defer func() { resultErr = errors.Join(resultErr, snapshot.Close()) }()
-	if err = snapshot.InheritPredicates(e.set); err != nil {
-		return err
-	}
-	for i := 0; i < count; i++ {
-		if omit[i] {
-			continue
-		}
-		rule, err := e.set.Rule(i)
-		if err != nil {
-			return err
-		}
-		err = errors.Join(snapshot.Add(rule), rule.Close())
-		if err != nil {
-			return err
-		}
-	}
-	return snapshot.WriteContextSMT2(out, config)
+	config.PendingRules = pending
+	config.PendingNames = names
+	return rules.WriteContextSMT2(out, config)
 }

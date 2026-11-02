@@ -231,8 +231,8 @@ func (c *SMTContext) PopFixedpoint() error {
 	return c.command.PopFixedpoint()
 }
 
-// FixedpointRules returns owning formulas for the current scoped Horn rules in
-// insertion order. Release every result through Manager().DelRef.
+// FixedpointRules returns normalized rules, pending closed input formulas, and
+// negated output queries. Release every result through Manager().DelRef.
 func (c *SMTContext) FixedpointRules() ([]ast.ASTRef, error) {
 	if err := c.open(); err != nil {
 		return nil, err

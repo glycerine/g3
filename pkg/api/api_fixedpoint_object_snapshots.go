@@ -1,6 +1,6 @@
 package api
 
-// Source: src/api/api_datalog.cpp:352-402, 419-428.
+// Source: src/api/api_datalog.cpp fixedpoint rule/assertion/statistics access.
 
 import (
 	"github.com/glycerine/g3/pkg/ast"
