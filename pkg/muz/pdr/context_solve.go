@@ -94,6 +94,11 @@ func (c *Context) expandNode(node *ModelNode) (resultStatus lbool.LBool, resultE
 				return lbool.Undef, fmt.Errorf("muz/pdr: blocking property: %w", makeErr)
 			}
 		}
+		if node.level != 0 {
+			if x = c.assertInvariants(node.level-1, 2098, "n.level() == 0 || check_invariant(n.level()-1)"); x != nil {
+				return lbool.Undef, x
+			}
+		}
 		if x = c.search.BacktrackLevel(!foundInvariant && c.flexibleTrace, node); x != nil {
 			return lbool.Undef, x
 		}
@@ -156,6 +161,9 @@ func (c *Context) propagate(maximum uint32) (bool, error) {
 				return false, err
 			}
 			all = empty && all
+		}
+		if err := c.assertInvariants(level, 2139, "check_invariant(lvl)"); err != nil {
+			return false, err
 		}
 		if all && level == maximum {
 			c.inductive = level
