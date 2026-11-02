@@ -37,7 +37,8 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 		return ast.ASTRef{}, err
 	}
 	if len(rootFacts) != 1 {
-		closeErr := closeReachFacts(rootFacts)
+		warningErr := writeSpacerVerbose(1, "Warning: counterexample is trivial or non-existent\n")
+		closeErr := errors.Join(warningErr, closeReachFacts(rootFacts))
 		truth, makeErr := c.manager.MkTrue()
 		if makeErr != nil || closeErr != nil {
 			return ast.ASTRef{}, errors.Join(makeErr, closeErr)

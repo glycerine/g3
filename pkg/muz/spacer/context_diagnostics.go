@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 )
 
 // DisplayCertificate preserves the retained Spacer presentation hook. This
@@ -25,4 +26,23 @@ func (c *Context) Proof() (ast.ASTHandle, error) {
 		return ast.ASTHandle{}, err
 	}
 	return ast.ASTHandle{}, nil
+}
+
+// writeSpacerVerbose follows the live context's verbose_stream insertions;
+// minimum zero is an unconditional insertion, without a verbosity read.
+func writeSpacerVerbose(minimum uint32, message string) error {
+	if minimum != 0 {
+		enabled, err := diagnostic.ProcessVerboseEnabled(minimum)
+		if err != nil {
+			return err
+		}
+		if !enabled {
+			return nil
+		}
+	}
+	stream, err := diagnostic.BorrowProcessVerboseStream()
+	if err != nil {
+		return err
+	}
+	return stream.AppendCString(message)
 }

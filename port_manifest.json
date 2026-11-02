@@ -97998,6 +97998,12 @@
           ]
         },
         {
+          "name": "ground-answer unavailable message is unconditional and zero/multiple-query-premise warnings are level-1 gated for both ground answers and traces; true/null fallbacks, query-wrapper trace stop, declaration/closed-owner checks and cleanup accounting are preserved (spacer_context.cpp:2363-2370,2436-2468)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_answer.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/context_diagnostics.go", "pkg/muz/spacer/context_ground_status_diagnostic_test.go", "pkg/muz/spacer/context_trace_status_test.go"],
+          "tests": ["TestSpacerGroundAnswerStatusDiagnosticsAndOwnership", "TestSpacerMultiplePremiseAnswerAndTraceDiagnostics", "TestSpacerTraceStatusPolicyAndOwnership"]
+        },
+        {
           "name": "context::get_ground_sat_answer uses one incremental counterexample solver with per-node push/pop scopes and queue-ordered branching reconstruction (spacer_context.cpp:2490-2533)",
           "status": "ported",
           "go_targets": [
@@ -98479,6 +98485,12 @@
           "tests": [
             "TestSpacerProofObligationBindingsDirtyStateAndQueue"
           ]
+        },
+        {
+          "name": "ground-answer unavailable message is unconditional and zero/multiple-query-premise warnings are level-1 gated for both ground answers and traces; true/null fallbacks, query-wrapper trace stop, declaration/closed-owner checks and cleanup accounting are preserved (spacer_context.cpp:2363-2370,2436-2468)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/spacer/context.go", "pkg/muz/spacer/context_answer.go", "pkg/muz/spacer/context_trace.go", "pkg/muz/spacer/context_diagnostics.go", "pkg/muz/spacer/context_ground_status_diagnostic_test.go", "pkg/muz/spacer/context_trace_status_test.go"],
+          "tests": ["TestSpacerGroundAnswerStatusDiagnosticsAndOwnership", "TestSpacerMultiplePremiseAnswerAndTraceDiagnostics", "TestSpacerTraceStatusPolicyAndOwnership"]
         },
         {
           "name": "context::get_ground_sat_answer uses one incremental counterexample solver with per-node push/pop scopes and queue-ordered branching reconstruction (spacer_context.cpp:2490-2533)",

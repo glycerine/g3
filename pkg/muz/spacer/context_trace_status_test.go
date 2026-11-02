@@ -67,8 +67,13 @@ func TestSpacerTraceStatusPolicyAndOwnership(t *testing.T) {
 					if level != 0 {
 						expected = "Trace unavailable when result is false\n"
 					}
-				} else if len(trace) != 1 {
-					t.Fatal("fact trace size", len(trace))
+				} else {
+					if len(trace) != 1 {
+						t.Fatal("fact trace size", len(trace))
+					}
+					if level != 0 {
+						expected = "Warning: counterexample is trivial or non-existent\n"
+					}
 				}
 				message, err := stream.String()
 				depthMust(t, err)

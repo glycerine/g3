@@ -7,7 +7,6 @@ import (
 	"errors"
 
 	"github.com/glycerine/g3/pkg/muz/base"
-	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -19,20 +18,7 @@ func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 		return nil, err
 	}
 	if c.lastResult != lbool.True {
-		enabled, err := diagnostic.ProcessVerboseEnabled(1)
-		if err != nil {
-			return nil, err
-		}
-		if enabled {
-			stream, err := diagnostic.BorrowProcessVerboseStream()
-			if err != nil {
-				return nil, err
-			}
-			if err = stream.AppendCString("Trace unavailable when result is false\n"); err != nil {
-				return nil, err
-			}
-		}
-		return nil, nil
+		return nil, writeSpacerVerbose(1, "Trace unavailable when result is false\n")
 	}
 	if !c.solved || c.query == nil {
 		return nil, ErrContextOwner
@@ -71,7 +57,7 @@ func (c *Context) RulesAlongTrace() (result []*base.Rule, resultErr error) {
 		}
 		queue = append(queue, children...)
 		if current == 0 && len(children) != 1 {
-			return result, resultErr
+			return result, errors.Join(resultErr, writeSpacerVerbose(1, "Warning: counterexample is trivial or non-existent\n"))
 		}
 	}
 	return result, resultErr

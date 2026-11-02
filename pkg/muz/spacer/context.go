@@ -854,7 +854,7 @@ func (c *Context) GroundSatAnswer(declaration ast.ASTHandle) (ast.ASTRef, error)
 		return ast.ASTRef{}, ast.ErrASTDomain
 	}
 	if c.lastResult != lbool.True {
-		return ast.ASTRef{}, nil
+		return ast.ASTRef{}, writeSpacerVerbose(0, "Sat answer unavailable when result is false\n")
 	}
 	return c.groundSatAnswer()
 }
