@@ -14,7 +14,11 @@ func (e *Engine) counterexampleHasQuantifiedTheory() bool {
 	if tree == nil {
 		return false
 	}
-	for _, edge := range tree.edges {
+	return tree.hasMappedQuantifiedTheory()
+}
+
+func (g *RPFP) hasMappedQuantifiedTheory() bool {
+	for _, edge := range g.edges {
 		if edge != nil && edge.Map != nil && edge.Map.quantifiedTheory {
 			return true
 		}

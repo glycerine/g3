@@ -107,7 +107,7 @@ func (c *proofWitnessCall) pin(h ast.ASTHandle, err error) (ast.ASTHandle, error
 	return h, nil
 }
 
-func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause ast.ASTHandle, positions [][]uint32, resolved []ast.ASTProofPosition, premises []ast.ASTHandle, conclusion ast.ASTHandle, background ...*Expr) (out []ast.ASTRef, result error) {
+func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause ast.ASTHandle, positions [][]uint32, resolved []ast.ASTProofPosition, premises []ast.ASTHandle, conclusion ast.ASTHandle, directStructuralWitness bool, background ...*Expr) (out []ast.ASTRef, result error) {
 	if factory == nil {
 		return nil, ErrWrapperOwner
 	}
@@ -229,7 +229,8 @@ func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause as
 		}
 	}
 	var constraints []ast.ASTHandle
-	match := func(application, fact ast.ASTHandle) error {
+	direct := make(map[ast.ASTHandle]ast.ASTHandle, len(skolem))
+	match := func(application, fact ast.ASTHandle, capture bool) error {
 		d1, err := m.GetDecl(application)
 		if err != nil {
 			return err
@@ -259,6 +260,9 @@ func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause as
 				return err
 			}
 			constraints = append(constraints, eq)
+			if capture && directStructuralWitness {
+				direct[a] = b
+			}
 		}
 		return nil
 	}
@@ -271,12 +275,12 @@ func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause as
 		if err != nil {
 			return nil, err
 		}
-		if err := match(atom, fact); err != nil {
+		if err := match(atom, fact, directStructuralWitness); err != nil {
 			return nil, err
 		}
 		replacements[atom] = truth
 	}
-	if err := match(head, conclusion); err != nil {
+	if err := match(head, conclusion, true); err != nil {
 		return nil, err
 	}
 	condition, err := substituteExpression(g.context, body, replacements)
@@ -289,6 +293,198 @@ func (g *RPFP) recoverProofWitness(factory solver.Factory, quantified, clause as
 		return nil, err
 	}
 	constraints = append(constraints, constraint)
+	if directStructuralWitness {
+		skolemSet := make(map[ast.ASTHandle]bool, len(skolem))
+		for _, constant := range skolem {
+			skolemSet[constant] = true
+		}
+		var known func(ast.ASTHandle) (ast.ASTHandle, bool, error)
+		known = func(term ast.ASTHandle) (ast.ASTHandle, bool, error) {
+			if skolemSet[term] {
+				value := direct[term]
+				return value, !value.IsNull(), nil
+			}
+			kind, err := m.GetKind(term)
+			if err != nil {
+				return ast.ASTHandle{}, false, err
+			}
+			if kind != ast.ASTApp {
+				return term, true, nil
+			}
+			count, err := m.GetNumArgs(term)
+			if err != nil {
+				return ast.ASTHandle{}, false, err
+			}
+			args := make([]ast.ASTHandle, count)
+			changed := false
+			for i := range args {
+				original, err := m.GetArg(term, uint32(i))
+				if err != nil {
+					return ast.ASTHandle{}, false, err
+				}
+				value, complete, err := known(original)
+				if err != nil || !complete {
+					return ast.ASTHandle{}, false, err
+				}
+				args[i] = value
+				changed = changed || value != original
+			}
+			if !changed {
+				return term, true, nil
+			}
+			decl, err := m.GetDecl(term)
+			if err != nil {
+				return ast.ASTHandle{}, false, err
+			}
+			value, err := c.pin(m.MkApp(decl, args))
+			return value, err == nil, err
+		}
+		var bind func(ast.ASTHandle, ast.ASTHandle) (bool, bool, error)
+		bind = func(pattern, value ast.ASTHandle) (bool, bool, error) {
+			if skolemSet[pattern] {
+				if assigned := direct[pattern]; !assigned.IsNull() {
+					return assigned == value, false, nil
+				}
+				patternSort, err := m.GetSort(pattern)
+				if err != nil {
+					return false, false, err
+				}
+				valueSort, err := m.GetSort(value)
+				if err != nil || patternSort != valueSort {
+					return false, false, err
+				}
+				direct[pattern] = value
+				return true, true, nil
+			}
+			kind, err := m.GetKind(pattern)
+			if err != nil {
+				return false, false, err
+			}
+			if kind != ast.ASTApp {
+				return pattern == value, false, nil
+			}
+			valueKind, err := m.GetKind(value)
+			if err != nil || valueKind != ast.ASTApp {
+				return false, false, err
+			}
+			patternDecl, err := m.GetDecl(pattern)
+			if err != nil {
+				return false, false, err
+			}
+			valueDecl, err := m.GetDecl(value)
+			if err != nil || patternDecl != valueDecl {
+				return false, false, err
+			}
+			count, err := m.GetNumArgs(pattern)
+			if err != nil {
+				return false, false, err
+			}
+			valueCount, err := m.GetNumArgs(value)
+			if err != nil || count != valueCount {
+				return false, false, err
+			}
+			changed := false
+			for i := uint32(0); i < count; i++ {
+				patternArg, err := m.GetArg(pattern, i)
+				if err != nil {
+					return false, false, err
+				}
+				valueArg, err := m.GetArg(value, i)
+				if err != nil {
+					return false, false, err
+				}
+				matched, added, err := bind(patternArg, valueArg)
+				if err != nil || !matched {
+					return false, false, err
+				}
+				changed = changed || added
+			}
+			return true, changed, nil
+		}
+		tryBind := func(pattern, value ast.ASTHandle) (bool, error) {
+			before := make(map[ast.ASTHandle]ast.ASTHandle, len(direct))
+			for key, assigned := range direct {
+				before[key] = assigned
+			}
+			matched, changed, err := bind(pattern, value)
+			if err != nil || !matched {
+				direct = before
+				return false, err
+			}
+			return changed, nil
+		}
+		headArgs, err := m.GetNumArgs(head)
+		if err != nil {
+			return nil, err
+		}
+		for i := uint32(0); i < headArgs; i++ {
+			pattern, err := m.GetArg(head, i)
+			if err != nil {
+				return nil, err
+			}
+			value, err := m.GetArg(conclusion, i)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := tryBind(pattern, value); err != nil {
+				return nil, err
+			}
+		}
+		progress := true
+		for progress {
+			progress = false
+			for _, atom := range atoms {
+				family, err := m.GetFamilyID(atom)
+				if err != nil {
+					return nil, err
+				}
+				op, err := m.GetDeclKind(atom)
+				if err != nil || family != m.BasicFamilyID() || op != ast.ASTOpEq {
+					continue
+				}
+				left, err := m.GetArg(atom, 0)
+				if err != nil {
+					return nil, err
+				}
+				right, err := m.GetArg(atom, 1)
+				if err != nil {
+					return nil, err
+				}
+				if value, complete, err := known(left); err != nil {
+					return nil, err
+				} else if complete {
+					added, err := tryBind(right, value)
+					if err != nil {
+						return nil, err
+					}
+					progress = progress || added
+				}
+				if value, complete, err := known(right); err != nil {
+					return nil, err
+				} else if complete {
+					added, err := tryBind(left, value)
+					if err != nil {
+						return nil, err
+					}
+					progress = progress || added
+				}
+			}
+		}
+		complete := true
+		for _, constant := range skolem {
+			complete = complete && !direct[constant].IsNull()
+		}
+		if complete {
+			for _, constant := range skolem {
+				value, err := m.NewRef(direct[constant])
+				if err != nil {
+					return nil, err
+				}
+				values = append(values, value)
+			}
+			return values, nil
+		}
+	}
 	c.native, err = factory.New(m, nil, false, true, false, "")
 	if err != nil {
 		return nil, err

@@ -208,7 +208,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 				witnessBackground = append(witnessBackground, axiom)
 			}
 		}
-		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion, witnessBackground...)
+		values, err := g.recoverProofWitness(factory, quantified, clause, positions, resolved, premises, conclusion, g.hasMappedQuantifiedTheory(), witnessBackground...)
 		if err != nil {
 			return out, fmt.Errorf("proof witness source edge %d exceptional=%v: %w", edge.Map.Number, edge.Map.quantifiedTheory, err)
 		}
