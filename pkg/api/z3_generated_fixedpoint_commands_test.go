@@ -131,7 +131,10 @@ func TestGeneratedFixedpointReplayFactsAndRelationQuery(t *testing.T) {
 		if e != nil {
 			return e
 		}
-		return f.owner.context.SetFixedpointEngine("pdr")
+		if e = f.owner.context.SetFixedpointEngine("pdr"); e != nil {
+			return e
+		}
+		return f.owner.context.SetFixedpointBool(FixedpointTransformSlice, false)
 	}); err != nil {
 		t.Fatal(err)
 	}
