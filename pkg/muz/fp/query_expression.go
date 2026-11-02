@@ -194,6 +194,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		if _, err = clone.ensureIntervalDatalog(); err != nil {
 			return lbool.Undef, err
 		}
+		if _, err = clone.ensureBoundDatalog(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	clone.datalogExplanationQuery, err = clone.datalogExplanationsEnabled()
 	if err != nil {
@@ -256,6 +259,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 // clearQueryResources releases the backend state used to answer the previous
 // expression query. It is also called when the engine itself is closed.
 func (e *PropositionalEngine) clearQueryResources() error {
+	if err := e.clearArithmeticTableFactCleanup(); err != nil {
+		return err
+	}
 	if err := e.clearDatalogExplanationCleanup(); err != nil {
 		return err
 	}

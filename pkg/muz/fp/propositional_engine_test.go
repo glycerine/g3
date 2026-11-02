@@ -1117,7 +1117,7 @@ func TestPDRAndSpacerRejectPartialDatatypeAccessors(t *testing.T) {
 	}
 }
 
-func TestDatalogRejectsInfinitePredicateSorts(t *testing.T) {
+func TestDatalogRejectsUnsupportedInfinitePredicateSorts(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	fpMust(t, err)
 	t.Cleanup(func() { fpMust(t, context.Close()) })
@@ -1129,16 +1129,18 @@ func TestDatalogRejectsInfinitePredicateSorts(t *testing.T) {
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
-	arithmetic, err := manager.ArithmeticFamilyID()
+	sortName, err := manager.Symbols.Intern("fp-datalog-unsupported-sort")
 	fpMust(t, err)
-	integer, err := manager.MkFamilySort(arithmetic, 1, nil)
+	integer, err := manager.MkUninterpretedSort(sortName, nil)
 	fpMust(t, err)
 	name, err := manager.Symbols.Intern("fp-datalog-infinite-P")
 	fpMust(t, err)
 	predicate, err := manager.MkFuncDecl(name, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
 	fpMust(t, err)
 	fpMust(t, engine.RegisterPredicate(predicate))
-	zero, err := manager.ArithmeticIntegerNumeralText("0")
+	valueName, err := manager.Symbols.Intern("fp-datalog-unsupported-value")
+	fpMust(t, err)
+	zero, err := manager.MkConst(valueName, integer)
 	fpMust(t, err)
 	fact, err := manager.MkApp(predicate, []ast.ASTHandle{zero})
 	fpMust(t, err)

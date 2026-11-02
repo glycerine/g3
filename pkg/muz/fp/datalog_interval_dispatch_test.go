@@ -35,6 +35,7 @@ func TestDatalogConfiguredIntervalFactsLatePredicatesAndExpressionOwners(t *test
 	defer func() { must(m.DelRef(&oneRef)) }()
 	must(e.Push())
 	must(e.AddFact(p, []ast.ASTHandle{one}))
+	must(e.AddTableFact(p, []uint32{1}))
 	if err := e.Pop(); err == nil {
 		t.Fatal("interval fact did not instantiate source engine")
 	}
@@ -109,7 +110,7 @@ func TestDatalogConfiguredIntervalNullaryAndUnsupportedFragment(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal(status)
 	}
-	must(e.AddFact(f.declarations["p"], nil))
+	must(e.AddTableFact(f.declarations["p"], nil))
 	status, err = e.QueryExpression(f.applications["p"])
 	must(err)
 	if status != lbool.Undef {

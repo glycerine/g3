@@ -179,6 +179,8 @@ type PropositionalEngine struct {
 
 	lazyFinite               *rel.LazySparseFiniteFactory
 	intervalDatalog          *intervalDatalogActivation
+	boundDatalog             *boundDatalogRuntime
+	arithmeticFactCleanup    []*arithmeticTableFactAttempt
 	datalogRelationFavourite string
 
 	datalogExplanationQuery   bool
@@ -555,6 +557,17 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			e.compiled = false
 			return nil
 		}
+		if selected, err := e.ensureBoundDatalog(); err != nil {
+			return err
+		} else if selected {
+			if err := e.boundDatalog.addFact(declaration, values); err != nil {
+				return err
+			}
+			e.invalidateQueryForMutation()
+			e.advanceRuleRevision()
+			e.compiled = false
+			return nil
+		}
 		state := e.predicates[declaration]
 		if state.external != nil {
 			if err := state.external.AddFact(values); err != nil {
@@ -600,6 +613,16 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureIntervalDatalog(); err != nil {
+			return err
+		} else if selected {
+			return e.addArithmeticTableFact(declaration, values)
+		}
+		if selected, err := e.ensureBoundDatalog(); err != nil {
+			return err
+		} else if selected {
+			return e.addArithmeticTableFact(declaration, values)
+		}
 		if state.external != nil {
 			references, err := e.relations.DecodeFact(state.sorts, fact)
 			if err != nil {
@@ -779,6 +802,9 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		}
 	}
 	if err = replacement.InheritPredicates(e.set); err != nil {
+		return err
+	}
+	if err = e.rebindArithmeticRules(replacement); err != nil {
 		return err
 	}
 	// Source updates operate on the normalized prefix only. Pending inputs
@@ -1995,6 +2021,11 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	} else if selected {
 		return e.queryIntervalDatalog(declarations)
 	}
+	if selected, err := e.ensureBoundDatalog(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.queryBoundDatalog(declarations)
+	}
 
 	count, err := e.set.Len()
 	if err != nil {
@@ -2218,6 +2249,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
+	}
+	if kind == EngineDatalog && e.boundDatalog != nil {
+		return e.boundDatalog.relationFormula(declaration)
 	}
 	if kind == EngineDatalog && e.intervalDatalog != nil {
 		return e.intervalDatalog.relationFormula(declaration)
@@ -2639,6 +2673,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		return errors.Join(result, err)
 	}
 	if err := e.closeIntervalDatalog(); err != nil {
+		return errors.Join(result, err)
+	}
+	if err := e.closeBoundDatalog(); err != nil {
 		return errors.Join(result, err)
 	}
 	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)

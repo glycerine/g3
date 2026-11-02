@@ -109,6 +109,9 @@ func (e *PropositionalEngine) normalizePendingOpenRules() (resultErr error) {
 	if err = replacement.InheritPredicates(e.set); err != nil {
 		return err
 	}
+	if err = e.rebindArithmeticRules(replacement); err != nil {
+		return err
+	}
 	prior := e.set
 	e.set = replacement
 	e.rawRules = remaining
