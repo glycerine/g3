@@ -154,11 +154,11 @@ func TestDatalogFactSelectionUsesParametersAndCachesSourceChoice(t *testing.T) {
 				t.Fatal("wrong fact engine", e.backend, tc.want)
 			}
 			if tc.want == "datalog" {
-				if len(e.rawRules) != 0 || !e.datalogInstantiated {
+				if len(e.rawRules) != 0 || !e.engineInstantiated {
 					t.Fatal("Datalog fact was not direct")
 				}
 			} else {
-				if len(e.rawRules) != rawCount || e.datalogInstantiated {
+				if len(e.rawRules) != rawCount || e.engineInstantiated {
 					t.Fatal("non-Datalog raw fact changed")
 				}
 				must(e.Pop())

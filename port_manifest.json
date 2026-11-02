@@ -85227,14 +85227,20 @@
           ]
         },
         {
-          "name": "finite-table predicate representation selection before the first query (dl_context.cpp:433-441)",
+          "name": "configured-engine lifecycle and Datalog-only predicate representation dispatch before the first query (dl_context.cpp:433-442)",
           "status": "ported",
           "go_target": "pkg/muz/fp/propositional_engine.go",
           "go_targets": [
+            "pkg/muz/fp/register_engine.go",
+            "pkg/muz/fp/predicate_representation_lifecycle_test.go",
             "pkg/api/api_fixedpoint_test.go",
             "pkg/cmd/g3/main_test.go"
           ],
           "tests": [
+            "TestPredicateRepresentationConfiguredEngineLifecycle",
+            "TestPredicateRepresentationDatalogGuardsInstantiateBeforeFailure",
+            "TestPredicateRepresentationNonDatalogInfiniteDomain",
+            "TestPredicateRepresentationDatalogLateGuard",
             "TestSMTContextFixedpointPredicateRepresentation",
             "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"
           ]
@@ -288851,10 +288857,17 @@
       "status": "ported",
       "go_target": "pkg/api/api_fixedpoint.go",
       "tests": [
+        "TestPredicateRepresentationConfiguredEngineLifecycle",
+        "TestPredicateRepresentationDatalogGuardsInstantiateBeforeFailure",
+        "TestPredicateRepresentationNonDatalogInfiniteDomain",
+        "TestPredicateRepresentationDatalogLateGuard",
         "TestSMTContextFixedpointPredicateRepresentation",
         "TestSMTLibRunnerCPPReference/fixedpoint_relation_representations.smt2"
       ],
       "go_targets": [
+        "pkg/muz/fp/propositional_engine.go",
+        "pkg/muz/fp/register_engine.go",
+        "pkg/muz/fp/predicate_representation_lifecycle_test.go",
         "pkg/cmd/g3/main_test.go"
       ]
     },

@@ -35,6 +35,9 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 			e.ddnf = ddnfEngineState{output: e.ddnf.output}
 		}
 	}
+	if e.backend != kind.String() {
+		e.engineInstantiated = false
+	}
 	e.backend = kind.String()
 	e.engineSelectionSet = true
 	return nil

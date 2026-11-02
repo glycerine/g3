@@ -82,7 +82,7 @@ type PropositionalEngine struct {
 	globals             *uparams.GlobalParamsService
 	backend             string
 	engineSelectionSet  bool
-	datalogInstantiated bool
+	engineInstantiated  bool
 	duality             *muzduality.Backend
 	dualityCooperation  *cooperate.Cooperation
 	dualityMBQI         bool
@@ -269,8 +269,34 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 	if len(kinds) == 0 {
 		return nil
 	}
+	// Source context::set_predicate_representation constructs the configured
+	// engine even when the relational plugin lookup subsequently fails.
+	if err := e.selectFactEngine(); err != nil {
+		return err
+	}
+	switch e.backend {
+	case "pdr", "qpdr":
+		if e.pdr == nil {
+			if _, err := e.pdrContext(); err != nil {
+				return err
+			}
+		}
+	case "spacer":
+		if e.spacer == nil {
+			if _, err := e.spacerContext(); err != nil {
+				return err
+			}
+		}
+	}
+	e.engineInstantiated = true
+	if e.backend != "datalog" {
+		return nil
+	}
 	if e.queried {
 		return fmt.Errorf("muz/fp: predicate representation must be selected before querying")
+	}
+	if state.table == nil {
+		return ErrPropositionalHorn
 	}
 	signature, err := state.table.Signature()
 	if err != nil {
@@ -463,7 +489,7 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		return err
 	}
 	if e.backend == "datalog" {
-		e.datalogInstantiated = true
+		e.engineInstantiated = true
 		state := e.predicates[declaration]
 		fact, err := e.relations.EncodeFact(state.sorts, values)
 		if err != nil {
@@ -496,7 +522,7 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		return err
 	}
 	if e.backend == "datalog" {
-		e.datalogInstantiated = true
+		e.engineInstantiated = true
 		return e.addDatalogFact(state, fact)
 	}
 	references, err := e.relations.DecodeFact(state.sorts, fact)
@@ -709,7 +735,7 @@ func (e *PropositionalEngine) Pop() error {
 	if len(e.scopes) == 0 {
 		return fmt.Errorf("muz/fp: there are no backtracking points to pop to")
 	}
-	if (e.queried || e.datalogInstantiated || e.pdr != nil || e.spacer != nil) && e.backend != "duality" {
+	if (e.queried || e.engineInstantiated || e.pdr != nil || e.spacer != nil) && e.backend != "duality" {
 		return fmt.Errorf("muz/fp: pop operation is only supported by duality engine")
 	}
 	if len(e.assertionScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {
