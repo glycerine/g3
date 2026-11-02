@@ -104184,6 +104184,7 @@
         "pkg/muz/transforms/rule_slice_proof_instantiate.go",
         "pkg/muz/transforms/rule_slice_proof_compound.go",
         "pkg/muz/transforms/rule_slice_proof_variables.go",
+        "pkg/muz/transforms/rule_slice_constraint_variables_test.go",
         "pkg/muz/transforms/rule_unifier.go",
         "pkg/muz/transforms/rule_unifier_test.go",
         "pkg/muz/transforms/rule_slice_test.go",
@@ -104212,6 +104213,7 @@
         "TestRuleSliceProofPermutesSurvivingVariables",
         "TestRuleSliceProofSubstitutesCompoundBodyTerm",
         "TestRuleSliceProofSubstitutesDerivedPremise",
+        "TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable",
         "TestRuleUnifierModelProofSubstitutionsAndReset",
         "TestHornPreprocessingKeepsOriginalPredicatesForProofTraces",
         "TestQBMCConvertsSlicedProofToOriginalRules",
@@ -104322,7 +104324,8 @@
           "go_targets": ["pkg/muz/transforms/rule_slice_failure_test.go",
             "pkg/muz/transforms/rule_slice_compound_failure_test.go",
             "pkg/muz/transforms/rule_slice_close_pending_test.go",
-            "pkg/muz/transforms/rule_slice_composition_test.go"],
+            "pkg/muz/transforms/rule_slice_composition_test.go",
+            "pkg/muz/transforms/rule_slice_constraint_variables_test.go"],
           "tests": [
             "TestRuleSliceGeneratesProofsForRewrittenRules", "TestRuleSliceProofConverterColdFailureAndRetry",
             "TestRuleSliceCompoundHeadAllocationFailureAndRetry",
@@ -104335,7 +104338,8 @@
             "TestRuleSliceProofTracksVariableRenumbering",
             "TestRuleSliceProofPermutesSurvivingVariables",
             "TestRuleSliceProofSubstitutesCompoundBodyTerm",
-            "TestRuleSliceProofSubstitutesDerivedPremise"
+            "TestRuleSliceProofSubstitutesDerivedPremise",
+            "TestRuleSliceDerivedSubstitutionOfConstraintOnlyVariable"
           ]
         }
       ],
@@ -104344,7 +104348,7 @@
       ],
       "deviations": [
         "The source hyper-resolution constructor/rebuilder graph is documented in pkg/muz/FIXED_POINT_FINISH.md: unary instantiation, forward multi-premise nodes, and reverse binary nodes with position-preserving rebuilders. No live source constructor emits a flat mixed-orientation multi-premise node. Existing pivot guards remain; substitution, proof-side-condition and exceptional-ownership audits keep conversion partial.",
-        "Derived-premise proof conversion now preserves sparse and trailing-unused quantified binder positions across rule-variable compaction. Unused substitution slots are explicitly absent; surviving compound terms are reconstructed in the original rule bank. TestRuleSliceProofSubstitutesDerivedPremise checks dense/sparse/entirely-unused and mixed-sort banks, exact numeral facts, compound-term equivalence, proof validity and SMT discharge of checker side conditions. Whole slice-proof shape and exceptional-ownership closure remains unproven; this unit remains partial.",
+        "Derived-premise proof conversion now preserves sparse and trailing-unused quantified binder positions across rule-variable compaction. Unused substitution slots are explicitly absent; surviving compound terms are reconstructed in the original rule bank. TestRuleSliceProofSubstitutesDerivedPremise checks dense/sparse/entirely-unused and mixed-sort banks, exact numeral facts, compound-term equivalence, proof validity and SMT discharge of checker side conditions. Derived variables occurring only in unchanged interpreted constraints now use structural tail correspondence when predicate columns are insufficient; the new regression verifies both proof stages, original leaves and independently discharged conditions. Whole slice-proof shape and exceptional-ownership closure remains unproven; this unit remains partial.",
         "Semantic slicing, direct predicate remapping, and free-variable expansion for exported formulas and model interpretations are retained. The Go model converter expands the complete compact interpretation expression rather than storing source non-ground wildcard function entries. QBMC and PDR use the partial proof converter and retry unsliced for unsupported proof shapes or changed conclusions. Spacer also slices with proof tracing enabled; its source overall proof hook is empty."
       ]
     },

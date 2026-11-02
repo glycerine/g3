@@ -21,7 +21,8 @@ type slicedProofResult struct {
 // proofs over original rules. It returns an owned proof. As in the source
 // converter, resolution uses rule unification. Substitutions on asserted rules
 // use Horn conversion for compound predicate heads. Derived substitutions
-// require an unambiguous predicate-based variable correspondence. Source
+// require an unambiguous variable correspondence from predicate columns and,
+// when needed, structurally matching interpreted constraints. Source
 // nonlinear nodes use forward body-to-head pivots; reverse source nodes are
 // binary. Other pivot layouts return ErrSliceProofUnsupported.
 // Coalesce derivations and configured rule-normalization rewrite wrappers

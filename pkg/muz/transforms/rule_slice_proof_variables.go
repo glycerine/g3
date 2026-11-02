@@ -179,6 +179,43 @@ func (c *SliceProofConverter) derivedVariables(proof ast.ASTHandle, original *ba
 			return nil, false, e
 		}
 	}
+	// Resolution can leave variables that occur only in theory constraints.
+	// Predicate columns cannot identify those variables; use the unchanged
+	// interpreted tails when the predicate correspondence is incomplete.
+	complete := true
+	for _, present := range found {
+		complete = complete && present
+	}
+	if !complete {
+		smallSize, e := sliced.TailSize()
+		if e != nil {
+			return nil, false, e
+		}
+		largeSize, e := original.TailSize()
+		if e != nil {
+			return nil, false, e
+		}
+		if smallSize-smallPredicates != largeSize-largePredicates {
+			return nil, false, nil
+		}
+		for i := smallPredicates; i < smallSize; i++ {
+			a, an, e := sliced.Tail(i)
+			if e != nil {
+				return nil, false, e
+			}
+			b, bn, e := original.Tail(i)
+			if e != nil {
+				return nil, false, e
+			}
+			if an != bn {
+				return nil, false, nil
+			}
+			ok, e := matchTerm(a, b)
+			if e != nil || !ok {
+				return nil, false, e
+			}
+		}
+	}
 	for i := range mapping {
 		if !found[i] {
 			return nil, false, nil
