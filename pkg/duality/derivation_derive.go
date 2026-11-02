@@ -17,6 +17,13 @@ func (s *DerivationSearch) Derive(root *Node, underapprox, constrained bool) (sa
 	if err := d.tree.solverReady(); err != nil {
 		return false, err
 	}
+	// The source case loop operates on this derivation's RPFP. Share its
+	// failure schedule while borrowing the current graph only for this query.
+	if s.Cases != nil {
+		previous := s.Cases.Graph
+		s.Cases.Graph = d.tree
+		defer func() { s.Cases.Graph = previous }()
+	}
 	d.Underapprox = underapprox
 	d.Constrained = constrained
 	d.FalseApprox = true

@@ -22,6 +22,7 @@ type UnwindingSearch struct {
 	Config                                                    *interp.RunConfig
 	Heuristic                                                 *ExpansionHeuristic
 	Counterexample                                            *Counterexample
+	Proposers                                                 []*HistoryProposer
 	FullExpand, UseUnderapprox, NoConjectures, EnableRestarts bool
 }
 
@@ -79,11 +80,7 @@ func (s *UnwindingSearch) tryExpandNode(node *Node) (result error) {
 			result = errors.Join(result, graph.Close())
 		}
 	}()
-	if s.Cases != nil {
-		previous := s.Cases.Graph
-		s.Cases.Graph = graph
-		defer func() { s.Cases.Graph = previous }()
-	}
+
 	services := &ExpansionSearch{Conjecture: query, Counterexample: s.Counterexample, Native: s.Native, Evaluator: s.Evaluator, Simplifier: s.Simplifier, UseUnderapprox: s.UseUnderapprox, NoConjectures: s.NoConjectures}
 	return s.Unwinding.TryExpandNode(node, services)
 }
