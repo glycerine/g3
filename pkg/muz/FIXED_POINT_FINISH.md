@@ -175,7 +175,8 @@ Acceleration tactics are durable for every batch:
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
   - [x] Apply model_evaluator_util typed-exception policy to MBQI warm/variable/candidate evaluation; verify a single interrupted candidate declines elimination without error, a subsequent candidate preserves the traversal precondition, unchanged formula/reference ownership and fresh-evaluator retry.
   - [x] Print nullable MBQI evaluation outputs as source `mk_ismt2_pp` does, without formatter allocation.
-  - [ ] Complete MBQI exception TRACE verification and independent wrapper construction/cleanup failures before closing the entire value-consumer audit.
+  - [x] Verify model-evaluator typed-exception TRACE writer refusal remains a caught unknown with no leaked evaluator roots and fresh-evaluator recovery.
+  - [ ] Complete independent wrapper construction/cleanup failures before closing the entire value-consumer audit.
   - [x] Verify implicant vector selection under a partial model: source flatten-and displacement order, true/unknown filtering, shared-literal deduplication, false-vector collapse, unknown/empty inputs, no model completion and temporary-reference cleanup.
   - [x] Verify seventeen Boolean implicant policy cases against source first-match/LIFO rules, equality guards and implication preference; independently check cube-implies-formula UNSAT and compatibility with the supplied assignment SAT, with unchanged temporary reference counts.
   - [x] Verify ten arithmetic literal-policy cases across Int/Real equality, disequality and binary distinct: both strict orientations, negative/normalized/large rational values, source repeated-value equality order, independent implication/model compatibility and temporary-reference cleanup.
@@ -298,6 +299,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/bmc/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/bmc/dl_bmc_engine.cpp` (partial), `src/muz/bmc/dl_bmc_engine.h` (partial)
   - [x] Linear trace/proof allocation-frontier ownership and late scoped-proof/normalizer cleanup publication ordering.
+  - [x] Nonlinear two-branch trace/proof allocation-frontier ownership through every reachable failure and successful retry.
   - [ ] Nonlinear/QBMC late-cleanup audits and broader source/ownership closure.
 
 ### clp
@@ -905,3 +907,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Dense legacy arithmetic projection frontiers reproduced a real one-reference leak at allocation stop 16: classified real literals were not transferred to scoped cleanup before later fallible model/AST work. Real and integer paths now acquire literal ownership immediately; both frontiers and existing semantic paths pass in 0.155s. Mapped projection also rejects cleanup-pending parents, allocates nothing on that path, and independently owns failed result construction through its 2,048-step frontier. Remaining exceptional Spacer projection paths keep the unit partial.
 
 - 2026-11-02 — Duality query cleanup now enters an explicit pending state before child disposal. A refused native child close preserves the concrete run while all query/model/counterexample operations reject; cleanup retry completes idempotently and reaches zero final budget. A real safe query reproduces the refusal and verifies the result boundary. Focused tests passed in 0.008s and the complete native Duality package passed in 1.048s. Wider backend lifecycle and interface closure remain open.
+
+- 2026-11-02 — Closed three test-only allocation/recovery frontiers without speculative production changes. Nonlinear BMC two-branch trace/proof campaigns cross every reachable allocation refusal with exact live-byte stability and zero final budget; quantified late-publication ordering was independently confirmed already correct. DDNF now compares exact uninterrupted and retry DAGs across 80 dense insertion thresholds. Spacer evaluator exception tracing tolerates writer refusal as caught unknown with unchanged references and fresh-evaluator recovery. Complete native BMC/DDNF and focused Spacer tests passed in 0.556s/0.043s and 20 consecutive trace runs. Remaining source gaps are unchanged.

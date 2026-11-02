@@ -188,6 +188,14 @@ func TestDDNFCoreInsertionAllocationRefusalCanRetry(t *testing.T) {
 			if err != nil || !wellFormed {
 				t.Fatal("retry left an invalid intersection graph", wellFormed, err)
 			}
+			display, err := core.Display()
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "node[0: xxx 1 2]\nnode[1: 0xx 3]\nnode[2: x0x 3]\nnode[3: 00x 4]\nnode[4: 001]\n"
+			if display != want {
+				t.Fatalf("retry graph differs from uninterrupted insertion\n got %q\nwant %q", display, want)
+			}
 			if _, err = core.descendants(r); err != nil {
 				t.Fatal("target missing after insertion", err)
 			}
@@ -196,6 +204,57 @@ func TestDDNFCoreInsertionAllocationRefusalCanRetry(t *testing.T) {
 				t.Fatal("insertion retry retained budget", used)
 			}
 		})
+	}
+}
+
+func TestDDNFCoreDenseInsertionAllocationRefusalCanRetry(t *testing.T) {
+	const budgetSize = uint64(1 << 20)
+	patterns := []string{"0xxx", "x0xx", "xx0x", "xxx0", "0001"}
+	build := func(t *testing.T, failure int64) (string, error) {
+		t.Helper()
+		budget := arena.NewBudget(budgetSize)
+		config := arena.VectorConfig{PageSize: 1, Descriptors: arena.Config{PageSize: 1, Budget: budget}}
+		core, err := NewCore(4, config)
+		if err != nil {
+			return "", err
+		}
+		defer core.Close()
+		vectors := make([]*rel.TBV, len(patterns))
+		for i, pattern := range patterns {
+			vectors[i] = testPattern(t, core, pattern)
+		}
+		for i := 0; i < len(vectors)-1; i++ {
+			if _, err = core.Insert(vectors[i]); err != nil {
+				return "", err
+			}
+		}
+		if failure >= 0 {
+			budget.FailAfter(failure)
+		}
+		_, insertErr := core.Insert(vectors[len(vectors)-1])
+		budget.FailAfter(-1)
+		if insertErr != nil {
+			if !errors.Is(insertErr, arena.ErrInjectedFailure) {
+				return "", insertErr
+			}
+			if _, err = core.Insert(vectors[len(vectors)-1]); err != nil {
+				return "", err
+			}
+		}
+		return core.Display()
+	}
+	want, err := build(t, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for failure := int64(0); failure < 80; failure++ {
+		got, buildErr := build(t, failure)
+		if buildErr != nil {
+			t.Fatal(failure, buildErr)
+		}
+		if got != want {
+			t.Fatalf("failure %d retry graph differs\n got %q\nwant %q", failure, got, want)
+		}
 	}
 }
 
