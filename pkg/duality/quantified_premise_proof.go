@@ -203,55 +203,162 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 			}
 		}
 	}
-	for _, atom := range atoms {
-		family, err := m.GetFamilyID(atom)
+	// Once one equality side is determined by the head substitution, match the
+	// other source term against that exact target term to select still-unbound
+	// source witnesses. This is constructive instantiation, not inverse
+	// reasoning (for example, select is never assumed injective); the complete
+	// instantiated antecedent remains an independently checked proof condition.
+	var known func(ast.ASTHandle) (ast.ASTHandle, bool, error)
+	known = func(term ast.ASTHandle) (ast.ASTHandle, bool, error) {
+		kind, err := m.GetKind(term)
 		if err != nil {
-			return ast.ASTRef{}, err
+			return ast.ASTHandle{}, false, err
 		}
-		op, err := m.GetDeclKind(atom)
-		if err != nil || family != m.BasicFamilyID() || op != ast.ASTOpEq {
-			continue
+		if kind == ast.ASTVar {
+			index, err := m.GetVarIndex(term)
+			if err != nil || index >= n || substitution[index].IsNull() {
+				return ast.ASTHandle{}, false, err
+			}
+			return substitution[index], true, nil
 		}
-		for side := uint32(0); side < 2; side++ {
-			variable, err := m.GetArg(atom, side)
+		if kind != ast.ASTApp {
+			return term, true, nil
+		}
+		count, err := m.GetNumArgs(term)
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		args := make([]ast.ASTHandle, count)
+		changed := false
+		for i := range args {
+			original, err := m.GetArg(term, uint32(i))
 			if err != nil {
-				return ast.ASTRef{}, err
+				return ast.ASTHandle{}, false, err
 			}
-			kind, err := m.GetKind(variable)
-			if err != nil || kind != ast.ASTVar {
-				continue
+			value, complete, err := known(original)
+			if err != nil || !complete {
+				return ast.ASTHandle{}, false, err
 			}
-			index, err := m.GetVarIndex(variable)
-			if err != nil || index >= n || !substitution[index].IsNull() {
-				continue
+			args[i] = value
+			changed = changed || args[i] != original
+		}
+		if !changed {
+			return term, true, nil
+		}
+		decl, err := m.GetDecl(term)
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		instantiated, err := call.pin(m.MkApp(decl, args))
+		return instantiated, err == nil, err
+	}
+	var match func(ast.ASTHandle, ast.ASTHandle) (bool, bool, error)
+	match = func(pattern, value ast.ASTHandle) (bool, bool, error) {
+		kind, err := m.GetKind(pattern)
+		if err != nil {
+			return false, false, err
+		}
+		if kind == ast.ASTVar {
+			index, err := m.GetVarIndex(pattern)
+			if err != nil || index >= n {
+				return false, false, err
 			}
-			value, err := m.GetArg(atom, 1-side)
+			if !substitution[index].IsNull() {
+				return substitution[index] == value, false, nil
+			}
+			patternSort, err := m.GetSort(pattern)
 			if err != nil {
-				return ast.ASTRef{}, err
-			}
-			valueKind, err := m.GetKind(value)
-			if err != nil || valueKind == ast.ASTVar {
-				continue
-			}
-			free, err := m.HasFreeVars(value)
-			if err != nil {
-				return ast.ASTRef{}, err
-			}
-			if free {
-				continue
-			}
-			variableSort, err := m.GetSort(variable)
-			if err != nil {
-				return ast.ASTRef{}, err
+				return false, false, err
 			}
 			valueSort, err := m.GetSort(value)
 			if err != nil {
-				return ast.ASTRef{}, err
+				return false, false, err
 			}
-			if variableSort != valueSort {
-				continue
+			if patternSort != valueSort {
+				return false, false, nil
 			}
 			substitution[index] = value
+			return true, true, nil
+		}
+		if kind != ast.ASTApp {
+			return pattern == value, false, nil
+		}
+		valueKind, err := m.GetKind(value)
+		if err != nil || valueKind != ast.ASTApp {
+			return false, false, err
+		}
+		patternDecl, err := m.GetDecl(pattern)
+		if err != nil {
+			return false, false, err
+		}
+		valueDecl, err := m.GetDecl(value)
+		if err != nil || patternDecl != valueDecl {
+			return false, false, err
+		}
+		count, err := m.GetNumArgs(pattern)
+		if err != nil {
+			return false, false, err
+		}
+		valueCount, err := m.GetNumArgs(value)
+		if err != nil || count != valueCount {
+			return false, false, err
+		}
+		changed := false
+		for i := uint32(0); i < count; i++ {
+			patternArg, err := m.GetArg(pattern, i)
+			if err != nil {
+				return false, false, err
+			}
+			valueArg, err := m.GetArg(value, i)
+			if err != nil {
+				return false, false, err
+			}
+			matched, added, err := match(patternArg, valueArg)
+			if err != nil || !matched {
+				return false, false, err
+			}
+			changed = changed || added
+		}
+		return true, changed, nil
+	}
+	progress := true
+	for progress {
+		progress = false
+		for _, atom := range atoms {
+			family, err := m.GetFamilyID(atom)
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			op, err := m.GetDeclKind(atom)
+			if err != nil || family != m.BasicFamilyID() || op != ast.ASTOpEq {
+				continue
+			}
+			left, err := m.GetArg(atom, 0)
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			right, err := m.GetArg(atom, 1)
+			if err != nil {
+				return ast.ASTRef{}, err
+			}
+			if value, complete, err := known(left); err != nil {
+				return ast.ASTRef{}, err
+			} else if complete {
+				_, added, err := match(right, value)
+				if err != nil {
+					return ast.ASTRef{}, err
+				}
+				progress = progress || added
+			}
+			if value, complete, err := known(right); err != nil {
+				return ast.ASTRef{}, err
+			} else if complete {
+				_, added, err := match(left, value)
+				if err != nil {
+					return ast.ASTRef{}, err
+				}
+				progress = progress || added
+			}
 		}
 	}
 	for _, value := range substitution {
@@ -295,6 +402,7 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
+	wrapperIndex := len(call.refs)
 	call.refs = append(call.refs, wrapperRef)
 	valid, err := g.validQuantifiedDefinitionProof(factory, wrapperProof, call)
 	if err != nil {
@@ -310,8 +418,8 @@ func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition,
 	if err := call.closeHandles(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	*refs = append(*refs, call.refs[0], call.refs[1])
-	out = call.refs[2]
+	*refs = append(*refs, call.refs[:wrapperIndex]...)
+	out = call.refs[wrapperIndex]
 	call.refs = nil
 	return out, nil
 }

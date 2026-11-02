@@ -21,7 +21,7 @@ func (g *RPFP) proveBackgroundLiteral(factory solver.Factory, background []*Expr
 			g.pendingProofWitnesses = append(g.pendingProofWitnesses, call)
 			result = errors.Join(result, err)
 		}
-		if result != nil {
+		if result != nil && out != (ast.ASTRef{}) {
 			result = errors.Join(result, m.DelRef(&out))
 		}
 	}()

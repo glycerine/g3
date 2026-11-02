@@ -26,6 +26,8 @@ Acceleration tactics are durable for every batch:
 - Give each behavior a source-derived semantic oracle, ownership/lifecycle assertions and a focused native package test. Preserve guards and existing tests; record legacy source limitations explicitly instead of inventing silent divergences.
 - Integrate and commit each green slice immediately with a one-sentence message, then reassign that lane from the next unchecked dependency-frontier item. Run affected cross-package checks after integration and reserve the full native suite for the roughly hourly checkpoint.
 
+The next functional frontier after the current activation batch is configured lazy-table defaults; actual checked bytecode with checked compiler temporaries; arithmetic interval storage/query hooks with source approximate-result status; and concrete mixed products/sieves. The source sieve plugin is live through product joins and multiple representation names even though current Go production callers are absent, so lack of a Go caller is not evidence that this C++ path is dead. Keep one owner for shared fixedpoint selection and lifecycle files while other lanes prepare typed operations and independent semantic tests. Relation-level explanations, explanation/checker combinations and remaining negative/unbound explanation bodies stay explicit obligations.
+
 ## 1. Inventory and baseline
 
 - [x] Enumerate every current partial or unclassified muz unit below from `port_manifest.json`.
@@ -34,6 +36,7 @@ Acceleration tactics are durable for every batch:
   - [x] Repair manifest evidence links to existing tests at unit and method scope; restore the broad portcheck gate without changing test declarations, validator rules or audited statuses. This verifies evidence availability, not semantic completion.
 - [ ] Inspect every source conditional, function and live consumer for each partial unit; turn each remaining obligation into an explicit implementation or audit item.
 - [ ] Verify previously marked ported units against their actual consumers and proof/ownership requirements; status labels alone are insufficient.
+  - [x] Correct the stale whole-unit completion claims for `dl_compiler.cpp/.h`: completed finite/explanation methods remain recorded, while live abstract/product/widening dispatch makes both units partial until their broader consumers are integrated and audited.
 - [x] Classify remaining CMake/README entries through their actual Go build/documentation replacements.
 
 ## 2. Shared fixedpoint infrastructure
@@ -390,11 +393,15 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Concrete project and rename dispatch with source renumbering/cycle semantics and independent results.
   - [x] Interval-source union/widen dispatch preserves source pruning and ignored-delta behavior.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
+- [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
+  - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
+  - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; staged interval lowering and checked bytecode helpers do not close main-engine activation.
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
   - [x] Rule-free fixedpoint execution dispatches external EMPTY/STORE/IS_EMPTY for AST/table facts, queries and exact relation answers.
   - [x] Ground facts and single-positive-tail ordered projections execute through STORE/CLONE/PROJECT/UNION callbacks with whole-program validation.
-  - [ ] Reordered/repeated/constant external heads, joins, negation, interpreted tails, delta/widen scheduling and generic manager selection.
+  - [x] Reordered/repeated/constant external heads, two-tail joins, tail constant/repeated-variable filters and finite-delta recursive saturation.
+  - [ ] Unbound external heads, more than two positive tails, negation, interpreted tails, widening and broader manager selection.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
   - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
@@ -403,6 +410,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Retained finite/interval product consumer now uses the concrete interval capability predicate.
   - [x] AST-valued fact membership reaches finite/interval product lookup; select-equal/project uses the concrete clone/filter/project fallback.
 - [ ] `src/muz/rel/dl_lazy_table.cpp` (partial), `src/muz/rel/dl_lazy_table.h` (partial)
+  - [x] Activate explicit LazySparse predicate storage and compiled queries with independent context factories and clone-on-shared-source mutation.
   - [x] Negated-join direct forcing plus cached join/equality-filter projection fusion after observation.
   - [x] Interpreted-force failure preserves its transferred table without publishing an incomplete cache and retries transactionally.
   - [x] Equality, identical and negation mutators release transferred source nodes before applying the operation, with retryable child cleanup.
@@ -1072,3 +1080,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Added the positive Horn interval evaluator with multiple arithmetic tails, repeated/shared variables, numeral arguments, remapped bounds and head projection. Dependency-first SCC scheduling completes lower components and ordinary outside seeds before recursive widening, preserving the [0,10] seed regression. Typed storage pins declarations and snapshots facts; nonempty interval abstractions return unknown, including a convex-hull false positive, while empty results return false. Actual engine representation hooks remain separate. Also corrected command Datalog numeric spellings to use finite-domain symbol interning, preserving domain-capacity checks. Independent interval review and root interval/parser focus passed in 0.022s/0.012s. Commit: `Port interval rule saturation and Datalog numeric symbols`.
 
 - 2026-11-02 — Activated explicit tr_lazy_sparse predicate storage and existing bytecode execution, preserving tuple migration and source nullary selection guards. Expression clones and parent publication migrate through independent factories so either context can close first. Real mixed/nullary integration exposed destructive movement of a shared loaded root; mutators now clone shared packed children and move only unique children. Independent ownership review is clean; focused relational runtime checks passed in 0.012s and final fixedpoint integration including sparse/default/explanation/direct-fact paths in 0.119s. Configured lazy defaults and multi-kind products remain separate; checked queries still use interpreted saturation. Commit: `Activate lazy sparse predicate storage and compiled queries`.
+
+- 2026-11-02 — Focused SMT-LIB integration exposed two existing array-query regressions after mandatory Duality proof validation. Corrected structural witness selection for source A=select(C,B) by matching the already-bound target select term; this proposes an array witness without assuming select injectivity, and every complete residual guard still needs independent validation. Both unchanged SAT/UNSAT/SAT query sequences now pass, and zero-output cleanup no longer adds spurious invalid-owner errors. Independent proof review is clean; root reran the same public gate successfully: CLI fixedpoint scripts 0.872s, SMT-LIB fixedpoint/Duality/TAB focus 4.689s. Commit: `Reconstruct array witnesses for quantified Duality queries`.

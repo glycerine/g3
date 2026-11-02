@@ -35,7 +35,7 @@ func (c *Counterexample) Proof(factory solver.Factory, background ...*Expr) (out
 	}
 	defer func() {
 		result = errors.Join(result, scope.Close())
-		if result != nil {
+		if result != nil && out != (ast.ASTRef{}) {
 			result = errors.Join(result, m.DelRef(&out))
 		}
 	}()
@@ -62,7 +62,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 		for i := range refs {
 			result = errors.Join(result, m.DelRef(&refs[i]))
 		}
-		if result != nil {
+		if result != nil && out != (ast.ASTRef{}) {
 			result = errors.Join(result, m.DelRef(&out))
 		}
 	}()
