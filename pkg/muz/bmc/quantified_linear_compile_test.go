@@ -277,6 +277,15 @@ func TestBMCQuantifiedLinearSearchPreservesSolverScope(t *testing.T) {
 	if cancelErr == nil || canceledModel != nil {
 		t.Fatal("canceled quantified search returned a model", cancelErr)
 	}
+	// The source has a second checkpoint after compiling/asserting a width and
+	// before adding q(T). One unit lets the outer checkpoint pass and requires
+	// the post-compilation checkpoint to restore the solver scope.
+	must(m.ResourceLimit().Push(1))
+	limitedStatus, limitedWidth, limitedModel, limitedErr := compiler.SearchQuantifiedLinear(set, goal, solver)
+	m.ResourceLimit().Pop()
+	if limitedErr == nil || limitedStatus != lbool.Undef || limitedWidth != 4 || limitedModel != nil {
+		t.Fatal("post-compilation quantified checkpoint was skipped", limitedStatus, limitedWidth, limitedModel, limitedErr)
+	}
 	status, width, md, err := compiler.SearchQuantifiedLinear(set, goal, solver)
 	must(err)
 	if status != lbool.True || width != 4 || md == nil {

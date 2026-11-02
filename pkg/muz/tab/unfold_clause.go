@@ -3,8 +3,6 @@ package tab
 // Source: src/muz/tab/tab_context.cpp, unifier::unify substitution phase.
 
 import (
-	"errors"
-
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/substitution"
 )
@@ -65,14 +63,9 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if target == nil || source == nil || target.closed || source.closed || target.manager != source.manager {
 		return nil, false, ast.ErrASTHandle
 	}
-	defer func() {
-		if err != nil && result != nil {
-			err = errors.Join(err, result.Close())
-			result = nil
-			matched = false
-		}
-	}()
 	m := target.manager
+	attempt := &unfoldConstructionAttempt{manager: m}
+	defer func() { result, matched, err = finishUnfoldConstruction(attempt, matched, err) }()
 	targetPreds, err := target.Predicates()
 	if err != nil {
 		return nil, false, err
@@ -88,12 +81,7 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if err != nil {
 		return nil, false, err
 	}
-	transferred := false
-	defer func() {
-		if !transferred {
-			err = errors.Join(err, subst.Close())
-		}
-	}()
+	attempt.substitution = subst
 	count := target.numVars
 	if source.numVars > count {
 		count = source.numVars
@@ -105,19 +93,21 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if err != nil {
 		return nil, false, err
 	}
-	defer func() { err = errors.Join(err, unifier.Close()) }()
+	attempt.unifier = unifier
 	matched, err = unifier.UnifyPair(targetPreds[selected], sourceHead, subst, true)
 	if err != nil || !matched {
 		return nil, matched, err
 	}
 	result = &unfoldedClause{manager: m}
+	attempt.result = result
 	apply := func(h ast.ASTHandle, offset uint32) (ref ast.ASTRef, e error) {
 		ref, e = m.NewRef(ast.ASTHandle{})
 		if e != nil {
 			return ref, e
 		}
 		if e = subst.Apply(2, []uint32{0, count}, substitution.NewExprOffset(h, offset), ref); e != nil {
-			e = errors.Join(e, m.DelRef(&ref))
+			attempt.temporary = append(attempt.temporary, ref)
+			ref = ast.ASTRef{}
 		}
 		return ref, e
 	}
@@ -162,12 +152,12 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if err != nil {
 		return result, false, err
 	}
-	defer func() { err = errors.Join(err, m.DelRef(&left)) }()
+	attempt.left = left
 	right, err := apply(sourceConstraint, 1)
 	if err != nil {
 		return result, false, err
 	}
-	defer func() { err = errors.Join(err, m.DelRef(&right)) }()
+	attempt.right = right
 	a, err := m.RefGet(left)
 	if err != nil {
 		return result, false, err
@@ -187,7 +177,7 @@ func unfoldClauseExpressionsWithBindings(target *Clause, selected uint32, source
 	if saveBindings {
 		result.bindings = subst
 		result.maxVars = count
-		transferred = true
+		attempt.substitution = nil
 	}
 	return result, true, nil
 }

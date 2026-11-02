@@ -55,8 +55,23 @@ type Context struct {
 	flexibleTrace      bool
 	fullTraceAnswer    bool
 	generateProofTrace bool
+	simplifyPre        bool
+	simplifyPost       bool
 	initialized        bool
 	closed             bool
+}
+
+// SetFrameSimplification selects the source unit-subsumption hooks around
+// each inductive propagation pass. It must be fixed before initialization.
+func (c *Context) SetFrameSimplification(before, after bool) error {
+	if err := c.open(); err != nil {
+		return err
+	}
+	if c.initialized {
+		return ast.ErrASTDomain
+	}
+	c.simplifyPre, c.simplifyPost = before, after
+	return nil
 }
 
 func NewContext(manager *ast.ASTManager, params *uparams.ParamsRef, maximumContexts uint32, cacheMode ReachableCacheMode, config smtcore.SMTSolverConfig) (*Context, error) {

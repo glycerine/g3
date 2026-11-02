@@ -137,6 +137,11 @@ func (c *Context) checkReachability(level uint32) (bool, error) {
 }
 
 func (c *Context) propagate(maximum uint32) (bool, error) {
+	if c.simplifyPre {
+		if err := c.simplifyFormulas(); err != nil {
+			return false, err
+		}
+	}
 	for level := c.expanded; level <= maximum; level++ {
 		if err := c.checkpoint(); err != nil {
 			return false, err
@@ -158,6 +163,11 @@ func (c *Context) propagate(maximum uint32) (bool, error) {
 		}
 		if level == InfinityLevel {
 			break
+		}
+	}
+	if c.simplifyPost {
+		if err := c.simplifyFormulas(); err != nil {
+			return false, err
 		}
 	}
 	return false, nil

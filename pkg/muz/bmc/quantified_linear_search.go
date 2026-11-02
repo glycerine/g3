@@ -72,6 +72,16 @@ func (c *Compiler) checkQuantifiedLinearWidth(rules *base.RuleSet, query ast.AST
 	if err != nil {
 		return lbool.Undef, nil, err
 	}
+	// qlinear::check checkpoints after compiling/asserting one width and
+	// before publishing its indexed query. The outer pre-width checkpoint is
+	// not a substitute: compilation may consume the remaining resource limit.
+	canceled, err := c.manager.Canceled()
+	if err != nil {
+		return lbool.Undef, nil, err
+	}
+	if canceled {
+		return lbool.Undef, nil, fmt.Errorf("bmc: %s", c.manager.ResourceLimit().CancelMessage())
+	}
 	q, err := newQuantifiedLinear(c.manager, width)
 	if err != nil {
 		return lbool.Undef, nil, err
