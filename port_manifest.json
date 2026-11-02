@@ -94404,7 +94404,7 @@
           "name": "existing ExecutionContext and bytecode instructions dispatch through concrete FiniteTable registers for mixed SparseTable/HashTable/nullary operations and sparse loop controls",
           "status": "ported",
           "go_targets": ["pkg/muz/rel/instruction.go", "pkg/muz/rel/instruction_io.go", "pkg/muz/rel/instruction_table.go", "pkg/muz/rel/instruction_interpreted.go", "pkg/muz/rel/instruction_loop.go", "pkg/muz/rel/instruction_construct.go", "pkg/muz/rel/instruction_finite_table.go", "pkg/muz/rel/instruction_sparse_runtime_test.go", "pkg/muz/rel/instruction_loop_test.go"],
-          "tests": ["TestExecutionBytecodeMixedSparseHashAndNullaryProjection", "TestWhileInstructionAcceptsSparseFixpointControl"]
+          "tests": ["TestExecutionBytecodeMixedSparseHashAndNullaryProjection", "TestWhileInstructionAcceptsSparseFixpointControl", "TestMixedJoinOrdersSparseFunctionalSuffixAfterHashKeys", "TestMixedUnionPreservesLoadedEmptyHashRepresentation"]
         },
         {
           "name": "instruction_block ordered ownership, execution with termination checks, cost processing, annotations, statistics, display and reset (dl_instruction.cpp:1127-1190)",

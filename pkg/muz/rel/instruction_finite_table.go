@@ -46,9 +46,17 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 	return NewHashTable(signature), nil
 }
 
-func newFiniteResult(signature Signature, sparse bool) (FiniteTable, error) {
-	if sparse && signature.Len() != 0 {
-		return NewSparseTable(signature, 0)
+func newFiniteJoinResult(signature Signature, functional int, first, second FiniteTable) (FiniteTable, error) {
+	if _, sparse := first.(*SparseTable); sparse && signature.Len() != 0 {
+		return NewSparseTable(signature, functional)
+	}
+	if functional == 0 {
+		if _, hash := first.(*HashTable); hash {
+			return NewHashTable(signature), nil
+		}
+	}
+	if _, sparse := second.(*SparseTable); sparse && signature.Len() != 0 {
+		return NewSparseTable(signature, functional)
 	}
 	return NewHashTable(signature), nil
 }
@@ -75,14 +83,26 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 	if err = validateColumns(firstSignature, secondSignature, left, right); err != nil {
 		return nil, err
 	}
-	domains := append(firstSignature.Domains(), secondSignature.Domains()...)
+	firstFunctional, secondFunctional := 0, 0
+	if sparse, ok := first.(*SparseTable); ok {
+		firstFunctional = sparse.functional
+	}
+	if sparse, ok := second.(*SparseTable); ok {
+		secondFunctional = sparse.functional
+	}
+	firstDomains, secondDomains := firstSignature.Domains(), secondSignature.Domains()
+	firstBoundary := len(firstDomains) - firstFunctional
+	secondBoundary := len(secondDomains) - secondFunctional
+	domains := make([]uint64, 0, len(firstDomains)+len(secondDomains))
+	domains = append(domains, firstDomains[:firstBoundary]...)
+	domains = append(domains, secondDomains[:secondBoundary]...)
+	domains = append(domains, firstDomains[firstBoundary:]...)
+	domains = append(domains, secondDomains[secondBoundary:]...)
 	signature, err := NewSignature(domains)
 	if err != nil {
 		return nil, err
 	}
-	_, firstSparse := first.(*SparseTable)
-	_, secondSparse := second.(*SparseTable)
-	result, err := newFiniteResult(signature, firstSparse || secondSparse)
+	result, err := newFiniteJoinResult(signature, firstFunctional+secondFunctional, first, second)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +126,7 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 				}
 			}
 			if match {
-				fact := append(append(Fact(nil), a...), b...)
+				fact := sparseFunctionalJoinFact(a, b, len(a)-firstFunctional, len(b)-secondFunctional)
 				if _, err = result.Add(fact); err != nil {
 					_ = result.Close()
 					return nil, err

@@ -38,6 +38,7 @@ func TestExecutionBytecodeMixedSparseHashAndNullaryProjection(t *testing.T) {
 		NewJoinInstruction(0, 1, []int{0}, []int{0}, 2),
 		NewProjectionInstruction(2, []int{0, 1}, 3),
 		NewCloneInstruction(2, 4),
+		NewJoinInstruction(1, 0, []int{0}, []int{0}, 5),
 	} {
 		if err = block.Append(instruction); err != nil {
 			t.Fatal(err)
@@ -61,6 +62,10 @@ func TestExecutionBytecodeMixedSparseHashAndNullaryProjection(t *testing.T) {
 	if _, err = context.Register(2); err == nil {
 		t.Fatal("legacy Hash register accessor accepted sparse owner")
 	}
+	reversed, err := context.Register(5)
+	if err != nil || reversed == nil {
+		t.Fatal("Hash-first mixed join did not preserve source plugin priority", reversed, err)
+	}
 	clone, err := context.FiniteRegister(4)
 	if err != nil {
 		t.Fatal(err)
@@ -82,6 +87,66 @@ func TestExecutionBytecodeMixedSparseHashAndNullaryProjection(t *testing.T) {
 	contains, err := nullary.Contains(Fact{})
 	if err != nil || !contains {
 		t.Fatal("project-all nullary fact", contains, err)
+	}
+}
+
+func TestMixedJoinOrdersSparseFunctionalSuffixAfterHashKeys(t *testing.T) {
+	sparseSignature, err := NewSignature([]uint64{4, 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	left, err := NewSparseTable(sparseSignature, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = left.Add(Fact{1, 7}); err != nil {
+		t.Fatal(err)
+	}
+	hashSignature, err := NewSignature([]uint64{16})
+	if err != nil {
+		t.Fatal(err)
+	}
+	right := NewHashTable(hashSignature)
+	if _, err = right.Add(Fact{9}); err != nil {
+		t.Fatal(err)
+	}
+	context := NewExecutionContext(nil)
+	t.Cleanup(func() { _ = context.Close() })
+	if err = context.SetFiniteRegister(0, left); err != nil {
+		t.Fatal(err)
+	}
+	if err = context.SetRegister(1, right); err != nil {
+		t.Fatal(err)
+	}
+	instruction := NewJoinInstruction(0, 1, nil, nil, 2)
+	t.Cleanup(func() { _ = instruction.Close() })
+	complete, err := instruction.Perform(context)
+	if err != nil || !complete {
+		t.Fatal("functional mixed join", complete, err)
+	}
+	joined, err := context.FiniteRegister(2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sparse, ok := joined.(*SparseTable)
+	if !ok {
+		t.Fatalf("Sparse-first functional result type %T", joined)
+	}
+	functional, err := sparse.FunctionalColumns()
+	if err != nil || functional != 1 {
+		t.Fatal("functional result metadata", functional, err)
+	}
+	signature, err := sparse.Signature()
+	if err != nil {
+		t.Fatal(err)
+	}
+	domains := signature.Domains()
+	if len(domains) != 3 || domains[0] != 4 || domains[1] != 16 || domains[2] != 8 {
+		t.Fatal("functional result domain order", domains)
+	}
+	facts, err := sparse.Facts()
+	if err != nil || len(facts) != 1 || len(facts[0]) != 3 || facts[0][0] != 1 || facts[0][1] != 9 || facts[0][2] != 7 {
+		t.Fatal("functional result row order", facts, err)
 	}
 }
 
