@@ -87287,7 +87287,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": [
+      "go_targets": ["pkg/muz/duality/build_graph.go",
         "pkg/muz/duality/query_clause.go",
         "pkg/muz/duality/query_clause_test.go",
         "pkg/muz/duality/missing_heads.go",
@@ -87297,7 +87297,7 @@
         "pkg/muz/duality/prepare_query_failure_test.go",
         "pkg/muz/duality/prepare_query_failure_test.go"
       ],
-      "tests": [
+      "tests": ["pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
         "TestMissingHeadClausesQuantifiedAndGround",
         "TestPrepareQueryRulesMissingHeadsAndBounds",
@@ -87385,7 +87385,7 @@
       ],
       "methods_audited": true,
       "ownership_audited": false,
-      "methods": [
+      "methods": [{"name": "query RPFP construction", "status": "partial", "go_target": "pkg/muz/duality/build_graph.go", "reason": "Prepared fixedpoint query clauses and bounds now construct the owning Duality RPFP with context validation and failure cleanup; fixedpoint dispatch, solver lifecycle and result publication remain unfinished.", "tests": ["TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"]},
         {
           "name": "query preparation: ordered rule/query clauses, missing predicate heads and recursion bounds",
           "status": "ported",
