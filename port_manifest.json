@@ -98619,7 +98619,11 @@
         "pkg/parsers/smt2/fixedpoint_commands_test.go",
         "pkg/api/api_fixedpoint_expression_answer_test.go",
         "pkg/muz/fp/engine_result_routing_test.go",
-        "pkg/muz/fp/query_expression.go"
+        "pkg/muz/fp/query_expression.go",
+        "pkg/muz/fp/spacer_expression_cover_test.go",
+        "pkg/muz/fp/spacer_expression_cancellation_test.go",
+        "pkg/muz/fp/spacer_expression_owner_failure_test.go",
+        "pkg/muz/fp/pdr_expression_fixture_test.go"
       ],
       "tests": [
         "TestSpacerRelationQueryReversesMixedSortHead",
@@ -98632,7 +98636,10 @@
         "TestSMT2FixedpointSpacerIntegerQueriesMatchCPP",
         "TestAPIFixedpointSpacerExpressionGroundAnswerAndTrace",
         "TestExpressionQueryLastResultAndSpacerTraceInvalidation",
-        "TestAPIFixedpointSpacerExpressionQueryFromLevel"
+        "TestAPIFixedpointSpacerExpressionQueryFromLevel",
+        "TestSpacerExpressionQueryUsesPrequeryCoverOwner",
+        "TestSpacerExpressionCancellationPreservesOwnersAndRetry",
+        "TestSpacerExpressionPrequeryOwnerFailureAndRetry"
       ],
       "assertions": [
         {
@@ -98647,6 +98654,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "expression-query cover owner transfer and active-clone property forwarding, preparation/solve failure ownership, resource interruption and retry", "status": "ported", "go_targets": ["pkg/muz/fp/query_expression.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/spacer/context.go", "pkg/muz/spacer/predicate_rules.go", "pkg/muz/spacer/predicate_reachability.go", "pkg/muz/spacer/normalize.go"], "tests": ["TestSpacerExpressionQueryUsesPrequeryCoverOwner", "TestSpacerExpressionCancellationPreservesOwnersAndRetry", "TestSpacerExpressionPrequeryOwnerFailureAndRetry"]},
         {"name": "relation query creates a synthetic rule in the temporary preprocessing set, attaches its asserted proof when tracing, and routes answer, model and ground trace through its derived query predicate", "status": "ported", "go_targets": ["pkg/muz/fp/spacer_relation_query.go", "pkg/muz/fp/spacer_relation_query_test.go", "pkg/muz/fp/spacer_rule_lifecycle_test.go", "pkg/parsers/smt2/spacer_slice_trace_test.go", "pkg/muz/fp/spacer_engine.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/pdr_engine.go"], "tests": ["TestSpacerRelationQueryProofFollowsTraceSetting", "TestSpacerRelationQueryReversesMixedSortHead", "TestSMT2SpacerSlicesWithProofTrace", "TestSpacerRepeatedQueriesReuseContextAndResetUncoveredRules"]},
         {
           "name": "dl_interface cover/level operations access the Spacer context before the first query; check_reset skips its comparison when the old rule set is empty, preserving supplied covers through first rule installation",
@@ -98748,6 +98756,7 @@
         "PropositionalEngine owns the active Spacer Context and rebuilds it after tracked rule or parameter changes; returned answers and inductive models transfer ownership to the caller."
       ],
       "deviations": [
+        "Expression-query covers now follow the active context, including tested preparation/solve allocation failures and cancellation. Expression-query cumulative statistics and full model/proof validation remain open.",
         "Go reconstructs model-derived public formulas through the ordered Horn conversion ledger. The Go model converter expands complete interpretation expressions instead of storing source non-ground wildcard function entries. Coalesce/unfold source hyper-resolution proof construction is implemented and verified through combined preprocessing with original asserted leaves; slice proof conversion is partial.",
         "Expression-query trace names follow transformed rules as in the source: rule_unifier concatenates target and source names with semicolons, while subsumption checking can collapse a total named chain into the unnamed synthetic query fact. No reconstruction of original names is performed by the source get_rules_along_trace forwarding path."
       ]

@@ -155,6 +155,9 @@ func (p *PredicateTransformer) CheckReachability(obligation *ProofObligation) (r
 		Weakness:        &weakness,
 	})
 	if err != nil {
+		if check != nil {
+			err = errors.Join(err, check.Close(p.manager))
+		}
 		return nil, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, check.Close(p.manager)) }()
@@ -162,9 +165,10 @@ func (p *PredicateTransformer) CheckReachability(obligation *ProofObligation) (r
 	check.Core = nil
 	check.Model = nil
 	committed := false
+	ownedResult := result
 	defer func() {
 		if !committed {
-			resultErr = errors.Join(resultErr, result.Close(p.manager))
+			resultErr = errors.Join(resultErr, ownedResult.Close(p.manager))
 			result = nil
 		}
 	}()

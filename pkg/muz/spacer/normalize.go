@@ -265,6 +265,9 @@ func normalizeFormula(manager *ast.ASTManager, context *uparams.ParamsContext, g
 	}
 	rw, err := astrewriter.NewTheoryRewriter(manager, context, globals, &local)
 	if err != nil {
+		if rw != nil {
+			err = errors.Join(err, rw.Close())
+		}
 		return ast.ASTRef{}, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, rw.Close()) }()

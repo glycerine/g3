@@ -286,6 +286,14 @@ func appendSpacerDeclaration(order *[]ast.ASTHandle, seen map[ast.ASTHandle]bool
 	}
 }
 
+// Initialized reports whether a rule program has been installed.
+func (c *Context) Initialized() (bool, error) {
+	if err := c.open(); err != nil {
+		return false, err
+	}
+	return c.initialized, nil
+}
+
 func (c *Context) Initialize(set *base.RuleSet) (resultErr error) {
 	return c.InitializePredicates(set, nil)
 }

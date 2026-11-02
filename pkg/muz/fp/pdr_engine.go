@@ -389,7 +389,7 @@ func (e *PropositionalEngine) pdrContext() (_ *pdr.Context, resultErr error) {
 
 // Source level/cover access remains valid after a failed solve. Its program
 // revision is independent of the successful-result snapshot used by answers.
-func (e *PropositionalEngine) pdrPropertyQueryClone() (*PropositionalEngine, error) {
+func (e *PropositionalEngine) propertyQueryClone() (*PropositionalEngine, error) {
 	if e.queryClone == nil || e.queryCloneRevision != e.revision || e.queryClone.backend != e.backend {
 		return nil, ErrPropositionalEngine
 	}
@@ -401,8 +401,8 @@ func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, erro
 	if err := e.open(); err != nil {
 		return 0, err
 	}
-	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
-		clone, err := e.pdrPropertyQueryClone()
+	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
+		clone, err := e.propertyQueryClone()
 		if err != nil {
 			return 0, err
 		}
@@ -428,8 +428,8 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 	if err := e.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
-		clone, err := e.pdrPropertyQueryClone()
+	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
+		clone, err := e.propertyQueryClone()
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
@@ -477,8 +477,8 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 	if err := e.open(); err != nil {
 		return err
 	}
-	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
-		clone, err := e.pdrPropertyQueryClone()
+	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr" || e.backend == "spacer") {
+		clone, err := e.propertyQueryClone()
 		if err != nil {
 			return err
 		}

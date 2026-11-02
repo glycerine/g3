@@ -9,6 +9,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/pdr"
+	"github.com/glycerine/g3/pkg/muz/spacer"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
@@ -71,6 +72,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		return lbool.Undef, err
 	}
 	var prequeryPDR *pdr.Context
+	var prequerySpacer *spacer.Context
 	defer func() {
 		if e.backend == "tab" {
 			e.tabUnfold += clone.tabUnfold
@@ -119,6 +121,21 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 					clone.pdrRevision = 0
 				}
 			}
+			if prequerySpacer != nil && clone.spacer == prequerySpacer {
+				initialized, stateErr := prequerySpacer.Initialized()
+				resultErr = errors.Join(resultErr, stateErr)
+				if stateErr == nil && !initialized {
+					e.spacer = clone.spacer
+					e.spacerRevision = e.revision
+					clone.spacer = nil
+					clone.spacerRevision = 0
+				}
+			}
+			if clone.backend == "spacer" && clone.spacer != nil && clone.spacerRules != nil {
+				e.queryClone = clone
+				e.queryCloneRevision = e.revision
+				return
+			}
 			if (clone.backend == "pdr" || clone.backend == "qpdr") && clone.pdr != nil && clone.pdrRules != nil {
 				// Installed frames remain inspectable after a failed solve;
 				// result access still requires the separate successful snapshot.
@@ -160,6 +177,19 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 			return lbool.Undef, err
 		}
 	}
+	// Spacer properties likewise belong to the context that installs the
+	// expression query's transformed rules.
+	if e.backend == "spacer" && e.spacer != nil && e.spacerRules == nil {
+		prequerySpacer = e.spacer
+		clone.spacer = e.spacer
+		clone.spacerRevision = clone.revision
+		e.spacer = nil
+		e.spacerRevision = 0
+	} else if e.backend == "spacer" && e.spacer != nil {
+		if err := e.closeSpacerForReplacement(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	if level != nil {
 		result, err = clone.QueryPredicateFromLevel(declaration, *level)
 	} else if clone.backend == "ddnf" {
@@ -189,7 +219,7 @@ func (e *PropositionalEngine) clearQueryResources() error {
 		archived, result = e.queryClone.snapshotPDRStatistics()
 	}
 	if err := e.queryClone.Close(); err != nil {
-		return errors.Join(result, err)
+		return errors.Join(result, fmt.Errorf("muz/fp: close expression-query clone: %w", err))
 	}
 	if archivePDR && result == nil {
 		e.pdrStatistics.Merge(archived)

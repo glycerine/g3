@@ -14,6 +14,11 @@ type coveredPDRExpressionFixture struct {
 
 func newCoveredPDRExpressionFixture(t *testing.T) *coveredPDRExpressionFixture {
 	t.Helper()
+	return newCoveredExpressionFixture(t, "pdr")
+}
+
+func newCoveredExpressionFixture(t *testing.T, backend string) *coveredPDRExpressionFixture {
+	t.Helper()
 	var budget *arena.Budget
 	t.Cleanup(func() {
 		if budget != nil && budget.Used() != 0 {
@@ -24,6 +29,7 @@ func newCoveredPDRExpressionFixture(t *testing.T) *coveredPDRExpressionFixture {
 	e, m := f.engine, f.manager
 	budget = m.Budget()
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine(backend))
 	parameters, err := e.params.NewValue()
 	must(err)
 	t.Cleanup(func() { must(e.params.Del(&parameters)) })

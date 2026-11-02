@@ -626,31 +626,43 @@ func (e *PropositionalEngine) querySpacerFromLevel(declaration ast.ASTHandle, fr
 	if err != nil {
 		return lbool.Undef, err
 	}
+	closeContext := func() error {
+		if e.spacerRules == nil {
+			initialized, stateErr := context.Initialized()
+			if stateErr == nil && !initialized {
+				return nil
+			}
+			if stateErr != nil {
+				return errors.Join(stateErr, e.closeSpacerForReplacement())
+			}
+		}
+		return e.closeSpacerForReplacement()
+	}
 	if resetRules {
 		if err = context.Reset(); err != nil {
-			return lbool.Undef, errors.Join(err, e.closeSpacerForReplacement())
+			return lbool.Undef, errors.Join(err, closeContext())
 		}
 	}
 
 	background, err := e.manager.RefGet(e.background)
 	if err != nil {
-		return lbool.Undef, errors.Join(err, e.closeSpacerForReplacement())
+		return lbool.Undef, errors.Join(err, closeContext())
 	}
 	if err = context.SetBackground(background); err != nil {
-		return lbool.Undef, errors.Join(err, e.closeSpacerForReplacement())
+		return lbool.Undef, errors.Join(err, closeContext())
 	}
 	if err = context.UpdateRulesPredicates(prepared, e.predicateOrder); err != nil {
-		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: initialize preprocessed Spacer rules: %w", err), e.closeSpacerForReplacement())
+		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: initialize preprocessed Spacer rules: %w", err), closeContext())
 	}
 	if err = context.SetQuery(queryDeclaration); err != nil {
-		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: set preprocessed Spacer query: %w", err), e.closeSpacerForReplacement())
+		return lbool.Undef, errors.Join(fmt.Errorf("muz/fp: set preprocessed Spacer query: %w", err), closeContext())
 	}
 	previousSnapshot := e.spacerRules
 	e.spacerRules = snapshot
 	installedSnapshot = true
 	if previousSnapshot != nil {
 		if err = previousSnapshot.Close(); err != nil {
-			return lbool.Undef, errors.Join(err, e.closeSpacerForReplacement())
+			return lbool.Undef, errors.Join(err, closeContext())
 		}
 	}
 	e.spacer = context

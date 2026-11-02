@@ -255,12 +255,15 @@ func (b *spacerRuleBuilder) groundVariables(expression ast.ASTHandle, variables 
 	return nil
 }
 
-func (b *spacerRuleBuilder) substitute(expression ast.ASTHandle, variables []ast.ASTHandle) (ast.ASTHandle, error) {
+func (b *spacerRuleBuilder) substitute(expression ast.ASTHandle, variables []ast.ASTHandle) (_ ast.ASTHandle, resultErr error) {
 	substitution, err := rewriter.NewVarSubstitution(b.transformer.manager, false)
 	if err != nil {
+		if substitution != nil {
+			err = errors.Join(err, substitution.Close())
+		}
 		return ast.ASTHandle{}, err
 	}
-	defer substitution.Close()
+	defer func() { resultErr = errors.Join(resultErr, substitution.Close()) }()
 	out, err := b.transformer.manager.NewRef(ast.ASTHandle{})
 	if err != nil {
 		return ast.ASTHandle{}, err
@@ -514,6 +517,9 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 	config := p.owner.contexts[0].config
 	theory, err := rewriter.NewTheoryRewriter(p.manager, config.Params, config.Globals, nil)
 	if err != nil {
+		if theory != nil {
+			err = errors.Join(err, theory.Close())
+		}
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, theory.Close()) }()
@@ -533,7 +539,7 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 	for _, rule := range rules {
 		normalized, err := builder.normalizeRule(rule)
 		if err != nil {
-			return err
+			return fmt.Errorf("normalize Spacer rule: %w", err)
 		}
 		builder.rules = append(builder.rules, normalized)
 	}
@@ -552,7 +558,7 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 		return err
 	}
 	if err = p.InitializeSystem(initial, transition); err != nil {
-		return err
+		return fmt.Errorf("initialize Spacer system: %w", err)
 	}
 	p.ruleReferences = append(p.ruleReferences, builder.references...)
 	p.rules = builder.rules
