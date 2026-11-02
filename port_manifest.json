@@ -95171,6 +95171,7 @@
       "status": "ported",
       "go_targets": [
         "pkg/muz/transforms/simple_joins.go",
+        "pkg/muz/transforms/simple_joins_close_pending_test.go",
         "pkg/muz/transforms/simple_joins_global.go",
         "pkg/muz/transforms/simple_joins_pair.go",
         "pkg/muz/transforms/simple_joins_cost.go",
@@ -95181,6 +95182,7 @@
       "tests": [
         "TestPropositionalEngineCompilesSimpleJoinNormalization",
         "TestSimpleJoinsUsesSourceSplitPredicateNames",
+        "TestSimpleJoinsClosePreservesAuxiliaryPins",
         "TestSimpleJoinPairCostCountsRepeatedVariablePositions",
         "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder",
         "TestRuleManagerWriteSourceRuleDisplay",
@@ -95307,6 +95309,7 @@
           ],
           "tests": [
             "TestSimpleJoinsUsesSourceSplitPredicateNames",
+            "TestSimpleJoinsClosePreservesAuxiliaryPins",
             "TestSimpleJoinsSelectsLowestEstimatedPair",
             "TestSimpleJoinPairCostCountsRepeatedVariablePositions",
             "TestSimpleJoinPairRegistrationHistoryKeepsSourceOrder",
@@ -95323,7 +95326,7 @@
         }
       ],
       "ownership": [
-        "SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules."
+        "SimpleJoinsPlugin borrows the AST and rule managers and relation manager, owns temporary pins for generated auxiliary applications and declarations, closes copied rule-state owners, and transfers result ownership to the caller through RuleSet. Proof mode retains asserted helper proofs and rewrite proofs for changed source rules. Refused native pin cleanup leaves every unconsumed owner reachable, blocks transformation/publication while closing, and supports retry."
       ],
       "deviations": [
         "The source incrementally updates pair registrations through replace_edges; Go rebuilds the active pair graph after each global join while preserving first-cost, sticky-stratum, output-union, ordered registration history, and one-time registration trace state. Regressions cover dynamic registration append/removal order and trace de-duplication across rebuilds. Both report_costs and dl TRACE paths are implemented with source-shaped predicate/rule text and amortized cost output; trace stream refusal is ignored by the planner as in the C++ TRACE calls. Variable intersection and projected-column cost accounting preserve repeated positional occurrences, including the added repeated-column regression. The optional context-controlled output_profile suffix on rule::display is not exposed by retained Go trace callers; those callers use the source default profile setting (false)."

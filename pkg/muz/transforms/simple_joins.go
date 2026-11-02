@@ -22,6 +22,7 @@ type SimpleJoinsPlugin struct {
 	fresh     []ast.ASTHandle
 	pins      []ast.ASTRef
 	closed    bool
+	closing   bool
 }
 
 type sharedJoinKey struct {
@@ -50,6 +51,9 @@ func (p *SimpleJoinsPlugin) CanDestratifyNegation() bool { return false }
 func (p *SimpleJoinsPlugin) Cancel()                     {}
 
 func (p *SimpleJoinsPlugin) FreshPredicates() []ast.ASTHandle {
+	if p == nil || p.closed || p.closing {
+		return nil
+	}
 	return append([]ast.ASTHandle(nil), p.fresh...)
 }
 
@@ -193,7 +197,7 @@ func (p *SimpleJoinsPlugin) attachAssertedProof(rule *base.Rule) (resultErr erro
 }
 
 func (p *SimpleJoinsPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	count, err := source.Len()
@@ -315,12 +319,19 @@ func (p *SimpleJoinsPlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
 	}
-	p.closed = true
-	var result error
-	for index := len(p.pins) - 1; index >= 0; index-- {
-		result = errors.Join(result, p.manager.DelRef(&p.pins[index]))
+	p.closing = true
+	for len(p.pins) != 0 {
+		last := len(p.pins) - 1
+		err := p.manager.DelRef(&p.pins[last])
+		if p.pins[last] == (ast.ASTRef{}) {
+			p.pins = p.pins[:last]
+		}
+		if err != nil {
+			return err
+		}
 	}
 	p.pins = nil
 	p.fresh = nil
-	return result
+	p.closed = true
+	return nil
 }
