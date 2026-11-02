@@ -33,6 +33,11 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		clone.tabSessionBorrowed = true
 	}
 	clone.datalogDefaultTable = e.datalogDefaultTable
+	if clone.datalogDefaultTable != "" {
+		if err = clone.configureDatalogFiniteDefault(clone.datalogDefaultTable); err != nil {
+			return nil, errors.Join(err, e.discardQueryClone(clone))
+		}
+	}
 	if e.queryParamsReady {
 		if err = clone.SetQueryParameters(&e.queryParams); err != nil {
 			return nil, errors.Join(err, e.discardQueryClone(clone))

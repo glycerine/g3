@@ -14,11 +14,17 @@ func TestDatalogCompiledMixedSparseHashAndNullary(t *testing.T) {
 func TestDatalogCompiledMixedLazySparseAndNullary(t *testing.T) {
 	testDatalogCompiledMixedFiniteAndNullary(t, "tr_lazy_sparse")
 }
+func TestDatalogCompiledDefaultLazySparseMixedAndNullary(t *testing.T) {
+	testDatalogCompiledMixedFiniteAndNullary(t, "default_lazy_sparse")
+}
 func testDatalogCompiledMixedFiniteAndNullary(t *testing.T, representation string) {
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("datalog"))
+	if representation == "default_lazy_sparse" {
+		must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "lazy_sparse"))
+	}
 	boolean, err := m.MkBoolSort()
 	must(err)
 	declare := func(name string, sparse bool) ast.ASTHandle {
@@ -27,7 +33,7 @@ func testDatalogCompiledMixedFiniteAndNullary(t *testing.T, representation strin
 		d, err := m.MkFuncDecl(n, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
 		must(err)
 		must(e.RegisterPredicate(d))
-		if sparse {
+		if sparse && representation != "default_lazy_sparse" {
 			must(e.SetPredicateRepresentation(d, []string{representation}))
 		}
 		return d
@@ -91,11 +97,17 @@ func TestDatalogCompiledSparseRecursiveFixpoint(t *testing.T) {
 func TestDatalogCompiledLazySparseRecursiveFixpoint(t *testing.T) {
 	testDatalogCompiledFiniteRecursiveFixpoint(t, "tr_lazy_sparse")
 }
+func TestDatalogCompiledDefaultLazySparseRecursiveFixpoint(t *testing.T) {
+	testDatalogCompiledFiniteRecursiveFixpoint(t, "default_lazy_sparse")
+}
 func testDatalogCompiledFiniteRecursiveFixpoint(t *testing.T, representation string) {
 	f := newDirectFactFixture(t)
 	e, m := f.engine, f.manager
 	must := func(err error) { t.Helper(); fragmentMust(t, err) }
 	must(e.SelectEngine("datalog"))
+	if representation == "default_lazy_sparse" {
+		must(e.globals.SourceSetName("fixedpoint.datalog.default_table", "lazy_sparse"))
+	}
 	domainName, err := m.Symbols.Intern("compiled-recursive-domain")
 	must(err)
 	domain, err := m.MkDatalogFiniteSort(domainName, 5)
@@ -108,7 +120,9 @@ func testDatalogCompiledFiniteRecursiveFixpoint(t *testing.T, representation str
 		d, err := m.MkFuncDecl(symbol, sorts, boolean, ast.ASTFuncDeclInfo{})
 		must(err)
 		must(e.RegisterPredicate(d))
-		must(e.SetPredicateRepresentation(d, []string{representation}))
+		if representation != "default_lazy_sparse" {
+			must(e.SetPredicateRepresentation(d, []string{representation}))
+		}
 		return d
 	}
 	edge := declare("compiled-sparse-edge", []ast.ASTHandle{domain, domain})
@@ -163,7 +177,7 @@ func testDatalogCompiledFiniteRecursiveFixpoint(t *testing.T, representation str
 }
 
 func matchesCompiledRepresentation(table rel.FiniteTable, representation string) bool {
-	if representation == "tr_lazy_sparse" {
+	if representation == "tr_lazy_sparse" || representation == "default_lazy_sparse" {
 		_, ok := table.(*rel.LazySparseTable)
 		return ok
 	}

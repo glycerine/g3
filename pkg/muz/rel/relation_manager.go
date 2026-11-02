@@ -19,6 +19,8 @@ type RelationManager struct {
 	explanations  map[ast.ASTHandle]*FiniteExplanationProduct
 	saturated     map[ast.ASTHandle]bool
 	defaultFinite string
+	lazyFinite    *LazySparseFiniteFactory // borrowed; context closes it after this manager
+	checkedFinite *FiniteCheckedFactory    // borrowed for one checked execution scope
 	closed        bool
 }
 
@@ -179,6 +181,8 @@ func (m *RelationManager) Close() (result error) {
 	m.finite = nil
 	m.explanations = nil
 	m.saturated = nil
+	m.lazyFinite = nil
+	m.checkedFinite = nil
 	return result
 }
 

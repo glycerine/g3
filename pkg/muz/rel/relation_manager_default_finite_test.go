@@ -102,3 +102,82 @@ func TestConstructInstructionsUseContextDefaultFiniteTable(t *testing.T) {
 		t.Fatalf("nullary total type %T, want *HashTable", table)
 	}
 }
+
+func TestRelationManagerLazyDefaultFactoryLifetimeAndContextIsolation(t *testing.T) {
+	first, second := newTableRelationFixture(t), newTableRelationFixture(t)
+	firstFactory, secondFactory := NewLazySparseFiniteFactory(), NewLazySparseFiniteFactory()
+	t.Cleanup(func() { _ = firstFactory.Close(); _ = secondFactory.Close() })
+	if err := first.relations.SetDefaultFiniteTable("lazy_sparse"); err == nil {
+		t.Fatal("lazy default accepted without factory")
+	}
+	for _, configured := range []struct {
+		manager *RelationManager
+		factory *LazySparseFiniteFactory
+	}{{first.relations, firstFactory}, {second.relations, secondFactory}} {
+		if err := configured.manager.SetLazySparseFiniteFactory(configured.factory); err != nil {
+			t.Fatal(err)
+		}
+		if err := configured.manager.SetDefaultFiniteTable("lazy_sparse"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	firstPredicate := defaultFinitePredicate(t, first, "lazy-first-context", []ast.ASTHandle{first.boolean})
+	secondPredicate := defaultFinitePredicate(t, second, "lazy-second-context", []ast.ASTHandle{second.boolean})
+	firstTable, err := first.relations.GetFiniteRelation(firstPredicate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondTable, err := second.relations.GetFiniteRelation(secondPredicate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !firstFactory.Owns(firstTable) || secondFactory.Owns(firstTable) || !secondFactory.Owns(secondTable) || firstFactory.Owns(secondTable) {
+		t.Fatal("lazy destination contexts shared a factory")
+	}
+	nullaryPredicate := defaultFinitePredicate(t, first, "lazy-nullary", nil)
+	nullary, err := first.relations.GetFiniteRelation(nullaryPredicate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := nullary.(*HashTable); !ok {
+		t.Fatalf("lazy nullary fallback type %T", nullary)
+	}
+	context, err := NewExecutionContextWithRelations(first.relations, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	total := NewTotalInstruction(Signature{domains: []uint64{2}}, 0)
+	complete, err := total.Perform(context)
+	if err != nil || !complete {
+		t.Fatal("lazy default compiler temporary", complete, err)
+	}
+	temporary, err := context.FiniteRegister(0)
+	if err != nil || !firstFactory.Owns(temporary) {
+		t.Fatal("lazy compiler temporary owner", temporary, err)
+	}
+	if err = total.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = context.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = first.relations.Close(); err != nil {
+		t.Fatal(err)
+	}
+	probe, err := firstFactory.New(Signature{domains: []uint64{2}})
+	if err != nil {
+		t.Fatal("manager closed borrowed factory", err)
+	}
+	if err = probe.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = second.relations.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = firstFactory.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err = secondFactory.Close(); err != nil {
+		t.Fatal(err)
+	}
+}

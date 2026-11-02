@@ -11,13 +11,17 @@ import (
 func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 	for _, tc := range []struct {
 		name, module, local, explicit string
-		sparse                        bool
+		sparse, lazy                  bool
 	}{
 		{name: "source-default", sparse: true},
 		{name: "module-hash", module: "hashtable"},
 		{name: "local-sparse", module: "hashtable", local: "sparse", sparse: true},
 		{name: "explicit-hash", explicit: "tr_hashtable"},
 		{name: "explicit-sparse", module: "hashtable", explicit: "tr_sparse", sparse: true},
+		{name: "module-lazy", module: "lazy_sparse", lazy: true},
+		{name: "local-lazy-alias", module: "hashtable", local: "tr_lazy_sparse", lazy: true},
+		{name: "explicit-hash-over-lazy", module: "lazy_sparse", explicit: "tr_hashtable"},
+		{name: "explicit-sparse-over-lazy", module: "lazy_sparse", explicit: "tr_sparse", sparse: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newDirectFactFixture(t)
@@ -51,6 +55,13 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 			must(err)
 			must(e.AddFact(d, []ast.ASTHandle{yes}))
 			check := func() {
+				_, lazy := e.predicates[d].table.(*rel.LazySparseTable)
+				if lazy != tc.lazy {
+					t.Fatal("configured lazy storage", lazy, tc.lazy)
+				}
+				if lazy && !e.lazyFinite.Owns(e.predicates[d].table) {
+					t.Fatal("default predicate does not use context factory")
+				}
 				_, sparse := e.predicates[d].table.(*rel.SparseTable)
 				if sparse != tc.sparse {
 					t.Fatal("configured concrete storage", sparse, tc.sparse)
@@ -71,15 +82,57 @@ func TestDatalogDefaultFiniteTableSelectionAndLifetime(t *testing.T) {
 			must(e.SetQueryParameters(nil))
 			query, err := m.MkApp(d, []ast.ASTHandle{yes})
 			must(err)
+			queryRef, err := m.NewRef(query)
+			must(err)
+			defer func() { must(m.DelRef(&queryRef)) }()
 			status, err := e.QueryExpression(query)
 			must(err)
 			if status != lbool.True {
 				t.Fatal("configured default expression query", status)
 			}
 			check()
+			if tc.lazy {
+				if e.queryClone.lazyFinite == e.lazyFinite || !e.queryClone.lazyFinite.Owns(e.queryClone.predicates[d].table) {
+					t.Fatal("default clone does not own an independent lazy factory")
+				}
+				signature, err := e.predicates[d].table.Signature()
+				must(err)
+				temporary, err := e.relations.NewDefaultFiniteTable(signature)
+				must(err)
+				if !e.lazyFinite.Owns(temporary) {
+					t.Fatal("compiler temporary uses a different default factory")
+				}
+				must(temporary.Close())
+				must(e.clearQueryResources())
+				check()
+				// Build another query snapshot for the marker assertion below.
+				status, err = e.QueryExpression(query)
+				must(err)
+				if status != lbool.True {
+					t.Fatal(status)
+				}
+			}
 			if e.queryClone.predicates[d].explicitFiniteRepresentation != (tc.explicit != "") {
 				t.Fatal("clone lost explicit representation marker")
 			}
+			if tc.lazy {
+				must(e.SelectEngine("spacer"))
+				must(e.SelectEngine("datalog"))
+				status, err = e.QueryPredicate(d)
+				must(err)
+				if status != lbool.True {
+					t.Fatal("backend recreation lost tuples", status)
+				}
+				if _, hash := e.predicates[d].table.(*rel.HashTable); !hash {
+					t.Fatal("recreated backend kept old lazy favourite")
+				}
+				found, err := e.predicates[d].table.Contains(rel.Fact{1})
+				must(err)
+				if !found {
+					t.Fatal("favourite reset lost tuple")
+				}
+			}
+
 		})
 	}
 }

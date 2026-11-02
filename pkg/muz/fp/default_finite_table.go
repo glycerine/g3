@@ -3,6 +3,7 @@ package fp
 import (
 	"errors"
 
+	"github.com/glycerine/g3/pkg/muz/rel"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -30,12 +31,14 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 		switch name {
 		case "sparse", "tr_sparse":
 			name = "sparse"
+		case "lazy_sparse", "tr_lazy_sparse":
+			name = "lazy_sparse"
 		default:
 			name = "hashtable" // No preferred supported plugin: source registration-order fallback.
 		}
 		e.datalogDefaultTable = name
 	}
-	if err := e.relations.SetDefaultFiniteTable(name); err != nil {
+	if err := e.configureDatalogFiniteDefault(name); err != nil {
 		return err
 	}
 	for _, decl := range e.predicateOrder {
@@ -52,4 +55,18 @@ func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error)
 		}
 	}
 	return nil
+}
+
+// Each context supplies its own lazy engine to its favourite plugin so
+// predicates and compiler temporaries share that context's deferred owners.
+func (e *PropositionalEngine) configureDatalogFiniteDefault(name string) error {
+	if name == "lazy_sparse" {
+		if e.lazyFinite == nil {
+			e.lazyFinite = rel.NewLazySparseFiniteFactory()
+		}
+		if err := e.relations.SetLazySparseFiniteFactory(e.lazyFinite); err != nil {
+			return err
+		}
+	}
+	return e.relations.SetDefaultFiniteTable(name)
 }
