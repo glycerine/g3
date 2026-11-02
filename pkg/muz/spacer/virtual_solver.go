@@ -482,6 +482,18 @@ func (s *VirtualSolver) Proof() (ast.ASTHandle, error) {
 	return s.factory.manager.RefGet(s.proof)
 }
 
+// CollectStatistics follows the source virtual_solver no-op. Shared backend
+// counters are collected once by the owning factory, not by each view.
+func (s *VirtualSolver) CollectStatistics(destination *statistics.Statistics) error {
+	if err := s.open(); err != nil {
+		return err
+	}
+	if destination == nil {
+		return ast.ErrASTHandle
+	}
+	return nil
+}
+
 func (s *VirtualSolver) Close() (result error) {
 	if s == nil || s.factory == nil {
 		return ErrVirtualSolverOwner
