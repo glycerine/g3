@@ -102233,6 +102233,10 @@
         "pkg/muz/tab/search.go",
         "pkg/muz/tab/search_proof.go",
         "pkg/muz/tab/query.go",
+        "pkg/muz/tab/query_expression.go",
+        "pkg/muz/tab/query_expression_test.go",
+        "pkg/muz/tab/statistics.go",
+        "pkg/muz/tab/statistics_test.go",
         "pkg/muz/fp/tab_engine.go",
         "pkg/muz/fp/tab_engine_test.go",
         "pkg/cmd/g3/tab_integration_test.go"
@@ -102250,6 +102254,8 @@
         "TestClauseClosePreservesASTOwnersOnNativeRefusal",
         "TestTabEngineQueryProofAndSnapshots",
         "TestTabEngineCompoundExpressionQuery",
+        "TestQueryExpressionScopesCompoundRuleAndPreservesProof",
+        "TestTabStatisticsCollectAndResetSourceKeys",
         "TestSMTLibRunnerTabulationArithmeticRules",
         "TestSubsumptionLiteralNormalizationOrdersEqualityArguments"
       ],
