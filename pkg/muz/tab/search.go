@@ -21,6 +21,8 @@ type tabSearch struct {
 	querySolver, subsumptionSolver solver.Solver
 	modelEvaluator                 *model.ModelEvaluatorConfig
 	selection                      *predicateSelection
+	selectionOwned                 bool
+	session                        *Session
 	stack, index, owned            []*Clause
 	nextSequence                   uint32
 	unfold, unfoldFail, subsumed   uint32
@@ -29,6 +31,10 @@ type tabSearch struct {
 
 // newTabSearch takes ownership of query and borrows the rule index and services.
 func newTabSearch(query *Clause, rules *RuleIndex, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, evaluator ...*model.ModelEvaluatorConfig) (search *tabSearch, err error) {
+	return newTabSearchWithSession(query, rules, rw, lite, querySolver, subsumptionSolver, strategy, nil, evaluator...)
+}
+
+func newTabSearchWithSession(query *Clause, rules *RuleIndex, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, evaluator ...*model.ModelEvaluatorConfig) (search *tabSearch, err error) {
 	if query == nil || query.closed || rules == nil || rules.closed || query.manager != rules.manager || rw == nil || rw.Manager() != query.manager || lite == nil || querySolver == nil || subsumptionSolver == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -41,21 +47,39 @@ func newTabSearch(query *Clause, rules *RuleIndex, rw *rewriter.TheoryRewriter, 
 			return nil, ast.ErrASTHandle
 		}
 	}
-	selection, err := newPredicateSelection(query.manager, strategy)
-	if err != nil {
-		return nil, err
+	var selection *predicateSelection
+	selectionOwned := session == nil
+	if session != nil {
+		if err = session.open(query.manager); err != nil {
+			return nil, err
+		}
+		selection = session.selection
+	} else {
+		selection, err = newPredicateSelection(query.manager, strategy)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err = selection.Init(rules); err != nil {
-		return nil, errors.Join(err, selection.Close())
+		if selectionOwned {
+			return nil, errors.Join(err, selection.Close())
+		}
+		return nil, err
 	}
 	if len(evaluator) > 1 {
-		return nil, errors.Join(ast.ErrASTHandle, selection.Close())
+		if selectionOwned {
+			return nil, errors.Join(ast.ErrASTHandle, selection.Close())
+		}
+		return nil, ast.ErrASTHandle
 	}
 	var modelEvaluator *model.ModelEvaluatorConfig
 	if len(evaluator) == 1 {
 		modelEvaluator = evaluator[0]
 	}
-	search = &tabSearch{manager: query.manager, rules: rules, rewriter: rw, lite: lite, querySolver: querySolver, subsumptionSolver: subsumptionSolver, modelEvaluator: modelEvaluator, selection: selection}
+	search = &tabSearch{manager: query.manager, rules: rules, rewriter: rw, lite: lite, querySolver: querySolver, subsumptionSolver: subsumptionSolver, modelEvaluator: modelEvaluator, selection: selection, selectionOwned: selectionOwned, session: session}
+	if session != nil {
+		search.nextSequence = session.nextSequence
+	}
 	search.appendClause(query)
 	return search, nil
 }
@@ -70,11 +94,15 @@ func (s *tabSearch) Close() error {
 	if s == nil || s.closed {
 		return nil
 	}
-	if s.selection != nil {
+	if s.selection != nil && s.selectionOwned {
 		if err := s.selection.Close(); err != nil {
 			return err
 		}
 		s.selection = nil
+	}
+	if s.session != nil {
+		s.session.nextSequence = s.nextSequence
+		s.session = nil
 	}
 	if err := s.cleanupClauses(); err != nil {
 		return err

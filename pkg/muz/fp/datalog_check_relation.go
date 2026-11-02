@@ -147,19 +147,27 @@ func (e *PropositionalEngine) datalogDefaultTableCheck() (checker string, enable
 	if err != nil || !enabled {
 		return "", false, err
 	}
-	readName := func(key string) (string, error) {
-		value, err := view.Symbol(key, symbol.Symbol{})
+	readName := func(key, fallback string) (string, error) {
+		defaultValue := symbol.Symbol{}
+		if fallback != "" {
+			var err error
+			defaultValue, err = e.manager.Symbols.Intern(fallback)
+			if err != nil {
+				return "", err
+			}
+		}
+		value, err := view.Symbol(key, defaultValue)
 		if err != nil || value.Value == 0 {
 			return "", err
 		}
 		name, _, err := e.manager.Symbols.BareString(value)
 		return name, err
 	}
-	base, err := readName("datalog.default_table")
+	base, err := readName("datalog.default_table", "sparse")
 	if err != nil {
 		return "", false, err
 	}
-	checker, err = readName("datalog.default_table_checker")
+	checker, err = readName("datalog.default_table_checker", "null")
 	if err != nil {
 		return "", false, err
 	}

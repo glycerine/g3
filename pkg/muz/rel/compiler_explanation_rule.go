@@ -40,6 +40,7 @@ type explanationRuleLayout struct {
 	removed          []int
 	permutation      []int
 	appendHead       bool
+	headExplanation  int
 	tailConstants    []explanationTailConstant
 	appendFinite     []explanationFiniteColumn
 	identical        [][]int
@@ -49,6 +50,7 @@ type explanationRuleLayout struct {
 }
 
 func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan explanationRuleLayout, resultErr error) {
+	plan.headExplanation = -1
 	if err := relations.open(); err != nil {
 		return plan, err
 	}
@@ -73,6 +75,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	m := relations.manager
 	var tails []ast.ASTHandle
 	var tailSignatures [][]ast.ASTHandle
+	var tailExplanations []int
 	var tailSorts []ast.ASTHandle
 	for index := 0; index < positive; index++ {
 		tail, negative, err := rule.Tail(index)
@@ -86,11 +89,21 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		if err != nil {
 			return plan, err
 		}
-		sorts, explanations, err := relations.explanationPredicateSignature(predicate)
+		explained, err := relations.predicateUsesExplanationColumns(predicate)
+		if err != nil {
+			return plan, err
+		}
+		var sorts []ast.ASTHandle
+		explanations := 0
+		if explained {
+			sorts, explanations, err = relations.explanationPredicateSignature(predicate)
+		} else {
+			sorts, _, err = relations.PredicateSignature(predicate)
+		}
 		if err != nil {
 			return plan, errors.Join(ErrCompilerUnsupported, err)
 		}
-		if explanations != 1 {
+		if explanations > 1 {
 			return plan, ErrCompilerUnsupported
 		}
 		if index == 0 {
@@ -100,6 +113,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		}
 		tails = append(tails, tail)
 		tailSignatures = append(tailSignatures, sorts)
+		tailExplanations = append(tailExplanations, explanations)
 		tailSorts = append(tailSorts, sorts...)
 	}
 	head, err := rule.Head()
@@ -150,14 +164,15 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	}
 	tailVariables := make(map[uint32][]int)
 	finiteOffset := 0
+	explanationOffset := 0
 	for tailIndex, tail := range tails {
 		finite := len(tailSignatures[tailIndex])
-		for local := 0; local <= finite; local++ {
+		for local := 0; local < finite+tailExplanations[tailIndex]; local++ {
 			column := finiteOffset + local
 			if local == finite {
 				// Concrete products group all finite columns before the
 				// explanation rows, preserving the original tail order.
-				column = len(tailSorts) + tailIndex
+				column = len(tailSorts) + explanationOffset
 			}
 			argument, err := m.GetArg(tail, uint32(local))
 			if err != nil {
@@ -202,6 +217,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 			tailVariables[index] = append(tailVariables[index], column)
 		}
 		finiteOffset += finite
+		explanationOffset += tailExplanations[tailIndex]
 	}
 	for _, columns := range tailVariables {
 		if len(columns) > 1 {
@@ -223,7 +239,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	}
 	sort.Slice(plan.identical, func(i, j int) bool { return plan.identical[i][0] < plan.identical[j][0] })
 	plan.finiteWidth = len(tailSorts)
-	plan.explanationWidth = positive
+	plan.explanationWidth = explanationOffset
 	var headColumns []int
 	available := make(map[uint32][]int, len(tailVariables))
 	for variable, columns := range tailVariables {
@@ -299,16 +315,22 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		if err != nil {
 			return plan, err
 		}
-		if _, exists := plan.columns[index]; exists {
-			return plan, ErrCompilerUnsupported
+		if column, exists := plan.columns[index]; exists {
+			if column < plan.finiteWidth || column >= width || plan.sorts[index] != sort {
+				return plan, ErrCompilerUnsupported
+			}
+			// Magic transfer/back-to-goal rules preserve a bound proof.
+			plan.headExplanation = column
+		} else {
+			plan.columns[index], plan.sorts[index] = width, sort
+			plan.appendHead = true
+			plan.headExplanation = width
+			plan.explanationWidth++
 		}
-		plan.columns[index], plan.sorts[index] = width, sort
-		plan.appendHead = true
-		plan.explanationWidth++
 	}
 	width = plan.finiteWidth + len(plan.duplicates) + plan.explanationWidth
-	if plan.appendHead {
-		keep[width-1] = true
+	if plan.headExplanation >= 0 {
+		keep[plan.headExplanation+len(plan.duplicates)] = true
 	}
 	for column := 0; column < width; column++ {
 		if !keep[column] {
@@ -406,6 +428,17 @@ func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.
 	}
 	fresh := func() uint32 { register := registers.next; registers.next++; return register }
 	loadTail := func(position int, predicate ast.ASTHandle, target uint32) (Instruction, error) {
+		explained, err := relations.predicateUsesExplanationColumns(predicate)
+		if err != nil {
+			return nil, err
+		}
+		if !explained {
+			source := VoidRegister
+			if registers.inputTail == position {
+				source = registers.inputDelta
+			}
+			return newExplanationFiniteLoadInstruction(relations, predicate, source, target)
+		}
 		if registers.inputTail == position {
 			return NewCloneInstruction(registers.inputDelta, target), nil
 		}

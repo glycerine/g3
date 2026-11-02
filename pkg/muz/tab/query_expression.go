@@ -20,6 +20,16 @@ import (
 // QueryExpression runs tabulation for an arbitrary Boolean Horn expression.
 // The synthetic query rule is query-owned; the supplied program is unchanged.
 func QueryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
+	return queryExpression(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil, evaluator...)
+}
+
+// QueryExpressionWithSession preserves the source TAB session state while
+// keeping the synthetic query rule scoped to this call.
+func QueryExpressionWithSession(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, session *Session, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
+	return queryExpression(rules, query, rw, lite, querySolver, subsumptionSolver, "", session, evaluator...)
+}
+
+func queryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, resultErr error) {
 	if rules == nil || rw == nil || rw.Manager() == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -107,6 +117,9 @@ func QueryExpression(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theo
 	}
 	if err = ruleManager.AddFormula(scoped, implication, ""); err != nil {
 		return lbool.Undef, answer, err
+	}
+	if session != nil {
+		return QueryPredicateWithSession(scoped, head, rw, lite, querySolver, subsumptionSolver, session, nil, evaluator...)
 	}
 	return QueryPredicate(scoped, head, rw, lite, querySolver, subsumptionSolver, strategy, evaluator...)
 }

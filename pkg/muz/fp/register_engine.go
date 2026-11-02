@@ -23,6 +23,9 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 			if err := e.clearTabAnswer(); err != nil {
 				return err
 			}
+			if err := e.closeTabSession(); err != nil {
+				return err
+			}
 			e.tabUnfold, e.tabUnfoldFail, e.tabSubsumed = 0, 0, 0
 		}
 		if e.backend == EngineDDNF.String() {

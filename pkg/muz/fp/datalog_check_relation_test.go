@@ -299,3 +299,14 @@ func TestDatalogDefaultTableCheckedParameterPrecedenceAndNull(t *testing.T) {
 		t.Fatal("module null checker", mode, enabled, err)
 	}
 }
+
+func TestDatalogDefaultTableCheckedUsesCatalogPrimaryFallback(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e := f.engine
+	fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+	fragmentMust(t, e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
+	checker, enabled, err := e.datalogDefaultTableCheck()
+	if err != nil || !enabled || checker != "hashtable" {
+		t.Fatal("catalog default sparse primary was not recognized", checker, enabled, err)
+	}
+}

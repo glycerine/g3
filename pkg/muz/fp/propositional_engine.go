@@ -21,6 +21,7 @@ import (
 	muzpdr "github.com/glycerine/g3/pkg/muz/pdr"
 	"github.com/glycerine/g3/pkg/muz/rel"
 	muzspacer "github.com/glycerine/g3/pkg/muz/spacer"
+	"github.com/glycerine/g3/pkg/muz/tab"
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/util/cooperate"
@@ -118,6 +119,8 @@ type PropositionalEngine struct {
 	bmcTrace            []*base.Rule
 	bmcProof            ast.ASTRef
 	tabAnswer           ast.ASTRef
+	tabSession          *tab.Session
+	tabSessionBorrowed  bool
 	tabUnfold           uint32
 	tabUnfoldFail       uint32
 	tabSubsumed         uint32
@@ -168,6 +171,10 @@ type PropositionalEngine struct {
 	closed              bool
 	closing             bool
 	ddnf                ddnfEngineState
+
+	datalogExplanationQuery   bool
+	datalogExplanationAnswer  ast.ASTRef
+	datalogExplanationCleanup []*datalogExplanationOwners
 }
 
 // NewPropositionalEngineWithServices adds the retained AST theory rewriter
@@ -2017,6 +2024,9 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
 		}
 	}
+	if e.datalogExplanationQuery {
+		return e.queryDatalogExplanation(declarations)
+	}
 	if err = e.normalizeSimpleJoins(); err != nil {
 		return lbool.Undef, err
 	}
@@ -2190,6 +2200,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
+	}
+	if kind == EngineDatalog && e.datalogExplanationAnswer != (ast.ASTRef{}) {
+		return e.manager.CopyRef(e.datalogExplanationAnswer)
 	}
 	if kind == EngineCLP {
 		value, err := e.manager.MkTrue()
@@ -2619,6 +2632,7 @@ func (e *PropositionalEngine) Close() (result error) {
 	}
 	result = errors.Join(result, e.clearBMCTrace())
 	result = errors.Join(result, e.clearTabAnswer())
+	result = errors.Join(result, e.closeTabSession())
 	if e.pdr != nil {
 		if err := e.pdr.Close(); err != nil {
 			return errors.Join(result, err)

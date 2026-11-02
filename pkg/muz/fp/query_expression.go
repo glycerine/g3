@@ -92,6 +92,12 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	var prequeryPDR *pdr.Context
 	var prequerySpacer *spacer.Context
 	defer func() {
+		if e.backend == EngineTab.String() && e.tabSession == nil && clone.tabSession != nil {
+			e.tabSession = clone.tabSession
+			e.tabSessionBorrowed = false
+			clone.tabSession = nil
+			clone.tabSessionBorrowed = false
+		}
 		if e.backend == "tab" {
 			e.tabUnfold += clone.tabUnfold
 			e.tabUnfoldFail += clone.tabUnfoldFail
@@ -179,8 +185,14 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err = clone.AddRule(rule, ""); err != nil {
 		return lbool.Undef, err
 	}
-	if err = clone.applyQueryMagicSets(declaration); err != nil {
+	clone.datalogExplanationQuery, err = clone.datalogExplanationsEnabled()
+	if err != nil {
 		return lbool.Undef, err
+	}
+	if !clone.datalogExplanationQuery {
+		if err = clone.applyQueryMagicSets(declaration); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	// The source PDR context already exists when covers are supplied before
 	// the first query. Move that owner after query preparation succeeds.
@@ -234,6 +246,14 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 // clearQueryResources releases the backend state used to answer the previous
 // expression query. It is also called when the engine itself is closed.
 func (e *PropositionalEngine) clearQueryResources() error {
+	if err := e.clearDatalogExplanationCleanup(); err != nil {
+		return err
+	}
+	if e.datalogExplanationAnswer != (ast.ASTRef{}) {
+		if err := e.manager.DelRef(&e.datalogExplanationAnswer); err != nil {
+			return err
+		}
+	}
 	if err := e.clearQueryCleanup(); err != nil {
 		return err
 	}

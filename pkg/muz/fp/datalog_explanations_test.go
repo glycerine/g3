@@ -1,0 +1,235 @@
+package fp
+
+import (
+	"errors"
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/muz/rel"
+	"github.com/glycerine/g3/pkg/util/lbool"
+	"testing"
+)
+
+func TestDatalogExpressionExplanationsCarryNamedProofAndSurviveScope(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e, m := f.engine, f.manager
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine("datalog"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
+	must(e.AddFact(f.declarations["p"], nil))
+	step, err := m.MkImplies(f.applications["p"], f.applications["q"])
+	must(err)
+	must(e.AddRule(step, "explained-step"))
+	status, err := e.QueryExpression(f.applications["q"])
+	must(err)
+	if status != lbool.True {
+		t.Fatal(status)
+	}
+	answer, err := e.ExpressionAnswer()
+	must(err)
+	defer func() { must(m.DelRef(&answer)) }()
+	root, err := m.RefGet(answer)
+	must(err)
+	var walk func(ast.ASTHandle)
+	names := map[string]bool{}
+	walk = func(h ast.ASTHandle) {
+		kind, err := m.GetKind(h)
+		must(err)
+		if kind != ast.ASTApp {
+			return
+		}
+		d, err := m.GetDecl(h)
+		must(err)
+		sym, err := m.GetASTName(d)
+		must(err)
+		name, _, err := m.Symbols.BareString(sym)
+		must(err)
+		names[name] = true
+		n, err := m.GetNumArgs(h)
+		must(err)
+		for i := uint32(0); i < n; i++ {
+			arg, err := m.GetArg(h, i)
+			must(err)
+			walk(arg)
+		}
+	}
+	walk(root)
+	if !names["explained-step"] || !names["fact"] {
+		t.Fatal("answer lacks source proof constructors", names)
+	}
+	// The transformed product has already been scoped away; the owning answer
+	// must also outlive destruction of the expression-query clone.
+	status, err = e.QueryPredicate(f.declarations["q"])
+	must(err)
+	if status != lbool.True {
+		t.Fatal(status)
+	}
+	held, err := m.RefGet(answer)
+	must(err)
+	if held != root {
+		t.Fatal("answer owner changed after query cleanup")
+	}
+	if e.datalogExplanationAnswer != (ast.ASTRef{}) {
+		t.Fatal("direct relation query enabled expression explanations")
+	}
+}
+
+func TestDatalogExpressionExplanationModesAndRecursiveSparseSeeds(t *testing.T) {
+	for _, mode := range []string{"enabled", "magic", "local-disabled", "relation-level", "checked", "checked-default", "empty"} {
+		t.Run(mode, func(t *testing.T) {
+			f := newDirectFactFixture(t)
+			e, m := f.engine, f.manager
+			must := func(err error) { t.Helper(); fragmentMust(t, err) }
+			must(e.SelectEngine("datalog"))
+			must(e.globals.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
+			if mode == "magic" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.magic_sets_for_queries", "true"))
+			}
+			if mode == "checked" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.check_relation", "sparse"))
+			}
+			if mode == "checked-default" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checked", "true"))
+				must(e.globals.SourceSetName("fixedpoint.datalog.default_table_checker", "hashtable"))
+			}
+			if mode == "relation-level" {
+				must(e.globals.SourceSetName("fixedpoint.datalog.explanations_on_relation_level", "true"))
+			}
+			if mode == "local-disabled" {
+				params := e.params.EmptyValue()
+				key := "datalog.generate_explanations"
+				must(e.params.SetBoolName(&params, &key, false))
+				must(e.SetQueryParameters(&params))
+				must(e.params.Del(&params))
+			}
+			b, err := m.MkBoolSort()
+			must(err)
+			sym, err := m.Symbols.Intern("explanation-sparse-P")
+			must(err)
+			d, err := m.MkFuncDecl(sym, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+			must(err)
+			must(e.RegisterPredicate(d))
+			yes, err := m.MkTrue()
+			must(err)
+			if mode != "empty" {
+				must(e.AddFact(d, []ast.ASTHandle{yes}))
+			}
+			x, err := m.MkVar(0, b)
+			must(err)
+			px, err := m.MkApp(d, []ast.ASTHandle{x})
+			must(err)
+			rsym, err := m.Symbols.Intern("explanation-sparse-R")
+			must(err)
+			rd, err := m.MkFuncDecl(rsym, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+			must(err)
+			must(e.RegisterPredicate(rd))
+			rx, err := m.MkApp(rd, []ast.ASTHandle{x})
+			must(err)
+			forward, err := m.MkImplies(px, rx)
+			must(err)
+			must(e.AddRule(forward, "forward"))
+			backward, err := m.MkImplies(rx, px)
+			must(err)
+			must(e.AddRule(backward, "backward"))
+			query, err := m.MkApp(rd, []ast.ASTHandle{yes})
+			must(err)
+			queryRef, err := m.NewRef(query)
+			must(err)
+			defer func() { must(m.DelRef(&queryRef)) }()
+			status, err := e.QueryExpression(query)
+			if mode == "relation-level" || mode == "checked" || mode == "checked-default" {
+				if !errors.Is(err, rel.ErrCompilerUnsupported) {
+					t.Fatal("unsupported explanation combination guard", status, err)
+				}
+				if _, err = e.ExpressionAnswer(); !errors.Is(err, ErrPropositionalEngine) {
+					t.Fatal("failed query published answer", err)
+				}
+				return
+			}
+			must(err)
+			want := lbool.True
+			if mode == "empty" {
+				want = lbool.False
+			}
+			if status != want {
+				t.Fatal(status, want)
+			}
+			answer, err := e.ExpressionAnswer()
+			must(err)
+			defer func() { must(m.DelRef(&answer)) }()
+			if mode == "local-disabled" {
+				if e.queryClone.datalogExplanationQuery {
+					t.Fatal("module setting overrode local disable")
+				}
+			} else if e.queryClone.datalogExplanationAnswer == (ast.ASTRef{}) {
+				t.Fatal("missing explanation answer")
+			}
+			if _, ok := e.predicates[d].table.(*rel.SparseTable); !ok {
+				t.Fatal("explanation query converted seed storage")
+			}
+		})
+	}
+}
+
+func TestDatalogExpressionExplanationOpenQueryKeepsFiniteAndProofColumns(t *testing.T) {
+	f := newDirectFactFixture(t)
+	e, m := f.engine, f.manager
+	must := func(err error) { t.Helper(); fragmentMust(t, err) }
+	must(e.SelectEngine("datalog"))
+	must(e.globals.SourceSetName("fixedpoint.datalog.generate_explanations", "true"))
+	b, err := m.MkBoolSort()
+	must(err)
+	sym, err := m.Symbols.Intern("open-explanation-P")
+	must(err)
+	d, err := m.MkFuncDecl(sym, []ast.ASTHandle{b}, b, ast.ASTFuncDeclInfo{})
+	must(err)
+	must(e.RegisterPredicate(d))
+	yes, err := m.MkTrue()
+	must(err)
+	must(e.AddFact(d, []ast.ASTHandle{yes}))
+	x, err := m.MkVar(0, b)
+	must(err)
+	query, err := m.MkApp(d, []ast.ASTHandle{x})
+	must(err)
+	ref, err := m.NewRef(query)
+	must(err)
+	defer func() { must(m.DelRef(&ref)) }()
+	status, err := e.QueryExpression(query)
+	must(err)
+	if status != lbool.True {
+		t.Fatal(status)
+	}
+	answer, err := e.ExpressionAnswer()
+	must(err)
+	defer func() { must(m.DelRef(&answer)) }()
+	root, err := m.RefGet(answer)
+	must(err)
+	variables := map[uint32]ast.ASTHandle{}
+	var visit func(ast.ASTHandle)
+	visit = func(h ast.ASTHandle) {
+		kind, err := m.GetKind(h)
+		must(err)
+		if kind == ast.ASTVar {
+			index, err := m.GetVarIndex(h)
+			must(err)
+			sort, err := m.GetSort(h)
+			must(err)
+			variables[index] = sort
+			return
+		}
+		if kind != ast.ASTApp {
+			return
+		}
+		n, err := m.GetNumArgs(h)
+		must(err)
+		for i := uint32(0); i < n; i++ {
+			arg, err := m.GetArg(h, i)
+			must(err)
+			visit(arg)
+		}
+	}
+	visit(root)
+	proofSort, err := m.MkDatalogRuleSort()
+	must(err)
+	if variables[0] != b || variables[1] != proofSort || len(variables) != 2 {
+		t.Fatal("answer lost finite key or shifted proof column", variables)
+	}
+}

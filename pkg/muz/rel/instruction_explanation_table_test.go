@@ -8,6 +8,7 @@ import (
 
 func TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs(t *testing.T) {
 	f := newTableRelationFixture(t)
+	astTestMust(t, f.relations.SetDefaultFiniteTable("sparse"))
 	ruleSort, err := f.ast.MkDatalogRuleSort()
 	astTestMust(t, err)
 	declare := func(name string, sorts []ast.ASTHandle) ast.ASTHandle {
@@ -41,8 +42,11 @@ func TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs(t *tes
 	target, err := f.relations.GetExplanationRelation(typedOutput)
 	astTestMust(t, err)
 	astTestMust(t, target.AddFact([]ast.ASTHandle{f.falsehood}, old))
-	finite, err := f.relations.GetRelation(finiteOutput)
+	finite, err := f.relations.GetFiniteRelation(finiteOutput)
 	astTestMust(t, err)
+	if _, ok := finite.(*SparseTable); !ok {
+		t.Fatalf("finite output type %T, want *SparseTable", finite)
+	}
 	_, err = finite.Add(Fact{0})
 	astTestMust(t, err)
 	context, err := NewExecutionContextWithRelations(f.relations, nil)
@@ -95,10 +99,13 @@ func TestExplanationProjectionUnionBytecodePublishesTypedAndFiniteOutputs(t *tes
 			t.Fatal("explanation delta", value, got, found)
 		}
 	}
-	finite, err = f.relations.GetRelation(finiteOutput)
+	finite, err = f.relations.GetFiniteRelation(finiteOutput)
 	astTestMust(t, err)
-	finiteDelta, err := context.Register(6)
+	finiteDelta, err := context.FiniteRegister(6)
 	astTestMust(t, err)
+	if _, ok := finiteDelta.(*SparseTable); !ok {
+		t.Fatalf("finite delta type %T, want *SparseTable", finiteDelta)
+	}
 	for _, n := range []Element{0, 1} {
 		found, e := finite.Contains(Fact{n})
 		astTestMust(t, e)

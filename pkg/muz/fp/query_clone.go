@@ -28,6 +28,10 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	}
 	clone.backend = e.backend
 	clone.engineSelectionSet = e.engineSelectionSet
+	if e.backend == EngineTab.String() && e.tabSession != nil {
+		clone.tabSession = e.tabSession
+		clone.tabSessionBorrowed = true
+	}
 	clone.datalogDefaultTable = e.datalogDefaultTable
 	if e.queryParamsReady {
 		if err = clone.SetQueryParameters(&e.queryParams); err != nil {

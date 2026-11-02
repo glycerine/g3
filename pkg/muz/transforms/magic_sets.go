@@ -404,16 +404,31 @@ func (p *MagicSetsPlugin) transformRule(task magicTask, rule *base.Rule, result 
 	return p.addRule(result, newHead, tails, neg, name, rule)
 }
 
+// hasTransferFacts uses the concrete stored relation, including products with
+// explanation columns, as source create_transfer_rule's generic empty check.
+func (p *MagicSetsPlugin) hasTransferFacts(predicate ast.ASTHandle) (bool, error) {
+	product, found, err := p.relations.TryGetExplanationRelation(predicate)
+	if err != nil {
+		return false, err
+	}
+	if found {
+		rows, err := product.Len()
+		return rows != 0, err
+	}
+	table, found, err := p.relations.TryGetFiniteRelation(predicate)
+	if err != nil || !found {
+		return false, err
+	}
+	rows, err := table.Len()
+	return rows != 0, err
+}
+
 func (p *MagicSetsPlugin) addTransferRule(task magicTask, result *base.RuleSet) error {
 	if p.relations == nil {
 		return nil
 	}
-	table, found, err := p.relations.TryGetFiniteRelation(task.description.predicate)
-	if err != nil || !found {
-		return err
-	}
-	rows, err := table.Len()
-	if err != nil || rows == 0 {
+	populated, err := p.hasTransferFacts(task.description.predicate)
+	if err != nil || !populated {
 		return err
 	}
 	arity, err := p.manager.GetArity(task.description.predicate)

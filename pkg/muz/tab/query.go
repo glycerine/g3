@@ -28,6 +28,16 @@ func QueryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.Theor
 
 // QueryPredicateWithStatistics adds this query's search counters to stats.
 func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
+	return queryPredicate(rules, query, rw, lite, querySolver, subsumptionSolver, strategy, nil, stats, evaluator...)
+}
+
+// QueryPredicateWithSession runs a query using source state that persists
+// across calls, including selection decay/cache and clause sequence IDs.
+func QueryPredicateWithSession(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
+	return queryPredicate(rules, query, rw, lite, querySolver, subsumptionSolver, "", session, stats, evaluator...)
+}
+
+func queryPredicate(rules *base.RuleSet, query ast.ASTHandle, rw *rewriter.TheoryRewriter, lite *qe.Lite, querySolver, subsumptionSolver solver.Solver, strategy string, session *Session, stats *Statistics, evaluator ...model.ModelEvaluatorConfig) (status lbool.LBool, answer ast.ASTRef, err error) {
 	if rules == nil || rw == nil || rw.Manager() == nil || lite == nil || querySolver == nil || subsumptionSolver == nil {
 		return lbool.Undef, answer, ast.ErrASTHandle
 	}
@@ -76,7 +86,7 @@ func QueryPredicateWithStatistics(rules *base.RuleSet, query ast.ASTHandle, rw *
 	if len(evaluator) == 1 {
 		modelConfig = &evaluator[0]
 	}
-	search, err := newTabSearch(goal, index, rw, lite, querySolver, subsumptionSolver, strategy, modelConfig)
+	search, err := newTabSearchWithSession(goal, index, rw, lite, querySolver, subsumptionSolver, strategy, session, modelConfig)
 	if err != nil {
 		return lbool.Undef, answer, errors.Join(err, goal.Close())
 	}

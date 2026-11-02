@@ -206,7 +206,7 @@ func (i *tableInstruction) performExplanation(context *ExecutionContext) (bool, 
 }
 
 func (i *tableInstruction) unionProjectedExplanationIntoTable(context *ExecutionContext, source *FiniteExplanationProduct) (bool, error) {
-	target, err := instructionRegister(context, i.second)
+	target, err := finiteInstructionRegister(context, i.second)
 	if err != nil {
 		return false, err
 	}
@@ -216,22 +216,22 @@ func (i *tableInstruction) unionProjectedExplanationIntoTable(context *Execution
 			return false, err
 		}
 		target = NewHashTable(signature)
-		if err = context.SetRegister(i.second, target); err != nil {
+		if err = context.SetFiniteRegister(i.second, target); err != nil {
 			return false, errors.Join(err, target.Close())
 		}
 	}
-	var delta *HashTable
+	var delta FiniteTable
 	if i.result != VoidRegister {
-		delta, err = instructionRegister(context, i.result)
+		delta, err = finiteInstructionRegister(context, i.result)
 		if err != nil {
 			return false, err
 		}
 		if delta == nil {
-			delta, err = emptyLike(target)
+			delta, err = emptyFiniteLike(target)
 			if err != nil {
 				return false, err
 			}
-			if err = context.SetRegister(i.result, delta); err != nil {
+			if err = context.SetFiniteRegister(i.result, delta); err != nil {
 				return false, errors.Join(err, delta.Close())
 			}
 		}
@@ -242,7 +242,7 @@ func (i *tableInstruction) unionProjectedExplanationIntoTable(context *Execution
 	}
 	// The execution registers already own target and delta. The source converter
 	// projects only its temporary; no owning table wrapper is manufactured here.
-	err = errors.Join(target.Union(converted.table, delta), converted.Close())
+	err = errors.Join(finiteTableUnion(target, converted.table, delta), converted.Close())
 	if err != nil {
 		return false, err
 	}
