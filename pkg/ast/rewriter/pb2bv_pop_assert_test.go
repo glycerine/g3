@@ -27,8 +27,8 @@ func TestPB2BVPopSourceAssertionSites(t *testing.T) {
 			if !strings.Contains(string(data), "pb2bv_rewriter.cpp") || !strings.Contains(string(data), "439") || !strings.Contains(string(data), "m_lemmas.empty()") {
 				t.Fatal("wrong assertion site", string(data))
 			}
-		} else {
-			astTestMust(t, err)
+		} else if !errors.Is(err, ast.ErrASTDomain) {
+			t.Fatal("pending clauses did not block pop", err)
 		}
 		clauses, err := r.FlushSideConstraints()
 		astTestMust(t, err)

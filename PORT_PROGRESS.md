@@ -53521,5 +53521,5 @@ Optimization formula simplification (2026-11-01 UTC): wired `opt_context::normal
 
 Pseudo-Boolean rewriter segmented profile: the explicit unsupported-profile error is preserved; the segmented encoding remains to be implemented.
 
-Pseudo-Boolean rewriter scope assertions: Pop now gates the source pending-lemma and scope-count assertions on the actual debug assertion owner. In normal builds, Pop(0) and a valid Pop(1) leave unflushed side constraints available to the caller, matching the source; an invalid positive scope still returns a safe Go error. A native-build regression exercises those paths, while the shared scope test uses valid source preconditions.
+Pseudo-Boolean rewriter scope assertions: Pop now gates the source pending-lemma and scope-count assertions on the actual debug assertion owner. Go also guards Pop(0) and Pop(1) against unflushed side constraints in normal builds, and rejects invalid positive scopes safely. A native-build regression checks that rejected calls preserve the scope and pending constraints, and that a pop succeeds after flushing.
 The scope assertion regression also checks the exact C++ diagnostic sites when built with g3debug; its ordinary-build branch passed locally, and the tagged branch was left for the user's background run.

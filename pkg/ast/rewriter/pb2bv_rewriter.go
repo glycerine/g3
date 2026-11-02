@@ -851,6 +851,9 @@ func (r *PB2BVRewriter) Pop(scopes uint32) error {
 			return diagnostic.DebugAssertionFailure(d, "src/ast/rewriter/pb2bv_rewriter.cpp", 441, "num_scopes <= m_fresh_lim.size()")
 		}
 	}
+	if clauses != 0 {
+		return ast.ErrASTDomain
+	}
 	if scopes != 0 {
 		// Invalid source scope indices cannot be represented safely in Go.
 		if scopes > uint32(len(r.freshLimits)) {
