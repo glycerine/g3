@@ -94,7 +94,8 @@ func (s *DerivationSearch) learningFailure(err error) error {
 		return errors.Join(ErrDerivationRestart, err)
 	}
 	var interpolation interp.Error
-	if errors.Is(err, ErrCoreNotUnsat) || errors.As(err, &interpolation) {
+	var interpolationPointer *interp.Error
+	if errors.Is(err, ErrCoreNotUnsat) || errors.As(err, &interpolation) || errors.As(err, &interpolationPointer) {
 		if report := s.Search.original.streamReporter.Message("interpolation failure:" + err.Error()); report != nil {
 			return errors.Join(err, report)
 		}
