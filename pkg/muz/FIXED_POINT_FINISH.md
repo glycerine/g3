@@ -8,6 +8,14 @@ Last updated: 2026-11-02. Work is active. No engine is declared fully audited by
 
 Each completed item needs source paths, implementation/test evidence and a commit in the progress log. Unchecked means incomplete or unproven. Preserve existing encodings, safeguards and test coverage. Exclude dead source only after checking live consumers. Keep commits small and frequent; use focused native tests. The user runs checked/debug tests separately. Run the full native suite sparingly, roughly hourly.
 
+## Active delivery priorities
+
+The user approved parallel implementation on 2026-11-02. Prioritize live solver behavior, original-rule models/proofs/witnesses, incremental updates and transformation integration over diagnostic polish. Existing diagnostic and ownership obligations remain open until verified; this ordering does not remove them or lower completion requirements.
+
+Use three independent implementation lanes: shared context ingestion/display phases; Spacer symbolic nonlinear witness exports; and live rule transformations. Give shared files one owner and coordinate cross-lane changes through integration. Each lane delivers a small source-backed behavior change or meaningful semantic regression, with focused native tests and explicit remaining gaps. The integration owner reviews patches, updates this checklist/inventory and commits passing slices, targeting 5–10-minute checkpoints. Do not wait for every lane before committing a ready slice.
+
+Run relevant cross-package checks at integration and the full native suite roughly hourly, avoiding duplicate active runs. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
+
 ## 1. Inventory and baseline
 
 - [x] Enumerate every current partial or unclassified muz unit below from `port_manifest.json`.
@@ -20,7 +28,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
 
 ## 2. Shared fixedpoint infrastructure
 
-- [ ] Complete source context SMT-LIB dumps before wiring the remaining PDR transformed-rule TRACE.
+- [ ] Complete source context SMT-LIB dump fidelity, including pending-rule phases.
   - [x] Implement finalized-rule get_rules_as_formulas partitioning, preserving source order/names and quantified output-clause behavior, with ownership and dense allocation-failure coverage.
   - [ ] Handle the context's pending raw rule formulas and free-variable normalization before the finalized partition.
   - [x] Implement context display_smt2 flags: fixedpoint extensions (default true), low-level printing, declared variables, background rejection in plain HORN, output-query emission and source name freshness.
@@ -686,3 +694,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Routed APIFixedpoint.SMT2/WriteSMT2 through the source context formatter instead of the older replay-only writer. A shared engine print-config reader now serves both API and PDR trace callers. Borrowed fixedpoint-local parameter snapshots override print options for the invocation without updating the engine's query settings or invalidating an answer. New tests verify plain-HORN selection and ordered checks, omission of unused declarations, independent fixedpoint parameter state, compound-query bridge emission, background rejection with empty string result, live-reference cleanup and preservation of the published answer after successful/failed dumps. The legacy replay convenience exporter remains available. Reopened the stale ported Z3_fixedpoint_to_string API ledger entry: Go currently normalizes on ingestion, while C++ display can preserve closed pending raw formulas before flush; original binders/annotations and phase-sensitive normalization/order still need source-faithful reconciliation. API routing is implemented, but operation-wide fidelity is explicitly partial.
   Validation: complete native API/command-context packages passed (36.427s/1.515s), focused API print tests passed (0.020s), shared focused g3trace diagnostics passed (0.074s), and diff checks passed. No checked/debug tests were run.
   Broad portcheck passed with the corrected partial API status.
+
+- 2026-11-02 — The full native checkpoint launched at `466a4c562` completed with exit 0: `GOCACHE=/tmp/g3-go-cache GOTMPDIR=$PWD/temp/g3-native-build-tmp go -C pkg test ./... -short -timeout=0`, log `/tmp/g3-native-context-api.log`. This includes the owning API print-profile routing and preceding context formatter/PDR trace changes; later parallel work is not covered by this checkpoint. Activated the user-approved three-lane implementation workflow with centralized integration and behavior-first priorities. No checked/debug suites were run.
