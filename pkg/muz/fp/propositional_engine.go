@@ -107,6 +107,9 @@ type PropositionalEngine struct {
 	spacer              *muzspacer.Context
 	scopes              []*base.RuleSet
 	autoRules           []autoRuleEntry
+	rawRules            []rawRuleFormula
+	rawRuleScopes       [][]rawRuleFormula
+	retiredRawRules     []rawRuleFormula
 	autoRuleScopes      [][]autoRuleEntry
 	assertions          []ast.ASTRef
 	assertionScopes     []int
@@ -375,6 +378,11 @@ func (e *PropositionalEngine) ParametersUpdated() error {
 }
 
 func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error {
+	return e.AddRuleWithBound(formula, name, ^uint32(0))
+}
+
+// AddRuleWithBound also preserves the raw rule's Duality recursion bound.
+func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name string, recursionBound uint32) (resultErr error) {
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -382,6 +390,16 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	if err != nil {
 		return err
 	}
+	original, err := e.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	keepOriginal := false
+	defer func() {
+		if !keepOriginal {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&original))
+		}
+	}()
 	finalized, err := e.set.IsFinalized()
 	if err != nil {
 		return err
@@ -402,6 +420,8 @@ func (e *PropositionalEngine) AddRule(formula ast.ASTHandle, name string) error 
 	added := getErr == nil
 	getErr = errors.Join(getErr, e.manager.DelRef(&bound))
 	if added {
+		e.rawRules = append(e.rawRules, rawRuleFormula{original, name, recursionBound})
+		keepOriginal = true
 		e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 		e.revision++
 	}
@@ -466,6 +486,16 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	if err != nil {
 		return err
 	}
+	original, err := e.manager.NewRef(formula)
+	if err != nil {
+		return err
+	}
+	keepOriginal := false
+	defer func() {
+		if !keepOriginal {
+			resultErr = errors.Join(resultErr, e.manager.DelRef(&original))
+		}
+	}()
 	candidateSet, err := base.NewRuleSet(e.rules)
 	if err != nil {
 		return err
@@ -580,7 +610,8 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 	e.revision++
 	e.pdrRuleRevision = e.revision
-	return prior.Close()
+	keepOriginal = true
+	return errors.Join(e.replaceRawRule(name, original, oldIndex >= 0), prior.Close())
 }
 
 // Push retains a snapshot of the current rules and background assertions.
@@ -597,7 +628,12 @@ func (e *PropositionalEngine) Push() error {
 	if err = snapshot.AddRules(e.set); err != nil {
 		return errors.Join(err, snapshot.Close())
 	}
+	rawSnapshot, err := e.copyRawRules()
+	if err != nil {
+		return errors.Join(err, snapshot.Close())
+	}
 	e.scopes = append(e.scopes, snapshot)
+	e.rawRuleScopes = append(e.rawRuleScopes, rawSnapshot)
 	e.autoRuleScopes = append(e.autoRuleScopes, append([]autoRuleEntry(nil), e.autoRules...))
 	e.assertionScopes = append(e.assertionScopes, len(e.assertions))
 	return nil
@@ -615,7 +651,7 @@ func (e *PropositionalEngine) Pop() error {
 	if e.queried {
 		return fmt.Errorf("muz/fp: pop operation is only supported before a query")
 	}
-	if len(e.assertionScopes) != len(e.scopes) || len(e.autoRuleScopes) != len(e.scopes) {
+	if len(e.assertionScopes) != len(e.scopes) || len(e.autoRuleScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {
 		return ErrPropositionalEngine
 	}
 	last := len(e.scopes) - 1
@@ -625,6 +661,9 @@ func (e *PropositionalEngine) Pop() error {
 	}
 	e.revision++
 	e.scopes = e.scopes[:last]
+	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
+	e.rawRules = e.rawRuleScopes[last]
+	e.rawRuleScopes = e.rawRuleScopes[:last]
 	e.autoRules = e.autoRuleScopes[last]
 	e.autoRuleScopes = e.autoRuleScopes[:last]
 	assertionSize := e.assertionScopes[last]
@@ -634,7 +673,7 @@ func (e *PropositionalEngine) Pop() error {
 		result = errors.Join(result, e.manager.DelRef(&e.assertions[i]))
 	}
 	e.assertions = e.assertions[:assertionSize]
-	return errors.Join(result, snapshot.Close())
+	return errors.Join(result, snapshot.Close(), e.cleanupRetiredRawRules())
 }
 
 func (e *PropositionalEngine) validateFragment() error {
@@ -2230,6 +2269,15 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.external = nil
 	}
 	result = errors.Join(result, e.clearQueryResources())
+	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)
+	e.rawRules = nil
+	for _, scope := range e.rawRuleScopes {
+		e.retiredRawRules = append(e.retiredRawRules, scope...)
+	}
+	e.rawRuleScopes = nil
+	if err := e.cleanupRetiredRawRules(); err != nil {
+		return errors.Join(result, err)
+	}
 	if e.queryParamsReady {
 		result = errors.Join(result, e.params.Del(&e.queryParams))
 		e.queryParamsReady = false

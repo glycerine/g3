@@ -84848,6 +84848,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/raw_rules.go",
+        "pkg/muz/fp/raw_rules_test.go",
         "pkg/parsers/smt2/qbmc_engine_test.go",
         "pkg/muz/fp/bmc_engine_test.go",
         "pkg/muz/fp/propositional_engine.go",
@@ -84980,6 +84982,14 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "get_raw_rule_formulas and original input/scoped rule ownership",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/raw_rules.go",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/raw_rules_test.go"],
+          "tests": ["TestFixedpointRawRulesPreserveInputBoundsAndScopedLifetime", "TestFixedpointRawRuleUpdateAndPopRestoreOriginalFormula"],
+          "notes": "Keeps original formulas, names and recursion bounds in insertion order independently of normalized/split rules. RawRules binds current implicit variables and returns owned snapshots. Scope snapshots restore originals and metadata after additions or named strengthening; accepted named updates preserve their recursion bound and rejected updates preserve the old input. Replaced and partially copied owners have retryable cleanup. This supplies the raw-rule input required by Duality; its fixedpoint engine selection/dispatch remains unfinished."
+        },
         {
           "name": "expression-query result invalidation covers normalization, construction and cleanup failures",
           "status": "ported",
