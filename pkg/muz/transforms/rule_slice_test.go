@@ -1834,54 +1834,75 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 			t.Fatal("invalid derived proof side condition", status)
 		}
 	}
-	otherName, err := m.Symbols.Intern("slice-derived-unused")
-	coneMust(t, err)
-	gapFormula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: []ast.ASTHandle{integer, integer}, Names: []symbol.Symbol{name, otherName}, Body: app(derivedQ, y)})
-	coneMust(t, err)
-	scope, err = ast.NewScopedProof(m)
-	coneMust(t, err)
-	gapInner, err := m.MkProofHyperResolve(ps[:], gapFormula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{y}, {y}})
-	coneMust(t, err)
-	gapPin, err := m.NewRef(gapInner)
-	coneMust(t, err)
-	defer func() { coneMust(t, m.DelRef(&gapPin)) }()
-	gapOuter, err := m.MkProofHyperResolve([]ast.ASTHandle{gapInner}, app(derivedQ, zero), nil, [][]ast.ASTHandle{{zero, zero}})
-	coneMust(t, err)
-	gapOuterPin, err := m.NewRef(gapOuter)
-	coneMust(t, err)
-	defer func() { coneMust(t, m.DelRef(&gapOuterPin)) }()
-	coneMust(t, scope.Close())
-	gapResult, gapErr := converter.Convert(gapOuter)
-	coneMust(t, gapErr)
-	defer func() { coneMust(t, m.DelRef(&gapResult)) }()
-	gapHandle, e := m.RefGet(gapResult)
-	coneMust(t, e)
-	gapFact, e := m.GetProofFact(gapHandle)
-	coneMust(t, e)
-	if gapFact != fact {
-		t.Fatal("sparse substitution changed reconstructed fact", gapFact, fact)
-	}
-	gapValid, gapSide, e := checker.Check(gapHandle)
-	coneMust(t, e)
-	defer func() {
-		for _, condition := range gapSide {
-			coneMust(t, m.DecRef(condition))
-		}
-	}()
-	if !gapValid {
-		t.Fatal("invalid sparse variable proof")
-	}
-	for _, condition := range gapSide {
-		coneMust(t, solver.Push())
-		negated, e := m.MkNot(condition)
-		coneMust(t, e)
-		coneMust(t, solver.AssertFormula(negated))
-		status, e := solver.CheckSat(nil)
-		coneMust(t, e)
-		coneMust(t, solver.Pop(1))
-		if status != lbool.False {
-			t.Fatal("invalid sparse proof side condition", status)
-		}
-	}
+	for _, unusedValue := range []int64{0, 17} {
+		for _, gapIndex := range []uint32{1, 2} {
+			unused, err := m.ArithmeticNumeralRat(big.NewRat(unusedValue, 1), true)
+			coneMust(t, err)
+			unusedPin, err := m.NewRef(unused)
+			coneMust(t, err)
+			defer func() { coneMust(t, m.DelRef(&unusedPin)) }()
+			otherName, err := m.Symbols.Intern("slice-derived-unused")
+			coneMust(t, err)
+			gapVar, err := m.MkVar(gapIndex, integer)
+			coneMust(t, err)
+			sorts := make([]ast.ASTHandle, gapIndex+1)
+			names := make([]symbol.Symbol, gapIndex+1)
+			bindings := make([]ast.ASTHandle, gapIndex+1)
+			for i := range sorts {
+				sorts[i] = integer
+				names[i] = otherName
+				bindings[i] = unused
+			}
+			names[gapIndex] = name
+			bindings[gapIndex] = zero
+			gapFormula, err := m.MkQuantifier(ast.ASTQuantifierSpec{Forall: true, Sorts: sorts, Names: names, Body: app(derivedQ, gapVar)})
+			coneMust(t, err)
+			scope, err = ast.NewScopedProof(m)
+			coneMust(t, err)
+			gapInner, err := m.MkProofHyperResolve(ps[:], gapFormula, []ast.ASTProofPosition{{First: 1}}, [][]ast.ASTHandle{{gapVar}, {gapVar}})
+			coneMust(t, err)
+			gapPin, err := m.NewRef(gapInner)
+			coneMust(t, err)
+			defer func() { coneMust(t, m.DelRef(&gapPin)) }()
+			gapOuter, err := m.MkProofHyperResolve([]ast.ASTHandle{gapInner}, app(derivedQ, zero), nil, [][]ast.ASTHandle{bindings})
+			coneMust(t, err)
+			gapOuterPin, err := m.NewRef(gapOuter)
+			coneMust(t, err)
+			defer func() { coneMust(t, m.DelRef(&gapOuterPin)) }()
+			coneMust(t, scope.Close())
+			gapResult, gapErr := converter.Convert(gapOuter)
+			coneMust(t, gapErr)
+			defer func() { coneMust(t, m.DelRef(&gapResult)) }()
+			gapHandle, e := m.RefGet(gapResult)
+			coneMust(t, e)
+			gapFact, e := m.GetProofFact(gapHandle)
+			coneMust(t, e)
+			if gapFact != fact {
+				t.Fatal("sparse substitution changed reconstructed fact", gapFact, fact)
+			}
+			gapValid, gapSide, e := checker.Check(gapHandle)
+			coneMust(t, e)
+			defer func() {
+				for _, condition := range gapSide {
+					coneMust(t, m.DecRef(condition))
+				}
+			}()
+			if !gapValid {
+				t.Fatal("invalid sparse variable proof")
+			}
+			for _, condition := range gapSide {
+				coneMust(t, solver.Push())
+				negated, e := m.MkNot(condition)
+				coneMust(t, e)
+				coneMust(t, solver.AssertFormula(negated))
+				status, e := solver.CheckSat(nil)
+				coneMust(t, e)
+				coneMust(t, solver.Pop(1))
+				if status != lbool.False {
+					t.Fatal("invalid sparse proof side condition", status)
+				}
+			}
 
+		}
+	}
 }
