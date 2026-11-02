@@ -181,6 +181,7 @@ Acceleration tactics are durable for every batch:
   - [x] Verify ten arithmetic literal-policy cases across Int/Real equality, disequality and binary distinct: both strict orientations, negative/normalized/large rational values, source repeated-value equality order, independent implication/model compatibility and temporary-reference cleanup.
   - [x] Verify nested datatype fields appended during literal expansion are revisited across integer, Boolean and bit-vector fields; check source displacement order, positive appended-bit re-expansion and SMT equivalence in both equality orientations.
   - [x] Scan nested mixed-field expansion allocations through first success with exact semantic retry, preserved caller/proof-mode ownership and zero-budget final disposal.
+  - [x] Preserve the live expansion vector's exact AST roots across refused native cleanup and complete repeatable retry with zero budget.
   - [ ] Complete remaining expand_literals trace/exception and live-consumer audit before closing its whole source method.
 - [ ] Finish slice-proof conversion for every live source proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution have focused evidence; full substitution/ownership/exception closure remains open.
   - [x] Enumerate source hyper-resolution producers and position-preserving rebuilders; cover unary instantiation, forward multi-premise resolution and nested reverse-binary/forward resolution (source map below).
@@ -361,6 +362,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/spacer/spacer_qe_project.cpp` (reopened partial: remaining exceptional ownership/cleanup audit; implemented algorithms preserved)
 
 - [ ] `src/muz/spacer/spacer_context.cpp` (partial), `src/muz/spacer/spacer_context.h` (partial)
+  - [x] Reach-fact selection catches model-evaluator step/memory exceptions as unknown for current and origin probes, without completion or owner leakage, and permits unrestricted retry.
 - [ ] `src/muz/spacer/spacer_dl_interface.cpp` (partial)
 - [x] `src/muz/spacer/spacer_dl_interface.h` (interface declaration and owner mapping audited; implementation remains partial)
 - [ ] `src/muz/spacer/spacer_util.cpp` (partial), `src/muz/spacer/spacer_util.h` (partial)
@@ -861,3 +863,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Corrected BMC linear proof publication ordering so a late scoped-proof or normalizer cleanup failure cannot return a live proof together with an error. A real three-rule recursive campaign crosses every reachable trace/proof allocation failure through success, checks exact live-byte equality after each attempt and verifies independent successful owners. Focused tests passed in 0.057s and the complete native BMC package passed in 0.686s. Nonlinear/QBMC late-cleanup audits and broader source/ownership closure remain open.
 
 - 2026-11-02 — Completed the live `rel_context::scoped_query` boundary around Datalog filter, simple-join, unbound and similarity transformations. Repeated public queries and a post-transform failure now restore the original rule set, output marks, predicates and relation tables; existing similarity compression internals remain tested inside an explicit live scope. Baselines persisted both filter and three-tail join rewrites (one rule became two); focused Datalog scope/join/certificate/profile tests now pass in 0.141s. Backend selection diversity and the rest of the transform pipeline remain open.
+
+- 2026-11-02 — Completed Spacer reach-fact evaluator-exception handling for current and origin probes: step/memory resource exceptions are caught as unknown without model completion, shifted references are released, optional tracing records the typed reason, and an unrestricted retry selects the expected fact. Companion ownership campaigns cross non-nullary inductive-model allocations and preserve literal-expansion roots across two native cleanup refusals with zero final budget. Focused Spacer tests passed in 0.142s/0.018s/0.187s; the complete native Spacer package passed in 2.142s for the production slice. Broader context ordering/diagnostic and literal-expansion audits remain open.

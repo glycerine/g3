@@ -326,12 +326,7 @@ func (p *PredicateTransformer) IsMustReachable(state ast.ASTHandle, needModel bo
 	return true, resultModel, nil
 }
 
-func (p *PredicateTransformer) usedReachFact(evaluator *model.ModelEvaluator, all bool, oldIndex *uint32) (*ReachFact, bool, error) {
-	// Source passes false to model_evaluator_util::eval for every case,
-	// regardless of the evaluator's parameter default.
-	if err := evaluator.SetModelCompletion(false); err != nil {
-		return nil, false, err
-	}
+func (p *PredicateTransformer) usedReachFact(evaluator *model.ModelEvaluator, config model.ModelEvaluatorConfig, all bool, oldIndex *uint32) (*ReachFact, bool, error) {
 	start := uint32(0)
 	if !all {
 		start = p.initialReachFacts
@@ -357,19 +352,10 @@ func (p *PredicateTransformer) usedReachFact(evaluator *model.ModelEvaluator, al
 			}
 			return nil, false, err
 		}
-		valueRef, err := evaluator.EvaluateValue(formula)
+		_, used, err := evaluateSpacerModelBoolean(p.manager, evaluator, config, formula)
 		if owned {
 			err = errors.Join(err, p.manager.DelRef(&formulaRef))
 		}
-		if err != nil {
-			if valueRef != (ast.ASTRef{}) {
-				err = errors.Join(err, p.manager.DelRef(&valueRef))
-			}
-			return nil, false, err
-		}
-		value, err := p.manager.RefGet(valueRef)
-		used := err == nil && p.manager.IsFalse(value)
-		err = errors.Join(err, p.manager.DelRef(&valueRef))
 		if err != nil {
 			return nil, false, err
 		}
@@ -389,7 +375,8 @@ func (p *PredicateTransformer) UsedReachFact(md *model.ModelCore, all bool) (res
 	if md == nil {
 		return nil, false, ast.ErrASTHandle
 	}
-	evaluator, err := newSpacerModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
+	config := p.owner.contexts[0].config.ModelEvaluator
+	evaluator, err := newSpacerModelEvaluator(md, config)
 	if err != nil {
 		return nil, false, err
 	}
@@ -401,7 +388,7 @@ func (p *PredicateTransformer) UsedReachFact(md *model.ModelCore, all bool) (res
 			found = false
 		}
 	}()
-	result, found, resultErr = p.usedReachFact(evaluator, all, nil)
+	result, found, resultErr = p.usedReachFact(evaluator, config, all, nil)
 	return
 }
 
@@ -413,7 +400,8 @@ func (p *PredicateTransformer) UsedOriginReachFact(md *model.ModelCore, oldIndex
 	if md == nil {
 		return nil, false, ast.ErrASTHandle
 	}
-	evaluator, err := newSpacerModelEvaluator(md, p.owner.contexts[0].config.ModelEvaluator)
+	config := p.owner.contexts[0].config.ModelEvaluator
+	evaluator, err := newSpacerModelEvaluator(md, config)
 	if err != nil {
 		return nil, false, err
 	}
@@ -425,7 +413,7 @@ func (p *PredicateTransformer) UsedOriginReachFact(md *model.ModelCore, oldIndex
 			found = false
 		}
 	}()
-	result, found, resultErr = p.usedReachFact(evaluator, true, &oldIndex)
+	result, found, resultErr = p.usedReachFact(evaluator, config, true, &oldIndex)
 	return
 }
 

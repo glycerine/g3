@@ -98359,18 +98359,20 @@
           ]
         },
         {
-          "name": "pred_transformer::get_used_reach_fact/get_used_origin_reach_fact explicitly disable model completion, skip unknown case values, select the first false case and exclude initial facts when requested (spacer_context.cpp:165-198); evaluator exception/assertion fidelity remains under audit",
-          "status": "partial",
+          "name": "pred_transformer::get_used_reach_fact/get_used_origin_reach_fact explicitly disable model completion, catch typed evaluator resource exceptions as unknown, select the first false case and exclude initial facts when requested (spacer_context.cpp:165-198)",
+          "status": "ported",
           "go_targets": [
             "pkg/muz/spacer/predicate_reach.go",
             "pkg/muz/spacer/predicate_reach_selection_test.go",
-            "pkg/muz/spacer/predicate_reach_selection_failure_test.go"
+            "pkg/muz/spacer/predicate_reach_selection_failure_test.go",
+            "pkg/muz/spacer/predicate_reach_selection_exception_test.go"
           ],
           "tests": [
             "TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder",
             "TestSpacerReachFactSelectionWithoutFalseCase",
             "TestSpacerOriginReachSelectionAllocationFailureAndRetry",
-            "TestSpacerCurrentReachSelectionAllocationFailureAndRetry"
+            "TestSpacerCurrentReachSelectionAllocationFailureAndRetry",
+            "TestSpacerReachSelectionCatchesSourceEvaluatorExceptions"
           ]
         },
         {
@@ -101670,6 +101672,7 @@
           "go_targets": [
             "pkg/muz/spacer/lemma_generalizer.go",
             "pkg/muz/spacer/literal_expansion.go",
+            "pkg/muz/spacer/literal_expansion_pending_test.go",
             "pkg/muz/spacer/lemma_expansion_failure_test.go",
             "pkg/muz/spacer/lemma_generalizer_test.go",
             "pkg/muz/spacer/lemma_datatype_expansion_test.go",
@@ -101680,7 +101683,8 @@
             "TestSpacerLiteralExpansionColdFailureReleasesPartialResults",
             "TestSpacerDatatypeExpansionSourceFieldOrderAndOrientation",
             "TestSpacerNestedDatatypeExpansionProcessesAppendedMixedFields",
-            "TestSpacerNestedLiteralExpansionAllocationFailureAndRetry"
+            "TestSpacerNestedLiteralExpansionAllocationFailureAndRetry",
+            "TestSpacerLiteralExpansionPreservesRootsDuringPendingCleanup"
           ]
         },
         {
