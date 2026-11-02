@@ -1,10 +1,12 @@
 package duality_test
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -294,3 +296,77 @@ func TestDualityBackendCancellationAndRetry(t *testing.T) {
 		t.Fatal("retry after cancellation", status, err)
 	}
 }
+
+func TestDualityBackendProfileOutputAndWriterRetry(t *testing.T) {
+	owner, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer owner.Close()
+	m, err := owner.Manager()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := owner.SolverTranslationConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	backend, err := duality.NewBackend(m, config, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer backend.Close()
+	query, err := m.MkFalse()
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := duality.PrepareQuery(m, nil, nil, query, nil, math.MaxUint32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prepared.Close()
+	var output bytes.Buffer
+	if err := backend.SetProfileOutput(&output); err != nil {
+		t.Fatal(err)
+	}
+	status, err := backend.Query(prepared)
+	if err != nil || status != lbool.False || output.Len() != 0 {
+		t.Fatal("disabled profiling", status, err, output.String())
+	}
+	options := duality.DefaultQueryOptions()
+	options.Profile = true
+	if err := backend.SetOptions(options); err != nil {
+		t.Fatal(err)
+	}
+	for round := 0; round < 2; round++ {
+		output.Reset()
+		status, err = backend.Query(prepared)
+		if err != nil || status != lbool.False {
+			t.Fatal(status, err)
+		}
+		if !strings.Contains(output.String(), "SolveMain") || !strings.Contains(output.String(), "TOTALS:") {
+			t.Fatal("profile report", output.String())
+		}
+	}
+	if err := backend.SetProfileOutput(dualityProfileRefusingWriter{}); err != nil {
+		t.Fatal(err)
+	}
+	status, err = backend.Query(prepared)
+	if status != lbool.Undef || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatal("profile writer failure", status, err)
+	}
+	if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
+		t.Fatal("profile failure published model", md, err)
+	}
+	if err := backend.SetProfileOutput(&output); err != nil {
+		t.Fatal(err)
+	}
+	status, err = backend.Query(prepared)
+	if err != nil || status != lbool.False {
+		t.Fatal("profile writer retry", status, err)
+	}
+}
+
+type dualityProfileRefusingWriter struct{}
+
+func (dualityProfileRefusingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }

@@ -25,19 +25,21 @@ func TestDualityQueryOptionsDefaultsAndLocalModulePrecedence(t *testing.T) {
 	if defaults != duality.DefaultQueryOptions() || defaults.UseUnderapprox || !defaults.FeasibleEdges {
 		t.Fatal("fixedpoint defaults differ from source", defaults)
 	}
-	for _, name := range []string{"full_expand", "no_conj", "use_underapprox", "stratified_inlining", "batch_expand", "enable_restarts"} {
+	for _, name := range []string{"full_expand", "no_conj", "use_underapprox", "stratified_inlining", "batch_expand", "enable_restarts", "profile"} {
 		must(config.Globals.SourceSetName("fixedpoint.duality."+name, "true"))
 	}
 	must(config.Globals.SourceSetName("fixedpoint.duality.feasible_edges", "false"))
 	must(config.Globals.SourceSetName("fixedpoint.duality.conjecture_file", "global-conjectures"))
 	global, err := duality.ReadQueryOptions(config.Params, config.Globals, nil)
 	must(err)
-	if !global.FullExpand || !global.NoConj || global.FeasibleEdges || !global.UseUnderapprox || !global.StratifiedInlining || !global.BatchExpand || !global.EnableRestarts || global.ConjectureFile != "global-conjectures" {
+	if !global.Profile || !global.FullExpand || !global.NoConj || global.FeasibleEdges || !global.UseUnderapprox || !global.StratifiedInlining || !global.BatchExpand || !global.EnableRestarts || global.ConjectureFile != "global-conjectures" {
 		t.Fatal("module option lookup failed", global)
 	}
 	local := config.Params.EmptyValue()
 	defer config.Params.Del(&local)
 	name := "duality.full_expand"
+	must(config.Params.SetBoolName(&local, &name, false))
+	name = "duality.profile"
 	must(config.Params.SetBoolName(&local, &name, false))
 	name = "duality.feasible_edges"
 	must(config.Params.SetBoolName(&local, &name, true))
@@ -46,7 +48,7 @@ func TestDualityQueryOptionsDefaultsAndLocalModulePrecedence(t *testing.T) {
 	must(config.Params.SetStringName(&local, &name, &text))
 	override, err := duality.ReadQueryOptions(config.Params, config.Globals, &local)
 	must(err)
-	if override.FullExpand || !override.FeasibleEdges || override.ConjectureFile != "local-conjectures" || !override.NoConj || !override.UseUnderapprox || !override.StratifiedInlining || !override.BatchExpand || !override.EnableRestarts {
+	if override.Profile || override.FullExpand || !override.FeasibleEdges || override.ConjectureFile != "local-conjectures" || !override.NoConj || !override.UseUnderapprox || !override.StratifiedInlining || !override.BatchExpand || !override.EnableRestarts {
 		t.Fatal("local/module precedence failed", override)
 	}
 	// Empty local strings override populated module strings.

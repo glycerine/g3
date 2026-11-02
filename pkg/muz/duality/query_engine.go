@@ -3,6 +3,9 @@ package duality
 import (
 	"errors"
 	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/interp"
+	"io"
+	"os"
 
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/solver"
@@ -14,14 +17,15 @@ import (
 // Close. Registration and rule preprocessing are performed by its caller.
 // Source: duality_dl_interface.cpp, duality_data and query solver lifecycle.
 type QueryEngine struct {
-	options QueryOptions
-	self    *QueryEngine
-	context *graph.Context
-	config  graph.EngineConfig
-	active  *queryRun
-	runs    []*queryRun
-	status  lbool.LBool
-	closed  bool
+	profileOutput io.Writer
+	options       QueryOptions
+	self          *QueryEngine
+	context       *graph.Context
+	config        graph.EngineConfig
+	active        *queryRun
+	runs          []*queryRun
+	status        lbool.LBool
+	closed        bool
 }
 type queryRun struct {
 	graph      *graph.RPFP
@@ -58,6 +62,17 @@ func NewQueryEngine(context *graph.Context, config graph.EngineConfig) (*QueryEn
 	}
 	if config.Native == nil || config.Auxiliary == nil || config.Factory == nil || config.Simplifier == nil || config.Quantifiers == nil {
 		return nil, graph.ErrWrapperOwner
+	}
+	if config.Profiler == nil {
+		run := interp.RunConfig{}
+		if config.Interpolation != nil {
+			run = *config.Interpolation
+		}
+		if run.Profiler == nil {
+			run.Profiler = interp.NewProfiler()
+		}
+		config.Profiler = graph.NewProfiler(run.Profiler)
+		config.Interpolation = &run
 	}
 	e := &QueryEngine{context: context, config: config, status: lbool.Undef, options: DefaultQueryOptions()}
 	e.self = e
@@ -173,6 +188,18 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	status = lbool.True
 	if solved {
 		status = lbool.False
+	}
+	if e.options.Profile {
+		output := e.profileOutput
+		if output == nil {
+			output = os.Stdout
+		}
+		if config.Profiler == nil {
+			return lbool.Undef, graph.ErrWrapperOwner
+		}
+		if err := config.Profiler.Print(output); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	e.active = next
 	e.status = status

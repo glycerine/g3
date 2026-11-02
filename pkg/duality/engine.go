@@ -20,6 +20,7 @@ type EngineConfig struct {
 	Simplifier        *interp.Manager
 	Quantifiers       *qe.Lite
 	Theory            []*Expr
+	Profiler          *Profiler
 	Interpolation     *interp.RunConfig
 	Extensional       bool
 }
@@ -237,6 +238,12 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 	search := &UnwindingSearch{Unwinding: u, Native: e.config.Native, Evaluator: e.config.Evaluator, Local: e.local, Global: e.global, Auxiliary: e.config.Auxiliary, Simplifier: e.config.Simplifier, Cases: e.cases, Config: e.config.Interpolation, Heuristic: e.heuristic, Counterexample: e.counterexample, Proposers: e.proposers, FullExpand: e.options.FullExpand, UseUnderapprox: e.options.UseUnderapprox, NoConjectures: e.options.NoConj, EnableRestarts: e.options.EnableRestarts}
 	if err = search.CreateInitialUnwinding(); err != nil {
 		return false, err
+	}
+	if e.config.Profiler != nil {
+		if err := e.config.Profiler.TimerStart("SolveMain"); err != nil {
+			return false, err
+		}
+		defer func() { result = errors.Join(result, e.config.Profiler.TimerStop("SolveMain")) }()
 	}
 	return search.SolveMain()
 }

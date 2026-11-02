@@ -10,9 +10,9 @@ import (
 // QueryOptions are the solver options set by dl_interface::query. Recursion
 // bounds belong to prepared clauses, rather than the disabled source override.
 type QueryOptions struct {
-	FullExpand, NoConj, FeasibleEdges, UseUnderapprox       bool
-	StratifiedInlining, BatchExpand, EnableRestarts, Report bool
-	ConjectureFile                                          string
+	FullExpand, NoConj, FeasibleEdges, UseUnderapprox                bool
+	StratifiedInlining, BatchExpand, EnableRestarts, Report, Profile bool
+	ConjectureFile                                                   string
 }
 
 func DefaultQueryOptions() QueryOptions { return QueryOptions{FeasibleEdges: true} }
@@ -37,7 +37,7 @@ func ReadQueryOptions(context *uparams.ParamsContext, globals *uparams.GlobalPar
 		{"duality.full_expand", &out.FullExpand}, {"duality.no_conj", &out.NoConj},
 		{"duality.feasible_edges", &out.FeasibleEdges}, {"duality.use_underapprox", &out.UseUnderapprox},
 		{"duality.stratified_inlining", &out.StratifiedInlining}, {"duality.batch_expand", &out.BatchExpand},
-		{"duality.enable_restarts", &out.EnableRestarts},
+		{"duality.enable_restarts", &out.EnableRestarts}, {"duality.profile", &out.Profile},
 	} {
 		if local == nil {
 			*setting.target, err = context.GetBoolName(&global, &setting.name, *setting.target)
