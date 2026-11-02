@@ -54,40 +54,14 @@ func (p *datalogParser) parseRuleBody(head ast.ASTHandle) error {
 }
 
 func (p *datalogParser) parseBodyExpression() (ast.ASTHandle, error) {
-	if p.token.kind != datalogIdentifier {
+	first := p.token
+	if first.kind != datalogIdentifier && first.kind != datalogString && first.kind != datalogNumber {
 		return ast.ASTHandle{}, p.fail("expected predicate in rule body")
 	}
-	first := p.token
 	p.advance()
-	if p.token.kind == datalogEqual || p.token.kind == datalogNotEqual || p.token.kind == datalogLess || p.token.kind == datalogGreater {
-		left, exists := p.vars[first.text]
-		if !exists {
-			return ast.ASTHandle{}, p.fail("infix relation requires a previously typed variable")
-		}
-		operator := p.token.kind
-		p.advance()
-		sort, err := p.manager.GetSort(left)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		right, err := p.parseArgument(sort)
-		if err != nil {
-			return ast.ASTHandle{}, err
-		}
-		switch operator {
-		case datalogEqual:
-			return p.manager.MkEq(left, right)
-		case datalogNotEqual:
-			equal, e := p.manager.MkEq(left, right)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			return p.manager.MkNot(equal)
-		case datalogLess:
-			return p.manager.MkArithmeticLT(left, right)
-		default:
-			return p.manager.MkArithmeticLT(right, left)
-		}
+	_, knownVariable := p.vars[first.text]
+	if first.kind != datalogIdentifier || knownVariable {
+		return p.parseInfix(first)
 	}
 	name, err := p.symbol(first.text)
 	if err != nil {
@@ -105,6 +79,54 @@ func (p *datalogParser) parseBodyExpression() (ast.ASTHandle, error) {
 		return ast.ASTHandle{}, err
 	}
 	return p.manager.MkApp(declaration, arguments)
+}
+
+func (p *datalogParser) parseInfix(first datalogToken) (ast.ASTHandle, error) {
+	operator := p.token.kind
+	if operator != datalogEqual && operator != datalogNotEqual && operator != datalogLess && operator != datalogGreater {
+		return ast.ASTHandle{}, p.fail("expected built-in infix operator")
+	}
+	p.advance()
+	second := p.token
+	secondVariable, secondIsVariable := p.vars[second.text]
+	firstVariable, firstIsVariable := p.vars[first.text]
+	if second.kind != datalogString && second.kind != datalogNumber && !secondIsVariable {
+		return ast.ASTHandle{}, p.fail("expected constant or previously typed variable")
+	}
+	if !firstIsVariable && !secondIsVariable {
+		return ast.ASTHandle{}, p.fail("at least one infix operand must be a variable")
+	}
+	variable := firstVariable
+	if !firstIsVariable {
+		variable = secondVariable
+	}
+	sort, err := p.manager.GetSort(variable)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	left, err := p.argumentFromToken(first, sort, false)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	right, err := p.argumentFromToken(second, sort, false)
+	if err != nil {
+		return ast.ASTHandle{}, err
+	}
+	p.advance()
+	switch operator {
+	case datalogEqual:
+		return p.manager.MkEq(left, right)
+	case datalogNotEqual:
+		equal, e := p.manager.MkEq(left, right)
+		if e != nil {
+			return ast.ASTHandle{}, e
+		}
+		return p.manager.MkNot(equal)
+	case datalogLess:
+		return p.manager.MkArithmeticLT(left, right)
+	default:
+		return p.manager.MkArithmeticLT(right, left)
+	}
 }
 
 func (p *datalogParser) addRule(head ast.ASTHandle, tail []ast.ASTHandle, negated []bool) (resultErr error) {

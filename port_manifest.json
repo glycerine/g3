@@ -87817,6 +87817,8 @@
         "pkg/muz/fp/datalog_parser_domains.go",
         "pkg/muz/fp/datalog_parser_include.go",
         "pkg/muz/fp/datalog_parser_rules.go",
+        "pkg/muz/fp/datalog_parser_terms.go",
+        "pkg/muz/fp/datalog_parser_rules_test.go",
         "pkg/muz/fp/datalog_parser_state.go",
         "pkg/muz/fp/datalog_parser_terms.go",
         "pkg/muz/fp/datalog_profile.go",
@@ -87913,6 +87915,8 @@
       "tests": [
         "TestDatalogParserCPPSourceInputs",
         "TestDatalogParserTypedDeclarationAsRuleHead",
+        "TestDatalogParserInfixConstantLeftOperands",
+        "TestDatalogParserInfixRequiresVariableOperand",
         "TestDatalogLexerSourceTokensAndLocations",
         "TestDatalogParserFactsPositiveAndNegativeRules",
         "TestWPAFileDiscoveryRecursesAndSkipsHiddenDirectories",
@@ -88038,6 +88042,13 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "dparser parse_body/parse_infix constant-left built-ins and mk_const integer-string behavior (datalog_parser.cpp:743-835,1104-1115)",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/datalog_parser_rules.go",
+          "go_targets": ["pkg/muz/fp/datalog_parser_terms.go"],
+          "tests": ["TestDatalogParserInfixConstantLeftOperands", "TestDatalogParserInfixRequiresVariableOperand"]
+        },
         {
           "name": "wpa_parser_impl directory discovery, map/rule/relation file parsing and finite fact loading (datalog_parser.cpp:1218-1264)",
           "status": "ported",

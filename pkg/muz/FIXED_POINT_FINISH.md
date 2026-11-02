@@ -324,6 +324,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [x] `src/muz/fp/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/fp/datalog_parser.cpp` (partial), `src/muz/fp/datalog_parser.h` (partial)
+  - [x] Constant-left equality/ordering infix bodies, source greater-than reversal, finite/numeric constants, quoted integer construction and constant-only rejection.
 - [ ] `src/muz/fp/dl_cmds.cpp` (partial), `src/muz/fp/dl_cmds.h` (partial)
 - [ ] `src/muz/fp/dl_register_engine.cpp` (partial), `src/muz/fp/dl_register_engine.h` (partial)
 
@@ -889,3 +890,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Activated the live `datalog.check_relation` path for concrete hashtable/doc backends. Local parameters override module settings, `null` disables checking, doc disables unbound compression, interpreted saturation routes every derived fact through the existing SMT formula checker, and cloned verified tables publish back into persistent relation storage before scoped owners retire. Ten repeated end-to-end runs passed in 0.095s; adjacent fixedpoint/relational suites passed in 0.032s/0.065s. Sparse/other backend wrappers and wider relation-manager selection remain open.
 
 - 2026-11-02 — Added concrete external-relation predicate dispatch: the plugin derives exact registered predicate signatures, constructs/caches manager-owned callback relations, pins declarations, supports explicit drop and retires relations before callback trails with retry-safe decrement semantics. Fixedpoint exposes only registered-predicate lookup; it does not claim automatic rule/query operator dispatch. Focused relational tests passed in 0.016s and the fixedpoint bridge passed in 0.007s. Automatic execution dispatch and generic manager selection remain open.
+
+- 2026-11-02 — Ported legacy Datalog parser constant-left infix bodies and adjacent integer-string constant construction. Finite string/numeric equality, integer less-than, source greater-than reversal, quoted integer parsing and constant-only rejection preserve operand orientation and require at least one previously typed variable. New focused cases passed in 0.018s and all native Datalog parser/lexer tests passed in 0.059s. Broader parser source and ownership audits remain open.

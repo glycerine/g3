@@ -60,8 +60,18 @@ func (p *datalogParser) parseArguments(declaration ast.ASTHandle) ([]ast.ASTHand
 func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error) {
 	token := p.token
 	p.advance()
+	return p.argumentFromToken(token, sort, true)
+}
+
+// argumentFromToken implements dparser::parse_arg and the constant/variable
+// operands shared with parse_infix. Infix parsing disables creation so an
+// identifier must name a variable typed by an earlier predicate occurrence.
+func (p *datalogParser) argumentFromToken(token datalogToken, sort ast.ASTHandle, createVariable bool) (ast.ASTHandle, error) {
 	switch token.kind {
 	case datalogWildcard:
+		if !createVariable {
+			return ast.ASTHandle{}, p.fail("wildcard is not an infix operand")
+		}
 		result, err := p.manager.MkVar(p.nextVar, sort)
 		p.nextVar++
 		return result, err
@@ -76,6 +86,9 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 			}
 			return prior, nil
 		}
+		if !createVariable {
+			return ast.ASTHandle{}, p.fail("infix relation requires a previously typed variable")
+		}
 		result, err := p.manager.MkVar(p.nextVar, sort)
 		if err == nil {
 			p.nextVar++
@@ -83,15 +96,25 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 		}
 		return result, err
 	case datalogString:
-		name, err := p.symbol(token.text)
+		finite, err := p.manager.IsDatalogFiniteSort(sort)
 		if err != nil {
 			return ast.ASTHandle{}, err
 		}
-		number, err := p.context.SymbolNumber(sort, name)
-		if err != nil {
-			return ast.ASTHandle{}, err
+		if finite {
+			name, err := p.symbol(token.text)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			number, err := p.context.SymbolNumber(sort, name)
+			if err != nil {
+				return ast.ASTHandle{}, err
+			}
+			return p.manager.MkDatalogNumeral(number, sort)
 		}
-		return p.manager.MkDatalogNumeral(number, sort)
+		if _, err = strconv.ParseUint(token.text, 10, 64); err != nil {
+			return ast.ASTHandle{}, p.fail("invalid integer")
+		}
+		return p.manager.ArithmeticIntegerNumeralText(token.text)
 	case datalogNumber:
 		_, err := strconv.ParseUint(token.text, 10, 64)
 		if err != nil {
