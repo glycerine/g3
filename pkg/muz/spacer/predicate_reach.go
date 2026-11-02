@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 func (p *PredicateTransformer) SetReachAsInitial(value bool) error {
@@ -271,6 +272,17 @@ func (p *PredicateTransformer) IsMustReachable(state ast.ASTHandle, needModel bo
 	if err := p.open(); err != nil {
 		return false, nil, err
 	}
+	defer func() {
+		if resultErr != nil && resultModel != nil {
+			resultErr = errors.Join(resultErr, resultModel.DecRef())
+			resultModel = nil
+		}
+	}()
+	watch, err := stopwatch.NewScopedWatch(&p.mustReachableWatch, false)
+	if err != nil {
+		return false, nil, err
+	}
+	defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
 	if len(p.reachFacts) == 0 {
 		return false, nil, nil
 	}

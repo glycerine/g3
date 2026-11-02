@@ -12,6 +12,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/tactic"
 	tacticcore "github.com/glycerine/g3/pkg/tactic/core"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 type spacerNormalizedRule struct {
@@ -279,18 +280,24 @@ func (b *spacerRuleBuilder) substitute(expression ast.ASTHandle, variables []ast
 	return result, nil
 }
 
-func (b *spacerRuleBuilder) normalizeRule(source *base.Rule) (*spacerNormalizedRule, error) {
-	owned, err := source.Retain()
+func (b *spacerRuleBuilder) normalizeRule(source *base.Rule) (result *spacerNormalizedRule, resultErr error) {
+	var owned *base.Rule
+	defer func() {
+		if resultErr != nil && owned != nil {
+			resultErr = errors.Join(resultErr, owned.Close())
+			result = nil
+		}
+	}()
+	watch, err := stopwatch.NewScopedWatch(&b.transformer.initializeWatch, false)
 	if err != nil {
 		return nil, err
 	}
-	result := &spacerNormalizedRule{rule: owned}
-	committed := false
-	defer func() {
-		if !committed {
-			_ = owned.Close()
-		}
-	}()
+	defer func() { resultErr = errors.Join(resultErr, watch.Close()) }()
+	owned, err = source.Retain()
+	if err != nil {
+		return nil, err
+	}
+	result = &spacerNormalizedRule{rule: owned}
 	headDeclaration, err := owned.HeadDeclaration()
 	if err != nil {
 		return nil, err
@@ -389,7 +396,6 @@ func (b *spacerRuleBuilder) normalizeRule(source *base.Rule) (*spacerNormalizedR
 		}
 	}
 	result.instances = append(result.instances, variables...)
-	committed = true
 	return result, nil
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/stopwatch"
 )
 
 type PredicateTransformer struct {
@@ -27,6 +28,8 @@ type PredicateTransformer struct {
 	transition               ast.ASTRef
 	initialized              bool
 	allInitial               bool
+	initializeWatch          stopwatch.Stopwatch
+	mustReachableWatch       stopwatch.Stopwatch
 	propagations             uint64
 	invariants               uint64
 	generalizerStats         *boolGeneralizerStatistics
@@ -608,6 +611,16 @@ func (p *PredicateTransformer) CollectStatistics(destination *statistics.Statist
 	if !p.sharedGeneralizerStats {
 		p.generalizerStats.collect(destination)
 	}
+	initialized, err := p.initializeWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	reachable, err := p.mustReachableWatch.Seconds()
+	if err != nil {
+		return err
+	}
+	destination.UpdateDouble("time.spacer.init_rules.pt.init", initialized)
+	destination.UpdateDouble("time.spacer.solve.pt.must_reachable", reachable)
 	return nil
 }
 
@@ -618,6 +631,8 @@ func (p *PredicateTransformer) ResetStatistics() error {
 	if err := p.solver.ResetStatistics(); err != nil {
 		return err
 	}
+	p.initializeWatch.Reset()
+	p.mustReachableWatch.Reset()
 	p.propagations = 0
 	p.invariants = 0
 	if !p.sharedGeneralizerStats {

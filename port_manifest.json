@@ -97387,6 +97387,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/spacer/predicate_timing_test.go",
         "pkg/muz/spacer/context_answer.go",
         "pkg/muz/spacer/context_trace.go",
         "pkg/muz/spacer/context_validate.go",
@@ -97410,6 +97411,8 @@
         "pkg/cmd/g3/main_test.go"
       ],
       "tests": [
+        "TestSpacerPredicateSourceTimerScopesAndReset",
+        "TestSpacerRuleTimerFailureLeavesInitializationRetryable",
         "TestContextCertificateAndProofPresentationSurface",
         "TestContextAnswerStatusDispatchAndOwnership",
         "TestSMT2FixedpointSpacerRebuildsAfterBoundedRecursiveSearch",
