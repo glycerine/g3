@@ -36,6 +36,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [ ] Reconcile method-level audit evidence and mark the unit complete only after the remaining checks are satisfied.
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
 - [ ] Verify recursive/nonlinear SAT and UNSAT, assumptions/background, repeated queries, witnesses, proofs and original-rule traces at the public boundary.
+  - [x] Verify repeated nonlinear unreachable/reachable/unreachable queries in one SMT-LIB context for PDR, Spacer and Duality (`TestSMT2FixedpointRepeatedNonlinearQueries`).
 - [ ] Close all PDR source obligations before declaring the engine complete.
 
 ## 4. Spacer — second engine closure
@@ -188,3 +189,6 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Reconciled the external Duality graph/header/solver overview descriptions against current graph, interpolation and search code; source units remain partial. Classified the source muz README as a reference component guide, closing the build/documentation classification item. Previous numerical-guard regression commit: `17855c060`. No engine completion status was promoted.
   Validation: `go -C pkg test ./duality ./muz/duality -short` and `go -C pkg test ./portcheck -short` passed. Commit title: `Reconcile Duality source overviews and muz documentation inventory`.
+
+- 2026-11-02 — Added `TestSMT2FixedpointRepeatedNonlinearQueries` in `pkg/parsers/smt2/fixedpoint_nonlinear_integer_test.go`. Each engine reuses one context and the same ascending/descending recursive relations for an UNSAT/SAT/UNSAT query sequence whose goals require two relation children. The focused native integration test passes for PDR, Spacer and Duality; other lifecycle acceptance items remain open. Previous inventory reconciliation commit: `98fdf2c9c`.
+  Validation: `go -C pkg test ./parsers/smt2 -run '^TestSMT2FixedpointRepeatedNonlinearQueries$' -count=1 -timeout=45s` passed. Commit title: `Test repeated nonlinear fixedpoint query isolation`.
