@@ -214,9 +214,21 @@ func TestLegacyPartialSelectConstructionFailuresAndRetry(t *testing.T) {
 }
 
 func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
-	for _, kind := range []string{"selects", "formula"} {
+	testLegacyArrayConstructionFailures(t, []string{"selects", "formula"})
+}
+
+func TestLegacyArrayStoreTransferConstructionFailures(t *testing.T) {
+	testLegacyArrayConstructionFailures(t, []string{"store"})
+}
+
+func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
+	for _, kind := range kinds {
 		t.Run(kind, func(t *testing.T) {
-			for _, count := range []int{8, 64} {
+			counts := []int{8, 64}
+			if kind == "store" {
+				counts = []int{8}
+			}
+			for _, count := range counts {
 				t.Run(fmt.Sprint(count), func(t *testing.T) {
 					success, failures := false, 0
 					for stop := int64(0); stop < 2048 && !success; stop++ {
@@ -230,20 +242,36 @@ func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
 							sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
 							a := f.constant("project-many-selects", sort)
 							array := f.own(m.MkConstArray(sort, f.number("0")))
+							stored := a
+							var b ast.ASTHandle
+							if kind == "store" {
+								b = f.constant("store-many-rhs", sort)
+							}
 							literals := make([]ast.ASTHandle, count)
 							for n := range literals {
 								num := f.number(fmt.Sprint(n))
 								array = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{array, num, num}))
 								selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, num}))
 								literals[n] = f.own(m.MkEq(selected, num))
+								if kind == "store" {
+									stored = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{stored, selected, num}))
+								}
 							}
 							formula := f.own(m.MkAndArray(literals))
+							if kind == "store" {
+								formula = f.own(m.MkEq(stored, b))
+							}
 							expected := m.Stats().LiveReferences - helperRefs
 							md, err := model.NewModel(m)
 							fmMust(t, err)
 							decl, err := m.GetDecl(a)
 							fmMust(t, err)
 							fmMust(t, md.Core().RegisterConstant(decl, array))
+							if kind == "store" {
+								decl, err := m.GetDecl(b)
+								fmMust(t, err)
+								fmMust(t, md.Core().RegisterConstant(decl, array))
+							}
 							t.Cleanup(func() {
 								fmMust(t, md.Close())
 								fmMust(t, p.Close())
@@ -253,10 +281,13 @@ func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
 							})
 							var selects *legacyArraySelectProjection
 							var projected *legacyArrayProjectionResult
+							eliminated := false
 							run := func() error {
 								var cause error
 								if kind == "selects" {
 									selects, cause = p.projectSelects(md.Core(), []ast.ASTHandle{a}, formula)
+								} else if kind == "store" {
+									selects, eliminated, cause = p.projectStoreEquality(md.Core(), a, formula)
 								} else {
 									projected, cause = p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
 								}
@@ -266,7 +297,7 @@ func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
 							cause := run()
 							m.Budget().FailAfter(-1)
 							if cause != nil {
-								if selects != nil || projected != nil {
+								if selects != nil || projected != nil || eliminated {
 									t.Fatal("failed projection published result")
 								}
 								var cleanup memory.ConstructionFailure
@@ -278,21 +309,36 @@ func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
 									t.Fatal(cause)
 								}
 								failures++
+								if kind == "store" {
+									// array_project_eqs constructs its utility
+									// per invocation; an interrupted theory
+									// traversal is not implicitly reset.
+									fmMust(t, p.Close())
+									p, err = newLegacyArrayProjection(m, f.r.config)
+									fmMust(t, err)
+								}
 								fmMust(t, run())
 							} else {
 								success = true
 							}
 							var root ast.ASTRef
 							var vars []ast.ASTRef
-							if kind == "selects" {
+							if kind == "selects" || kind == "store" {
 								root, vars = selects.formula, selects.variables
 								defer func() { fmMust(t, selects.Close()) }()
 							} else {
 								root, vars = projected.formula, projected.variables
 								defer func() { fmMust(t, projected.Close()) }()
 							}
-							if len(vars) != count {
-								t.Fatal("model value class count", len(vars), count)
+							expectedVars := count
+							if kind == "store" {
+								expectedVars *= 2
+								if !eliminated {
+									t.Fatal("store was not eliminated")
+								}
+							}
+							if len(vars) != expectedVars {
+								t.Fatal("model value class count", len(vars), expectedVars)
 							}
 							handle, err := m.RefGet(root)
 							fmMust(t, err)

@@ -16,9 +16,10 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		return nil, false, ast.ErrASTHandle
 	}
 	result = &legacyArraySelectProjection{manager: p.syntax.manager}
+	ownedResult := result
 	defer func() {
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+		if resultErr != nil && ownedResult != nil {
+			resultErr = errors.Join(resultErr, ownedResult.Close())
 			result = nil
 			eliminated = false
 		}
@@ -96,7 +97,10 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		}
 	}
 	if selected == (ast.ASTHandle{}) {
-		_ = result.Close()
+		if err := ownedResult.Close(); err != nil {
+			return nil, false, err
+		}
+		ownedResult = nil
 		result = nil
 		return nil, false, nil
 	}
@@ -187,7 +191,10 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 		lhs = base
 	}
 	if lhs != variable && rhs != variable {
-		_ = result.Close()
+		if err := ownedResult.Close(); err != nil {
+			return nil, false, err
+		}
+		ownedResult = nil
 		result = nil
 		return nil, false, nil
 	}
