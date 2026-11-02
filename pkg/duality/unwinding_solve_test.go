@@ -8,7 +8,7 @@ import (
 )
 
 func TestDualityOuterSolveNativeOrdinaryStratifiedAndUnderapprox(t *testing.T) {
-	for _, mode := range []string{"ordinary-safe", "ordinary-unsafe", "stratified-safe", "stratified-unsafe", "ordinary-unsafe-underapprox"} {
+	for _, mode := range []string{"ordinary-safe", "ordinary-unsafe", "stratified-safe", "stratified-unsafe", "ordinary-unsafe-underapprox", "ordinary-safe-all-edges", "ordinary-unsafe-all-edges"} {
 		t.Run(mode, func(t *testing.T) {
 			ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
 			must := func(err error) {
@@ -65,6 +65,7 @@ func TestDualityOuterSolveNativeOrdinaryStratifiedAndUnderapprox(t *testing.T) {
 			u, err := NewUnwinding(source, graph, covering)
 			must(err)
 			u.StratifiedInlining = strings.HasPrefix(mode, "stratified")
+			u.FeasibleEdges = !strings.HasSuffix(mode, "all-edges")
 			must(u.CreateEdgesByChildMap())
 			local, err := NewLocalEdgeChecker(source, factory, nil)
 			must(err)
@@ -87,11 +88,31 @@ func TestDualityOuterSolveNativeOrdinaryStratifiedAndUnderapprox(t *testing.T) {
 			must(err)
 			baseline, err := native.NumAssertions()
 			must(err)
-			if !u.StratifiedInlining {
-				services := &ExpansionSearch{Native: native, Evaluator: evaluator, Simplifier: manager, Counterexample: cex}
-				must(u.CreateLeaves(services))
-				must(u.NullaryCandidates())
+			must(s.CreateInitialUnwinding())
+			if u.StratifiedInlining && len(graph.nodes) != 0 {
+				t.Fatal("active stratified initialization should defer graph construction")
 			}
+			if !u.FeasibleEdges {
+				if len(graph.nodes) != 4 || len(u.leaves) != 2 || u.topological == nil {
+					t.Fatal("all-edge initial instances missing")
+				}
+				initialRoot := graph.nodes[2]
+				if initialRoot.Map != root || u.backEdges[initialRoot][child] != 1 {
+					t.Fatal("source pre-sort zero-rank back-edge accounting changed")
+				}
+				for _, leaf := range u.leaves {
+					count := 0
+					for _, active := range covering.instances[leaf.Map] {
+						if active == leaf {
+							count++
+						}
+					}
+					if count != 1 {
+						t.Fatal("source temporary leaf duplication/removal ordering", count)
+					}
+				}
+			}
+
 			solved, err := s.SolveMain()
 			must(err)
 			if solved == unsafe {
