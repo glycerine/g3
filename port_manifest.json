@@ -89267,6 +89267,13 @@
           "tests": ["TestPDRAnswerExportPreservesResultWhenConstraintCleanupRefuses"]
         },
         {
+          "name": "pdr.validate_result dispatch validates SAT search/proof witnesses and UNSAT inductive models against live normalized rules, invalidating failed results before publication (pdr_context.cpp:1696-1808,1897,1926)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/pdr/context_solve.go", "pkg/muz/pdr/result_validation.go", "pkg/muz/pdr/result_validation_dispatch.go", "pkg/muz/pdr/validate_model.go", "pkg/muz/fp/pdr_engine.go"],
+          "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries", "TestPDRValidationPreservesFreshSolverAndRootsOnNativeCleanupRefusal", "TestPDRModelValidationPreservesPartialOwnersWhenCleanupRefuses"],
+          "reason": "SAT validation uses fresh source-style kernels for the trace formula and proof side conditions. UNSAT validation constructs the finite/invariant interpretation and checks every normalized rule without weakening by background assertions or adding a separate query-falsity obligation. The configured fixedpoint path exercises both outcomes, and a failed validation sets the direct context result to unknown."
+        },
+        {
           "name": "source-live context/predicate/model-search display, print_boogie_certificate and IF_VERBOSE/TRACE/CASSERT invariant diagnostics (pdr_context.cpp:97-1128,1895-1918,2098,2139,2357-2416)",
           "status": "partial",
           "go_targets": ["pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_certificate.go", "pkg/muz/fp/pdr_certificate_source_test.go"],
@@ -89279,7 +89286,7 @@
         "PredicateTransformer owns its head/system/property AST references, PropSolver, and ReachableCache. It closes both context consumers before releasing AST pins; returned signatures, formulas, and cores borrow AST handles while requested models retain explicit ownership.",
         "ModelSearch owns its root and complete descendant tree. ModelNode owns one state AST reference plus optional retained model and rule references; reset releases descendants bottom-up after removing frontier/cache links.",
         "Context Reset closes retired Go solver pools and archives their cumulative statistics because solver proof/arithmetic setup is immutable after search; repeated resets release all obsolete kernel/predicate storage. Context owns the reusable model-implicant and QE-lite projector and, when the caller supplies no cooperation service, a private cooperation owner. These close before transformers and the shared PDR manager."
-        ,"Ownership audit remains open for AddCover temporary references, answer/proof locals, model-projection substitution/replacer owners, PropSolver workspaces and UnitSubsumptionKeep solver cleanup refusal."
+        ,"Result-validation construction groups fresh solver, proof/formula roots, model interpretations and partial model owners in retryable receipts across native cleanup refusal. This covers refusal at the AST execution-guard boundary; arbitrary internally partial SMTSolver.Close failures cannot currently be resumed by the public solver API. Ownership audit remains open for AddCover temporary references, answer/proof locals outside validation, model-projection substitution/replacer owners, PropSolver workspaces and UnitSubsumptionKeep solver cleanup refusal."
       ],
       "deviations": [
         "InitializeSystem remains available for independently testing the frame engine; InitializeRules provides the retained native rule-to-transition path. Typed results replace mutable model/core output pointers.",
@@ -89556,6 +89563,12 @@
           ]
         },
         {
+          "name": "retained pdr.validate_result configuration and SAT-proof/search plus UNSAT-inductive-model validation surface",
+          "status": "ported",
+          "go_targets": ["pkg/muz/pdr/context.go", "pkg/muz/pdr/result_validation.go", "pkg/muz/pdr/result_validation_dispatch.go", "pkg/muz/pdr/validate_model.go", "pkg/muz/fp/pdr_engine.go", "pkg/muz/fp/pdr_result_validation_config_test.go"],
+          "tests": ["TestValidateSATFormulaAcceptsWitnessAndRejectsCorruption", "TestValidateProofHandleChecksSemanticSideConditions", "TestValidateInductiveModelRuleViolationsAndFiniteFrame", "TestValidationFailureInvalidatesDirectContextResult", "TestValidatedMissingQueryUsesUNSATFinalization", "TestPDRValidateResultParameterChecksSATAndUNSATQueries"]
+        },
+        {
           "name": "source-live pred_transformer/context/model_search stream display, invariant checking and certificate presentation declarations",
           "status": "partial",
           "go_target": null,
@@ -89567,7 +89580,7 @@
         "PredicateTransformer is the concrete Go owner for its proposition solver, reachable cache, and retained AST state.",
         "ModelSearch owns the ModelNode tree; nodes own their state, optional model and optional rule references. Cache identity is the concrete predicate transformer plus state formula, so syntactically identical zero-arity predecessor cubes remain distinct obligations.",
         "Context owns its model-implicant, QE-lite projector and any fallback cooperation service created for callers that supplied only parameter services."
-        ,"Header ownership closure remains pending for cover temporaries, answer/proof locals, model-projection helpers, proposition-solver workspaces and unit-subsumption solver refusal paths."
+        ,"Validation owners preserve fresh solvers, roots and partial models across native execution-guard refusal. Arbitrary internally partial SMTSolver.Close failures remain non-resumable; header ownership closure also remains pending for cover temporaries, answer/proof locals outside validation, model-projection helpers, proposition-solver workspaces and unit-subsumption solver refusal paths."
       ],
       "deviations": [
         "The Go frame API uses explicit methods and returned result values rather than C++ reference outputs and scoped mutable solver settings.",
