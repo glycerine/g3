@@ -28,6 +28,7 @@ import (
 	"github.com/glycerine/g3/pkg/util/lbool"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/statistics"
+	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
 var (
@@ -36,6 +37,8 @@ var (
 )
 
 type predicateState struct {
+	argumentNames                []symbol.Symbol
+	argumentNamesSet             bool
 	explicitFiniteRepresentation bool
 	sorts                        []ast.ASTHandle
 	table                        rel.FiniteTable
@@ -70,6 +73,8 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 	state := &predicateState{sorts: sorts, table: table}
 	if prior := e.predicates[declaration]; prior != nil {
 		state.explicitFiniteRepresentation = prior.explicitFiniteRepresentation
+		state.argumentNames = append([]symbol.Symbol(nil), prior.argumentNames...)
+		state.argumentNamesSet = prior.argumentNamesSet
 	}
 	return state, nil
 }
@@ -172,7 +177,9 @@ type PropositionalEngine struct {
 	closing             bool
 	ddnf                ddnfEngineState
 
-	lazyFinite *rel.LazySparseFiniteFactory
+	lazyFinite               *rel.LazySparseFiniteFactory
+	intervalDatalog          *intervalDatalogActivation
+	datalogRelationFavourite string
 
 	datalogExplanationQuery   bool
 	datalogExplanationAnswer  ast.ASTRef
@@ -537,6 +544,17 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 			return err
 		}
 		e.engineInstantiated = true
+		if selected, err := e.ensureIntervalDatalog(); err != nil {
+			return err
+		} else if selected {
+			if err := e.intervalDatalog.addFact(declaration, values); err != nil {
+				return err
+			}
+			e.invalidateQueryForMutation()
+			e.advanceRuleRevision()
+			e.compiled = false
+			return nil
+		}
 		state := e.predicates[declaration]
 		if state.external != nil {
 			if err := state.external.AddFact(values); err != nil {
@@ -1972,6 +1990,12 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
 		return lbool.Undef, err
 	}
+	if selected, err := e.ensureIntervalDatalog(); err != nil {
+		return lbool.Undef, err
+	} else if selected {
+		return e.queryIntervalDatalog(declarations)
+	}
+
 	count, err := e.set.Len()
 	if err != nil {
 		return lbool.Undef, err
@@ -2194,6 +2218,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 	}
 	if err = e.requireResultSnapshot(kind); err != nil {
 		return answer, err
+	}
+	if kind == EngineDatalog && e.intervalDatalog != nil {
+		return e.intervalDatalog.relationFormula(declaration)
 	}
 	if kind == EngineDatalog && e.datalogExplanationAnswer != (ast.ASTRef{}) {
 		return e.manager.CopyRef(e.datalogExplanationAnswer)
@@ -2609,6 +2636,9 @@ func (e *PropositionalEngine) Close() (result error) {
 		return err
 	}
 	if err := e.closeDuality(); err != nil {
+		return errors.Join(result, err)
+	}
+	if err := e.closeIntervalDatalog(); err != nil {
 		return errors.Join(result, err)
 	}
 	e.retiredRawRules = append(e.retiredRawRules, e.rawRules...)

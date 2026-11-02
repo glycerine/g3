@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 )
 
 func (p *datalogParser) predicate(name string, declarationAllowed bool) (ast.ASTHandle, bool, error) {
@@ -14,7 +15,7 @@ func (p *datalogParser) predicate(name string, declarationAllowed bool) (ast.AST
 		if !declarationAllowed {
 			return ast.ASTHandle{}, false, fmt.Errorf("datalog:%d: predicate %s must be declared before use", p.current.line, name)
 		}
-		domain, err := p.declarationArguments()
+		domain, names, err := p.declarationArguments()
 		if err != nil {
 			return ast.ASTHandle{}, false, err
 		}
@@ -23,6 +24,13 @@ func (p *datalogParser) predicate(name string, declarationAllowed bool) (ast.AST
 			return ast.ASTHandle{}, false, err
 		}
 		p.predicates[name] = declaration
+		engine, err := p.context.fixedpointContext()
+		if err != nil {
+			return ast.ASTHandle{}, false, err
+		}
+		if err = engine.SetArgumentNames(declaration, names); err != nil {
+			return ast.ASTHandle{}, false, err
+		}
 		arguments := make([]ast.ASTHandle, len(domain))
 		for i, sort := range domain {
 			arguments[i], err = p.manager.MkVar(uint32(i), sort)
@@ -49,50 +57,56 @@ func (p *datalogParser) predicate(name string, declarationAllowed bool) (ast.AST
 	return application, false, err
 }
 
-func (p *datalogParser) declarationArguments() ([]ast.ASTHandle, error) {
+func (p *datalogParser) declarationArguments() ([]ast.ASTHandle, []usymbol.Symbol, error) {
 	if p.current.kind != dlLeftParen {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if err := p.advance(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var domain []ast.ASTHandle
+	var names []usymbol.Symbol
 	for {
 		if err := p.require(dlIdentifier, "argument name"); err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		argumentName, err := p.manager.Symbols.Intern(p.current.text)
+		if err != nil {
+			return nil, nil, err
 		}
 		if err := p.advance(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := p.require(dlColon, "colon in predicate declaration"); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := p.advance(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if err := p.require(dlIdentifier, "sort name"); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		name, err := datalogDomainName(p.current.text)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		sort, found := p.sorts[name]
 		if !found {
-			return nil, fmt.Errorf("datalog:%d: unknown sort %s", p.current.line, name)
+			return nil, nil, fmt.Errorf("datalog:%d: unknown sort %s", p.current.line, name)
 		}
 		domain = append(domain, sort)
+		names = append(names, argumentName)
 		if err = p.advance(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if p.current.kind == dlRightParen {
-			return domain, p.advance()
+			return domain, names, p.advance()
 		}
 		if p.current.kind != dlComma {
-			return nil, p.expected("comma or right parenthesis")
+			return nil, nil, p.expected("comma or right parenthesis")
 		}
 		if err = p.advance(); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 }

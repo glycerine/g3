@@ -7,6 +7,17 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		if err := clone.RegisterPredicate(declaration); err != nil {
 			return err
 		}
+		output, err := e.set.IsOutputPredicate(declaration)
+		if err != nil {
+			return err
+		}
+		if output {
+			if err = clone.SetOutputPredicate(declaration); err != nil {
+				return err
+			}
+		}
+		clone.predicates[declaration].argumentNames = append(clone.predicates[declaration].argumentNames[:0], e.predicates[declaration].argumentNames...)
+		clone.predicates[declaration].argumentNamesSet = e.predicates[declaration].argumentNamesSet
 		clone.predicates[declaration].explicitFiniteRepresentation = e.predicates[declaration].explicitFiniteRepresentation
 		if e.backend == "datalog" && e.predicates[declaration].table != nil {
 			table, err := clone.cloneFiniteForContext(e.predicates[declaration].table)

@@ -41,7 +41,17 @@ func (p *datalogParser) parseRule() error {
 	if declaration {
 		for p.current.kind == dlIdentifier { // source pragmas
 			if p.current.text == "printtuples" || p.current.text == "outputtuples" {
-				// Output status is consumed by query commands; declaration remains registered.
+				engine, engineErr := p.context.fixedpointContext()
+				if engineErr != nil {
+					return engineErr
+				}
+				declaration, found := p.predicates[name]
+				if !found {
+					return p.expected("registered predicate")
+				}
+				if engineErr = engine.SetOutputPredicate(declaration); engineErr != nil {
+					return engineErr
+				}
 			}
 			if err = p.advance(); err != nil {
 				return err

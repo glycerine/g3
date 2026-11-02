@@ -11,6 +11,9 @@ import (
 // creates tables at registration, so migrate those non-explicit owners once
 // the configured Datalog engine first consumes facts or starts a query.
 func (e *PropositionalEngine) applyDatalogDefaultFiniteTable() (resultErr error) {
+	if err := e.cacheDatalogRelationFavourite(); err != nil {
+		return err
+	}
 	name := e.datalogDefaultTable
 	if name == "" {
 		name = "sparse"

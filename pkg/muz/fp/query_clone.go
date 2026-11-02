@@ -32,6 +32,7 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 		clone.tabSession = e.tabSession
 		clone.tabSessionBorrowed = true
 	}
+	clone.datalogRelationFavourite = e.datalogRelationFavourite
 	clone.datalogDefaultTable = e.datalogDefaultTable
 	if clone.datalogDefaultTable != "" {
 		if err = clone.configureDatalogFiniteDefault(clone.datalogDefaultTable); err != nil {
@@ -54,6 +55,12 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	}
 	if err = e.copyQueryRules(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))
+	}
+	if e.intervalDatalog != nil {
+		clone.intervalDatalog, err = e.intervalDatalog.clone(clone.set)
+		if err != nil {
+			return nil, errors.Join(err, e.discardQueryClone(clone))
+		}
 	}
 	if err = e.copyQueryBackground(clone); err != nil {
 		return nil, errors.Join(err, e.discardQueryClone(clone))

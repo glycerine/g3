@@ -47,6 +47,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
+	if e.backend == "datalog" {
+		if err := e.cacheDatalogRelationFavourite(); err != nil {
+			return lbool.Undef, err
+		}
+	}
 	var originalTraceQuery ast.ASTRef
 	if (e.backend == "pdr" || e.backend == "qpdr") && e.manager.BorrowSourceTraceTags().ShouldTrace("pdr") {
 		ref, err := e.manager.NewRef(query)
@@ -184,6 +189,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	}
 	if err = clone.AddRule(rule, ""); err != nil {
 		return lbool.Undef, err
+	}
+	if clone.backend == "datalog" {
+		if _, err = clone.ensureIntervalDatalog(); err != nil {
+			return lbool.Undef, err
+		}
 	}
 	clone.datalogExplanationQuery, err = clone.datalogExplanationsEnabled()
 	if err != nil {
