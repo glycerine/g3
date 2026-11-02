@@ -108,10 +108,7 @@ func (r *IntervalRelation) FilterEqual(column uint32, value *big.Rat) error {
 }
 
 func (r *IntervalRelation) FilterIdentical(first, second uint32) error {
-	if r == nil || r.values == nil {
-		return ast.ErrASTDomain
-	}
-	return r.values.equate(first, second)
+	return r.FilterIdenticalColumns([]uint32{first, second})
 }
 
 func (r *IntervalRelation) FilterInterpreted(manager *ast.ASTManager, condition ast.ASTHandle) error {

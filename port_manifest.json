@@ -92182,6 +92182,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/rel/bound_relation_plugin.go",
+        "pkg/muz/rel/bound_relation_plugin_test.go",
         "pkg/muz/rel/bound_relation.go",
         "pkg/muz/rel/bound_relation_test.go",
         "pkg/muz/rel/bound_relation_equality_soundness_test.go",
@@ -93226,6 +93228,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/rel/finite_interval_product_display.go",
+        "pkg/muz/rel/finite_interval_product_display_test.go",
         "pkg/muz/rel/finite_explanation_output.go",
         "pkg/muz/rel/finite_explanation_output_test.go",
         "pkg/muz/rel/finite_explanation_join_conversion.go",
@@ -94333,6 +94337,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/rel/interval_relation_capability.go",
+        "pkg/muz/rel/interval_relation_capability_test.go",
+        "pkg/muz/rel/interval_relation_formula_failure_test.go",
         "pkg/muz/rel/interval_recognizer.go",
         "pkg/muz/rel/interval_recognizer_test.go",
         "pkg/smtcore/old_interval_relation.go",
@@ -96783,6 +96790,8 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/rel/interval_vector_intersection.go",
+        "pkg/muz/rel/interval_vector_intersection_test.go",
         "pkg/muz/rel/interval_columns.go",
         "pkg/muz/rel/interval_columns_test.go",
         "pkg/muz/rel/interval_vector_operations.go",

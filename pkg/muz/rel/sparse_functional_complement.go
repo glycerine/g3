@@ -16,11 +16,11 @@ func (table *SparseTable) ComplementFunctional(functionalSuffix Fact) (*SparseTa
 		return nil, err
 	}
 	if first == 0 {
-		length, lengthErr := table.Len()
-		if lengthErr != nil {
-			return nil, lengthErr
+		empty, emptyErr := table.Empty()
+		if emptyErr != nil {
+			return nil, emptyErr
 		}
-		if length == 0 {
+		if empty {
 			_, err = result.Add(cloneFact(functionalSuffix))
 		}
 		return result, err

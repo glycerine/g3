@@ -238,7 +238,7 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		e.stats.Joins++
 		result, err = left.Join(right, node.columns1, node.columns2)
 	case LazyTableProject:
-		if node.left != nil && node.left.kind == LazyTableJoin && node.left.evaluated == nil {
+		if node.left != nil && node.left.kind == LazyTableJoin {
 			join := node.left
 			left, leftErr := e.evaluate(join.left)
 			if leftErr != nil {
@@ -250,11 +250,15 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 			}
 			e.stats.JoinProjects++
 			result, err = left.JoinProject(right, join.columns1, join.columns2, node.columns1)
-		} else if node.left != nil && node.left.kind == LazyTableFilterEqual && node.left.evaluated == nil && len(node.columns1) == 1 && node.columns1[0] == node.left.column {
+		} else if node.left != nil && node.left.kind == LazyTableFilterEqual && len(node.columns1) == 1 && node.columns1[0] == node.left.column {
 			filter := node.left
-			source, sourceErr := e.evaluate(filter.left)
-			if sourceErr != nil {
-				return nil, sourceErr
+			source := filter.evaluated
+			if source == nil {
+				var sourceErr error
+				source, sourceErr = e.evaluate(filter.left)
+				if sourceErr != nil {
+					return nil, sourceErr
+				}
 			}
 			e.stats.SelectEqualProject++
 			result, err = source.SelectEqualAndProject(filter.value, filter.column)
@@ -334,12 +338,26 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		}
 		node.left.evaluated = nil
 		node.evaluated = target
-		source, sourceErr := e.evaluate(node.right)
-		if sourceErr != nil {
-			return nil, sourceErr
+		if node.right != nil && node.right.kind == LazyTableJoin {
+			join := node.right
+			left, leftErr := e.evaluate(join.left)
+			if leftErr != nil {
+				return nil, leftErr
+			}
+			right, rightErr := e.evaluate(join.right)
+			if rightErr != nil {
+				return nil, rightErr
+			}
+			e.stats.NegationFilters++
+			err = lazyFilterByNegatedJoin(target, left, right, node.columns1, node.columns2, join.columns1, join.columns2)
+		} else {
+			source, sourceErr := e.evaluate(node.right)
+			if sourceErr != nil {
+				return nil, sourceErr
+			}
+			e.stats.NegationFilters++
+			err = target.FilterByNegation(source, node.columns1, node.columns2)
 		}
-		e.stats.NegationFilters++
-		err = target.FilterByNegation(source, node.columns1, node.columns2)
 		result = target
 	case LazyTableFilterInterpreted:
 		source, sourceErr := e.evaluate(node.left)
@@ -371,6 +389,74 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 	}
 	node.evaluated = result
 	return result, nil
+}
+
+// lazyFilterByNegatedJoin is the concrete HashTable counterpart of
+// mk_filter_by_negated_join_fn used by lazy_table_filter_by_negation::force.
+// It observes the two join inputs directly, so the shared join node remains
+// deferred and does not allocate a temporary joined table.
+func lazyFilterByNegatedJoin(target, left, right *HashTable, targetColumns, joinedColumns, leftJoinColumns, rightJoinColumns []int) error {
+	if err := validateColumns(left.signature, right.signature, leftJoinColumns, rightJoinColumns); err != nil {
+		return err
+	}
+	joinedDomains := append(left.signature.Domains(), right.signature.domains...)
+	joinedSignature, err := NewSignature(joinedDomains)
+	if err != nil {
+		return err
+	}
+	if err = validateColumns(target.signature, joinedSignature, targetColumns, joinedColumns); err != nil {
+		return err
+	}
+	targetFacts, err := target.Facts()
+	if err != nil {
+		return err
+	}
+	leftFacts, err := left.Facts()
+	if err != nil {
+		return err
+	}
+	rightFacts, err := right.Facts()
+	if err != nil {
+		return err
+	}
+	joinedValue := func(first, second Fact, column int) Element {
+		if column < len(first) {
+			return first[column]
+		}
+		return second[column-len(first)]
+	}
+	for _, fact := range targetFacts {
+		remove := false
+		for _, first := range leftFacts {
+			for _, second := range rightFacts {
+				matches := true
+				for index := range leftJoinColumns {
+					if first[leftJoinColumns[index]] != second[rightJoinColumns[index]] {
+						matches = false
+						break
+					}
+				}
+				for index := 0; matches && index < len(targetColumns); index++ {
+					if fact[targetColumns[index]] != joinedValue(first, second, joinedColumns[index]) {
+						matches = false
+					}
+				}
+				if matches {
+					remove = true
+					break
+				}
+			}
+			if remove {
+				break
+			}
+		}
+		if remove {
+			if _, err = target.Remove(fact); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Eval forces and memoizes the operation DAG and returns a borrowed table.

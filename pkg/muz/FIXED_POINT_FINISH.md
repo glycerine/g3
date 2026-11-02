@@ -339,18 +339,25 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/check_relation.cpp` (partial), `src/muz/rel/check_relation.h` (partial)
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
+  - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
+  - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
 - [ ] `src/muz/rel/dl_interval_relation.cpp` (partial), `src/muz/rel/dl_interval_relation.h` (partial)
+  - [x] Plugin signature capability, n-ary identical-column filtering and formula construction allocation ownership.
 - [ ] `src/muz/rel/dl_lazy_table.cpp` (partial), `src/muz/rel/dl_lazy_table.h` (partial)
+  - [x] Negated-join direct forcing plus cached join/equality-filter projection fusion after observation.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
 - [ ] `src/muz/rel/dl_relation_manager.h` (partial)
 - [ ] `src/muz/rel/dl_sieve_relation.cpp` (partial), `src/muz/rel/dl_sieve_relation.h` (partial)
+  - [x] Formula reconstruction and concrete interpreted filtering with source ignored-column approximation.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
+  - [x] Concrete empty query and zero-key functional complement consumption.
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
+  - [x] Interval join/project/swap intersection fallback with atomic validation.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
   - [x] Query-scoped unbound compression, live module/local parameter precedence, `datalog.default_relation=doc` disabling, original-rule restoration, and generated finite-relation cleanup.
   - [x] Source `scoped_query` restoration around filter, simple-join, unbound and similarity transformations, including failure paths.
@@ -870,3 +877,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Filter-rule cleanup now preserves every unconsumed cached predicate pin when native release refuses during either Close or the next transformation's cache reset. Closing blocks transformation/publication until retry; cache-reset retry rebuilds the real value-argument filter successfully. Both baselines previously lost owners. Focused tests passed in 0.018s and the complete native transforms package passed in 9.485s. Later partial cache disposal and filter-construction error ownership remain open.
 
 - 2026-11-02 — Ported TAB `imp::cleanup` cancellation behavior: active query/derived clauses close immediately and stack/index clear while reusable selection and borrowed rule-index services survive until final Close. A second native-refusal regression verifies exact clause head/predicate/constraint owners remain usable across two refused closes, then retire idempotently with zero final budget. Focused tests passed in 0.012s and the complete native TAB package passed in 0.085s. Full source assertion/ownership and compound-query audits remain open.
+
+- 2026-11-02 — Integrated seven concrete relational backend slices: bound plugin capability/construction/join, interval capability/n-ary equality and formula allocation ownership, lazy negated-join and observed-cache fusion, sieve formula/interpreted filtering, sparse empty/complement, vector intersection fallback, and finite/interval product display/estimates. Each path uses concrete typed relations rather than a universal adapter; focused semantic/oracle tests cover validation, mutation atomicity and ownership. The complete native relational package passed in 2.992s after the cached-filter fusion correction. Manager/plugin dispatch and the remaining unit audits stay open.

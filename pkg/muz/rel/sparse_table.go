@@ -71,6 +71,15 @@ func (t *SparseTable) Len() (int, error) {
 	return len(t.data.entries), nil
 }
 
+// Empty reports whether the concrete table has no stored rows, matching
+// sparse_table::empty without exposing its packed entry storage.
+func (t *SparseTable) Empty() (bool, error) {
+	if e := t.open(); e != nil {
+		return false, e
+	}
+	return len(t.data.entries) == 0, nil
+}
+
 // SizeEstimateRows reports the exact stored row count, matching sparse_table.
 func (t *SparseTable) SizeEstimateRows() (uint32, error) {
 	rows, err := t.Len()
