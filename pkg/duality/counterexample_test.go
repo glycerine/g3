@@ -98,10 +98,11 @@ func TestDualityFullBoundShortcutPreservesExistingCounterexample(t *testing.T) {
 	defer cex.Close()
 	must(cex.Set(prior, root))
 	before := m.Stats()
+	outer.lastDecisions = 731
 	satisfied, err := outer.SatisfyUpperBound(node, nil, cex, false)
 	must(err)
 	after := m.Stats()
-	if !satisfied || cex.Tree() != prior || prior.closed || before.LiveReferences != after.LiveReferences {
+	if !satisfied || cex.Tree() != prior || prior.closed || before.LiveReferences != after.LiveReferences || outer.lastDecisions != 731 {
 		t.Fatal("full-bound shortcut allocated or replaced prior result")
 	}
 	satisfied, err = outer.SatisfyUpperBound(node, nil, nil, true)
@@ -139,7 +140,7 @@ func TestDualityFullBoundShortcutPreservesExistingCounterexample(t *testing.T) {
 	}
 	depth, err := aux.ScopeLevel()
 	must(err)
-	if !working.closed || cex.Tree() != prior || prior.closed || depth != 0 {
+	if !working.closed || cex.Tree() != prior || prior.closed || depth != 0 || outer.lastDecisions != 731 {
 		t.Fatal("bound failure leaked graph/scope or replaced prior result")
 	}
 

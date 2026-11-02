@@ -175,8 +175,15 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 						}
 					}
 				} else {
+					startDecisions, err := nativeSolverDecisions(main)
+					must(err)
 					satisfied, err := outer.SatisfyUpperBound(mapped[0], controller, cex, under)
 					must(err)
+					endDecisions, err := nativeSolverDecisions(main)
+					must(err)
+					if outer.lastDecisions != endDecisions-startDecisions {
+						t.Fatal("bound decision delta differs from native counter", outer.lastDecisions, endDecisions-startDecisions)
+					}
 					sat = !satisfied
 					if sat {
 						if cex.Tree() != working || cex.Root() != base.Top || working.closed {

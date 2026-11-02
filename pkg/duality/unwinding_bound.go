@@ -34,10 +34,19 @@ func (u *Unwinding) SatisfyUpperBound(node *Node, search *DerivationSearch, coun
 			result = errors.Join(result, working.Close())
 		}
 	}()
+	start, err := working.CumulativeDecisions()
+	if err != nil {
+		return false, err
+	}
 	sat, err := search.Derive(node, useUnderapprox, false)
 	if err != nil {
 		return false, err
 	}
+	end, err := working.CumulativeDecisions()
+	if err != nil {
+		return false, err
+	}
+	u.lastDecisions = end - start
 	top := search.Search.Top
 	if sat {
 		if err = counterexample.Set(working, top); err != nil {
