@@ -1,3 +1,5 @@
+Duality integer lower fact: native model-backed unary integer fact coverage checks the reconstructed annotation is logically equivalent to x = 3 after localization and projection. Plain core/bridge/fixedpoint and portcheck suites pass. Recursive integer projection with an intermediate variable remains open for additional coverage.
+
 Duality parameterized lower fact: added a model-backed unary Boolean fact regression and independently checked that localization/projection renames the resulting lower annotation back to the original predicate parameter. Plain core/bridge/fixedpoint and portcheck suites pass. Broader parameterized arithmetic/recursive coverage remains open.
 
 Duality projection coefficient tests: native equivalence checks now cover positive and negative scaled bounds, and verify integer normalization preserves an impossible interval before elimination. Plain core/bridge/fixedpoint and portcheck suites pass. Further general arithmetic and end-to-end completion coverage remains open.
