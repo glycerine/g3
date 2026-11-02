@@ -9,7 +9,94 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
+
+// ruleOwnerCleanupFailure keeps concrete retained rule owners reachable when
+// native AST cleanup is refused. It implements memory.ConstructionFailure
+// structurally without introducing a generic ownership adapter.
+type ruleOwnerCleanupFailure struct {
+	manager    *ast.ASTManager
+	cause      error
+	cleanupErr error
+	rules      []*base.Rule
+}
+
+type astRefCleanupFailure struct {
+	manager    *ast.ASTManager
+	refs       []ast.ASTRef
+	cause      error
+	cleanupErr error
+}
+
+func (f *astRefCleanupFailure) Error() string { return errors.Join(f.cause, f.cleanupErr).Error() }
+func (f *astRefCleanupFailure) Unwrap() error { return errors.Join(f.cause, f.cleanupErr) }
+func (f *astRefCleanupFailure) Cleanup() error {
+	f.cleanupErr = closeASTRefs(f.manager, f.refs)
+	return f.cleanupErr
+}
+func (f *astRefCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.manager.NumeralService().RuntimeOwner()
+}
+func (f *astRefCleanupFailure) OriginalCause() error { return f.cause }
+func (f *astRefCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+
+func closeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef) (result error) {
+	for i := len(refs) - 1; i >= 0; i-- {
+		if refs[i] == (ast.ASTRef{}) {
+			continue
+		}
+		if err := manager.DelRef(&refs[i]); err != nil {
+			return errors.Join(result, err)
+		}
+	}
+	return result
+}
+
+func disposeASTRefs(manager *ast.ASTManager, refs []ast.ASTRef, cause error) error {
+	failure := &astRefCleanupFailure{manager: manager, refs: refs, cause: cause}
+	if cleanup := failure.Cleanup(); cleanup != nil {
+		return failure
+	}
+	return cause
+}
+
+func (f *ruleOwnerCleanupFailure) Error() string { return errors.Join(f.cause, f.cleanupErr).Error() }
+func (f *ruleOwnerCleanupFailure) Unwrap() error { return errors.Join(f.cause, f.cleanupErr) }
+func (f *ruleOwnerCleanupFailure) RuntimeOwner() *memory.Runtime {
+	return f.manager.NumeralService().RuntimeOwner()
+}
+func (f *ruleOwnerCleanupFailure) OriginalCause() error { return f.cause }
+func (f *ruleOwnerCleanupFailure) CleanupCause() error  { return f.cleanupErr }
+
+func (f *ruleOwnerCleanupFailure) Cleanup() error {
+	if f == nil {
+		return nil
+	}
+	var pending []*base.Rule
+	var cause error
+	for i := len(f.rules) - 1; i >= 0; i-- {
+		if err := f.rules[i].Close(); err != nil {
+			pending = append(pending, f.rules[i])
+			cause = errors.Join(cause, err)
+		}
+	}
+	f.rules = pending
+	f.cleanupErr = cause
+	if cause != nil {
+		return cause
+	}
+	return nil
+}
+
+func closeRuleOwners(manager *ast.ASTManager, rules []*base.Rule) error {
+	failure := &ruleOwnerCleanupFailure{manager: manager, rules: rules}
+	if err := failure.Cleanup(); err != nil {
+		failure.cause = err
+		return failure
+	}
+	return nil
+}
 
 func (c *Compiler) simplifyBoolean(and bool, args []ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	m := c.manager
@@ -35,6 +122,12 @@ func (c *Compiler) simplifyBoolean(and bool, args []ast.ASTHandle) (result ast.A
 
 func (c *Compiler) applyVariables(decl ast.ASTHandle) (result ast.ASTRef, resultErr error) {
 	m := c.manager
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
+			result = ast.ASTRef{}
+		}
+	}()
 	count, err := m.GetArity(decl)
 	if err != nil {
 		return result, err
@@ -42,9 +135,7 @@ func (c *Compiler) applyVariables(decl ast.ASTHandle) (result ast.ASTRef, result
 	args := make([]ast.ASTHandle, count)
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
+		resultErr = disposeASTRefs(m, refs, resultErr)
 	}()
 	for i := range args {
 		sort, err := m.GetDomain(decl, uint32(i))
@@ -72,11 +163,9 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 	m := c.manager
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
+		resultErr = disposeASTRefs(m, refs, resultErr)
 		if resultErr != nil && result != (ast.ASTRef{}) {
-			resultErr = errors.Join(resultErr, m.DelRef(&result))
+			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
 			result = ast.ASTRef{}
 		}
 	}()
@@ -219,6 +308,9 @@ func (c *Compiler) compileRule(manager *base.RuleManager, predicate ast.ASTHandl
 	}
 	sub, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
+		if sub != nil {
+			err = errors.Join(err, sub.Close())
+		}
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()
@@ -250,9 +342,7 @@ func (c *Compiler) Compile(rules *base.RuleSet, level uint32) (result []ast.ASTR
 	m := c.manager
 	defer func() {
 		if resultErr != nil {
-			for i := len(result) - 1; i >= 0; i-- {
-				resultErr = errors.Join(resultErr, m.DelRef(&result[i]))
-			}
+			resultErr = disposeASTRefs(m, result, resultErr)
 			result = nil
 		}
 	}()
@@ -272,7 +362,7 @@ func (c *Compiler) Compile(rules *base.RuleSet, level uint32) (result []ast.ASTR
 			return result, err
 		}
 		decl, e := rule.HeadDeclaration()
-		e = errors.Join(e, rule.Close())
+		e = errors.Join(e, closeRuleOwners(m, []*base.Rule{rule}))
 		if e != nil {
 			return result, e
 		}
@@ -296,15 +386,11 @@ func (c *Compiler) compileGroup(rules *base.RuleSet, manager *base.RuleManager, 
 		return err
 	}
 	defer func() {
-		for i := len(group) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, group[i].Close())
-		}
+		resultErr = errors.Join(resultErr, closeRuleOwners(m, group))
 	}()
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
+		resultErr = disposeASTRefs(m, refs, resultErr)
 	}()
 	levelRef, err := c.levelDeclaration(predicate, level, nil)
 	if err != nil {

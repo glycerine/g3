@@ -66,6 +66,9 @@ func (c *Compiler) BindVariables(expression, head ast.ASTHandle) (result ast.AST
 	}
 	sub, err := rewriter.NewVarSubstitution(m, false)
 	if err != nil {
+		if sub != nil {
+			err = errors.Join(err, sub.Close())
+		}
 		return result, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, sub.Close()) }()

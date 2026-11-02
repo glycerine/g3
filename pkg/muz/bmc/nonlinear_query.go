@@ -4,7 +4,6 @@ package bmc
 // mk_level_rule and compile_query.
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -74,6 +73,15 @@ func (c *Compiler) CompileQuery(predicate ast.ASTHandle, level uint32) (result a
 		return result, ast.ErrASTHandle
 	}
 	m := c.manager
+	// Publication cleanup runs after the level-declaration and argument-root
+	// destructors, so a late temporary cleanup error cannot return a live query
+	// together with an error.
+	defer func() {
+		if resultErr != nil && result != (ast.ASTRef{}) {
+			resultErr = disposeASTRefs(m, []ast.ASTRef{result}, resultErr)
+			result = ast.ASTRef{}
+		}
+	}()
 	original, err := m.GetASTName(predicate)
 	if err != nil {
 		return result, err
@@ -86,7 +94,7 @@ func (c *Compiler) CompileQuery(predicate ast.ASTHandle, level uint32) (result a
 	if err != nil {
 		return result, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&levelRef)) }()
+	defer func() { resultErr = disposeASTRefs(m, []ast.ASTRef{levelRef}, resultErr) }()
 	levelDecl, err := m.RefGet(levelRef)
 	if err != nil {
 		return result, err
@@ -98,9 +106,7 @@ func (c *Compiler) CompileQuery(predicate ast.ASTHandle, level uint32) (result a
 	args := make([]ast.ASTHandle, arity)
 	var refs []ast.ASTRef
 	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
+		resultErr = disposeASTRefs(m, refs, resultErr)
 	}()
 	for i := range args {
 		sort, err := m.GetDomain(levelDecl, uint32(i))
