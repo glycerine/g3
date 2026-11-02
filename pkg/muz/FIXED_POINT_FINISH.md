@@ -24,6 +24,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
   - [x] Preserve source pop rejection after pre-query Spacer context instantiation; verify an uninstantiated scope can still pop.
   - [ ] Audit PDR pre-query level/cover access, which currently returns an invalid-engine-state error instead of providing the Spacer-style pre-query accessor.
+    - [x] Extract the existing complete PDR parameterized constructor so query and pre-query paths can share identical configuration.
+    - [ ] Permit source-compatible pre-initialization level/cover lookup in the PDR context.
+    - [ ] Reuse the pre-query context and preserve its covers when initial rules are installed; test context identity and raw frames.
 - [ ] Test cancellation, resource refusal and partial construction/destruction at actual allocation boundaries; preserve errors through cleanup.
 
 ## 3. PDR — first engine closure
@@ -253,3 +256,6 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — Source `dl_context.cpp:187-195` guards pop on engine existence, not just completed queries. Fixed Go Pop to account for instantiated PDR/Spacer contexts. `TestFixedpointPopRejectsInstantiatedPrequeryEngine` reproduces the Spacer pre-query bypass, verifies pop before instantiation, then requires rejection with the scope preserved after a level operation. Complete native muz/fp tests pass. The attempted PDR pre-query accessor instead reports invalid state; that distinct source-boundary gap is recorded above and remains open. Previous header audit commit: `d03bc3f29`.
   Validation: `go -C pkg test ./muz/fp -short` passed. Commit title: `Guard fixedpoint pop after prequery context creation`.
+
+- 2026-11-02 — Source PDR interface construction (`pdr_dl_interface.cpp:35-46`) confirms pre-query context existence. Extracted `newConfiguredPDRContext` from query execution, preserving every existing parameter/default/setter and constructor-error cleanup path. Complete native muz/fp tests pass. This is a prerequisite refactor, not a claim that the pre-query gap is fixed; context access and cover inheritance are separate unchecked items above. Previous context-pop guard commit: `38733018b`.
+  Validation: `go -C pkg test ./muz/fp -short` passed. Commit title: `Share complete PDR context configuration for lifecycle work`.

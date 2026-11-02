@@ -131,116 +131,9 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		return lbool.Undef, err
 	}
 	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
-	maximumContexts, err := parameters.UInt("pdr.max_num_contexts", 500)
+	context, err := e.newConfiguredPDRContext(parameters)
 	if err != nil {
 		return lbool.Undef, err
-	}
-	cacheValue, err := parameters.UInt("pdr.cache_mode", uint32(pdr.ReachableNoCache))
-	if err != nil {
-		return lbool.Undef, err
-	}
-	cacheMode := pdr.ReachableCacheMode(cacheValue)
-	if cacheMode > pdr.ReachableConstraintCache {
-		return lbool.Undef, fmt.Errorf("muz/fp: invalid pdr.cache_mode %d", cacheValue)
-	}
-	context, err := pdr.NewContext(e.manager, parameters.local, maximumContexts, cacheMode, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
-	if err != nil {
-		return lbool.Undef, err
-	}
-	useFarkas, err := parameters.Bool("pdr.farkas", true)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseFarkas(useFarkas); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useInductive, err := parameters.Bool("pdr.use_inductive_generalizer", true)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseInductiveGeneralizer(useInductive); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useMultiCore, err := parameters.Bool("pdr.use_multicore_generalizer", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseMultiCoreGeneralizer(useMultiCore); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useArithmeticInductive, err := parameters.Bool("pdr.use_arith_inductive_generalizer", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseArithmeticInductiveGeneralizer(useArithmeticInductive); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useInductiveReachability, err := parameters.Bool("pdr.inductive_reachability_check", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseInductiveReachabilityGeneralizer(useInductiveReachability); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useConvexClosure, err := parameters.Bool("pdr.use_convex_closure_generalizer", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseConvexClosureGeneralizer(useConvexClosure); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useConvexInterior, err := parameters.Bool("pdr.use_convex_interior_generalizer", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseConvexInteriorGeneralizer(useConvexInterior); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useUTVPI, err := parameters.Bool("pdr.utvpi", true)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseUTVPI(useUTVPI); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	useModelGeneralizer, err := parameters.Bool("pdr.use_model_generalizer", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetUseModelGeneralizer(useModelGeneralizer); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	breadthFirst, err := parameters.Bool("pdr.bfs_model_search", true)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetBreadthFirstModelSearch(breadthFirst); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	flexible, err := parameters.Bool("pdr.flexible_trace", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetFlexibleTrace(flexible); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	inlineEager, err := parameters.Bool("xform.inline_eager", true)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	inlineLinear, err := parameters.Bool("xform.inline_linear", true)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	generateProofTrace, err := parameters.Bool("generate_proof_trace", false)
-	if err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
-	}
-	if err = context.SetGenerateProofTrace(generateProofTrace || e.forceProofTrace); err != nil {
-		return lbool.Undef, errors.Join(err, context.Close())
 	}
 	preprocessed, err := e.preprocessHornRulesWithSliceProof(declaration, true, true, allowSliceProof)
 	if err != nil {
@@ -566,4 +459,120 @@ func (e *PropositionalEngine) RulesAlongTrace() (formulas []ast.ASTRef, names []
 		names = append(names, name)
 	}
 	return formulas, names, resultErr
+}
+
+// newConfiguredPDRContext owns construction until every source parameter is installed.
+func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointParamView) (*pdr.Context, error) {
+	maximumContexts, err := parameters.UInt("pdr.max_num_contexts", 500)
+	if err != nil {
+		return nil, err
+	}
+	cacheValue, err := parameters.UInt("pdr.cache_mode", uint32(pdr.ReachableNoCache))
+	if err != nil {
+		return nil, err
+	}
+	cacheMode := pdr.ReachableCacheMode(cacheValue)
+	if cacheMode > pdr.ReachableConstraintCache {
+		return nil, fmt.Errorf("muz/fp: invalid pdr.cache_mode %d", cacheValue)
+	}
+	context, err := pdr.NewContext(e.manager, parameters.local, maximumContexts, cacheMode, smtcore.SMTSolverConfig{Params: e.params, Globals: e.globals})
+	if err != nil {
+		return nil, err
+	}
+	useFarkas, err := parameters.Bool("pdr.farkas", true)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseFarkas(useFarkas); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useInductive, err := parameters.Bool("pdr.use_inductive_generalizer", true)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseInductiveGeneralizer(useInductive); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useMultiCore, err := parameters.Bool("pdr.use_multicore_generalizer", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseMultiCoreGeneralizer(useMultiCore); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useArithmeticInductive, err := parameters.Bool("pdr.use_arith_inductive_generalizer", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseArithmeticInductiveGeneralizer(useArithmeticInductive); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useInductiveReachability, err := parameters.Bool("pdr.inductive_reachability_check", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseInductiveReachabilityGeneralizer(useInductiveReachability); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useConvexClosure, err := parameters.Bool("pdr.use_convex_closure_generalizer", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseConvexClosureGeneralizer(useConvexClosure); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useConvexInterior, err := parameters.Bool("pdr.use_convex_interior_generalizer", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseConvexInteriorGeneralizer(useConvexInterior); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useUTVPI, err := parameters.Bool("pdr.utvpi", true)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseUTVPI(useUTVPI); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	useModelGeneralizer, err := parameters.Bool("pdr.use_model_generalizer", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetUseModelGeneralizer(useModelGeneralizer); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	breadthFirst, err := parameters.Bool("pdr.bfs_model_search", true)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetBreadthFirstModelSearch(breadthFirst); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	flexible, err := parameters.Bool("pdr.flexible_trace", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetFlexibleTrace(flexible); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	inlineEager, err := parameters.Bool("xform.inline_eager", true)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	inlineLinear, err := parameters.Bool("xform.inline_linear", true)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetFullTraceAnswer(!inlineEager && !inlineLinear); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	generateProofTrace, err := parameters.Bool("generate_proof_trace", false)
+	if err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	if err = context.SetGenerateProofTrace(generateProofTrace || e.forceProofTrace); err != nil {
+		return nil, errors.Join(err, context.Close())
+	}
+	return context, nil
 }
