@@ -91645,6 +91645,9 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/datalog_check_relation.go",
+        "pkg/muz/fp/datalog_check_relation_test.go",
+        "pkg/muz/fp/propositional_engine.go",
         "pkg/muz/rel/formula_checked_table.go",
         "pkg/muz/rel/formula_checked_table_test.go",
         "pkg/muz/rel/table_relation.go",
@@ -91655,6 +91658,8 @@
         "pkg/muz/rel/formula_checked_table_negation.go"
       ],
       "tests": [
+        "TestDatalogCheckRelationParameterRunsCheckedSaturation",
+        "TestDatalogCheckRelationLocalPrecedenceAndDocCompression",
         "TestFormulaCheckedTableFactsAndReset",
         "TestFormulaCheckedTableFilters",
         "TestFormulaCheckedTableUnionAndDelta",

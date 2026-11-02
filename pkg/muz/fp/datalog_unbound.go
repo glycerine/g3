@@ -90,6 +90,13 @@ func (e *PropositionalEngine) prepareDatalogUnbound(outputs []ast.ASTHandle) (_ 
 	if !enabled {
 		return nil, nil
 	}
+	checkRelation, checking, err := e.datalogCheckRelationName()
+	if err != nil {
+		return nil, err
+	}
+	if checking && checkRelation == "doc" {
+		return nil, nil
+	}
 	scoped, err := base.NewRuleSet(e.rules)
 	if err != nil {
 		return nil, err

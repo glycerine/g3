@@ -26,6 +26,49 @@ type FormulaCheckedTable struct {
 	closed  bool
 }
 
+// Table returns the borrowed concrete table under verification. It is exposed
+// for the fixedpoint execution context, which keeps its existing concrete
+// table compiler while routing mutations through this checker.
+func (r *FormulaCheckedTable) Table() *HashTable {
+	if r.open() != nil {
+		return nil
+	}
+	return r.table.Table()
+}
+
+// Facts returns the verified concrete rows.
+func (r *FormulaCheckedTable) Facts() ([]Fact, error) {
+	if err := r.open(); err != nil {
+		return nil, err
+	}
+	return r.table.Facts()
+}
+
+// AddTableFact decodes an encoded Datalog row and checks the insertion against
+// the relation formula, matching check_relation::add_fact at the table boundary.
+func (r *FormulaCheckedTable) AddTableFact(fact Fact) (added bool, resultErr error) {
+	if err := r.open(); err != nil {
+		return false, err
+	}
+	values, err := r.table.manager.DecodeFact(r.table.sorts, fact)
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		for i := len(values) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, r.manager.DelRef(&values[i]))
+		}
+	}()
+	handles := make([]ast.ASTHandle, len(values))
+	for i := range values {
+		handles[i], err = r.manager.RefGet(values[i])
+		if err != nil {
+			return false, err
+		}
+	}
+	return r.AddFact(handles)
+}
+
 // NewFormulaCheckedTable transfers source ownership on success.
 func NewFormulaCheckedTable(source *TableRelation, config smtcore.SMTSolverConfig) (*FormulaCheckedTable, error) {
 	if source == nil || source.open() != nil || config.Params == nil {

@@ -337,6 +337,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [x] `src/muz/rel/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/rel/check_relation.cpp` (partial), `src/muz/rel/check_relation.h` (partial)
+  - [x] Live `datalog.check_relation` selection for concrete hashtable/doc execution, local precedence, checked derived facts, persistent publication and scoped cleanup.
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
@@ -361,7 +362,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
   - [x] Query-scoped unbound compression, live module/local parameter precedence, `datalog.default_relation=doc` disabling, original-rule restoration, and generated finite-relation cleanup.
   - [x] Source `scoped_query` restoration around filter, simple-join, unbound and similarity transformations, including failure paths.
-  - [ ] Backend selection diversity and the remaining transformation/query orchestration pipeline.
+  - [x] `datalog.check_relation` local/module selection, hashtable/doc checked saturation, result publication and doc/unbound interaction.
+  - [ ] Wider backend selection diversity and the remaining transformation/query orchestration pipeline.
 - [ ] `src/muz/rel/udoc_relation.cpp` (partial), `src/muz/rel/udoc_relation.h` (partial)
 
 ### spacer
@@ -881,3 +883,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Integrated seven concrete relational backend slices: bound plugin capability/construction/join, interval capability/n-ary equality and formula allocation ownership, lazy negated-join and observed-cache fusion, sieve formula/interpreted filtering, sparse empty/complement, vector intersection fallback, and finite/interval product display/estimates. Each path uses concrete typed relations rather than a universal adapter; focused semantic/oracle tests cover validation, mutation atomicity and ownership. The complete native relational package passed in 2.992s after the cached-filter fusion correction. Manager/plugin dispatch and the remaining unit audits stay open.
 
 - 2026-11-02 — Extended the concrete explanation compiler through source tail constant selection, repeated-variable identity filtering and repeated finite head-column duplication. Typed explanation bytecode now dispatches equality/identity filters and uses unary projection plus equality join without duplicating the explanation suffix. A three-mode Boolean tuple oracle compiles actual transformed rules/output bridges, repeats execution, checks exact `step(fact)` roots, empty constant selection and unchanged source rows. Focused tests passed in 0.036s and the complete native relational package passed in 3.019s. Ground/head-constant/unbound, multi-tail/negated and whole-set scheduling gaps remain open; explanation generation stays inactive.
+
+- 2026-11-02 — Activated the live `datalog.check_relation` path for concrete hashtable/doc backends. Local parameters override module settings, `null` disables checking, doc disables unbound compression, interpreted saturation routes every derived fact through the existing SMT formula checker, and cloned verified tables publish back into persistent relation storage before scoped owners retire. Ten repeated end-to-end runs passed in 0.095s; adjacent fixedpoint/relational suites passed in 0.032s/0.065s. Sparse/other backend wrappers and wider relation-manager selection remain open.

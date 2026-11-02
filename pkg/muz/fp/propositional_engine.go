@@ -35,8 +35,9 @@ var (
 )
 
 type predicateState struct {
-	sorts []ast.ASTHandle
-	table *rel.HashTable
+	sorts   []ast.ASTHandle
+	table   *rel.HashTable
+	checked *rel.FormulaCheckedTable
 }
 
 type ddnfEngineState struct {
@@ -1364,6 +1365,9 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 			return false, ErrPropositionalHorn
 		}
 		facts, x := state.table.Facts()
+		if state.checked != nil {
+			facts, x = state.checked.Facts()
+		}
 		if x != nil {
 			return false, x
 		}
@@ -1402,6 +1406,9 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 			return false, x
 		}
 		facts, x := state.table.Facts()
+		if state.checked != nil {
+			facts, x = state.checked.Facts()
+		}
 		if x != nil {
 			return false, x
 		}
@@ -1473,7 +1480,12 @@ func (e *PropositionalEngine) evaluateRule(rule *base.Rule) (changed bool, resul
 		if x != nil {
 			return false, x
 		}
-		added, x := state.table.Add(fact)
+		var added bool
+		if state.checked != nil {
+			added, x = state.checked.AddTableFact(fact)
+		} else {
+			added, x = state.table.Add(fact)
+		}
 		if x != nil {
 			return false, x
 		}
@@ -1949,14 +1961,22 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	if err = e.resetNegationDependentTables(); err != nil {
 		return lbool.Undef, err
 	}
-	started := time.Now()
-	e.compiled, err = e.tryCompiledSaturation()
+	checkScope, err := e.beginDatalogCheckRelation()
 	if err != nil {
-		e.datalogElapsed += time.Since(started).Seconds()
 		return lbool.Undef, err
 	}
-	if !e.compiled {
+	if checkScope != nil {
+		defer func() { resultErr = errors.Join(resultErr, checkScope.complete(resultErr == nil)) }()
+	}
+	started := time.Now()
+	if checkScope != nil {
+		e.compiled = false
 		err = e.saturate()
+	} else {
+		e.compiled, err = e.tryCompiledSaturation()
+		if err == nil && !e.compiled {
+			err = e.saturate()
+		}
 	}
 	e.datalogElapsed += time.Since(started).Seconds()
 	if err != nil {
