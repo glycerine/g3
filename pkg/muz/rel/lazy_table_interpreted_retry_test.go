@@ -35,8 +35,8 @@ func TestLazyTableInterpretedForceRetriesTransferredTableAfterFailure(t *testing
 	if _, err := table.Facts(); !errors.Is(err, ErrLazyTable) {
 		t.Fatal("closed rewriter did not fail deferred force", err)
 	}
-	if table.root.evaluated == nil || !table.root.retryForce || table.root.left.evaluated != nil {
-		t.Fatal("failed force lost transferred owner or published incomplete result")
+	if table.root.evaluated == nil || !table.root.retryForce || table.root.left != nil {
+		t.Fatal("failed force lost transferred owner, kept its source edge, or published incomplete result")
 	}
 	table.root.interpreted.rewriter = tableRelationTheoryRewriter(t, f.ast)
 	facts, err := table.Facts()

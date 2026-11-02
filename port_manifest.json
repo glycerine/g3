@@ -92253,7 +92253,9 @@
         "pkg/muz/rel/bound_relation_filter_identical_test.go",
         "pkg/muz/rel/bound_relation_clone_test.go",
         "pkg/muz/rel/bound_relation_display.go",
-        "pkg/muz/rel/bound_relation_display_test.go"
+        "pkg/muz/rel/bound_relation_display_test.go",
+        "pkg/muz/rel/bound_vector_intersection.go",
+        "pkg/muz/rel/bound_vector_intersection_test.go"
       ],
       "tests": [
         "TestBoundRelationOrderPropagationAndCycles",
@@ -92278,6 +92280,9 @@
         "TestBoundRelationUnionDelta",
         "TestBoundRelationEmptySourceCopiesItsDeltaState",
         "TestBoundRelationFilterIdenticalBuildsSourceEqualityClass",
+        "TestBoundRelationPluginUnionAndWidenDispatch",
+        "TestBoundVectorIntersectionPropagatesSourceOrder",
+        "TestBoundVectorIntersectionEmptyAliasAndFailureAtomicity",
         "TestBoundRelationFilterIdenticalPreservesEmptyAndTrivialCases",
         "TestBoundRelationFilterEqualPreservesCoarseBounds",
         "TestBoundRelationCloneUsesSourceVectorCopySemantics",
@@ -94428,6 +94433,7 @@
         "TestIntervalRelationFull",
         "TestIntervalRelationRename",
         "TestIntervalRelationUnionDelta",
+        "TestIntervalRelationASTEqualFilter",
         "TestIntervalRelationCloneMatchesSourceCopy",
         "TestIntervalRelationDisplaySourceFormat",
         "TestIntervalVectorRenameEquivalences",
@@ -94666,7 +94672,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_ownership.go", "pkg/muz/rel/table_join_project.go"],
+      "go_targets": ["pkg/muz/rel/lazy_table.go", "pkg/muz/rel/lazy_table_operations.go", "pkg/muz/rel/lazy_table_test.go", "pkg/muz/rel/lazy_table_operations_test.go", "pkg/muz/rel/lazy_table_interpreted.go", "pkg/muz/rel/lazy_table_interpreted_test.go", "pkg/muz/rel/lazy_table_interpreted_validation_test.go", "pkg/muz/rel/lazy_table_interpreted_retry_test.go", "pkg/muz/rel/lazy_table_interpreted_transfer_test.go", "pkg/muz/rel/lazy_table_ownership.go", "pkg/muz/rel/table_join_project.go"],
       "tests": ["TestLazyTableSourceDeferredJoinAndMemoization", "TestLazyTableCloneResetComplementAndLifecycle", "TestLazyTableMutationForcesOnlyOnObservation", "TestLazyTableValidationAndEngineOwnership", "TestLazyTableJoinProjectFusionAgainstFiniteOracle", "TestLazyTableJoinProjectFusionProducesOneEmptyTuple", "TestLazyTableSelectEqualProjectFusion", "TestLazyTableSelectEqualOtherProjectionUsesFallback", "TestLazyTableRenameNegationAndEagerUnion", "TestLazyTableBulkRemoveForcesLikeSource", "TestLazyTableInterpretedFilterRetainsConditionAcrossSharedNodes", "TestLazyTableInterpretedFilterProjectFusion", "TestLazyTableEngineCloseReleasesConditionOwners", "TestLazyTableInterpretedFilterValidatesBeforeRetainingAST", "TestLazyTableMutatingFiltersTransferCachedTables", "TestLazyTableFixedSizeEstimatesRemainDeferred", "TestLazyTableGeneralProjectionAndRenameStatistics"],
       "assertions": [
         {
@@ -96077,8 +96083,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go"],
-      "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings", "TestSieveNegationFilterUsesOuterColumnMappings"],
+      "go_targets": ["pkg/muz/rel/sieve_relation.go", "pkg/muz/rel/sieve_operations.go", "pkg/muz/rel/sieve_relation_test.go", "pkg/muz/rel/sieve_operations_test.go", "pkg/muz/rel/sieve_relation_table_join.go", "pkg/muz/rel/sieve_relation_table_join_test.go"],
+      "tests": ["TestSieveRelationClosesAdoptedTable", "TestSieveRelationAdoptionValidatesInnerShape", "TestSieveRelationSourceFactProjectionAndMetadata", "TestSieveRelationCloneResetAndLifecycle", "TestSieveRelationComplementFiniteOracle", "TestSieveJoinRetainedEqualityAndIgnoredOverApproximation", "TestSieveProjectInnerAndIgnoredColumns", "TestSieveRenameCycleMovesMaskDomainsAndRows", "TestSieveUnionDeltaAndLayoutValidation", "TestSieveFiltersPreserveSourceApproximation", "TestSieveNegationFilterMappings", "TestSieveNegationFilterUsesOuterColumnMappings", "TestSieveJoinTableRelationBothOrdersAndOwnership", "TestSieveJoinTableRelationSkipsFullEndpointEquality"],
       "conditionals": [
         {
           "line": 161,

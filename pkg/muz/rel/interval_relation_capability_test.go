@@ -84,3 +84,40 @@ func TestIntervalRelationNaryIdenticalFilter(t *testing.T) {
 		t.Fatal("nil relation accepted")
 	}
 }
+
+func TestIntervalRelationASTEqualFilter(t *testing.T) {
+	m := astTestManager(t)
+	family, err := m.RegisterArithmeticPlugin()
+	astTestMust(t, err)
+	real, err := m.MkFamilySort(family, 0, nil)
+	astTestMust(t, err)
+	value, err := m.ArithmeticRealNumeralText("3/2")
+	astTestMust(t, err)
+	astTestPin(t, m, value)
+	r := NewIntervalFull(1)
+	if err = r.FilterEqualExpression(m, 0, value); err != nil {
+		t.Fatal(err)
+	}
+	if !r.ContainsFact([]*big.Rat{big.NewRat(3, 2)}) || r.ContainsFact([]*big.Rat{big.NewRat(1, 1)}) {
+		t.Fatal("AST numeral filter did not capture the exact rational")
+	}
+
+	variable, err := m.MkVar(0, real)
+	astTestMust(t, err)
+	astTestPin(t, m, variable)
+	if err = r.FilterEqualExpression(m, 0, variable); err == nil {
+		t.Fatal("non-numeral equality value accepted")
+	}
+	if !r.ContainsFact([]*big.Rat{big.NewRat(3, 2)}) {
+		t.Fatal("rejected value changed the relation")
+	}
+	if err = r.FilterEqualExpression(m, 1, value); err == nil {
+		t.Fatal("out-of-range equality column accepted")
+	}
+	if err = r.FilterEqualExpression(nil, 0, value); err == nil {
+		t.Fatal("nil manager accepted")
+	}
+	if err = (*IntervalRelation)(nil).FilterEqualExpression(m, 0, value); err == nil {
+		t.Fatal("nil relation accepted")
+	}
+}

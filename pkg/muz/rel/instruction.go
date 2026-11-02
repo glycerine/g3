@@ -212,7 +212,7 @@ func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) e
 			}
 			bytes = value
 		} else if i < len(c.explanationRegisters) && c.explanationRegisters[i] != nil {
-			value, err := c.explanationRegisters[i].table.SizeEstimateBytes()
+			value, err := c.explanationRegisters[i].SizeEstimateBytes()
 			if err != nil {
 				return err
 			}
@@ -237,7 +237,7 @@ func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) e
 			}
 			rows = value
 		} else if int(size.register) < len(c.explanationRegisters) && c.explanationRegisters[size.register] != nil {
-			value, err := c.explanationRegisters[size.register].table.SizeEstimateRows()
+			value, err := c.explanationRegisters[size.register].SizeEstimateRows()
 			if err != nil {
 				return err
 			}

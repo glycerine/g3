@@ -184,3 +184,57 @@ func TestBoundRelationPluginRenameDispatch(t *testing.T) {
 		t.Fatal("nil plugin rename accepted")
 	}
 }
+
+func TestBoundRelationPluginUnionAndWidenDispatch(t *testing.T) {
+	manager := astTestManager(t)
+	plugin, err := NewBoundRelationPlugin(manager)
+	astTestMust(t, err)
+	target, source := NewBoundRelation(3, false), NewBoundRelation(3, false)
+	astTestMust(t, target.AddLess(0, 1))
+	astTestMust(t, target.AddLessEqual(0, 2))
+	astTestMust(t, source.AddLess(0, 1))
+	delta := NewBoundRelation(3, true)
+	changed, err := plugin.Union(target, source, delta, false)
+	astTestMust(t, err)
+	if !changed {
+		t.Fatal("union dispatch missed lattice change")
+	}
+	strict, weak, err := target.Bounds(0)
+	astTestMust(t, err)
+	if len(strict) != 1 || strict[0] != 1 || len(weak) != 0 {
+		t.Fatal("union dispatch result", strict, weak)
+	}
+	strict, weak, err = delta.Bounds(0)
+	astTestMust(t, err)
+	if delta.Empty() || len(strict) != 1 || strict[0] != 1 || len(weak) != 0 {
+		t.Fatal("union dispatch delta", delta.Empty(), strict, weak)
+	}
+	// The bound lattice's widening is source-identical to union.
+	widenTarget := NewBoundRelation(3, false)
+	astTestMust(t, widenTarget.AddLess(0, 1))
+	astTestMust(t, widenTarget.AddLessEqual(0, 2))
+	changed, err = plugin.Union(widenTarget, source, nil, true)
+	astTestMust(t, err)
+	if !changed {
+		t.Fatal("widen dispatch missed lattice change")
+	}
+	strict, weak, err = widenTarget.Bounds(0)
+	astTestMust(t, err)
+	if len(strict) != 1 || strict[0] != 1 || len(weak) != 0 {
+		t.Fatal("widen dispatch result", strict, weak)
+	}
+	// An empty source leaves the target unchanged but resets a supplied delta.
+	delta = NewBoundRelation(3, false)
+	changed, err = plugin.Union(target, NewBoundRelation(3, true), delta, false)
+	astTestMust(t, err)
+	if changed || !delta.Empty() {
+		t.Fatal("empty-source union contract", changed, delta.Empty())
+	}
+	if _, err = plugin.Union(target, source, target, false); err == nil {
+		t.Fatal("aliased union delta accepted")
+	}
+	var nilPlugin *BoundRelationPlugin
+	if _, err = nilPlugin.Union(target, source, nil, false); err == nil {
+		t.Fatal("nil plugin union accepted")
+	}
+}

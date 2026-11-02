@@ -108,3 +108,20 @@ func (p *BoundRelationPlugin) Rename(source *BoundRelation, cycle []uint32) (*Bo
 	}
 	return source.Rename(cycle)
 }
+
+// Union is the concrete bound-to-bound form of
+// bound_relation_plugin::mk_union_fn/mk_widen_fn and union_fn::operator().
+// A non-nil delta receives the resulting target exactly when the lattice
+// value changes, following vector_relation::mk_union.
+func (p *BoundRelationPlugin) Union(target, source, delta *BoundRelation, widen bool) (bool, error) {
+	if p == nil || p.manager == nil {
+		return false, ast.ErrASTDomain
+	}
+	if delta != nil {
+		return target.UnionWithDelta(source, delta, widen)
+	}
+	if widen {
+		return target.Widen(source)
+	}
+	return target.Union(source)
+}

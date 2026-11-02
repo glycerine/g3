@@ -3,7 +3,11 @@ package rel
 // Source: src/muz/rel/dl_interval_relation.cpp
 // interval_relation_plugin::can_handle_signature and filter_identical_fn.
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"math/big"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 // CanHandleIntervalSorts reports whether every sort is an integer or real
 // arithmetic sort, matching interval_relation_plugin::can_handle_signature.
@@ -52,4 +56,35 @@ func (r *IntervalRelation) FilterIdenticalColumns(columns []uint32) error {
 		}
 	}
 	return nil
+}
+
+func intervalEqualityValue(manager *ast.ASTManager, value ast.ASTHandle) (*big.Rat, error) {
+	if manager == nil {
+		return nil, ast.ErrASTDomain
+	}
+	text, _, matched, err := manager.ArithmeticNumeralText(value)
+	if err != nil {
+		return nil, err
+	}
+	if !matched {
+		return nil, ast.ErrASTDomain
+	}
+	number, ok := new(big.Rat).SetString(text)
+	if !ok {
+		return nil, ast.ErrASTDomain
+	}
+	return number, nil
+}
+
+// FilterEqualExpression captures the arithmetic numeral from the source AST
+// before intersecting the selected column, as filter_equal_fn does.
+func (r *IntervalRelation) FilterEqualExpression(manager *ast.ASTManager, column uint32, value ast.ASTHandle) error {
+	if r == nil || r.values == nil {
+		return ast.ErrASTDomain
+	}
+	number, err := intervalEqualityValue(manager, value)
+	if err != nil {
+		return err
+	}
+	return r.FilterEqual(column, number)
 }

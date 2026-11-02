@@ -379,6 +379,18 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		// Keep the concrete owner but do not publish it as a completed force;
 		// a retry must execute the transactional interpreted filter again.
 		node.retryForce = true
+		// Source lazy_table_filter_interpreted::force releases m_src after
+		// transferring its concrete table. This also retires condition owners in
+		// a nested interpreted source instead of extending them to outer close.
+		if node.left != nil {
+			consumed, releaseErr := releaseLazyTableNode(node.left)
+			if consumed {
+				node.left = nil
+			}
+			if releaseErr != nil {
+				return nil, releaseErr
+			}
+		}
 		conditions, conditionErr := node.interpreted.handles()
 		if conditionErr != nil {
 			return nil, conditionErr

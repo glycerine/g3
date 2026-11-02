@@ -344,16 +344,9 @@ func (p *FiniteIntervalProduct) FilterEqual(column uint32, value ast.ASTHandle) 
 		if sort != p.sorts[column] {
 			return ast.ErrASTDomain
 		}
-		text, _, matched, err := p.manager.manager.ArithmeticNumeralText(value)
+		number, err := intervalEqualityValue(p.manager.manager, value)
 		if err != nil {
 			return err
-		}
-		if !matched {
-			return ast.ErrASTDomain
-		}
-		number, ok := new(big.Rat).SetString(text)
-		if !ok {
-			return ast.ErrASTDomain
 		}
 		if err = p.garbageCollect(false); err != nil {
 			return err
