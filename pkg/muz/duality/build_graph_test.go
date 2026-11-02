@@ -13,6 +13,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/duality"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 func TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime(t *testing.T) {
@@ -102,6 +103,57 @@ func TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime(t *testing.T)
 			if reachable && engine.GetCounterexample().Root() == nil {
 				t.Fatal("missing fixedpoint counterexample")
 			}
+			must(engine.Close())
+			session, err := duality.NewQueryEngine(context, graph.EngineConfig{Native: native, Auxiliary: aux, Factory: factory, Evaluator: services, Simplifier: simplifier, Quantifiers: quantifiers})
+			must(err)
+			defer session.Close()
+			copied := *session
+			if err := copied.Close(); !errors.Is(err, graph.ErrWrapperOwner) {
+				t.Fatal("copied owning query engine accepted", err)
+			}
+			var previous *graph.Counterexample
+			for round := 0; round < 3; round++ {
+				next, err := duality.PrepareQuery(m, []ast.ASTHandle{rule}, []uint32{math.MaxUint32}, query, []ast.ASTHandle{decl}, math.MaxUint32)
+				must(err)
+				status, err := session.Query(next)
+				must(err)
+				if previous != nil && previous.Root() != nil {
+					t.Fatal("obsolete counterexample owner still holds its graph")
+				}
+				previous = session.Counterexample()
+				must(next.Close())
+				want := lbool.False
+				if reachable {
+					want = lbool.True
+				}
+				if status != want {
+					t.Fatalf("query %d returned %v want %v", round, status, want)
+				}
+				if reachable && (session.Counterexample() == nil || session.Counterexample().Root() == nil) {
+					t.Fatal("query lifecycle lost counterexample")
+				}
+				if !reachable && session.Counterexample() != nil {
+					t.Fatal("safe query published counterexample")
+				}
+				if session.IsResultRecursionBounded() {
+					t.Fatal("unbounded query reported bounded")
+				}
+			}
+			if status, err := session.Query(nil); err == nil || status != lbool.Undef {
+				t.Fatal("invalid query did not return unknown/error", status, err)
+			}
+			must(session.Close())
+			must(session.Close())
+			if previous != nil && previous.Root() != nil {
+				t.Fatal("closed session kept a counterexample graph")
+			}
+			if session.Counterexample() != nil {
+				t.Fatal("closed query engine exposed counterexample")
+			}
+			if _, err := session.Query(prepared); !errors.Is(err, graph.ErrWrapperOwner) {
+				t.Fatal("closed engine accepted query", err)
+			}
+
 		})
 	}
 }
