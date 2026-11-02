@@ -70,6 +70,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err != nil {
 		return lbool.Undef, err
 	}
+	var prequeryPDR *pdr.Context
 	defer func() {
 		if e.backend == "tab" {
 			e.tabUnfold += clone.tabUnfold
@@ -106,7 +107,25 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 		}
 		if resultErr == nil {
 			e.queryClone = clone
+			e.queryCloneRevision = e.revision
 		} else {
+			if prequeryPDR != nil && clone.pdr == prequeryPDR {
+				initialized, stateErr := prequeryPDR.Initialized()
+				resultErr = errors.Join(resultErr, stateErr)
+				if stateErr == nil && !initialized {
+					e.pdr = clone.pdr
+					e.pdrRevision = e.revision
+					clone.pdr = nil
+					clone.pdrRevision = 0
+				}
+			}
+			if (clone.backend == "pdr" || clone.backend == "qpdr") && clone.pdr != nil && clone.pdrRules != nil {
+				// Installed frames remain inspectable after a failed solve;
+				// result access still requires the separate successful snapshot.
+				e.queryClone = clone
+				e.queryCloneRevision = e.revision
+				return
+			}
 			resultErr = errors.Join(resultErr, clone.Close())
 		}
 	}()
@@ -131,6 +150,7 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	// The source PDR context already exists when covers are supplied before
 	// the first query. Move that owner after query preparation succeeds.
 	if (e.backend == "pdr" || e.backend == "qpdr") && e.pdr != nil && e.pdrRules == nil {
+		prequeryPDR = e.pdr
 		clone.pdr = e.pdr
 		clone.pdrRevision = clone.revision
 		e.pdr = nil
@@ -175,6 +195,7 @@ func (e *PropositionalEngine) clearQueryResources() error {
 		e.pdrStatistics.Merge(archived)
 	}
 	e.queryClone = nil
+	e.queryCloneRevision = 0
 	e.queryClonePredicate = ast.ASTHandle{}
 	return result
 }

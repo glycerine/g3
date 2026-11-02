@@ -125,6 +125,7 @@ type PropositionalEngine struct {
 	queried             bool
 	queryReady          bool
 	queryClone          *PropositionalEngine
+	queryCloneRevision  uint64
 	queryClonePredicate ast.ASTHandle
 	queryRelations      []ast.ASTHandle
 	queryRelationsSet   bool

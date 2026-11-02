@@ -110,6 +110,14 @@ func (c *Context) open() error {
 	return c.owner.open()
 }
 
+// Initialized reports whether an executable rule set has been installed.
+func (c *Context) Initialized() (bool, error) {
+	if err := c.open(); err != nil {
+		return false, err
+	}
+	return c.initialized, nil
+}
+
 func (c *Context) SetBackground(background ast.ASTHandle) error {
 	if err := c.open(); err != nil {
 		return err

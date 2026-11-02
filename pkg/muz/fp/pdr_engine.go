@@ -181,6 +181,15 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	}
 	closeContext := func() error {
 		if context == e.pdr {
+			if e.pdrRules == nil {
+				initialized, err := context.Initialized()
+				if err == nil && !initialized {
+					return nil
+				}
+				if err != nil {
+					return errors.Join(err, e.closePDRForReplacement())
+				}
+			}
 			return e.closePDRForReplacement()
 		}
 		return context.Close()
@@ -378,13 +387,22 @@ func (e *PropositionalEngine) pdrContext() (_ *pdr.Context, resultErr error) {
 	return context, nil
 }
 
+// Source level/cover access remains valid after a failed solve. Its program
+// revision is independent of the successful-result snapshot used by answers.
+func (e *PropositionalEngine) pdrPropertyQueryClone() (*PropositionalEngine, error) {
+	if e.queryClone == nil || e.queryCloneRevision != e.revision || e.queryClone.backend != e.backend {
+		return nil, ErrPropositionalEngine
+	}
+	return e.queryClone, nil
+}
+
 // NumLevels returns the finite frame count for a PDR or Spacer relation.
 func (e *PropositionalEngine) NumLevels(declaration ast.ASTHandle) (uint32, error) {
 	if err := e.open(); err != nil {
 		return 0, err
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
-		clone, _, err := e.expressionQueryState()
+		clone, err := e.pdrPropertyQueryClone()
 		if err != nil {
 			return 0, err
 		}
@@ -411,7 +429,7 @@ func (e *PropositionalEngine) CoverDelta(level int, declaration ast.ASTHandle) (
 		return ast.ASTRef{}, err
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
-		clone, _, err := e.expressionQueryState()
+		clone, err := e.pdrPropertyQueryClone()
 		if err != nil {
 			return ast.ASTRef{}, err
 		}
@@ -460,7 +478,7 @@ func (e *PropositionalEngine) AddCover(level int, declaration, property ast.ASTH
 		return err
 	}
 	if e.queryClone != nil && (e.backend == "pdr" || e.backend == "qpdr") {
-		clone, _, err := e.expressionQueryState()
+		clone, err := e.pdrPropertyQueryClone()
 		if err != nil {
 			return err
 		}

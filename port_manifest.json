@@ -89003,6 +89003,7 @@
         }
       ],
       "ownership": [
+        "Predicate-rule initialization closes a nonnil partial TheoryRewriter on constructor failure. A dense expression-query allocation campaign verifies pre/post-installation failure ownership, retry and zero-budget final disposal.",
         "PredicateTransformer owns its head/system/property AST references, PropSolver, and ReachableCache. It closes both context consumers before releasing AST pins; returned signatures, formulas, and cores borrow AST handles while requested models retain explicit ownership.",
         "ModelSearch owns its root and complete descendant tree. ModelNode owns one state AST reference plus optional retained model and rule references; reset releases descendants bottom-up after removing frontier/cache links.",
         "Context Reset closes retired Go solver pools and archives their cumulative statistics because solver proof/arithmetic setup is immutable after search; repeated resets release all obsolete kernel/predicate storage. Context owns the reusable model-implicant and QE-lite projector and, when the caller supplies no cooperation service, a private cooperation owner. These close before transformers and the shared PDR manager."
@@ -89309,6 +89310,7 @@
         "pkg/muz/fp/query_expression.go",
         "pkg/muz/fp/query_clone_predicates.go",
         "pkg/muz/fp/pdr_expression_cover_test.go",
+        "pkg/muz/fp/pdr_expression_owner_failure_test.go",
         "pkg/muz/fp/pdr_expression_statistics_test.go",
         "pkg/cmd_context/fixedpoint_prequery_cover_test.go",
         "pkg/muz/fp/pdr_rule_lifecycle.go",
@@ -89404,6 +89406,7 @@
             "TestPDREngineReadsContextAndCacheParameters",
             "TestPDRCoveredAdditionUsesOriginalRuleSnapshot",
             "TestPDRExpressionQueryUsesPrequeryCoverOwner",
+            "TestPDRExpressionPrequeryOwnerFailureAndRetry",
             "TestPDRExpressionStatisticsSurviveCloneDisposal",
             "TestFixedpointExpressionQueryPreservesPrequeryPDRCover",
             "TestSMTContextFixedpointPrequeryCoverSlicingContract",
@@ -89508,7 +89511,7 @@
         "PropositionalEngine separately owns source-rule and transformed-rule snapshots, rotates both after a query and releases both on replacement/close. It owns the current query-specific sliced RuleSet through PDR initialization, snapshots original/derived declarations and removed-column masks while the Context retains their ASTs, closes/replaces the Context before clearing those maps, and transfers returned expanded inductive models to the caller."
       ],
       "deviations": [
-        "The integration compares original rules before preprocessing for covered additions and named rule updates, while preserving background/parameter revision guards. Direct declaration queries reset programs after changed roots or uncovered rules while preserving the configured context; changed constructor/background revisions reconstruct it. General expression queries use an isolated clone: the pre-query PDR owner transfers into it, public cover/level operations forward to that active owner, and disposed-query statistics are archived. Ordinary query predicates are excluded from the auxiliary set. Exception/resource recovery, complete model/proof validation and statistics-reset equivalence remain under audit. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
+        "The integration compares original rules before preprocessing for covered additions and named rule updates, while preserving background/parameter revision guards. Direct declaration queries reset programs after changed roots or uncovered rules while preserving the configured context; changed constructor/background revisions reconstruct it. General expression queries use an isolated clone: the pre-query PDR owner transfers into it, public cover/level operations forward to that active owner, and disposed-query statistics are archived. Ordinary query predicates are excluded from the auxiliary set. Dense allocation-failure coverage preserves uninitialized pre-query owners and installed frames without publishing failed results, while retaining property revision guards. Cancellation, distinct cleanup-error recovery and complete model/proof validation remain under audit. Covers and inductive models are expanded to original predicate columns, while relation-query SAT answers intentionally retain native sliced vocabulary. Source compound predicate arguments remain hoisted before slicing, and arbitrary interpreted conjuncts are classified without mistaking theory-local operator numbers for basic equality/ITE. Successful declaration queries use native-style two-bank rule/head unification. Go's declaration-query surface omits the native synthetic query predicate, so exact differential comparison normalizes only the resulting nonsemantic slice fresh-ID offset. The public proof surface forwards the per-node reduced-rule hyper-resolution trace."
       ]
     },
     {

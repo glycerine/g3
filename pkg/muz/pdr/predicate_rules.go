@@ -566,6 +566,9 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 	}
 	theory, err := rewriter.NewTheoryRewriter(p.manager, p.owner.contexts.config.Params, p.owner.contexts.config.Globals, nil)
 	if err != nil {
+		if theory != nil {
+			err = errors.Join(err, theory.Close())
+		}
 		return err
 	}
 	defer func() { resultErr = errors.Join(resultErr, theory.Close()) }()
