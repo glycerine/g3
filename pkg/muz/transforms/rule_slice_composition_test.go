@@ -35,7 +35,12 @@ func TestRuleUnfoldCompactsProofSubstitutions(t *testing.T) {
 	testRuleProofComposition(t, false, false, -1, 0)
 }
 
-func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop int64, queryValue int) bool {
+func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop int64, queryValue int, configuration ...int) bool {
+	branches, rounds := 2, 1
+	if len(configuration) > 0 {
+		branches = configuration[0]
+		rounds = configuration[1]
+	}
 	t.Helper()
 	var budget *arena.Budget
 	t.Cleanup(func() {
@@ -87,15 +92,18 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 		coneMust(t, r.Close())
 	}
 	add(pa, nil)
-	for _, v := range []ast.ASTHandle{zero, one} {
+	values := []ast.ASTHandle{zero, one}
+	for i := 2; i < branches; i++ {
+		value, e := m.ArithmeticIntegerNumeralText(fmt.Sprint(i))
+		coneMust(t, e)
+		values = append(values, value)
+	}
+	for _, v := range values {
 		guard, e := m.MkEq(y, v)
 		coneMust(t, e)
 		add(qa, []ast.ASTHandle{pa, guard})
 	}
-	queryTerm := zero
-	if queryValue == 1 {
-		queryTerm = one
-	}
+	queryTerm := values[queryValue]
 	q0, e := m.MkApp(q, []ast.ASTHandle{x, queryTerm})
 	coneMust(t, e)
 	add(f.applications["Goal"], []ast.ASTHandle{q0})
@@ -138,7 +146,9 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 	if withCoalesce {
 		apply(transforms.NewRuleCoalescePluginWithProofTrace(m, f.rules, 50, true))
 	}
-	apply(transforms.NewRuleUnfoldPlugin(m, f.rules, f.globals.Context, f.globals, 100))
+	for i := 0; i < rounds; i++ {
+		apply(transforms.NewRuleUnfoldPlugin(m, f.rules, f.globals.Context, f.globals, 100))
+	}
 	rules, e := f.set.PredicateRules(f.declarations["Goal"])
 	coneMust(t, e)
 	defer func() {
@@ -161,6 +171,12 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 		coneMust(t, e)
 		mode, e := m.ProofMode()
 		coneMust(t, e)
+		sourceCounts := make(map[ast.ASTHandle]uint32)
+		for source := range sources {
+			n, e := m.GetRefCount(source)
+			coneMust(t, e)
+			sourceCounts[source] = n
+		}
 		m.Budget().FailAfter(stop)
 		attempt, cause := converter.Convert(proof)
 		m.Budget().FailAfter(-1)
@@ -188,6 +204,13 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 		if current != count {
 			t.Fatal("composition changed input proof ownership")
 		}
+		for source, want := range sourceCounts {
+			n, e := m.GetRefCount(source)
+			coneMust(t, e)
+			if n != want {
+				t.Fatal("conversion changed original clause proof ownership", stop, n, want)
+			}
+		}
 		currentMode, e := m.ProofMode()
 		coneMust(t, e)
 		if currentMode != mode {
@@ -204,11 +227,16 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 	defer func() { coneMust(t, m.DelRef(&converted)) }()
 	node, e := m.RefGet(converted)
 	coneMust(t, e)
-	// The restored theorem must prove exactly the original P-at-zero goal
-	// rule, including its independent column removed by slicing.
+	// The restored theorem must prove the original P-at-query goal rule,
+	// including its independent column removed by slicing. A second unfold
+	// resolves the P fact and must prove the ground goal itself.
 	p0, e := m.MkApp(p, []ast.ASTHandle{x, queryTerm})
 	coneMust(t, e)
-	expected, e := f.rules.NewRule(f.applications["Goal"], []ast.ASTHandle{p0}, nil, "")
+	tails := []ast.ASTHandle{p0}
+	if rounds > 1 {
+		tails = nil
+	}
+	expected, e := f.rules.NewRule(f.applications["Goal"], tails, nil, "")
 	coneMust(t, e)
 	expectedFormula, e := expected.ToFormula()
 	coneMust(t, e)
@@ -309,7 +337,10 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 	}
 	wantLeaves := 2
 	if withCoalesce {
-		wantLeaves = 3
+		wantLeaves = branches + 1
+	}
+	if rounds > 1 {
+		wantLeaves++
 	}
 	if leaves != wantLeaves {
 		t.Fatal("wrong original clause count", leaves, wantLeaves)
@@ -319,20 +350,36 @@ func testRuleProofComposition(t *testing.T, withSlice, withCoalesce bool, stop i
 }
 
 func TestRuleSliceCompositionAllocationFailureAndRetry(t *testing.T) {
-	succeeded := false
-	for stop := int64(0); stop < 4096 && !succeeded; stop++ {
-		t.Run(fmt.Sprint(stop), func(t *testing.T) { succeeded = testRuleProofComposition(t, true, true, stop, 0) })
-		if t.Failed() {
-			return
-		}
-		if succeeded {
-			if stop == 0 {
-				t.Fatal("missing composition allocation failure")
+	for _, configuration := range [][2]int{{2, 1}, {3, 2}} {
+		t.Run(fmt.Sprintf("branches=%d/rounds=%d", configuration[0], configuration[1]), func(t *testing.T) {
+			succeeded := false
+			for stop := int64(0); stop < 4096 && !succeeded; stop++ {
+				t.Run(fmt.Sprint(stop), func(t *testing.T) {
+					succeeded = testRuleProofComposition(t, true, true, stop, 0, configuration[0], configuration[1])
+				})
+				if t.Failed() {
+					return
+				}
+				if succeeded {
+					if stop == 0 {
+						t.Fatal("missing composition allocation failure")
+					}
+					t.Log("first successful allocation allowance", stop)
+				}
 			}
-			t.Log("first successful allocation allowance", stop)
-		}
+			if !succeeded {
+				t.Fatal("missing composition allocation success frontier")
+			}
+		})
 	}
-	if !succeeded {
-		t.Fatal("missing composition allocation success frontier")
+}
+
+func TestRuleSliceNestedCoalesceAndRepeatedUnfoldProofs(t *testing.T) {
+	for _, branches := range []int{2, 3} {
+		for _, rounds := range []int{1, 2} {
+			for value := 0; value < branches; value++ {
+				t.Run(fmt.Sprintf("branches=%d/rounds=%d/value=%d", branches, rounds, value), func(t *testing.T) { testRuleProofComposition(t, true, true, -1, value, branches, rounds) })
+			}
+		}
 	}
 }
