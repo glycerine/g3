@@ -612,8 +612,12 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		e.autoRules = kept
 	}
 	e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
+	// A rule-only change can preserve frame properties. Do not turn an older
+	// background/parameter revision into a reusable context revision.
+	if e.pdrRuleRevision == e.revision {
+		e.pdrRuleRevision++
+	}
 	e.revision++
-	e.pdrRuleRevision = e.revision
 	keepOriginal = true
 	return errors.Join(e.replaceRawRule(name, original, oldIndex >= 0), prior.Close())
 }

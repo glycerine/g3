@@ -20,6 +20,8 @@ Each completed item needs source paths, implementation/test evidence and a commi
 ## 2. Shared fixedpoint infrastructure
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
+  - [x] Preserve background/constructor-parameter invalidation through a subsequent named PDR rule update; verify SAT/UNSAT/SAT after background replacement and context disposal after parameter replacement.
+  - [ ] Match PDR source-rule snapshot comparison before preprocessing and preserve safe covers across covered rule additions and changed query roots.
 - [ ] Verify parameter defaults, aliases, updates and engine selection against `fixedpoint_params.hpp` and engine registration.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
   - [x] Preserve source pop rejection after pre-query PDR/QPDR/Spacer context instantiation; verify an uninstantiated scope can still pop.
@@ -290,3 +292,6 @@ Source comparison arity/type preconditions are enforced by AST construction/acce
 
 - 2026-11-02 — Added `TestArithmeticNormalizationCleanupKeepsUnconsumedRootsForRetry`. A real arithmetic numeral-copy failure invokes the runtime transport while the AST manager is executing; attempting normalizer cleanup returns `ErrASTPending` and leaves all actual roots in order and alive. After the callback, explicit cleanup and repeated cleanup finish, restore the original node/reference counts, preserve the caller's formula and close the entire fixture with zero budget usage. This tests refused, unconsumed decrements rather than claiming an injected allocation budget interrupts native deletion. Reconciled the method/consumer table above and promoted only `pdr_util.cpp` from partial to ported.
   Validation: focused native utility checks (`Test(PDRDisequality|PDRDifference|PDRFragment|PDRContextSelects|PropSolverRejects|NormalizeArithmetic|ArithmeticNormalization|PDRArithmeticNormalization)`), API `TestArithmeticRewriterSourceExamples`, and port inventory checks passed. Commit title: `Close PDR utility source and ownership audit`.
+
+- 2026-11-02 — Fixed a PDR correctness bug in named rule updates: updating a rule after changing the background unconditionally advanced the reuse revision, allowing the old background to survive. The new regression reproduced SAT after setting the background to false. UpdateRule now advances the reusable revision only when the preceding revision was already eligible, preserving background and parameter invalidation. Regressions require SAT/UNSAT/SAT across true/false/true backgrounds and fresh, closed/replaced constructor state after a cache-mode parameter change followed by a rule update. Existing strengthened-rule reuse coverage continues to pass. Source-rule comparison and covered-addition/query-root reuse remain separate open work.
+  Validation: `go -C pkg test ./muz/fp ./parsers/smt2 -short` passed. Commit title: `Preserve PDR configuration invalidation across rule updates`.
