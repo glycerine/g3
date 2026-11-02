@@ -188,6 +188,9 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 		return lbool.Undef, err
 	}
 	if e.pdr != nil && e.pdrRevision == e.revision && e.pdrQuery == declaration && !e.pdrSliceProof {
+		if err = writePDRQueryRules(e.pdrRules); err != nil {
+			return lbool.Undef, err
+		}
 		return e.pdr.Solve(e.pdrPredicate(declaration))
 	}
 	parameters, err := e.fixedpointParamView()
@@ -220,6 +223,9 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	}
 	defer func() { resultErr = errors.Join(resultErr, preprocessed.Close()) }()
 	prepared := preprocessed.rules
+	if err = writePDRQueryRules(prepared); err != nil {
+		return lbool.Undef, errors.Join(err, closeContext())
+	}
 	snapshot, err := snapshotHornRules(prepared)
 	if err != nil {
 		return lbool.Undef, errors.Join(err, closeContext())

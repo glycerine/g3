@@ -89360,6 +89360,8 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/pdr_query_verbose.go",
+        "pkg/muz/fp/pdr_query_verbose_test.go",
         "pkg/muz/fp/pdr_source_pipeline_test.go",
         "pkg/muz/fp/query_expression.go",
         "pkg/muz/fp/query_clone_predicates.go",
@@ -89449,6 +89451,18 @@
       "methods_audited": false,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "query displays transformed rules at source verbosity 2, including repeated queries using an existing context (pdr_dl_interface.cpp:153)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/pdr_query_verbose.go", "pkg/muz/fp/pdr_query_verbose_test.go"],
+          "tests": ["TestPDRQueryDisplaysTransformedRulesAtSourceVerbosity"]
+        },
+        {
+          "name": "check_reset/query source TRACE checkpoints and empty transformed-program verbose model",
+          "status": "partial",
+          "go_target": "pkg/muz/fp/pdr_engine.go",
+          "reason": "Fresh-rule reset TRACE, pre-transform background/query/rules TRACE, post-transform rule/SMT2 TRACE and the level-1 empty-rule-set model diagnostic remain unimplemented or unverified. The interface stays partial; the level-2 rule listing alone does not close diagnostics."
+        },
         {
           "name": "PDR and QPDR query preprocessing excludes relational filter/simple-join normalization and preserves original rules across repeated SAT/UNSAT queries",
           "status": "ported",
