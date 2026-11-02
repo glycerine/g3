@@ -85,6 +85,9 @@ func (u *Unwinding) UpdateWithCounterexample(node, top *Node, aux solver.Solver,
 	if redundant {
 		return nil
 	}
+	if err := u.graph.streamReporter.UpdateUnderapprox(node, top.Underapprox); err != nil {
+		return err
+	}
 	if err = node.Underapprox.UnionWith(top.Underapprox); err != nil {
 		return err
 	}

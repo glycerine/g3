@@ -101,6 +101,9 @@ func (u *Unwinding) CreateUnderapproxNode(node *Node, counterexample *Counterexa
 	}
 	u.backEdges[under] = counts
 	edge.Map = nil
+	if err := u.graph.streamReporter.Extend(under); err != nil {
+		return nil, err
+	}
 	return under, nil
 }
 

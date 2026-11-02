@@ -138,6 +138,7 @@ func (s *DerivationSearch) buildMain() (bool, error) {
 		if int(level) != d.stack[len(d.stack)-1].level {
 			return false, ErrDerivationStackSync
 		}
+		d.original.streamReporter.Depth(len(d.stack))
 		status, err := d.tree.Check(d.Top, nil, nil)
 		if err != nil {
 			return false, err

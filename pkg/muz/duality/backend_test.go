@@ -131,7 +131,7 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				if status != expected {
 					t.Fatalf("integer query %d: %v want %v", round, status, expected)
 				}
-				if round == 0 && (!strings.Contains(reportOutput.String(), "]node ") || !strings.Contains(reportOutput.String(), "]update ") || !strings.Contains(reportOutput.String(), "]check ")) {
+				if round == 0 && (!strings.Contains(reportOutput.String(), "]node ") || !strings.Contains(reportOutput.String(), "]update ") || !strings.Contains(reportOutput.String(), "]check ") || !strings.Contains(reportOutput.String(), "]expand ")) {
 					t.Fatal("missing live search events", reportOutput.String())
 				}
 				report, err := os.ReadFile(options.ConjectureFile)

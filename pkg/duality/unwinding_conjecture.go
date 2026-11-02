@@ -20,6 +20,9 @@ func (u *Unwinding) ProveConjecture(node *Node, conjecture *Transformer, search 
 			return false, err
 		}
 	}
+	if err := u.graph.streamReporter.Conjecture(node, conjecture); err != nil {
+		return false, err
+	}
 	saved, err := node.Bound.Clone()
 	if err != nil {
 		return false, err

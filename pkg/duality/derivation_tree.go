@@ -109,5 +109,8 @@ func (d *DerivationTree) ExpandMaterializedNode(node *Node) error {
 		}
 		edge.Map = source.Map
 	}
-	return d.tree.AssertEdge(edge, 0, !d.FullExpand, d.Underapprox || d.FalseApprox)
+	if err := d.tree.AssertEdge(edge, 0, !d.FullExpand, d.Underapprox || d.FalseApprox); err != nil {
+		return err
+	}
+	return d.original.streamReporter.Expand(edge)
 }

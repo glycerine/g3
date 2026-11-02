@@ -108,4 +108,28 @@ func TestConjectureReporterParametersFormulaAndWriterFailure(t *testing.T) {
 		t.Fatal("shared summary", output.String())
 	}
 
+	output.Reset()
+	clone, err := graph.CloneNode(node)
+	if err != nil {
+		t.Fatal(err)
+	}
+	edge, err := graph.CreateLowerBoundEdge(clone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream.Depth(2)
+	if err := stream.Expand(edge); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Conjecture(node, node.Annotation); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.UpdateUnderapprox(node, node.Annotation); err != nil {
+		t.Fatal(err)
+	}
+	wantEvents = "[5]expand 1 report-P (depth=2)\n[6]conjecture 1 report-P: 1: report-x\n[7]underapprox 1 report-P: (and report-x report-x)\n"
+	if output.String() != wantEvents {
+		t.Fatalf("expansion events %q want %q", output.String(), wantEvents)
+	}
+
 }

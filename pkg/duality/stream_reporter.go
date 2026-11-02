@@ -176,3 +176,82 @@ func (r *StreamReporter) Update(node *Node, update *Transformer, eager bool) err
 	_, err = io.WriteString(r.Format.Output, "\n")
 	return err
 }
+
+func (r *StreamReporter) Expand(edge *Edge) error {
+	if r == nil {
+		return nil
+	}
+	if edge == nil || edge.closed || edge.Parent == nil || edge.Parent.Map == nil {
+		return ErrWrapperOwner
+	}
+	node := edge.Parent
+	name, err := r.nodeName(node)
+	if err != nil {
+		return err
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(r.Format.Output, "expand %d %s", node.Map.Number, name); err != nil {
+		return err
+	}
+	if r.depth > 0 {
+		if _, err := fmt.Fprintf(r.Format.Output, " (depth=%d)", r.depth); err != nil {
+			return err
+		}
+	}
+	_, err = io.WriteString(r.Format.Output, "\n")
+	return err
+}
+func (r *StreamReporter) Conjecture(node *Node, formula *Transformer) error {
+	if r == nil {
+		return nil
+	}
+	name, err := r.nodeName(node)
+	if err != nil {
+		return err
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(r.Format.Output, "conjecture %d %s: ", node.Number, name); err != nil {
+		return err
+	}
+	if err := r.summarize(formula); err != nil {
+		return err
+	}
+	_, err = io.WriteString(r.Format.Output, "\n")
+	return err
+}
+func (r *StreamReporter) UpdateUnderapprox(node *Node, formula *Transformer) error {
+	if r == nil {
+		return nil
+	}
+	name, err := r.nodeName(node)
+	if err != nil {
+		return err
+	}
+	if err := formula.open(); err != nil {
+		return err
+	}
+	h, err := formula.context.manager.RefGet(formula.formula)
+	if err != nil {
+		return err
+	}
+	if err := r.prefix(); err != nil {
+		return err
+	}
+	if _, err := fmt.Fprintf(r.Format.Output, "underapprox %d %s: ", node.Number, name); err != nil {
+		return err
+	}
+	if err := r.Format.writeTerm(formula.context.manager, h, false); err != nil {
+		return err
+	}
+	_, err = io.WriteString(r.Format.Output, "\n")
+	return err
+}
+func (r *StreamReporter) Depth(depth int) {
+	if r != nil {
+		r.depth = depth
+	}
+}
