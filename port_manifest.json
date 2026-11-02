@@ -88302,6 +88302,9 @@
         "pkg/cmd_context/tactic_descriptions.go",
         "pkg/api/api_tactic_horn_alias_test.go",
         "pkg/muz/fp/horn_tactic.go",
+        "pkg/muz/fp/horn_tactic_simplify.go",
+        "pkg/muz/fp/horn_tactic_simplify_test.go",
+        "pkg/muz/fp/horn_simplify_pipeline_test.go",
         "pkg/muz/fp/horn_tactic_infinite_test.go",
         "pkg/cmd_context/tactic_commands.go",
         "pkg/cmd/g3/test_vectors/horn_tactic_finite.smt2",
@@ -88373,9 +88376,12 @@
           ]
         },
         {
-          "name": "horn-simplify rule transformation tactic",
-          "status": "reference_only",
-          "reason": "No retained Go registration or production caller names horn-simplify; the live command and strategic-solver consumers request only the horn verification factory."
+          "name": "horn-simplify default Horn transformations, optional slicing, synthetic-query replacement and model filter",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/horn_tactic_simplify.go",
+          "go_targets": ["pkg/muz/fp/horn_tactic_simplify_test.go", "pkg/muz/fp/horn_simplify_pipeline_test.go"],
+          "tests": ["TestHornSimplifyProducesTransformedGoalAndFiltersQuery", "TestHornSimplifyAppliesDefaultInlining", "TestHornSimplifyDefaultPipelineAndOptionalSlice"],
+          "reason": "The live API named factory reaches this implementation. Matches horn_tactic.cpp:317-356, excluding Datalog joins and engine-only unfold/coalesce. Native SMT checks cover guarded SAT/UNSAT cases; a separate case documents the reproduced Z3 4.7.1 slice-order defect instead of claiming its result sound."
         }
       ],
       "ownership": [
@@ -88384,7 +88390,7 @@
         "The command context retains the tactic through the existing tactic reference-count protocol."
       ],
       "deviations": [
-        "The unregistered horn-simplify factory is reference-only because no retained Go consumer reaches it. Finite Datalog and infinite-domain PDR verification both supply model-converter results; PDR additionally supplies proof traces."
+        "The API horn-simplify factory applies source default transformations and optional slicing; like the source it exports only the synthetic-query filter, not a reconstruction converter for every preprocessing stage. The legacy unguarded Boolean slice-order defect is explicitly covered as source compatibility. Finite Datalog and infinite-domain PDR verification both supply model-converter results; PDR additionally supplies proof traces."
       ]
     },
     {

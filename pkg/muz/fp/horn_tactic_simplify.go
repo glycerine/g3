@@ -7,6 +7,8 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/ast/rewriter"
+	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/tactic"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 )
@@ -22,8 +24,37 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 	if _, err := engine.set.Finalize(); err != nil {
 		return err
 	}
-	if err := engine.normalizeSimpleJoins(); err != nil {
+	// horn_tactic::simplify uses the default Horn pipeline followed by
+	// optional slicing, without the solver engines' coalescing/unfolding.
+	prepared, err := engine.preprocessHornRulesWithQueryRule(queryDeclaration, nil, true, true, false, false)
+	if err != nil {
 		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, prepared.Close()) }()
+	parameters, err := engine.fixedpointParamView()
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
+	slice, err := parameters.Bool("xform.slice", true)
+	if err != nil {
+		return err
+	}
+	if slice {
+		transformer := base.NewRuleTransformer()
+		plugin := transforms.NewRuleSlicePlugin(t.manager, engine.rules, 1)
+		generateProof, err := parameters.Bool("generate_proof_trace", false)
+		if err != nil {
+			return errors.Join(err, plugin.Close(), transformer.Close())
+		}
+		plugin.SetGenerateProofTrace(generateProof || engine.forceProofTrace)
+		if err = transformer.Register(plugin); err != nil {
+			return errors.Join(err, plugin.Close(), transformer.Close())
+		}
+		_, err = transformer.Apply(prepared.rules)
+		if err = errors.Join(err, transformer.Close()); err != nil {
+			return err
+		}
 	}
 	falsity, err := t.manager.MkFalse()
 	if err != nil {
@@ -43,12 +74,12 @@ func (t *HornTactic) simplifyGoal(goal *tactic.Goal, out *tactic.TacticResult, e
 	if err = goal.Reset(); err != nil {
 		return err
 	}
-	count, err := engine.set.Len()
+	count, err := prepared.rules.Len()
 	if err != nil {
 		return err
 	}
 	for index := 0; index < count; index++ {
-		rule, x := engine.set.Rule(index)
+		rule, x := prepared.rules.Rule(index)
 		if x != nil {
 			return x
 		}
