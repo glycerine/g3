@@ -40,7 +40,7 @@ func (c *ExecutionContext) SetExplanationRegister(index uint32, value *FiniteExp
 	}
 	count := int(uint64(index) + 1)
 	if len(c.registers) < count {
-		c.registers = append(c.registers, make([]*HashTable, count-len(c.registers))...)
+		c.registers = append(c.registers, make([]FiniteTable, count-len(c.registers))...)
 	}
 	if len(c.explanationRegisters) < count {
 		c.explanationRegisters = append(c.explanationRegisters, make([]*FiniteExplanationProduct, count-len(c.explanationRegisters))...)

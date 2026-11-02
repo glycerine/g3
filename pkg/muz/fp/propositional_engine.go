@@ -1657,15 +1657,6 @@ func (e *PropositionalEngine) saturate() error {
 }
 
 func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr error) {
-	// The current bytecode registers own HashTable values. Other concrete
-	// stores use the existing interpreted evaluator until compiled support.
-	for _, state := range e.predicates {
-		if state.table != nil {
-			if _, ok := state.table.(*rel.HashTable); !ok {
-				return false, nil
-			}
-		}
-	}
 	execution, termination, err := rel.CompileFiniteRulesWithGuard(e.relations, e.set, e.guard)
 	if errors.Is(err, rel.ErrCompilerUnsupported) {
 		return false, nil
@@ -1702,7 +1693,7 @@ func (e *PropositionalEngine) tryCompiledSaturation() (used bool, resultErr erro
 		return true, err
 	}
 	for declaration, state := range e.predicates {
-		table, found, x := e.relations.TryGetRelation(declaration)
+		table, found, x := e.relations.TryGetFiniteRelation(declaration)
 		if x != nil {
 			return true, x
 		}

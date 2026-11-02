@@ -36,7 +36,7 @@ type ExecutionStats struct {
 
 // ExecutionContext owns every non-nil table placed in a register.
 type ExecutionContext struct {
-	registers            []*HashTable
+	registers            []FiniteTable
 	explanationRegisters []*FiniteExplanationProduct
 	annotations          map[uint32]string
 	relations            *RelationManager
@@ -73,6 +73,19 @@ func (c *ExecutionContext) open() error {
 }
 
 func (c *ExecutionContext) Register(index uint32) (*HashTable, error) {
+	value, err := c.FiniteRegister(index)
+	if err != nil || value == nil {
+		return nil, err
+	}
+	table, ok := value.(*HashTable)
+	if !ok {
+		return nil, ErrInstruction
+	}
+	return table, nil
+}
+
+// FiniteRegister borrows the concrete finite table stored at index.
+func (c *ExecutionContext) FiniteRegister(index uint32) (FiniteTable, error) {
 	if err := c.open(); err != nil {
 		return nil, err
 	}
@@ -87,7 +100,24 @@ func (c *ExecutionContext) Register(index uint32) (*HashTable, error) {
 
 // ReleaseRegister transfers ownership out of a register and leaves it empty.
 func (c *ExecutionContext) ReleaseRegister(index uint32) (*HashTable, error) {
-	value, err := c.Register(index)
+	value, err := c.FiniteRegister(index)
+	if err != nil {
+		return nil, err
+	}
+	if value == nil {
+		return nil, nil
+	}
+	table, ok := value.(*HashTable)
+	if !ok {
+		return nil, ErrInstruction
+	}
+	c.registers[index] = nil
+	return table, nil
+}
+
+// ReleaseFiniteRegister transfers the concrete finite owner out of index.
+func (c *ExecutionContext) ReleaseFiniteRegister(index uint32) (FiniteTable, error) {
+	value, err := c.FiniteRegister(index)
 	if err != nil {
 		return nil, err
 	}
@@ -100,14 +130,32 @@ func (c *ExecutionContext) ReleaseRegister(index uint32) (*HashTable, error) {
 
 // SetRegister transfers ownership of value into index.
 func (c *ExecutionContext) SetRegister(index uint32, value *HashTable) error {
+	if value == nil {
+		return c.SetFiniteRegister(index, nil)
+	}
+	return c.SetFiniteRegister(index, value)
+}
+
+// SetFiniteRegister transfers ownership of a concrete finite table into index.
+func (c *ExecutionContext) SetFiniteRegister(index uint32, value FiniteTable) error {
 	if err := c.open(); err != nil {
 		return err
+	}
+	switch concrete := value.(type) {
+	case *HashTable:
+		if concrete == nil {
+			value = nil
+		}
+	case *SparseTable:
+		if concrete == nil {
+			value = nil
+		}
 	}
 	if index == ^uint32(0) {
 		return ErrInstruction
 	}
 	if uint64(index) >= uint64(len(c.registers)) {
-		c.registers = append(c.registers, make([]*HashTable, int(uint64(index)-uint64(len(c.registers))+1))...)
+		c.registers = append(c.registers, make([]FiniteTable, int(uint64(index)-uint64(len(c.registers))+1))...)
 	}
 	if uint64(index) < uint64(len(c.explanationRegisters)) && c.explanationRegisters[index] != nil {
 		if err := c.explanationRegisters[index].Close(); err != nil {
@@ -206,7 +254,7 @@ func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) e
 	for i, table := range c.registers {
 		var bytes uint32
 		if table != nil {
-			value, err := table.SizeEstimateBytes()
+			_, value, err := finiteTableSizeEstimates(table)
 			if err != nil {
 				return err
 			}
@@ -231,7 +279,7 @@ func (c *ExecutionContext) ReportBigRelations(threshold uint32, out io.Writer) e
 		}
 		var rows uint32
 		if table := c.registers[size.register]; table != nil {
-			value, err := table.SizeEstimateRows()
+			value, _, err := finiteTableSizeEstimates(table)
 			if err != nil {
 				return err
 			}
@@ -333,6 +381,27 @@ func (c *ExecutionContext) closeRegisters() error {
 	return result
 }
 
+func finiteTableSizeEstimates(table FiniteTable) (uint32, uint32, error) {
+	switch value := table.(type) {
+	case *HashTable:
+		rows, err := value.SizeEstimateRows()
+		if err != nil {
+			return 0, 0, err
+		}
+		bytes, err := value.SizeEstimateBytes()
+		return rows, bytes, err
+	case *SparseTable:
+		rows, err := value.SizeEstimateRows()
+		if err != nil {
+			return 0, 0, err
+		}
+		bytes, err := value.SizeEstimateBytes()
+		return rows, bytes, err
+	default:
+		return 0, 0, ErrInstruction
+	}
+}
+
 // Instruction is the concrete relational bytecode contract consumed by a
 // source-order InstructionBlock.
 type Instruction interface {
@@ -382,7 +451,7 @@ func (i *registerInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if hasExplanationInstructionRegister(context, i.source) {
 		return i.performExplanationRegister(context)
 	}
-	source, err := context.Register(i.source)
+	source, err := context.FiniteRegister(i.source)
 	if err != nil {
 		return false, err
 	}
@@ -390,23 +459,23 @@ func (i *registerInstruction) Perform(context *ExecutionContext) (bool, error) {
 	case "dealloc":
 		return true, context.MakeEmpty(i.source)
 	case "clone":
-		var value *HashTable
+		var value FiniteTable
 		if source != nil {
-			value, err = source.Clone()
+			value, err = source.CloneFinite()
 			if err != nil {
 				return false, err
 			}
 		}
-		return true, context.SetRegister(i.target, value)
+		return true, context.SetFiniteRegister(i.target, value)
 	case "move":
 		if source == nil {
-			return true, context.SetRegister(i.target, nil)
+			return true, context.SetFiniteRegister(i.target, nil)
 		}
-		value, x := context.ReleaseRegister(i.source)
+		value, x := context.ReleaseFiniteRegister(i.source)
 		if x != nil {
 			return false, x
 		}
-		return true, context.SetRegister(i.target, value)
+		return true, context.SetFiniteRegister(i.target, value)
 	default:
 		return false, ErrInstruction
 	}

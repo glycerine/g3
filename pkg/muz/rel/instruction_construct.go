@@ -201,7 +201,7 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 		}
 		return true, nil
 	case "assert_signature":
-		table, err := context.Register(i.target)
+		table, err := context.FiniteRegister(i.target)
 		if err != nil || table == nil {
 			return err == nil, err
 		}

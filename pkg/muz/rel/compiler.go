@@ -1454,6 +1454,12 @@ func CompileFiniteRules(relations *RelationManager, set *base.RuleSet) (*Instruc
 
 // CompileFiniteRulesWithGuard additionally compiles interpreted finite guards.
 func CompileFiniteRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *astrewriter.TheoryRewriter) (*InstructionBlock, *InstructionBlock, error) {
+	if relations == nil {
+		return nil, nil, ErrCompilerUnsupported
+	}
+	if err := relations.SupportsCompiledFiniteTables(); err != nil {
+		return nil, nil, err
+	}
 	compiler, err := newFiniteCompiler(relations, guard)
 	if err != nil {
 		return nil, nil, err

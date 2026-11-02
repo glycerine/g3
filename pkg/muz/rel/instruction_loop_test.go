@@ -44,6 +44,38 @@ func TestWhileInstructionExecutesUntilControlsEmpty(t *testing.T) {
 	}
 }
 
+func TestWhileInstructionAcceptsSparseFixpointControl(t *testing.T) {
+	signature, err := NewSignature([]uint64{2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	control, err := NewSparseTable(signature, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = control.Add(Fact{1}); err != nil {
+		t.Fatal(err)
+	}
+	context := NewExecutionContext(nil)
+	t.Cleanup(func() { _ = context.Close() })
+	if err = context.SetFiniteRegister(0, control); err != nil {
+		t.Fatal(err)
+	}
+	body := NewInstructionBlock()
+	if err = body.Append(NewDeallocateInstruction(0)); err != nil {
+		t.Fatal(err)
+	}
+	loop := NewWhileLoopInstruction([]uint32{0}, body)
+	t.Cleanup(func() { _ = loop.Close() })
+	complete, err := loop.Perform(context)
+	if err != nil || !complete {
+		t.Fatal("sparse fixpoint control", complete, err)
+	}
+	if table, err := context.FiniteRegister(0); err != nil || table != nil {
+		t.Fatal("sparse fixpoint control remained nonempty", table, err)
+	}
+}
+
 func TestWhileInstructionPropagatesBodyTerminationAndOwnsBody(t *testing.T) {
 	context := NewExecutionContext(func() bool { return true })
 	t.Cleanup(func() { _ = context.Close() })

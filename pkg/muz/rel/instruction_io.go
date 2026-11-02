@@ -95,44 +95,40 @@ func (i *relationIOInstruction) Perform(context *ExecutionContext) (bool, error)
 		return i.performExplanation(context, relations)
 	}
 	if !i.store {
-		table, x := relations.GetRelation(i.predicate)
+		table, x := relations.GetFiniteRelation(i.predicate)
 		if x != nil {
 			return false, x
 		}
-		count, x := table.Len()
+		clone, x := table.CloneFinite()
 		if x != nil {
 			return false, x
 		}
-		if count == 0 {
-			return true, context.MakeEmpty(i.register)
-		}
-		clone, x := table.Clone()
-		if x != nil {
-			return false, x
-		}
-		return true, context.SetRegister(i.register, clone)
+		return true, context.SetFiniteRegister(i.register, clone)
 	}
-	table, err := context.Register(i.register)
+	table, err := context.FiniteRegister(i.register)
 	if err != nil {
 		return false, err
 	}
 	transferred := table != nil
 	if transferred {
-		table, err = context.ReleaseRegister(i.register)
+		table, err = context.ReleaseFiniteRegister(i.register)
 		if err != nil {
 			return false, err
 		}
 	}
 	if table == nil {
-		_, signature, x := relations.PredicateSignature(i.predicate)
+		selected, x := relations.GetFiniteRelation(i.predicate)
 		if x != nil {
 			return false, x
 		}
-		table = NewHashTable(signature)
+		table, x = emptyFiniteLike(selected)
+		if x != nil {
+			return false, x
+		}
 	}
-	if err = relations.StoreRelation(i.predicate, table); err != nil {
+	if err = relations.StoreFiniteRelation(i.predicate, table); err != nil {
 		if transferred {
-			_ = context.SetRegister(i.register, table)
+			_ = context.SetFiniteRegister(i.register, table)
 		} else {
 			_ = table.Close()
 		}

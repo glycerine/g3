@@ -39,7 +39,7 @@ func (i *whileInstruction) open() error {
 
 func (i *whileInstruction) controlIsEmpty(context *ExecutionContext) (bool, error) {
 	for _, register := range i.controls {
-		table, err := context.Register(register)
+		table, err := context.FiniteRegister(register)
 		if err != nil {
 			return false, err
 		}

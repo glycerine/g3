@@ -61,8 +61,8 @@ func TestDatalogSparseRepresentationUsesConcreteStorage(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		status, err := e.QueryPredicate(q)
 		must(err)
-		if status != lbool.True || e.compiled {
-			t.Fatal("concrete sparse query did not use supported evaluator", status, e.compiled)
+		if status != lbool.True || !e.compiled {
+			t.Fatal("concrete sparse query did not use compiled evaluator", status, e.compiled)
 		}
 		table, ok := e.predicates[q].table.(*rel.SparseTable)
 		if !ok {

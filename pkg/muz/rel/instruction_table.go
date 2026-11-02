@@ -143,11 +143,11 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		(hasExplanationInstructionRegister(context, i.first) || hasExplanationInstructionRegister(context, i.second) || hasExplanationInstructionRegister(context, i.result)) {
 		return i.performExplanation(context)
 	}
-	first, err := instructionRegister(context, i.first)
+	first, err := finiteInstructionRegister(context, i.first)
 	if err != nil {
 		return false, err
 	}
-	second, err := instructionRegister(context, i.second)
+	second, err := finiteInstructionRegister(context, i.second)
 	if err != nil {
 		return false, err
 	}
@@ -162,23 +162,23 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if i.kind == "join_project" {
 			context.stats.JoinProject++
 		}
-		var value *HashTable
+		var value FiniteTable
 		var x error
 		if i.kind == "join_project" {
-			value, x = first.JoinProject(second, i.left, i.right, i.removed)
+			value, x = finiteTableJoinProject(first, second, i.left, i.right, i.removed)
 		} else {
-			value, x = first.Join(second, i.left, i.right)
+			value, x = finiteTableJoin(first, second, i.left, i.right)
 		}
 		if x != nil {
 			return false, x
 		}
-		return true, setNonemptyRegister(context, i.result, value)
+		return true, setNonemptyFiniteRegister(context, i.result, value)
 	case "filter_equal":
 		context.stats.FilterEqual++
 		if first == nil {
 			return true, nil
 		}
-		if err = first.FilterEqual(i.value, i.column); err != nil {
+		if err = finiteTableFilterEqual(first, i.value, i.column); err != nil {
 			return false, err
 		}
 		count, x := first.Len()
@@ -194,7 +194,7 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		if first == nil {
 			return true, nil
 		}
-		if err = first.FilterIdentical(i.left); err != nil {
+		if err = finiteTableFilterIdentical(first, i.left); err != nil {
 			return false, err
 		}
 		count, x := first.Len()
@@ -212,31 +212,31 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 		context.stats.Union++
 		target := second
 		if target == nil {
-			target, err = emptyLike(first)
+			target, err = emptyFiniteLike(first)
 			if err != nil {
 				return false, err
 			}
-			if err = context.SetRegister(i.second, target); err != nil {
+			if err = context.SetFiniteRegister(i.second, target); err != nil {
 				return false, err
 			}
 		}
-		var delta *HashTable
+		var delta FiniteTable
 		if i.result != VoidRegister {
-			delta, err = context.Register(i.result)
+			delta, err = context.FiniteRegister(i.result)
 			if err != nil {
 				return false, err
 			}
 			if delta == nil {
-				delta, err = emptyLike(target)
+				delta, err = emptyFiniteLike(target)
 				if err != nil {
 					return false, err
 				}
-				if err = context.SetRegister(i.result, delta); err != nil {
+				if err = context.SetFiniteRegister(i.result, delta); err != nil {
 					return false, err
 				}
 			}
 		}
-		if err = target.Union(first, delta); err != nil {
+		if err = finiteTableUnion(target, first, delta); err != nil {
 			return false, err
 		}
 		if delta != nil {
@@ -254,32 +254,32 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 			return true, context.MakeEmpty(i.result)
 		}
 		context.stats.ProjectRename++
-		var value *HashTable
+		var value FiniteTable
 		if i.kind == "project" {
-			value, err = first.Project(i.removed)
+			value, err = finiteTableProject(first, i.removed)
 		} else {
-			value, err = first.RenameCycle(i.left)
+			value, err = finiteTableRename(first, i.left)
 		}
 		if err != nil {
 			return false, err
 		}
-		return true, context.SetRegister(i.result, value)
+		return true, context.SetFiniteRegister(i.result, value)
 	case "select_equal_and_project":
 		if first == nil {
 			return true, context.MakeEmpty(i.result)
 		}
 		context.stats.SelectEqualProject++
-		value, x := first.SelectEqualAndProject(i.value, i.column)
+		value, x := finiteTableSelectProject(first, i.value, i.column)
 		if x != nil {
 			return false, x
 		}
-		return true, setNonemptyRegister(context, i.result, value)
+		return true, setNonemptyFiniteRegister(context, i.result, value)
 	case "filter_by_negation":
 		if first == nil || second == nil {
 			return true, nil
 		}
 		context.stats.FilterByNegation++
-		if err = first.FilterByNegation(second, i.left, i.right); err != nil {
+		if err = finiteTableFilterNegation(first, second, i.left, i.right); err != nil {
 			return false, err
 		}
 		count, x := first.Len()

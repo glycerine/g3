@@ -130,21 +130,37 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 	if hasExplanationInstructionRegister(context, i.register) {
 		return i.performExplanationFilter(context)
 	}
-	table, err := context.Register(i.register)
+	table, err := context.FiniteRegister(i.register)
 	if err != nil || table == nil {
 		return true, err
 	}
 	context.stats.Filter++
-	for key, fact := range table.rows.All() {
+	facts, err := table.Facts()
+	if err != nil {
+		return false, err
+	}
+	kept := make([]Fact, 0, len(facts))
+	for _, fact := range facts {
 		accepted, x := i.accepts(fact)
 		if x != nil {
 			return false, x
 		}
-		if !accepted {
-			table.rows.Del(key)
+		if accepted {
+			kept = append(kept, fact)
 		}
 	}
-	if table.rows.Len() == 0 {
+	if err = table.Reset(); err != nil {
+		return false, err
+	}
+	for _, fact := range kept {
+		if _, err = table.Add(fact); err != nil {
+			return false, err
+		}
+	}
+	if len(kept) == 0 {
+		if _, sparse := table.(*SparseTable); sparse {
+			return true, nil
+		}
 		return true, context.MakeEmpty(i.register)
 	}
 	return true, nil
