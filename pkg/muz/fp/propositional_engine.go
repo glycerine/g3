@@ -1712,10 +1712,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { e.recordQueryStatus(result, resultErr) }()
 	state := e.predicates[declaration]
 	if state == nil {
 		return lbool.Undef, ErrPropositionalHorn
@@ -1764,10 +1764,10 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { e.recordQueryStatus(result, resultErr) }()
 	defer func() {
 		if resultErr == nil && e.backend == "datalog" {
 			e.queryRelations = append([]ast.ASTHandle(nil), declarations...)
@@ -1885,10 +1885,10 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { e.recordQueryStatus(result, resultErr) }()
 	if e.backend != "spacer" || e.predicates[declaration] == nil {
 		return lbool.Undef, ErrPropositionalEngine
 	}

@@ -98614,6 +98614,7 @@
       "role": "production",
       "status": "partial",
       "go_targets": [
+        "pkg/muz/fp/query_cleanup_result_test.go",
         "pkg/muz/fp/query_clone_cleanup.go",
         "pkg/muz/fp/query_clone_cleanup_test.go",
         "pkg/muz/fp/spacer_generalizer_fixture_test.go",
@@ -98640,6 +98641,7 @@
         "pkg/muz/fp/pdr_expression_fixture_test.go"
       ],
       "tests": [
+        "TestDirectFixedpointQueryCleanupFailureInvalidatesResults",
         "TestQueryCloneCleanupOwnsRefusedDisposalAndStatistics",
         "TestSpacerExpressionConstructionFailureWithoutPrequeryOwner",
         "TestSpacerGeneralizerStatisticsSurviveFailedExpressionPreparation",
