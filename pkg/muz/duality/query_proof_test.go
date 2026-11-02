@@ -1,8 +1,12 @@
 package duality_test
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"math"
 	"math/big"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/ast"
@@ -130,6 +134,14 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	if status != lbool.True {
 		t.Fatal("independently reachable Boolean Horn query", status)
 	}
+	var derivation bytes.Buffer
+	must(backend.WriteDerivation(&derivation, owner.WriteExpression))
+	if !strings.HasPrefix(derivation.String(), "(derivation\n(step s!") || !strings.Contains(derivation.String(), "(subst") || !strings.Contains(derivation.String(), "(ref ") {
+		t.Fatal(derivation.String())
+	}
+	if err := backend.WriteDerivation(io.Discard, func(io.Writer, ast.ASTHandle) error { return io.ErrClosedPipe }); !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatal("derivation writer error", err)
+	}
 	proof, err := backend.GetProof()
 	must(err)
 	defer func() { must(m.DelRef(&proof)) }()
@@ -156,6 +168,11 @@ func TestDualityProofQuantifiedNonlinearAndRepeatedPremises(t *testing.T) {
 	must(preparedWitness.Close())
 	if status != lbool.True {
 		t.Fatal("independently reachable Boolean predecessor query", status)
+	}
+	derivation.Reset()
+	must(backend.WriteDerivation(&derivation, owner.WriteExpression))
+	if !strings.Contains(derivation.String(), "(= proof-x true)") {
+		t.Fatal("projected predecessor witness", derivation.String())
 	}
 	witnessProof, err := backend.GetProof()
 	must(err)
