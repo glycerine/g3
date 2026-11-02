@@ -100,7 +100,9 @@ Each completed item needs source paths, implementation/test evidence and a commi
   - [x] Verify a nonliteral Boolean model interpretation is skipped in favor of a later false case, without leaked temporary references.
   - [ ] Audit source VERIFY/UNREACHABLE/SASSERT transport and evaluator-exception cleanup before closing reach-fact selection.
 - [ ] Close `spacer_util` model evaluation, QE/MBP, array auxiliaries, appended datatype literals and source diagnostics.
-- [ ] Finish slice-proof conversion for every live proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution now have evidence, but general multi-premise mixed orientations remain unproven.
+- [ ] Finish slice-proof conversion for every live source proof shape. Sparse/trailing/vacuous/mixed-sort binders and reverse binary resolution have focused evidence; full substitution/ownership/exception closure remains open.
+  - [x] Enumerate source hyper-resolution producers and position-preserving rebuilders; cover unary instantiation, forward multi-premise resolution and nested reverse-binary/forward resolution (source map below).
+  - [ ] Finish method/ownership audit for substitutions and rule reconstruction in those producer families; check every conclusion, original leaf and solver-discharged proof side condition.
 - [ ] Verify coalesce/unfold/slice composition preserves original asserted leaves, substitutions, resolution positions and checker-valid proofs.
 - [ ] Close exported model, answer, counterexample and trace behavior through `spacer_dl_interface`.
 - [ ] Verify exceptional cleanup and parameter restoration in projection and preprocessing.
@@ -412,3 +414,26 @@ Source comparison arity/type preconditions are enforced by AST construction/acce
 
 - 2026-11-02 — Parameter/module updates and a validated engine switch previously invalidated snapshots only after old-query cleanup succeeded. An allocation refusal in that cleanup exposed the preceding result as current for local-clear, local-set, module-update and engine-switch entry points. Added mutation-specific result/property invalidation before destruction begins, preserving the separate failed-solve frame-inspection contract and unchanged successful revision advancement. The new regression checks identical unfinished owner identity, unavailable results/answers/frames, successful mutation retry, application of local/module random_seed updates and subsequent reachable relation queries. All fixtures close at zero budget usage.
   Validation: native four-entry mutation regression, related fixedpoint query/result/parameter/cover checks and complete command-context/parser packages, focused API fixedpoint and inventory checks passed. Commit title: `Invalidate fixedpoint snapshots before destructive mutation cleanup`.
+
+### Slice proof source-producer map — 2026-11-02
+
+Audited every `mk_hyper_resolve` call and every `PR_HYPER_RESOLVE` mention under `src/`, including generic declaration-preserving proof rebuilders. These are the position layouts created or transported by the live source graph:
+
+| Source producer/rebuilder | Position layout |
+| --- | --- |
+| `muz/base/dl_util.cpp:346,384` and `muz/tab/tab_context.cpp:1635` | Binary rule resolution: `(selected body + 1, 0)`. |
+| `muz/transforms/dl_mk_coalesce.cpp:150` | Unary wrapper with no pivot positions. |
+| `muz/pdr/pdr_context.cpp:1397` | Nonlinear trace: one forward `(i, 0)` position for each child premise. |
+| `muz/duality/duality_dl_interface.cpp:609` | Forward `(child index + 1, 0)` positions, with empty children skipped. |
+| `muz/bmc/dl_bmc_engine.cpp:326,1261` | Reverse binary `(0, 1)` resolution. |
+| `muz/bmc/dl_bmc_engine.cpp:342,1273` | Unary instantiation. |
+| `muz/bmc/dl_bmc_engine.cpp:547,1087` | Forward multi-premise trace resolution `(j + 1, 0)`. |
+| `muz/base/dl_boogie_proof.cpp:116,119` | Adds forward child nodes and preserves the root's positions/premise count. |
+| `ast/proofs/proof_utils.cpp:944,973` | Pushes substitutions while preserving positions/premise count, or creates a unary instantiation. |
+| `muz/transforms/dl_mk_slice.cpp:243` | Reconstructs premises/substitutions and transports existing positions. |
+| `ast/ast.cpp:3146-3181`, declaration handling and API kind exposure | Constructs the supplied metadata or preserves its declaration; introduces no additional producer layout. |
+
+No source producer constructs a single flat multi-premise node mixing forward and reverse pivots. The converter's existing reverse-binary guard matches the actual source constructors; arbitrary extra pivot layouts are outside the live-consumer port scope in AGENTS.md. Existing forward/nonlinear, reverse-binary and nested mixed proof support and unsupported-metadata tests remain part of verification. This shape audit does not close substitution, source proof-checker side conditions, ownership or the complete slice unit.
+
+- 2026-11-02 — Reconciled the slice-proof checklist with the source producer graph above. Kept the production status partial and recorded explicit remaining substitution/ownership obligations. Updated Convert's comment to describe the implemented source pivot families. Native slice proof regressions verify nonlinear ordering, reverse/forward nesting, sparse/mixed-sort binders and compound/derived substitutions; coalesce/unfold proof-generation regressions also pass.
+  Validation: `go -C pkg test ./muz/transforms -run '^TestRuleSlice(Converts|Proof|Generates)' -short -count=1` and focused native coalesce/unfold proof tests passed. Commit title: `Document live source shapes for slice proof completion`.

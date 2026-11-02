@@ -21,8 +21,9 @@ type slicedProofResult struct {
 // proofs over original rules. It returns an owned proof. As in the source
 // converter, resolution uses rule unification. Substitutions on asserted rules
 // use Horn conversion for compound predicate heads. Derived substitutions
-// require an unambiguous predicate-based variable correspondence; resolution
-// against a premise other than a positive rule head remains unsupported.
+// require an unambiguous predicate-based variable correspondence. Source
+// nonlinear nodes use forward body-to-head pivots; reverse source nodes are
+// binary. Other pivot layouts return ErrSliceProofUnsupported.
 // Unrecognized nodes and hyper-resolution without mapped premise rules pass
 // through unchanged, matching translate_proof's source fallback.
 func (c *SliceProofConverter) Convert(proof ast.ASTHandle) (result ast.ASTRef, resultErr error) {
