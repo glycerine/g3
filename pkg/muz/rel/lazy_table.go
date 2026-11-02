@@ -110,6 +110,7 @@ type lazyTableNode struct {
 	value       Element
 	column      int
 	interpreted *lazyInterpretedFilter
+	retryForce  bool
 }
 
 type LazyTable struct {
@@ -180,7 +181,9 @@ func (t *LazyTable) Kind() LazyTableKind {
 	return t.root.kind
 }
 
-func (t *LazyTable) Forced() bool { return t.open() == nil && t.root.evaluated != nil }
+func (t *LazyTable) Forced() bool {
+	return t.open() == nil && t.root.evaluated != nil && !t.root.retryForce
+}
 
 // SizeEstimateRows and SizeEstimateBytes preserve lazy_table's fixed source
 // estimates without forcing the deferred operation.
@@ -219,7 +222,7 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 	if node == nil {
 		return nil, ErrLazyTable
 	}
-	if node.evaluated != nil {
+	if node.evaluated != nil && !node.retryForce {
 		return node.evaluated, nil
 	}
 	e.stats.Forces++
@@ -360,14 +363,22 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		}
 		result = target
 	case LazyTableFilterInterpreted:
-		source, sourceErr := e.evaluate(node.left)
-		if sourceErr != nil {
-			return nil, sourceErr
+		source := node.evaluated
+		if source == nil {
+			var sourceErr error
+			source, sourceErr = e.evaluate(node.left)
+			if sourceErr != nil {
+				return nil, sourceErr
+			}
+			// Source force moves its evaluated table out of m_src before applying
+			// the mutator; sibling references to that lazy node no longer own it.
+			node.left.evaluated = nil
+			node.evaluated = source
 		}
-		// Source force moves its evaluated table out of m_src before applying
-		// the mutator; sibling references to that lazy node no longer own it.
-		node.left.evaluated = nil
-		node.evaluated = source
+		// A Go AST operation can refuse after the source table has transferred.
+		// Keep the concrete owner but do not publish it as a completed force;
+		// a retry must execute the transactional interpreted filter again.
+		node.retryForce = true
 		conditions, conditionErr := node.interpreted.handles()
 		if conditionErr != nil {
 			return nil, conditionErr
@@ -376,6 +387,7 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		err = relation.FilterInterpreted(node.interpreted.rewriter, conditions, node.interpreted.columns, node.interpreted.sorts)
 		if err == nil {
 			e.stats.InterpretedFilters++
+			node.retryForce = false
 			result = source
 		}
 	default:
@@ -388,6 +400,7 @@ func (e *LazyTableEngine) evaluate(node *lazyTableNode) (*HashTable, error) {
 		return nil, ErrLazyTable
 	}
 	node.evaluated = result
+	node.retryForce = false
 	return result, nil
 }
 

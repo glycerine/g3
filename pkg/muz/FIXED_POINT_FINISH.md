@@ -349,26 +349,31 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_base.cpp` (partial), `src/muz/rel/dl_base.h` (partial)
 - [ ] `src/muz/rel/dl_bound_relation.cpp` (partial), `src/muz/rel/dl_bound_relation.h` (partial)
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
+  - [x] Concrete project and rename dispatch with source renumbering/cycle semantics and independent results.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
   - [ ] Automatic rule/query execution dispatch into external operators and generic manager selection.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
+  - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
 - [ ] `src/muz/rel/dl_interval_relation.cpp` (partial), `src/muz/rel/dl_interval_relation.h` (partial)
   - [x] Plugin signature capability, n-ary identical-column filtering and formula construction allocation ownership.
+  - [x] Retained finite/interval product consumer now uses the concrete interval capability predicate.
 - [ ] `src/muz/rel/dl_lazy_table.cpp` (partial), `src/muz/rel/dl_lazy_table.h` (partial)
   - [x] Negated-join direct forcing plus cached join/equality-filter projection fusion after observation.
+  - [x] Interpreted-force failure preserves its transferred table without publishing an incomplete cache and retries transactionally.
 - [ ] `src/muz/rel/dl_mk_explanations.cpp` (partial), `src/muz/rel/dl_mk_explanations.h` (partial)
 - [ ] `src/muz/rel/dl_mk_similarity_compressor.cpp` (partial), `src/muz/rel/dl_mk_similarity_compressor.h` (partial)
 - [ ] `src/muz/rel/dl_product_relation.cpp` (partial), `src/muz/rel/dl_product_relation.h` (partial)
 - [ ] `src/muz/rel/dl_relation_manager.h` (partial)
 - [ ] `src/muz/rel/dl_sieve_relation.cpp` (partial), `src/muz/rel/dl_sieve_relation.h` (partial)
   - [x] Formula reconstruction and concrete interpreted filtering with source ignored-column approximation.
+  - [x] Row/byte estimates forward exact inner storage without materializing ignored full domains.
 - [ ] `src/muz/rel/dl_sparse_table.cpp` (partial), `src/muz/rel/dl_sparse_table.h` (partial)
   - [x] Concrete empty query and zero-key functional complement consumption.
 - [ ] `src/muz/rel/dl_vector_relation.h` (partial)
-  - [x] Interval join/project/swap intersection fallback with atomic validation.
+  - [x] Interval intersection uses the actually reached join/project/reset/union fallback with atomic validation; source vector relations do not enable `can_swap`.
 - [ ] `src/muz/rel/rel_context.cpp` (partial), `src/muz/rel/rel_context.h` (partial)
   - [x] Query-scoped unbound compression, live module/local parameter precedence, `datalog.default_relation=doc` disabling, original-rule restoration, and generated finite-relation cleanup.
   - [x] Source `scoped_query` restoration around filter, simple-join, unbound and similarity transformations, including failure paths.
@@ -915,3 +920,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Unified CLP rule-attempt ownership: grounded heads, every grounded tail and shared rule-local fresh constants now retire through one retryable cleanup root instead of independent lossy defers. A real native refusal preserves exact grounded/fresh references and usability, then Cleanup retires all owners. Focused search/order/allocation tests passed in 0.071s and the complete native CLP package passed in 0.142s. Broader search/source audit remains open.
 
 - 2026-11-02 — Ported `dl_query_cmd::set_next_arg` validation to the SMT2 fixedpoint command boundary. Query targets must be null-family uninterpreted declarations already registered as relations; ordinary Boolean functions now fail before local parameters or backend selection instead of surfacing a later Horn-fragment error. Focused query cases passed in 0.011s and all native SMT2 fixedpoint command tests passed in 2.956s. Broader command source/ownership auditing remains open.
+
+- 2026-11-02 — Extended concrete relational consumers: bound plugin project/rename dispatch, interval capability use by the finite/interval constructor, finite/explanation display and estimates, sieve estimates, and retry-safe lazy interpreted forcing. Corrected the interval intersection port after source audit showed vector relations do not enable `can_swap`; the live fallback is join/project/reset/union. Focused tests cover exact renumbering/cycles, ignored-domain storage, inner garbage collection, transferred-owner retry and failure atomicity. The complete native relational package passed in 2.941s after the bound oracle correction. Generic unused adapters remain omitted.

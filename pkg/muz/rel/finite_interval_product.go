@@ -32,16 +32,7 @@ func NewFiniteIntervalProduct(manager *RelationManager, sorts []ast.ASTHandle, c
 		return nil, ast.ErrASTDomain
 	}
 	m := manager.manager
-	family, err := m.RegisterArithmeticPlugin()
-	if err != nil {
-		return nil, err
-	}
-	realSort, err := m.MkFamilySort(family, 0, nil)
-	if err != nil {
-		return nil, err
-	}
-	intSort, err := m.MkFamilySort(family, 1, nil)
-	if err != nil {
+	if _, err := m.RegisterArithmeticPlugin(); err != nil {
 		return nil, err
 	}
 	p := &FiniteIntervalProduct{manager: manager, sorts: append([]ast.ASTHandle(nil), sorts...)}
@@ -66,7 +57,7 @@ func NewFiniteIntervalProduct(manager *RelationManager, sorts []ast.ASTHandle, c
 			p.tableColumns = append(p.tableColumns, i)
 			domains = append(domains, domain)
 		} else {
-			if sort != intSort && sort != realSort {
+			if !CanHandleIntervalSorts(m, []ast.ASTHandle{sort}) {
 				return nil, fmt.Errorf("%w: interval columns must be arithmetic", ErrTableRelation)
 			}
 			p.intervalColumns = append(p.intervalColumns, i)

@@ -114,3 +114,73 @@ func TestBoundRelationPluginJoinDispatch(t *testing.T) {
 		t.Fatal("nil plugin join accepted")
 	}
 }
+
+func TestBoundRelationPluginProjectDispatch(t *testing.T) {
+	manager := astTestManager(t)
+	plugin, err := NewBoundRelationPlugin(manager)
+	astTestMust(t, err)
+	source := NewBoundRelation(4, false)
+	astTestMust(t, source.AddLess(0, 3))
+	astTestMust(t, source.AddLessEqual(0, 2))
+	projected, err := plugin.Project(source, []uint32{1})
+	astTestMust(t, err)
+	strict, weak, err := projected.Bounds(0)
+	astTestMust(t, err)
+	if len(strict) != 1 || strict[0] != 2 || len(weak) != 1 || weak[0] != 1 {
+		t.Fatal("project dispatch did not renumber bounds", strict, weak)
+	}
+	// Projection returns independently owned bound maps.
+	astTestMust(t, projected.AddLess(1, 2))
+	strict, weak, err = source.Bounds(2)
+	astTestMust(t, err)
+	if len(strict) != 0 || len(weak) != 0 {
+		t.Fatal("projected result mutated source", strict, weak)
+	}
+	if _, err = plugin.Project(source, []uint32{2, 1}); err == nil {
+		t.Fatal("unsorted projection accepted")
+	}
+	if _, err = plugin.Project(source, []uint32{4}); err == nil {
+		t.Fatal("out-of-range projection accepted")
+	}
+	var nilPlugin *BoundRelationPlugin
+	if _, err = nilPlugin.Project(source, nil); err == nil {
+		t.Fatal("nil plugin projection accepted")
+	}
+}
+
+func TestBoundRelationPluginRenameDispatch(t *testing.T) {
+	manager := astTestManager(t)
+	plugin, err := NewBoundRelationPlugin(manager)
+	astTestMust(t, err)
+	source := NewBoundRelation(3, false)
+	astTestMust(t, source.AddLessEqual(1, 2))
+	astTestMust(t, source.AddLess(0, 1))
+	renamed, err := plugin.Rename(source, []uint32{0, 1, 2})
+	astTestMust(t, err)
+	strict, weak, err := renamed.Bounds(1)
+	astTestMust(t, err)
+	if len(strict) != 2 || strict[0] != 0 || strict[1] != 2 || len(weak) != 0 {
+		t.Fatal("rename dispatch strict rotation", strict, weak)
+	}
+	strict, weak, err = renamed.Bounds(2)
+	astTestMust(t, err)
+	if len(strict) != 0 || len(weak) != 1 || weak[0] != 0 {
+		t.Fatal("rename dispatch weak rotation", strict, weak)
+	}
+	astTestMust(t, renamed.AddLess(2, 1))
+	strict, _, err = source.Bounds(0)
+	astTestMust(t, err)
+	if len(strict) != 2 || strict[0] != 1 || strict[1] != 2 {
+		t.Fatal("renamed result mutated source", strict)
+	}
+	if _, err = plugin.Rename(source, nil); err == nil {
+		t.Fatal("empty rename cycle accepted")
+	}
+	if _, err = plugin.Rename(source, []uint32{0, 0}); err == nil {
+		t.Fatal("duplicate rename column accepted")
+	}
+	var nilPlugin *BoundRelationPlugin
+	if _, err = nilPlugin.Rename(source, []uint32{0}); err == nil {
+		t.Fatal("nil plugin rename accepted")
+	}
+}

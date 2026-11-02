@@ -2,22 +2,11 @@ package rel
 
 import "github.com/glycerine/g3/pkg/ast"
 
-// swap follows vector_relation::swap for the concrete interval
-// instantiation. The source relation manager calls it only after can_swap has
-// established equal signatures; the concrete Go boundary checks equal arity.
-func (r *IntervalRelation) swap(other *IntervalRelation) error {
-	if r == nil || other == nil || r.values == nil || other.values == nil || len(r.values.columns) != len(other.values.columns) {
-		return ast.ErrASTDomain
-	}
-	if r != other {
-		r.values, other.values = other.values, r.values
-	}
-	return nil
-}
-
 // FilterByIntersection implements relation_manager's default intersection
 // filter for interval vector relations: join target and source, project every
-// source column, then swap the filtered relation into the target.
+// source column, reset the target, then union the filtered relation into it.
+// vector_relation supplies swap but not can_swap, so the native relation
+// manager takes this union branch rather than its swap fast path.
 func (r *IntervalRelation) FilterByIntersection(source *IntervalRelation, targetColumns, sourceColumns []uint32) error {
 	if r == nil || source == nil || r.values == nil || source.values == nil || len(targetColumns) != len(sourceColumns) {
 		return ast.ErrASTDomain
@@ -35,5 +24,7 @@ func (r *IntervalRelation) FilterByIntersection(source *IntervalRelation, target
 	if err != nil {
 		return err
 	}
-	return r.swap(filtered)
+	r.values.setEmpty()
+	_, err = unionIntervalColumns(r.values, filtered.values, false)
+	return err
 }

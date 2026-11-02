@@ -69,19 +69,7 @@ func TestIntervalVectorIntersectionUsesSourceJoinEquivalenceSemantics(t *testing
 	}
 }
 
-func TestIntervalVectorSwapValidationAndIntersectionFailureAtomicity(t *testing.T) {
-	left := NewIntervalFull(1)
-	right := NewIntervalEmpty(1)
-	if err := left.swap(right); err != nil || !left.Empty() || right.Empty() {
-		t.Fatalf("swap state: left empty=%v right empty=%v err=%v", left.Empty(), right.Empty(), err)
-	}
-	if err := left.swap(left); err != nil || !left.Empty() {
-		t.Fatalf("self swap: empty=%v err=%v", left.Empty(), err)
-	}
-	if err := left.swap(NewIntervalFull(2)); !errors.Is(err, ast.ErrASTDomain) {
-		t.Fatalf("mismatched swap error=%v", err)
-	}
-
+func TestIntervalVectorIntersectionFailureAtomicity(t *testing.T) {
 	target := NewIntervalFull(1)
 	if err := target.FilterEqual(0, big.NewRat(4, 1)); err != nil {
 		t.Fatal(err)

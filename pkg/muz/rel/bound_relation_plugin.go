@@ -90,3 +90,21 @@ func (p *BoundRelationPlugin) Join(left, right *BoundRelation, leftColumns, righ
 	}
 	return JoinBoundRelations(left, right, leftColumns, rightColumns)
 }
+
+// Project is the concrete typed form of
+// bound_relation_plugin::mk_project_fn/project_fn::operator().
+func (p *BoundRelationPlugin) Project(source *BoundRelation, removedColumns []uint32) (*BoundRelation, error) {
+	if p == nil || p.manager == nil {
+		return nil, ast.ErrASTDomain
+	}
+	return source.Project(removedColumns)
+}
+
+// Rename is the concrete typed form of
+// bound_relation_plugin::mk_rename_fn/rename_fn::operator().
+func (p *BoundRelationPlugin) Rename(source *BoundRelation, cycle []uint32) (*BoundRelation, error) {
+	if p == nil || p.manager == nil {
+		return nil, ast.ErrASTDomain
+	}
+	return source.Rename(cycle)
+}
