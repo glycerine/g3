@@ -15,6 +15,8 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
+	sourceClauses        []ast.ASTRef
+	clauseIndices        map[*Edge]int
 	evaluatorConfig      model.ModelEvaluatorConfig
 	pendingEvaluators    []*model.ModelEvaluator
 	proofCore            map[ast.ASTHandle]ast.ASTRef
@@ -307,6 +309,7 @@ func (g *RPFP) DeleteEdge(edge *Edge) error {
 		}
 	}
 	edge.closed = true
+	delete(g.clauseIndices, edge)
 	return nil
 }
 func (g *RPFP) Close() error {
@@ -323,6 +326,17 @@ func (g *RPFP) Close() error {
 			return err
 		}
 	}
+	for len(g.sourceClauses) > 0 {
+		n := len(g.sourceClauses) - 1
+		err := g.context.manager.DelRef(&g.sourceClauses[n])
+		if g.sourceClauses[n] == (ast.ASTRef{}) {
+			g.sourceClauses = g.sourceClauses[:n]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	g.clauseIndices = nil
 	for len(g.underapproxFlagRefs) > 0 {
 		n := len(g.underapproxFlagRefs) - 1
 		err := g.context.manager.DelRef(&g.underapproxFlagRefs[n])

@@ -40,6 +40,19 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 			return ErrContextMismatch
 		}
 	}
+	// The fixedpoint interface owns the original clauses for proof extraction.
+	// Associate edges before pruning, which can remove earlier clause positions.
+	base := len(g.sourceClauses)
+	for _, clause := range clauses {
+		ref, err := m.CopyRef(clause.value.ref)
+		if err != nil {
+			return err
+		}
+		g.sourceClauses = append(g.sourceClauses, ref)
+	}
+	if g.clauseIndices == nil {
+		g.clauseIndices = make(map[*Edge]int)
+	}
 	var expressions []*Expr
 	hold := func(e *Expr, err error) (*Expr, error) {
 		if e != nil {
@@ -149,7 +162,7 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 	}
 	someLabels := false
 	for i, p := range prepared {
-		if err := g.clauseEdge(p, predicates, bounds, i, simplifier, quantifiers, &someLabels); err != nil {
+		if err := g.clauseEdge(p, predicates, bounds, i, base+i, simplifier, quantifiers, &someLabels); err != nil {
 			return err
 		}
 	}
@@ -159,7 +172,7 @@ func (g *RPFP) FromClauses(clauses []*Expr, bounds []uint32, simplifier *interp.
 	return g.Unhoist()
 }
 
-func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*Node, bounds []uint32, index int, simplifier *interp.Manager, quantifiers *qe.Lite, someLabels *bool) (result error) {
+func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*Node, bounds []uint32, index, originalIndex int, simplifier *interp.Manager, quantifiers *qe.Lite, someLabels *bool) (result error) {
 	m := g.context.manager
 	var expressions []*Expr
 	hold := func(e *Expr, err error) (*Expr, error) {
@@ -284,6 +297,7 @@ func (g *RPFP) clauseEdge(p *preparedHornClause, predicates map[ast.ASTHandle]*N
 	if err != nil {
 		return err
 	}
+	g.clauseIndices[edge] = originalIndex
 	if bounds != nil && bounds[index] > parent.RecursionBound {
 		parent.RecursionBound = bounds[index]
 	}

@@ -87297,7 +87297,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
+      "go_targets": ["pkg/duality/rpfp_source_clause.go", "pkg/duality/from_clauses.go", "pkg/duality/from_clauses_test.go", "pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
         "pkg/muz/duality/query_clause.go",
         "pkg/muz/duality/query_clause_test.go",
         "pkg/muz/duality/missing_heads.go",
@@ -87397,6 +87397,14 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "original query clause ownership and proof edge association",
+          "status": "ported",
+          "go_target": "pkg/duality/rpfp_source_clause.go",
+          "go_targets": ["pkg/duality/from_clauses.go", "pkg/duality/rpfp_graph.go"],
+          "tests": ["TestDualityFromClausesNativeSafeAndReachable", "TestDualityFromClausesQuantifiersAndCumulativeLabelGuard", "TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime"],
+          "notes": "The graph owns all original clause references, independently of PreparedQuery, and maps each constructed edge before pruning. Tests distinguish live clauses after an earlier dead clause, preserve original quantifiers and labels through preprocessing, recover a real counterexample's original query after preparation closure, and release an actual partially acquired clause prefix on allocation failure. Hyper-resolution extraction and certificate reporting remain unfinished."
+        },
+        {
           "name": "get_model: annotation abstraction and predicate interpretation publication",
           "status": "ported",
           "go_target": "pkg/duality/rpfp_model.go",
@@ -87417,7 +87425,8 @@
       ],
       "ownership": [],
       "deviations": [
-        "Query preparation, RPFP construction, solver execution and annotation model snapshots are ported; fixedpoint engine registration, proof extraction and certificate reporting remain unfinished."
+        "Query preparation, RPFP construction, solver execution and annotation model snapshots are ported; fixedpoint engine registration, proof extraction and certificate reporting remain unfinished.",
+        "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction."
       ]
     },
     {

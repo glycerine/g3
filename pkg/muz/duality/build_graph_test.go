@@ -89,6 +89,9 @@ func TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime(t *testing.T)
 			rpfp, err := prepared.BuildGraph(context, simplifier, quantifiers)
 			must(err)
 			defer rpfp.Close()
+			originalClauses, err := prepared.Clauses()
+			must(err)
+			originalQuery := originalClauses[1]
 			must(prepared.Close())
 			if _, err := prepared.BuildGraph(context, simplifier, quantifiers); !errors.Is(err, graph.ErrWrapperOwner) {
 				t.Fatal("closed query accepted", err)
@@ -106,6 +109,20 @@ func TestPreparedQueryBuildGraphNativeEngineAndIndependentLifetime(t *testing.T)
 			}
 			if reachable && engine.GetCounterexample().Root() == nil {
 				t.Fatal("missing fixedpoint counterexample")
+			}
+			if reachable {
+				mapped := engine.GetCounterexample().Root().Outgoing.Map
+				if mapped == nil {
+					t.Fatal("counterexample lost original edge")
+				}
+				clause, err := mapped.Owner.OriginalClause(mapped)
+				must(err)
+				h, err := clause.Raw()
+				must(err)
+				if h != originalQuery {
+					t.Fatal("closed preparation lost the original query clause")
+				}
+				must(clause.Close())
 			}
 			must(engine.Close())
 			session, err := duality.NewQueryEngine(context, graph.EngineConfig{Native: native, Auxiliary: aux, Factory: factory, Evaluator: services, Simplifier: simplifier, Quantifiers: quantifiers})

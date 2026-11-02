@@ -1,8 +1,10 @@
 package duality
 
 import (
+	"errors"
 	"testing"
 
+	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/qe"
@@ -75,13 +77,20 @@ func TestDualityFromClausesNativeSafeAndReachable(t *testing.T) {
 					t.Fatal("clause bounds not aggregated by parent")
 				}
 			}
-			for _, edge := range graph.edges {
+			for i, edge := range graph.edges {
 				if edge.labeled == (ast.ASTRef{}) {
 					t.Fatal("source labeled formula not owned")
 				}
 				if _, err := m.RefGet(edge.labeled); err != nil {
 					t.Fatal("labeled formula expired", err)
 				}
+				original, err := graph.OriginalClause(edge)
+				must(err)
+				want := []int{0, 1, 2, 4}[i]
+				if raw(original) != raw(clauses[want]) {
+					t.Fatal("pruning shifted the original proof clause", i, want)
+				}
+				must(original.Close())
 			}
 			// Finite recursion bounds are structurally tested above; use unbounded
 			// engine mode to test full safety/reachability independently of the bound.
@@ -183,7 +192,13 @@ func TestDualityFromClausesQuantifiersAndCumulativeLabelGuard(t *testing.T) {
 			if len(graph.nodes) != 3 || len(graph.edges) != 3 {
 				t.Fatal("quantified graph size mismatch")
 			}
-			for _, edge := range graph.edges[:2] {
+			for i, edge := range graph.edges[:2] {
+				original, err := graph.OriginalClause(edge)
+				must(err)
+				if raw(original) != raw(clauses[i]) {
+					t.Fatal("preprocessing replaced the original quantified clause")
+				}
+				must(original.Close())
 				formula, err := m.RefGet(edge.F.formula)
 				must(err)
 				if labeled {
@@ -206,6 +221,44 @@ func TestDualityFromClausesQuantifiersAndCumulativeLabelGuard(t *testing.T) {
 				if edge.Parent.RecursionBound != ^uint32(0) {
 					t.Fatal("absent bounds did not select unbounded mode")
 				}
+			}
+			// Reach an actual reference-page refusal after one original clause
+			// has been acquired, before any transformed graph node is created.
+			failed, err := NewRPFP(ctx)
+			must(err)
+			var held []ast.ASTRef
+			defer func() {
+				m.Budget().FailAfter(-1)
+				must(failed.Close())
+				for i := range held {
+					must(m.DelRef(&held[i]))
+				}
+			}()
+			m.Budget().FailAfter(0)
+			for {
+				ref, err := m.NewRef(ast.ASTHandle{})
+				if err != nil {
+					if !errors.Is(err, arena.ErrInjectedFailure) {
+						t.Fatal(err)
+					}
+					break
+				}
+				held = append(held, ref)
+			}
+			if len(held) == 0 {
+				t.Fatal("fixture needs a reference slot to release")
+			}
+			must(m.DelRef(&held[len(held)-1]))
+			held = held[:len(held)-1]
+			before := m.Stats().LiveReferences
+			err = failed.FromClauses(clauses, nil, simplifier, quantifiers)
+			if !errors.Is(err, arena.ErrInjectedFailure) || len(failed.sourceClauses) != 1 || len(failed.nodes) != 0 {
+				t.Fatal("original-clause acquisition frontier", err, len(failed.sourceClauses), len(failed.nodes))
+			}
+			m.Budget().FailAfter(-1)
+			must(failed.Close())
+			if m.Stats().LiveReferences != before {
+				t.Fatal("partial original-clause owner leaked its reference")
 			}
 		})
 	}
