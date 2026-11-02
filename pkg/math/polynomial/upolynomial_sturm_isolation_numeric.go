@@ -32,6 +32,9 @@ func (q *upolySturmIsolationScope) NumericRecord(z *unumeral.IntegerManager, _ s
 	}
 }
 func (q *upolySturmIsolationScope) numericPending() bool {
+	if q.binaryArithmetic.Pending() {
+		return true
+	}
 	z := q.owner.config.Integer
 	if unumeral.NumericAllocationPending(&q.numeric) {
 		return true
@@ -53,6 +56,9 @@ func (q *upolySturmIsolationScope) numericSourceCause() error {
 	return nil
 }
 func (q *upolySturmIsolationScope) cleanupNumeric(abort bool) error {
+	if e := q.binaryArithmetic.Cleanup(); e != nil {
+		return e
+	}
 	z := q.owner.config.Integer
 	if !abort {
 		if e := q.numeric.Cleanup(z); e != nil {

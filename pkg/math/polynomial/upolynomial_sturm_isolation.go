@@ -230,10 +230,10 @@ func (q *upolySturmIsolationScope) isolate(v UPolynomialView, neg, pos uint32, b
 		if e = refinementSourceAssert(minus > plus+1, 2452, "lower_sv > upper_sv + 1"); e != nil {
 			return e
 		}
-		if e = ops.AddSub(lower, upper, mid, false); e != nil {
+		if e = ops.AddSubWithInvocation(lower, upper, mid, false, &q.binaryArithmetic); e != nil {
 			return e
 		}
-		if e = ops.Div2(mid); e != nil {
+		if e = ops.Div2WithInvocation(mid, &q.binaryArithmetic); e != nil {
 			return e
 		}
 		if e := q.traceMidpoint(minus, plus); e != nil {

@@ -13,6 +13,7 @@ type upolySturmIsolationScope struct {
 	normalization                     upolySturmNormalizeScope
 	hooks                             unumeral.NumericInvocationHooks
 	numeric                           unumeral.NumericAllocationRoots
+	binaryArithmetic                  unumeral.BinaryArithmeticInvocation
 	raw                               []unumeral.IntegerRawInvocationReceipt
 	knuth                             upolyKnuthInvocationReceipt
 	prepareNormalize                  unumeral.IntegerNormalizeInvocationReceipt
@@ -84,6 +85,9 @@ func (q *upolySturmIsolationScope) pending() bool {
 	return q.tracePending() || q.normalizePending() || q.numericPending() || q.knuthPending() || q.owner.modular.MatchesPNormalizeInvocation(&q.prepareNormalize) || q.preparedLive || q.sequence.sturm.active || q.sequence.evaluationPending() || q.owner.matchesBinaryEvaluationReceipt(&q.endpoint) && q.owner.binaryEvaluation.active || q.owner.config.Integer.MatchesCopyAllocationInvocation(&q.copy)
 }
 func (q *upolySturmIsolationScope) sourceChild() error {
+	if e := q.binaryArithmetic.SourceCause(); e != nil {
+		return e
+	}
 	if e := q.traceSourceCause(); e != nil {
 		return e
 	}

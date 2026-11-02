@@ -399,8 +399,13 @@ func (m *BinaryRationalManager) CleanupDebugSnapshots() error {
 }
 
 func (m *BinaryRationalManager) Stats() (BinaryRationalStats, error) {
-	if e := m.open(); e != nil {
-		return BinaryRationalStats{}, e
+	// Inspect the live scratch even when a failed operation owns pending
+	// children. Arithmetic reentry guards must not prevent ownership audits.
+	if m == nil || m.self != m {
+		return BinaryRationalStats{}, ErrBinaryOwner
+	}
+	if m.closed || m.closing || m.Z.closed {
+		return BinaryRationalStats{}, arena.ErrClosed
 	}
 	n := uint32(0)
 	for _, v := range [...]Int{m.Tmp, m.Tmp2, m.AddMulTmp.Num, m.SelectIntTmp1, m.SelectIntTmp2, m.SelectSmallTmp, m.SelectSmallTmp1.Num, m.SelectSmallTmp2.Num, m.DivTmp1, m.DivTmp2, m.DivTmp3} {

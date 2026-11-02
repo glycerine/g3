@@ -42,6 +42,10 @@ func TestBinaryToOwnedRationalRetainsStoppedCleanupSuffix(t *testing.T) {
 	if e := m.open(); !errors.Is(e, ErrBinaryOwnedRationalPending) {
 		t.Fatal("retained conversion allowed reentry", e)
 	}
+	stats, statsErr := m.Stats()
+	if statsErr != nil || stats.HeaderBytes != m.HeaderBytes || stats.LiveScratchNumerators != 0 {
+		t.Fatal("pending conversion prevented scratch inspection", stats, statsErr)
+	}
 	s.Manager.Z.Store(ref, original)
 	serviceMust(t, m.CleanupToOwnedRational())
 	if scope.pending || scope.service != nil || scope.r.ownerID != 0 || scope.twok.ownerID != 0 || scope.result.ownerID != 0 {

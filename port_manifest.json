@@ -69662,6 +69662,8 @@
         "pkg/math/polynomial/upolynomial_sturm_isolation_scope_test.go",
         "pkg/math/polynomial/upolynomial_sturm_isolation_numeric.go",
         "pkg/math/polynomial/upolynomial_sturm_isolation_numeric_test.go",
+        "pkg/math/polynomial/upolynomial_sturm_midpoint_debug_test.go",
+        "pkg/util/numeral/mpbq_arithmetic_invocation.go",
         "pkg/math/polynomial/upolynomial_sturm_isolation_normalize.go",
         "pkg/math/polynomial/upolynomial_sturm_isolation_normalize_trace.go",
         "pkg/math/polynomial/upolynomial_sturm_isolation_normalize_test.go",
@@ -72114,6 +72116,7 @@
             "TestUPolynomialIsolationRemoveZeroExistingPublicRegression",
             "TestUPolynomialIsolationDefinedOutputAliases",
             "TestUPolynomialIsolationBoundedFaultAndCancelImmediateGraph",
+            "TestUPolynomialSturmMidpointDebugFailureReleasesBinaryChildren",
             "TestUPolynomialIsolationNativeCoefficientResetAndZeroPublication"
           ]
         },
@@ -248318,6 +248321,8 @@
         "pkg/util/numeral/mpbq_refine_invocation.go",
         "pkg/util/numeral/mpbq_convert_invocation.go",
         "pkg/util/numeral/mpbq_cleanup_observe.go",
+        "pkg/util/numeral/mpbq_arithmetic_invocation.go",
+        "pkg/math/polynomial/upolynomial_sturm_midpoint_debug_test.go",
         "pkg/util/numeral/mpbqi_debug_invocation_test.go",
         "pkg/math/polynomial/algebraic_binary_trace_test.go",
         "pkg/util/numeral/mpbq_debug_children.go",
