@@ -222,3 +222,42 @@ func TestSMT2DualityRecursiveIntegerUnderapproximation(t *testing.T) {
 		t.Fatal("incomplete recursive certificate", text)
 	}
 }
+
+func TestSMT2DualityMutualRecursionIntegerUnderapproximation(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	var output bytes.Buffer
+	script := `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.duality.use_underapprox true)
+(declare-rel EvenStep (Int))
+(declare-rel OddStep (Int))
+(declare-rel Goal ())
+(declare-var x Int)
+(declare-var y Int)
+(rule (EvenStep 0))
+(rule (=> (and (EvenStep x) (= y (+ x 1))) (OddStep y)))
+(rule (=> (and (OddStep x) (= y (+ x 1))) (EvenStep y)))
+(rule (=> (OddStep 3) Goal))
+(query Goal :print-answer false :print-certificate true)
+`
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	text := output.String()
+	if !strings.HasPrefix(text, "sat\n(derivation\n") {
+		t.Fatal("mutual recursion result", text)
+	}
+	for _, instance := range []string{"(EvenStep 0)", "(OddStep 1)", "(EvenStep 2)", "(OddStep 3)"} {
+		if !strings.Contains(text, instance) {
+			t.Fatal("missing mutual recursion certificate instance", instance, text)
+		}
+	}
+}
