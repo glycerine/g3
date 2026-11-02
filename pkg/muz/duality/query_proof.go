@@ -12,7 +12,7 @@ func (e *QueryEngine) GetProof() (ast.ASTRef, error) {
 	if err := e.open(); err != nil {
 		return ast.ASTRef{}, err
 	}
-	if e.active == nil {
+	if e.active == nil || e.status == lbool.Undef {
 		return ast.ASTRef{}, graph.ErrWrapperOwner
 	}
 	if e.status != lbool.True {

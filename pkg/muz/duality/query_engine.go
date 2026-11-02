@@ -94,6 +94,8 @@ func (e *QueryEngine) Query(prepared *PreparedQuery) (status lbool.LBool, result
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	// Every attempted query invalidates publication, including setup failures.
+	e.status = lbool.Undef
 	manager, err := e.context.Manager()
 	if err != nil {
 		return lbool.Undef, err

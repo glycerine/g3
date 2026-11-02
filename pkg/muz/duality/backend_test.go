@@ -2,6 +2,7 @@ package duality_test
 
 import (
 	"errors"
+	"io"
 	"math"
 	"math/big"
 	"testing"
@@ -160,6 +161,44 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				if mode != initial {
 					t.Fatal("backend leaked proof mode")
 				}
+
+				// Failed attempts hide every previously published result but keep
+				// the previous search available for learning on a successful retry.
+				retryQuery, err := duality.PrepareQuery(m, []ast.ASTHandle{fact}, []uint32{math.MaxUint32}, query, []ast.ASTHandle{predicate}, math.MaxUint32)
+				must(err)
+				for _, refusedAllocation := range []bool{false, true} {
+					var status lbool.LBool
+					var failure error
+					if refusedAllocation {
+						m.Budget().FailAfter(0)
+						status, failure = backend.Query(retryQuery)
+						m.Budget().FailAfter(-1)
+					} else {
+						status, failure = backend.Query(nil)
+					}
+					if failure == nil || status != lbool.Undef {
+						t.Fatal("failed query result", status, failure)
+					}
+					if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
+						t.Fatal("stale model", md, err)
+					}
+					if proof, err := backend.GetProof(); proof != (ast.ASTRef{}) || !errors.Is(err, graph.ErrWrapperOwner) {
+						t.Fatal("stale proof", proof, err)
+					}
+					if backend.Counterexample() != nil || backend.IsResultRecursionBounded() {
+						t.Fatal("stale query metadata")
+					}
+					if err := backend.WriteCertificate(io.Discard, owner.WriteExpression); !errors.Is(err, graph.ErrWrapperOwner) {
+						t.Fatal("stale certificate", err)
+					}
+					status, err = backend.Query(retryQuery)
+					must(err)
+					if status != expected {
+						t.Fatal("retry changed query result", status, expected)
+					}
+					checkModel(snapshot)
+				}
+				must(retryQuery.Close())
 			}
 			must(backend.Close())
 			must(backend.Close())

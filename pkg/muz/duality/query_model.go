@@ -5,6 +5,7 @@ package duality
 import (
 	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/lbool"
 )
 
 // GetModel returns an independently owned snapshot of the active annotations.
@@ -12,7 +13,7 @@ func (e *QueryEngine) GetModel() (*model.Model, error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
-	if e.active == nil {
+	if e.active == nil || e.status == lbool.Undef {
 		return nil, graph.ErrWrapperOwner
 	}
 	return e.active.graph.AnnotationModel()
