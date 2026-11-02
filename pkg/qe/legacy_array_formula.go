@@ -45,9 +45,10 @@ func (p *legacyArrayProjection) projectFormula(md *model.ModelCore, variables []
 		return nil, ast.ErrASTHandle
 	}
 	result = &legacyArrayProjectionResult{manager: p.syntax.manager}
+	ownedResult := result
 	defer func() {
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, ownedResult.Close())
 			result = nil
 		}
 	}()

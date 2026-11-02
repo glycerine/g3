@@ -221,11 +221,16 @@ func TestLegacyArrayStoreTransferConstructionFailures(t *testing.T) {
 	testLegacyArrayConstructionFailures(t, []string{"store"})
 }
 
+func TestLegacyWholeArrayStoreTransferConstructionFailures(t *testing.T) {
+	testLegacyArrayConstructionFailures(t, []string{"formula-store"})
+}
+
 func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 	for _, kind := range kinds {
+		storeInput := kind == "store" || kind == "formula-store"
 		t.Run(kind, func(t *testing.T) {
 			counts := []int{8, 64}
-			if kind == "store" {
+			if storeInput {
 				counts = []int{8}
 			}
 			for _, count := range counts {
@@ -244,7 +249,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 							array := f.own(m.MkConstArray(sort, f.number("0")))
 							stored := a
 							var b ast.ASTHandle
-							if kind == "store" {
+							if storeInput {
 								b = f.constant("store-many-rhs", sort)
 							}
 							literals := make([]ast.ASTHandle, count)
@@ -253,12 +258,12 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 								array = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{array, num, num}))
 								selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, num}))
 								literals[n] = f.own(m.MkEq(selected, num))
-								if kind == "store" {
+								if storeInput {
 									stored = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{stored, selected, num}))
 								}
 							}
 							formula := f.own(m.MkAndArray(literals))
-							if kind == "store" {
+							if storeInput {
 								formula = f.own(m.MkEq(stored, b))
 							}
 							expected := m.Stats().LiveReferences - helperRefs
@@ -267,7 +272,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 							decl, err := m.GetDecl(a)
 							fmMust(t, err)
 							fmMust(t, md.Core().RegisterConstant(decl, array))
-							if kind == "store" {
+							if storeInput {
 								decl, err := m.GetDecl(b)
 								fmMust(t, err)
 								fmMust(t, md.Core().RegisterConstant(decl, array))
@@ -309,7 +314,7 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 									t.Fatal(cause)
 								}
 								failures++
-								if kind == "store" {
+								if storeInput {
 									// array_project_eqs constructs its utility
 									// per invocation; an interrupted theory
 									// traversal is not implicitly reset.
@@ -331,9 +336,9 @@ func testLegacyArrayConstructionFailures(t *testing.T, kinds []string) {
 								defer func() { fmMust(t, projected.Close()) }()
 							}
 							expectedVars := count
-							if kind == "store" {
+							if storeInput {
 								expectedVars *= 2
-								if !eliminated {
+								if kind == "store" && !eliminated {
 									t.Fatal("store was not eliminated")
 								}
 							}
