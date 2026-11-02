@@ -75,21 +75,33 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	if err := e.duality.SetOptions(options); err != nil {
 		return lbool.Undef, err
 	}
-	forms, _, bounds, err := e.RawRules()
+	quantifyArrays, err := view.Bool("xform.quantify_arrays", false)
 	if err != nil {
 		return lbool.Undef, err
 	}
-	defer func() { result = errors.Join(result, closeASTRefs(e.manager, forms)) }()
-	handles := make([]ast.ASTHandle, len(forms))
-	for i, ref := range forms {
-		handles[i], err = e.manager.RefGet(ref)
+	var prepared *duality.PreparedQuery
+	if quantifyArrays {
+		prepared, err = e.prepareDualityTransformedQuery(query, bound)
 		if err != nil {
 			return lbool.Undef, err
 		}
-	}
-	prepared, err := duality.PrepareQuery(e.manager, handles, bounds, query, e.predicateOrder, bound)
-	if err != nil {
-		return lbool.Undef, err
+	} else {
+		forms, _, bounds, err := e.RawRules()
+		if err != nil {
+			return lbool.Undef, err
+		}
+		defer func() { result = errors.Join(result, closeASTRefs(e.manager, forms)) }()
+		handles := make([]ast.ASTHandle, len(forms))
+		for i, ref := range forms {
+			handles[i], err = e.manager.RefGet(ref)
+			if err != nil {
+				return lbool.Undef, err
+			}
+		}
+		prepared, err = duality.PrepareQuery(e.manager, handles, bounds, query, e.predicateOrder, bound)
+		if err != nil {
+			return lbool.Undef, err
+		}
 	}
 	defer func() { result = errors.Join(result, prepared.Close()) }()
 	background, err := e.manager.RefGet(e.background)

@@ -100,3 +100,65 @@ func TestSMT2DualityReachableCertificate(t *testing.T) {
 		t.Fatal("reachable certificate", text)
 	}
 }
+
+func TestSMT2DualityArrayQuantificationQueries(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	var output bytes.Buffer
+	script := `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.xform.quantify_arrays true)
+(declare-rel P ((Array Int Int)))
+(declare-rel Goal ())
+(declare-rel Missing ())
+(declare-var a (Array Int Int))
+(rule (=> (= (select a 0) 7) (P a)))
+(rule (=> (and (P a) (= (select a 0) 7)) Goal))
+(query Goal)
+(query Missing)
+(query Goal)
+`
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "sat\nunsat\nsat\n" {
+		t.Fatalf("array abstraction results %q", output.String())
+	}
+}
+
+func TestSMT2DualityArrayValuedOutputQuantification(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	var output bytes.Buffer
+	script := `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.xform.quantify_arrays true)
+(declare-rel P ((Array Int Int)))
+(declare-rel Missing ((Array Int Int)))
+(declare-var a (Array Int Int))
+(rule (P a))
+(query P)
+(query Missing)
+(query P)
+`
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "sat\nunsat\nsat\n" {
+		t.Fatalf("array output results %q", output.String())
+	}
+}

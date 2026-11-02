@@ -87307,7 +87307,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/proof_witness.go", "pkg/duality/counterexample_proof.go", "pkg/muz/duality/query_proof.go", "pkg/muz/duality/query_proof_test.go", "pkg/duality/rpfp_source_clause.go", "pkg/duality/from_clauses.go", "pkg/duality/from_clauses_test.go", "pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
+      "go_targets": ["pkg/muz/fp/duality_preprocess.go", "pkg/duality/proof_witness.go", "pkg/duality/counterexample_proof.go", "pkg/muz/duality/query_proof.go", "pkg/muz/duality/query_proof_test.go", "pkg/duality/rpfp_source_clause.go", "pkg/duality/from_clauses.go", "pkg/duality/from_clauses_test.go", "pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
         "pkg/muz/duality/query_clause.go",
         "pkg/muz/duality/query_clause_test.go",
         "pkg/muz/duality/missing_heads.go",
@@ -87317,7 +87317,7 @@
         "pkg/muz/duality/prepare_query_failure_test.go",
         "pkg/muz/duality/prepare_query_failure_test.go"
       ],
-      "tests": ["TestRPFPAnnotationModelParameterOrderAndIndependentLifetime", "TestRPFPAnnotationModelEveryAllocationPrefix", "pkg/muz/duality/backend_test.go", "pkg/muz/duality/native_solver_test.go", "pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
+      "tests": ["TestSMT2DualityArrayQuantificationQueries", "TestSMT2DualityArrayValuedOutputQuantification", "TestRPFPAnnotationModelParameterOrderAndIndependentLifetime", "TestRPFPAnnotationModelEveryAllocationPrefix", "pkg/muz/duality/backend_test.go", "pkg/muz/duality/native_solver_test.go", "pkg/muz/duality/query_options_test.go", "pkg/muz/duality/build_graph_test.go",
         "TestQueryClauseSparseAndGroundVariables",
         "TestMissingHeadClausesQuantifiedAndGround",
         "TestPrepareQueryRulesMissingHeadsAndBounds",
