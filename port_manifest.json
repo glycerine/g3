@@ -87297,7 +87297,7 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/duality/rpfp_source_clause.go", "pkg/duality/from_clauses.go", "pkg/duality/from_clauses_test.go", "pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
+      "go_targets": ["pkg/duality/counterexample_proof.go", "pkg/muz/duality/query_proof.go", "pkg/muz/duality/query_proof_test.go", "pkg/duality/rpfp_source_clause.go", "pkg/duality/from_clauses.go", "pkg/duality/from_clauses_test.go", "pkg/duality/rpfp_model.go", "pkg/duality/rpfp_model_test.go", "pkg/muz/duality/query_model.go", "pkg/muz/duality/backend.go", "pkg/muz/duality/native_solver.go", "pkg/muz/duality/query_options.go", "pkg/muz/duality/query_engine.go", "pkg/muz/duality/build_graph.go",
         "pkg/muz/duality/query_clause.go",
         "pkg/muz/duality/query_clause_test.go",
         "pkg/muz/duality/missing_heads.go",
@@ -87397,6 +87397,14 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "extract_proof/get_proof hyper-resolution construction and owned export",
+          "status": "partial",
+          "go_target": "pkg/duality/counterexample_proof.go",
+          "go_targets": ["pkg/muz/duality/query_proof.go", "pkg/muz/duality/query_proof_test.go"],
+          "tests": ["TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime", "TestDualityProofQuantifiedNonlinearAndRepeatedPremises"],
+          "notes": "Builds asserted original-clause premises, model-evaluated binder substitutions, active child derivations and hyper-resolution conclusions; safe queries return a null-valued owned reference. A scoped proof mode restores caller settings. Uses original predicate heads, actual antecedent positions, de Bruijn substitution order and repeated proof premises for shared predicate applications. Native scalar and quantified nonlinear tests validate the proof DAG and independently discharge every checker side condition, including after later queries and backend closure. Broader quantified witness reconstruction and certificate integration still require audit."
+        },
+        {
           "name": "original query clause ownership and proof edge association",
           "status": "ported",
           "go_target": "pkg/duality/rpfp_source_clause.go",
@@ -87426,7 +87434,8 @@
       "ownership": [],
       "deviations": [
         "Query preparation, RPFP construction, solver execution and annotation model snapshots are ported; fixedpoint engine registration, proof extraction and certificate reporting remain unfinished.",
-        "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction."
+        "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction.",
+        "Proof export uses the original clause head, including false instead of synthetic @Fail; binder substitutions follow de Bruijn indexing, predicate literal positions include intervening theory atoms, and repeated occurrences of a shared relation application receive repeated resolution premises. These corrections are checked by independent logical side-condition validation."
       ]
     },
     {

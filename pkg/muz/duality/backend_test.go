@@ -73,6 +73,8 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 			fact := pin(m.MkApp(predicate, []ast.ASTHandle{zero}))
 			queryOne := pin(m.MkApp(predicate, []ast.ASTHandle{one}))
 			var previous *graph.Counterexample
+			var proofSnapshot ast.ASTRef
+			defer func() { must(m.DelRef(&proofSnapshot)) }()
 			var snapshot *model.Model
 			defer func() {
 				if snapshot != nil {
@@ -130,6 +132,19 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 					must(latest.Close())
 				}
 				checkModel(snapshot)
+				proof, err := backend.GetProof()
+				must(err)
+				if round == 1 {
+					proofSnapshot = proof
+					validateDualityProof(t, m, config, proofSnapshot)
+				} else {
+					h, err := m.RefGet(proof)
+					must(err)
+					if !h.IsNull() {
+						t.Fatal("safe query returned a counterexample proof")
+					}
+					must(m.DelRef(&proof))
+				}
 				if previous != nil && previous.Root() != nil {
 					t.Fatal("old backend counterexample still owned")
 				}
@@ -149,6 +164,7 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 			must(backend.Close())
 			must(backend.Close())
 			checkModel(snapshot)
+			validateDualityProof(t, m, config, proofSnapshot)
 			if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
 				t.Fatal("closed backend accepted model request", md, err)
 			}
