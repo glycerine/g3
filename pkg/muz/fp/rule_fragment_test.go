@@ -35,6 +35,7 @@ func newFragmentTestEngine(t *testing.T, backend string) (*PropositionalEngine, 
 	engine, err := NewPropositionalEngine(manager)
 	fragmentMust(t, err)
 	engine.backend = backend
+	engine.engineSelectionSet = true // Fixture explicitly selects the fragment, without solver services.
 	t.Cleanup(func() {
 		fragmentMust(t, engine.Close())
 		fragmentMust(t, manager.Close())

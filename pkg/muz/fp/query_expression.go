@@ -29,6 +29,11 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err := e.open(); err != nil {
 		return lbool.Undef, err
 	}
+	// Source context::query resolves the configured engine before choosing
+	// raw-rule flushing or query_from_lvl dispatch.
+	if err := e.selectFactEngine(); err != nil {
+		return lbool.Undef, err
+	}
 	if level != nil && e.backend != "spacer" {
 		return lbool.Undef, ErrPropositionalEngine
 	}
