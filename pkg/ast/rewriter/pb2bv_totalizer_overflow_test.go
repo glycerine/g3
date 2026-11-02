@@ -48,10 +48,24 @@ func TestPB2BVSortingCoefficientSumOverflow(t *testing.T) {
 }
 
 func TestPB2BVSortingMaximumUnsignedBound(t *testing.T) {
-	m, r := pb2BVFixture(t)
+	m, context, globals, params := boolRewriterConfigFixture(t)
+	astTestMust(t, m.RegisterDeclarationPlugins())
+	pbContext, pbParams := enum2BVParameters(t, m)
+	r, err := NewPB2BVRewriter(m, pbContext, pbParams)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, r.Close()) })
+	theory, err := NewTheoryRewriter(m, context, globals, params)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, theory.Close()) })
 	pb2BVSetProfile(t, r, "pb.solver", "sorting")
-	a := goalTestAtom(t, m, "sorting-max-bound-a")
-	b := goalTestAtom(t, m, "sorting-max-bound-b")
+	sort, err := m.MkBoolSort()
+	astTestMust(t, err)
+	a, err := m.MkVar(0, sort)
+	astTestMust(t, err)
+	astTestPin(t, m, a)
+	b, err := m.MkVar(1, sort)
+	astTestMust(t, err)
+	astTestPin(t, m, b)
 	values := pbTestRationals(t, m, "4294967294", "1", "4294967295")
 	h, err := m.MkPseudoBooleanEQ(values[:2], []ast.ASTHandle{a, b}, &values[2])
 	astTestMust(t, err)
@@ -60,7 +74,24 @@ func TestPB2BVSortingMaximumUnsignedBound(t *testing.T) {
 	astTestMust(t, r.Rewrite(h, out, ast.ASTRef{}))
 	got, err := m.RefGet(out)
 	astTestMust(t, err)
-	if got == h || m.IsFalse(got) {
-		t.Fatal("maximum-bound equality was not compiled", got)
+	subst, err := NewVarSubstitution(m, false)
+	astTestMust(t, err)
+	t.Cleanup(func() { astTestMust(t, subst.Close()) })
+	assigned := astTestPin(t, m, ast.ASTHandle{})
+	evaluated := astTestPin(t, m, ast.ASTHandle{})
+	for bits := 0; bits < 4; bits++ {
+		left, err := m.MkBoolVal(bits&1 != 0)
+		astTestMust(t, err)
+		right, err := m.MkBoolVal(bits&2 != 0)
+		astTestMust(t, err)
+		astTestMust(t, subst.Substitute(got, []ast.ASTHandle{left, right}, assigned))
+		ground, err := m.RefGet(assigned)
+		astTestMust(t, err)
+		astTestMust(t, theory.Rewrite(ground, evaluated))
+		result, err := m.RefGet(evaluated)
+		astTestMust(t, err)
+		if !(m.IsTrue(result) || m.IsFalse(result)) || m.IsTrue(result) != (bits == 3) {
+			t.Fatal("maximum-bound equality truth table", bits, result)
+		}
 	}
 }
