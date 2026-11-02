@@ -16,8 +16,21 @@ import (
 )
 
 func TestSpacerInductiveModelSatisfiesOriginalNumericClauses(t *testing.T) {
-	for _, name := range []string{"plain", "slice", "inline", "slice-inline"} {
-		sliced := name == "slice" || name == "slice-inline"
+	testSpacerOriginalNumericModel(t, []string{"plain", "slice", "inline", "slice-inline"}, false)
+}
+
+// dl_mk_unfold.cpp installs no model converter. Its two-round expansion
+// separates the synthetic query from Goal; legacy Z3 4.7.1's exported answer
+// for this fixture likewise assigns Goal=true and Q=true despite UNSAT.
+// Keep this limitation explicit: original-query refutation remains unfinished.
+func TestSpacerUnfoldedModelOriginalQueryLimitation(t *testing.T) {
+	testSpacerOriginalNumericModel(t, []string{"coalesce-unfold", "slice-coalesce-unfold"}, true)
+}
+
+func testSpacerOriginalNumericModel(t *testing.T, modes []string, unfolded bool) {
+	t.Helper()
+	for _, name := range modes {
+		sliced := name == "slice" || name == "slice-inline" || name == "slice-coalesce-unfold"
 		t.Run(name, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)
 			for _, key := range []string{"inline_eager", "inline_linear", "slice", "subsumption_checker", "coalesce_rules"} {
@@ -31,6 +44,10 @@ func TestSpacerInductiveModelSatisfiesOriginalNumericClauses(t *testing.T) {
 				for _, key := range []string{"inline_eager", "inline_linear"} {
 					fragmentMust(t, g.SourceSetName("fixedpoint.xform."+key, "true"))
 				}
+			}
+			if name == "coalesce-unfold" || name == "slice-coalesce-unfold" {
+				fragmentMust(t, g.SourceSetName("fixedpoint.xform.coalesce_rules", "true"))
+				fragmentMust(t, g.SourceSetName("fixedpoint.xform.unfold_rules", "2"))
 			}
 			e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 			fragmentMust(t, err)
@@ -86,6 +103,11 @@ func TestSpacerInductiveModelSatisfiesOriginalNumericClauses(t *testing.T) {
 			}
 			add(own(m.MkTrue()), app(leaf, zero, y), 2, "model-base")
 			add(and(app(leaf, x, y), own(m.MkArithmeticLT(x, five))), app(leaf, own(m.MkArithmeticAdd(x, one)), y), 2, "model-successor")
+			// A second clause with the same predicate tail exercises actual
+			// coalescing before the two unfolding rounds in composition modes.
+			if unfolded {
+				add(and(app(leaf, x, y), own(m.MkArithmeticLT(x, one))), app(leaf, own(m.MkArithmeticAdd(x, five)), y), 2, "model-jump")
+			}
 			add(app(leaf, x, y), app(left, x), 2, "model-projection")
 			add(and(app(left, x), own(m.MkArithmeticLT(x, zero))), app(goal), 1, "model-goal")
 			cooperation, err := cooperate.NewCooperation(m.Budget())
@@ -138,7 +160,11 @@ func TestSpacerInductiveModelSatisfiesOriginalNumericClauses(t *testing.T) {
 				fragmentMust(t, solver.Assert(h))
 				status, err = solver.CheckSat(nil)
 				fragmentMust(t, err)
-				if status != lbool.False {
+				if unfolded {
+					if status != lbool.True {
+						t.Fatal("legacy unfolded-model query limitation changed", status)
+					}
+				} else if status != lbool.False {
 					t.Fatal("exported model does not refute query", status)
 				}
 				fragmentMust(t, solver.Pop(1))

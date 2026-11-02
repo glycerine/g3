@@ -6601,7 +6601,7 @@
           "status": "partial",
           "go_targets": ["pkg/api/api_fixedpoint_object_display.go", "pkg/api/api_fixedpoint_object_display_test.go", "pkg/cmd_context/fixedpoint_query_display.go", "pkg/muz/fp/context_smt2.go"],
           "tests": ["TestAPIFixedpointSMT2IncludesOrderedQueries", "TestAPIFixedpointSMT2UsesLocalPrintProfilesWithoutChangingResults", "TestAPIFixedpointSMT2BridgesCompoundQueriesAndRejectsPlainBackground"],
-          "reason": "Formatting profiles, local parameter precedence, independent fixedpoint state, result preservation and error cleanup are implemented. Closed pending formulas preserve original binder/weight metadata until source query flush boundaries, including split-input ranges, scope restoration and ordinary Duality raw queries. Named updates now match source normalized-only phase semantics. Open-formula display swap/removal order and the legacy SMTContext replay convenience surface remain open."
+          "reason": "Formatting profiles, local parameter precedence, independent fixedpoint state, result preservation and error cleanup are implemented. Closed pending formulas preserve original binder/weight metadata until source query flush boundaries, including split-input ranges, scope restoration and ordinary Duality raw queries. Named updates now match source normalized-only phase semantics. Open-formula display now promotes clauses and mutates raw inputs in source swap-removal order; construction remains transactional. The legacy SMTContext replay convenience surface remains open."
         },
         {
           "name": "idiomatic Go relation registration, implicit-variable, concrete/table fact and named rule insertion/replacement, scoped rule/background-assertion enumeration, rule/assertion scopes, replayable fixedpoint SMT-LIB reader/writer integration, copied fixedpoint parameter descriptors, typed live parameter keys and catalog-validated query-local parameter snapshots, backend selection, single and relation-vector queries, Spacer-from-level query, owning trace/inductive-certificate answer, inductive model and model evaluation, PDR/Spacer frame cover/invariant, Spacer reachable summary and copied statistics surface",
@@ -85091,22 +85091,22 @@
           "status": "ported",
           "go_targets": ["pkg/muz/base/rule_set_display_formulas.go", "pkg/muz/base/rule_set_display_formulas_test.go"],
           "tests": ["TestRuleSetDisplayFormulasPartitionOrderAppendAndOwnership", "TestRuleSetDisplayFormulasQuantifiedQueriesAndFacts", "TestRuleSetDisplayFormulasFailurePrefixOwnershipAndRetry"],
-          "reason": "Concrete preparatory stage for the live PDR/context dump consumers; caller-owned vectors keep any successfully appended prefix on failure. Pending raw-formula handling and full context dump integration remain separate open obligations."
+          "reason": "Concrete preparatory stage for the live PDR/context dump consumers; caller-owned vectors keep any successfully appended prefix on failure. Pending closed/open formulas and production context dump integration are now wired; exceptional construction and legacy convenience-surface reconciliation remain separate obligations."
         },
         {
           "name": "finalized context display_smt2 printing profiles, declare_vars per-sort reuse, canonical is_query recognition and fresh query bridges (dl_context.cpp:1120-1335)",
           "status": "ported",
           "go_targets": ["pkg/muz/base/context_smt2.go", "pkg/muz/base/context_smt2_expression.go", "pkg/muz/base/context_smt2_variables.go", "pkg/muz/base/context_smt2_test.go", "pkg/muz/base/context_smt2_failure_test.go"],
           "tests": ["TestContextSMT2OutputQueriesProfilesAndReplay", "TestContextSMT2BackgroundPlainHORNRejectionPrefix", "TestContextSMT2VariableDeclarationAndQuantifiedQueryProfiles", "TestContextSMT2DeclaredVariablesReusePerSortAndKeepDeBruijnOrder", "TestContextSMT2AllocationFailureOwnershipAndRetry", "TestContextSMT2WriterFailureReleasesTemporaryOwners"],
-          "reason": "Provides the concrete finalized dump needed by the live PDR/context source consumers. Both syntactic profiles replay ground queries independently; quantified declaration/bridge and cleanup policies have focused tests. Production PDR/API entry points are wired; open-formula display normalization ordering remains a separate obligation."
+          "reason": "Provides the concrete finalized dump needed by the live PDR/context source consumers. Both syntactic profiles replay ground queries independently; quantified declaration/bridge and cleanup policies have focused tests. Production PDR/API entry points and open-formula display normalization ordering are wired, with explicit transactional construction and scope-snapshot differences."
         },
         {
           "name": "context display_smt2 pending raw-formula handoff and production consumers",
           "status": "partial",
           "go_target": "pkg/muz/base/context_smt2.go",
-          "go_targets": ["pkg/muz/fp/context_smt2.go", "pkg/api/api_fixedpoint_pending_display_test.go"],
-          "tests": ["TestAPIFixedpointPendingDisplayPreservesBindersAcrossFlushAndScopes", "TestAPIFixedpointPendingDisplayExpansionAndUpdateRanges", "TestAPIFixedpointDualityQueryKeepsClosedRawDisplay"],
-          "reason": "The finalized formatter is used by PDR TRACE and owning fixedpoint API string/writer entry points, including local print-option precedence without query mutation. Closed-input pending/flushed phases now preserve original metadata and avoid normalized duplicates, with scope and update-range handling. Named updates operate on the normalized prefix and leave the raw archive unchanged; source free-variable display swap/removal remains open. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export."
+          "go_targets": ["pkg/muz/fp/context_smt2.go", "pkg/api/api_fixedpoint_pending_display_test.go", "pkg/muz/fp/pending_open_rules.go", "pkg/muz/fp/pending_open_rules_test.go"],
+          "tests": ["TestAPIFixedpointPendingDisplayPreservesBindersAcrossFlushAndScopes", "TestAPIFixedpointPendingDisplayExpansionAndUpdateRanges", "TestAPIFixedpointDualityQueryKeepsClosedRawDisplay", "TestPendingOpenDisplayPromotesRulesAndSwapsRawArchive"],
+          "reason": "The finalized formatter is used by PDR TRACE and owning fixedpoint API string/writer entry points, including local print-option precedence without query mutation. Closed-input pending/flushed phases now preserve original metadata and avoid normalized duplicates, with scope and update-range handling. Named updates operate on the normalized prefix and leave the raw archive unchanged. Open-formula display promotes normalized ranges and removes raw inputs in source swap order, preserving the source unswapped-bound behavior; constructor staging and Go scope snapshots remain explicit architectural differences. Existing RuleSet.WriteSMT2 remains a separate explicit all-rule plain-HORN export."
         },
         {
           "name": "admitted Go fixedpoint engine disposal invalidates query snapshots and blocks ordinary operations after a solver guard-disabling refusal while allowing Close retry",
@@ -98966,6 +98966,7 @@
           "tests": [
             "TestSpacerEngineExpandsSlicedReachableColumns",
             "TestSpacerInductiveModelSatisfiesOriginalNumericClauses",
+            "TestSpacerUnfoldedModelOriginalQueryLimitation",
             "TestSpacerEngineReconstructsInlinedReachablePredicate",
             "TestSpacerEngineExpandsSlicedModelPredicates"
           ]
