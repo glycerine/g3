@@ -14,11 +14,9 @@ import (
 )
 
 func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
-	for _, sliced := range []bool{false, true} {
-		name := "plain"
-		if sliced {
-			name = "slice"
-		}
+	for _, name := range []string{"plain", "slice", "eager-inline", "slice-eager-inline"} {
+		sliced := name == "slice" || name == "slice-eager-inline"
+		eagerInline := name == "eager-inline" || name == "slice-eager-inline"
 		t.Run(name, func(t *testing.T) {
 			m, g := newPDRLifecycleServices(t)
 			for _, key := range []string{"inline_eager", "inline_linear", "slice", "subsumption_checker", "coalesce_rules"} {
@@ -27,6 +25,9 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 			fragmentMust(t, g.SourceSetName("fixedpoint.xform.unfold_rules", "0"))
 			if sliced {
 				fragmentMust(t, g.SourceSetName("fixedpoint.xform.slice", "true"))
+			}
+			if eagerInline {
+				fragmentMust(t, g.SourceSetName("fixedpoint.xform.inline_eager", "true"))
 			}
 			e, err := NewPropositionalEngineWithServices(m, g.Context, g)
 			fragmentMust(t, err)
@@ -89,6 +90,12 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 			add(and(app(leaf, x, y), own(m.MkArithmeticLE(x, three))), app(left, x), 2, "numeric-left-step")
 			add(and(app(leaf, x, y), own(m.MkArithmeticGE(x, four))), app(right, x), 2, "numeric-right-step")
 			add(and(app(left, x), app(right, y), own(m.MkEq(y, own(m.MkArithmeticAdd(x, one))))), app(goal), 2, "numeric-goal-step")
+			if eagerInline {
+				// Keep the query and shared leaf recursive so composition leaves a
+				// real nonlinear derivation instead of collapsing to a query fact.
+				add(and(app(leaf, x, y), own(m.MkArithmeticLT(x, five))), app(leaf, own(m.MkArithmeticAdd(x, one)), y), 2, "numeric-leaf-successor")
+				add(and(app(goal), app(left, x)), app(goal), 1, "numeric-goal-cycle")
+			}
 			solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: g.Context, Globals: g})
 			fragmentMust(t, err)
 			defer func() { fragmentMust(t, solver.Close()) }()
@@ -106,6 +113,16 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 					fragmentMust(t, m.DelRef(&forms[i]))
 				}
 				wantNames := map[string]int{"": 1, "numeric-goal-step": 1, "numeric-left-step": 1, "numeric-right-step": 1, "numeric-leaf-range": 2}
+				if eagerInline {
+					wantNames = map[string]int{"": 1, "numeric-goal-step;numeric-left-step;numeric-right-step": 1, "numeric-leaf-range": 2}
+					for _, predicate := range []ast.ASTHandle{left, right} {
+						eliminated, err := e.hornInlineEliminated(e.spacerConversions, predicate)
+						fragmentMust(t, err)
+						if !eliminated {
+							t.Fatal("fixture did not inline intermediate predicate", predicate)
+						}
+					}
+				}
 				if !reflect.DeepEqual(occurrences, wantNames) {
 					t.Fatal("original named-rule occurrences", occurrences, wantNames)
 				}
@@ -115,11 +132,16 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 				fragmentMust(t, err)
 				count, err := m.GetNumArgs(h)
 				fragmentMust(t, err)
-				if count != 5 {
-					t.Fatal("expected goal, two branches, and two leaf instances", count)
+				wantCount := uint32(5)
+				if eagerInline {
+					wantCount = 3
+				}
+				if count != wantCount {
+					t.Fatal("unexpected number of original-vocabulary witness instances", count, wantCount)
 				}
 				var leftValue, rightValue ast.ASTHandle
 				leafValues := map[ast.ASTHandle]int{}
+				var orderedLeafValues []ast.ASTHandle
 				mappedLeaf := e.spacerPredicate(leaf)
 				if sliced && !slicedPredicateHasRemovedColumns(e.spacerSlices, leaf) {
 					t.Fatal("fixture did not slice unused column")
@@ -150,6 +172,7 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 						value, err := m.GetArg(fact, 0)
 						fragmentMust(t, err)
 						leafValues[value]++
+						orderedLeafValues = append(orderedLeafValues, value)
 						if sliced {
 							originalFact = app(leaf, value, one)
 						}
@@ -167,6 +190,12 @@ func TestSpacerSymbolicNonlinearWitnessOriginalClauses(t *testing.T) {
 					fragmentMust(t, solver.Pop(1))
 				}
 				fragmentMust(t, solver.Pop(1))
+				if eagerInline {
+					if len(orderedLeafValues) != 2 {
+						t.Fatal("missing shared leaf instances", orderedLeafValues)
+					}
+					leftValue, rightValue = orderedLeafValues[0], orderedLeafValues[1]
+				}
 				if leftValue.IsNull() || rightValue.IsNull() || len(leafValues) != 2 || leafValues[leftValue] != 1 || leafValues[rightValue] != 1 {
 					t.Fatal("branch and leaf instances disagree", leftValue, rightValue, leafValues)
 				}
