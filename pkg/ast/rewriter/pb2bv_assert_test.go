@@ -41,3 +41,28 @@ func TestPB2BVDualBoundSourceAssertion(t *testing.T) {
 		}
 	}
 }
+
+func TestPB2BVNegativeCoefficientSourceAssertion(t *testing.T) {
+	m, r := pb2BVFixture(t)
+	a := goalTestAtom(t, m, "negative-weight-a")
+	debug, report := enum2BVDebugActions(t, "T")
+	_, err := r.weighted(pb2BVLE, []ast.ASTHandle{a}, []*big.Rat{big.NewRat(-1, 1)}, big.NewRat(2, 1))
+	if diagnostic.DebugBuild {
+		var ex z3exception.DefaultException
+		if !errors.As(err, &ex) || ex.Message() != "assertion violation" {
+			t.Fatal("missing coefficient assertion", err)
+		}
+		data, e := os.ReadFile(report)
+		astTestMust(t, e)
+		if !strings.Contains(string(data), "117") || !strings.Contains(string(data), "!m_coeffs[i].is_neg()") {
+			t.Fatal("wrong coefficient assertion", string(data))
+		}
+	} else if !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("negative coefficient guard", err)
+	}
+	astTestMust(t, debug.EnableAssertions(false))
+	_, err = r.weighted(pb2BVLE, []ast.ASTHandle{a}, []*big.Rat{big.NewRat(-1, 1)}, big.NewRat(2, 1))
+	if !errors.Is(err, ast.ErrASTDomain) {
+		t.Fatal("disabled assertions removed Go coefficient guard", err)
+	}
+}

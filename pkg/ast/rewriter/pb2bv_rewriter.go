@@ -288,6 +288,9 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 	if boundValue.Sign() < 0 {
 		return r.manager.MkBoolVal(mode == pb2BVGE)
 	}
+	if err := pb2BVSourceAssert(110, "k.is_pos()", func() bool { return boundValue.Sign() > 0 }); err != nil {
+		return ast.ASTHandle{}, err
+	}
 	if !boundValue.IsInt() || boundValue.Num().BitLen() > int(^uint32(0)) {
 		return ast.ASTHandle{}, ast.ErrASTDomain
 	}
@@ -305,6 +308,9 @@ func (r *PB2BVRewriter) weighted(mode pb2BVComparison, args []ast.ASTHandle, coe
 	}
 	var expressions, formulas []ast.ASTHandle
 	for i, coefficient := range coefficients {
+		if err := pb2BVSourceAssert(117, "!m_coeffs[i].is_neg()", func() bool { return coefficient.Sign() >= 0 }); err != nil {
+			return ast.ASTHandle{}, err
+		}
 		if coefficient.Sign() < 0 || !coefficient.IsInt() {
 			return ast.ASTHandle{}, ast.ErrASTDomain
 		}
