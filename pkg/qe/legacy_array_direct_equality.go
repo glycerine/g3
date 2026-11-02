@@ -38,7 +38,6 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 	if err = evaluator.SetModelCompletion(true); err != nil {
 		return nil, false, err
 	}
-	falseEqualities := make([]ast.ASTHandle, 0)
 	selectedEquality := ast.ASTHandle{}
 	substitution := ast.ASTHandle{}
 	contains, err := ast.NewContainsApp(p.syntax.manager, variable)
@@ -65,7 +64,6 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 			return nil, false, err
 		}
 		if isFalse {
-			falseEqualities = append(falseEqualities, equality)
 			continue
 		}
 		args, matched, err := p.syntax.operation(equality, p.syntax.manager.BasicFamilyID(), ast.ASTOpEq)
@@ -107,15 +105,6 @@ func (p *legacyArrayProjection) projectDirectEquality(md *model.ModelCore, varia
 	truth, err := p.syntax.manager.MkTrue()
 	if err != nil {
 		return nil, false, err
-	}
-	falsity, err := p.syntax.manager.MkFalse()
-	if err != nil {
-		return nil, false, err
-	}
-	for _, equality := range falseEqualities {
-		if err = replace.Insert(equality, falsity); err != nil {
-			return nil, false, err
-		}
 	}
 	if err = replace.Insert(selectedEquality, truth); err != nil {
 		return nil, false, err

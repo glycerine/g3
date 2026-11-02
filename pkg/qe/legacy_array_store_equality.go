@@ -42,7 +42,6 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	}
 	selected := ast.ASTHandle{}
 	selectedDepth := int(^uint(0) >> 1)
-	falseEqualities := make([]ast.ASTHandle, 0)
 	for _, equalityRef := range equalities.equalities {
 		equality, err := p.syntax.manager.RefGet(equalityRef)
 		if err != nil {
@@ -62,7 +61,6 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 			return nil, false, err
 		}
 		if isFalse {
-			falseEqualities = append(falseEqualities, equality)
 			continue
 		}
 		args, matched, err := p.syntax.operation(equality, p.syntax.manager.BasicFamilyID(), ast.ASTOpEq)
@@ -294,15 +292,6 @@ func (p *legacyArrayProjection) projectStoreEquality(md *model.ModelCore, variab
 	truth, err := p.syntax.manager.MkTrue()
 	if err != nil {
 		return nil, false, err
-	}
-	falsity, err := p.syntax.manager.MkFalse()
-	if err != nil {
-		return nil, false, err
-	}
-	for _, equality := range falseEqualities {
-		if err = replace.Insert(equality, falsity); err != nil {
-			return nil, false, err
-		}
 	}
 	if err = replace.Insert(selected, truth); err != nil {
 		return nil, false, err
