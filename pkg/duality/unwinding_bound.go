@@ -34,6 +34,9 @@ func (u *Unwinding) SatisfyUpperBound(node *Node, search *DerivationSearch, coun
 			result = errors.Join(result, working.Close())
 		}
 	}()
+	if err := u.graph.streamReporter.Bound(node); err != nil {
+		return false, err
+	}
 	start, err := working.CumulativeDecisions()
 	if err != nil {
 		return false, err

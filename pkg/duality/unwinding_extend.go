@@ -39,6 +39,9 @@ func (u *Unwinding) Extend(candidate ExpansionCandidate, services *ExtensionSear
 	if _, result = u.CreateEdgeInstance(candidate.Edge, node, candidate.Children); result != nil {
 		return node, false, result
 	}
+	if result = u.graph.streamReporter.Extend(node); result != nil {
+		return node, false, result
+	}
 	if result = u.UpdateBackEdges(node, u.topological); result != nil {
 		return node, false, result
 	}

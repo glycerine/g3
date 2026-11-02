@@ -6,6 +6,10 @@ import "github.com/glycerine/g3/pkg/solver"
 // Learned facts are reported before intersecting the current annotation.
 // Source: duality_solver.cpp:1561-1575.
 func (u *Unwinding) Update(node *Node, fact *Transformer, aux solver.Solver) (bool, error) {
+	return u.update(node, fact, aux, false)
+}
+
+func (u *Unwinding) update(node *Node, fact *Transformer, aux solver.Solver, eager bool) (bool, error) {
 	if u == nil || node == nil || node.closed || node.Owner != u.graph || node.Map == nil || aux == nil {
 		return false, ErrWrapperOwner
 	}
@@ -15,6 +19,9 @@ func (u *Unwinding) Update(node *Node, fact *Transformer, aux solver.Solver) (bo
 	}
 	if redundant {
 		return false, nil
+	}
+	if err := u.graph.streamReporter.Update(node, fact, eager); err != nil {
+		return false, err
 	}
 	if err := u.graph.conjectureReporter.Update(node, fact); err != nil {
 		return false, err

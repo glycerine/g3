@@ -108,8 +108,12 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 					}
 				}
 			}
+			var reportOutput bytes.Buffer
+			must(backend.SetReportOutput(&reportOutput))
 			for round, query := range []ast.ASTHandle{queryOne, fact, queryOne} {
+				reportOutput.Reset()
 				options := duality.DefaultQueryOptions()
+				options.Report = true
 				options.ConjectureFile = filepath.Join(t.TempDir(), "conjectures.smt2")
 				if round == 1 {
 					options.StratifiedInlining = true
@@ -126,6 +130,9 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				}
 				if status != expected {
 					t.Fatalf("integer query %d: %v want %v", round, status, expected)
+				}
+				if round == 0 && (!strings.Contains(reportOutput.String(), "]node ") || !strings.Contains(reportOutput.String(), "]update ") || !strings.Contains(reportOutput.String(), "]check ")) {
+					t.Fatal("missing live search events", reportOutput.String())
 				}
 				report, err := os.ReadFile(options.ConjectureFile)
 				must(err)

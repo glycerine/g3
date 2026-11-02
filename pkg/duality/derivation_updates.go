@@ -44,6 +44,9 @@ func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.S
 	if redundant {
 		return false, nil
 	}
+	if err := d.original.streamReporter.Update(original, node.Annotation, false); err != nil {
+		return false, err
+	}
 	if err := d.original.conjectureReporter.Update(original, node.Annotation); err != nil {
 		return false, err
 	}

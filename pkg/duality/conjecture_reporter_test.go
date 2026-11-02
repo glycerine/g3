@@ -7,7 +7,7 @@ import (
 )
 
 func TestConjectureReporterParametersFormulaAndWriterFailure(t *testing.T) {
-	ctx, _, _, globals := dualityNativeSolverServicesFixture(t)
+	ctx, m, _, globals := dualityNativeSolverServicesFixture(t)
 	x, err := ctx.BoolConst("report-x")
 	if err != nil {
 		t.Fatal(err)
@@ -65,4 +65,47 @@ func TestConjectureReporterParametersFormulaAndWriterFailure(t *testing.T) {
 	if output.String() != want {
 		t.Fatal("report writer retry", output.String())
 	}
+	output.Reset()
+	if _, err := graph.CreateLowerBoundEdge(node); err != nil {
+		t.Fatal(err)
+	}
+	stream := &StreamReporter{Format: *reporter, depth: 3}
+	if err := stream.Extend(node); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Update(node, node.Annotation, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Bound(node); err != nil {
+		t.Fatal(err)
+	}
+	wantEvents := "[0]node 1: report-P\n[1]update 1 report-P: 0: true (depth=3) (eager)\n[2]check 1\n"
+	if output.String() != wantEvents {
+		t.Fatalf("search events %q want %q", output.String(), wantEvents)
+	}
+	stream.Format.Output = dualityRefusingWriter{}
+	if err := stream.Bound(node); !errors.Is(err, errDualityWriter) {
+		t.Fatal("stream writer failure", err)
+	}
+
+	stream.Format.Output = &output
+	output.Reset()
+	xh, err := x.Raw()
+	if err != nil {
+		t.Fatal(err)
+	}
+	shared, err := m.MkAnd(xh, xh)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.SetRef(node.Annotation.formula, shared); err != nil {
+		t.Fatal(err)
+	}
+	if err := stream.Update(node, node.Annotation, false); err != nil {
+		t.Fatal(err)
+	}
+	if output.String() != "[4]update 1 report-P: 1: report-x (depth=3)\n" {
+		t.Fatal("shared summary", output.String())
+	}
+
 }

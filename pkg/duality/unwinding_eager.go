@@ -60,7 +60,7 @@ func (u *Unwinding) DoEagerDeduction(node *Node, proposers []*HistoryProposer, c
 					return err
 				}
 				if status == lbool.False {
-					if _, err = u.Update(node, bound, aux); err != nil {
+					if _, err = u.update(node, bound, aux, true); err != nil {
 						return err
 					}
 				}

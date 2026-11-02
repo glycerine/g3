@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
+	"io"
 	"os"
 )
 
@@ -15,6 +16,7 @@ import (
 // supported inequality rules. Theory expressions are copied. A nil Quantifiers asks
 // the engine to own its qe-lite service; a supplied service stays borrowed.
 type EngineConfig struct {
+	ReportOutput      io.Writer
 	Native, Auxiliary solver.Solver
 	Factory           solver.Factory
 	Evaluator         model.ModelEvaluatorConfig
@@ -207,6 +209,13 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 		return false, err
 	}
 	e.graph = graph
+	if e.options.Report {
+		output := e.config.ReportOutput
+		if output == nil {
+			output = os.Stdout
+		}
+		graph.streamReporter = &StreamReporter{Format: ConjectureReporter{Output: output, Params: e.source.context.config.params, Globals: e.config.Evaluator.Globals}, depth: -1}
+	}
 	if e.options.ConjectureFile != "" {
 		e.conjectureFile, err = os.Create(e.options.ConjectureFile)
 		if err != nil {
