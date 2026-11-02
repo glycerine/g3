@@ -43,15 +43,17 @@ func (p *legacyArrayProjection) Close() error {
 	if p == nil || p.syntax == nil {
 		return ast.ErrASTHandle
 	}
-	err := p.theory.Close()
-	if err == nil {
+	if p.theory != nil {
+		if err := p.theory.Close(); err != nil {
+			return err
+		}
 		p.theory = nil
-		err = p.syntax.Close()
 	}
-	if err == nil {
-		p.syntax = nil
+	if err := p.syntax.Close(); err != nil {
+		return err
 	}
-	return err
+	p.syntax = nil
+	return nil
 }
 
 func (r *legacyArrayEqualities) Close() (result error) {

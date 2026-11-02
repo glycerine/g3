@@ -52,16 +52,20 @@ func (p *LegacyProjection) Close() error {
 	if p == nil || p.manager == nil {
 		return ast.ErrASTHandle
 	}
-	err := p.array.Close()
-	if err == nil {
+	if p.array != nil {
+		if err := p.array.Close(); err != nil {
+			return err
+		}
 		p.array = nil
-		err = p.arithmetic.Close()
 	}
-	if err == nil {
+	if p.arithmetic != nil {
+		if err := p.arithmetic.Close(); err != nil {
+			return err
+		}
 		p.arithmetic = nil
-		p.manager = nil
 	}
-	return err
+	p.manager = nil
+	return nil
 }
 
 func (r *LegacyProjectionResult) Formula() (ast.ASTHandle, error) {

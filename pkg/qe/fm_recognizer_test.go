@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/diagnostic"
+	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	"github.com/glycerine/g3/pkg/util/params"
 	usymbol "github.com/glycerine/g3/pkg/util/symbol"
@@ -17,6 +18,7 @@ import (
 
 type fmFixture struct {
 	t                      *testing.T
+	runtime                *memory.Runtime
 	r                      fmRecognizer
 	integer, real, boolean ast.ASTHandle
 }
@@ -33,11 +35,23 @@ func newFMFixture(t *testing.T) *fmFixture {
 }
 
 func newFMFixtureProofs(t *testing.T, proofs bool) *fmFixture {
+	return newFMFixtureTransport(t, proofs, nil)
+}
+
+func newFMFixtureTransport(t *testing.T, proofs bool, transport func(memory.Failure) error) *fmFixture {
 	t.Helper()
 	budget := arena.NewBudget(1 << 30)
 	symbols, err := usymbol.NewManager(usymbol.Config{Budget: budget})
 	fmMust(t, err)
-	numerals, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: numeral.IntegerConfig{Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}})
+	integers := numeral.IntegerConfig{Cells: arena.Config{Budget: budget}, Words: arena.VectorConfig{Descriptors: arena.Config{Budget: budget}}}
+	var runtime *memory.Runtime
+	if transport != nil {
+		runtime, err = memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: transport})
+		fmMust(t, err)
+		integers.Memory = runtime
+		integers.Profile = memory.SmallAllocatorProfile{PointerBits: 64, Debug: true}
+	}
+	numerals, err := numeral.NewRationalService(numeral.RationalServiceConfig{Integers: integers})
 	fmMust(t, err)
 	mode := ast.ASTProofDisabled
 	if proofs {
@@ -58,6 +72,9 @@ func newFMFixtureProofs(t *testing.T, proofs bool) *fmFixture {
 		fmMust(t, p.Close())
 		fmMust(t, numerals.Close())
 		fmMust(t, symbols.Close())
+		if runtime != nil {
+			fmMust(t, runtime.Close())
+		}
 		if n := budget.Used(); n != 0 {
 			t.Errorf("FM fixture retained %d bytes", n)
 		}
@@ -74,7 +91,7 @@ func newFMFixtureProofs(t *testing.T, proofs bool) *fmFixture {
 	t.Cleanup(func() { fmMust(t, v.Close()) })
 	family, err := m.RegisterArithmeticPlugin()
 	fmMust(t, err)
-	f := &fmFixture{t: t, r: fmRecognizer{manager: m, selection: v, config: Config{Context: g.Context, Globals: g, Cooperation: coop}, arithmetic: family, occ: true}}
+	f := &fmFixture{t: t, runtime: runtime, r: fmRecognizer{manager: m, selection: v, config: Config{Context: g.Context, Globals: g, Cooperation: coop}, arithmetic: family, occ: true}}
 	f.integer, err = m.MkFamilySort(family, 1, nil)
 	fmMust(t, err)
 	f.real, err = m.MkFamilySort(family, 0, nil)
