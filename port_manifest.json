@@ -97987,10 +97987,14 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/predicate_reach.go",
-            "pkg/muz/spacer/predicate_reach_selection_test.go"
+            "pkg/muz/spacer/predicate_reach_selection_test.go",
+            "pkg/muz/spacer/predicate_reach_selection_failure_test.go"
           ],
           "tests": [
-            "TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder"
+            "TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder",
+            "TestSpacerReachFactSelectionWithoutFalseCase",
+            "TestSpacerOriginReachSelectionAllocationFailureAndRetry",
+            "TestSpacerCurrentReachSelectionAllocationFailureAndRetry"
           ]
         },
         {
@@ -98453,10 +98457,14 @@
           "status": "partial",
           "go_targets": [
             "pkg/muz/spacer/predicate_reach.go",
-            "pkg/muz/spacer/predicate_reach_selection_test.go"
+            "pkg/muz/spacer/predicate_reach_selection_test.go",
+            "pkg/muz/spacer/predicate_reach_selection_failure_test.go"
           ],
           "tests": [
-            "TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder"
+            "TestSpacerReachFactSelectionDisablesCompletionAndPreservesOrder",
+            "TestSpacerReachFactSelectionWithoutFalseCase",
+            "TestSpacerOriginReachSelectionAllocationFailureAndRetry",
+            "TestSpacerCurrentReachSelectionAllocationFailureAndRetry"
           ]
         },
         {

@@ -4,6 +4,7 @@ package spacer
 // evaluate case variables with model_completion=false and choose the first false.
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -122,6 +123,14 @@ func TestSpacerReachFactSelectionWithoutFalseCase(t *testing.T) {
 						h, err = m.RefGet(shifted)
 						depthMust(t, err)
 					}
+					if !origin {
+						// OriginSummary owns cached origin declarations through
+						// the multiplexer. Prepare that persistent mapping before
+						// measuring temporary selection/summary references.
+						shifted, e := p.owner.FormulaNewToOld(h, 2, false)
+						depthMust(t, e)
+						depthMust(t, m.DelRef(&shifted))
+					}
 					cases = append(cases, h)
 					if known {
 						decl, err := m.GetDecl(h)
@@ -150,6 +159,16 @@ func TestSpacerReachFactSelectionWithoutFalseCase(t *testing.T) {
 				if m.Stats().LiveReferences != before {
 					t.Fatal("no-selection path leaked references")
 				}
+				// A production consumer must reject the missing must-summary,
+				// preserving the source SASSERT(res) invariant as an error.
+				summary, auxiliaries, cause := p.OriginSummary(md.Core(), 0, 2, true)
+				if !errors.Is(cause, ast.ErrASTDomain) || summary != (ast.ASTRef{}) || len(auxiliaries) != 0 {
+					t.Fatal("missing must fact did not reject summary", summary, auxiliaries, cause)
+				}
+				if m.Stats().LiveReferences != before {
+					t.Fatal("missing must-summary leaked references")
+				}
+
 				for _, h := range cases {
 					decl, err := m.GetDecl(h)
 					depthMust(t, err)
