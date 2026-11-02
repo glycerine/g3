@@ -174,3 +174,82 @@ func TestFourierMotzkinCombinesBounds(t *testing.T) {
 		t.Fatal("Fourier projection differs", status)
 	}
 }
+
+func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
+	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	simplifier, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer simplifier.Close()
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer graph.Close()
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		e, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, e)
+		return e
+	}
+	raw := func(e *Expr) ast.ASTHandle { t.Helper(); h, err := e.Raw(); must(err); return h }
+	family, err := m.ArithmeticFamilyID()
+	must(err)
+	zero := wrap(m.ArithmeticIntegerNumeralText("0"))
+	sort, err := m.GetSort(raw(zero))
+	must(err)
+	makeVar := func(name string) *Expr {
+		sym, err := m.Symbols.Intern(name)
+		must(err)
+		return wrap(m.MkConst(sym, sort))
+	}
+	x, y, z := makeVar("project-combined-x"), makeVar("project-combined-y"), makeVar("project-combined-z")
+	eq := wrap(m.MkEq(raw(x), raw(y)))
+	lower := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(y), raw(zero)}))
+	upper := wrap(m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{raw(y), raw(z)}))
+	formula := wrap(m.MkAndArgs([]ast.ASTHandle{raw(eq), raw(lower), raw(upper)}))
+	expected := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(z), raw(zero)}))
+	output, err := graph.ProjectFormula([]*Expr{z}, formula, simplifier)
+	must(err)
+	defer output.Close()
+	iff := wrap(m.MkIff(raw(output), raw(expected)))
+	neg := wrap(m.MkNot(raw(iff)))
+	must(native.Assert(raw(neg)))
+	status, err := native.CheckSat(nil)
+	must(err)
+	if status != lbool.False {
+		t.Fatal("combined projection", status)
+	}
+	baseline := m.Stats().LiveReferences
+	complete := false
+	for n := int64(0); n < 1024; n++ {
+		m.Budget().FailAfter(n)
+		trial, failure := graph.ProjectFormula([]*Expr{z}, formula, simplifier)
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			must(trial.Close())
+			complete = true
+		} else {
+			if trial != nil {
+				t.Fatal("partial projection", n, failure)
+			}
+			retry, err := graph.ProjectFormula([]*Expr{z}, formula, simplifier)
+			must(err)
+			must(retry.Close())
+		}
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("projection references", n, got, baseline)
+		}
+		if complete {
+			break
+		}
+	}
+	if !complete {
+		t.Fatal("projection allocation sweep never completed")
+	}
+}
