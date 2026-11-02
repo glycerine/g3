@@ -5,6 +5,7 @@ package duality
 // ExpansionHeuristic counts updates to original nodes. Candidate instances
 // share the score of their Map node, as in the source derivation search.
 type ExpansionHeuristic struct {
+	replay  *counterexampleReplay
 	graph   *RPFP
 	updates map[*Node]int
 }
@@ -40,6 +41,13 @@ func (h *ExpansionHeuristic) ChooseExpand(choices []*Node, best *[]*Node, highPr
 	if err := h.graph.open(); err != nil {
 		return err
 	}
+	if h.replay != nil {
+		return h.chooseReplay(choices, best, highPriority)
+	}
+	return h.chooseBase(choices, best, highPriority, bestOnly)
+}
+
+func (h *ExpansionHeuristic) chooseBase(choices []*Node, best *[]*Node, highPriority, bestOnly bool) error {
 	if highPriority {
 		return nil
 	}
@@ -77,5 +85,14 @@ func (h *ExpansionHeuristic) ChooseExpand(choices []*Node, best *[]*Node, highPr
 }
 
 // Done and UseNode implement the source base heuristic's neutral hooks.
-func (h *ExpansionHeuristic) Done()                  {}
+func (h *ExpansionHeuristic) Done() error {
+	if h != nil && h.replay != nil {
+		clear(h.replay.matches)
+		return h.replay.previous.Clear()
+	}
+	return nil
+}
+
+// Close releases a replay counterexample after interrupted searches as well.
+func (h *ExpansionHeuristic) Close() error           { return h.Done() }
 func (h *ExpansionHeuristic) UseNode(node *Node) int { return 0 }

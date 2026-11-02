@@ -61,6 +61,8 @@ func (s *DerivationSearch) Derive(root *Node, underapprox, constrained bool) (sa
 	if err != nil {
 		return sat, err
 	}
-	d.Heuristic.Done()
+	if err = d.Heuristic.Done(); err != nil {
+		return false, err
+	}
 	return sat, nil
 }
