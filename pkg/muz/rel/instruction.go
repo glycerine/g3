@@ -36,16 +36,17 @@ type ExecutionStats struct {
 
 // ExecutionContext owns every non-nil table placed in a register.
 type ExecutionContext struct {
-	registers            []FiniteTable
-	explanationRegisters []*FiniteExplanationProduct
-	annotations          map[uint32]string
-	relations            *RelationManager
-	terminate            func() bool
-	memory               *memory.Runtime
-	timeLimit            time.Duration
-	started              time.Time
-	stats                ExecutionStats
-	closed               bool
+	registers                    []FiniteTable
+	explanationRegisters         []*FiniteExplanationProduct
+	relationExplanationRegisters []*RelationExplanationProduct
+	annotations                  map[uint32]string
+	relations                    *RelationManager
+	terminate                    func() bool
+	memory                       *memory.Runtime
+	timeLimit                    time.Duration
+	started                      time.Time
+	stats                        ExecutionStats
+	closed                       bool
 }
 
 func NewExecutionContext(terminate func() bool) *ExecutionContext {
@@ -90,6 +91,9 @@ func (c *ExecutionContext) FiniteRegister(index uint32) (FiniteTable, error) {
 		return nil, err
 	}
 	if uint64(index) < uint64(len(c.explanationRegisters)) && c.explanationRegisters[index] != nil {
+		return nil, ErrInstruction
+	}
+	if hasRelationExplanationRegister(c, index) {
 		return nil, ErrInstruction
 	}
 	if uint64(index) >= uint64(len(c.registers)) {
@@ -153,6 +157,9 @@ func (c *ExecutionContext) SetFiniteRegister(index uint32, value FiniteTable) er
 	}
 	if index == ^uint32(0) {
 		return ErrInstruction
+	}
+	if err := c.clearRelationExplanationRegister(index); err != nil {
+		return err
 	}
 	if uint64(index) >= uint64(len(c.registers)) {
 		c.registers = append(c.registers, make([]FiniteTable, int(uint64(index)-uint64(len(c.registers))+1))...)
@@ -335,6 +342,7 @@ func (c *ExecutionContext) Reset() error {
 	}
 	c.registers = c.registers[:0]
 	c.explanationRegisters = c.explanationRegisters[:0]
+	c.relationExplanationRegisters = c.relationExplanationRegisters[:0]
 	clear(c.annotations)
 	c.stats = ExecutionStats{}
 	_ = c.ResetTimeLimit()
@@ -354,6 +362,7 @@ func (c *ExecutionContext) Close() error {
 	}
 	c.registers = nil
 	c.explanationRegisters = nil
+	c.relationExplanationRegisters = nil
 	clear(c.annotations)
 	c.annotations = nil
 	c.memory = nil
@@ -363,6 +372,9 @@ func (c *ExecutionContext) Close() error {
 
 func (c *ExecutionContext) closeRegisters() error {
 	var result error
+	for index := range c.relationExplanationRegisters {
+		result = errors.Join(result, c.clearRelationExplanationRegister(uint32(index)))
+	}
 	for i, product := range c.explanationRegisters {
 		if product != nil {
 			if err := product.Close(); err != nil {

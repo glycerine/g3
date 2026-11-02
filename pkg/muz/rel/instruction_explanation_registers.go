@@ -9,7 +9,7 @@ func (c *ExecutionContext) ExplanationRegister(index uint32) (*FiniteExplanation
 	if err := c.open(); err != nil {
 		return nil, err
 	}
-	if uint64(index) < uint64(len(c.registers)) && c.registers[index] != nil {
+	if uint64(index) < uint64(len(c.registers)) && c.registers[index] != nil || hasRelationExplanationRegister(c, index) {
 		return nil, ErrInstruction
 	}
 	if uint64(index) >= uint64(len(c.explanationRegisters)) {
@@ -37,6 +37,9 @@ func (c *ExecutionContext) SetExplanationRegister(index uint32, value *FiniteExp
 		if c.relations != nil && value.manager != c.relations {
 			return ErrInstruction
 		}
+	}
+	if err := c.clearRelationExplanationRegister(index); err != nil {
+		return err
 	}
 	count := int(uint64(index) + 1)
 	if len(c.registers) < count {

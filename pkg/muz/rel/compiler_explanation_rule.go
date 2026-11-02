@@ -470,10 +470,11 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 // A recursive run substitutes one old-delta tail and accumulates novel head
 // tuples in outputDelta. next keeps those shared registers outside local use.
 type explanationRuleRegisters struct {
-	next        uint32
-	inputTail   int
-	inputDelta  uint32
-	outputDelta uint32
+	next          uint32
+	inputTail     int
+	inputDelta    uint32
+	outputDelta   uint32
+	relationLevel bool
 }
 
 func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter, registers *explanationRuleRegisters) (result *InstructionBlock, resultErr error) {
@@ -492,6 +493,13 @@ func compileExplanationRuleWithRegisters(relations *RelationManager, rule *base.
 		}
 	}()
 	emit := func(instruction Instruction) error {
+		if registers.relationLevel {
+			converted, err := relationExplanationInstructionFor(instruction)
+			if err != nil {
+				return errors.Join(err, instruction.Close())
+			}
+			instruction = converted
+		}
 		if err := instruction.Accounting().SetAccountingParentRule(rule); err != nil {
 			return errors.Join(err, instruction.Close())
 		}
