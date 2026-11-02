@@ -24,6 +24,7 @@ type SliceProofConverter struct {
 	formulas   []ast.ASTRef
 	byFormula  map[ast.ASTHandle]sliceOriginalRule
 	predicates map[ast.ASTHandle]slicePredicateOrigin
+	closed     bool
 }
 
 type slicePredicateOrigin struct {
@@ -116,21 +117,43 @@ func (c *SliceProofConverter) ConvertAsserted(proof ast.ASTHandle) (result ast.A
 	return result, err == nil, err
 }
 
-func (c *SliceProofConverter) Close() (result error) {
-	if c == nil || c.manager == nil {
+func (c *SliceProofConverter) Close() error {
+	if c == nil {
 		return ast.ErrASTHandle
 	}
-	for i := len(c.formulas) - 1; i >= 0; i-- {
-		result = errors.Join(result, c.manager.DelRef(&c.formulas[i]))
+	if c.closed {
+		return nil
 	}
-	for i := len(c.originals) - 1; i >= 0; i-- {
-		result = errors.Join(result, c.originals[i].Close())
+	if c.manager == nil {
+		return ast.ErrASTHandle
+	}
+	// A native numerical invocation can call error transport while the AST
+	// manager is executing. Reject reentrant destruction before changing owners.
+	if _, err := c.manager.ProofMode(); err != nil {
+		return err
+	}
+	for len(c.formulas) != 0 {
+		last := len(c.formulas) - 1
+		err := c.manager.DelRef(&c.formulas[last])
+		if c.formulas[last] == (ast.ASTRef{}) {
+			c.formulas = c.formulas[:last]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	for len(c.originals) != 0 {
+		last := len(c.originals) - 1
+		if err := c.originals[last].Close(); err != nil {
+			return err
+		}
+		c.originals[last] = nil
+		c.originals = c.originals[:last]
 	}
 	c.manager = nil
 	c.rules = nil
-	c.originals = nil
-	c.formulas = nil
 	c.byFormula = nil
 	c.predicates = nil
-	return result
+	c.closed = true
+	return nil
 }

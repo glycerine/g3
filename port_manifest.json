@@ -103924,6 +103924,8 @@
       "tests": [
         "TestRuleSliceRemovesUnconstrainedPredicateColumns",
         "TestRuleSliceGeneratesProofsForRewrittenRules", "TestRuleSliceProofConverterColdFailureAndRetry",
+        "TestRuleSliceCompoundHeadAllocationFailureAndRetry",
+        "TestSliceProofClosePreservesRootsWhileManagerExecutes",
         "TestRuleSliceConvertsNestedHyperResolution",
         "TestRuleSliceConvertsNonlinearResolutionPositions",
         "TestRuleSliceProofTracksVariableRenumbering",
@@ -104037,9 +104039,13 @@
           "name": "slice proof conversion",
           "status": "partial",
           "go_target": "pkg/muz/transforms/rule_slice_proof.go",
-          "go_targets": ["pkg/muz/transforms/rule_slice_failure_test.go"],
+          "go_targets": ["pkg/muz/transforms/rule_slice_failure_test.go",
+            "pkg/muz/transforms/rule_slice_compound_failure_test.go",
+            "pkg/muz/transforms/rule_slice_close_pending_test.go"],
           "tests": [
             "TestRuleSliceGeneratesProofsForRewrittenRules", "TestRuleSliceProofConverterColdFailureAndRetry",
+            "TestRuleSliceCompoundHeadAllocationFailureAndRetry",
+            "TestSliceProofClosePreservesRootsWhileManagerExecutes",
             "TestRuleSliceConvertsNestedHyperResolution",
             "TestRuleSliceConvertsNonlinearResolutionPositions",
             "TestRuleSliceProofTracksVariableRenumbering",
