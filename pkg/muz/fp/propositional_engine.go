@@ -1862,7 +1862,7 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 	return e.queryDatalogPredicates(declarations)
 }
 
-func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (lbool.LBool, error) {
+func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
 	count, err := e.set.Len()
 	if err != nil {
 		return lbool.Undef, err
@@ -1907,6 +1907,18 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 	// auxiliary relations for this query.
 	if err = e.relations.ResetSaturatedMarks(); err != nil {
 		return lbool.Undef, err
+	}
+	scoped, err := e.prepareDatalogUnbound(declarations)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if scoped != nil {
+		original := e.set
+		e.set = scoped.set
+		defer func() {
+			e.set = original
+			resultErr = errors.Join(resultErr, scoped.dispose())
+		}()
 	}
 	if err = e.applyDatalogSimilarity(declarations); err != nil {
 		return lbool.Undef, err
