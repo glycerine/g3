@@ -87443,7 +87443,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "Query preparation, RPFP construction, solver execution and annotation model snapshots are ported; fixedpoint engine registration, proof extraction and certificate reporting remain unfinished.",
+        "Fixedpoint engine registration, RPFP query execution, annotation/model snapshots, proof extraction and certificate reporting are implemented and integration-tested. Full source/interface/exceptional ownership closure remains partial. Query preparation, RPFP construction, solver execution and annotation model snapshots are ported; fixedpoint engine registration, proof extraction and certificate reporting remain unfinished.",
         "The original edge-to-clause association is recorded before dead-node pruning instead of indexing the shortened edge vector afterward; this avoids attributing a surviving edge to an earlier deleted clause during proof extraction.",
         "Proof export uses the original clause head, including false instead of synthetic @Fail; binder substitutions follow de Bruijn indexing, predicate literal positions include intervening theory atoms, and repeated occurrences of a shared relation application receive repeated resolution premises. These corrections are checked by independent logical side-condition validation.",
         "Proof export reconstructs quantified witnesses with the native solver factory when QE-lite has projected original variables out of the counterexample model; taking default model values as in the source can produce an invalid original-clause instance."
@@ -87490,7 +87490,7 @@
       ],
       "ownership": [],
       "deviations": [
-        "RPFP construction, solver execution, results and fixedpoint engine registration remain unfinished."
+        "The Go fixedpoint boundary provides Duality registration, RPFP query construction, solver execution and result/proof/certificate access. These paths have integration coverage; full interface and ownership audit remains partial."
       ]
     },
     {
