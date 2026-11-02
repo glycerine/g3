@@ -1836,14 +1836,25 @@ func TestRuleSliceProofSubstitutesDerivedPremise(t *testing.T) {
 	}
 	for _, unusedValue := range []int64{0, 17, -1} {
 		for _, gapIndex := range []uint32{0, 1, 2} {
-			for _, compound := range []bool{false, true} {
+			for _, expression := range []int{0, 1, 2, 3} {
+				compound := expression != 0
 				for _, trailing := range []uint32{0, 1} {
 					for _, mixedSorts := range []bool{false, true} {
 						for _, groundBody := range []bool{false, true} {
-							t.Run(fmt.Sprintf("unused=%d/index=%d/compound=%t/trailing=%d/mixed=%t/ground=%t", unusedValue, gapIndex, compound, trailing, mixedSorts, groundBody), func(t *testing.T) {
+							t.Run(fmt.Sprintf("unused=%d/index=%d/expression=%d/trailing=%d/mixed=%t/ground=%t", unusedValue, gapIndex, expression, trailing, mixedSorts, groundBody), func(t *testing.T) {
 								selected := zero
 								if compound {
-									selected, err = m.MkArithmeticAdd(zero, zero)
+									if expression == 1 {
+										selected, err = m.MkArithmeticAdd(zero, zero)
+									} else {
+										index := uint32(0)
+										if expression == 3 {
+											index = 5
+										}
+										variable, e := m.MkVar(index, integer)
+										coneMust(t, e)
+										selected, err = m.MkArithmeticSub(variable, variable)
+									}
 									coneMust(t, err)
 								}
 								selectedPin, err := m.NewRef(selected)
