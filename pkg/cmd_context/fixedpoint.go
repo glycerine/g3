@@ -72,15 +72,14 @@ func (c *Context) AddFixedpointRule(formula ast.ASTHandle, name string) error {
 	return c.AddFixedpointRuleWithBound(formula, name, ^uint32(0))
 }
 
-// AddFixedpointRuleWithBound accepts the rule command's retained recursion
-// bound. The concrete Datalog engine ignores it, as does the source Datalog
-// flush path; the bound is consumed only by the unretained duality engine.
-func (c *Context) AddFixedpointRuleWithBound(formula ast.ASTHandle, name string, _ uint32) error {
+// AddFixedpointRuleWithBound preserves the rule command's recursion bound for
+// Duality's raw-formula preparation. Other engines ignore this metadata.
+func (c *Context) AddFixedpointRuleWithBound(formula ast.ASTHandle, name string, bound uint32) error {
 	engine, err := c.fixedpointContext()
 	if err != nil {
 		return err
 	}
-	return engine.AddRule(formula, name)
+	return engine.AddRuleWithBound(formula, name, bound)
 }
 
 // UpdateFixedpointRule adds a named Horn rule or strengthens the unique

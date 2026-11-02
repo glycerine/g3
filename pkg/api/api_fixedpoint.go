@@ -161,8 +161,8 @@ func (c *SMTContext) AddFixedpointRule(formula ast.ASTHandle, name string) error
 	return c.command.AddFixedpointRule(formula, name)
 }
 
-// AddFixedpointRuleWithBound adds a Horn rule with the retained duality-engine
-// recursion-bound field. Current datalog/PDR backends consume but ignore it.
+// AddFixedpointRuleWithBound adds a Horn rule with a per-rule recursion bound
+// for Duality. Datalog and PDR ignore the bound.
 func (c *SMTContext) AddFixedpointRuleWithBound(formula ast.ASTHandle, name string, bound uint32) error {
 	if err := c.open(); err != nil {
 		return err
