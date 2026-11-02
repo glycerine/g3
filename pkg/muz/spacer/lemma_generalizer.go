@@ -337,9 +337,9 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 		}
 		return handles, used, inductive, nil
 	}
-	p.boolGeneralizations++
+	p.generalizerStats.count++
 	started := time.Now()
-	defer func() { p.boolGeneralizerTime += time.Since(started) }()
+	defer func() { p.generalizerStats.elapsed += time.Since(started) }()
 	level, err := lemma.Level()
 	if err != nil {
 		return lemma, err
@@ -406,7 +406,7 @@ func (p *PredicateTransformer) generalizeInductiveLemma(obligation *ProofObligat
 		}
 		cube[index] = literal
 		processed = append(processed, literal)
-		p.boolGeneralizerFailures++
+		p.generalizerStats.failures++
 		index++
 	}
 	if !dirty {

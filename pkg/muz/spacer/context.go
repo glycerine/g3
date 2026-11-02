@@ -32,6 +32,7 @@ type Context struct {
 	cexDepth         uint32
 	cexDepthSet      bool
 	stats            contextStatistics
+	generalizerStats boolGeneralizerStatistics
 	skipPropagate    bool
 	resetQueue       bool
 	flexibleTrace    bool
@@ -337,6 +338,9 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 	if err != nil {
 		return err
 	}
+	// Source update_rules recreates generalizers before init_rules, even
+	// when subsequent rule installation fails. Context.Reset alone does not.
+	c.generalizerStats = boolGeneralizerStatistics{}
 	var order []ast.ASTHandle
 	seen := make(map[ast.ASTHandle]bool)
 	buckets := make(map[ast.ASTHandle][]*base.Rule)
@@ -392,6 +396,8 @@ func (c *Context) initializePredicates(set *base.RuleSet, declarations []ast.AST
 			return err
 		}
 		transformer.contextStats = &c.stats
+		transformer.generalizerStats = &c.generalizerStats
+		transformer.sharedGeneralizerStats = true
 		created[declaration] = transformer
 		if err = transformer.SetProofObligationNormalization(c.simplifyPOBs, c.config.UseEqClassGeneralizer); err != nil {
 			return err
@@ -529,6 +535,8 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 			return err
 		}
 		transformer.contextStats = &c.stats
+		transformer.generalizerStats = &c.generalizerStats
+		transformer.sharedGeneralizerStats = true
 		c.transformers[declaration] = transformer
 		c.order = append(c.order, declaration)
 	}
@@ -844,6 +852,7 @@ func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statisti
 			return err
 		}
 	}
+	c.generalizerStats.collect(destination)
 	destination.UpdateUint("SPACER inductive level", c.inductive)
 	return nil
 }
@@ -864,6 +873,7 @@ func (c *Context) ResetStatistics() error {
 	c.cexDepth = 0
 	c.cexDepthSet = false
 	c.stats = contextStatistics{}
+	c.generalizerStats = boolGeneralizerStatistics{}
 	return nil
 }
 
