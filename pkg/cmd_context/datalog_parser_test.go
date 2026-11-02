@@ -41,3 +41,22 @@ func TestDatalogParserDomainSuffixWildcardAndBounds(t *testing.T) {
 		t.Fatal("accepted out-of-range finite numeral")
 	}
 }
+
+func TestDatalogParserCommentOnlyLinesDoNotEndDomains(t *testing.T) {
+	context := contextFixture(t)
+	input := "# header\nN 2\n# between domains\nM 3\n\nP(x:N,y:M)\nP(\"n\",\"m\").\n"
+	contextMust(t, context.ParseDatalogString(input))
+	declaration, err := context.FindFunctionDeclaration("P", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	manager, err := context.Manager()
+	contextMust(t, err)
+	for i, want := range []uint64{2, 3} {
+		sort, err := manager.GetDomain(declaration, uint32(i))
+		contextMust(t, err)
+		size, found, err := manager.DatalogFiniteSortSize(sort)
+		contextMust(t, err)
+		if !found || size != want {
+			t.Fatalf("domain %d size %d found %v, want %d", i, size, found, want)
+		}
+	}
+}

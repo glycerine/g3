@@ -4,10 +4,67 @@ package rel
 // interval_relation::contains_fact.
 
 import (
+	"errors"
 	"math/big"
 
 	"github.com/glycerine/g3/pkg/ast"
 )
+
+// Arity returns the concrete vector-relation column count.
+func (r *IntervalRelation) Arity() (uint32, error) {
+	if r == nil || r.values == nil {
+		return 0, ast.ErrASTDomain
+	}
+	return uint32(len(r.values.columns)), nil
+}
+
+// AddFactExpressions constructs the source full interval tuple, filters each
+// column by its AST equality, then unions that abstraction into the receiver.
+func (r *IntervalRelation) AddFactExpressions(manager *ast.ASTManager, sorts, values []ast.ASTHandle) (resultErr error) {
+	if r == nil || r.values == nil || manager == nil || len(sorts) != len(values) || len(values) != len(r.values.columns) || !CanHandleIntervalSorts(manager, sorts) {
+		return ast.ErrASTDomain
+	}
+	var roots []ast.ASTRef
+	defer func() {
+		for i := len(roots) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, manager.DelRef(&roots[i]))
+		}
+	}()
+	hold := func(handle ast.ASTHandle, err error) (ast.ASTHandle, error) {
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		root, err := manager.NewRef(handle)
+		if err != nil {
+			return ast.ASTHandle{}, err
+		}
+		roots = append(roots, root)
+		return handle, nil
+	}
+	fact := NewIntervalFull(uint32(len(values)))
+	for i, value := range values {
+		sort, err := manager.GetSort(value)
+		if err != nil || sort != sorts[i] {
+			if err == nil {
+				err = ast.ErrASTDomain
+			}
+			return err
+		}
+		variable, err := hold(manager.MkVar(uint32(i), sorts[i]))
+		if err != nil {
+			return err
+		}
+		equality, err := hold(manager.MkEq(variable, value))
+		if err != nil {
+			return err
+		}
+		if err = fact.FilterInterpreted(manager, equality); err != nil {
+			return err
+		}
+	}
+	_, resultErr = r.Union(fact, false)
+	return resultErr
+}
 
 // ContainsFactExpressions applies the source's AST-valued membership check.
 // Non-numerals are accepted conservatively, while members of one equality

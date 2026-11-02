@@ -3,6 +3,8 @@ package rel
 // Source: dl_compiler.cpp compile_rule's total-column, interpreted-filter,
 // head projection/renaming and union/store lowering, specialized to the
 // explanation rules produced by dl_mk_explanations.cpp get_e_rule.
+// The source transforms explanations before dl_mk_simple_joins decomposes
+// larger bodies; ordered binary joins preserve the same flat proof arguments.
 
 import (
 	"errors"
@@ -24,22 +26,26 @@ type explanationFiniteColumn struct {
 	singleton bool
 }
 
+type explanationTailJoin struct {
+	predicate   ast.ASTHandle
+	left, right []int
+}
+
 type explanationRuleLayout struct {
-	head, tail, tail2 ast.ASTHandle
-	joinLeft          []int
-	joinRight         []int
-	columns           map[uint32]int
-	sorts             map[uint32]ast.ASTHandle
-	conditions        []ast.ASTHandle
-	removed           []int
-	permutation       []int
-	appendHead        bool
-	tailConstants     []explanationTailConstant
-	appendFinite      []explanationFiniteColumn
-	identical         [][]int
-	duplicates        []int
-	finiteWidth       int
-	explanationWidth  int
+	head, tail       ast.ASTHandle
+	joins            []explanationTailJoin
+	columns          map[uint32]int
+	sorts            map[uint32]ast.ASTHandle
+	conditions       []ast.ASTHandle
+	removed          []int
+	permutation      []int
+	appendHead       bool
+	tailConstants    []explanationTailConstant
+	appendFinite     []explanationFiniteColumn
+	identical        [][]int
+	duplicates       []int
+	finiteWidth      int
+	explanationWidth int
 }
 
 func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan explanationRuleLayout, resultErr error) {
@@ -61,7 +67,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	if err != nil {
 		return plan, err
 	}
-	if positive > 2 || positive != uninterpreted {
+	if positive != uninterpreted {
 		return plan, ErrCompilerUnsupported
 	}
 	m := relations.manager
@@ -90,7 +96,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		if index == 0 {
 			plan.tail = predicate
 		} else {
-			plan.tail2 = predicate
+			plan.joins = append(plan.joins, explanationTailJoin{predicate: predicate})
 		}
 		tails = append(tails, tail)
 		tailSignatures = append(tailSignatures, sorts)
@@ -149,7 +155,7 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 		for local := 0; local <= finite; local++ {
 			column := finiteOffset + local
 			if local == finite {
-				// Concrete products group all finite columns before both
+				// Concrete products group all finite columns before the
 				// explanation rows, preserving the original tail order.
 				column = len(tailSorts) + tailIndex
 			}
@@ -183,12 +189,13 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 			} else {
 				plan.columns[index], plan.sorts[index] = column, sort
 			}
-			if tailIndex == 1 && local < finite {
+			if tailIndex > 0 && local < finite {
 				// Source variable_intersection adds every matching pair.
+				join := &plan.joins[tailIndex-1]
 				for _, left := range tailVariables[index] {
 					if left < finiteOffset {
-						plan.joinLeft = append(plan.joinLeft, left)
-						plan.joinRight = append(plan.joinRight, local)
+						join.left = append(join.left, left)
+						join.right = append(join.right, local)
 					}
 				}
 			}
@@ -198,7 +205,16 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	}
 	for _, columns := range tailVariables {
 		if len(columns) > 1 {
-			if positive == 2 && columns[0] < len(tailSignatures[0]) && columns[len(columns)-1] >= len(tailSignatures[0]) {
+			crossTail := false
+			boundary := 0
+			for _, signature := range tailSignatures {
+				boundary += len(signature)
+				if columns[0] < boundary && columns[len(columns)-1] >= boundary {
+					crossTail = true
+					break
+				}
+			}
+			if crossTail {
 				// Cross-tail identity is already enforced by all join pairs.
 				continue
 			}
@@ -345,12 +361,11 @@ func planExplanationRule(relations *RelationManager, rule *base.Rule) (plan expl
 	return plan, nil
 }
 
-// CompileExplanationRuleWithGuard lowers a ground, one-tail or two-tail
-// explained rule or its finite output bridge. Tail constants and repeated
-// finite columns use filtering and duplicate-column lowering. Finite head
-// constants and unbound variables use singleton/full columns. Rules with more
-// than two positive tails and condition-only unbound variables are rejected
-// before a program is published.
+// CompileExplanationRuleWithGuard lowers a positive explained rule or its
+// finite output bridge using source-ordered binary joins. Tail constants and
+// repeated finite columns use filtering and duplicate-column lowering. Finite head
+// constants and unbound variables use singleton/full columns. Negated tails
+// and condition-only unbound variables are rejected before a program is published.
 func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule, guard *rewriter.TheoryRewriter) (result *InstructionBlock, resultErr error) {
 	plan, err := planExplanationRule(relations, rule)
 	if err != nil {
@@ -392,9 +407,9 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 	if err = emit(load); err != nil {
 		return result, err
 	}
-	if !plan.tail2.IsNull() {
+	for _, join := range plan.joins {
 		right := fresh()
-		load, err = NewLoadInstruction(relations, plan.tail2, right)
+		load, err = NewLoadInstruction(relations, join.predicate, right)
 		if err != nil {
 			return result, err
 		}
@@ -402,7 +417,7 @@ func CompileExplanationRuleWithGuard(relations *RelationManager, rule *base.Rule
 			return result, err
 		}
 		joined := fresh()
-		if err = emit(NewJoinInstruction(current, right, plan.joinLeft, plan.joinRight, joined)); err != nil {
+		if err = emit(NewJoinInstruction(current, right, join.left, join.right, joined)); err != nil {
 			return result, err
 		}
 		if err = emit(NewDeallocateInstruction(current)); err != nil {

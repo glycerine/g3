@@ -50,7 +50,14 @@ func (l *datalogLexer) next() (datalogLexeme, error) {
 			continue
 		}
 		if l.peek() == '#' {
+			lineComment := l.column == 1
 			for !l.atEnd() && l.peek() != '\n' {
+				l.take()
+			}
+			// Source read_comment consumes the terminator only for a comment
+			// beginning in the first physical column. In particular, such a
+			// comment does not terminate the domain-declaration section.
+			if lineComment && l.peek() == '\n' {
 				l.take()
 			}
 			continue

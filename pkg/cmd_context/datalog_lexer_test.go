@@ -24,3 +24,24 @@ func TestDatalogLexerRejectsUnterminatedQuotedValues(t *testing.T) {
 		}
 	}
 }
+
+func TestDatalogLexerSourceCommentNewlinePolicy(t *testing.T) {
+	lexer := newDatalogLexer([]byte("# first\nN 2 # trailing\n# between\nM 3\n"))
+	lexer.parsingDomains = true
+	want := []struct {
+		kind datalogToken
+		text string
+	}{
+		{dlIdentifier, "N"}, {dlNumber, "2"}, {dlNewline, ""},
+		{dlIdentifier, "M"}, {dlNumber, "3"}, {dlNewline, ""}, {dlEOF, ""},
+	}
+	for i, expected := range want {
+		got, err := lexer.next()
+		if err != nil {
+			t.Fatal(i, err)
+		}
+		if got.kind != expected.kind || got.text != expected.text {
+			t.Fatalf("token %d = %v %q, want %v %q", i, got.kind, got.text, expected.kind, expected.text)
+		}
+	}
+}

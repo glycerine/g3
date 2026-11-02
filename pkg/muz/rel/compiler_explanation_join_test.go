@@ -1,7 +1,8 @@
 package rel
 
-// Source: dl_compiler.cpp compile_rule_evaluation_run's two-tail join and
-// dl_mk_explanations.cpp get_e_rule's ordered child derivations.
+// Source: dl_compiler.cpp compile_rule_evaluation_run's binary joins and
+// dl_mk_explanations.cpp get_e_rule's ordered child derivations, preserved
+// when dl_mk_simple_joins lowers larger bodies to binary joins.
 
 import (
 	"testing"
@@ -10,8 +11,8 @@ import (
 	"github.com/glycerine/g3/pkg/muz/base"
 )
 
-func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
-	for _, mode := range []string{"shared-guard", "cartesian", "right-repeat", "self-join", "empty-right", "nullary-left", "nullary-both"} {
+func TestCompilePositiveTailExplanationRulesAgainstTupleOracle(t *testing.T) {
+	for _, mode := range []string{"shared-guard", "cartesian", "right-repeat", "self-join", "empty-right", "nullary-left", "nullary-both", "sparse-shared", "three-tail", "four-tail", "three-empty", "three-nullary"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newTableRelationFixture(t)
 			rm, err := base.NewRuleManager(f.ast)
@@ -44,6 +45,18 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 			if mode == "self-join" {
 				r = p
 			}
+			multiple := mode == "three-tail" || mode == "four-tail" || mode == "three-empty" || mode == "three-nullary"
+			var third, fourth ast.ASTHandle
+			thirdArity := 3
+			if multiple {
+				if mode == "three-nullary" {
+					thirdArity = 0
+				}
+				third = declare("join-third", thirdArity)
+			}
+			if mode == "four-tail" {
+				fourth = declare("join-fourth", 3)
+			}
 			x, key, y := own(f.ast.MkVar(0, f.boolean)), own(f.ast.MkVar(1, f.boolean)), own(f.ast.MkVar(2, f.boolean))
 			leftArgs, rightArgs, headArgs := []ast.ASTHandle{x, key, key}, []ast.ASTHandle{key, y, f.truth}, []ast.ASTHandle{y, x, y}
 			var guards []ast.ASTHandle
@@ -58,9 +71,23 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 				leftArgs, rightArgs, headArgs = nil, []ast.ASTHandle{x, key, y}, []ast.ASTHandle{x, y, x}
 			case "nullary-both":
 				leftArgs, rightArgs, headArgs = nil, nil, nil
+			case "four-tail":
+				// Finite head extensions shift all four child proof slots.
+				headArgs = []ast.ASTHandle{f.truth, x, f.truth}
 			}
 			tailLeft, tailRight, head := own(f.ast.MkApp(p, leftArgs)), own(f.ast.MkApp(r, rightArgs)), own(f.ast.MkApp(q, headArgs))
-			rule, err := rm.NewRule(head, append([]ast.ASTHandle{tailLeft, tailRight}, guards...), nil, "join-step")
+			tails := []ast.ASTHandle{tailLeft, tailRight}
+			if multiple {
+				thirdArgs := []ast.ASTHandle{key, key, y}
+				if thirdArity == 0 {
+					thirdArgs = nil
+				}
+				tails = append(tails, own(f.ast.MkApp(third, thirdArgs)))
+			}
+			if !fourth.IsNull() {
+				tails = append(tails, own(f.ast.MkApp(fourth, []ast.ASTHandle{x, y, y})))
+			}
+			rule, err := rm.NewRule(head, append(tails, guards...), nil, "join-step")
 			astTestMust(t, err)
 			astTestMust(t, set.Add(rule))
 			astTestMust(t, rule.Close())
@@ -72,6 +99,22 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 					if arity == 0 {
 						_, e = table.Add(Fact{})
 						astTestMust(t, e)
+					} else if mode == "sparse-shared" || multiple {
+						rows := []Fact{{0, 0, 0}, {1, 1, 1}}
+						if predicate == r {
+							rows = []Fact{{0, 1, 1}, {1, 0, 1}}
+							if mode == "sparse-shared" {
+								rows = rows[:1]
+							}
+						} else if predicate == third {
+							rows = []Fact{{0, 0, 1}, {1, 0, 0}}
+						} else if predicate == fourth {
+							rows = []Fact{{0, 1, 1}, {1, 0, 1}}
+						}
+						for _, row := range rows {
+							_, e = table.Add(row)
+							astTestMust(t, e)
+						}
 					} else {
 						for a := 0; a < 2; a++ {
 							for b := 0; b < 2; b++ {
@@ -90,6 +133,13 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 			if r != p {
 				right = fill(r, rightArity, mode == "empty-right")
 			}
+			var thirdTable, fourthTable *HashTable
+			if multiple {
+				thirdTable = fill(third, thirdArity, mode == "three-empty")
+			}
+			if !fourth.IsNull() {
+				fourthTable = fill(fourth, 3, false)
+			}
 			transformer, err := NewExplanationTransformer(f.ast, rm)
 			astTestMust(t, err)
 			defer func() { astTestMust(t, transformer.Close()) }()
@@ -99,6 +149,12 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 			predicates := []ast.ASTHandle{p, q}
 			if r != p {
 				predicates = append(predicates, r)
+			}
+			if multiple {
+				predicates = append(predicates, third)
+			}
+			if !fourth.IsNull() {
+				predicates = append(predicates, fourth)
 			}
 			astTestMust(t, transformer.TransferFiniteFacts(set, transformed, f.relations, predicates))
 			proof := func(name string) ast.ASTHandle {
@@ -136,6 +192,17 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 			} else {
 				rightProof = leftProof
 			}
+			childProofs := []ast.ASTHandle{leftProof, rightProof}
+			if multiple {
+				thirdProof := proof("third-origin")
+				install(third, thirdTable, thirdArity, thirdProof)
+				childProofs = append(childProofs, thirdProof)
+			}
+			if !fourth.IsNull() {
+				fourthProof := proof("fourth-origin")
+				install(fourth, fourthTable, 3, fourthProof)
+				childProofs = append(childProofs, fourthProof)
+			}
 			explained, err := transformer.ExplanationDeclaration(q)
 			astTestMust(t, err)
 			theory := tableRelationTheoryRewriter(t, f.ast)
@@ -163,7 +230,7 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 			defer func() { astTestMust(t, context.Close()) }()
 			symbol, err := f.ast.Symbols.Intern("join-step")
 			astTestMust(t, err)
-			wantProof := own(f.ast.MkDatalogRule(symbol, []ast.ASTHandle{leftProof, rightProof}))
+			wantProof := own(f.ast.MkDatalogRule(symbol, childProofs))
 			for repeat := 0; repeat < 2; repeat++ {
 				for _, block := range blocks {
 					complete, e := block.Perform(context)
@@ -207,16 +274,38 @@ func TestCompileTwoTailExplanationRulesAgainstTupleOracle(t *testing.T) {
 									want = c == 1
 								case "empty-right":
 									want = false
+								case "sparse-shared", "three-tail", "four-tail":
+									want = a == 1 && b == 0 && c == 1
+								case "three-empty":
+									want = false
+								case "three-nullary":
+									want = a != b && a == c
 								}
 								verify(Fact{Element(a), Element(b), Element(c)}, want)
 							}
 						}
 					}
 				}
-				for _, input := range []*HashTable{left, right} {
+				inputs := []*HashTable{left, right}
+				if thirdTable != nil {
+					inputs = append(inputs, thirdTable)
+				}
+				if fourthTable != nil {
+					inputs = append(inputs, fourthTable)
+				}
+				for _, input := range inputs {
 					signature, e := input.Signature()
 					astTestMust(t, e)
 					want := 8
+					if mode == "sparse-shared" || multiple {
+						want = 2
+						if mode == "sparse-shared" && input == right {
+							want = 1
+						}
+						if mode == "three-empty" && input == thirdTable {
+							want = 0
+						}
+					}
 					if signature.Len() == 0 {
 						want = 1
 					}

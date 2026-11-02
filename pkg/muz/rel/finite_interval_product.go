@@ -145,36 +145,13 @@ func (p *FiniteIntervalProduct) splitFact(values []ast.ASTHandle) (Fact, []ast.A
 // intervalFact mirrors interval_relation::add_fact's full relation followed
 // by interpreted equalities for the supplied expressions.
 func (p *FiniteIntervalProduct) intervalFact(values []ast.ASTHandle) (_ *IntervalRelation, resultErr error) {
-	m := p.manager.manager
-	var refs []ast.ASTRef
-	defer func() {
-		for i := len(refs) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, m.DelRef(&refs[i]))
-		}
-	}()
-	inner := NewIntervalFull(uint32(len(values)))
-	for i, value := range values {
-		variable, err := m.MkVar(uint32(i), p.sorts[p.intervalColumns[i]])
-		if err != nil {
-			return nil, err
-		}
-		variableRef, err := m.NewRef(variable)
-		if err != nil {
-			return nil, err
-		}
-		refs = append(refs, variableRef)
-		equality, err := m.MkEq(variable, value)
-		if err != nil {
-			return nil, err
-		}
-		equalityRef, err := m.NewRef(equality)
-		if err != nil {
-			return nil, err
-		}
-		refs = append(refs, equalityRef)
-		if err = inner.FilterInterpreted(m, equality); err != nil {
-			return nil, err
-		}
+	sorts := make([]ast.ASTHandle, len(p.intervalColumns))
+	for i, column := range p.intervalColumns {
+		sorts[i] = p.sorts[column]
+	}
+	inner := NewIntervalEmpty(uint32(len(values)))
+	if err := inner.AddFactExpressions(p.manager.manager, sorts, values); err != nil {
+		return nil, err
 	}
 	return inner, nil
 }

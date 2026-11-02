@@ -183,7 +183,7 @@ func TestCompileExplanationRuleRejectsUnsupportedShapesBeforePublication(t *test
 		head     ast.ASTHandle
 		tails    []ast.ASTHandle
 		negative []bool
-	}{{pX, []ast.ASTHandle{pX}, []bool{true}}, {pX, []ast.ASTHandle{pX, unboundCondition}, nil}, {pX, []ast.ASTHandle{pX, pX, pX}, nil}} {
+	}{{pX, []ast.ASTHandle{pX}, []bool{true}}, {pX, []ast.ASTHandle{pX, unboundCondition}, nil}, {pX, []ast.ASTHandle{pX, pX}, []bool{false, true}}} {
 		rule, e := rm.NewRule(spec.head, spec.tails, spec.negative, "unsupported")
 		astTestMust(t, e)
 		generated, e := transformer.ExplanationRule(rule)
