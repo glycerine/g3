@@ -42,6 +42,15 @@ func (c *Context) WriteFixedpointReplaySMT2(out io.Writer) (resultErr error) {
 			resultErr = errors.Join(resultErr, c.manager.DelRef(&rules[i]))
 		}
 	}()
+	facts, err := engine.StoredFactFormulas()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		for i := len(facts) - 1; i >= 0; i-- {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&facts[i]))
+		}
+	}()
 	util, err := ast.NewASTPPUtil(c.manager)
 	if err != nil {
 		return err
@@ -64,6 +73,15 @@ func (c *Context) WriteFixedpointReplaySMT2(out io.Writer) (resultErr error) {
 		}
 	}
 	for _, reference := range rules {
+		handle, x := c.manager.RefGet(reference)
+		if x != nil {
+			return x
+		}
+		if err = util.Collect(handle); err != nil {
+			return err
+		}
+	}
+	for _, reference := range facts {
 		handle, x := c.manager.RefGet(reference)
 		if x != nil {
 			return x
@@ -122,6 +140,21 @@ func (c *Context) WriteFixedpointReplaySMT2(out io.Writer) (resultErr error) {
 			return x
 		}
 		if _, x = io.WriteString(out, "(assert "); x != nil {
+			return x
+		}
+		if x = c.WriteExpression(out, handle); x != nil {
+			return x
+		}
+		if _, x = io.WriteString(out, ")\n"); x != nil {
+			return x
+		}
+	}
+	for _, reference := range facts {
+		handle, x := c.manager.RefGet(reference)
+		if x != nil {
+			return x
+		}
+		if _, x = io.WriteString(out, "(rule "); x != nil {
 			return x
 		}
 		if x = c.WriteExpression(out, handle); x != nil {

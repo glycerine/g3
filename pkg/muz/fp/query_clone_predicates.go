@@ -7,6 +7,15 @@ func (e *PropositionalEngine) copyQueryPredicates(clone *PropositionalEngine) er
 		if err := clone.RegisterPredicate(declaration); err != nil {
 			return err
 		}
+		if e.backend == "datalog" && e.predicates[declaration].table != nil {
+			table, err := e.predicates[declaration].table.Clone()
+			if err != nil {
+				return err
+			}
+			if err = clone.installDatalogTable(declaration, table); err != nil {
+				return err
+			}
+		}
 		if e.auxiliary[declaration] {
 			clone.auxiliary[declaration] = true
 		}

@@ -242,6 +242,7 @@ func TestSMTContextFixedpointSMT2Replay(t *testing.T) {
 		"(declare-rel fp-replay-P ())",
 		"(declare-rel fp-replay-Q ())",
 		"(assert true)",
+		"(rule fp-replay-P)",
 		":named fp-replay-edge",
 	} {
 		if !strings.Contains(script, fragment) {
@@ -362,6 +363,13 @@ func TestSMTContextFixedpointQueryOptionsAreLocalAndTyped(t *testing.T) {
 	fact, err := manager.MkApp(predicate, nil)
 	astTestMust(t, err)
 	astTestMust(t, context.AddFixedpointRule(fact, "api-fp-local-fact"))
+	// Source fixes the engine type at its first use. Select the configured
+	// global Duality engine before applying a later query-local override.
+	status, err := context.QueryFixedpoint(predicate)
+	astTestMust(t, err)
+	if status != lbool.True {
+		t.Fatal("initial global Duality query", status)
+	}
 	options := &FixedpointQueryOptions{
 		Bool: map[FixedpointBoolParameter]bool{
 			FixedpointDatalogSubsumption: false,
@@ -373,10 +381,10 @@ func TestSMTContextFixedpointQueryOptionsAreLocalAndTyped(t *testing.T) {
 			FixedpointEngine: "datalog",
 		},
 	}
-	status, err := context.QueryFixedpointWithOptions(predicate, options)
+	status, err = context.QueryFixedpointWithOptions(predicate, options)
 	astTestMust(t, err)
 	if status != lbool.True {
-		t.Fatal("query-local fixedpoint options", status)
+		t.Fatal("query after local fixedpoint options", status)
 	}
 	status, err = context.QueryFixedpoint(predicate)
 	astTestMust(t, err)
@@ -384,7 +392,7 @@ func TestSMTContextFixedpointQueryOptionsAreLocalAndTyped(t *testing.T) {
 		t.Fatal("global Duality query", status)
 	}
 	if answer, err := context.FixedpointAnswer(predicate); err == nil || answer != (ast.ASTRef{}) {
-		t.Fatal("query-local Datalog selection leaked into Duality", answer, err)
+		t.Fatal("cached Duality selection changed after local Datalog option", answer, err)
 	}
 	proof, err := context.FixedpointProof(predicate)
 	astTestMust(t, err)

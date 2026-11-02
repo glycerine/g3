@@ -169,6 +169,16 @@ func (c *Context) PopFixedpoint() error {
 	return engine.Pop()
 }
 
+// SetFixedpointParameters immediately updates the fixedpoint-local parameter
+// snapshot, matching fixedpoint_context::updt_params before engine selection.
+func (c *Context) SetFixedpointParameters(params *uparams.ParamsRef) error {
+	engine, err := c.fixedpointContext()
+	if err != nil {
+		return err
+	}
+	return engine.SetQueryParameters(params)
+}
+
 func (c *Context) prepareFixedpointQuery(params *uparams.ParamsRef) (*muzfp.PropositionalEngine, error) {
 	engine, err := c.fixedpointContext()
 	if err != nil {

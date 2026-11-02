@@ -214,6 +214,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	} else {
 		result, err = clone.QueryPredicate(declaration)
 	}
+	if err == nil && e.backend == "datalog" {
+		err = e.publishDatalogQueryRelations(clone)
+	}
 	if err == nil {
 		e.queryClonePredicate = declaration
 	}

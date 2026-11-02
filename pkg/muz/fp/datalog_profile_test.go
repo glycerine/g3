@@ -29,6 +29,11 @@ func TestDatalogProfileCountsRulesRelationsTuplesAndCompiler(t *testing.T) {
 		fpMust(t, engine.RegisterPredicate(declarations[i]))
 	}
 	fpMust(t, engine.AddTableFact(declarations[0], nil))
+	// Keep a real Horn rule so instruction totals are exercised independently
+	// of the directly stored seed tuple.
+	fact, err := manager.MkApp(declarations[0], nil)
+	fpMust(t, err)
+	fpMust(t, engine.AddRule(fact, "profile-fact-rule"))
 	if _, err = engine.QueryPredicates(declarations); err != nil {
 		t.Fatal(err)
 	}

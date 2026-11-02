@@ -84950,6 +84950,12 @@
         "pkg/muz/fp/context_formula_rules.go",
         "pkg/muz/fp/context_formula_rules_test.go",
         "pkg/muz/fp/auto_engine_phase_test.go",
+        "pkg/muz/fp/datalog_facts.go",
+        "pkg/muz/fp/datalog_facts_test.go",
+        "pkg/muz/fp/stored_fact_formulas.go",
+        "pkg/cmd_context/fixedpoint_replay.go",
+        "pkg/api/api_fixedpoint_fact_selection_test.go",
+        "pkg/api/api_fixedpoint_object_parameters.go",
         "pkg/muz/fp/raw_rules.go",
         "pkg/muz/fp/context_smt2.go",
         "pkg/api/api_fixedpoint_object_display_test.go",
@@ -85026,7 +85032,12 @@
         "TestDatalogRelationsAnswerPreservesTupleFormulas",
         "TestAPIFixedpointDatalogMultipleRelationAnswers",
         "TestSMTContextFixedpointAutoConfigSelectsPDRForInfiniteDomain",
-        "TestSMTContextFixedpointAutoConfigRejectsPDRUninterpretedSymbols"
+        "TestSMTContextFixedpointAutoConfigRejectsPDRUninterpretedSymbols",
+        "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries",
+        "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice",
+        "TestDatalogDirectFiniteFactValidationAndCloneOwnership",
+        "TestAPIFixedpointParametersSelectFactStorageBeforeQuery",
+        "TestSMTContextFixedpointSMT2Replay"
       ],
       "assertions": [
         {
@@ -85095,6 +85106,7 @@
       "methods": [
         {"name": "source public get_rules_as_formulas enumeration preserves pending inputs and appends negated output queries", "status": "ported", "go_targets": ["pkg/muz/fp/context_formula_rules.go", "pkg/muz/fp/context_formula_rules_test.go", "pkg/api/api_fixedpoint_rule_formulas_test.go"], "tests": ["TestPublicRuleFormulasAppendNegatedOutputsAfterPendingInputs", "TestAPIFixedpointRulesPreservePendingInputsAndFlushExpansion"], "reason": "Shares display phase selection/open normalization; preserves internal Rules/NamedRules normalized contracts and returns independently owned source formulas."},
         {"name": "automatic engine selection scans normalized rules before pending formulas (dl_context.cpp:840-859)", "status": "ported", "go_targets": ["pkg/muz/fp/auto_engine.go", "pkg/muz/fp/auto_engine_phase_test.go", "pkg/muz/fp/engine_result_routing_test.go"], "tests": ["TestFixedpointAutoConfigNormalizedPrefixPrecedesPendingInputs", "TestFixedpointAutoConfigTracksUpdatePromotionAndPop", "TestFixedpointAutoConfigRestoresRuleClassification"], "reason": "Actual phase order replaces cached ingestion classifications; covers genuine normalized QPDR, existential-to-PDR normalization, named updates, display promotion and scope restoration."},
+        {"name": "configured engine caching plus direct Datalog and raw non-Datalog fact ingestion (dl_context.cpp:627-665,801-859)", "status": "ported", "go_targets": ["pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/muz/fp/stored_fact_formulas.go", "pkg/muz/fp/fixedpoint_params.go", "pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/query_clone_predicates.go", "pkg/muz/fp/query_expression.go", "pkg/cmd_context/fixedpoint_replay.go", "pkg/api/api_fixedpoint_fact_selection_test.go"], "tests": ["TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestAPIFixedpointParametersSelectFactStorageBeforeQuery", "TestSMTContextFixedpointSMT2Replay"], "reason": "Datalog owns encoded relation tuples and publishes successful expression-query tables; other engines preserve ground raw rules. Public source enumeration omits relation tuples while the explicit Go replay exporter serializes them. Covers instantiation/pop, invalid values, duplicates, result invalidation, parameter precedence and independent clone ownership."},
         {
           "name": "get_rules_as_formulas finalized-rule partition: output clauses become ordered queries, quantified implications use an existential body, quantified facts retain their original universal formula (dl_context.cpp:1072-1105)",
           "status": "ported",
@@ -85248,8 +85260,8 @@
       "component": "muz",
       "role": "production",
       "status": "partial",
-      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
-      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
+      "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/datalog_facts_test.go", "pkg/cmd_context/fixedpoint.go", "pkg/parsers/smt2/commands.go"],
+      "tests": ["TestPropositionalEngineMatchesCPPFixedpointQueries", "TestPropositionalEngineExecutesStratifiedNegation", "TestPropositionalEngineScopeGuards", "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership", "TestSMT2FixedpointPropositionalQueriesMatchCPP", "TestSMT2FixedpointFiniteRelationsMatchCPP", "TestSMT2FixedpointFiniteVariableExpansionMatchesCPP", "TestSMT2FixedpointRejectsUnstratifiedNegation", "TestSMT2FixedpointRuleScopesMatchCPP"],
       "conditionals": [
         {
           "line": 19,
@@ -85271,6 +85283,12 @@
       "methods_audited": false,
       "ownership_audited": false,
       "methods": [
+        {
+          "name": "Concrete add_fact/add_table_fact engine-dependent storage and configured engine caching surface (dl_context.h:127-616)",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/datalog_facts.go", "pkg/muz/fp/fixedpoint_params.go"],
+          "tests": ["TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries", "TestDatalogFactSelectionUsesParametersAndCachesSourceChoice", "TestDatalogDirectFiniteFactValidationAndCloneOwnership"]
+        },
         {
           "name": "Retained positive-propositional subset of context predicate registration, rule addition, query, and owned lifecycle surface (dl_context.h:127-616)",
           "status": "partial",
@@ -288447,8 +288465,9 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
-      "go_target": "pkg/api/api_fixedpoint.go",
-      "tests": ["TestSMTContextFixedpointPDRLifecycle"]
+      "go_target": "pkg/api/api_fixedpoint_object_mutation.go",
+      "go_targets": ["pkg/cmd_context/fixedpoint.go", "pkg/muz/fp/datalog_facts.go"],
+      "tests": ["TestSMTContextFixedpointPDRLifecycle", "TestAPIFixedpointParametersSelectFactStorageBeforeQuery", "TestDatalogDirectFactsPersistAcrossExpressionAndDirectQueries"]
     },
     {
       "name": "Z3_fixedpoint_add_invariant",
@@ -288726,8 +288745,9 @@
         "src/api/z3_fixedpoint.h"
       ],
       "status": "ported",
-      "go_target": "pkg/api/api_fixedpoint.go",
-      "tests": ["TestSMTContextTypedFixedpointParameters"]
+      "go_target": "pkg/api/api_fixedpoint_object_parameters.go",
+      "go_targets": ["pkg/cmd_context/fixedpoint.go", "pkg/muz/fp/fixedpoint_params.go"],
+      "tests": ["TestSMTContextTypedFixedpointParameters", "TestAPIFixedpointParametersAreOwnedAndLocal", "TestAPIFixedpointParametersSelectFactStorageBeforeQuery"]
     },
     {
       "name": "Z3_fixedpoint_set_predicate_representation",

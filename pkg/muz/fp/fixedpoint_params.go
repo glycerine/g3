@@ -110,9 +110,19 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	return result
 }
 
-// SelectConfiguredEngine applies query-local :engine before the fixedpoint
-// module setting and then the source auto-config default.
+// SelectConfiguredEngine resolves query-local :engine before the fixedpoint
+// module setting and source auto-config default, then keeps that source choice.
+// Explicit SelectEngine is available when a Go caller deliberately switches.
 func (e *PropositionalEngine) SelectConfiguredEngine() (result error) {
+	if err := e.open(); err != nil {
+		return err
+	}
+	// context::configure_engine keeps its first resolved engine type.
+	// Explicit SelectEngine remains the Go API's deliberate override.
+	if e.engineSelectionSet {
+		return nil
+	}
+
 	view, err := e.fixedpointParamView()
 	if err != nil {
 		return err

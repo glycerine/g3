@@ -81,6 +81,8 @@ type PropositionalEngine struct {
 	params              *uparams.ParamsContext
 	globals             *uparams.GlobalParamsService
 	backend             string
+	engineSelectionSet  bool
+	datalogInstantiated bool
 	duality             *muzduality.Backend
 	dualityCooperation  *cooperate.Cooperation
 	dualityMBQI         bool
@@ -449,13 +451,25 @@ func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name strin
 	return getErr
 }
 
-// AddFact adds a ground predicate application as an unnamed rule.
+// AddFact stores a Datalog tuple directly; other engines receive a raw rule.
 func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {
 	if err := e.open(); err != nil {
 		return err
 	}
 	if e.predicates[declaration] == nil {
 		return ErrPropositionalHorn
+	}
+	if err := e.selectFactEngine(); err != nil {
+		return err
+	}
+	if e.backend == "datalog" {
+		e.datalogInstantiated = true
+		state := e.predicates[declaration]
+		fact, err := e.relations.EncodeFact(state.sorts, values)
+		if err != nil {
+			return err
+		}
+		return e.addDatalogFact(state, fact)
 	}
 	fact, err := e.manager.MkApp(declaration, values)
 	if err != nil {
@@ -464,8 +478,8 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 	return e.AddRule(fact, "")
 }
 
-// AddTableFact decodes native finite-table element numbers and adds the
-// corresponding ground predicate application.
+// AddTableFact inserts native finite-table elements directly for Datalog.
+// Other engines receive the corresponding decoded ground predicate rule.
 func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []uint32) (resultErr error) {
 	if err := e.open(); err != nil {
 		return err
@@ -477,6 +491,13 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 	fact := make(rel.Fact, len(values))
 	for i, value := range values {
 		fact[i] = rel.Element(value)
+	}
+	if err := e.selectFactEngine(); err != nil {
+		return err
+	}
+	if e.backend == "datalog" {
+		e.datalogInstantiated = true
+		return e.addDatalogFact(state, fact)
 	}
 	references, err := e.relations.DecodeFact(state.sorts, fact)
 	if err != nil {
@@ -688,7 +709,7 @@ func (e *PropositionalEngine) Pop() error {
 	if len(e.scopes) == 0 {
 		return fmt.Errorf("muz/fp: there are no backtracking points to pop to")
 	}
-	if (e.queried || e.pdr != nil || e.spacer != nil) && e.backend != "duality" {
+	if (e.queried || e.datalogInstantiated || e.pdr != nil || e.spacer != nil) && e.backend != "duality" {
 		return fmt.Errorf("muz/fp: pop operation is only supported by duality engine")
 	}
 	if len(e.assertionScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {

@@ -73,6 +73,9 @@ func (f *APIFixedpoint) SetParameters(parameters *ParameterSet) (resultErr error
 	if err = next.params.Append(&next.value, &parameters.value); err != nil {
 		return err
 	}
+	if err = f.command.SetFixedpointParameters(&next.value); err != nil {
+		return err
+	}
 	old := f.params
 	f.params, published = next, true
 	f.timeout, f.hasTimeout = timeout, hasTimeout

@@ -45,7 +45,10 @@ func TestDatalogSimilarityLiveQuery(t *testing.T) {
 	for i := uint64(0); i < 12; i++ {
 		value, e := m.MkDatalogNumeral(i, sort)
 		fragmentMust(t, e)
-		fragmentMust(t, engine.AddFact(pred, []ast.ASTHandle{value}))
+		// Similarity compresses ground rules, not directly inserted table tuples.
+		fact, e := m.MkApp(pred, []ast.ASTHandle{value})
+		fragmentMust(t, e)
+		fragmentMust(t, engine.AddRule(fact, ""))
 	}
 	goal := similarityTestGoal(t, engine, m, pred, sort)
 	status, e := engine.QueryPredicate(goal)
@@ -148,7 +151,9 @@ func TestDatalogSimilarityQueryParameterControls(t *testing.T) {
 			for i := uint64(0); i < 3; i++ {
 				v, e := m.MkDatalogNumeral(i, sort)
 				fragmentMust(t, e)
-				fragmentMust(t, engine.AddFact(pred, []ast.ASTHandle{v}))
+				fact, e := m.MkApp(pred, []ast.ASTHandle{v})
+				fragmentMust(t, e)
+				fragmentMust(t, engine.AddRule(fact, ""))
 			}
 			goal := similarityTestGoal(t, engine, m, pred, sort)
 			status, e := engine.QueryPredicate(goal)
@@ -180,7 +185,9 @@ func TestDatalogSimilarityKeepsQueriedOutputUnmerged(t *testing.T) {
 	for i := uint64(0); i < 12; i++ {
 		v, e := m.MkDatalogNumeral(i, sort)
 		fragmentMust(t, e)
-		fragmentMust(t, engine.AddFact(pred, []ast.ASTHandle{v}))
+		fact, e := m.MkApp(pred, []ast.ASTHandle{v})
+		fragmentMust(t, e)
+		fragmentMust(t, engine.AddRule(fact, ""))
 	}
 	status, e := engine.QueryPredicate(pred)
 	fragmentMust(t, e)

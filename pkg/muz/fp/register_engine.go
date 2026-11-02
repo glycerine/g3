@@ -36,6 +36,7 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 		}
 	}
 	e.backend = kind.String()
+	e.engineSelectionSet = true
 	return nil
 }
 
