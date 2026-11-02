@@ -212,3 +212,120 @@ func TestLegacyPartialSelectConstructionFailuresAndRetry(t *testing.T) {
 		})
 	}
 }
+
+func TestLegacyArraySelectAndFormulaConstructionFailures(t *testing.T) {
+	for _, kind := range []string{"selects", "formula"} {
+		t.Run(kind, func(t *testing.T) {
+			for _, count := range []int{8, 64} {
+				t.Run(fmt.Sprint(count), func(t *testing.T) {
+					success, failures := false, 0
+					for stop := int64(0); stop < 2048 && !success; stop++ {
+						t.Run(fmt.Sprint(stop), func(t *testing.T) {
+							f := newFMFixture(t)
+							m := f.r.manager
+							start := m.Stats().LiveReferences
+							p, err := newLegacyArrayProjection(m, f.r.config)
+							fmMust(t, err)
+							helperRefs := m.Stats().LiveReferences - start
+							sort := f.own(m.MkArraySort(ast.SliceArguments([]ast.ASTHandle{f.integer}), f.integer))
+							a := f.constant("project-many-selects", sort)
+							array := f.own(m.MkConstArray(sort, f.number("0")))
+							literals := make([]ast.ASTHandle, count)
+							for n := range literals {
+								num := f.number(fmt.Sprint(n))
+								array = f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpStore, nil, []ast.ASTHandle{array, num, num}))
+								selected := f.own(m.MkFamilyApp(p.syntax.family, ast.ASTArrayOpSelect, nil, []ast.ASTHandle{a, num}))
+								literals[n] = f.own(m.MkEq(selected, num))
+							}
+							formula := f.own(m.MkAndArray(literals))
+							expected := m.Stats().LiveReferences - helperRefs
+							md, err := model.NewModel(m)
+							fmMust(t, err)
+							decl, err := m.GetDecl(a)
+							fmMust(t, err)
+							fmMust(t, md.Core().RegisterConstant(decl, array))
+							t.Cleanup(func() {
+								fmMust(t, md.Close())
+								fmMust(t, p.Close())
+								if got := m.Stats().LiveReferences; got != expected {
+									t.Errorf("projection roots survived cleanup: got %d want %d", got, expected)
+								}
+							})
+							var selects *legacyArraySelectProjection
+							var projected *legacyArrayProjectionResult
+							run := func() error {
+								var cause error
+								if kind == "selects" {
+									selects, cause = p.projectSelects(md.Core(), []ast.ASTHandle{a}, formula)
+								} else {
+									projected, cause = p.projectFormula(md.Core(), []ast.ASTHandle{a}, formula, false)
+								}
+								return cause
+							}
+							m.Budget().FailAfter(stop)
+							cause := run()
+							m.Budget().FailAfter(-1)
+							if cause != nil {
+								if selects != nil || projected != nil {
+									t.Fatal("failed projection published result")
+								}
+								var cleanup memory.ConstructionFailure
+								if errors.As(cause, &cleanup) {
+									fmMust(t, cleanup.Cleanup())
+								}
+								var memout memory.Failure
+								if !errors.Is(cause, arena.ErrInjectedFailure) && (!errors.As(cause, &memout) || memout.Kind != memory.FailureMemout) {
+									t.Fatal(cause)
+								}
+								failures++
+								fmMust(t, run())
+							} else {
+								success = true
+							}
+							var root ast.ASTRef
+							var vars []ast.ASTRef
+							if kind == "selects" {
+								root, vars = selects.formula, selects.variables
+								defer func() { fmMust(t, selects.Close()) }()
+							} else {
+								root, vars = projected.formula, projected.variables
+								defer func() { fmMust(t, projected.Close()) }()
+							}
+							if len(vars) != count {
+								t.Fatal("model value class count", len(vars), count)
+							}
+							handle, err := m.RefGet(root)
+							fmMust(t, err)
+							contains, err := ast.NewContainsApp(m, a)
+							fmMust(t, err)
+							found, err := contains.Check(handle)
+							fmMust(t, err)
+							fmMust(t, contains.Close())
+							if found {
+								t.Fatal("projected array survives")
+							}
+							evaluator, err := newLegacyModelEvaluator(md.Core(), model.ModelEvaluatorConfig{Context: f.r.config.Context, Globals: f.r.config.Globals, Memory: m.NumeralService().RuntimeOwner(), Cooperation: f.r.config.Cooperation})
+							fmMust(t, err)
+							value, err := evaluator.EvaluateValue(handle)
+							fmMust(t, err)
+							actual, err := m.RefGet(value)
+							fmMust(t, err)
+							if !m.IsTrue(actual) {
+								t.Fatal("projected formula false in model")
+							}
+							fmMust(t, m.DelRef(&value))
+							fmMust(t, evaluator.Close())
+						})
+						if t.Failed() {
+							t.Fatal("projection construction frontier", stop)
+						}
+					}
+					if !success || failures == 0 {
+						t.Fatal("missing failure/success frontier", failures, success)
+					}
+					t.Log("first successful allowance", failures)
+				})
+			}
+		})
+	}
+}
