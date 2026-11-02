@@ -54,7 +54,36 @@ func (s *DerivationSearch) resetMappedFacts(children bool) error {
 	}
 	return nil
 }
+func onlyLearningRestartCauses(err error) bool {
+	if err == ErrCaseInterpolationReallyBad || err == ErrCaseInterpolationBad || err == ErrCoreNotUnsat {
+		return true
+	}
+	switch err.(type) {
+	case interp.Error, *interp.Error:
+		return true
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		causes := joined.Unwrap()
+		if len(causes) == 0 {
+			return false
+		}
+		for _, cause := range causes {
+			if !onlyLearningRestartCauses(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if wrapped := errors.Unwrap(err); wrapped != nil {
+		return onlyLearningRestartCauses(wrapped)
+	}
+	return false
+}
+
 func (s *DerivationSearch) learningFailure(err error) error {
+	if !onlyLearningRestartCauses(err) {
+		return err
+	}
 	if errors.Is(err, ErrCaseInterpolationReallyBad) {
 		if reset := s.resetMappedFacts(true); reset != nil {
 			return errors.Join(err, reset)

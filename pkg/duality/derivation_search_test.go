@@ -339,6 +339,13 @@ func TestDualitySlowSearchRestartPolicyAndFailureThresholds(t *testing.T) {
 	if controller.learningFailure(sentinel) != sentinel {
 		t.Fatal("unrelated failure was converted to restart")
 	}
+	for _, cause := range []error{ErrCaseInterpolationReallyBad, ErrCaseInterpolationBad, ErrCoreNotUnsat, interp.NewError("joined interpolation failure")} {
+		joined := errors.Join(cause, sentinel)
+		failure := controller.learningFailure(joined)
+		if !errors.Is(failure, sentinel) || errors.Is(failure, ErrDerivationRestart) {
+			t.Fatal("resource failure converted into restart", failure)
+		}
+	}
 	// Consecutive UNSAT rounds do not count as failures after backtracking.
 	controller.wasSAT = false
 	report.Reset()
