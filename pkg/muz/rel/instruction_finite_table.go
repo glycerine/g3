@@ -25,7 +25,10 @@ func setNonemptyFiniteRegister(context *ExecutionContext, index uint32, table Fi
 	// Empty sparse owners carry their concrete representation through later
 	// unions and stores. Hash empties preserve the established nil fast path.
 	if count == 0 {
-		if _, sparse := table.(*SparseTable); !sparse {
+		switch table.(type) {
+		case *SparseTable, *FiniteCheckedPair:
+			// Preserve concrete empty owners selected by the relation manager.
+		default:
 			if err = table.Close(); err != nil {
 				return err
 			}
@@ -43,10 +46,19 @@ func emptyFiniteLike(table FiniteTable) (FiniteTable, error) {
 	if sparse, ok := table.(*SparseTable); ok && signature.Len() != 0 {
 		return NewSparseTable(signature, sparse.functional)
 	}
+	if lazy, ok := table.(*LazySparseTable); ok {
+		return lazySparseInstructionResult(lazy, signature, lazy.root.functional)
+	}
+	if checked, ok := table.(*FiniteCheckedPair); ok {
+		return checked.EmptyLike()
+	}
 	return NewHashTable(signature), nil
 }
 
 func newFiniteJoinResult(signature Signature, functional int, first, second FiniteTable) (FiniteTable, error) {
+	if lazy, ok := first.(*LazySparseTable); ok {
+		return lazySparseInstructionResult(lazy, signature, functional)
+	}
 	if _, sparse := first.(*SparseTable); sparse && signature.Len() != 0 {
 		return NewSparseTable(signature, functional)
 	}
@@ -57,6 +69,9 @@ func newFiniteJoinResult(signature Signature, functional int, first, second Fini
 	}
 	if _, sparse := second.(*SparseTable); sparse && signature.Len() != 0 {
 		return NewSparseTable(signature, functional)
+	}
+	if lazy, ok := second.(*LazySparseTable); ok {
+		return lazySparseInstructionResult(lazy, signature, functional)
 	}
 	return NewHashTable(signature), nil
 }
@@ -69,6 +84,14 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 		}
 	case *SparseTable:
 		if b, ok := second.(*SparseTable); ok {
+			return a.Join(b, left, right)
+		}
+	case *LazySparseTable:
+		if b, ok := second.(*LazySparseTable); ok {
+			return a.Join(b, left, right)
+		}
+	case *FiniteCheckedPair:
+		if b, ok := second.(*FiniteCheckedPair); ok {
 			return a.Join(b, left, right)
 		}
 	}
@@ -86,9 +109,13 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 	firstFunctional, secondFunctional := 0, 0
 	if sparse, ok := first.(*SparseTable); ok {
 		firstFunctional = sparse.functional
+	} else if lazy, ok := first.(*LazySparseTable); ok {
+		firstFunctional = lazy.root.functional
 	}
 	if sparse, ok := second.(*SparseTable); ok {
 		secondFunctional = sparse.functional
+	} else if lazy, ok := second.(*LazySparseTable); ok {
+		secondFunctional = lazy.root.functional
 	}
 	firstDomains, secondDomains := firstSignature.Domains(), secondSignature.Domains()
 	firstBoundary := len(firstDomains) - firstFunctional
@@ -138,6 +165,12 @@ func finiteTableJoin(first, second FiniteTable, left, right []int) (FiniteTable,
 }
 
 func finiteTableProject(source FiniteTable, removed []int) (FiniteTable, error) {
+	if lazy, ok := source.(*LazySparseTable); ok {
+		return lazy.Project(removed)
+	}
+	if checked, ok := source.(*FiniteCheckedPair); ok {
+		return checked.Project(removed)
+	}
 	signature, err := source.Signature()
 	if err != nil {
 		return nil, err
@@ -199,6 +232,14 @@ func finiteTableJoinProject(first, second FiniteTable, left, right, removed []in
 				return a.JoinProject(b, left, right, removed)
 			}
 		}
+	case *LazySparseTable:
+		if b, ok := second.(*LazySparseTable); ok {
+			return lazySparseInstructionJoinProject(a, b, left, right, removed)
+		}
+	case *FiniteCheckedPair:
+		if b, ok := second.(*FiniteCheckedPair); ok {
+			return a.JoinProject(b, left, right, removed)
+		}
 	}
 	joined, err := finiteTableJoin(first, second, left, right)
 	if err != nil {
@@ -221,6 +262,10 @@ func finiteTableRename(source FiniteTable, cycle []int) (FiniteTable, error) {
 		return table.RenameCycle(cycle)
 	case *SparseTable:
 		return table.Rename(cycle)
+	case *LazySparseTable:
+		return table.RenameCycle(cycle)
+	case *FiniteCheckedPair:
+		return table.RenameCycle(cycle)
 	default:
 		return nil, ErrCompilerUnsupported
 	}
@@ -231,6 +276,10 @@ func finiteTableFilterEqual(table FiniteTable, value Element, column int) error 
 	case *HashTable:
 		return concrete.FilterEqual(value, column)
 	case *SparseTable:
+		return concrete.FilterEqual(value, column)
+	case *LazySparseTable:
+		return concrete.FilterEqual(value, column)
+	case *FiniteCheckedPair:
 		return concrete.FilterEqual(value, column)
 	default:
 		return ErrCompilerUnsupported
@@ -243,6 +292,10 @@ func finiteTableFilterIdentical(table FiniteTable, columns []int) error {
 		return concrete.FilterIdentical(columns)
 	case *SparseTable:
 		return concrete.FilterIdentical(columns)
+	case *LazySparseTable:
+		return concrete.FilterIdentical(columns)
+	case *FiniteCheckedPair:
+		return concrete.FilterIdentical(columns)
 	default:
 		return ErrCompilerUnsupported
 	}
@@ -252,6 +305,12 @@ func finiteTableSelectProject(table FiniteTable, value Element, column int) (Fin
 	signature, err := table.Signature()
 	if err != nil || column < 0 || column >= signature.Len() {
 		return nil, ErrTable
+	}
+	if concrete, ok := table.(*LazySparseTable); ok {
+		return lazySparseInstructionSelectProject(concrete, value, column)
+	}
+	if concrete, ok := table.(*FiniteCheckedPair); ok {
+		return concrete.SelectEqualAndProject(value, column)
 	}
 	if signature.Len() == 1 {
 		clone, err := table.CloneFinite()
@@ -317,6 +376,26 @@ func finiteTableUnion(target, source, delta FiniteTable) error {
 			}
 		}
 	}
+	if a, ok := target.(*LazySparseTable); ok {
+		if b, same := source.(*LazySparseTable); same {
+			if delta == nil {
+				return a.UnionFrom(b, nil)
+			}
+			if d, sameDelta := delta.(*LazySparseTable); sameDelta {
+				return a.UnionFrom(b, d)
+			}
+		}
+	}
+	if a, ok := target.(*FiniteCheckedPair); ok {
+		if b, same := source.(*FiniteCheckedPair); same {
+			if delta == nil {
+				return a.UnionFrom(b, nil)
+			}
+			if d, sameDelta := delta.(*FiniteCheckedPair); sameDelta {
+				return a.UnionFrom(b, d)
+			}
+		}
+	}
 	facts, err := source.Facts()
 	if err != nil {
 		return err
@@ -344,6 +423,16 @@ func finiteTableFilterNegation(target, negative FiniteTable, targetColumns, nega
 	if a, ok := target.(*SparseTable); ok {
 		if b, same := negative.(*SparseTable); same {
 			return a.FilterNegation(b, targetColumns, negativeColumns)
+		}
+	}
+	if a, ok := target.(*LazySparseTable); ok {
+		if b, same := negative.(*LazySparseTable); same {
+			return a.FilterByNegation(b, targetColumns, negativeColumns)
+		}
+	}
+	if a, ok := target.(*FiniteCheckedPair); ok {
+		if b, same := negative.(*FiniteCheckedPair); same {
+			return a.FilterByNegation(b, targetColumns, negativeColumns)
 		}
 	}
 	targetSignature, err := target.Signature()

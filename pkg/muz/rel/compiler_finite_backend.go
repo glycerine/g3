@@ -10,7 +10,7 @@ func (m *RelationManager) SupportsCompiledFiniteTables() error {
 	}
 	for _, table := range m.finite {
 		switch table.(type) {
-		case *SparseTable:
+		case *SparseTable, *LazySparseTable, *FiniteCheckedPair:
 			// Supported alongside the HashTable owners stored in m.relations.
 		default:
 			return ErrCompilerUnsupported

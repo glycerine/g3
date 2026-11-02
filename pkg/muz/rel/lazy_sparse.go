@@ -8,26 +8,34 @@ import "errors"
 var ErrLazySparse = errors.New("muz/rel: invalid lazy sparse table operation")
 
 type LazySparseStatistics struct {
-	Forces, Joins, JoinProjects, Projects uint32
+	Forces, Joins, JoinProjects, Projects   uint32
+	EqualFilters, IdenticalFilters          uint32
+	InterpretedFilters, NegationFilters     uint32
+	SelectEqualProject, InterpretedProjects uint32
 }
 
 type lazySparseNode struct {
-	kind       LazyTableKind
-	references uint32
-	signature  Signature
-	functional int
-	evaluated  *SparseTable
-	nullary    *HashTable
-	left       *lazySparseNode
-	right      *lazySparseNode
-	columns1   []int
-	columns2   []int
+	kind        LazyTableKind
+	references  uint32
+	signature   Signature
+	functional  int
+	evaluated   *SparseTable
+	nullary     *HashTable
+	left        *lazySparseNode
+	right       *lazySparseNode
+	columns1    []int
+	columns2    []int
+	value       Element
+	column      int
+	interpreted *lazySparseInterpretedFilter
+	retryForce  bool
 }
 
 type LazySparseEngine struct {
-	stats   LazySparseStatistics
-	closed  bool
-	handles []*LazySparseTable
+	stats      LazySparseStatistics
+	closed     bool
+	handles    []*LazySparseTable
+	conditions []*lazySparseConditionOwner
 }
 
 type LazySparseTable struct {
@@ -96,6 +104,13 @@ func releaseLazySparseNode(node *lazySparseNode) error {
 		}
 		node.left = nil
 	}
+	if node.interpreted != nil && node.interpreted.owner != nil {
+		complete, err := node.interpreted.owner.release()
+		if !complete || err != nil {
+			return err
+		}
+		node.interpreted.owner = nil
+	}
 	if node.evaluated != nil {
 		if err := node.evaluated.Close(); err != nil {
 			return err
@@ -147,12 +162,20 @@ func (e *LazySparseEngine) Close() (result error) {
 			return result
 		}
 	}
+	for len(e.conditions) != 0 {
+		owner := e.conditions[len(e.conditions)-1]
+		complete, err := owner.release()
+		result = errors.Join(result, err)
+		if !complete || err != nil {
+			return result
+		}
+	}
 	e.closed = true
 	return result
 }
 
 func (t *LazySparseTable) Forced() bool {
-	return t.open() == nil && (t.root.evaluated != nil || t.root.nullary != nil)
+	return t.open() == nil && ((t.root.evaluated != nil && !t.root.retryForce) || t.root.nullary != nil)
 }
 
 func (t *LazySparseTable) Add(fact Fact) (bool, error) {

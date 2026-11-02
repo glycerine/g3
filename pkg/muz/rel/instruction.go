@@ -390,6 +390,13 @@ func finiteTableSizeEstimates(table FiniteTable) (uint32, uint32, error) {
 		}
 		bytes, err := value.SizeEstimateBytes()
 		return rows, bytes, err
+	case *FiniteCheckedPair:
+		rows, err := value.SizeEstimateRows()
+		if err != nil {
+			return 0, 0, err
+		}
+		bytes, err := value.SizeEstimateBytes()
+		return rows, bytes, err
 	case *SparseTable:
 		rows, err := value.SizeEstimateRows()
 		if err != nil {

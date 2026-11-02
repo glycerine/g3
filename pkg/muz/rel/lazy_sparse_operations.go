@@ -57,7 +57,7 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 	if err := e.open(); err != nil || node == nil {
 		return nil, ErrLazySparse
 	}
-	if node.evaluated != nil {
+	if node.evaluated != nil && !node.retryForce {
 		return node.evaluated, nil
 	}
 	e.stats.Forces++
@@ -92,6 +92,16 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 			}
 			e.stats.JoinProjects++
 			result, err = left.JoinProject(right, join.columns1, join.columns2, node.columns1)
+		} else if node.left != nil && node.left.kind == LazyTableFilterEqual && len(node.columns1) == 1 && node.columns1[0] == node.left.column {
+			result, err = evalLazySparseEqualProject(e, node.left)
+			if err == nil {
+				e.stats.SelectEqualProject++
+			}
+		} else if node.left != nil && node.left.kind == LazyTableFilterInterpreted {
+			result, err = evalLazySparseInterpretedProject(e, node.left, node.columns1)
+			if err == nil {
+				e.stats.InterpretedProjects++
+			}
 		} else {
 			source, sourceErr := e.eval(node.left)
 			if sourceErr != nil {
@@ -100,6 +110,32 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 			e.stats.Projects++
 			result, err = source.Project(node.columns1)
 		}
+	case LazyTableRename:
+		source, sourceErr := e.eval(node.left)
+		if sourceErr != nil {
+			return nil, sourceErr
+		}
+		result, err = source.Rename(node.columns1)
+	case LazyTableFilterEqual:
+		result, err = evalLazySparseEqual(e, node)
+		if err == nil {
+			e.stats.EqualFilters++
+		}
+	case LazyTableFilterIdentical:
+		result, err = evalLazySparseIdentical(e, node)
+		if err == nil {
+			e.stats.IdenticalFilters++
+		}
+	case LazyTableFilterInterpreted:
+		result, err = evalLazySparseInterpreted(e, node)
+		if err == nil {
+			e.stats.InterpretedFilters++
+		}
+	case LazyTableFilterByNegation:
+		result, err = evalLazySparseNegation(e, node)
+		if err == nil {
+			e.stats.NegationFilters++
+		}
 	default:
 		return nil, ErrLazySparse
 	}
@@ -107,6 +143,7 @@ func (e *LazySparseEngine) eval(node *lazySparseNode) (*SparseTable, error) {
 		return nil, err
 	}
 	node.evaluated = result
+	node.retryForce = false
 	return result, nil
 }
 
@@ -234,6 +271,31 @@ func (e *LazySparseEngine) evalFiniteNode(node *lazySparseNode) (FiniteTable, er
 			nonempty = length != 0
 			e.stats.Projects++
 		}
+	case LazyTableRename:
+		source, err := e.evalFiniteNode(node.left)
+		if err != nil {
+			return nil, err
+		}
+		length, err := source.Len()
+		if err != nil {
+			return nil, err
+		}
+		nonempty = length != 0
+	case LazyTableFilterIdentical, LazyTableFilterInterpreted, LazyTableFilterByNegation:
+		result, err := evalLazySparseNullaryFilter(e, node)
+		if err != nil {
+			return nil, err
+		}
+		node.nullary = result
+		switch node.kind {
+		case LazyTableFilterIdentical:
+			e.stats.IdenticalFilters++
+		case LazyTableFilterInterpreted:
+			e.stats.InterpretedFilters++
+		case LazyTableFilterByNegation:
+			e.stats.NegationFilters++
+		}
+		return result, nil
 	default:
 		return nil, ErrLazySparse
 	}

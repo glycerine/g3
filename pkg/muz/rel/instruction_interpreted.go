@@ -158,7 +158,8 @@ func (i *interpretedFilterInstruction) Perform(context *ExecutionContext) (bool,
 		}
 	}
 	if len(kept) == 0 {
-		if _, sparse := table.(*SparseTable); sparse {
+		switch table.(type) {
+		case *SparseTable, *FiniteCheckedPair:
 			return true, nil
 		}
 		return true, context.MakeEmpty(i.register)
