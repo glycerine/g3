@@ -341,7 +341,7 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 							if !found {
 								return out, ErrWrapperOwner
 							}
-							lemma, err = g.proveQuantifiedHornLiteral(sourceGraph, currentIndex, atom, &refs)
+							lemma, err = g.proveQuantifiedHornLiteral(factory, sourceGraph, currentIndex, atom, &refs)
 							if err != nil {
 								return out, err
 							}

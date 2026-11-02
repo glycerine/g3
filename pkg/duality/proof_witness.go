@@ -19,6 +19,7 @@ var ErrProofWitness = errors.New("duality: original rule witness reconstruction 
 type proofWitnessCall struct {
 	manager      *ast.ASTManager
 	refs         []ast.ASTRef
+	handles      []ast.ASTHandle
 	substitution *rewriter.VarSubstitution
 	native       solver.Solver
 	model        *model.ModelCore
@@ -63,11 +64,29 @@ func (c *proofWitnessCall) close() error {
 		}
 		c.substitution = nil
 	}
+	if err := c.closeHandles(); err != nil {
+		return err
+	}
 	for len(c.refs) > 0 {
 		i := len(c.refs) - 1
 		err := c.manager.DelRef(&c.refs[i])
 		if c.refs[i] == (ast.ASTRef{}) {
 			c.refs = c.refs[:i]
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c *proofWitnessCall) closeHandles() error {
+	for len(c.handles) > 0 {
+		i := len(c.handles) - 1
+		consumed, err := c.manager.DecRefConsumed(c.handles[i])
+		if consumed {
+			c.handles[i] = ast.ASTHandle{}
+			c.handles = c.handles[:i]
 		}
 		if err != nil {
 			return err

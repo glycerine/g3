@@ -1,13 +1,20 @@
 package duality
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+	"github.com/glycerine/g3/pkg/ast/proofs"
+	"github.com/glycerine/g3/pkg/solver"
+	"github.com/glycerine/g3/pkg/util/lbool"
+)
 
 // proveQuantifiedHornLiteral derives the abstraction wrapper
 // (= (forall (...) P(...)) true) from one transformed universally quantified
 // Horn definition. It never invents an assertion: the hyper-resolution parent
 // is the exact transformed source clause and all residual theory antecedents
 // remain independently checked side conditions.
-func (g *RPFP) proveQuantifiedHornLiteral(source *RPFP, current int, target ast.ASTHandle, refs *[]ast.ASTRef) (ast.ASTRef, error) {
+func (g *RPFP) proveQuantifiedHornLiteral(factory solver.Factory, source *RPFP, current int, target ast.ASTHandle, refs *[]ast.ASTRef) (ast.ASTRef, error) {
 	m := g.context.manager
 	family, err := m.GetFamilyID(target)
 	if err != nil {
@@ -50,7 +57,6 @@ func (g *RPFP) proveQuantifiedHornLiteral(source *RPFP, current int, target ast.
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	var definition ast.ASTHandle
 	for i, ref := range source.sourceClauses {
 		if i == current {
 			continue
@@ -94,16 +100,30 @@ func (g *RPFP) proveQuantifiedHornLiteral(source *RPFP, current int, target ast.
 					return ast.ASTRef{}, err
 				}
 				if supported {
-					definition = formula
-					break
+					candidate, err := g.proveQuantifiedHornDefinition(factory, formula, left, target, targetBody, refs)
+					if err != nil {
+						return ast.ASTRef{}, err
+					}
+					if candidate != (ast.ASTRef{}) {
+						return candidate, nil
+					}
 				}
 			}
 			continue
 		}
 	}
-	if definition.IsNull() {
-		return ast.ASTRef{}, nil
-	}
+	return ast.ASTRef{}, nil
+}
+
+func (g *RPFP) proveQuantifiedHornDefinition(factory solver.Factory, definition, quantified, target, targetBody ast.ASTHandle, refs *[]ast.ASTRef) (out ast.ASTRef, result error) {
+	m := g.context.manager
+	call := &proofWitnessCall{manager: m}
+	defer func() {
+		if err := call.close(); err != nil {
+			g.pendingProofWitnesses = append(g.pendingProofWitnesses, call)
+			result = errors.Join(result, err)
+		}
+	}()
 	definitionBody, err := m.GetQuantifierBody(definition)
 	if err != nil {
 		return ast.ASTRef{}, err
@@ -247,9 +267,9 @@ func (g *RPFP) proveQuantifiedHornLiteral(source *RPFP, current int, target ast.
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	*refs = append(*refs, definitionRef)
+	call.refs = append(call.refs, definitionRef)
 	quantifiedProof, err := m.MkProofHyperResolve(
-		[]ast.ASTHandle{definitionProof}, left, nil,
+		[]ast.ASTHandle{definitionProof}, quantified, nil,
 		[][]ast.ASTHandle{substitution},
 	)
 	if err != nil {
@@ -259,7 +279,7 @@ func (g *RPFP) proveQuantifiedHornLiteral(source *RPFP, current int, target ast.
 	if err != nil {
 		return ast.ASTRef{}, err
 	}
-	*refs = append(*refs, quantifiedRef)
+	call.refs = append(call.refs, quantifiedRef)
 	wrapperProof, err := m.MkProofIffTrue(quantifiedProof)
 	if err != nil {
 		return ast.ASTRef{}, err
@@ -271,7 +291,73 @@ func (g *RPFP) proveQuantifiedHornLiteral(source *RPFP, current int, target ast.
 	if wrapperFact != target {
 		return ast.ASTRef{}, nil
 	}
-	return m.NewRef(wrapperProof)
+	wrapperRef, err := m.NewRef(wrapperProof)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	call.refs = append(call.refs, wrapperRef)
+	valid, err := g.validQuantifiedDefinitionProof(factory, wrapperProof, call)
+	if err != nil {
+		return ast.ASTRef{}, err
+	}
+	if !valid {
+		return ast.ASTRef{}, nil
+	}
+	if err := call.native.Close(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	call.native = nil
+	if err := call.closeHandles(); err != nil {
+		return ast.ASTRef{}, err
+	}
+	*refs = append(*refs, call.refs[0], call.refs[1])
+	out = call.refs[2]
+	call.refs = nil
+	return out, nil
+}
+
+func (g *RPFP) validQuantifiedDefinitionProof(factory solver.Factory, proof ast.ASTHandle, call *proofWitnessCall) (valid bool, result error) {
+	m := g.context.manager
+	checker, err := proofs.NewChecker(m)
+	if err != nil {
+		return false, err
+	}
+	valid, side, err := checker.Check(proof)
+	call.handles = append(call.handles, side...)
+	if err != nil || !valid {
+		return false, err
+	}
+	closed, err := proofs.IsClosed(m, proof)
+	if err != nil || !closed {
+		return false, err
+	}
+	call.native, err = factory.New(m, nil, false, false, false, "")
+	if err != nil {
+		return false, err
+	}
+	for _, condition := range side {
+		if err := call.native.Push(); err != nil {
+			return false, err
+		}
+		negated, err := m.MkNot(condition)
+		if err != nil {
+			return false, err
+		}
+		if err := call.native.Assert(negated); err != nil {
+			return false, err
+		}
+		status, err := call.native.CheckSat(nil)
+		if err != nil {
+			return false, err
+		}
+		if err := call.native.Pop(1); err != nil {
+			return false, err
+		}
+		if status != lbool.False {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 // structuralQuantifiedDefinition bounds the specialized constructor to the
