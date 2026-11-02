@@ -1,7 +1,7 @@
 package fp
 
 // Source: muz/base/dl_context.cpp display_smt2 and fixedpoint-local print
-// parameters. This entry currently consumes the eagerly normalized Go program.
+// parameters and pending closed input formulas.
 
 import (
 	"errors"
@@ -59,7 +59,7 @@ func (e *PropositionalEngine) contextSMT2Config(queries []ast.ASTHandle, local *
 // WriteContextSMT2 emits source print profiles without changing query options
 // or invalidating a published result. Local parameters, when given, override
 // engine/module print settings for this invocation only.
-func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTHandle, local *uparams.ParamsRef) error {
+func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTHandle, local *uparams.ParamsRef) (resultErr error) {
 	if err := e.open(); err != nil {
 		return err
 	}
@@ -70,5 +70,60 @@ func (e *PropositionalEngine) WriteContextSMT2(out io.Writer, queries []ast.ASTH
 	if err != nil {
 		return err
 	}
-	return e.set.WriteContextSMT2(out, config)
+	count, err := e.set.Len()
+	if err != nil {
+		return err
+	}
+	omit := make([]bool, count)
+	for _, raw := range e.rawRules {
+		if !raw.pending {
+			continue
+		}
+		h, err := e.manager.RefGet(raw.formula)
+		if err != nil {
+			return err
+		}
+		free, err := e.manager.HasFreeVars(h)
+		if err != nil {
+			return err
+		}
+		// Source normalizes open formulas even during display. Closed inputs
+		// stay in the pending list, preserving binders and annotations.
+		if free {
+			continue
+		}
+		if raw.first < 0 || raw.end > count || raw.first > raw.end {
+			return ErrPropositionalEngine
+		}
+		for i := raw.first; i < raw.end; i++ {
+			omit[i] = true
+		}
+		config.PendingRules = append(config.PendingRules, h)
+		config.PendingNames = append(config.PendingNames, raw.name)
+	}
+	if len(config.PendingRules) == 0 {
+		return e.set.WriteContextSMT2(out, config)
+	}
+	snapshot, err := base.NewRuleSet(e.rules)
+	if err != nil {
+		return err
+	}
+	defer func() { resultErr = errors.Join(resultErr, snapshot.Close()) }()
+	if err = snapshot.InheritPredicates(e.set); err != nil {
+		return err
+	}
+	for i := 0; i < count; i++ {
+		if omit[i] {
+			continue
+		}
+		rule, err := e.set.Rule(i)
+		if err != nil {
+			return err
+		}
+		err = errors.Join(snapshot.Add(rule), rule.Close())
+		if err != nil {
+			return err
+		}
+	}
+	return snapshot.WriteContextSMT2(out, config)
 }

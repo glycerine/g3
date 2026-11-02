@@ -19,6 +19,10 @@ type ContextSMT2Config struct {
 	DeclareVariables     bool
 	Background           []ast.ASTHandle
 	Queries              []ast.ASTHandle
+	// PendingRules are closed source input formulas not yet flushed into the
+	// rule set. PendingNames has one name per borrowed formula.
+	PendingRules []ast.ASTHandle
+	PendingNames []string
 }
 
 func DefaultContextSMT2Config() ContextSMT2Config {
@@ -26,7 +30,7 @@ func DefaultContextSMT2Config() ContextSMT2Config {
 }
 
 // WriteContextSMT2 dumps finalized rules with the source output-query and
-// printing policies. Pending raw context formulas must be flushed by the caller.
+// printing policies, followed by any borrowed pending closed input formulas.
 func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (resultErr error) {
 	if out == nil {
 		return io.ErrClosedPipe
@@ -47,6 +51,17 @@ func (s *RuleSet) WriteContextSMT2(out io.Writer, config ContextSMT2Config) (res
 	}()
 	if err := s.AppendDisplayFormulas(&rules, &queries, &names); err != nil {
 		return err
+	}
+	if len(config.PendingRules) != len(config.PendingNames) {
+		return errors.New("muz/base: pending rule/name count mismatch")
+	}
+	for i, h := range config.PendingRules {
+		r, err := m.NewRef(h)
+		if err != nil {
+			return err
+		}
+		rules = append(rules, r)
+		names = append(names, config.PendingNames[i])
 	}
 	for _, h := range config.Queries {
 		r, err := m.NewRef(h)

@@ -429,6 +429,10 @@ func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name strin
 			return err
 		}
 	}
+	first, err := e.set.Len()
+	if err != nil {
+		return err
+	}
 	bound, err := e.binder.Bind(formula, true)
 	if err != nil {
 		return err
@@ -437,10 +441,14 @@ func (e *PropositionalEngine) AddRuleWithBound(formula ast.ASTHandle, name strin
 	if getErr == nil {
 		getErr = e.addFormula(e.set, boundFormula, name)
 	}
+	end := first
+	if getErr == nil {
+		end, getErr = e.set.Len()
+	}
 	added := getErr == nil
 	getErr = errors.Join(getErr, e.manager.DelRef(&bound))
 	if added {
-		e.rawRules = append(e.rawRules, rawRuleFormula{original, name, recursionBound})
+		e.rawRules = append(e.rawRules, rawRuleFormula{formula: original, name: name, bound: recursionBound, pending: true, first: first, end: end})
 		keepOriginal = true
 		e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 		e.advanceRuleRevision()
@@ -614,6 +622,17 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	}
 	if err = replacement.InheritPredicates(e.set); err != nil {
 		return err
+	}
+	if oldIndex >= 0 {
+		for i := range e.rawRules {
+			r := &e.rawRules[i]
+			if r.first > oldIndex {
+				r.first--
+			}
+			if r.end > oldIndex {
+				r.end--
+			}
+		}
 	}
 	prior := e.set
 	e.set = replacement
@@ -1724,6 +1743,9 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		return lbool.Undef, ErrPropositionalHorn
 	}
 	e.queried = true
+	if e.backend != "duality" {
+		e.flushRawDisplayRules()
+	}
 	if e.backend == "duality" {
 		e.compiled = false
 		return e.queryRelationExpression(declaration)
@@ -1789,6 +1811,7 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 		return e.QueryPredicate(declarations[0])
 	}
 	e.queried = true
+	e.flushRawDisplayRules()
 	return e.queryDatalogPredicates(declarations)
 }
 
@@ -1896,6 +1919,7 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 		return lbool.Undef, ErrPropositionalEngine
 	}
 	e.queried = true
+	e.flushRawDisplayRules()
 	e.compiled = false
 	return e.querySpacerFromLevel(declaration, level)
 }

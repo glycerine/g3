@@ -12,6 +12,10 @@ type rawRuleFormula struct {
 	formula ast.ASTRef
 	name    string
 	bound   uint32
+	pending bool
+	// Half-open origin range in the eager rule set, meaningful only while pending.
+	// Query flush precedes transforms; UpdateRule adjusts ranges before removal.
+	first, end int
 }
 
 // RawRules returns owning, universally bound input formulas in insertion order,
@@ -59,7 +63,8 @@ func (e *PropositionalEngine) copyRawRules() (out []rawRuleFormula, result error
 		if err != nil {
 			return nil, err
 		}
-		acquired = append(acquired, rawRuleFormula{copy, rule.name, rule.bound})
+		rule.formula = copy
+		acquired = append(acquired, rule)
 	}
 	return acquired, nil
 }
@@ -75,7 +80,7 @@ func (e *PropositionalEngine) replaceRawRule(name string, reference ast.ASTRef, 
 			kept = append(kept, rule)
 		}
 	}
-	e.rawRules = append(kept, rawRuleFormula{reference, name, bound})
+	e.rawRules = append(kept, rawRuleFormula{formula: reference, name: name, bound: bound})
 	return e.cleanupRetiredRawRules()
 }
 
@@ -91,4 +96,12 @@ func (e *PropositionalEngine) cleanupRetiredRawRules() error {
 		}
 	}
 	return nil
+}
+
+// flushRawDisplayRules records the source flush boundary; normalization itself
+// is eager in the Go engine. The original archive remains available to Duality.
+func (e *PropositionalEngine) flushRawDisplayRules() {
+	for i := range e.rawRules {
+		e.rawRules[i].pending = false
+	}
 }

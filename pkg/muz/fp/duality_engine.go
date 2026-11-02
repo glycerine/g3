@@ -81,6 +81,7 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	}
 	var prepared *duality.PreparedQuery
 	if quantifyArrays {
+		e.flushRawDisplayRules()
 		prepared, err = e.prepareDualityTransformedQuery(query, bound)
 		if err != nil {
 			return lbool.Undef, err
