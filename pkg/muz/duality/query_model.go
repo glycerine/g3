@@ -13,7 +13,10 @@ func (e *QueryEngine) GetModel() (*model.Model, error) {
 	if err := e.open(); err != nil {
 		return nil, err
 	}
-	if e.active == nil || e.status == lbool.Undef {
+	// Source display_certificate publishes annotations only for StatusModel.
+	// A refutation owns a counterexample/proof instead; its working graph
+	// annotations are not an inductive fixedpoint model.
+	if e.active == nil || e.status != lbool.False {
 		return nil, graph.ErrWrapperOwner
 	}
 	return e.active.graph.AnnotationModel()

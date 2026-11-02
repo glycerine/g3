@@ -10,6 +10,7 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/cmd_context"
+	graph "github.com/glycerine/g3/pkg/duality"
 	"github.com/glycerine/g3/pkg/muz/duality"
 	"github.com/glycerine/g3/pkg/util/lbool"
 )
@@ -105,5 +106,26 @@ func TestDualitySafeCertificateModelAndWriterRetry(t *testing.T) {
 	must(backend.WriteCertificate(&output, owner.WriteExpression))
 	if !strings.Contains(output.String(), "safe-certificate-P") {
 		t.Fatal("safe certificate retry", output.String())
+	}
+
+	reachable, err := duality.PrepareQuery(m, []ast.ASTHandle{fact}, []uint32{math.MaxUint32}, fact, []ast.ASTHandle{predicate}, math.MaxUint32)
+	must(err)
+	status, err = backend.Query(reachable)
+	must(err)
+	must(reachable.Close())
+	if status != lbool.True {
+		t.Fatal("reachable query", status)
+	}
+	if md, err := backend.GetModel(); md != nil || !errors.Is(err, graph.ErrWrapperOwner) {
+		t.Fatal("counterexample graph annotations escaped as an inductive model", md, err)
+	}
+	proof, err := backend.GetProof()
+	must(err)
+	defer func() { must(m.DelRef(&proof)) }()
+	validateDualityProof(t, m, config, proof)
+	output.Reset()
+	must(backend.WriteCertificate(&output, owner.WriteExpression))
+	if !strings.HasPrefix(output.String(), "(derivation\n") || !strings.Contains(output.String(), "(model \n\"") {
+		t.Fatal("reachable certificate", output.String())
 	}
 }
