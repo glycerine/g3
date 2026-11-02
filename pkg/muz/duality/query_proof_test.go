@@ -336,6 +336,71 @@ func TestDualityBackgroundProofExplicitConjunctPremises(t *testing.T) {
 		}
 	}()
 	validateDualityProof(t, m, config, proof)
+	jn, err := m.Symbols.Intern("background-proof-j")
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := pin(m.MkConst(jn, integer))
+	jk := pin(m.MkEq(j, k))
+	jSeven := pin(m.MkEq(j, seven))
+	derivedRule := pin(m.MkImplies(jSeven, goal))
+	derivedBackground := pin(m.MkAnd(equality, jk))
+	derived, err := duality.PrepareQuery(m, []ast.ASTHandle{derivedRule}, []uint32{math.MaxUint32}, goal, []ast.ASTHandle{gd}, math.MaxUint32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer derived.Close()
+	if err := derived.AddBackground(derivedBackground); err != nil {
+		t.Fatal(err)
+	}
+	status, err = backend.Query(derived)
+	if err != nil || status != lbool.True {
+		t.Fatal(status, err)
+	}
+	derivedProof, err := backend.GetProof()
+	if err != nil {
+		t.Fatal("transitive background proof", err)
+	}
+	defer func() {
+		if err := m.DelRef(&derivedProof); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	validateDualityProof(t, m, config, derivedProof)
+	baseline := m.Stats().LiveReferences
+	completed := false
+	for fault := int64(0); fault < 2048; fault++ {
+		m.Budget().FailAfter(fault)
+		trial, failure := backend.GetProof()
+		m.Budget().FailAfter(-1)
+		if failure == nil {
+			if err := m.DelRef(&trial); err != nil {
+				t.Fatal(err)
+			}
+			completed = true
+		} else {
+			if trial != (ast.ASTRef{}) {
+				t.Fatal("partial background proof", fault, failure)
+			}
+			retry, err := backend.GetProof()
+			if err != nil {
+				t.Fatal("background proof retry", fault, err)
+			}
+			if err := m.DelRef(&retry); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := m.Stats().LiveReferences; got != baseline {
+			t.Fatal("background proof references", fault, got, baseline)
+		}
+		if completed {
+			break
+		}
+	}
+	if !completed {
+		t.Fatal("background proof allocation sweep never succeeded")
+	}
+
 	unrelated, err := duality.PrepareQuery(m, []ast.ASTHandle{rule}, []uint32{math.MaxUint32}, goal, []ast.ASTHandle{gd}, math.MaxUint32)
 	if err != nil {
 		t.Fatal(err)

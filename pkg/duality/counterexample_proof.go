@@ -257,7 +257,29 @@ func (g *RPFP) extractCounterexampleProof(node *Node, active map[*Node]bool, fac
 					}
 				}
 			}
+			predicatePositions := make(map[uint32]bool)
+			for _, group := range positions {
+				for _, position := range group {
+					predicatePositions[position] = true
+				}
+			}
 			for i, atom := range atoms {
+				if !predicatePositions[uint32(i+1)] {
+					if _, found := backgroundProofs[atom]; !found {
+						lemma, err := g.proveBackgroundLiteral(factory, background, atom)
+						if err != nil {
+							return out, err
+						}
+						if lemma != (ast.ASTRef{}) {
+							refs = append(refs, lemma)
+							h, err := m.RefGet(lemma)
+							if err != nil {
+								return out, err
+							}
+							backgroundProofs[atom] = h
+						}
+					}
+				}
 				if proof, ok := backgroundProofs[atom]; ok {
 					premises = append(premises, proof)
 					substitutions = append(substitutions, nil)
