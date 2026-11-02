@@ -163,6 +163,85 @@ func TestSMT2DualityArrayValuedOutputQuantification(t *testing.T) {
 	}
 }
 
+func TestSMT2DualityQuantifiedArraySafeModelCertificate(t *testing.T) {
+	t.Run("safe-model", func(t *testing.T) {
+		context, err := cmd_context.NewStandaloneContext()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := context.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		context.PrintSuccess = false
+		var output bytes.Buffer
+		script := `(set-option :fixedpoint.engine duality)
+(set-option :fixedpoint.xform.quantify_arrays true)
+(declare-rel P ((Array Int Int)))
+(declare-rel Missing ())
+(declare-var a (Array Int Int))
+(rule (=> (= (select a 0) 7) (P a)))
+(query Missing :print-answer false :print-certificate true)
+`
+		if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(output.String(), "unsat\n(fixedpoint \n") || !strings.Contains(output.String(), "define-fun query!") {
+			t.Fatal("quantified-array safety certificate", output.String())
+		}
+		m, err := context.Manager()
+		if err != nil {
+			t.Fatal(err)
+		}
+		boolean, err := m.MkBoolSort()
+		if err != nil {
+			t.Fatal(err)
+		}
+		missing, err := context.FindFunctionDeclaration("Missing", nil, nil, boolean)
+		if err != nil {
+			t.Fatal(err)
+		}
+		md, err := context.FixedpointModel(missing)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			if err := md.Close(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+		value, err := md.Core().ConstantInterpretation(missing)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !value.IsNull() {
+			t.Fatal("source transformed model unexpectedly reconstructed Missing", value)
+		}
+		queryFalse := false
+		for _, declaration := range md.Core().ConstantDeclarations {
+			name, err := m.GetASTName(declaration)
+			if err != nil {
+				t.Fatal(err)
+			}
+			text, _, err := m.Symbols.BareString(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.HasPrefix(text, "query!") {
+				interpretation, err := md.Core().ConstantInterpretation(declaration)
+				if err != nil {
+					t.Fatal(err)
+				}
+				queryFalse = m.IsFalse(interpretation)
+			}
+		}
+		if !queryFalse {
+			t.Fatal("quantified-array transformed model did not refute synthetic query")
+		}
+	})
+}
+
 func TestSMT2DualityBackgroundCertificateWitness(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

@@ -10,8 +10,21 @@ import (
 	"github.com/glycerine/g3/pkg/muz/duality"
 	"github.com/glycerine/g3/pkg/smtcore"
 	"github.com/glycerine/g3/pkg/util/cooperate"
+	"github.com/glycerine/g3/pkg/util/diagnostic"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	utext "github.com/glycerine/g3/pkg/util/text"
 )
+
+type dualityVerboseWriter struct{ stream *utext.NumericTextStream }
+
+func (w dualityVerboseWriter) Write(body []byte) (int, error) {
+	// std::ostream reporter failures set sticky stream state but do not abort
+	// the source search. NumericTextStream has the same transport contract.
+	if err := w.stream.AppendCString(string(body)); err != nil {
+		return 0, err
+	}
+	return len(body), nil
+}
 
 func (e *PropositionalEngine) closeDuality() error {
 	if e.duality != nil {
@@ -70,6 +83,21 @@ func (e *PropositionalEngine) queryDuality(query ast.ASTHandle) (status lbool.LB
 	}
 	options, err := duality.ReadQueryOptions(e.params, e.globals, view.local)
 	if err != nil {
+		return lbool.Undef, err
+	}
+	options.Report, err = diagnostic.ProcessVerboseEnabled(1)
+	if err != nil {
+		return lbool.Undef, err
+	}
+	if options.Report {
+		stream, cause := diagnostic.BorrowProcessVerboseStream()
+		if cause != nil {
+			return lbool.Undef, cause
+		}
+		if err = e.duality.SetReportOutput(dualityVerboseWriter{stream: stream}); err != nil {
+			return lbool.Undef, err
+		}
+	} else if err = e.duality.SetReportOutput(nil); err != nil {
 		return lbool.Undef, err
 	}
 	if err := e.duality.SetOptions(options); err != nil {
