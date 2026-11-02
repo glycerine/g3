@@ -93,10 +93,12 @@ func (s *scaleRuleState) predicate(source, destination *base.RuleSet, applicatio
 		if getErr = s.plugin.rules.RegisterPredicate(fresh); getErr != nil {
 			return ast.ASTHandle{}, getErr
 		}
-		if getErr = destination.InheritPredicate(source, old, fresh); getErr != nil {
-			return ast.ASTHandle{}, getErr
-		}
 		s.plugin.oldToNew[old] = fresh
+	}
+	// Each result needs the current source metadata even when the scaled
+	// declaration was already created by an earlier transformation.
+	if err := destination.InheritPredicate(source, old, fresh); err != nil {
+		return ast.ASTHandle{}, err
 	}
 	count, err := manager.GetNumArgs(application)
 	if err != nil {

@@ -10,13 +10,15 @@ import (
 	"github.com/glycerine/g3/pkg/arena"
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/muz/base"
+	"github.com/glycerine/g3/pkg/qe"
+	"github.com/glycerine/g3/pkg/util/cooperate"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
 	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
-func TestRuleUnfoldClosePreservesResolverWhileManagerExecutes(t *testing.T) {
+func testRuleUnfoldClosePreservesResolverWhileManagerExecutes(t *testing.T, afterSimplifier bool) {
 	must := func(err error) {
 		t.Helper()
 		if err != nil {
@@ -27,12 +29,17 @@ func TestRuleUnfoldClosePreservesResolverWhileManagerExecutes(t *testing.T) {
 	var plugin *RuleUnfoldPlugin
 	active, callbacks, intact := false, 0, true
 	var original *RuleInlinerPlugin
+	var originalLite *qe.Lite
+	var originalCooperation *cooperate.Cooperation
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
 			for i := 0; i < 2; i++ {
 				cause := plugin.Close()
-				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && plugin.resolver == original
+				intact = intact && errors.Is(cause, ast.ErrASTPending) && !plugin.closed && plugin.resolver == original && original.lite == originalLite && original.cooperate == originalCooperation
+				if afterSimplifier {
+					intact = intact && original.simplifier == nil
+				}
 			}
 		}
 		return f
@@ -128,6 +135,14 @@ func TestRuleUnfoldClosePreservesResolverWhileManagerExecutes(t *testing.T) {
 		t.Fatal("unfolding did not initialize normalization owners")
 	}
 
+	originalLite, originalCooperation = original.lite, original.cooperate
+	if afterSimplifier {
+		// Stage the completed earlier child explicitly; the later refusal is
+		// real, but this does not simulate a failure inside that first child.
+		must(original.simplifier.Close())
+		original.simplifier = nil
+	}
+
 	value, err := numbers.NewValue()
 	must(err)
 	defer func() { must(numbers.Del(&value)) }()
@@ -151,7 +166,16 @@ func TestRuleUnfoldClosePreservesResolverWhileManagerExecutes(t *testing.T) {
 	if cause := plugin.Close(); !errors.Is(cause, base.ErrRuleTransformerOwner) {
 		t.Fatal("closed-owner guard changed", cause)
 	}
-	if !plugin.closed || plugin.resolver != nil {
+	if !plugin.closed || plugin.resolver != nil || !original.closed || original.lite != nil || original.cooperate != nil {
 		t.Fatal("retry did not release child resolver")
 	}
+}
+
+func TestRuleUnfoldClosePreservesResolverWhileManagerExecutes(t *testing.T) {
+	t.Run("initial", func(t *testing.T) {
+		testRuleUnfoldClosePreservesResolverWhileManagerExecutes(t, false)
+	})
+	t.Run("after-simplifier", func(t *testing.T) {
+		testRuleUnfoldClosePreservesResolverWhileManagerExecutes(t, true)
+	})
 }

@@ -20,6 +20,7 @@ type RuleUnifier struct {
 	unifier   *substitution.Unifier
 	variables uint32
 	ready     bool
+	closing   bool
 }
 
 func NewRuleUnifier(manager *ast.ASTManager) (*RuleUnifier, error) {
@@ -40,7 +41,7 @@ func NewRuleUnifier(manager *ast.ASTManager) (*RuleUnifier, error) {
 // UnifyRules unifies the selected target tail with the source head, using
 // distinct variable banks for the two rules.
 func (u *RuleUnifier) UnifyRules(target *base.Rule, tailIndex int, source *base.Rule) (bool, error) {
-	if u == nil || u.manager == nil || target == nil || source == nil {
+	if u == nil || u.manager == nil || u.closing || target == nil || source == nil {
 		return false, ast.ErrASTHandle
 	}
 	u.ready = false
@@ -85,7 +86,7 @@ func (u *RuleUnifier) UnifyRules(target *base.Rule, tailIndex int, source *base.
 // RuleSubstitution returns owning AST references for the selected rule's
 // variable bank. The caller releases each reference through the AST manager.
 func (u *RuleUnifier) RuleSubstitution(rule *base.Rule, isTarget bool) ([]ast.ASTRef, error) {
-	if u == nil || u.manager == nil || rule == nil || !u.ready {
+	if u == nil || u.manager == nil || u.closing || rule == nil || !u.ready {
 		return nil, ast.ErrASTHandle
 	}
 	var offset uint32
@@ -114,7 +115,7 @@ func (u *RuleUnifier) ResolveRawWithRenaming(rules *base.RuleManager, target *ba
 }
 
 func (u *RuleUnifier) resolveRaw(rules *base.RuleManager, target *base.Rule, tailIndex int, source *base.Rule, wantRenaming bool) (result *base.Rule, renaming []ast.ASTRef, resultErr error) {
-	if u == nil || u.manager == nil || !u.ready || rules == nil || target == nil || source == nil {
+	if u == nil || u.manager == nil || u.closing || !u.ready || rules == nil || target == nil || source == nil {
 		return nil, nil, ast.ErrASTHandle
 	}
 	defer func() {
@@ -233,8 +234,20 @@ func (u *RuleUnifier) Close() error {
 	if u == nil || u.manager == nil {
 		return ast.ErrASTHandle
 	}
-	err := errors.Join(u.unifier.Close(), u.subst.Close())
-	u.manager, u.subst, u.unifier = nil, nil, nil
+	u.closing = true
 	u.ready = false
-	return err
+	if u.unifier != nil {
+		if err := u.unifier.Close(); err != nil {
+			return err
+		}
+		u.unifier = nil
+	}
+	if u.subst != nil {
+		if err := u.subst.Close(); err != nil {
+			return err
+		}
+		u.subst = nil
+	}
+	u.manager = nil
+	return nil
 }
