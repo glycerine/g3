@@ -30,6 +30,7 @@ type RuleInlinerPlugin struct {
 	cooperate  *cooperate.Cooperation
 	modelRules []InlineModelRule
 	closed     bool
+	closing    bool
 }
 
 // InlineModelRule owns one removed Horn clause for later model reconstruction.
@@ -136,7 +137,7 @@ func (p *RuleInlinerPlugin) captureModelRule(rule *base.Rule) (resultErr error) 
 
 // TakeModelRules transfers the ordered owning removed-clause sequence.
 func (p *RuleInlinerPlugin) TakeModelRules() ([]InlineModelRule, error) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	rules := p.modelRules
@@ -340,7 +341,7 @@ func (p *RuleInlinerPlugin) resolve(target *base.Rule, tailIndex int, source *ba
 // returns a caller-owned rule, or nil when the rule is inconsistent. It
 // borrows its input and uses the plugin's configured parameter services.
 func (p *RuleInlinerPlugin) NormalizeResolvedRule(rule *base.Rule) (*base.Rule, error) {
-	if p == nil || p.closed || rule == nil {
+	if p == nil || p.closed || p.closing || rule == nil {
 		return nil, ast.ErrASTHandle
 	}
 	owned, err := rule.Retain()
@@ -972,7 +973,7 @@ func (p *RuleInlinerPlugin) orientedEager(source *base.RuleSet) (_ *base.RuleSet
 }
 
 func (p *RuleInlinerPlugin) Transform(source *base.RuleSet) (_ *base.RuleSet, resultErr error) {
-	if p == nil || p.closed || p.manager == nil || p.rules == nil {
+	if p == nil || p.closed || p.closing || p.manager == nil || p.rules == nil {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	outputs, err := source.OutputPredicates()
@@ -1342,23 +1343,35 @@ func (p *RuleInlinerPlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
 	}
-	p.closed = true
-	p.protected = nil
-	p.params = nil
-	p.globals = nil
-	result := CloseInlineModelRules(p.modelRules)
+	if p.closed {
+		return nil
+	}
+	p.closing = true
+	if err := CloseInlineModelRules(p.modelRules); err != nil {
+		return err
+	}
 	p.modelRules = nil
 	if p.simplifier != nil {
-		result = errors.Join(result, p.simplifier.Close())
+		if err := p.simplifier.Close(); err != nil {
+			return err
+		}
 		p.simplifier = nil
 	}
 	if p.lite != nil {
-		result = errors.Join(result, p.lite.Close())
+		if err := p.lite.Close(); err != nil {
+			return err
+		}
 		p.lite = nil
 	}
 	if p.cooperate != nil {
-		result = errors.Join(result, p.cooperate.Close())
+		if err := p.cooperate.Close(); err != nil {
+			return err
+		}
 		p.cooperate = nil
 	}
-	return result
+	p.protected = nil
+	p.params = nil
+	p.globals = nil
+	p.closed = true
+	return nil
 }

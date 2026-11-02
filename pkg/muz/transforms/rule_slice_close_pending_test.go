@@ -21,11 +21,26 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	}
 	budget := arena.NewBudget(1 << 28)
 	var converter *SliceProofConverter
+	var cone *ConePlugin
+	var inliner *RuleInlinerPlugin
 	active, callbacks, intact := false, 0, true
 	var closeErr error
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
+			coneCount, inlineCount := len(cone.steps), len(inliner.modelRules)
+			for i := 0; i < 2; i++ {
+				coneErr, inlineErr := cone.Close(), inliner.Close()
+				intact = intact && errors.Is(coneErr, ast.ErrASTPending) && errors.Is(inlineErr, ast.ErrASTPending) && !cone.closed && !inliner.closed && len(cone.steps) == coneCount && len(inliner.modelRules) == inlineCount
+				for _, step := range cone.steps {
+					for _, entry := range step {
+						intact = intact && entry.Formula != (ast.ASTRef{})
+					}
+				}
+				for _, entry := range inliner.modelRules {
+					intact = intact && entry.Head != (ast.ASTRef{}) && entry.Body != (ast.ASTRef{})
+				}
+			}
 			count := len(converter.formulas)
 			if len(converter.originals) == 0 {
 				intact = false
@@ -88,6 +103,33 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	must(err)
 	defer func() { must(sliced.Close()) }()
 	must(rules.MkRuleAssertedProof(sliced))
+	set, e := base.NewRuleSet(rules)
+	must(e)
+	defer func() { must(set.Close()) }()
+	must(set.Add(original))
+	must(set.Add(sliced))
+	must(set.SetOutputPredicate(slicedPredicate))
+	valid, e := set.Finalize()
+	must(e)
+	if !valid {
+		t.Fatal("invalid plugin cleanup fixture")
+	}
+	cone = NewConePlugin(1)
+	filtered, e := cone.Transform(set)
+	must(e)
+	if filtered == nil || len(cone.steps) == 0 {
+		t.Fatal("missing cone model owners")
+	}
+	must(filtered.Close())
+	defer func() { must(cone.Close()) }()
+	inliner = NewRuleInlinerPlugin(m, rules, []ast.ASTHandle{slicedPredicate}, 1)
+	inlined, e := inliner.Transform(set)
+	must(e)
+	if inlined == nil || len(inliner.modelRules) == 0 {
+		t.Fatal("missing inline model owners")
+	}
+	must(inlined.Close())
+	defer func() { must(inliner.Close()) }()
 	converter = newSliceProofConverter(m, rules, map[ast.ASTHandle]ast.ASTHandle{predicate: slicedPredicate}, map[ast.ASTHandle][]bool{predicate: {true}})
 	must(converter.insert(original, sliced, nil))
 	proof, found, err := sliced.Proof()
@@ -109,6 +151,25 @@ func TestSliceProofClosePreservesRootsWhileManagerExecutes(t *testing.T) {
 	if body == nil || callbacks == 0 || !intact || !errors.Is(closeErr, ast.ErrASTPending) {
 		t.Fatal("pending close lost its actual proof roots", body, callbacks, intact, closeErr)
 	}
+	if _, err := cone.TakeModelSteps(); !errors.Is(err, base.ErrRuleTransformerOwner) {
+		t.Fatal("closing cone published a model ledger", err)
+	}
+	if _, err := inliner.TakeModelRules(); !errors.Is(err, base.ErrRuleTransformerOwner) {
+		t.Fatal("closing inliner published a model ledger", err)
+	}
+	if result, cause := cone.Transform(set); !errors.Is(cause, base.ErrRuleTransformerOwner) || result != nil {
+		t.Fatal("closing cone accepted transformation", cause)
+	}
+	if result, cause := inliner.Transform(set); !errors.Is(cause, base.ErrRuleTransformerOwner) || result != nil {
+		t.Fatal("closing inliner accepted transformation", cause)
+	}
+	if result, cause := inliner.NormalizeResolvedRule(original); !errors.Is(cause, ast.ErrASTHandle) || result != nil {
+		t.Fatal("closing inliner accepted normalization", cause)
+	}
+	must(cone.Close())
+	must(cone.Close())
+	must(inliner.Close())
+	must(inliner.Close())
 	converted, err := converter.Convert(proof)
 	must(err)
 	node, err := m.RefGet(converted)

@@ -102674,6 +102674,17 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "cone plugin model-step ownership survives pending AST cleanup; transformation and ledger transfer are blocked while closing",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/transforms/coi_plugin.go",
+            "pkg/muz/transforms/rule_slice_close_pending_test.go"
+          ],
+          "tests": [
+            "TestSliceProofClosePreservesRootsWhileManagerExecutes"
+          ]
+        },
+        {
           "name": "mk_coi_filter callable transformation surface and its top-down/bottom-up pass composition (dl_mk_coi_filter.h:27-47)",
           "status": "ported",
           "go_target": "pkg/muz/transforms/coi.go",
@@ -103647,6 +103658,17 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {
+          "name": "inliner model-rule ownership survives pending AST cleanup; transformations, normalization and ledger transfer are blocked while closing",
+          "status": "ported",
+          "go_targets": [
+            "pkg/muz/transforms/rule_inliner.go",
+            "pkg/muz/transforms/rule_slice_close_pending_test.go"
+          ],
+          "tests": [
+            "TestSliceProofClosePreservesRootsWhileManagerExecutes"
+          ]
+        },
         {
           "name": "hyper-resolution proof substitutions follow resolved-rule variable compaction",
           "status": "ported",

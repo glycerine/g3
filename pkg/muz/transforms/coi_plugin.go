@@ -13,6 +13,7 @@ type ConePlugin struct {
 	steps     []ConeModelStep
 	relations *rel.RelationManager
 	closed    bool
+	closing   bool
 }
 
 func NewConePlugin(priority uint32) *ConePlugin {
@@ -33,7 +34,7 @@ func (p *ConePlugin) Priority() uint32 { return p.priority }
 func (p *ConePlugin) CanDestratifyNegation() bool { return false }
 
 func (p *ConePlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result, steps, err := coneOfInfluence(source, true, p.relations)
@@ -47,7 +48,7 @@ func (p *ConePlugin) Transform(source *base.RuleSet) (*base.RuleSet, error) {
 // TakeModelSteps transfers the ordered owning model-converter steps emitted
 // by successful transformations. The caller closes them.
 func (p *ConePlugin) TakeModelSteps() ([]ConeModelStep, error) {
-	if p == nil || p.closed {
+	if p == nil || p.closed || p.closing {
 		return nil, base.ErrRuleTransformerOwner
 	}
 	result := p.steps
@@ -61,8 +62,14 @@ func (p *ConePlugin) Close() error {
 	if p == nil {
 		return base.ErrRuleTransformerOwner
 	}
-	p.closed = true
-	result := CloseConeModelSteps(p.steps)
+	if p.closed {
+		return nil
+	}
+	p.closing = true
+	if err := CloseConeModelSteps(p.steps); err != nil {
+		return err
+	}
 	p.steps = nil
-	return result
+	p.closed = true
+	return nil
 }
