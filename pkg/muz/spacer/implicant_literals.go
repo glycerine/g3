@@ -8,12 +8,94 @@ import (
 
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/model"
+	"github.com/glycerine/g3/pkg/util/memory"
 )
+
+// implicantCleanupFailure preserves every native owner whose release was
+// refused. Each successful release advances its slice, so Cleanup is
+// idempotent and resumes at the exact source-destruction frontier.
+type implicantCleanupFailure struct {
+	manager    *ast.ASTManager
+	evaluator  *model.ModelEvaluator
+	temporary  []ast.ASTRef
+	generated  []ast.ASTHandle
+	result     []ast.ASTRef
+	runtime    *memory.Runtime
+	cause      error
+	cleanupErr error
+}
+
+func (f *implicantCleanupFailure) Error() string                 { return errors.Join(f.cause, f.cleanupErr).Error() }
+func (f *implicantCleanupFailure) Unwrap() error                 { return errors.Join(f.cause, f.cleanupErr) }
+func (f *implicantCleanupFailure) RuntimeOwner() *memory.Runtime { return f.runtime }
+func (f *implicantCleanupFailure) OriginalCause() error          { return f.cause }
+func (f *implicantCleanupFailure) CleanupCause() error           { return f.cleanupErr }
+
+func (f *implicantCleanupFailure) cleanup() error {
+	if f.evaluator != nil {
+		if err := f.evaluator.Close(); err != nil {
+			return err
+		}
+		f.evaluator = nil
+	}
+	if len(f.temporary) != 0 {
+		if err := releaseNormalizeRefs(f.manager, f.temporary); err != nil {
+			return err
+		}
+		f.temporary = nil
+	}
+	for len(f.generated) != 0 {
+		i := len(f.generated) - 1
+		consumed, err := f.manager.DecRefConsumed(f.generated[i])
+		if consumed {
+			f.generated = f.generated[:i]
+		}
+		if err != nil {
+			return err
+		}
+		if !consumed {
+			return ast.ErrASTPending
+		}
+	}
+	for len(f.result) != 0 {
+		i := len(f.result) - 1
+		err := f.manager.DelRef(&f.result[i])
+		if f.result[i] == (ast.ASTRef{}) {
+			f.result = f.result[:i]
+		}
+		if err != nil {
+			return err
+		}
+		if len(f.result) != i {
+			return ast.ErrASTPending
+		}
+	}
+	return nil
+}
+
+func (f *implicantCleanupFailure) Cleanup() error {
+	f.cleanupErr = f.cleanup()
+	return f.cleanupErr
+}
+
+func finishImplicantSuccess(cleanup *implicantCleanupFailure, result []ast.ASTRef) ([]ast.ASTRef, error) {
+	// The result remains caller-owned unless destruction refuses. Transfer it
+	// to the retry receipt before suppressing publication on that failure.
+	cleanup.result = nil
+	cleanup.cause = nil
+	cleanup.cleanupErr = cleanup.cleanup()
+	if cleanup.cleanupErr == nil {
+		return result, nil
+	}
+	cleanup.result = result
+	cleanup.cause = cleanup.cleanupErr
+	return nil, cleanup
+}
 
 // computeImplicantLiterals follows Spacer's source picker: select one
 // model-true path through Boolean structure and retain model-true theory
 // literals without running the separate model-cone minimizer.
-func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, config model.ModelEvaluatorConfig, formulas []ast.ASTHandle) (_ []ast.ASTRef, resultErr error) {
+func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, config model.ModelEvaluatorConfig, formulas []ast.ASTHandle) (output []ast.ASTRef, resultErr error) {
 	if manager == nil || md == nil || md.DerivedModel() == nil {
 		return nil, ast.ErrASTHandle
 	}
@@ -34,18 +116,30 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	if err != nil {
 		return nil, err
 	}
+	cleanup := &implicantCleanupFailure{manager: manager, evaluator: evaluator, generated: generated, runtime: config.Memory}
 	if err = evaluator.SetModelCompletion(false); err != nil {
-		return nil, errors.Join(err, evaluator.Close())
+		cleanup.cause = err
+		if cleanup.cleanupErr = cleanup.cleanup(); cleanup.cleanupErr != nil {
+			return nil, cleanup
+		}
+		return nil, err
 	}
 	var result []ast.ASTRef
+	var flattenedRefs []ast.ASTRef
 	defer func() {
-		resultErr = errors.Join(resultErr, evaluator.Close())
-		for i := len(generated) - 1; i >= 0; i-- {
-			resultErr = errors.Join(resultErr, manager.DecRef(generated[i]))
-		}
+		cleanup.temporary = flattenedRefs
+		cleanup.generated = generated
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, releaseNormalizeRefs(manager, result))
+			cleanup.result = result
+			cleanup.cause = resultErr
+			if cleanup.cleanupErr = cleanup.cleanup(); cleanup.cleanupErr != nil {
+				output, resultErr = nil, cleanup
+				return
+			}
+			output = nil
+			return
 		}
+		output, resultErr = finishImplicantSuccess(cleanup, result)
 	}()
 	evalBool := func(expression ast.ASTHandle) (bool, bool, error) {
 		return evaluateSpacerModelBoolean(manager, evaluator, config, expression)
@@ -431,7 +525,7 @@ func computeImplicantLiterals(manager *ast.ASTManager, md *model.ModelCore, conf
 	if err != nil {
 		return nil, err
 	}
-	flattenedRefs, err := refsFromHandles(manager, flattened)
+	flattenedRefs, err = refsFromHandles(manager, flattened)
 	if err != nil {
 		return nil, err
 	}
