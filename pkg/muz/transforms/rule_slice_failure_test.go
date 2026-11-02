@@ -10,21 +10,17 @@ import (
 	proofcheck "github.com/glycerine/g3/pkg/ast/proofs"
 	"github.com/glycerine/g3/pkg/muz/base"
 	"github.com/glycerine/g3/pkg/muz/transforms"
+	"github.com/glycerine/g3/pkg/smtcore"
+	"github.com/glycerine/g3/pkg/util/lbool"
 	"github.com/glycerine/g3/pkg/util/memory"
 )
 
 func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
-	stops := make([]int64, 128)
-	for i := range stops {
-		stops[i] = int64(i)
-	}
-	for stop := int64(128); stop <= 16384; stop *= 2 {
-		stops = append(stops, stop)
-	}
 	failures, succeeded := 0, false
-	for _, stop := range stops {
+	for stop := int64(0); stop <= 16384; stop++ {
 		t.Run(fmt.Sprint(stop), func(t *testing.T) {
-			m, converter, proof, expected := newSliceFailureFixture(t)
+			f, converter, proof, expected, sources := newSliceFailureFixture(t)
+			m := f.manager
 			before := m.Stats().LiveReferences
 			inputCount, err := m.GetRefCount(proof)
 			coneMust(t, err)
@@ -33,6 +29,9 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 			m.Budget().FailAfter(stop)
 			result, err := converter.Convert(proof)
 			m.Budget().FailAfter(-1)
+			if err != nil && result != (ast.ASTRef{}) {
+				t.Fatal("failed conversion published proof")
+			}
 			if result != (ast.ASTRef{}) {
 				coneMust(t, m.DelRef(&result))
 			}
@@ -48,6 +47,7 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 				failures++
 			} else {
 				succeeded = true
+				t.Log("first successful allocation allowance", stop)
 			}
 			if got := m.Stats().LiveReferences; got != before {
 				t.Fatalf("checkpoint %d: converter references = %d, want %d", stop, got, before)
@@ -82,7 +82,59 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 			coneMust(t, err)
 			checked, side, err := checker.Check(node)
 			coneMust(t, err)
+			defer func() { coneMust(t, checker.ReleaseSideConditions(side)) }()
+			solver, err := smtcore.NewSMTSolver(m, nil, "", smtcore.SMTSolverConfig{Params: f.globals.Context, Globals: f.globals})
+			coneMust(t, err)
+			for _, condition := range side {
+				coneMust(t, solver.Push())
+				negated, e := m.MkNot(condition)
+				coneMust(t, e)
+				coneMust(t, solver.Assert(negated))
+				status, e := solver.CheckSat(nil)
+				coneMust(t, e)
+				coneMust(t, solver.Pop(1))
+				if status != lbool.False {
+					t.Fatal("undischarged converted proof condition", status)
+				}
+			}
+			coneMust(t, solver.Close())
 			coneMust(t, checker.ReleaseSideConditions(side))
+			side = nil
+			// Every asserted leaf must be one of the original clauses, and this
+			// chain needs all of them. No sliced assertions may survive conversion.
+			leaves := make(map[ast.ASTHandle]bool)
+			todo := []ast.ASTHandle{node}
+			seen := make(map[ast.ASTHandle]bool)
+			for len(todo) > 0 {
+				p := todo[len(todo)-1]
+				todo = todo[:len(todo)-1]
+				if seen[p] {
+					continue
+				}
+				seen[p] = true
+				var assertion ast.ASTHandle
+				asserted, e := m.MatchProofAsserted(p, &assertion)
+				coneMust(t, e)
+				if asserted {
+					leaves[p] = true
+				}
+				count, e := m.GetProofNumParents(p)
+				coneMust(t, e)
+				for i := uint32(0); i < count; i++ {
+					parent, e := m.GetProofParent(p, i)
+					coneMust(t, e)
+					todo = append(todo, parent)
+				}
+			}
+			if len(leaves) != len(sources) {
+				t.Fatal("converted proof changed original leaf count", len(leaves), len(sources))
+			}
+			for _, source := range sources {
+				if !leaves[source] {
+					t.Fatal("converted proof lost original asserted clause")
+				}
+			}
+
 			if !checked {
 				t.Fatal("converted derivation failed proof checking")
 			}
@@ -100,9 +152,17 @@ func TestRuleSliceProofConverterColdFailureAndRetry(t *testing.T) {
 	}
 }
 
-func newSliceFailureFixture(t *testing.T) (*ast.ASTManager, *transforms.SliceProofConverter, ast.ASTHandle, ast.ASTHandle) {
+func newSliceFailureFixture(t *testing.T) (*coneFixture, *transforms.SliceProofConverter, ast.ASTHandle, ast.ASTHandle, []ast.ASTHandle) {
 	t.Helper()
+	var budget *arena.Budget
+	t.Cleanup(func() {
+		if budget != nil && budget.Used() != 0 {
+			t.Fatal("cold proof fixture leaked bytes", budget.Used())
+		}
+	})
 	f := newConeFixture(t, "Goal")
+	budget = f.manager.Budget()
+	var sources []ast.ASTHandle
 	m := f.manager
 	boolean, err := m.MkBoolSort()
 	coneMust(t, err)
@@ -118,6 +178,12 @@ func newSliceFailureFixture(t *testing.T) (*ast.ASTManager, *transforms.SlicePro
 		rule, err := f.rules.NewRule(head, tail, nil, "")
 		coneMust(t, err)
 		coneMust(t, f.rules.MkRuleAssertedProof(rule))
+		source, found, e := rule.Proof()
+		coneMust(t, e)
+		if !found {
+			t.Fatal("missing original assertion")
+		}
+		sources = append(sources, source)
 		coneMust(t, f.set.Add(rule))
 		coneMust(t, rule.Close())
 	}
@@ -196,5 +262,5 @@ func newSliceFailureFixture(t *testing.T) (*ast.ASTManager, *transforms.SlicePro
 	coneMust(t, err)
 	t.Cleanup(func() { coneMust(t, m.DelRef(&pin)) })
 	coneMust(t, scope.Close())
-	return m, converter, proof, goal
+	return f, converter, proof, goal, sources
 }
