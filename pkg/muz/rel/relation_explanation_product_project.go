@@ -20,17 +20,54 @@ func (p *RelationExplanationProduct) Project(removed []int) (_ *RelationExplanat
 	if err != nil {
 		return nil, err
 	}
-	table, err := p.table.Project(removed)
+	return p.projectComponents(removed, nil, flags)
+}
+
+// ProjectColumns applies a projection to the normalized concrete product
+// layout: every finite column first, followed by every whole-relation proof
+// column. This is the layout emitted by the explanation rule compiler after
+// source product/sieve joins. A projection may remove every proof column; the
+// resulting nonempty zero-column ExplanationRelation is the source full
+// identity used while duplicating a finite column.
+func (p *RelationExplanationProduct) ProjectColumns(removed []int) (_ *RelationExplanationProduct, resultErr error) {
+	if err := p.open(); err != nil {
+		return nil, err
+	}
+	proofSorts, err := p.explanation.signature()
 	if err != nil {
 		return nil, err
 	}
-	explanation, err := p.explanation.Clone()
+	if _, err = tableRelationRemovedColumns(len(p.finiteSorts)+len(proofSorts), removed); err != nil {
+		return nil, err
+	}
+	finiteRemoved := make([]int, 0, len(removed))
+	proofRemoved := make([]int, 0, len(removed))
+	for _, column := range removed {
+		if column < len(p.finiteSorts) {
+			finiteRemoved = append(finiteRemoved, column)
+		} else {
+			proofRemoved = append(proofRemoved, column-len(p.finiteSorts))
+		}
+	}
+	finiteFlags, err := tableRelationRemovedColumns(len(p.finiteSorts), finiteRemoved)
+	if err != nil {
+		return nil, err
+	}
+	return p.projectComponents(finiteRemoved, proofRemoved, finiteFlags)
+}
+
+func (p *RelationExplanationProduct) projectComponents(finiteRemoved, proofRemoved []int, finiteFlags []bool) (_ *RelationExplanationProduct, resultErr error) {
+	table, err := p.table.Project(finiteRemoved)
+	if err != nil {
+		return nil, err
+	}
+	explanation, err := p.explanation.Project(proofRemoved)
 	if err != nil {
 		return nil, errors.Join(err, table.Close())
 	}
-	sorts := make([]ast.ASTHandle, 0, len(p.finiteSorts)-len(removed))
+	sorts := make([]ast.ASTHandle, 0, len(p.finiteSorts)-len(finiteRemoved))
 	for column, sort := range p.finiteSorts {
-		if !flags[column] {
+		if !finiteFlags[column] {
 			sorts = append(sorts, sort)
 		}
 	}
