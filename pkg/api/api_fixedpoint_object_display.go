@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/glycerine/g3/pkg/ast"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
 func (f *APIFixedpoint) WriteSMT2(output io.Writer, queries ...ast.ASTHandle) error {
@@ -16,7 +17,11 @@ func (f *APIFixedpoint) WriteSMT2(output io.Writer, queries ...ast.ASTHandle) er
 	if output == nil {
 		return io.ErrClosedPipe
 	}
-	return f.command.WriteFixedpointSMT2WithQueries(output, queries)
+	var local *uparams.ParamsRef
+	if f.params != nil {
+		local = &f.params.value
+	}
+	return f.command.WriteFixedpointSMT2WithQueryParameters(output, queries, local)
 }
 
 func (f *APIFixedpoint) SMT2(queries ...ast.ASTHandle) (string, error) {
@@ -24,7 +29,11 @@ func (f *APIFixedpoint) SMT2(queries ...ast.ASTHandle) (string, error) {
 		return "", err
 	}
 	var output strings.Builder
-	if err := f.command.WriteFixedpointSMT2WithQueries(&output, queries); err != nil {
+	var local *uparams.ParamsRef
+	if f.params != nil {
+		local = &f.params.value
+	}
+	if err := f.command.WriteFixedpointSMT2WithQueryParameters(&output, queries, local); err != nil {
 		return "", err
 	}
 	return output.String(), nil

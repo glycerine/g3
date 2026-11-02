@@ -55,39 +55,9 @@ func (e *PropositionalEngine) tracePDRTransformedRules(rules *base.RuleSet) erro
 			if err := rules.WriteDisplay(writer); err != nil {
 				return err
 			}
-			parameters, err := e.fixedpointParamView()
+			config, err := e.contextSMT2Config(nil, nil)
 			if err != nil {
 				return err
-			}
-			defer func() { resultErr = errors.Join(resultErr, parameters.Close()) }()
-			config := base.DefaultContextSMT2Config()
-			config.FixedpointExtensions, err = parameters.Bool("print_fixedpoint_extensions", true)
-			if err != nil {
-				return err
-			}
-			config.LowLevel, err = parameters.Bool("print_low_level_smt2", false)
-			if err != nil {
-				return err
-			}
-			config.DeclareVariables, err = parameters.Bool("print_with_variable_declarations", true)
-			if err != nil {
-				return err
-			}
-			for _, ref := range e.assertions {
-				h, err := e.manager.RefGet(ref)
-				if err != nil {
-					return err
-				}
-				config.Background = append(config.Background, h)
-			}
-			if len(e.assertions) == 0 {
-				h, err := e.manager.RefGet(e.background)
-				if err != nil {
-					return err
-				}
-				if !e.manager.IsTrue(h) {
-					config.Background = append(config.Background, h)
-				}
 			}
 			return rules.WriteContextSMT2(writer, config)
 		})

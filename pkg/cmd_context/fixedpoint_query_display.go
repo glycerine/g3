@@ -7,27 +7,24 @@ import (
 	"io"
 
 	"github.com/glycerine/g3/pkg/ast"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 )
 
-// WriteFixedpointSMT2WithQueries writes the current fixedpoint problem and
-// appends query expressions in caller order.
+// WriteFixedpointSMT2WithQueries writes the source context dump with queries
+// in caller order and the effective engine/module print settings.
 func (c *Context) WriteFixedpointSMT2WithQueries(out io.Writer, queries []ast.ASTHandle) error {
+	return c.WriteFixedpointSMT2WithQueryParameters(out, queries, nil)
+}
+
+// WriteFixedpointSMT2WithQueryParameters applies borrowed fixedpoint-local
+// print options without changing the live engine's query configuration.
+func (c *Context) WriteFixedpointSMT2WithQueryParameters(out io.Writer, queries []ast.ASTHandle, parameters *uparams.ParamsRef) error {
 	if out == nil {
 		return ast.ErrASTHandle
 	}
-	if err := c.WriteFixedpointSMT2(out); err != nil {
+	engine, err := c.fixedpointContext()
+	if err != nil {
 		return err
 	}
-	for _, query := range queries {
-		if _, err := io.WriteString(out, "(query "); err != nil {
-			return err
-		}
-		if err := c.WriteExpression(out, query); err != nil {
-			return err
-		}
-		if _, err := io.WriteString(out, ")\n"); err != nil {
-			return err
-		}
-	}
-	return nil
+	return engine.WriteContextSMT2(out, queries, parameters)
 }
