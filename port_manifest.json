@@ -91393,6 +91393,10 @@
         "pkg/muz/rel/explanation_transform_facts.go",
         "pkg/muz/rel/explanation_transform_rules.go",
         "pkg/muz/rel/external_relation.go",
+        "pkg/muz/rel/external_relation_predicates.go",
+        "pkg/muz/rel/external_relation_predicates_test.go",
+        "pkg/muz/fp/external_relations.go",
+        "pkg/muz/fp/external_relation_predicate_test.go",
         "pkg/muz/rel/external_relation_callbacks.go",
         "pkg/muz/rel/external_relation_display.go",
         "pkg/muz/rel/external_relation_filter.go",
@@ -93049,6 +93053,8 @@
       ],
       "tests": [
         "TestExternalRelationCallbacksAndClone",
+        "TestExternalPredicateRelationDispatchAndOwnership",
+        "TestExternalPredicateRelationPluginCloseRetiresOwnedRelations",
         "TestExternalRelationFallbackAndFormula",
         "TestExternalRelationProjectAndRename",
         "TestExternalRelationJoinUnionAndWiden",
@@ -93128,10 +93134,17 @@
             "TestExternalRelationCallbackTrailLifetime",
             "TestExternalRelationReduceCallbackRetainsReturnedAST"
           ]
+        },
+        {
+          "name": "predicate-signature relation construction, plugin-owned caching, explicit drop and fixedpoint registered-predicate dispatch",
+          "status": "ported",
+          "go_target": "pkg/muz/rel/external_relation_predicates.go",
+          "go_targets": ["pkg/muz/fp/external_relations.go"],
+          "tests": ["TestExternalPredicateRelationDispatchAndOwnership", "TestExternalPredicateRelationPluginCloseRetiresOwnedRelations"]
         }
       ],
       "ownership": [
-        "The external relation owns its AST relation reference and accessor declarations. The shared plugin owns callback declaration, argument and result references until it closes after its relations."
+        "The external relation owns its AST relation reference and accessor declarations. The shared plugin owns callback declaration, argument and result references plus cached predicate relations/declaration pins until it closes after its relations; refused release remains attached for retry."
       ],
       "deviations": [
         "The source Datalog select declaration guard rejects relation selection before the reduction callback; Go preserves this behavior.",

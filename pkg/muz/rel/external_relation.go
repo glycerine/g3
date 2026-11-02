@@ -20,20 +20,21 @@ type ExternalRelationCallbacks struct {
 // ExternalRelationPlugin owns the shared callback configuration for relations
 // created by one source external relation plugin.
 type ExternalRelationPlugin struct {
-	manager   *RelationManager
-	ast       *ast.ASTManager
-	callbacks ExternalRelationCallbacks
-	trail     []ast.ASTRef
-	users     int
-	autoClose bool
-	closed    bool
+	manager    *RelationManager
+	ast        *ast.ASTManager
+	callbacks  ExternalRelationCallbacks
+	trail      []ast.ASTRef
+	predicates map[ast.ASTHandle]*ExternalRelation
+	users      int
+	autoClose  bool
+	closed     bool
 }
 
 func NewExternalRelationPlugin(manager *RelationManager, callbacks ExternalRelationCallbacks) (*ExternalRelationPlugin, error) {
 	if manager == nil || manager.open() != nil {
 		return nil, ErrTableRelation
 	}
-	return &ExternalRelationPlugin{manager: manager, ast: manager.manager, callbacks: callbacks}, nil
+	return &ExternalRelationPlugin{manager: manager, ast: manager.manager, callbacks: callbacks, predicates: make(map[ast.ASTHandle]*ExternalRelation)}, nil
 }
 
 // SetCallbacks replaces the context-level reduction callbacks used by every

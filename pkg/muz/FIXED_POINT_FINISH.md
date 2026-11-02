@@ -343,6 +343,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
   - [x] Concrete Int/Real/nullary plugin capability, empty/full construction, and typed join dispatch.
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
+  - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
+  - [ ] Automatic rule/query execution dispatch into external operators and generic manager selection.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
 - [ ] `src/muz/rel/dl_interval_relation.cpp` (partial), `src/muz/rel/dl_interval_relation.h` (partial)
@@ -885,3 +887,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Extended the concrete explanation compiler through source tail constant selection, repeated-variable identity filtering and repeated finite head-column duplication. Typed explanation bytecode now dispatches equality/identity filters and uses unary projection plus equality join without duplicating the explanation suffix. A three-mode Boolean tuple oracle compiles actual transformed rules/output bridges, repeats execution, checks exact `step(fact)` roots, empty constant selection and unchanged source rows. Focused tests passed in 0.036s and the complete native relational package passed in 3.019s. Ground/head-constant/unbound, multi-tail/negated and whole-set scheduling gaps remain open; explanation generation stays inactive.
 
 - 2026-11-02 — Activated the live `datalog.check_relation` path for concrete hashtable/doc backends. Local parameters override module settings, `null` disables checking, doc disables unbound compression, interpreted saturation routes every derived fact through the existing SMT formula checker, and cloned verified tables publish back into persistent relation storage before scoped owners retire. Ten repeated end-to-end runs passed in 0.095s; adjacent fixedpoint/relational suites passed in 0.032s/0.065s. Sparse/other backend wrappers and wider relation-manager selection remain open.
+
+- 2026-11-02 — Added concrete external-relation predicate dispatch: the plugin derives exact registered predicate signatures, constructs/caches manager-owned callback relations, pins declarations, supports explicit drop and retires relations before callback trails with retry-safe decrement semantics. Fixedpoint exposes only registered-predicate lookup; it does not claim automatic rule/query operator dispatch. Focused relational tests passed in 0.016s and the fixedpoint bridge passed in 0.007s. Automatic execution dispatch and generic manager selection remain open.

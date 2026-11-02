@@ -61,7 +61,22 @@ func (p *ExternalRelationPlugin) Close() error {
 	if p == nil || p.closed {
 		return nil
 	}
-	if p.users != 0 || p.ast == nil {
+	if p.ast == nil {
+		return ErrTableRelation
+	}
+	for predicate, relation := range p.predicates {
+		if err := relation.Close(); err != nil {
+			return err
+		}
+		consumed, err := p.ast.DecRefConsumed(predicate)
+		if consumed {
+			delete(p.predicates, predicate)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	if p.users != 0 {
 		return ErrTableRelation
 	}
 	for len(p.trail) != 0 {
@@ -74,7 +89,7 @@ func (p *ExternalRelationPlugin) Close() error {
 			return err
 		}
 	}
-	p.closed, p.manager, p.ast = true, nil, nil
+	p.closed, p.manager, p.ast, p.predicates = true, nil, nil, nil
 	p.callbacks = ExternalRelationCallbacks{}
 	return nil
 }
