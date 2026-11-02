@@ -37,8 +37,20 @@ func TestDatalogParserDeclarationsFactsRulesAndInfix(t *testing.T) {
 func TestDatalogParserDomainSuffixWildcardAndBounds(t *testing.T) {
 	context := contextFixture(t)
 	contextMust(t, context.ParseDatalogString("Node12 2\n\nR(x:Node99)\nR(_).\n"))
-	if err := context.ParseDatalogString("Tiny 1\n\nT(x:Tiny)\nT(2).\n"); err == nil {
-		t.Fatal("accepted out-of-range finite numeral")
+
+	numeric := contextFixture(t)
+	contextMust(t, numeric.ParseDatalogString("Tiny 1\n\nT(x:Tiny)\nQ(x:Tiny)\nT(999).\nQ(x) :- T(x), x = 999.\n"))
+	declaration, err := numeric.FindFunctionDeclaration("Q", nil, nil, ast.ASTHandle{})
+	contextMust(t, err)
+	status, err := numeric.QueryFixedpoint(declaration)
+	contextMust(t, err)
+	if status != lbool.True {
+		t.Fatal("numeric symbolic finite fact", status)
+	}
+
+	overflow := contextFixture(t)
+	if err := overflow.ParseDatalogString("Tiny 1\n\nT(x:Tiny)\nT(2).\nT(3).\n"); err == nil {
+		t.Fatal("accepted two distinct numeric symbols in a one-element domain")
 	}
 }
 

@@ -36,11 +36,9 @@ func (p *datalogParser) parseArgument(sort ast.ASTHandle) (ast.ASTHandle, error)
 	case dlString:
 		result, err = p.symbolicConstant(token.text, sort)
 	case dlNumber:
-		var value uint64
-		value, err = strconv.ParseUint(token.text, 10, 64)
-		if err == nil {
-			result, err = p.manager.MkDatalogNumeral(value, sort)
-		}
+		// Source mk_symbol_const maps a finite-domain numeral by its spelling,
+		// just like a quoted symbol; only arithmetic domains use its value.
+		result, err = p.symbolicConstant(token.text, sort)
 	default:
 		return ast.ASTHandle{}, p.expected("argument")
 	}
@@ -117,13 +115,6 @@ func (p *datalogParser) parseInfix() (ast.ASTHandle, error) {
 	operand := func(token datalogLexeme, variable ast.ASTHandle, found bool) (ast.ASTHandle, error) {
 		if found {
 			return variable, nil
-		}
-		if token.kind == dlNumber {
-			value, e := strconv.ParseUint(token.text, 10, 64)
-			if e != nil {
-				return ast.ASTHandle{}, e
-			}
-			return p.manager.MkDatalogNumeral(value, sort)
 		}
 		return p.symbolicConstant(token.text, sort)
 	}

@@ -42,6 +42,17 @@ func NewIntervalDatalogEvaluator(manager *ast.ASTManager, rules *base.RuleSet, d
 		if err != nil {
 			return nil, err
 		}
+		rangeSort, err := manager.GetRange(declaration)
+		if err != nil {
+			return nil, err
+		}
+		boolean, err := manager.MkBoolSort()
+		if err != nil {
+			return nil, err
+		}
+		if rangeSort != boolean {
+			return nil, fmt.Errorf("%w: predicate range is not Boolean", ErrIntervalDatalogFragment)
+		}
 		sorts := make([]ast.ASTHandle, arity)
 		for i := uint32(0); i < arity; i++ {
 			sorts[i], err = manager.GetDomain(declaration, i)
