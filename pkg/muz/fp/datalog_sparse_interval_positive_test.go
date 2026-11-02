@@ -98,6 +98,21 @@ func TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds(t *testing.T) 
 	extra, err := m.MkFuncDecl(extraName, []ast.ASTHandle{boolean, integer}, boolean, ast.ASTFuncDeclInfo{})
 	fragmentMust(t, err)
 	fragmentMust(t, engine.RegisterPredicate(extra))
+	pureFiniteName, err := m.Symbols.Intern("sparse-interval-activation-pure-finite")
+	fragmentMust(t, err)
+	pureFinite, err := m.MkFuncDecl(pureFiniteName, []ast.ASTHandle{boolean}, boolean, ast.ASTFuncDeclInfo{})
+	fragmentMust(t, err)
+	pureArithmeticName, err := m.Symbols.Intern("sparse-interval-activation-pure-arithmetic")
+	fragmentMust(t, err)
+	pureArithmetic, err := m.MkFuncDecl(pureArithmeticName, []ast.ASTHandle{integer}, boolean, ast.ASTFuncDeclInfo{})
+	fragmentMust(t, err)
+	nullaryName, err := m.Symbols.Intern("sparse-interval-activation-nullary")
+	fragmentMust(t, err)
+	nullary, err := m.MkFuncDecl(nullaryName, nil, boolean, ast.ASTFuncDeclInfo{})
+	fragmentMust(t, err)
+	for _, declaration := range []ast.ASTHandle{pureFinite, pureArithmetic, nullary} {
+		fragmentMust(t, engine.RegisterPredicate(declaration))
+	}
 	activation, selected, err := newSparseIntervalDatalogActivation(m, engine.set, engine.guard, []ast.ASTHandle{predicate})
 	fragmentMust(t, err)
 	if !selected {
@@ -108,10 +123,15 @@ func TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds(t *testing.T) 
 	one, err := m.ArithmeticIntegerNumeralText("1")
 	fragmentMust(t, err)
 	fragmentMust(t, activation.addFact(predicate, []ast.ASTHandle{truth, one}))
+	fragmentMust(t, activation.syncPredicates([]ast.ASTHandle{predicate, extra}))
+	all := []ast.ASTHandle{predicate, extra, pureFinite, pureArithmetic, nullary}
+	fragmentMust(t, activation.syncAuxiliaryPredicates(all))
+	fragmentMust(t, activation.addFact(pureFinite, []ast.ASTHandle{truth}))
+	fragmentMust(t, activation.addFact(pureArithmetic, []ast.ASTHandle{one}))
+	fragmentMust(t, activation.addFact(nullary, nil))
 	copyActivation, err := activation.clone(engine.set, engine.guard)
 	fragmentMust(t, err)
 	fragmentMust(t, activation.close())
-	fragmentMust(t, copyActivation.syncPredicates([]ast.ASTHandle{predicate, extra}))
 	fragmentMust(t, copyActivation.addFact(extra, []ast.ASTHandle{truth, one}))
 	status, err := copyActivation.query([]ast.ASTHandle{predicate}, true)
 	fragmentMust(t, err)
@@ -130,6 +150,13 @@ func TestSparseIntervalDatalogActivationCloneOwnsIndependentSeeds(t *testing.T) 
 	fragmentMust(t, err)
 	if status != lbool.Undef {
 		t.Fatal("synced predicate lost seed", status)
+	}
+	for _, declaration := range []ast.ASTHandle{pureFinite, pureArithmetic, nullary} {
+		status, err = copyActivation.query([]ast.ASTHandle{declaration}, true)
+		fragmentMust(t, err)
+		if status != lbool.Undef {
+			t.Fatal("auxiliary predicate lost seed", declaration, status)
+		}
 	}
 	fragmentMust(t, copyActivation.reset())
 	status, err = copyActivation.query([]ast.ASTHandle{predicate}, true)
@@ -208,4 +235,57 @@ func TestSparseIntervalDatalogMixedGuardsUseSingleProductFilter(t *testing.T) {
 	fragmentMust(t, result.Close())
 	fragmentMust(t, evaluator.Close())
 	fragmentMust(t, store.Close())
+}
+
+func TestSparseIntervalDatalogAuxiliarySyncPreflightsWholeBatch(t *testing.T) {
+	f := newDirectFactFixture(t)
+	m, engine := f.manager, f.engine
+	boolean, err := m.MkBoolSort()
+	fragmentMust(t, err)
+	family, err := m.RegisterArithmeticPlugin()
+	fragmentMust(t, err)
+	integer, err := m.MkFamilySort(family, 1, nil)
+	fragmentMust(t, err)
+	declare := func(name string, domain []ast.ASTHandle, rangeSort ast.ASTHandle) ast.ASTHandle {
+		symbol, cause := m.Symbols.Intern(name)
+		fragmentMust(t, cause)
+		declaration, cause := m.MkFuncDecl(symbol, domain, rangeSort, ast.ASTFuncDeclInfo{})
+		fragmentMust(t, cause)
+		return declaration
+	}
+	original := declare("sparse-interval-sync-original", []ast.ASTHandle{boolean, integer}, boolean)
+	valid := declare("sparse-interval-sync-valid", []ast.ASTHandle{boolean}, boolean)
+	invalid := declare("sparse-interval-sync-invalid", []ast.ASTHandle{boolean}, integer)
+	validRoot, err := m.NewRef(valid)
+	fragmentMust(t, err)
+	defer func() { fragmentMust(t, m.DelRef(&validRoot)) }()
+	before, err := m.GetRefCount(valid)
+	fragmentMust(t, err)
+	activation, selected, err := newSparseIntervalDatalogActivation(m, engine.set, engine.guard, []ast.ASTHandle{original})
+	fragmentMust(t, err)
+	if !selected {
+		t.Fatal("mixed activation not selected")
+	}
+	status, err := activation.query([]ast.ASTHandle{original}, true)
+	fragmentMust(t, err)
+	if status != lbool.False {
+		t.Fatal("empty original status", status)
+	}
+	priorEvaluator := activation.evaluator
+	err = activation.syncAuxiliaryPredicates([]ast.ASTHandle{original, valid, invalid})
+	if err == nil {
+		t.Fatal("invalid auxiliary batch accepted")
+	}
+	if activation.evaluator != priorEvaluator {
+		t.Fatal("failed preflight discarded evaluator")
+	}
+	if activation.store.entries[valid] != nil || len(activation.predicates) != 1 {
+		t.Fatal("failed preflight partially published valid auxiliary")
+	}
+	after, err := m.GetRefCount(valid)
+	fragmentMust(t, err)
+	if after != before {
+		t.Fatal("failed preflight leaked declaration pin", before, after)
+	}
+	fragmentMust(t, activation.close())
 }

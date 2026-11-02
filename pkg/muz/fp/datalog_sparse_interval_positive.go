@@ -10,6 +10,60 @@ import (
 	"github.com/glycerine/g3/pkg/muz/rel"
 )
 
+func appendSparseIntervalFullColumn(product *rel.SparseIntervalSieveProduct, sorts []ast.ASTHandle, sortHandle ast.ASTHandle) (*rel.SparseIntervalSieveProduct, []ast.ASTHandle, int, error) {
+	if product == nil || sortHandle.IsNull() {
+		return nil, nil, 0, ErrSparseIntervalDatalogFragment
+	}
+	next, err := product.AppendFullColumn(sortHandle)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	if err = product.Close(); err != nil {
+		return nil, nil, 0, errors.Join(err, next.Close())
+	}
+	return next, append(sorts, sortHandle), len(sorts), nil
+}
+
+func duplicateSparseIntervalColumn(product *rel.SparseIntervalSieveProduct, sorts []ast.ASTHandle, column int) (*rel.SparseIntervalSieveProduct, []ast.ASTHandle, int, error) {
+	if product == nil || column < 0 || column >= len(sorts) {
+		return nil, nil, 0, ErrSparseIntervalDatalogFragment
+	}
+	next, err := product.DuplicateColumn(column)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	if err = product.Close(); err != nil {
+		return nil, nil, 0, errors.Join(err, next.Close())
+	}
+	return next, append(sorts, sorts[column]), len(sorts), nil
+}
+
+func ensureSparseIntervalConditionVariables(manager *ast.ASTManager, condition ast.ASTHandle, variables map[uint32]int, product *rel.SparseIntervalSieveProduct, sorts []ast.ASTHandle) (*rel.SparseIntervalSieveProduct, []ast.ASTHandle, error) {
+	used, err := ast.NewASTUsedVars(manager)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err = used.Collect(condition); err != nil {
+		return nil, nil, err
+	}
+	for variable := uint32(0); variable < used.MaxFoundVarIndexPlusOne(); variable++ {
+		sortHandle := used.Contains(variable)
+		if sortHandle.IsNull() {
+			continue
+		}
+		if _, found := variables[variable]; found {
+			continue
+		}
+		var column int
+		product, sorts, column, err = appendSparseIntervalFullColumn(product, sorts, sortHandle)
+		if err != nil {
+			return nil, nil, err
+		}
+		variables[variable] = column
+	}
+	return product, sorts, nil
+}
+
 func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, widen bool) (changed bool, resultErr error) {
 	defer func() { resultErr = errors.Join(resultErr, rule.Close()) }()
 	positive, err := rule.PositiveTailSize()
@@ -128,15 +182,23 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 		conditions = append(conditions, condition)
 	}
 	if len(conditions) != 0 {
-		condition, cause := e.manager.MkAndArgs(conditions)
-		if cause != nil {
-			return false, cause
+		condition := conditions[0]
+		if len(conditions) != 1 {
+			var cause error
+			condition, cause = e.manager.MkAndArgs(conditions)
+			if cause != nil {
+				return false, cause
+			}
 		}
 		conditionRef, cause := e.manager.NewRef(condition)
 		if cause != nil {
 			return false, cause
 		}
 		defer func() { resultErr = errors.Join(resultErr, e.manager.DelRef(&conditionRef)) }()
+		working, workingSorts, cause = ensureSparseIntervalConditionVariables(e.manager, condition, variables, working, workingSorts)
+		if cause != nil {
+			return false, cause
+		}
 		mappedVariables := make(map[uint32]uint32, len(variables))
 		for variable, column := range variables {
 			mappedVariables[variable] = uint32(column)
@@ -170,22 +232,62 @@ func (e *SparseIntervalDatalogEvaluator) evaluatePositiveRule(rule *base.Rule, w
 		return false, err
 	}
 	desired := make([]int, headCount)
-	seen := make(map[int]bool, headCount)
+	usedColumns := make(map[int]bool, headCount)
+	headSorts := e.sorts[headDeclaration]
+	if int(headCount) != len(headSorts) {
+		return false, ErrSparseIntervalDatalogFragment
+	}
 	for i := 0; i < int(headCount); i++ {
 		argument, cause := e.manager.GetArg(head, uint32(i))
 		if cause != nil {
 			return false, cause
 		}
 		kind, cause := e.manager.GetKind(argument)
-		if cause != nil || kind != ast.ASTVar {
-			return false, errors.Join(cause, ErrSparseIntervalDatalogFragment)
+		if cause != nil {
+			return false, cause
 		}
-		variable, cause := e.manager.GetVarIndex(argument)
-		column, found := variables[variable]
-		if cause != nil || !found || seen[column] {
-			return false, errors.Join(cause, ErrSparseIntervalDatalogFragment)
+		var column int
+		if kind == ast.ASTVar {
+			variable, cause := e.manager.GetVarIndex(argument)
+			if cause != nil {
+				return false, cause
+			}
+			var found bool
+			column, found = variables[variable]
+			if !found {
+				working, workingSorts, column, cause = appendSparseIntervalFullColumn(working, workingSorts, headSorts[i])
+				if cause != nil {
+					return false, cause
+				}
+				variables[variable] = column
+			}
+		} else {
+			valueSort, sortErr := e.manager.GetSort(argument)
+			_, _, numeral, numeralErr := e.manager.ArithmeticNumeralText(argument)
+			if !rel.CanHandleIntervalSorts(e.manager, []ast.ASTHandle{headSorts[i]}) {
+				// Finite constants are not arithmetic numerals, but FilterEqual
+				// validates and encodes them through the sparse component.
+				numeral, numeralErr = true, nil
+			}
+			cause = errors.Join(sortErr, numeralErr)
+			if cause != nil || !numeral || valueSort != headSorts[i] {
+				return false, errors.Join(cause, fmt.Errorf("%w: ill-sorted head constant", ErrSparseIntervalDatalogFragment))
+			}
+			working, workingSorts, column, cause = appendSparseIntervalFullColumn(working, workingSorts, headSorts[i])
+			if cause == nil {
+				cause = working.FilterEqual(column, argument)
+			}
+			if cause != nil {
+				return false, cause
+			}
 		}
-		seen[column], desired[i] = true, column
+		if usedColumns[column] {
+			working, workingSorts, column, cause = duplicateSparseIntervalColumn(working, workingSorts, column)
+			if cause != nil {
+				return false, cause
+			}
+		}
+		usedColumns[column], desired[i] = true, column
 	}
 	selected := append([]int(nil), desired...)
 	sort.Ints(selected)

@@ -16,9 +16,10 @@ import (
 var ErrSparseIntervalDatalogFragment = errors.New("muz/fp: unsupported sparse/interval Datalog fragment")
 
 type sparseIntervalDatalogStoreEntry struct {
-	sorts    []ast.ASTHandle
-	relation *rel.SparseIntervalSieveProduct
-	root     ast.ASTRef
+	sorts     []ast.ASTHandle
+	relation  *rel.SparseIntervalSieveProduct
+	root      ast.ASTRef
+	auxiliary bool
 }
 
 // Evaluator snapshots seed products; subsequent fact insertion cannot mutate
@@ -63,46 +64,74 @@ func (s *SparseIntervalDatalogStore) open() error {
 	return nil
 }
 
-func (s *SparseIntervalDatalogStore) Register(declaration ast.ASTHandle) (resultErr error) {
+func (s *SparseIntervalDatalogStore) Register(declaration ast.ASTHandle) error {
+	return s.register(declaration, false)
+}
+
+// RegisterAuxiliary admits generated pure finite, pure arithmetic, and
+// nullary predicates after a mixed program has selected this backend.
+func (s *SparseIntervalDatalogStore) RegisterAuxiliary(declaration ast.ASTHandle) error {
+	return s.register(declaration, true)
+}
+
+func (s *SparseIntervalDatalogStore) register(declaration ast.ASTHandle, auxiliary bool) (resultErr error) {
 	if err := s.open(); err != nil {
 		return err
 	}
 	if s.entries[declaration] != nil {
 		return fmt.Errorf("%w: duplicate predicate", ErrSparseIntervalDatalogFragment)
 	}
-	rangeSort, err := s.manager.GetRange(declaration)
+	entry, err := s.prepareRegistration(declaration, auxiliary)
 	if err != nil {
 		return err
+	}
+	s.entries[declaration] = entry
+	s.order = append(s.order, declaration)
+	return nil
+}
+
+// prepareRegistration validates and owns a complete entry without publishing
+// it. Activation sync stages every new declaration before changing the store.
+func (s *SparseIntervalDatalogStore) prepareRegistration(declaration ast.ASTHandle, auxiliary bool) (*sparseIntervalDatalogStoreEntry, error) {
+	if err := s.open(); err != nil {
+		return nil, err
+	}
+	rangeSort, err := s.manager.GetRange(declaration)
+	if err != nil {
+		return nil, err
 	}
 	boolean, err := s.manager.MkBoolSort()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if rangeSort != boolean {
-		return fmt.Errorf("%w: predicate range is not Boolean", ErrSparseIntervalDatalogFragment)
+		return nil, fmt.Errorf("%w: predicate range is not Boolean", ErrSparseIntervalDatalogFragment)
 	}
 	arity, err := s.manager.GetArity(declaration)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	sorts := make([]ast.ASTHandle, arity)
 	for i := uint32(0); i < arity; i++ {
 		sorts[i], err = s.manager.GetDomain(declaration, i)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	product, err := rel.NewSparseIntervalSieveProduct(s.relations, sorts, []string{"tr_sparse", "interval_relation"}, false)
+	var product *rel.SparseIntervalSieveProduct
+	if auxiliary {
+		product, err = rel.NewSparseIntervalSieveProductAuxiliary(s.relations, sorts, false)
+	} else {
+		product, err = rel.NewSparseIntervalSieveProduct(s.relations, sorts, []string{"tr_sparse", "interval_relation"}, false)
+	}
 	if err != nil {
-		return errors.Join(ErrSparseIntervalDatalogFragment, err)
+		return nil, errors.Join(ErrSparseIntervalDatalogFragment, err)
 	}
 	declarationRef, err := s.manager.NewRef(declaration)
 	if err != nil {
-		return errors.Join(err, product.Close())
+		return nil, finishSparseIntervalProductConstruction(err, s.manager, product)
 	}
-	s.entries[declaration] = &sparseIntervalDatalogStoreEntry{sorts: sorts, relation: product, root: declarationRef}
-	s.order = append(s.order, declaration)
-	return nil
+	return &sparseIntervalDatalogStoreEntry{sorts: sorts, relation: product, root: declarationRef, auxiliary: auxiliary}, nil
 }
 
 func (s *SparseIntervalDatalogStore) AddFact(declaration ast.ASTHandle, values []ast.ASTHandle) error {

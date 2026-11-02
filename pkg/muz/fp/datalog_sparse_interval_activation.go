@@ -29,7 +29,7 @@ func newSparseIntervalDatalogActivation(manager *ast.ASTManager, rules *base.Rul
 	a := &sparseIntervalDatalogActivation{manager: manager, rules: rules, guard: guard, predicates: append([]ast.ASTHandle(nil), declarations...)}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, a.close())
+			resultErr = finishSparseIntervalActivationConstruction(resultErr, a)
 		}
 	}()
 	var err error
@@ -45,7 +45,9 @@ func newSparseIntervalDatalogActivation(manager *ast.ASTManager, rules *base.Rul
 		seen[declaration] = true
 		if err = a.store.Register(declaration); err != nil {
 			if errors.Is(err, rel.ErrSparseIntervalProduct) || errors.Is(err, ErrSparseIntervalDatalogFragment) {
-				return nil, false, a.close()
+				cleanup := finishSparseIntervalActivationConstruction(nil, a)
+				a = nil
+				return nil, false, cleanup
 			}
 			return nil, true, err
 		}
@@ -82,6 +84,16 @@ func (a *sparseIntervalDatalogActivation) addFact(declaration ast.ASTHandle, val
 }
 
 func (a *sparseIntervalDatalogActivation) syncPredicates(declarations []ast.ASTHandle) error {
+	return a.sync(declarations, false)
+}
+
+// syncAuxiliaryPredicates admits generated pure finite, pure arithmetic, and
+// nullary predicates without widening original-program backend selection.
+func (a *sparseIntervalDatalogActivation) syncAuxiliaryPredicates(declarations []ast.ASTHandle) error {
+	return a.sync(declarations, true)
+}
+
+func (a *sparseIntervalDatalogActivation) sync(declarations []ast.ASTHandle, auxiliary bool) error {
 	if err := a.open(); err != nil {
 		return err
 	}
@@ -97,17 +109,36 @@ func (a *sparseIntervalDatalogActivation) syncPredicates(declarations []ast.ASTH
 			return ErrSparseIntervalDatalogFragment
 		}
 	}
-	if err := a.discardEvaluator(); err != nil {
-		return err
+	type stagedRegistration struct {
+		declaration ast.ASTHandle
+		entry       *sparseIntervalDatalogStoreEntry
 	}
+	staged := make([]stagedRegistration, 0, len(declarations)-len(a.predicates))
 	for _, declaration := range declarations {
 		if a.store.entries[declaration] != nil {
 			continue
 		}
-		if err := a.store.Register(declaration); err != nil {
-			return errors.Join(err, ErrSparseIntervalDatalogFragment)
+		entry, err := a.store.prepareRegistration(declaration, auxiliary)
+		if err != nil {
+			owners := make([]*sparseIntervalDatalogStoreEntry, len(staged))
+			for i := range staged {
+				owners[i] = staged[i].entry
+			}
+			return finishSparseIntervalEntriesConstruction(errors.Join(err, ErrSparseIntervalDatalogFragment), a.manager, owners...)
 		}
-		a.predicates = append(a.predicates, declaration)
+		staged = append(staged, stagedRegistration{declaration: declaration, entry: entry})
+	}
+	if err := a.discardEvaluator(); err != nil {
+		owners := make([]*sparseIntervalDatalogStoreEntry, len(staged))
+		for i := range staged {
+			owners[i] = staged[i].entry
+		}
+		return finishSparseIntervalEntriesConstruction(err, a.manager, owners...)
+	}
+	for _, registration := range staged {
+		a.store.entries[registration.declaration] = registration.entry
+		a.store.order = append(a.store.order, registration.declaration)
+		a.predicates = append(a.predicates, registration.declaration)
 	}
 	return nil
 }
@@ -119,23 +150,34 @@ func (a *sparseIntervalDatalogActivation) clone(rules *base.RuleSet, guard *astr
 		}
 		return nil, err
 	}
-	copyActivation, selected, err := newSparseIntervalDatalogActivation(a.manager, rules, guard, a.predicates)
-	if err != nil || !selected {
-		return nil, errors.Join(err, ErrSparseIntervalDatalogFragment)
-	}
+	copyActivation := &sparseIntervalDatalogActivation{manager: a.manager, rules: rules, guard: guard, predicates: append([]ast.ASTHandle(nil), a.predicates...)}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, copyActivation.close())
+			resultErr = finishSparseIntervalActivationConstruction(resultErr, copyActivation)
 		}
 	}()
-	for declaration, source := range a.store.entries {
+	var err error
+	copyActivation.store, err = NewSparseIntervalDatalogStore(a.manager)
+	if err != nil {
+		return nil, err
+	}
+	for _, declaration := range a.store.order {
+		source := a.store.entries[declaration]
+		if source.auxiliary {
+			err = copyActivation.store.RegisterAuxiliary(declaration)
+		} else {
+			err = copyActivation.store.Register(declaration)
+		}
+		if err != nil {
+			return nil, err
+		}
 		clone, cause := source.relation.CloneTo(copyActivation.store.relations)
 		if cause != nil {
 			return nil, cause
 		}
 		destination := copyActivation.store.entries[declaration]
 		if cause = destination.relation.Close(); cause != nil {
-			return nil, errors.Join(cause, clone.Close())
+			return nil, finishSparseIntervalProductConstruction(cause, a.manager, clone)
 		}
 		destination.relation = clone
 	}
@@ -154,7 +196,7 @@ func (a *sparseIntervalDatalogActivation) query(declarations []ast.ASTHandle, wi
 		return lbool.Undef, err
 	}
 	if err = evaluator.SaturatePositive(widen); err != nil {
-		return lbool.Undef, errors.Join(err, evaluator.Close())
+		return lbool.Undef, finishSparseIntervalEvaluatorConstruction(err, evaluator)
 	}
 	a.evaluator = evaluator
 	return evaluator.Query(declarations)

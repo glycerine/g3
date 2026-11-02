@@ -34,7 +34,7 @@ func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.R
 	e := &SparseIntervalDatalogEvaluator{manager: manager, relations: relations, rules: rules, guard: guard, sorts: make(map[ast.ASTHandle][]ast.ASTHandle, len(declarations)), products: make(map[ast.ASTHandle]*rel.SparseIntervalSieveProduct, len(declarations))}
 	defer func() {
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, e.Close())
+			resultErr = finishSparseIntervalEvaluatorConstruction(resultErr, e)
 		}
 	}()
 	boolean, err := manager.MkBoolSort()
@@ -68,12 +68,12 @@ func NewSparseIntervalDatalogEvaluator(manager *ast.ASTManager, relations *rel.R
 		if err != nil {
 			return nil, err
 		}
-		root, err := manager.NewRef(declaration)
-		if err != nil {
-			return nil, errors.Join(err, product.Close())
-		}
 		e.sorts[declaration] = sorts
 		e.products[declaration] = product
+		root, err := manager.NewRef(declaration)
+		if err != nil {
+			return nil, err
+		}
 		e.declarations = append(e.declarations, root)
 	}
 	for declaration := range seeds {
