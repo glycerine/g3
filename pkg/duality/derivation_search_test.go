@@ -230,6 +230,10 @@ func TestDualitySlowSearchResolvedGraphsSATUNSATAndRestart(t *testing.T) {
 				if controller.restartInterval != 4 {
 					t.Fatal("update threshold did not trigger exactly one restart", controller.restartInterval)
 				}
+			} else if mode == "constrained" || fullCex {
+				if controller.restartInterval != 0 {
+					t.Fatal("fast completion initialized slow-search restarts")
+				}
 			} else if controller.restartInterval != 3 {
 				t.Fatal("unexpected restart")
 			}

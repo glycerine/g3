@@ -72,7 +72,11 @@ func (s *DerivationSearch) Derive(root *Node, underapprox, constrained bool) (sa
 		return false, err
 	}
 	defer func() { result = errors.Join(result, buildTimer.Close()) }()
-	sat, err = s.Build()
+	if constrained {
+		sat, err = s.buildFast()
+	} else {
+		sat, err = s.Build()
+	}
 	if err != nil {
 		return sat, err
 	}
