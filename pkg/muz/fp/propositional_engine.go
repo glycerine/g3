@@ -504,8 +504,9 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 	return e.AddFact(declaration, handles)
 }
 
-// UpdateRule adds a named rule or replaces the unique existing rule with that
-// name. A replacement must preserve the head and may only strengthen the body.
+// UpdateRule adds or replaces a unique normalized rule by name. Pending AddRule
+// inputs and the raw archive are untouched, matching context::update_rule.
+// A replacement must preserve the head and may only strengthen the body.
 func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (resultErr error) {
 	if err := e.open(); err != nil {
 		return err
@@ -514,16 +515,6 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	if err != nil {
 		return err
 	}
-	original, err := e.manager.NewRef(formula)
-	if err != nil {
-		return err
-	}
-	keepOriginal := false
-	defer func() {
-		if !keepOriginal {
-			resultErr = errors.Join(resultErr, e.manager.DelRef(&original))
-		}
-	}()
 	candidateSet, err := base.NewRuleSet(e.rules)
 	if err != nil {
 		return err
@@ -558,8 +549,19 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	if err != nil {
 		return err
 	}
+	pending := make([]bool, count)
+	for _, raw := range e.rawRules {
+		if raw.pending {
+			for i := raw.first; i < raw.end; i++ {
+				pending[i] = true
+			}
+		}
+	}
 	oldIndex := -1
 	for i := 0; i < count; i++ {
+		if pending[i] {
+			continue
+		}
 		rule, x := e.set.Rule(i)
 		if x != nil {
 			return x
@@ -603,7 +605,14 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 		}
 	}()
 	for i := 0; i < count; i++ {
+		if pending[i] {
+			continue
+		}
 		if i == oldIndex {
+			// del_rule swaps the newly appended candidate into the old slot.
+			if err = replacement.Add(candidate); err != nil {
+				return err
+			}
 			continue
 		}
 		rule, x := e.set.Rule(i)
@@ -617,20 +626,36 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 			return x
 		}
 	}
-	if err = replacement.Add(candidate); err != nil {
-		return err
+	if oldIndex < 0 {
+		if err = replacement.Add(candidate); err != nil {
+			return err
+		}
+	}
+	for i := 0; i < count; i++ {
+		if !pending[i] {
+			continue
+		}
+		rule, x := e.set.Rule(i)
+		if x == nil {
+			x = replacement.Add(rule)
+		}
+		if rule != nil {
+			x = errors.Join(x, rule.Close())
+		}
+		if x != nil {
+			return x
+		}
 	}
 	if err = replacement.InheritPredicates(e.set); err != nil {
 		return err
 	}
-	if oldIndex >= 0 {
+	// Source updates operate on the normalized prefix only. Pending inputs
+	// are flushed after that prefix, and remain unchanged in the raw archive.
+	if oldIndex < 0 {
 		for i := range e.rawRules {
-			r := &e.rawRules[i]
-			if r.first > oldIndex {
-				r.first--
-			}
-			if r.end > oldIndex {
-				r.end--
+			if e.rawRules[i].pending {
+				e.rawRules[i].first++
+				e.rawRules[i].end++
 			}
 		}
 	}
@@ -648,8 +673,7 @@ func (e *PropositionalEngine) UpdateRule(formula ast.ASTHandle, name string) (re
 	}
 	e.autoRules = append(e.autoRules, autoRuleEntry{name: name, kind: autoKind})
 	e.advanceRuleRevision()
-	keepOriginal = true
-	return errors.Join(e.replaceRawRule(name, original, oldIndex >= 0), prior.Close())
+	return prior.Close()
 }
 
 // Push retains a snapshot of the current rules and background assertions.

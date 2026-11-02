@@ -213,6 +213,11 @@ func TestPropositionalEngineNamedRuleUpdate(t *testing.T) {
 	}
 	fpMust(t, rejected.AddRule(applications["P"], "fact"))
 	fpMust(t, rejected.AddRule(strongerRule, "edge"))
+	status, err = rejected.Query(applications["Q"])
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal("strong normalized rule reached Q", status)
+	}
 	if err = rejected.UpdateRule(oldRule, "edge"); err == nil {
 		t.Fatal("weakening a named rule succeeded")
 	}
@@ -232,6 +237,11 @@ func TestPropositionalEngineNamedRuleUpdate(t *testing.T) {
 	}
 	fpMust(t, validation.AddRule(applications["P"], "duplicate"))
 	fpMust(t, validation.AddRule(applications["U"], "duplicate"))
+	status, err = validation.Query(applications["P"])
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal("duplicate fixtures did not flush", status)
+	}
 	if err = validation.UpdateRule(applications["Q"], "duplicate"); err == nil {
 		t.Fatal("updating a duplicate rule name succeeded")
 	}

@@ -37,7 +37,8 @@ Run relevant cross-package checks at integration and the full native suite rough
   - [x] Route the owning fixedpoint API string/writer through the context formatter, applying fixedpoint-local print options without query configuration changes.
   - [ ] Reconcile eager Go ingestion with source pending-closed versus flushed display phase: preserve original binder/annotation metadata before flushing, normalized clause identity/order after flushing, updates and scoped restoration.
     - [x] Preserve closed-input binder/weight metadata before flush, normalized expansions afterward, mixed pending additions, scope snapshots and update range shifts; ordinary Duality queries preserve raw inputs.
-    - [ ] Match destructive open-formula display swap/removal order and source pre-flush named-update semantics.
+    - [x] Match normalized-only named updates before/after flush, preserve raw Duality inputs, replacement slot order and pending suffix order.
+    - [ ] Match destructive open-formula display swap/removal order.
   - [ ] Reconcile the legacy SMTContext replay convenience surface with the source to_string contract; keep replay functionality available.
 
 - [ ] Close context/rule ownership, scope rollback, query transformation and engine lifecycle audits (`base/dl_context`, `dl_rule`, `dl_engine_base`).
@@ -713,3 +714,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
   CLI validation: native `go -C pkg test ./cmd/g3 -run TestSMTLibRunnerScripts -short -count=1` also completed with exit 0, log `/tmp/g3-muz-parallel-cli.log`. No checked/debug suites were run.
 
 - 2026-11-02 — Corrected Horn tactic predicate discovery against horn_tactic.cpp:100-126. Theory atoms and predicate arguments are opaque; ITE traversal visits branches only, and Boolean connective children follow the source stack order. The baseline wrongly registered Boolean parameters inside predicate arguments/equalities/ITE conditions. Four focused source-boundary cases now pass, along with native Horn tactic/simplifier tests. This does not claim the remaining whole-tactic audit complete. Commit: `Match Horn tactic predicate discovery boundaries`.
+
+- 2026-11-02 — Matched source context::update_rule phase semantics: named replacement searches only normalized rules and leaves pending input formulas/raw bounds unchanged. Fresh normalized updates precede the pending suffix; replacements occupy the original slot as source del_rule swaps the appended candidate into that position. PDR/Duality API cases verify differing normalized/raw consumption and unchanged reachability after rejected updates. Existing weakening/duplicate rejection checks remain, with explicit query flushes to exercise their source-valid precondition; raw archive assertions now require the original formula rather than the obsolete rewritten-archive behavior. Focused update/raw/API tests pass; an earlier broad run caught other lanes still in progress and is not a green checkpoint. Commit: `Match named rule updates to source normalization phases`.

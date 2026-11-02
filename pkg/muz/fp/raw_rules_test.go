@@ -64,7 +64,7 @@ func TestFixedpointRawRulesPreserveInputBoundsAndScopedLifetime(t *testing.T) {
 	}
 }
 
-func TestFixedpointRawRuleUpdateAndPopRestoreOriginalFormula(t *testing.T) {
+func TestFixedpointRawRuleUpdateAndPopPreserveOriginalArchive(t *testing.T) {
 	e, m := newRoutingEngine(t)
 	_, p := routingPredicate(t, e, m, "raw-update-P")
 	_, q := routingPredicate(t, e, m, "raw-update-Q")
@@ -96,11 +96,13 @@ func TestFixedpointRawRuleUpdateAndPopRestoreOriginalFormula(t *testing.T) {
 			t.Fatal("wrong raw formula after update or pop")
 		}
 	}
-	check(stronger)
+	// dl_context::update_rule changes only the normalized set; the original
+	// formula and recursion bound remain the inputs for ordinary Duality.
+	check(original)
 	if err := e.UpdateRule(p, "edge"); err == nil {
 		t.Fatal("non-subsuming update accepted")
 	}
-	check(stronger)
+	check(original)
 	fpMust(t, e.Pop())
 	check(original)
 }

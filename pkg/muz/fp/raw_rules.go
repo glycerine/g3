@@ -14,7 +14,7 @@ type rawRuleFormula struct {
 	bound   uint32
 	pending bool
 	// Half-open origin range in the eager rule set, meaningful only while pending.
-	// Query flush precedes transforms; UpdateRule adjusts ranges before removal.
+	// Query flush precedes transforms; fresh updates shift the pending suffix.
 	first, end int
 }
 
@@ -67,21 +67,6 @@ func (e *PropositionalEngine) copyRawRules() (out []rawRuleFormula, result error
 		acquired = append(acquired, rule)
 	}
 	return acquired, nil
-}
-
-func (e *PropositionalEngine) replaceRawRule(name string, reference ast.ASTRef, replace bool) error {
-	bound := ^uint32(0)
-	kept := e.rawRules[:0]
-	for _, rule := range e.rawRules {
-		if replace && rule.name == name {
-			bound = rule.bound
-			e.retiredRawRules = append(e.retiredRawRules, rule)
-		} else {
-			kept = append(kept, rule)
-		}
-	}
-	e.rawRules = append(kept, rawRuleFormula{formula: reference, name: name, bound: bound})
-	return e.cleanupRetiredRawRules()
 }
 
 func (e *PropositionalEngine) cleanupRetiredRawRules() error {
