@@ -16,7 +16,11 @@ import (
 // rule set, including its finite output bridges, into dependency-ordered
 // execution and saturation-marking termination blocks. Both blocks transfer to
 // the caller. Unsupported rules publish neither block.
-func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *rewriter.TheoryRewriter) (execution, termination *InstructionBlock, resultErr error) {
+func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *rewriter.TheoryRewriter) (*InstructionBlock, *InstructionBlock, error) {
+	return compileExplanationRulesWithGuard(relations, set, guard, false)
+}
+
+func compileExplanationRulesWithGuard(relations *RelationManager, set *base.RuleSet, guard *rewriter.TheoryRewriter, relationLevel bool) (execution, termination *InstructionBlock, resultErr error) {
 	if err := relations.open(); err != nil {
 		return nil, nil, err
 	}
@@ -103,7 +107,24 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 		}
 	}
 	execution, termination = NewInstructionBlock(), NewInstructionBlock()
-	registers := explanationRuleRegisters{inputTail: -1, outputDelta: VoidRegister}
+	registers := explanationRuleRegisters{inputTail: -1, outputDelta: VoidRegister, relationLevel: relationLevel}
+	appendRuntime := func(destination *InstructionBlock, instruction Instruction) error {
+		if relationLevel {
+			switch instruction.(type) {
+			case *whileInstruction, *saturationInstruction:
+			default:
+				converted, err := relationExplanationInstructionFor(instruction)
+				if err != nil {
+					return errors.Join(err, instruction.Close())
+				}
+				instruction = converted
+			}
+		}
+		if err := destination.Append(instruction); err != nil {
+			return errors.Join(err, instruction.Close())
+		}
+		return nil
+	}
 	appendRule := func(destination *InstructionBlock, index int) error {
 		block, err := compileExplanationRuleWithRegisters(relations, rules[index], guard, &registers)
 		if err != nil {
@@ -179,8 +200,8 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 				if err != nil {
 					return execution, termination, err
 				}
-				if err := execution.Append(load); err != nil {
-					return execution, termination, errors.Join(err, load.Close())
+				if err := appendRuntime(execution, load); err != nil {
+					return execution, termination, err
 				}
 			}
 			body := NewInstructionBlock()
@@ -191,11 +212,11 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 				controls = append(controls, oldDeltas[head])
 			}
 			loop := NewWhileLoopInstruction(controls, body)
-			if err := execution.Append(loop); err != nil {
-				return execution, termination, errors.Join(err, loop.Close())
+			if err := appendRuntime(execution, loop); err != nil {
+				return execution, termination, err
 			}
 			for _, head := range group {
-				if err := body.Append(NewDeallocateInstruction(newDeltas[head])); err != nil {
+				if err := appendRuntime(body, NewDeallocateInstruction(newDeltas[head])); err != nil {
 					return execution, termination, err
 				}
 				for _, index := range byHead[head] {
@@ -218,7 +239,7 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 			}
 			registers.inputTail, registers.outputDelta = -1, VoidRegister
 			for _, head := range group {
-				if err := body.Append(NewMoveInstruction(newDeltas[head], oldDeltas[head])); err != nil {
+				if err := appendRuntime(body, NewMoveInstruction(newDeltas[head], oldDeltas[head])); err != nil {
 					return execution, termination, err
 				}
 			}
@@ -228,8 +249,8 @@ func CompileExplanationRulesWithGuard(relations *RelationManager, set *base.Rule
 			if err != nil {
 				return execution, termination, err
 			}
-			if err := termination.Append(mark); err != nil {
-				return execution, termination, errors.Join(err, mark.Close())
+			if err := appendRuntime(termination, mark); err != nil {
+				return execution, termination, err
 			}
 		}
 	}

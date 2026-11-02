@@ -30,7 +30,7 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 	if source == nil || target == nil || relations == nil || relations.open() != nil || relations.manager != t.manager {
 		return ast.ErrASTHandle
 	}
-	if !relationLevel && t.factManager != nil && t.factManager != relations {
+	if t.factManager != nil && t.factManager != relations {
 		return ast.ErrASTDomain
 	}
 	for _, set := range []*base.RuleSet{source, target} {
@@ -77,14 +77,9 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 		if err != nil {
 			return err
 		}
-		var table *HashTable
 		var finite FiniteTable
 		var exists bool
-		if relationLevel {
-			table, exists, err = relations.TryGetRelation(original)
-		} else {
-			finite, exists, err = relations.TryGetFiniteRelation(original)
-		}
+		finite, exists, err = relations.TryGetFiniteRelation(original)
 		if err != nil {
 			return err
 		}
@@ -122,10 +117,14 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 			return err
 		}
 		if relationLevel {
-			product, err := newRelationExplanationProduct(relations, sorts, table, fact)
+			product, err := newRelationExplanationProductFromFinite(relations, sorts, finite, fact)
 			if err != nil {
 				return err
 			}
+			if err = relations.StoreRelationExplanation(explained, product); err != nil {
+				return errors.Join(err, product.Close())
+			}
+			t.factManager = relations
 			t.relationProducts[original] = product
 			continue
 		}
@@ -160,14 +159,55 @@ func (t *ExplanationTransformer) transferFacts(source, target *base.RuleSet, rel
 	return nil
 }
 
-// RelationProduct returns a transformer-owned whole-relation explanation
-// product created by TransferRelationFacts.
+func newRelationExplanationProductFromFinite(manager *RelationManager, sorts []ast.ASTHandle, source FiniteTable, fact ast.ASTHandle) (_ *RelationExplanationProduct, resultErr error) {
+	product, err := NewRelationExplanationProduct(manager, sorts)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, product.Close())
+		}
+	}()
+	if source != nil {
+		expected, err := product.table.Signature()
+		if err != nil {
+			return nil, err
+		}
+		actual, err := source.Signature()
+		if err != nil || !expected.equal(actual) {
+			return nil, errors.Join(err, ErrTableRelation)
+		}
+		rows, err := source.Facts()
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if _, err = product.table.Add(row); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if err = product.explanation.AddFact([]ast.ASTHandle{fact}); err != nil {
+		return nil, err
+	}
+	return product, nil
+}
+
+// RelationProduct returns the manager-owned borrowed whole-relation
+// explanation product created by TransferRelationFacts.
 func (t *ExplanationTransformer) RelationProduct(original ast.ASTHandle) (*RelationExplanationProduct, bool, error) {
 	if err := t.open(); err != nil {
 		return nil, false, err
 	}
-	product, found := t.relationProducts[original]
-	return product, found, nil
+	if _, found := t.relationProducts[original]; !found {
+		return nil, false, nil
+	}
+	explained, err := t.ExplanationDeclaration(original)
+	if err != nil {
+		return nil, false, err
+	}
+	return t.factManager.TryGetRelationExplanation(explained)
 }
 
 // FactProduct returns a manager-owned, borrowed finite/explanation product for

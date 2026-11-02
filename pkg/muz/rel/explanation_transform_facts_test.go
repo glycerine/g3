@@ -154,10 +154,17 @@ func TestExplanationTransformerTransfersRelationFacts(t *testing.T) {
 	astTestMust(t, err)
 	defer func() { astTestMust(t, target.Close()) }()
 	astTestMust(t, transformer.TransferRelationFacts(set, target, f.relations, []ast.ASTHandle{ext, dummy}))
+	explained, err := transformer.ExplanationDeclaration(ext)
+	astTestMust(t, err)
 	product, found, err := transformer.RelationProduct(ext)
 	astTestMust(t, err)
 	if !found {
 		t.Fatal("missing relation-level product")
+	}
+	stored, found, err := f.relations.TryGetRelationExplanation(explained)
+	astTestMust(t, err)
+	if !found || stored != product {
+		t.Fatal("relation product not published under explained declaration", found, stored, product)
 	}
 	a, found, err := product.Explanation([]ast.ASTHandle{f.truth})
 	astTestMust(t, err)
@@ -176,7 +183,67 @@ func TestExplanationTransformerTransfersRelationFacts(t *testing.T) {
 		t.Fatal("product did not copy original facts")
 	}
 	astTestMust(t, transformer.Close())
+	if _, found, err = product.Explanation([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("transformer disposed manager-owned relation product", found, err)
+	}
+	astTestMust(t, f.relations.ResetRelations())
 	if _, _, err = product.Explanation([]ast.ASTHandle{f.truth}); err == nil {
-		t.Fatal("closed relation product remains live")
+		t.Fatal("manager reset left relation product live")
+	}
+}
+
+func TestExplanationTransformerTransfersSparseRelationFacts(t *testing.T) {
+	f := newTableRelationFixture(t)
+	rm, err := base.NewRuleManager(f.ast)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, rm.Close()) }()
+	set, err := base.NewRuleSet(rm)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, set.Close()) }()
+	symbol, err := f.ast.Symbols.Intern("relation-explanation-sparse")
+	astTestMust(t, err)
+	predicate, err := f.ast.MkFuncDecl(symbol, []ast.ASTHandle{f.boolean}, f.boolean, ast.ASTFuncDeclInfo{})
+	astTestMust(t, err)
+	astTestMust(t, rm.RegisterPredicate(predicate))
+	astTestMust(t, set.SetOutputPredicate(predicate))
+	head, err := f.ast.MkApp(predicate, []ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	rule, err := rm.NewRule(head, nil, nil, "sparse-seed")
+	astTestMust(t, err)
+	astTestMust(t, set.Add(rule))
+	astTestMust(t, rule.Close())
+	signature, err := NewSignature([]uint64{2})
+	must(t, err)
+	sparse, err := NewSparseTable(signature, 0)
+	must(t, err)
+	_, err = sparse.Add(Fact{1})
+	must(t, err)
+	astTestMust(t, f.relations.StoreFiniteRelation(predicate, sparse))
+
+	transformer, err := NewExplanationTransformer(f.ast, rm)
+	astTestMust(t, err)
+	target, err := transformer.TransformRulesOnly(set)
+	astTestMust(t, err)
+	defer func() { astTestMust(t, target.Close()) }()
+	astTestMust(t, transformer.TransferRelationFacts(set, target, f.relations, []ast.ASTHandle{predicate}))
+	explained, err := transformer.ExplanationDeclaration(predicate)
+	astTestMust(t, err)
+	product, found, err := f.relations.TryGetRelationExplanation(explained)
+	astTestMust(t, err)
+	if !found {
+		t.Fatal("sparse relation snapshot not published")
+	}
+	proof, found, err := product.Explanation([]ast.ASTHandle{f.truth})
+	astTestMust(t, err)
+	if !found || proof.IsNull() {
+		t.Fatal("sparse relation snapshot proof", found, proof)
+	}
+	astTestMust(t, sparse.Reset())
+	if _, found, err = product.Explanation([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("published snapshot aliases sparse source", found, err)
+	}
+	astTestMust(t, transformer.Close())
+	if _, found, err = product.Explanation([]ast.ASTHandle{f.truth}); err != nil || !found {
+		t.Fatal("transformer closed manager snapshot", found, err)
 	}
 }

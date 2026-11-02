@@ -39,6 +39,20 @@ func (i *whileInstruction) open() error {
 
 func (i *whileInstruction) controlIsEmpty(context *ExecutionContext) (bool, error) {
 	for _, register := range i.controls {
+		if hasRelationExplanationRegister(context, register) {
+			product, err := context.RelationExplanationRegister(register)
+			if err != nil {
+				return false, err
+			}
+			empty, err := product.Empty()
+			if err != nil {
+				return false, err
+			}
+			if !empty {
+				return false, nil
+			}
+			continue
+		}
 		if hasExplanationInstructionRegister(context, register) {
 			product, err := context.ExplanationRegister(register)
 			if err != nil {

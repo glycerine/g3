@@ -268,15 +268,10 @@ func (t *ExplanationTransformer) Close() (result error) {
 	if t == nil || t.closed {
 		return nil
 	}
-	for key, product := range t.relationProducts {
-		if err := product.Close(); err != nil {
-			result = errors.Join(result, err)
-		} else {
-			delete(t.relationProducts, key)
-		}
-	}
-	// Fact-level products are owned by the relation manager, as source e_rel.
+	// Both fact-level and relation-level products are owned by the relation
+	// manager under their explained declarations, as source e_rel.
 	clear(t.factProducts)
+	clear(t.relationProducts)
 	t.factManager = nil
 	for key, ref := range t.declarations {
 		if err := t.manager.DelRef(&ref); err != nil {
