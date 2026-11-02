@@ -18,7 +18,12 @@ func closeReachFacts(facts []*ReachFact) (result error) {
 	return result
 }
 
-func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
+func (c *Context) groundSatAnswer() (result ast.ASTRef, resultErr error) {
+	defer func() {
+		if resultErr != nil {
+			resultErr = errors.Join(resultErr, c.manager.DelRef(&result))
+		}
+	}()
 	queryFacts, err := c.query.ReachFacts()
 	if err != nil {
 		return ast.ASTRef{}, err
@@ -285,9 +290,15 @@ func (c *Context) groundSatAnswer() (_ ast.ASTRef, resultErr error) {
 			return ast.ASTRef{}, err
 		}
 	}
+	// Reserve the result slot before constructing the conjunction: a failed
+	// NewRef afterward would leave its newly created child references unowned.
+	result, err = c.manager.NewRef(ast.ASTHandle{})
+	if err != nil {
+		return result, err
+	}
 	answer, err := c.manager.MkAndArray(handles)
 	if err != nil {
-		return ast.ASTRef{}, err
+		return result, err
 	}
-	return c.manager.NewRef(answer)
+	return result, c.manager.SetRef(result, answer)
 }

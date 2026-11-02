@@ -98406,10 +98406,12 @@
           "go_targets": ["pkg/muz/spacer/context_shared_witness_test.go",
             "pkg/muz/spacer/context_answer.go",
             "pkg/muz/spacer/context_ground_answer_test.go",
+            "pkg/muz/fp/spacer_ground_answer_failure_test.go",
             "pkg/parsers/smt2/fixedpoint_commands_test.go"
           ],
           "tests": ["TestSpacerSharedUnevenGroundWitnessAndRuleTrace",
             "TestSpacerGroundAnswerIncludesNullaryRootAndCompletesArguments",
+            "TestSpacerGroundAnswerAllocationFailurePublicationAndRetry",
             "TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP"
           ]
         },
