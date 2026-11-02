@@ -2336,6 +2336,13 @@ func (e *PropositionalEngine) Close() (result error) {
 		}
 		return result
 	}
+	// An active native numeral invocation can reenter owner cleanup through
+	// error transport. Refuse before disposing any engine-owned component.
+	if e.manager != nil {
+		if _, err := e.manager.ProofMode(); err != nil {
+			return err
+		}
+	}
 	if e.external != nil {
 		if err := e.external.Close(); err != nil {
 			return err
@@ -2370,7 +2377,10 @@ func (e *PropositionalEngine) Close() (result error) {
 		e.pdr = nil
 		e.pdrRevision = 0
 		e.pdrQuery = ast.ASTHandle{}
-		result = errors.Join(result, e.clearPDRPreprocessing())
+	}
+	// Preprocessing owners may outlive an already closed backend context.
+	if err := e.clearPDRPreprocessing(); err != nil {
+		return errors.Join(result, err)
 	}
 	if e.pdrRules != nil {
 		result = errors.Join(result, e.pdrRules.Close())

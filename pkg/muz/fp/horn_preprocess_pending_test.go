@@ -10,6 +10,7 @@ import (
 	"github.com/glycerine/g3/pkg/muz/transforms"
 	"github.com/glycerine/g3/pkg/util/memory"
 	"github.com/glycerine/g3/pkg/util/numeral"
+	uparams "github.com/glycerine/g3/pkg/util/params"
 	"github.com/glycerine/g3/pkg/util/symbol"
 )
 
@@ -23,11 +24,23 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	budget := arena.NewBudget(1 << 28)
 	var result, conversionResult *hornPreprocessResult
 	var coneSteps []transforms.ConeModelStep
-	var backend, proofBackend *PropositionalEngine
+	var backend, proofBackend, rootEngine *PropositionalEngine
+	inEngineClose := false
 	active, callbacks, intact := false, 0, true
 	runtime, err := memory.NewRuntime(memory.RuntimeConfig{Budget: budget, SizeTBits: 64, Transport: func(f memory.Failure) error {
 		if active {
 			callbacks++
+			if !inEngineClose {
+				inEngineClose = true
+				rootProof, background := rootEngine.pdrProof, rootEngine.background
+				rootRules, rootGuard, rootParams := rootEngine.rules, rootEngine.guard, rootEngine.params
+				for i := 0; i < 2; i++ {
+					cause := rootEngine.Close()
+					intact = intact && errors.Is(cause, ast.ErrASTPending) && !rootEngine.closed && rootEngine.pdrProof == rootProof && rootEngine.background == background && len(rootEngine.pdrConversions) == 1 && rootEngine.rules == rootRules && rootEngine.guard == rootGuard && rootEngine.params == rootParams
+				}
+				inEngineClose = false
+			}
+
 			for _, target := range []*PropositionalEngine{backend, proofBackend} {
 				pdrProof := target.pdrProof
 				conversions := len(target.pdrConversions)
@@ -206,6 +219,36 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	proofBackend.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}})
 	proofBackend.pdrProof, err = m.NewRef(originalProof)
 	must(err)
+	parameters, e := uparams.NewParamsContext(symbols, numbers, uparams.ParamsConfig{Budget: budget})
+	must(e)
+	catalog, e := uparams.NewGlobalParamsCatalog(symbols, uparams.GlobalParamsCatalogConfig{Budget: budget})
+	must(e)
+	globals, e := uparams.NewGlobalParamsService(symbols, parameters, uparams.GlobalParamsConfig{Budget: budget, Catalog: catalog})
+	must(e)
+	must(globals.InitializeSource())
+	defer func() { must(globals.Close()); must(catalog.Close()); must(parameters.Close()) }()
+	rootEngine, e = NewPropositionalEngineWithServices(m, parameters, globals)
+	must(e)
+	must(rootEngine.SelectEngine("pdr"))
+	rootPlugin := transforms.NewRuleInlinerPlugin(m, rules, []ast.ASTHandle{goal}, 1)
+	rootSet, e := rootPlugin.Transform(set)
+	must(e)
+	if rootSet == nil {
+		t.Fatal("missing root-engine model clauses")
+	}
+	rootModels, e := rootPlugin.TakeModelRules()
+	must(e)
+	if len(rootModels) == 0 {
+		t.Fatal("missing root-engine model owners")
+	}
+	defer func() { must(transforms.CloseInlineModelRules(rootModels)) }()
+	must(rootSet.Close())
+	must(rootPlugin.Close())
+	rootEngine.installPDRPreprocessing(&hornPreprocessResult{slicedPredicates: map[ast.ASTHandle]ast.ASTHandle{p: derived}, modelConversions: []hornModelConversion{{kind: hornConvertInline, inline: rootModels}}})
+	rootEngine.pdrProof, e = m.NewRef(originalProof)
+	must(e)
+	defer func() { must(rootEngine.clearPDRPreprocessing()); must(rootEngine.Close()) }()
+
 	defer func() { must(proofBackend.clearPDRPreprocessing()) }()
 
 	if result.sliceProof == nil {
@@ -224,6 +267,11 @@ func TestHornPreprocessClosePreservesPendingRuleAndProofOwners(t *testing.T) {
 	must(m.CleanupArithmeticNumeralInvocation(&invocation))
 	if body == nil || callbacks == 0 || !intact {
 		t.Fatal("pending preprocessing close discarded owners", body, callbacks, intact)
+	}
+	must(rootEngine.Close())
+	must(rootEngine.Close())
+	if rootEngine.pdrProof != (ast.ASTRef{}) || rootEngine.pdrConversions != nil {
+		t.Fatal("engine disposal left preprocessing owners without a live backend context")
 	}
 	preserved, e := m.RefGet(backend.pdrProof)
 	must(e)

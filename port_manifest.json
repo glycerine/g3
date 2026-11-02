@@ -85069,6 +85069,12 @@
       "ownership_audited": false,
       "methods": [
         {
+          "name": "Go fixedpoint engine disposal rejects native AST execution-guard entry before owner changes and retires PDR preprocessing without requiring a live backend context",
+          "status": "ported",
+          "go_targets": ["pkg/muz/fp/propositional_engine.go", "pkg/muz/fp/horn_preprocess_pending_test.go"],
+          "tests": ["TestHornPreprocessClosePreservesPendingRuleAndProofOwners"]
+        },
+        {
           "name": "get_raw_rule_formulas and original input/scoped rule ownership",
           "status": "ported",
           "go_target": "pkg/muz/fp/raw_rules.go",
