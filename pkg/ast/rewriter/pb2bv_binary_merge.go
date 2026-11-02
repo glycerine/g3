@@ -29,6 +29,13 @@ func (r *PB2BVRewriter) binaryMerge(mode pb2BVComparison, args []ast.ASTHandle, 
 	if !ok {
 		return result, false, nil
 	}
+	var sum uint32
+	for _, weight := range weights {
+		if weight > math.MaxUint32-sum {
+			return result, false, nil
+		}
+		sum += weight
+	}
 	v, err := ast.NewASTLiteralVector(r.manager.Budget())
 	if err != nil {
 		return result, true, err
