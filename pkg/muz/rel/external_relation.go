@@ -71,7 +71,7 @@ func NewExternalRelation(manager *RelationManager, sorts []ast.ASTHandle, callba
 }
 
 // NewEmpty creates a relation belonging to this callback plugin.
-func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (_ *ExternalRelation, resultErr error) {
+func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (result *ExternalRelation, resultErr error) {
 	if plugin == nil || plugin.closed || plugin.manager == nil || plugin.manager.open() != nil {
 		return nil, ErrTableRelation
 	}
@@ -85,11 +85,11 @@ func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (_ *Extern
 	if err != nil {
 		return nil, err
 	}
-	var created *ExternalRelation
+	owner := &externalRelationConstructionOwner{manager: m, temps: []ast.ASTRef{sortRef}}
 	defer func() {
-		resultErr = errors.Join(resultErr, m.DelRef(&sortRef))
-		if resultErr != nil && created != nil {
-			resultErr = errors.Join(resultErr, created.Close())
+		resultErr = owner.dispose(resultErr)
+		if resultErr != nil {
+			result = nil
 		}
 	}()
 	expression, err := m.MkFreshConst("T", relationSort)
@@ -102,7 +102,7 @@ func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (_ *Extern
 	}
 	r := &ExternalRelation{plugin: plugin, manager: manager, ast: m, sorts: append([]ast.ASTHandle(nil), sorts...), relation: ref}
 	plugin.users++
-	created = r
+	owner.result = r
 	empty, err := m.MkDatalogEmpty(relationSort)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (plugin *ExternalRelationPlugin) NewEmpty(sorts []ast.ASTHandle) (_ *Extern
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, m.DelRef(&emptyRef)) }()
+	owner.temps = append(owner.temps, emptyRef)
 	declaration, err := m.GetDecl(empty)
 	if err != nil {
 		return nil, err
@@ -266,7 +266,7 @@ func (r *ExternalRelation) Empty() (empty bool, resultErr error) {
 }
 
 // Clone invokes the source clone assignment with a fresh relation expression.
-func (r *ExternalRelation) Clone() (_ *ExternalRelation, resultErr error) {
+func (r *ExternalRelation) Clone() (result *ExternalRelation, resultErr error) {
 	expression, err := r.Relation()
 	if err != nil {
 		return nil, err
@@ -283,11 +283,13 @@ func (r *ExternalRelation) Clone() (_ *ExternalRelation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	result := &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), relation: freshRef}
+	result = &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), relation: freshRef}
 	r.plugin.users++
+	owner := &externalRelationConstructionOwner{manager: r.ast, result: result}
 	defer func() {
+		resultErr = owner.dispose(resultErr)
 		if resultErr != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+			result = nil
 		}
 	}()
 	app, err := r.ast.MkDatalogClone(expression)
@@ -298,7 +300,7 @@ func (r *ExternalRelation) Clone() (_ *ExternalRelation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { resultErr = errors.Join(resultErr, r.ast.DelRef(&appRef)) }()
+	owner.temps = append(owner.temps, appRef)
 	declaration, err := r.ast.GetDecl(app)
 	if err != nil {
 		return nil, err
@@ -310,7 +312,7 @@ func (r *ExternalRelation) Clone() (_ *ExternalRelation, resultErr error) {
 }
 
 // Complement invokes the source non-destructive complement reduction.
-func (r *ExternalRelation) Complement() (_ *ExternalRelation, resultErr error) {
+func (r *ExternalRelation) Complement() (result *ExternalRelation, resultErr error) {
 	expression, err := r.Relation()
 	if err != nil {
 		return nil, err
@@ -323,11 +325,11 @@ func (r *ExternalRelation) Complement() (_ *ExternalRelation, resultErr error) {
 	if err != nil {
 		return nil, err
 	}
-	var result *ExternalRelation
+	owner := &externalRelationConstructionOwner{manager: r.ast, temps: []ast.ASTRef{appRef}}
 	defer func() {
-		resultErr = errors.Join(resultErr, r.ast.DelRef(&appRef))
-		if resultErr != nil && result != nil {
-			resultErr = errors.Join(resultErr, result.Close())
+		resultErr = owner.dispose(resultErr)
+		if resultErr != nil {
+			result = nil
 		}
 	}()
 	declaration, err := r.ast.GetDecl(app)
@@ -344,6 +346,7 @@ func (r *ExternalRelation) Complement() (_ *ExternalRelation, resultErr error) {
 	}
 	result = &ExternalRelation{plugin: r.plugin, manager: r.manager, ast: r.ast, sorts: append([]ast.ASTHandle(nil), r.sorts...), relation: ref}
 	r.plugin.users++
+	owner.result = result
 	return result, nil
 }
 

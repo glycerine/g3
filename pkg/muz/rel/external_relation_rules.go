@@ -88,17 +88,16 @@ func classifyExternalFactRule(manager *ast.ASTManager, rule *base.Rule) (externa
 		}
 	}
 	if positive == 0 {
-		if tails != 0 {
-			return result, ErrCompilerUnsupported
-		}
 		for _, value := range headArgs {
 			valid, cause := manager.IsValue(value)
 			if cause != nil || !valid {
 				return result, errors.Join(cause, ErrCompilerUnsupported)
 			}
 		}
-		result.values = headArgs
-		return result, nil
+		if tails == 0 {
+			result.values = headArgs
+			return result, nil
+		}
 	}
 	positions := make(map[ast.ASTHandle]uint32)
 	columns := make([]ast.ASTHandle, 0)
@@ -298,6 +297,25 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			constantOwners = append(constantOwners, singleton)
 		}
 	}
+	seedOwner := &externalRuleSeedOwner{plugin: plugin}
+	defer func() { resultErr = finishExternalRuleSeed(seedOwner, resultErr) }()
+	needsNullaryTotal := false
+	for _, entry := range compiled {
+		if len(entry.tails) == 0 && len(entry.interpreted) != 0 {
+			needsNullaryTotal = true
+			break
+		}
+	}
+	if needsNullaryTotal {
+		seedOwner.empty, err = plugin.NewEmpty(nil)
+		if err != nil {
+			return err
+		}
+		seedOwner.total, err = seedOwner.empty.Complement()
+		if err != nil {
+			return err
+		}
+	}
 	checkpoint := func() error {
 		canceled, cause := plugin.ast.Canceled()
 		if cause != nil {
@@ -312,7 +330,7 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 		return err
 	}
 	for _, entry := range compiled {
-		if len(entry.tails) != 0 {
+		if len(entry.tails) != 0 || len(entry.interpreted) != 0 {
 			continue
 		}
 		target, cause := plugin.PredicateRelation(entry.head)
@@ -329,14 +347,20 @@ func ExecuteExternalFactRules(plugin *ExternalRelationPlugin, set *base.RuleSet)
 			return err
 		}
 		for _, entry := range compiled {
-			if len(entry.tails) == 0 {
+			if len(entry.tails) == 0 && len(entry.interpreted) == 0 {
 				continue
 			}
-			source, cause := plugin.PredicateRelation(entry.tails[0])
-			if cause != nil {
-				return cause
+			var value *ExternalRelation
+			var cause error
+			if len(entry.tails) == 0 {
+				value, cause = seedOwner.total.Clone()
+			} else {
+				source, sourceErr := plugin.PredicateRelation(entry.tails[0])
+				if sourceErr != nil {
+					return sourceErr
+				}
+				value, cause = prepareExternalRuleTail(source, entry.filters[0])
 			}
-			value, cause := prepareExternalRuleTail(source, entry.filters[0])
 			if cause != nil {
 				return cause
 			}
