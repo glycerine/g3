@@ -136,6 +136,13 @@ func (i *tableInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := i.open(); err != nil {
 		return false, err
 	}
+	if err := context.open(); err != nil {
+		return false, err
+	}
+	if (i.kind == "project" || i.kind == "union" || i.kind == "widen") &&
+		(hasExplanationInstructionRegister(context, i.first) || hasExplanationInstructionRegister(context, i.second) || hasExplanationInstructionRegister(context, i.result)) {
+		return i.performExplanation(context)
+	}
 	first, err := instructionRegister(context, i.first)
 	if err != nil {
 		return false, err
