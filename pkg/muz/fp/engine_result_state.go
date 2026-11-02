@@ -27,6 +27,14 @@ func (e *PropositionalEngine) recordResultSnapshot(result lbool.LBool, queryErr 
 	e.lastResult = result
 }
 
+// Parameter/engine mutation invalidates result and property snapshots before
+// disposing their owners. Failed solves keep their separate property revision.
+func (e *PropositionalEngine) invalidateQueryForMutation() {
+	e.queryReady = false
+	e.lastResult = lbool.Undef
+	e.queryCloneRevision = 0
+}
+
 func (e *PropositionalEngine) requireResultSnapshot(kind EngineKind) error {
 	if err := e.open(); err != nil {
 		return err

@@ -381,6 +381,7 @@ func (e *PropositionalEngine) ParametersUpdated() error {
 	if err := e.open(); err != nil {
 		return err
 	}
+	e.invalidateQueryForMutation()
 	if err := e.clearQueryResources(); err != nil {
 		return err
 	}

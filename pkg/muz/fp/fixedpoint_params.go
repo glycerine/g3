@@ -80,6 +80,7 @@ func (e *PropositionalEngine) SetQueryParameters(params *uparams.ParamsRef) (res
 	if err := e.open(); err != nil {
 		return err
 	}
+	e.invalidateQueryForMutation()
 	if err := e.clearQueryResources(); err != nil {
 		return err
 	}

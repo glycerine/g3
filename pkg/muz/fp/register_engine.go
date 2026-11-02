@@ -6,13 +6,13 @@ import "fmt"
 
 func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 	if e.backend != kind.String() {
+		e.invalidateQueryForMutation()
 		if err := e.closeDuality(); err != nil {
 			return err
 		}
 		if err := e.clearQueryResources(); err != nil {
 			return err
 		}
-		e.queryReady = false
 		if e.backend == EngineBMC.String() || e.backend == EngineQBMC.String() {
 			if err := e.clearBMCTrace(); err != nil {
 				return err
