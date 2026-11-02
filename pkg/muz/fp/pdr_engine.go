@@ -182,9 +182,8 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 			return lbool.Undef, fmt.Errorf("muz/fp: negation is not stratified")
 		}
 	}
-	if err = e.normalizeSimpleJoins(); err != nil {
-		return lbool.Undef, err
-	}
+	// Match pdr_dl_interface's default Horn transformations. Relational
+	// filter/simple-join normalization belongs to the Datalog query path.
 	if err = e.validateFragment(); err != nil {
 		return lbool.Undef, err
 	}
@@ -340,7 +339,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	proof, err := context.Proof(queryDeclaration)
 	if err != nil {
 		if onlyErrorKind(err, ast.ErrASTDomain) {
-			return lbool.Undef, errRetryUnslicedProof
+			return lbool.Undef, fmt.Errorf("%w: context proof: %v", errRetryUnslicedProof, err)
 		}
 		return lbool.Undef, err
 	}
@@ -352,7 +351,7 @@ func (e *PropositionalEngine) queryPDRWithSliceProof(declaration ast.ASTHandle, 
 	converted, err := preprocessed.sliceProof.Convert(original)
 	if err != nil {
 		if onlyErrorKind(err, transforms.ErrSliceProofUnsupported) || onlyErrorKind(err, ast.ErrASTDomain) {
-			return lbool.Undef, errRetryUnslicedProof
+			return lbool.Undef, fmt.Errorf("%w: %v", errRetryUnslicedProof, err)
 		}
 		return lbool.Undef, err
 	}

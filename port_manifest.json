@@ -89353,6 +89353,7 @@
       "status": "partial",
       "go_targets": [
         "pkg/muz/fp/pdr_engine.go",
+        "pkg/muz/fp/pdr_source_pipeline_test.go",
         "pkg/muz/fp/query_expression.go",
         "pkg/muz/fp/query_clone_predicates.go",
         "pkg/muz/fp/pdr_expression_cover_test.go",
@@ -89442,11 +89443,11 @@
       "ownership_audited": true,
       "methods": [
         {
-          "name": "PDR source query preprocessing uses apply_default_transformation; the Go query path still invokes relational normalizeSimpleJoins and needs an independent original-rule-set/export regression before closure",
-          "status": "partial",
-          "go_target": "pkg/muz/fp/pdr_engine.go",
-          "tests": [],
-          "reason": "Adjacent call-site audit after the Spacer pipeline regression found the same extra relational normalization call; PDR behavior and its certificate/model ownership must be tested independently before changing it."
+          "name": "PDR and QPDR query preprocessing excludes relational filter/simple-join normalization and preserves original rules across repeated SAT/UNSAT queries",
+          "status": "ported",
+          "go_target": "pkg/muz/fp/pdr_source_pipeline_test.go",
+          "tests": ["TestPDRQueryPreservesOriginalRulesAcrossSourcePipeline"],
+          "reason": "Matches pdr_dl_interface.cpp:80-105; eight cases cover constant-tail filters and three-tail joins, repeated queries, exact rule identities and names, and original non-query model interpretations without completion. Source get_level_property excludes the query predicate."
         },
         {
           "name": "PDR preprocessing model-ledger and proof-only cleanup preserves owners and predicate mappings across native AST execution-guard refusal and supports retry",

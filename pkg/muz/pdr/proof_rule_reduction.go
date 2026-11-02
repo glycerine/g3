@@ -45,8 +45,8 @@ func proofRuleVariables(manager *ast.ASTManager, rule *base.Rule) ([]ast.ASTHand
 	return variables, nil
 }
 
-func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *base.Rule) (resolved *base.Rule, targetSubstitution, sourceSubstitution []ast.ASTHandle, temporaries []ast.ASTRef, resultErr error) {
-	tail, negated, err := target.Tail(0)
+func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *base.Rule, selected int, tailMap *[]int) (resolved *base.Rule, targetSubstitution, sourceSubstitution []ast.ASTHandle, temporaries []ast.ASTRef, resultErr error) {
+	tail, negated, err := target.Tail(selected)
 	if err != nil || negated {
 		if err == nil {
 			err = ast.ErrASTDomain
@@ -166,7 +166,7 @@ func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *bas
 		}
 		return nil
 	}
-	if err = appendRule(target, 0, 0); err != nil {
+	if err = appendRule(target, 0, selected); err != nil {
 		return nil, nil, nil, temporaries, err
 	}
 	if err = appendRule(source, 1, -1); err != nil {
@@ -184,6 +184,44 @@ func (c *Context) resolveProofRules(rules *base.RuleManager, target, source *bas
 	if err != nil {
 		return nil, nil, nil, temporaries, fmt.Errorf("pdr: construct reduced proof rule: %w", err)
 	}
+	count, err := target.UninterpretedTailSize()
+	if err != nil {
+		return resolved, targetSubstitution, sourceSubstitution, temporaries, err
+	}
+	mapping := make([]int, count)
+	for i := range mapping {
+		mapping[i] = -1
+		if i == selected {
+			continue
+		}
+		term, _, x := target.Tail(i)
+		if x == nil {
+			term, x = apply(term, 0)
+		}
+		if x != nil {
+			return resolved, targetSubstitution, sourceSubstitution, temporaries, x
+		}
+		resolvedTail, _, x := target.Tail(selected)
+		if x == nil {
+			resolvedTail, x = apply(resolvedTail, 0)
+		}
+		if x != nil {
+			return resolved, targetSubstitution, sourceSubstitution, temporaries, x
+		}
+		if term == resolvedTail {
+			continue
+		}
+		for j, candidate := range tails {
+			if candidate == term {
+				mapping[i] = j
+				break
+			}
+		}
+		if mapping[i] < 0 {
+			return resolved, targetSubstitution, sourceSubstitution, temporaries, fmt.Errorf("pdr: missing reduced antecedent: %w", ast.ErrASTDomain)
+		}
+	}
+	*tailMap = mapping
 	return resolved, targetSubstitution, sourceSubstitution, temporaries, resultErr
 }
 
@@ -251,17 +289,29 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			}
 			return reducedProofEntry{}, x
 		}
+		positions := make([]int, len(children))
+		for i := range positions {
+			positions[i] = i
+		}
 		for childIndex, child := range children {
+			selected := positions[childIndex]
+			if selected < 0 {
+				// An earlier substitution merged this antecedent with one already resolved.
+				continue
+			}
 			childEntry, y := reduce(child)
 			if y != nil {
 				return reducedProofEntry{}, fmt.Errorf("pdr: resolve trace child %d: %w", childIndex, y)
 			}
-			resolved, targetSubst, sourceSubst, temporaryRefs, y := c.resolveProofRules(rules, currentRule, childEntry.rule)
+			var tailMap []int
+			resolved, targetSubst, sourceSubst, temporaryRefs, y := c.resolveProofRules(rules, currentRule, childEntry.rule, selected, &tailMap)
 			references = append(references, temporaryRefs...)
+			if resolved != nil {
+				generated = append(generated, resolved)
+			}
 			if y != nil {
 				return reducedProofEntry{}, fmt.Errorf("pdr: unify trace child %d: %w", childIndex, y)
 			}
-			generated = append(generated, resolved)
 			conclusion, y := resolved.ToFormula()
 			if y != nil {
 				return reducedProofEntry{}, y
@@ -273,7 +323,7 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 			}
 			currentProof, y = c.manager.MkProofHyperResolve(
 				[]ast.ASTHandle{currentProof, childEntry.proof}, conclusionHandle,
-				[]ast.ASTProofPosition{{First: 1, Second: 0}},
+				[]ast.ASTProofPosition{{First: uint32(selected + 1), Second: 0}},
 				[][]ast.ASTHandle{targetSubst, sourceSubst},
 			)
 			if y != nil {
@@ -284,6 +334,11 @@ func (c *Context) reducedProofTrace(root *ModelNode) (result ast.ASTRef, resultE
 				return reducedProofEntry{}, y
 			}
 			references = append(references, proofReference)
+			for i, position := range positions {
+				if position >= 0 {
+					positions[i] = tailMap[position]
+				}
+			}
 			currentRule = resolved
 		}
 		entry := reducedProofEntry{rule: currentRule, proof: currentProof}
