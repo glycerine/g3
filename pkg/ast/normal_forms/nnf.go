@@ -164,7 +164,7 @@ func (n *NNF) checkpoint() error {
 		return e
 	}
 	if canceled {
-		return z3exception.NewDefaultException(messages.Canceled)
+		return z3exception.NewDefaultException(n.manager.ResourceLimit().CancelMessage())
 	}
 	return nil
 }

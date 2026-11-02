@@ -92,6 +92,15 @@ func TestNNFMemoryLimitAndOptionGuards(t *testing.T) {
 		t.Fatal("NNF cancellation checkpoint", e)
 	}
 	m.Limit.ResetCancel()
+	definedNamesMust(t, m.Limit.Push(1))
+	if !m.Limit.Inc() {
+		t.Fatal("NNF resource fixture exhausted its first step")
+	}
+	e = n.Transform(a, &definitions, &definitionProofs, out, proof)
+	m.Limit.Pop()
+	if e == nil || e.Error() != messages.MaxResource {
+		t.Fatal("NNF resource-limit diagnostic", e)
+	}
 }
 
 func nnfTransform(t *testing.T, m *ast.ASTManager, n *NNF, root ast.ASTHandle) (ast.ASTHandle, ast.ASTHandle, []ast.ASTRef, []ast.ASTRef) {
