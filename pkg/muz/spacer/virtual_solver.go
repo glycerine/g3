@@ -149,6 +149,11 @@ func (f *VirtualSolverFactory) Close() error {
 		return nil
 	}
 	for _, virtual := range f.solvers {
+		if virtual != nil && virtual.closing {
+			if err := virtual.Close(); err != nil {
+				return err
+			}
+		}
 		if virtual != nil && !virtual.closed {
 			return ErrVirtualSolverOwner
 		}
@@ -181,11 +186,12 @@ type VirtualSolver struct {
 	name            string
 	dumpBenchmarks  bool
 	dumpCounter     uint32
+	closing         bool
 	closed          bool
 }
 
 func (s *VirtualSolver) open() error {
-	if s == nil || s.closed || s.Solver == nil || s.factory == nil {
+	if s == nil || s.closed || s.closing || s.Solver == nil || s.factory == nil {
 		return ErrVirtualSolverOwner
 	}
 	return s.factory.open()
@@ -483,12 +489,16 @@ func (s *VirtualSolver) Close() (result error) {
 	if s.closed {
 		return nil
 	}
+	s.closing = true
 	// Closing publishes the disabled guard to the shared solver. Let that
 	// teardown finish even when the query exhausted its resource budget.
 	suspend := control.NewSuspendLimit(s.factory.manager.ResourceLimit())
 	defer suspend.Close()
 	if s.pushed {
-		result = errors.Join(result, s.Solver.Pop(s.scopeLevel))
+		if err := s.Solver.Pop(s.scopeLevel); err != nil {
+			return err
+		}
+		s.pushed = false
 	}
 	predicate, err := s.factory.manager.RefGet(s.predicate)
 	if err == nil {
@@ -498,7 +508,11 @@ func (s *VirtualSolver) Close() (result error) {
 			err = s.Solver.Assert(negated)
 		}
 	}
-	result = errors.Join(result, err)
+	// Keep the guard and assertions owned by the factory if disabling the
+	// view refuses allocation. Its manager can resume this requested close.
+	if err != nil {
+		return err
+	}
 	for index := len(s.assertions) - 1; index >= 0; index-- {
 		result = errors.Join(result, s.factory.manager.DelRef(&s.assertions[index]))
 	}
@@ -508,6 +522,7 @@ func (s *VirtualSolver) Close() (result error) {
 		s.scopeAssertions = nil
 		s.lastAssumptions = nil
 		s.Solver = nil
+		s.closing = false
 		s.closed = true
 	}
 	return result

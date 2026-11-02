@@ -644,11 +644,14 @@ func (m *Manager) ResetStatistics() error {
 }
 
 func (m *Manager) Close() (result error) {
-	if m == nil || m.manager == nil {
+	if m == nil {
 		return ErrManagerOwner
 	}
 	if m.closed {
 		return nil
+	}
+	if m.manager == nil {
+		return ErrManagerOwner
 	}
 	for _, context := range m.contexts {
 		if context == nil {
@@ -656,6 +659,11 @@ func (m *Manager) Close() (result error) {
 		}
 		for _, factory := range context.factories {
 			for _, virtual := range factory.solvers {
+				if virtual != nil && virtual.closing {
+					if err := virtual.Close(); err != nil {
+						return err
+					}
+				}
 				if virtual != nil && !virtual.closed {
 					return ErrManagerOwner
 				}
