@@ -6,6 +6,8 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -108,6 +110,7 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 			}
 			for round, query := range []ast.ASTHandle{queryOne, fact, queryOne} {
 				options := duality.DefaultQueryOptions()
+				options.ConjectureFile = filepath.Join(t.TempDir(), "conjectures.smt2")
 				if round == 1 {
 					options.StratifiedInlining = true
 				}
@@ -123,6 +126,11 @@ func TestDualityOwnedBackendIntegerQueriesAndBorrowedServiceLifetime(t *testing.
 				}
 				if status != expected {
 					t.Fatalf("integer query %d: %v want %v", round, status, expected)
+				}
+				report, err := os.ReadFile(options.ConjectureFile)
+				must(err)
+				if round == 0 && !strings.Contains(string(report), "(define-fun ") {
+					t.Fatal("missing learned annotation report", string(report))
 				}
 				if round == 0 {
 					snapshot, err = backend.GetModel()
@@ -334,6 +342,15 @@ func TestDualityBackendProfileOutputAndWriterRetry(t *testing.T) {
 		t.Fatal("disabled profiling", status, err, output.String())
 	}
 	options := duality.DefaultQueryOptions()
+	options.ConjectureFile = filepath.Join(t.TempDir(), "missing", "conjectures.smt2")
+	if err := backend.SetOptions(options); err != nil {
+		t.Fatal(err)
+	}
+	status, err = backend.Query(prepared)
+	if status != lbool.Undef || err == nil {
+		t.Fatal("conjecture file open failure", status, err)
+	}
+	options.ConjectureFile = filepath.Join(t.TempDir(), "conjectures.smt2")
 	options.Profile = true
 	if err := backend.SetOptions(options); err != nil {
 		t.Fatal(err)

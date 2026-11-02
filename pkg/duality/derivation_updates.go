@@ -31,7 +31,7 @@ func replaceNodeAnnotation(node *Node, annotation *Transformer) error {
 
 // RecordAnnotationUpdate performs the source fact intersection and queues
 // affected instances. A bound source covering is invalidated before the
-// original fact changes. Update reporters remain unfinished.
+// original fact changes. Learned facts reach the owning search reporter.
 func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.Solver) (bool, error) {
 	if d == nil || node == nil || node.Owner != d.tree || node.Map == nil {
 		return false, ErrWrapperOwner
@@ -43,6 +43,9 @@ func (d *BacktrackingDerivation) RecordAnnotationUpdate(node *Node, aux solver.S
 	}
 	if redundant {
 		return false, nil
+	}
+	if err := d.original.conjectureReporter.Update(original, node.Annotation); err != nil {
+		return false, err
 	}
 	if d.sourceCovering != nil {
 		d.sourceCovering.Update(original)

@@ -6,6 +6,7 @@ import (
 	"github.com/glycerine/g3/pkg/model"
 	"github.com/glycerine/g3/pkg/qe"
 	"github.com/glycerine/g3/pkg/solver"
+	"os"
 )
 
 // EngineConfig borrows the native solvers, factory, interpolation manager and
@@ -29,6 +30,7 @@ type EngineConfig struct {
 // checkers/heuristic. The source graph and configured services stay borrowed.
 // Source: duality_solver.cpp:324-377,421-433, active lifecycle switches.
 type Engine struct {
+	conjectureFile  *os.File
 	self            *Engine
 	source          *RPFP
 	config          EngineConfig
@@ -155,6 +157,16 @@ func (e *Engine) closeRunServices() error {
 		}
 		e.global = nil
 	}
+	if e.conjectureFile != nil {
+		if e.graph != nil {
+			e.graph.conjectureReporter = nil
+		}
+		file := e.conjectureFile
+		e.conjectureFile = nil
+		if err := file.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 func (e *Engine) closeProposers() error {
@@ -195,6 +207,13 @@ func (e *Engine) Solve() (satisfied bool, result error) {
 		return false, err
 	}
 	e.graph = graph
+	if e.options.ConjectureFile != "" {
+		e.conjectureFile, err = os.Create(e.options.ConjectureFile)
+		if err != nil {
+			return false, err
+		}
+		graph.conjectureReporter = &ConjectureReporter{Output: e.conjectureFile, Params: e.source.context.config.params, Globals: e.config.Evaluator.Globals}
+	}
 	graph.HornClauses = e.source.HornClauses
 	covering, err := NewCovering(graph, e.config.Auxiliary)
 	if err != nil {

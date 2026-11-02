@@ -3,7 +3,7 @@ package duality
 import "github.com/glycerine/g3/pkg/solver"
 
 // Update intersects a new upper fact after invalidating covering relations.
-// Reporter/eager-reporting hooks remain separate from this source algorithm.
+// Learned facts are reported before intersecting the current annotation.
 // Source: duality_solver.cpp:1561-1575.
 func (u *Unwinding) Update(node *Node, fact *Transformer, aux solver.Solver) (bool, error) {
 	if u == nil || node == nil || node.closed || node.Owner != u.graph || node.Map == nil || aux == nil {
@@ -15,6 +15,9 @@ func (u *Unwinding) Update(node *Node, fact *Transformer, aux solver.Solver) (bo
 	}
 	if redundant {
 		return false, nil
+	}
+	if err := u.graph.conjectureReporter.Update(node, fact); err != nil {
+		return false, err
 	}
 	u.covering.Update(node)
 	if u.updatedNodes == nil {

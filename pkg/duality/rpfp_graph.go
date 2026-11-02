@@ -15,6 +15,7 @@ var ErrConnectedNode = errors.New("cannot delete RPFP node")
 
 // RPFP owns the graph and its AST references; the context is borrowed.
 type RPFP struct {
+	conjectureReporter    *ConjectureReporter
 	pendingProofWitnesses []*proofWitnessCall
 	sourceClauses         []ast.ASTRef
 	clauseIndices         map[*Edge]int
