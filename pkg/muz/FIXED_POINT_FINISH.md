@@ -355,7 +355,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
   - [x] Rule-free fixedpoint execution dispatches external EMPTY/STORE/IS_EMPTY for AST/table facts, queries and exact relation answers.
-  - [ ] Rule-bearing external execution and generic manager selection.
+  - [x] Ground facts and single-positive-tail ordered projections execute through STORE/CLONE/PROJECT/UNION callbacks with whole-program validation.
+  - [ ] Reordered/repeated/constant external heads, joins, negation, interpreted tails, delta/widen scheduling and generic manager selection.
 - [ ] `src/muz/rel/dl_finite_product_relation.cpp` (partial), `src/muz/rel/dl_finite_product_relation.h` (partial)
   - [x] Finite/interval product display, size estimates, forced garbage collection and non-table tuple-display fallback.
   - [x] Finite/explanation product display, garbage collection and outer-table row/byte estimates.
@@ -952,3 +953,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Made PDR predicate-transformer cleanup explicitly retryable. Operations now reject while native AST cleanup is pending, owned roots survive refusal, cleanup retry completes, and repeated completed close is idempotent; focused transformer tests passed in 0.026s. Deeper PDR child cleanup frontiers remain open.
 
 - 2026-11-02 — Preserved unconsumed Spacer `simplify_bounds_new` inputs when an early construction error is followed by refused AST cleanup. The returned construction failure exposes exact runtime/original/cleanup causes and retries remaining references; focused old/new bounds tests passed in 0.006s. Wider utility construction auditing remains open.
+
+- 2026-11-02 — Connected external-relation fact and single-tail rule execution to retained fixedpoint queries. Whole-program validation precedes callback mutation; ground facts and ordered projection chains use STORE/CLONE/PROJECT/UNION and mixed finite/external programs reject explicitly. Also aligned CLP multi-relation cardinality checking with source ordering. Focused fixedpoint/relational/CLP tests passed in 0.013s/0.019s/0.007s. Richer external bodies remain open.

@@ -1909,16 +1909,19 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 			e.queryRelationsSet = true
 		}
 	}()
-	for _, declaration := range declarations {
-		if e.predicates[declaration] == nil {
-			return lbool.Undef, ErrPropositionalHorn
-		}
-	}
 	if e.backend != "datalog" {
 		if len(declarations) != 1 {
 			return lbool.Undef, nil
 		}
+		if e.predicates[declarations[0]] == nil {
+			return lbool.Undef, ErrPropositionalHorn
+		}
 		return e.QueryPredicate(declarations[0])
+	}
+	for _, declaration := range declarations {
+		if e.predicates[declaration] == nil {
+			return lbool.Undef, ErrPropositionalHorn
+		}
 	}
 	e.queried = true
 	e.flushRawDisplayRules()
@@ -1935,34 +1938,7 @@ func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandl
 		hasExternal = hasExternal || e.predicates[declaration].external != nil
 	}
 	if hasExternal {
-		if count != 0 {
-			return lbool.Undef, ErrPropositionalHorn
-		}
-		e.compiled = false
-		e.datalogStats.Reset()
-		for _, declaration := range declarations {
-			state := e.predicates[declaration]
-			if state.external != nil {
-				empty, cause := state.external.Empty()
-				if cause != nil {
-					return lbool.Undef, cause
-				}
-				if !empty {
-					return lbool.True, nil
-				}
-				continue
-			}
-			if state.table != nil {
-				rows, cause := state.table.Len()
-				if cause != nil {
-					return lbool.Undef, cause
-				}
-				if rows != 0 {
-					return lbool.True, nil
-				}
-			}
-		}
-		return lbool.False, nil
+		return e.queryExternalDatalogPredicates(declarations, count)
 	}
 	if count == 0 && len(declarations) > 0 {
 		hasInfinite, nonempty := false, false

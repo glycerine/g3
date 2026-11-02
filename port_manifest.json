@@ -91438,6 +91438,10 @@
         "pkg/muz/fp/external_relations.go",
         "pkg/muz/fp/external_relation_predicate_test.go",
         "pkg/muz/rel/external_relation_callbacks.go",
+        "pkg/muz/rel/external_relation_rules.go",
+        "pkg/muz/rel/external_relation_rules_test.go",
+        "pkg/muz/fp/datalog_external_rules.go",
+        "pkg/muz/fp/external_relation_predicate_test.go",
         "pkg/muz/rel/external_relation_display.go",
         "pkg/muz/rel/external_relation_filter.go",
         "pkg/muz/rel/external_relation_transform.go",
@@ -93099,6 +93103,10 @@
         "pkg/muz/rel/external_relation_transform.go",
         "pkg/muz/rel/external_relation_filter.go",
         "pkg/muz/rel/external_relation_callbacks.go",
+        "pkg/muz/rel/external_relation_rules.go",
+        "pkg/muz/rel/external_relation_rules_test.go",
+        "pkg/muz/fp/datalog_external_rules.go",
+        "pkg/muz/fp/external_relation_predicate_test.go",
         "pkg/muz/rel/external_relation_display.go",
         "pkg/muz/rel/external_relation_display_test.go"
       ],
@@ -93112,7 +93120,9 @@
         "TestExternalRelationFilters",
         "TestExternalRelationCallbackTrailLifetime",
         "TestExternalRelationReduceCallbackRetainsReturnedAST",
-        "TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"
+        "TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors",
+        "TestExecuteExternalFactRulesGroundProjectionAndChain",
+        "TestFixedpointExternalGroundAndIdentityRuleExecution"
       ],
       "assertions": [
         {
@@ -93143,6 +93153,7 @@
       "methods_audited": true,
       "ownership_audited": true,
       "methods": [
+        {"name": "external relation execution for ground facts and single-positive-tail ordered projections through STORE/CLONE/PROJECT/UNION", "status": "partial", "go_target": "pkg/muz/rel/external_relation_rules.go", "go_targets": ["pkg/muz/fp/datalog_external_rules.go"], "tests": ["TestExecuteExternalFactRulesGroundProjectionAndChain", "TestFixedpointExternalGroundAndIdentityRuleExecution"], "reason": "The retained fixedpoint consumer validates the whole external rule set before mutation and runs monotone ground/projection chains. Reordered/repeated/constant head columns, joins, negation, interpreted tails and delta/widen scheduling remain open."},
         {"name": "external_relation::display and display_tuples print the relation expression followed by a newline", "status": "ported", "go_target": "pkg/muz/rel/external_relation_display.go", "go_targets": ["pkg/ast/ast_printer.go", "pkg/muz/rel/external_relation_display_test.go"], "tests": ["TestExternalRelationDisplayMatchesTupleDisplayAndPropagatesWriterErrors"]},
         {
           "name": "external callback relation initialization, store, emptiness, cloning and complement",
