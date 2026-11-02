@@ -1,6 +1,10 @@
 package rel
 
-import "github.com/glycerine/g3/pkg/ast"
+import (
+	"errors"
+
+	"github.com/glycerine/g3/pkg/ast"
+)
 
 // TryGetFiniteRelation borrows the actual selected finite representation.
 func (m *RelationManager) TryGetFiniteRelation(predicate ast.ASTHandle) (FiniteTable, bool, error) {
@@ -27,11 +31,18 @@ func (m *RelationManager) GetFiniteRelation(predicate ast.ASTHandle) (FiniteTabl
 	if err != nil || found {
 		return table, err
 	}
-	hash, err := m.GetRelation(predicate)
+	_, signature, err := m.PredicateSignature(predicate)
 	if err != nil {
 		return nil, err
 	}
-	return hash, nil
+	table, err = m.NewDefaultFiniteTable(signature)
+	if err != nil {
+		return nil, err
+	}
+	if err = m.StoreFiniteRelation(predicate, table); err != nil {
+		return nil, errors.Join(err, table.Close())
+	}
+	return table, nil
 }
 
 // StoreFiniteRelation consumes table only on success. Replacement closes the

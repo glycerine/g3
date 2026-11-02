@@ -28,6 +28,7 @@ func TestDatalogSparseRepresentationUsesConcreteStorage(t *testing.T) {
 	must(err)
 	yes, err := m.MkTrue()
 	must(err)
+	must(e.SetPredicateRepresentation(p, []string{"tr_hashtable"}))
 	must(e.AddFact(p, []ast.ASTHandle{no}))
 	prior := e.predicates[p].table
 	must(e.SetPredicateRepresentation(p, []string{"tr_sparse"}))

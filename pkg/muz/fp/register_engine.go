@@ -37,6 +37,7 @@ func (e *PropositionalEngine) selectBackend(kind EngineKind) error {
 	}
 	if e.backend != kind.String() {
 		e.engineInstantiated = false
+		e.datalogDefaultTable = ""
 	}
 	e.backend = kind.String()
 	e.engineSelectionSet = true

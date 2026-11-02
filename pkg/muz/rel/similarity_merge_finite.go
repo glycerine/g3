@@ -99,7 +99,7 @@ func similarityMergeFiniteCore(context *base.DatalogContext, rm *base.RuleManage
 	if e != nil {
 		return ast.ASTHandle{}, nil, e
 	}
-	table, e := relations.GetRelation(aux)
+	table, e := relations.GetFiniteRelation(aux)
 	if e != nil {
 		return aux, nil, e
 	}

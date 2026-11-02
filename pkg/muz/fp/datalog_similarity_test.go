@@ -104,7 +104,7 @@ func TestDatalogSimilarityLiveQuery(t *testing.T) {
 	if !saturated {
 		t.Fatal("generated relation is not saturated")
 	}
-	table, found, e := engine.relations.TryGetRelation(aux)
+	table, found, e := engine.relations.TryGetFiniteRelation(aux)
 	fragmentMust(t, e)
 	if !found {
 		t.Fatal("auxiliary table missing")
@@ -114,7 +114,7 @@ func TestDatalogSimilarityLiveQuery(t *testing.T) {
 	if count != 12 {
 		t.Fatal("auxiliary facts", count)
 	}
-	output, found, e := engine.relations.TryGetRelation(pred)
+	output, found, e := engine.relations.TryGetFiniteRelation(pred)
 	fragmentMust(t, e)
 	if !found {
 		t.Fatal("output table missing")

@@ -35,11 +35,12 @@ var (
 )
 
 type predicateState struct {
-	sorts    []ast.ASTHandle
-	table    rel.FiniteTable
-	external *rel.ExternalRelation
-	checked  *rel.FormulaCheckedTable
-	sparse   *rel.CheckedRelation
+	explicitFiniteRepresentation bool
+	sorts                        []ast.ASTHandle
+	table                        rel.FiniteTable
+	external                     *rel.ExternalRelation
+	checked                      *rel.FormulaCheckedTable
+	sparse                       *rel.CheckedRelation
 }
 
 type ddnfEngineState struct {
@@ -65,7 +66,11 @@ func (e *PropositionalEngine) predicateState(declaration ast.ASTHandle) (*predic
 	if tableErr != nil && !errors.Is(tableErr, rel.ErrTable) {
 		return nil, tableErr
 	}
-	return &predicateState{sorts: sorts, table: table}, nil
+	state := &predicateState{sorts: sorts, table: table}
+	if prior := e.predicates[declaration]; prior != nil {
+		state.explicitFiniteRepresentation = prior.explicitFiniteRepresentation
+	}
+	return state, nil
 }
 
 // PropositionalEngine owns the retained rule, finite-relation, and optional
@@ -85,6 +90,7 @@ type PropositionalEngine struct {
 	globals             *uparams.GlobalParamsService
 	backend             string
 	engineSelectionSet  bool
+	datalogDefaultTable string
 	engineInstantiated  bool
 	duality             *muzduality.Backend
 	dualityCooperation  *cooperate.Cooperation
@@ -291,6 +297,11 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 			}
 		}
 	}
+	if e.backend == "datalog" {
+		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
+			return err
+		}
+	}
 	e.engineInstantiated = true
 	if e.backend != "datalog" {
 		return nil
@@ -347,6 +358,7 @@ func (e *PropositionalEngine) SetPredicateRepresentation(declaration ast.ASTHand
 			return err
 		}
 	}
+	state.explicitFiniteRepresentation = true
 	e.revision++
 	return nil
 }
@@ -512,6 +524,9 @@ func (e *PropositionalEngine) AddFact(declaration ast.ASTHandle, values []ast.AS
 		return err
 	}
 	if e.backend == "datalog" {
+		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
+			return err
+		}
 		e.engineInstantiated = true
 		state := e.predicates[declaration]
 		if state.external != nil {
@@ -554,6 +569,9 @@ func (e *PropositionalEngine) AddTableFact(declaration ast.ASTHandle, values []u
 		return err
 	}
 	if e.backend == "datalog" {
+		if err := e.applyDatalogDefaultFiniteTable(); err != nil {
+			return err
+		}
 		e.engineInstantiated = true
 		if state.external != nil {
 			references, err := e.relations.DecodeFact(state.sorts, fact)
@@ -1942,6 +1960,9 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 }
 
 func (e *PropositionalEngine) queryDatalogPredicates(declarations []ast.ASTHandle) (status lbool.LBool, resultErr error) {
+	if err := e.applyDatalogDefaultFiniteTable(); err != nil {
+		return lbool.Undef, err
+	}
 	count, err := e.set.Len()
 	if err != nil {
 		return lbool.Undef, err

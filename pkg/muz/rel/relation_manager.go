@@ -13,12 +13,13 @@ import (
 // RelationManager borrows an AST manager, owns stored finite predicate tables,
 // and converts between finite-domain relation values and table elements.
 type RelationManager struct {
-	manager      *ast.ASTManager
-	relations    map[ast.ASTHandle]*HashTable
-	finite       map[ast.ASTHandle]FiniteTable
-	explanations map[ast.ASTHandle]*FiniteExplanationProduct
-	saturated    map[ast.ASTHandle]bool
-	closed       bool
+	manager       *ast.ASTManager
+	relations     map[ast.ASTHandle]*HashTable
+	finite        map[ast.ASTHandle]FiniteTable
+	explanations  map[ast.ASTHandle]*FiniteExplanationProduct
+	saturated     map[ast.ASTHandle]bool
+	defaultFinite string
+	closed        bool
 }
 
 func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
@@ -28,7 +29,7 @@ func NewRelationManager(manager *ast.ASTManager) (*RelationManager, error) {
 	if err := manager.RegisterDeclarationPlugins(); err != nil {
 		return nil, err
 	}
-	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), saturated: make(map[ast.ASTHandle]bool)}, nil
+	return &RelationManager{manager: manager, relations: make(map[ast.ASTHandle]*HashTable), finite: make(map[ast.ASTHandle]FiniteTable), explanations: make(map[ast.ASTHandle]*FiniteExplanationProduct), saturated: make(map[ast.ASTHandle]bool), defaultFinite: "hashtable"}, nil
 }
 
 func (m *RelationManager) open() error {

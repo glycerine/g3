@@ -107,7 +107,7 @@ func (i *constructInstruction) open() error {
 	return nil
 }
 
-func fillTotalTable(table *HashTable, signature Signature) error {
+func fillTotalTable(table FiniteTable, signature Signature) error {
 	fact := make(Fact, signature.Len())
 	for {
 		if _, err := table.Add(fact); err != nil {
@@ -128,6 +128,13 @@ func fillTotalTable(table *HashTable, signature Signature) error {
 	}
 }
 
+func constructFiniteTable(context *ExecutionContext, signature Signature) (FiniteTable, error) {
+	if context != nil && context.relations != nil {
+		return context.relations.NewDefaultFiniteTable(signature)
+	}
+	return NewHashTable(signature), nil
+}
+
 func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) {
 	if err := i.open(); err != nil {
 		return false, err
@@ -135,18 +142,24 @@ func (i *constructInstruction) Perform(context *ExecutionContext) (bool, error) 
 	switch i.kind {
 	case "mk_unary_singleton":
 		context.stats.UnarySingleton++
-		table := NewHashTable(i.signature)
-		if _, err := table.Add(Fact{i.value}); err != nil {
+		table, err := constructFiniteTable(context, i.signature)
+		if err != nil {
 			return false, err
 		}
-		return true, context.SetRegister(i.target, table)
+		if _, err := table.Add(Fact{i.value}); err != nil {
+			return false, errors.Join(err, table.Close())
+		}
+		return true, context.SetFiniteRegister(i.target, table)
 	case "mk_total":
 		context.stats.Total++
-		table := NewHashTable(i.signature)
-		if err := fillTotalTable(table, i.signature); err != nil {
+		table, err := constructFiniteTable(context, i.signature)
+		if err != nil {
 			return false, err
 		}
-		return true, context.SetRegister(i.target, table)
+		if err := fillTotalTable(table, i.signature); err != nil {
+			return false, errors.Join(err, table.Close())
+		}
+		return true, context.SetFiniteRegister(i.target, table)
 	case "mk_explanation_finite_total", "mk_explanation_finite_singleton":
 		if err := context.open(); err != nil {
 			return false, err

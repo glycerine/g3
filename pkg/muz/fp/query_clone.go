@@ -28,6 +28,7 @@ func (e *PropositionalEngine) newQueryClone() (*PropositionalEngine, error) {
 	}
 	clone.backend = e.backend
 	clone.engineSelectionSet = e.engineSelectionSet
+	clone.datalogDefaultTable = e.datalogDefaultTable
 	if e.queryParamsReady {
 		if err = clone.SetQueryParameters(&e.queryParams); err != nil {
 			return nil, errors.Join(err, e.discardQueryClone(clone))
