@@ -76,6 +76,17 @@ func (s *tabSearch) Close() error {
 		}
 		s.selection = nil
 	}
+	if err := s.cleanupClauses(); err != nil {
+		return err
+	}
+	s.closed = true
+	return nil
+}
+
+// cleanupClauses implements imp::cleanup: the active query path and every
+// derived clause are released immediately on cancellation, while the reusable
+// selection and rule-index services remain borrowed until Close.
+func (s *tabSearch) cleanupClauses() error {
 	for len(s.owned) > 0 {
 		i := len(s.owned) - 1
 		if err := s.owned[i].Close(); err != nil {
@@ -84,7 +95,6 @@ func (s *tabSearch) Close() error {
 		s.owned = s.owned[:i]
 	}
 	s.stack, s.index = nil, nil
-	s.closed = true
 	return nil
 }
 func (s *tabSearch) isTautology(c *Clause) (tautology bool, err error) {
@@ -128,7 +138,7 @@ func (s *tabSearch) Run() (lbool.LBool, error) {
 			return lbool.Undef, err
 		}
 		if canceled {
-			return lbool.Undef, nil
+			return lbool.Undef, s.cleanupClauses()
 		}
 		current := s.stack[len(s.stack)-1]
 		if selectPredicate {

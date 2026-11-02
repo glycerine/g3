@@ -371,6 +371,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [x] `src/muz/tab/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/tab/tab_context.cpp` (partial), `src/muz/tab/tab_context.h` (partial)
+  - [x] `imp::cleanup` cancellation releases active clauses immediately while preserving reusable search services; clause AST destruction is retry-safe under native refusal.
 
 ### transforms
 
@@ -867,3 +868,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Completed Spacer reach-fact evaluator-exception handling for current and origin probes: step/memory resource exceptions are caught as unknown without model completion, shifted references are released, optional tracing records the typed reason, and an unrestricted retry selects the expected fact. Companion ownership campaigns cross non-nullary inductive-model allocations and preserve literal-expansion roots across two native cleanup refusals with zero final budget. Focused Spacer tests passed in 0.142s/0.018s/0.187s; the complete native Spacer package passed in 2.142s for the production slice. Broader context ordering/diagnostic and literal-expansion audits remain open.
 
 - 2026-11-02 — Filter-rule cleanup now preserves every unconsumed cached predicate pin when native release refuses during either Close or the next transformation's cache reset. Closing blocks transformation/publication until retry; cache-reset retry rebuilds the real value-argument filter successfully. Both baselines previously lost owners. Focused tests passed in 0.018s and the complete native transforms package passed in 9.485s. Later partial cache disposal and filter-construction error ownership remain open.
+
+- 2026-11-02 — Ported TAB `imp::cleanup` cancellation behavior: active query/derived clauses close immediately and stack/index clear while reusable selection and borrowed rule-index services survive until final Close. A second native-refusal regression verifies exact clause head/predicate/constraint owners remain usable across two refused closes, then retire idempotently with zero final budget. Focused tests passed in 0.012s and the complete native TAB package passed in 0.085s. Full source assertion/ownership and compound-query audits remain open.
