@@ -38,7 +38,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
 - [ ] Verify recursive/nonlinear SAT and UNSAT, assumptions/background, repeated queries, witnesses, proofs and original-rule traces at the public boundary.
   - [x] Verify repeated nonlinear unreachable/reachable/unreachable queries in one SMT-LIB context for PDR, Spacer and Duality (`TestSMT2FixedpointRepeatedNonlinearQueries`).
   - [x] Verify a newly added fact changes a previously unreachable nonlinear goal to reachable after earlier queries, with repeated SAT afterward.
-  - [ ] Audit source scope behavior against the current PDR/Spacer prohibition on popping after a query; preserve this guard until that audit establishes a supported replacement.
+  - [x] Audit the post-query pop restriction against `src/muz/base/dl_context.cpp:187-195`: preserve the PDR/Spacer rejection, align its diagnostic and verify rejection leaves the scope intact; verify Duality can pop and retract its scoped fact.
 - [ ] Close all PDR source obligations before declaring the engine complete.
 
 ## 4. Spacer — second engine closure
@@ -197,3 +197,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - 2026-11-02 — Extended `TestSMT2FixedpointRepeatedNonlinearQueries`: PDR, Spacer and Duality now must produce UNSAT/SAT/UNSAT, then SAT/SAT after a new fact is added to the same context. The focused native test passes. An attempted post-query scope-pop variant exposed the current explicit PDR/Spacer restriction in `PropositionalEngine.Pop`; it was preserved and recorded for source comparison rather than bypassed or counted as complete. Previous query-isolation commit: `ea54042a0`.
   Validation: `go -C pkg test ./parsers/smt2 -run '^TestSMT2FixedpointRepeatedNonlinearQueries$' -count=1 -timeout=45s` passed. Commit title: `Test fixedpoint result refresh after rule mutation`.
+
+- 2026-11-02 — Audited source context push/pop and preserved the non-Duality post-query guard. Aligned Go's diagnostic with the source text. `TestSMT2FixedpointPopAfterQuerySourceContract` first exposed the diagnostic mismatch; it now verifies PDR/Spacer rejection leaves scoped facts available, while Duality pop removes the scoped fact. The repeated nonlinear query/mutation regression also passes. This closes the specific post-query scope contract item, not every scope lifecycle obligation. Previous rule-mutation commit: `b4a141839`.
+  Validation: focused `TestSMT2Fixedpoint(PopAfterQuerySourceContract|RepeatedNonlinearQueries)` tests pass; commit title: `Match fixedpoint post-query pop source contract`.
+  The existing `TestPropositionalEngineScopeGuards` diagnostic assertion was updated to the source wording while preserving the required rejection. Complete native `go -C pkg test ./muz/fp -short` passes.

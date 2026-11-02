@@ -1170,7 +1170,7 @@ func TestPropositionalEngineScopeGuards(t *testing.T) {
 	if status != lbool.False {
 		t.Fatal("unexpected empty-program query", status)
 	}
-	if err = engine.Pop(); err == nil || !strings.Contains(err.Error(), "before a query") {
+	if err = engine.Pop(); err == nil || !strings.Contains(err.Error(), "only supported by duality engine") {
 		t.Fatal("post-query pop accepted", err)
 	}
 }

@@ -653,7 +653,7 @@ func (e *PropositionalEngine) Pop() error {
 		return fmt.Errorf("muz/fp: there are no backtracking points to pop to")
 	}
 	if e.queried && e.backend != "duality" {
-		return fmt.Errorf("muz/fp: pop operation is only supported before a query")
+		return fmt.Errorf("muz/fp: pop operation is only supported by duality engine")
 	}
 	if len(e.assertionScopes) != len(e.scopes) || len(e.autoRuleScopes) != len(e.scopes) || len(e.rawRuleScopes) != len(e.scopes) {
 		return ErrPropositionalEngine
