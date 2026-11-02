@@ -590,6 +590,32 @@ func TestSMT2FixedpointSpacerRebuildsAfterBoundedRecursiveSearch(t *testing.T) {
 	}
 }
 
+func TestSMT2FixedpointSpacerPrintsBoundedStatus(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	context.PrintSuccess = false
+	script := `(set-option :fixedpoint.engine spacer)
+(set-option :fixedpoint.spacer.max_level 0)
+(declare-rel Goal ())
+(rule Goal)
+(query Goal :print-answer false)
+`
+	var output bytes.Buffer
+	if err = smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err, output.String())
+	}
+	if text := output.String(); text != "bounded\n" {
+		t.Fatal("bounded Spacer status", text)
+	}
+}
+
 func TestSMT2FixedpointSpacerRecursiveTraceAnswerMatchesCPP(t *testing.T) {
 	context, err := cmd_context.NewStandaloneContext()
 	if err != nil {

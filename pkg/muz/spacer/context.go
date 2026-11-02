@@ -60,6 +60,7 @@ type Context struct {
 	simplifyPost            bool
 	initialized             bool
 	solved                  bool
+	bounded                 bool
 	closed                  bool
 }
 
@@ -513,7 +514,7 @@ func (c *Context) NumLevels(declaration ast.ASTHandle) (uint32, error) {
 	}
 	transformer := c.transformers[declaration]
 	if transformer == nil {
-		return 0, nil
+		return 0, c.writeMissingPredicate(declaration)
 	}
 	return transformer.NumLevels()
 }
@@ -553,6 +554,9 @@ func (c *Context) AddCover(level int, declaration, property ast.ASTHandle) error
 		transformer.sharedGeneralizerStats = true
 		c.transformers[declaration] = transformer
 		c.order = append(c.order, declaration)
+		if err = c.writeMissingPredicate(declaration); err != nil {
+			return err
+		}
 	}
 	return transformer.AddCover(level, property)
 }
@@ -656,6 +660,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 	if !c.initialized || c.queryDecl.IsNull() || c.solved {
 		return lbool.Undef, ast.ErrASTDomain
 	}
+	c.bounded = false
 	watch, err := stopwatch.NewScopedWatch(&c.timers.solve, false)
 	if err != nil {
 		return lbool.Undef, err
@@ -749,6 +754,7 @@ func (c *Context) Solve(fromLevel, maxLevels uint32) (_ lbool.LBool, resultErr e
 		}
 	}
 	c.lastResult = lbool.Undef
+	c.bounded = true
 	return c.lastResult, nil
 }
 
@@ -883,7 +889,7 @@ func (c *Context) CollectStatisticsWithSnapshot(destination *statistics.Statisti
 		}
 	}
 	destination.UpdateUint("SPACER inductive level", c.inductive)
-	return nil
+	return writeSpacerBrunchStatistics(previous, c.inductive)
 }
 
 func (c *Context) ResetStatistics() error {
@@ -933,6 +939,7 @@ func (c *Context) Reset() (result error) {
 	c.lastResult = lbool.Undef
 	c.inductive = 0
 	c.solved = false
+	c.bounded = false
 	c.initialized = false
 	return nil
 }

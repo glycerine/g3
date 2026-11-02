@@ -113,6 +113,9 @@ func (p *PredicateTransformer) SelectRule(md *model.ModelCore) (_ RuleSelection,
 	if md == nil {
 		return RuleSelection{}, ast.ErrASTHandle
 	}
+	if err := p.traceRuleSelectionCandidates(); err != nil {
+		return RuleSelection{}, err
+	}
 	selection := RuleSelection{}
 	defer func() {
 		if resultErr != nil {

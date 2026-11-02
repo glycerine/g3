@@ -574,7 +574,7 @@ func (p *PredicateTransformer) InitializeRules(transformers map[ast.ASTHandle]*P
 		}
 	}
 	committed = true
-	return nil
+	return p.traceInitializedSystem()
 }
 
 func (p *PredicateTransformer) addUse(user *PredicateTransformer) {

@@ -89,6 +89,7 @@ Acceleration tactics are durable for every batch:
   - [x] Cache the first configured engine choice across later parameter updates, while preserving explicit Go engine overrides; apply owning API parameters before pre-query fact ingestion.
   - [x] Treat an unrecognized configured engine symbol like source's unset engine and run automatic classification; preserve local/module precedence, cached choice and explicit Go selector rejection.
   - [x] Make nonempty predicate-representation requests select and instantiate the configured engine before Datalog-only plugin dispatch; preserve empty no-ops, cached choice, pop lifecycle and Datalog guards.
+  - [x] Resolve configured/automatic engines at direct predicate, multi-predicate, expression and from-level query entry points before backend-specific validation; preserve explicit Datalog rejection tests.
   - [x] Preserve instantiated PDR/QPDR/Spacer engine lifetime across query-parameter replacement and clearing, so pre-query Pop remains refused while backend contexts rebuild lazily.
 - [ ] Close SMT-LIB/Datalog command parsing, error reporting, query state and exported result/proof/model contracts.
   - [x] Route public FixedpointRules enumeration through phase-aware source get_rules_as_formulas, preserving closed pending formulas and appending negated output queries; internal normalized enumeration remains available.
@@ -281,8 +282,8 @@ Whole-source reviews found these concrete remaining obligations; direct operatio
 
 - Relational selection: `tr_sparse` and `tr_lazy_sparse` currently leave normal predicate storage as HashTable. Wire actual sparse/lazy-sparse storage and compiled execution; the sparse checking wrapper is not ordinary representation dispatch. Interval/bound/product arithmetic storage also needs concrete manager and instruction cases.
 - Checking wrappers: consume `datalog.default_table_checked/default_table_checker`, and route checked empty/full construction and compiled operations through typed owners. Formula checking currently selects interpreted saturation, and `doc` checking does not yet use UDoc.
-- PDR interface: implement source Boogie certificate selection, `unknown` certificate text and owning `true` unknown answers; keep export cleanup refusal audit open.
-- Spacer context: distinguish exhausted `spacer.max_level` as bounded, simplify frames on early false results, and consume `print_statistics` at solve completion.
+- PDR interface: source Boogie selection, `unknown` certificate text and owning `true` unknown answers are implemented and tested below; export cleanup refusal remains open.
+- Spacer context: bounded status now propagates through direct/expression queries and SMT2; early-false frame simplification and `print_statistics` at solve completion remain open.
 - CLP: live algorithms are mapped; local grounding/query cleanup and the enclosing fixedpoint preprocessing/parameter/backend teardown require separate retry ownership. Generic query wrapper references remain shared obligations.
 - BMC: live linear, quantified-linear and nonlinear algorithms are mapped; classify uncalled `nonlinear_dt` as reference-only, implement live diagnostics, and complete native cleanup refusal paths. Existing derivation-level binding and cancellation differences need explicit audit records.
 - Spacer utilities/QE: live algorithms are mapped; constructor rollback and coordinator cleanup after child result transfer still need retryable owners. Verify `normalize(..., factor_eqs=true)` through a live proof-obligation consumer. Uncalled helpers do not justify unused adapters.
@@ -363,6 +364,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp` (partial: query-pipeline regression repaired and tested; broader interface method audit remains open)
   - [x] Context/statistics and transformed/source rule-snapshot replacement publish only after superseded owners finish cleanup, with retry after native refusal.
+  - [x] `print_boogie_certificate` selects derivation output and proof reconstruction; undefined answers/certificates use source `true`/`unknown` results.
 
 - [x] `src/muz/pdr/pdr_util.cpp` (live methods and ownership audited; source consumer map below)
 
@@ -422,6 +424,8 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 - [ ] `src/muz/spacer/spacer_context.cpp` (partial), `src/muz/spacer/spacer_context.h` (partial)
   - [x] Reach-fact selection catches model-evaluator step/memory exceptions as unknown for current and origin probes, without completion or owner leakage, and permits unrestricted retry.
+  - [x] Level exhaustion records bounded status, including clone-owned expression queries, and SMT2 emits `bounded`.
+  - [x] Source statistics records, missing-cover diagnostics, initialized-transformer display and candidate-rule traces are wired; trace-only tests require `g3trace`.
 - [ ] `src/muz/spacer/spacer_dl_interface.cpp` (partial)
 - [x] `src/muz/spacer/spacer_dl_interface.h` (interface declaration and owner mapping audited; implementation remains partial)
 - [ ] `src/muz/spacer/spacer_util.cpp` (partial), `src/muz/spacer/spacer_util.h` (partial)
@@ -431,6 +435,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [x] `src/muz/tab/CMakeLists.txt` (Go package/import replacement verified)
 - [ ] `src/muz/tab/tab_context.cpp` (partial), `src/muz/tab/tab_context.h` (partial)
   - [x] `imp::cleanup` cancellation releases active clauses immediately while preserving reusable search services; clause AST destruction is retry-safe under native refusal.
+  - [x] Compound queries and source statistics are implemented; public certificate output renders reachable proofs and unreachable true answers with owning/stale-result guards.
 
 ### transforms
 
@@ -1003,3 +1008,5 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Compiled two-positive-tail explanation rules through existing typed joins, preserving finite-variable maps and left/right derivation order. Seven semantic modes in `compiler_explanation_join_test.go` cover shared/Cartesian joins, constants, repeats, self-joins and empty/nullary inputs after transformer disposal. Worker focused/full relational tests passed in 0.056s/3.143s. Commit: `Compile two-tail explanation joins`; engine activation and broader bodies remain open.
 
 - 2026-11-02 — Integrated pending independent evidence for BMC quantified/nonlinear execution and allocation scopes, PDR cover publication, Spacer trace/symbolic-ground publication, composed symbolic witnesses and full legacy projection construction. Complete native BMC passed in 0.556s; focused fp publication tests passed in 4.957s and QE construction tests in 10.781s. Original symbolic witness assertions remain and new inline/slice-inline cases are independently checked. Commit: `Verify fixedpoint publication and witness compositions`.
+
+- 2026-11-02 — Integrated configured direct-query selection, PDR unknown/Boogie certificates, TAB certificate output and Spacer bounded status across expression clones and SMT2. Also wired pending Spacer source diagnostics and trace-only tests. Focused fp passed in 0.134s, all SMT2 fixedpoint tests in 3.038s, complete native Spacer/TAB in 2.201s/0.056s, and focused `g3trace` diagnostics in 0.031s. Commit: `Complete fixedpoint result and certificate routing`. Broader package audits remain explicitly open.

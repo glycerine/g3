@@ -488,6 +488,11 @@ func TestSpacerEngineUndefinedAnswerAndGroundAvailability(t *testing.T) {
 	if status != lbool.Undef {
 		t.Fatal("zero-level Spacer query", status)
 	}
+	reason, err := engine.ReasonUnknown()
+	fpMust(t, err)
+	if reason != "bounded" {
+		t.Fatal("zero-level Spacer reason", reason)
+	}
 	answer, err := engine.Answer(declaration)
 	fpMust(t, err)
 	answerHandle, err := manager.RefGet(answer)
@@ -1094,6 +1099,7 @@ func TestDatalogRejectsInfinitePredicateSorts(t *testing.T) {
 	fpMust(t, err)
 	engine, err := fp.NewPropositionalEngine(manager)
 	fpMust(t, err)
+	fpMust(t, engine.SelectEngine("datalog"))
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)
@@ -1127,6 +1133,7 @@ func TestDatalogRejectsQuantifiedInterpretedTails(t *testing.T) {
 	fpMust(t, err)
 	engine, err := fp.NewPropositionalEngine(manager)
 	fpMust(t, err)
+	fpMust(t, engine.SelectEngine("datalog"))
 	t.Cleanup(func() { fpMust(t, engine.Close()) })
 	boolean, err := manager.MkBoolSort()
 	fpMust(t, err)

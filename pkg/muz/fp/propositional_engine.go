@@ -1845,6 +1845,10 @@ func (e *PropositionalEngine) QueryPredicate(declaration ast.ASTHandle) (result 
 		return lbool.Undef, err
 	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
+	// Source context::rel_query resolves the configured engine before dispatch.
+	if err := e.selectFactEngine(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
@@ -1900,6 +1904,10 @@ func (e *PropositionalEngine) QueryPredicates(declarations []ast.ASTHandle) (res
 		return lbool.Undef, err
 	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
+	// Source context::rel_query resolves the configured engine before dispatch.
+	if err := e.selectFactEngine(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
@@ -2062,6 +2070,9 @@ func (e *PropositionalEngine) QueryPredicateFromLevel(declaration ast.ASTHandle,
 		return lbool.Undef, err
 	}
 	defer func() { e.recordQueryStatus(result, resultErr) }()
+	if err := e.selectFactEngine(); err != nil {
+		return lbool.Undef, err
+	}
 	if err := e.clearQueryResources(); err != nil {
 		return lbool.Undef, err
 	}
@@ -2081,6 +2092,20 @@ func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
 		return
 	}
 	if result == lbool.Undef {
+		var context *muzspacer.Context
+		if e.backend == "spacer" {
+			context = e.spacer
+			if context == nil && e.queryClone != nil && e.queryClone.backend == "spacer" {
+				context = e.queryClone.spacer
+			}
+		}
+		if context != nil {
+			bounded, boundedErr := context.Bounded()
+			if boundedErr == nil && bounded {
+				e.lastStatus = "bounded"
+				return
+			}
+		}
 		e.lastStatus = "approximated"
 		return
 	}
@@ -2089,7 +2114,7 @@ func (e *PropositionalEngine) recordQueryStatus(result lbool.LBool, err error) {
 
 // ReasonUnknown returns the native fixedpoint execution-status spelling for
 // the latest query. Decided queries report "ok"; an undecided retained query
-// reports "approximated".
+// reports its native bounded or approximated status.
 func (e *PropositionalEngine) ReasonUnknown() (string, error) {
 	if err := e.open(); err != nil {
 		return "", err
@@ -2167,6 +2192,9 @@ func (e *PropositionalEngine) Answer(declaration ast.ASTHandle) (answer ast.ASTR
 		status, err := e.pdr.LastResult()
 		if err != nil {
 			return answer, err
+		}
+		if unknown, handled, unknownErr := e.pdrUnknownAnswer(status); handled {
+			return unknown, unknownErr
 		}
 		if status == lbool.False {
 			inductive, modelErr := e.Model(declaration)
@@ -2395,6 +2423,9 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		_, err = fmt.Fprintln(out)
 		return true, err
 	}
+	if e.backend == "tab" {
+		return e.writeTabCertificate(out, declaration)
+	}
 	if e.backend != "pdr" && e.backend != "qpdr" {
 		return false, nil
 	}
@@ -2413,8 +2444,18 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 		defer func() { resultErr = errors.Join(resultErr, inductive.Close()) }()
 		return true, inductive.Core().WriteSMT2(out, e.params, e.globals, 0)
 	}
+	if handled, unknownErr := writePDRUnknownCertificate(out, status); handled {
+		return true, unknownErr
+	}
 	if status != lbool.True {
-		return false, nil
+		return false, ErrPropositionalEngine
+	}
+	boogie, err := e.pdrBoogieCertificateEnabled()
+	if err != nil {
+		return false, err
+	}
+	if boogie {
+		return true, e.writePDRBoogieCertificate(out, declaration)
 	}
 	answer, err := e.Answer(declaration)
 	if err != nil {

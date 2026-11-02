@@ -86,6 +86,9 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err != nil {
 		return lbool.Undef, err
 	}
+	// Install or discard the expression-query clone before recording status so
+	// bounded Spacer state is read from the owner that performed the search.
+	defer func() { e.recordQueryStatus(result, resultErr) }()
 	var prequeryPDR *pdr.Context
 	var prequerySpacer *spacer.Context
 	defer func() {
@@ -225,7 +228,6 @@ func (e *PropositionalEngine) queryExpression(query ast.ASTHandle, level *uint32
 	if err == nil {
 		e.queryClonePredicate = declaration
 	}
-	e.recordQueryStatus(result, err)
 	return result, err
 }
 

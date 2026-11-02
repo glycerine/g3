@@ -762,6 +762,10 @@ func (p *commandParser) command() (bool, error) {
 				text = "sat"
 			} else if status == lbool.False {
 				text = "unsat"
+			} else if reason, reasonErr := p.context.FixedpointReasonUnknown(); reasonErr != nil {
+				return false, reasonErr
+			} else if reason == "bounded" {
+				text = "bounded"
 			}
 			if _, err = fmt.Fprintln(p.out, text); err != nil {
 				return false, err

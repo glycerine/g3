@@ -798,7 +798,11 @@ func (e *PropositionalEngine) newConfiguredPDRContext(parameters *fixedpointPara
 	if err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
-	if err = context.SetGenerateProofTrace(generateProofTrace || e.forceProofTrace); err != nil {
+	printBoogieCertificate, err := parameters.Bool("print_boogie_certificate", false)
+	if err != nil {
+		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
+	}
+	if err = context.SetGenerateProofTrace(generateProofTrace || printBoogieCertificate || e.forceProofTrace); err != nil {
 		return failPDRContextConstruction(context, e.manager.NumeralService().RuntimeOwner(), err)
 	}
 	return context, nil
