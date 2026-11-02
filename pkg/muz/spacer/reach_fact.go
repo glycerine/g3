@@ -152,7 +152,10 @@ func (f *ReachFact) Justifications() ([]*ReachFact, error) {
 	return result, nil
 }
 
-func (f *ReachFact) Close() (result error) {
+// Close releases one owner. Final destruction is refused before changing
+// ownership while the AST manager is executing, and unconsumed roots remain
+// attached if a later release fails.
+func (f *ReachFact) Close() error {
 	if f == nil || f.closed {
 		return nil
 	}
@@ -160,26 +163,48 @@ func (f *ReachFact) Close() (result error) {
 	if err != nil {
 		return err
 	}
-	f.closed = true
-	f.state = nil
-	state.references--
-	if state.references != 0 {
+	if state.references > 1 {
+		state.references--
+		f.closed = true
+		f.state = nil
 		return nil
 	}
-	for i := len(state.justifications) - 1; i >= 0; i-- {
-		result = errors.Join(result, state.justifications[i].Close())
+	if _, err = state.manager.ProofMode(); err != nil {
+		return err
 	}
-	result = errors.Join(result, releaseNormalizeRefs(state.manager, state.auxiliaries))
+	for len(state.justifications) > 0 {
+		last := len(state.justifications) - 1
+		if err = state.justifications[last].Close(); err != nil {
+			return err
+		}
+		state.justifications[last] = nil
+		state.justifications = state.justifications[:last]
+	}
+	for len(state.auxiliaries) > 0 {
+		last := len(state.auxiliaries) - 1
+		err = state.manager.DelRef(&state.auxiliaries[last])
+		if state.auxiliaries[last] == (ast.ASTRef{}) {
+			state.auxiliaries = state.auxiliaries[:last]
+		}
+		if err != nil {
+			return err
+		}
+	}
 	if state.fact != (ast.ASTRef{}) {
-		result = errors.Join(result, state.manager.DelRef(&state.fact))
+		if err = state.manager.DelRef(&state.fact); err != nil {
+			return err
+		}
 	}
-	result = errors.Join(result, state.rule.Close())
-	if result == nil {
-		state.justifications = nil
-		state.auxiliaries = nil
+	if state.rule != nil {
+		if err = state.rule.Close(); err != nil {
+			return err
+		}
 		state.rule = nil
-		state.manager = nil
-		state.released = true
 	}
-	return result
+	state.references = 0
+	state.manager = nil
+	state.released = true
+	f.closed = true
+	f.state = nil
+	return nil
 }

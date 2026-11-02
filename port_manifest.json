@@ -98286,6 +98286,12 @@
       "ownership_audited": true,
       "methods": [
         {
+          "name": "reach_fact final-owner destruction preserves roots across native AST execution-guard refusal; independent post-admission and rule cleanup errors remain under audit",
+          "status": "partial",
+          "go_targets": ["pkg/muz/spacer/reach_fact.go", "pkg/muz/spacer/reach_fact_pending_test.go"],
+          "tests": ["TestReachFactClosePreservesOwnersDuringASTInvocation"]
+        },
+        {
           "name": "context::stats live query, reach-query, reuse, level, unknown expansion, lemma and restart accounting; collect_statistics/reset_statistics; restart thresholds count only successful search-generated lemma additions and counters survive reset/update_rules (spacer_context.h:675-686; spacer_context.cpp:2593-2607,2678,2881,2970,2993,3171,3305-3352)",
           "status": "ported",
           "go_targets": [
