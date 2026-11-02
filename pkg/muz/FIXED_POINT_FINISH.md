@@ -14,7 +14,7 @@ The user approved parallel implementation on 2026-11-02. Prioritize live solver 
 
 Use the available parallel worker capacity for independent implementation and source-audit lanes selected from current unchecked functional items: shared context selection/enumeration, engine and proof behavior, live Duality consumers, and registered relational plugins. Give shared files one owner and coordinate cross-lane changes through integration; prepare helper definitions before publishing callers so the shared tree stays compilable. Each lane delivers a source-backed behavior change or meaningful semantic regression, with focused native tests and explicit remaining gaps. The integration owner reviews patches, coordinates checklist/inventory updates and commits passing slices, targeting 5–10-minute checkpoints. Do not wait for every lane before committing a ready slice.
 
-The latest user direction is maximum parallel porting capacity and cancellation of the pending broad test run. Keep native verification focused on each new slice. The current backend sequence is real sparse storage with interpreted saturation first, followed by concrete compiled operations, lazy-sparse and checked storage; separate interval and explanation lanes prepare their live consumers without competing for manager ownership.
+The latest user direction is maximum parallel porting capacity and cancellation of the pending broad test run. Keep native verification focused on each new slice. Concrete sparse/lazy storage, checked-table bytecode, fact-level explanation queries and explicit interval queries are integrated. Remaining parallel lanes prepare source-default bound execution, mixed products, relation-level explanations and PDR result validation without competing for shared manager/query ownership.
 
 Run relevant cross-package checks at integration and the full native suite roughly hourly, avoiding duplicate active runs. The user continues checked/debug validation. Track completed behaviors and dependencies rather than translated-file counts; keep partial source statuses until the wider audit is actually complete.
 
@@ -26,7 +26,7 @@ Acceleration tactics are durable for every batch:
 - Give each behavior a source-derived semantic oracle, ownership/lifecycle assertions and a focused native package test. Preserve guards and existing tests; record legacy source limitations explicitly instead of inventing silent divergences.
 - Integrate and commit each green slice immediately with a one-sentence message, then reassign that lane from the next unchecked dependency-frontier item. Run affected cross-package checks after integration and reserve the full native suite for the roughly hourly checkpoint.
 
-Configured lazy-table defaults are integrated. The next functional frontier is actual checked bytecode with checked compiler temporaries; arithmetic interval storage/query hooks with source approximate-result status; and concrete mixed products/sieves. The source sieve plugin is live through product joins and multiple representation names even though current Go production callers are absent, so lack of a Go caller is not evidence that this C++ path is dead. Keep one owner for shared fixedpoint selection and lifecycle files while other lanes prepare typed operations and independent semantic tests. Relation-level explanations, explanation/checker combinations and remaining negative/unbound explanation bodies stay explicit obligations.
+Configured lazy defaults, exact checked bytecode and explicit interval facts/queries are integrated. The next functional frontier is source-default bound activation with full-column/head assembly, mixed sparse/interval product formula/register/compiler integration, and relation-level explanation proof-column projection plus compiler activation. The source sieve plugin is live through product joins and multiple representation names even though current Go production callers are absent, so lack of a Go caller is not evidence that this C++ path is dead. Keep one owner for shared fixedpoint selection and lifecycle files while other lanes prepare typed operations and independent semantic tests. Relation-level explanations, explanation/checker combinations and unsupported infinite-domain explanation bodies stay explicit obligations. Finite negative and condition-only bodies now have source-derived semantic tests.
 
 ## 1. Inventory and baseline
 
@@ -142,6 +142,8 @@ Configured lazy-table defaults are integrated. The next functional frontier is a
   - [x] Confirm the full caller graph for `ceil_log2` and cube formatting; exclude only genuinely unused helpers or dormant self-tests.
   - [x] Reconcile method-level audit evidence and the live-consumer map below; mark this utility unit ported independently of broader PDR closure.
 - [ ] Confirm method and ownership evidence for all PDR units, including arithmetic fragment selection and proof-derived lemmas.
+  - [x] Simplify invariant and finite frame vectors at the final UNSAT boundary and configured pre/post propagation hooks, preserving incremental assertions and property indices.
+  - [ ] Complete pdr.validate_result SAT trace/proof and UNSAT inductive-model validation, including native cleanup refusal and invalid result publication.
   - [x] Emit the PDR interface transformed-rule listing at verbosity 2 for both new and reused contexts; verify the same threshold for PDR and QPDR.
   - [ ] Complete pdr_dl_interface check_reset/query TRACE checkpoints (fresh rule, background/query/original rules, transformed rules/SMT2 dump).
     - [x] Emit the first uncovered original rule on the same-query rule-update/reset path; verify source order, lazy disabled operands, stream-refusal continuation and unchanged-query silence.
@@ -375,6 +377,10 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 
 ### pdr
 
+- [ ] `src/muz/pdr/pdr_context.cpp` (partial), `src/muz/pdr/pdr_context.h` (partial): corrected stale completion claims after finding source result-validation and live display/certificate/invariant surfaces; implemented algorithms and tests are unchanged.
+  - [x] Invariant/finite-frame simplification and configured pre/post propagation hooks.
+  - [ ] Complete source result validation, outstanding diagnostic consumers and exceptional ownership before closing these units.
+
 - [ ] `src/muz/pdr/pdr_dl_interface.cpp` (partial: query-pipeline regression repaired and tested; broader interface method audit remains open)
   - [x] Context/statistics and transformed/source rule-snapshot replacement publish only after superseded owners finish cleanup, with retry after native refusal.
   - [x] `print_boogie_certificate` selects derivation output and proof reconstruction; undefined answers/certificates use source `true`/`unknown` results.
@@ -395,7 +401,7 @@ These are inventory obligations, not claims that the whole unit is missing. For 
 - [ ] `src/muz/rel/dl_check_table.cpp` (partial), `src/muz/rel/dl_check_table.h` (partial)
 - [ ] `src/muz/rel/dl_compiler.cpp` (partial), `src/muz/rel/dl_compiler.h` (partial)
   - [x] Finite, sparse, lazy and explanation compilation has concrete method-level evidence, including SCC scheduling and mixed magic inputs.
-  - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; staged interval lowering and checked bytecode helpers do not close main-engine activation.
+  - [ ] Complete source-live abstract/product/widening dispatch and compiler ownership audits; explicit interval activation and exact checked bytecode do not close source-default bound or mixed-product compilation.
 - [ ] `src/muz/rel/dl_external_relation.cpp` (partial), `src/muz/rel/dl_external_relation.h` (partial)
   - [x] Concrete predicate-signature construction, plugin-owned caching/drop/close and registered fixedpoint predicate lookup.
   - [x] Rule-free fixedpoint execution dispatches external EMPTY/STORE/IS_EMPTY for AST/table facts, queries and exact relation answers.
@@ -1118,3 +1124,7 @@ The Go public selection probes report no selected fact as `(nil,false,nil)`. Eac
 - 2026-11-02 — Activated explicit interval_relation defaults through actual Datalog facts, direct/expression queries and owning answers. Preserved first-use favourite caching, late predicate additions, independent clone seeds, empty false/nonempty unknown (including nullary) and zero-query true; unsupported combinations fail explicitly and stale answers stay unavailable. Preserved command Datalog argument names and output pragmas with guarded metadata APIs and query-clone copies. Independent interval lifecycle review approved. Final combined native Datalog/interval/metadata focus passed in 0.405s; command parser metadata passed in 0.031s. Commit: `Activate interval queries and preserve Datalog declaration metadata`.
 
 - 2026-11-02 — Staged a concrete bound-relation runtime with owning arithmetic seeds, multi-tail positive Horn joins, repeated/shared variables, remapped order filters, head projection/permutation and monotone union/widen saturation. Preserved source coarse numeral and multi-condition no-op semantics and approximate result status. Cancellation checkpoints cover setup, facts, rounds and rule instructions, with no stale publication. Independent source review approved; bound tests passed ten repeated runs. Main default-bound selection and full/constant/repeated/unbound head assembly remain open; this slice is not yet public activation. Commit: `Port positive Horn saturation for bound relations`.
+
+- 2026-11-02 — Reconciled fifteen committed parallel slices through a20991a21 and preserved the acceleration workflow and next dependency frontier in this plan. Focused integrated SMT-LIB fixedpoint scripts passed in 0.864s; the canceled broad suite was not restarted and no tagged suites ran. Source audit corrected stale PDR context/header completion claims to partial without removing code or evidence: result validation is being integrated, while live diagnostics/invariant/certificate surfaces and exceptional ownership remain open. Portcheck passed for 2103 source units and 677 APIs: 1306 ported, 258 partial, 365 unported and 29 dead/deleted. Commit: `Record parallel MUZ integration and remaining source obligations`.
+
+Next source-backed handoffs: relation-level explanation ProjectColumns must split the normalized finite/proof column layout and independently project both sieves before typed bytecode activation. External ground interpreted-only rules can reuse a preflight-owned total nullary seed (Empty plus Complement), then existing interpreted filtering/head assembly/union; bound negative tails follow once the seed path is covered. Keep source refusal/cancellation and whole-program preflight tests with these slices.
