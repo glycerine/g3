@@ -32,6 +32,7 @@ Each completed item needs source paths, implementation/test evidence and a commi
       - [x] Exercise the public first-query path and context identity.
     - [x] Reject covers while xform.slice is enabled, before publishing any predicate frames.
 - [ ] Test cancellation, resource refusal and partial construction/destruction at actual allocation boundaries; preserve errors through cleanup.
+  - [x] Exercise initial PDR rule installation with existing arithmetic covers under injected allocation failures; verify no failed publication, active-context cleanup, proof-mode restoration, preserved covers and successful retry.
 
 ## 3. PDR — first engine closure
 
@@ -272,3 +273,6 @@ This closes the declarations and ownership mapping of `src/muz/spacer/spacer_dl_
 
 - 2026-11-02 — PDR/QPDR public level and cover access now constructs the fully configured context before a query. The first rule installation reuses it, preserving pre-query covers; initialization errors dispose the installed engine through its owner. The public regression supplies x=0 at level two for a relation containing zero, checks context identity, all three levels, public and raw covers after the reachable first query, and removal of the old cover after adding one. Extended pre-query pop rejection coverage to PDR/QPDR. Restored the source add_cover slicing restriction and verified rejected covers create no frames. Broader PDR lifecycle/ownership acceptance items remain open.
   Validation: the focused PDR/QPDR cover and scope regressions and `go -C pkg test ./muz/fp -short` passed. Commit title: `Integrate PDR pre-query covers with first-query lifecycle`.
+
+- 2026-11-02 — Added `TestPDRInitialRuleAllocationFailureAndRetry` for initial rule installation with an existing level-two arithmetic cover and constraint cache. Ten sampled failure budgets before the first success at 256 verify the original transformer/cover remains published, staged contexts are released, caller proof mode is restored and retry succeeds with the cover intact. Every fixture closes with zero budget usage. This covers observed allocation boundaries, not every exceptional-destruction path. Previous public lifecycle commit: `ba75fa2a5`; direct inheritance commit: `3e7e37847`. Native fixedpoint/parser/command checks also completed successfully during integration.
+  Validation: `go -C pkg test ./muz/pdr -run '^TestPDRInitialRuleAllocationFailureAndRetry$' -count=1 -v` passed; `go -C pkg test ./muz/fp ./parsers/smt2 ./cmd/g3 -short` passed. Commit title: `Test PDR initial rule allocation failure recovery`.
