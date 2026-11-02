@@ -1,7 +1,10 @@
 package fp_test
 
 import (
+	"bytes"
 	"errors"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/glycerine/g3/pkg/muz/fp"
@@ -93,3 +96,43 @@ func TestDualityFixedpointBackgroundAssertionsAndPop(t *testing.T) {
 		t.Fatal("popped background still asserted", status)
 	}
 }
+
+// Source: dl_interface::display_certificate_non_const, StatusModel branch.
+func TestDualityFixedpointSafetyCertificate(t *testing.T) {
+	e, m := newRoutingEngine(t)
+	fpMust(t, e.SelectEngine("duality"))
+	pd, p := routingPredicate(t, e, m, "duality-certificate-P")
+	qd, _ := routingPredicate(t, e, m, "duality-certificate-Q")
+	var output bytes.Buffer
+	if found, err := e.WriteCertificate(&output, qd, nil); found || !errors.Is(err, fp.ErrPropositionalEngine) {
+		t.Fatal("certificate before query", found, err)
+	}
+	fpMust(t, e.AddRule(p, "fact"))
+	status, err := e.QueryPredicate(qd)
+	fpMust(t, err)
+	if status != lbool.False {
+		t.Fatal(status)
+	}
+	found, err := e.WriteCertificate(&output, qd, nil)
+	fpMust(t, err)
+	if !found || !strings.HasPrefix(output.String(), "(fixedpoint \n") || !strings.Contains(output.String(), "define-fun") || !strings.HasSuffix(output.String(), ")\n") {
+		t.Fatal("safety certificate", found, output.String())
+	}
+	found, err = e.WriteCertificate(dualityRefusingWriter{}, qd, nil)
+	if !found || !errors.Is(err, io.ErrClosedPipe) {
+		t.Fatal("writer failure", found, err)
+	}
+	status, err = e.QueryPredicate(pd)
+	fpMust(t, err)
+	if status != lbool.True {
+		t.Fatal(status)
+	}
+	output.Reset()
+	if found, err := e.WriteCertificate(&output, pd, nil); found || !errors.Is(err, fp.ErrPropositionalEngine) || output.Len() != 0 {
+		t.Fatal("unimplemented derivation certificate", found, err, output.String())
+	}
+}
+
+type dualityRefusingWriter struct{}
+
+func (dualityRefusingWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }

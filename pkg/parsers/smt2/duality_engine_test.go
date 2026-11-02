@@ -43,3 +43,29 @@ func TestSMT2DualityRecursiveIntegerQueries(t *testing.T) {
 		t.Fatalf("Duality query results: %q", output.String())
 	}
 }
+
+func TestSMT2DualitySafetyCertificate(t *testing.T) {
+	context, err := cmd_context.NewStandaloneContext()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := context.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	context.PrintSuccess = false
+	var output bytes.Buffer
+	script := `(set-option :fixedpoint.engine duality)
+(declare-rel P ())
+(declare-rel Q ())
+(rule P)
+(query Q :print-answer false :print-certificate true)
+`
+	if err := smt2.ParseCommands(context, strings.NewReader(script), &output); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(output.String(), "unsat\n(fixedpoint \n") || !strings.Contains(output.String(), "define-fun Q") {
+		t.Fatalf("safety certificate: %q", output.String())
+	}
+}

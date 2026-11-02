@@ -2123,6 +2123,27 @@ func (e *PropositionalEngine) WriteCertificate(out io.Writer, declaration ast.AS
 	if err := e.open(); err != nil {
 		return false, err
 	}
+	if e.backend == "duality" {
+		if err := e.requireResultSnapshot(EngineDuality); err != nil {
+			return false, err
+		}
+		if e.lastResult != lbool.False {
+			return false, ErrPropositionalEngine
+		}
+		inductive, err := e.duality.GetModel()
+		if err != nil {
+			return false, err
+		}
+		defer func() { resultErr = errors.Join(resultErr, inductive.Close()) }()
+		if _, err := io.WriteString(out, "(fixedpoint \n"); err != nil {
+			return true, err
+		}
+		if err := inductive.Core().WriteSMT2(out, e.params, e.globals, 0); err != nil {
+			return true, err
+		}
+		_, err = io.WriteString(out, ")\n")
+		return true, err
+	}
 	if e.backend == "spacer" {
 		if err := e.requireResultSnapshot(EngineSpacer); err != nil {
 			return false, err
