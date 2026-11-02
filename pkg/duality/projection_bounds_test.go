@@ -4,6 +4,7 @@ import (
 	"github.com/glycerine/g3/pkg/ast"
 	"github.com/glycerine/g3/pkg/interp"
 	"github.com/glycerine/g3/pkg/util/lbool"
+	usymbol "github.com/glycerine/g3/pkg/util/symbol"
 	"testing"
 )
 
@@ -252,4 +253,98 @@ func TestProjectFormulaCombinesEqualityAndInequalityProjection(t *testing.T) {
 	if !complete {
 		t.Fatal("projection allocation sweep never completed")
 	}
+}
+
+func TestFourierMotzkinKeepsProtectedAndRepeatedVariables(t *testing.T) {
+	ctx, m, native, globals := dualityNativeSolverServicesFixture(t)
+	must := func(err error) {
+		t.Helper()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	simplifier, err := interp.NewManagerWithParams(m, ctx.config.params, globals)
+	must(err)
+	defer simplifier.Close()
+	graph, err := NewRPFP(ctx)
+	must(err)
+	defer graph.Close()
+	wrap := func(h ast.ASTHandle, err error) *Expr {
+		t.Helper()
+		must(err)
+		e, err := NewExpr(ctx, h)
+		must(err)
+		closeExpr(t, e)
+		return e
+	}
+	raw := func(e *Expr) ast.ASTHandle { t.Helper(); h, err := e.Raw(); must(err); return h }
+	family, err := m.ArithmeticFamilyID()
+	must(err)
+	zero := wrap(m.ArithmeticIntegerNumeralText("0"))
+	one := wrap(m.ArithmeticIntegerNumeralText("1"))
+	sort, err := m.GetSort(raw(zero))
+	must(err)
+	name, err := m.Symbols.Intern("fourier-protected-x")
+	must(err)
+	x := wrap(m.MkConst(name, sort))
+	lower := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(x), raw(zero)}))
+	upper := wrap(m.MkFamilyApp(family, 2, nil, []ast.ASTHandle{raw(x), raw(one)}))
+	fn, err := m.Symbols.Intern("fourier-protected-f")
+	must(err)
+	decl := wrapDeclForProjectionTest(t, m, fn, sort)
+	fx := wrap(m.MkApp(decl, []ast.ASTHandle{raw(x)}))
+	sum := wrap(m.MkFamilyApp(family, 6, nil, []ast.ASTHandle{raw(x), raw(fx)}))
+	repeated := wrap(m.MkFamilyApp(family, 3, nil, []ast.ASTHandle{raw(sum), raw(zero)}))
+	for _, tc := range []struct {
+		name        string
+		keep, terms []*Expr
+	}{{"kept", []*Expr{x}, []*Expr{lower, upper}}, {"repeated", nil, []*Expr{repeated, upper}}} {
+		t.Run(tc.name, func(t *testing.T) {
+			output, err := graph.FourierMotzkinCheap(tc.keep, tc.terms, simplifier)
+			must(err)
+			defer func() {
+				for _, e := range output {
+					must(e.Close())
+				}
+			}()
+			before := make([]ast.ASTHandle, len(tc.terms))
+			after := make([]ast.ASTHandle, len(output))
+			for i, e := range tc.terms {
+				before[i] = raw(e)
+			}
+			for i, e := range output {
+				after[i] = raw(e)
+			}
+			a := wrap(m.MkAndArgs(before))
+			b := wrap(m.MkAndArgs(after))
+			iff := wrap(m.MkIff(raw(a), raw(b)))
+			neg := wrap(m.MkNot(raw(iff)))
+			must(native.Push())
+			must(native.Assert(raw(neg)))
+			status, err := native.CheckSat(nil)
+			must(err)
+			must(native.Pop(1))
+			if status != lbool.False {
+				t.Fatal("protected formula changed", status)
+			}
+		})
+	}
+}
+
+func wrapDeclForProjectionTest(t *testing.T, m *ast.ASTManager, name usymbol.Symbol, sort ast.ASTHandle) ast.ASTHandle {
+	t.Helper()
+	decl, err := m.MkFuncDecl(name, []ast.ASTHandle{sort}, sort, ast.ASTFuncDeclInfo{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, err := m.NewRef(decl)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := m.DelRef(&ref); err != nil {
+			t.Fatal(err)
+		}
+	})
+	return decl
 }
